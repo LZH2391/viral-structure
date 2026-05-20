@@ -6,6 +6,10 @@
 /MP4/
 /PlanMD/
 
+# Frontend build artifacts
+/node_modules/
+/Apps/Workbench/dist/
+
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md
 !/Runtime/Artifacts/README.md

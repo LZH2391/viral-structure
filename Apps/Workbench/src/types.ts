@@ -1,0 +1,252 @@
+export type StageLevel = "info" | "done" | "fail";
+export type MediaKind = "video" | "cover" | "frame" | "audio";
+export type PreviewMode = "sample" | "generated" | "compare";
+
+export type ArtifactRef = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: string;
+  uri?: string | null;
+  summary?: string | null;
+};
+
+export type FrameArtifact = {
+  frameId: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  timestamp: number;
+  imageUri: string;
+};
+
+export type ProcessingJob = {
+  jobId: string | null;
+  sampleVideoId: string | null;
+  stage: string;
+  status: "pending" | "processing" | "processed" | "failed" | string;
+  progress: number;
+  traceId: string;
+  errorSummary?: ErrorSummary | null;
+};
+
+export type ErrorSummary = {
+  code?: string;
+  message?: string;
+  debugSnapshotUri?: string | null;
+};
+
+export type SampleArtifact = {
+  sampleVideoId: string;
+  workspaceId: string;
+  status: string;
+  trace?: {
+    runId: string;
+    traceId: string;
+    stageId: string;
+  };
+  processingOptions?: {
+    frameSampleRateFps?: number;
+  };
+  sampleVideo: {
+    artifactId: string;
+    parentArtifactId: string | null;
+    original: ArtifactRef;
+    normalized: ArtifactRef;
+  };
+  cover?: ArtifactRef | null;
+  frames: FrameArtifact[];
+  frameOutputSummary?: unknown;
+  audio?: ArtifactRef | null;
+  metadata: {
+    durationSeconds: number;
+    width?: number | null;
+    height?: number | null;
+  };
+};
+
+export type SampleFrame = {
+  id: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  time: number;
+  imageUri: string;
+};
+
+export type SampleVideo = {
+  id: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  fileName: string;
+  duration: number;
+  width: number | null;
+  height: number | null;
+  aspectRatio: number | null;
+  processingStatus: string;
+  videoUri?: string | null;
+  coverUri?: string | null;
+  audioUri?: string | null;
+  audioSummary?: string | null;
+  processingOptions?: SampleArtifact["processingOptions"] | null;
+  frameOutputSummary?: unknown;
+  frameArtifacts: SampleFrame[];
+};
+
+export type MediaDerivative = {
+  id: string;
+  name: string;
+  type: string;
+  uri?: string | null;
+  artifactId: string;
+  parentArtifactId: string | null;
+  summary?: string | null;
+};
+
+export type StructureCard = {
+  id: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  name: string;
+  start: number;
+  end: number;
+  order: number;
+  explanation: string;
+  transferableRule: string;
+};
+
+export type ContentProfile = {
+  topic: string;
+  sellingPoints: string;
+  audience: string;
+  platform: string;
+  duration: string;
+  tone: string;
+};
+
+export type GeneratedShot = {
+  id: string;
+  sourceStructureId: string;
+  start: number;
+  end: number;
+  beat: string;
+  script: string;
+  subtitle: string;
+  camera: string;
+};
+
+export type GeneratedPlan = {
+  id: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  title: string;
+  coverTitle: string;
+  shots: GeneratedShot[];
+};
+
+export type Mapping = {
+  id: string;
+  sourceName: string;
+  targetName: string;
+  sourceArtifactId: string;
+  targetArtifactId: string;
+  explanation: string;
+};
+
+export type VersionItem = {
+  id: string;
+  label: string;
+  stageName: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  createdAt: string;
+};
+
+export type UiLog = {
+  id: string;
+  event: string;
+  level: StageLevel;
+  time: string;
+  fields: LogFields;
+};
+
+export type LogFields = {
+  runId: string;
+  uiTraceId: string;
+  backendTraceId?: string | null;
+  stageId: string;
+  artifactId: string;
+  parentArtifactId?: string | null;
+  stageName?: string;
+  errorName?: string;
+  errorCode?: string;
+  errorStage?: string | null;
+  errorMessage?: string;
+  canRetry?: boolean;
+  debugSnapshotId?: string;
+  debugSnapshotUri?: string | null;
+};
+
+export type DebugSnapshot = {
+  id: string;
+  runId: string;
+  uiTraceId: string;
+  backendTraceId?: string | null;
+  stageId: string;
+  stageName: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  createdAt: string;
+  payload: unknown;
+};
+
+export type WorkbenchState = {
+  workspace: {
+    id: string;
+    name: string;
+    currentVersionId: string | null;
+  };
+  uiTraceId: string;
+  activeStageId: string | null;
+  activePreviewMode: PreviewMode;
+  activeMediaKind: MediaKind;
+  timelineFrameVisible: boolean;
+  timelineVisibleSeconds: number;
+  selectedDerivativeId: string | null;
+  selectedFrameId: string | null;
+  sampleVideo: SampleVideo | null;
+  mediaDerivatives: MediaDerivative[];
+  structureCards: StructureCard[];
+  contentProfile: ContentProfile | null;
+  generatedPlan: GeneratedPlan | null;
+  mappings: Mapping[];
+  versions: VersionItem[];
+  logs: UiLog[];
+  debugSnapshots: DebugSnapshot[];
+  processingJob: ProcessingJob | null;
+  isUploadingSample: boolean;
+  uploadStatusText: string | null;
+  sampleArtifact: SampleArtifact | null;
+  errorSummary: ErrorSummary | null;
+};
+
+export type DebugTraceSummary = {
+  traceId: string;
+  latestEvent?: string | null;
+  latestStageName?: string | null;
+};
+
+export type DebugEvent = {
+  event?: string;
+  stage?: string;
+  stageName?: string;
+  createdAt?: string;
+  time?: string;
+  inputSummary?: unknown;
+  outputSummary?: unknown;
+  summary?: unknown;
+  errorSummary?: unknown;
+};
+
+export type DebugTraceDetail = {
+  traceId: string;
+  logUri: string;
+  events: DebugEvent[];
+};

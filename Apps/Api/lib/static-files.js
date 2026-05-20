@@ -3,9 +3,10 @@ const path = require("path");
 
 function createWorkbenchStaticHandler(rootDir) {
   const workbenchRoot = path.join(rootDir, "Apps", "Workbench");
+  const distRoot = path.join(workbenchRoot, "dist");
 
   function handle(req, res, pathname) {
-    const filePath = resolveWorkbenchPath(workbenchRoot, pathname);
+    const filePath = resolveWorkbenchPath(fs.existsSync(distRoot) ? distRoot : workbenchRoot, pathname);
     if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
     res.writeHead(200, {
       "content-type": contentType(filePath),
@@ -30,7 +31,9 @@ function resolveWorkbenchPath(workbenchRoot, pathname) {
 function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";
+  if (/^\/assets\//.test(pathname)) return pathname.slice(1);
   if (/^\/(scripts|styles)\//.test(pathname)) return pathname.slice(1);
+  if (/^\/src\//.test(pathname)) return pathname.slice(1);
   if (pathname === "/app.js") return "app.js";
   if (pathname === "/styles.css") return "styles.css";
   if (pathname === "/favicon.ico") return null;

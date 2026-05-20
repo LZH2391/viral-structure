@@ -1,0 +1,207 @@
+import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import type { MediaDerivative, MediaKind, SampleVideo } from "../types";
+import { runtimeUrl } from "../api/client";
+import { formatTime } from "../utils/format";
+import { fitMediaViewport } from "../utils/mediaViewport";
+import { useAudioWaveform } from "../hooks/useAudioWaveform";
+import { useElementSize } from "../hooks/useElementSize";
+
+type PreviewPanelProps = {
+  sampleVideo: SampleVideo | null;
+  mediaDerivatives: MediaDerivative[];
+  activeMediaKind: MediaKind;
+  selectedDerivativeId: string | null;
+  selectedFrameId: string | null;
+  processingText: string;
+  traceText: string;
+  errorText?: string | null;
+  videoRef: RefObject<HTMLVideoElement>;
+  audioRef: RefObject<HTMLAudioElement>;
+  miniCanvasRef: RefObject<HTMLCanvasElement>;
+};
+
+export function PreviewPanel(props: PreviewPanelProps) {
+  const { sampleVideo, activeMediaKind, processingText, traceText, errorText, videoRef, audioRef, miniCanvasRef } = props;
+  const previewPanelRef = useRef<HTMLElement>(null);
+  const previewStageRef = useRef<HTMLDivElement>(null);
+  const mainCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const size = useElementSize(previewStageRef);
+  const activeMedia = useMemo(() => resolveActiveMedia(props), [props]);
+  const waveformUrl = useMemo(() => {
+    const audio = props.mediaDerivatives.find((item) => item.type === "audio-track");
+    return runtimeUrl(audio?.uri ?? sampleVideo?.audioUri);
+  }, [props.mediaDerivatives, sampleVideo?.audioUri]);
+  const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
+
+  const waveform = useAudioWaveform({
+    audio: audioRef.current,
+    mainCanvas: mainCanvasRef.current,
+    miniCanvas: miniCanvasRef.current,
+    url: waveformUrl,
+    active: activeMedia.kind === "audio",
+  });
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    let rafId = 0;
+    let lastFrameAt = 0;
+    const renderVideoProgress = (time: number) => {
+      if (time - lastFrameAt >= 66) {
+        lastFrameAt = time;
+        const duration = Number.isFinite(video.duration) ? video.duration : sampleVideo?.duration ?? 0;
+        waveform.renderWithProgress(duration ? Math.max(0, Math.min(1, (video.currentTime || 0) / duration)) : 0);
+      }
+      rafId = video.paused ? 0 : requestAnimationFrame(renderVideoProgress);
+    };
+    const start = () => {
+      if (!rafId) rafId = requestAnimationFrame(renderVideoProgress);
+    };
+    const stop = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+      const duration = Number.isFinite(video.duration) ? video.duration : sampleVideo?.duration ?? 0;
+      waveform.renderWithProgress(duration ? Math.max(0, Math.min(1, (video.currentTime || 0) / duration)) : 0);
+    };
+    video.addEventListener("play", start);
+    video.addEventListener("pause", stop);
+    video.addEventListener("ended", stop);
+    return () => {
+      video.removeEventListener("play", start);
+      video.removeEventListener("pause", stop);
+      video.removeEventListener("ended", stop);
+      stop();
+    };
+  }, [sampleVideo?.duration, videoRef, waveform]);
+
+  useEffect(() => {
+    const stage = previewStageRef.current;
+    if (!stage) return;
+    const fit = fitMediaViewport({
+      viewportWidth: size.width,
+      viewportHeight: size.height,
+      mediaWidth: sampleVideo?.width ?? 16,
+      mediaHeight: sampleVideo?.height ?? 9,
+    });
+    stage.style.setProperty("--media-content-width", `${fit.contentWidth}px`);
+    stage.style.setProperty("--media-content-height", `${fit.contentHeight}px`);
+    stage.dataset.letterboxInsets = JSON.stringify(fit.letterboxInsets);
+  }, [sampleVideo?.height, sampleVideo?.width, size.height, size.width]);
+
+  useEffect(() => {
+    if (activeMedia.kind === "audio") videoRef.current?.pause();
+    else audioRef.current?.pause();
+  }, [activeMedia.kind, audioRef, videoRef]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+    const sync = () => setAudioPlaying(!audio.paused);
+    audio.addEventListener("play", sync);
+    audio.addEventListener("pause", sync);
+    return () => {
+      audio.removeEventListener("play", sync);
+      audio.removeEventListener("pause", sync);
+    };
+  }, [audioRef]);
+
+  const meta = sampleVideo ? `${mediaLabel(activeMediaKind)} / ${sampleVideo.fileName} / ${formatTime(sampleVideo.duration)}` : processingText || "未加载样例";
+
+  return (
+    <section ref={previewPanelRef} className="preview-panel" aria-label="中央预览区">
+      <div className="preview-toolbar">
+        <div className="section-heading">媒体查看器</div>
+        <div id="previewMeta" className="preview-meta">
+          {meta}
+        </div>
+      </div>
+      <div id="previewStage" ref={previewStageRef} className="preview-stage">
+        {!sampleVideo && (
+          <div id="emptyPreview" className="preview-empty" style={{ display: "grid" }}>
+            <div className="frame-mark" />
+            <strong>{errorText ? `处理失败 / ${errorText}` : processingText || "等待样例视频"}</strong>
+            <span>{traceText || "上传后显示预览、封面和抽帧"}</span>
+          </div>
+        )}
+        {sampleVideo && activeMedia.kind === "video" && activeMedia.url && <video id="sampleVideo" ref={videoRef} className="sample-video active" src={activeMedia.url} controls playsInline />}
+        {sampleVideo && activeMedia.kind === "image" && activeMedia.url && <img id="mediaImagePreview" className="media-image-preview active" src={activeMedia.url} alt={activeMedia.alt} />}
+        {sampleVideo && activeMedia.kind === "audio" && activeMedia.url && (
+          <div id="audioWaveformPanel" className="audio-waveform-panel active" aria-label="音频波形播放器">
+            <div className="audio-waveform-toolbar">
+              <button
+                id="audioWaveformPlayBtn"
+                className={`audio-play-button ${audioPlaying ? "playing" : ""}`}
+                type="button"
+                aria-label="播放或暂停音频"
+                onClick={() => {
+                  const audio = audioRef.current;
+                  if (!audio) return;
+                  if (audio.paused) audio.play().catch(() => undefined);
+                  else audio.pause();
+                }}
+              >
+                <span />
+              </button>
+              <AudioTime audioRef={audioRef} />
+            </div>
+            <canvas id="audioWaveformCanvas" ref={mainCanvasRef} className="audio-waveform-canvas" width="960" height="220" />
+          </div>
+        )}
+        <audio id="audioPreview" ref={audioRef} className="audio-preview" preload="metadata" src={audioUrl ?? undefined} />
+        {sampleVideo && activeMedia.kind === "empty" && <div id="mediaEmptyPreview" className="media-empty-preview active">{activeMedia.text}</div>}
+      </div>
+    </section>
+  );
+}
+
+function AudioTime({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
+  const [time, setTime] = useState("00:00 / 00:00");
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+    const sync = () => setTime(`${formatTime(audio.currentTime)} / ${formatTime(Number.isFinite(audio.duration) ? audio.duration : 0)}`);
+    audio.addEventListener("timeupdate", sync);
+    audio.addEventListener("loadedmetadata", sync);
+    sync();
+    return () => {
+      audio.removeEventListener("timeupdate", sync);
+      audio.removeEventListener("loadedmetadata", sync);
+    };
+  }, [audioRef]);
+  return (
+    <span id="audioWaveformTime" className="audio-waveform-time">
+      {time}
+    </span>
+  );
+}
+
+function resolveActiveMedia({ sampleVideo, mediaDerivatives, activeMediaKind, selectedDerivativeId, selectedFrameId }: PreviewPanelProps) {
+  if (!sampleVideo) return { kind: "empty" as const, text: "未加载样例" };
+  const derivative = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId) ?? null;
+  if (activeMediaKind === "cover") {
+    const url = runtimeUrl(derivative?.uri ?? sampleVideo.coverUri);
+    return url ? { kind: "image" as const, url, alt: "封面帧" } : { kind: "empty" as const, text: "暂无可预览图片" };
+  }
+  if (activeMediaKind === "frame") {
+    const frame = sampleVideo.frameArtifacts.find((item) => item.id === selectedFrameId) ?? sampleVideo.frameArtifacts[0];
+    const url = runtimeUrl(frame?.imageUri);
+    return url ? { kind: "image" as const, url, alt: "抽帧图片" } : { kind: "empty" as const, text: "暂无可预览图片" };
+  }
+  if (activeMediaKind === "audio") {
+    const audio = derivative ?? mediaDerivatives.find((item) => item.type === "audio-track");
+    const url = runtimeUrl(audio?.uri ?? sampleVideo.audioUri);
+    return url ? { kind: "audio" as const, url } : { kind: "empty" as const, text: audio?.summary || sampleVideo.audioSummary || "未检测到可抽取音频轨" };
+  }
+  const videoUrl = runtimeUrl(isVideoDerivative(derivative) ? derivative?.uri : sampleVideo.videoUri);
+  return videoUrl ? { kind: "video" as const, url: videoUrl } : { kind: "empty" as const, text: "暂无可播放视频" };
+}
+
+function mediaLabel(kind: MediaKind): string {
+  const labels: Record<MediaKind, string> = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频" };
+  return labels[kind] ?? "媒体";
+}
+
+function isVideoDerivative(item: MediaDerivative | null) {
+  return item?.type === "original-video" || item?.type === "normalized-video";
+}
