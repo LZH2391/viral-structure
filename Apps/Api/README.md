@@ -16,6 +16,14 @@ API 层应传递 `runId`、`traceId`、`stageId`、`artifactId`、`parentArtifac
 启动：
 
 ```powershell
+.\start-api-server.bat
+```
+
+该窗口会保持打开；按 `Esc` 或 `Ctrl+C` 会停止 API server，便于更新代码后重启。
+
+直接用 Node 启动：
+
+```powershell
 node Apps/Api/server.js
 ```
 
