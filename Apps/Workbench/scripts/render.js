@@ -2,9 +2,10 @@
   const { state, formatTime } = window.WorkbenchState;
   const templates = window.WorkbenchRenderTemplates;
   const { fitMediaViewport } = window.WorkbenchMediaViewportFitter;
-  const { createTimelineMetrics, frameLeft } = window.WorkbenchTimelineMetrics;
 
   function createRenderer(els, actions, audioWaveform) {
+    const timeline = window.WorkbenchTimelineRenderer.createTimelineRenderer(els, actions, audioWaveform);
+
     function updateRunStatus(level, fields) {
       const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
       const backendTraceId = fields.backendTraceId ?? state.processingJob?.traceId ?? null;
@@ -27,9 +28,10 @@
       els.previewMeta.textContent = state.sampleVideo
         ? `${mediaLabel()} / ${state.sampleVideo.fileName} / ${formatTime(state.sampleVideo.duration)}`
         : state.processingJob
-          ? `${state.processingJob.stage} / ${state.processingJob.progress}%`
+          ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%`
           : "未加载样例";
       if (!hasMedia) {
+        renderWaitingPreview();
         els.emptyPreview.style.display = "grid";
         applyMediaViewport();
         return;
@@ -39,20 +41,21 @@
     }
 
     function renderTimeline() {
-      const frames = state.sampleVideo?.frameArtifacts ?? [];
-      const audio = findAudioDerivative();
-      const metrics = createTimelineMetrics(state.sampleVideo);
-      els.timelineContent.style.width = `${metrics.contentWidth}px`;
-      els.timelineRuler.innerHTML = metrics.ticks.map((tick) => templates.rulerTick(tick.time, tick.left)).join("");
-      els.videoTrack.innerHTML = templates.videoClip(state.sampleVideo, metrics.contentWidth);
-      els.videoTrack.querySelector("button")?.addEventListener("click", actions.selectVideoTrack);
-      els.frameTrack.innerHTML = frames.map((frame) => templates.frameCell(frame, frameLeft(frame.time, metrics))).join("");
-      els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
-        button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
-      });
-      els.audioTrack.innerHTML = templates.audioTrackButton(audio, metrics.contentWidth);
-      els.audioTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
-      syncAudioWaveform(audio, false);
+      timeline.render();
+    }
+
+    function renderMediaSelection() {
+      timeline.renderActiveState();
+      renderPreview();
+      renderProperties();
+    }
+
+    function renderProcessingState() {
+      els.sampleFileLabel.textContent = state.isUploadingSample
+        ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim()
+        : state.sampleVideo?.fileName ?? "未选择文件";
+      renderPreview();
+      renderProperties();
     }
 
     function renderProperties(selectedCard = null) {
@@ -70,6 +73,17 @@
     function renderLogs() {
       if (!els.logList) return;
       els.logList.innerHTML = state.logs.slice(0, 14).map(templates.log).join("");
+    }
+
+    function renderWaitingPreview() {
+      if (!state.processingJob && !state.isUploadingSample && !state.errorSummary) return;
+      const status = state.errorSummary
+        ? `处理失败 / ${state.errorSummary.message ?? "请查看 trace"}`
+        : `${state.uploadStatusText ?? "处理中"} / ${state.processingJob?.progress ?? 0}%`;
+      els.emptyPreview.querySelector("strong").textContent = status;
+      els.emptyPreview.querySelector("span").textContent = state.processingJob?.traceId
+        ? `trace ${state.processingJob.traceId.slice(-8)}`
+        : "等待后端返回 trace";
     }
 
     function findCurrentStructureCard() {
@@ -119,7 +133,7 @@
       els.sampleVideo.pause?.();
       if (els.audioPreview.src !== url) els.audioPreview.src = url;
       els.audioWaveformPanel.classList.add("active");
-      audioWaveform?.update({ url, active: true, miniCanvas: findMiniWaveformCanvas() });
+      audioWaveform?.update({ url, active: true, miniCanvas: timeline.miniWaveformCanvas() });
     }
 
     function renderEmpty(text) {
@@ -172,23 +186,11 @@
       return state.mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
     }
 
-    function findMiniWaveformCanvas() {
-      return els.audioTrack.querySelector("[data-audio-wave-mini]");
-    }
-
-    function syncAudioWaveform(audio, active) {
-      audioWaveform?.update({
-        url: window.WorkbenchApiClient.runtimeUrl(audio?.uri),
-        active,
-        miniCanvas: findMiniWaveformCanvas(),
-      });
-    }
-
     function isVideoDerivative(item) {
       return item?.type === "original-video" || item?.type === "normalized-video";
     }
 
-    return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs };
+    return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs, renderMediaSelection, renderProcessingState };
   }
 
   window.WorkbenchRender = { createRenderer };

@@ -1,9 +1,17 @@
 (function () {
   const { state } = window.WorkbenchState;
   const api = window.WorkbenchApiClient;
+  let activeUploadToken = null;
 
   async function uploadAndPollSampleVideo(file, options, onJobUpdate) {
+    const token = createUploadToken();
+    state.isUploadingSample = true;
+    state.uploadStatusText = "上传中";
+    state.processingJob = null;
+    state.errorSummary = null;
+    onJobUpdate(null);
     const upload = await api.uploadSampleVideo(file, options);
+    if (!isActiveToken(token)) return { canceled: true };
     state.processingJob = {
       jobId: upload.processingJobId,
       sampleVideoId: upload.sampleVideoId,
@@ -15,20 +23,39 @@
 
     for (let attempt = 0; attempt < 120; attempt += 1) {
       await delay(1000);
+      if (!isActiveToken(token)) return { canceled: true };
       const job = await api.getProcessingJob(upload.processingJobId);
+      if (!isActiveToken(token)) return { canceled: true };
       state.processingJob = job;
+      state.uploadStatusText = stageLabel(job);
       onJobUpdate(job);
       if (job.status === "processed") {
         const artifact = await api.getSampleArtifact(upload.sampleVideoId);
+        if (!isActiveToken(token)) return { canceled: true };
         applySampleArtifact(artifact);
+        state.isUploadingSample = false;
+        state.uploadStatusText = "生成产物完成";
         return { job, artifact };
       }
       if (job.status === "failed") {
         state.errorSummary = job.errorSummary;
+        state.isUploadingSample = false;
+        state.uploadStatusText = "处理失败";
         return { job, artifact: null };
       }
     }
+    state.isUploadingSample = false;
+    state.uploadStatusText = "处理超时";
     throw new Error("处理超时，请稍后查询任务状态");
+  }
+
+  function createUploadToken() {
+    activeUploadToken = {};
+    return activeUploadToken;
+  }
+
+  function isActiveToken(token) {
+    return token === activeUploadToken;
   }
 
   function applySampleArtifact(artifact) {
@@ -105,5 +132,21 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  window.WorkbenchSampleIngest = { uploadAndPollSampleVideo, applySampleArtifact };
+  function stageLabel(job) {
+    const labels = {
+      uploaded: "上传中",
+      "sample.upload.received": "上传中",
+      "sample.upload.validated": "校验上传",
+      "sample.source.saved": "保存素材",
+      "sample.metadata.probed": "读取元信息",
+      "sample.cover.extracted": "生成封面",
+      "sample.frames.extracted": "抽帧中",
+      "sample.audio.extracted": "提取音频",
+      "sample.artifact.written": "生成产物",
+      processed: "生成产物完成",
+    };
+    return labels[job?.stage] ?? job?.stage ?? "处理中";
+  }
+
+  window.WorkbenchSampleIngest = { uploadAndPollSampleVideo, applySampleArtifact, stageLabel };
 })();

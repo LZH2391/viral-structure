@@ -2,6 +2,7 @@
   const PIXELS_PER_SECOND = 90;
   const MIN_TIMELINE_WIDTH = 720;
   const FRAME_CELL_WIDTH = 76;
+  const MAX_RENDERED_FRAMES = 80;
 
   function createTimelineMetrics(video) {
     const duration = Math.max(1, video?.duration ?? 0);
@@ -11,8 +12,14 @@
     for (let time = 0; time <= duration; time += tickStep) {
       ticks.push({ time, left: timelineLeft(time, { duration, contentWidth }) });
     }
-    if (ticks.at(-1)?.time !== duration) ticks.push({ time: duration, left: contentWidth });
+    if (shouldAppendEndTick(ticks, duration)) ticks.push({ time: duration, left: contentWidth });
     return { duration, contentWidth, ticks };
+  }
+
+  function visibleFrames(frames) {
+    if (frames.length <= MAX_RENDERED_FRAMES) return frames;
+    const step = (frames.length - 1) / (MAX_RENDERED_FRAMES - 1);
+    return Array.from({ length: MAX_RENDERED_FRAMES }, (_, index) => frames[Math.round(index * step)]);
   }
 
   function frameLeft(time, metrics) {
@@ -31,5 +38,10 @@
     return 30;
   }
 
-  window.WorkbenchTimelineMetrics = { createTimelineMetrics, frameLeft };
+  function shouldAppendEndTick(ticks, duration) {
+    const last = ticks.at(-1);
+    return !last || Math.floor(last.time) !== Math.floor(duration);
+  }
+
+  window.WorkbenchTimelineMetrics = { createTimelineMetrics, frameLeft, visibleFrames };
 })();

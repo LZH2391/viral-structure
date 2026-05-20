@@ -11,12 +11,13 @@
     selectAudioTrack: () => actionsRef.current.selectAudioTrack(),
     selectSegment: (segmentId) => actionsRef.current.selectSegment(segmentId),
   }, audioWaveform);
+  const draftStore = window.WorkbenchDraft.createWorkspaceDraft(els, renderer);
   const observability = window.WorkbenchObservability.createObservability(renderer);
   const versioning = window.WorkbenchVersioning.createVersionStore(els, renderer.renderVersions);
-  const actions = window.WorkbenchWorkflow.createWorkflow(els, renderer, observability, versioning);
+  const actions = window.WorkbenchWorkflow.createWorkflow(els, renderer, observability, versioning, draftStore);
 
   actionsRef.current = actions;
-  Object.assign(runtime, { renderer, observability, versioning, actions, audioWaveform });
+  Object.assign(runtime, { renderer, observability, versioning, actions, audioWaveform, draftStore });
   window.WorkbenchEvents.bindEvents(els, actions, renderer);
-  renderer.renderAll();
+  if (!draftStore.restore()) renderer.renderAll();
 })();

@@ -32,6 +32,7 @@ test("media preview switches from bottom video, frame, and audio tracks", () => 
   const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
   const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
   const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
+  const timelineRenderer = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-renderer.js"), "utf8");
 
   assert.match(index, /scripts\/audio-waveform\.js/);
   assert.doesNotMatch(index, /derivativeList|媒体派生/);
@@ -45,8 +46,8 @@ test("media preview switches from bottom video, frame, and audio tracks", () => 
   assert.match(workflow, /selectFrame\(frameId\)[\s\S]+state\.activeMediaKind = "frame"/);
   assert.match(workflow, /selectAudioTrack\(\)[\s\S]+state\.activeMediaKind = "audio"/);
   assert.match(workflow, /state\.mediaDerivatives\.find\(\(entry\) => entry\.type === "audio-track"\)/);
-  assert.match(render, /templates\.videoClip\(state\.sampleVideo, metrics\.contentWidth\)/);
-  assert.match(render, /templates\.audioTrackButton\(audio, metrics\.contentWidth\)/);
+  assert.match(timelineRenderer, /templates\.videoClip\(state\.sampleVideo, metrics\.contentWidth\)/);
+  assert.match(timelineRenderer, /templates\.audioTrackButton\(audio, metrics\.contentWidth\)/);
   assert.match(render, /isVideoDerivative\(derivative\) \? derivative\.uri : state\.sampleVideo\.videoUri/);
   assert.match(render, /return renderAudio\(derivative \?\? findAudioDerivative\(\)\)/);
   assert.match(templates, /function audioTrackButton\(audio, width\)/);
@@ -56,6 +57,7 @@ test("bottom timeline renders three aligned tracks from one width", () => {
   const root = path.resolve(__dirname, "../..");
   const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
   const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
+  const timelineRenderer = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-renderer.js"), "utf8");
   const metrics = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-metrics.js"), "utf8");
   const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
   const timelineCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/timeline.css"), "utf8");
@@ -65,8 +67,11 @@ test("bottom timeline renders three aligned tracks from one width", () => {
   assert.match(index, /id="timelineScroll"/);
   assert.match(index, /id="timelineRuler"[\s\S]+id="videoTrack"[\s\S]+id="frameTrack"[\s\S]+id="audioTrack"/);
   assert.match(index, /scripts\/timeline-metrics\.js/);
-  assert.match(render, /const metrics = createTimelineMetrics\(state\.sampleVideo\)/);
-  assert.match(render, /els\.timelineContent\.style\.width = `\$\{metrics\.contentWidth\}px`/);
+  assert.match(index, /scripts\/timeline-renderer\.js/);
+  assert.match(timelineRenderer, /const metrics = createTimelineMetrics\(state\.sampleVideo\)/);
+  assert.match(timelineRenderer, /els\.timelineContent\.style\.width = `\$\{metrics\.contentWidth\}px`/);
+  assert.match(timelineRenderer, /if \(nextKey === cacheKey\) return renderActiveState\(\)/);
+  assert.match(timelineRenderer, /visibleFrames\(frames\)/);
   assert.match(metrics, /Math\.ceil\(duration \* PIXELS_PER_SECOND\)/);
   assert.match(metrics, /function frameLeft\(time, metrics\)/);
   assert.match(templates, /style="width: \$\{width\}px"/);
@@ -77,6 +82,53 @@ test("bottom timeline renders three aligned tracks from one width", () => {
   assert.match(timelineCss, /\.audio-mini-waveform[\s\S]+width: 100%/);
   assert.match(layoutCss, /grid-template-rows: minmax\(0, 1fr\) clamp\(168px/);
   assert.match(responsiveCss, /grid-template-rows: auto minmax\(360px, 62vh\) auto 176px/);
+});
+
+test("upload progress cancels stale polling and restores latest local draft", () => {
+  const root = path.resolve(__dirname, "../..");
+  const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
+  const ingest = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/sample-ingest.js"), "utf8");
+  const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
+  const draft = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workspace-draft.js"), "utf8");
+  const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
+  const app = fs.readFileSync(path.join(root, "Apps/Workbench/app.js"), "utf8");
+
+  assert.match(ingest, /let activeUploadToken = null/);
+  assert.match(ingest, /state\.processingJob = null/);
+  assert.match(ingest, /if \(!isActiveToken\(token\)\) return \{ canceled: true \}/);
+  assert.match(ingest, /stageLabel\(job\)/);
+  assert.match(workflow, /let uploadCanceled = false/);
+  assert.match(workflow, /setUploadControlsDisabled\(els, true\)/);
+  assert.match(workflow, /if \(ingestResult\.canceled\)[\s\S]+uploadCanceled = true[\s\S]+return/);
+  assert.match(workflow, /if \(!uploadCanceled\)[\s\S]+setUploadControlsDisabled\(els, false\)/);
+  assert.match(workflow, /setUploadControlsDisabled\(els, false\)/);
+  assert.match(render, /renderProcessingState/);
+  assert.match(render, /state\.uploadStatusText/);
+  assert.match(index, /scripts\/workspace-draft\.js/);
+  assert.match(draft, /localStorage\.setItem/);
+  assert.match(draft, /sampleVideoId[\s\S]+artifactId[\s\S]+traceId[\s\S]+sampleArtifact[\s\S]+selectedFrameId[\s\S]+selectedDerivativeId[\s\S]+versions/);
+  assert.match(draft, /applySampleArtifact\(draft\.sampleArtifact\)/);
+  assert.match(draft, /localStorage\.removeItem\(STORAGE_KEY\)/);
+  assert.match(app, /if \(!draftStore\.restore\(\)\) renderer\.renderAll\(\)/);
+});
+
+test("timeline selection avoids full page rerender and audio track stays lightweight", () => {
+  const root = path.resolve(__dirname, "../..");
+  const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
+  const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
+  const metrics = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-metrics.js"), "utf8");
+
+  assert.match(workflow, /selectFrame\(frameId\)[\s\S]+renderer\.renderMediaSelection\(\)/);
+  assert.match(workflow, /selectVideoTrack\(\)[\s\S]+renderer\.renderMediaSelection\(\)/);
+  assert.match(workflow, /selectAudioTrack\(\)[\s\S]+renderer\.renderMediaSelection\(\)/);
+  assert.doesNotMatch(workflow, /selectFrame\(frameId\)[\s\S]+renderer\.renderAll\(\)/);
+  assert.doesNotMatch(workflow, /selectVideoTrack\(\)[\s\S]+renderer\.renderAll\(\)/);
+  assert.doesNotMatch(workflow, /selectAudioTrack\(\)[\s\S]+renderer\.renderAll\(\)/);
+  assert.doesNotMatch(templates, /音频波形|<strong>音频/);
+  assert.match(templates, /audio-track-empty/);
+  assert.match(metrics, /const MAX_RENDERED_FRAMES = 80/);
+  assert.match(metrics, /function visibleFrames\(frames\)/);
+  assert.match(metrics, /shouldAppendEndTick/);
 });
 
 test("audio waveform player is isolated and keeps empty audio safe", () => {
@@ -95,7 +147,7 @@ test("audio waveform player is isolated and keeps empty audio safe", () => {
   assert.match(waveform, /seekFromPointer/);
   assert.match(render, /if \(!url\) return renderEmpty/);
   assert.match(templates, /data-audio-wave-mini/);
-  assert.match(templates, /audio\?\.uri \? `<canvas/);
+  assert.match(templates, /<canvas class="audio-mini-waveform"/);
 });
 
 test("media preview preserves full aspect ratios and exposes resolution", () => {

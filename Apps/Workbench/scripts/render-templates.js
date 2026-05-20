@@ -31,12 +31,12 @@
 
   function audioTrackButton(audio, width) {
     const status = audio?.uri ? audio.summary : audio?.summary || "未检测到可抽取音频轨";
-    const waveform = audio?.uri ? `<canvas class="audio-mini-waveform" data-audio-wave-mini width="${Math.max(1, Math.round(width))}" height="42"></canvas>` : "";
+    if (!audio?.uri) {
+      return `<button class="audio-track-button audio-track-empty ${state.activeMediaKind === "audio" ? "active" : ""}" type="button" style="width: ${width}px"><span>${status}</span></button>`;
+    }
     return `
       <button class="audio-track-button ${state.activeMediaKind === "audio" ? "active" : ""}" type="button" style="width: ${width}px">
-        <strong>音频波形</strong>
-        <span>${status}</span>
-        ${waveform}
+        <canvas class="audio-mini-waveform" data-audio-wave-mini width="${Math.max(1, Math.round(width))}" height="42" aria-label="${status}"></canvas>
       </button>
     `;
   }

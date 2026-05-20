@@ -4,21 +4,34 @@
   const { createStructureCards } = window.WorkbenchStructureStrategy;
   const { createGeneratedPlan } = window.WorkbenchTransferStrategy;
 
-  function createWorkflow(els, renderer, observability, versioning) {
+  function createWorkflow(els, renderer, observability, versioning, draftStore) {
     const actions = {
       async handleSampleUpload(event) {
         const file = event.target.files?.[0];
         if (!file) return;
         const stage = observability.beginStage(STAGES.ingest);
+        let uploadCanceled = false;
+        setUploadControlsDisabled(els, true);
         try {
           els.sampleFileLabel.textContent = file.name;
           const frameSampleRateFps = Number(els.frameSampleRateInput.value || 1);
-          const ingestResult = await uploadAndPollSampleVideo(file, { frameSampleRateFps }, () => renderer.renderAll());
+          const ingestResult = await uploadAndPollSampleVideo(file, { frameSampleRateFps }, () => renderer.renderProcessingState());
+          if (ingestResult.canceled) {
+            uploadCanceled = true;
+            return;
+          }
           if (ingestResult.job.status === "failed") throw buildIngestError(ingestResult.job);
           versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);
+          draftStore?.save();
           observability.finishStage(stage, state.sampleVideo.artifactId);
         } catch (error) {
           observability.failStage(stage, error, error.observabilityDetails);
+        } finally {
+          if (!uploadCanceled) {
+            state.isUploadingSample = false;
+            setUploadControlsDisabled(els, false);
+            renderer.renderProcessingState();
+          }
         }
         renderer.renderAll();
       },
@@ -81,7 +94,7 @@
         state.selectedFrameId = frame.id;
         state.activeMediaKind = "frame";
         state.selectedDerivativeId = frame.artifactId;
-        renderer.renderAll();
+        renderer.renderMediaSelection();
       },
       selectVideoTrack() {
         if (!state.sampleVideo) return;
@@ -89,14 +102,14 @@
         state.activeMediaKind = "video";
         state.selectedDerivativeId = video?.artifactId ?? state.sampleVideo.artifactId;
         state.selectedFrameId = null;
-        renderer.renderAll();
+        renderer.renderMediaSelection();
       },
       selectAudioTrack() {
         const audio = state.mediaDerivatives.find((entry) => entry.type === "audio-track");
         state.activeMediaKind = "audio";
         state.selectedDerivativeId = audio?.artifactId ?? state.sampleArtifact?.audio?.artifactId ?? null;
         state.selectedFrameId = null;
-        renderer.renderAll();
+        renderer.renderMediaSelection();
       },
       selectSegment(segmentId) {
         const card = state.structureCards.find((item) => item.id === segmentId);
@@ -114,6 +127,11 @@
       },
     };
     return actions;
+  }
+
+  function setUploadControlsDisabled(els, disabled) {
+    els.sampleVideoInput.disabled = disabled;
+    els.frameSampleRateInput.disabled = disabled;
   }
 
   function buildContentProfile(els) {

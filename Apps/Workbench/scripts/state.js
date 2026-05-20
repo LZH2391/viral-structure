@@ -29,6 +29,8 @@
     logs: [],
     debugSnapshots: [],
     processingJob: null,
+    isUploadingSample: false,
+    uploadStatusText: null,
     sampleArtifact: null,
     errorSummary: null,
   };
