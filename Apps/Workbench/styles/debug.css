@@ -73,6 +73,13 @@
   font-size: 12px;
 }
 
+.debug-trace-crop {
+  padding: 8px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .debug-event-list {
   display: grid;
   align-content: start;

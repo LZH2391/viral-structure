@@ -1,5 +1,6 @@
 (function () {
   const SUMMARY_LIMIT = 420;
+  const TRACE_LIST_LIMIT = 20;
   const state = { traces: [], details: new Map(), selectedTraceId: null };
   const els = {
     status: document.querySelector("#debugStatus"),
@@ -36,9 +37,11 @@
   }
 
   function renderTraceList() {
-    els.count.textContent = `${state.traces.length} traces`;
+    const visibleTraces = state.traces.slice(0, TRACE_LIST_LIMIT);
+    const hiddenCount = Math.max(0, state.traces.length - visibleTraces.length);
+    els.count.textContent = hiddenCount ? `${visibleTraces.length}/${state.traces.length} traces` : `${state.traces.length} traces`;
     els.updatedAt.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-    els.traceList.innerHTML = state.traces.length ? state.traces.map(traceButton).join("") : emptyState("暂无运行记录");
+    els.traceList.innerHTML = visibleTraces.length ? `${visibleTraces.map(traceButton).join("")}${traceListCropNotice(hiddenCount)}` : emptyState("暂无运行记录");
     els.traceList.querySelectorAll("[data-trace-id]").forEach((button) => {
       button.addEventListener("click", async () => {
         state.selectedTraceId = button.dataset.traceId;
@@ -46,6 +49,11 @@
         await loadSelectedTrace();
       });
     });
+  }
+
+  function traceListCropNotice(hiddenCount) {
+    if (!hiddenCount) return "";
+    return `<div class="debug-trace-crop">已隐藏更早的 ${hiddenCount} 条运行记录</div>`;
   }
 
   async function loadSelectedTrace() {

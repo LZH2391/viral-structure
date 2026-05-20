@@ -43,3 +43,15 @@ test("debug page crops long summaries with expandable full payload", () => {
   assert.match(css, /\.debug-event-item pre[\s\S]+max-height: 180px/);
   assert.match(css, /\.debug-summary-block details pre[\s\S]+max-height: 320px/);
 });
+
+test("debug page crops recent trace list count", () => {
+  const root = path.resolve(__dirname, "../..");
+  const page = require("fs").readFileSync(path.join(root, "Apps/Workbench/scripts/debug-page.js"), "utf8");
+  const css = require("fs").readFileSync(path.join(root, "Apps/Workbench/styles/debug.css"), "utf8");
+
+  assert.match(page, /const TRACE_LIST_LIMIT = 20/);
+  assert.match(page, /state\.traces\.slice\(0, TRACE_LIST_LIMIT\)/);
+  assert.match(page, /已隐藏更早的/);
+  assert.match(page, /\$\{visibleTraces\.length\}\/\$\{state\.traces\.length\} traces/);
+  assert.match(css, /\.debug-trace-crop/);
+});
