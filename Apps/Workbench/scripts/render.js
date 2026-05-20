@@ -48,7 +48,7 @@
       els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
         button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
       });
-      els.captionTrack.innerHTML = `<button class="audio-track-button" type="button">字幕/语音轨</button>`;
+      els.captionTrack.innerHTML = templates.audioTrackButton(findAudioDerivative());
       els.captionTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
     }
 
@@ -85,14 +85,18 @@
     }
 
     function renderActiveMedia() {
-      if (state.activeMediaKind === "cover") return renderImage(state.sampleVideo.coverUri, "封面帧");
+      const derivative = findSelectedDerivative();
+      if (state.activeMediaKind === "cover") return renderImage(derivative?.uri ?? state.sampleVideo.coverUri, "封面帧");
       if (state.activeMediaKind === "frame") {
-        const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId);
+        const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId) ?? state.sampleVideo.frameArtifacts[0];
         return renderImage(frame?.imageUri, "抽帧图片");
       }
-      if (state.activeMediaKind === "audio") return renderAudio();
-      const videoUrl = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.videoUri);
+      if (state.activeMediaKind === "audio") return renderAudio(derivative ?? findAudioDerivative());
+      const videoUri = isVideoDerivative(derivative) ? derivative.uri : state.sampleVideo.videoUri;
+      const videoUrl = window.WorkbenchApiClient.runtimeUrl(videoUri);
+      if (!videoUrl) return renderEmpty("暂无可播放视频");
       if (els.sampleVideo.src !== videoUrl) els.sampleVideo.src = videoUrl;
+      els.audioPreview.pause?.();
       els.sampleVideo.classList.add("active");
     }
 
@@ -104,9 +108,10 @@
       els.mediaImagePreview.classList.add("active");
     }
 
-    function renderAudio() {
-      const url = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.audioUri);
-      if (!url) return renderEmpty(state.sampleVideo.audioSummary || "未检测到可抽取音频轨");
+    function renderAudio(derivative) {
+      const url = window.WorkbenchApiClient.runtimeUrl(derivative?.uri ?? state.sampleVideo.audioUri);
+      if (!url) return renderEmpty(derivative?.summary || state.sampleVideo.audioSummary || "未检测到可抽取音频轨");
+      els.sampleVideo.pause?.();
       if (els.audioPreview.src !== url) els.audioPreview.src = url;
       els.audioPreview.classList.add("active");
     }
@@ -119,6 +124,18 @@
     function mediaLabel() {
       const labels = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频" };
       return labels[state.activeMediaKind] ?? "媒体";
+    }
+
+    function findSelectedDerivative() {
+      return state.mediaDerivatives.find((item) => item.artifactId === state.selectedDerivativeId) ?? null;
+    }
+
+    function findAudioDerivative() {
+      return state.mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
+    }
+
+    function isVideoDerivative(item) {
+      return item?.type === "original-video" || item?.type === "normalized-video";
     }
 
     return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs };

@@ -88,11 +88,18 @@
         if (!item) return;
         state.selectedDerivativeId = item.artifactId;
         state.activeMediaKind = mediaKindForType(item.type);
+        if (state.activeMediaKind === "frame") {
+          state.selectedFrameId = state.selectedFrameId ?? state.sampleVideo?.frameArtifacts[0]?.id ?? null;
+        } else {
+          state.selectedFrameId = null;
+        }
         renderer.renderAll();
       },
       selectAudioTrack() {
+        const audio = state.mediaDerivatives.find((entry) => entry.type === "audio-track");
         state.activeMediaKind = "audio";
-        state.selectedDerivativeId = state.sampleArtifact?.audio?.artifactId ?? null;
+        state.selectedDerivativeId = audio?.artifactId ?? state.sampleArtifact?.audio?.artifactId ?? null;
+        state.selectedFrameId = null;
         renderer.renderAll();
       },
       selectSegment(segmentId) {
@@ -126,6 +133,7 @@
 
   function mediaKindForType(type) {
     if (type === "cover-frame") return "cover";
+    if (type === "frame-set") return "frame";
     if (type === "audio-track") return "audio";
     return "video";
   }

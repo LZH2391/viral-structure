@@ -68,6 +68,16 @@
     `;
   }
 
+  function audioTrackButton(audio) {
+    const status = audio?.uri ? audio.summary : audio?.summary || "未检测到可抽取音频轨";
+    return `
+      <button class="audio-track-button ${state.activeMediaKind === "audio" ? "active" : ""}" type="button">
+        <strong>字幕/语音轨</strong>
+        <span>${status}</span>
+      </button>
+    `;
+  }
+
   function segmentBlock(item) {
     const width = Math.max(120, (item.end - item.start) * 18);
     return `<div class="segment-block" style="min-width:${width}px">${item.name}</div>`;
@@ -88,11 +98,26 @@
     }
     if (state.sampleVideo) {
       const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId);
+      const derivative = state.mediaDerivatives.find((item) => item.artifactId === state.selectedDerivativeId);
       if (state.activeMediaKind === "frame" && frame) {
         return `
           <div class="detail-row"><b>帧时间</b><span>${formatTime(frame.time)}</span></div>
           <div class="detail-row"><b>artifact</b><span>${frame.artifactId}</span></div>
           <div class="detail-row"><b>parent</b><span>${frame.parentArtifactId}</span></div>
+        `;
+      }
+      if (state.activeMediaKind === "audio") {
+        return `
+          <div class="detail-row"><b>语音轨</b><span>${derivative?.summary || state.sampleVideo.audioSummary || "未检测到可抽取音频轨"}</span></div>
+          <div class="detail-row"><b>artifact</b><span>${derivative?.artifactId ?? "无"}</span></div>
+          <div class="detail-row"><b>parent</b><span>${derivative?.parentArtifactId ?? state.sampleVideo.artifactId}</span></div>
+        `;
+      }
+      if (state.activeMediaKind === "video" && derivative) {
+        return `
+          <div class="detail-row"><b>视频引用</b><span>${derivative.name}</span></div>
+          <div class="detail-row"><b>artifact</b><span>${derivative.artifactId}</span></div>
+          <div class="detail-row"><b>parent</b><span>${derivative.parentArtifactId ?? "无"}</span></div>
         `;
       }
       return `
@@ -153,6 +178,7 @@
     mapping,
     emptyMapping,
     frameCell,
+    audioTrackButton,
     segmentBlock,
     transferBlock,
     currentSegment,
