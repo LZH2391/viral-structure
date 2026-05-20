@@ -1,4 +1,4 @@
 interface:
   display_name: "技术规划者"
-  short_description: "规划模块与任务卡"
-  default_prompt: "用于将创意决策翻译成模块设计、接口、文件结构、代码 thread 可执行任务卡、风险和备选方案；只规划不执行。"
+  short_description: "负责把业务决策翻译成工程方案"
+  default_prompt: "负责把业务决策翻译成工程方案，输出模块拆分、接口、文件结构、任务卡和风险提示，只输出方案不执行。"

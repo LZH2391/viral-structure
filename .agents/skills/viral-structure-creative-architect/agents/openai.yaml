@@ -1,4 +1,4 @@
 interface:
   display_name: "创意架构师"
-  short_description: "迁移引擎概念设计"
-  default_prompt: "用于爆款结构迁移引擎的高层概念、数据模型语义、迁移逻辑和优先级取舍讨论；不讨论实现细节，不输出代码。"
+  short_description: "负责业务概念、体验和取舍"
+  default_prompt: "负责爆款结构迁移引擎的业务概念、用户体验、结构语义、功能边界与优先级判断，不涉及技术实现。"
