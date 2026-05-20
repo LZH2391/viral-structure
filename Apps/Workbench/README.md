@@ -12,18 +12,28 @@
 
 工作台只表达用户体验和交互流程，核心业务判断应下沉到 `Core`。
 
-## 第一版入口
+## React + TypeScript 入口
 
-当前第一版是可直接打开的静态工作台：
+当前工作台由 React + TypeScript 实现，通过 Vite 构建：
 
-- `index.html`：类剪映五区布局。
+- `src/main.tsx`：工作台入口。
+- `src/debug.tsx`：运行追踪页入口。
+- `src/components/`：React 页面和面板组件。
+- `src/api/client.ts`：前端 API 访问层。
+- `src/types.ts`：前端共享类型。
 - `styles.css`：样式入口，按区域引入 `styles/` 下的布局、面板、预览和时间线样式。
-- `app.js`：启动入口，负责组装 `scripts/` 下的状态、媒体、策略、渲染、版本和 trace 模块。
 
-先启动 API：
+首次或源码变更后先构建：
 
 ```powershell
-node Apps/Api/server.js
+npm install
+npm run build:workbench
 ```
 
-再在浏览器打开 `Apps/Workbench/index.html`。当前实现接入真实样例视频上传、任务轮询和本地 Runtime 产物展示，不调用模型、不生成正式视频。
+再启动 API 并通过 HTTP 打开：
+
+```powershell
+.\start-api-server.bat
+```
+
+访问地址为 `http://127.0.0.1:5177/`，运行追踪页为 `http://127.0.0.1:5177/debug`。当前实现接入真实样例视频上传、任务轮询和本地 Runtime 产物展示，不调用模型、不生成正式视频。

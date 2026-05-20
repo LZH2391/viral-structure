@@ -9,8 +9,8 @@ test("serves workbench and debug pages from HTTP routes", () => {
   assert.equal(resolveWorkbenchPath(root, "/debug"), path.join(root, "debug.html"));
   assert.equal(resolveWorkbenchPath(root, "/assets/index-abc.js"), path.join(root, "assets", "index-abc.js"));
   assert.equal(resolveWorkbenchPath(root, "/src/main.tsx"), path.join(root, "src", "main.tsx"));
-  assert.equal(resolveWorkbenchPath(root, "/app.js"), path.join(root, "app.js"));
-  assert.equal(resolveWorkbenchPath(root, "/scripts/debug-page.js"), path.join(root, "scripts", "debug-page.js"));
+  assert.equal(resolveWorkbenchPath(root, "/app.js"), null);
+  assert.equal(resolveWorkbenchPath(root, "/scripts/debug-page.js"), null);
   assert.equal(resolveWorkbenchPath(root, "/../AGENTS.md"), null);
 });
 

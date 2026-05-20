@@ -9,6 +9,7 @@
 # Frontend build artifacts
 /node_modules/
 /Apps/Workbench/dist/
+/OldDontUseMe/
 
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md

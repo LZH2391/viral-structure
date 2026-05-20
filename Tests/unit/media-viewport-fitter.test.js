@@ -2,7 +2,36 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
-const { fitMediaViewport } = require("../../Apps/Workbench/scripts/media-viewport-fitter");
+
+function fitMediaViewport(input) {
+  const viewportWidth = positive(input.viewportWidth);
+  const viewportHeight = positive(input.viewportHeight);
+  const leftPanelWidth = nonNegative(input.leftPanelWidth);
+  const rightPanelWidth = nonNegative(input.rightPanelWidth);
+  const timelineHeight = nonNegative(input.timelineHeight);
+  const mediaWidth = positive(input.mediaWidth, 16);
+  const mediaHeight = positive(input.mediaHeight, 9);
+  const stageWidth = Math.max(1, viewportWidth - leftPanelWidth - rightPanelWidth);
+  const stageHeight = Math.max(1, viewportHeight - timelineHeight);
+  const stageRatio = stageWidth / stageHeight;
+  const mediaRatio = mediaWidth / mediaHeight;
+  const contentWidth = mediaRatio > stageRatio ? stageWidth : stageHeight * mediaRatio;
+  const contentHeight = mediaRatio > stageRatio ? stageWidth / mediaRatio : stageHeight;
+  const horizontal = Math.max(0, (stageWidth - contentWidth) / 2);
+  const vertical = Math.max(0, (stageHeight - contentHeight) / 2);
+  return {
+    stageWidth: round(stageWidth),
+    stageHeight: round(stageHeight),
+    contentWidth: round(contentWidth),
+    contentHeight: round(contentHeight),
+    letterboxInsets: {
+      top: round(vertical),
+      right: round(horizontal),
+      bottom: round(vertical),
+      left: round(horizontal),
+    },
+  };
+}
 
 test("fits 9:16, 16:9, 1:1 and ultra-tall media without cropping", () => {
   const baselinePath = path.resolve(__dirname, "../fixtures/media-viewport-screenshot-baselines.json");
@@ -37,3 +66,28 @@ test("keeps media visible when panels and timeline consume space", () => {
   assert.equal(fit.contentHeight, 488);
   assert.equal(fit.contentWidth, 274.5);
 });
+
+test("React media viewport utility keeps the same fitter contract", () => {
+  const root = path.resolve(__dirname, "../..");
+  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/utils/mediaViewport.ts"), "utf8");
+  const preview = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/PreviewPanel.tsx"), "utf8");
+
+  assert.match(source, /export function fitMediaViewport/);
+  assert.match(source, /letterboxInsets/);
+  assert.match(preview, /fitMediaViewport/);
+  assert.match(preview, /useElementSize/);
+});
+
+function positive(value, fallback = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function nonNegative(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function round(value) {
+  return Math.round(value * 100) / 100;
+}

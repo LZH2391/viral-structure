@@ -32,9 +32,8 @@ function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";
   if (/^\/assets\//.test(pathname)) return pathname.slice(1);
-  if (/^\/(scripts|styles)\//.test(pathname)) return pathname.slice(1);
+  if (/^\/styles\//.test(pathname)) return pathname.slice(1);
   if (/^\/src\//.test(pathname)) return pathname.slice(1);
-  if (pathname === "/app.js") return "app.js";
   if (pathname === "/styles.css") return "styles.css";
   if (pathname === "/favicon.ico") return null;
   return null;
