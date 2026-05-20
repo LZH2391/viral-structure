@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>结构迁移工作台</title>
+    <script>
+      if (location.protocol === "file:") location.replace("http://127.0.0.1:5177/");
+    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -19,7 +22,7 @@
         </div>
         <div class="top-actions">
           <button id="rerunStageBtn" class="ghost-button" type="button">重跑阶段</button>
-          <a class="ghost-button action-link" href="/debug">运行追踪</a>
+          <a class="ghost-button action-link" href="http://127.0.0.1:5177/debug">运行追踪</a>
           <button class="ghost-button" type="button" disabled>导出</button>
           <button id="snapshotBtn" class="primary-button" type="button">DebugSnapshot</button>
         </div>

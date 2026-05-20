@@ -7,9 +7,12 @@ if "%PORT%"=="" set "PORT=5177"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$ErrorActionPreference = 'Stop';" ^
   "$env:PORT = '%PORT%';" ^
+  "$url = 'http://127.0.0.1:' + $env:PORT + '/';" ^
   "Write-Host ('API server starting on http://127.0.0.1:' + $env:PORT);" ^
   "Write-Host 'Keep this window open. Press Esc or Ctrl+C to stop the API server.';" ^
   "$node = Start-Process -FilePath 'node' -ArgumentList @('Apps\Api\server.js') -WorkingDirectory (Get-Location) -NoNewWindow -PassThru;" ^
+  "Start-Sleep -Milliseconds 700;" ^
+  "Start-Process $url;" ^
   "$canReadKeys = $true;" ^
   "try {" ^
   "  while (-not $node.HasExited) {" ^
