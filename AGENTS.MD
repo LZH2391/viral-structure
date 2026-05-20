@@ -16,6 +16,7 @@
 - 新增核心能力、重构、返工流程、模型链路或数据流时，必须先对照通用架构原则，避免不可追踪、难返工和难演进。
 
 ### 日志与调试硬约束
+- Debug 追踪通用规则以 `Docs/Architecture/Debug追踪规范.md` 为准。
 - 主链路必须携带 `runId / traceId / stageId / artifactId / parentArtifactId`，保证结果能追溯到上游产物。
 - 核心阶段必须有结构化开始、结束、失败日志，并生成受控 `DebugSnapshot`。
 - 正式代码禁止保留裸 `console.log / print / 临时 dump`，调试产物必须清理或加入 `.gitignore`。
