@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>结构迁移工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="project-block">
+          <div class="project-name">结构迁移工作台</div>
+          <div id="saveStatus" class="save-status">本地草稿</div>
+        </div>
+        <div class="run-strip">
+          <span id="runStatus" class="run-pill">等待输入</span>
+          <span id="traceLabel" class="trace-label">trace 未创建</span>
+        </div>
+        <div class="top-actions">
+          <button id="rerunStageBtn" class="ghost-button" type="button">重跑阶段</button>
+          <button class="ghost-button" type="button" disabled>导出</button>
+          <button id="snapshotBtn" class="primary-button" type="button">DebugSnapshot</button>
+        </div>
+      </header>
+
+      <main class="workspace-grid">
+        <aside class="resource-panel" aria-label="资源区">
+          <nav class="resource-tabs" aria-label="资源分类">
+            <button class="tab-button active" type="button" data-tab="materials">素材</button>
+            <button class="tab-button" type="button" data-tab="structures">样例结构</button>
+            <button class="tab-button" type="button" data-tab="library">结构库</button>
+            <button class="tab-button" type="button" data-tab="versions">版本历史</button>
+          </nav>
+
+          <section class="resource-view active" data-view="materials">
+            <label class="upload-target" for="sampleVideoInput">
+              <input id="sampleVideoInput" type="file" accept="video/*" />
+              <span class="upload-title">选择样例视频</span>
+              <span id="sampleFileLabel" class="upload-meta">未选择文件</span>
+            </label>
+            <div class="section-heading">媒体派生</div>
+            <div id="derivativeList" class="compact-list"></div>
+          </section>
+
+          <section class="resource-view" data-view="structures">
+            <div class="section-heading">结构卡</div>
+            <div id="structureList" class="compact-list"></div>
+          </section>
+
+          <section class="resource-view" data-view="library">
+            <div class="empty-state">
+              <strong>结构库为空</strong>
+              <span>等待收藏样例结构</span>
+            </div>
+          </section>
+
+          <section class="resource-view" data-view="versions">
+            <div class="section-heading">版本</div>
+            <div id="versionList" class="version-list"></div>
+          </section>
+        </aside>
+
+        <section class="preview-panel" aria-label="中央预览区">
+          <div class="preview-toolbar">
+            <div class="segmented-control" aria-label="预览模式">
+              <button id="sampleModeBtn" class="segment active" type="button">样例</button>
+              <button id="generatedModeBtn" class="segment" type="button">新方案</button>
+              <button id="compareModeBtn" class="segment" type="button">对比</button>
+            </div>
+            <div id="previewMeta" class="preview-meta">未加载样例</div>
+          </div>
+
+          <div id="previewStage" class="preview-stage">
+            <div id="emptyPreview" class="preview-empty">
+              <div class="frame-mark"></div>
+              <strong>等待样例视频</strong>
+              <span>上传后显示预览、封面和抽帧</span>
+            </div>
+            <video id="sampleVideo" class="sample-video" controls playsinline></video>
+            <div id="structureOverlay" class="structure-overlay"></div>
+            <div id="generatedPreview" class="generated-preview"></div>
+          </div>
+
+          <div class="mapping-panel">
+            <div class="section-heading">结构映射</div>
+            <div id="mappingList" class="mapping-list"></div>
+          </div>
+        </section>
+
+        <aside class="property-panel" aria-label="属性区">
+          <section class="property-section">
+            <div class="section-heading">当前片段</div>
+            <div id="currentSegment" class="detail-block"></div>
+          </section>
+
+          <section class="property-section">
+            <div class="section-heading">AI 理解结果</div>
+            <div id="understandingBlock" class="detail-block"></div>
+            <button id="understandBtn" class="primary-button full-width" type="button">进入视频理解</button>
+          </section>
+
+          <section class="property-section">
+            <div class="section-heading">新内容画像</div>
+            <form id="profileForm" class="profile-form">
+              <label>主题或商品<input id="profileTopic" type="text" autocomplete="off" /></label>
+              <label>核心卖点<textarea id="profileSellingPoints" rows="2"></textarea></label>
+              <label>目标人群<input id="profileAudience" type="text" autocomplete="off" /></label>
+              <label>平台场景<input id="profilePlatform" type="text" autocomplete="off" /></label>
+              <label>期望时长<input id="profileDuration" type="text" autocomplete="off" /></label>
+              <label>语气风格<input id="profileTone" type="text" autocomplete="off" /></label>
+              <button id="generatePlanBtn" class="primary-button full-width" type="submit">生成迁移方案</button>
+            </form>
+          </section>
+
+          <section class="property-section">
+            <div class="section-heading">运行追踪</div>
+            <div id="logList" class="log-list"></div>
+          </section>
+        </aside>
+
+        <section class="timeline-panel" aria-label="底部时间线">
+          <div class="timeline-header">
+            <span>视频帧轨</span>
+            <span>字幕/语音轨</span>
+            <span>结构段落轨</span>
+            <span>迁移映射轨</span>
+          </div>
+          <div class="timeline-body">
+            <div id="frameTrack" class="track frame-track"></div>
+            <div id="captionTrack" class="track muted-track"></div>
+            <div id="segmentTrack" class="track segment-track"></div>
+            <div id="transferTrack" class="track transfer-track"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
