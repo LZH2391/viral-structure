@@ -1,0 +1,11 @@
+# Runtime artifacts
+/Runtime/Uploads/*
+/Runtime/Artifacts/*
+/Runtime/DebugSnapshots/*
+/Runtime/Temp/*
+
+# Keep runtime directory placeholders
+!/Runtime/Uploads/README.md
+!/Runtime/Artifacts/README.md
+!/Runtime/DebugSnapshots/README.md
+!/Runtime/Temp/README.md
