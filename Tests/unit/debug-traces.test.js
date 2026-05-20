@@ -30,3 +30,16 @@ test("reads trace jsonl files for the debug page", async () => {
   assert.equal(detail.events.length, 2);
   assert.equal(detail.events[1].event, "stage.fail");
 });
+
+test("debug page crops long summaries with expandable full payload", () => {
+  const root = path.resolve(__dirname, "../..");
+  const page = require("fs").readFileSync(path.join(root, "Apps/Workbench/scripts/debug-page.js"), "utf8");
+  const css = require("fs").readFileSync(path.join(root, "Apps/Workbench/styles/debug.css"), "utf8");
+
+  assert.match(page, /const SUMMARY_LIMIT = 420/);
+  assert.match(page, /function cropText\(text\)/);
+  assert.match(page, /<details><summary>展开完整/);
+  assert.match(page, /已裁切/);
+  assert.match(css, /\.debug-event-item pre[\s\S]+max-height: 180px/);
+  assert.match(css, /\.debug-summary-block details pre[\s\S]+max-height: 320px/);
+});

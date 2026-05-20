@@ -106,8 +106,33 @@
   font-size: 12px;
 }
 
+.debug-summary-block {
+  display: grid;
+  gap: 6px;
+}
+
+.debug-summary-block details {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0c1219;
+}
+
+.debug-summary-block summary {
+  padding: 7px 8px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.debug-summary-block details pre {
+  border-width: 1px 0 0;
+  border-radius: 0;
+  max-height: 320px;
+}
+
 .debug-event-item pre {
   overflow: auto;
+  max-height: 180px;
   margin: 0;
   padding: 8px;
   border: 1px solid var(--line);

@@ -1,4 +1,5 @@
 (function () {
+  const SUMMARY_LIMIT = 420;
   const state = { traces: [], details: new Map(), selectedTraceId: null };
   const els = {
     status: document.querySelector("#debugStatus"),
@@ -100,7 +101,20 @@
 
   function summaryBlock(label, value) {
     if (!value) return "";
-    return `<pre><b>${label}</b> ${escapeHtml(JSON.stringify(value, null, 2))}</pre>`;
+    const text = JSON.stringify(value, null, 2);
+    const cropped = cropText(text);
+    const full = cropped.isCropped ? `<details><summary>展开完整 ${escapeHtml(label)}</summary><pre>${escapeHtml(text)}</pre></details>` : "";
+    return `
+      <div class="debug-summary-block">
+        <pre><b>${label}</b> ${escapeHtml(cropped.text)}</pre>
+        ${full}
+      </div>
+    `;
+  }
+
+  function cropText(text) {
+    if (text.length <= SUMMARY_LIMIT) return { text, isCropped: false };
+    return { text: `${text.slice(0, SUMMARY_LIMIT)}\n... 已裁切 ${text.length - SUMMARY_LIMIT} 字符`, isCropped: true };
   }
 
   function emptyState(text) {
