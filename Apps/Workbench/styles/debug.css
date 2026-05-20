@@ -1,0 +1,120 @@
+.debug-shell {
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr);
+  height: 100vh;
+  min-width: 900px;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.debug-trace-list,
+.debug-detail {
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.debug-trace-list {
+  overflow: auto;
+  padding: 0 12px 12px;
+  border-right: 1px solid var(--line);
+}
+
+.debug-detail {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0 16px 16px;
+}
+
+.debug-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.debug-trace-title {
+  color: var(--muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.debug-trace-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.debug-trace-item:hover,
+.debug-trace-item.active {
+  border-color: var(--accent);
+  background: #163142;
+}
+
+.debug-trace-item.failed {
+  border-left: 3px solid var(--danger);
+}
+
+.debug-trace-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.debug-event-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow: auto;
+  padding-top: 12px;
+}
+
+.debug-event-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-2);
+}
+
+.debug-event-item.fail {
+  border-left-color: var(--danger);
+}
+
+.debug-event-main {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 88px;
+  gap: 10px;
+  align-items: center;
+}
+
+.debug-event-main span,
+.debug-event-main time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.debug-event-item pre {
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111820;
+  color: #d8e1ea;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}

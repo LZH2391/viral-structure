@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE_URL = "http://localhost:5177";
+  const API_BASE_URL = location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:5177";
   const WORKSPACE_ID = "default-workspace";
 
   async function uploadSampleVideo(file) {

@@ -9,6 +9,12 @@
     min-width: 0;
   }
 
+  .debug-shell {
+    height: auto;
+    min-height: 100vh;
+    min-width: 0;
+  }
+
   .topbar {
     flex-wrap: wrap;
     height: auto;
@@ -30,5 +36,15 @@
   .resource-view {
     height: auto;
     max-height: 260px;
+  }
+
+  .debug-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .debug-trace-list {
+    max-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 }

@@ -1,7 +1,11 @@
 .primary-button,
 .ghost-button,
 .tab-button,
-.segment {
+.segment,
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 32px;
   border-radius: 6px;
   padding: 0 12px;
@@ -23,14 +27,17 @@
 }
 
 .ghost-button,
+.action-link,
 .tab-button,
 .segment {
   border: 1px solid var(--line);
   background: var(--panel-2);
   color: var(--text);
+  text-decoration: none;
 }
 
 .ghost-button:hover,
+.action-link:hover,
 .tab-button:hover,
 .segment:hover {
   background: var(--panel-3);

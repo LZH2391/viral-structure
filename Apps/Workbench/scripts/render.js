@@ -78,6 +78,7 @@
     }
 
     function renderLogs() {
+      if (!els.logList) return;
       els.logList.innerHTML = state.logs.slice(0, 14).map(templates.log).join("");
     }
 

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>运行追踪</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="debug-shell">
+      <header class="topbar">
+        <div class="project-block">
+          <div class="project-name">运行追踪</div>
+          <div id="debugStatus" class="save-status">读取 DebugSnapshots</div>
+        </div>
+        <div class="run-strip">
+          <span id="debugCount" class="run-pill">0 traces</span>
+          <span id="debugUpdatedAt" class="trace-label">等待刷新</span>
+        </div>
+        <div class="top-actions">
+          <a class="ghost-button action-link" href="/">返回工作台</a>
+          <button id="refreshDebugBtn" class="primary-button" type="button">刷新</button>
+        </div>
+      </header>
+
+      <main class="debug-grid">
+        <aside class="debug-trace-list" aria-label="Trace 列表">
+          <div class="section-heading">最近运行</div>
+          <div id="debugTraceList" class="compact-list"></div>
+        </aside>
+
+        <section class="debug-detail" aria-label="Trace 详情">
+          <div class="debug-detail-header">
+            <div>
+              <div class="section-heading">阶段事件</div>
+              <div id="debugTraceTitle" class="debug-trace-title">未选择 trace</div>
+            </div>
+            <a id="debugLogLink" class="ghost-button action-link" href="#" target="_blank" rel="noreferrer">打开日志</a>
+          </div>
+          <div id="debugEventList" class="debug-event-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./scripts/debug-page.js"></script>
+  </body>
+</html>

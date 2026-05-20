@@ -29,9 +29,14 @@ node Apps/Api/server.js
 
 默认端口：`5177`。
 
+工作台入口：`http://127.0.0.1:5177/`。
+
+运行追踪页：`http://127.0.0.1:5177/debug`。
+
 已提供：
 
 - `POST /api/workspaces/:workspaceId/sample-videos`
 - `GET /api/processing-jobs/:jobId`
 - `GET /api/sample-videos/:sampleVideoId/artifact`
+- `GET /api/debug/traces`
 - `GET /runtime/...`
