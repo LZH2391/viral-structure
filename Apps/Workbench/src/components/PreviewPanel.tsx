@@ -21,7 +21,7 @@ type PreviewPanelProps = {
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
-  const { sampleVideo, activeMediaKind, processingText, traceText, errorText, videoRef, audioRef, miniCanvasRef } = props;
+  const { sampleVideo, activeMediaKind, processingText, traceText, errorText, videoRef, audioRef } = props;
   const previewPanelRef = useRef<HTMLElement>(null);
   const previewStageRef = useRef<HTMLDivElement>(null);
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,43 +37,11 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const waveform = useAudioWaveform({
     audio: audioRef.current,
     mainCanvas: mainCanvasRef.current,
-    miniCanvas: miniCanvasRef.current,
+    miniCanvas: null,
     url: waveformUrl,
     active: activeMedia.kind === "audio",
+    animate: true,
   });
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return undefined;
-    let rafId = 0;
-    let lastFrameAt = 0;
-    const renderVideoProgress = (time: number) => {
-      if (time - lastFrameAt >= 66) {
-        lastFrameAt = time;
-        const duration = Number.isFinite(video.duration) ? video.duration : sampleVideo?.duration ?? 0;
-        waveform.renderWithProgress(duration ? Math.max(0, Math.min(1, (video.currentTime || 0) / duration)) : 0);
-      }
-      rafId = video.paused ? 0 : requestAnimationFrame(renderVideoProgress);
-    };
-    const start = () => {
-      if (!rafId) rafId = requestAnimationFrame(renderVideoProgress);
-    };
-    const stop = () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = 0;
-      const duration = Number.isFinite(video.duration) ? video.duration : sampleVideo?.duration ?? 0;
-      waveform.renderWithProgress(duration ? Math.max(0, Math.min(1, (video.currentTime || 0) / duration)) : 0);
-    };
-    video.addEventListener("play", start);
-    video.addEventListener("pause", stop);
-    video.addEventListener("ended", stop);
-    return () => {
-      video.removeEventListener("play", start);
-      video.removeEventListener("pause", stop);
-      video.removeEventListener("ended", stop);
-      stop();
-    };
-  }, [sampleVideo?.duration, videoRef, waveform]);
 
   useEffect(() => {
     const stage = previewStageRef.current;

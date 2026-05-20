@@ -37,10 +37,13 @@
 
 .timeline-panel.frames-hidden .timeline-label-column,
 .timeline-panel.frames-hidden .timeline-content {
-  grid-template-rows: 28px 38px 0 44px;
+  grid-template-rows: 28px 38px 32px 44px;
 }
 
-.timeline-panel.frames-hidden .frame-track-toggle,
 .timeline-panel.frames-hidden .frame-track {
   overflow: hidden;
+}
+
+.timeline-panel.frames-hidden .frame-track {
+  padding: 0;
 }

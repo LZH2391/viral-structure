@@ -4,6 +4,7 @@ import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
 import { clampVisibleSeconds, createTimelineMetrics, frameLeft, visibleFrames } from "../utils/timeline";
 import { useElementSize } from "../hooks/useElementSize";
+import { useAudioWaveform } from "../hooks/useAudioWaveform";
 
 type TimelinePanelProps = {
   sampleVideo: SampleVideo | null;
@@ -41,6 +42,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
   const size = useElementSize(scrollRef);
   const [draftSeconds, setDraftSeconds] = useState(String(timelineVisibleSeconds));
   const audio = mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
+  const audioUrl = runtimeUrl(audio?.uri);
   const frames = sampleVideo?.frameArtifacts ?? [];
   const metrics = useMemo(
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
@@ -48,6 +50,15 @@ export function TimelinePanel(props: TimelinePanelProps) {
   );
 
   useEffect(() => setDraftSeconds(String(timelineVisibleSeconds)), [timelineVisibleSeconds]);
+
+  useAudioWaveform({
+    audio: null,
+    mainCanvas: null,
+    miniCanvas: miniCanvasRef.current,
+    url: audioUrl,
+    active: false,
+    animate: false,
+  });
 
   return (
     <section className={`timeline-panel ${timelineFrameVisible ? "" : "frames-hidden"}`} aria-label="底部时间线">

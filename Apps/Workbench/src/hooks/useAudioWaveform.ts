@@ -13,11 +13,12 @@ type WaveformOptions = {
   miniCanvas: HTMLCanvasElement | null;
   url: string | null;
   active: boolean;
+  animate?: boolean;
 };
 
 const peaksCache = new Map<string, number[]>();
 
-export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active }: WaveformOptions) {
+export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true }: WaveformOptions) {
   const peaksRef = useRef<number[]>([]);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
@@ -70,7 +71,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active }:
       peaksRef.current = event.data.peaks;
       peaksCache.set(url, event.data.peaks);
       rebuildStaticCaches();
-      render();
+      render(0);
     };
     worker.postMessage({ id: requestId, url, count: 900 });
     return () => {
@@ -82,6 +83,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active }:
   useEffect(() => {
     if (!audio) return undefined;
     const tick = (time: number) => {
+      if (!animate) return;
       if (time - lastFrameAtRef.current >= 66) {
         lastFrameAtRef.current = time;
         render();
@@ -89,7 +91,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active }:
       rafIdRef.current = !audio.paused && active ? requestAnimationFrame(tick) : 0;
     };
     const start = () => {
-      if (!active || rafIdRef.current) return;
+      if (!active || !animate || rafIdRef.current) return;
       rafIdRef.current = requestAnimationFrame(tick);
     };
     const stop = () => {
@@ -107,7 +109,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active }:
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       stop();
     };
-  }, [active, audio, render]);
+  }, [active, animate, audio, render]);
 
   const bindCanvas = useCallback(
     (canvas: HTMLCanvasElement | null) => {
