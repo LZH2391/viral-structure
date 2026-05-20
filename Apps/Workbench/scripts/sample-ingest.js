@@ -40,6 +40,9 @@
       parentArtifactId: artifact.sampleVideo.parentArtifactId,
       fileName: artifact.sampleVideo.original.summary,
       duration: artifact.metadata.durationSeconds,
+      width: artifact.metadata.width ?? null,
+      height: artifact.metadata.height ?? null,
+      aspectRatio: buildAspectRatio(artifact.metadata.width, artifact.metadata.height),
       processingStatus: artifact.status,
       videoUri: artifact.sampleVideo.normalized.uri,
       coverUri: artifact.cover?.uri ?? null,
@@ -91,6 +94,11 @@
       "audio-track": "音频轨",
     };
     return names[type] ?? type;
+  }
+
+  function buildAspectRatio(width, height) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) return null;
+    return width / height;
   }
 
   function delay(ms) {

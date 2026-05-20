@@ -41,3 +41,19 @@ test("media preview can switch between video, frames, and audio track", () => {
   assert.match(render, /return renderAudio\(derivative \?\? findAudioDerivative\(\)\)/);
   assert.match(templates, /function audioTrackButton\(audio\)/);
 });
+
+test("media preview preserves full aspect ratios and exposes resolution", () => {
+  const root = path.resolve(__dirname, "../..");
+  const previewCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/preview-panel.css"), "utf8");
+  const timelineCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/timeline.css"), "utf8");
+  const ingest = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/sample-ingest.js"), "utf8");
+  const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
+
+  assert.match(previewCss, /\.sample-video,[\s\S]+\.media-image-preview[\s\S]+object-fit: contain/);
+  assert.doesNotMatch(previewCss, /960px|540px/);
+  assert.match(timelineCss, /\.frame-cell img[\s\S]+object-fit: contain/);
+  assert.match(ingest, /width: artifact\.metadata\.width/);
+  assert.match(ingest, /aspectRatio: buildAspectRatio/);
+  assert.match(templates, /<b>分辨率<\/b>/);
+  assert.match(templates, /<b>媒体类型<\/b>/);
+});

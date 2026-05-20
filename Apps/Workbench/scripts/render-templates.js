@@ -87,6 +87,23 @@
     return `<div class="transfer-block">${item.sourceName} -> ${item.targetName}</div>`;
   }
 
+  function mediaDetailRows({ label, time, artifactId, parentArtifactId, resolution }) {
+    return `
+      <div class="detail-row"><b>媒体类型</b><span>${label}</span></div>
+      <div class="detail-row"><b>时间点</b><span>${time}</span></div>
+      <div class="detail-row"><b>artifact</b><span>${artifactId ?? "无"}</span></div>
+      <div class="detail-row"><b>parent</b><span>${parentArtifactId ?? "无"}</span></div>
+      <div class="detail-row"><b>分辨率</b><span>${resolution}</span></div>
+    `;
+  }
+
+  function resolutionText() {
+    const { width, height, aspectRatio } = state.sampleVideo ?? {};
+    if (!width || !height) return "未知";
+    const ratio = Number.isFinite(aspectRatio) ? ` / ${aspectRatio.toFixed(2)}:1` : "";
+    return `${width} x ${height}${ratio}`;
+  }
+
   function currentSegment(card) {
     if (card) {
       return `
@@ -100,29 +117,36 @@
       const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId);
       const derivative = state.mediaDerivatives.find((item) => item.artifactId === state.selectedDerivativeId);
       if (state.activeMediaKind === "frame" && frame) {
-        return `
-          <div class="detail-row"><b>帧时间</b><span>${formatTime(frame.time)}</span></div>
-          <div class="detail-row"><b>artifact</b><span>${frame.artifactId}</span></div>
-          <div class="detail-row"><b>parent</b><span>${frame.parentArtifactId}</span></div>
-        `;
+        return mediaDetailRows({
+          label: "抽帧图片",
+          time: formatTime(frame.time),
+          artifactId: frame.artifactId,
+          parentArtifactId: frame.parentArtifactId,
+          resolution: resolutionText(),
+        });
       }
       if (state.activeMediaKind === "audio") {
-        return `
-          <div class="detail-row"><b>语音轨</b><span>${derivative?.summary || state.sampleVideo.audioSummary || "未检测到可抽取音频轨"}</span></div>
-          <div class="detail-row"><b>artifact</b><span>${derivative?.artifactId ?? "无"}</span></div>
-          <div class="detail-row"><b>parent</b><span>${derivative?.parentArtifactId ?? state.sampleVideo.artifactId}</span></div>
-        `;
+        return mediaDetailRows({
+          label: derivative?.summary || state.sampleVideo.audioSummary || "音频轨",
+          time: "不适用",
+          artifactId: derivative?.artifactId,
+          parentArtifactId: derivative?.parentArtifactId ?? state.sampleVideo.artifactId,
+          resolution: "不适用",
+        });
       }
-      if (state.activeMediaKind === "video" && derivative) {
-        return `
-          <div class="detail-row"><b>视频引用</b><span>${derivative.name}</span></div>
-          <div class="detail-row"><b>artifact</b><span>${derivative.artifactId}</span></div>
-          <div class="detail-row"><b>parent</b><span>${derivative.parentArtifactId ?? "无"}</span></div>
-        `;
+      if (derivative) {
+        return mediaDetailRows({
+          label: derivative.name,
+          time: state.activeMediaKind === "video" ? "可播放" : "独立图片",
+          artifactId: derivative.artifactId,
+          parentArtifactId: derivative.parentArtifactId,
+          resolution: resolutionText(),
+        });
       }
       return `
         <div class="detail-row"><b>样例</b><span>${state.sampleVideo.fileName}</span></div>
         <div class="detail-row"><b>时长</b><span>${formatTime(state.sampleVideo.duration)}</span></div>
+        <div class="detail-row"><b>分辨率</b><span>${resolutionText()}</span></div>
         <div class="detail-row"><b>状态</b><span>${state.sampleVideo.processingStatus}</span></div>
         <div class="detail-row"><b>采样率</b><span>${state.sampleVideo.processingOptions?.frameSampleRateFps ?? 1} fps</span></div>
         <div class="detail-row"><b>trace</b><span>${state.processingJob?.traceId ?? "无"}</span></div>
