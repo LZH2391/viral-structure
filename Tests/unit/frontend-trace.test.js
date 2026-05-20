@@ -68,14 +68,21 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   const hook = read(root, "Apps/Workbench/src/hooks/useAudioWaveform.ts");
   const worker = read(root, "Apps/Workbench/src/workers/audioPeaks.worker.ts");
   const draw = read(root, "Apps/Workbench/src/utils/waveformDraw.ts");
+  const envelope = read(root, "Apps/Workbench/src/utils/audioEnvelope.ts");
 
   assert.match(hook, /const peaksCache = new Map<string, number\[\]>\(\)/);
   assert.match(hook, /new Worker\(new URL\("\.\.\/workers\/audioPeaks\.worker\.ts"/);
+  assert.match(hook, /decodePeaksInMainThread/);
   assert.match(hook, /workerRef\.current\?\.terminate\(\)/);
   assert.match(hook, /time - lastFrameAtRef\.current >= 66/);
   assert.match(worker, /decodeAudioData/);
-  assert.match(worker, /buildPeaks\(audioBuffer, count\)/);
+  assert.match(worker, /import \{ buildVisualEnvelope \}/);
+  assert.match(envelope, /buildVisualEnvelope\(audioBuffer/);
+  assert.match(envelope, /normalizeEnvelope/);
+  assert.match(envelope, /localMean/);
+  assert.match(envelope, /stretchVisualRange/);
   assert.match(draw, /createStaticWaveform/);
+  assert.match(draw, /buildDisplayPeaks/);
   assert.match(draw, /drawCursor/);
 });
 

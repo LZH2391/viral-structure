@@ -78,7 +78,7 @@
 }
 
 .audio-waveform-panel {
-  width: min(900px, calc(100% - 48px));
+  width: min(1280px, calc(100% - 48px));
   gap: 14px;
   color: var(--text);
 }
@@ -128,7 +128,7 @@
 
 .audio-waveform-canvas {
   width: 100%;
-  height: min(220px, 42vh);
+  height: min(132px, 28vh);
   border: 1px solid #223445;
   border-radius: 8px;
   background: #0b1118;

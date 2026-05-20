@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { buildVisualEnvelope } from "../utils/audioEnvelope";
 import { clamp, createStaticWaveform, drawCanvas } from "../utils/waveformDraw";
 
 type WaveformWorkerResponse = {
@@ -17,7 +18,9 @@ type WaveformOptions = {
 };
 
 const peaksCache = new Map<string, number[]>();
-const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.12 + Math.abs(Math.sin(index / 7)) * 0.08);
+const WAVEFORM_CACHE_VERSION = "visual-envelope-v6";
+const WAVEFORM_PEAK_COUNT = 900;
+const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.16 + Math.abs(Math.sin(index / 5) * Math.cos(index / 13)) * 0.5);
 
 export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true }: WaveformOptions) {
   const peaksRef = useRef<number[]>([]);
@@ -46,13 +49,15 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
   }, [mainCanvas, miniCanvas]);
 
   useEffect(() => {
+    const cacheKey = url ? `${WAVEFORM_CACHE_VERSION}:${url}` : null;
+    let cancelled = false;
     if (!url) {
       peaksRef.current = [];
       rebuildStaticCaches();
       render(0);
       return;
     }
-    const cached = peaksCache.get(url);
+    const cached = cacheKey ? peaksCache.get(cacheKey) : null;
     if (cached) {
       peaksRef.current = cached;
       rebuildStaticCaches();
@@ -61,6 +66,16 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     }
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    const commitPeaks = (peaks: number[]) => {
+      if (cancelled || requestIdRef.current !== requestId) return;
+      peaksRef.current = peaks.length ? peaks : PLACEHOLDER_PEAKS;
+      if (cacheKey && peaks.length) peaksCache.set(cacheKey, peaks);
+      rebuildStaticCaches();
+      render(0);
+    };
+    const decodeInMainThread = () => {
+      void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT).then(commitPeaks, () => commitPeaks([]));
+    };
     peaksRef.current = PLACEHOLDER_PEAKS;
     rebuildStaticCaches();
     render();
@@ -69,13 +84,13 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WaveformWorkerResponse>) => {
       if (event.data.id !== requestId) return;
-      peaksRef.current = event.data.peaks;
-      peaksCache.set(url, event.data.peaks);
-      rebuildStaticCaches();
-      render(0);
+      if (event.data.peaks.length) commitPeaks(event.data.peaks);
+      else decodeInMainThread();
     };
-    worker.postMessage({ id: requestId, url, count: 900 });
+    worker.onerror = decodeInMainThread;
+    worker.postMessage({ id: requestId, url, count: WAVEFORM_PEAK_COUNT });
     return () => {
+      cancelled = true;
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
@@ -161,4 +176,19 @@ function buildStaticCanvas(canvas: HTMLCanvasElement | null, peaks: number[], ra
   const width = Math.max(1, Math.round((rect.width || canvas.width) * ratio));
   const height = Math.max(1, Math.round((rect.height || canvas.height) * ratio));
   return createStaticWaveform(width, height, peaks);
+}
+
+async function decodePeaksInMainThread(url: string, count: number): Promise<number[]> {
+  const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return [];
+  let context: AudioContext | null = null;
+  try {
+    const response = await fetch(url);
+    const buffer = await response.arrayBuffer();
+    context = new AudioContextClass();
+    const audioBuffer = await context.decodeAudioData(buffer);
+    return buildVisualEnvelope(audioBuffer, count);
+  } finally {
+    await context?.close?.();
+  }
 }
