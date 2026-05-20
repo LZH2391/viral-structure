@@ -39,6 +39,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
     onVisibleSecondsChange,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [miniCanvas, setMiniCanvas] = useState<HTMLCanvasElement | null>(null);
   const size = useElementSize(scrollRef);
   const [draftSeconds, setDraftSeconds] = useState(String(timelineVisibleSeconds));
   const audio = mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
@@ -54,7 +55,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
   useAudioWaveform({
     audio: null,
     mainCanvas: null,
-    miniCanvas: miniCanvasRef.current,
+    miniCanvas,
     url: audioUrl,
     active: false,
     animate: false,
@@ -123,7 +124,20 @@ export function TimelinePanel(props: TimelinePanelProps) {
             </div>
             <div id="audioTrack" className="track audio-track">
               <button className={`audio-track-button ${audio?.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={onSelectAudio}>
-                {audio?.uri ? <canvas ref={miniCanvasRef} className="audio-mini-waveform" data-audio-wave-mini width={Math.max(1, Math.round(metrics.contentWidth))} height="42" aria-label={audio.summary ?? "音频轨"} /> : <span>{audio?.summary || "未检测到可抽取音频轨"}</span>}
+                {audio?.uri ? (
+                  <canvas
+                    ref={(node) => {
+                      setMiniCanvas(node);
+                    }}
+                    className="audio-mini-waveform"
+                    data-audio-wave-mini
+                    width={Math.max(1, Math.round(metrics.contentWidth))}
+                    height="42"
+                    aria-label={audio.summary ?? "音频轨"}
+                  />
+                ) : (
+                  <span>{audio?.summary || "未检测到可抽取音频轨"}</span>
+                )}
               </button>
             </div>
           </div>

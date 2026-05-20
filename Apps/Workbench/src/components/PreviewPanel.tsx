@@ -24,7 +24,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const { sampleVideo, activeMediaKind, processingText, traceText, errorText, videoRef, audioRef } = props;
   const previewPanelRef = useRef<HTMLElement>(null);
   const previewStageRef = useRef<HTMLDivElement>(null);
-  const mainCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [mainCanvas, setMainCanvas] = useState<HTMLCanvasElement | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const size = useElementSize(previewStageRef);
   const activeMedia = useMemo(() => resolveActiveMedia(props), [props]);
@@ -36,7 +36,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
 
   const waveform = useAudioWaveform({
     audio: audioRef.current,
-    mainCanvas: mainCanvasRef.current,
+    mainCanvas,
     miniCanvas: null,
     url: waveformUrl,
     active: activeMedia.kind === "audio",
@@ -113,7 +113,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
               </button>
               <AudioTime audioRef={audioRef} />
             </div>
-            <canvas id="audioWaveformCanvas" ref={mainCanvasRef} className="audio-waveform-canvas" width="960" height="220" />
+            <canvas id="audioWaveformCanvas" ref={setMainCanvas} className="audio-waveform-canvas" width="960" height="220" />
           </div>
         )}
         <audio id="audioPreview" ref={audioRef} className="audio-preview" preload="metadata" src={audioUrl ?? undefined} />

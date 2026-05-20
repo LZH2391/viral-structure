@@ -17,6 +17,7 @@ type WaveformOptions = {
 };
 
 const peaksCache = new Map<string, number[]>();
+const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.12 + Math.abs(Math.sin(index / 7)) * 0.08);
 
 export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true }: WaveformOptions) {
   const peaksRef = useRef<number[]>([]);
@@ -60,7 +61,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     }
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    peaksRef.current = [];
+    peaksRef.current = PLACEHOLDER_PEAKS;
     rebuildStaticCaches();
     render();
     const worker = new Worker(new URL("../workers/audioPeaks.worker.ts", import.meta.url), { type: "module" });
