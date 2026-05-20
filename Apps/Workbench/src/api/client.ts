@@ -1,4 +1,4 @@
-import type { DebugTraceDetail, DebugTraceSummary, ProcessingJob, SampleArtifact } from "../types";
+import type { DebugTraceDetail, DebugTraceSummary, ProcessingJob, SampleArtifact, UiDebugEventRequest } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -29,6 +29,16 @@ export async function getDebugTraces() {
 
 export async function getDebugTraceDetail(traceId: string) {
   return readJson<DebugTraceDetail>(await fetch(`${API_BASE_URL}/api/debug/traces/${encodeURIComponent(traceId)}`));
+}
+
+export async function postUiDebugEvent(event: UiDebugEventRequest) {
+  return readJson<{ ok: true; debugSnapshotUri?: string | null }>(
+    await fetch(`${API_BASE_URL}/api/debug/ui-events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event),
+    }),
+  );
 }
 
 export function runtimeUrl(uri?: string | null): string | null {

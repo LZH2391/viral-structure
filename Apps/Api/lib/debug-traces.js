@@ -6,7 +6,7 @@ async function readDebugTraces(runtimeRoot) {
   const dir = path.join(runtimeRoot, "DebugSnapshots");
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
   const logFiles = entries
-    .filter((entry) => entry.isFile() && /^trace_.+\.log\.jsonl$/.test(entry.name))
+    .filter((entry) => entry.isFile() && /^(trace_|uiTrace_).+\.log\.jsonl$/.test(entry.name))
     .map((entry) => entry.name);
   const traces = await Promise.all(logFiles.map((name) => readTraceSummary(dir, name)));
   traces.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -14,7 +14,7 @@ async function readDebugTraces(runtimeRoot) {
 }
 
 async function readDebugTraceDetail(runtimeRoot, traceId) {
-  if (!/^trace_[A-Za-z0-9_-]+$/.test(traceId)) return null;
+  if (!/^(trace_|uiTrace_)[A-Za-z0-9_-]+$/.test(traceId)) return null;
   const dir = path.join(runtimeRoot, "DebugSnapshots");
   const name = `${traceId}.log.jsonl`;
   const filePath = path.join(dir, name);

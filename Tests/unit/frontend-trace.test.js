@@ -12,13 +12,20 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const state = read(root, "Apps/Workbench/src/state.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
+  const uiStage = read(root, "Apps/Workbench/src/observability/uiStage.ts");
 
   assert.match(state, /uiTraceId: createId\("uiTrace"\)/);
+  assert.match(state, /ingest: "sample\.ingest"/);
+  assert.match(state, /understand: "sample\.understand"/);
+  assert.match(state, /transfer: "structure\.transfer"/);
   assert.match(app, /uiTraceId: state\.uiTraceId/);
   assert.match(app, /backendTraceId: state\.processingJob\?\.traceId/);
+  assert.match(app, /beginUiStage/);
+  assert.match(uiStage, /createId\("run"\)/);
   assert.doesNotMatch(app, /traceId: state\.workspace\.id/);
   assert.match(api, /\/api\/workspaces\/\$\{WORKSPACE_ID\}\/sample-videos/);
   assert.match(api, /\/api\/processing-jobs\/\$\{jobId\}/);
+  assert.match(api, /\/api\/debug\/ui-events/);
 });
 
 test("React pages replace legacy runtime scripts", () => {
@@ -76,7 +83,13 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   assert.match(hook, /workerRef\.current\?\.terminate\(\)/);
   assert.match(hook, /time - lastFrameAtRef\.current >= 66/);
   assert.match(worker, /decodeAudioData/);
+  assert.match(worker, /ok: false/);
+  assert.match(worker, /audio_context_unavailable/);
+  assert.match(worker, /audio_decode_failed/);
   assert.match(worker, /import \{ buildVisualEnvelope \}/);
+  assert.match(hook, /audio\.waveform\.decode/);
+  assert.match(hook, /fallbackReason/);
+  assert.match(hook, /audio_empty_peaks/);
   assert.match(envelope, /buildVisualEnvelope\(audioBuffer/);
   assert.match(envelope, /normalizeEnvelope/);
   assert.match(envelope, /localMean/);

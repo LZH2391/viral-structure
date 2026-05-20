@@ -14,6 +14,8 @@ type PreviewPanelProps = {
   selectedFrameId: string | null;
   processingText: string;
   traceText: string;
+  uiTraceId: string;
+  backendTraceId?: string | null;
   errorText?: string | null;
   videoRef: RefObject<HTMLVideoElement>;
   audioRef: RefObject<HTMLAudioElement>;
@@ -28,10 +30,8 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const [audioPlaying, setAudioPlaying] = useState(false);
   const size = useElementSize(previewStageRef);
   const activeMedia = useMemo(() => resolveActiveMedia(props), [props]);
-  const waveformUrl = useMemo(() => {
-    const audio = props.mediaDerivatives.find((item) => item.type === "audio-track");
-    return runtimeUrl(audio?.uri ?? sampleVideo?.audioUri);
-  }, [props.mediaDerivatives, sampleVideo?.audioUri]);
+  const audioDerivative = useMemo(() => props.mediaDerivatives.find((item) => item.type === "audio-track") ?? null, [props.mediaDerivatives]);
+  const waveformUrl = useMemo(() => runtimeUrl(audioDerivative?.uri ?? sampleVideo?.audioUri), [audioDerivative?.uri, sampleVideo?.audioUri]);
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
 
   const waveform = useAudioWaveform({
@@ -41,6 +41,12 @@ export function PreviewPanel(props: PreviewPanelProps) {
     url: waveformUrl,
     active: activeMedia.kind === "audio",
     animate: true,
+    trace: {
+      uiTraceId: props.uiTraceId,
+      backendTraceId: props.backendTraceId ?? null,
+      artifactId: audioDerivative?.artifactId ?? null,
+      parentArtifactId: audioDerivative?.parentArtifactId ?? sampleVideo?.artifactId ?? null,
+    },
   });
 
   useEffect(() => {

@@ -9,6 +9,7 @@ const { createSampleProcessingService } = require("./lib/sample-processing-servi
 const { sendJson, notFound, runtimeContentType } = require("./lib/http-utils");
 const { createWorkbenchStaticHandler } = require("./lib/static-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
+const { readJsonBody, ingestUiDebugEvent } = require("./lib/ui-debug-events");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -25,12 +26,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url);
     if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1));
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
+    if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return handleUiDebugEvent(req, res);
     if (req.method === "GET" && url.pathname === "/api/debug/traces") return handleDebugTraces(res);
     if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)));
     if (req.method === "GET" && url.pathname.startsWith("/runtime/")) return handleRuntime(res, url.pathname);
     if (req.method === "GET" && staticWorkbench.handle(req, res, url.pathname)) return undefined;
     return notFound(res);
-  } catch {
+  } catch (error) {
+    if (error.statusCode === 400) return sendJson(res, 400, { error: error.code ?? "bad_request", message: error.message });
     return sendJson(res, 500, { error: "internal_error", message: "请求处理失败" });
   }
 });
@@ -56,6 +59,11 @@ async function handleArtifact(res, sampleVideoId) {
 
 async function handleDebugTraces(res) {
   return sendJson(res, 200, await readDebugTraces(store.runtimeRoot));
+}
+
+async function handleUiDebugEvent(req, res) {
+  const body = await readJsonBody(req);
+  return sendJson(res, 200, await ingestUiDebugEvent(logger, body));
 }
 
 async function handleDebugTraceDetail(res, traceId) {

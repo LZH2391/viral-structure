@@ -17,11 +17,11 @@ import type {
 import { createId } from "./utils/format";
 
 export const STAGES = {
-  ingest: "sample-ingest",
-  understand: "sample-understanding",
-  transfer: "structure-transfer",
-  rerun: "stage-rerun",
-  snapshot: "debug-snapshot",
+  ingest: "sample.ingest",
+  understand: "sample.understand",
+  transfer: "structure.transfer",
+  rerun: "stage.rerun",
+  snapshot: "debug.snapshot",
 } as const;
 
 export type RunStatus = {

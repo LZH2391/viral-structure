@@ -3,6 +3,7 @@ import { getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/c
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
+import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
 import { PreviewPanel } from "./PreviewPanel";
@@ -67,53 +68,65 @@ export function WorkbenchApp() {
   );
 
   const beginStage = useCallback(
-    (stageName: string, parentArtifactId: string | null = null) => {
-      const stageId = createId("stage");
-      const artifactId = createId("artifact");
-      dispatch({ type: "set-active-stage", stageId });
-      writeLog("stage.start", "info", {
-        runId: state.workspace.id,
+    (stageName: string, parentArtifactId: string | null = null, inputSummary: unknown = null) => {
+      const stage = beginUiStage({
         uiTraceId: state.uiTraceId,
         backendTraceId: state.processingJob?.traceId ?? null,
-        stageId,
-        artifactId,
-        parentArtifactId,
         stageName,
+        parentArtifactId,
+        inputSummary,
       });
-      return { stageName, stageId, artifactId, parentArtifactId };
+      dispatch({ type: "set-active-stage", stageId: stage.stageId });
+      writeLog("stage.start", "info", {
+        runId: stage.runId,
+        uiTraceId: stage.uiTraceId,
+        backendTraceId: state.processingJob?.traceId ?? null,
+        stageId: stage.stageId,
+        artifactId: stage.artifactId,
+        parentArtifactId: stage.parentArtifactId,
+        stageName,
+        inputSummary,
+      });
+      emitUiStage(stage, "stage.start");
+      return stage;
     },
-    [state.processingJob?.traceId, state.uiTraceId, state.workspace.id, writeLog],
+    [state.processingJob?.traceId, state.uiTraceId, writeLog],
   );
 
   const finishStage = useCallback(
-    (stage: ReturnType<typeof beginStage>, artifactId = stage.artifactId) => {
+    (stage: UiStage, artifactId = stage.artifactId, outputSummary: unknown = null) => {
+      const durationMs = Math.max(0, Math.round(performance.now() - stage.startedAt));
       writeLog("stage.end", "done", {
-        runId: state.workspace.id,
-        uiTraceId: state.uiTraceId,
+        runId: stage.runId,
+        uiTraceId: stage.uiTraceId,
         backendTraceId: state.processingJob?.traceId ?? null,
         stageId: stage.stageId,
         artifactId,
         parentArtifactId: stage.parentArtifactId,
         stageName: stage.stageName,
+        outputSummary,
+        durationMs,
       });
       dispatch({ type: "set-active-stage", stageId: stage.stageId });
+      emitUiStage(stage, "stage.end", { artifactId, outputSummary, durationMs });
     },
-    [state.processingJob?.traceId, state.uiTraceId, state.workspace.id, writeLog],
+    [state.processingJob?.traceId, writeLog],
   );
 
   const failStage = useCallback(
-    (stage: ReturnType<typeof beginStage>, error: unknown, details: Partial<LogFields> & { processingJob?: ProcessingJob | null } = {}) => {
+    (stage: UiStage, error: unknown, details: Partial<LogFields> & { processingJob?: ProcessingJob | null; debugPayload?: unknown } = {}) => {
+      const summary = safeErrorSummary(error, details.errorCode ?? "unknown_error", details.errorMessage ?? "未知错误", details.canRetry ?? true);
       const errorInfo = {
         errorName: error instanceof Error ? error.name : "Error",
-        errorCode: details.errorCode ?? (error as { code?: string })?.code ?? "unknown_error",
+        errorCode: summary.code,
         errorStage: details.errorStage ?? details.processingJob?.stage ?? null,
-        errorMessage: sanitizeText(details.errorMessage ?? (error instanceof Error ? error.message : "未知错误"), 120),
-        canRetry: details.canRetry ?? true,
+        errorMessage: summary.message,
+        canRetry: summary.retryable,
       };
       const snapshot = {
         id: createId("snapshot"),
-        runId: state.workspace.id,
-        uiTraceId: state.uiTraceId,
+        runId: stage.runId,
+        uiTraceId: stage.uiTraceId,
         backendTraceId: details.backendTraceId ?? details.processingJob?.traceId ?? state.processingJob?.traceId ?? null,
         stageId: stage.stageId,
         stageName: stage.stageName,
@@ -124,8 +137,8 @@ export function WorkbenchApp() {
       };
       dispatch({ type: "add-snapshot", snapshot });
       writeLog("stage.fail", "fail", {
-        runId: state.workspace.id,
-        uiTraceId: state.uiTraceId,
+        runId: stage.runId,
+        uiTraceId: stage.uiTraceId,
         backendTraceId: snapshot.backendTraceId,
         stageId: stage.stageId,
         artifactId: stage.artifactId,
@@ -135,15 +148,30 @@ export function WorkbenchApp() {
         debugSnapshotId: snapshot.id,
         debugSnapshotUri: details.debugSnapshotUri ?? null,
       });
+      emitUiStage(stage, "stage.fail", {
+        errorSummary: {
+          code: errorInfo.errorCode,
+          message: errorInfo.errorMessage,
+          stageName: errorInfo.errorStage ?? stage.stageName,
+          retryable: errorInfo.canRetry,
+          debugSnapshotUri: details.debugSnapshotUri ?? null,
+        },
+        debugPayload: details.debugPayload ?? snapshot.payload,
+      });
     },
-    [state.processingJob?.traceId, state.uiTraceId, state.workspace.id, writeLog],
+    [state.processingJob?.traceId, writeLog],
   );
 
   const handleSampleUpload = useCallback(
     async (file: File) => {
       const token = uploadTokenRef.current + 1;
       uploadTokenRef.current = token;
-      const stage = beginStage(STAGES.ingest);
+      const stage = beginStage(STAGES.ingest, null, {
+        filename: file.name,
+        mimeType: file.type || null,
+        sizeBytes: file.size,
+        frameSampleRateFps: frameSampleRate,
+      });
       dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
       let latestJob: ProcessingJob | null = null;
       try {
@@ -175,7 +203,11 @@ export function WorkbenchApp() {
             dispatch({ type: "add-version", version });
             writeDraft({ sampleVideoId: artifact.sampleVideoId, artifactId: artifact.sampleVideo.artifactId, traceId: job.traceId, sampleArtifact: artifact, selectedFrameId: artifact.frames[0]?.frameId ?? null, selectedDerivativeId: artifact.sampleVideo.normalized.artifactId, versions: [version] });
             setSaveStatus("已保存样例处理完成");
-            finishStage(stage, artifact.sampleVideo.artifactId);
+            finishStage(stage, artifact.sampleVideo.artifactId, {
+              sampleVideoId: artifact.sampleVideoId,
+              frameCount: artifact.frames.length,
+              hasAudio: Boolean(artifact.audio?.uri),
+            });
             return;
           }
           if (job.status === "failed") {
@@ -190,6 +222,7 @@ export function WorkbenchApp() {
           errorMessage: error instanceof Error ? error.message : "样例处理失败",
           backendTraceId: latestJob?.traceId ?? state.processingJob?.traceId ?? null,
           processingJob: latestJob ?? state.processingJob,
+          debugPayload: { kind: "sample-ingest-failure", processingJob: latestJob ?? state.processingJob },
         });
         dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "处理失败" });
       }
@@ -204,7 +237,7 @@ export function WorkbenchApp() {
     dispatch({ type: "set-structure-cards", cards });
     const structureArtifactId = createId("artifact");
     dispatch({ type: "add-version", version: addVersion("结构理解完成", stage.stageName, structureArtifactId, state.sampleVideo.artifactId) });
-    finishStage(stage, structureArtifactId);
+    finishStage(stage, structureArtifactId, { cardCount: cards.length });
   };
 
   const handleGeneratePlan = (event: FormEvent<HTMLFormElement>) => {
@@ -224,7 +257,7 @@ export function WorkbenchApp() {
     const result = createGeneratedPlan(profile, state.structureCards, parentArtifactId);
     dispatch({ type: "set-generated-plan", generatedPlan: result.generatedPlan, mappings: result.mappings });
     dispatch({ type: "add-version", version: addVersion("迁移方案生成", stage.stageName, result.generatedArtifactId, parentArtifactId) });
-    finishStage(stage, result.generatedArtifactId);
+    finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
   };
 
   const handleRerunStage = () => {
@@ -233,7 +266,7 @@ export function WorkbenchApp() {
     const stage = beginStage(STAGES.rerun, parentArtifactId);
     const artifactId = createId("artifact");
     dispatch({ type: "add-version", version: addVersion("返工分支", stage.stageName, artifactId, parentArtifactId) });
-    finishStage(stage, artifactId);
+    finishStage(stage, artifactId, { sourceArtifactId: parentArtifactId });
   };
 
   const captureManualSnapshot = () => {
@@ -243,8 +276,8 @@ export function WorkbenchApp() {
       type: "add-snapshot",
       snapshot: {
         id: createId("snapshot"),
-        runId: state.workspace.id,
-        uiTraceId: state.uiTraceId,
+        runId: stage.runId,
+        uiTraceId: stage.uiTraceId,
         backendTraceId: state.processingJob?.traceId ?? null,
         stageId: stage.stageId,
         stageName: STAGES.snapshot,
@@ -259,7 +292,7 @@ export function WorkbenchApp() {
         },
       },
     });
-    finishStage(stage, stage.artifactId);
+    finishStage(stage, stage.artifactId, { snapshotArtifactId: stage.artifactId });
   };
 
   const fileLabel = state.isUploadingSample ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim() : state.sampleVideo?.fileName ?? "未选择文件";
@@ -299,6 +332,8 @@ export function WorkbenchApp() {
           selectedFrameId={state.selectedFrameId}
           processingText={state.processingJob ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%` : "未加载样例"}
           traceText={state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace"}
+          uiTraceId={state.uiTraceId}
+          backendTraceId={state.processingJob?.traceId ?? null}
           errorText={state.errorSummary?.message}
           videoRef={videoRef}
           audioRef={audioRef}
@@ -326,6 +361,8 @@ export function WorkbenchApp() {
           timelineVisibleSeconds={state.timelineVisibleSeconds}
           videoRef={videoRef}
           miniCanvasRef={miniCanvasRef}
+          uiTraceId={state.uiTraceId}
+          backendTraceId={state.processingJob?.traceId ?? null}
           onSelectVideo={() => {
             const video = state.mediaDerivatives.find((entry) => entry.type === "normalized-video" || entry.type === "original-video");
             dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: video?.artifactId ?? state.sampleVideo?.artifactId ?? null, selectedFrameId: null });

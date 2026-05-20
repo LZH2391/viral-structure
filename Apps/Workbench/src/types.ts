@@ -182,6 +182,9 @@ export type LogFields = {
   canRetry?: boolean;
   debugSnapshotId?: string;
   debugSnapshotUri?: string | null;
+  inputSummary?: unknown;
+  outputSummary?: unknown;
+  durationMs?: number | null;
 };
 
 export type DebugSnapshot = {
@@ -249,4 +252,27 @@ export type DebugTraceDetail = {
   traceId: string;
   logUri: string;
   events: DebugEvent[];
+};
+
+export type UiStageEvent = "stage.start" | "stage.end" | "stage.fail";
+
+export type UiDebugEventRequest = {
+  uiTraceId: string;
+  runId: string;
+  stageId: string;
+  stageName: string;
+  event: UiStageEvent;
+  artifactId: string | null;
+  parentArtifactId: string | null;
+  inputSummary?: unknown;
+  outputSummary?: unknown;
+  durationMs?: number | null;
+  errorSummary?: {
+    code?: string | null;
+    message?: string | null;
+    stageName?: string | null;
+    retryable?: boolean | null;
+    debugSnapshotUri?: string | null;
+  } | null;
+  debugPayload?: unknown;
 };

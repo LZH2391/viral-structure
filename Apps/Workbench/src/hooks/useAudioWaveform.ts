@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef } from "react";
+import { beginUiStage, emitUiStage } from "../observability/uiStage";
 import { buildVisualEnvelope } from "../utils/audioEnvelope";
 import { clamp, createStaticWaveform, drawCanvas } from "../utils/waveformDraw";
 
+type WaveformError = {
+  code: "audio_context_unavailable" | "audio_decode_failed" | "audio_worker_failed" | "audio_empty_peaks";
+  message: string;
+  retryable: boolean;
+};
+
 type WaveformWorkerResponse = {
   id: number;
+  ok: boolean;
   peaks: number[];
-  error?: string;
+  error?: WaveformError;
 };
 
 type WaveformOptions = {
@@ -15,6 +23,12 @@ type WaveformOptions = {
   url: string | null;
   active: boolean;
   animate?: boolean;
+  trace?: {
+    uiTraceId: string;
+    backendTraceId?: string | null;
+    artifactId?: string | null;
+    parentArtifactId?: string | null;
+  };
 };
 
 const peaksCache = new Map<string, number[]>();
@@ -22,7 +36,7 @@ const WAVEFORM_CACHE_VERSION = "visual-envelope-v6";
 const WAVEFORM_PEAK_COUNT = 900;
 const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.16 + Math.abs(Math.sin(index / 5) * Math.cos(index / 13)) * 0.5);
 
-export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true }: WaveformOptions) {
+export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true, trace }: WaveformOptions) {
   const peaksRef = useRef<number[]>([]);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
@@ -66,15 +80,76 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     }
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    const commitPeaks = (peaks: number[]) => {
+    const decodeStage = trace?.uiTraceId
+      ? beginUiStage({
+          uiTraceId: trace.uiTraceId,
+          backendTraceId: trace.backendTraceId ?? null,
+          stageName: "audio.waveform.decode",
+          parentArtifactId: trace.parentArtifactId ?? null,
+          inputSummary: {
+            artifactId: trace.artifactId ?? null,
+            requestedPeaks: WAVEFORM_PEAK_COUNT,
+            source: "audio-track",
+          },
+        })
+      : null;
+    if (decodeStage) emitUiStage(decodeStage, "stage.start", { artifactId: trace?.artifactId ?? decodeStage.artifactId });
+    const commitPeaks = (peaks: number[], outputSummary: unknown = null) => {
       if (cancelled || requestIdRef.current !== requestId) return;
       peaksRef.current = peaks.length ? peaks : PLACEHOLDER_PEAKS;
       if (cacheKey && peaks.length) peaksCache.set(cacheKey, peaks);
       rebuildStaticCaches();
       render(0);
+      if (!decodeStage) return;
+      if (peaks.length) {
+        emitUiStage(decodeStage, "stage.end", {
+          artifactId: trace?.artifactId ?? decodeStage.artifactId,
+          outputSummary: outputSummary ?? { peakCount: peaks.length },
+        });
+      } else {
+        emitUiStage(decodeStage, "stage.fail", {
+          artifactId: trace?.artifactId ?? decodeStage.artifactId,
+          errorSummary: {
+            code: "audio_empty_peaks",
+            message: "音频波形解码没有生成可用峰值",
+            stageName: "audio.waveform.decode",
+            retryable: true,
+          },
+          debugPayload: {
+            fallbackReason: (outputSummary as { fallbackReason?: string } | null)?.fallbackReason ?? null,
+            peakCount: 0,
+          },
+        });
+      }
     };
-    const decodeInMainThread = () => {
-      void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT).then(commitPeaks, () => commitPeaks([]));
+    const commitPlaceholder = () => {
+      if (cancelled || requestIdRef.current !== requestId) return;
+      peaksRef.current = PLACEHOLDER_PEAKS;
+      rebuildStaticCaches();
+      render(0);
+    };
+    const failDecode = (error: WaveformError, debugPayload: unknown) => {
+      if (cancelled || requestIdRef.current !== requestId || !decodeStage) return;
+      emitUiStage(decodeStage, "stage.fail", {
+        artifactId: trace?.artifactId ?? decodeStage.artifactId,
+        errorSummary: {
+          code: error.code,
+          message: error.message,
+          stageName: "audio.waveform.decode",
+          retryable: error.retryable,
+        },
+        debugPayload,
+      });
+    };
+    const decodeInMainThread = (fallbackReason: string, workerError: WaveformError | null = null) => {
+      void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT).then((result) => {
+        if (result.ok) {
+          commitPeaks(result.peaks, { decoder: "main-thread", peakCount: result.peaks.length, fallbackReason });
+          return;
+        }
+        failDecode(result.error, { fallbackReason, workerError, mainThreadError: result.error });
+        commitPlaceholder();
+      });
     };
     peaksRef.current = PLACEHOLDER_PEAKS;
     rebuildStaticCaches();
@@ -84,17 +159,17 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WaveformWorkerResponse>) => {
       if (event.data.id !== requestId) return;
-      if (event.data.peaks.length) commitPeaks(event.data.peaks);
-      else decodeInMainThread();
+      if (event.data.ok && event.data.peaks.length) commitPeaks(event.data.peaks, { decoder: "worker", peakCount: event.data.peaks.length });
+      else decodeInMainThread(event.data.error?.code ?? "audio_worker_failed", event.data.error ?? null);
     };
-    worker.onerror = decodeInMainThread;
+    worker.onerror = () => decodeInMainThread("audio_worker_failed", { code: "audio_worker_failed", message: "音频波形 Worker 执行失败", retryable: true });
     worker.postMessage({ id: requestId, url, count: WAVEFORM_PEAK_COUNT });
     return () => {
       cancelled = true;
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-  }, [url, rebuildStaticCaches, render]);
+  }, [url, rebuildStaticCaches, render, trace?.artifactId, trace?.backendTraceId, trace?.parentArtifactId, trace?.uiTraceId]);
 
   useEffect(() => {
     if (!audio) return undefined;
@@ -178,16 +253,20 @@ function buildStaticCanvas(canvas: HTMLCanvasElement | null, peaks: number[], ra
   return createStaticWaveform(width, height, peaks);
 }
 
-async function decodePeaksInMainThread(url: string, count: number): Promise<number[]> {
+type DecodeResult = { ok: true; peaks: number[] } | { ok: false; error: WaveformError };
+
+async function decodePeaksInMainThread(url: string, count: number): Promise<DecodeResult> {
   const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextClass) return [];
+  if (!AudioContextClass) return { ok: false, error: { code: "audio_context_unavailable", message: "当前环境不支持音频解码", retryable: false } };
   let context: AudioContext | null = null;
   try {
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
     context = new AudioContextClass();
     const audioBuffer = await context.decodeAudioData(buffer);
-    return buildVisualEnvelope(audioBuffer, count);
+    return { ok: true, peaks: buildVisualEnvelope(audioBuffer, count) };
+  } catch {
+    return { ok: false, error: { code: "audio_decode_failed", message: "音频解码失败", retryable: true } };
   } finally {
     await context?.close?.();
   }

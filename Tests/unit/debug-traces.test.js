@@ -17,18 +17,31 @@ test("reads trace jsonl files for the debug page", async () => {
     ].join("\n"),
     "utf8",
   );
+  await fs.writeFile(
+    path.join(dir, "uiTrace_frontend.log.jsonl"),
+    [
+      JSON.stringify({ event: "stage.start", stageName: "audio.waveform.decode", createdAt: "2026-05-20T00:01:00.000Z" }),
+      JSON.stringify({ event: "stage.end", stageName: "audio.waveform.decode", outputSummary: { peakCount: 10 } }),
+    ].join("\n"),
+    "utf8",
+  );
 
   const result = await readDebugTraces(root);
-  assert.equal(result.traces.length, 1);
-  assert.equal(result.traces[0].traceId, "trace_abc");
-  assert.equal(result.traces[0].latestEvent, "stage.fail");
-  assert.equal(result.traces[0].latestStageName, "sample.metadata.probed");
-  assert.equal(result.traces[0].errorSummary.code, "metadata_probe_failed");
+  assert.equal(result.traces.length, 2);
+  const backend = result.traces.find((trace) => trace.traceId === "trace_abc");
+  const frontend = result.traces.find((trace) => trace.traceId === "uiTrace_frontend");
+  assert.equal(backend.latestEvent, "stage.fail");
+  assert.equal(backend.latestStageName, "sample.metadata.probed");
+  assert.equal(backend.errorSummary.code, "metadata_probe_failed");
+  assert.equal(frontend.latestEvent, "stage.end");
+  assert.equal(frontend.latestStageName, "audio.waveform.decode");
   assert.equal(result.traces[0].events, undefined);
 
   const detail = await readDebugTraceDetail(root, "trace_abc");
   assert.equal(detail.events.length, 2);
   assert.equal(detail.events[1].event, "stage.fail");
+  const uiDetail = await readDebugTraceDetail(root, "uiTrace_frontend");
+  assert.equal(uiDetail.events[1].event, "stage.end");
 });
 
 test("debug page crops long summaries with expandable full payload", () => {

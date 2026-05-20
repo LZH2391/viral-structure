@@ -15,6 +15,8 @@ type TimelinePanelProps = {
   timelineVisibleSeconds: number;
   videoRef: RefObject<HTMLVideoElement>;
   miniCanvasRef: RefObject<HTMLCanvasElement>;
+  uiTraceId: string;
+  backendTraceId?: string | null;
   onSelectVideo: () => void;
   onSelectAudio: () => void;
   onSelectFrame: (frameId: string) => void;
@@ -32,6 +34,8 @@ export function TimelinePanel(props: TimelinePanelProps) {
     timelineVisibleSeconds,
     videoRef,
     miniCanvasRef,
+    uiTraceId,
+    backendTraceId,
     onSelectVideo,
     onSelectAudio,
     onSelectFrame,
@@ -59,6 +63,12 @@ export function TimelinePanel(props: TimelinePanelProps) {
     url: audioUrl,
     active: false,
     animate: false,
+    trace: {
+      uiTraceId,
+      backendTraceId: backendTraceId ?? null,
+      artifactId: audio?.artifactId ?? null,
+      parentArtifactId: audio?.parentArtifactId ?? sampleVideo?.artifactId ?? null,
+    },
   });
 
   return (

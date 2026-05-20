@@ -120,6 +120,7 @@ function compactStageLog(line) {
   return dropNulls({
     v: 2,
     e: EVENT_CODES[line.event] ?? line.event,
+    run: line.runId,
     sid: line.stageId,
     sn: STAGE_CODES[line.stageName] ?? line.stageName,
     a: line.artifactId,
@@ -146,7 +147,7 @@ function expandStageLogLine(entry, context = {}) {
   if (entry?.v === 2) {
     return {
       event: EVENT_NAMES[entry.e] ?? entry.e ?? null,
-      runId: context.runId ?? null,
+      runId: entry.run ?? context.runId ?? null,
       traceId: context.traceId ?? null,
       stageId: entry.sid ?? null,
       stageName: STAGE_NAMES[entry.sn] ?? entry.sn ?? null,
@@ -186,17 +187,19 @@ function compactErrorSummary(errorSummary) {
     c: errorSummary.code,
     m: errorSummary.message,
     st: errorSummary.stageName,
+    r: errorSummary.retryable,
     u: errorSummary.debugSnapshotUri,
   });
 }
 
 function expandErrorSummary(errorSummary) {
   if (!errorSummary) return null;
-  if (!("c" in errorSummary || "m" in errorSummary || "st" in errorSummary || "u" in errorSummary)) return errorSummary;
+  if (!("c" in errorSummary || "m" in errorSummary || "st" in errorSummary || "r" in errorSummary || "u" in errorSummary)) return errorSummary;
   return {
     code: errorSummary.c ?? null,
     message: errorSummary.m ?? null,
     stageName: errorSummary.st ?? null,
+    retryable: errorSummary.r ?? null,
     debugSnapshotUri: errorSummary.u ?? null,
   };
 }
