@@ -84,8 +84,17 @@
             <div class="timeline-label-column" aria-hidden="true">
               <div class="timeline-label ruler-label">时间</div>
               <div class="timeline-label">视频轨</div>
-              <div class="timeline-label">帧轨</div>
+              <label class="timeline-label frame-track-toggle">
+                <input id="frameTrackVisibleInput" type="checkbox" checked />
+                <span>帧轨</span>
+              </label>
               <div class="timeline-label">音频轨</div>
+            </div>
+            <div class="timeline-controls" aria-label="时间线缩放">
+              <label>
+                <span>显示秒数</span>
+                <input id="timelineVisibleSecondsInput" type="number" min="1" max="30" step="1" value="10" />
+              </label>
             </div>
             <div id="timelineScroll" class="timeline-scroll">
               <div id="timelineContent" class="timeline-content">
@@ -106,6 +115,7 @@
     <script src="./scripts/api-client.js"></script>
     <script src="./scripts/sample-ingest.js"></script>
     <script src="./scripts/media-viewport-fitter.js"></script>
+    <script src="./scripts/audio-waveform-draw.js"></script>
     <script src="./scripts/audio-waveform.js"></script>
     <script src="./scripts/structure-strategy.js"></script>
     <script src="./scripts/transfer-strategy.js"></script>

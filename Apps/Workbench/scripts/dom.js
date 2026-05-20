@@ -34,6 +34,8 @@
       profileDuration: document.querySelector("#profileDuration"),
       profileTone: document.querySelector("#profileTone"),
       logList: document.querySelector("#logList"),
+      frameTrackVisibleInput: document.querySelector("#frameTrackVisibleInput"),
+      timelineVisibleSecondsInput: document.querySelector("#timelineVisibleSecondsInput"),
       timelineContent: document.querySelector("#timelineContent"),
       timelineRuler: document.querySelector("#timelineRuler"),
       videoTrack: document.querySelector("#videoTrack"),

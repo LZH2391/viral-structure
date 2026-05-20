@@ -111,6 +111,16 @@
         state.selectedFrameId = null;
         renderer.renderMediaSelection();
       },
+      setFrameTrackVisible(visible) {
+        state.timelineFrameVisible = Boolean(visible);
+        renderer.renderTimeline();
+      },
+      setTimelineVisibleSeconds(value) {
+        const next = window.WorkbenchTimelineMetrics.clampVisibleSeconds(value);
+        state.timelineVisibleSeconds = next;
+        els.timelineVisibleSecondsInput.value = String(next);
+        renderer.renderTimeline();
+      },
       selectSegment(segmentId) {
         const card = state.structureCards.find((item) => item.id === segmentId);
         if (!card) return;

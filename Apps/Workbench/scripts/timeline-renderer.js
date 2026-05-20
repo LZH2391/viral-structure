@@ -5,19 +5,28 @@
 
   function createTimelineRenderer(els, actions, audioWaveform) {
     let cacheKey = null;
+    let rafId = 0;
 
     function render() {
       const frames = state.sampleVideo?.frameArtifacts ?? [];
       const audio = findAudioDerivative();
-      const metrics = createTimelineMetrics(state.sampleVideo);
+      const metrics = createTimelineMetrics(state.sampleVideo, {
+        visibleSeconds: state.timelineVisibleSeconds,
+        viewportWidth: els.timelineScroll.getBoundingClientRect?.().width,
+      });
       const nextKey = timelineKey(frames, audio, metrics);
       if (nextKey === cacheKey) return renderActiveState();
       cacheKey = nextKey;
+      els.frameTrackVisibleInput.checked = state.timelineFrameVisible;
+      els.timelineVisibleSecondsInput.value = String(metrics.visibleSeconds);
+      document.querySelector(".timeline-panel")?.classList.toggle("frames-hidden", !state.timelineFrameVisible);
       els.timelineContent.style.width = `${metrics.contentWidth}px`;
       els.timelineRuler.innerHTML = metrics.ticks.map((tick) => templates.rulerTick(tick.time, tick.left)).join("");
       els.videoTrack.innerHTML = templates.videoClip(state.sampleVideo, metrics.contentWidth);
       els.videoTrack.querySelector("button")?.addEventListener("click", actions.selectVideoTrack);
-      els.frameTrack.innerHTML = visibleFrames(frames).map((frame) => templates.frameCell(frame, frameLeft(frame.time, metrics))).join("");
+      els.frameTrack.innerHTML = state.timelineFrameVisible
+        ? visibleFrames(frames).map((frame) => templates.frameCell(frame, frameLeft(frame.time, metrics))).join("")
+        : "";
       els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
         button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
       });
@@ -25,6 +34,7 @@
       els.audioTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
       syncAudioWaveform(audio);
       renderActiveState();
+      renderPlayhead();
     }
 
     function renderActiveState() {
@@ -39,6 +49,26 @@
       return els.audioTrack.querySelector("[data-audio-wave-mini]");
     }
 
+    function renderPlayhead() {
+      audioWaveform?.renderWithProgress(videoProgressRatio());
+    }
+
+    function startPlayback() {
+      if (rafId) return;
+      const tick = () => {
+        renderPlayhead();
+        rafId = els.sampleVideo.paused ? 0 : requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function stopPlayback() {
+      if (!rafId) return;
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+      renderPlayhead();
+    }
+
     function findAudioDerivative() {
       return state.mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
     }
@@ -48,15 +78,30 @@
         url: window.WorkbenchApiClient.runtimeUrl(audio?.uri),
         active: false,
         miniCanvas: miniWaveformCanvas(),
+        externalProgress: videoProgressRatio(),
       });
+    }
+
+    function videoProgressRatio() {
+      const duration = Number.isFinite(els.sampleVideo.duration) ? els.sampleVideo.duration : state.sampleVideo?.duration ?? 0;
+      return duration ? Math.max(0, Math.min(1, (els.sampleVideo.currentTime || 0) / duration)) : 0;
     }
 
     function timelineKey(frames, audio, metrics) {
       const frameKey = frames.map((frame) => `${frame.id}:${frame.time}:${frame.imageUri}`).join("|");
-      return [state.sampleVideo?.artifactId ?? "empty", state.sampleVideo?.duration ?? 0, metrics.contentWidth, frameKey, audio?.artifactId ?? "no-audio", audio?.uri ?? ""].join("::");
+      return [
+        state.sampleVideo?.artifactId ?? "empty",
+        state.sampleVideo?.duration ?? 0,
+        metrics.contentWidth,
+        metrics.visibleSeconds,
+        state.timelineFrameVisible,
+        frameKey,
+        audio?.artifactId ?? "no-audio",
+        audio?.uri ?? "",
+      ].join("::");
     }
 
-    return { render, renderActiveState, miniWaveformCanvas };
+    return { render, renderActiveState, renderPlayhead, startPlayback, stopPlayback, miniWaveformCanvas };
   }
 
   window.WorkbenchTimelineRenderer = { createTimelineRenderer };

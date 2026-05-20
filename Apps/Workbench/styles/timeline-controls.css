@@ -1,0 +1,46 @@
+.frame-track-toggle {
+  gap: 6px;
+  cursor: pointer;
+}
+
+.frame-track-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-2);
+}
+
+.timeline-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 8px 0;
+  border-right: 1px solid var(--line);
+  background: #151a20;
+}
+
+.timeline-controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.timeline-controls input {
+  width: 72px;
+  height: 26px;
+  border: 1px solid #3a4654;
+  border-radius: 5px;
+  background: #10151b;
+  color: var(--text);
+  padding: 0 6px;
+}
+
+.timeline-panel.frames-hidden .timeline-label-column,
+.timeline-panel.frames-hidden .timeline-content {
+  grid-template-rows: 28px 38px 0 44px;
+}
+
+.timeline-panel.frames-hidden .frame-track-toggle,
+.timeline-panel.frames-hidden .frame-track {
+  overflow: hidden;
+}

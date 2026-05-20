@@ -12,7 +12,15 @@
     els.sampleVideoInput?.addEventListener("change", actions.handleSampleUpload);
     els.rerunStageBtn?.addEventListener("click", actions.handleRerunStage);
     els.snapshotBtn?.addEventListener("click", actions.captureManualSnapshot);
-    els.sampleVideo?.addEventListener("timeupdate", () => renderer.renderProperties());
+    els.frameTrackVisibleInput?.addEventListener("change", () => actions.setFrameTrackVisible(els.frameTrackVisibleInput.checked));
+    els.timelineVisibleSecondsInput?.addEventListener("input", () => actions.setTimelineVisibleSeconds(els.timelineVisibleSecondsInput.value));
+    els.sampleVideo?.addEventListener("timeupdate", () => {
+      renderer.renderProperties();
+      renderer.renderTimelinePlayhead();
+    });
+    els.sampleVideo?.addEventListener("play", renderer.startTimelinePlayback);
+    els.sampleVideo?.addEventListener("pause", renderer.stopTimelinePlayback);
+    els.sampleVideo?.addEventListener("ended", renderer.stopTimelinePlayback);
     window.addEventListener("resize", renderer.renderPreview);
   }
 

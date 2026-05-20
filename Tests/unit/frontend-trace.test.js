@@ -61,6 +61,7 @@ test("bottom timeline renders three aligned tracks from one width", () => {
   const metrics = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-metrics.js"), "utf8");
   const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
   const timelineCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/timeline.css"), "utf8");
+  const timelineControlsCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/timeline-controls.css"), "utf8");
   const layoutCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/layout.css"), "utf8");
   const responsiveCss = fs.readFileSync(path.join(root, "Apps/Workbench/styles/responsive.css"), "utf8");
 
@@ -68,17 +69,18 @@ test("bottom timeline renders three aligned tracks from one width", () => {
   assert.match(index, /id="timelineRuler"[\s\S]+id="videoTrack"[\s\S]+id="frameTrack"[\s\S]+id="audioTrack"/);
   assert.match(index, /scripts\/timeline-metrics\.js/);
   assert.match(index, /scripts\/timeline-renderer\.js/);
-  assert.match(timelineRenderer, /const metrics = createTimelineMetrics\(state\.sampleVideo\)/);
+  assert.match(timelineRenderer, /const metrics = createTimelineMetrics\(state\.sampleVideo, \{/);
   assert.match(timelineRenderer, /els\.timelineContent\.style\.width = `\$\{metrics\.contentWidth\}px`/);
   assert.match(timelineRenderer, /if \(nextKey === cacheKey\) return renderActiveState\(\)/);
   assert.match(timelineRenderer, /visibleFrames\(frames\)/);
-  assert.match(metrics, /Math\.ceil\(duration \* PIXELS_PER_SECOND\)/);
+  assert.match(metrics, /pixelsPerSecond = viewportWidth \/ visibleSeconds/);
   assert.match(metrics, /function frameLeft\(time, metrics\)/);
   assert.match(templates, /style="width: \$\{width\}px"/);
   assert.match(templates, /style="left: \$\{left\}px"/);
-  assert.match(timelineCss, /\.timeline-shell[\s\S]+grid-template-columns: 92px minmax\(0, 1fr\)/);
+  assert.match(timelineCss, /\.timeline-shell[\s\S]+grid-template-columns: 92px 112px minmax\(0, 1fr\)/);
   assert.match(timelineCss, /\.timeline-scroll[\s\S]+overflow-x: auto/);
   assert.match(timelineCss, /\.timeline-content[\s\S]+grid-template-rows: 28px 38px 58px 44px/);
+  assert.match(timelineControlsCss, /\.timeline-controls/);
   assert.match(timelineCss, /\.audio-mini-waveform[\s\S]+width: 100%/);
   assert.match(layoutCss, /grid-template-rows: minmax\(0, 1fr\) clamp\(168px/);
   assert.match(responsiveCss, /grid-template-rows: auto minmax\(360px, 62vh\) auto 176px/);
@@ -131,20 +133,56 @@ test("timeline selection avoids full page rerender and audio track stays lightwe
   assert.match(metrics, /shouldAppendEndTick/);
 });
 
+test("timeline can hide frame track, zoom visible seconds, and sync audio waveform to video", () => {
+  const root = path.resolve(__dirname, "../..");
+  const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
+  const dom = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/dom.js"), "utf8");
+  const state = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/state.js"), "utf8");
+  const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
+  const events = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/events.js"), "utf8");
+  const renderer = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-renderer.js"), "utf8");
+  const metrics = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/timeline-metrics.js"), "utf8");
+  const waveform = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/audio-waveform.js"), "utf8");
+
+  assert.match(index, /id="frameTrackVisibleInput" type="checkbox" checked/);
+  assert.match(index, /id="timelineVisibleSecondsInput" type="number" min="1" max="30" step="1" value="10"/);
+  assert.match(dom, /frameTrackVisibleInput: document\.querySelector/);
+  assert.match(dom, /timelineVisibleSecondsInput: document\.querySelector/);
+  assert.match(state, /timelineFrameVisible: true/);
+  assert.match(state, /timelineVisibleSeconds: 10/);
+  assert.match(workflow, /setFrameTrackVisible\(visible\)[\s\S]+state\.timelineFrameVisible = Boolean\(visible\)/);
+  assert.match(workflow, /setTimelineVisibleSeconds\(value\)[\s\S]+clampVisibleSeconds\(value\)/);
+  assert.match(events, /frameTrackVisibleInput\?\.addEventListener\("change"/);
+  assert.match(events, /timelineVisibleSecondsInput\?\.addEventListener\("input"/);
+  assert.match(renderer, /classList\.toggle\("frames-hidden", !state\.timelineFrameVisible\)/);
+  assert.match(renderer, /state\.timelineFrameVisible[\s\S]+\? visibleFrames\(frames\)/);
+  assert.match(renderer, /externalProgress: videoProgressRatio\(\)/);
+  assert.match(renderer, /renderWithProgress\(videoProgressRatio\(\)\)/);
+  assert.match(renderer, /requestAnimationFrame\(tick\)/);
+  assert.match(metrics, /function clampVisibleSeconds\(value\)/);
+  assert.match(metrics, /Math\.max\(1, Math\.min\(30, next\)\)/);
+  assert.match(waveform, /externalProgress = null/);
+  assert.match(waveform, /function renderWithProgress\(progress\)/);
+});
+
 test("audio waveform player is isolated and keeps empty audio safe", () => {
   const root = path.resolve(__dirname, "../..");
   const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
   const dom = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/dom.js"), "utf8");
   const waveform = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/audio-waveform.js"), "utf8");
+  const waveformDraw = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/audio-waveform-draw.js"), "utf8");
   const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
   const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
 
   assert.match(index, /id="audioWaveformCanvas"/);
+  assert.match(index, /scripts\/audio-waveform-draw\.js/);
   assert.match(index, /id="audioWaveformPlayBtn"/);
   assert.match(dom, /audioWaveformCanvas: document\.querySelector/);
   assert.match(waveform, /decodeAudioData/);
   assert.match(waveform, /requestAnimationFrame/);
   assert.match(waveform, /seekFromPointer/);
+  assert.match(waveformDraw, /function buildPeaks\(audioBuffer, count\)/);
+  assert.match(waveformDraw, /function drawCanvas\(canvas, input\)/);
   assert.match(render, /if \(!url\) return renderEmpty/);
   assert.match(templates, /data-audio-wave-mini/);
   assert.match(templates, /<canvas class="audio-mini-waveform"/);

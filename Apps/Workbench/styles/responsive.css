@@ -38,7 +38,7 @@
   }
 
   .timeline-shell {
-    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-columns: 76px 92px minmax(0, 1fr);
   }
 
   .timeline-label {

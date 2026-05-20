@@ -6,7 +6,7 @@
 
 .timeline-shell {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 92px 112px minmax(0, 1fr);
   height: 100%;
   min-width: 0;
 }
@@ -124,7 +124,6 @@
 }
 
 .frame-cell {
-  position: relative;
   position: absolute;
   top: 6px;
   width: 76px;

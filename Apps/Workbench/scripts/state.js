@@ -17,6 +17,8 @@
     activeStageId: null,
     activePreviewMode: "sample",
     activeMediaKind: "video",
+    timelineFrameVisible: true,
+    timelineVisibleSeconds: 10,
     selectedDerivativeId: null,
     selectedFrameId: null,
     sampleVideo: null,

@@ -1,19 +1,22 @@
 (function () {
-  const PIXELS_PER_SECOND = 90;
   const MIN_TIMELINE_WIDTH = 720;
+  const DEFAULT_VIEWPORT_WIDTH = 900;
   const FRAME_CELL_WIDTH = 76;
   const MAX_RENDERED_FRAMES = 80;
 
-  function createTimelineMetrics(video) {
+  function createTimelineMetrics(video, options = {}) {
     const duration = Math.max(1, video?.duration ?? 0);
-    const contentWidth = Math.max(MIN_TIMELINE_WIDTH, Math.ceil(duration * PIXELS_PER_SECOND));
+    const visibleSeconds = clampVisibleSeconds(options.visibleSeconds);
+    const viewportWidth = Math.max(MIN_TIMELINE_WIDTH, options.viewportWidth || DEFAULT_VIEWPORT_WIDTH);
+    const pixelsPerSecond = viewportWidth / visibleSeconds;
+    const contentWidth = Math.max(MIN_TIMELINE_WIDTH, Math.ceil(duration * pixelsPerSecond));
     const tickStep = chooseTickStep(duration);
     const ticks = [];
     for (let time = 0; time <= duration; time += tickStep) {
       ticks.push({ time, left: timelineLeft(time, { duration, contentWidth }) });
     }
     if (shouldAppendEndTick(ticks, duration)) ticks.push({ time: duration, left: contentWidth });
-    return { duration, contentWidth, ticks };
+    return { duration, contentWidth, pixelsPerSecond, visibleSeconds, ticks };
   }
 
   function visibleFrames(frames) {
@@ -38,10 +41,16 @@
     return 30;
   }
 
+  function clampVisibleSeconds(value) {
+    const next = Number(value);
+    if (!Number.isFinite(next)) return 10;
+    return Math.max(1, Math.min(30, next));
+  }
+
   function shouldAppendEndTick(ticks, duration) {
     const last = ticks.at(-1);
     return !last || Math.floor(last.time) !== Math.floor(duration);
   }
 
-  window.WorkbenchTimelineMetrics = { createTimelineMetrics, frameLeft, visibleFrames };
+  window.WorkbenchTimelineMetrics = { createTimelineMetrics, frameLeft, visibleFrames, clampVisibleSeconds };
 })();

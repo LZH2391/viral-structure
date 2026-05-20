@@ -1,5 +1,6 @@
 (function () {
   const { formatTime } = window.WorkbenchState;
+  const { buildPeaks, drawCanvas } = window.WorkbenchAudioWaveformDraw;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
   function createAudioWaveform(els) {
@@ -11,12 +12,14 @@
       hoverRatio: null,
       decodeToken: 0,
       boundMiniCanvas: null,
+      externalProgress: null,
     };
 
     bindControls();
 
-    function update({ url, active, miniCanvas }) {
+    function update({ url, active, miniCanvas, externalProgress = null }) {
       state.active = Boolean(active && url);
+      state.externalProgress = externalProgress;
       bindCanvas(els.audioWaveformCanvas);
       bindMiniCanvas(miniCanvas);
       els.audioWaveformPanel.classList.toggle("active", state.active);
@@ -36,6 +39,11 @@
       if (state.active && !els.audioPreview.paused) startLoop();
       if (!state.active) stopLoop();
       render();
+    }
+
+    function renderWithProgress(progress) {
+      state.externalProgress = clamp(progress);
+      drawWaveform(state.boundMiniCanvas, state.externalProgress);
     }
 
     function stop() {
@@ -63,25 +71,6 @@
         if (state.decodeToken === token) state.peaks = [];
         render();
       }
-    }
-
-    function buildPeaks(audioBuffer, count) {
-      const peaks = [];
-      const channelCount = audioBuffer.numberOfChannels || 1;
-      const step = Math.max(1, Math.floor(audioBuffer.length / count));
-      for (let index = 0; index < count; index += 1) {
-        let peak = 0;
-        const start = index * step;
-        const end = Math.min(start + step, audioBuffer.length);
-        for (let channel = 0; channel < channelCount; channel += 1) {
-          const data = audioBuffer.getChannelData(channel);
-          for (let sample = start; sample < end; sample += 1) {
-            peak = Math.max(peak, Math.abs(data[sample] || 0));
-          }
-        }
-        peaks.push(Math.max(0.04, Math.min(1, peak)));
-      }
-      return peaks;
     }
 
     function bindControls() {
@@ -152,48 +141,12 @@
     function render() {
       els.audioWaveformPlayBtn.classList.toggle("playing", !els.audioPreview.paused);
       els.audioWaveformTime.textContent = `${formatTime(els.audioPreview.currentTime)} / ${formatTime(safeDuration())}`;
-      drawCanvas(els.audioWaveformCanvas);
-      drawCanvas(state.boundMiniCanvas);
+      drawWaveform(els.audioWaveformCanvas, progressRatio());
+      drawWaveform(state.boundMiniCanvas, state.externalProgress ?? progressRatio());
     }
 
-    function drawCanvas(canvas) {
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const width = Math.max(1, Math.round(rect.width || canvas.width));
-      const height = Math.max(1, Math.round(rect.height || canvas.height));
-      const ratio = window.devicePixelRatio || 1;
-      if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
-        canvas.width = width * ratio;
-        canvas.height = height * ratio;
-      }
-      const context = canvas.getContext("2d");
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      context.clearRect(0, 0, width, height);
-      context.fillStyle = "#0b1118";
-      context.fillRect(0, 0, width, height);
-      drawBars(context, width, height);
-      drawCursor(context, width, height);
-    }
-
-    function drawBars(context, width, height) {
-      const center = height / 2;
-      const progressX = width * progressRatio();
-      for (let x = 0; x < width; x += 2) {
-        const peak = state.peaks[Math.floor((x / width) * state.peaks.length)] || 0.16;
-        const barHeight = Math.max(2, peak * height * 0.82);
-        context.fillStyle = x <= progressX ? "#42d8ff" : "#385166";
-        context.fillRect(x, center - barHeight / 2, 1.4, barHeight);
-      }
-    }
-
-    function drawCursor(context, width, height) {
-      const playhead = width * progressRatio();
-      context.fillStyle = "#f8fbff";
-      context.fillRect(playhead, 0, 2, height);
-      if (state.hoverRatio !== null) {
-        context.fillStyle = "rgba(255, 255, 255, 0.32)";
-        context.fillRect(width * state.hoverRatio, 0, 1, height);
-      }
+    function drawWaveform(canvas, progress) {
+      drawCanvas(canvas, { peaks: state.peaks, progress, hoverRatio: state.hoverRatio });
     }
 
     function progressRatio() {
@@ -208,7 +161,7 @@
       return Math.max(0, Math.min(1, value || 0));
     }
 
-    return { update, stop, render, seekFromPointer };
+    return { update, stop, render, renderWithProgress, seekFromPointer };
   }
 
   window.WorkbenchAudioWaveform = { createAudioWaveform };

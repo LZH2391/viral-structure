@@ -40,8 +40,10 @@
       renderActiveMedia();
     }
 
-    function renderTimeline() {
-      timeline.render();
+    function renderTimeline() { timeline.render(); }
+
+    function renderTimelinePlayhead() {
+      timeline.renderPlayhead();
     }
 
     function renderMediaSelection() {
@@ -190,7 +192,7 @@
       return item?.type === "original-video" || item?.type === "normalized-video";
     }
 
-    return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs, renderMediaSelection, renderProcessingState };
+    return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs, renderMediaSelection, renderProcessingState, renderTimeline, renderTimelinePlayhead, startTimelinePlayback: timeline.startPlayback, stopTimelinePlayback: timeline.stopPlayback };
   }
 
   window.WorkbenchRender = { createRenderer };
