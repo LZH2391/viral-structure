@@ -1,6 +1,7 @@
 (function () {
   const { state, formatTime } = window.WorkbenchState;
   const templates = window.WorkbenchRenderTemplates;
+  const { fitMediaViewport } = window.WorkbenchMediaViewportFitter;
 
   function createRenderer(els, actions, audioWaveform) {
     function updateRunStatus(level, fields) {
@@ -37,8 +38,10 @@
           : "未加载样例";
       if (!hasMedia) {
         els.emptyPreview.style.display = "grid";
+        applyMediaViewport();
         return;
       }
+      applyMediaViewport();
       renderActiveMedia();
     }
 
@@ -129,6 +132,38 @@
     function mediaLabel() {
       const labels = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频" };
       return labels[state.activeMediaKind] ?? "媒体";
+    }
+
+    function applyMediaViewport() {
+      const leftPanel = document.querySelector(".resource-panel");
+      const rightPanel = document.querySelector(".property-panel");
+      const timeline = document.querySelector(".timeline-panel");
+      const previewRect = els.previewPanel?.getBoundingClientRect?.() ?? els.previewStage.getBoundingClientRect();
+      const stageRect = els.previewStage.getBoundingClientRect();
+      const leftRect = leftPanel?.getBoundingClientRect?.() ?? { width: 0 };
+      const rightRect = rightPanel?.getBoundingClientRect?.() ?? { width: 0 };
+      const timelineHeight = timeline?.getBoundingClientRect?.().height ?? 0;
+      const fit = fitMediaViewport({
+        viewportWidth: stageRect.width + sidePanelWidth(leftRect, previewRect) + sidePanelWidth(rightRect, previewRect),
+        viewportHeight: stageRect.height + timelineHeight,
+        leftPanelWidth: overlapsVertically(leftRect, previewRect) ? leftRect.width : 0,
+        rightPanelWidth: overlapsVertically(rightRect, previewRect) ? rightRect.width : 0,
+        timelineHeight,
+        mediaWidth: state.sampleVideo?.width ?? 16,
+        mediaHeight: state.sampleVideo?.height ?? 9,
+      });
+      els.previewStage.style.setProperty("--media-content-width", `${fit.contentWidth}px`);
+      els.previewStage.style.setProperty("--media-content-height", `${fit.contentHeight}px`);
+      els.previewStage.dataset.letterboxInsets = JSON.stringify(fit.letterboxInsets);
+    }
+
+    function overlapsVertically(first, second) {
+      if (!Number.isFinite(first.top) || !Number.isFinite(second.top)) return false;
+      return first.bottom > second.top && first.top < second.bottom;
+    }
+
+    function sidePanelWidth(panelRect, previewRect) {
+      return overlapsVertically(panelRect, previewRect) ? panelRect.width : 0;
     }
 
     function findSelectedDerivative() {

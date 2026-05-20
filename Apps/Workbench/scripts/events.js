@@ -13,6 +13,7 @@
     els.rerunStageBtn?.addEventListener("click", actions.handleRerunStage);
     els.snapshotBtn?.addEventListener("click", actions.captureManualSnapshot);
     els.sampleVideo?.addEventListener("timeupdate", () => renderer.renderProperties());
+    window.addEventListener("resize", renderer.renderPreview);
   }
 
   window.WorkbenchEvents = { bindEvents };

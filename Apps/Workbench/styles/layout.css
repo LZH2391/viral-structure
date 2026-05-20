@@ -2,7 +2,7 @@
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr);
   height: 100vh;
-  min-width: 960px;
+  min-width: 0;
 }
 
 .topbar {
@@ -56,8 +56,8 @@
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: 280px minmax(420px, 1fr) 340px;
-  grid-template-rows: minmax(0, 1fr) 190px;
+  grid-template-columns: clamp(220px, 19vw, 280px) minmax(0, 1fr) clamp(220px, 23vw, 320px);
+  grid-template-rows: minmax(0, 1fr) clamp(132px, 18vh, 170px);
   min-height: 0;
 }
 

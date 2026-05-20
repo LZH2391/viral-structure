@@ -1,0 +1,46 @@
+[
+  {
+    "name": "9:16 portrait",
+    "viewportWidth": 1440,
+    "viewportHeight": 844,
+    "leftPanelWidth": 240,
+    "rightPanelWidth": 240,
+    "timelineHeight": 132,
+    "mediaWidth": 1080,
+    "mediaHeight": 1920,
+    "expected": { "stageWidth": 960, "stageHeight": 712, "contentWidth": 400.5, "contentHeight": 712 }
+  },
+  {
+    "name": "16:9 landscape",
+    "viewportWidth": 1440,
+    "viewportHeight": 844,
+    "leftPanelWidth": 240,
+    "rightPanelWidth": 240,
+    "timelineHeight": 132,
+    "mediaWidth": 1920,
+    "mediaHeight": 1080,
+    "expected": { "stageWidth": 960, "stageHeight": 712, "contentWidth": 960, "contentHeight": 540 }
+  },
+  {
+    "name": "1:1 square",
+    "viewportWidth": 1440,
+    "viewportHeight": 844,
+    "leftPanelWidth": 240,
+    "rightPanelWidth": 240,
+    "timelineHeight": 132,
+    "mediaWidth": 1200,
+    "mediaHeight": 1200,
+    "expected": { "stageWidth": 960, "stageHeight": 712, "contentWidth": 712, "contentHeight": 712 }
+  },
+  {
+    "name": "ultra short tall",
+    "viewportWidth": 1440,
+    "viewportHeight": 844,
+    "leftPanelWidth": 240,
+    "rightPanelWidth": 240,
+    "timelineHeight": 132,
+    "mediaWidth": 540,
+    "mediaHeight": 1920,
+    "expected": { "stageWidth": 960, "stageHeight": 712, "contentWidth": 200.25, "contentHeight": 712 }
+  }
+]

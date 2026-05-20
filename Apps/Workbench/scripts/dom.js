@@ -20,6 +20,7 @@
       mediaEmptyPreview: document.querySelector("#mediaEmptyPreview"),
       emptyPreview: document.querySelector("#emptyPreview"),
       previewMeta: document.querySelector("#previewMeta"),
+      previewPanel: document.querySelector(".preview-panel"),
       structureOverlay: document.querySelector("#structureOverlay"),
       generatedPreview: document.querySelector("#generatedPreview"),
       mappingList: document.querySelector("#mappingList"),
