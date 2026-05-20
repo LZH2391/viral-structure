@@ -1,4 +1,4 @@
 interface:
-  display_name: "架构审查者"
-  short_description: "检查模块边界、artifact 血缘和架构约束"
-  default_prompt: "检查爆款结构迁移引擎的模块边界、领域概念、artifact 血缘、版本分支、数据流和变化通道是否符合架构约束，只输出风险和任务卡，不直接改代码。"
+  display_name: "通用架构审查者"
+  short_description: "检查可追踪、可返工、可演进等架构风险"
+  default_prompt: "检查爆款结构迁移引擎的新增功能、重构、返工能力、模型链路、数据流和目录组织是否符合早期通用架构原则；重点发现耦合、不可追踪、难返工、难演进等风险，只输出问题、追问和任务卡，不直接改代码。"
