@@ -1,0 +1,48 @@
+.primary-button,
+.ghost-button,
+.tab-button,
+.segment {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 0 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #06131a;
+  font-weight: 700;
+}
+
+.primary-button:hover {
+  background: #67d7ff;
+}
+
+.ghost-button,
+.tab-button,
+.segment {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.ghost-button:hover,
+.tab-button:hover,
+.segment:hover {
+  background: var(--panel-3);
+}
+
+.tab-button.active,
+.segment.active {
+  border-color: var(--accent);
+  background: #163142;
+  color: #d8f6ff;
+}
+
+.full-width {
+  width: 100%;
+}

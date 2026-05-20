@@ -1,0 +1,68 @@
+.property-panel {
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+
+.property-section {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.detail-block {
+  display: grid;
+  gap: 8px;
+  min-height: 56px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.detail-row b {
+  color: #d8e1ea;
+}
+
+.profile-form {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-form label {
+  display: grid;
+  gap: 5px;
+  color: #d8e1ea;
+  font-size: 12px;
+}
+
+.profile-form input,
+.profile-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111820;
+  color: var(--text);
+  padding: 8px 9px;
+  resize: vertical;
+}
+
+.log-list {
+  max-height: 190px;
+  overflow: auto;
+}
+
+.log-item {
+  border-left: 3px solid var(--accent);
+}
+
+.log-item.fail {
+  border-left-color: var(--danger);
+}
+
+.log-item.done {
+  border-left-color: var(--good);
+}

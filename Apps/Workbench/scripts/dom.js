@@ -1,0 +1,42 @@
+(function () {
+  function collectElements() {
+    return {
+      saveStatus: document.querySelector("#saveStatus"),
+      runStatus: document.querySelector("#runStatus"),
+      traceLabel: document.querySelector("#traceLabel"),
+      sampleVideoInput: document.querySelector("#sampleVideoInput"),
+      sampleFileLabel: document.querySelector("#sampleFileLabel"),
+      derivativeList: document.querySelector("#derivativeList"),
+      structureList: document.querySelector("#structureList"),
+      versionList: document.querySelector("#versionList"),
+      sampleVideo: document.querySelector("#sampleVideo"),
+      emptyPreview: document.querySelector("#emptyPreview"),
+      previewMeta: document.querySelector("#previewMeta"),
+      structureOverlay: document.querySelector("#structureOverlay"),
+      generatedPreview: document.querySelector("#generatedPreview"),
+      mappingList: document.querySelector("#mappingList"),
+      currentSegment: document.querySelector("#currentSegment"),
+      understandingBlock: document.querySelector("#understandingBlock"),
+      understandBtn: document.querySelector("#understandBtn"),
+      profileForm: document.querySelector("#profileForm"),
+      profileTopic: document.querySelector("#profileTopic"),
+      profileSellingPoints: document.querySelector("#profileSellingPoints"),
+      profileAudience: document.querySelector("#profileAudience"),
+      profilePlatform: document.querySelector("#profilePlatform"),
+      profileDuration: document.querySelector("#profileDuration"),
+      profileTone: document.querySelector("#profileTone"),
+      logList: document.querySelector("#logList"),
+      frameTrack: document.querySelector("#frameTrack"),
+      segmentTrack: document.querySelector("#segmentTrack"),
+      transferTrack: document.querySelector("#transferTrack"),
+      previewStage: document.querySelector("#previewStage"),
+      sampleModeBtn: document.querySelector("#sampleModeBtn"),
+      generatedModeBtn: document.querySelector("#generatedModeBtn"),
+      compareModeBtn: document.querySelector("#compareModeBtn"),
+      rerunStageBtn: document.querySelector("#rerunStageBtn"),
+      snapshotBtn: document.querySelector("#snapshotBtn"),
+    };
+  }
+
+  window.WorkbenchDom = { collectElements };
+})();

@@ -1,0 +1,94 @@
+.timeline-panel {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.timeline-header {
+  display: grid;
+  grid-template-columns: 120px 120px 120px 120px;
+  gap: 10px;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.timeline-body {
+  display: grid;
+  grid-template-rows: 44px 34px 44px 34px;
+  height: calc(100% - 34px);
+  overflow: auto;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+  padding: 5px 12px;
+  border-bottom: 1px solid #2c3440;
+}
+
+.frame-cell {
+  position: relative;
+  flex: 0 0 72px;
+  height: 34px;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #25303b;
+  cursor: pointer;
+}
+
+.frame-cell.active {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
+}
+
+.frame-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frame-cell span {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 10px;
+}
+
+.muted-track::before {
+  content: "等待 ASR/OCR";
+  color: #7f8b99;
+  font-size: 12px;
+}
+
+.segment-block,
+.transfer-block {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  height: 28px;
+  border-radius: 5px;
+  color: #071016;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.segment-block {
+  background: var(--accent-2);
+}
+
+.transfer-block {
+  background: var(--good);
+}
