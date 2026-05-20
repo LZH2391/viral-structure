@@ -74,7 +74,7 @@ stage.end
 stage.fail
 ```
 
-每条 stage 日志必须包含固定字段：
+Stage 日志必须能还原以下审计字段：
 
 - `event`
 - `runId`
@@ -89,7 +89,17 @@ stage.fail
 - `errorSummary`
 - `createdAt`
 
-没有值的字段填 `null`，不要省略字段。
+这些字段不要求在每一条 jsonl 事件中物理重复。实现可以把公共上下文拆到 `trace.start`、`trace.meta`、stage 上下文或索引文件中，事件行只记录变化字段；但读取、展示、导出或审计时，必须能还原出完整字段集合。
+
+缺失值在还原后的视图中填 `null`，不要省略字段。
+
+Stage 日志应保持轻量：
+
+- 普通事件行只放可检索摘要和变化字段。
+- `runId`、`traceId` 等链路公共字段可以按 trace 记录一次。
+- `inputSummary` 通常由 `stage.start` 记录，`stage.end` 不应重复同一份输入摘要，除非结束时输入摘要发生了有意义的修正。
+- `stage.end` 只记录输出摘要、耗时和最终产物引用。
+- 详细诊断信息进入 DebugSnapshot，不进入普通 stage log。
 
 ### stage.start
 
@@ -221,7 +231,7 @@ DebugSnapshot 用于保存受控调试细节。普通日志只放摘要，完整
 
 - 是否存在清晰的 stage 清单。
 - 每个核心 stage 是否有 `stage.start / stage.end / stage.fail`。
-- 日志字段是否完整，缺失值是否显式为 `null`。
+- 还原后的日志视图字段是否完整，缺失值是否显式为 `null`。
 - 是否存在裸 `console.log / print / dump`。
 - 普通日志是否写入敏感内容。
 - 失败是否生成 DebugSnapshot。
