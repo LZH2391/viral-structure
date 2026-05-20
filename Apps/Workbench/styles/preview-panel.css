@@ -57,6 +57,7 @@
 .sample-video,
 .media-image-preview,
 .audio-preview,
+.audio-waveform-panel,
 .media-empty-preview {
   display: none;
 }
@@ -72,7 +73,68 @@
 }
 
 .audio-preview {
-  width: min(680px, calc(100% - 48px));
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.audio-waveform-panel {
+  width: min(900px, calc(100% - 48px));
+  gap: 14px;
+  color: var(--text);
+}
+
+.audio-waveform-panel.active {
+  display: grid;
+}
+
+.audio-waveform-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audio-play-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #2c6072;
+  border-radius: 999px;
+  background: #10202b;
+  cursor: pointer;
+}
+
+.audio-play-button span {
+  width: 0;
+  height: 0;
+  margin-left: 3px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 12px solid #42d8ff;
+}
+
+.audio-play-button.playing span {
+  width: 12px;
+  height: 16px;
+  margin-left: 0;
+  border: 0;
+  background: linear-gradient(90deg, #42d8ff 0 35%, transparent 35% 65%, #42d8ff 65%);
+}
+
+.audio-waveform-time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.audio-waveform-canvas {
+  width: 100%;
+  height: min(220px, 42vh);
+  border: 1px solid #223445;
+  border-radius: 8px;
+  background: #0b1118;
+  cursor: crosshair;
 }
 
 .media-empty-preview {
@@ -83,7 +145,6 @@
 
 .sample-video.active,
 .media-image-preview.active,
-.audio-preview.active,
 .media-empty-preview.active {
   display: block;
 }

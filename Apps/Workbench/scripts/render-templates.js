@@ -11,51 +11,7 @@
   }
 
   function structureButton(item) {
-    return `
-      <button class="list-item" type="button" data-segment-id="${item.id}">
-        <strong>${item.order}. ${item.name}</strong>
-        <span>${formatTime(item.start)} - ${formatTime(item.end)} / ${item.explanation}</span>
-      </button>
-    `;
-  }
-
-  function generatedPlan() {
-    return `
-      <h2>${state.generatedPlan.title}</h2>
-      <p><strong>封面标题：</strong>${state.generatedPlan.coverTitle}</p>
-      ${state.generatedPlan.shots.map(scriptShot).join("")}
-    `;
-  }
-
-  function scriptShot(shot) {
-    return `
-      <div class="script-shot">
-        <time>${formatTime(shot.start)} - ${formatTime(shot.end)}</time>
-        <div>
-          <strong>${shot.beat}</strong>
-          <div>${shot.script}</div>
-          <div>字幕：${shot.subtitle}</div>
-          <div>镜头：${shot.camera}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  function emptyGenerated() {
-    return `<div class="empty-state"><strong>暂无新方案</strong><span>生成迁移方案后展示</span></div>`;
-  }
-
-  function mapping(item) {
-    return `
-      <div class="mapping-item">
-        <strong>${item.sourceName} -> ${item.targetName}</strong>
-        <span>${item.explanation}</span>
-      </div>
-    `;
-  }
-
-  function emptyMapping() {
-    return `<div class="empty-state"><strong>暂无映射</strong><span>迁移方案生成后展示</span></div>`;
+    return `<button class="list-item" type="button" data-segment-id="${item.id}"><strong>${item.order}. ${item.name}</strong><span>${formatTime(item.start)} - ${formatTime(item.end)} / ${item.explanation}</span></button>`;
   }
 
   function frameCell(frame) {
@@ -70,21 +26,14 @@
 
   function audioTrackButton(audio) {
     const status = audio?.uri ? audio.summary : audio?.summary || "未检测到可抽取音频轨";
+    const waveform = audio?.uri ? `<canvas class="audio-mini-waveform" data-audio-wave-mini width="360" height="42"></canvas>` : "";
     return `
       <button class="audio-track-button ${state.activeMediaKind === "audio" ? "active" : ""}" type="button">
         <strong>字幕/语音轨</strong>
         <span>${status}</span>
+        ${waveform}
       </button>
     `;
-  }
-
-  function segmentBlock(item) {
-    const width = Math.max(120, (item.end - item.start) * 18);
-    return `<div class="segment-block" style="min-width:${width}px">${item.name}</div>`;
-  }
-
-  function transferBlock(item) {
-    return `<div class="transfer-block">${item.sourceName} -> ${item.targetName}</div>`;
   }
 
   function mediaDetailRows({ label, time, artifactId, parentArtifactId, resolution }) {
@@ -197,14 +146,8 @@
   window.WorkbenchRenderTemplates = {
     listItem,
     structureButton,
-    generatedPlan,
-    emptyGenerated,
-    mapping,
-    emptyMapping,
     frameCell,
     audioTrackButton,
-    segmentBlock,
-    transferBlock,
     currentSegment,
     version,
     log,

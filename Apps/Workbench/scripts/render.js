@@ -2,7 +2,7 @@
   const { state, formatTime } = window.WorkbenchState;
   const templates = window.WorkbenchRenderTemplates;
 
-  function createRenderer(els, actions) {
+  function createRenderer(els, actions, audioWaveform) {
     function updateRunStatus(level, fields) {
       const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
       const backendTraceId = fields.backendTraceId ?? state.processingJob?.traceId ?? null;
@@ -13,8 +13,8 @@
 
     function renderAll() {
       renderResources();
-      renderPreview();
       renderTimeline();
+      renderPreview();
       renderProperties();
       renderVersions();
       renderLogs();
@@ -44,12 +44,14 @@
 
     function renderTimeline() {
       const frames = state.sampleVideo?.frameArtifacts ?? [];
+      const audio = findAudioDerivative();
       els.frameTrack.innerHTML = frames.map(templates.frameCell).join("");
       els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
         button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
       });
-      els.captionTrack.innerHTML = templates.audioTrackButton(findAudioDerivative());
+      els.captionTrack.innerHTML = templates.audioTrackButton(audio);
       els.captionTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
+      syncAudioWaveform(audio, false);
     }
 
     function renderProperties(selectedCard = null) {
@@ -80,8 +82,10 @@
       els.emptyPreview.style.display = "none";
       els.sampleVideo.classList.remove("active");
       els.mediaImagePreview.classList.remove("active");
+      els.audioWaveformPanel.classList.remove("active");
       els.audioPreview.classList.remove("active");
       els.mediaEmptyPreview.classList.remove("active");
+      if (state.activeMediaKind !== "audio") audioWaveform?.stop();
     }
 
     function renderActiveMedia() {
@@ -113,7 +117,8 @@
       if (!url) return renderEmpty(derivative?.summary || state.sampleVideo.audioSummary || "未检测到可抽取音频轨");
       els.sampleVideo.pause?.();
       if (els.audioPreview.src !== url) els.audioPreview.src = url;
-      els.audioPreview.classList.add("active");
+      els.audioWaveformPanel.classList.add("active");
+      audioWaveform?.update({ url, active: true, miniCanvas: findMiniWaveformCanvas() });
     }
 
     function renderEmpty(text) {
@@ -132,6 +137,18 @@
 
     function findAudioDerivative() {
       return state.mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
+    }
+
+    function findMiniWaveformCanvas() {
+      return els.captionTrack.querySelector("[data-audio-wave-mini]");
+    }
+
+    function syncAudioWaveform(audio, active) {
+      audioWaveform?.update({
+        url: window.WorkbenchApiClient.runtimeUrl(audio?.uri),
+        active,
+        miniCanvas: findMiniWaveformCanvas(),
+      });
     }
 
     function isVideoDerivative(item) {

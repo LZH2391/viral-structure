@@ -27,19 +27,40 @@ test("frontend only creates debug snapshots for failures and manual capture", ()
 test("media preview can switch between video, frames, and audio track", () => {
   const root = path.resolve(__dirname, "../..");
   const app = fs.readFileSync(path.join(root, "Apps/Workbench/app.js"), "utf8");
+  const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
   const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
   const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
   const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
 
+  assert.match(index, /scripts\/audio-waveform\.js/);
   assert.match(app, /selectDerivative: \(artifactId\) => actionsRef\.current\.selectDerivative\(artifactId\)/);
   assert.match(app, /selectAudioTrack: \(\) => actionsRef\.current\.selectAudioTrack\(\)/);
   assert.match(workflow, /if \(type === "frame-set"\) return "frame"/);
   assert.match(workflow, /state\.selectedFrameId = null/);
   assert.match(workflow, /state\.mediaDerivatives\.find\(\(entry\) => entry\.type === "audio-track"\)/);
-  assert.match(render, /templates\.audioTrackButton\(findAudioDerivative\(\)\)/);
+  assert.match(render, /templates\.audioTrackButton\(audio\)/);
   assert.match(render, /isVideoDerivative\(derivative\) \? derivative\.uri : state\.sampleVideo\.videoUri/);
   assert.match(render, /return renderAudio\(derivative \?\? findAudioDerivative\(\)\)/);
   assert.match(templates, /function audioTrackButton\(audio\)/);
+});
+
+test("audio waveform player is isolated and keeps empty audio safe", () => {
+  const root = path.resolve(__dirname, "../..");
+  const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
+  const dom = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/dom.js"), "utf8");
+  const waveform = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/audio-waveform.js"), "utf8");
+  const render = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render.js"), "utf8");
+  const templates = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/render-templates.js"), "utf8");
+
+  assert.match(index, /id="audioWaveformCanvas"/);
+  assert.match(index, /id="audioWaveformPlayBtn"/);
+  assert.match(dom, /audioWaveformCanvas: document\.querySelector/);
+  assert.match(waveform, /decodeAudioData/);
+  assert.match(waveform, /requestAnimationFrame/);
+  assert.match(waveform, /seekFromPointer/);
+  assert.match(render, /if \(!url\) return renderEmpty/);
+  assert.match(templates, /data-audio-wave-mini/);
+  assert.match(templates, /audio\?\.uri \? `<canvas/);
 });
 
 test("media preview preserves full aspect ratios and exposes resolution", () => {
