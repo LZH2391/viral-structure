@@ -6,6 +6,8 @@
   const actionsRef = {};
   const renderer = window.WorkbenchRender.createRenderer(els, {
     selectFrame: (frameId) => actionsRef.current.selectFrame(frameId),
+    selectDerivative: (artifactId) => actionsRef.current.selectDerivative(artifactId),
+    selectAudioTrack: () => actionsRef.current.selectAudioTrack(),
     selectSegment: (segmentId) => actionsRef.current.selectSegment(segmentId),
   });
   const observability = window.WorkbenchObservability.createObservability(renderer);
