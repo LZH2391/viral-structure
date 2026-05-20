@@ -4,6 +4,7 @@
 /Runtime/DebugSnapshots/*
 /Runtime/Temp/*
 /MP4/
+/PlanMD/
 
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md
