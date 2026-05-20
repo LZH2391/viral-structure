@@ -8,5 +8,13 @@
 - 中间产物、临时文件、生成结果优先加入 `.gitignore`。
 - 已经产生但不应入库的文件，及时清理或补充忽略规则。
 
+### 日志与调试硬约束
+- 主链路必须携带 `runId / traceId / stageId / artifactId / parentArtifactId`，保证结果能追溯到上游产物。
+- 核心阶段必须有结构化开始、结束、失败日志，并生成受控 `DebugSnapshot`。
+- 正式代码禁止保留裸 `console.log / print / 临时 dump`，调试产物必须清理或加入 `.gitignore`。
+- 模型调用必须记录 stage、prompt/template 版本、输入摘要、输出摘要、解析结果、失败与重试信息。
+- 返工、分支、重跑必须保留来源 artifact，以及新旧版本关系。
+- 普通日志不得裸写敏感内容；完整内容只能进入受控调试快照。
+- 新功能缺少日志、trace、debug snapshot，视为未完成。
 ### 例外说明
 - 只有在任务明确要求时，才提交配置文件、工作区文件或其他本地环境产物。
