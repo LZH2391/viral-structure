@@ -5,8 +5,10 @@
   function createRenderer(els, actions) {
     function updateRunStatus(level, fields) {
       const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
+      const backendTraceId = fields.backendTraceId ?? state.processingJob?.traceId ?? null;
+      const traceLabel = backendTraceId ? `trace ${backendTraceId.slice(-8)}` : `uiTrace ${fields.uiTraceId.slice(-8)}`;
       els.runStatus.textContent = labelMap[level] ?? "等待输入";
-      els.traceLabel.textContent = `trace ${fields.traceId.slice(-8)} / stage ${fields.stageId.slice(-6)}`;
+      els.traceLabel.textContent = `${traceLabel} / stage ${fields.stageId.slice(-6)}`;
     }
 
     function renderAll() {

@@ -12,15 +12,14 @@ function runCommand(command, args) {
     child.stderr.on("data", (data) => {
       stderr += data.toString("utf8");
     });
-    child.on("error", (error) => reject(error));
+    child.on("error", (error) => reject(attachCommandDebug(error, command, args, null, stderr)));
     child.on("close", (code) => {
       if (code === 0) {
         resolve({ stdout, stderr });
         return;
       }
       const error = new Error(`${command} exited with code ${code}`);
-      error.stderr = stderr;
-      reject(error);
+      reject(attachCommandDebug(error, command, args, code, stderr));
     });
   });
 }
@@ -40,4 +39,34 @@ function resolveCommand(command) {
   return path.join(binDir, `${command}.exe`);
 }
 
-module.exports = { runCommand, hasCommand };
+function attachCommandDebug(error, command, args, exitCode, stderr) {
+  error.stderr = stderr;
+  error.exitCode = exitCode;
+  error.commandSummary = summarizeCommand(command, args);
+  error.stderrSummary = summarizeStderr(stderr);
+  error.retryable = false;
+  return error;
+}
+
+function summarizeCommand(command, args) {
+  return {
+    command,
+    args: args.map(summarizeArg),
+  };
+}
+
+function summarizeArg(arg) {
+  const value = String(arg);
+  if (/^[A-Za-z]:[\\/]/.test(value) || value.includes("/") || value.includes("\\")) {
+    return `<path:${path.basename(value)}>`;
+  }
+  return value.length > 80 ? `${value.slice(0, 77)}...` : value;
+}
+
+function summarizeStderr(stderr, maxLength = 1200) {
+  const safe = String(stderr ?? "").replace(/([A-Za-z]:)?[^\s'"]*[\\/][^\s'"]+/g, (match) => `<path:${path.basename(match)}>`).trim();
+  if (safe.length <= maxLength) return safe;
+  return `${safe.slice(0, maxLength)}...`;
+}
+
+module.exports = { runCommand, hasCommand, summarizeCommand, summarizeStderr };

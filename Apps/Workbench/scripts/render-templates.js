@@ -118,10 +118,20 @@
   }
 
   function log(item) {
+    const fields = item.fields;
+    const details = [
+      fields.stageName ? `stage ${fields.stageName}` : null,
+      fields.errorStage ? `failedAt ${fields.errorStage}` : null,
+      fields.errorCode ? `code ${fields.errorCode}` : null,
+      fields.debugSnapshotId ? `snapshot ${fields.debugSnapshotId.slice(-8)}` : null,
+      fields.backendTraceId ? `trace ${fields.backendTraceId.slice(-8)}` : null,
+    ].filter(Boolean);
     return `
       <div class="log-item ${item.level}">
         ${item.time} / ${item.event}<br />
-        run ${item.fields.runId.slice(-8)} / stage ${item.fields.stageId.slice(-6)} / artifact ${item.fields.artifactId.slice(-8)}
+        run ${fields.runId.slice(-8)} / uiTrace ${fields.uiTraceId.slice(-8)} / stage ${fields.stageId.slice(-6)} / artifact ${fields.artifactId.slice(-8)}
+        ${details.length ? `<br />${details.join(" / ")}` : ""}
+        ${fields.errorMessage ? `<br /><strong>${fields.errorMessage}</strong>` : ""}
       </div>
     `;
   }

@@ -13,18 +13,18 @@
         try {
           els.sampleFileLabel.textContent = file.name;
           const ingestResult = await uploadAndPollSampleVideo(file, () => renderer.renderAll());
-          if (ingestResult.job.status === "failed") throw new Error(ingestResult.job.errorSummary?.message || "样例处理失败");
+          if (ingestResult.job.status === "failed") throw buildIngestError(ingestResult.job);
           versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);
           observability.captureDebugSnapshot(stage.stageName, {
             sampleArtifactId: state.sampleVideo.artifactId,
             derivativeCount: state.mediaDerivatives.length,
             frameCount: state.sampleVideo.frameArtifacts.length,
             durationSeconds: Math.round(state.sampleVideo.duration),
-            traceId: state.processingJob.traceId,
+            backendTraceId: state.processingJob.traceId,
           });
           observability.finishStage(stage, state.sampleVideo.artifactId);
         } catch (error) {
-          observability.failStage(stage, error);
+          observability.failStage(stage, error, error.observabilityDetails);
         }
         renderer.renderAll();
       },
@@ -127,6 +127,29 @@
       duration: sanitizeText(els.profileDuration.value, 32) || "与样例接近",
       tone: sanitizeText(els.profileTone.value, 60) || "清晰、有节奏",
     };
+  }
+
+  function buildIngestError(job) {
+    const summary = job.errorSummary ?? {};
+    const error = new Error(summary.message || "样例处理失败");
+    error.code = summary.code || "sample_ingest_failed";
+    error.observabilityDetails = {
+      errorCode: error.code,
+      errorStage: job.stage,
+      errorMessage: summary.message,
+      debugSnapshotUri: summary.debugSnapshotUri ?? null,
+      backendTraceId: job.traceId,
+      processingJob: {
+        jobId: job.jobId,
+        sampleVideoId: job.sampleVideoId,
+        stage: job.stage,
+        status: job.status,
+        progress: job.progress,
+        traceId: job.traceId,
+        errorSummary: summary,
+      },
+    };
+    return error;
   }
 
   function captureTransferSnapshot(observability, stage, parentArtifactId, result, profile) {

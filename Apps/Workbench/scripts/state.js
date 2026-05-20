@@ -13,6 +13,7 @@
       name: "结构迁移工作台",
       currentVersionId: null,
     },
+    uiTraceId: createId("uiTrace"),
     activeStageId: null,
     activePreviewMode: "sample",
     selectedFrameId: null,
