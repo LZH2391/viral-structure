@@ -4,38 +4,131 @@
   overflow: hidden;
 }
 
-.timeline-header {
+.timeline-shell {
   display: grid;
-  grid-template-columns: 120px 120px;
-  gap: 10px;
-  align-items: center;
-  height: 34px;
-  padding: 0 12px;
-  color: var(--muted);
-  font-size: 12px;
-  border-bottom: 1px solid var(--line);
+  grid-template-columns: 92px minmax(0, 1fr);
+  height: 100%;
+  min-width: 0;
 }
 
-.timeline-body {
+.timeline-label-column {
   display: grid;
-  grid-template-rows: 58px 40px;
-  height: calc(100% - 34px);
-  overflow: auto;
+  grid-template-rows: 28px 38px 58px 44px;
+  border-right: 1px solid var(--line);
+  background: #151a20;
+}
+
+.timeline-label {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #2c3440;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ruler-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.timeline-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.timeline-content {
+  display: grid;
+  grid-template-rows: 28px 38px 58px 44px;
+  min-width: 720px;
+  height: 100%;
+}
+
+.timeline-ruler {
+  position: relative;
+  border-bottom: 1px solid #2c3440;
+  background: #10151b;
+}
+
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  transform: translateX(-1px);
+}
+
+.ruler-tick::before {
+  content: "";
+  width: 1px;
+  height: 100%;
+  margin-right: 5px;
+  background: #3a4654;
 }
 
 .track {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: max-content;
-  padding: 5px 12px;
+  position: relative;
+  min-width: 0;
+  padding: 5px 0;
   border-bottom: 1px solid #2c3440;
+  background: #171c23;
+}
+
+.video-clip,
+.audio-track-button {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  height: 28px;
+  min-width: 1px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 0 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-clip {
+  background: #213447;
+}
+
+.video-clip.active {
+  border-color: var(--accent);
+  background: #174158;
+}
+
+.video-clip strong,
+.audio-track-button strong {
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.video-clip span,
+.audio-track-button span {
+  min-width: 0;
+  overflow: hidden;
+  color: #b8c4d1;
+  font-size: 11px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .frame-cell {
   position: relative;
-  flex: 0 0 72px;
-  height: 30px;
+  position: absolute;
+  top: 6px;
+  width: 76px;
+  height: 44px;
   border: 1px solid #4b5563;
   border-radius: 4px;
   overflow: hidden;
@@ -67,20 +160,11 @@
 }
 
 .audio-track-button {
-  display: grid;
-  gap: 2px;
-  grid-template-columns: 150px minmax(180px, 360px);
-  grid-template-rows: 12px 12px;
-  align-items: center;
-  min-width: min(560px, calc(100vw - 24px));
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
   background: var(--panel-2);
-  color: var(--text);
-  padding: 4px 10px;
-  text-align: left;
-  cursor: pointer;
+  height: 34px;
+  grid-template-columns: 140px minmax(180px, 1fr);
+  grid-template-rows: 13px 13px;
+  margin-top: 0;
 }
 
 .audio-track-button.active {
@@ -88,47 +172,17 @@
   background: #163142;
 }
 
-.audio-track-button strong {
-  font-size: 12px;
-  line-height: 1.1;
-}
-
 .audio-track-button span {
   grid-column: 1;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.1;
 }
 
 .audio-mini-waveform {
   grid-column: 2;
   grid-row: 1 / span 2;
-  width: 360px;
-  height: 24px;
+  width: 100%;
+  height: 26px;
   border: 1px solid #263848;
   border-radius: 5px;
   background: #0b1118;
   cursor: crosshair;
-}
-
-.segment-block,
-.transfer-block {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 120px;
-  height: 28px;
-  border-radius: 5px;
-  color: #071016;
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.segment-block {
-  background: var(--accent-2);
-}
-
-.transfer-block {
-  background: var(--good);
 }

@@ -57,7 +57,7 @@
 .workspace-grid {
   display: grid;
   grid-template-columns: clamp(220px, 19vw, 280px) minmax(0, 1fr) clamp(220px, 23vw, 320px);
-  grid-template-rows: minmax(0, 1fr) clamp(132px, 18vh, 170px);
+  grid-template-rows: minmax(0, 1fr) clamp(168px, 21vh, 190px);
   min-height: 0;
 }
 

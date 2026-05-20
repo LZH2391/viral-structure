@@ -1,35 +1,40 @@
 (function () {
   const { state, formatTime } = window.WorkbenchState;
 
-  function listItem(item) {
-    return `
-      <button class="list-item ${item.artifactId === state.selectedDerivativeId ? "active" : ""}" type="button" data-artifact-id="${item.artifactId}">
-        <strong>${item.name}</strong>
-        <span>${item.type} / ${item.summary}</span>
-      </button>
-    `;
-  }
-
   function structureButton(item) {
     return `<button class="list-item" type="button" data-segment-id="${item.id}"><strong>${item.order}. ${item.name}</strong><span>${formatTime(item.start)} - ${formatTime(item.end)} / ${item.explanation}</span></button>`;
   }
 
-  function frameCell(frame) {
+  function rulerTick(time, left) {
+    return `<span class="ruler-tick" style="left: ${left}px">${formatTime(time)}</span>`;
+  }
+
+  function videoClip(video, width) {
+    const label = video ? `${video.fileName} / ${formatTime(video.duration)}` : "等待样例视频";
+    return `
+      <button class="video-clip ${state.activeMediaKind === "video" ? "active" : ""}" type="button" style="width: ${width}px">
+        <strong>原视频</strong>
+        <span>${label}</span>
+      </button>
+    `;
+  }
+
+  function frameCell(frame, left) {
     const src = window.WorkbenchApiClient.runtimeUrl(frame.imageUri);
     return `
-      <button class="frame-cell ${frame.id === state.selectedFrameId ? "active" : ""}" type="button" data-frame-id="${frame.id}">
+      <button class="frame-cell ${frame.id === state.selectedFrameId ? "active" : ""}" type="button" data-frame-id="${frame.id}" style="left: ${left}px">
         <img alt="" src="${src}" />
         <span>${formatTime(frame.time)}</span>
       </button>
     `;
   }
 
-  function audioTrackButton(audio) {
+  function audioTrackButton(audio, width) {
     const status = audio?.uri ? audio.summary : audio?.summary || "未检测到可抽取音频轨";
-    const waveform = audio?.uri ? `<canvas class="audio-mini-waveform" data-audio-wave-mini width="360" height="42"></canvas>` : "";
+    const waveform = audio?.uri ? `<canvas class="audio-mini-waveform" data-audio-wave-mini width="${Math.max(1, Math.round(width))}" height="42"></canvas>` : "";
     return `
-      <button class="audio-track-button ${state.activeMediaKind === "audio" ? "active" : ""}" type="button">
-        <strong>字幕/语音轨</strong>
+      <button class="audio-track-button ${state.activeMediaKind === "audio" ? "active" : ""}" type="button" style="width: ${width}px">
+        <strong>音频波形</strong>
         <span>${status}</span>
         ${waveform}
       </button>
@@ -144,8 +149,9 @@
   }
 
   window.WorkbenchRenderTemplates = {
-    listItem,
     structureButton,
+    rulerTick,
+    videoClip,
     frameCell,
     audioTrackButton,
     currentSegment,

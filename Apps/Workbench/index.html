@@ -41,8 +41,6 @@
               <input id="frameSampleRateInput" type="number" min="1" max="10" step="1" value="1" />
               <small>每秒抽多少帧</small>
             </label>
-            <div class="section-heading">媒体派生</div>
-            <div id="derivativeList" class="compact-list"></div>
           </section>
         </aside>
 
@@ -82,13 +80,21 @@
         </aside>
 
         <section class="timeline-panel" aria-label="底部时间线">
-          <div class="timeline-header">
-            <span>视频帧轨</span>
-            <span>字幕/语音轨</span>
-          </div>
-          <div class="timeline-body">
-            <div id="frameTrack" class="track frame-track"></div>
-            <div id="captionTrack" class="track muted-track"></div>
+          <div class="timeline-shell">
+            <div class="timeline-label-column" aria-hidden="true">
+              <div class="timeline-label ruler-label">时间</div>
+              <div class="timeline-label">视频轨</div>
+              <div class="timeline-label">帧轨</div>
+              <div class="timeline-label">音频轨</div>
+            </div>
+            <div id="timelineScroll" class="timeline-scroll">
+              <div id="timelineContent" class="timeline-content">
+                <div id="timelineRuler" class="timeline-ruler"></div>
+                <div id="videoTrack" class="track video-track"></div>
+                <div id="frameTrack" class="track frame-track"></div>
+                <div id="audioTrack" class="track audio-track"></div>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -103,6 +109,7 @@
     <script src="./scripts/audio-waveform.js"></script>
     <script src="./scripts/structure-strategy.js"></script>
     <script src="./scripts/transfer-strategy.js"></script>
+    <script src="./scripts/timeline-metrics.js"></script>
     <script src="./scripts/render-templates.js"></script>
     <script src="./scripts/render.js"></script>
     <script src="./scripts/observability.js"></script>

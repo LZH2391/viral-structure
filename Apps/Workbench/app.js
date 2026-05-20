@@ -7,7 +7,7 @@
   const audioWaveform = window.WorkbenchAudioWaveform.createAudioWaveform(els);
   const renderer = window.WorkbenchRender.createRenderer(els, {
     selectFrame: (frameId) => actionsRef.current.selectFrame(frameId),
-    selectDerivative: (artifactId) => actionsRef.current.selectDerivative(artifactId),
+    selectVideoTrack: () => actionsRef.current.selectVideoTrack(),
     selectAudioTrack: () => actionsRef.current.selectAudioTrack(),
     selectSegment: (segmentId) => actionsRef.current.selectSegment(segmentId),
   }, audioWaveform);

@@ -2,6 +2,7 @@
   const { state, formatTime } = window.WorkbenchState;
   const templates = window.WorkbenchRenderTemplates;
   const { fitMediaViewport } = window.WorkbenchMediaViewportFitter;
+  const { createTimelineMetrics, frameLeft } = window.WorkbenchTimelineMetrics;
 
   function createRenderer(els, actions, audioWaveform) {
     function updateRunStatus(level, fields) {
@@ -13,19 +14,11 @@
     }
 
     function renderAll() {
-      renderResources();
       renderTimeline();
       renderPreview();
       renderProperties();
       renderVersions();
       renderLogs();
-    }
-
-    function renderResources() {
-      els.derivativeList.innerHTML = state.mediaDerivatives.map(templates.listItem).join("");
-      els.derivativeList.querySelectorAll("[data-artifact-id]").forEach((button) => {
-        button.addEventListener("click", () => actions.selectDerivative(button.dataset.artifactId));
-      });
     }
 
     function renderPreview() {
@@ -48,12 +41,17 @@
     function renderTimeline() {
       const frames = state.sampleVideo?.frameArtifacts ?? [];
       const audio = findAudioDerivative();
-      els.frameTrack.innerHTML = frames.map(templates.frameCell).join("");
+      const metrics = createTimelineMetrics(state.sampleVideo);
+      els.timelineContent.style.width = `${metrics.contentWidth}px`;
+      els.timelineRuler.innerHTML = metrics.ticks.map((tick) => templates.rulerTick(tick.time, tick.left)).join("");
+      els.videoTrack.innerHTML = templates.videoClip(state.sampleVideo, metrics.contentWidth);
+      els.videoTrack.querySelector("button")?.addEventListener("click", actions.selectVideoTrack);
+      els.frameTrack.innerHTML = frames.map((frame) => templates.frameCell(frame, frameLeft(frame.time, metrics))).join("");
       els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
         button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
       });
-      els.captionTrack.innerHTML = templates.audioTrackButton(audio);
-      els.captionTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
+      els.audioTrack.innerHTML = templates.audioTrackButton(audio, metrics.contentWidth);
+      els.audioTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
       syncAudioWaveform(audio, false);
     }
 
@@ -175,7 +173,7 @@
     }
 
     function findMiniWaveformCanvas() {
-      return els.captionTrack.querySelector("[data-audio-wave-mini]");
+      return els.audioTrack.querySelector("[data-audio-wave-mini]");
     }
 
     function syncAudioWaveform(audio, active) {

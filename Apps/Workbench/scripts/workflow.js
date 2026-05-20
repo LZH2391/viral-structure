@@ -83,16 +83,12 @@
         state.selectedDerivativeId = frame.artifactId;
         renderer.renderAll();
       },
-      selectDerivative(artifactId) {
-        const item = state.mediaDerivatives.find((entry) => entry.artifactId === artifactId);
-        if (!item) return;
-        state.selectedDerivativeId = item.artifactId;
-        state.activeMediaKind = mediaKindForType(item.type);
-        if (state.activeMediaKind === "frame") {
-          state.selectedFrameId = state.selectedFrameId ?? state.sampleVideo?.frameArtifacts[0]?.id ?? null;
-        } else {
-          state.selectedFrameId = null;
-        }
+      selectVideoTrack() {
+        if (!state.sampleVideo) return;
+        const video = state.mediaDerivatives.find((entry) => entry.type === "normalized-video" || entry.type === "original-video");
+        state.activeMediaKind = "video";
+        state.selectedDerivativeId = video?.artifactId ?? state.sampleVideo.artifactId;
+        state.selectedFrameId = null;
         renderer.renderAll();
       },
       selectAudioTrack() {
@@ -129,13 +125,6 @@
       duration: sanitizeText(els.profileDuration.value, 32) || "与样例接近",
       tone: sanitizeText(els.profileTone.value, 60) || "清晰、有节奏",
     };
-  }
-
-  function mediaKindForType(type) {
-    if (type === "cover-frame") return "cover";
-    if (type === "frame-set") return "frame";
-    if (type === "audio-track") return "audio";
-    return "video";
   }
 
   function buildIngestError(job) {
