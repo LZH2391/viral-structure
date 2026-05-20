@@ -37,8 +37,8 @@ const server = http.createServer(async (req, res) => {
 
 async function handleUpload(req, res, url) {
   const workspaceId = url.pathname.split("/")[3];
-  const file = await parseMultipartUpload(req, req.headers["content-type"]);
-  const result = await service.enqueueUpload({ workspaceId, file });
+  const { file, fields } = await parseMultipartUpload(req, req.headers["content-type"]);
+  const result = await service.enqueueUpload({ workspaceId, file, fields });
   sendJson(res, 202, result);
 }
 

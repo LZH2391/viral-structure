@@ -59,8 +59,8 @@ async function extractCover({ inputPath, coverPath, artifactId = `artifact_${ran
   }
 }
 
-async function extractFrames({ inputPath, framesDir, durationSeconds, parentArtifactId, store }) {
-  const timestamps = planFrameTimestamps(durationSeconds);
+async function extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps = 0.25, parentArtifactId, store }) {
+  const timestamps = planFrameTimestamps(durationSeconds, { frameSampleRateFps });
   const frames = [];
   for (let index = 0; index < timestamps.length; index += 1) {
     const timestamp = timestamps[index];

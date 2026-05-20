@@ -22,35 +22,24 @@
 
     function renderResources() {
       els.derivativeList.innerHTML = state.mediaDerivatives.map(templates.listItem).join("");
-      els.structureList.innerHTML = state.structureCards.length
-        ? state.structureCards.map(templates.structureButton).join("")
-        : `<div class="empty-state"><strong>暂无结构卡</strong><span>完成视频理解后生成</span></div>`;
-      els.structureList.querySelectorAll("[data-segment-id]").forEach((button) => {
-        button.addEventListener("click", () => actions.selectSegment(button.dataset.segmentId));
+      els.derivativeList.querySelectorAll("[data-artifact-id]").forEach((button) => {
+        button.addEventListener("click", () => actions.selectDerivative(button.dataset.artifactId));
       });
     }
 
     function renderPreview() {
-      const hasVideo = Boolean(state.sampleVideo);
-      els.previewStage.classList.toggle("compare-mode", state.activePreviewMode === "compare");
-      els.emptyPreview.style.display = hasVideo || state.activePreviewMode !== "sample" ? "none" : "grid";
-      els.sampleVideo.classList.toggle("active", hasVideo && state.activePreviewMode !== "generated");
-      els.generatedPreview.classList.toggle("active", state.activePreviewMode === "generated" || state.activePreviewMode === "compare");
-      els.structureOverlay.innerHTML = state.structureCards
-        .slice(0, 2)
-        .map((item) => `<div class="overlay-chip">${item.name}: ${item.transferableRule}</div>`)
-        .join("");
+      const hasMedia = Boolean(state.sampleVideo);
+      hideMediaPreviews();
       els.previewMeta.textContent = state.sampleVideo
-        ? `${state.sampleVideo.fileName} / ${formatTime(state.sampleVideo.duration)}`
+        ? `${mediaLabel()} / ${state.sampleVideo.fileName} / ${formatTime(state.sampleVideo.duration)}`
         : state.processingJob
           ? `${state.processingJob.stage} / ${state.processingJob.progress}%`
           : "未加载样例";
-      if (state.sampleVideo?.videoUri) {
-        const videoUrl = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.videoUri);
-        if (els.sampleVideo.src !== videoUrl) els.sampleVideo.src = videoUrl;
+      if (!hasMedia) {
+        els.emptyPreview.style.display = "grid";
+        return;
       }
-      els.generatedPreview.innerHTML = state.generatedPlan ? templates.generatedPlan() : templates.emptyGenerated();
-      els.mappingList.innerHTML = state.mappings.length ? state.mappings.map(templates.mapping).join("") : templates.emptyMapping();
+      renderActiveMedia();
     }
 
     function renderTimeline() {
@@ -59,19 +48,17 @@
       els.frameTrack.querySelectorAll("[data-frame-id]").forEach((button) => {
         button.addEventListener("click", () => actions.selectFrame(button.dataset.frameId));
       });
-      els.segmentTrack.innerHTML = state.structureCards.map(templates.segmentBlock).join("");
-      els.transferTrack.innerHTML = state.mappings.map(templates.transferBlock).join("");
+      els.captionTrack.innerHTML = `<button class="audio-track-button" type="button">字幕/语音轨</button>`;
+      els.captionTrack.querySelector("button")?.addEventListener("click", actions.selectAudioTrack);
     }
 
     function renderProperties(selectedCard = null) {
       const card = selectedCard ?? findCurrentStructureCard();
       els.currentSegment.innerHTML = templates.currentSegment(card);
-      els.understandingBlock.innerHTML = state.structureCards.length
-        ? state.structureCards.map((item) => `<div class="detail-row"><b>${item.name}</b><span>${item.explanation}</span></div>`).join("")
-        : "等待视频理解";
     }
 
     function renderVersions() {
+      if (!els.versionList) return;
       els.versionList.innerHTML = state.versions.length
         ? state.versions.map(templates.version).join("")
         : `<div class="empty-state"><strong>暂无版本</strong><span>处理完成后生成</span></div>`;
@@ -87,6 +74,51 @@
         const currentTime = els.sampleVideo.currentTime || 0;
         return currentTime >= item.start && currentTime <= item.end;
       });
+    }
+
+    function hideMediaPreviews() {
+      els.emptyPreview.style.display = "none";
+      els.sampleVideo.classList.remove("active");
+      els.mediaImagePreview.classList.remove("active");
+      els.audioPreview.classList.remove("active");
+      els.mediaEmptyPreview.classList.remove("active");
+    }
+
+    function renderActiveMedia() {
+      if (state.activeMediaKind === "cover") return renderImage(state.sampleVideo.coverUri, "封面帧");
+      if (state.activeMediaKind === "frame") {
+        const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId);
+        return renderImage(frame?.imageUri, "抽帧图片");
+      }
+      if (state.activeMediaKind === "audio") return renderAudio();
+      const videoUrl = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.videoUri);
+      if (els.sampleVideo.src !== videoUrl) els.sampleVideo.src = videoUrl;
+      els.sampleVideo.classList.add("active");
+    }
+
+    function renderImage(uri, alt) {
+      const url = window.WorkbenchApiClient.runtimeUrl(uri);
+      if (!url) return renderEmpty("暂无可预览图片");
+      els.mediaImagePreview.alt = alt;
+      if (els.mediaImagePreview.src !== url) els.mediaImagePreview.src = url;
+      els.mediaImagePreview.classList.add("active");
+    }
+
+    function renderAudio() {
+      const url = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.audioUri);
+      if (!url) return renderEmpty(state.sampleVideo.audioSummary || "未检测到可抽取音频轨");
+      if (els.audioPreview.src !== url) els.audioPreview.src = url;
+      els.audioPreview.classList.add("active");
+    }
+
+    function renderEmpty(text) {
+      els.mediaEmptyPreview.textContent = text;
+      els.mediaEmptyPreview.classList.add("active");
+    }
+
+    function mediaLabel() {
+      const labels = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频" };
+      return labels[state.activeMediaKind] ?? "媒体";
     }
 
     return { updateRunStatus, renderAll, renderPreview, renderProperties, renderVersions, renderLogs };

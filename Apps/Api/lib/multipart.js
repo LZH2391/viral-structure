@@ -6,16 +6,23 @@ async function parseMultipartUpload(req, contentType) {
   const boundary = `--${boundaryMatch[1] || boundaryMatch[2]}`;
   const buffer = await readRequestBuffer(req);
   const parts = buffer.toString("binary").split(boundary);
+  const fields = {};
+  let file = null;
   for (const part of parts) {
-    if (!part.includes("filename=")) continue;
     const headerEnd = part.indexOf("\r\n\r\n");
     if (headerEnd < 0) continue;
     const header = part.slice(0, headerEnd);
+    const fieldName = parseHeaderValue(header, "name");
+    if (!fieldName) continue;
+    if (!part.includes("filename=")) {
+      fields[fieldName] = parseFieldValue(part.slice(headerEnd + 4));
+      continue;
+    }
     const filename = sanitizeFilename(parseHeaderValue(header, "filename") || "sample-video");
     const mimeType = parseHeaderValue(header, "Content-Type") || "application/octet-stream";
     let content = Buffer.from(part.slice(headerEnd + 4), "binary");
     if (content.slice(-2).toString("binary") === "\r\n") content = content.slice(0, -2);
-    return {
+    file = {
       filename,
       mimeType,
       extension: path.extname(filename),
@@ -23,7 +30,8 @@ async function parseMultipartUpload(req, contentType) {
       buffer: content,
     };
   }
-  throw new Error("missing upload file");
+  if (!file) throw new Error("missing upload file");
+  return { file, fields };
 }
 
 function readRequestBuffer(req) {
@@ -36,8 +44,15 @@ function readRequestBuffer(req) {
 }
 
 function parseHeaderValue(header, key) {
+  if (key.toLowerCase() === "content-type") {
+    return /^content-type:\s*([^\r\n]+)/im.exec(header)?.[1]?.trim() ?? null;
+  }
   const regex = new RegExp(`${key}="?([^";\\r\\n]+)"?`, "i");
   return regex.exec(header)?.[1] ?? null;
+}
+
+function parseFieldValue(value) {
+  return Buffer.from(value.replace(/\r\n$/, ""), "binary").toString("utf8");
 }
 
 function sanitizeFilename(filename) {

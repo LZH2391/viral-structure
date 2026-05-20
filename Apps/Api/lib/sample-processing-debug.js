@@ -1,4 +1,4 @@
-const { validateUploadFile, validateDuration } = require("../../../Core/Workspace/sample-video-validation");
+const { validateUploadFile, validateDuration, normalizeFrameSampleRateFps } = require("../../../Core/Workspace/sample-video-validation");
 
 const STAGES = {
   uploadReceived: "sample.upload.received",
@@ -66,6 +66,12 @@ function assertDuration(durationSeconds) {
   if (!result.ok) throw safeError(result.error.code, result.error.message);
 }
 
+function resolveProcessingOptions(fields = {}) {
+  const result = normalizeFrameSampleRateFps(fields.frameSampleRateFps);
+  if (!result.ok) throw safeError(result.error.code, result.error.message);
+  return { frameSampleRateFps: result.value };
+}
+
 function safeError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -77,6 +83,7 @@ module.exports = {
   STAGES,
   assertUpload,
   assertDuration,
+  resolveProcessingOptions,
   buildErrorSummary,
   buildDebugPayload,
   fallbackStage,

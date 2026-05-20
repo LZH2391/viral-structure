@@ -16,6 +16,8 @@
     uiTraceId: createId("uiTrace"),
     activeStageId: null,
     activePreviewMode: "sample",
+    activeMediaKind: "video",
+    selectedDerivativeId: null,
     selectedFrameId: null,
     sampleVideo: null,
     mediaDerivatives: [],

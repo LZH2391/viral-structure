@@ -6,7 +6,7 @@
 
 .timeline-header {
   display: grid;
-  grid-template-columns: 120px 120px 120px 120px;
+  grid-template-columns: 120px 120px;
   gap: 10px;
   align-items: center;
   height: 34px;
@@ -18,7 +18,7 @@
 
 .timeline-body {
   display: grid;
-  grid-template-rows: 44px 34px 44px 34px;
+  grid-template-rows: 78px 52px;
   height: calc(100% - 34px);
   overflow: auto;
 }
@@ -65,10 +65,14 @@
   font-size: 10px;
 }
 
-.muted-track::before {
-  content: "等待 ASR/OCR";
-  color: #7f8b99;
-  font-size: 12px;
+.audio-track-button {
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 0 12px;
+  cursor: pointer;
 }
 
 .segment-block,

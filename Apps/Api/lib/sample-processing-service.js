@@ -4,15 +4,16 @@ const { randomUUID } = require("crypto");
 const { createTraceContext, SAMPLE_STATUS } = require("../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../Infrastructure/Observability/trace");
 const { probeMetadata, extractCover, extractFrames, extractAudio } = require("../../../Infrastructure/MediaProcessing/media-processor");
+const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
-const { STAGES, assertUpload, assertDuration, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
+const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
 function createSampleProcessingService({ store, logger, jobStore }) {
-  async function enqueueUpload({ workspaceId, file }) {
+  async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
     const sampleVideoId = `sample_${randomUUID()}`;
     const sampleArtifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    runProcessing({ workspaceId, file, job, traceContext, sampleVideoId, sampleArtifactId });
+    runProcessing({ workspaceId, file, fields, job, traceContext, sampleVideoId, sampleArtifactId });
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
 
@@ -21,7 +22,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       await store.ensureRuntimeDirs();
       await runStage(context, STAGES.uploadReceived, 5, {
         artifactId: context.sampleArtifactId,
-        inputSummary: summarizeFile(context.file),
+        inputSummary: { ...summarizeFile(context.file), frameSampleRateFps: context.fields.frameSampleRateFps ?? null },
         action: async () => ({ sampleVideoId: context.sampleVideoId }),
         outputSummary: () => ({ sampleVideoId: context.sampleVideoId, sampleArtifactId: context.sampleArtifactId }),
       });
@@ -29,8 +30,12 @@ function createSampleProcessingService({ store, logger, jobStore }) {
         artifactId: context.sampleArtifactId,
         inputSummary: summarizeFile(context.file),
         logInputSummary: null,
-        action: async () => assertUpload(context.file),
-        outputSummary: () => ({ accepted: true }),
+        action: async () => {
+          assertUpload(context.file);
+          context.processingOptions = resolveProcessingOptions(context.fields);
+          return context.processingOptions;
+        },
+        outputSummary: (options) => ({ accepted: true, frameSampleRateFps: options.frameSampleRateFps }),
       });
       const sampleDir = await store.ensureSampleDirs(context.sampleVideoId);
       const inputPath = await saveSource(context, sampleDir);
@@ -38,7 +43,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       const cover = await readCover(context, inputPath, sampleDir);
       const frames = await readFrames(context, inputPath, sampleDir, metadata.durationSeconds);
       const audio = await readAudio(context, inputPath, sampleDir);
-      await writeArtifact(context, inputPath, { metadata, cover, frames, audio, sampleVideoId: context.sampleVideoId }, sampleDir);
+      await writeArtifact(context, inputPath, { metadata, cover, frames, audio, frameOutputSummary: context.frameOutputSummary, sampleVideoId: context.sampleVideoId }, sampleDir);
     } catch (error) {
       await markFailed(context, error);
     }
@@ -123,11 +128,16 @@ function createSampleProcessingService({ store, logger, jobStore }) {
 
   async function readFrames(context, inputPath, sampleDir, durationSeconds) {
     const framesDir = path.join(sampleDir, "frames");
+    const frameSampleRateFps = context.processingOptions.frameSampleRateFps;
+    const plannedFrameCount = planFrameTimestamps(durationSeconds, { frameSampleRateFps }).length;
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
-      inputSummary: { ...sourceSummary(context), durationSeconds: Math.round(durationSeconds) },
-      action: async () => extractFrames({ inputPath, framesDir, durationSeconds, parentArtifactId: context.sampleArtifactId, store }),
-      outputSummary: (frames) => ({ frameCount: frames.length, artifactType: "frame-set" }),
+      inputSummary: { ...sourceSummary(context), durationSeconds: Math.round(durationSeconds), frameSampleRateFps, targetFrameCount: plannedFrameCount, maxFrames: 120 },
+      action: async () => extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store }),
+      outputSummary: (frames) => {
+        context.frameOutputSummary = { frameSampleRateFps, targetFrameCount: plannedFrameCount, actualFrameCount: frames.length, maxFrames: 120 };
+        return { ...context.frameOutputSummary, artifactType: "frame-set" };
+      },
     });
   }
 

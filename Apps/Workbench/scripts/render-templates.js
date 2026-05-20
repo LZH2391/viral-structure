@@ -3,10 +3,10 @@
 
   function listItem(item) {
     return `
-      <div class="list-item">
+      <button class="list-item ${item.artifactId === state.selectedDerivativeId ? "active" : ""}" type="button" data-artifact-id="${item.artifactId}">
         <strong>${item.name}</strong>
         <span>${item.type} / ${item.summary}</span>
-      </div>
+      </button>
     `;
   }
 
@@ -87,10 +87,19 @@
       `;
     }
     if (state.sampleVideo) {
+      const frame = state.sampleVideo.frameArtifacts.find((item) => item.id === state.selectedFrameId);
+      if (state.activeMediaKind === "frame" && frame) {
+        return `
+          <div class="detail-row"><b>帧时间</b><span>${formatTime(frame.time)}</span></div>
+          <div class="detail-row"><b>artifact</b><span>${frame.artifactId}</span></div>
+          <div class="detail-row"><b>parent</b><span>${frame.parentArtifactId}</span></div>
+        `;
+      }
       return `
         <div class="detail-row"><b>样例</b><span>${state.sampleVideo.fileName}</span></div>
         <div class="detail-row"><b>时长</b><span>${formatTime(state.sampleVideo.duration)}</span></div>
         <div class="detail-row"><b>状态</b><span>${state.sampleVideo.processingStatus}</span></div>
+        <div class="detail-row"><b>采样率</b><span>${state.sampleVideo.processingOptions?.frameSampleRateFps ?? 0.25} fps</span></div>
         <div class="detail-row"><b>trace</b><span>${state.processingJob?.traceId ?? "无"}</span></div>
       `;
     }

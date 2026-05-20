@@ -7,6 +7,9 @@ function buildArtifact({ context, inputPath, media, store }) {
     workspaceId: context.workspaceId,
     status: SAMPLE_STATUS.processed,
     trace: context.traceContext,
+    processingOptions: {
+      frameSampleRateFps: context.processingOptions.frameSampleRateFps,
+    },
     sampleVideo: {
       artifactId: context.sampleArtifactId,
       parentArtifactId: null,
@@ -27,6 +30,7 @@ function buildArtifact({ context, inputPath, media, store }) {
     },
     cover: media.cover,
     frames: media.frames,
+    frameOutputSummary: media.frameOutputSummary,
     audio: media.audio,
     metadata: media.metadata,
   };

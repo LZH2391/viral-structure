@@ -3,6 +3,7 @@
 /Runtime/Artifacts/*
 /Runtime/DebugSnapshots/*
 /Runtime/Temp/*
+/MP4/
 
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md

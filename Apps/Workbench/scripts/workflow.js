@@ -12,7 +12,8 @@
         const stage = observability.beginStage(STAGES.ingest);
         try {
           els.sampleFileLabel.textContent = file.name;
-          const ingestResult = await uploadAndPollSampleVideo(file, () => renderer.renderAll());
+          const frameSampleRateFps = Number(els.frameSampleRateInput.value || 0.25);
+          const ingestResult = await uploadAndPollSampleVideo(file, { frameSampleRateFps }, () => renderer.renderAll());
           if (ingestResult.job.status === "failed") throw buildIngestError(ingestResult.job);
           versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);
           observability.finishStage(stage, state.sampleVideo.artifactId);
@@ -78,7 +79,20 @@
         const frame = state.sampleVideo?.frameArtifacts.find((item) => item.id === frameId);
         if (!frame) return;
         state.selectedFrameId = frame.id;
-        els.sampleVideo.currentTime = frame.time;
+        state.activeMediaKind = "frame";
+        state.selectedDerivativeId = frame.artifactId;
+        renderer.renderAll();
+      },
+      selectDerivative(artifactId) {
+        const item = state.mediaDerivatives.find((entry) => entry.artifactId === artifactId);
+        if (!item) return;
+        state.selectedDerivativeId = item.artifactId;
+        state.activeMediaKind = mediaKindForType(item.type);
+        renderer.renderAll();
+      },
+      selectAudioTrack() {
+        state.activeMediaKind = "audio";
+        state.selectedDerivativeId = state.sampleArtifact?.audio?.artifactId ?? null;
         renderer.renderAll();
       },
       selectSegment(segmentId) {
@@ -108,6 +122,12 @@
       duration: sanitizeText(els.profileDuration.value, 32) || "与样例接近",
       tone: sanitizeText(els.profileTone.value, 60) || "清晰、有节奏",
     };
+  }
+
+  function mediaKindForType(type) {
+    if (type === "cover-frame") return "cover";
+    if (type === "audio-track") return "audio";
+    return "video";
   }
 
   function buildIngestError(job) {

@@ -47,6 +47,30 @@ test("failed upload stage writes start, fail and a debug snapshot", async () => 
   assert.ok(snapshot.debugPayload.errorSummary);
 });
 
+test("invalid frame sample rate fails during upload validation", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-rate-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({ store, logger, jobStore });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { frameSampleRateFps: "4" },
+    file: {
+      filename: "sample.mp4",
+      extension: ".mp4",
+      mimeType: "video/mp4",
+      size: 5,
+      buffer: Buffer.from("hello"),
+    },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "failed");
+  assert.equal(job.errorSummary.code, "invalid_frame_sample_rate");
+  assert.equal(job.errorSummary.stageName, STAGES.uploadValidated);
+  assert.ok(job.errorSummary.debugSnapshotUri);
+});
+
 async function waitForJob(jobStore, jobId, status) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const job = jobStore.getJob(jobId);

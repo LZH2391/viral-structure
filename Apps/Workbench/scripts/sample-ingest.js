@@ -2,8 +2,8 @@
   const { state } = window.WorkbenchState;
   const api = window.WorkbenchApiClient;
 
-  async function uploadAndPollSampleVideo(file, onJobUpdate) {
-    const upload = await api.uploadSampleVideo(file);
+  async function uploadAndPollSampleVideo(file, options, onJobUpdate) {
+    const upload = await api.uploadSampleVideo(file, options);
     state.processingJob = {
       jobId: upload.processingJobId,
       sampleVideoId: upload.sampleVideoId,
@@ -42,6 +42,11 @@
       duration: artifact.metadata.durationSeconds,
       processingStatus: artifact.status,
       videoUri: artifact.sampleVideo.normalized.uri,
+      coverUri: artifact.cover?.uri ?? null,
+      audioUri: artifact.audio?.uri ?? null,
+      audioSummary: artifact.audio?.summary ?? null,
+      processingOptions: artifact.processingOptions ?? null,
+      frameOutputSummary: artifact.frameOutputSummary ?? null,
       frameArtifacts: artifact.frames.map((frame) => ({
         id: frame.frameId,
         artifactId: frame.artifactId,
@@ -52,6 +57,8 @@
     };
     state.mediaDerivatives = buildDerivatives(artifact);
     state.selectedFrameId = state.sampleVideo.frameArtifacts[0]?.id ?? null;
+    state.selectedDerivativeId = artifact.sampleVideo.normalized.artifactId;
+    state.activeMediaKind = "video";
     state.structureCards = [];
     state.generatedPlan = null;
     state.mappings = [];
@@ -68,6 +75,7 @@
       id: item.artifactId,
       name: artifactName(item.type),
       type: item.type,
+      uri: item.uri,
       artifactId: item.artifactId,
       parentArtifactId: item.parentArtifactId,
       summary: item.summary,

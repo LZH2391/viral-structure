@@ -9,15 +9,10 @@
       });
     });
 
-    els.sampleVideoInput.addEventListener("change", actions.handleSampleUpload);
-    els.understandBtn.addEventListener("click", actions.handleUnderstand);
-    els.profileForm.addEventListener("submit", actions.handleGeneratePlan);
-    els.rerunStageBtn.addEventListener("click", actions.handleRerunStage);
-    els.snapshotBtn.addEventListener("click", actions.captureManualSnapshot);
-    els.sampleVideo.addEventListener("timeupdate", () => renderer.renderProperties());
-    els.sampleModeBtn.addEventListener("click", () => actions.setPreviewMode("sample"));
-    els.generatedModeBtn.addEventListener("click", () => actions.setPreviewMode("generated"));
-    els.compareModeBtn.addEventListener("click", () => actions.setPreviewMode("compare"));
+    els.sampleVideoInput?.addEventListener("change", actions.handleSampleUpload);
+    els.rerunStageBtn?.addEventListener("click", actions.handleRerunStage);
+    els.snapshotBtn?.addEventListener("click", actions.captureManualSnapshot);
+    els.sampleVideo?.addEventListener("timeupdate", () => renderer.renderProperties());
   }
 
   window.WorkbenchEvents = { bindEvents };
