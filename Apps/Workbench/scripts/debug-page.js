@@ -1,5 +1,5 @@
 (function () {
-  const state = { traces: [], selectedTraceId: null };
+  const state = { traces: [], details: new Map(), selectedTraceId: null };
   const els = {
     status: document.querySelector("#debugStatus"),
     count: document.querySelector("#debugCount"),
@@ -18,8 +18,12 @@
     setStatus("刷新中");
     const data = await fetchJson("/api/debug/traces");
     state.traces = data.traces ?? [];
-    state.selectedTraceId = state.selectedTraceId ?? state.traces[0]?.traceId ?? null;
-    render();
+    state.details.clear();
+    if (!state.traces.some((trace) => trace.traceId === state.selectedTraceId)) {
+      state.selectedTraceId = state.traces[0]?.traceId ?? null;
+    }
+    renderTraceList();
+    await loadSelectedTrace();
     setStatus("已同步");
   }
 
@@ -30,27 +34,34 @@
     return json;
   }
 
-  function render() {
+  function renderTraceList() {
     els.count.textContent = `${state.traces.length} traces`;
     els.updatedAt.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
     els.traceList.innerHTML = state.traces.length ? state.traces.map(traceButton).join("") : emptyState("暂无运行记录");
     els.traceList.querySelectorAll("[data-trace-id]").forEach((button) => {
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         state.selectedTraceId = button.dataset.traceId;
-        render();
+        renderTraceList();
+        await loadSelectedTrace();
       });
     });
-    renderSelectedTrace();
   }
 
-  function renderSelectedTrace() {
-    const trace = state.traces.find((item) => item.traceId === state.selectedTraceId);
-    if (!trace) {
+  async function loadSelectedTrace() {
+    if (!state.selectedTraceId) {
       els.traceTitle.textContent = "未选择 trace";
       els.logLink.removeAttribute("href");
       els.eventList.innerHTML = emptyState("等待后端生成 trace log");
       return;
     }
+    setStatus("读取详情");
+    if (!state.details.has(state.selectedTraceId)) {
+      state.details.set(state.selectedTraceId, await fetchJson(`/api/debug/traces/${encodeURIComponent(state.selectedTraceId)}`));
+    }
+    renderSelectedTrace(state.details.get(state.selectedTraceId));
+  }
+
+  function renderSelectedTrace(trace) {
     els.traceTitle.textContent = trace.traceId;
     els.logLink.href = trace.logUri;
     els.eventList.innerHTML = trace.events.length ? trace.events.map(eventItem).join("") : emptyState("该 trace 暂无事件");

@@ -13,3 +13,13 @@ test("frontend UI logs use uiTraceId and display backend trace after upload", ()
   assert.match(render, /state\.processingJob\?\.traceId/);
   assert.match(render, /uiTrace/);
 });
+
+test("frontend only creates debug snapshots for failures and manual capture", () => {
+  const root = path.resolve(__dirname, "../..");
+  const observability = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/observability.js"), "utf8");
+  const workflow = fs.readFileSync(path.join(root, "Apps/Workbench/scripts/workflow.js"), "utf8");
+
+  assert.match(observability, /function failStage[\s\S]+captureStageSnapshot/);
+  assert.match(workflow, /captureManualSnapshot\(\)[\s\S]+observability\.captureDebugSnapshot/);
+  assert.equal([...workflow.matchAll(/observability\.captureDebugSnapshot/g)].length, 1);
+});

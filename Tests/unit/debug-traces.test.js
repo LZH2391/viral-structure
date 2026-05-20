@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
-const { readDebugTraces } = require("../../Apps/Api/lib/debug-traces");
+const { readDebugTraces, readDebugTraceDetail } = require("../../Apps/Api/lib/debug-traces");
 
 test("reads trace jsonl files for the debug page", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-debug-"));
@@ -24,4 +24,9 @@ test("reads trace jsonl files for the debug page", async () => {
   assert.equal(result.traces[0].latestEvent, "stage.fail");
   assert.equal(result.traces[0].latestStageName, "sample.metadata.probed");
   assert.equal(result.traces[0].errorSummary.code, "metadata_probe_failed");
+  assert.equal(result.traces[0].events, undefined);
+
+  const detail = await readDebugTraceDetail(root, "trace_abc");
+  assert.equal(detail.events.length, 2);
+  assert.equal(detail.events[1].event, "stage.fail");
 });

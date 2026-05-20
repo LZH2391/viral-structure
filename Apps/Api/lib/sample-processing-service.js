@@ -28,6 +28,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       await runStage(context, STAGES.uploadValidated, 10, {
         artifactId: context.sampleArtifactId,
         inputSummary: summarizeFile(context.file),
+        logInputSummary: null,
         action: async () => assertUpload(context.file),
         outputSummary: () => ({ accepted: true }),
       });
@@ -61,7 +62,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       event: "stage.start",
       artifactId: options.artifactId ?? null,
       parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
+      inputSummary: options.logInputSummary === undefined ? options.inputSummary ?? null : options.logInputSummary,
     });
     const result = await options.action();
     const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
@@ -73,7 +74,6 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       event: "stage.end",
       artifactId: artifactId ?? null,
       parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
       outputSummary,
       durationMs: Date.now() - startedAt,
     });
@@ -177,7 +177,6 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       event: "stage.fail",
       artifactId: activeStage.artifactId,
       parentArtifactId: activeStage.parentArtifactId,
-      inputSummary: activeStage.inputSummary,
       outputSummary: activeStage.outputSummary,
       durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
       errorSummary: safeWithSnapshot,

@@ -2,7 +2,7 @@
   const { STAGES, state, createId, sanitizeText } = window.WorkbenchState;
   const { uploadAndPollSampleVideo } = window.WorkbenchSampleIngest;
   const { createStructureCards } = window.WorkbenchStructureStrategy;
-  const { PROMPT_TEMPLATE_VERSION, createGeneratedPlan } = window.WorkbenchTransferStrategy;
+  const { createGeneratedPlan } = window.WorkbenchTransferStrategy;
 
   function createWorkflow(els, renderer, observability, versioning) {
     const actions = {
@@ -15,13 +15,6 @@
           const ingestResult = await uploadAndPollSampleVideo(file, () => renderer.renderAll());
           if (ingestResult.job.status === "failed") throw buildIngestError(ingestResult.job);
           versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);
-          observability.captureDebugSnapshot(stage.stageName, {
-            sampleArtifactId: state.sampleVideo.artifactId,
-            derivativeCount: state.mediaDerivatives.length,
-            frameCount: state.sampleVideo.frameArtifacts.length,
-            durationSeconds: Math.round(state.sampleVideo.duration),
-            backendTraceId: state.processingJob.traceId,
-          });
           observability.finishStage(stage, state.sampleVideo.artifactId);
         } catch (error) {
           observability.failStage(stage, error, error.observabilityDetails);
@@ -35,11 +28,6 @@
           state.structureCards = createStructureCards(state.sampleVideo);
           const structureArtifactId = createId("artifact");
           versioning.addVersion("结构理解完成", stage.stageName, structureArtifactId, state.sampleVideo.artifactId);
-          observability.captureDebugSnapshot(stage.stageName, {
-            parentArtifactId: state.sampleVideo.artifactId,
-            structureCount: state.structureCards.length,
-            structureNames: state.structureCards.map((item) => item.name),
-          });
           observability.finishStage(stage, structureArtifactId);
         } catch (error) {
           observability.failStage(stage, error);
@@ -58,7 +46,6 @@
           state.generatedPlan = result.generatedPlan;
           state.mappings = result.mappings;
           versioning.addVersion("迁移方案生成", stage.stageName, result.generatedArtifactId, parentArtifactId);
-          captureTransferSnapshot(observability, stage, parentArtifactId, result, profile);
           observability.finishStage(stage, result.generatedArtifactId);
           actions.setPreviewMode("generated");
         } catch (error) {
@@ -72,12 +59,6 @@
         const stage = observability.beginStage(STAGES.rerun, parentArtifactId);
         const artifactId = createId("artifact");
         versioning.addVersion("返工分支", stage.stageName, artifactId, parentArtifactId);
-        observability.captureDebugSnapshot(stage.stageName, {
-          parentArtifactId,
-          newArtifactId: artifactId,
-          rerunPolicy: "preserve-history",
-          currentVersionId: state.workspace.currentVersionId,
-        });
         observability.finishStage(stage, artifactId);
         renderer.renderAll();
       },
@@ -150,25 +131,6 @@
       },
     };
     return error;
-  }
-
-  function captureTransferSnapshot(observability, stage, parentArtifactId, result, profile) {
-    observability.captureDebugSnapshot(stage.stageName, {
-      parentArtifactId,
-      generatedArtifactId: result.generatedArtifactId,
-      promptTemplateVersion: PROMPT_TEMPLATE_VERSION,
-      inputSummary: {
-        topic: profile.topic,
-        sellingPoints: profile.sellingPoints,
-        structureCount: state.structureCards.length,
-      },
-      outputSummary: {
-        shotCount: state.generatedPlan.shots.length,
-        mappingCount: state.mappings.length,
-      },
-      parseResult: "structured-plan",
-      retryCount: 0,
-    });
   }
 
   window.WorkbenchWorkflow = { createWorkflow };

@@ -4,7 +4,7 @@ const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
-const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
+const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
 const { PROCESSING_ERRORS } = require("../../Core/Workspace/sample-video-contracts");
@@ -32,10 +32,13 @@ test("failed upload stage writes start, fail and a debug snapshot", async () => 
   assert.ok(job.errorSummary.debugSnapshotUri.includes("/runtime/DebugSnapshots/"));
 
   const logPath = path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`);
-  const logs = (await fs.readFile(logPath, "utf8")).trim().split("\n").map(JSON.parse);
+  const logText = await fs.readFile(logPath, "utf8");
+  const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
   assert.deepEqual(logs.map((line) => line.event), ["stage.start", "stage.end", "stage.start", "stage.fail"]);
   assert.equal(logs.at(-1).stageName, STAGES.uploadValidated);
   assert.equal(logs.at(-1).errorSummary.debugSnapshotUri, job.errorSummary.debugSnapshotUri);
+  const expandedText = `${logs.map((line) => JSON.stringify(line)).join("\n")}\n`;
+  assert.ok(logText.length <= expandedText.length * 0.6, `compact=${logText.length} expanded=${expandedText.length}`);
 
   const snapshotPath = path.join(store.runtimeRoot, "DebugSnapshots", path.basename(job.errorSummary.debugSnapshotUri));
   const snapshot = JSON.parse(await fs.readFile(snapshotPath, "utf8"));
