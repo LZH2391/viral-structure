@@ -20,8 +20,8 @@
 
 - 抽帧采样率：
   - 上传区增加“抽帧采样率”控件，语义为“每秒抽多少帧”，字段名建议为 `frameSampleRateFps`。
-  - 默认值保持当前体验等价：`0.25` fps，即约每 4 秒 1 帧。
-  - 允许范围：`0.1` 到 `2` fps；后端统一校验。
+  - 默认值：`1` fps。
+  - 允许范围：`1` 到 `10` fps；后端统一校验。
   - 后端根据 `durationSeconds * frameSampleRateFps` 计算目标帧数，并限制最大 `120` 帧；超过上限时均匀覆盖整段视频。
   - artifact 增加 `processingOptions.frameSampleRateFps` 和帧输出摘要，便于追踪本次抽帧参数。
 
@@ -34,7 +34,7 @@
 ## Test Plan
 - 单元测试：
   - `planFrameTimestamps(duration, { frameSampleRateFps })` 覆盖默认值、1 fps、上限 120、非法值。
-  - 采样率校验覆盖低于 `0.1`、高于 `2`、非数字。
+  - 采样率校验覆盖低于 `1`、高于 `10`、非数字。
   - artifact contract 覆盖 `processingOptions.frameSampleRateFps` 和帧 artifact 血缘不丢失。
 
 - 集成/手动测试：

@@ -56,7 +56,7 @@ test("invalid frame sample rate fails during upload validation", async () => {
 
   const upload = await service.enqueueUpload({
     workspaceId: "workspace_1",
-    fields: { frameSampleRateFps: "4" },
+    fields: { frameSampleRateFps: "11" },
     file: {
       filename: "sample.mp4",
       extension: ".mp4",

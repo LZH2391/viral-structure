@@ -99,7 +99,7 @@
         <div class="detail-row"><b>样例</b><span>${state.sampleVideo.fileName}</span></div>
         <div class="detail-row"><b>时长</b><span>${formatTime(state.sampleVideo.duration)}</span></div>
         <div class="detail-row"><b>状态</b><span>${state.sampleVideo.processingStatus}</span></div>
-        <div class="detail-row"><b>采样率</b><span>${state.sampleVideo.processingOptions?.frameSampleRateFps ?? 0.25} fps</span></div>
+        <div class="detail-row"><b>采样率</b><span>${state.sampleVideo.processingOptions?.frameSampleRateFps ?? 1} fps</span></div>
         <div class="detail-row"><b>trace</b><span>${state.processingJob?.traceId ?? "无"}</span></div>
       `;
     }

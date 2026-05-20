@@ -1,5 +1,5 @@
 function planFrameTimestamps(durationSeconds, options = {}) {
-  const frameSampleRateFps = options.frameSampleRateFps ?? 0.25;
+  const frameSampleRateFps = options.frameSampleRateFps ?? 1;
   const maxFrames = options.maxFrames ?? 120;
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return [0];
   const targetFrames = Math.max(1, Math.ceil(durationSeconds * frameSampleRateFps));

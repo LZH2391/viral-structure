@@ -12,7 +12,7 @@
         const stage = observability.beginStage(STAGES.ingest);
         try {
           els.sampleFileLabel.textContent = file.name;
-          const frameSampleRateFps = Number(els.frameSampleRateInput.value || 0.25);
+          const frameSampleRateFps = Number(els.frameSampleRateInput.value || 1);
           const ingestResult = await uploadAndPollSampleVideo(file, { frameSampleRateFps }, () => renderer.renderAll());
           if (ingestResult.job.status === "failed") throw buildIngestError(ingestResult.job);
           versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);

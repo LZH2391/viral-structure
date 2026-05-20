@@ -5,7 +5,7 @@
   async function uploadSampleVideo(file, options = {}) {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 0.25));
+    formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 1));
     const response = await fetch(`${API_BASE_URL}/api/workspaces/${WORKSPACE_ID}/sample-videos`, {
       method: "POST",
       body: formData,

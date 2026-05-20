@@ -20,9 +20,10 @@ test("rejects duration above limit", () => {
 });
 
 test("normalizes frame sample rate", () => {
-  assert.equal(normalizeFrameSampleRateFps(undefined).value, 0.25);
+  assert.equal(normalizeFrameSampleRateFps(undefined).value, 1);
   assert.equal(normalizeFrameSampleRateFps("1").value, 1);
-  assert.equal(normalizeFrameSampleRateFps("0.05").error.code, "invalid_frame_sample_rate");
-  assert.equal(normalizeFrameSampleRateFps("2.5").error.code, "invalid_frame_sample_rate");
+  assert.equal(normalizeFrameSampleRateFps("10").value, 10);
+  assert.equal(normalizeFrameSampleRateFps("0.5").error.code, "invalid_frame_sample_rate");
+  assert.equal(normalizeFrameSampleRateFps("11").error.code, "invalid_frame_sample_rate");
   assert.equal(normalizeFrameSampleRateFps("bad").error.code, "invalid_frame_sample_rate");
 });
