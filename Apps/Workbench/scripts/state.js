@@ -25,6 +25,9 @@
     versions: [],
     logs: [],
     debugSnapshots: [],
+    processingJob: null,
+    sampleArtifact: null,
+    errorSummary: null,
   };
 
   function createId(prefix) {

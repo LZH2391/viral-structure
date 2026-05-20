@@ -40,7 +40,13 @@
         .join("");
       els.previewMeta.textContent = state.sampleVideo
         ? `${state.sampleVideo.fileName} / ${formatTime(state.sampleVideo.duration)}`
-        : "未加载样例";
+        : state.processingJob
+          ? `${state.processingJob.stage} / ${state.processingJob.progress}%`
+          : "未加载样例";
+      if (state.sampleVideo?.videoUri) {
+        const videoUrl = window.WorkbenchApiClient.runtimeUrl(state.sampleVideo.videoUri);
+        if (els.sampleVideo.src !== videoUrl) els.sampleVideo.src = videoUrl;
+      }
       els.generatedPreview.innerHTML = state.generatedPlan ? templates.generatedPlan() : templates.emptyGenerated();
       els.mappingList.innerHTML = state.mappings.length ? state.mappings.map(templates.mapping).join("") : templates.emptyMapping();
     }

@@ -20,4 +20,10 @@
 - `styles.css`：样式入口，按区域引入 `styles/` 下的布局、面板、预览和时间线样式。
 - `app.js`：启动入口，负责组装 `scripts/` 下的状态、媒体、策略、渲染、版本和 trace 模块。
 
-直接在浏览器打开 `Apps/Workbench/index.html` 即可试用。当前实现只做本地预览和结构迁移表达，不上传文件、不调用模型、不生成正式视频。
+先启动 API：
+
+```powershell
+node Apps/Api/server.js
+```
+
+再在浏览器打开 `Apps/Workbench/index.html`。当前实现接入真实样例视频上传、任务轮询和本地 Runtime 产物展示，不调用模型、不生成正式视频。

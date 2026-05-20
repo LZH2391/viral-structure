@@ -1,64 +1,93 @@
 (function () {
-  const { state, createId, formatTime, formatFileSize } = window.WorkbenchState;
-  const { waitForVideoMetadata, extractFrames } = window.WorkbenchMedia;
+  const { state } = window.WorkbenchState;
+  const api = window.WorkbenchApiClient;
 
-  async function ingestSampleVideo(file, stage, els) {
-    const videoUrl = URL.createObjectURL(file);
-    els.sampleVideo.src = videoUrl;
-    await waitForVideoMetadata(els.sampleVideo);
-    const duration = els.sampleVideo.duration;
-    const sampleArtifactId = stage.artifactId;
-    state.sampleVideo = buildSampleVideo(file, videoUrl, duration, sampleArtifactId);
-    state.mediaDerivatives = buildMediaDerivatives(file, duration, sampleArtifactId);
+  async function uploadAndPollSampleVideo(file, onJobUpdate) {
+    const upload = await api.uploadSampleVideo(file);
+    state.processingJob = {
+      jobId: upload.processingJobId,
+      sampleVideoId: upload.sampleVideoId,
+      status: "pending",
+      progress: 0,
+      traceId: upload.traceId,
+    };
+    onJobUpdate(state.processingJob);
 
-    const frames = await extractFrames(els.sampleVideo, duration, sampleArtifactId);
-    state.sampleVideo.frameArtifacts = frames;
-    addFrameDerivatives(frames, sampleArtifactId);
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await delay(1000);
+      const job = await api.getProcessingJob(upload.processingJobId);
+      state.processingJob = job;
+      onJobUpdate(job);
+      if (job.status === "processed") {
+        const artifact = await api.getSampleArtifact(upload.sampleVideoId);
+        applySampleArtifact(artifact);
+        return { job, artifact };
+      }
+      if (job.status === "failed") {
+        state.errorSummary = job.errorSummary;
+        return { job, artifact: null };
+      }
+    }
+    throw new Error("处理超时，请稍后查询任务状态");
+  }
+
+  function applySampleArtifact(artifact) {
+    state.sampleArtifact = artifact;
+    state.errorSummary = null;
+    state.sampleVideo = {
+      id: artifact.sampleVideoId,
+      artifactId: artifact.sampleVideo.artifactId,
+      parentArtifactId: artifact.sampleVideo.parentArtifactId,
+      fileName: artifact.sampleVideo.original.summary,
+      duration: artifact.metadata.durationSeconds,
+      processingStatus: artifact.status,
+      videoUri: artifact.sampleVideo.normalized.uri,
+      frameArtifacts: artifact.frames.map((frame) => ({
+        id: frame.frameId,
+        artifactId: frame.artifactId,
+        parentArtifactId: frame.parentArtifactId,
+        time: frame.timestamp,
+        imageUri: frame.imageUri,
+      })),
+    };
+    state.mediaDerivatives = buildDerivatives(artifact);
+    state.selectedFrameId = state.sampleVideo.frameArtifacts[0]?.id ?? null;
     state.structureCards = [];
     state.generatedPlan = null;
     state.mappings = [];
-    els.sampleFileLabel.textContent = file.name;
-    return { sampleArtifactId, frames, duration };
   }
 
-  function buildSampleVideo(file, objectUrl, duration, artifactId) {
-    return {
-      id: createId("sample"),
-      artifactId,
-      parentArtifactId: null,
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type || "video",
-      duration,
-      objectUrl,
-      processingStatus: "processed",
-      frameArtifacts: [],
-    };
-  }
-
-  function buildMediaDerivatives(file, duration, sampleArtifactId) {
+  function buildDerivatives(artifact) {
     return [
-      buildDerivative("原始视频引用", "source", sampleArtifactId, null, `${formatFileSize(file.size)} / ${formatTime(duration)}`),
-      buildDerivative("标准化视频引用", "normalized-video", createId("artifact"), sampleArtifactId, "本地预览格式"),
-      buildDerivative("音频轨", "audio-track", createId("artifact"), sampleArtifactId, "等待 ASR"),
-      buildDerivative("视频基础元信息", "metadata", createId("artifact"), sampleArtifactId, `${Math.round(duration)} 秒`),
-    ];
+      artifact.sampleVideo.original,
+      artifact.sampleVideo.normalized,
+      artifact.cover,
+      { artifactId: "frame-set", type: "frame-set", summary: `${artifact.frames.length} 帧`, parentArtifactId: artifact.sampleVideo.artifactId },
+      artifact.audio,
+    ].filter(Boolean).map((item) => ({
+      id: item.artifactId,
+      name: artifactName(item.type),
+      type: item.type,
+      artifactId: item.artifactId,
+      parentArtifactId: item.parentArtifactId,
+      summary: item.summary,
+    }));
   }
 
-  function buildDerivative(name, type, artifactId, parentArtifactId, summary) {
-    return { id: createId("derivative"), name, type, artifactId, parentArtifactId, summary };
+  function artifactName(type) {
+    const names = {
+      "original-video": "原始视频引用",
+      "normalized-video": "标准化视频引用",
+      "cover-frame": "封面帧",
+      "frame-set": "抽帧结果",
+      "audio-track": "音频轨",
+    };
+    return names[type] ?? type;
   }
 
-  function addFrameDerivatives(frames, sampleArtifactId) {
-    if (!frames[0]) return;
-    state.selectedFrameId = frames[0].id;
-    state.mediaDerivatives.splice(
-      1,
-      0,
-      buildDerivative("封面帧", "cover-frame", frames[0].artifactId, sampleArtifactId, formatTime(frames[0].time)),
-      buildDerivative("抽帧结果", "frame-set", createId("artifact"), sampleArtifactId, `${frames.length} 帧`),
-    );
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  window.WorkbenchSampleIngest = { ingestSampleVideo };
+  window.WorkbenchSampleIngest = { uploadAndPollSampleVideo, applySampleArtifact };
 })();

@@ -59,9 +59,10 @@
   }
 
   function frameCell(frame) {
+    const src = window.WorkbenchApiClient.runtimeUrl(frame.imageUri);
     return `
       <button class="frame-cell ${frame.id === state.selectedFrameId ? "active" : ""}" type="button" data-frame-id="${frame.id}">
-        <img alt="" src="${frame.thumbnail}" />
+        <img alt="" src="${src}" />
         <span>${formatTime(frame.time)}</span>
       </button>
     `;
@@ -90,6 +91,16 @@
         <div class="detail-row"><b>样例</b><span>${state.sampleVideo.fileName}</span></div>
         <div class="detail-row"><b>时长</b><span>${formatTime(state.sampleVideo.duration)}</span></div>
         <div class="detail-row"><b>状态</b><span>${state.sampleVideo.processingStatus}</span></div>
+        <div class="detail-row"><b>trace</b><span>${state.processingJob?.traceId ?? "无"}</span></div>
+      `;
+    }
+    if (state.errorSummary) return `<div class="detail-row"><b>错误</b><span>${state.errorSummary.message}</span></div>`;
+    if (state.processingJob) {
+      return `
+        <div class="detail-row"><b>任务</b><span>${state.processingJob.status}</span></div>
+        <div class="detail-row"><b>阶段</b><span>${state.processingJob.stage}</span></div>
+        <div class="detail-row"><b>进度</b><span>${state.processingJob.progress}%</span></div>
+        <div class="detail-row"><b>trace</b><span>${state.processingJob.traceId}</span></div>
       `;
     }
     return "暂无片段";

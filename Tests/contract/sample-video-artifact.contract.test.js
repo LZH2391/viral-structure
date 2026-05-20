@@ -1,0 +1,26 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { createArtifactRef, createFrameArtifact } = require("../../Core/Workspace/sample-video-contracts");
+
+test("frame artifact requires timestamp and parent artifact", () => {
+  const frame = createFrameArtifact({
+    frameId: "frame_1",
+    artifactId: "artifact_frame",
+    parentArtifactId: "artifact_sample",
+    timestamp: 1.2,
+    imageUri: "/runtime/frames/1.jpg",
+  });
+  assert.equal(frame.timestamp, 1.2);
+  assert.equal(frame.parentArtifactId, "artifact_sample");
+});
+
+test("artifact ref keeps parent relation", () => {
+  const ref = createArtifactRef({
+    artifactId: "artifact_audio",
+    parentArtifactId: "artifact_sample",
+    type: "audio-track",
+    uri: "/runtime/audio.m4a",
+    summary: "音频轨",
+  });
+  assert.equal(ref.parentArtifactId, "artifact_sample");
+});

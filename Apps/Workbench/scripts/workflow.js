@@ -1,6 +1,6 @@
 (function () {
   const { STAGES, state, createId, sanitizeText } = window.WorkbenchState;
-  const { ingestSampleVideo } = window.WorkbenchSampleIngest;
+  const { uploadAndPollSampleVideo } = window.WorkbenchSampleIngest;
   const { createStructureCards } = window.WorkbenchStructureStrategy;
   const { PROMPT_TEMPLATE_VERSION, createGeneratedPlan } = window.WorkbenchTransferStrategy;
 
@@ -11,14 +11,16 @@
         if (!file) return;
         const stage = observability.beginStage(STAGES.ingest);
         try {
-          const ingestResult = await ingestSampleVideo(file, stage, els);
-          versioning.addVersion("样例处理完成", stage.stageName, ingestResult.sampleArtifactId, null);
+          els.sampleFileLabel.textContent = file.name;
+          const ingestResult = await uploadAndPollSampleVideo(file, () => renderer.renderAll());
+          if (ingestResult.job.status === "failed") throw new Error(ingestResult.job.errorSummary?.message || "样例处理失败");
+          versioning.addVersion("样例处理完成", stage.stageName, state.sampleVideo.artifactId, null);
           observability.captureDebugSnapshot(stage.stageName, {
-            sampleArtifactId: ingestResult.sampleArtifactId,
+            sampleArtifactId: state.sampleVideo.artifactId,
             derivativeCount: state.mediaDerivatives.length,
-            frameCount: ingestResult.frames.length,
-            durationSeconds: Math.round(ingestResult.duration),
-            fileSummary: { type: state.sampleVideo.mimeType, size: state.sampleVideo.fileSize },
+            frameCount: state.sampleVideo.frameArtifacts.length,
+            durationSeconds: Math.round(state.sampleVideo.duration),
+            traceId: state.processingJob.traceId,
           });
           observability.finishStage(stage, state.sampleVideo.artifactId);
         } catch (error) {
