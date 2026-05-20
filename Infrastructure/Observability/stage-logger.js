@@ -1,3 +1,5 @@
+const { randomUUID } = require("crypto");
+
 function createStageLogger(store) {
   const tracedLogs = new Set();
 
@@ -48,7 +50,7 @@ function createStageLogger(store) {
     payload = null,
   }) {
     const snapshot = {
-      snapshotId: `snapshot_${traceContext.stageId}`,
+      snapshotId: `snapshot_${traceContext.stageId}_${shortUniqueId()}`,
       runId: traceContext.runId,
       traceId: traceContext.traceId,
       stageId: traceContext.stageId,
@@ -67,6 +69,10 @@ function createStageLogger(store) {
   }
 
   return { writeStageLog, writeDebugSnapshot };
+}
+
+function shortUniqueId() {
+  return randomUUID().replace(/-/g, "").slice(0, 10);
 }
 
 const EVENT_CODES = { "stage.start": "s", "stage.end": "e", "stage.fail": "f" };
@@ -120,7 +126,7 @@ function compactStageLog(line) {
   return dropNulls({
     v: 2,
     e: EVENT_CODES[line.event] ?? line.event,
-    run: line.runId,
+    run: line.traceId?.startsWith("uiTrace_") ? line.runId : null,
     sid: line.stageId,
     sn: STAGE_CODES[line.stageName] ?? line.stageName,
     a: line.artifactId,

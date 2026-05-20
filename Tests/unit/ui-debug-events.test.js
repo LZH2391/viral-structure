@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
-const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
+const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { ingestUiDebugEvent, normalizeUiEvent } = require("../../Apps/Api/lib/ui-debug-events");
 
 function createTestStore(runtimeRoot) {
@@ -40,12 +40,16 @@ test("ingests frontend UI events into uiTrace jsonl and debug snapshots", async 
   });
 
   assert.equal(result.ok, true);
-  assert.match(result.debugSnapshotUri, /^\/runtime\/DebugSnapshots\/snapshot_stage_test\.json$/);
+  assert.match(result.debugSnapshotUri, /^\/runtime\/DebugSnapshots\/snapshot_stage_test_[a-f0-9]+\.json$/);
   const log = await fs.readFile(path.join(runtimeRoot, "DebugSnapshots", "uiTrace_test.log.jsonl"), "utf8");
   assert.match(log, /"trace":"uiTrace_test"/);
+  assert.match(log, /"run":"run_test"/);
   assert.match(log, /"e":"f"/);
-  const snapshot = JSON.parse(await fs.readFile(path.join(runtimeRoot, "DebugSnapshots", "snapshot_stage_test.json"), "utf8"));
+  const restored = expandStageLogLines(log.trim().split("\n").map(JSON.parse));
+  assert.equal(restored[1].runId, "run_test");
+  const snapshot = JSON.parse(await fs.readFile(path.join(runtimeRoot, "DebugSnapshots", path.basename(result.debugSnapshotUri)), "utf8"));
   assert.equal(snapshot.traceId, "uiTrace_test");
+  assert.equal(snapshot.stageId, "stage_test");
   assert.equal(snapshot.debugPayload.rawUrl, "[url]");
 });
 

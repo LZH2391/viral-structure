@@ -10,6 +10,7 @@ const { sendJson, notFound, runtimeContentType } = require("./lib/http-utils");
 const { createWorkbenchStaticHandler } = require("./lib/static-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/ui-debug-events");
+const { recordApiRequestFailure } = require("./lib/api-request-debug");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -33,6 +34,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && staticWorkbench.handle(req, res, url.pathname)) return undefined;
     return notFound(res);
   } catch (error) {
+    await recordApiRequestFailure(logger, req, error).catch(() => undefined);
     if (error.statusCode === 400) return sendJson(res, 400, { error: error.code ?? "bad_request", message: error.message });
     return sendJson(res, 500, { error: "internal_error", message: "请求处理失败" });
   }

@@ -3,11 +3,11 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const { createTraceContext, SAMPLE_STATUS } = require("../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../Infrastructure/Observability/trace");
-const { probeMetadata, extractCover, extractFrames, extractAudio } = require("../../../Infrastructure/MediaProcessing/media-processor");
+const defaultMediaProcessor = require("../../../Infrastructure/MediaProcessing/media-processor");
 const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
-function createSampleProcessingService({ store, logger, jobStore }) {
+function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
     const sampleVideoId = `sample_${randomUUID()}`;
@@ -102,7 +102,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
       artifactId: context.sampleArtifactId,
       inputSummary: sourceSummary(context),
       action: async () => {
-        const metadata = await probeMetadata(inputPath);
+        const metadata = await mediaProcessor.probeMetadata(inputPath);
         assertDuration(metadata.durationSeconds);
         return metadata;
       },
@@ -120,7 +120,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
     return runStage(context, STAGES.coverExtracted, 50, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: sourceSummary(context),
-      action: async () => extractCover({ inputPath, coverPath, parentArtifactId: context.sampleArtifactId, store }),
+      action: async () => mediaProcessor.extractCover({ inputPath, coverPath, parentArtifactId: context.sampleArtifactId, store }),
       artifactIdFromResult: (cover) => cover.artifactId,
       outputSummary: (cover) => ({ artifactType: cover.type, uri: cover.uri }),
     });
@@ -133,7 +133,7 @@ function createSampleProcessingService({ store, logger, jobStore }) {
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: { ...sourceSummary(context), durationSeconds: Math.round(durationSeconds), frameSampleRateFps, targetFrameCount: plannedFrameCount, maxFrames: 120 },
-      action: async () => extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store }),
+      action: async () => mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store }),
       outputSummary: (frames) => {
         context.frameOutputSummary = { frameSampleRateFps, targetFrameCount: plannedFrameCount, actualFrameCount: frames.length, maxFrames: 120 };
         return { ...context.frameOutputSummary, artifactType: "frame-set" };
@@ -146,9 +146,26 @@ function createSampleProcessingService({ store, logger, jobStore }) {
     return runStage(context, STAGES.audioExtracted, 82, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: sourceSummary(context),
-      action: async () => extractAudio({ inputPath, audioPath, parentArtifactId: context.sampleArtifactId, store }),
+      action: async () => {
+        const audio = await mediaProcessor.extractAudio({ inputPath, audioPath, parentArtifactId: context.sampleArtifactId, store });
+        if (!audio.uri && audio.debugSummary) {
+          const outputSummary = buildAudioOutputSummary(audio);
+          const snapshot = await logger.writeDebugSnapshot({
+            traceContext: context.traceContext,
+            stageName: STAGES.audioExtracted,
+            artifactId: audio.artifactId,
+            parentArtifactId: context.sampleArtifactId,
+            reason: "audio_extract_degraded",
+            inputSummary: sourceSummary(context),
+            outputSummary,
+            debugPayload: audio.debugSummary,
+          });
+          audio.debugSnapshotUri = snapshot.uri;
+        }
+        return audio;
+      },
       artifactIdFromResult: (audio) => audio.artifactId,
-      outputSummary: (audio) => ({ artifactType: audio.type, available: Boolean(audio.uri), reason: audio.uri ? null : audio.summary }),
+      outputSummary: buildAudioOutputSummary,
     });
   }
 
@@ -201,6 +218,17 @@ function createSampleProcessingService({ store, logger, jobStore }) {
   }
 
   return { enqueueUpload };
+}
+
+function buildAudioOutputSummary(audio) {
+  const available = Boolean(audio.uri);
+  return {
+    artifactType: audio.type,
+    available,
+    degraded: !available,
+    reason: available ? null : audio.summary,
+    debugSnapshotUri: audio.debugSnapshotUri ?? null,
+  };
 }
 
 module.exports = { createSampleProcessingService, STAGES };

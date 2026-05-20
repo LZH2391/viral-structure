@@ -55,3 +55,34 @@ test("stage logger writes compact logs that restore the debug trace contract", a
   const fullText = `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`;
   assert.ok(savedText.length <= fullText.length * 0.6, `compact=${savedText.length} full=${fullText.length}`);
 });
+
+test("stage logger writes unique debug snapshots for the same stage", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-snapshot-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const traceContext = createTraceContext({ runId: "run_1", traceId: "trace_1", stageId: "stage_1" });
+
+  const first = await logger.writeDebugSnapshot({
+    traceContext,
+    stageName: "api.request.handle",
+    reason: "first_failure",
+    debugPayload: { attempt: 1 },
+  });
+  const second = await logger.writeDebugSnapshot({
+    traceContext,
+    stageName: "api.request.handle",
+    reason: "second_failure",
+    debugPayload: { attempt: 2 },
+  });
+
+  assert.notEqual(first.snapshotId, second.snapshotId);
+  assert.match(first.uri, /^\/runtime\/DebugSnapshots\/snapshot_stage_1_[a-f0-9]+\.json$/);
+  assert.match(second.uri, /^\/runtime\/DebugSnapshots\/snapshot_stage_1_[a-f0-9]+\.json$/);
+
+  const firstSnapshot = JSON.parse(await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", path.basename(first.uri)), "utf8"));
+  const secondSnapshot = JSON.parse(await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", path.basename(second.uri)), "utf8"));
+  assert.equal(firstSnapshot.reason, "first_failure");
+  assert.equal(firstSnapshot.debugPayload.attempt, 1);
+  assert.equal(secondSnapshot.reason, "second_failure");
+  assert.equal(secondSnapshot.debugPayload.attempt, 2);
+});
