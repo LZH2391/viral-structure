@@ -6,7 +6,7 @@ import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, 
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
@@ -45,7 +45,10 @@ export function WorkbenchApp() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const miniCanvasRef = useRef<HTMLCanvasElement>(null);
   const workspaceGridRef = useRef<HTMLElement>(null);
+  const lastSegmentIdRef = useRef<string | null>(null);
+  const lastShotIdRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
+  const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
 
   useEffect(() => {
     const draft = readWorkbenchDraft();
@@ -67,20 +70,37 @@ export function WorkbenchApp() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
-    let lastSegmentId: string | null = null;
-    const onTimeUpdate = () => {
+    const syncPlaybackContext = (forceUpdate = false) => {
       const time = video.currentTime || 0;
       const card = findCurrentStructureCard(state.structureCards, time);
-      if ((card?.id ?? null) !== lastSegmentId) {
-        lastSegmentId = card?.id ?? null;
+      const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
+      const nextSegmentId = card?.id ?? null;
+      const nextShotId = shot?.id ?? null;
+      const segmentChanged = nextSegmentId !== lastSegmentIdRef.current;
+      const shotChanged = nextShotId !== lastShotIdRef.current;
+      lastSegmentIdRef.current = nextSegmentId;
+      lastShotIdRef.current = nextShotId;
+      if (forceUpdate || segmentChanged || shotChanged) {
         setCurrentTime(time);
       }
     };
+    const onTimeUpdate = () => syncPlaybackContext(false);
+    const onSeeked = () => syncPlaybackContext(true);
+    const onLoadedMetadata = () => syncPlaybackContext(true);
+    syncPlaybackContext(true);
     video.addEventListener("timeupdate", onTimeUpdate);
-    return () => video.removeEventListener("timeupdate", onTimeUpdate);
-  }, [state.structureCards]);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    return () => {
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+    };
+  }, [shotBoundaryAnalysis, state.structureCards]);
 
   const currentCard = useMemo(() => findCurrentStructureCard(state.structureCards, currentTime), [currentTime, state.structureCards]);
+  const currentShot = useMemo(() => findCurrentShot(shotBoundaryAnalysis?.shots, currentTime), [currentTime, shotBoundaryAnalysis]);
+  const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
 
   const writeLog = useCallback(
@@ -438,8 +458,10 @@ export function WorkbenchApp() {
           processingStage={state.processingJob?.stage}
           processingProgress={state.processingJob?.progress}
           errorMessage={state.errorSummary?.message}
-          shotBoundaryAnalysis={state.sampleArtifact?.shotBoundaryAnalysis ?? null}
+          shotBoundaryAnalysis={shotBoundaryAnalysis}
           shotBoundaryAnalysisHistory={state.sampleArtifact?.shotBoundaryAnalysisHistory ?? null}
+          currentShot={currentShot}
+          currentShotId={currentShotId}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={setAgentAnalysisFps}
@@ -457,6 +479,10 @@ export function WorkbenchApp() {
           ).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
+            const card = findCurrentStructureCard(state.structureCards, time);
+            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
+            lastSegmentIdRef.current = card?.id ?? null;
+            lastShotIdRef.current = shot?.id ?? null;
             setCurrentTime(time);
             dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
           }}

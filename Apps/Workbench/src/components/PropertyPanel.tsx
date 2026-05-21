@@ -24,6 +24,8 @@ type PropertyPanelProps = {
   errorMessage?: string | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
+  currentShot?: ShotBoundaryAnalysisArtifact["shots"][number] | null;
+  currentShotId?: string | null;
   agentJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   onAgentAnalysisFpsChange: (value: number) => void;
@@ -39,6 +41,8 @@ export function PropertyPanel(props: PropertyPanelProps) {
         sampleVideo={props.sampleVideo}
         analysis={props.shotBoundaryAnalysis}
         analysisHistory={props.shotBoundaryAnalysisHistory}
+        currentShot={props.currentShot}
+        currentShotId={props.currentShotId}
         job={props.agentJob}
         analysisFps={props.agentAnalysisFps}
         onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
@@ -59,6 +63,8 @@ function AgentRunPanel({
   sampleVideo,
   analysis,
   analysisHistory,
+  currentShot,
+  currentShotId,
   job,
   analysisFps,
   onAnalysisFpsChange,
@@ -68,6 +74,8 @@ function AgentRunPanel({
   sampleVideo: SampleVideo | null;
   analysis?: ShotBoundaryAnalysisArtifact | null;
   analysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
+  currentShot?: ShotBoundaryAnalysisArtifact["shots"][number] | null;
+  currentShotId?: string | null;
   job?: AgentRunJob | null;
   analysisFps: number;
   onAnalysisFpsChange: (value: number) => void;
@@ -162,10 +170,21 @@ function AgentRunPanel({
         </div>
       ) : null}
       {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
+      {analysis?.shots?.length && hasValidShotResult && currentShot ? (
+        <div className="agent-shot-current" aria-live="polite">
+          当前 {currentShot.shotNo ?? `S${String(currentShot.index + 1).padStart(3, "0")}`} / {formatTime(currentShot.start)} - {formatTime(currentShot.end)}
+        </div>
+      ) : null}
       {analysis?.shots?.length && hasValidShotResult ? (
         <div className="agent-shot-list">
           {analysis.shots.map((shot) => (
-            <button key={shot.id} className="agent-shot-item" type="button" onClick={() => onSelectShot(shot.start)}>
+            <button
+              key={shot.id}
+              className={`agent-shot-item ${currentShotId === shot.id ? "active" : ""}`}
+              type="button"
+              aria-current={currentShotId === shot.id ? "true" : undefined}
+              onClick={() => onSelectShot(shot.start)}
+            >
               <strong>{shot.shotNo ?? `S${String(shot.index + 1).padStart(3, "0")}`}</strong>
               <span>{formatTime(shot.start)} - {formatTime(shot.end)}</span>
               <small>{shot.reason}</small>

@@ -67,13 +67,18 @@ test("timeline selection and zoom avoid high-frequency full rerenders", () => {
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
   const metrics = read(root, "Apps/Workbench/src/utils/timeline.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
 
   assert.match(timeline, /onBlur=\{\(\) => onVisibleSecondsChange\(clampVisibleSeconds\(draftSeconds\)\)\}/);
   assert.doesNotMatch(timeline, /onChange=\{\(event\) => onVisibleSecondsChange/);
   assert.match(metrics, /export const MAX_RENDERED_FRAMES = 80/);
   assert.match(metrics, /function shouldAppendEndTick/);
-  assert.match(app, /lastSegmentId/);
-  assert.match(app, /if \(\(card\?\.id \?\? null\) !== lastSegmentId\)/);
+  assert.match(app, /lastSegmentIdRef/);
+  assert.match(app, /lastShotIdRef/);
+  assert.match(app, /video\.addEventListener\("seeked", onSeeked\)/);
+  assert.match(app, /video\.addEventListener\("loadedmetadata", onLoadedMetadata\)/);
+  assert.match(app, /findCurrentShot/);
+  assert.match(helpers, /currentTime >= shot\.start && \(isLastShot \? currentTime <= shot\.end : currentTime < shot\.end\)/);
 });
 
 test("timeline playhead playback avoids reducer driven progress updates", () => {
@@ -276,12 +281,48 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
   assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
   assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
+  assert.match(app, /currentShot=\{currentShot\}/);
+  assert.match(app, /currentShotId=\{currentShotId\}/);
+  assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
+  assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
+  assert.match(property, /当前 \{currentShot\.shotNo \?\? `S\$\{String\(currentShot\.index \+ 1\)\.padStart\(3, "0"\)\}`\} \/ \{formatTime\(currentShot\.start\)\} - \{formatTime\(currentShot\.end\)\}/);
   assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
   assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);
   assert.match(property, /className=\{`agent-history-item \$\{analysis\?\.artifactId === entry\.artifactId \? "is-current" : ""\}`\}/);
   assert.match(css, /\.agent-shot-list[\s\S]*max-height: 220px;[\s\S]*overflow: auto;/);
+  assert.match(css, /\.agent-shot-current/);
+  assert.match(css, /\.agent-shot-item\.active,\s*[\s\S]*\.agent-shot-item\[aria-current="true"\]/);
   assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
+});
+
+test("findCurrentShot uses half-open ranges and keeps final boundary inclusive", async () => {
+  const root = path.resolve(__dirname, "../..");
+  const source = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } });
+  const exports = {};
+  vm.runInNewContext(compiled.outputText, {
+    exports,
+    require: () => ({
+      getLibraryItemDetail: async () => null,
+      getProcessingJob: async () => null,
+      getSampleArtifact: async () => null,
+      getThreadPoolRoleStatus: async () => null,
+      startShotBoundaryAnalysis: async () => null,
+    }),
+  });
+  const { findCurrentShot } = exports;
+  const shots = [
+    { id: "shot_1", index: 0, start: 0, end: 1, representativeFrameId: "frame_1", confidence: 0.9, reason: "start" },
+    { id: "shot_2", index: 1, start: 1, end: 2, representativeFrameId: "frame_2", confidence: 0.9, reason: "middle" },
+    { id: "shot_3", index: 2, start: 2, end: 3, representativeFrameId: "frame_3", confidence: 0.9, reason: "end" },
+  ];
+
+  assert.equal(findCurrentShot(shots, 0.5)?.id, "shot_1");
+  assert.equal(findCurrentShot(shots, 1)?.id, "shot_2");
+  assert.equal(findCurrentShot(shots, 2)?.id, "shot_3");
+  assert.equal(findCurrentShot(shots, 3)?.id, "shot_3");
+  assert.equal(findCurrentShot(shots, 3.01), null);
 });
 
 test("appserver bridge and startup script use local agent runtime", () => {

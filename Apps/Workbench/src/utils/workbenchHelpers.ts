@@ -1,6 +1,6 @@
 import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
-import type { AudioFeatureMarker, ProcessingJob, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -133,6 +133,20 @@ export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | u
 
 export function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {
   return cards.find((item) => currentTime >= item.start && currentTime <= item.end) ?? null;
+}
+
+export function findCurrentShot(
+  shots: ShotBoundaryAnalysisArtifact["shots"] | null | undefined,
+  currentTime: number,
+): ShotBoundaryAnalysisArtifact["shots"][number] | null {
+  if (!shots?.length) return null;
+  for (let index = 0; index < shots.length; index += 1) {
+    const shot = shots[index];
+    const isLastShot = index === shots.length - 1;
+    const inRange = currentTime >= shot.start && (isLastShot ? currentTime <= shot.end : currentTime < shot.end);
+    if (inRange) return shot;
+  }
+  return null;
 }
 
 export function stageLabel(job: ProcessingJob): string {
