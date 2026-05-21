@@ -159,7 +159,7 @@ function AgentRunPanel({
         <div>0.5 fps 推荐：长镜头、慢节奏、只需粗略切分。</div>
         <div>采样率越高，图片越多，分析更细但耗时更久。</div>
       </div>
-      {samplingPreview ? <div className="agent-sampling-preview">预计实际：约 {formatFpsValue(samplingPreview.effectiveFps)} fps / 每 {samplingPreview.stride} 帧取 1 帧</div> : null}
+      {samplingPreview ? <div className="agent-sampling-preview">预计分析：目标 {formatFpsValue(samplingPreview.requestedFps)} fps / 约 {samplingPreview.selectedFrameCount} 帧 / 最近不重复取帧</div> : null}
       {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {analysis ? (
@@ -168,7 +168,10 @@ function AgentRunPanel({
           <div>turn：{analysis.agent?.turnId ? shortTurnId(analysis.agent.turnId) : "无"}</div>
           <div>requestedAnalysisFps：{formatFpsValue(renderedSampling.requestedFps)}</div>
           <div>effectiveAnalysisFps：{formatFpsValue(renderedSampling.effectiveFps)}</div>
-          <div>stride：{renderedSampling.stride ?? "无"}</div>
+          {renderedSampling.isLegacyStride ? <div>stride：{renderedSampling.stride}</div> : null}
+          <div>targetFrameCount：{renderedSampling.targetFrameCount ?? "无"}</div>
+          <div>selectedFrameCount：{renderedSampling.selectedFrameCount ?? "无"}</div>
+          <div>selectionPolicy：{renderedSampling.selectionPolicy}</div>
           <div>roundingPolicy：{renderedSampling.roundingPolicy}</div>
           <div>boundaryCount：{analysis.boundaries?.length ?? 0}</div>
           <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
@@ -370,10 +373,16 @@ function resolveAnalysisSamplingPreview(sampleVideo: SampleVideo | null, request
   const requestedFrameSampleRateFps = Number(sampleVideo?.frameOutputSummary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 0);
   if (!Number.isFinite(requestedFrameSampleRateFps) || requestedFrameSampleRateFps <= 0) return null;
   if (!Number.isFinite(requestedAnalysisFps) || requestedAnalysisFps <= 0) return null;
-  const stride = Math.max(1, Math.ceil(requestedFrameSampleRateFps / requestedAnalysisFps));
+  const durationSeconds = Number(sampleVideo?.duration ?? 0);
+  const availableFrameCount = Number(sampleVideo?.frameOutputSummary?.actualFrameCount ?? sampleVideo?.frameArtifacts.length ?? 0);
+  const targetFrameCount = countTargetGridFrames(durationSeconds, requestedAnalysisFps);
+  const selectedFrameCount = Math.min(targetFrameCount, Number.isFinite(availableFrameCount) && availableFrameCount > 0 ? availableFrameCount : targetFrameCount);
   return {
-    stride,
-    effectiveFps: roundToThree(requestedFrameSampleRateFps / stride),
+    requestedFps: requestedAnalysisFps,
+    targetFrameCount,
+    selectedFrameCount,
+    effectiveFps: durationSeconds > 0 ? roundToThree(selectedFrameCount / durationSeconds) : null,
+    selectionPolicy: "target_grid_nearest_unique",
   };
 }
 
@@ -381,13 +390,26 @@ function resolveRenderedAnalysisSampling(analysis?: ShotBoundaryAnalysisArtifact
   const requestedFps = Number(analysis?.analysisSampling?.requestedFps ?? analysis?.analysisSampling?.fps ?? Number.NaN);
   const stride = analysis?.analysisSampling?.stride ?? null;
   const hasStride = typeof stride === "number" && Number.isFinite(stride) && stride > 0;
-  const fallbackEffectiveFps = Number.isFinite(requestedFps) && hasStride ? requestedFps / stride : Number.NaN;
+  const extractFps = Number(analysis?.extractSampling?.requestedFps ?? Number.NaN);
+  const fallbackEffectiveFps = Number.isFinite(extractFps) && hasStride ? extractFps / stride : Number.NaN;
   return {
     requestedFps,
     effectiveFps: Number(analysis?.analysisSampling?.effectiveFps ?? fallbackEffectiveFps),
+    targetFrameCount: analysis?.analysisSampling?.targetFrameCount ?? null,
+    selectedFrameCount: analysis?.analysisSampling?.selectedFrameCount ?? null,
+    selectionPolicy: analysis?.analysisSampling?.selectionPolicy ?? (hasStride ? "legacy_stride" : "target_grid_nearest_unique"),
     stride,
+    isLegacyStride: hasStride,
     roundingPolicy: analysis?.analysisSampling?.roundingPolicy ?? "legacy_stride_fallback",
   };
+}
+
+function countTargetGridFrames(durationSeconds: number, requestedFps: number) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(requestedFps) || requestedFps <= 0) return 0;
+  const step = 1 / requestedFps;
+  let count = 0;
+  for (let targetTime = 0; targetTime < durationSeconds; targetTime += step) count += 1;
+  return count;
 }
 
 function resolveShotSummary(shot: ShotBoundaryAnalysisArtifact["shots"][number]) {

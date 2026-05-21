@@ -207,9 +207,10 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(property, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
   assert.match(property, /0.5 fps 推荐：长镜头、慢节奏、只需粗略切分/);
   assert.match(property, /采样率越高，图片越多，分析更细但耗时更久/);
-  assert.match(property, /预计实际：约 \{formatFpsValue\(samplingPreview\.effectiveFps\)\} fps \/ 每 \{samplingPreview\.stride\} 帧取 1 帧/);
+  assert.match(property, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
   assert.match(property, /requestedAnalysisFps：\{formatFpsValue\(renderedSampling\.requestedFps\)\}/);
   assert.match(property, /effectiveAnalysisFps：\{formatFpsValue\(renderedSampling\.effectiveFps\)\}/);
+  assert.match(property, /selectionPolicy：\{renderedSampling\.selectionPolicy\}/);
   assert.match(property, /roundingPolicy：\{renderedSampling\.roundingPolicy\}/);
   assert.match(property, /legacy_stride_fallback/);
   assert.match(property, /shot\.shotNo \?\?/);

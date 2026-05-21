@@ -134,9 +134,13 @@ test("failed shot boundary artifact does not register processed shot cache entry
       analysisSampling: {
         fps: 1,
         requestedFps: 1,
+        targetFrameCount: 1,
+        selectedFrameCount: 1,
         effectiveFps: 1,
-        stride: 1,
-        roundingPolicy: "ceil_stride_not_exceed_requested",
+        selectionPolicy: "target_grid_nearest_unique",
+        duplicatePolicy: "nearest_unselected_tie_later",
+        roundingPolicy: "target_grid_nearest_unique",
+        stride: null,
       },
       contactSheets: [],
       boundaryCandidateArtifacts: [],
@@ -240,6 +244,8 @@ function createArtifact(overrides = {}) {
 }
 
 function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) {
+  const targetFrameCount = Math.ceil(3 * analysisFps);
+  const selectedFrameCount = Math.min(targetFrameCount, 6);
   return {
     artifactId: "artifact_shot_processed",
     parentArtifactId: "artifact_sample",
@@ -258,9 +264,13 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) 
     analysisSampling: {
       fps: analysisFps,
       requestedFps: analysisFps,
-      effectiveFps: 3 / Math.max(1, Math.ceil(3 / analysisFps)),
-      stride: Math.max(1, Math.ceil(3 / analysisFps)),
-      roundingPolicy: "ceil_stride_not_exceed_requested",
+      targetFrameCount,
+      selectedFrameCount,
+      effectiveFps: selectedFrameCount / 3,
+      selectionPolicy: "target_grid_nearest_unique",
+      duplicatePolicy: "nearest_unselected_tie_later",
+      roundingPolicy: "target_grid_nearest_unique",
+      stride: null,
     },
     subtitleContextSummary: null,
     contactSheets,

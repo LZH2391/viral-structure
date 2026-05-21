@@ -7,7 +7,8 @@ const ROLE = "shot-boundary-analyzer";
 const SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md";
 const MIN_SHOT_DURATION_SECONDS = 0.01;
 const MAX_REPAIR_ATTEMPTS = 1;
-const ANALYSIS_ROUNDING_POLICY = "ceil_stride_not_exceed_requested";
+const ANALYSIS_SELECTION_POLICY = "target_grid_nearest_unique";
+const ANALYSIS_DUPLICATE_POLICY = "nearest_unselected_tie_later";
 const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
 const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
 const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
@@ -28,26 +29,26 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   if (requestedAnalysisFps > requestedFrameSampleRateFps) {
     throw codedError("analysis_fps_exceeds_extract_fps", "分析采样率高于抽帧采样率，请重新抽帧或降低分析采样率");
   }
+  const selectedFrames = selectAnalysisFramesByTargetGrid(frames, durationSeconds, requestedAnalysisFps);
   const analysisSampling = resolveAnalysisSampling({
     requestedFrameSampleRateFps,
     requestedAnalysisFps,
+    durationSeconds,
+    targetFrameCount: countTargetGridFrames(durationSeconds, requestedAnalysisFps),
+    selectedFrameCount: selectedFrames.length,
   });
   const subtitleContextSummary = buildSubtitleContextSummary(artifact.subtitles, durationSeconds);
   const sourceArtifactId = artifact.sampleVideo?.artifactId ?? null;
-  const sampledFrames = frames.reduce((result, frame, sourceFrameIndex) => {
-    if (sourceFrameIndex % analysisSampling.stride !== 0) return result;
-    result.push({
-      inputIndex: result.length,
-      sourceFrameIndex,
-      frameId: frame.frameId,
-      artifactId: frame.artifactId,
-      parentArtifactId: frame.parentArtifactId ?? null,
-      timestamp: Number(frame.timestamp ?? 0),
-      fileName: basename(frame.imageUri),
-      filePath: resolveLocalImagePath(frame.imageUri, runtimeRoot),
-    });
-    return result;
-  }, []);
+  const sampledFrames = selectedFrames.map(({ frame, sourceFrameIndex }, inputIndex) => ({
+    inputIndex,
+    sourceFrameIndex,
+    frameId: frame.frameId,
+    artifactId: frame.artifactId,
+    parentArtifactId: frame.parentArtifactId ?? null,
+    timestamp: roundNormalizedTime(Number(frame.timestamp ?? 0)),
+    fileName: basename(frame.imageUri),
+    filePath: resolveLocalImagePath(frame.imageUri, runtimeRoot),
+  }));
   return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,
     sourceArtifactId,
@@ -72,32 +73,96 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   });
 }
 
-function resolveAnalysisSampling({ requestedFrameSampleRateFps, requestedAnalysisFps }) {
-  const extractFps = Number(requestedFrameSampleRateFps ?? 0);
+function resolveAnalysisSampling(input, maybeRequestedAnalysisFps) {
+  const params = typeof input === "object" && input !== null
+    ? input
+    : { requestedFrameSampleRateFps: input, requestedAnalysisFps: maybeRequestedAnalysisFps };
+  const { requestedAnalysisFps, durationSeconds, targetFrameCount, selectedFrameCount } = params;
   const requestedFps = Number(requestedAnalysisFps ?? 0);
-  if (!Number.isFinite(extractFps) || extractFps <= 0 || !Number.isFinite(requestedFps) || requestedFps <= 0) {
-    return {
-      fps: requestedFps,
-      requestedFps,
-      effectiveFps: null,
-      stride: null,
-      roundingPolicy: ANALYSIS_ROUNDING_POLICY,
-    };
-  }
-  const stride = Math.max(1, Math.ceil(extractFps / requestedFps));
+  const safeDuration = Number(durationSeconds ?? 0);
+  const safeTargetFrameCount = Number(targetFrameCount);
+  const safeSelectedFrameCount = Number(selectedFrameCount);
+  const effectiveFps = Number.isFinite(safeDuration) && safeDuration > 0 && Number.isFinite(safeSelectedFrameCount)
+    ? round(safeSelectedFrameCount / safeDuration)
+    : null;
   return {
     fps: requestedFps,
     requestedFps,
-    effectiveFps: round(extractFps / stride),
-    stride,
-    roundingPolicy: ANALYSIS_ROUNDING_POLICY,
+    targetFrameCount: Number.isFinite(safeTargetFrameCount) ? safeTargetFrameCount : null,
+    selectedFrameCount: Number.isFinite(safeSelectedFrameCount) ? safeSelectedFrameCount : null,
+    effectiveFps,
+    selectionPolicy: ANALYSIS_SELECTION_POLICY,
+    duplicatePolicy: ANALYSIS_DUPLICATE_POLICY,
+    roundingPolicy: ANALYSIS_SELECTION_POLICY,
+    stride: null,
+  };
+}
+
+function selectAnalysisFramesByTargetGrid(frames, durationSeconds, requestedAnalysisFps) {
+  const availableFrames = Array.isArray(frames) ? frames : [];
+  const targetTimes = buildTargetGridTimes(durationSeconds, requestedAnalysisFps);
+  if (!availableFrames.length || !targetTimes.length) return [];
+  const selectedIndexes = new Set();
+  const selected = [];
+  for (const targetTime of targetTimes) {
+    if (selected.length >= availableFrames.length) break;
+    let bestIndex = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    let bestTimestamp = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < availableFrames.length; index += 1) {
+      if (selectedIndexes.has(index)) continue;
+      const timestamp = Number(availableFrames[index]?.timestamp ?? 0);
+      const distance = Math.abs(timestamp - targetTime);
+      if (
+        distance < bestDistance
+        || (distance === bestDistance && timestamp > bestTimestamp)
+        || (distance === bestDistance && timestamp === bestTimestamp && index > bestIndex)
+      ) {
+        bestIndex = index;
+        bestDistance = distance;
+        bestTimestamp = timestamp;
+      }
+    }
+    if (bestIndex >= 0) {
+      selectedIndexes.add(bestIndex);
+      selected.push({ frame: availableFrames[bestIndex], sourceFrameIndex: bestIndex });
+    }
+  }
+  return selected.sort((first, second) => first.sourceFrameIndex - second.sourceFrameIndex);
+}
+
+function buildTargetGridTimes(durationSeconds, requestedAnalysisFps) {
+  const safeDuration = Number(durationSeconds ?? 0);
+  const safeFps = Number(requestedAnalysisFps ?? 0);
+  if (!Number.isFinite(safeDuration) || safeDuration <= 0 || !Number.isFinite(safeFps) || safeFps <= 0) return [];
+  const step = 1 / safeFps;
+  const targetTimes = [];
+  for (let targetTime = 0; targetTime < safeDuration; targetTime += step) {
+    targetTimes.push(Number(targetTime.toFixed(6)));
+  }
+  return targetTimes;
+}
+
+function countTargetGridFrames(durationSeconds, requestedAnalysisFps) {
+  return buildTargetGridTimes(durationSeconds, requestedAnalysisFps).length;
+}
+
+function toPromptAnalysisSampling(analysisSampling) {
+  return {
+    requestedFps: analysisSampling?.requestedFps ?? analysisSampling?.fps ?? null,
+    targetFrameCount: analysisSampling?.targetFrameCount ?? null,
+    selectedFrameCount: analysisSampling?.selectedFrameCount ?? null,
+    effectiveFps: analysisSampling?.effectiveFps ?? null,
+    selectionPolicy: analysisSampling?.selectionPolicy ?? ANALYSIS_SELECTION_POLICY,
+    duplicatePolicy: analysisSampling?.duplicatePolicy ?? ANALYSIS_DUPLICATE_POLICY,
+    roundingPolicy: analysisSampling?.roundingPolicy ?? ANALYSIS_SELECTION_POLICY,
   };
 }
 
 function buildTurnInputs({ prepared, contactSheets }) {
   const manifest = {
     durationSeconds: round(prepared.durationSeconds),
-    analysisSampling: prepared.analysisSampling,
+    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
     sheetCount: contactSheets.length,
     sheets: contactSheets.map((sheet) => ({
       sheetIndex: sheet.sheetIndex,
@@ -120,6 +185,7 @@ function buildTurnInputs({ prepared, contactSheets }) {
   };
   const prompt = [
     "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
+    "联表中的帧已经按目标时间网格从抽帧结果中选出，模型只需要基于这些帧判断边界，不需要自行重采样。",
     "你只需要输出切镜时间点，不要输出 frameId、路径、完整输入明细、剧情解释或 OCR 结果。",
     "请额外为每一镜输出 shots[].summary，描述“这镜是什么”；shot summary 不是切换原因。",
     "如果提供了 subtitleContext，只把字幕当作语义辅助，不要把普通字幕断句直接当切镜边界；切镜边界仍以视觉变化为主。",
@@ -148,13 +214,14 @@ function buildRepairTurnInputs({ prepared, contactSheets, validationError, prior
   const priorOutputText = String(priorTurnOutput ?? "").trim();
   const manifest = {
     durationSeconds: round(prepared.durationSeconds),
-    analysisSampling: prepared.analysisSampling,
+    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
     sheetCount: contactSheets.length,
     subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
   };
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
   const prompt = [
     "上一次切镜输出未通过校验。请在同一任务上修复，只返回 JSON object。",
+    "联表中的帧已经按目标时间网格从抽帧结果中选出，模型只需要基于这些帧判断边界，不需要自行重采样。",
     `修复轮次：${repairAttemptCount}`,
     `任务输入：${JSON.stringify(manifest)}`,
     `校验失败：${JSON.stringify(validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message })}`,
@@ -365,9 +432,13 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
     analysisSampling: {
       fps: context.analysisFps,
       requestedFps: context.analysisFps,
+      targetFrameCount: null,
+      selectedFrameCount: null,
       effectiveFps: null,
+      selectionPolicy: ANALYSIS_SELECTION_POLICY,
+      duplicatePolicy: ANALYSIS_DUPLICATE_POLICY,
+      roundingPolicy: ANALYSIS_SELECTION_POLICY,
       stride: null,
-      roundingPolicy: ANALYSIS_ROUNDING_POLICY,
     },
     subtitleContextSummary: context.prepared?.subtitleContextSummary ?? null,
     contactSheets: contactSheets.map(stripLocalImagePath),
@@ -745,6 +816,7 @@ module.exports = {
   safeError,
   sanitizeDebugPayload,
   sanitizeForAppServerText,
+  selectAnalysisFramesByTargetGrid,
   summarizeAgentOutput,
   validateTimestampBoundaries,
 };

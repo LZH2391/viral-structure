@@ -119,7 +119,11 @@ export type ShotBoundaryAnalysisArtifact = {
   analysisSampling: {
     fps: number;
     requestedFps?: number | null;
+    targetFrameCount?: number | null;
+    selectedFrameCount?: number | null;
     effectiveFps?: number | null;
+    selectionPolicy?: string | null;
+    duplicatePolicy?: string | null;
     stride: number | null;
     roundingPolicy?: string | null;
   };

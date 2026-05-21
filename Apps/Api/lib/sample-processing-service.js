@@ -9,7 +9,7 @@ const defaultTranscoder = require("../../../Infrastructure/MediaProcessing/audio
 const defaultLibrosaAdapter = require("../../../Infrastructure/MediaProcessing/librosa-adapter");
 const defaultIatClient = require("../../../Infrastructure/ModelGateway/xfyun-iat-client");
 const { createArtifactIndex, hashBuffer } = require("../../../Infrastructure/ArtifactIndex/artifact-index");
-const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
+const { planFrameTimestampSampling } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
 
@@ -159,7 +159,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
   async function readFrames(context, inputPath, sampleDir, durationSeconds) {
     const framesDir = path.join(sampleDir, "frames");
     const frameSampleRateFps = context.processingOptions.frameSampleRateFps;
-    const plannedFrameCount = planFrameTimestamps(durationSeconds, { frameSampleRateFps, maxFrames: FRAME_MAX_COUNT }).length;
+    const frameSampling = planFrameTimestampSampling(durationSeconds, { frameSampleRateFps, maxFrames: FRAME_MAX_COUNT });
+    const plannedFrameCount = frameSampling.timestamps.length;
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: {
@@ -168,13 +169,15 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         frameSampleRateFps,
         targetFrameCount: plannedFrameCount,
         maxFrames: FRAME_MAX_COUNT,
-        samplingPolicy: FRAME_SAMPLING_POLICY,
+        samplingPolicy: frameSampling.samplingPolicy,
+        cappedByMaxFrames: frameSampling.cappedByMaxFrames,
       },
       action: async () => {
         const cached = await findStageCache(context, STAGES.framesExtracted, {
           frameSampleRateFps,
           maxFrames: FRAME_MAX_COUNT,
-          samplingPolicy: FRAME_SAMPLING_POLICY,
+          samplingPolicy: frameSampling.samplingPolicy,
+          cappedByMaxFrames: frameSampling.cappedByMaxFrames,
         });
         if (cached) {
           context.frameOutputSummary = normalizeFrameOutputSummary(cached.artifact.frameOutputSummary, {
@@ -183,10 +186,12 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
             actualFrameCount: cached.artifact.frames?.length ?? 0,
             targetFrameCount: plannedFrameCount,
             maxFrames: FRAME_MAX_COUNT,
+            samplingPolicy: frameSampling.samplingPolicy,
+            cappedByMaxFrames: frameSampling.cappedByMaxFrames,
           });
           return cached.artifact.frames ?? [];
         }
-        return mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store });
+        return mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, maxFrames: FRAME_MAX_COUNT, parentArtifactId: context.sampleArtifactId, store });
       },
       outputSummary: (frames) => {
         context.frameOutputSummary = buildFrameOutputSummary({
@@ -195,6 +200,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
           actualFrameCount: frames.length,
           targetFrameCount: plannedFrameCount,
           maxFrames: FRAME_MAX_COUNT,
+          samplingPolicy: frameSampling.samplingPolicy,
+          cappedByMaxFrames: frameSampling.cappedByMaxFrames,
         });
         return { ...context.frameOutputSummary, artifactType: "frame-set" };
       },
@@ -620,7 +627,7 @@ function safeHash(value) {
   return value ? `${String(value).slice(0, 12)}...` : null;
 }
 
-function buildFrameOutputSummary({ durationSeconds, frameSampleRateFps, actualFrameCount, targetFrameCount, maxFrames }) {
+function buildFrameOutputSummary({ durationSeconds, frameSampleRateFps, actualFrameCount, targetFrameCount, maxFrames, samplingPolicy, cappedByMaxFrames }) {
   const uncappedFrameCount = Number.isFinite(durationSeconds) && durationSeconds > 0 && Number.isFinite(frameSampleRateFps) && frameSampleRateFps > 0
     ? Math.max(1, Math.ceil(durationSeconds * frameSampleRateFps))
     : 1;
@@ -629,8 +636,8 @@ function buildFrameOutputSummary({ durationSeconds, frameSampleRateFps, actualFr
     targetFrameCount,
     actualFrameCount,
     maxFrames,
-    samplingPolicy: FRAME_SAMPLING_POLICY,
-    cappedByMaxFrames: uncappedFrameCount > maxFrames,
+    samplingPolicy: samplingPolicy ?? FRAME_SAMPLING_POLICY,
+    cappedByMaxFrames: typeof cappedByMaxFrames === "boolean" ? cappedByMaxFrames : uncappedFrameCount > maxFrames,
   };
 }
 

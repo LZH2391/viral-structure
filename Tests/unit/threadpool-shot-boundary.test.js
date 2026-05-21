@@ -7,48 +7,80 @@ const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
-test("shot boundary sampling computes stride and rejects oversampling", () => {
+test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
   const artifact = createArtifact();
-  const input = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
-  assert.equal(input.analysisSampling.stride, 3);
-  assert.equal(input.analysisSampling.effectiveFps, 1);
-  assert.equal(input.frames.length, 2);
+  const input = prepareInput(artifact, 2, { runtimeRoot: "C:\\Runtime" });
+  assert.equal(input.analysisSampling.stride, null);
+  assert.equal(input.analysisSampling.selectionPolicy, "target_grid_nearest_unique");
+  assert.equal(input.analysisSampling.duplicatePolicy, "nearest_unselected_tie_later");
+  assert.equal(input.analysisSampling.targetFrameCount, 4);
+  assert.equal(input.analysisSampling.selectedFrameCount, 4);
+  assert.equal(input.analysisSampling.effectiveFps, 2);
+  assert.deepEqual(input.frames.map((frame) => frame.inputIndex), [0, 1, 2, 3]);
+  assert.deepEqual(input.frames.map((frame) => frame.sourceFrameIndex), [0, 2, 3, 5]);
+  assert.deepEqual(input.frames.map((frame) => frame.timestamp), [0, 0.667, 1, 1.667]);
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
 });
 
-test("shot boundary sampling uses ceil stride without exceeding requested fps", () => {
-  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 1 }), {
+test("shot boundary sampling metadata uses target-grid policy", () => {
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 1, durationSeconds: 2, targetFrameCount: 2, selectedFrameCount: 2 }), {
     fps: 1,
     requestedFps: 1,
+    targetFrameCount: 2,
+    selectedFrameCount: 2,
     effectiveFps: 1,
-    stride: 3,
-    roundingPolicy: "ceil_stride_not_exceed_requested",
+    selectionPolicy: "target_grid_nearest_unique",
+    duplicatePolicy: "nearest_unselected_tie_later",
+    roundingPolicy: "target_grid_nearest_unique",
+    stride: null,
   });
-  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2 }), {
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2, durationSeconds: 2, targetFrameCount: 4, selectedFrameCount: 4 }), {
     fps: 2,
     requestedFps: 2,
-    effectiveFps: 1.5,
-    stride: 2,
-    roundingPolicy: "ceil_stride_not_exceed_requested",
+    targetFrameCount: 4,
+    selectedFrameCount: 4,
+    effectiveFps: 2,
+    selectionPolicy: "target_grid_nearest_unique",
+    duplicatePolicy: "nearest_unselected_tie_later",
+    roundingPolicy: "target_grid_nearest_unique",
+    stride: null,
   });
-  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2.4 }), {
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2.4, durationSeconds: 2, targetFrameCount: 5, selectedFrameCount: 5 }), {
     fps: 2.4,
     requestedFps: 2.4,
-    effectiveFps: 1.5,
-    stride: 2,
-    roundingPolicy: "ceil_stride_not_exceed_requested",
+    targetFrameCount: 5,
+    selectedFrameCount: 5,
+    effectiveFps: 2.5,
+    selectionPolicy: "target_grid_nearest_unique",
+    duplicatePolicy: "nearest_unselected_tie_later",
+    roundingPolicy: "target_grid_nearest_unique",
+    stride: null,
   });
-  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 3 }), {
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 3, durationSeconds: 2, targetFrameCount: 6, selectedFrameCount: 6 }), {
     fps: 3,
     requestedFps: 3,
+    targetFrameCount: 6,
+    selectedFrameCount: 6,
     effectiveFps: 3,
-    stride: 1,
-    roundingPolicy: "ceil_stride_not_exceed_requested",
+    selectionPolicy: "target_grid_nearest_unique",
+    duplicatePolicy: "nearest_unselected_tie_later",
+    roundingPolicy: "target_grid_nearest_unique",
+    stride: null,
   });
+  assert.equal(resolveAnalysisSampling(3, 2).stride, null);
+  assert.equal(resolveAnalysisSampling(3, 2).selectionPolicy, "target_grid_nearest_unique");
+});
+
+test("target-grid selection handles non-integer durations and target counts above available frames", () => {
+  const frames = Array.from({ length: 4 }, (_, index) => ({ frameId: `frame_${index}`, timestamp: index / 3 }));
+  const selected = selectAnalysisFramesByTargetGrid(frames, 2.1, 3);
+  assert.equal(selected.length, 4);
+  assert.deepEqual(selected.map((item) => item.sourceFrameIndex), [0, 1, 2, 3]);
+  assert.deepEqual(selectAnalysisFramesByTargetGrid(frames, 1.1, 1).map((item) => item.sourceFrameIndex), [0, 3]);
 });
 
 test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", () => {
@@ -80,7 +112,9 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /sampleVideoId/);
   assert.doesNotMatch(promptText, /frameIndexMap/);
   assert.match(promptText, /"durationSeconds":2/);
-  assert.match(promptText, /"analysisSampling":\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
+  assert.match(promptText, /"analysisSampling":\{"requestedFps":1,"targetFrameCount":2,"selectedFrameCount":2,"effectiveFps":1,"selectionPolicy":"target_grid_nearest_unique","duplicatePolicy":"nearest_unselected_tie_later","roundingPolicy":"target_grid_nearest_unique"\}/);
+  assert.match(promptText, /不需要自行重采样/);
+  assert.doesNotMatch(promptText, /stride/);
   assert.match(promptText, /"sheetCount":2/);
   assert.match(promptText, /"sheetIndex":0/);
   assert.match(promptText, /"sheetIndex":1/);
@@ -95,7 +129,6 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /sheetId/);
   assert.doesNotMatch(promptText, /extractSampling/);
   assert.doesNotMatch(promptText, /actualFrameCount/);
-  assert.doesNotMatch(promptText, /targetFrameCount/);
   assert.doesNotMatch(promptText, /maxFrames/);
   assert.doesNotMatch(promptText, /"timestamp":12\.48/);
   assert.doesNotMatch(promptText, /"timestamp":0/);
@@ -151,7 +184,9 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   });
   const promptText = turnInputs[0].text;
 
-  assert.match(promptText, /"analysisSampling":\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
+  assert.match(promptText, /"analysisSampling":\{"requestedFps":1,"targetFrameCount":2,"selectedFrameCount":2,"effectiveFps":1,"selectionPolicy":"target_grid_nearest_unique","duplicatePolicy":"nearest_unselected_tie_later","roundingPolicy":"target_grid_nearest_unique"\}/);
+  assert.match(promptText, /不需要自行重采样/);
+  assert.doesNotMatch(promptText, /stride/);
   assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
   assert.match(promptText, /"boundaries\[\]\.reason":"short string"/);
   assert.match(promptText, /shots\[\]\.summary/);
@@ -850,6 +885,9 @@ test("shot boundary success releases lease and thread returns idle", async () =>
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
+  for (let attempt = 0; attempt < 10 && harness.threadPool.released.length === 0; attempt += 1) {
+    await delay(10);
+  }
 
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
   assert.deepEqual(harness.threadPool.discarded, []);
@@ -1126,9 +1164,13 @@ function createCachedShotAnalysis() {
     analysisSampling: {
       fps: 3,
       requestedFps: 3,
+      targetFrameCount: 6,
+      selectedFrameCount: 6,
       effectiveFps: 3,
-      stride: 1,
-      roundingPolicy: "ceil_stride_not_exceed_requested",
+      selectionPolicy: "target_grid_nearest_unique",
+      duplicatePolicy: "nearest_unselected_tie_later",
+      roundingPolicy: "target_grid_nearest_unique",
+      stride: null,
     },
     subtitleContextSummary: null,
     contactSheets: [],
@@ -1152,7 +1194,8 @@ function createCachedShotAnalysis() {
 }
 
 function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
-  const stride = Math.max(1, Math.ceil(3 / analysisFps));
+  const targetFrameCount = Math.ceil(2 * analysisFps);
+  const selectedFrameCount = Math.min(targetFrameCount, 6);
   return {
     artifactId: "artifact_cached_valid_shot",
     parentArtifactId: "artifact_sample",
@@ -1171,9 +1214,13 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
     analysisSampling: {
       fps: analysisFps,
       requestedFps: analysisFps,
-      effectiveFps: 3 / stride,
-      stride,
-      roundingPolicy: "ceil_stride_not_exceed_requested",
+      targetFrameCount,
+      selectedFrameCount,
+      effectiveFps: selectedFrameCount / 2,
+      selectionPolicy: "target_grid_nearest_unique",
+      duplicatePolicy: "nearest_unselected_tie_later",
+      roundingPolicy: "target_grid_nearest_unique",
+      stride: null,
     },
     subtitleContextSummary: null,
     contactSheets: createContactSheets(prepareInput(createArtifact(), analysisFps, { runtimeRoot: rootRuntime("cached") }), rootRuntime("cached")),
