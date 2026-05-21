@@ -1,12 +1,34 @@
+import type { BackendCapabilities } from "../types";
+
+const REQUIRED_XFYUN_ENV = ["XFYUN_APP_ID", "XFYUN_API_KEY", "XFYUN_API_SECRET"];
+
 type ResourcePanelProps = {
   fileLabel: string;
   isUploading: boolean;
   frameSampleRate: number;
+  capabilities: BackendCapabilities | null;
+  enableAudioSeparation: boolean;
+  enableSubtitleRecognition: boolean;
   onFrameSampleRateChange: (value: number) => void;
+  onEnableAudioSeparationChange: (value: boolean) => void;
+  onEnableSubtitleRecognitionChange: (value: boolean) => void;
   onUpload: (file: File) => void;
 };
 
-export function ResourcePanel({ fileLabel, isUploading, frameSampleRate, onFrameSampleRateChange, onUpload }: ResourcePanelProps) {
+export function ResourcePanel({
+  fileLabel,
+  isUploading,
+  frameSampleRate,
+  capabilities,
+  enableAudioSeparation,
+  enableSubtitleRecognition,
+  onFrameSampleRateChange,
+  onEnableAudioSeparationChange,
+  onEnableSubtitleRecognitionChange,
+  onUpload,
+}: ResourcePanelProps) {
+  const demucsDisabled = isUploading || capabilities?.demucsAvailable === false;
+  const subtitleDisabled = isUploading || capabilities?.xfyunIatConfigured === false;
   return (
     <aside className="resource-panel" aria-label="资源区">
       <section className="resource-view active" data-view="materials">
@@ -26,7 +48,8 @@ export function ResourcePanel({ fileLabel, isUploading, frameSampleRate, onFrame
             {fileLabel}
           </span>
         </label>
-        <label className="sampling-control">
+        <div className="upload-options">
+          <label className="sampling-control">
           <span>抽帧采样率</span>
           <input
             id="frameSampleRateInput"
@@ -39,7 +62,30 @@ export function ResourcePanel({ fileLabel, isUploading, frameSampleRate, onFrame
             onChange={(event) => onFrameSampleRateChange(Number(event.currentTarget.value || 1))}
           />
           <small>每秒抽多少帧</small>
-        </label>
+          </label>
+          <label className={`option-toggle ${demucsDisabled ? "disabled" : ""}`}>
+            <input
+              id="enableAudioSeparationInput"
+              type="checkbox"
+              checked={enableAudioSeparation}
+              disabled={demucsDisabled}
+              onChange={(event) => onEnableAudioSeparationChange(event.currentTarget.checked)}
+            />
+            <span>人声/音乐分离</span>
+            <small>{capabilities?.demucsAvailable === false ? "需要安装或配置 Demucs" : "随上传任务执行"}</small>
+          </label>
+          <label className={`option-toggle ${subtitleDisabled ? "disabled" : ""}`}>
+            <input
+              id="enableSubtitleRecognitionInput"
+              type="checkbox"
+              checked={enableSubtitleRecognition}
+              disabled={subtitleDisabled}
+              onChange={(event) => onEnableSubtitleRecognitionChange(event.currentTarget.checked)}
+            />
+            <span>字幕识别</span>
+            <small>{capabilities?.xfyunIatConfigured === false ? `需要配置 ${(capabilities.xfyunRequiredEnv ?? REQUIRED_XFYUN_ENV).join(" / ")}` : "优先使用人声轨"}</small>
+          </label>
+        </div>
       </section>
     </aside>
   );

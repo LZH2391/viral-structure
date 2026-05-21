@@ -40,7 +40,9 @@
 }
 
 .profile-form input,
-.profile-form textarea {
+.profile-form textarea,
+.subtitle-editor input,
+.subtitle-editor textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -48,6 +50,24 @@
   color: var(--text);
   padding: 8px 9px;
   resize: vertical;
+}
+
+.subtitle-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.subtitle-editor label {
+  display: grid;
+  gap: 5px;
+  color: #d8e1ea;
+  font-size: 12px;
+}
+
+.subtitle-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .log-list {

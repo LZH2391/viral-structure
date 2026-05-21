@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
+import { getCapabilities, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
@@ -17,6 +17,8 @@ const STORAGE_KEY = "workbench:last-sample";
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
   const [frameSampleRate, setFrameSampleRate] = useState(1);
+  const [enableAudioSeparation, setEnableAudioSeparation] = useState(false);
+  const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(false);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [currentTime, setCurrentTime] = useState(0);
   const uploadTokenRef = useRef(0);
@@ -29,6 +31,12 @@ export function WorkbenchApp() {
     if (!draft?.sampleArtifact) return;
     dispatch({ type: "restore-draft", draft });
     setSaveStatus("已恢复最近样例");
+  }, []);
+
+  useEffect(() => {
+    getCapabilities()
+      .then((capabilities) => dispatch({ type: "set-capabilities", capabilities }))
+      .catch(() => setSaveStatus("能力检测失败"));
   }, []);
 
   useEffect(() => {
@@ -175,7 +183,7 @@ export function WorkbenchApp() {
       dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
       let latestJob: ProcessingJob | null = null;
       try {
-        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate });
+        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition });
         if (token !== uploadTokenRef.current) return;
         const pendingJob: ProcessingJob = {
           jobId: upload.processingJobId,
@@ -227,7 +235,7 @@ export function WorkbenchApp() {
         dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "处理失败" });
       }
     },
-    [beginStage, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
+    [beginStage, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
   );
 
   const handleUnderstand = () => {
@@ -260,41 +268,6 @@ export function WorkbenchApp() {
     finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
   };
 
-  const handleRerunStage = () => {
-    const parentArtifactId = state.generatedPlan?.artifactId ?? state.structureCards[state.structureCards.length - 1]?.artifactId ?? state.sampleVideo?.artifactId;
-    if (!parentArtifactId) return;
-    const stage = beginStage(STAGES.rerun, parentArtifactId);
-    const artifactId = createId("artifact");
-    dispatch({ type: "add-version", version: addVersion("返工分支", stage.stageName, artifactId, parentArtifactId) });
-    finishStage(stage, artifactId, { sourceArtifactId: parentArtifactId });
-  };
-
-  const captureManualSnapshot = () => {
-    const parentArtifactId = state.generatedPlan?.artifactId ?? state.sampleVideo?.artifactId ?? null;
-    const stage = beginStage(STAGES.snapshot, parentArtifactId);
-    dispatch({
-      type: "add-snapshot",
-      snapshot: {
-        id: createId("snapshot"),
-        runId: stage.runId,
-        uiTraceId: stage.uiTraceId,
-        backendTraceId: state.processingJob?.traceId ?? null,
-        stageId: stage.stageId,
-        stageName: STAGES.snapshot,
-        artifactId: stage.artifactId,
-        parentArtifactId,
-        createdAt: new Date().toISOString(),
-        payload: {
-          currentVersionId: state.workspace.currentVersionId,
-          sampleArtifactId: state.sampleVideo?.artifactId ?? null,
-          generatedArtifactId: state.generatedPlan?.artifactId ?? null,
-          logCount: state.logs.length,
-        },
-      },
-    });
-    finishStage(stage, stage.artifactId, { snapshotArtifactId: stage.artifactId });
-  };
-
   const fileLabel = state.isUploadingSample ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim() : state.sampleVideo?.fileName ?? "未选择文件";
 
   return (
@@ -308,22 +281,27 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
-          <button id="rerunStageBtn" className="ghost-button" type="button" onClick={handleRerunStage}>
-            重跑阶段
-          </button>
           <a className="ghost-button action-link" href="http://127.0.0.1:5177/debug">
             运行追踪
           </a>
           <button className="ghost-button" type="button" disabled>
             导出
           </button>
-          <button id="snapshotBtn" className="primary-button" type="button" onClick={captureManualSnapshot}>
-            DebugSnapshot
-          </button>
         </div>
       </header>
       <main className="workspace-grid">
-        <ResourcePanel fileLabel={fileLabel} isUploading={state.isUploadingSample} frameSampleRate={frameSampleRate} onFrameSampleRateChange={setFrameSampleRate} onUpload={handleSampleUpload} />
+        <ResourcePanel
+          fileLabel={fileLabel}
+          isUploading={state.isUploadingSample}
+          frameSampleRate={frameSampleRate}
+          capabilities={state.capabilities}
+          enableAudioSeparation={enableAudioSeparation}
+          enableSubtitleRecognition={enableSubtitleRecognition}
+          onFrameSampleRateChange={setFrameSampleRate}
+          onEnableAudioSeparationChange={setEnableAudioSeparation}
+          onEnableSubtitleRecognitionChange={setEnableSubtitleRecognition}
+          onUpload={handleSampleUpload}
+        />
         <PreviewPanel
           sampleVideo={state.sampleVideo}
           mediaDerivatives={state.mediaDerivatives}
@@ -344,19 +322,28 @@ export function WorkbenchApp() {
           activeMediaKind={state.activeMediaKind}
           selectedFrameId={state.selectedFrameId}
           selectedDerivativeId={state.selectedDerivativeId}
+          selectedSubtitleId={state.selectedSubtitleId}
           mediaDerivatives={state.mediaDerivatives}
+          subtitles={state.subtitles}
+          subtitleDrafts={state.subtitleDrafts}
           currentCard={currentCard}
           processingTraceId={state.processingJob?.traceId}
           processingStatus={state.processingJob?.status}
           processingStage={state.processingJob?.stage}
           processingProgress={state.processingJob?.progress}
           errorMessage={state.errorSummary?.message}
+          onSubtitleDraftChange={(draft) => dispatch({ type: "update-subtitle-draft", ...draft })}
         />
         <TimelinePanel
           sampleVideo={state.sampleVideo}
           mediaDerivatives={state.mediaDerivatives}
           activeMediaKind={state.activeMediaKind}
+          selectedDerivativeId={state.selectedDerivativeId}
           selectedFrameId={state.selectedFrameId}
+          selectedSubtitleId={state.selectedSubtitleId}
+          audioSeparation={state.audioSeparation}
+          subtitles={state.subtitles}
+          subtitleDrafts={state.subtitleDrafts}
           timelineFrameVisible={state.timelineFrameVisible}
           timelineVisibleSeconds={state.timelineVisibleSeconds}
           videoRef={videoRef}
@@ -367,14 +354,17 @@ export function WorkbenchApp() {
             const video = state.mediaDerivatives.find((entry) => entry.type === "normalized-video" || entry.type === "original-video");
             dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: video?.artifactId ?? state.sampleVideo?.artifactId ?? null, selectedFrameId: null });
           }}
-          onSelectAudio={() => {
-            const audio = state.mediaDerivatives.find((entry) => entry.type === "audio-track");
+          onSelectAudio={(artifactId) => {
+            const audio = state.mediaDerivatives.find((entry) => entry.artifactId === artifactId) ?? state.mediaDerivatives.find((entry) => entry.type === "audio-track");
             dispatch({ type: "select-media", activeMediaKind: "audio", selectedDerivativeId: audio?.artifactId ?? state.sampleArtifact?.audio?.artifactId ?? null, selectedFrameId: null });
           }}
           onSelectFrame={(frameId) => {
             const frame = state.sampleVideo?.frameArtifacts.find((item) => item.id === frameId);
             if (!frame) return;
             dispatch({ type: "select-media", activeMediaKind: "frame", selectedDerivativeId: frame.artifactId, selectedFrameId: frame.id });
+          }}
+          onSelectSubtitle={(segmentId) => {
+            dispatch({ type: "select-media", activeMediaKind: "subtitle", selectedDerivativeId: state.subtitles?.artifactId ?? null, selectedFrameId: null, selectedSubtitleId: segmentId });
           }}
           onFrameVisibleChange={(visible) => dispatch({ type: "set-frame-visible", visible })}
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}

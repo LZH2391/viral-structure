@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
-import type { MediaDerivative, MediaKind, SampleVideo } from "../types";
+import type { AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
 import { clampVisibleSeconds, createTimelineMetrics, frameLeft, visibleFrames } from "../utils/timeline";
@@ -10,7 +10,12 @@ type TimelinePanelProps = {
   sampleVideo: SampleVideo | null;
   mediaDerivatives: MediaDerivative[];
   activeMediaKind: MediaKind;
+  selectedDerivativeId: string | null;
   selectedFrameId: string | null;
+  selectedSubtitleId: string | null;
+  audioSeparation?: AudioSeparationArtifact | null;
+  subtitles?: SubtitleArtifact | null;
+  subtitleDrafts: Record<string, SubtitleDraft>;
   timelineFrameVisible: boolean;
   timelineVisibleSeconds: number;
   videoRef: RefObject<HTMLVideoElement>;
@@ -18,8 +23,9 @@ type TimelinePanelProps = {
   uiTraceId: string;
   backendTraceId?: string | null;
   onSelectVideo: () => void;
-  onSelectAudio: () => void;
+  onSelectAudio: (artifactId?: string | null) => void;
   onSelectFrame: (frameId: string) => void;
+  onSelectSubtitle: (segmentId: string) => void;
   onFrameVisibleChange: (visible: boolean) => void;
   onVisibleSecondsChange: (value: number) => void;
 };
@@ -29,7 +35,12 @@ export function TimelinePanel(props: TimelinePanelProps) {
     sampleVideo,
     mediaDerivatives,
     activeMediaKind,
+    selectedDerivativeId,
     selectedFrameId,
+    selectedSubtitleId,
+    audioSeparation,
+    subtitles,
+    subtitleDrafts,
     timelineFrameVisible,
     timelineVisibleSeconds,
     videoRef,
@@ -39,6 +50,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
     onSelectVideo,
     onSelectAudio,
     onSelectFrame,
+    onSelectSubtitle,
     onFrameVisibleChange,
     onVisibleSecondsChange,
   } = props;
@@ -46,8 +58,12 @@ export function TimelinePanel(props: TimelinePanelProps) {
   const [miniCanvas, setMiniCanvas] = useState<HTMLCanvasElement | null>(null);
   const size = useElementSize(scrollRef);
   const [draftSeconds, setDraftSeconds] = useState(String(timelineVisibleSeconds));
+  const [audioExpanded, setAudioExpanded] = useState(false);
   const audio = mediaDerivatives.find((item) => item.type === "audio-track") ?? null;
-  const audioUrl = runtimeUrl(audio?.uri);
+  const audioLayers = buildAudioLayers(audio, audioSeparation);
+  const subtitleSegments = subtitles?.segments ?? [];
+  const selectedAudio = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId && item.type.startsWith("audio-")) ?? audio;
+  const audioUrl = runtimeUrl(selectedAudio?.uri ?? audio?.uri);
   const frames = sampleVideo?.frameArtifacts ?? [];
   const metrics = useMemo(
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
@@ -82,6 +98,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
             <span>帧轨</span>
           </label>
           <div className="timeline-label">音频轨</div>
+          <div className="timeline-label">字幕轨</div>
         </div>
         <div className="timeline-controls" aria-label="时间线缩放">
           <label>
@@ -133,26 +150,79 @@ export function TimelinePanel(props: TimelinePanelProps) {
                 ))}
             </div>
             <div id="audioTrack" className="track audio-track">
-              <button className={`audio-track-button ${audio?.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={onSelectAudio}>
-                {audio?.uri ? (
+              <button className="audio-expand-button" type="button" onClick={() => setAudioExpanded((value) => !value)} aria-expanded={audioExpanded}>
+                {audioExpanded ? "收起" : "展开"}
+              </button>
+              {(audioExpanded ? audioLayers : audioLayers.slice(0, 1)).map((layer, index) => (
+                <button key={layer.key} className={`audio-track-button audio-layer-${index} ${layer.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" && layer.artifactId === selectedDerivativeId ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={() => onSelectAudio(layer.artifactId)}>
+                  <strong>{layer.label}</strong>
+                {layer.uri ? (
                   <canvas
-                    ref={(node) => {
-                      setMiniCanvas(node);
-                    }}
+                    ref={index === 0 ? setMiniCanvas : undefined}
                     className="audio-mini-waveform"
                     data-audio-wave-mini
                     width={Math.max(1, Math.round(metrics.contentWidth))}
                     height="42"
-                    aria-label={audio.summary ?? "音频轨"}
+                    aria-label={layer.summary ?? layer.label}
                   />
                 ) : (
-                  <span>{audio?.summary || "未检测到可抽取音频轨"}</span>
+                  <span>{layer.summary || "未检测到可抽取音频轨"}</span>
                 )}
-              </button>
+                </button>
+              ))}
+            </div>
+            <div id="subtitleTrack" className="track subtitle-track">
+              {subtitleSegments.length ? (
+                subtitleSegments.map((segment) => {
+                  const draft = subtitleDrafts[segment.id];
+                  const text = draft?.text ?? segment.text;
+                  const start = draft?.start ?? segment.start;
+                  const end = draft?.end ?? segment.end;
+                  return (
+                    <button
+                      key={segment.id}
+                      className={`subtitle-clip ${selectedSubtitleId === segment.id ? "active" : ""}`}
+                      type="button"
+                      style={{ left: frameLeft(start, metrics), width: Math.max(46, frameLeft(end, metrics) - frameLeft(start, metrics)) }}
+                      onClick={() => onSelectSubtitle(segment.id)}
+                    >
+                      {text || "空字幕"}
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="subtitle-empty">{subtitles?.reason ?? "暂无字幕"}</span>
+              )}
             </div>
           </div>
         </div>
       </div>
     </section>
   );
+}
+
+function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: AudioSeparationArtifact | null) {
+  return [
+    {
+      key: "original",
+      label: "原音频",
+      artifactId: audio?.artifactId ?? audioSeparation?.original?.artifactId ?? null,
+      uri: audio?.uri ?? audioSeparation?.original?.uri ?? null,
+      summary: audio?.summary ?? audioSeparation?.original?.summary ?? null,
+    },
+    {
+      key: "vocal",
+      label: "人声",
+      artifactId: audioSeparation?.vocal?.artifactId ?? null,
+      uri: audioSeparation?.vocal?.uri ?? null,
+      summary: audioSeparation?.vocal?.summary ?? audioSeparation?.reason ?? null,
+    },
+    {
+      key: "music",
+      label: "伴奏",
+      artifactId: audioSeparation?.music?.artifactId ?? null,
+      uri: audioSeparation?.music?.uri ?? null,
+      summary: audioSeparation?.music?.summary ?? audioSeparation?.reason ?? null,
+    },
+  ];
 }

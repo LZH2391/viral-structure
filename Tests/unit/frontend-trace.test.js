@@ -129,3 +129,21 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(property, /label="分辨率"/);
   assert.match(property, /label="媒体类型"/);
 });
+
+test("upload options and optional media tracks are visible in workbench UI", () => {
+  const root = path.resolve(__dirname, "../..");
+  const resource = read(root, "Apps/Workbench/src/components/ResourcePanel.tsx");
+  const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+
+  assert.match(api, /\/api\/capabilities/);
+  assert.match(api, /enableAudioSeparation/);
+  assert.match(api, /enableSubtitleRecognition/);
+  assert.match(resource, /enableAudioSeparationInput/);
+  assert.match(resource, /XFYUN_APP_ID/);
+  assert.match(timeline, /id="subtitleTrack"/);
+  assert.match(timeline, /audioSeparation/);
+  assert.match(property, /subtitle-editor/);
+  assert.match(property, /draftVersionId/);
+});

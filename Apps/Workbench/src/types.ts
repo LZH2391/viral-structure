@@ -1,5 +1,5 @@
 export type StageLevel = "info" | "done" | "fail";
-export type MediaKind = "video" | "cover" | "frame" | "audio";
+export type MediaKind = "video" | "cover" | "frame" | "audio" | "subtitle";
 export type PreviewMode = "sample" | "generated" | "compare";
 
 export type ArtifactRef = {
@@ -28,6 +28,13 @@ export type ProcessingJob = {
   errorSummary?: ErrorSummary | null;
 };
 
+export type BackendCapabilities = {
+  demucsAvailable: boolean;
+  ffmpegAvailable?: boolean;
+  xfyunIatConfigured: boolean;
+  xfyunRequiredEnv?: string[];
+};
+
 export type ErrorSummary = {
   code?: string;
   message?: string;
@@ -45,6 +52,8 @@ export type SampleArtifact = {
   };
   processingOptions?: {
     frameSampleRateFps?: number;
+    enableAudioSeparation?: boolean;
+    enableSubtitleRecognition?: boolean;
   };
   sampleVideo: {
     artifactId: string;
@@ -56,11 +65,42 @@ export type SampleArtifact = {
   frames: FrameArtifact[];
   frameOutputSummary?: unknown;
   audio?: ArtifactRef | null;
+  audioSeparation?: AudioSeparationArtifact | null;
+  subtitles?: SubtitleArtifact | null;
   metadata: {
     durationSeconds: number;
     width?: number | null;
     height?: number | null;
   };
+};
+
+export type AudioSeparationArtifact = {
+  original?: ArtifactRef | null;
+  vocal?: ArtifactRef | null;
+  music?: ArtifactRef | null;
+  status?: string;
+  reason?: string | null;
+  debugSnapshotUri?: string | null;
+};
+
+export type SubtitleSegment = {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+  confidence?: number | null;
+};
+
+export type SubtitleArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: "subtitle-track";
+  uri?: string | null;
+  summary?: string | null;
+  segments: SubtitleSegment[];
+  status?: string;
+  reason?: string | null;
+  debugSnapshotUri?: string | null;
 };
 
 export type SampleFrame = {
@@ -98,6 +138,15 @@ export type MediaDerivative = {
   artifactId: string;
   parentArtifactId: string | null;
   summary?: string | null;
+};
+
+export type SubtitleDraft = {
+  segmentId: string;
+  text: string;
+  start: number;
+  end: number;
+  sourceArtifactId: string | null;
+  draftVersionId: string;
 };
 
 export type StructureCard = {
@@ -208,14 +257,18 @@ export type WorkbenchState = {
   };
   uiTraceId: string;
   activeStageId: string | null;
+  capabilities: BackendCapabilities | null;
   activePreviewMode: PreviewMode;
   activeMediaKind: MediaKind;
   timelineFrameVisible: boolean;
   timelineVisibleSeconds: number;
   selectedDerivativeId: string | null;
   selectedFrameId: string | null;
+  selectedSubtitleId: string | null;
   sampleVideo: SampleVideo | null;
   mediaDerivatives: MediaDerivative[];
+  audioSeparation?: AudioSeparationArtifact | null;
+  subtitles?: SubtitleArtifact | null;
   structureCards: StructureCard[];
   contentProfile: ContentProfile | null;
   generatedPlan: GeneratedPlan | null;
@@ -228,6 +281,7 @@ export type WorkbenchState = {
   uploadStatusText: string | null;
   sampleArtifact: SampleArtifact | null;
   errorSummary: ErrorSummary | null;
+  subtitleDrafts: Record<string, SubtitleDraft>;
 };
 
 export type DebugTraceSummary = {

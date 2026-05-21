@@ -1,4 +1,5 @@
-import type { MediaDerivative, SampleVideo, StructureCard } from "../types";
+import { useEffect, useState } from "react";
+import type { MediaDerivative, SampleVideo, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
 import { formatTime } from "../utils/format";
 
 type PropertyPanelProps = {
@@ -6,13 +7,17 @@ type PropertyPanelProps = {
   activeMediaKind: string;
   selectedFrameId: string | null;
   selectedDerivativeId: string | null;
+  selectedSubtitleId: string | null;
   mediaDerivatives: MediaDerivative[];
+  subtitles?: SubtitleArtifact | null;
+  subtitleDrafts: Record<string, SubtitleDraft>;
   currentCard: StructureCard | null;
   processingTraceId?: string | null;
   processingStatus?: string | null;
   processingStage?: string | null;
   processingProgress?: number | null;
   errorMessage?: string | null;
+  onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
@@ -33,13 +38,17 @@ function PropertyRows({
   activeMediaKind,
   selectedFrameId,
   selectedDerivativeId,
+  selectedSubtitleId,
   mediaDerivatives,
+  subtitles,
+  subtitleDrafts,
   currentCard,
   processingTraceId,
   processingStatus,
   processingStage,
   processingProgress,
   errorMessage,
+  onSubtitleDraftChange,
 }: PropertyPanelProps) {
   if (currentCard) {
     return (
@@ -54,6 +63,10 @@ function PropertyRows({
   if (sampleVideo) {
     const frame = sampleVideo.frameArtifacts.find((item) => item.id === selectedFrameId);
     const derivative = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId);
+    const subtitle = subtitles?.segments.find((item) => item.id === selectedSubtitleId);
+    if (activeMediaKind === "subtitle" && subtitle && subtitles) {
+      return <SubtitleRows subtitle={subtitle} artifact={subtitles} draft={subtitleDrafts[subtitle.id]} onChange={onSubtitleDraftChange} />;
+    }
     if (activeMediaKind === "frame" && frame) {
       return <MediaRows label="抽帧图片" time={formatTime(frame.time)} artifactId={frame.artifactId} parentArtifactId={frame.parentArtifactId} resolution={resolutionText(sampleVideo)} />;
     }
@@ -102,6 +115,60 @@ function PropertyRows({
     );
   }
   return <>暂无片段</>;
+}
+
+function SubtitleRows({
+  subtitle,
+  artifact,
+  draft,
+  onChange,
+}: {
+  subtitle: NonNullable<SubtitleArtifact["segments"]>[number];
+  artifact: SubtitleArtifact;
+  draft?: SubtitleDraft;
+  onChange: PropertyPanelProps["onSubtitleDraftChange"];
+}) {
+  const [text, setText] = useState(draft?.text ?? subtitle.text);
+  const [start, setStart] = useState(String(draft?.start ?? subtitle.start));
+  const [end, setEnd] = useState(String(draft?.end ?? subtitle.end));
+
+  useEffect(() => {
+    setText(draft?.text ?? subtitle.text);
+    setStart(String(draft?.start ?? subtitle.start));
+    setEnd(String(draft?.end ?? subtitle.end));
+  }, [draft?.end, draft?.start, draft?.text, subtitle.end, subtitle.start, subtitle.text]);
+
+  const commit = () => {
+    onChange({
+      segmentId: subtitle.id,
+      text,
+      start: Number(start || subtitle.start),
+      end: Number(end || subtitle.end),
+      sourceArtifactId: artifact.artifactId,
+    });
+  };
+
+  return (
+    <div className="subtitle-editor">
+      <DetailRow label="字幕来源" value={artifact.artifactId} />
+      <DetailRow label="parent" value={artifact.parentArtifactId ?? "无"} />
+      <label>
+        <span>文本</span>
+        <textarea value={text} rows={4} onChange={(event) => setText(event.currentTarget.value)} onBlur={commit} />
+      </label>
+      <div className="subtitle-time-fields">
+        <label>
+          <span>开始</span>
+          <input type="number" min="0" step="0.1" value={start} onChange={(event) => setStart(event.currentTarget.value)} onBlur={commit} />
+        </label>
+        <label>
+          <span>结束</span>
+          <input type="number" min="0" step="0.1" value={end} onChange={(event) => setEnd(event.currentTarget.value)} onBlur={commit} />
+        </label>
+      </div>
+      <DetailRow label="草稿版本" value={draft?.draftVersionId ?? "未编辑"} />
+    </div>
+  );
 }
 
 function MediaRows({ label, time, artifactId, parentArtifactId, resolution }: { label?: string | null; time: string; artifactId?: string | null; parentArtifactId?: string | null; resolution: string }) {

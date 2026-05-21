@@ -11,6 +11,7 @@ const { createWorkbenchStaticHandler } = require("./lib/static-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/ui-debug-events");
 const { recordApiRequestFailure } = require("./lib/api-request-debug");
+const { readCapabilities } = require("./lib/capabilities");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -24,6 +25,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "OPTIONS") return sendJson(res, 200, {});
     const url = new URL(req.url, `http://${req.headers.host}`);
+    if (req.method === "GET" && url.pathname === "/api/capabilities") return handleCapabilities(res);
     if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url);
     if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1));
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
@@ -45,6 +47,10 @@ async function handleUpload(req, res, url) {
   const { file, fields } = await parseMultipartUpload(req, req.headers["content-type"]);
   const result = await service.enqueueUpload({ workspaceId, file, fields });
   sendJson(res, 202, result);
+}
+
+async function handleCapabilities(res) {
+  return sendJson(res, 200, await readCapabilities());
 }
 
 function handleJob(res, jobId) {

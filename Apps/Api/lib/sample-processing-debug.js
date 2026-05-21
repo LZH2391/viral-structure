@@ -8,6 +8,8 @@ const STAGES = {
   coverExtracted: "sample.cover.extracted",
   framesExtracted: "sample.frames.extracted",
   audioExtracted: "sample.audio.extracted",
+  audioSeparated: "sample.audio.separated",
+  subtitleRecognized: "sample.subtitle.recognized",
   artifactWritten: "sample.artifact.written",
 };
 
@@ -69,7 +71,15 @@ function assertDuration(durationSeconds) {
 function resolveProcessingOptions(fields = {}) {
   const result = normalizeFrameSampleRateFps(fields.frameSampleRateFps);
   if (!result.ok) throw safeError(result.error.code, result.error.message);
-  return { frameSampleRateFps: result.value };
+  return {
+    frameSampleRateFps: result.value,
+    enableAudioSeparation: normalizeBoolean(fields.enableAudioSeparation),
+    enableSubtitleRecognition: normalizeBoolean(fields.enableSubtitleRecognition),
+  };
+}
+
+function normalizeBoolean(value) {
+  return value === true || value === "true" || value === "1" || value === "on";
 }
 
 function safeError(code, message) {
@@ -84,6 +94,7 @@ module.exports = {
   assertUpload,
   assertDuration,
   resolveProcessingOptions,
+  normalizeBoolean,
   buildErrorSummary,
   buildDebugPayload,
   fallbackStage,

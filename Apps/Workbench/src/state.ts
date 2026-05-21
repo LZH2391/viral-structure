@@ -1,4 +1,5 @@
 import type {
+  BackendCapabilities,
   DebugSnapshot,
   ErrorSummary,
   GeneratedPlan,
@@ -20,8 +21,6 @@ export const STAGES = {
   ingest: "sample.ingest",
   understand: "sample.understand",
   transfer: "structure.transfer",
-  rerun: "stage.rerun",
-  snapshot: "debug.snapshot",
 } as const;
 
 export type RunStatus = {
@@ -39,14 +38,18 @@ export function createInitialState(): WorkbenchState {
     },
     uiTraceId: createId("uiTrace"),
     activeStageId: null,
+    capabilities: null,
     activePreviewMode: "sample",
     activeMediaKind: "video",
     timelineFrameVisible: true,
     timelineVisibleSeconds: 10,
     selectedDerivativeId: null,
     selectedFrameId: null,
+    selectedSubtitleId: null,
     sampleVideo: null,
     mediaDerivatives: [],
+    audioSeparation: null,
+    subtitles: null,
     structureCards: [],
     contentProfile: null,
     generatedPlan: null,
@@ -59,6 +62,7 @@ export function createInitialState(): WorkbenchState {
     uploadStatusText: null,
     sampleArtifact: null,
     errorSummary: null,
+    subtitleDrafts: {},
   };
 }
 
@@ -67,7 +71,7 @@ export type WorkbenchAction =
   | { type: "set-processing-job"; processingJob: ProcessingJob | null; uploadStatusText: string | null }
   | { type: "apply-artifact"; artifact: SampleArtifact }
   | { type: "set-error"; errorSummary: ErrorSummary | null; uploadStatusText: string | null }
-  | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null }
+  | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null; selectedSubtitleId?: string | null }
   | { type: "set-frame-visible"; visible: boolean }
   | { type: "set-visible-seconds"; visibleSeconds: number }
   | { type: "set-structure-cards"; cards: StructureCard[] }
@@ -76,6 +80,8 @@ export type WorkbenchAction =
   | { type: "add-log"; log: UiLog; fields: LogFields }
   | { type: "add-snapshot"; snapshot: DebugSnapshot }
   | { type: "set-active-stage"; stageId: string | null }
+  | { type: "set-capabilities"; capabilities: BackendCapabilities }
+  | { type: "update-subtitle-draft"; segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }
   | { type: "restore-draft"; draft: DraftState };
 
 export type DraftState = {
@@ -110,6 +116,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         activeMediaKind: action.activeMediaKind,
         selectedDerivativeId: action.selectedDerivativeId,
         selectedFrameId: action.selectedFrameId,
+        selectedSubtitleId: action.selectedSubtitleId ?? null,
       };
     case "set-frame-visible":
       return { ...state, timelineFrameVisible: action.visible };
@@ -131,6 +138,23 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
       return { ...state, debugSnapshots: [action.snapshot, ...state.debugSnapshots] };
     case "set-active-stage":
       return { ...state, activeStageId: action.stageId };
+    case "set-capabilities":
+      return { ...state, capabilities: action.capabilities };
+    case "update-subtitle-draft":
+      return {
+        ...state,
+        subtitleDrafts: {
+          ...state.subtitleDrafts,
+          [action.segmentId]: {
+            segmentId: action.segmentId,
+            text: action.text,
+            start: action.start,
+            end: action.end,
+            sourceArtifactId: action.sourceArtifactId,
+            draftVersionId: state.subtitleDrafts[action.segmentId]?.draftVersionId ?? createId("version"),
+          },
+        },
+      };
     case "restore-draft": {
       const restored = applySampleArtifact(state, action.draft.sampleArtifact);
       return {
@@ -138,6 +162,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         processingJob: buildRestoredJob(action.draft),
         selectedFrameId: action.draft.selectedFrameId ?? restored.selectedFrameId,
         selectedDerivativeId: action.draft.selectedDerivativeId ?? restored.selectedDerivativeId,
+        selectedSubtitleId: null,
         versions: Array.isArray(action.draft.versions) ? action.draft.versions : [],
       };
     }
@@ -177,12 +202,16 @@ export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtif
     errorSummary: null,
     sampleVideo,
     mediaDerivatives: buildDerivatives(artifact),
+    audioSeparation: artifact.audioSeparation ?? null,
+    subtitles: artifact.subtitles ?? null,
     selectedFrameId: sampleVideo.frameArtifacts[0]?.id ?? null,
     selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
+    selectedSubtitleId: null,
     activeMediaKind: "video",
     structureCards: [],
     generatedPlan: null,
     mappings: [],
+    subtitleDrafts: {},
   };
 }
 
@@ -193,6 +222,8 @@ export function buildDerivatives(artifact: SampleArtifact): MediaDerivative[] {
     artifact.cover,
     { artifactId: "frame-set", type: "frame-set", summary: `${artifact.frames.length} 帧`, parentArtifactId: artifact.sampleVideo.artifactId },
     artifact.audio,
+    artifact.audioSeparation?.vocal,
+    artifact.audioSeparation?.music,
   ]
     .filter(Boolean)
     .map((item) => {
@@ -239,6 +270,8 @@ function artifactName(type: string) {
     "cover-frame": "封面帧",
     "frame-set": "抽帧结果",
     "audio-track": "音频轨",
+    "audio-vocal": "人声",
+    "audio-music": "伴奏",
   };
   return names[type] ?? type;
 }

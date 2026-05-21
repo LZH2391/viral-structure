@@ -9,6 +9,8 @@ function buildArtifact({ context, inputPath, media, store }) {
     trace: context.traceContext,
     processingOptions: {
       frameSampleRateFps: context.processingOptions.frameSampleRateFps,
+      enableAudioSeparation: context.processingOptions.enableAudioSeparation,
+      enableSubtitleRecognition: context.processingOptions.enableSubtitleRecognition,
     },
     sampleVideo: {
       artifactId: context.sampleArtifactId,
@@ -32,6 +34,8 @@ function buildArtifact({ context, inputPath, media, store }) {
     frames: media.frames,
     frameOutputSummary: media.frameOutputSummary,
     audio: media.audio,
+    audioSeparation: media.audioSeparation ?? null,
+    subtitles: media.subtitles ?? null,
     metadata: media.metadata,
   };
 }
