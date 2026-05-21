@@ -145,6 +145,16 @@ function AgentRunPanel({
       </div>
       {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
+      {analysis ? (
+        <div className="detail-hint">
+          <div>来源：{renderResultOrigin(analysis.resultOrigin)}</div>
+          <div>turn：{analysis.agent?.turnId ? shortTurnId(analysis.agent.turnId) : "无"}</div>
+          <div>analysisFps：{analysis.analysisSampling?.fps ?? "无"}</div>
+          <div>boundaryCount：{analysis.boundaries?.length ?? 0}</div>
+          <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
+          <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
+        </div>
+      ) : null}
       {analysis?.shots?.length ? (
         <div className="agent-shot-list">
           {analysis.shots.slice(0, 12).map((shot) => (
@@ -397,4 +407,15 @@ function resolutionText(sampleVideo: SampleVideo) {
   if (!sampleVideo.width || !sampleVideo.height) return "未知";
   const ratio = Number.isFinite(sampleVideo.aspectRatio) && sampleVideo.aspectRatio ? ` / ${sampleVideo.aspectRatio.toFixed(2)}:1` : "";
   return `${sampleVideo.width} x ${sampleVideo.height}${ratio}`;
+}
+
+function renderResultOrigin(origin?: ShotBoundaryAnalysisArtifact["resultOrigin"]) {
+  if (origin === "repaired_turn") return "repaired turn";
+  if (origin === "cache_reuse") return "cache reuse";
+  if (origin === "failed_validation") return "failed validation";
+  return "new turn";
+}
+
+function shortTurnId(turnId: string) {
+  return turnId.length > 10 ? turnId.slice(-10) : turnId;
 }

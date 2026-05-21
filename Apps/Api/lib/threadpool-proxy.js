@@ -50,7 +50,7 @@ function createThreadPoolProxy({
   }
 
   async function releaseOwnerLeases(ownerId) {
-    return requestJson("POST", "/leases/release-owner", { owner_id: ownerId, roles: Array.from(allowedRoleSet) });
+    return requestJson("POST", "/leases/release-owner", { owner_id: ownerId });
   }
 
   async function discardThread({ threadId, reason }) {

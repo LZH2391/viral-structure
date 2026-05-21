@@ -7,9 +7,12 @@ const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const {
   ROLE,
+  MAX_REPAIR_ATTEMPTS,
   SKILL_PATH,
+  buildCacheReuseAnalysis,
   buildFailedArtifact,
   buildProcessedAnalysis,
+  buildRepairTurnInputs,
   buildTurnInputs,
   cacheParams,
   codedError,
@@ -26,6 +29,9 @@ const STAGES = {
   threadAcquired: "shot.thread_acquire",
   turnStarted: "shot.boundary_analyze.submit",
   turnCollected: "shot.boundary_analyze.collect",
+  turnValidated: "shot.boundary_validate",
+  turnRepaired: "shot.boundary_repair.submit",
+  repairCollected: "shot.boundary_repair.collect",
   resultWritten: "shot.boundary_merge",
 };
 const POLL_INTERVAL_MS = 2000;
@@ -46,13 +52,49 @@ function createShotBoundaryService({
 } = {}) {
   const collectingJobs = new Set();
 
-  async function enqueue({ sampleVideoId, analysisFps = 1 }) {
+  async function enqueue({ sampleVideoId, analysisFps = 1, cacheDecision = "ask" }) {
     await store.ensureRuntimeDirs();
     const sampleArtifact = await loadSampleArtifact(sampleVideoId);
     const traceContext = createTraceContext(createTraceIds());
     const artifactId = `artifact_${randomUUID()}`;
+    const context = {
+      sampleVideoId,
+      analysisFps: Number(analysisFps || 1),
+      cacheDecision,
+      sampleArtifact,
+      traceContext,
+      artifactId,
+      skillPath,
+      skillHash: await resolveSkillHash(skillPath),
+    };
+    const prepared = prepareInput(sampleArtifact, context.analysisFps, { runtimeRoot: store.runtimeRoot });
+    const contactSheets = await contactSheetGenerator.generateContactSheets({
+      frames: prepared.frames,
+      frameWidth: prepared.frameDimensions.width,
+      frameHeight: prepared.frameDimensions.height,
+      sampleDir: store.sampleDir(sampleVideoId),
+      parentArtifactId: prepared.sourceArtifactId,
+      store,
+    });
+    const cached = await findCachedArtifact(context, prepared, contactSheets);
+    if (cacheDecision === "ask" && cached) {
+      return {
+        cacheHit: true,
+        cachedItem: {
+          sampleVideoId: cached.cache.sampleVideoId,
+          filename: sampleArtifact.sampleVideo?.original?.summary ?? "样例视频",
+          durationSeconds: sampleArtifact.metadata?.durationSeconds ?? null,
+          width: sampleArtifact.metadata?.width ?? null,
+          height: sampleArtifact.metadata?.height ?? null,
+          updatedAt: cached.cache.updatedAt ?? null,
+          tags: ["切镜"],
+          cacheAvailable: true,
+          traceId: cached.analysis.agent?.turnId ?? null,
+        },
+      };
+    }
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    runAnalysis({ sampleVideoId, analysisFps: Number(analysisFps || 1), sampleArtifact, traceContext, artifactId, job }).catch(() => undefined);
+    runAnalysis({ ...context, prepared, contactSheets, job }).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
 
@@ -64,13 +106,11 @@ function createShotBoundaryService({
   async function runAnalysis(context) {
     let lease = null;
     try {
-      context.skillPath = skillPath;
-      context.skillHash = await resolveSkillHash(skillPath);
       const prepared = await runStage(context, STAGES.inputPrepared, 20, {
         artifactId: context.artifactId,
         parentArtifactId: context.sampleArtifact.sampleVideo.artifactId,
         inputSummary: { sampleVideoId: context.sampleVideoId, analysisFps: context.analysisFps },
-        action: () => prepareInput(context.sampleArtifact, context.analysisFps, { runtimeRoot: store.runtimeRoot }),
+        action: () => context.prepared ?? prepareInput(context.sampleArtifact, context.analysisFps, { runtimeRoot: store.runtimeRoot }),
         outputSummary: (input) => ({
           frameCount: input.frames.length,
           stride: input.analysisSampling.stride,
@@ -78,6 +118,7 @@ function createShotBoundaryService({
           extractFps: round(input.extractSampling.actualFrameCount / input.durationSeconds),
         }),
       });
+      context.prepared = prepared;
       const contactSheets = await runStage(context, STAGES.contactSheetPrepared, 45, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
@@ -86,7 +127,7 @@ function createShotBoundaryService({
           frameWidth: prepared.frameDimensions.width,
           frameHeight: prepared.frameDimensions.height,
         },
-        action: () => contactSheetGenerator.generateContactSheets({
+        action: () => context.contactSheets ?? contactSheetGenerator.generateContactSheets({
           frames: prepared.frames,
           frameWidth: prepared.frameDimensions.width,
           frameHeight: prepared.frameDimensions.height,
@@ -97,19 +138,13 @@ function createShotBoundaryService({
         outputSummary: (sheets) => ({
           sheetCount: sheets.length,
           frameCount: sheets.reduce((sum, sheet) => sum + sheet.frameCount, 0),
-          layouts: sheets.map((sheet) => ({
-            sheetId: sheet.sheetId,
-            width: sheet.layout.width,
-            height: sheet.layout.height,
-            cellWidth: sheet.layout.cellWidth,
-            cellHeight: sheet.layout.cellHeight,
-          })),
         }),
       });
+      context.contactSheets = contactSheets;
       const cached = await findCachedArtifact(context, prepared, contactSheets);
-      if (cached) {
+      if (cached && context.cacheDecision === "reuse") {
         await logCacheReuse(context, cached);
-        await attachAnalysis(context.sampleVideoId, cached.analysis);
+        await attachAnalysis(context.sampleVideoId, buildCacheReuseAnalysis(cached.analysis));
         jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100 });
         return;
       }
@@ -222,20 +257,24 @@ function createShotBoundaryService({
   async function writeCompletedAnalysis({ context, agentRun, turn }) {
     const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
     const contactSheets = agentRun.contactSheets ?? [];
+    const resolved = await resolveFinalAnalysis({ context, agentRun, turn, prepared, contactSheets });
     await runStage(context, STAGES.resultWritten, 95, {
       artifactId: context.artifactId,
       parentArtifactId: prepared.sourceArtifactId ?? null,
-      inputSummary: { turnId: turn.turnId, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
+      inputSummary: { turnId: resolved.finalTurn.turnId, frameCount: prepared.frames.length, sheetCount: contactSheets.length, resultOrigin: resolved.resultOrigin, repairAttemptCount: resolved.repairAttemptCount },
       action: async () => {
         const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-        const analysis = buildProcessedAnalysis(turn.finalMessage, prepared, contactSheets, context, lease, turn);
+        const analysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
+          resultOrigin: resolved.resultOrigin,
+          repairAttemptCount: resolved.repairAttemptCount,
+        });
         await attachAnalysis(context.sampleVideoId, analysis);
         await artifactIndex.registerSampleArtifact({
           artifact: await loadSampleArtifact(context.sampleVideoId),
           fileHash: await resolveExistingFileHash(context.sampleVideoId),
           traceId: context.traceContext.traceId,
         });
-        await finalizeLease(threadPool, agentRun);
+        await finalizeLease(threadPool, agentRun, { shouldDiscard: false });
         return analysis;
       },
       outputSummary: (result) => ({
@@ -244,6 +283,8 @@ function createShotBoundaryService({
         boundaryCount: result.boundaries?.length ?? 0,
         shotCount: result.shots.length,
         artifactType: result.type,
+        resultOrigin: result.resultOrigin,
+        repairAttemptCount: result.validation?.repairAttemptCount ?? 0,
       }),
     });
     jobStore.updateJob(context.job.jobId, {
@@ -252,6 +293,106 @@ function createShotBoundaryService({
       status: SAMPLE_STATUS.processed,
       progress: 100,
       errorSummary: null,
+    });
+  }
+
+  async function resolveFinalAnalysis({ context, agentRun, turn, prepared, contactSheets }) {
+    let repairAttemptCount = 0;
+    let finalTurn = turn;
+    let resultOrigin = "new_turn";
+    while (repairAttemptCount <= MAX_REPAIR_ATTEMPTS) {
+      try {
+        await runStage(context, STAGES.turnValidated, 90, {
+          artifactId: context.artifactId,
+          parentArtifactId: prepared.sourceArtifactId,
+          inputSummary: { turnId: finalTurn.turnId, repairAttemptCount },
+          action: async () => {
+            const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+            return buildProcessedAnalysis(finalTurn.finalMessage, prepared, contactSheets, context, lease, finalTurn, {
+              resultOrigin,
+              repairAttemptCount,
+            });
+          },
+          outputSummary: (result) => ({
+            turnId: finalTurn.turnId,
+            resultOrigin,
+            boundaryCount: result.boundaries?.length ?? 0,
+            shotCount: result.shots?.length ?? 0,
+            repairAttemptCount,
+          }),
+        });
+        return {
+          finalTurn,
+          repairAttemptCount,
+          resultOrigin,
+          validationSummary: {
+            status: "passed",
+            rawBoundaryCount: null,
+            normalizedBoundaryCount: null,
+            repairAttemptCount,
+            validatorCode: null,
+          },
+        };
+      } catch (error) {
+        if (error?.code !== "shot_boundary_validation_failed" || repairAttemptCount >= MAX_REPAIR_ATTEMPTS) {
+          context.validationSummary = {
+            ...(error?.debugPayload?.validation ?? {}),
+            status: "failed",
+            repairAttemptCount,
+            validatorCode: error?.debugPayload?.validation?.validatorCode ?? error?.code ?? null,
+          };
+          error.debugPayload = {
+            ...(error.debugPayload ?? {}),
+            repairAttemptCount,
+            validation: context.validationSummary,
+          };
+          throw error;
+        }
+        repairAttemptCount += 1;
+        context.validationSummary = {
+          ...(error?.debugPayload?.validation ?? {}),
+          status: "failed",
+          repairAttemptCount,
+          validatorCode: error?.debugPayload?.validation?.validatorCode ?? error?.code ?? null,
+        };
+        finalTurn = await submitRepairTurn({ context, agentRun, prepared, contactSheets, validationError: error, priorTurn: finalTurn, repairAttemptCount });
+        resultOrigin = "repaired_turn";
+      }
+    }
+    throw codedError("shot_boundary_validation_failed", "切镜结果校验失败", { repairAttemptCount: MAX_REPAIR_ATTEMPTS }, false);
+  }
+
+  async function submitRepairTurn({ context, agentRun, prepared, contactSheets, validationError, priorTurn, repairAttemptCount }) {
+    const started = await runStage(context, STAGES.turnRepaired, 91, {
+      artifactId: context.artifactId,
+      parentArtifactId: prepared.sourceArtifactId,
+      inputSummary: { threadId: agentRun.threadId, previousTurnId: priorTurn.turnId, repairAttemptCount, validatorCode: validationError.debugPayload?.validation?.validatorCode ?? validationError.code },
+      action: () => appServer.startTurnWithInputs({
+        workspaceRoot: rootDir,
+        threadId: agentRun.threadId,
+        skillPath,
+        inputs: buildRepairTurnInputs({
+          prepared,
+          contactSheets,
+          validationError,
+          priorTurnOutput: priorTurn.finalMessage,
+          repairAttemptCount,
+        }),
+        timeoutSeconds: 240,
+      }),
+      outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
+    });
+    return runStage(context, STAGES.repairCollected, 93, {
+      artifactId: context.artifactId,
+      parentArtifactId: prepared.sourceArtifactId,
+      inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount },
+      action: () => appServer.collectTurnResult({
+        workspaceRoot: rootDir,
+        threadId: agentRun.threadId,
+        turnId: started.turnId,
+        timeoutSeconds: 120,
+      }),
+      outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
     });
   }
 
@@ -357,19 +498,19 @@ function createShotBoundaryService({
       outputSummary: null,
       startedAt: Date.now(),
     };
-    const errorSummary = safeError(error, activeStage.stageName);
-    const failedArtifact = buildFailedArtifact(context, errorSummary, agentRun?.contactSheets ?? []);
-    await attachAnalysis(context.sampleVideoId, failedArtifact).catch(() => undefined);
     const snapshot = await logger.writeDebugSnapshot({
       traceContext: context.traceContext,
       stageName: activeStage.stageName,
       artifactId: activeStage.artifactId,
       parentArtifactId: activeStage.parentArtifactId,
-      reason: errorSummary.code,
+      reason: error?.code ?? "shot_boundary_failed",
       inputSummary: activeStage.inputSummary,
       outputSummary: activeStage.outputSummary,
       debugPayload: sanitizeDebugPayload(error),
     });
+    const errorSummary = { ...safeError(error, activeStage.stageName), debugSnapshotUri: snapshot.uri };
+    const failedArtifact = buildFailedArtifact({ ...context, validationSummary: context.validationSummary }, errorSummary, agentRun?.contactSheets ?? []);
+    await attachAnalysis(context.sampleVideoId, failedArtifact).catch(() => undefined);
     await logger.writeStageLog({
       traceContext: context.traceContext,
       stageName: activeStage.stageName,
@@ -378,14 +519,14 @@ function createShotBoundaryService({
       parentArtifactId: activeStage.parentArtifactId,
       outputSummary: activeStage.outputSummary,
       durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
-      errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
+      errorSummary,
     });
     jobStore.updateJob(context.job.jobId, {
       agentRun: context.job.agentRun ? { ...context.job.agentRun, status: "failed", updatedAt: new Date().toISOString() } : context.job.agentRun,
       stage: activeStage.stageName,
       status: SAMPLE_STATUS.failed,
       progress: 100,
-      errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
+      errorSummary,
     });
     context.activeStage = null;
   }
@@ -420,6 +561,7 @@ function createShotBoundaryService({
   }
 
   async function findCachedArtifact(context, prepared, contactSheets) {
+    if (context.cacheDecision === "refresh") return null;
     const fileHash = await resolveExistingFileHash(context.sampleVideoId);
     if (!fileHash) return null;
     const cache = await artifactIndex.findCacheEntry({
@@ -430,7 +572,8 @@ function createShotBoundaryService({
     if (!cache?.sampleVideoId) return null;
     const artifact = await artifactIndex.loadItem(cache.sampleVideoId);
     const analysis = artifact?.shotBoundaryAnalysis ?? null;
-    return analysis ? { cache, analysis } : null;
+    if (!analysis || analysis.status !== "processed") return null;
+    return { cache, analysis };
   }
 
   async function logCacheReuse(context, cached) {
@@ -526,6 +669,7 @@ function createRecoveredContext({ job, agentRun, sampleArtifact }) {
     artifactId: agentRun.artifactId,
     skillPath: agentRun.skillPath ?? SKILL_PATH,
     skillHash: agentRun.skillHash ?? null,
+    cacheDecision: "refresh",
     job,
     activeStage: null,
   };
@@ -536,14 +680,13 @@ function isRetryableCollectError(error) {
   return ["appserver_bridge_failed", "appserver_bridge_timeout", "appserver_turn_collect_failed"].includes(code);
 }
 
-async function finalizeLease(threadPool, agentRun) {
-  const config = typeof threadPool.config === "function" ? await threadPool.config().catch(() => null) : null;
-  if (config?.ok && config.discardOnRelease && agentRun?.threadId) {
-    await threadPool.discardThread({ threadId: agentRun.threadId, reason: "graceful-successful-release" });
+async function finalizeLease(threadPool, agentRun, options = {}) {
+  if (options.shouldDiscard && agentRun?.threadId) {
+    await threadPool.discardThread({ threadId: agentRun.threadId, reason: options.reason || "shot-boundary-analysis-failed" });
     if (typeof threadPool.releaseOwnerLeases === "function" && agentRun?.traceId) {
       await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
     }
-    return { mode: "graceful-discard" };
+    return { mode: "discard" };
   }
   await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
   return { mode: "lease-release" };
@@ -646,7 +789,7 @@ function normalizeThreadPoolAcquireError(error, status) {
           startupError: status.startupError ?? null,
         }
         : null,
-        requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
+      requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
     },
     true,
   );

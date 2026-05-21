@@ -23,6 +23,7 @@ import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
+type ShotCachePrompt = { cachedItem: LibraryItemSummary; token: number } | null;
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
@@ -36,6 +37,7 @@ export function WorkbenchApp() {
   const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
+  const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
@@ -299,6 +301,24 @@ export function WorkbenchApp() {
     handleSampleUpload(file, "refresh");
   }, [cachePrompt, handleSampleUpload]);
 
+  const reuseShotCache = useCallback(async () => {
+    if (!shotCachePrompt || !state.sampleVideo) return;
+    const prompt = shotCachePrompt;
+    setShotCachePrompt(null);
+    try {
+      await runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob, undefined, "reuse");
+      setSaveStatus("已复用切镜缓存");
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "复用切镜缓存失败");
+    }
+  }, [agentAnalysisFps, shotCachePrompt, state]);
+
+  const refreshShotCache = useCallback(() => {
+    if (!state.sampleVideo) return;
+    setShotCachePrompt(null);
+    runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob, undefined, "refresh").catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
+  }, [agentAnalysisFps, state]);
+
   const handleUnderstand = () => {
     if (!state.sampleVideo) return;
     const stage = beginStage(STAGES.understand, state.sampleVideo.artifactId);
@@ -422,7 +442,18 @@ export function WorkbenchApp() {
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={setAgentAnalysisFps}
-          onRunShotBoundary={() => runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
+          onRunShotBoundary={() => runShotBoundaryAnalysis(
+            state,
+            agentAnalysisFps,
+            setAgentJob,
+            dispatch,
+            writeActiveAgentJob,
+            async (cachedItem) => {
+              setShotCachePrompt({ cachedItem, token: uploadTokenRef.current });
+              setSaveStatus("命中切镜缓存，等待选择");
+            },
+            "ask",
+          ).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             setCurrentTime(time);
@@ -478,6 +509,7 @@ export function WorkbenchApp() {
       {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
+      {shotCachePrompt ? <CacheDecisionDialog item={shotCachePrompt.cachedItem} onReuse={reuseShotCache} onRefresh={refreshShotCache} onCancel={() => setShotCachePrompt(null)} /> : null}
       <form id="profileForm" className="sr-only" onSubmit={handleGeneratePlan}>
         <input name="topic" />
         <input name="sellingPoints" />

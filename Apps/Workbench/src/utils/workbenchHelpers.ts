@@ -1,4 +1,4 @@
-import { getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startShotBoundaryAnalysis } from "../api/client";
+import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, ProcessingJob, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
@@ -10,6 +10,7 @@ export type ActiveJobDraft = {
 };
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
+export type ShotBoundaryCacheHandler = (item: import("../types").LibraryItemSummary) => Promise<void> | void;
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -18,11 +19,15 @@ export type ShotBoundaryGuard = {
   disabled: boolean;
 };
 
-export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter) {
+export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler, cacheDecision: "ask" | "reuse" | "refresh" = "ask") {
   if (!state.sampleVideo) return;
   const guard = await getShotBoundaryGuard();
   if (guard.state !== "ready") throw new Error(guard.message ?? "ThreadPool 当前不可用，请稍后再试");
-  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps });
+  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision });
+  if ("cacheHit" in started && started.cacheHit) {
+    await onCacheHit?.(started.cachedItem);
+    return;
+  }
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
   writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps });
@@ -149,7 +154,11 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.thread_acquire": "检查 ThreadPool",
     "shot.boundary_analyze.submit": "提交切镜分析",
     "shot.boundary_analyze.collect": "等待切镜结果",
+    "shot.boundary_validate": "校验切镜结果",
+    "shot.boundary_repair.submit": "提交修复分析",
+    "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",
+    "shot.cache_reuse": "复用切镜缓存",
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";

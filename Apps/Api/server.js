@@ -91,8 +91,8 @@ async function handleArtifact(res, sampleVideoId) {
 
 async function handleShotBoundary(req, res, sampleVideoId) {
   const body = await readJsonBody(req);
-  const result = await shotBoundaryService.enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1 });
-  return sendJson(res, 202, result);
+  const result = await shotBoundaryService.enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1, cacheDecision: body.cacheDecision ?? "ask" });
+  return sendJson(res, result?.cacheHit ? 200 : 202, result);
 }
 
 async function handleThreadPoolRead(res, scope, action) {

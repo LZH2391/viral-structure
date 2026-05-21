@@ -83,6 +83,7 @@ export type ShotBoundaryAnalysisArtifact = {
   parentArtifactId: string | null;
   type: "shot-boundary-analysis";
   status: "processed" | "failed" | string;
+  resultOrigin?: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
   sourceFrameArtifactIds: string[];
   extractSampling: {
     requestedFps: number;
@@ -98,6 +99,7 @@ export type ShotBoundaryAnalysisArtifact = {
     provider: "codex-appserver" | string;
     role: string;
     skillPath: string;
+    skillHash?: string | null;
     threadId: string | null;
     leaseId: string | null;
     turnId: string | null;
@@ -162,8 +164,7 @@ export type ShotBoundaryAnalysisArtifact = {
     sheetIndex: number;
     frameCount?: number;
     boundaries: Array<{
-      beforeFrameId: string;
-      afterFrameId: string;
+      timestamp: number;
       confidence: number;
       boundaryType: string;
       reason: string;
@@ -172,15 +173,19 @@ export type ShotBoundaryAnalysisArtifact = {
     createdAt?: string;
   }>;
   boundaries?: Array<{
-    beforeFrameId: string;
-    afterFrameId: string;
+    timestamp: number;
     confidence: number;
     boundaryType: string;
     reason: string;
     needReview: boolean;
-    sheetId?: string;
-    sheetIndex?: number;
   }>;
+  validation?: {
+    status: "passed" | "failed" | string;
+    rawBoundaryCount: number | null;
+    normalizedBoundaryCount: number | null;
+    repairAttemptCount: number;
+    validatorCode: string | null;
+  } | null;
   shots: Array<{
     id: string;
     index: number;
@@ -192,6 +197,7 @@ export type ShotBoundaryAnalysisArtifact = {
     reason: string;
   }>;
   reason?: string | null;
+  debugSnapshotUri?: string | null;
   createdAt: string;
 };
 

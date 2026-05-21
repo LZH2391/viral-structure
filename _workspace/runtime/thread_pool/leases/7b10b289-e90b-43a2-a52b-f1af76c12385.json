@@ -1,0 +1,10 @@
+{
+  "lease_id": "7b10b289-e90b-43a2-a52b-f1af76c12385",
+  "role": "shot-boundary-analyzer",
+  "owner_id": "trace_63aa9b71-e794-4163-9c51-b838392cb143",
+  "thread_id": "019e49ee-2e30-7921-9b22-be3f39481695",
+  "status": "active",
+  "created_at": "2026-05-21T17:53:53.710935+08:00",
+  "last_seen_at": "2026-05-21T17:53:53.710935+08:00",
+  "released_at": null
+}

@@ -8,6 +8,10 @@ export type UploadSampleResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary; fileHash?: string }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
+export type ShotBoundaryStartResponse =
+  | { cacheHit: true; cachedItem: LibraryItemSummary }
+  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -35,12 +39,12 @@ export async function getSampleArtifact(sampleVideoId: string) {
   return readJson<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
 }
 
-export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number } = {}) {
-  return readJson<{ processingJobId: string; sampleVideoId: string; traceId: string }>(
+export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+  return readJson<ShotBoundaryStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/shot-boundary`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1 }),
+      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1, cacheDecision: options.cacheDecision ?? "ask" }),
     }),
   );
 }

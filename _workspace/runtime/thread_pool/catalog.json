@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T17:47:16.397481+08:00",
+  "updated_at": "2026-05-21T17:58:13.492626+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -27,44 +27,44 @@
         "active_leases": 2
       },
       "active_lease_ids": [
-        "9a2a61f8-c559-4d10-b338-6f9da81a0656",
-        "be50bef0-df61-4b04-8a5c-635182417728"
+        "26228b23-1166-4720-8e46-2e8eec0dfb68",
+        "7b10b289-e90b-43a2-a52b-f1af76c12385"
       ],
       "active_leases": [
         {
-          "lease_id": "9a2a61f8-c559-4d10-b338-6f9da81a0656",
-          "thread_id": "019e49e6-5e4c-7122-9c63-9e38feb79592",
-          "owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
-          "last_seen_at": "2026-05-21T17:46:46.394610+08:00",
+          "lease_id": "7b10b289-e90b-43a2-a52b-f1af76c12385",
+          "thread_id": "019e49ee-2e30-7921-9b22-be3f39481695",
+          "owner_id": "trace_63aa9b71-e794-4163-9c51-b838392cb143",
+          "last_seen_at": "2026-05-21T17:53:53.710935+08:00",
           "thread_status": "leased"
         },
         {
-          "lease_id": "be50bef0-df61-4b04-8a5c-635182417728",
-          "thread_id": "019e49e3-0885-7a22-a320-d26803679021",
-          "owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
-          "last_seen_at": "2026-05-21T17:38:14.534440+08:00",
+          "lease_id": "26228b23-1166-4720-8e46-2e8eec0dfb68",
+          "thread_id": "019e49f4-b2eb-7b91-86a2-5eeb7ed8b28a",
+          "owner_id": "trace_be043f14-30a8-4ffe-93fe-1e4849d408c2",
+          "last_seen_at": "2026-05-21T17:56:01.934237+08:00",
           "thread_status": "leased"
         }
       ],
       "thread_entries": [
         {
-          "thread_id": "019e49e3-0885-7a22-a320-d26803679021",
-          "thread_status": "leased",
-          "lease_id": "be50bef0-df61-4b04-8a5c-635182417728",
-          "owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
-          "last_owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
-          "last_seen_at": "2026-05-21T17:38:14.534440+08:00"
-        },
-        {
-          "thread_id": "019e49e6-5e4c-7122-9c63-9e38feb79592",
-          "thread_status": "leased",
-          "lease_id": "9a2a61f8-c559-4d10-b338-6f9da81a0656",
-          "owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
-          "last_owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
-          "last_seen_at": "2026-05-21T17:46:46.394610+08:00"
-        },
-        {
           "thread_id": "019e49ee-2e30-7921-9b22-be3f39481695",
+          "thread_status": "leased",
+          "lease_id": "7b10b289-e90b-43a2-a52b-f1af76c12385",
+          "owner_id": "trace_63aa9b71-e794-4163-9c51-b838392cb143",
+          "last_owner_id": "trace_63aa9b71-e794-4163-9c51-b838392cb143",
+          "last_seen_at": "2026-05-21T17:53:53.710935+08:00"
+        },
+        {
+          "thread_id": "019e49f4-b2eb-7b91-86a2-5eeb7ed8b28a",
+          "thread_status": "leased",
+          "lease_id": "26228b23-1166-4720-8e46-2e8eec0dfb68",
+          "owner_id": "trace_be043f14-30a8-4ffe-93fe-1e4849d408c2",
+          "last_owner_id": "trace_be043f14-30a8-4ffe-93fe-1e4849d408c2",
+          "last_seen_at": "2026-05-21T17:56:01.934237+08:00"
+        },
+        {
+          "thread_id": "019e49f6-a8a6-7a50-ac4e-a073f1114437",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

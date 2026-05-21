@@ -6,6 +6,7 @@ const { randomUUID, createHash } = require("crypto");
 const ROLE = "shot-boundary-analyzer";
 const SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md";
 const MIN_SHOT_DURATION_SECONDS = 0.01;
+const MAX_REPAIR_ATTEMPTS = 1;
 
 function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);
@@ -22,6 +23,20 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   }
   const stride = Math.max(1, Math.round(extractFps / analysisFps));
   const sourceArtifactId = artifact.sampleVideo?.artifactId ?? null;
+  const sampledFrames = frames.reduce((result, frame, sourceFrameIndex) => {
+    if (sourceFrameIndex % stride !== 0) return result;
+    result.push({
+      inputIndex: result.length,
+      sourceFrameIndex,
+      frameId: frame.frameId,
+      artifactId: frame.artifactId,
+      parentArtifactId: frame.parentArtifactId ?? null,
+      timestamp: Number(frame.timestamp ?? 0),
+      fileName: basename(frame.imageUri),
+      filePath: resolveLocalImagePath(frame.imageUri, runtimeRoot),
+    });
+    return result;
+  }, []);
   return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,
     sourceArtifactId,
@@ -38,35 +53,33 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
       maxFrames: Number(summary.maxFrames ?? 120),
     },
     analysisSampling: { fps: analysisFps, stride },
-    frames: frames.reduce((result, frame, sourceFrameIndex) => {
-      if (sourceFrameIndex % stride !== 0) return result;
-      result.push({
-        inputIndex: result.length,
-        sourceFrameIndex,
-        frameId: frame.frameId,
-        artifactId: frame.artifactId,
-        parentArtifactId: frame.parentArtifactId ?? null,
-        timestamp: Number(frame.timestamp ?? 0),
-        fileName: basename(frame.imageUri),
-        filePath: resolveLocalImagePath(frame.imageUri, runtimeRoot),
-      });
-      return result;
-    }, []),
+    frames: sampledFrames,
   });
 }
 
 function buildTurnInputs({ prepared, contactSheets }) {
+  const manifest = {
+    sourceArtifactId: prepared.sourceArtifactId,
+    durationSeconds: round(prepared.durationSeconds),
+    extractSampling: prepared.extractSampling,
+    analysisSampling: prepared.analysisSampling,
+    sheetCount: contactSheets.length,
+    sheets: contactSheets.map((sheet) => ({
+      sheetId: sheet.sheetId,
+      sheetIndex: sheet.sheetIndex,
+      frameCount: sheet.frameCount,
+      startTime: round(resolveSheetStartTime(sheet)),
+      endTime: round(resolveSheetEndTime(sheet)),
+    })),
+  };
   const prompt = [
     "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
-    "每张图片都是按时间顺序排列的 contact sheet；sheet 顺序与输入顺序一致。",
-    "你的任务只有切镜边界判断，不要做字幕 OCR、内容总结、剧情理解或结构迁移。",
-    "只允许输出相邻帧之间的边界，格式必须引用 beforeFrameId 和 afterFrameId，例如 frame-047 -> frame-048。",
-    "如果看不清或需要人工复核，请把 needReview 设为 true，而不是编造结论。",
+    "你只需要输出切镜时间点，不要输出 frameId、路径、完整输入明细、剧情解释或 OCR 结果。",
+    `任务输入：${JSON.stringify(manifest)}`,
     `输出 schema：${JSON.stringify({
       boundaries: [
         {
-          beforeFrameId: "frame_example_047",
-          afterFrameId: "frame_example_048",
+          timestamp: 12.48,
           confidence: 0.82,
           boundaryType: "hard_cut",
           reason: "画面主体与景别出现明显跳变",
@@ -74,7 +87,7 @@ function buildTurnInputs({ prepared, contactSheets }) {
         },
       ],
     })}`,
-    "返回前自检：JSON 可解析；boundaries 可以为空；每条边界都必须引用输入中存在且相邻的 frameId；不要输出本地路径。",
+    "返回前自检：JSON 可解析；boundaries 不能为空；timestamp 必须在 0 到 durationSeconds 之间；boundaries 必须严格升序且不能重复；不要输出本地路径。",
   ].join("\n");
   const inputs = [{ type: "text", text: prompt, text_elements: [] }];
   for (const sheet of contactSheets) {
@@ -83,10 +96,46 @@ function buildTurnInputs({ prepared, contactSheets }) {
   return sanitizeForAppServerText(inputs);
 }
 
-function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn) {
+function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
+  const prompt = [
+    "上一次切镜输出未通过校验。请在同一任务上修复，只返回 JSON object。",
+    `修复轮次：${repairAttemptCount}`,
+    `视频时长：${round(prepared.durationSeconds)} 秒`,
+    `分析采样：${JSON.stringify(prepared.analysisSampling)}`,
+    `校验失败：${JSON.stringify(validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message })}`,
+    `上次输出摘要：${JSON.stringify(summarizeAgentOutput(priorTurnOutput, null, null))}`,
+    `输出 schema：${JSON.stringify({
+      boundaries: [
+        {
+          timestamp: 12.48,
+          confidence: 0.82,
+          boundaryType: "hard_cut",
+          reason: "画面主体与景别出现明显跳变",
+          needReview: false,
+        },
+      ],
+    })}`,
+    "要求：只保留你能确认的切换时间点；严格按时间升序；不要返回空 boundaries；不要输出 frameId、路径或解释性正文。",
+  ].join("\n");
+  const inputs = [{ type: "text", text: prompt, text_elements: [] }];
+  for (const sheet of contactSheets) {
+    inputs.push({ type: "localImage", path: sheet.localImagePath });
+  }
+  return sanitizeForAppServerText(inputs);
+}
+
+function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn, options = {}) {
   const parsed = extractJsonObject(message);
-  const rawBoundaries = Array.isArray(parsed.boundaries) ? parsed.boundaries : [];
-  const normalizedBoundaries = normalizeBoundaryCandidates(rawBoundaries, prepared.frames);
+  const rawBoundaries = Array.isArray(parsed.boundaries) ? parsed.boundaries : null;
+  const normalizedBoundaries = normalizeTimestampBoundaries(rawBoundaries);
+  const validation = validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
+  if (!validation.ok) {
+    throw codedError("shot_boundary_validation_failed", validation.message, {
+      turnId: turn?.turnId ?? null,
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries),
+      validation: validation.summary,
+    }, false);
+  }
   const qualityIssue = detectReasonEncodingIssue(normalizedBoundaries);
   if (qualityIssue) {
     throw codedError("agent_output_quality_failed", "切镜 Agent 输出存在编码异常，已阻止写入 processed 产物", {
@@ -94,9 +143,9 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
       parseFailureReason: qualityIssue.reason,
       outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries),
       suspiciousReason: qualityIssue.suspiciousReason,
-    });
+      validation: validation.summary,
+    }, false);
   }
-  const candidateArtifacts = buildCandidateArtifacts(contactSheets, normalizedBoundaries);
   const mergedBoundaries = normalizedBoundaries;
   const shots = buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds);
   return {
@@ -104,12 +153,20 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     parentArtifactId: prepared.sourceArtifactId,
     type: "shot-boundary-analysis",
     status: "processed",
+    resultOrigin: options.resultOrigin ?? "new_turn",
     sourceFrameArtifactIds: prepared.frames.map((frame) => frame.artifactId),
     extractSampling: prepared.extractSampling,
     analysisSampling: prepared.analysisSampling,
     contactSheets: contactSheets.map(stripLocalImagePath),
-    boundaryCandidateArtifacts: candidateArtifacts,
-    boundaries: mergedBoundaries.map(stripBoundaryIndices),
+    boundaryCandidateArtifacts: [],
+    boundaries: mergedBoundaries,
+    validation: {
+      status: "passed",
+      rawBoundaryCount: rawBoundaries.length,
+      normalizedBoundaryCount: mergedBoundaries.length,
+      repairAttemptCount: options.repairAttemptCount ?? 0,
+      validatorCode: null,
+    },
     agent: {
       provider: "codex-appserver",
       role: ROLE,
@@ -126,58 +183,74 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
   };
 }
 
-function normalizeBoundaryCandidates(rawBoundaries, frames) {
-  const framesById = new Map(
-    (Array.isArray(frames) ? frames : [])
-      .filter((frame) => frame?.frameId)
-      .map((frame) => [frame.frameId, frame]),
-  );
-  const deduped = new Map();
-  for (const boundary of Array.isArray(rawBoundaries) ? rawBoundaries : []) {
-    const beforeFrameId = typeof boundary?.beforeFrameId === "string" ? boundary.beforeFrameId : "";
-    const afterFrameId = typeof boundary?.afterFrameId === "string" ? boundary.afterFrameId : "";
-    const beforeFrame = framesById.get(beforeFrameId);
-    const afterFrame = framesById.get(afterFrameId);
-    if (!beforeFrame || !afterFrame) continue;
-    if (Number(afterFrame.inputIndex) - Number(beforeFrame.inputIndex) !== 1) continue;
-    const key = `${beforeFrameId}__${afterFrameId}`;
-    const normalized = {
-      beforeFrameId,
-      afterFrameId,
-      beforeInputIndex: Number(beforeFrame.inputIndex),
-      afterInputIndex: Number(afterFrame.inputIndex),
-      beforeTimestamp: Number(beforeFrame.timestamp ?? 0),
-      afterTimestamp: Number(afterFrame.timestamp ?? 0),
-      confidence: clamp(Number(boundary?.confidence ?? 0.5), 0, 1),
-      boundaryType: normalizeBoundaryType(boundary?.boundaryType),
-      reason: String(boundary?.reason ?? "视觉变化").slice(0, 160),
-      needReview: Boolean(boundary?.needReview),
-    };
-    const current = deduped.get(key);
-    if (!current || normalized.confidence > current.confidence) deduped.set(key, normalized);
-  }
-  return Array.from(deduped.values()).sort((first, second) => first.afterInputIndex - second.afterInputIndex);
+function normalizeTimestampBoundaries(rawBoundaries) {
+  if (!Array.isArray(rawBoundaries)) return [];
+  return rawBoundaries.map((boundary) => ({
+    timestamp: roundNormalizedTime(Number(boundary?.timestamp)),
+    confidence: clamp(Number(boundary?.confidence ?? 0.5), 0, 1),
+    boundaryType: normalizeBoundaryType(boundary?.boundaryType),
+    reason: String(boundary?.reason ?? "视觉变化").slice(0, 160),
+    needReview: Boolean(boundary?.needReview),
+  }));
 }
 
-function buildCandidateArtifacts(contactSheets, normalizedBoundaries) {
-  return contactSheets.map((sheet) => {
-    const frameIds = new Set(sheet.gridItems.map((item) => item.frameId));
-    const boundaries = normalizedBoundaries
-      .filter((boundary) => frameIds.has(boundary.beforeFrameId) && frameIds.has(boundary.afterFrameId))
-      .map(stripBoundaryIndices);
-    return {
-      artifactId: `artifact_${randomUUID()}`,
-      parentArtifactId: sheet.artifactId,
-      type: "shot_boundary_candidates",
-      artifactType: "shot_boundary_candidates",
-      status: "processed",
-      sheetId: sheet.sheetId,
-      sheetIndex: sheet.sheetIndex,
-      frameCount: sheet.frameCount,
-      boundaries,
-      createdAt: new Date().toISOString(),
-    };
-  });
+function validateTimestampBoundaries(boundaries, durationSeconds) {
+  const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
+  if (!Array.isArray(boundaries)) {
+    return invalidValidation("shot_boundary_missing_boundaries", "切镜 Agent 未返回 boundaries", {
+      rawBoundaryCount: 0,
+      normalizedBoundaryCount: 0,
+      validatorCode: "shot_boundary_missing_boundaries",
+    });
+  }
+  if (!boundaries.length) {
+    return invalidValidation("shot_boundary_empty_boundaries", "切镜 Agent 未返回明确切镜边界", {
+      rawBoundaryCount: 0,
+      normalizedBoundaryCount: 0,
+      validatorCode: "shot_boundary_empty_boundaries",
+    });
+  }
+  let previousTimestamp = null;
+  for (let index = 0; index < boundaries.length; index += 1) {
+    const boundary = boundaries[index];
+    if (!Number.isFinite(boundary.timestamp)) {
+      return invalidValidation("shot_boundary_timestamp_invalid", "切镜时间点无效", {
+        rawBoundaryCount: boundaries.length,
+        normalizedBoundaryCount: boundaries.length,
+        validatorCode: "shot_boundary_timestamp_invalid",
+        failingIndex: index,
+      });
+    }
+    if (boundary.timestamp <= 0 || (safeDuration > 0 && boundary.timestamp >= safeDuration)) {
+      return invalidValidation("shot_boundary_timestamp_out_of_range", "切镜时间点超出允许范围", {
+        rawBoundaryCount: boundaries.length,
+        normalizedBoundaryCount: boundaries.length,
+        validatorCode: "shot_boundary_timestamp_out_of_range",
+        failingIndex: index,
+        timestamp: boundary.timestamp,
+        durationSeconds: safeDuration,
+      });
+    }
+    if (previousTimestamp !== null && boundary.timestamp <= previousTimestamp) {
+      return invalidValidation("shot_boundary_timestamp_order_invalid", "切镜时间点重复或未按升序排列", {
+        rawBoundaryCount: boundaries.length,
+        normalizedBoundaryCount: boundaries.length,
+        validatorCode: "shot_boundary_timestamp_order_invalid",
+        failingIndex: index,
+        timestamp: boundary.timestamp,
+        previousTimestamp,
+      });
+    }
+    previousTimestamp = boundary.timestamp;
+  }
+  return {
+    ok: true,
+    summary: {
+      rawBoundaryCount: boundaries.length,
+      normalizedBoundaryCount: boundaries.length,
+      validatorCode: null,
+    },
+  };
 }
 
 function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
@@ -192,25 +265,21 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
       .filter((frame) => frame.frameId)
       .sort((first, second) => first.inputIndex - second.inputIndex)
     : [];
-  if (!boundaries.length) return [buildFallbackShot(normalizedFrames, safeDuration)];
   const shots = [];
   let start = 0;
-  let startInputIndex = normalizedFrames[0]?.inputIndex ?? 0;
   for (const boundary of boundaries) {
-    const cutTime = resolveBoundaryCutTime(boundary, safeDuration);
-    const safeEnd = shots.length ? clamp(cutTime, shots[shots.length - 1].end + MIN_SHOT_DURATION_SECONDS, safeDuration) : clamp(cutTime, MIN_SHOT_DURATION_SECONDS, safeDuration);
+    const end = clamp(boundary.timestamp, shots.length ? shots[shots.length - 1].end + MIN_SHOT_DURATION_SECONDS : MIN_SHOT_DURATION_SECONDS, safeDuration);
     shots.push({
       id: `shot_${shots.length + 1}`,
       index: shots.length,
       shotNo: formatShotNo(shots.length),
       start: roundNormalizedTime(start),
-      end: roundNormalizedTime(safeEnd),
-      representativeFrameId: resolveRepresentativeFrameId(normalizedFrames, startInputIndex, Number(boundary.beforeInputIndex), start, safeEnd),
+      end: roundNormalizedTime(end),
+      representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, end),
       confidence: boundary.confidence,
       reason: boundary.reason,
     });
-    start = safeEnd;
-    startInputIndex = Number(boundary.afterInputIndex);
+    start = end;
   }
   shots.push({
     id: `shot_${shots.length + 1}`,
@@ -218,7 +287,7 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
     shotNo: formatShotNo(shots.length),
     start: roundNormalizedTime(start),
     end: roundNormalizedTime(safeDuration),
-    representativeFrameId: resolveRepresentativeFrameId(normalizedFrames, startInputIndex, normalizedFrames.at(-1)?.inputIndex ?? startInputIndex, start, safeDuration),
+    representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, safeDuration),
     confidence: boundaries.at(-1)?.confidence ?? 0.5,
     reason: boundaries.at(-1)?.reason ?? "视觉连续",
   });
@@ -229,17 +298,26 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
 
 function buildFailedArtifact(context, errorSummary, contactSheets = []) {
   const agentRun = context.job?.agentRun ?? null;
+  const validation = context.validationSummary ?? null;
   return {
     artifactId: context.artifactId,
     parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null,
     type: "shot-boundary-analysis",
     status: "failed",
+    resultOrigin: validation?.repairAttemptCount ? "failed_validation" : "new_turn",
     sourceFrameArtifactIds: [],
     extractSampling: null,
     analysisSampling: { fps: context.analysisFps, stride: null },
     contactSheets: contactSheets.map(stripLocalImagePath),
     boundaryCandidateArtifacts: [],
     boundaries: [],
+    validation: {
+      status: "failed",
+      rawBoundaryCount: validation?.rawBoundaryCount ?? 0,
+      normalizedBoundaryCount: validation?.normalizedBoundaryCount ?? 0,
+      repairAttemptCount: validation?.repairAttemptCount ?? 0,
+      validatorCode: validation?.validatorCode ?? errorSummary.code ?? null,
+    },
     agent: {
       provider: "codex-appserver",
       role: ROLE,
@@ -253,7 +331,22 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
     },
     shots: [],
     reason: errorSummary.message,
+    debugSnapshotUri: errorSummary.debugSnapshotUri ?? null,
     createdAt: new Date().toISOString(),
+  };
+}
+
+function buildCacheReuseAnalysis(analysis) {
+  return {
+    ...analysis,
+    resultOrigin: "cache_reuse",
+    validation: {
+      status: analysis.validation?.status ?? "passed",
+      rawBoundaryCount: analysis.validation?.rawBoundaryCount ?? analysis.boundaries?.length ?? 0,
+      normalizedBoundaryCount: analysis.validation?.normalizedBoundaryCount ?? analysis.boundaries?.length ?? 0,
+      repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
+      validatorCode: analysis.validation?.validatorCode ?? null,
+    },
   };
 }
 
@@ -268,6 +361,8 @@ function cacheParams(input, contactSheets, options = {}) {
       frameCount: sheet.frameCount,
       layout: sheet.layout,
       constraints: sheet.constraints,
+      startTime: round(resolveSheetStartTime(sheet)),
+      endTime: round(resolveSheetEndTime(sheet)),
     })),
     skillHash: options.skillHash ?? skillContentHashSync(options.skillPath ?? SKILL_PATH),
   };
@@ -312,6 +407,8 @@ function sanitizeDebugPayload(error) {
     outputSummary: details?.outputSummary ?? null,
     parseFailureReason: details?.parseFailureReason ?? null,
     suspiciousReason: details?.suspiciousReason ?? null,
+    validation: details?.validation ?? null,
+    repairAttemptCount: details?.repairAttemptCount ?? null,
     appServer: details,
   };
 }
@@ -365,7 +462,7 @@ function summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries) {
     messagePreview: String(message ?? "").replace(/\s+/g, " ").slice(0, 200),
     rawBoundaryCount: Array.isArray(rawBoundaries) ? rawBoundaries.length : 0,
     normalizedBoundaryCount: Array.isArray(normalizedBoundaries) ? normalizedBoundaries.length : 0,
-    firstReasons: Array.isArray(normalizedBoundaries) ? normalizedBoundaries.slice(0, 3).map((boundary) => String(boundary.reason ?? "").slice(0, 80)) : [],
+    timestamps: Array.isArray(normalizedBoundaries) ? normalizedBoundaries.slice(0, 5).map((boundary) => boundary.timestamp) : [],
   };
 }
 
@@ -379,28 +476,16 @@ function stripLocalImagePath(sheet) {
   };
 }
 
-function stripBoundaryIndices(boundary) {
-  const { beforeInputIndex, afterInputIndex, beforeTimestamp, afterTimestamp, ...safeBoundary } = boundary;
-  return safeBoundary;
-}
-
 function normalizeBoundaryType(value) {
   const normalized = String(value ?? "").trim();
   return normalized || "hard_cut";
 }
 
-function resolveBoundaryCutTime(boundary, safeDuration) {
-  const before = Number(boundary.beforeTimestamp ?? 0);
-  const after = Number(boundary.afterTimestamp ?? before);
-  const midpoint = after > before ? (before + after) / 2 : after;
-  return clamp(midpoint, 0, safeDuration);
-}
-
-function resolveRepresentativeFrameId(frames, startInputIndex, endInputIndex, startTime, endTime) {
-  const candidates = frames.filter((frame) => frame.inputIndex >= startInputIndex && frame.inputIndex <= endInputIndex);
+function resolveRepresentativeFrameIdByTime(frames, startTime, endTime) {
+  const midpoint = (startTime + endTime) / 2;
+  const candidates = frames.filter((frame) => frame.timestamp >= startTime && frame.timestamp <= endTime);
   const pool = candidates.length ? candidates : frames;
   if (!pool.length) return "";
-  const midpoint = (startTime + endTime) / 2;
   let best = pool[0];
   for (const frame of pool) {
     if (Math.abs(frame.timestamp - midpoint) < Math.abs(best.timestamp - midpoint)) best = frame;
@@ -408,19 +493,23 @@ function resolveRepresentativeFrameId(frames, startInputIndex, endInputIndex, st
   return best.frameId ?? "";
 }
 
-function buildFallbackShot(frames, durationSeconds) {
-  return [
-    {
-      id: "shot_1",
-      index: 0,
-      shotNo: formatShotNo(0),
-      start: 0,
-      end: roundNormalizedTime(durationSeconds),
-      representativeFrameId: resolveRepresentativeFrameId(frames, frames[0]?.inputIndex ?? 0, frames.at(-1)?.inputIndex ?? 0, 0, durationSeconds),
-      confidence: 0.4,
-      reason: "未检测到明确切镜边界",
-    },
-  ][0];
+function resolveSheetStartTime(sheet) {
+  const timestamps = (sheet.gridItems ?? []).map((item) => Number(item.timestamp)).filter(Number.isFinite);
+  return timestamps.length ? Math.min(...timestamps) : 0;
+}
+
+function resolveSheetEndTime(sheet) {
+  const timestamps = (sheet.gridItems ?? []).map((item) => Number(item.timestamp)).filter(Number.isFinite);
+  return timestamps.length ? Math.max(...timestamps) : 0;
+}
+
+function invalidValidation(code, message, summary) {
+  return {
+    ok: false,
+    code,
+    message,
+    summary,
+  };
 }
 
 function looksLikeUtf8Mojibake(text) {
@@ -470,16 +559,21 @@ function basename(value) {
 module.exports = {
   ROLE,
   SKILL_PATH,
+  MAX_REPAIR_ATTEMPTS,
+  buildCacheReuseAnalysis,
   buildFailedArtifact,
   buildProcessedAnalysis,
+  buildRepairTurnInputs,
   buildTurnInputs,
+  buildShotsFromBoundaries,
   cacheParams,
   codedError,
+  normalizeTimestampBoundaries,
   prepareInput,
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
   sanitizeForAppServerText,
-  normalizeBoundaryCandidates,
-  buildShotsFromBoundaries,
+  summarizeAgentOutput,
+  validateTimestampBoundaries,
 };

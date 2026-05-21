@@ -242,11 +242,14 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.doesNotMatch(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
   assert.match(api, /\/api\/threadpool\/roles/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
+  assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
   assert.match(threadpoolApp, /window\.confirm/);
   assert.match(property, /AgentRunPanel/);
   assert.match(property, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
+  assert.match(property, /renderResultOrigin/);
+  assert.match(property, /repairAttemptCount/);
   assert.match(property, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
   assert.match(property, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
 });
