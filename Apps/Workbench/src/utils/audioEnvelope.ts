@@ -9,6 +9,9 @@ type EnvelopeBucket = {
   rms: number;
 };
 const LOW_SIGNAL_RMS_P95_DBFS = -20;
+const ENVELOPE_FLOOR_DBFS = -54;
+const ENVELOPE_CEILING_DBFS = -6;
+const LOW_SIGNAL_VISUAL_CEILING = 0.08;
 
 export function buildVisualEnvelope(audioBuffer: AudioEnvelopeSource, count: number): number[] {
   const buckets: EnvelopeBucket[] = [];
@@ -34,7 +37,7 @@ export function buildVisualEnvelope(audioBuffer: AudioEnvelopeSource, count: num
       rms: sampleCount ? Math.sqrt(energy / sampleCount) : 0,
     });
   }
-  if (isLowSignal(buckets)) return buckets.map((bucket) => clamp01(bucket.rms / 0.08));
+  if (isLowSignal(buckets)) return buckets.map((bucket) => normalizeLowSignalBucket(bucket));
   return normalizeEnvelope(buckets);
 }
 
@@ -69,16 +72,12 @@ function normalizeEnvelope(buckets: EnvelopeBucket[]): number[] {
     const next = dbValues[Math.min(dbValues.length - 1, index + 1)];
     return value * 0.64 + previous * 0.18 + next * 0.18;
   });
-  const sorted = smoothed.filter((value) => Number.isFinite(value)).sort((first, second) => first - second);
-  const floor = Math.max(-78, percentile(sorted, 0.05));
-  const ceiling = Math.min(-1, percentile(sorted, 0.98));
-  const dynamicRange = Math.max(2.5, Math.min(36, ceiling - floor));
   const shaped = smoothed.map((value, index) => {
-    const localAverage = localMean(smoothed, index, 12);
-    const global = clamp01((value - floor) / dynamicRange);
-    const localLift = clamp01((value - localAverage + dynamicRange * 0.18) / (dynamicRange * 0.36));
+    const localAverage = localMean(smoothed, index, 10);
+    const absolute = normalizeDbfs(value, ENVELOPE_FLOOR_DBFS, ENVELOPE_CEILING_DBFS);
+    const localLift = clamp01((value - localAverage) / 10);
     const transientLift = transientScore(buckets[index]);
-    return Math.pow(global, 0.5) * 0.68 + localLift * 0.24 + transientLift * 0.08;
+    return clamp01(Math.pow(absolute, 0.92) * 0.84 + localLift * 0.1 + transientLift * 0.06);
   });
   return stretchVisualRange(shaped);
 }
@@ -95,27 +94,30 @@ function transientScore(bucket: EnvelopeBucket | undefined): number {
 }
 
 function stretchVisualRange(values: number[]): number[] {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((first, second) => first - second);
-  const floor = percentile(sorted, 0.04);
-  const ceiling = percentile(sorted, 0.96);
-  const range = Math.max(0.05, ceiling - floor);
-  return values.map((value) => {
-    const normalized = clamp01((value - floor) / range);
-    return Math.max(0.1, Math.min(0.98, 0.1 + Math.pow(normalized, 0.72) * 0.88));
-  });
+  return values.map((value) => Math.pow(clamp01(value), 0.96));
 }
 
 function isLowSignal(buckets: EnvelopeBucket[]): boolean {
   const dbValues = buckets.map((bucket) => amplitudeToDb(bucket.rms)).filter((value) => Number.isFinite(value)).sort((first, second) => first - second);
   if (!dbValues.length) return true;
   const noiseFloor = percentile(dbValues, 0.1);
-  const activeThreshold = Math.max(-48, noiseFloor + 10);
+  const signalP95 = percentile(dbValues, 0.95);
+  const activeThreshold = Math.min(signalP95 - 3, Math.max(-48, noiseFloor + 10));
   const activeRatio = dbValues.filter((value) => value >= activeThreshold).length / dbValues.length;
-  return percentile(dbValues, 0.95) < LOW_SIGNAL_RMS_P95_DBFS || activeRatio < 0.03;
+  return signalP95 < LOW_SIGNAL_RMS_P95_DBFS || activeRatio < 0.03;
 }
 
 function amplitudeToDb(value: number): number {
   return 20 * Math.log10(Math.max(0.000001, value));
+}
+
+function normalizeLowSignalBucket(bucket: EnvelopeBucket): number {
+  return normalizeDbfs(loudnessDb(bucket), -60, -24) * LOW_SIGNAL_VISUAL_CEILING;
+}
+
+function normalizeDbfs(value: number, floor: number, ceiling: number): number {
+  const range = Math.max(1, ceiling - floor);
+  return clamp01((value - floor) / range);
 }
 
 function percentile(values: number[], ratio: number): number {

@@ -67,26 +67,21 @@ function drawEnvelope(context: CanvasRenderingContext2D, width: number, height: 
   context.fill();
 }
 
-function buildDisplayPeaks(peaks: number[]): number[] {
+export function buildDisplayPeaks(peaks: number[]): number[] {
   const finite = peaks.map((peak) => clamp(peak)).filter((peak) => Number.isFinite(peak));
   if (!finite.length) return [];
-  if (isLowVisualSignal(finite)) return finite.map((peak) => Math.min(0.08, peak));
-  const sorted = [...finite].sort((first, second) => first - second);
-  const floor = percentile(sorted, 0.03);
-  const ceiling = percentile(sorted, 0.97);
-  const range = Math.max(0.004, ceiling - floor);
+  if (isLowVisualSignal(finite)) return finite.map((peak) => Math.min(0.06, peak));
   return finite.map((peak, index) => {
     const localAverage = localMean(finite, index, 10);
-    const global = clamp((peak - floor) / range);
-    const local = clamp((peak - localAverage + range * 0.32) / (range * 0.64));
-    const shaped = Math.pow(global, 0.62) * 0.78 + local * 0.22;
-    return 0.12 + clamp(shaped) * 0.84;
+    const local = clamp((peak - localAverage) / 0.18);
+    const shaped = Math.pow(peak, 0.9) * 0.92 + local * 0.08;
+    return clamp(shaped);
   });
 }
 
 function isLowVisualSignal(values: number[]): boolean {
   const sorted = [...values].sort((first, second) => first - second);
-  return percentile(sorted, 0.95) < 0.08;
+  return percentile(sorted, 0.95) < 0.05;
 }
 
 function samplePeak(peaks: number[], x: number, width: number): number {

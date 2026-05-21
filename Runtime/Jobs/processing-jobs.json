@@ -67,6 +67,44 @@
         "retryable": true,
         "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_5eb219e3-4a5e-401c-9679-1e8824251d4f_6e4958f6e7.json"
       }
+    },
+    {
+      "jobId": "job_c2ee8bfb-d5a3-4871-b7c7-655bc24e7c41",
+      "sampleVideoId": "sample_f9e6cc67-9c23-4c42-8313-d97c7967bf57",
+      "stage": "processed",
+      "status": "processed",
+      "progress": 100,
+      "traceId": "trace_b4d0b85a-dfab-4a37-97d1-dfe04d9709ff",
+      "errorSummary": null
+    },
+    {
+      "jobId": "job_8f10fe87-d47b-4382-9946-cfe5dc9fa53b",
+      "sampleVideoId": "sample_f9e6cc67-9c23-4c42-8313-d97c7967bf57",
+      "stage": "processed",
+      "status": "processed",
+      "progress": 100,
+      "traceId": "trace_a3452bc8-5ffc-47fd-a300-f3537772049c",
+      "errorSummary": null,
+      "agentRun": {
+        "provider": "codex-appserver",
+        "role": "shot-boundary-analyzer",
+        "leaseId": "4cc816d9-f693-455d-8171-8fb586decdeb",
+        "threadId": "019e4967-316b-77c3-abdc-4730442146c5",
+        "turnId": "019e496d-bfa9-7a21-88af-f84429f59a40",
+        "traceId": "trace_a3452bc8-5ffc-47fd-a300-f3537772049c",
+        "artifactId": "artifact_c5220830-0cb8-4813-9e60-88612bada6fc",
+        "parentArtifactId": "artifact_2462cd36-c94f-4dde-9164-a7572b01e73b",
+        "sampleVideoId": "sample_f9e6cc67-9c23-4c42-8313-d97c7967bf57",
+        "analysisFps": 1,
+        "status": "completed",
+        "preparedInputSummary": {
+          "frameCount": 19,
+          "stride": 3,
+          "analysisFps": 1
+        },
+        "startedAt": "2026-05-21T07:26:29.841Z",
+        "updatedAt": "2026-05-21T07:26:39.918Z"
+      }
     }
   ]
 }
