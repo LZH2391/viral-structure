@@ -479,7 +479,8 @@ function normalizeSubtitleSegments(segments, durationSeconds) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
   return (segments ?? []).map((segment, index) => {
     const start = clampTime(segment.start ?? 0, safeDuration);
-    const end = clampTime(segment.end && segment.end > start ? segment.end : safeDuration || start + 1, safeDuration || start + 1);
+    const fallbackEnd = safeDuration ? Math.min(safeDuration, start + Math.max(1.2, String(segment.text ?? "").length * 0.18)) : start + 1;
+    const end = clampTime(segment.end && segment.end > start ? segment.end : fallbackEnd, safeDuration || fallbackEnd);
     return {
       id: segment.id ?? `subtitle_${randomUUID()}`,
       start,
@@ -519,10 +520,12 @@ function clampTime(value, max) {
 }
 
 function buildSubtitleSummary(subtitles) {
+  const lastSegmentEnd = subtitles.segments.reduce((max, segment) => Math.max(max, segment.end ?? 0), 0);
   return {
     status: subtitles.status,
     segmentCount: subtitles.segments.length,
     sourceArtifactId: subtitles.parentArtifactId,
+    lastSegmentEnd,
     reason: subtitles.reason ?? null,
     debugSnapshotUri: subtitles.debugSnapshotUri ?? null,
   };

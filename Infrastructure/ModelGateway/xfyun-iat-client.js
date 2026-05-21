@@ -92,8 +92,8 @@ function requestRecognition({ audioBuffer, credentials, options }) {
           finish(reject, configuredError("xfyun_iat_failed", "讯飞字幕识别失败", { retryable: true, detail: data.header?.message }));
           return;
         }
-        const text = decodeResultText(data.payload?.result?.text);
-        if (text) segments.push({ text });
+        const resultSegments = decodeResultSegments(data.payload?.result?.text);
+        if (resultSegments.length) segments.push(...resultSegments);
         if (data.header?.status === 2) finish(resolve, mergeTextSegments(segments));
       } catch (error) {
         finish(reject, configuredError("xfyun_iat_parse_failed", "讯飞字幕识别结果解析失败", { retryable: false, detail: error.message }));
@@ -136,15 +136,83 @@ function sendAudioFrames(ws, audioBuffer, credentials, options, onTimer) {
 }
 
 function decodeResultText(value) {
-  if (!value) return "";
+  return decodeResultSegments(value).map((segment) => segment.text).join("").trim();
+}
+
+function decodeResultSegments(value) {
+  if (!value) return [];
   const json = typeof value === "string" ? JSON.parse(Buffer.from(value, "base64").toString("utf8")) : value;
   const words = json?.ws ?? [];
-  return words.map((word) => (word.cw ?? []).map((item) => item.w ?? "").join("")).join("").trim();
+  const wordSegments = words.map((word, index) => {
+    const text = (word.cw ?? []).map((item) => item.w ?? "").join("").trim();
+    if (!text) return null;
+    const start = parseIatOffset(word.bg ?? json.bg);
+    const nextStart = parseIatOffset(words[index + 1]?.bg);
+    const topEnd = parseIatOffset(word.ed ?? json.ed);
+    const end = topEnd && topEnd > start ? topEnd : !isPunctuation(text) && nextStart && nextStart > start ? nextStart : start;
+    return { start, end, text, confidence: averageConfidence(word.cw) };
+  }).filter(Boolean);
+  if (wordSegments.length) return groupWordSegments(wordSegments);
+  const text = words.map((word) => (word.cw ?? []).map((item) => item.w ?? "").join("")).join("").trim();
+  return text ? [{ start: parseIatOffset(json.bg), end: parseIatOffset(json.ed), text, confidence: null }] : [];
 }
 
 function mergeTextSegments(items) {
-  const text = items.map((item) => item.text).filter(Boolean).join("");
-  return text ? [{ start: 0, end: 0, text, confidence: null }] : [];
+  const segments = [];
+  for (const item of items ?? []) {
+    const text = String(item?.text ?? "").trim();
+    if (!text) continue;
+    const start = Number.isFinite(item.start) ? item.start : 0;
+    const end = Number.isFinite(item.end) && item.end > start ? item.end : start;
+    const previous = segments.at(-1);
+    if (previous && shouldMergeSubtitle(previous, { start, end, text })) {
+      previous.text += text;
+      previous.end = Math.max(previous.end, end);
+      previous.confidence = mergeConfidence(previous.confidence, item.confidence);
+    } else {
+      segments.push({ start, end, text, confidence: Number.isFinite(item.confidence) ? item.confidence : null });
+    }
+  }
+  return segments;
+}
+
+function groupWordSegments(words) {
+  return mergeTextSegments(words.map((word) => ({
+    start: word.start,
+    end: word.end,
+    text: word.text,
+    confidence: word.confidence,
+  })));
+}
+
+function shouldMergeSubtitle(previous, next) {
+  const gap = next.start - previous.end;
+  const mergedLength = previous.text.length + next.text.length;
+  const mergedDuration = Math.max(previous.end, next.end) - previous.start;
+  const previousEndsSentence = /[。！？!?；;]/.test(previous.text.at(-1) ?? "");
+  return !previousEndsSentence && gap <= 0.8 && mergedLength <= 32 && mergedDuration <= 6;
+}
+
+function isPunctuation(text) {
+  return /^[，。！？!?；;、,.]$/.test(text);
+}
+
+function parseIatOffset(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  return number / 100;
+}
+
+function averageConfidence(items) {
+  const values = (items ?? []).map((item) => Number(item.sc)).filter(Number.isFinite);
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function mergeConfidence(left, right) {
+  if (!Number.isFinite(left)) return Number.isFinite(right) ? right : null;
+  if (!Number.isFinite(right)) return left;
+  return (left + right) / 2;
 }
 
 function configuredError(code, message, options = {}) {
@@ -167,4 +235,4 @@ function sanitizeDetail(value) {
   return String(value ?? "").replace(/[A-Za-z]:\\[^\s]+/g, "[path]").slice(0, 180);
 }
 
-module.exports = { recognizeAudio, readCredentials, buildAuthorizedUrl, decodeResultText, mergeTextSegments, recognitionTimeoutMs };
+module.exports = { recognizeAudio, readCredentials, buildAuthorizedUrl, decodeResultText, decodeResultSegments, mergeTextSegments, recognitionTimeoutMs };

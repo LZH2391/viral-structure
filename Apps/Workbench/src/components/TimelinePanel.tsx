@@ -71,6 +71,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
   const selectedAudio = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId && item.type.startsWith("audio-")) ?? audio;
   const audioUrl = runtimeUrl(selectedAudio?.uri ?? audio?.uri);
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(audioFeatures), [audioFeatures]);
+  const audioFeatureLayerKey = resolveAudioFeatureLayerKey(audioFeatures, audioLayers);
   const frames = sampleVideo?.frameArtifacts ?? [];
   const metrics = useMemo(
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
@@ -161,40 +162,49 @@ export function TimelinePanel(props: TimelinePanelProps) {
               <button className="audio-expand-button" type="button" onClick={() => setAudioExpanded((value) => !value)} aria-expanded={audioExpanded}>
                 {audioExpanded ? "收起" : "展开"}
               </button>
-              {(audioExpanded ? audioLayers : audioLayers.slice(0, 1)).map((layer, index) => (
-                <button key={layer.key} className={`audio-track-button audio-layer-${index} ${layer.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" && layer.artifactId === selectedDerivativeId ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={() => onSelectAudio(layer.artifactId)}>
-                  <strong>{layer.label}</strong>
-                {layer.uri ? (
-                  <canvas
-                    ref={index === 0 ? setMiniCanvas : undefined}
-                    className="audio-mini-waveform"
-                    data-audio-wave-mini
-                    width={Math.max(1, Math.round(metrics.contentWidth))}
-                    height="42"
-                    aria-label={layer.summary ?? layer.label}
-                  />
-                ) : (
-                  <span>{layer.summary || "未检测到可抽取音频轨"}</span>
-                )}
-                </button>
-              ))}
-              <div className="audio-feature-layer" aria-label="音频基础标记">
-                {audioFeatures?.status === "degraded" ? (
-                  <span className="audio-feature-empty">{audioFeatures.reason ?? "音频基础分析未产出"}</span>
-                ) : (
-                  audioFeatureMarkers.map((marker) => (
-                    <button
-                      key={marker.id}
-                      className={`audio-feature-marker ${marker.type} ${selectedAudioFeatureMarkerId === marker.id ? "active" : ""}`}
-                      type="button"
-                      style={{ left: `${markerLeftPercent(marker.time, metrics.duration)}%` }}
-                      aria-label={`${marker.type} ${formatTime(marker.time)}`}
-                      title={`${marker.type} ${formatTime(marker.time)}`}
-                      onClick={() => onSelectAudioFeature(marker.id)}
-                    />
-                  ))
-                )}
-              </div>
+              {(audioExpanded ? audioLayers : audioLayers.slice(0, 1)).map((layer, index) => {
+                const showFeatureLayer = layer.key === audioFeatureLayerKey || (!audioExpanded && index === 0);
+                return (
+                  <button key={layer.key} className={`audio-track-button audio-layer-${index} ${showFeatureLayer ? "has-feature-layer" : ""} ${layer.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" && layer.artifactId === selectedDerivativeId ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={() => onSelectAudio(layer.artifactId)}>
+                    <strong>{layer.label}</strong>
+                    {layer.uri ? (
+                      <canvas
+                        ref={index === 0 ? setMiniCanvas : undefined}
+                        className="audio-mini-waveform"
+                        data-audio-wave-mini
+                        width={Math.max(1, Math.round(metrics.contentWidth))}
+                        height="42"
+                        aria-label={layer.summary ?? layer.label}
+                      />
+                    ) : (
+                      <span>{layer.summary || "未检测到可抽取音频轨"}</span>
+                    )}
+                    {showFeatureLayer ? (
+                      <span className="audio-feature-layer" aria-label="音频基础标记" onClick={(event) => event.stopPropagation()}>
+                        {audioFeatures?.status === "degraded" ? (
+                          <span className="audio-feature-empty">{audioFeatures.reason ?? "音频基础分析未产出"}</span>
+                        ) : (
+                          audioFeatureMarkers.map((marker) => (
+                            <span
+                              key={marker.id}
+                              role="button"
+                              tabIndex={0}
+                              className={`audio-feature-marker ${marker.type} ${selectedAudioFeatureMarkerId === marker.id ? "active" : ""}`}
+                              style={{ left: `${markerLeftPercent(marker.time, metrics.duration)}%` }}
+                              aria-label={`${marker.type} ${formatTime(marker.time)}`}
+                              title={`${marker.type} ${formatTime(marker.time)}`}
+                              onClick={() => onSelectAudioFeature(marker.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") onSelectAudioFeature(marker.id);
+                              }}
+                            />
+                          ))
+                        )}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
             <div id="subtitleTrack" className="track subtitle-track">
               {subtitleSegments.length ? (
@@ -272,4 +282,13 @@ function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: Audio
       summary: audioSeparation?.music?.summary ?? audioSeparation?.reason ?? null,
     },
   ];
+}
+
+function resolveAudioFeatureLayerKey(audioFeatures: AudioFeatureAnalysisArtifact | null | undefined, layers: ReturnType<typeof buildAudioLayers>) {
+  const sourceArtifactId = audioFeatures?.sourceAudioArtifactId ?? null;
+  const sourceRole = audioFeatures?.analysisParams?.sourceRole ?? null;
+  const matched = layers.find((layer) => layer.artifactId && layer.artifactId === sourceArtifactId);
+  if (matched) return matched.key;
+  if (sourceRole === "music") return "music";
+  return "original";
 }
