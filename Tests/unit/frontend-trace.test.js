@@ -47,13 +47,17 @@ test("workbench upload cancels stale polling and restores local draft", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const state = read(root, "Apps/Workbench/src/state.ts");
+  const draft = read(root, "Apps/Workbench/src/utils/workbenchDraft.ts");
 
   assert.match(app, /const uploadTokenRef = useRef\(0\)/);
   assert.match(app, /if \(token !== uploadTokenRef\.current\) return/);
-  assert.match(app, /localStorage\.setItem\(STORAGE_KEY, JSON\.stringify\(value\)\)/);
-  assert.match(app, /localStorage\.getItem\(STORAGE_KEY\)/);
+  assert.match(app, /readWorkbenchDraft/);
+  assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(value\)\)/);
+  assert.match(draft, /localStorage\.getItem\(WORKBENCH_DRAFT_STORAGE_KEY\)/);
   assert.match(state, /type: "restore-draft"/);
   assert.match(state, /sampleArtifact: SampleArtifact/);
+  assert.match(state, /activeUploadJob/);
+  assert.match(state, /activeAgentJob/);
 });
 
 test("timeline selection and zoom avoid high-frequency full rerenders", () => {
@@ -202,7 +206,8 @@ test("library page exposes local artifact index views", () => {
   assert.match(vite, /library: "Apps\/Workbench\/library\.html"/);
   assert.match(libraryHtml, /src="\/src\/library\.tsx"/);
   assert.match(libraryEntry, /<LibraryApp \/>/);
-  assert.match(app, /href="http:\/\/127\.0\.0\.1:5177\/library"/);
+  assert.match(app, /setWorkbenchView\("library", setActiveView\)/);
+  assert.match(app, /<LibraryApp embedded/);
   assert.match(api, /\/api\/library\/items/);
   assert.match(libraryApp, /处理库/);
   assert.match(libraryApp, /loadLibraryItem/);
@@ -222,7 +227,10 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(vite, /threadpool: "Apps\/Workbench\/threadpool\.html"/);
   assert.match(threadpoolHtml, /src="\/src\/threadpool\.tsx"/);
   assert.match(threadpoolEntry, /<ThreadPoolApp \/>/);
-  assert.match(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
+  assert.match(app, /setWorkbenchView\("threadpool", setActiveView\)/);
+  assert.match(app, /<ThreadPoolApp embedded/);
+  assert.match(app, /workspace-grid \$\{activeView === "workspace" \? "" : "is-hidden-view"\}/);
+  assert.doesNotMatch(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
   assert.match(api, /\/api\/threadpool\/roles/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);

@@ -147,6 +147,22 @@
   font-size: 12px;
 }
 
+.threadpool-thread b {
+  font-size: 12px;
+}
+
+.threadpool-ctx.normal {
+  color: #9be7b6;
+}
+
+.threadpool-ctx.warn {
+  color: #facc15;
+}
+
+.threadpool-ctx.danger {
+  color: #ffb4c0;
+}
+
 .threadpool-lease-list {
   display: grid;
   gap: 8px;

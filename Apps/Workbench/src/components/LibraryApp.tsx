@@ -5,7 +5,7 @@ import { formatClock, formatTime, shortId } from "../utils/format";
 
 const DETAIL_LIMIT = 30;
 
-export function LibraryApp() {
+export function LibraryApp({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void } = {}) {
   const [items, setItems] = useState<LibraryItemSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取处理库");
@@ -46,35 +46,65 @@ export function LibraryApp() {
   }, [detailVersion, selectedId]);
 
   return (
-    <div className="library-shell">
-      <header className="topbar">
-        <div className="project-block">
-          <div className="project-name">处理库</div>
-          <div id="libraryStatus" className="save-status">
-            {status}
-          </div>
-        </div>
-        <div className="run-strip">
-          <span id="libraryCount" className="run-pill">
-            {items.length} records
-          </span>
-          <span id="libraryUpdatedAt" className="trace-label">
-            {updatedAt}
-          </span>
-        </div>
-        <div className="top-actions">
-          <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
-            返回工作台
-          </a>
-          <button id="refreshLibraryBtn" className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
-            刷新
-          </button>
-        </div>
-      </header>
+    <div className={embedded ? "library-shell embedded-view" : "library-shell"}>
+      {!embedded ? <LibraryHeader items={items} status={status} updatedAt={updatedAt} onRefresh={refresh} /> : null}
+      {embedded ? <EmbeddedHeader title="处理库" status={status} count={`${items.length} records`} updatedAt={updatedAt} onBack={onBack} onRefresh={refresh} /> : null}
       <main className="library-grid">
         <LibraryList items={items} selectedId={selectedId} onSelect={setSelectedId} />
         <LibraryDetail detail={selectedDetail} onDeleted={refresh} />
       </main>
+    </div>
+  );
+}
+
+function LibraryHeader({ items, status, updatedAt, onRefresh }: { items: LibraryItemSummary[]; status: string; updatedAt: string; onRefresh: () => Promise<void> }) {
+  return (
+    <header className="topbar">
+      <div className="project-block">
+        <div className="project-name">处理库</div>
+        <div id="libraryStatus" className="save-status">
+          {status}
+        </div>
+      </div>
+      <div className="run-strip">
+        <span id="libraryCount" className="run-pill">
+          {items.length} records
+        </span>
+        <span id="libraryUpdatedAt" className="trace-label">
+          {updatedAt}
+        </span>
+      </div>
+      <div className="top-actions">
+        <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
+          返回工作台
+        </a>
+        <button id="refreshLibraryBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
+          刷新
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function EmbeddedHeader({ title, status, count, updatedAt, onBack, onRefresh }: { title: string; status: string; count: string; updatedAt: string; onBack?: () => void; onRefresh: () => Promise<void> }) {
+  return (
+    <div className="embedded-view-header">
+      <div>
+        <div className="section-heading">{title}</div>
+        <div className="debug-trace-title">{status}</div>
+      </div>
+      <div className="run-strip">
+        <span className="run-pill">{count}</span>
+        <span className="trace-label">{updatedAt}</span>
+      </div>
+      <div className="top-actions">
+        <button className="ghost-button" type="button" onClick={onBack}>
+          返回工作台
+        </button>
+        <button id="refreshLibraryBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
+          刷新
+        </button>
+      </div>
     </div>
   );
 }

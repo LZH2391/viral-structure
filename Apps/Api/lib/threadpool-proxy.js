@@ -1,10 +1,12 @@
-const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8767";
+const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
+const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer"];
 
-function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL, fetchImpl = fetch } = {}) {
+function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL, fetchImpl = fetch, allowedRoles = parseAllowedRoles(process.env.THREADPOOL_ALLOWED_ROLES) } = {}) {
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
+  const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
 
   async function health() {
-    return safeRequest("GET", "/health");
+    return sanitizeHealth(await safeRequest("GET", "/health"), allowedRoleSet);
   }
 
   async function config() {
@@ -15,7 +17,7 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
   async function roles() {
     const healthPayload = await health();
     if (!healthPayload.ok) return { ok: false, unavailable: true, roles: [], health: healthPayload };
-    const roleNames = Array.isArray(healthPayload.roles) ? healthPayload.roles : [];
+    const roleNames = Array.isArray(healthPayload.roles) ? healthPayload.roles.filter((role) => allowedRoleSet.has(String(role))) : [];
     const roleStatuses = await Promise.all(roleNames.map((role) => roleStatus(role)));
     return {
       ok: true,
@@ -26,12 +28,14 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
   }
 
   async function roleStatus(role) {
+    if (!isAllowedRole(role)) return disallowedRolePayload(role);
     const payload = await safeRequest("GET", `/roles/${encodeURIComponent(role)}/status`);
     if (!payload.ok) return payload;
     return sanitizeRoleStatus(payload);
   }
 
   async function acquireLease({ role, ownerId }) {
+    assertAllowedRole(role);
     return requestJson("POST", "/leases/acquire", { role, owner_id: ownerId });
   }
 
@@ -40,7 +44,29 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
   }
 
   async function discardThread({ threadId, reason }) {
+    const association = await findAllowedThread(threadId);
+    if (!association.ok) return association;
     return requestJson("POST", `/threads/${encodeURIComponent(threadId)}/discard`, { reason });
+  }
+
+  async function findAllowedThread(threadId) {
+    const target = String(threadId || "");
+    if (!target) return disallowedThreadPayload(target);
+    const statuses = await Promise.all(Array.from(allowedRoleSet).map((role) => roleStatus(role)));
+    const match = statuses.find((status) => status?.ok && (status.threads ?? []).some((thread) => thread.thread_id === target));
+    return match ? { ok: true, role: match.role, thread_id: target } : disallowedThreadPayload(target);
+  }
+
+  function isAllowedRole(role) {
+    return allowedRoleSet.has(String(role || ""));
+  }
+
+  function assertAllowedRole(role) {
+    if (isAllowedRole(role)) return;
+    const error = new Error("ThreadPool role 不属于当前工作区");
+    error.statusCode = 403;
+    error.payload = disallowedRolePayload(role);
+    throw error;
   }
 
   async function safeRequest(method, pathname, body) {
@@ -68,7 +94,21 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
     return payload;
   }
 
-  return { baseUrl: normalizedBaseUrl, health, config, roles, roleStatus, acquireLease, releaseLease, discardThread };
+  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), health, config, roles, roleStatus, acquireLease, releaseLease, discardThread };
+}
+
+function parseAllowedRoles(value) {
+  if (!value) return DEFAULT_ALLOWED_ROLES;
+  return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function sanitizeHealth(payload, allowedRoleSet) {
+  if (!payload?.ok) return payload;
+  return {
+    ...payload,
+    roles: Array.isArray(payload.roles) ? payload.roles.filter((role) => allowedRoleSet.has(String(role))) : [],
+    warming_roles: Array.isArray(payload.warming_roles) ? payload.warming_roles.filter((role) => allowedRoleSet.has(String(role))) : [],
+  };
 }
 
 function sanitizeConfig(payload) {
@@ -88,6 +128,9 @@ function sanitizeRoleStatus(payload) {
     status: normalizeThreadStatus(thread.thread_status),
     lease_id: thread.lease_id ?? null,
     owner_id: thread.owner_id ?? null,
+    last_owner_id: thread.last_owner_id ?? null,
+    latest_input_tokens: nullableNumber(thread.latest_input_tokens),
+    threshold_input_tokens: nullableNumber(thread.threshold_input_tokens),
     seed: false,
     last_seen_at: thread.last_seen_at ?? null,
   }));
@@ -112,6 +155,7 @@ function sanitizeRoleStatus(payload) {
     seedThreadId: payload.seed_thread_id ?? null,
     skillPath: payload.skill_path ?? null,
     canAcquire: Boolean(payload.can_acquire),
+    canInit: "can_init" in payload ? Boolean(payload.can_init) : Boolean(payload.can_acquire),
     warming: Boolean(payload.warming),
     warmupDetail: payload.warmup_detail ?? null,
     warmupError: payload.warmup_error ?? null,
@@ -163,6 +207,31 @@ function unavailablePayload(error) {
   };
 }
 
+function disallowedRolePayload(role) {
+  return {
+    ok: false,
+    unavailable: false,
+    error: "threadpool_role_not_allowed",
+    message: "ThreadPool role 不属于当前工作区",
+    role: String(role || ""),
+  };
+}
+
+function disallowedThreadPayload(threadId) {
+  return {
+    ok: false,
+    unavailable: false,
+    error: "threadpool_thread_not_allowed",
+    message: "ThreadPool thread 不属于当前工作区 role",
+    thread_id: String(threadId || ""),
+  };
+}
+
+function nullableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function parseJson(text) {
   try {
     return JSON.parse(text);
@@ -179,4 +248,4 @@ function basename(value) {
   return String(value).split(/[\\/]/).at(-1) ?? String(value);
 }
 
-module.exports = { DEFAULT_THREADPOOL_URL, createThreadPoolProxy, sanitizeRoleStatus, summarizeRoleStatus };
+module.exports = { DEFAULT_THREADPOOL_URL, DEFAULT_ALLOWED_ROLES, createThreadPoolProxy, sanitizeRoleStatus, summarizeRoleStatus };

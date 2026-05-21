@@ -1,0 +1,61 @@
+{
+  "updated_at": "2026-05-21T14:14:32.504318+08:00",
+  "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
+  "orphan_ttl_minutes": 30,
+  "roles": {
+    "shot-boundary-analyzer": {
+      "min_idle": 1,
+      "skill_path": "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
+      "init_prompt": "你是镜头切分分析 Agent。初始化阶段只阅读 `C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md`，理解只基于帧 manifest 做视觉镜头切分的职责。不要读取无关文件，不使用音频、字幕、beats 或外部历史。正式任务只返回 JSON object，不输出解释性文本。完成初始化后只回复：已就绪",
+      "current_init_fingerprint": "39523a788abbdf02c983f3c04f09e8e1abe923ca3eda25c08172ae8169140214",
+      "seed_thread_id": "019e492a-d0b7-7740-b438-a98cf4e39d08",
+      "seed_init_fingerprint": "39523a788abbdf02c983f3c04f09e8e1abe923ca3eda25c08172ae8169140214",
+      "recovering": false,
+      "ready_for_leases": true,
+      "startup_error": null,
+      "warming": false,
+      "warmup_error": null,
+      "warmup_detail": null,
+      "can_init": true,
+      "can_acquire": true,
+      "counts": {
+        "initializing": 0,
+        "idle": 1,
+        "leased": 1,
+        "retired": 0,
+        "discarded": 0,
+        "active_leases": 1
+      },
+      "active_lease_ids": [
+        "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7"
+      ],
+      "active_leases": [
+        {
+          "lease_id": "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7",
+          "thread_id": "019e492b-0b46-7062-8e3b-09067ac6301b",
+          "owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
+          "last_seen_at": "2026-05-21T14:14:26.098789+08:00",
+          "thread_status": "leased"
+        }
+      ],
+      "thread_entries": [
+        {
+          "thread_id": "019e492b-0b46-7062-8e3b-09067ac6301b",
+          "thread_status": "leased",
+          "lease_id": "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7",
+          "owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
+          "last_owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
+          "last_seen_at": "2026-05-21T14:14:26.098789+08:00"
+        },
+        {
+          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
+          "thread_status": "idle",
+          "lease_id": null,
+          "owner_id": null,
+          "last_owner_id": null,
+          "last_seen_at": null
+        }
+      ]
+    }
+  }
+}

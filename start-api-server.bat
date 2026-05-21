@@ -5,7 +5,9 @@ cd /d "%~dp0"
 if "%PORT%"=="" set "PORT=5177"
 if "%VITE_PORT%"=="" set "VITE_PORT=5178"
 if "%APP_SERVER_URL%"=="" set "APP_SERVER_URL=ws://127.0.0.1:8146"
-if "%THREADPOOL_PORT%"=="" set "THREADPOOL_PORT=8767"
+if "%THREADPOOL_PORT%"=="" set "THREADPOOL_PORT=8877"
+if "%THREADPOOL_WORKSPACE_ROOT%"=="" set "THREADPOOL_WORKSPACE_ROOT=%~dp0"
+if "%THREADPOOL_CONFIG_PATH%"=="" set "THREADPOOL_CONFIG_PATH=%~dp0Infrastructure\ThreadPool\thread_roles.json"
 if "%CEP_WORKSPACE_ROOT%"=="" set "CEP_WORKSPACE_ROOT=C:\Users\Administrator\AppData\Roaming\Adobe\CEP\extensions"
 if "%CEP_WORKSPACE_CORE_ROOT%"=="" set "CEP_WORKSPACE_CORE_ROOT=%CEP_WORKSPACE_ROOT%\AE_WorkspaceCore"
 
@@ -44,6 +46,13 @@ if not exist "%CEP_WORKSPACE_CORE_ROOT%\scripts\thread_pool_service.py" (
   exit /b 1
 )
 
+if not exist "%THREADPOOL_CONFIG_PATH%" (
+  echo ThreadPool role config not found:
+  echo %THREADPOOL_CONFIG_PATH%
+  pause
+  exit /b 1
+)
+
 if not exist "node_modules" (
   echo Installing frontend dependencies...
   call npm install
@@ -60,6 +69,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$env:VITE_PORT = '%VITE_PORT%';" ^
   "$env:CODEX_APP_SERVER_WS_URL = '%APP_SERVER_URL%';" ^
   "$env:THREADPOOL_BASE_URL = 'http://127.0.0.1:%THREADPOOL_PORT%';" ^
+  "$env:THREADPOOL_ALLOWED_ROLES = 'shot-boundary-analyzer';" ^
+  "$env:THREADPOOL_WORKSPACE_ROOT = '%THREADPOOL_WORKSPACE_ROOT%';" ^
+  "$env:THREADPOOL_CONFIG_PATH = '%THREADPOOL_CONFIG_PATH%';" ^
   "$env:CEP_WORKSPACE_ROOT = '%CEP_WORKSPACE_ROOT%';" ^
   "$env:CEP_WORKSPACE_CORE_ROOT = '%CEP_WORKSPACE_CORE_ROOT%';" ^
   "$repo = Get-Location;" ^
@@ -87,7 +99,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "for ($i = 0; $i -lt 50 -and -not (Test-TcpPort $appServerPort); $i++) { Start-Sleep -Milliseconds 200 }" ^
   "if (-not (Test-TcpPort $appServerPort)) { throw 'Codex AppServer did not open its websocket port.' }" ^
   "$threadPool = $null;" ^
-  "if (Test-HttpOk $threadPoolUrl) { Write-Host 'ThreadPool already online, reusing it.'; } else { $threadPoolScript = Join-Path $env:CEP_WORKSPACE_CORE_ROOT 'scripts\thread_pool_service.py'; $threadPool = Start-ManagedProcess 'ThreadPool' $python @($threadPoolScript,'--workspace-root',$env:CEP_WORKSPACE_ROOT,'--port','%THREADPOOL_PORT%','--transport-url',$env:CODEX_APP_SERVER_WS_URL) $env:CEP_WORKSPACE_CORE_ROOT }" ^
+  "if (Test-HttpOk $threadPoolUrl) { Write-Host 'ThreadPool already online, reusing it.'; } else { $threadPoolScript = Join-Path $env:CEP_WORKSPACE_CORE_ROOT 'scripts\thread_pool_service.py'; $threadPool = Start-ManagedProcess 'ThreadPool' $python @($threadPoolScript,'--workspace-root',$env:THREADPOOL_WORKSPACE_ROOT,'--config-path',$env:THREADPOOL_CONFIG_PATH,'--port','%THREADPOOL_PORT%','--transport-url',$env:CODEX_APP_SERVER_WS_URL) $env:CEP_WORKSPACE_CORE_ROOT }" ^
   "for ($i = 0; $i -lt 80 -and -not (Test-HttpOk $threadPoolUrl); $i++) { Start-Sleep -Milliseconds 250 }" ^
   "if (-not (Test-HttpOk $threadPoolUrl)) { throw 'ThreadPool service did not become reachable.' }" ^
   "$api = Start-ManagedProcess 'API server' 'node' @('Apps\Api\server.js') $repo;" ^

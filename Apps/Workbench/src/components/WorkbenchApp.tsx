@@ -1,20 +1,24 @@
 import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
-import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
+import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, WorkbenchState } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { buildIngestError, delay, findAudioFeatureMarker, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
+import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
+import { DebugApp } from "./DebugApp";
+import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
 import { PropertyPanel } from "./PropertyPanel";
 import { ResourcePanel } from "./ResourcePanel";
 import { RunStatusBar } from "./RunStatusBar";
+import { ThreadPoolApp } from "./ThreadPoolApp";
 import { TimelinePanel } from "./TimelinePanel";
 
-const STORAGE_KEY = "workbench:last-sample";
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 
@@ -30,6 +34,7 @@ export function WorkbenchApp() {
   const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
+  const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,10 +42,14 @@ export function WorkbenchApp() {
   const miniCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const draft = readDraft();
-    if (!draft?.sampleArtifact) return;
-    dispatch({ type: "restore-draft", draft });
-    setSaveStatus("已恢复最近样例");
+    const draft = readWorkbenchDraft();
+    if (draft?.sampleArtifact) {
+      dispatch({ type: "restore-draft", draft });
+      setSaveStatus("已恢复最近样例");
+    }
+    if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
+    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob).catch(() => setSaveStatus("恢复切镜任务失败"));
+    if (draft?.activeAgentJob) setAgentAnalysisFps(draft.activeAgentJob.analysisFps);
   }, []);
 
   useEffect(() => {
@@ -212,6 +221,7 @@ export function WorkbenchApp() {
         };
         latestJob = pendingJob;
         dispatch({ type: "set-processing-job", processingJob: pendingJob, uploadStatusText: "上传中" });
+        writeActiveUploadJob({ processingJobId: upload.processingJobId, sampleVideoId: upload.sampleVideoId, traceId: upload.traceId });
         for (let attempt = 0; attempt < 120; attempt += 1) {
           await delay(1000);
           if (token !== uploadTokenRef.current) return;
@@ -226,7 +236,8 @@ export function WorkbenchApp() {
             dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成" });
             const version = addVersion("样例处理完成", stage.stageName, artifact.sampleVideo.artifactId, null);
             dispatch({ type: "add-version", version });
-            writeDraft({ sampleVideoId: artifact.sampleVideoId, artifactId: artifact.sampleVideo.artifactId, traceId: job.traceId, sampleArtifact: artifact, selectedFrameId: artifact.frames[0]?.frameId ?? null, selectedDerivativeId: artifact.sampleVideo.normalized.artifactId, versions: [version] });
+            writeWorkbenchDraft({ sampleVideoId: artifact.sampleVideoId, artifactId: artifact.sampleVideo.artifactId, traceId: job.traceId, sampleArtifact: artifact, selectedFrameId: artifact.frames[0]?.frameId ?? null, selectedDerivativeId: artifact.sampleVideo.normalized.artifactId, versions: [version] });
+            writeActiveUploadJob(null);
             setSaveStatus("已保存样例处理完成");
             finishStage(stage, artifact.sampleVideo.artifactId, {
               sampleVideoId: artifact.sampleVideoId,
@@ -237,6 +248,7 @@ export function WorkbenchApp() {
           }
           if (job.status === "failed") {
             dispatch({ type: "set-error", errorSummary: job.errorSummary ?? null, uploadStatusText: "处理失败" });
+            writeActiveUploadJob(null);
             throw buildIngestError(job);
           }
         }
@@ -250,9 +262,10 @@ export function WorkbenchApp() {
           debugPayload: { kind: "sample-ingest-failure", processingJob: latestJob ?? state.processingJob },
         });
         dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "处理失败" });
+        writeActiveUploadJob(null);
       }
     },
-    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
+    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob],
   );
 
   const reuseCache = useCallback(async () => {
@@ -267,13 +280,13 @@ export function WorkbenchApp() {
       dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "已复用缓存", processingJob: null });
       const version = addVersion("复用缓存样例", stage.stageName, detail.artifact.sampleVideo.artifactId, null);
       dispatch({ type: "add-version", version });
-      writeDraft({ sampleVideoId: detail.artifact.sampleVideoId, artifactId: detail.artifact.sampleVideo.artifactId, traceId: detail.artifact.trace?.traceId ?? null, sampleArtifact: detail.artifact, selectedFrameId: detail.artifact.frames[0]?.frameId ?? null, selectedDerivativeId: detail.artifact.sampleVideo.normalized.artifactId, versions: [version] });
+      writeWorkbenchDraft({ sampleVideoId: detail.artifact.sampleVideoId, artifactId: detail.artifact.sampleVideo.artifactId, traceId: detail.artifact.trace?.traceId ?? null, sampleArtifact: detail.artifact, selectedFrameId: detail.artifact.frames[0]?.frameId ?? null, selectedDerivativeId: detail.artifact.sampleVideo.normalized.artifactId, versions: [version] });
       setSaveStatus("已复用缓存");
       finishStage(stage, detail.artifact.sampleVideo.artifactId, { cacheHit: true, sampleVideoId: detail.artifact.sampleVideoId });
     } catch (error) {
       failStage(stage, error, { errorMessage: error instanceof Error ? error.message : "复用缓存失败" });
     }
-  }, [beginStage, cachePrompt, failStage, finishStage, writeDraft]);
+  }, [beginStage, cachePrompt, failStage, finishStage]);
 
   const refreshCache = useCallback(() => {
     if (!cachePrompt) return;
@@ -334,21 +347,21 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
-          <a className="ghost-button action-link" href="http://127.0.0.1:5177/library">
+          <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
-          </a>
-          <a className="ghost-button action-link" href="http://127.0.0.1:5177/debug">
+          </button>
+          <button className={`tab-button ${activeView === "debug" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("debug", setActiveView)}>
             运行追踪
-          </a>
-          <a className="ghost-button action-link" href="http://127.0.0.1:5177/threadpool">
+          </button>
+          <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
-          </a>
+          </button>
           <button className="ghost-button" type="button" disabled>
             导出
           </button>
         </div>
       </header>
-      <main className="workspace-grid">
+      <main className={`workspace-grid ${activeView === "workspace" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "workspace"}>
         <ResourcePanel
           fileLabel={fileLabel}
           isUploading={state.isUploadingSample}
@@ -403,7 +416,7 @@ export function WorkbenchApp() {
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={setAgentAnalysisFps}
-          onRunShotBoundary={() => runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
+          onRunShotBoundary={() => runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             setCurrentTime(time);
@@ -454,6 +467,9 @@ export function WorkbenchApp() {
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
         />
       </main>
+      {activeView === "library" ? <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
+      {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
+      {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
       <form id="profileForm" className="sr-only" onSubmit={handleGeneratePlan}>
         <input name="topic" />
@@ -476,17 +492,4 @@ function buildRunStatus(state: WorkbenchState) {
   if (!latest) return { label: "等待输入", stageId: null, backendTraceId: state.processingJob?.traceId ?? null };
   const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
   return { label: labelMap[latest.level] ?? "等待输入", stageId: latest.fields.stageId, backendTraceId: latest.fields.backendTraceId ?? state.processingJob?.traceId ?? null };
-}
-
-function readDraft(): DraftState | null {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as DraftState | null;
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
-}
-
-function writeDraft(value: DraftState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
 }

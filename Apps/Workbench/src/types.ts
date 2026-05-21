@@ -152,15 +152,22 @@ export type ThreadPoolRoleDetail = {
   seedThreadId?: string | null;
   skillPath?: string | null;
   canAcquire: boolean;
+  canInit?: boolean;
   warming?: boolean;
   warmupDetail?: string | null;
   warmupError?: string | null;
+  startupError?: string | null;
+  readyForLeases?: boolean;
+  recovering?: boolean;
   threads?: Array<{
     thread_id: string;
     role: string;
     status: "idle" | "leased" | "retired" | "discarded" | "initializing";
     lease_id?: string | null;
     owner_id?: string | null;
+    last_owner_id?: string | null;
+    latest_input_tokens?: number | null;
+    threshold_input_tokens?: number | null;
     seed?: boolean;
   }>;
   leases?: Array<{

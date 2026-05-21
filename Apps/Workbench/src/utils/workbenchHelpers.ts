@@ -2,11 +2,21 @@ import { getProcessingJob, getSampleArtifact, startShotBoundaryAnalysis } from "
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, ProcessingJob, StructureCard, WorkbenchState } from "../types";
 
-export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void) {
+export type ActiveJobDraft = {
+  processingJobId: string;
+  sampleVideoId: string;
+  traceId: string;
+  analysisFps?: number;
+};
+
+export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
+
+export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter) {
   if (!state.sampleVideo) return;
   const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps });
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
+  writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps });
   for (let attempt = 0; attempt < 180; attempt += 1) {
     await delay(1000);
     latest = await getProcessingJob(started.processingJobId);
@@ -14,11 +24,56 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
     if (latest.status === "processed") {
       const artifact = await getSampleArtifact(started.sampleVideoId);
       dispatch({ type: "set-shot-boundary-analysis", artifact });
+      writeActiveAgentJob?.(null);
       return;
     }
-    if (latest.status === "failed") throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
+    if (latest.status === "failed") {
+      writeActiveAgentJob?.(null);
+      throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
+    }
   }
+  writeActiveAgentJob?.(null);
   throw new Error("切镜分析超时");
+}
+
+export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const job = await getProcessingJob(jobDraft.processingJobId);
+    dispatch({ type: "set-upload-state", isUploadingSample: job.status !== "processed" && job.status !== "failed", uploadStatusText: stageLabel(job), processingJob: job, errorSummary: null });
+    if (job.status === "processed") {
+      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+      dispatch({ type: "apply-artifact", artifact });
+      dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成", processingJob: job });
+      writeActiveUploadJob(null);
+      return artifact;
+    }
+    if (job.status === "failed") {
+      dispatch({ type: "set-error", errorSummary: job.errorSummary ?? null, uploadStatusText: "处理失败" });
+      writeActiveUploadJob(null);
+      return null;
+    }
+    await delay(1000);
+  }
+  return null;
+}
+
+export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob: JobDraftWriter) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const job = await getProcessingJob(jobDraft.processingJobId);
+    setAgentJob(job);
+    if (job.status === "processed") {
+      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+      dispatch({ type: "set-shot-boundary-analysis", artifact });
+      writeActiveAgentJob(null);
+      return artifact;
+    }
+    if (job.status === "failed") {
+      writeActiveAgentJob(null);
+      return null;
+    }
+    await delay(1000);
+  }
+  return null;
 }
 
 export function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {

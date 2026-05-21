@@ -6,7 +6,7 @@ import { formatClock, shortId } from "../utils/format";
 const SUMMARY_LIMIT = 420;
 const TRACE_LIST_LIMIT = 20;
 
-export function DebugApp() {
+export function DebugApp({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void } = {}) {
   const [status, setStatus] = useState("读取 DebugSnapshots");
   const [traces, setTraces] = useState<DebugTraceSummary[]>([]);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
@@ -51,35 +51,61 @@ export function DebugApp() {
   const hiddenCount = Math.max(0, traces.length - visibleTraces.length);
 
   return (
-    <div className="debug-shell">
-      <header className="topbar">
-        <div className="project-block">
-          <div className="project-name">运行追踪</div>
-          <div id="debugStatus" className="save-status">
-            {status}
-          </div>
-        </div>
-        <div className="run-strip">
-          <span id="debugCount" className="run-pill">
-            {hiddenCount ? `${visibleTraces.length}/${traces.length} traces` : `${traces.length} traces`}
-          </span>
-          <span id="debugUpdatedAt" className="trace-label">
-            {updatedAt}
-          </span>
-        </div>
-        <div className="top-actions">
-          <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
-            返回工作台
-          </a>
-          <button id="refreshDebugBtn" className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
-            刷新
-          </button>
-        </div>
-      </header>
+    <div className={embedded ? "debug-shell embedded-view" : "debug-shell"}>
+      {!embedded ? <DebugHeader status={status} count={hiddenCount ? `${visibleTraces.length}/${traces.length} traces` : `${traces.length} traces`} updatedAt={updatedAt} onRefresh={refresh} /> : null}
+      {embedded ? <EmbeddedHeader title="运行追踪" status={status} count={hiddenCount ? `${visibleTraces.length}/${traces.length} traces` : `${traces.length} traces`} updatedAt={updatedAt} onBack={onBack} onRefresh={refresh} /> : null}
       <main className="debug-grid">
         <TraceList traces={visibleTraces} hiddenCount={hiddenCount} selectedTraceId={selectedTraceId} onSelect={setSelectedTraceId} />
         <TraceDetail traceId={selectedTraceId} detail={selectedDetail} />
       </main>
+    </div>
+  );
+}
+
+function DebugHeader({ status, count, updatedAt, onRefresh }: { status: string; count: string; updatedAt: string; onRefresh: () => Promise<void> }) {
+  return (
+    <header className="topbar">
+      <div className="project-block">
+        <div className="project-name">运行追踪</div>
+        <div id="debugStatus" className="save-status">
+          {status}
+        </div>
+      </div>
+      <div className="run-strip">
+        <span id="debugCount" className="run-pill">{count}</span>
+        <span id="debugUpdatedAt" className="trace-label">{updatedAt}</span>
+      </div>
+      <div className="top-actions">
+        <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
+          返回工作台
+        </a>
+        <button id="refreshDebugBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
+          刷新
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function EmbeddedHeader({ title, status, count, updatedAt, onBack, onRefresh }: { title: string; status: string; count: string; updatedAt: string; onBack?: () => void; onRefresh: () => Promise<void> }) {
+  return (
+    <div className="embedded-view-header">
+      <div>
+        <div className="section-heading">{title}</div>
+        <div className="debug-trace-title">{status}</div>
+      </div>
+      <div className="run-strip">
+        <span className="run-pill">{count}</span>
+        <span className="trace-label">{updatedAt}</span>
+      </div>
+      <div className="top-actions">
+        <button className="ghost-button" type="button" onClick={onBack}>
+          返回工作台
+        </button>
+        <button id="refreshDebugBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
+          刷新
+        </button>
+      </div>
     </div>
   );
 }

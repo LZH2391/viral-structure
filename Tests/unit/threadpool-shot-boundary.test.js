@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { prepareInput, normalizeShots } = require("../../Apps/Api/lib/shot-boundary-service");
-const { sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
+const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
   const artifact = createArtifact();
@@ -34,12 +34,42 @@ test("threadpool role status removes init prompt and keeps safe summary", () => 
     counts: { idle: 1, leased: 0 },
     seed_thread_id: "thread_seed",
     can_acquire: true,
-    thread_entries: [{ thread_id: "thread_1", thread_status: "idle", lease_id: null }],
+    can_init: true,
+    thread_entries: [{ thread_id: "thread_1", thread_status: "idle", lease_id: null, latest_input_tokens: 700, threshold_input_tokens: 1000, last_owner_id: "owner_1" }],
     active_leases: [],
   });
   assert.equal(status.config.skill_path, "SKILL.md");
   assert.equal("init_prompt" in status, false);
   assert.equal(status.threads[0].status, "idle");
+  assert.equal(status.threads[0].latest_input_tokens, 700);
+  assert.equal(status.threads[0].threshold_input_tokens, 1000);
+  assert.equal(status.threads[0].last_owner_id, "owner_1");
+  assert.equal(status.canInit, true);
+});
+
+test("threadpool proxy filters roles outside the workspace allowlist", async () => {
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-analyzer"],
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/health") {
+        return response({ ok: true, roles: ["shot-boundary-analyzer", "ae-precomp-design-producer"], warming_roles: ["ae-precomp-design-producer"] });
+      }
+      if (pathname === "/roles/shot-boundary-analyzer/status") {
+        return response({ ok: true, role: "shot-boundary-analyzer", min_idle: 1, counts: { idle: 1, leased: 0 }, can_acquire: true, thread_entries: [{ thread_id: "thread_1", thread_status: "idle" }], active_leases: [] });
+      }
+      if (pathname === "/threads/thread_1/discard") return response({ ok: true, thread_id: "thread_1", status: "discarded" });
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+  const roles = await proxy.roles();
+  assert.deepEqual(roles.roles.map((role) => role.role), ["shot-boundary-analyzer"]);
+  assert.deepEqual(roles.health.warming_roles, []);
+  const blocked = await proxy.roleStatus("ae-precomp-design-producer");
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error, "threadpool_role_not_allowed");
+  const discarded = await proxy.discardThread({ threadId: "thread_1", reason: "test" });
+  assert.equal(discarded.status, "discarded");
 });
 
 function createArtifact() {
@@ -57,5 +87,13 @@ function createArtifact() {
       timestamp: index / 3,
       imageUri: `/runtime/Artifacts/sample_1/frames/frame-${index}.jpg`,
     })),
+  };
+}
+
+function response(payload, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => JSON.stringify(payload),
   };
 }
