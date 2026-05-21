@@ -477,18 +477,43 @@ function subtitleDegraded(parentArtifactId, reason) {
 
 function normalizeSubtitleSegments(segments, durationSeconds) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
-  return (segments ?? []).map((segment, index) => {
-    const start = clampTime(segment.start ?? 0, safeDuration);
-    const fallbackEnd = safeDuration ? Math.min(safeDuration, start + Math.max(1.2, String(segment.text ?? "").length * 0.18)) : start + 1;
-    const end = clampTime(segment.end && segment.end > start ? segment.end : fallbackEnd, safeDuration || fallbackEnd);
+  const normalizedInput = (segments ?? []).map((segment) => ({ ...segment, text: String(segment.text ?? "").slice(0, 240) })).filter((segment) => segment.text);
+  const needsSequentialTiming = safeDuration > 0 && normalizedInput.length > 1 && normalizedInput.every((segment) => !hasUsefulTiming(segment));
+  const sequentialRanges = needsSequentialTiming ? allocateSubtitleRanges(normalizedInput, safeDuration) : [];
+  return normalizedInput.map((segment, index) => {
+    const sequential = sequentialRanges[index];
+    const start = clampTime(sequential?.start ?? segment.start ?? 0, safeDuration);
+    const fallbackEnd = sequential?.end ?? (safeDuration ? Math.min(safeDuration, start + Math.max(1.2, segment.text.length * 0.18)) : start + 1);
+    const end = clampTime(segment.end && segment.end > start && !sequential ? segment.end : fallbackEnd, safeDuration || fallbackEnd);
     return {
       id: segment.id ?? `subtitle_${randomUUID()}`,
       start,
       end,
-      text: String(segment.text ?? "").slice(0, 240),
+      text: segment.text,
       confidence: Number.isFinite(segment.confidence) ? segment.confidence : null,
     };
-  }).filter((segment) => segment.text);
+  });
+}
+
+function hasUsefulTiming(segment) {
+  return Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end > segment.start;
+}
+
+function allocateSubtitleRanges(segments, durationSeconds) {
+  const totalWeight = segments.reduce((sum, segment) => sum + subtitleTimingWeight(segment.text), 0) || segments.length;
+  let cursor = 0;
+  return segments.map((segment, index) => {
+    const isLast = index === segments.length - 1;
+    const share = durationSeconds * (subtitleTimingWeight(segment.text) / totalWeight);
+    const start = cursor;
+    const end = isLast ? durationSeconds : Math.min(durationSeconds, cursor + Math.max(1.2, share));
+    cursor = end;
+    return { start, end };
+  });
+}
+
+function subtitleTimingWeight(text) {
+  return Math.max(1, String(text ?? "").replace(/[，。！？!?；;、,.\s]/g, "").length);
 }
 
 async function recognizePcmInChunks(buffer, durationSeconds, iatClient) {
@@ -501,11 +526,12 @@ async function recognizePcmInChunks(buffer, durationSeconds, iatClient) {
     const endByte = Math.min(buffer.length, Math.floor((offsetSecond + maxChunkSeconds) * bytesPerSecond));
     if (endByte <= startByte) continue;
     const recognized = await iatClient.recognizeAudio({ audioBuffer: buffer.subarray(startByte, endByte) });
+    const shouldPreserveUntimedSegments = recognized.length > 1 && recognized.every((segment) => !hasUsefulTiming(segment));
     for (const segment of recognized) {
       chunks.push({
         ...segment,
         start: (segment.start ?? 0) + offsetSecond,
-        end: (segment.end && segment.end > 0 ? segment.end : Math.min(maxChunkSeconds, estimatedSeconds - offsetSecond)) + offsetSecond,
+        end: shouldPreserveUntimedSegments ? 0 : (segment.end && segment.end > 0 ? segment.end : Math.min(maxChunkSeconds, estimatedSeconds - offsetSecond)) + offsetSecond,
       });
     }
   }

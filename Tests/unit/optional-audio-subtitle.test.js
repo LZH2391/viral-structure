@@ -75,6 +75,55 @@ test("optional audio separation and subtitles keep base processing successful wi
   assert.ok(logs.some((line) => line.stageName === STAGES.subtitleRecognized && line.event === "stage.fail"));
 });
 
+test("untimed subtitle results are distributed across media duration", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-untimed-subtitles-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({
+    store,
+    logger,
+    jobStore,
+    mediaProcessor: createProcessor(store, { durationSeconds: 10 }),
+    demucsAdapter: createSuccessfulDemucsAdapter(store),
+    transcoder: {
+      async transcodeForIat({ outputPath }) {
+        await fs.writeFile(outputPath, Buffer.alloc(16000 * 2 * 10));
+        return { path: outputPath, summary: { sampleRate: 16000 } };
+      },
+    },
+    iatClient: {
+      async recognizeAudio() {
+        return [
+          { start: 0, end: 0, text: "第一句比较长" },
+          { start: 0, end: 0, text: "第二句" },
+          { start: 0, end: 0, text: "第三句" },
+        ];
+      },
+    },
+  });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { enableAudioSeparation: "true", enableSubtitleRecognition: "true" },
+    file: { filename: "sample.mp4", extension: ".mp4", mimeType: "video/mp4", size: 5, buffer: Buffer.from("hello") },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "processed");
+  assert.equal(job.status, "processed");
+
+  const artifact = await store.readJson(path.join(store.sampleDir(upload.sampleVideoId), "artifact.json"));
+  assert.equal(artifact.subtitles.segments.length, 3);
+  assert.equal(artifact.subtitles.segments[0].start, 0);
+  assert.ok(artifact.subtitles.segments[0].end < artifact.subtitles.segments[1].start || artifact.subtitles.segments[0].end === artifact.subtitles.segments[1].start);
+  assert.ok(artifact.subtitles.segments[1].end <= artifact.subtitles.segments[2].start);
+  assert.equal(artifact.subtitles.segments[2].end, 10);
+
+  const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`), "utf8");
+  const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
+  const subtitleEnd = logs.find((line) => line.stageName === STAGES.subtitleRecognized && line.event === "stage.end");
+  assert.equal(subtitleEnd.outputSummary.lastSegmentEnd, 10);
+});
+
 test("optional audio feature analysis writes artifact and stage logs", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-audio-features-"));
   const store = createLocalStore(tempRoot);
@@ -175,10 +224,11 @@ async function waitForJob(jobStore, jobId, status) {
   throw new Error(`job ${jobId} did not reach ${status}`);
 }
 
-function createProcessor(store) {
+function createProcessor(store, options = {}) {
+  const durationSeconds = options.durationSeconds ?? 2;
   return {
     async probeMetadata() {
-      return { durationSeconds: 2, width: 720, height: 1280, hasAudio: true };
+      return { durationSeconds, width: 720, height: 1280, hasAudio: true };
     },
     async extractCover({ coverPath, parentArtifactId }) {
       return { artifactId: "artifact_cover", parentArtifactId, type: "cover-frame", uri: store.runtimeUri(coverPath), summary: "封面帧" };
