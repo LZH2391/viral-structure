@@ -4,7 +4,8 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { createShotBoundaryService, prepareInput, buildTurnInputs, normalizeShots, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
+const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
+const { normalizeBoundaryCandidates, buildShotsFromBoundaries } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
@@ -15,7 +16,7 @@ test("shot boundary sampling computes stride and rejects oversampling", () => {
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
 });
 
-test("shot boundary turn inputs remove invalid surrogate text", () => {
+test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", () => {
   const artifact = createArtifact();
   artifact.sampleVideoId = "sample_\uDCAA1";
   artifact.trace.traceId = "trace_\uDCAA1";
@@ -28,58 +29,47 @@ test("shot boundary turn inputs remove invalid surrogate text", () => {
     imageUri: "/runtime/Artifacts/sample_1/frames/frame-\uDCAA0.jpg",
   };
 
-  const input = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
-  const turnInputs = buildTurnInputs(input);
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const turnInputs = buildTurnInputs({ prepared, contactSheets });
   const promptText = turnInputs[0].text;
   const textItems = turnInputs.filter((item) => item.type === "text");
   const imageItems = turnInputs.filter((item) => item.type === "localImage");
 
-  assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(input)), false);
+  assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(prepared)), false);
   assert.equal(/[\uD800-\uDFFF]/.test(promptText), false);
   assert.equal(textItems.length, 1);
   assert.equal(imageItems.length, 2);
-  assert.match(promptText, /只返回 JSON object/);
-  assert.match(promptText, /extractFps=3/);
-  assert.doesNotMatch(promptText, /frame-0\.jpg/);
+  assert.match(promptText, /多张 localImage 联表/);
+  assert.match(promptText, /"sheetCount":2/);
+  assert.match(promptText, /"beforeFrameId":"frame_example_047"/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
-  assert.doesNotMatch(promptText, /SKILL\.md/);
-  assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\frames\\frame-0.jpg");
-  assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\frames\\frame-3.jpg");
+  assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
+  assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
 });
 
-test("shot boundary normalizes agent shots to frame ids and safe ranges", () => {
+test("shot boundary normalizes adjacent boundary candidates and builds contiguous shots", () => {
   const frames = [
-    { frameId: "frame_1", timestamp: 0.2 },
-    { frameId: "frame_2", timestamp: 5.2 },
+    { frameId: "frame_0", inputIndex: 0, timestamp: 0 },
+    { frameId: "frame_1", inputIndex: 1, timestamp: 1 },
+    { frameId: "frame_2", inputIndex: 2, timestamp: 2 },
+    { frameId: "frame_3", inputIndex: 3, timestamp: 3.5 },
   ];
-  const shots = normalizeShots([{ start: -1, end: 9, representativeFrameId: "missing", confidence: 2, reason: "x".repeat(300) }], frames, 6);
-  assert.equal(shots[0].start, 0);
-  assert.equal(shots[0].end, 6);
-  assert.equal(shots[0].shotNo, "S001");
-  assert.equal(shots[0].representativeFrameId, "frame_2");
-  assert.equal(shots[0].confidence, 1);
-  assert.equal(shots[0].reason.length, 160);
-});
+  const boundaries = normalizeBoundaryCandidates([
+    { beforeFrameId: "frame_0", afterFrameId: "frame_1", confidence: 2, reason: "x".repeat(300), boundaryType: "", needReview: 1 },
+    { beforeFrameId: "frame_0", afterFrameId: "frame_2", confidence: 0.9, reason: "invalid skip" },
+  ], frames);
+  const shots = buildShotsFromBoundaries(boundaries, frames, 4);
 
-test("shot boundary normalize keeps contiguous coverage and reindexes shot numbers", () => {
-  const frames = [
-    { frameId: "frame_0", timestamp: 0 },
-    { frameId: "frame_1", timestamp: 1.1 },
-    { frameId: "frame_2", timestamp: 2.3 },
-    { frameId: "frame_3", timestamp: 3.8 },
-  ];
-  const shots = normalizeShots([
-    { start: 2.6, end: 3.2, representativeFrameId: "missing", shotNo: "" },
-    { start: 0.4, end: 1.5, representativeFrameId: "frame_1", shotNo: "S009" },
-  ], frames, 4);
-
+  assert.equal(boundaries.length, 1);
+  assert.equal(boundaries[0].confidence, 1);
+  assert.equal(boundaries[0].reason.length, 160);
+  assert.equal(boundaries[0].boundaryType, "hard_cut");
+  assert.equal(boundaries[0].needReview, true);
   assert.equal(shots.length, 2);
   assert.equal(shots[0].start, 0);
-  assert.equal(shots[0].end, shots[1].start);
-  assert.equal(shots[1].end, 4);
-  assert.equal(shots[0].shotNo, "S009");
-  assert.equal(shots[1].shotNo, "S002");
-  assert.equal(shots[1].representativeFrameId, "frame_2");
+  assert.equal(shots.at(-1).end, 4);
+  assert.equal(shots[0].shotNo, "S001");
 });
 
 test("threadpool role status removes init prompt and keeps safe summary", () => {
@@ -137,13 +127,14 @@ test("shot boundary start turn persists inflight without waiting for final messa
       collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   const job = harness.jobStore.getJob(result.processingJobId);
 
   assert.equal(job.agentRun.threadId, "thread_1");
   assert.equal(job.agentRun.leaseId, "lease_1");
   assert.equal(job.agentRun.turnId, "turn_1");
+  assert.equal(job.agentRun.contactSheets.length, 2);
   assert.equal(job.status, "processing");
   assert.equal(harness.threadPool.released.length, 0);
 });
@@ -152,10 +143,16 @@ test("shot boundary collect completed writes artifact and releases lease", async
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: `补充说明\n${JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" }] })}\n已完成` }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: `补充说明\n${JSON.stringify({ boundaries: [{ beforeFrameId: "frame_2", afterFrameId: "frame_3", confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] })}\n已完成`,
+      }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
@@ -164,6 +161,9 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_1");
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
+  assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
+  assert.equal(artifact.shotBoundaryAnalysis.boundaryCandidateArtifacts.length, 2);
   assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
 });
@@ -172,16 +172,22 @@ test("shot boundary keeps Chinese reason text without mojibake", async () => {
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "未检测到明显视觉变化" }] }) }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ beforeFrameId: "frame_2", afterFrameId: "frame_3", confidence: 0.8, boundaryType: "hard_cut", reason: "未检测到明显视觉变化", needReview: false }] }),
+      }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
 
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].reason, "未检测到明显视觉变化");
+  assert.equal(artifact.shotBoundaryAnalysis.boundaries[0].reason, "未检测到明显视觉变化");
 });
 
 test("shot boundary collect retryable error keeps inflight processing", async () => {
@@ -193,7 +199,7 @@ test("shot boundary collect retryable error keeps inflight processing", async ()
       collectTurnResult: async () => { throw error; },
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const job = harness.jobStore.getJob(result.processingJobId);
@@ -211,7 +217,7 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
       collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: "not-json" }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
@@ -220,6 +226,7 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(job.status, "failed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "thread_1");
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
   assert.equal(harness.logger.snapshots.length, 1);
   assert.deepEqual(harness.threadPool.discarded, [{ threadId: "thread_1", reason: "shot-boundary-analysis-failed" }]);
 });
@@ -228,10 +235,16 @@ test("shot boundary mojibake reason fails quality gate and writes debug snapshot
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "鏈娴嬪埌鏄庢樉瑙嗚鍙樺寲" }] }) }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ beforeFrameId: "frame_2", afterFrameId: "frame_3", confidence: 0.8, boundaryType: "hard_cut", reason: "鏈娴嬪埌鏄庢樉瑙嗚鍙樺寲", needReview: false }] }),
+      }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
@@ -250,7 +263,13 @@ test("shot boundary mojibake reason fails quality gate and writes debug snapshot
 test("shot boundary recovery completes active inflight", async () => {
   const harness = await createShotHarness({
     appServer: {
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [] }) }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [] }),
+      }),
     },
   });
   const job = harness.jobStore.createJob({ sampleVideoId: "sample_1", traceId: "trace_recover" });
@@ -268,7 +287,8 @@ test("shot boundary recovery completes active inflight", async () => {
       artifactId: "artifact_recover",
       parentArtifactId: "artifact_sample",
       sampleVideoId: "sample_1",
-      analysisFps: 1,
+      analysisFps: 3,
+      contactSheets: createContactSheets(prepareInput(createArtifact(), 3, { runtimeRoot: rootRuntime("recover") }), rootRuntime("recover")),
       status: "turn_submitted",
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -300,10 +320,16 @@ test("shot boundary graceful discard replaces release when discard_on_release is
     threadPoolConfig: { ok: true, discardOnRelease: true },
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" }] }) }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ beforeFrameId: "frame_2", afterFrameId: "frame_3", confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
+      }),
     },
   });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
 
@@ -318,7 +344,7 @@ function createArtifact() {
     trace: { traceId: "trace_1" },
     processingOptions: { frameSampleRateFps: 3 },
     sampleVideo: { artifactId: "artifact_sample" },
-    metadata: { durationSeconds: 2 },
+    metadata: { durationSeconds: 2, width: 1280, height: 720 },
     frameOutputSummary: { frameSampleRateFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
     frames: Array.from({ length: 6 }, (_, index) => ({
       frameId: `frame_${index}`,
@@ -386,6 +412,10 @@ async function createShotHarness({ appServer, threadPoolConfig } = {}) {
     findCacheEntry: async () => null,
     getItem: async () => ({ fileHash: "hash_1" }),
     registerSampleArtifact: async () => ({ ok: true }),
+    loadItem: async () => null,
+  };
+  const contactSheetGenerator = {
+    generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
   };
   const service = createShotBoundaryService({
     rootDir,
@@ -394,6 +424,7 @@ async function createShotHarness({ appServer, threadPoolConfig } = {}) {
     jobStore,
     artifactIndex,
     threadPool,
+    contactSheetGenerator,
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
       collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
@@ -402,6 +433,79 @@ async function createShotHarness({ appServer, threadPoolConfig } = {}) {
     pollIntervalMs: 60_000,
   });
   return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service };
+}
+
+function createContactSheets(prepared, sampleDir) {
+  const frames = prepared.frames ?? prepared;
+  const parentArtifactId = prepared.sourceArtifactId ?? "artifact_sample";
+  return [
+    {
+      artifactId: "artifact_sheet_1",
+      parentArtifactId,
+      type: "contact_sheet",
+      artifactType: "contact_sheet",
+      status: "processed",
+      sheetPurpose: "shot_boundary_analysis",
+      sheetId: "sheet-001",
+      sheetIndex: 0,
+      uri: "/runtime/Artifacts/sample_1/contact-sheets/sheet-001.jpg",
+      imagePath: "/runtime/Artifacts/sample_1/contact-sheets/sheet-001.jpg",
+      localImagePath: path.join(sampleDir, "contact-sheets", "sheet-001.jpg"),
+      frameCount: Math.min(4, frames.length),
+      overlapFrameIds: [],
+      gridItems: frames.slice(0, 4).map((frame, index) => ({
+        frameId: frame.frameId,
+        artifactId: frame.artifactId,
+        parentArtifactId: frame.parentArtifactId,
+        timestamp: frame.timestamp,
+        inputIndex: frame.inputIndex,
+        sourceFrameIndex: frame.sourceFrameIndex,
+        filePath: frame.filePath,
+        gridIndex: index,
+        row: 0,
+        col: index,
+      })),
+      layout: { rows: 2, cols: 2, width: 600, height: 480, cellWidth: 300, cellHeight: 240, visibleFrameWidth: 300, visibleFrameHeight: 168, labelHeight: 28 },
+      constraints: { maxDimension: 4096, minFrameShortSide: 144, minFrameLongSide: 256, labelHeight: 28, overlapFrameCount: 1 },
+      compression: { format: "jpeg", quality: 88 },
+      createdAt: new Date().toISOString(),
+    },
+    {
+      artifactId: "artifact_sheet_2",
+      parentArtifactId,
+      type: "contact_sheet",
+      artifactType: "contact_sheet",
+      status: "processed",
+      sheetPurpose: "shot_boundary_analysis",
+      sheetId: "sheet-002",
+      sheetIndex: 1,
+      uri: "/runtime/Artifacts/sample_1/contact-sheets/sheet-002.jpg",
+      imagePath: "/runtime/Artifacts/sample_1/contact-sheets/sheet-002.jpg",
+      localImagePath: path.join(sampleDir, "contact-sheets", "sheet-002.jpg"),
+      frameCount: Math.max(0, Math.min(3, Math.max(0, frames.length - 3))),
+      overlapFrameIds: [frames[3]?.frameId].filter(Boolean),
+      gridItems: frames.slice(3, 6).map((frame, index) => ({
+        frameId: frame.frameId,
+        artifactId: frame.artifactId,
+        parentArtifactId: frame.parentArtifactId,
+        timestamp: frame.timestamp,
+        inputIndex: frame.inputIndex,
+        sourceFrameIndex: frame.sourceFrameIndex,
+        filePath: frame.filePath,
+        gridIndex: index,
+        row: 0,
+        col: index,
+      })),
+      layout: { rows: 2, cols: 2, width: 600, height: 480, cellWidth: 300, cellHeight: 240, visibleFrameWidth: 300, visibleFrameHeight: 168, labelHeight: 28 },
+      constraints: { maxDimension: 4096, minFrameShortSide: 144, minFrameLongSide: 256, labelHeight: 28, overlapFrameCount: 1 },
+      compression: { format: "jpeg", quality: 88 },
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+function rootRuntime(name) {
+  return path.join("C:\\Runtime", name);
 }
 
 function delay(ms) {

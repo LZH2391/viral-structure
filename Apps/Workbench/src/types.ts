@@ -101,7 +101,86 @@ export type ShotBoundaryAnalysisArtifact = {
     threadId: string | null;
     leaseId: string | null;
     turnId: string | null;
+    sheetCount?: number;
+    inputMode?: string;
   };
+  contactSheets?: Array<{
+    artifactId: string;
+    parentArtifactId: string | null;
+    type: "contact_sheet" | string;
+    artifactType?: "contact_sheet" | string;
+    status?: string;
+    sheetPurpose?: string;
+    sheetId: string;
+    sheetIndex: number;
+    imagePath?: string | null;
+    uri?: string | null;
+    frameCount: number;
+    overlapFrameIds: string[];
+    gridItems: Array<{
+      frameId: string;
+      artifactId?: string | null;
+      parentArtifactId?: string | null;
+      timestamp: number;
+      inputIndex: number;
+      sourceFrameIndex: number;
+      gridIndex: number;
+      row: number;
+      col: number;
+    }>;
+    layout: {
+      rows: number;
+      cols: number;
+      width: number;
+      height: number;
+      cellWidth: number;
+      cellHeight: number;
+      visibleFrameWidth?: number;
+      visibleFrameHeight?: number;
+      labelHeight?: number;
+    };
+    constraints?: {
+      maxDimension?: number;
+      minFrameShortSide?: number;
+      minFrameLongSide?: number;
+      labelHeight?: number;
+      overlapFrameCount?: number;
+    };
+    compression?: {
+      format?: string;
+      quality?: number;
+    };
+    createdAt?: string;
+  }>;
+  boundaryCandidateArtifacts?: Array<{
+    artifactId: string;
+    parentArtifactId: string | null;
+    type: "shot_boundary_candidates" | string;
+    artifactType?: "shot_boundary_candidates" | string;
+    status?: string;
+    sheetId: string;
+    sheetIndex: number;
+    frameCount?: number;
+    boundaries: Array<{
+      beforeFrameId: string;
+      afterFrameId: string;
+      confidence: number;
+      boundaryType: string;
+      reason: string;
+      needReview: boolean;
+    }>;
+    createdAt?: string;
+  }>;
+  boundaries?: Array<{
+    beforeFrameId: string;
+    afterFrameId: string;
+    confidence: number;
+    boundaryType: string;
+    reason: string;
+    needReview: boolean;
+    sheetId?: string;
+    sheetIndex?: number;
+  }>;
   shots: Array<{
     id: string;
     index: number;

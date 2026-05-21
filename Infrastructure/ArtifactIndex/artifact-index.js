@@ -193,7 +193,13 @@ function buildArtifactTree(artifact) {
     pushNode(nodes, artifact.audioFeatures, "sample.audio.features.extracted", artifact, `${artifact.audioFeatures.beats?.length ?? 0} beats`);
   }
   if (artifact.shotBoundaryAnalysis) {
-    pushNode(nodes, artifact.shotBoundaryAnalysis, "agent.shotBoundary.resultWritten", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜`);
+    for (const sheet of artifact.shotBoundaryAnalysis.contactSheets ?? []) {
+      pushNode(nodes, sheet, "shot.contact_sheet", artifact, `${sheet.frameCount ?? 0} 帧 / ${sheet.sheetId ?? "sheet"}`);
+    }
+    for (const candidate of artifact.shotBoundaryAnalysis.boundaryCandidateArtifacts ?? []) {
+      pushNode(nodes, candidate, "shot.boundary_candidates", artifact, `${candidate.boundaries?.length ?? 0} 条边界`);
+    }
+    pushNode(nodes, artifact.shotBoundaryAnalysis, "shot.boundary_merge", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜 / ${artifact.shotBoundaryAnalysis.boundaries?.length ?? 0} 边界`);
   }
   return nodes;
 }
@@ -257,11 +263,23 @@ function stageParams(artifact, stageName) {
       sourceAudioArtifactId: artifact.audioFeatures?.sourceAudioArtifactId ?? null,
     };
   }
-  if (stageName === "agent.shotBoundary.resultWritten") {
+  if (stageName === "shot.boundary_merge" || stageName === "agent.shotBoundary.resultWritten") {
     return {
       sourceArtifactId: artifact.shotBoundaryAnalysis?.parentArtifactId ?? artifact.sampleVideo?.artifactId ?? null,
       extractSampling: artifact.shotBoundaryAnalysis?.extractSampling ?? null,
       analysisSampling: artifact.shotBoundaryAnalysis?.analysisSampling ?? null,
+      frameDimensions: artifact.shotBoundaryAnalysis?.contactSheets?.[0]?.layout
+        ? {
+          width: artifact.metadata?.width ?? null,
+          height: artifact.metadata?.height ?? null,
+        }
+        : null,
+      sheetCount: artifact.shotBoundaryAnalysis?.contactSheets?.length ?? 0,
+      sheetLayouts: (artifact.shotBoundaryAnalysis?.contactSheets ?? []).map((sheet) => ({
+        frameCount: sheet.frameCount ?? 0,
+        layout: sheet.layout ?? null,
+        constraints: sheet.constraints ?? null,
+      })),
       skillHash: crypto.createHash("sha256").update(artifact.shotBoundaryAnalysis?.agent?.skillPath ?? "").digest("hex").slice(0, 16),
     };
   }
@@ -278,6 +296,8 @@ function artifactLabel(type) {
     "audio-music": "伴奏",
     "subtitle-track": "字幕",
     "audio-feature-analysis": "音频特征",
+    contact_sheet: "切镜联表",
+    shot_boundary_candidates: "切镜候选",
     "shot-boundary-analysis": "镜头切分",
   };
   return labels[type] ?? type ?? "产物";
