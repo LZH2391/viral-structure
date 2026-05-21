@@ -3,6 +3,8 @@ import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, Med
 import { formatTime } from "../utils/format";
 import { getShotBoundaryGuard, type ShotBoundaryGuard } from "../utils/workbenchHelpers";
 
+const SHOT_BOUNDARY_GUARD_POLL_MS = 2000;
+
 type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
   activeMediaKind: string;
@@ -75,20 +77,13 @@ function AgentRunPanel({
 
   useEffect(() => {
     let cancelled = false;
-    if (!sampleVideo) {
-      setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
-      return undefined;
-    }
-    if (running) {
-      setGuard((current) => (current.state === "ready" ? current : { state: "ready", buttonLabel: "运行", message: null, disabled: false }));
-      return undefined;
-    }
-    setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
-    getShotBoundaryGuard()
-      .then((next) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const syncGuard = async (showLoading: boolean) => {
+      if (showLoading) setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+      try {
+        const next = await getShotBoundaryGuard();
         if (!cancelled) setGuard(next);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (!cancelled) {
           setGuard({
             state: "blocked",
@@ -97,9 +92,22 @@ function AgentRunPanel({
             disabled: true,
           });
         }
-      });
+      } finally {
+        if (!cancelled) timer = setTimeout(() => syncGuard(false), SHOT_BOUNDARY_GUARD_POLL_MS);
+      }
+    };
+    if (!sampleVideo) {
+      setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+      return undefined;
+    }
+    if (running) {
+      setGuard((current) => (current.state === "ready" ? current : { state: "ready", buttonLabel: "运行", message: null, disabled: false }));
+      return undefined;
+    }
+    syncGuard(true);
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [running, sampleVideo?.id]);
 

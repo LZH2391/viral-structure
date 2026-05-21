@@ -247,6 +247,8 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(property, /AgentRunPanel/);
   assert.match(property, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
+  assert.match(property, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
+  assert.match(property, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
 });
 
 test("workbench workspace layout supports persisted splitters", () => {
