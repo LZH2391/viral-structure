@@ -219,7 +219,7 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
   assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 0);
   assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
-  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
+  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
 });
 
 test("shot boundary skill content change misses old shot cache", async () => {
@@ -276,6 +276,34 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
   const job = harness.jobStore.getJob(result.processingJobId);
   const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
 
+  assert.equal(startTurnCount, 1);
+  assert.equal(job.status, "processing");
+  assert.equal(artifact.shotBoundaryAnalysis, undefined);
+  assert.equal(cacheReuseLog, undefined);
+});
+
+test("shot boundary valid cache can be reused", async () => {
+  let startTurnCount = 0;
+  const cachedAnalysis = createValidCachedShotAnalysis();
+  const harness = await createShotHarness({
+    artifactIndex: {
+      findCacheEntry: async () => ({ sampleVideoId: "sample_cached", cacheKey: "cache_1" }),
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        startTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "reuse" });
+  await delay(20);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
+
   assert.equal(startTurnCount, 0);
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "cache_reuse");
@@ -283,8 +311,8 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
   assert.equal(cacheReuseLog.outputSummary.sourceSampleVideoId, "sample_cached");
   assert.equal(cacheReuseLog.outputSummary.cacheKey, "cache_1");
   assert.equal(cacheReuseLog.outputSummary.sourceTurnId, "turn_cached");
-  assert.equal(cacheReuseLog.outputSummary.boundaryCount, 0);
-  assert.equal(cacheReuseLog.outputSummary.shotCount, 1);
+  assert.equal(cacheReuseLog.outputSummary.boundaryCount, 1);
+  assert.equal(cacheReuseLog.outputSummary.shotCount, 2);
 });
 
 test("shot boundary keeps Chinese reason text without mojibake", async () => {
@@ -459,9 +487,9 @@ test("threadpool owner release sends owner_id only", async () => {
   assert.deepEqual(requests[0].body, { owner_id: "trace_1" });
 });
 
-test("shot boundary success releases lease even when discard_on_release is enabled", async () => {
+test("shot boundary success releases lease and thread returns idle", async () => {
   const harness = await createShotHarness({
-    threadPoolConfig: { ok: true, discardOnRelease: true },
+    threadPoolConfig: { ok: true, discardOnRelease: false },
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
       collectTurnResult: async () => ({
@@ -477,7 +505,7 @@ test("shot boundary success releases lease even when discard_on_release is enabl
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
 
-  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
+  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
   assert.deepEqual(harness.threadPool.discarded, []);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
 });
@@ -597,8 +625,9 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     ensureRoleReady: async () => ({ ok: true, role: "shot-boundary-analyzer", status: { role: "shot-boundary-analyzer", canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
     acquireLease: async () => ({ lease_id: "lease_1", thread_id: "thread_1" }),
     releaseLease: async (payload) => {
-      threadPool.released.push(payload);
-      return { ok: true };
+      const result = { ...payload, thread_status: "idle" };
+      threadPool.released.push(result);
+      return { ok: true, thread_status: "idle" };
     },
     discardThread: async (payload) => {
       threadPool.discarded.push(payload);
@@ -733,6 +762,39 @@ function createCachedShotAnalysis() {
       inputMode: "multi_contact_sheet",
     },
     shots: [{ id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.4, reason: "未检测到明确切镜边界" }],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function createValidCachedShotAnalysis() {
+  return {
+    artifactId: "artifact_cached_valid_shot",
+    parentArtifactId: "artifact_sample",
+    type: "shot-boundary-analysis",
+    status: "processed",
+    resultOrigin: "new_turn",
+    sourceFrameArtifactIds: [],
+    extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
+    analysisSampling: { fps: 3, stride: 1 },
+    contactSheets: [],
+    boundaryCandidateArtifacts: [],
+    boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
+    validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
+    agent: {
+      provider: "codex-appserver",
+      role: "shot-boundary-analyzer",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
+      skillHash: "cached_hash",
+      threadId: "thread_cached",
+      leaseId: "lease_cached",
+      turnId: "turn_cached",
+      sheetCount: 2,
+      inputMode: "multi_contact_sheet",
+    },
+    shots: [
+      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1.2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" },
+      { id: "shot_2", index: 1, shotNo: "S002", start: 1.2, end: 2, representativeFrameId: "frame_4", confidence: 0.8, reason: "视觉连续" },
+    ],
     createdAt: new Date().toISOString(),
   };
 }

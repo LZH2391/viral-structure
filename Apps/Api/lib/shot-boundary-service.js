@@ -16,6 +16,7 @@ const {
   buildTurnInputs,
   cacheParams,
   codedError,
+  evaluateCacheEligibility,
   prepareInput,
   resolveSkillHash,
   safeError,
@@ -345,6 +346,8 @@ function createShotBoundaryService({
             ...(error.debugPayload ?? {}),
             repairAttemptCount,
             validation: context.validationSummary,
+            turnId: finalTurn?.turnId ?? null,
+            resultOrigin,
           };
           throw error;
         }
@@ -354,6 +357,13 @@ function createShotBoundaryService({
           status: "failed",
           repairAttemptCount,
           validatorCode: error?.debugPayload?.validation?.validatorCode ?? error?.code ?? null,
+        };
+        error.debugPayload = {
+          ...(error.debugPayload ?? {}),
+          repairAttemptCount,
+          validation: context.validationSummary,
+          turnId: finalTurn?.turnId ?? null,
+          resultOrigin,
         };
         finalTurn = await submitRepairTurn({ context, agentRun, prepared, contactSheets, validationError: error, priorTurn: finalTurn, repairAttemptCount });
         resultOrigin = "repaired_turn";
@@ -572,8 +582,9 @@ function createShotBoundaryService({
     if (!cache?.sampleVideoId) return null;
     const artifact = await artifactIndex.loadItem(cache.sampleVideoId);
     const analysis = artifact?.shotBoundaryAnalysis ?? null;
-    if (!analysis || analysis.status !== "processed") return null;
-    return { cache, analysis };
+    const cacheEligibility = evaluateCacheEligibility(analysis);
+    if (!cacheEligibility.eligible) return null;
+    return { cache, analysis, cacheEligibility };
   }
 
   async function logCacheReuse(context, cached) {
@@ -586,6 +597,7 @@ function createShotBoundaryService({
       sourceTurnId: analysis.agent?.turnId ?? null,
       boundaryCount: analysis.boundaries?.length ?? 0,
       shotCount: analysis.shots?.length ?? 0,
+      cacheEligibility: cached.cacheEligibility ?? null,
     };
     await logger.writeStageLog({
       traceContext: context.traceContext,

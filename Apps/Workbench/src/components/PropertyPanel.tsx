@@ -113,6 +113,7 @@ function AgentRunPanel({
 
   const runDisabled = !sampleVideo || running || analysisFpsExceeded || (guard.disabled && guard.state !== "warming");
   const runLabel = running ? "运行中" : guard.buttonLabel;
+  const hasValidShotResult = isValidShotResult(analysis);
   const handleRun = () => {
     if (guard.state === "warming") {
       window.alert(guard.message ?? "ThreadPool 正在 warming，请稍后再试");
@@ -127,7 +128,7 @@ function AgentRunPanel({
       <div className="agent-capability-row">
         <div>
           <strong>shot-boundary</strong>
-          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? `${analysis.shots.length} 镜` : "等待分析"}</span>
+          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? (hasValidShotResult ? `${analysis.shots.length} 镜` : "无有效切镜结果") : "等待分析"}</span>
         </div>
         <button className="primary-button" type="button" disabled={runDisabled} title={guard.message ?? undefined} onClick={handleRun}>
           {runLabel}
@@ -155,7 +156,8 @@ function AgentRunPanel({
           <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
         </div>
       ) : null}
-      {analysis?.shots?.length ? (
+      {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
+      {analysis?.shots?.length && hasValidShotResult ? (
         <div className="agent-shot-list">
           {analysis.shots.slice(0, 12).map((shot) => (
             <button key={shot.id} className="agent-shot-item" type="button" onClick={() => onSelectShot(shot.start)}>
@@ -418,4 +420,16 @@ function renderResultOrigin(origin?: ShotBoundaryAnalysisArtifact["resultOrigin"
 
 function shortTurnId(turnId: string) {
   return turnId.length > 10 ? turnId.slice(-10) : turnId;
+}
+
+function isValidShotResult(analysis?: ShotBoundaryAnalysisArtifact | null) {
+  if (!analysis) return false;
+  if (analysis.status === "failed" || analysis.validation?.status === "failed") return false;
+  const boundaries = analysis.boundaries ?? [];
+  const shots = analysis.shots ?? [];
+  const looksLikeLegacyFallback = boundaries.length === 0
+    && shots.length === 1
+    && /未检测到明确切镜边界/.test(String(shots[0]?.reason ?? ""));
+  if (looksLikeLegacyFallback) return false;
+  return shots.length > 0;
 }

@@ -107,6 +107,52 @@ test("upload returns cache candidate before processing and refresh bypasses stag
   assert.equal(mediaProcessor.counts.audio, 2);
 });
 
+test("failed shot boundary artifact does not register processed shot cache entry", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-invalid-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const fileHash = hashBuffer(Buffer.from("shot-invalid"));
+  const artifact = {
+    ...createArtifact({ sampleVideoId: "sample_invalid_shot" }),
+    shotBoundaryAnalysis: {
+      artifactId: "artifact_shot_invalid",
+      parentArtifactId: "artifact_sample",
+      type: "shot-boundary-analysis",
+      status: "failed",
+      resultOrigin: "failed_validation",
+      sourceFrameArtifactIds: [],
+      extractSampling: { requestedFps: 1, targetFrameCount: 1, actualFrameCount: 1, maxFrames: 120 },
+      analysisSampling: { fps: 1, stride: 1 },
+      contactSheets: [],
+      boundaryCandidateArtifacts: [],
+      boundaries: [],
+      validation: { status: "failed", rawBoundaryCount: 0, normalizedBoundaryCount: 0, repairAttemptCount: 1, validatorCode: "shot_boundary_empty_boundaries" },
+      agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", skillPath: "SKILL.md", skillHash: "hash", threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
+      shots: [],
+      createdAt: new Date().toISOString(),
+    },
+  };
+
+  await index.registerSampleArtifact({ artifact, fileHash, traceId: "trace_failed_shot" });
+  const cache = await index.findCacheEntry({
+    fileHash,
+    stageName: "shot.boundary_merge",
+    params: {
+      sourceArtifactId: "artifact_sample",
+      extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
+      analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
+      frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
+      sheetCount: 0,
+      sheetLayouts: [],
+      skillHash: "hash",
+    },
+    version: "test-v1",
+  });
+
+  assert.equal(cache, null);
+});
+
 
 function createArtifact(overrides = {}) {
   const sampleVideoId = overrides.sampleVideoId ?? "sample_1";

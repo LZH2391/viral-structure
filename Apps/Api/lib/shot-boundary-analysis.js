@@ -340,13 +340,23 @@ function buildCacheReuseAnalysis(analysis) {
   return {
     ...analysis,
     resultOrigin: "cache_reuse",
-    validation: {
-      status: analysis.validation?.status ?? "passed",
-      rawBoundaryCount: analysis.validation?.rawBoundaryCount ?? analysis.boundaries?.length ?? 0,
-      normalizedBoundaryCount: analysis.validation?.normalizedBoundaryCount ?? analysis.boundaries?.length ?? 0,
-      repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
-      validatorCode: analysis.validation?.validatorCode ?? null,
-    },
+    validation: analysis.validation ?? null,
+  };
+}
+
+function evaluateCacheEligibility(analysis) {
+  const status = analysis?.status === "processed";
+  const validationPassed = analysis?.validation?.status === "passed";
+  const hasBoundaries = Array.isArray(analysis?.boundaries) && analysis.boundaries.length > 0;
+  const hasShots = Array.isArray(analysis?.shots) && analysis.shots.length > 0;
+  const validatorClean = !analysis?.validation?.validatorCode;
+  return {
+    eligible: Boolean(status && validationPassed && hasBoundaries && hasShots && validatorClean),
+    status,
+    validationPassed,
+    hasBoundaries,
+    hasShots,
+    validatorClean,
   };
 }
 
@@ -409,6 +419,7 @@ function sanitizeDebugPayload(error) {
     suspiciousReason: details?.suspiciousReason ?? null,
     validation: details?.validation ?? null,
     repairAttemptCount: details?.repairAttemptCount ?? null,
+    resultOrigin: details?.resultOrigin ?? null,
     appServer: details,
   };
 }
@@ -568,6 +579,7 @@ module.exports = {
   buildShotsFromBoundaries,
   cacheParams,
   codedError,
+  evaluateCacheEligibility,
   normalizeTimestampBoundaries,
   prepareInput,
   resolveSkillHash,
