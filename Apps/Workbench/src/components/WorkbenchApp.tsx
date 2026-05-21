@@ -13,15 +13,18 @@ import { RunStatusBar } from "./RunStatusBar";
 import { TimelinePanel } from "./TimelinePanel";
 
 const STORAGE_KEY = "workbench:last-sample";
+type AudioSeekRequest = { requestId: number; time: number };
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
-  const [frameSampleRate, setFrameSampleRate] = useState(1);
-  const [enableAudioSeparation, setEnableAudioSeparation] = useState(false);
-  const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(false);
-  const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(false);
+  const [frameSampleRate, setFrameSampleRate] = useState(3);
+  const [enableAudioSeparation, setEnableAudioSeparation] = useState(true);
+  const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(true);
+  const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(true);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [currentTime, setCurrentTime] = useState(0);
+  const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
+  const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -272,16 +275,11 @@ export function WorkbenchApp() {
 
   const handleSelectAudioFeature = useCallback(
     (marker: AudioFeatureMarker) => {
-      dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: state.audioFeatures?.artifactId ?? null, selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
-      const audio = audioRef.current;
-      if (!audio) return;
-      const seek = () => {
-        audio.currentTime = Math.max(0, Math.min(marker.time, Number.isFinite(audio.duration) ? audio.duration : marker.time));
-      };
-      if (Number.isFinite(audio.duration) && audio.duration > 0) seek();
-      else audio.addEventListener("loadedmetadata", seek, { once: true });
+      dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
+      audioSeekRequestIdRef.current += 1;
+      setAudioSeekRequest({ requestId: audioSeekRequestIdRef.current, time: marker.time });
     },
-    [state.audioFeatures?.artifactId],
+    [state],
   );
 
   const fileLabel = state.isUploadingSample ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim() : state.sampleVideo?.fileName ?? "未选择文件";
@@ -331,6 +329,7 @@ export function WorkbenchApp() {
           selectedFrameId={state.selectedFrameId}
           selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
           audioFeatures={state.audioFeatures}
+          audioSeekRequest={audioSeekRequest}
           processingText={state.processingJob ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%` : "未加载样例"}
           traceText={state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace"}
           uiTraceId={state.uiTraceId}
@@ -462,6 +461,12 @@ function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], 
     ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time })),
   ];
   return markers.find((marker) => marker.id === markerId) ?? null;
+}
+
+function resolveAudioFeatureSourceId(state: WorkbenchState) {
+  const sourceArtifactId = state.audioFeatures?.sourceAudioArtifactId ?? null;
+  if (sourceArtifactId && state.mediaDerivatives.some((entry) => entry.artifactId === sourceArtifactId)) return sourceArtifactId;
+  return state.sampleArtifact?.audio?.artifactId ?? state.mediaDerivatives.find((entry) => entry.type === "audio-track")?.artifactId ?? null;
 }
 
 function delay(ms: number) {

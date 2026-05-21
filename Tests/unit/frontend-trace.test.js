@@ -115,6 +115,7 @@ test("debug page keeps trace crop, detail cache, refresh, and log link behavior"
 
 test("media preview uses ResizeObserver and preserves full aspect ratio metadata", () => {
   const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const preview = read(root, "Apps/Workbench/src/components/PreviewPanel.tsx");
   const resize = read(root, "Apps/Workbench/src/hooks/useElementSize.ts");
   const state = read(root, "Apps/Workbench/src/state.ts");
@@ -125,6 +126,9 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(preview, /fitMediaViewport/);
   assert.match(preview, /audio-waveform-feature-marker/);
   assert.match(preview, /audio\.currentTime/);
+  assert.match(preview, /audioSeekRequest/);
+  assert.match(app, /setAudioSeekRequest/);
+  assert.match(app, /resolveAudioFeatureSourceId/);
   assert.match(preview, /letterboxInsets/);
   assert.match(state, /width: artifact\.metadata\.width/);
   assert.match(state, /aspectRatio: buildAspectRatio/);

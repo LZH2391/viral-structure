@@ -14,6 +14,7 @@ type PreviewPanelProps = {
   selectedFrameId: string | null;
   selectedAudioFeatureMarkerId: string | null;
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
+  audioSeekRequest?: { requestId: number; time: number } | null;
   processingText: string;
   traceText: string;
   uiTraceId: string;
@@ -39,7 +40,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(props.audioFeatures), [props.audioFeatures]);
   const selectedMarker = useMemo(() => audioFeatureMarkers.find((marker) => marker.id === props.selectedAudioFeatureMarkerId) ?? null, [audioFeatureMarkers, props.selectedAudioFeatureMarkerId]);
 
-  const waveform = useAudioWaveform({
+  const { renderWithProgress } = useAudioWaveform({
     audio: audioRef.current,
     mainCanvas,
     miniCanvas: null,
@@ -74,19 +75,23 @@ export function PreviewPanel(props: PreviewPanelProps) {
   }, [activeMedia.kind, audioRef, videoRef]);
 
   useEffect(() => {
-    if (activeMedia.kind !== "audio" || !selectedMarker) return undefined;
+    if (activeMedia.kind !== "audio" || !props.audioSeekRequest) return undefined;
     const audio = audioRef.current;
     if (!audio) return undefined;
+    const targetTime = props.audioSeekRequest.time;
     const seek = () => {
-      audio.currentTime = Math.max(0, Math.min(selectedMarker.time, Number.isFinite(audio.duration) ? audio.duration : selectedMarker.time));
+      const maxTime = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : targetTime;
+      audio.currentTime = Math.max(0, Math.min(targetTime, maxTime));
+      renderWithProgress(maxTime > 0 ? audio.currentTime / maxTime : 0);
     };
-    if (Number.isFinite(audio.duration) && audio.duration > 0) {
-      seek();
-      return undefined;
-    }
     audio.addEventListener("loadedmetadata", seek, { once: true });
-    return () => audio.removeEventListener("loadedmetadata", seek);
-  }, [activeMedia.kind, audioRef, selectedMarker]);
+    audio.addEventListener("canplay", seek, { once: true });
+    if (Number.isFinite(audio.duration) && audio.duration > 0) seek();
+    return () => {
+      audio.removeEventListener("loadedmetadata", seek);
+      audio.removeEventListener("canplay", seek);
+    };
+  }, [activeMedia.kind, audioRef, props.audioSeekRequest, renderWithProgress]);
 
   useEffect(() => {
     const audio = audioRef.current;
