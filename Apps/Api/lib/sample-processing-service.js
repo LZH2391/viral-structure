@@ -15,8 +15,14 @@ const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErr
 function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const fileHash = hashBuffer(file.buffer);
-    const processingOptions = resolveProcessingOptions(fields);
-    if (fields.cacheDecision !== "refresh") {
+    let processingOptions = null;
+    let processingOptionsError = null;
+    try {
+      processingOptions = resolveProcessingOptions(fields);
+    } catch (error) {
+      processingOptionsError = error;
+    }
+    if (!processingOptionsError && fields.cacheDecision !== "refresh") {
       const cached = await artifactIndex.findLatestByFileHash(fileHash);
       if (cached) return { cacheHit: true, cachedItem: cached, fileHash: safeHash(fileHash) };
     }
@@ -24,7 +30,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     const sampleVideoId = `sample_${randomUUID()}`;
     const sampleArtifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    runProcessing({ workspaceId, file, fields, processingOptions, bypassCache: fields.cacheDecision === "refresh", job, traceContext, sampleVideoId, sampleArtifactId, fileHash });
+    runProcessing({ workspaceId, file, fields, processingOptions, processingOptionsError, bypassCache: fields.cacheDecision === "refresh", job, traceContext, sampleVideoId, sampleArtifactId, fileHash });
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
 
@@ -43,6 +49,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         logInputSummary: null,
         action: async () => {
           assertUpload(context.file);
+          if (context.processingOptionsError) throw context.processingOptionsError;
           context.processingOptions = context.processingOptions ?? resolveProcessingOptions(context.fields);
           return context.processingOptions;
         },
