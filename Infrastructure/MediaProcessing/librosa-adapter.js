@@ -9,7 +9,6 @@ const DEFAULT_PARAMS = {
   maxEnergyFrames: 240,
   sourceRole: "original",
 };
-const LOW_SIGNAL_RMS_P95_DBFS = -20;
 
 async function isLibrosaAvailable({ command = pythonCommand(), runner = runCommand } = {}) {
   try {
@@ -65,9 +64,6 @@ function buildAudioFeaturesArtifact({ parentArtifactId, sourceAudioArtifactId, r
     beats: result.beats,
     onsets: result.onsets,
     energyFrames: result.energyFrames,
-    loudnessSummary: result.loudnessSummary,
-    beatFrames: result.beatFrames,
-    onsetFrames: result.onsetFrames,
     spectralSummary: result.spectralSummary,
     analysisParams: result.analysisParams,
   };
@@ -88,9 +84,6 @@ function audioFeaturesDegraded({ parentArtifactId, sourceAudioArtifactId = paren
     beats: [],
     onsets: [],
     energyFrames: [],
-    loudnessSummary: emptyLoudnessSummary("degraded"),
-    beatFrames: [],
-    onsetFrames: [],
     spectralSummary: {},
     analysisParams: {
       librosaVersion: null,
@@ -98,31 +91,21 @@ function audioFeaturesDegraded({ parentArtifactId, sourceAudioArtifactId = paren
       hopLength: finalParams.hopLength,
       nFft: finalParams.nFft,
       sourceRole: finalParams.sourceRole,
-      energyGate: defaultEnergyGate(null),
     },
   };
 }
 
 function validateLibrosaResult(result) {
-  const energyFrames = normalizeEnergyFrames(result.energyFrames);
-  const loudnessSummary = normalizeLoudnessSummary(result.loudnessSummary, energyFrames);
-  const energyGate = defaultEnergyGate(loudnessSummary.noiseFloorDbfs);
-  const rawBeats = sortedNumberArray(result.beats);
-  const rawOnsets = sortedNumberArray(result.onsets);
-  const beatFrames = normalizeMarkerFrames(result.beatFrames, rawBeats, "beat", energyFrames, loudnessSummary, energyGate);
-  const onsetFrames = normalizeMarkerFrames(result.onsetFrames, rawOnsets, "onset", energyFrames, loudnessSummary, energyGate);
-  return {
+  const normalized = {
     durationSeconds: optionalNumber(result.durationSeconds),
     tempoBpm: optionalNumber(result.tempoBpm),
-    beats: beatFrames.filter((marker) => marker.valid).map((marker) => marker.time),
-    onsets: onsetFrames.filter((marker) => marker.valid).map((marker) => marker.time),
-    energyFrames,
-    loudnessSummary,
-    beatFrames,
-    onsetFrames,
+    beats: sortedNumberArray(result.beats),
+    onsets: sortedNumberArray(result.onsets),
+    energyFrames: normalizeEnergyFrames(result.energyFrames),
     spectralSummary: normalizeSpectralSummary(result.spectralSummary),
-    analysisParams: normalizeAnalysisParams(result.analysisParams, energyGate),
+    analysisParams: normalizeAnalysisParams(result.analysisParams),
   };
+  return normalized;
 }
 
 function sortedNumberArray(values) {
@@ -137,7 +120,6 @@ function normalizeEnergyFrames(values) {
     .map((item) => ({
       time: optionalNumber(item?.time),
       rms: optionalNumber(item?.rms),
-      dbfs: optionalNumber(item?.dbfs) ?? rmsToDbfs(optionalNumber(item?.rms)),
     }))
     .filter((item) => item.time !== null && item.rms !== null && item.time >= 0)
     .sort((a, b) => a.time - b.time);
@@ -152,120 +134,14 @@ function normalizeSpectralSummary(value = {}) {
   };
 }
 
-function normalizeAnalysisParams(value = {}, energyGate = defaultEnergyGate(null)) {
+function normalizeAnalysisParams(value = {}) {
   return {
     librosaVersion: value.librosaVersion ? String(value.librosaVersion) : null,
     sampleRate: optionalNumber(value.sampleRate),
     hopLength: optionalNumber(value.hopLength),
     nFft: optionalNumber(value.nFft),
     sourceRole: value.sourceRole ? String(value.sourceRole) : DEFAULT_PARAMS.sourceRole,
-    energyGate: normalizeEnergyGate(value.energyGate, energyGate),
   };
-}
-
-function normalizeLoudnessSummary(value = {}, energyFrames = []) {
-  const dbfsValues = energyFrames.map((frame) => frame.dbfs).filter((item) => item !== null).sort((a, b) => a - b);
-  if (!dbfsValues.length) return emptyLoudnessSummary("no_energy_frames");
-  const noiseFloorDbfs = optionalNumber(value.noiseFloorDbfs) ?? percentile(dbfsValues, 0.1);
-  const activeThresholdDbfs = Math.max(-48, noiseFloorDbfs + 10);
-  const measuredActiveRatio = dbfsValues.length < 3 ? 1 : dbfsValues.filter((item) => item >= activeThresholdDbfs).length / dbfsValues.length;
-  const activeRatio = optionalNumber(value.activeRatio) ?? measuredActiveRatio;
-  const rmsP95Dbfs = optionalNumber(value.rmsP95Dbfs) ?? percentile(dbfsValues, 0.95);
-  const lowSignal = Boolean(value.lowSignal ?? (rmsP95Dbfs < LOW_SIGNAL_RMS_P95_DBFS || activeRatio < 0.03));
-  return {
-    rmsP50Dbfs: optionalNumber(value.rmsP50Dbfs) ?? percentile(dbfsValues, 0.5),
-    rmsP95Dbfs,
-    peakP95Dbfs: optionalNumber(value.peakP95Dbfs) ?? rmsP95Dbfs,
-    noiseFloorDbfs,
-    activeRatio,
-    lowSignal,
-    gateReason: value.gateReason ? String(value.gateReason) : lowSignal ? "low_signal" : null,
-  };
-}
-
-function emptyLoudnessSummary(gateReason = null) {
-  return {
-    rmsP50Dbfs: null,
-    rmsP95Dbfs: null,
-    peakP95Dbfs: null,
-    noiseFloorDbfs: null,
-    activeRatio: 0,
-    lowSignal: gateReason !== null,
-    gateReason,
-  };
-}
-
-function normalizeMarkerFrames(values, fallbackTimes, type, energyFrames, loudnessSummary, energyGate) {
-  const source = Array.isArray(values) && values.length ? values : fallbackTimes.map((time) => ({ time }));
-  return source
-    .map((item) => normalizeMarkerFrame(item, type, energyFrames, loudnessSummary, energyGate))
-    .filter((item) => item !== null)
-    .sort((a, b) => a.time - b.time);
-}
-
-function normalizeMarkerFrame(item, type, energyFrames, loudnessSummary, energyGate) {
-  const time = optionalNumber(item?.time ?? item);
-  if (time === null || time < 0) return null;
-  const nearest = nearestEnergyFrame(energyFrames, time);
-  const rms = optionalNumber(item?.rms) ?? nearest?.rms ?? null;
-  const dbfs = optionalNumber(item?.dbfs) ?? nearest?.dbfs ?? rmsToDbfs(rms);
-  const energyRank = optionalNumber(item?.energyRank) ?? energyRankForDbfs(energyFrames, dbfs);
-  const suppliedValid = typeof item?.valid === "boolean" ? item.valid : null;
-  const suppliedReason = item?.reason ? String(item.reason) : null;
-  const lowSignal = loudnessSummary.lowSignal;
-  const belowGate = dbfs === null || dbfs < energyGate.markerThresholdDbfs;
-  const valid = lowSignal ? false : suppliedValid ?? !belowGate;
-  const reason = lowSignal ? "low_signal" : valid ? null : suppliedReason ?? "below_marker_threshold";
-  return { time, rms, dbfs, energyRank, valid, reason };
-}
-
-function nearestEnergyFrame(energyFrames, time) {
-  if (!energyFrames.length) return null;
-  let best = energyFrames[0];
-  for (const frame of energyFrames) {
-    if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
-  }
-  return best;
-}
-
-function energyRankForDbfs(energyFrames, dbfs) {
-  if (dbfs === null || !energyFrames.length) return null;
-  const valid = energyFrames.map((frame) => frame.dbfs).filter((item) => item !== null).sort((a, b) => a - b);
-  if (!valid.length) return null;
-  const belowOrEqual = valid.filter((value) => value <= dbfs).length;
-  return Number((belowOrEqual / valid.length).toFixed(4));
-}
-
-function defaultEnergyGate(noiseFloorDbfs) {
-  const floor = optionalNumber(noiseFloorDbfs);
-  return {
-    noiseFloorDbfs: floor,
-    activeThresholdDbfs: floor === null ? -48 : Math.max(-48, floor + 10),
-    markerThresholdDbfs: floor === null ? -45 : Math.max(-45, floor + 12),
-    lowSignalRmsP95Dbfs: LOW_SIGNAL_RMS_P95_DBFS,
-    lowSignalActiveRatio: 0.03,
-  };
-}
-
-function normalizeEnergyGate(value = {}, fallback) {
-  return {
-    noiseFloorDbfs: optionalNumber(value.noiseFloorDbfs) ?? fallback.noiseFloorDbfs,
-    activeThresholdDbfs: optionalNumber(value.activeThresholdDbfs) ?? fallback.activeThresholdDbfs,
-    markerThresholdDbfs: optionalNumber(value.markerThresholdDbfs) ?? fallback.markerThresholdDbfs,
-    lowSignalRmsP95Dbfs: optionalNumber(value.lowSignalRmsP95Dbfs) ?? fallback.lowSignalRmsP95Dbfs,
-    lowSignalActiveRatio: optionalNumber(value.lowSignalActiveRatio) ?? fallback.lowSignalActiveRatio,
-  };
-}
-
-function rmsToDbfs(rms) {
-  const value = optionalNumber(rms);
-  if (value === null) return null;
-  return 20 * Math.log10(Math.max(value, 0.000001));
-}
-
-function percentile(values, ratio) {
-  if (!values.length) return null;
-  return values[Math.min(values.length - 1, Math.max(0, Math.floor(values.length * ratio)))];
 }
 
 function optionalNumber(value) {

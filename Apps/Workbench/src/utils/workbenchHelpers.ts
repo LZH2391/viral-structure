@@ -1,7 +1,6 @@
 import { getProcessingJob, getSampleArtifact, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, ProcessingJob, StructureCard, WorkbenchState } from "../types";
-import { findAudioFeatureMarker as findNormalizedAudioFeatureMarker } from "./audioFeatureMarkers";
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -108,7 +107,12 @@ export function buildIngestError(job: ProcessingJob) {
 }
 
 export function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], markerId: string): AudioFeatureMarker | null {
-  return findNormalizedAudioFeatureMarker(audioFeatures, markerId);
+  if (!audioFeatures) return null;
+  const markers = [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time })),
+  ];
+  return markers.find((marker) => marker.id === markerId) ?? null;
 }
 
 export function resolveAudioFeatureSourceId(state: WorkbenchState) {

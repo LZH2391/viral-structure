@@ -122,13 +122,11 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   assert.match(hook, /fallbackReason/);
   assert.match(hook, /audio_empty_peaks/);
   assert.match(envelope, /buildVisualEnvelope\(audioBuffer/);
-  assert.match(envelope, /isLowSignal/);
   assert.match(envelope, /normalizeEnvelope/);
   assert.match(envelope, /localMean/);
   assert.match(envelope, /stretchVisualRange/);
   assert.match(draw, /createStaticWaveform/);
   assert.match(draw, /buildDisplayPeaks/);
-  assert.match(draw, /isLowVisualSignal/);
   assert.match(draw, /drawCursor/);
 });
 

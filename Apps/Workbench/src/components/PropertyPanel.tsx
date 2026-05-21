@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
-import { formatPreciseTime, formatTime } from "../utils/format";
-import { findAudioFeatureMarker } from "../utils/audioFeatureMarkers";
+import { formatTime } from "../utils/format";
 
 type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -214,15 +213,9 @@ function AudioFeatureRows({ artifact, marker }: { artifact: AudioFeatureAnalysis
   return (
     <>
       <DetailRow label="媒体类型" value={marker ? markerLabel(marker.type) : "音频基础分析"} />
-      <DetailRow label="时间点" value={marker ? formatPreciseTime(marker.time, 3) : "未选择"} />
+      <DetailRow label="时间点" value={marker ? formatTime(marker.time) : "未选择"} />
       <DetailRow label="tempo" value={formatNumber(artifact.tempoBpm, " BPM")} />
       <DetailRow label="RMS" value={formatNumber(marker?.rms)} />
-      <DetailRow label="dBFS" value={formatNumber(marker?.dbfs, " dB")} />
-      <DetailRow label="能量分位" value={formatNumber(marker?.energyRank)} />
-      <DetailRow label="有效性" value={marker ? marker.valid === false ? "无效" : "有效" : "未选择"} />
-      <DetailRow label="过滤原因" value={marker?.reason ?? artifact.loudnessSummary?.gateReason ?? "无"} />
-      <DetailRow label="低信号" value={artifact.loudnessSummary?.lowSignal ? "是" : "否"} />
-      <DetailRow label="P95响度" value={formatNumber(artifact.loudnessSummary?.rmsP95Dbfs, " dB")} />
       <DetailRow label="beat数" value={String(artifact.beats.length)} />
       <DetailRow label="onset数" value={String(artifact.onsets.length)} />
       <DetailRow label="频谱质心" value={formatNumber(artifact.spectralSummary?.centroidMean)} />
@@ -237,6 +230,25 @@ function AudioFeatureRows({ artifact, marker }: { artifact: AudioFeatureAnalysis
 
 function markerLabel(type: AudioFeatureMarker["type"]) {
   return type === "beat" ? "beat 标记" : "onset 标记";
+}
+
+function findAudioFeatureMarker(audioFeatures: AudioFeatureAnalysisArtifact | null | undefined, markerId: string | null): AudioFeatureMarker | null {
+  if (!audioFeatures || !markerId) return null;
+  const markers = [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(audioFeatures, time) })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(audioFeatures, time) })),
+  ];
+  return markers.find((item) => item.id === markerId) ?? null;
+}
+
+function nearestRms(audioFeatures: AudioFeatureAnalysisArtifact, time: number) {
+  const frames = audioFeatures.energyFrames ?? [];
+  if (!frames.length) return null;
+  let best = frames[0];
+  for (const frame of frames) {
+    if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
+  }
+  return best.rms;
 }
 
 function resolveMaxAnalysisFps(sampleVideo: SampleVideo | null): number {

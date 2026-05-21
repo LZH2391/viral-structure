@@ -13,16 +13,6 @@ export function formatTime(value: number | undefined | null): string {
   return `${minutes}:${seconds}`;
 }
 
-export function formatPreciseTime(value: number | undefined | null, fractionalDigits = 2): string {
-  if (!Number.isFinite(value)) return "00:00.00";
-  const safeValue = Math.max(0, Number(value));
-  const minutes = Math.floor(safeValue / 60).toString().padStart(2, "0");
-  const seconds = Math.floor(safeValue % 60).toString().padStart(2, "0");
-  const fractionBase = Math.pow(10, Math.max(0, fractionalDigits));
-  const fractional = Math.floor((safeValue % 1) * fractionBase).toString().padStart(Math.max(0, fractionalDigits), "0");
-  return fractionalDigits > 0 ? `${minutes}:${seconds}.${fractional}` : `${minutes}:${seconds}`;
-}
-
 export function sanitizeText(value: unknown, maxLength = 72): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (text.length <= maxLength) return text;

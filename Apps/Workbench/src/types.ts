@@ -196,35 +196,11 @@ export type AudioFeatureMarker = {
   type: "beat" | "onset";
   time: number;
   rms?: number | null;
-  dbfs?: number | null;
-  energyRank?: number | null;
-  valid?: boolean;
-  reason?: string | null;
 };
 
 export type EnergyFrame = {
   time: number;
   rms: number;
-  dbfs?: number | null;
-};
-
-export type AudioFeatureFrameMarker = {
-  time: number;
-  rms: number | null;
-  dbfs: number | null;
-  energyRank: number | null;
-  valid: boolean;
-  reason: string | null;
-};
-
-export type LoudnessSummary = {
-  rmsP50Dbfs: number | null;
-  rmsP95Dbfs: number | null;
-  peakP95Dbfs: number | null;
-  noiseFloorDbfs: number | null;
-  activeRatio: number;
-  lowSignal: boolean;
-  gateReason: string | null;
 };
 
 export type AudioFeatureAnalysisArtifact = {
@@ -240,9 +216,6 @@ export type AudioFeatureAnalysisArtifact = {
   beats: number[];
   onsets: number[];
   energyFrames: EnergyFrame[];
-  loudnessSummary?: LoudnessSummary | null;
-  beatFrames?: AudioFeatureFrameMarker[];
-  onsetFrames?: AudioFeatureFrameMarker[];
   spectralSummary?: {
     centroidMean?: number | null;
     bandwidthMean?: number | null;
@@ -255,13 +228,6 @@ export type AudioFeatureAnalysisArtifact = {
     hopLength?: number | null;
     nFft?: number | null;
     sourceRole?: string | null;
-    energyGate?: {
-      noiseFloorDbfs?: number | null;
-      activeThresholdDbfs?: number | null;
-      markerThresholdDbfs?: number | null;
-      lowSignalRmsP95Dbfs?: number | null;
-      lowSignalActiveRatio?: number | null;
-    };
   };
 };
 

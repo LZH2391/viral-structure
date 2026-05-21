@@ -42,7 +42,7 @@ function drawStaticWaveform(context: CanvasRenderingContext2D, width: number, he
   context.fillStyle = "#385166";
   for (let x = 0; x < width; x += 3) {
     const peak = samplePeak(displayPeaks, x, width);
-    const barHeight = Math.max(2, peak * height * 0.9);
+    const barHeight = Math.max(8, peak * height * 0.9);
     context.fillRect(x, center - barHeight / 2, 2, barHeight);
   }
 }
@@ -53,13 +53,13 @@ function drawEnvelope(context: CanvasRenderingContext2D, width: number, height: 
   context.beginPath();
   for (let x = 0; x < width; x += 1) {
     const peak = samplePeak(peaks, x, width);
-    const y = center - Math.max(1, peak * height * 0.44);
+    const y = center - Math.max(6, peak * height * 0.44);
     if (x === 0) context.moveTo(x, y);
     else context.lineTo(x, y);
   }
   for (let x = width - 1; x >= 0; x -= 1) {
     const peak = samplePeak(peaks, x, width);
-    const y = center + Math.max(1, peak * height * 0.44);
+    const y = center + Math.max(6, peak * height * 0.44);
     context.lineTo(x, y);
   }
   context.closePath();
@@ -67,21 +67,20 @@ function drawEnvelope(context: CanvasRenderingContext2D, width: number, height: 
   context.fill();
 }
 
-export function buildDisplayPeaks(peaks: number[]): number[] {
+function buildDisplayPeaks(peaks: number[]): number[] {
   const finite = peaks.map((peak) => clamp(peak)).filter((peak) => Number.isFinite(peak));
   if (!finite.length) return [];
-  if (isLowVisualSignal(finite)) return finite.map((peak) => Math.min(0.06, peak));
+  const sorted = [...finite].sort((first, second) => first - second);
+  const floor = percentile(sorted, 0.03);
+  const ceiling = percentile(sorted, 0.97);
+  const range = Math.max(0.004, ceiling - floor);
   return finite.map((peak, index) => {
     const localAverage = localMean(finite, index, 10);
-    const local = clamp((peak - localAverage) / 0.18);
-    const shaped = Math.pow(peak, 0.9) * 0.92 + local * 0.08;
-    return clamp(shaped);
+    const global = clamp((peak - floor) / range);
+    const local = clamp((peak - localAverage + range * 0.32) / (range * 0.64));
+    const shaped = Math.pow(global, 0.62) * 0.78 + local * 0.22;
+    return 0.12 + clamp(shaped) * 0.84;
   });
-}
-
-function isLowVisualSignal(values: number[]): boolean {
-  const sorted = [...values].sort((first, second) => first - second);
-  return percentile(sorted, 0.95) < 0.05;
 }
 
 function samplePeak(peaks: number[], x: number, width: number): number {

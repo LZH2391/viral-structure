@@ -26,14 +26,13 @@ test("librosa JSON output is normalized and sorted", () => {
     tempoBpm: "120.2",
     beats: [1.2, 0.4, "bad"],
     onsets: [0.9, 0.1],
-    energyFrames: [{ time: 0, rms: 0.0005, dbfs: -66 }, { time: 0.2, rms: 0.3, dbfs: -10.45 }, { time: "bad", rms: 0.1 }, { time: 0.1, rms: "0.2" }],
+    energyFrames: [{ time: 0.2, rms: 0.3 }, { time: "bad", rms: 0.1 }, { time: 0.1, rms: "0.2" }],
     spectralSummary: { centroidMean: "1000.5", bandwidthMean: null, rolloffMean: 2000, zeroCrossingRateMean: 0.03 },
     analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
   });
   assert.deepEqual(result.beats, [0.4, 1.2]);
   assert.deepEqual(result.onsets, [0.1, 0.9]);
-  assert.equal(result.energyFrames[1].dbfs < -13.9 && result.energyFrames[1].dbfs > -14, true);
-  assert.deepEqual(result.energyFrames[2], { time: 0.2, rms: 0.3, dbfs: -10.45 });
+  assert.deepEqual(result.energyFrames, [{ time: 0.1, rms: 0.2 }, { time: 0.2, rms: 0.3 }]);
   assert.equal(result.spectralSummary.centroidMean, 1000.5);
 });
 
@@ -49,7 +48,7 @@ test("extractAudioFeatures builds artifact from runner JSON", async () => {
         tempoBpm: 120,
         beats: [0.1],
         onsets: [0.2],
-        energyFrames: [{ time: 0, rms: 0.0005, dbfs: -66 }, { time: 0.1, rms: 0.4, dbfs: -7.96 }],
+        energyFrames: [{ time: 0.1, rms: 0.4 }],
         spectralSummary: {},
         analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
       }),
@@ -60,8 +59,6 @@ test("extractAudioFeatures builds artifact from runner JSON", async () => {
   assert.equal(artifact.sourceAudioArtifactId, "artifact_music");
   assert.equal(artifact.type, "audio-feature-analysis");
   assert.deepEqual(artifact.beats, [0.1]);
-  assert.equal(artifact.beatFrames[0].valid, true);
-  assert.equal(artifact.loudnessSummary.lowSignal, false);
 });
 
 test("degraded audio features keep lineage and empty arrays", () => {
@@ -70,7 +67,6 @@ test("degraded audio features keep lineage and empty arrays", () => {
   assert.equal(degraded.status, "degraded");
   assert.deepEqual(degraded.beats, []);
   assert.deepEqual(degraded.onsets, []);
-  assert.equal(degraded.loudnessSummary.lowSignal, true);
 });
 
 test("audio features artifact keeps machine-readable fields", () => {
@@ -81,41 +77,4 @@ test("audio features artifact keeps machine-readable fields", () => {
   });
   assert.equal(artifact.type, "audio-feature-analysis");
   assert.equal(artifact.sourceAudioArtifactId, "artifact_audio");
-  assert.ok(artifact.analysisParams.energyGate);
-});
-
-test("near silent audio is marked low signal and filters markers", () => {
-  const result = validateLibrosaResult({
-    beats: [0.1, 0.2],
-    onsets: [0.15],
-    energyFrames: [
-      { time: 0.1, rms: 0.0001, dbfs: -80 },
-      { time: 0.2, rms: 0.00012, dbfs: -78.4 },
-    ],
-    spectralSummary: {},
-    analysisParams: {},
-  });
-  assert.equal(result.loudnessSummary.lowSignal, true);
-  assert.deepEqual(result.beats, []);
-  assert.deepEqual(result.onsets, []);
-  assert.equal(result.beatFrames[0].valid, false);
-  assert.equal(result.beatFrames[0].reason, "low_signal");
-});
-
-test("marker frames keep high energy markers and explain filtered markers", () => {
-  const result = validateLibrosaResult({
-    beats: [0.1, 0.4],
-    onsets: [],
-    energyFrames: [
-      { time: 0.1, rms: 0.2, dbfs: -14 },
-      { time: 0.4, rms: 0.001, dbfs: -60 },
-      { time: 0.8, rms: 0.18, dbfs: -14.9 },
-    ],
-    spectralSummary: {},
-    analysisParams: {},
-  });
-  assert.deepEqual(result.beats, [0.1]);
-  assert.equal(result.beatFrames[0].valid, true);
-  assert.equal(result.beatFrames[1].valid, false);
-  assert.equal(result.beatFrames[1].reason, "below_marker_threshold");
 });
