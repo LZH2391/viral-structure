@@ -2,9 +2,11 @@ import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
-import { clampVisibleSeconds, createTimelineMetrics, frameLeft, visibleFrames } from "../utils/timeline";
+import { clampVisibleSeconds, createTimelineMetrics, frameLeft, timeToTimelineLeft, visibleFrames } from "../utils/timeline";
 import { useElementSize } from "../hooks/useElementSize";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
+import { useTimelinePlayback } from "../hooks/useTimelinePlayback";
+import { TimelinePlayhead } from "./TimelinePlayhead";
 
 type TimelinePanelProps = {
   sampleVideo: SampleVideo | null;
@@ -21,6 +23,7 @@ type TimelinePanelProps = {
   timelineFrameVisible: boolean;
   timelineVisibleSeconds: number;
   videoRef: RefObject<HTMLVideoElement>;
+  audioRef: RefObject<HTMLAudioElement>;
   miniCanvasRef: RefObject<HTMLCanvasElement>;
   uiTraceId: string;
   backendTraceId?: string | null;
@@ -49,6 +52,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
     timelineFrameVisible,
     timelineVisibleSeconds,
     videoRef,
+    audioRef,
     miniCanvasRef,
     uiTraceId,
     backendTraceId,
@@ -61,6 +65,8 @@ export function TimelinePanel(props: TimelinePanelProps) {
     onVisibleSecondsChange,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
+  const playheadLabelRef = useRef<HTMLSpanElement>(null);
   const [miniCanvas, setMiniCanvas] = useState<HTMLCanvasElement | null>(null);
   const size = useElementSize(scrollRef);
   const [draftSeconds, setDraftSeconds] = useState(String(timelineVisibleSeconds));
@@ -77,6 +83,17 @@ export function TimelinePanel(props: TimelinePanelProps) {
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
     [sampleVideo, size.width, timelineVisibleSeconds],
   );
+  const playheadController = useTimelinePlayback({
+    activeMediaKind,
+    videoRef,
+    audioRef,
+    onFrame: (time) => {
+      const left = timeToPlayheadLeft(time, metrics);
+      const playhead = playheadRef.current;
+      if (playhead) playhead.style.transform = `translate3d(${left}px, 0, 0)`;
+      if (playheadLabelRef.current) playheadLabelRef.current.textContent = formatTime(time);
+    },
+  });
 
   useEffect(() => setDraftSeconds(String(timelineVisibleSeconds)), [timelineVisibleSeconds]);
 
@@ -129,6 +146,20 @@ export function TimelinePanel(props: TimelinePanelProps) {
         </div>
         <div id="timelineScroll" ref={scrollRef} className="timeline-scroll">
           <div id="timelineContent" className="timeline-content" style={{ width: metrics.contentWidth }}>
+            <TimelinePlayhead
+              duration={metrics.duration}
+              contentWidth={metrics.contentWidth}
+              disabled={!sampleVideo}
+              mediaElement={playheadController.mediaElement}
+              uiTraceId={uiTraceId}
+              backendTraceId={backendTraceId ?? null}
+              artifactId={resolveTimelinePlaybackArtifactId(activeMediaKind, sampleVideo, selectedAudio, subtitles)}
+              parentArtifactId={resolveTimelinePlaybackParentArtifactId(activeMediaKind, sampleVideo, selectedAudio, subtitles)}
+              scrollRef={scrollRef}
+              playheadRef={playheadRef}
+              labelRef={playheadLabelRef}
+              controller={playheadController}
+            />
             <div id="timelineRuler" className="timeline-ruler">
               {metrics.ticks.map((tick) => (
                 <span key={`${tick.time}-${tick.left}`} className="ruler-tick" style={{ left: tick.left }}>
@@ -234,6 +265,24 @@ export function TimelinePanel(props: TimelinePanelProps) {
       </div>
     </section>
   );
+}
+
+function timeToPlayheadLeft(time: number, metrics: Pick<ReturnType<typeof createTimelineMetrics>, "duration" | "contentWidth">) {
+  return timeToTimelineLeft(time, metrics);
+}
+
+function resolveTimelinePlaybackArtifactId(activeMediaKind: MediaKind, sampleVideo: SampleVideo | null, selectedAudio: MediaDerivative | null, subtitles?: SubtitleArtifact | null): string | null {
+  if (activeMediaKind === "video") return sampleVideo?.artifactId ?? null;
+  if (activeMediaKind === "audio" || activeMediaKind === "audioFeature") return selectedAudio?.artifactId ?? null;
+  if (activeMediaKind === "subtitle") return subtitles?.artifactId ?? null;
+  return sampleVideo?.artifactId ?? null;
+}
+
+function resolveTimelinePlaybackParentArtifactId(activeMediaKind: MediaKind, sampleVideo: SampleVideo | null, selectedAudio: MediaDerivative | null, subtitles?: SubtitleArtifact | null): string | null {
+  if (activeMediaKind === "video") return sampleVideo?.parentArtifactId ?? null;
+  if (activeMediaKind === "audio" || activeMediaKind === "audioFeature") return selectedAudio?.parentArtifactId ?? sampleVideo?.artifactId ?? null;
+  if (activeMediaKind === "subtitle") return subtitles?.parentArtifactId ?? sampleVideo?.artifactId ?? null;
+  return sampleVideo?.parentArtifactId ?? null;
 }
 
 function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {

@@ -22,7 +22,7 @@ export function createTimelineMetrics(video: SampleVideo | null, options: { visi
   const tickStep = chooseTickStep(duration);
   const ticks = [];
   for (let time = 0; time <= duration; time += tickStep) {
-    ticks.push({ time, left: timelineLeft(time, { duration, contentWidth }) });
+    ticks.push({ time, left: timeToTimelineLeft(time, { duration, contentWidth }) });
   }
   if (shouldAppendEndTick(ticks, duration)) ticks.push({ time: duration, left: contentWidth });
   return { duration, contentWidth, pixelsPerSecond, visibleSeconds, ticks };
@@ -35,7 +35,7 @@ export function visibleFrames(frames: SampleFrame[]): SampleFrame[] {
 }
 
 export function frameLeft(time: number, metrics: Pick<TimelineMetrics, "duration" | "contentWidth">): number {
-  return Math.min(metrics.contentWidth - FRAME_CELL_WIDTH, timelineLeft(time, metrics));
+  return Math.min(metrics.contentWidth - FRAME_CELL_WIDTH, timeToTimelineLeft(time, metrics));
 }
 
 export function clampVisibleSeconds(value: unknown): number {
@@ -44,9 +44,26 @@ export function clampVisibleSeconds(value: unknown): number {
   return Math.max(1, Math.min(30, next));
 }
 
-function timelineLeft(time: number, metrics: Pick<TimelineMetrics, "duration" | "contentWidth">): number {
-  const ratio = Math.max(0, Math.min(1, (time || 0) / metrics.duration));
-  return Math.round(metrics.contentWidth * ratio);
+export function timeToTimelineLeft(time: number, metrics: Pick<TimelineMetrics, "duration" | "contentWidth">): number {
+  const duration = safePositiveNumber(metrics.duration);
+  const contentWidth = safePositiveNumber(metrics.contentWidth);
+  if (!duration || !contentWidth) return 0;
+  const safeTime = Number.isFinite(time) ? time : 0;
+  const ratio = Math.max(0, Math.min(1, safeTime / duration));
+  return Math.round(contentWidth * ratio);
+}
+
+export function timelineLeftToTime(left: number, metrics: Pick<TimelineMetrics, "duration" | "contentWidth">): number {
+  const duration = safePositiveNumber(metrics.duration);
+  const contentWidth = safePositiveNumber(metrics.contentWidth);
+  if (!duration || !contentWidth) return 0;
+  const safeLeft = Number.isFinite(left) ? left : 0;
+  const ratio = Math.max(0, Math.min(1, safeLeft / contentWidth));
+  return duration * ratio;
+}
+
+function safePositiveNumber(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 function chooseTickStep(duration: number): number {

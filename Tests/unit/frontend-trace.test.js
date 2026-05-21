@@ -70,6 +70,28 @@ test("timeline selection and zoom avoid high-frequency full rerenders", () => {
   assert.match(app, /if \(\(card\?\.id \?\? null\) !== lastSegmentId\)/);
 });
 
+test("timeline playhead playback avoids reducer driven progress updates", () => {
+  const root = path.resolve(__dirname, "../..");
+  const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
+  const playhead = read(root, "Apps/Workbench/src/components/TimelinePlayhead.tsx");
+  const playback = read(root, "Apps/Workbench/src/hooks/useTimelinePlayback.ts");
+  const state = read(root, "Apps/Workbench/src/state.ts");
+
+  assert.match(timeline, /useTimelinePlayback/);
+  assert.match(playback, /requestAnimationFrame\(tick\)/);
+  assert.match(playhead, /data-timeline-playhead/);
+  assert.match(timeline, /style\.transform = `translate3d/);
+  assert.match(playhead, /SCRUB_SEEK_INTERVAL_MS = 66/);
+  assert.match(playhead, /timeline\.playback\.toggle/);
+  assert.match(playhead, /timeline\.playhead\.seek/);
+  assert.match(playhead, /timeline\.playhead\.scrub/);
+  assert.doesNotMatch(state, /currentTime/);
+  assert.doesNotMatch(state, /set-current-time/);
+  assert.doesNotMatch(timeline, /dispatch\(\{ type: "set-visible-seconds"/);
+  assert.doesNotMatch(timeline, /setCurrentTime/);
+  assert.doesNotMatch(playback, /setCurrentTime/);
+});
+
 test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   const root = path.resolve(__dirname, "../..");
   const hook = read(root, "Apps/Workbench/src/hooks/useAudioWaveform.ts");

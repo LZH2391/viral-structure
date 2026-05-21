@@ -409,6 +409,7 @@ export function WorkbenchApp() {
           timelineFrameVisible={state.timelineFrameVisible}
           timelineVisibleSeconds={state.timelineVisibleSeconds}
           videoRef={videoRef}
+          audioRef={audioRef}
           miniCanvasRef={miniCanvasRef}
           uiTraceId={state.uiTraceId}
           backendTraceId={state.processingJob?.traceId ?? null}
