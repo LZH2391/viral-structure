@@ -41,13 +41,20 @@ python -m pip install pydantic websocket-client fastapi uvicorn
 
 ## 启动
 
-推荐使用根目录脚本启动本地 API、Workbench 和相关本地服务：
+推荐使用根目录脚本启动完整本地栈：
 
 ```powershell
 .\start-api-server.ps1
 ```
 
-工作台默认地址：
+脚本会启动：
+
+- Codex AppServer：`codex app-server --listen ws://127.0.0.1:8146`
+- ThreadPool：`Infrastructure\AgentRuntime\scripts\thread_pool_service.py`
+- API server：`Apps\Api\server.js`
+- Workbench：Vite dev server
+
+默认访问地址：
 
 ```text
 http://127.0.0.1:5177/
@@ -65,70 +72,43 @@ ThreadPool 页面：
 http://127.0.0.1:5177/threadpool
 ```
 
+## 本地服务配置
+
+启动脚本默认使用以下端口：
+
+- API server：`5177`
+- Workbench dev server：`5178`
+- Codex AppServer：`8146`
+- ThreadPool：`8877`
+
+AppServer 需要本机已安装并可执行 `codex` CLI。脚本通过 `APP_SERVER_URL` 配置 AppServer websocket 地址，并同步写入 `CODEX_APP_SERVER_WS_URL` 供 API bridge 和 ThreadPool 使用。
+
+ThreadPool 通过 `THREADPOOL_CONFIG_PATH` 读取角色配置，默认使用：
+
+```text
+Infrastructure\ThreadPool\thread_roles.json
+```
+
+AgentRuntime 默认从仓库内置目录加载：
+
+```text
+Infrastructure\AgentRuntime
+```
+
 ## 常用环境变量
 
 本项目不提交 `.env` 文件。需要的本地配置请通过系统环境变量、PowerShell 会话变量或本地私有脚本注入。
 
+- `PORT`：API server 端口，默认 `5177`。
+- `VITE_PORT`：Workbench dev server 端口，默认 `5178`。
+- `APP_SERVER_URL`：启动 Codex AppServer 使用的 websocket 地址，默认 `ws://127.0.0.1:8146`。
 - `PYTHON_RUNTIME_ROOT`：本仓库内置 AgentRuntime 根目录，默认 `Infrastructure\AgentRuntime`。
-- `CODEX_APP_SERVER_WS_URL`：AppServer websocket 地址，默认 `ws://127.0.0.1:8146`。
+- `CODEX_APP_SERVER_WS_URL`：API bridge 和 ThreadPool 连接 AppServer 使用的 websocket 地址，通常由启动脚本从 `APP_SERVER_URL` 写入。
 - `THREADPOOL_BASE_URL`：ThreadPool HTTP 服务地址。
 - `THREADPOOL_PORT`：本地 ThreadPool 端口。
+- `THREADPOOL_CONFIG_PATH`：ThreadPool 角色配置文件路径。
 - `FFMPEG_BIN`：本机 FFmpeg 可执行文件路径。
 - `FFPROBE_BIN`：本机 FFprobe 可执行文件路径。
 - `XFYUN_APP_ID`：讯飞应用 ID。
 - `XFYUN_API_KEY`：讯飞 API Key。
 - `XFYUN_API_SECRET`：讯飞 API Secret。
-
-## 测试
-
-```powershell
-npm test
-```
-
-可单独运行关键回归测试：
-
-```powershell
-node --test Tests/unit/threadpool-shot-boundary.test.js Tests/unit/artifact-index.test.js Tests/unit/frontend-trace.test.js
-```
-
-## 本地产物
-
-以下目录只用于本地运行和调试，不应提交：
-
-- `Runtime/Uploads`
-- `Runtime/Artifacts`
-- `Runtime/ArtifactIndex`
-- `Runtime/DebugSnapshots`
-- `Runtime/Jobs`
-- `Runtime/Temp`
-- `_workspace`
-- `MP4`
-- `ffmpeg-*`
-- `node_modules`
-
-如果运行后出现上述目录内文件被 Git 跟踪，应先从索引移除，再提交：
-
-```powershell
-git rm --cached -r Runtime/Jobs _workspace
-```
-
-## 发布前检查
-
-公开推送前建议执行：
-
-```powershell
-npm test
-git status --short
-```
-
-确认没有 `.env`、运行素材、调试快照、ThreadPool lease/thread 状态、真实 API 密钥或本地隐私路径进入提交。
-
-## AgentRuntime 说明
-
-shot-boundary 主链路现在默认使用仓库内置的轻量 AgentRuntime：
-
-- `Infrastructure/AgentRuntime/agent_runtime/appserver`
-- `Infrastructure/AgentRuntime/agent_runtime/threadpool`
-- `Infrastructure/AgentRuntime/scripts/thread_pool_service.py`
-
-这套 runtime 只覆盖当前课题所需的 AppServer Session Client 和 Role ThreadPool 最小闭包，不包含 AE 工作流、SDK、workstream 平台。
