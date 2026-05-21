@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
@@ -45,10 +45,69 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /输入清单/);
   assert.doesNotMatch(promptText, /sampleVideoId/);
   assert.doesNotMatch(promptText, /frameIndexMap/);
-  assert.match(promptText, /"timestamp":12\.48/);
+  assert.match(promptText, /"durationSeconds":2/);
+  assert.match(promptText, /"analysisSampling":\{"fps":1,"stride":3\}/);
+  assert.match(promptText, /"sheetCount":2/);
+  assert.match(promptText, /"sheetIndex":0/);
+  assert.match(promptText, /"sheetIndex":1/);
+  assert.match(promptText, /"frameCount":2/);
+  assert.match(promptText, /"frameCount":0/);
+  assert.match(promptText, /"startTime":0/);
+  assert.match(promptText, /"endTime":1/);
+  assert.match(promptText, /"endTime":0/);
+  assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
+  assert.match(promptText, /"boundaries\[\]\.confidence":"number, 0\.\.1"/);
+  assert.doesNotMatch(promptText, /sourceArtifactId/);
+  assert.doesNotMatch(promptText, /sheetId/);
+  assert.doesNotMatch(promptText, /extractSampling/);
+  assert.doesNotMatch(promptText, /requestedFps/);
+  assert.doesNotMatch(promptText, /actualFrameCount/);
+  assert.doesNotMatch(promptText, /targetFrameCount/);
+  assert.doesNotMatch(promptText, /maxFrames/);
+  assert.doesNotMatch(promptText, /"timestamp":12\.48/);
+  assert.doesNotMatch(promptText, /"timestamp":0/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
   assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
   assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
+});
+
+test("shot boundary repair turn inputs use field contract without timestamp examples", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const validationError = {
+    code: "shot_boundary_validation_failed",
+    message: "切镜结果校验失败",
+    debugPayload: {
+      validation: {
+        code: "shot_boundary_timestamp_out_of_range",
+        message: "切镜时间点超出允许范围",
+        validatorCode: "shot_boundary_timestamp_out_of_range",
+      },
+    },
+  };
+
+  const turnInputs = buildRepairTurnInputs({
+    prepared,
+    contactSheets,
+    validationError,
+    priorTurnOutput: JSON.stringify({ boundaries: [{ timestamp: 9.9 }] }),
+    repairAttemptCount: 1,
+  });
+  const promptText = turnInputs[0].text;
+
+  assert.match(promptText, /分析采样：\{"fps":1,"stride":3\}/);
+  assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
+  assert.match(promptText, /"boundaries\[\]\.reason":"short string"/);
+  assert.match(promptText, /"hasPriorOutput":true/);
+  assert.match(promptText, /"outputLength":34/);
+  assert.doesNotMatch(promptText, /"timestamp":12\.48/);
+  assert.doesNotMatch(promptText, /"timestamp":0/);
+  assert.doesNotMatch(promptText, /9\.9/);
+  assert.doesNotMatch(promptText, /sourceArtifactId/);
+  assert.doesNotMatch(promptText, /sheetId/);
+  assert.doesNotMatch(promptText, /extractSampling/);
+  assert.equal(turnInputs.filter((item) => item.type === "localImage").length, 2);
 });
 
 test("shot boundary normalizes timestamp boundaries and builds contiguous shots", () => {

@@ -59,34 +59,29 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
 
 function buildTurnInputs({ prepared, contactSheets }) {
   const manifest = {
-    sourceArtifactId: prepared.sourceArtifactId,
     durationSeconds: round(prepared.durationSeconds),
-    extractSampling: prepared.extractSampling,
     analysisSampling: prepared.analysisSampling,
     sheetCount: contactSheets.length,
     sheets: contactSheets.map((sheet) => ({
-      sheetId: sheet.sheetId,
       sheetIndex: sheet.sheetIndex,
       frameCount: sheet.frameCount,
       startTime: round(resolveSheetStartTime(sheet)),
       endTime: round(resolveSheetEndTime(sheet)),
     })),
   };
+  const outputContract = {
+    boundaries: "non-empty array, strictly ascending by timestamp",
+    "boundaries[].timestamp": "number, seconds, 0 < timestamp < durationSeconds",
+    "boundaries[].confidence": "number, 0..1",
+    "boundaries[].boundaryType": "string",
+    "boundaries[].reason": "short string",
+    "boundaries[].needReview": "boolean",
+  };
   const prompt = [
     "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
     "你只需要输出切镜时间点，不要输出 frameId、路径、完整输入明细、剧情解释或 OCR 结果。",
     `任务输入：${JSON.stringify(manifest)}`,
-    `输出 schema：${JSON.stringify({
-      boundaries: [
-        {
-          timestamp: 12.48,
-          confidence: 0.82,
-          boundaryType: "hard_cut",
-          reason: "画面主体与景别出现明显跳变",
-          needReview: false,
-        },
-      ],
-    })}`,
+    `输出契约：${JSON.stringify(outputContract)}`,
     "返回前自检：JSON 可解析；boundaries 不能为空；timestamp 必须在 0 到 durationSeconds 之间；boundaries 必须严格升序且不能重复；不要输出本地路径。",
   ].join("\n");
   const inputs = [{ type: "text", text: prompt, text_elements: [] }];
@@ -97,24 +92,26 @@ function buildTurnInputs({ prepared, contactSheets }) {
 }
 
 function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
+  const outputContract = {
+    boundaries: "non-empty array, strictly ascending by timestamp",
+    "boundaries[].timestamp": "number, seconds, 0 < timestamp < durationSeconds",
+    "boundaries[].confidence": "number, 0..1",
+    "boundaries[].boundaryType": "string",
+    "boundaries[].reason": "short string",
+    "boundaries[].needReview": "boolean",
+  };
+  const priorOutputText = String(priorTurnOutput ?? "").trim();
   const prompt = [
     "上一次切镜输出未通过校验。请在同一任务上修复，只返回 JSON object。",
     `修复轮次：${repairAttemptCount}`,
     `视频时长：${round(prepared.durationSeconds)} 秒`,
     `分析采样：${JSON.stringify(prepared.analysisSampling)}`,
     `校验失败：${JSON.stringify(validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message })}`,
-    `上次输出摘要：${JSON.stringify(summarizeAgentOutput(priorTurnOutput, null, null))}`,
-    `输出 schema：${JSON.stringify({
-      boundaries: [
-        {
-          timestamp: 12.48,
-          confidence: 0.82,
-          boundaryType: "hard_cut",
-          reason: "画面主体与景别出现明显跳变",
-          needReview: false,
-        },
-      ],
+    `上次输出摘要：${JSON.stringify({
+      hasPriorOutput: Boolean(priorOutputText),
+      outputLength: priorOutputText.length,
     })}`,
+    `输出契约：${JSON.stringify(outputContract)}`,
     "要求：只保留你能确认的切换时间点；严格按时间升序；不要返回空 boundaries；不要输出 frameId、路径或解释性正文。",
   ].join("\n");
   const inputs = [{ type: "text", text: prompt, text_elements: [] }];
