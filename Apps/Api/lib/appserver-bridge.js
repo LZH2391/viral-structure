@@ -70,7 +70,10 @@ function appServerError(result, fallbackCode) {
 
 function runPythonJson({ python, script, payload, timeoutMs }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(python, [script], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(python, [script], {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, PYTHONIOENCODING: process.env.PYTHONIOENCODING || "utf-8" },
+    });
     let stdout = "";
     let stderr = "";
     const timer = setTimeout(() => {

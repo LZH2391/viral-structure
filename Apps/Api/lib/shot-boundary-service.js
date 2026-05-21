@@ -154,16 +154,16 @@ function createShotBoundaryService({
   }
 
   async function writeCompletedAnalysis({ context, prepared, agentRun, turn }) {
-    const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-    const analysis = parseAgentResult(turn.finalMessage, prepared, context, lease, turn);
     await runStage(context, STAGES.resultWritten, 95, {
-      artifactId: analysis.artifactId,
-      parentArtifactId: analysis.parentArtifactId,
+      artifactId: context.artifactId,
+      parentArtifactId: prepared.sourceArtifactId ?? null,
       inputSummary: { turnId: turn.turnId, frameCount: prepared.frames.length, stride: prepared.analysisSampling.stride },
       action: async () => {
+        const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+        const analysis = parseAgentResult(turn.finalMessage, prepared, context, lease, turn);
         await attachAnalysis(context.sampleVideoId, analysis);
         await artifactIndex.registerSampleArtifact({ artifact: await loadSampleArtifact(context.sampleVideoId), fileHash: await resolveExistingFileHash(context.sampleVideoId), traceId: context.traceContext.traceId });
-        await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
+        await finalizeLease(threadPool, agentRun);
         return analysis;
       },
       outputSummary: (result) => ({ status: result.status, shotCount: result.shots.length, artifactType: result.type }),
@@ -420,6 +420,20 @@ function parseAgentResult(message, input, context, lease, turn) {
   const rawShots = Array.isArray(parsed.shots) ? parsed.shots : [];
   const fallbackEnd = input.durationSeconds || input.frames.at(-1)?.timestamp || 0;
   const shots = normalizeShots(rawShots, input.frames, fallbackEnd);
+  const qualityIssue = detectReasonEncodingIssue(shots);
+  if (qualityIssue) {
+    throw codedError(
+      "agent_output_quality_failed",
+      "切镜 Agent 输出存在编码异常，已阻止写入 processed 产物",
+      {
+        turnId: turn?.turnId ?? null,
+        parseFailureReason: qualityIssue.reason,
+        outputSummary: summarizeAgentOutput(message, rawShots, shots),
+        suspiciousReason: qualityIssue.suspiciousReason,
+      },
+      true,
+    );
+  }
   return {
     artifactId: context.artifactId,
     parentArtifactId: input.sourceArtifactId,
@@ -489,6 +503,19 @@ function normalizeShots(rawShots, frames, durationSeconds) {
   return valid;
 }
 
+async function finalizeLease(threadPool, agentRun) {
+  const config = typeof threadPool.config === "function" ? await threadPool.config().catch(() => null) : null;
+  if (config?.ok && config.discardOnRelease && agentRun?.threadId) {
+    await threadPool.discardThread({ threadId: agentRun.threadId, reason: "graceful-successful-release" });
+    if (typeof threadPool.releaseOwnerLeases === "function" && agentRun?.traceId) {
+      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
+    }
+    return { mode: "graceful-discard" };
+  }
+  await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
+  return { mode: "lease-release" };
+}
+
 function buildFrameCaption(frame) {
   return [
     `frameId=${frame.frameId}`,
@@ -517,6 +544,41 @@ function buildFallbackShot(frames, durationSeconds) {
     representativeFrameId: resolveRepresentativeFrameId("", frames, 0, durationSeconds),
     confidence: 0.4,
     reason: "帧数量不足，保留单镜头",
+  };
+}
+
+function detectReasonEncodingIssue(shots) {
+  for (const shot of shots) {
+    const reason = String(shot?.reason ?? "");
+    if (reason.includes("\uFFFD")) {
+      return { reason: "reason contains replacement character", suspiciousReason: reason.slice(0, 160) };
+    }
+    if (looksLikeUtf8Mojibake(reason)) {
+      return { reason: "reason matches UTF-8 mojibake pattern", suspiciousReason: reason.slice(0, 160) };
+    }
+    if (looksLikeGbkMojibake(reason)) {
+      return { reason: "reason matches GBK mojibake pattern", suspiciousReason: reason.slice(0, 160) };
+    }
+  }
+  return null;
+}
+
+function looksLikeUtf8Mojibake(text) {
+  const value = String(text ?? "");
+  return /(?:Ã.|Â.|æ[\u0080-\u00FF]|å[\u0080-\u00FF]|ç[\u0080-\u00FF]|ä[\u0080-\u00FF]|é[\u0080-\u00FF]){2,}/.test(value);
+}
+
+function looksLikeGbkMojibake(text) {
+  const value = String(text ?? "");
+  return /(鏈|娴嬪|鏄庢|瑙嗚|鍙樺|锟斤拷)/.test(value);
+}
+
+function summarizeAgentOutput(message, rawShots, normalizedShots) {
+  return {
+    messagePreview: String(message ?? "").replace(/\s+/g, " ").slice(0, 200),
+    rawShotCount: Array.isArray(rawShots) ? rawShots.length : 0,
+    normalizedShotCount: Array.isArray(normalizedShots) ? normalizedShots.length : 0,
+    firstReasons: Array.isArray(normalizedShots) ? normalizedShots.slice(0, 3).map((shot) => String(shot.reason ?? "").slice(0, 80)) : [],
   };
 }
 
@@ -581,21 +643,28 @@ function safeError(error, stageName) {
     code: error?.code ?? "shot_boundary_failed",
     message: error instanceof Error ? error.message : "镜头切分失败",
     stageName,
-    retryable: true,
+    retryable: typeof error?.retryable === "boolean" ? error.retryable : true,
   };
 }
 
 function sanitizeDebugPayload(error) {
+  const details = error?.debugPayload ?? null;
   return {
     code: error?.code ?? null,
     message: error instanceof Error ? error.message : String(error ?? "unknown").slice(0, 240),
-    appServer: error?.debugPayload ?? null,
+    turnId: details?.turnId ?? null,
+    outputSummary: details?.outputSummary ?? null,
+    parseFailureReason: details?.parseFailureReason ?? null,
+    suspiciousReason: details?.suspiciousReason ?? null,
+    appServer: details,
   };
 }
 
-function codedError(code, message) {
+function codedError(code, message, debugPayload = null, retryable = true) {
   const error = new Error(message);
   error.code = code;
+  error.debugPayload = debugPayload;
+  error.retryable = retryable;
   return error;
 }
 

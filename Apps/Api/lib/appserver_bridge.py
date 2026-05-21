@@ -5,6 +5,10 @@ import sys
 from pathlib import Path
 
 
+def write_json(payload) -> None:
+    sys.stdout.buffer.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+
+
 def sanitize_for_appserver_text(value):
     if isinstance(value, str):
         return "".join(ch for ch in value if not 0xD800 <= ord(ch) <= 0xDFFF)
@@ -39,7 +43,7 @@ def main() -> int:
             return collect_turn_result(client, payload)
         if operation == "runTurnWithInputs":
             return run_turn_with_inputs(client, payload)
-        sys.stdout.write(json.dumps({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"}, ensure_ascii=False))
+        write_json({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"})
         return 1
     finally:
         client.close()
@@ -59,55 +63,46 @@ def start_turn_with_inputs(client, payload) -> int:
         skill_path=payload.get("skillPath") or None,
         cwd=payload["workspaceRoot"],
     )
-    sys.stdout.write(
-        json.dumps(
-            {
-                "ok": True,
-                "threadId": str(payload["threadId"]),
-                "turnId": turn_id,
-                "status": "submitted",
-            },
-            ensure_ascii=False,
-        )
+    write_json(
+        {
+            "ok": True,
+            "threadId": str(payload["threadId"]),
+            "turnId": turn_id,
+            "status": "submitted",
+        }
     )
     return 0
 
 
 def collect_turn_result(client, payload) -> int:
     try:
-        sys.stdout.write(
-            json.dumps(
-                {
-                    "ok": result_status_is_completed(result := client.collect_turn_result(
-                        thread_id=str(payload["threadId"]),
-                        turn_id=str(payload["turnId"]),
-                        return_thread_state=False,
-                    )),
-                    "threadId": result.thread_id,
-                    "turnId": result.turn_id,
-                    "status": result.status,
-                    "finalMessage": result.final_message,
-                },
-                ensure_ascii=False,
-            )
+        write_json(
+            {
+                "ok": result_status_is_completed(result := client.collect_turn_result(
+                    thread_id=str(payload["threadId"]),
+                    turn_id=str(payload["turnId"]),
+                    return_thread_state=False,
+                )),
+                "threadId": result.thread_id,
+                "turnId": result.turn_id,
+                "status": result.status,
+                "finalMessage": result.final_message,
+            }
         )
         return 0
     except Exception as error:  # noqa: WPS430
         message = str(error)
         running_markers = ("not completed", "running", "in_progress", "pending")
         if any(marker in message.lower() for marker in running_markers):
-            sys.stdout.write(
-                json.dumps(
-                    {
-                        "ok": False,
-                        "threadId": str(payload["threadId"]),
-                        "turnId": str(payload["turnId"]),
-                        "status": "running",
-                        "finalMessage": "",
-                        "message": message[:240],
-                    },
-                    ensure_ascii=False,
-                )
+            write_json(
+                {
+                    "ok": False,
+                    "threadId": str(payload["threadId"]),
+                    "turnId": str(payload["turnId"]),
+                    "status": "running",
+                    "finalMessage": "",
+                    "message": message[:240],
+                }
             )
             return 0
         raise
@@ -130,17 +125,14 @@ def run_turn_with_inputs(client, payload) -> int:
         turn_id=turn_id,
         return_thread_state=False,
     )
-    sys.stdout.write(
-        json.dumps(
-            {
-                "ok": status == "completed" and result.status == "completed",
-                "threadId": result.thread_id,
-                "turnId": result.turn_id,
-                "status": result.status,
-                "finalMessage": result.final_message,
-            },
-            ensure_ascii=False,
-        )
+    write_json(
+        {
+            "ok": status == "completed" and result.status == "completed",
+            "threadId": result.thread_id,
+            "turnId": result.turn_id,
+            "status": result.status,
+            "finalMessage": result.final_message,
+        }
     )
     return 0
 

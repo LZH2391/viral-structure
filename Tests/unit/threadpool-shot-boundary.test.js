@@ -171,6 +171,22 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
 });
 
+test("shot boundary keeps Chinese reason text without mojibake", async () => {
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
+      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "未检测到明显视觉变化" }] }) }),
+    },
+  });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+
+  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].reason, "未检测到明显视觉变化");
+});
+
 test("shot boundary collect retryable error keeps inflight processing", async () => {
   const error = new Error("missing-content-type");
   error.code = "appserver_bridge_failed";
@@ -209,6 +225,29 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "thread_1");
   assert.equal(harness.logger.snapshots.length, 1);
   assert.deepEqual(harness.threadPool.discarded, [{ threadId: "thread_1", reason: "shot-boundary-analysis-failed" }]);
+});
+
+test("shot boundary mojibake reason fails quality gate and writes debug snapshot", async () => {
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
+      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "鏈娴嬪埌鏄庢樉瑙嗚鍙樺寲" }] }) }),
+    },
+  });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "agent_output_quality_failed");
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.equal(harness.logger.snapshots.length, 1);
+  assert.equal(failLog.stageName, STAGES.resultWritten);
+  assert.equal(harness.logger.snapshots[0].debugPayload.turnId, "turn_1");
+  assert.match(harness.logger.snapshots[0].debugPayload.parseFailureReason, /mojibake/);
 });
 
 test("shot boundary recovery completes active inflight", async () => {
@@ -259,6 +298,23 @@ test("threadpool owner release stays within allowed role payload", async () => {
   assert.deepEqual(requests[0].body, { owner_id: "trace_1", roles: ["shot-boundary-analyzer"] });
 });
 
+test("shot boundary graceful discard replaces release when discard_on_release is enabled", async () => {
+  const harness = await createShotHarness({
+    threadPoolConfig: { ok: true, discardOnRelease: true },
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
+      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" }] }) }),
+    },
+  });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+
+  assert.deepEqual(harness.threadPool.released, []);
+  assert.deepEqual(harness.threadPool.discarded, [{ threadId: "thread_1", reason: "graceful-successful-release" }]);
+  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId]);
+});
+
 function createArtifact() {
   return {
     sampleVideoId: "sample_1",
@@ -277,7 +333,7 @@ function createArtifact() {
   };
 }
 
-async function createShotHarness({ appServer } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -314,6 +370,7 @@ async function createShotHarness({ appServer } = {}) {
     released: [],
     discarded: [],
     ownerReleased: [],
+    config: async () => threadPoolConfig ?? { ok: true, discardOnRelease: false },
     acquireLease: async () => ({ lease_id: "lease_1", thread_id: "thread_1" }),
     releaseLease: async (payload) => {
       threadPool.released.push(payload);
