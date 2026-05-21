@@ -7,6 +7,8 @@ test("serves workbench and debug pages from HTTP routes", () => {
   const root = path.resolve(__dirname, "../../Apps/Workbench");
   assert.equal(resolveWorkbenchPath(root, "/"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/debug"), path.join(root, "debug.html"));
+  assert.equal(resolveWorkbenchPath(root, "/threadpool"), path.join(root, "threadpool.html"));
+  assert.equal(resolveWorkbenchPath(root, "/threadpool/"), path.join(root, "threadpool.html"));
   assert.equal(resolveWorkbenchPath(root, "/assets/index-abc.js"), path.join(root, "assets", "index-abc.js"));
   assert.equal(resolveWorkbenchPath(root, "/src/main.tsx"), path.join(root, "src", "main.tsx"));
   assert.equal(resolveWorkbenchPath(root, "/app.js"), null);

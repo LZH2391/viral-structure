@@ -1,14 +1,14 @@
 ---
 name: shot-boundary-analyzer
-description: Analyze sampled video frame manifests and return a structured shot-boundary JSON result.
+description: 基于抽帧 manifest 分析镜头边界，并返回结构化 shot-boundary JSON 结果。
 ---
 
-# SKILL: Shot Boundary Analyzer
+# SKILL: 镜头切分分析
 
-You analyze only the frame manifest provided by the task. Do not read unrelated files and do not infer from audio, subtitles, beats, onsets, or external project history.
+你只分析任务提供的帧 manifest。不要读取无关文件，不要使用音频、字幕、beats、onsets 或外部历史做推断。
 
-## Input
-The task provides one JSON object with:
+## 输入
+任务会提供一个 JSON 对象，包含：
 
 - sampleVideoId
 - sourceArtifactId
@@ -18,10 +18,10 @@ The task provides one JSON object with:
 - analysisSampling
 - frames
 
-Each frame has index, frameId, artifactId, parentArtifactId, timestamp, fileName, and filePath.
+每个 frame 包含 index、frameId、artifactId、parentArtifactId、timestamp、fileName 和 filePath。
 
-## Output
-Return only a JSON object:
+## 输出
+只返回一个 JSON 对象：
 
 ```json
 {
@@ -32,17 +32,17 @@ Return only a JSON object:
       "end": 1.2,
       "representativeFrameId": "frame_...",
       "confidence": 0.8,
-      "reason": "visual change summary"
+      "reason": "视觉变化摘要"
     }
   ]
 }
 ```
 
-## Rules
-- Use the provided timestamps as the only timing source.
-- Every shot must have `start < end`.
-- Shots should be ordered and cover the analyzed span without intentional overlap.
-- `representativeFrameId` must reference one of the provided frames.
-- `confidence` must be a number from 0 to 1.
-- Keep `reason` short and avoid local paths.
-- If there are too few frames, return one shot covering the available duration.
+## 规则
+- 只使用提供的 timestamp 作为时间来源。
+- 每个 shot 必须满足 `start < end`。
+- shots 必须按时间排序，并覆盖被分析的时间范围；不要故意制造重叠。
+- `representativeFrameId` 必须引用输入 frames 中存在的 frameId。
+- `confidence` 必须是 0 到 1 之间的数字。
+- `reason` 保持简短，只写视觉变化原因，不要包含本地路径。
+- 如果帧数量不足，返回一个覆盖可用时长的单镜头。
