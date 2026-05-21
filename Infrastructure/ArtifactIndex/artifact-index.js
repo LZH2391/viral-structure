@@ -192,6 +192,9 @@ function buildArtifactTree(artifact) {
   if (artifact.audioFeatures) {
     pushNode(nodes, artifact.audioFeatures, "sample.audio.features.extracted", artifact, `${artifact.audioFeatures.beats?.length ?? 0} beats`);
   }
+  if (artifact.shotBoundaryAnalysis) {
+    pushNode(nodes, artifact.shotBoundaryAnalysis, "agent.shotBoundary.resultWritten", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜`);
+  }
   return nodes;
 }
 
@@ -237,6 +240,7 @@ function buildTags(artifact) {
     artifact.audioSeparation?.vocal?.uri || artifact.audioSeparation?.music?.uri ? "分离" : null,
     artifact.subtitles?.segments?.length ? "字幕" : null,
     artifact.audioFeatures ? "音频特征" : null,
+    artifact.shotBoundaryAnalysis ? "切镜" : null,
   ].filter(Boolean);
 }
 
@@ -253,6 +257,14 @@ function stageParams(artifact, stageName) {
       sourceAudioArtifactId: artifact.audioFeatures?.sourceAudioArtifactId ?? null,
     };
   }
+  if (stageName === "agent.shotBoundary.resultWritten") {
+    return {
+      sourceArtifactId: artifact.shotBoundaryAnalysis?.parentArtifactId ?? artifact.sampleVideo?.artifactId ?? null,
+      extractSampling: artifact.shotBoundaryAnalysis?.extractSampling ?? null,
+      analysisSampling: artifact.shotBoundaryAnalysis?.analysisSampling ?? null,
+      skillHash: crypto.createHash("sha256").update(artifact.shotBoundaryAnalysis?.agent?.skillPath ?? "").digest("hex").slice(0, 16),
+    };
+  }
   return {};
 }
 
@@ -266,6 +278,7 @@ function artifactLabel(type) {
     "audio-music": "伴奏",
     "subtitle-track": "字幕",
     "audio-feature-analysis": "音频特征",
+    "shot-boundary-analysis": "镜头切分",
   };
   return labels[type] ?? type ?? "产物";
 }

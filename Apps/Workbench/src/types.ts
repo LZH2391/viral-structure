@@ -70,11 +70,106 @@ export type SampleArtifact = {
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
   audioSeparation?: AudioSeparationArtifact | null;
   subtitles?: SubtitleArtifact | null;
+  shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   metadata: {
     durationSeconds: number;
     width?: number | null;
     height?: number | null;
   };
+};
+
+export type ShotBoundaryAnalysisArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: "shot-boundary-analysis";
+  status: "processed" | "failed" | string;
+  sourceFrameArtifactIds: string[];
+  extractSampling: {
+    requestedFps: number;
+    targetFrameCount: number;
+    actualFrameCount: number;
+    maxFrames: number;
+  } | null;
+  analysisSampling: {
+    fps: number;
+    stride: number | null;
+  };
+  agent?: {
+    provider: "codex-appserver" | string;
+    role: string;
+    skillPath: string;
+    threadId: string | null;
+    leaseId: string | null;
+    turnId: string | null;
+  };
+  shots: Array<{
+    id: string;
+    index: number;
+    start: number;
+    end: number;
+    representativeFrameId: string;
+    confidence: number;
+    reason: string;
+  }>;
+  reason?: string | null;
+  createdAt: string;
+};
+
+export type AgentRunJob = ProcessingJob;
+
+export type ThreadPoolHealth = {
+  ok: boolean;
+  ready_for_leases?: boolean;
+  recovering?: boolean;
+  warming_roles?: string[];
+  unavailable?: boolean;
+  message?: string;
+};
+
+export type ThreadPoolRoleSummary = {
+  role: string;
+  minIdle: number;
+  idle: number;
+  leased: number;
+  seedThreadId?: string | null;
+  canAcquire: boolean;
+  warming?: boolean;
+  skillPath?: string | null;
+};
+
+export type ThreadPoolRoleDetail = {
+  ok: boolean;
+  role: string;
+  config: unknown;
+  counts: {
+    idle: number;
+    leased: number;
+    retired?: number;
+    discarded?: number;
+    initializing?: number;
+    activeLeases?: number;
+  };
+  seedThreadId?: string | null;
+  skillPath?: string | null;
+  canAcquire: boolean;
+  warming?: boolean;
+  warmupDetail?: string | null;
+  warmupError?: string | null;
+  threads?: Array<{
+    thread_id: string;
+    role: string;
+    status: "idle" | "leased" | "retired" | "discarded" | "initializing";
+    lease_id?: string | null;
+    owner_id?: string | null;
+    seed?: boolean;
+  }>;
+  leases?: Array<{
+    lease_id: string;
+    thread_id: string;
+    owner_id: string;
+    status: "active" | "released" | string;
+    thread_status?: string | null;
+  }>;
 };
 
 export type AudioSeparationArtifact = {

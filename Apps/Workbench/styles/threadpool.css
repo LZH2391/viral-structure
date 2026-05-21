@@ -1,0 +1,163 @@
+.threadpool-shell {
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr);
+  height: 100vh;
+  min-width: 980px;
+}
+
+.threadpool-grid {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.threadpool-list,
+.threadpool-detail {
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.threadpool-list {
+  overflow: auto;
+  padding: 0 12px 12px;
+  border-right: 1px solid var(--line);
+}
+
+.threadpool-role {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.threadpool-role.active,
+.threadpool-role:hover {
+  border-color: var(--accent);
+  background: #163142;
+}
+
+.threadpool-role span,
+.threadpool-role small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.threadpool-role b,
+.status-good,
+.status-warn,
+.status-bad {
+  font-size: 11px;
+}
+
+.status-good {
+  color: #9be7b6;
+}
+
+.status-warn {
+  color: #facc15;
+}
+
+.status-bad {
+  color: #ffb4c0;
+}
+
+.threadpool-detail {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0 16px 16px;
+}
+
+.threadpool-detail-body {
+  overflow: auto;
+  padding-top: 12px;
+}
+
+.threadpool-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel-2);
+  padding: 12px;
+}
+
+.threadpool-summary-grid div,
+.threadpool-lease-list div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.threadpool-summary-grid b,
+.threadpool-lease-list b {
+  color: #d8e1ea;
+  font-size: 12px;
+}
+
+.threadpool-summary-grid span,
+.threadpool-lease-list span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.threadpool-section-title {
+  margin: 16px 0 8px;
+  color: #d8e1ea;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.threadpool-table {
+  display: grid;
+  gap: 8px;
+}
+
+.threadpool-thread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.threadpool-thread div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.threadpool-thread span,
+.threadpool-thread small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.threadpool-lease-list {
+  display: grid;
+  gap: 8px;
+}
+
+.run-pill.good {
+  border-color: #2f7d51;
+  color: #9be7b6;
+}
+
+.run-pill.warn {
+  border-color: #7d6d2f;
+  color: #facc15;
+}

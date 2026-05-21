@@ -72,6 +72,7 @@ export type WorkbenchAction =
   | { type: "set-upload-state"; isUploadingSample: boolean; uploadStatusText: string | null; processingJob?: ProcessingJob | null; errorSummary?: ErrorSummary | null }
   | { type: "set-processing-job"; processingJob: ProcessingJob | null; uploadStatusText: string | null }
   | { type: "apply-artifact"; artifact: SampleArtifact }
+  | { type: "set-shot-boundary-analysis"; artifact: SampleArtifact }
   | { type: "set-error"; errorSummary: ErrorSummary | null; uploadStatusText: string | null }
   | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null; selectedSubtitleId?: string | null; selectedAudioFeatureMarkerId?: string | null }
   | { type: "set-frame-visible"; visible: boolean }
@@ -110,6 +111,11 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
       return { ...state, processingJob: action.processingJob, uploadStatusText: action.uploadStatusText };
     case "apply-artifact":
       return applySampleArtifact(state, action.artifact);
+    case "set-shot-boundary-analysis":
+      return {
+        ...state,
+        sampleArtifact: action.artifact,
+      };
     case "set-error":
       return { ...state, errorSummary: action.errorSummary, isUploadingSample: false, uploadStatusText: action.uploadStatusText };
     case "select-media":

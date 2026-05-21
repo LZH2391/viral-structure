@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
+import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
 import { formatTime } from "../utils/format";
 
 type PropertyPanelProps = {
@@ -19,12 +19,27 @@ type PropertyPanelProps = {
   processingStage?: string | null;
   processingProgress?: number | null;
   errorMessage?: string | null;
+  shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
+  agentJob?: AgentRunJob | null;
+  agentAnalysisFps: number;
+  onAgentAnalysisFpsChange: (value: number) => void;
+  onRunShotBoundary: () => void;
+  onSelectShot: (time: number) => void;
   onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
   return (
     <aside className="property-panel" aria-label="属性区">
+      <AgentRunPanel
+        sampleVideo={props.sampleVideo}
+        analysis={props.shotBoundaryAnalysis}
+        job={props.agentJob}
+        analysisFps={props.agentAnalysisFps}
+        onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
+        onRun={props.onRunShotBoundary}
+        onSelectShot={props.onSelectShot}
+      />
       <section className="property-section">
         <div className="section-heading">当前片段</div>
         <div id="currentSegment" className="detail-block">
@@ -32,6 +47,55 @@ export function PropertyPanel(props: PropertyPanelProps) {
         </div>
       </section>
     </aside>
+  );
+}
+
+function AgentRunPanel({
+  sampleVideo,
+  analysis,
+  job,
+  analysisFps,
+  onAnalysisFpsChange,
+  onRun,
+  onSelectShot,
+}: {
+  sampleVideo: SampleVideo | null;
+  analysis?: ShotBoundaryAnalysisArtifact | null;
+  job?: AgentRunJob | null;
+  analysisFps: number;
+  onAnalysisFpsChange: (value: number) => void;
+  onRun: () => void;
+  onSelectShot: (time: number) => void;
+}) {
+  const running = job?.status === "pending" || job?.status === "processing";
+  return (
+    <section className="property-section agent-run-panel">
+      <div className="section-heading">Agent</div>
+      <div className="agent-capability-row">
+        <div>
+          <strong>shot-boundary</strong>
+          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? `${analysis.shots.length} 镜` : "等待分析"}</span>
+        </div>
+        <button className="primary-button" type="button" disabled={!sampleVideo || running} onClick={onRun}>
+          {running ? "运行中" : "开始"}
+        </button>
+      </div>
+      <label className="agent-field">
+        <span>分析采样率</span>
+        <input type="number" min="0.1" max="24" step="0.1" value={analysisFps} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || 1))} />
+      </label>
+      {analysis?.shots?.length ? (
+        <div className="agent-shot-list">
+          {analysis.shots.slice(0, 12).map((shot) => (
+            <button key={shot.id} className="agent-shot-item" type="button" onClick={() => onSelectShot(shot.start)}>
+              <strong>{shot.index + 1}</strong>
+              <span>{formatTime(shot.start)} - {formatTime(shot.end)}</span>
+              <small>{shot.reason}</small>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

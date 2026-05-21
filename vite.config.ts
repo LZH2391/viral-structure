@@ -13,6 +13,7 @@ export default defineConfig({
         main: "Apps/Workbench/index.html",
         debug: "Apps/Workbench/debug.html",
         library: "Apps/Workbench/library.html",
+        threadpool: "Apps/Workbench/threadpool.html",
       },
     },
   },

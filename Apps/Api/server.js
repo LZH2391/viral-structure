@@ -14,6 +14,10 @@ const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/ui-debug-events");
 const { recordApiRequestFailure } = require("./lib/api-request-debug");
 const { readCapabilities } = require("./lib/capabilities");
+const { createThreadPoolProxy } = require("./lib/threadpool-proxy");
+const { createShotBoundaryService } = require("./lib/shot-boundary-service");
+const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
+const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -22,6 +26,8 @@ const logger = createStageLogger(store);
 const jobStore = createJobStore();
 const artifactIndex = createArtifactIndex({ store });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
+const threadPool = createThreadPoolProxy();
+const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 const server = http.createServer(async (req, res) => {
@@ -32,6 +38,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url);
     if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1));
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
+    if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
+    if (req.method === "GET" && url.pathname === "/api/threadpool/health") return handleThreadPoolRead(res, "health", () => threadPool.health());
+    if (req.method === "GET" && url.pathname === "/api/threadpool/config") return handleThreadPoolRead(res, "config", () => threadPool.config());
+    if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => threadPool.roles());
+    if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return handleThreadPoolRead(res, "role-status", () => threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))));
+    if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res);
     if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)));
     if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)));
@@ -72,6 +84,55 @@ async function handleArtifact(res, sampleVideoId) {
   return sendJson(res, 200, await store.readJson(artifactPath));
 }
 
+async function handleShotBoundary(req, res, sampleVideoId) {
+  const body = await readJsonBody(req);
+  const result = await shotBoundaryService.enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1 });
+  return sendJson(res, 202, result);
+}
+
+async function handleThreadPoolRead(res, scope, action) {
+  const traceContext = createTraceContext(createTraceIds());
+  const startedAt = Date.now();
+  await logger.writeStageLog({
+    traceContext,
+    stageName: "threadPool.status.read",
+    event: "stage.start",
+    inputSummary: { scope },
+  });
+  try {
+    const result = await action();
+    await logger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.status.read",
+      event: "stage.end",
+      outputSummary: summarizeThreadPoolRead(scope, result),
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, result?.ok === false && result.unavailable ? 503 : 200, result);
+  } catch (error) {
+    const snapshot = await logger.writeDebugSnapshot({
+      traceContext,
+      stageName: "threadPool.status.read",
+      reason: "threadpool_status_read_failed",
+      inputSummary: { scope },
+      debugPayload: { message: error instanceof Error ? error.message : "ThreadPool 读取失败" },
+    });
+    await logger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.status.read",
+      event: "stage.fail",
+      errorSummary: { code: "threadpool_status_read_failed", message: "ThreadPool 状态读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_status_read_failed", message: "ThreadPool 状态读取失败" });
+  }
+}
+
+async function handleThreadDiscard(req, res, threadId) {
+  const body = await readJsonBody(req);
+  return handleThreadPoolRead(res, "discard", () => threadPool.discardThread({ threadId, reason: body.reason || "manual-discard" }));
+}
+
 async function handleLibraryItems(res) {
   return sendJson(res, 200, { items: await artifactIndex.listItems() });
 }
@@ -110,6 +171,13 @@ async function handleDebugTraceDetail(res, traceId) {
   const trace = await readDebugTraceDetail(store.runtimeRoot, traceId);
   if (!trace) return notFound(res);
   return sendJson(res, 200, trace);
+}
+
+function summarizeThreadPoolRead(scope, result) {
+  if (!result?.ok) return { scope, unavailable: Boolean(result?.unavailable), error: result?.error ?? null };
+  if (scope === "roles") return { scope, roleCount: result.roles?.length ?? 0, warmingRoles: result.health?.warming_roles ?? [] };
+  if (scope === "role-status") return { scope, role: result.role, idle: result.counts?.idle ?? 0, minIdle: result.minIdle ?? 0, leased: result.counts?.leased ?? 0 };
+  return { scope, readyForLeases: result.ready_for_leases ?? result.readyForLeases ?? null, recovering: result.recovering ?? null };
 }
 
 if (require.main === module) {

@@ -7,6 +7,7 @@ test("workbench pages force HTTP entry points", () => {
   const root = path.resolve(__dirname, "../..");
   const index = fs.readFileSync(path.join(root, "Apps/Workbench/index.html"), "utf8");
   const debug = fs.readFileSync(path.join(root, "Apps/Workbench/debug.html"), "utf8");
+  const threadpool = fs.readFileSync(path.join(root, "Apps/Workbench/threadpool.html"), "utf8");
 
   assert.match(index, /location\.protocol === "file:"/);
   assert.match(index, /http:\/\/127\.0\.0\.1:5177\//);
@@ -14,6 +15,9 @@ test("workbench pages force HTTP entry points", () => {
   assert.match(debug, /location\.protocol === "file:"/);
   assert.match(debug, /http:\/\/127\.0\.0\.1:5177\//);
   assert.match(debug, /\/src\/debug\.tsx/);
+  assert.match(threadpool, /location\.protocol === "file:"/);
+  assert.match(threadpool, /http:\/\/127\.0\.0\.1:5177\/threadpool/);
+  assert.match(threadpool, /\/src\/threadpool\.tsx/);
   assert.doesNotMatch(index, /href="\/debug"/);
   assert.doesNotMatch(debug, /href="\/"/);
 });

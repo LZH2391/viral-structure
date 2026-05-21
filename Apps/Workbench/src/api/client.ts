@@ -1,4 +1,4 @@
-import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, UiDebugEventRequest } from "../types";
+import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -33,6 +33,38 @@ export async function getProcessingJob(jobId: string) {
 
 export async function getSampleArtifact(sampleVideoId: string) {
   return readJson<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
+}
+
+export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number } = {}) {
+  return readJson<{ processingJobId: string; sampleVideoId: string; traceId: string }>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/shot-boundary`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1 }),
+    }),
+  );
+}
+
+export async function getThreadPoolHealth() {
+  return readJson<ThreadPoolHealth>(await fetch(`${API_BASE_URL}/api/threadpool/health`));
+}
+
+export async function getThreadPoolRoles() {
+  return readJson<{ ok: boolean; roles: ThreadPoolRoleSummary[]; health?: ThreadPoolHealth }>(await fetch(`${API_BASE_URL}/api/threadpool/roles`));
+}
+
+export async function getThreadPoolRoleStatus(role: string) {
+  return readJson<ThreadPoolRoleDetail>(await fetch(`${API_BASE_URL}/api/threadpool/roles/${encodeURIComponent(role)}/status`));
+}
+
+export async function discardThreadPoolThread(threadId: string) {
+  return readJson<{ ok: boolean; thread_id: string; status: string }>(
+    await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/discard`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "manual-discard-from-workbench" }),
+    }),
+  );
 }
 
 export async function getDebugTraces() {

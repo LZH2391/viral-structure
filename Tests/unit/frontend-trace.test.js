@@ -208,3 +208,26 @@ test("library page exposes local artifact index views", () => {
   assert.match(libraryApp, /loadLibraryItem/);
   assert.match(libraryApp, /libraryArtifactTree/);
 });
+
+test("threadpool page and shot boundary agent use proxied API surface", () => {
+  const root = path.resolve(__dirname, "../..");
+  const vite = read(root, "vite.config.ts");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const threadpoolHtml = read(root, "Apps/Workbench/threadpool.html");
+  const threadpoolEntry = read(root, "Apps/Workbench/src/threadpool.tsx");
+  const threadpoolApp = read(root, "Apps/Workbench/src/components/ThreadPoolApp.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+
+  assert.match(vite, /threadpool: "Apps\/Workbench\/threadpool\.html"/);
+  assert.match(threadpoolHtml, /src="\/src\/threadpool\.tsx"/);
+  assert.match(threadpoolEntry, /<ThreadPoolApp \/>/);
+  assert.match(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
+  assert.match(api, /\/api\/threadpool\/roles/);
+  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
+  assert.match(threadpoolApp, /discardThreadPoolThread/);
+  assert.match(threadpoolApp, /window\.confirm/);
+  assert.match(property, /AgentRunPanel/);
+  assert.match(property, /shot-boundary/);
+  assert.match(property, /onRunShotBoundary/);
+});

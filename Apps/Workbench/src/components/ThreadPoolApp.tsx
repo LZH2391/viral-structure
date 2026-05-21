@@ -1,0 +1,171 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { discardThreadPoolThread, getThreadPoolRoleStatus, getThreadPoolRoles } from "../api/client";
+import type { ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
+import { shortId } from "../utils/format";
+
+export function ThreadPoolApp() {
+  const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
+  const [health, setHealth] = useState<ThreadPoolHealth | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ThreadPoolRoleDetail | null>(null);
+  const [status, setStatus] = useState("读取 ThreadPool");
+  const [updatedAt, setUpdatedAt] = useState("等待刷新");
+
+  const refresh = useCallback(async () => {
+    setStatus("刷新中");
+    const data = await getThreadPoolRoles();
+    const nextRoles = data.roles ?? [];
+    setRoles(nextRoles);
+    setHealth(data.health ?? null);
+    setSelectedRole((current) => (nextRoles.some((item) => item.role === current) ? current : nextRoles[0]?.role ?? null));
+    setUpdatedAt(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+    setStatus(data.ok ? "已同步" : "ThreadPool 不可用");
+  }, []);
+
+  useEffect(() => {
+    refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedRole) {
+      setDetail(null);
+      return;
+    }
+    getThreadPoolRoleStatus(selectedRole)
+      .then((next) => {
+        setDetail(next);
+        setStatus(next.ok ? "已同步" : "读取 role 失败");
+      })
+      .catch((error) => setStatus(error instanceof Error ? error.message : "读取 role 失败"));
+  }, [selectedRole]);
+
+  const refreshDetail = useCallback(async () => {
+    await refresh();
+    if (selectedRole) setDetail(await getThreadPoolRoleStatus(selectedRole));
+  }, [refresh, selectedRole]);
+
+  return (
+    <div className="threadpool-shell">
+      <header className="topbar">
+        <div className="project-block">
+          <div className="project-name">ThreadPool</div>
+          <div id="threadpoolStatus" className="save-status">
+            {status}
+          </div>
+        </div>
+        <HealthStrip health={health} updatedAt={updatedAt} />
+        <div className="top-actions">
+          <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
+            返回工作台
+          </a>
+          <button id="refreshThreadPoolBtn" className="primary-button" type="button" onClick={() => refreshDetail().catch(() => undefined)}>
+            刷新
+          </button>
+        </div>
+      </header>
+      <main className="threadpool-grid">
+        <RoleList roles={roles} selectedRole={selectedRole} onSelect={setSelectedRole} />
+        <RoleDetail detail={detail} onChanged={refreshDetail} />
+      </main>
+    </div>
+  );
+}
+
+function HealthStrip({ health, updatedAt }: { health: ThreadPoolHealth | null; updatedAt: string }) {
+  const ready = Boolean(health?.ready_for_leases);
+  const recovering = Boolean(health?.recovering);
+  return (
+    <div className="run-strip">
+      <span className={`run-pill ${ready ? "good" : recovering ? "warn" : ""}`}>{ready ? "ready" : recovering ? "recovering" : "offline"}</span>
+      <span className="trace-label">{updatedAt}</span>
+    </div>
+  );
+}
+
+function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSummary[]; selectedRole: string | null; onSelect: (role: string) => void }) {
+  return (
+    <aside className="threadpool-list" aria-label="ThreadPool roles">
+      <div className="section-heading">Roles</div>
+      <div id="threadpoolRoleList" className="compact-list">
+        {roles.length ? roles.map((role) => (
+          <button key={role.role} className={`threadpool-role ${selectedRole === role.role ? "active" : ""}`} type="button" onClick={() => onSelect(role.role)}>
+            <strong>{role.role}</strong>
+            <span>{role.idle}/{role.minIdle} idle / {role.leased} leased</span>
+            <b className={role.canAcquire ? "status-good" : role.warming ? "status-warn" : "status-bad"}>{role.canAcquire ? "can acquire" : role.warming ? "warming" : "blocked"}</b>
+            <small>seed {shortId(role.seedThreadId ?? "")}</small>
+          </button>
+        )) : <EmptyState text="暂无 role 状态" />}
+      </div>
+    </aside>
+  );
+}
+
+function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
+  const threads = useMemo(() => detail?.threads ?? [], [detail]);
+  const discard = async (threadId: string) => {
+    if (!window.confirm(`确认 discard thread ${shortId(threadId)} ?`)) return;
+    await discardThreadPoolThread(threadId);
+    await onChanged();
+  };
+  return (
+    <section className="threadpool-detail" aria-label="ThreadPool role detail">
+      <div className="library-detail-header">
+        <div>
+          <div className="section-heading">Role Detail</div>
+          <div className="debug-trace-title">{detail ? detail.role : "未选择 role"}</div>
+        </div>
+      </div>
+      {detail ? (
+        <div className="threadpool-detail-body">
+          <div className="threadpool-summary-grid">
+            <Detail label="seed" value={detail.seedThreadId ?? "无"} />
+            <Detail label="skill" value={detail.skillPath ?? "无"} />
+            <Detail label="idle" value={String(detail.counts.idle)} />
+            <Detail label="leased" value={String(detail.counts.leased)} />
+            <Detail label="warming" value={detail.warming ? detail.warmupDetail ?? "warming" : "no"} />
+            <Detail label="canAcquire" value={String(detail.canAcquire)} />
+          </div>
+          <div className="threadpool-section-title">Threads</div>
+          <div className="threadpool-table" id="threadpoolThreadList">
+            {threads.length ? threads.map((thread) => (
+              <article key={thread.thread_id} className="threadpool-thread">
+                <div>
+                  <strong>{shortId(thread.thread_id)}</strong>
+                  <span>{thread.status}</span>
+                  <small>{thread.lease_id ? `lease ${shortId(thread.lease_id)}` : "no lease"}</small>
+                </div>
+                <button className="ghost-button" type="button" disabled={thread.seed || thread.status === "leased"} onClick={() => discard(thread.thread_id).catch(() => undefined)}>
+                  discard
+                </button>
+              </article>
+            )) : <EmptyState text="暂无 thread" />}
+          </div>
+          <div className="threadpool-section-title">Leases</div>
+          <div className="threadpool-lease-list">
+            {(detail.leases ?? []).map((lease) => (
+              <Detail key={lease.lease_id} label={shortId(lease.lease_id)} value={`${shortId(lease.thread_id)} / ${lease.owner_id}`} />
+            ))}
+          </div>
+        </div>
+      ) : <EmptyState text="选择左侧 role 查看详情" />}
+    </section>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <b>{label}</b>
+      <span>{value}</span>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="empty-state">
+      <strong>{text}</strong>
+      <span>刷新后查看 ThreadPool 状态</span>
+    </div>
+  );
+}

@@ -2,10 +2,12 @@ import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useStat
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, WorkbenchState } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
+import { buildIngestError, delay, findAudioFeatureMarker, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { PreviewPanel } from "./PreviewPanel";
 import { PropertyPanel } from "./PropertyPanel";
 import { ResourcePanel } from "./ResourcePanel";
@@ -25,6 +27,8 @@ export function WorkbenchApp() {
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [currentTime, setCurrentTime] = useState(0);
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
+  const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
+  const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
@@ -336,6 +340,9 @@ export function WorkbenchApp() {
           <a className="ghost-button action-link" href="http://127.0.0.1:5177/debug">
             运行追踪
           </a>
+          <a className="ghost-button action-link" href="http://127.0.0.1:5177/threadpool">
+            ThreadPool
+          </a>
           <button className="ghost-button" type="button" disabled>
             导出
           </button>
@@ -392,6 +399,16 @@ export function WorkbenchApp() {
           processingStage={state.processingJob?.stage}
           processingProgress={state.processingJob?.progress}
           errorMessage={state.errorSummary?.message}
+          shotBoundaryAnalysis={state.sampleArtifact?.shotBoundaryAnalysis ?? null}
+          agentJob={agentJob}
+          agentAnalysisFps={agentAnalysisFps}
+          onAgentAnalysisFpsChange={setAgentAnalysisFps}
+          onRunShotBoundary={() => runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
+          onSelectShot={(time) => {
+            if (videoRef.current) videoRef.current.currentTime = time;
+            setCurrentTime(time);
+            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
+          }}
           onSubtitleDraftChange={(draft) => dispatch({ type: "update-subtitle-draft", ...draft })}
         />
         <TimelinePanel
@@ -459,80 +476,6 @@ function buildRunStatus(state: WorkbenchState) {
   if (!latest) return { label: "等待输入", stageId: null, backendTraceId: state.processingJob?.traceId ?? null };
   const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
   return { label: labelMap[latest.level] ?? "等待输入", stageId: latest.fields.stageId, backendTraceId: latest.fields.backendTraceId ?? state.processingJob?.traceId ?? null };
-}
-
-function CacheDecisionDialog({ item, onReuse, onRefresh, onCancel }: { item: LibraryItemSummary; onReuse: () => void; onRefresh: () => void; onCancel: () => void }) {
-  return (
-    <div className="cache-dialog-backdrop" role="presentation">
-      <section className="cache-dialog" role="dialog" aria-modal="true" aria-labelledby="cacheDialogTitle">
-        <div>
-          <div className="section-heading">命中缓存</div>
-          <h2 id="cacheDialogTitle">发现同视频处理记录</h2>
-          <p>{item.filename} / {item.durationSeconds ? `${Math.round(item.durationSeconds)}s` : "未知时长"}</p>
-        </div>
-        <div className="cache-dialog-actions">
-          <button className="ghost-button" type="button" onClick={onCancel}>
-            取消
-          </button>
-          <button className="ghost-button" type="button" onClick={onRefresh}>
-            重新生成覆盖
-          </button>
-          <button className="primary-button" type="button" onClick={onReuse}>
-            复用缓存
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {
-  return cards.find((item) => currentTime >= item.start && currentTime <= item.end) ?? null;
-}
-
-function stageLabel(job: ProcessingJob): string {
-  const labels: Record<string, string> = {
-    uploaded: "上传中",
-    "sample.upload.received": "上传中",
-    "sample.upload.validated": "校验上传",
-    "sample.source.saved": "保存素材",
-    "sample.metadata.probed": "读取元信息",
-    "sample.cover.extracted": "生成封面",
-    "sample.frames.extracted": "抽帧中",
-    "sample.audio.extracted": "提取音频",
-    "sample.audio.features.extracted": "分析音频基础特征",
-    "sample.audio.separated": "分离人声/伴奏",
-    "sample.subtitle.recognized": "识别字幕",
-    "sample.artifact.written": "生成产物",
-    processed: "生成产物完成",
-  };
-  return labels[job?.stage] ?? job?.stage ?? "处理中";
-}
-
-function buildIngestError(job: ProcessingJob) {
-  const summary = job.errorSummary ?? {};
-  const error = new Error(summary.message || "样例处理失败") as Error & { code?: string };
-  error.code = summary.code || "sample_ingest_failed";
-  return error;
-}
-
-function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], markerId: string): AudioFeatureMarker | null {
-  if (!audioFeatures) return null;
-  const markers = [
-    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time })),
-    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time })),
-  ];
-  return markers.find((marker) => marker.id === markerId) ?? null;
-}
-
-function resolveAudioFeatureSourceId(state: WorkbenchState) {
-  const sourceArtifactId = state.audioFeatures?.sourceAudioArtifactId ?? null;
-  if (sourceArtifactId && state.mediaDerivatives.some((entry) => entry.artifactId === sourceArtifactId)) return sourceArtifactId;
-  return state.sampleArtifact?.audio?.artifactId ?? state.mediaDerivatives.find((entry) => entry.type === "audio-track")?.artifactId ?? null;
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function readDraft(): DraftState | null {
