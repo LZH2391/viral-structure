@@ -54,38 +54,12 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
 }
 
 function buildTurnInputs({ prepared, contactSheets }) {
-  const payload = {
-    sampleVideoId: prepared.sampleVideoId,
-    sourceArtifactId: prepared.sourceArtifactId,
-    durationSeconds: round(prepared.durationSeconds),
-    extractSampling: prepared.extractSampling,
-    analysisSampling: prepared.analysisSampling,
-    sheetCount: contactSheets.length,
-    overlapFrameCount: contactSheets[0]?.constraints?.overlapFrameCount ?? 1,
-    contactSheets: contactSheets.map((sheet) => ({
-      sheetId: sheet.sheetId,
-      sheetIndex: sheet.sheetIndex,
-      frameCount: sheet.frameCount,
-      overlapFrameIds: sheet.overlapFrameIds,
-      layout: sheet.layout,
-      frameIndexMap: sheet.gridItems.map((item) => ({
-        frameId: item.frameId,
-        inputIndex: item.inputIndex,
-        sourceFrameIndex: item.sourceFrameIndex,
-        timestamp: item.timestamp,
-        gridIndex: item.gridIndex,
-        row: item.row,
-        col: item.col,
-      })),
-    })),
-  };
   const prompt = [
     "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
     "每张图片都是按时间顺序排列的 contact sheet；sheet 顺序与输入顺序一致。",
     "你的任务只有切镜边界判断，不要做字幕 OCR、内容总结、剧情理解或结构迁移。",
     "只允许输出相邻帧之间的边界，格式必须引用 beforeFrameId 和 afterFrameId，例如 frame-047 -> frame-048。",
     "如果看不清或需要人工复核，请把 needReview 设为 true，而不是编造结论。",
-    `输入清单：${JSON.stringify(payload)}`,
     `输出 schema：${JSON.stringify({
       boundaries: [
         {

@@ -41,7 +41,9 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.equal(textItems.length, 1);
   assert.equal(imageItems.length, 2);
   assert.match(promptText, /多张 localImage 联表/);
-  assert.match(promptText, /"sheetCount":2/);
+  assert.doesNotMatch(promptText, /输入清单/);
+  assert.doesNotMatch(promptText, /sampleVideoId/);
+  assert.doesNotMatch(promptText, /frameIndexMap/);
   assert.match(promptText, /"beforeFrameId":"frame_example_047"/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
   assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
