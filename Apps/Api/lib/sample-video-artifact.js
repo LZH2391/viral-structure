@@ -11,6 +11,7 @@ function buildArtifact({ context, inputPath, media, store }) {
       frameSampleRateFps: context.processingOptions.frameSampleRateFps,
       enableAudioSeparation: context.processingOptions.enableAudioSeparation,
       enableSubtitleRecognition: context.processingOptions.enableSubtitleRecognition,
+      enableAudioFeatureAnalysis: context.processingOptions.enableAudioFeatureAnalysis,
     },
     sampleVideo: {
       artifactId: context.sampleArtifactId,
@@ -34,6 +35,7 @@ function buildArtifact({ context, inputPath, media, store }) {
     frames: media.frames,
     frameOutputSummary: media.frameOutputSummary,
     audio: media.audio,
+    audioFeatures: media.audioFeatures ?? null,
     audioSeparation: media.audioSeparation ?? null,
     subtitles: media.subtitles ?? null,
     metadata: media.metadata,

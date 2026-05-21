@@ -8,6 +8,7 @@ const STAGES = {
   coverExtracted: "sample.cover.extracted",
   framesExtracted: "sample.frames.extracted",
   audioExtracted: "sample.audio.extracted",
+  audioFeaturesExtracted: "sample.audio.features.extracted",
   audioSeparated: "sample.audio.separated",
   subtitleRecognized: "sample.subtitle.recognized",
   artifactWritten: "sample.artifact.written",
@@ -75,6 +76,7 @@ function resolveProcessingOptions(fields = {}) {
     frameSampleRateFps: result.value,
     enableAudioSeparation: normalizeBoolean(fields.enableAudioSeparation),
     enableSubtitleRecognition: normalizeBoolean(fields.enableSubtitleRecognition),
+    enableAudioFeatureAnalysis: normalizeBoolean(fields.enableAudioFeatureAnalysis),
   };
 }
 

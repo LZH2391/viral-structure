@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
-import type { AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
+import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
 import { clampVisibleSeconds, createTimelineMetrics, frameLeft, visibleFrames } from "../utils/timeline";
@@ -13,7 +13,9 @@ type TimelinePanelProps = {
   selectedDerivativeId: string | null;
   selectedFrameId: string | null;
   selectedSubtitleId: string | null;
+  selectedAudioFeatureMarkerId: string | null;
   audioSeparation?: AudioSeparationArtifact | null;
+  audioFeatures?: AudioFeatureAnalysisArtifact | null;
   subtitles?: SubtitleArtifact | null;
   subtitleDrafts: Record<string, SubtitleDraft>;
   timelineFrameVisible: boolean;
@@ -24,6 +26,7 @@ type TimelinePanelProps = {
   backendTraceId?: string | null;
   onSelectVideo: () => void;
   onSelectAudio: (artifactId?: string | null) => void;
+  onSelectAudioFeature: (markerId: string) => void;
   onSelectFrame: (frameId: string) => void;
   onSelectSubtitle: (segmentId: string) => void;
   onFrameVisibleChange: (visible: boolean) => void;
@@ -38,7 +41,9 @@ export function TimelinePanel(props: TimelinePanelProps) {
     selectedDerivativeId,
     selectedFrameId,
     selectedSubtitleId,
+    selectedAudioFeatureMarkerId,
     audioSeparation,
+    audioFeatures,
     subtitles,
     subtitleDrafts,
     timelineFrameVisible,
@@ -49,6 +54,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
     backendTraceId,
     onSelectVideo,
     onSelectAudio,
+    onSelectAudioFeature,
     onSelectFrame,
     onSelectSubtitle,
     onFrameVisibleChange,
@@ -64,6 +70,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
   const subtitleSegments = subtitles?.segments ?? [];
   const selectedAudio = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId && item.type.startsWith("audio-")) ?? audio;
   const audioUrl = runtimeUrl(selectedAudio?.uri ?? audio?.uri);
+  const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(audioFeatures), [audioFeatures]);
   const frames = sampleVideo?.frameArtifacts ?? [];
   const metrics = useMemo(
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
@@ -170,6 +177,23 @@ export function TimelinePanel(props: TimelinePanelProps) {
                 )}
                 </button>
               ))}
+              <div className="audio-feature-layer" aria-label="音频基础标记">
+                {audioFeatures?.status === "degraded" ? (
+                  <span className="audio-feature-empty">{audioFeatures.reason ?? "音频基础分析未产出"}</span>
+                ) : (
+                  audioFeatureMarkers.map((marker) => (
+                    <button
+                      key={marker.id}
+                      className={`audio-feature-marker ${marker.type} ${selectedAudioFeatureMarkerId === marker.id ? "active" : ""}`}
+                      type="button"
+                      style={{ left: frameLeft(marker.time, metrics) }}
+                      aria-label={`${marker.type} ${formatTime(marker.time)}`}
+                      title={`${marker.type} ${formatTime(marker.time)}`}
+                      onClick={() => onSelectAudioFeature(marker.id)}
+                    />
+                  ))
+                )}
+              </div>
             </div>
             <div id="subtitleTrack" className="track subtitle-track">
               {subtitleSegments.length ? (
@@ -199,6 +223,23 @@ export function TimelinePanel(props: TimelinePanelProps) {
       </div>
     </section>
   );
+}
+
+function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {
+  if (!audioFeatures || audioFeatures.status === "degraded") return [];
+  const nearestRms = (time: number) => {
+    const frames = audioFeatures.energyFrames ?? [];
+    if (!frames.length) return null;
+    let best = frames[0];
+    for (const frame of frames) {
+      if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
+    }
+    return best.rms;
+  };
+  return [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
+  ].sort((a, b) => a.time - b.time);
 }
 
 function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: AudioSeparationArtifact | null) {

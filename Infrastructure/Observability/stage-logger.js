@@ -80,7 +80,8 @@ const EVENT_NAMES = Object.fromEntries(Object.entries(EVENT_CODES).map(([name, c
 
 const STAGE_CODES = {
   "sample.upload.received": "ur", "sample.upload.validated": "uv", "sample.source.saved": "ss", "sample.metadata.probed": "mp",
-  "sample.cover.extracted": "ce", "sample.frames.extracted": "fe", "sample.audio.extracted": "ae", "sample.artifact.written": "aw",
+  "sample.cover.extracted": "ce", "sample.frames.extracted": "fe", "sample.audio.extracted": "ae", "sample.audio.features.extracted": "af",
+  "sample.audio.separated": "as", "sample.subtitle.recognized": "sr", "sample.artifact.written": "aw",
 };
 
 const STAGE_NAMES = Object.fromEntries(Object.entries(STAGE_CODES).map(([name, code]) => [code, name]));

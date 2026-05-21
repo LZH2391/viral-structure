@@ -140,10 +140,14 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(api, /\/api\/capabilities/);
   assert.match(api, /enableAudioSeparation/);
   assert.match(api, /enableSubtitleRecognition/);
+  assert.match(api, /enableAudioFeatureAnalysis/);
   assert.match(resource, /enableAudioSeparationInput/);
+  assert.match(resource, /enableAudioFeatureAnalysisInput/);
   assert.match(resource, /XFYUN_APP_ID/);
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);
+  assert.match(timeline, /audio-feature-marker/);
   assert.match(property, /subtitle-editor/);
   assert.match(property, /draftVersionId/);
+  assert.match(property, /AudioFeatureRows/);
 });

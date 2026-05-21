@@ -46,9 +46,11 @@ export function createInitialState(): WorkbenchState {
     selectedDerivativeId: null,
     selectedFrameId: null,
     selectedSubtitleId: null,
+    selectedAudioFeatureMarkerId: null,
     sampleVideo: null,
     mediaDerivatives: [],
     audioSeparation: null,
+    audioFeatures: null,
     subtitles: null,
     structureCards: [],
     contentProfile: null,
@@ -71,7 +73,7 @@ export type WorkbenchAction =
   | { type: "set-processing-job"; processingJob: ProcessingJob | null; uploadStatusText: string | null }
   | { type: "apply-artifact"; artifact: SampleArtifact }
   | { type: "set-error"; errorSummary: ErrorSummary | null; uploadStatusText: string | null }
-  | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null; selectedSubtitleId?: string | null }
+  | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null; selectedSubtitleId?: string | null; selectedAudioFeatureMarkerId?: string | null }
   | { type: "set-frame-visible"; visible: boolean }
   | { type: "set-visible-seconds"; visibleSeconds: number }
   | { type: "set-structure-cards"; cards: StructureCard[] }
@@ -117,6 +119,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         selectedDerivativeId: action.selectedDerivativeId,
         selectedFrameId: action.selectedFrameId,
         selectedSubtitleId: action.selectedSubtitleId ?? null,
+        selectedAudioFeatureMarkerId: action.selectedAudioFeatureMarkerId ?? null,
       };
     case "set-frame-visible":
       return { ...state, timelineFrameVisible: action.visible };
@@ -163,6 +166,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         selectedFrameId: action.draft.selectedFrameId ?? restored.selectedFrameId,
         selectedDerivativeId: action.draft.selectedDerivativeId ?? restored.selectedDerivativeId,
         selectedSubtitleId: null,
+        selectedAudioFeatureMarkerId: null,
         versions: Array.isArray(action.draft.versions) ? action.draft.versions : [],
       };
     }
@@ -203,10 +207,12 @@ export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtif
     sampleVideo,
     mediaDerivatives: buildDerivatives(artifact),
     audioSeparation: artifact.audioSeparation ?? null,
+    audioFeatures: artifact.audioFeatures ?? null,
     subtitles: artifact.subtitles ?? null,
     selectedFrameId: sampleVideo.frameArtifacts[0]?.id ?? null,
     selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
     selectedSubtitleId: null,
+    selectedAudioFeatureMarkerId: null,
     activeMediaKind: "video",
     structureCards: [],
     generatedPlan: null,

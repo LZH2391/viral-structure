@@ -10,10 +10,11 @@ const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sa
 const { resolveProcessingOptions } = require("../../Apps/Api/lib/sample-processing-debug");
 
 test("upload options normalize optional audio and subtitle flags", () => {
-  const options = resolveProcessingOptions({ frameSampleRateFps: "2", enableAudioSeparation: "true", enableSubtitleRecognition: "1" });
+  const options = resolveProcessingOptions({ frameSampleRateFps: "2", enableAudioSeparation: "true", enableSubtitleRecognition: "1", enableAudioFeatureAnalysis: "on" });
   assert.equal(options.frameSampleRateFps, 2);
   assert.equal(options.enableAudioSeparation, true);
   assert.equal(options.enableSubtitleRecognition, true);
+  assert.equal(options.enableAudioFeatureAnalysis, true);
 });
 
 test("optional audio separation and subtitles keep base processing successful with traceable degradation", async () => {
@@ -74,6 +75,93 @@ test("optional audio separation and subtitles keep base processing successful wi
   assert.ok(logs.some((line) => line.stageName === STAGES.subtitleRecognized && line.event === "stage.fail"));
 });
 
+test("optional audio feature analysis writes artifact and stage logs", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-audio-features-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({
+    store,
+    logger,
+    jobStore,
+    mediaProcessor: createProcessor(store),
+    librosaAdapter: {
+      async extractAudioFeatures({ parentArtifactId }) {
+        return {
+          artifactId: "artifact_audio_features",
+          parentArtifactId,
+          type: "audio-feature-analysis",
+          status: "processed",
+          reason: null,
+          debugSnapshotUri: null,
+          sourceAudioArtifactId: parentArtifactId,
+          durationSeconds: 2,
+          tempoBpm: 120,
+          beats: [0.25, 1.25],
+          onsets: [0.5],
+          energyFrames: [{ time: 0.25, rms: 0.4 }],
+          spectralSummary: { centroidMean: 1000, bandwidthMean: 200, rolloffMean: 1800, zeroCrossingRateMean: 0.03 },
+          analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
+        };
+      },
+      audioFeaturesDegraded() {
+        throw new Error("unexpected degradation");
+      },
+    },
+  });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { enableAudioFeatureAnalysis: "true" },
+    file: { filename: "sample.mp4", extension: ".mp4", mimeType: "video/mp4", size: 5, buffer: Buffer.from("hello") },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "processed");
+  assert.equal(job.status, "processed");
+
+  const artifact = await store.readJson(path.join(store.sampleDir(upload.sampleVideoId), "artifact.json"));
+  assert.equal(artifact.processingOptions.enableAudioFeatureAnalysis, true);
+  assert.equal(artifact.audioFeatures.type, "audio-feature-analysis");
+  assert.equal(artifact.audioFeatures.parentArtifactId, artifact.audio.artifactId);
+  assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
+
+  const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`), "utf8");
+  const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
+  const featureEnd = logs.find((line) => line.stageName === STAGES.audioFeaturesExtracted && line.event === "stage.end");
+  assert.equal(featureEnd.outputSummary.beatCount, 2);
+  assert.equal(featureEnd.outputSummary.onsetCount, 1);
+});
+
+test("audio feature analysis degrades when audio source is unavailable", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-audio-features-degraded-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({
+    store,
+    logger,
+    jobStore,
+    mediaProcessor: createDegradedAudioProcessor(store),
+    librosaAdapter: require("../../Infrastructure/MediaProcessing/librosa-adapter"),
+  });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { enableAudioFeatureAnalysis: "true" },
+    file: { filename: "sample.mp4", extension: ".mp4", mimeType: "video/mp4", size: 5, buffer: Buffer.from("hello") },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "processed");
+  assert.equal(job.status, "processed");
+
+  const artifact = await store.readJson(path.join(store.sampleDir(upload.sampleVideoId), "artifact.json"));
+  assert.equal(artifact.audioFeatures.status, "degraded");
+  assert.equal(artifact.audioFeatures.parentArtifactId, artifact.audio.artifactId);
+  assert.ok(artifact.audioFeatures.debugSnapshotUri);
+
+  const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`), "utf8");
+  const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
+  assert.ok(logs.some((line) => line.stageName === STAGES.audioFeaturesExtracted && line.event === "stage.fail"));
+});
+
 async function waitForJob(jobStore, jobId, status) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const job = jobStore.getJob(jobId);
@@ -97,6 +185,36 @@ function createProcessor(store) {
     async extractAudio({ audioPath, parentArtifactId }) {
       await fs.writeFile(audioPath, Buffer.from("audio"));
       return { artifactId: "artifact_audio", parentArtifactId, type: "audio-track", uri: store.runtimeUri(audioPath), summary: "音频轨" };
+    },
+  };
+}
+
+function createDegradedAudioProcessor(store) {
+  return {
+    async probeMetadata() {
+      return { durationSeconds: 2, width: 720, height: 1280, hasAudio: true };
+    },
+    async extractCover({ coverPath, parentArtifactId }) {
+      return { artifactId: "artifact_cover", parentArtifactId, type: "cover-frame", uri: store.runtimeUri(coverPath), summary: "封面帧" };
+    },
+    async extractFrames({ framesDir, parentArtifactId }) {
+      return [{ frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-001.jpg")) }];
+    },
+    async extractAudio({ parentArtifactId }) {
+      return {
+        artifactId: "artifact_audio",
+        parentArtifactId,
+        type: "audio-track",
+        uri: null,
+        summary: "未检测到可抽取音频轨",
+        debugSummary: {
+          commandSummary: { command: "ffmpeg", args: ["-y", "-i", "<path:source.mp4>", "-vn", "<path:audio.m4a>"] },
+          stderrSummary: "audio stream not found in <path:source.mp4>",
+          exitCode: 1,
+          mediaOperation: "audio.extract",
+          retryable: false,
+        },
+      };
     },
   };
 }

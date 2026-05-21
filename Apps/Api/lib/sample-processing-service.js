@@ -6,11 +6,12 @@ const { createTraceIds, nextStage } = require("../../../Infrastructure/Observabi
 const defaultMediaProcessor = require("../../../Infrastructure/MediaProcessing/media-processor");
 const defaultDemucsAdapter = require("../../../Infrastructure/MediaProcessing/demucs-adapter");
 const defaultTranscoder = require("../../../Infrastructure/MediaProcessing/audio-transcoder");
+const defaultLibrosaAdapter = require("../../../Infrastructure/MediaProcessing/librosa-adapter");
 const defaultIatClient = require("../../../Infrastructure/ModelGateway/xfyun-iat-client");
 const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
-function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, iatClient = defaultIatClient }) {
+function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
     const sampleVideoId = `sample_${randomUUID()}`;
@@ -25,7 +26,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       await store.ensureRuntimeDirs();
       await runStage(context, STAGES.uploadReceived, 5, {
         artifactId: context.sampleArtifactId,
-        inputSummary: { ...summarizeFile(context.file), frameSampleRateFps: context.fields.frameSampleRateFps ?? null, enableAudioSeparation: context.fields.enableAudioSeparation ?? null, enableSubtitleRecognition: context.fields.enableSubtitleRecognition ?? null },
+        inputSummary: { ...summarizeFile(context.file), frameSampleRateFps: context.fields.frameSampleRateFps ?? null, enableAudioSeparation: context.fields.enableAudioSeparation ?? null, enableSubtitleRecognition: context.fields.enableSubtitleRecognition ?? null, enableAudioFeatureAnalysis: context.fields.enableAudioFeatureAnalysis ?? null },
         action: async () => ({ sampleVideoId: context.sampleVideoId }),
         outputSummary: () => ({ sampleVideoId: context.sampleVideoId, sampleArtifactId: context.sampleArtifactId }),
       });
@@ -38,7 +39,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
           context.processingOptions = resolveProcessingOptions(context.fields);
           return context.processingOptions;
         },
-        outputSummary: (options) => ({ accepted: true, frameSampleRateFps: options.frameSampleRateFps, enableAudioSeparation: options.enableAudioSeparation, enableSubtitleRecognition: options.enableSubtitleRecognition }),
+        outputSummary: (options) => ({ accepted: true, frameSampleRateFps: options.frameSampleRateFps, enableAudioSeparation: options.enableAudioSeparation, enableSubtitleRecognition: options.enableSubtitleRecognition, enableAudioFeatureAnalysis: options.enableAudioFeatureAnalysis }),
       });
       const sampleDir = await store.ensureSampleDirs(context.sampleVideoId);
       const inputPath = await saveSource(context, sampleDir);
@@ -46,9 +47,10 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       const cover = await readCover(context, inputPath, sampleDir);
       const frames = await readFrames(context, inputPath, sampleDir, metadata.durationSeconds);
       const audio = await readAudio(context, inputPath, sampleDir);
+      const audioFeatures = await maybeExtractAudioFeatures(context, audio);
       const audioSeparation = await maybeSeparateAudio(context, audio, sampleDir);
       const subtitles = await maybeRecognizeSubtitles(context, audio, audioSeparation, sampleDir, metadata.durationSeconds);
-      await writeArtifact(context, inputPath, { metadata, cover, frames, audio, audioSeparation, subtitles, frameOutputSummary: context.frameOutputSummary, sampleVideoId: context.sampleVideoId }, sampleDir);
+      await writeArtifact(context, inputPath, { metadata, cover, frames, audio, audioFeatures, audioSeparation, subtitles, frameOutputSummary: context.frameOutputSummary, sampleVideoId: context.sampleVideoId }, sampleDir);
     } catch (error) {
       await markFailed(context, error);
     }
@@ -204,6 +206,36 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     });
   }
 
+  async function maybeExtractAudioFeatures(context, audio) {
+    if (!context.processingOptions.enableAudioFeatureAnalysis) return null;
+    return runStage(context, STAGES.audioFeaturesExtracted, 84, {
+      parentArtifactId: audio.artifactId,
+      inputSummary: { sourceAudioArtifactId: audio.artifactId, audioAvailable: Boolean(audio.uri), sourceRole: "original" },
+      action: async () => {
+        if (!audio.uri) {
+          const error = optionalCapabilityError("audio_feature_source_unavailable", "原音频不可用，跳过音频基础分析", "audio.features.extract");
+          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: audio.artifactId, reason: error.safeSummary });
+          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, "audio_feature_analysis_degraded", buildAudioFeaturesSummary(degraded), error.mediaDebug);
+          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, error, degraded.debugSnapshotUri);
+          return degraded;
+        }
+        try {
+          return await librosaAdapter.extractAudioFeatures({ audioPath: runtimePathFromUri(audio.uri), parentArtifactId: audio.artifactId, store });
+        } catch (error) {
+          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: audio.artifactId, reason: error.safeSummary || error.message || "音频基础分析失败" });
+          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, "audio_feature_analysis_degraded", {
+            status: degraded.status,
+            reason: degraded.reason,
+          }, error.mediaDebug ?? buildDebugPayload(error, buildErrorSummary(error, STAGES.audioFeaturesExtracted)));
+          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, error, degraded.debugSnapshotUri);
+          return degraded;
+        }
+      },
+      artifactIdFromResult: (audioFeatures) => audioFeatures.artifactId,
+      outputSummary: buildAudioFeaturesSummary,
+    });
+  }
+
   async function maybeRecognizeSubtitles(context, audio, audioSeparation, sampleDir, durationSeconds) {
     if (!context.processingOptions.enableSubtitleRecognition) return null;
     const source = audioSeparation?.vocal?.uri ? audioSeparation.vocal : audio;
@@ -356,6 +388,19 @@ function buildAudioSeparationSummary(result) {
     status: result.status,
     hasVocal: Boolean(result.vocal?.uri),
     hasMusic: Boolean(result.music?.uri),
+    reason: result.reason ?? null,
+    debugSnapshotUri: result.debugSnapshotUri ?? null,
+  };
+}
+
+function buildAudioFeaturesSummary(result) {
+  return {
+    status: result.status,
+    sourceAudioArtifactId: result.sourceAudioArtifactId,
+    beatCount: result.beats.length,
+    onsetCount: result.onsets.length,
+    energyFrameCount: result.energyFrames.length,
+    tempoBpm: result.tempoBpm,
     reason: result.reason ?? null,
     debugSnapshotUri: result.debugSnapshotUri ?? null,
   };

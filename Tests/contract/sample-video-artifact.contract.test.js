@@ -43,3 +43,27 @@ test("sample artifact keeps processing options and frame summary", () => {
   assert.equal(artifact.frameOutputSummary.actualFrameCount, 5);
   assert.equal(artifact.frames[0].parentArtifactId, "artifact_sample");
 });
+
+test("audio feature artifact keeps source lineage and raw feature arrays", () => {
+  const artifact = {
+    processingOptions: { frameSampleRateFps: 1, enableAudioFeatureAnalysis: true },
+    audioFeatures: {
+      artifactId: "artifact_audio_features",
+      parentArtifactId: "artifact_audio",
+      type: "audio-feature-analysis",
+      status: "processed",
+      sourceAudioArtifactId: "artifact_audio",
+      durationSeconds: 2,
+      tempoBpm: 120,
+      beats: [0.25, 1.25],
+      onsets: [0.5],
+      energyFrames: [{ time: 0.25, rms: 0.4 }],
+      spectralSummary: { centroidMean: 1000 },
+      analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
+    },
+  };
+  assert.equal(artifact.processingOptions.enableAudioFeatureAnalysis, true);
+  assert.equal(artifact.audioFeatures.parentArtifactId, "artifact_audio");
+  assert.equal(artifact.audioFeatures.sourceAudioArtifactId, "artifact_audio");
+  assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
+});

@@ -9,9 +9,11 @@ type ResourcePanelProps = {
   capabilities: BackendCapabilities | null;
   enableAudioSeparation: boolean;
   enableSubtitleRecognition: boolean;
+  enableAudioFeatureAnalysis: boolean;
   onFrameSampleRateChange: (value: number) => void;
   onEnableAudioSeparationChange: (value: boolean) => void;
   onEnableSubtitleRecognitionChange: (value: boolean) => void;
+  onEnableAudioFeatureAnalysisChange: (value: boolean) => void;
   onUpload: (file: File) => void;
 };
 
@@ -22,13 +24,16 @@ export function ResourcePanel({
   capabilities,
   enableAudioSeparation,
   enableSubtitleRecognition,
+  enableAudioFeatureAnalysis,
   onFrameSampleRateChange,
   onEnableAudioSeparationChange,
   onEnableSubtitleRecognitionChange,
+  onEnableAudioFeatureAnalysisChange,
   onUpload,
 }: ResourcePanelProps) {
   const demucsDisabled = isUploading || capabilities?.demucsAvailable === false;
   const subtitleDisabled = isUploading || capabilities?.xfyunIatConfigured === false;
+  const audioFeatureDisabled = isUploading || capabilities?.librosaAvailable === false;
   return (
     <aside className="resource-panel" aria-label="资源区">
       <section className="resource-view active" data-view="materials">
@@ -84,6 +89,17 @@ export function ResourcePanel({
             />
             <span>字幕识别</span>
             <small>{capabilities?.xfyunIatConfigured === false ? `需要配置 ${(capabilities.xfyunRequiredEnv ?? REQUIRED_XFYUN_ENV).join(" / ")}` : "优先使用人声轨"}</small>
+          </label>
+          <label className={`option-toggle ${audioFeatureDisabled ? "disabled" : ""}`}>
+            <input
+              id="enableAudioFeatureAnalysisInput"
+              type="checkbox"
+              checked={enableAudioFeatureAnalysis}
+              disabled={audioFeatureDisabled}
+              onChange={(event) => onEnableAudioFeatureAnalysisChange(event.currentTarget.checked)}
+            />
+            <span>音频基础分析</span>
+            <small>{capabilities?.librosaAvailable === false ? "需要 Python/Librosa 环境" : "提取 beat / onset / RMS"}</small>
           </label>
         </div>
       </section>

@@ -4,12 +4,13 @@ const WORKSPACE_ID = "default-workspace";
 
 export const API_BASE_URL = location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:5177";
 
-export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean } = {}) {
+export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean } = {}) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 1));
   formData.append("enableAudioSeparation", String(Boolean(options.enableAudioSeparation)));
   formData.append("enableSubtitleRecognition", String(Boolean(options.enableSubtitleRecognition)));
+  formData.append("enableAudioFeatureAnalysis", String(Boolean(options.enableAudioFeatureAnalysis)));
   const response = await fetch(`${API_BASE_URL}/api/workspaces/${WORKSPACE_ID}/sample-videos`, {
     method: "POST",
     body: formData,

@@ -19,6 +19,7 @@ export function WorkbenchApp() {
   const [frameSampleRate, setFrameSampleRate] = useState(1);
   const [enableAudioSeparation, setEnableAudioSeparation] = useState(false);
   const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(false);
+  const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(false);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [currentTime, setCurrentTime] = useState(0);
   const uploadTokenRef = useRef(0);
@@ -179,11 +180,12 @@ export function WorkbenchApp() {
         mimeType: file.type || null,
         sizeBytes: file.size,
         frameSampleRateFps: frameSampleRate,
+        enableAudioFeatureAnalysis,
       });
       dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
       let latestJob: ProcessingJob | null = null;
       try {
-        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition });
+        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition, enableAudioFeatureAnalysis });
         if (token !== uploadTokenRef.current) return;
         const pendingJob: ProcessingJob = {
           jobId: upload.processingJobId,
@@ -235,7 +237,7 @@ export function WorkbenchApp() {
         dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "处理失败" });
       }
     },
-    [beginStage, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
+    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
   );
 
   const handleUnderstand = () => {
@@ -297,9 +299,11 @@ export function WorkbenchApp() {
           capabilities={state.capabilities}
           enableAudioSeparation={enableAudioSeparation}
           enableSubtitleRecognition={enableSubtitleRecognition}
+          enableAudioFeatureAnalysis={enableAudioFeatureAnalysis}
           onFrameSampleRateChange={setFrameSampleRate}
           onEnableAudioSeparationChange={setEnableAudioSeparation}
           onEnableSubtitleRecognitionChange={setEnableSubtitleRecognition}
+          onEnableAudioFeatureAnalysisChange={setEnableAudioFeatureAnalysis}
           onUpload={handleSampleUpload}
         />
         <PreviewPanel
@@ -323,7 +327,9 @@ export function WorkbenchApp() {
           selectedFrameId={state.selectedFrameId}
           selectedDerivativeId={state.selectedDerivativeId}
           selectedSubtitleId={state.selectedSubtitleId}
+          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
           mediaDerivatives={state.mediaDerivatives}
+          audioFeatures={state.audioFeatures}
           subtitles={state.subtitles}
           subtitleDrafts={state.subtitleDrafts}
           currentCard={currentCard}
@@ -341,7 +347,9 @@ export function WorkbenchApp() {
           selectedDerivativeId={state.selectedDerivativeId}
           selectedFrameId={state.selectedFrameId}
           selectedSubtitleId={state.selectedSubtitleId}
+          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
           audioSeparation={state.audioSeparation}
+          audioFeatures={state.audioFeatures}
           subtitles={state.subtitles}
           subtitleDrafts={state.subtitleDrafts}
           timelineFrameVisible={state.timelineFrameVisible}
@@ -365,6 +373,9 @@ export function WorkbenchApp() {
           }}
           onSelectSubtitle={(segmentId) => {
             dispatch({ type: "select-media", activeMediaKind: "subtitle", selectedDerivativeId: state.subtitles?.artifactId ?? null, selectedFrameId: null, selectedSubtitleId: segmentId });
+          }}
+          onSelectAudioFeature={(markerId) => {
+            dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: state.audioFeatures?.artifactId ?? null, selectedFrameId: null, selectedAudioFeatureMarkerId: markerId });
           }}
           onFrameVisibleChange={(visible) => dispatch({ type: "set-frame-visible", visible })}
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
@@ -407,6 +418,9 @@ function stageLabel(job: ProcessingJob): string {
     "sample.cover.extracted": "生成封面",
     "sample.frames.extracted": "抽帧中",
     "sample.audio.extracted": "提取音频",
+    "sample.audio.features.extracted": "分析音频基础特征",
+    "sample.audio.separated": "分离人声/伴奏",
+    "sample.subtitle.recognized": "识别字幕",
     "sample.artifact.written": "生成产物",
     processed: "生成产物完成",
   };

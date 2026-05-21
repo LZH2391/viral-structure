@@ -1,5 +1,5 @@
 export type StageLevel = "info" | "done" | "fail";
-export type MediaKind = "video" | "cover" | "frame" | "audio" | "subtitle";
+export type MediaKind = "video" | "cover" | "frame" | "audio" | "subtitle" | "audioFeature";
 export type PreviewMode = "sample" | "generated" | "compare";
 
 export type ArtifactRef = {
@@ -31,6 +31,7 @@ export type ProcessingJob = {
 export type BackendCapabilities = {
   demucsAvailable: boolean;
   ffmpegAvailable?: boolean;
+  librosaAvailable?: boolean;
   xfyunIatConfigured: boolean;
   xfyunRequiredEnv?: string[];
 };
@@ -54,6 +55,7 @@ export type SampleArtifact = {
     frameSampleRateFps?: number;
     enableAudioSeparation?: boolean;
     enableSubtitleRecognition?: boolean;
+    enableAudioFeatureAnalysis?: boolean;
   };
   sampleVideo: {
     artifactId: string;
@@ -65,6 +67,7 @@ export type SampleArtifact = {
   frames: FrameArtifact[];
   frameOutputSummary?: unknown;
   audio?: ArtifactRef | null;
+  audioFeatures?: AudioFeatureAnalysisArtifact | null;
   audioSeparation?: AudioSeparationArtifact | null;
   subtitles?: SubtitleArtifact | null;
   metadata: {
@@ -81,6 +84,46 @@ export type AudioSeparationArtifact = {
   status?: string;
   reason?: string | null;
   debugSnapshotUri?: string | null;
+};
+
+export type AudioFeatureMarker = {
+  id: string;
+  type: "beat" | "onset";
+  time: number;
+  rms?: number | null;
+};
+
+export type EnergyFrame = {
+  time: number;
+  rms: number;
+};
+
+export type AudioFeatureAnalysisArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: "audio-feature-analysis";
+  status?: string;
+  reason?: string | null;
+  debugSnapshotUri?: string | null;
+  sourceAudioArtifactId?: string | null;
+  durationSeconds?: number | null;
+  tempoBpm?: number | null;
+  beats: number[];
+  onsets: number[];
+  energyFrames: EnergyFrame[];
+  spectralSummary?: {
+    centroidMean?: number | null;
+    bandwidthMean?: number | null;
+    rolloffMean?: number | null;
+    zeroCrossingRateMean?: number | null;
+  };
+  analysisParams?: {
+    librosaVersion?: string | null;
+    sampleRate?: number | null;
+    hopLength?: number | null;
+    nFft?: number | null;
+    sourceRole?: string | null;
+  };
 };
 
 export type SubtitleSegment = {
@@ -265,9 +308,11 @@ export type WorkbenchState = {
   selectedDerivativeId: string | null;
   selectedFrameId: string | null;
   selectedSubtitleId: string | null;
+  selectedAudioFeatureMarkerId: string | null;
   sampleVideo: SampleVideo | null;
   mediaDerivatives: MediaDerivative[];
   audioSeparation?: AudioSeparationArtifact | null;
+  audioFeatures?: AudioFeatureAnalysisArtifact | null;
   subtitles?: SubtitleArtifact | null;
   structureCards: StructureCard[];
   contentProfile: ContentProfile | null;

@@ -172,7 +172,7 @@ function resolveActiveMedia({ sampleVideo, mediaDerivatives, activeMediaKind, se
 }
 
 function mediaLabel(kind: MediaKind): string {
-  const labels: Record<MediaKind, string> = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频", subtitle: "字幕" };
+  const labels: Record<MediaKind, string> = { video: "原视频", cover: "封面", frame: "抽帧", audio: "音频", subtitle: "字幕", audioFeature: "音频分析" };
   return labels[kind] ?? "媒体";
 }
 

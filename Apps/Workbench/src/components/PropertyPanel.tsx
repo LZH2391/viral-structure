@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { MediaDerivative, SampleVideo, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
+import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
 import { formatTime } from "../utils/format";
 
 type PropertyPanelProps = {
@@ -8,7 +8,9 @@ type PropertyPanelProps = {
   selectedFrameId: string | null;
   selectedDerivativeId: string | null;
   selectedSubtitleId: string | null;
+  selectedAudioFeatureMarkerId: string | null;
   mediaDerivatives: MediaDerivative[];
+  audioFeatures?: AudioFeatureAnalysisArtifact | null;
   subtitles?: SubtitleArtifact | null;
   subtitleDrafts: Record<string, SubtitleDraft>;
   currentCard: StructureCard | null;
@@ -39,7 +41,9 @@ function PropertyRows({
   selectedFrameId,
   selectedDerivativeId,
   selectedSubtitleId,
+  selectedAudioFeatureMarkerId,
   mediaDerivatives,
+  audioFeatures,
   subtitles,
   subtitleDrafts,
   currentCard,
@@ -64,6 +68,10 @@ function PropertyRows({
     const frame = sampleVideo.frameArtifacts.find((item) => item.id === selectedFrameId);
     const derivative = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId);
     const subtitle = subtitles?.segments.find((item) => item.id === selectedSubtitleId);
+    const audioFeatureMarker = findAudioFeatureMarker(audioFeatures, selectedAudioFeatureMarkerId);
+    if (activeMediaKind === "audioFeature" && audioFeatures) {
+      return <AudioFeatureRows artifact={audioFeatures} marker={audioFeatureMarker} />;
+    }
     if (activeMediaKind === "subtitle" && subtitle && subtitles) {
       return <SubtitleRows subtitle={subtitle} artifact={subtitles} draft={subtitleDrafts[subtitle.id]} onChange={onSubtitleDraftChange} />;
     }
@@ -115,6 +123,65 @@ function PropertyRows({
     );
   }
   return <>暂无片段</>;
+}
+
+function AudioFeatureRows({ artifact, marker }: { artifact: AudioFeatureAnalysisArtifact; marker: AudioFeatureMarker | null }) {
+  if (artifact.status === "degraded") {
+    return (
+      <>
+        <DetailRow label="媒体类型" value="音频基础分析" />
+        <DetailRow label="状态" value={artifact.status} />
+        <DetailRow label="原因" value={artifact.reason ?? "未产出"} />
+        <DetailRow label="artifact" value={artifact.artifactId} />
+        <DetailRow label="parent" value={artifact.parentArtifactId ?? "无"} />
+      </>
+    );
+  }
+  return (
+    <>
+      <DetailRow label="媒体类型" value={marker ? markerLabel(marker.type) : "音频基础分析"} />
+      <DetailRow label="时间点" value={marker ? formatTime(marker.time) : "未选择"} />
+      <DetailRow label="tempo" value={formatNumber(artifact.tempoBpm, " BPM")} />
+      <DetailRow label="RMS" value={formatNumber(marker?.rms)} />
+      <DetailRow label="beat数" value={String(artifact.beats.length)} />
+      <DetailRow label="onset数" value={String(artifact.onsets.length)} />
+      <DetailRow label="频谱质心" value={formatNumber(artifact.spectralSummary?.centroidMean)} />
+      <DetailRow label="带宽均值" value={formatNumber(artifact.spectralSummary?.bandwidthMean)} />
+      <DetailRow label="rolloff" value={formatNumber(artifact.spectralSummary?.rolloffMean)} />
+      <DetailRow label="ZCR均值" value={formatNumber(artifact.spectralSummary?.zeroCrossingRateMean)} />
+      <DetailRow label="artifact" value={artifact.artifactId} />
+      <DetailRow label="parent" value={artifact.parentArtifactId ?? "无"} />
+    </>
+  );
+}
+
+function findAudioFeatureMarker(audioFeatures: AudioFeatureAnalysisArtifact | null | undefined, markerId: string | null): AudioFeatureMarker | null {
+  if (!audioFeatures || !markerId) return null;
+  const markers = [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(audioFeatures, time) })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(audioFeatures, time) })),
+  ];
+  return markers.find((item) => item.id === markerId) ?? null;
+}
+
+function nearestRms(audioFeatures: AudioFeatureAnalysisArtifact, time: number) {
+  const frames = audioFeatures.energyFrames ?? [];
+  if (!frames.length) return null;
+  let best = frames[0];
+  for (const frame of frames) {
+    if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
+  }
+  return best.rms;
+}
+
+function markerLabel(type: AudioFeatureMarker["type"]) {
+  return type === "beat" ? "beat 标记" : "onset 标记";
+}
+
+function formatNumber(value?: number | null, suffix = "") {
+  if (!Number.isFinite(value)) return "无";
+  const number = Number(value);
+  return `${Math.abs(number) >= 10 ? number.toFixed(2) : number.toFixed(4)}${suffix}`;
 }
 
 function SubtitleRows({
