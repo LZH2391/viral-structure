@@ -9,7 +9,7 @@ const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/li
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
   const artifact = createArtifact();
-  const input = prepareInput(artifact, 1);
+  const input = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   assert.equal(input.analysisSampling.stride, 3);
   assert.equal(input.frames.length, 2);
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
@@ -28,7 +28,7 @@ test("shot boundary turn inputs remove invalid surrogate text", () => {
     imageUri: "/runtime/Artifacts/sample_1/frames/frame-\uDCAA0.jpg",
   };
 
-  const input = prepareInput(artifact, 1);
+  const input = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   const turnInputs = buildTurnInputs(input);
   const promptText = turnInputs[0].text;
   const textItems = turnInputs.filter((item) => item.type === "text");
@@ -36,18 +36,15 @@ test("shot boundary turn inputs remove invalid surrogate text", () => {
 
   assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(input)), false);
   assert.equal(/[\uD800-\uDFFF]/.test(promptText), false);
-  assert.equal(textItems.length, 3);
+  assert.equal(textItems.length, 1);
   assert.equal(imageItems.length, 2);
   assert.match(promptText, /只返回 JSON object/);
   assert.match(promptText, /extractFps=3/);
   assert.doesNotMatch(promptText, /frame-0\.jpg/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
   assert.doesNotMatch(promptText, /SKILL\.md/);
-  assert.match(textItems[1].text, /frameId=frame_0/);
-  assert.match(textItems[1].text, /sourceFrameIndex=0/);
-  assert.match(textItems[2].text, /frameId=frame_3/);
-  assert.equal(imageItems[0].path, "/runtime/Artifacts/sample_1/frames/frame-0.jpg");
-  assert.equal(imageItems[1].path, "/runtime/Artifacts/sample_1/frames/frame-3.jpg");
+  assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\frames\\frame-0.jpg");
+  assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\frames\\frame-3.jpg");
 });
 
 test("shot boundary normalizes agent shots to frame ids and safe ranges", () => {

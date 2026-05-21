@@ -55,7 +55,7 @@ function createShotBoundaryService({
         artifactId: context.artifactId,
         parentArtifactId: context.sampleArtifact.sampleVideo.artifactId,
         inputSummary: { sampleVideoId: context.sampleVideoId, analysisFps: context.analysisFps },
-        action: () => prepareInput(context.sampleArtifact, context.analysisFps),
+        action: () => prepareInput(context.sampleArtifact, context.analysisFps, { runtimeRoot: store.runtimeRoot }),
         outputSummary: (input) => ({
           frameCount: input.frames.length,
           stride: input.analysisSampling.stride,
@@ -116,7 +116,7 @@ function createShotBoundaryService({
         await failAgentRun(context, error);
         return { status: SAMPLE_STATUS.failed };
       }
-      const prepared = prepareInput(sampleArtifact, agentRun.analysisFps);
+      const prepared = prepareInput(sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
       try {
         jobStore.updateJob(job.jobId, { agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() }, stage: STAGES.turnCollected, status: SAMPLE_STATUS.processing, progress: 88 });
         const turn = await runStage(context, STAGES.turnCollected, 88, {
@@ -336,7 +336,7 @@ function isRetryableCollectError(error) {
   return ["appserver_bridge_failed", "appserver_bridge_timeout", "appserver_turn_collect_failed"].includes(code);
 }
 
-function prepareInput(artifact, analysisFps) {
+function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);
   const frames = Array.isArray(artifact.frames) ? artifact.frames : [];
   const summary = artifact.frameOutputSummary ?? {};
@@ -370,7 +370,7 @@ function prepareInput(artifact, analysisFps) {
         parentArtifactId: frame.parentArtifactId ?? null,
         timestamp: Number(frame.timestamp ?? 0),
         fileName: basename(frame.imageUri),
-        filePath: frame.imageUri,
+        filePath: resolveLocalImagePath(frame.imageUri, runtimeRoot),
       });
       return result;
     }, []),
@@ -395,11 +395,6 @@ function buildTurnInputs(input) {
     },
   ];
   for (const frame of input.frames) {
-    inputs.push({
-      type: "text",
-      text: buildFrameCaption(frame),
-      text_elements: [],
-    });
     inputs.push({
       type: "localImage",
       path: frame.filePath,
@@ -514,16 +509,6 @@ async function finalizeLease(threadPool, agentRun) {
   }
   await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
   return { mode: "lease-release" };
-}
-
-function buildFrameCaption(frame) {
-  return [
-    `frameId=${frame.frameId}`,
-    `inputIndex=${frame.inputIndex}`,
-    `sourceFrameIndex=${frame.sourceFrameIndex}`,
-    `timestampSeconds=${round(frame.timestamp)}`,
-    `artifactId=${frame.artifactId}`,
-  ].join("\n");
 }
 
 function normalizeShotNo(value) {
@@ -679,6 +664,19 @@ function round(value) {
 
 function basename(value) {
   return String(value ?? "").split(/[\\/]/).at(-1) ?? "";
+}
+
+function resolveLocalImagePath(imageUri, runtimeRoot) {
+  const value = String(imageUri ?? "");
+  if (runtimeRoot && value.startsWith("/runtime/")) {
+    return path.join(runtimeRoot, ...value.slice("/runtime/".length).split("/"));
+  }
+  if (isAbsolutePath(value)) return value;
+  return value;
+}
+
+function isAbsolutePath(value) {
+  return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\") || value.startsWith("/");
 }
 
 module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, normalizeShots, sanitizeForAppServerText };
