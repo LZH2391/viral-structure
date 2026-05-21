@@ -105,6 +105,15 @@
         "startedAt": "2026-05-21T07:26:29.841Z",
         "updatedAt": "2026-05-21T07:26:39.918Z"
       }
+    },
+    {
+      "jobId": "job_855c77ab-ab5b-4360-9638-cdfc9ee28b59",
+      "sampleVideoId": "sample_81e61095-0db8-4189-8028-f76281f64765",
+      "stage": "shot.thread_acquire",
+      "status": "processing",
+      "progress": 60,
+      "traceId": "trace_edf809ac-f6f3-4d1e-bb3b-afe8f5cef13d",
+      "errorSummary": null
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
 import { formatTime } from "../utils/format";
+import { getShotBoundaryGuard, type ShotBoundaryGuard } from "../utils/workbenchHelpers";
 
 type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -70,6 +71,48 @@ function AgentRunPanel({
   const running = job?.status === "pending" || job?.status === "processing";
   const maxAnalysisFps = resolveMaxAnalysisFps(sampleVideo);
   const analysisFpsExceeded = Number.isFinite(maxAnalysisFps) && analysisFps > maxAnalysisFps;
+  const [guard, setGuard] = useState<ShotBoundaryGuard>({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!sampleVideo) {
+      setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+      return undefined;
+    }
+    if (running) {
+      setGuard((current) => (current.state === "ready" ? current : { state: "ready", buttonLabel: "运行", message: null, disabled: false }));
+      return undefined;
+    }
+    setGuard({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+    getShotBoundaryGuard()
+      .then((next) => {
+        if (!cancelled) setGuard(next);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setGuard({
+            state: "blocked",
+            buttonLabel: "不可用",
+            message: error instanceof Error ? error.message : "ThreadPool 状态读取失败",
+            disabled: true,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [running, sampleVideo?.id]);
+
+  const runDisabled = !sampleVideo || running || analysisFpsExceeded || (guard.disabled && guard.state !== "warming");
+  const runLabel = running ? "运行中" : guard.buttonLabel;
+  const handleRun = () => {
+    if (guard.state === "warming") {
+      window.alert(guard.message ?? "ThreadPool 正在 warming，请稍后再试");
+      return;
+    }
+    if (runDisabled) return;
+    onRun();
+  };
   return (
     <section className="property-section agent-run-panel">
       <div className="section-heading">Agent</div>
@@ -78,8 +121,8 @@ function AgentRunPanel({
           <strong>shot-boundary</strong>
           <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? `${analysis.shots.length} 镜` : "等待分析"}</span>
         </div>
-        <button className="primary-button" type="button" disabled={!sampleVideo || running || analysisFpsExceeded} onClick={onRun}>
-          {running ? "运行中" : "开始"}
+        <button className="primary-button" type="button" disabled={runDisabled} title={guard.message ?? undefined} onClick={handleRun}>
+          {runLabel}
         </button>
       </div>
       <label className="agent-field">
@@ -93,6 +136,7 @@ function AgentRunPanel({
         <div>采样率越高，图片越多，分析更细但耗时更久。</div>
       </div>
       {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
+      {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {analysis?.shots?.length ? (
         <div className="agent-shot-list">
           {analysis.shots.slice(0, 12).map((shot) => (

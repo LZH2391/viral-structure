@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T15:57:52.743707+08:00",
+  "updated_at": "2026-05-21T16:41:51.188336+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -7,9 +7,9 @@
       "min_idle": 1,
       "skill_path": "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
       "init_prompt": "你是镜头切分分析 Agent。初始化阶段只阅读 `C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md`，理解只基于帧 manifest 做视觉镜头切分的职责。不要读取无关文件，不使用音频、字幕、beats 或外部历史。正式任务只返回 JSON object，不输出解释性文本。完成初始化后只回复：已就绪",
-      "current_init_fingerprint": "39523a788abbdf02c983f3c04f09e8e1abe923ca3eda25c08172ae8169140214",
-      "seed_thread_id": "019e492a-d0b7-7740-b438-a98cf4e39d08",
-      "seed_init_fingerprint": "39523a788abbdf02c983f3c04f09e8e1abe923ca3eda25c08172ae8169140214",
+      "current_init_fingerprint": "c8da2b74e7b4fedacc5b2b4f91fb4c89099d9fc18cb15a2a91aa5f5337c9d143",
+      "seed_thread_id": "019e49ab-b9d2-7d91-98df-34c9f833e1d1",
+      "seed_init_fingerprint": "c8da2b74e7b4fedacc5b2b4f91fb4c89099d9fc18cb15a2a91aa5f5337c9d143",
       "recovering": false,
       "ready_for_leases": true,
       "startup_error": null,
@@ -30,7 +30,7 @@
       "active_leases": [],
       "thread_entries": [
         {
-          "thread_id": "019e497c-7ca7-7871-a034-9a3a04efc2bf",
+          "thread_id": "019e49ac-bf49-7bf1-b33c-ea609cfdfa6a",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

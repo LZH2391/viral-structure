@@ -112,7 +112,15 @@ function createShotBoundaryService({
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: ROLE, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
-        action: () => threadPool.acquireLease({ role: ROLE, ownerId: context.traceContext.traceId }),
+        action: async () => {
+          const readiness = typeof threadPool.ensureRoleReady === "function" ? await threadPool.ensureRoleReady(ROLE) : await fallbackEnsureRoleReady(threadPool, ROLE);
+          if (!readiness?.ok) throw threadPoolReadinessError(readiness);
+          try {
+            return await threadPool.acquireLease({ role: ROLE, ownerId: context.traceContext.traceId });
+          } catch (error) {
+            throw normalizeThreadPoolAcquireError(error, readiness?.status ?? null);
+          }
+        },
         outputSummary: (result) => ({ role: ROLE, leaseId: result.lease_id, threadId: result.thread_id }),
       });
       const turn = await runStage(context, STAGES.turnStarted, 80, {
@@ -139,7 +147,7 @@ function createShotBoundaryService({
       scheduleCollect(context.job.jobId, 0);
     } catch (error) {
       if (lease?.thread_id) {
-        await threadPool.discardThread({ threadId: lease.thread_id, reason: "shot-boundary-analysis-failed" }).catch(() => undefined);
+        await cleanupLease(threadPool, lease, context.traceContext.traceId, "shot-boundary-analysis-failed");
       }
       await markFailed(context, error);
     }
@@ -244,11 +252,8 @@ function createShotBoundaryService({
 
   async function failAgentRun(context, error) {
     const agentRun = context.job.agentRun;
-    if (agentRun?.threadId) {
-      await threadPool.discardThread({ threadId: agentRun.threadId, reason: "shot-boundary-analysis-failed" }).catch(() => undefined);
-    }
-    if (agentRun?.traceId && typeof threadPool.releaseOwnerLeases === "function") {
-      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
+    if (agentRun?.threadId || agentRun?.traceId) {
+      await cleanupLease(threadPool, agentRun ? { thread_id: agentRun.threadId, lease_id: agentRun.leaseId } : null, agentRun?.traceId ?? null, "shot-boundary-analysis-failed");
     }
     await markFailed(context, error);
   }
@@ -446,6 +451,109 @@ async function finalizeLease(threadPool, agentRun) {
   }
   await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
   return { mode: "lease-release" };
+}
+
+async function cleanupLease(threadPool, lease, ownerId, reason) {
+  if (lease?.thread_id) {
+    await threadPool.discardThread({ threadId: lease.thread_id, reason }).catch(() => undefined);
+  }
+  if (ownerId && typeof threadPool.releaseOwnerLeases === "function") {
+    await threadPool.releaseOwnerLeases(ownerId).catch(() => undefined);
+  }
+}
+
+async function fallbackEnsureRoleReady(threadPool, role) {
+  const status = await threadPool.roleStatus(role);
+  if (!status?.ok) return status;
+  if (status.warming) {
+    return {
+      ok: false,
+      error: "threadpool_warming",
+      message: "ThreadPool 正在 warming，请稍后再试",
+      retryable: true,
+      detail: {
+        role: status.role,
+        readyForLeases: Boolean(status.readyForLeases),
+        canAcquire: Boolean(status.canAcquire),
+        warming: Boolean(status.warming),
+        warmupDetail: status.warmupDetail ?? null,
+        warmupError: status.warmupError ?? null,
+        startupError: status.startupError ?? null,
+      },
+    };
+  }
+  if (status.startupError || status.warmupError || !status.readyForLeases || !status.canAcquire) {
+    return {
+      ok: false,
+      error: "threadpool_acquire_failed",
+      message: String(status.startupError || status.warmupError || (!status.readyForLeases ? "ThreadPool 当前未 ready，请稍后再试" : "ThreadPool 当前不可获取 lease，请稍后再试")).slice(0, 240),
+      retryable: true,
+      detail: {
+        role: status.role,
+        readyForLeases: Boolean(status.readyForLeases),
+        canAcquire: Boolean(status.canAcquire),
+        warming: Boolean(status.warming),
+        warmupDetail: status.warmupDetail ?? null,
+        warmupError: status.warmupError ?? null,
+        startupError: status.startupError ?? null,
+      },
+    };
+  }
+  return { ok: true, role, status };
+}
+
+function threadPoolReadinessError(readiness) {
+  return codedError(
+    readiness?.error ?? "threadpool_acquire_failed",
+    readiness?.message ?? "ThreadPool 当前不可用，请稍后再试",
+    {
+      threadPool: readiness?.detail ?? null,
+      readinessError: readiness?.error ?? null,
+      retryable: readiness?.retryable ?? true,
+    },
+    readiness?.retryable ?? true,
+  );
+}
+
+function normalizeThreadPoolAcquireError(error, status) {
+  if (error?.code === "threadpool_timeout" || error?.code === "threadpool_request_failed") {
+    return codedError(
+      "threadpool_unavailable",
+      "ThreadPool 当前不可用，请稍后再试",
+      {
+        threadPool: status
+          ? {
+            role: status.role,
+            readyForLeases: Boolean(status.readyForLeases),
+            canAcquire: Boolean(status.canAcquire),
+            warming: Boolean(status.warming),
+            warmupError: status.warmupError ?? null,
+            startupError: status.startupError ?? null,
+          }
+          : null,
+        requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
+      },
+      true,
+    );
+  }
+  return codedError(
+    "threadpool_acquire_failed",
+    error instanceof Error ? error.message : "ThreadPool 获取 lease 失败",
+    {
+      threadPool: status
+        ? {
+          role: status.role,
+          readyForLeases: Boolean(status.readyForLeases),
+          canAcquire: Boolean(status.canAcquire),
+          warming: Boolean(status.warming),
+          warmupError: status.warmupError ?? null,
+          startupError: status.startupError ?? null,
+        }
+        : null,
+        requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
+    },
+    true,
+  );
 }
 
 function round(value) {

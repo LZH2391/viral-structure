@@ -1,6 +1,6 @@
-import { getProcessingJob, getSampleArtifact, startShotBoundaryAnalysis } from "../api/client";
+import { getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
-import type { AudioFeatureMarker, ProcessingJob, StructureCard, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, ProcessingJob, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -11,8 +11,17 @@ export type ActiveJobDraft = {
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
 
+export type ShotBoundaryGuard = {
+  state: "loading" | "ready" | "warming" | "blocked";
+  buttonLabel: string;
+  message: string | null;
+  disabled: boolean;
+};
+
 export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter) {
   if (!state.sampleVideo) return;
+  const guard = await getShotBoundaryGuard();
+  if (guard.state !== "ready") throw new Error(guard.message ?? "ThreadPool 当前不可用，请稍后再试");
   const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps });
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
@@ -28,10 +37,12 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
       return;
     }
     if (latest.status === "failed") {
+      setAgentJob(null);
       writeActiveAgentJob?.(null);
       throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
     }
   }
+  setAgentJob(null);
   writeActiveAgentJob?.(null);
   throw new Error("切镜分析超时");
 }
@@ -68,12 +79,46 @@ export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job
       return artifact;
     }
     if (job.status === "failed") {
+      setAgentJob(null);
       writeActiveAgentJob(null);
       return null;
     }
     await delay(1000);
   }
+  setAgentJob(null);
+  writeActiveAgentJob(null);
   return null;
+}
+
+export async function getShotBoundaryGuard() {
+  try {
+    return resolveShotBoundaryGuard(await getThreadPoolRoleStatus("shot-boundary-analyzer"));
+  } catch (error) {
+    return {
+      state: "blocked",
+      buttonLabel: "不可用",
+      message: error instanceof Error ? error.message : "ThreadPool 状态读取失败",
+      disabled: true,
+    } satisfies ShotBoundaryGuard;
+  }
+}
+
+export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | undefined): ShotBoundaryGuard {
+  if (!status) return { state: "loading", buttonLabel: "检查中", message: null, disabled: true };
+  if (!status.ok) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前不可用，请稍后再试", disabled: true };
+  if (status.warming) {
+    return {
+      state: "warming",
+      buttonLabel: "warming",
+      message: "ThreadPool 正在 warming，请稍后再试",
+      disabled: false,
+    };
+  }
+  if (status.startupError) return { state: "blocked", buttonLabel: "不可用", message: status.startupError, disabled: true };
+  if (status.warmupError) return { state: "blocked", buttonLabel: "不可用", message: status.warmupError, disabled: true };
+  if (!status.readyForLeases) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前未 ready，请稍后再试", disabled: true };
+  if (!status.canAcquire) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前不可获取 lease，请稍后再试", disabled: true };
+  return { state: "ready", buttonLabel: "运行", message: null, disabled: false };
 }
 
 export function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {
@@ -94,6 +139,12 @@ export function stageLabel(job: ProcessingJob): string {
     "sample.audio.separated": "分离人声/伴奏",
     "sample.subtitle.recognized": "识别字幕",
     "sample.artifact.written": "生成产物",
+    "shot.input_prepare": "准备切镜输入",
+    "shot.contact_sheet": "生成联表",
+    "shot.thread_acquire": "检查 ThreadPool",
+    "shot.boundary_analyze.submit": "提交切镜分析",
+    "shot.boundary_analyze.collect": "等待切镜结果",
+    "shot.boundary_merge": "合并切镜结果",
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";

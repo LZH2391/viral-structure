@@ -120,6 +120,56 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
   assert.equal(discarded.status, "discarded");
 });
 
+test("threadpool proxy timeout becomes unavailable payload", async () => {
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-analyzer"],
+    requestTimeoutMs: 10,
+    fetchImpl: async (_url, options = {}) => new Promise((resolve, reject) => {
+      options.signal?.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      });
+    }),
+  });
+
+  const health = await proxy.health();
+
+  assert.equal(health.ok, false);
+  assert.equal(health.unavailable, true);
+  assert.equal(health.error, "threadpool_unavailable");
+  assert.match(health.message, /超时/);
+});
+
+test("shot boundary warming fails before acquire and writes failed job", async () => {
+  const harness = await createShotHarness({
+    threadPoolOverrides: {
+      ensureRoleReady: async () => ({
+        ok: false,
+        error: "threadpool_warming",
+        message: "ThreadPool 正在 warming，请稍后再试",
+        retryable: true,
+        detail: { warming: true, canAcquire: false, readyForLeases: false },
+      }),
+      acquireLease: async () => {
+        throw new Error("should not acquire");
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(30);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "threadpool_warming");
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.equal(failLog.stageName, STAGES.threadAcquired);
+  assert.equal(harness.threadPool.discarded.length, 0);
+});
+
 test("shot boundary start turn persists inflight without waiting for final message", async () => {
   const harness = await createShotHarness({
     appServer: {
@@ -229,6 +279,7 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
   assert.equal(harness.logger.snapshots.length, 1);
   assert.deepEqual(harness.threadPool.discarded, [{ threadId: "thread_1", reason: "shot-boundary-analysis-failed" }]);
+  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId]);
 });
 
 test("shot boundary mojibake reason fails quality gate and writes debug snapshot", async () => {
@@ -356,7 +407,7 @@ function createArtifact() {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -394,6 +445,22 @@ async function createShotHarness({ appServer, threadPoolConfig } = {}) {
     discarded: [],
     ownerReleased: [],
     config: async () => threadPoolConfig ?? { ok: true, discardOnRelease: false },
+    roleStatus: async () => ({
+      ok: true,
+      role: "shot-boundary-analyzer",
+      counts: { idle: 1, leased: 0 },
+      minIdle: 1,
+      canAcquire: true,
+      canInit: true,
+      warming: false,
+      readyForLeases: true,
+      recovering: false,
+      warmupError: null,
+      startupError: null,
+      threads: [],
+      leases: [],
+    }),
+    ensureRoleReady: async () => ({ ok: true, role: "shot-boundary-analyzer", status: { role: "shot-boundary-analyzer", canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
     acquireLease: async () => ({ lease_id: "lease_1", thread_id: "thread_1" }),
     releaseLease: async (payload) => {
       threadPool.released.push(payload);
@@ -407,6 +474,7 @@ async function createShotHarness({ appServer, threadPoolConfig } = {}) {
       threadPool.ownerReleased.push(ownerId);
       return { ok: true };
     },
+    ...threadPoolOverrides,
   };
   const artifactIndex = {
     findCacheEntry: async () => null,

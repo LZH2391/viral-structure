@@ -1,7 +1,13 @@
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
 const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer"];
+const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 
-function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL, fetchImpl = fetch, allowedRoles = parseAllowedRoles(process.env.THREADPOOL_ALLOWED_ROLES) } = {}) {
+function createThreadPoolProxy({
+  baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL,
+  fetchImpl = fetch,
+  allowedRoles = parseAllowedRoles(process.env.THREADPOOL_ALLOWED_ROLES),
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+} = {}) {
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
   const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
 
@@ -53,6 +59,36 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
     return requestJson("POST", `/threads/${encodeURIComponent(threadId)}/discard`, { reason });
   }
 
+  async function ensureRoleReady(role) {
+    assertAllowedRole(role);
+    const status = await roleStatus(role);
+    if (!status?.ok) return status;
+    if (status.warming) {
+      return {
+        ok: false,
+        unavailable: false,
+        error: "threadpool_warming",
+        message: "ThreadPool 正在 warming，请稍后再试",
+        role: status.role,
+        retryable: true,
+        detail: summarizeReadinessDetail(status),
+      };
+    }
+    const blockedReason = readinessBlockedReason(status);
+    if (blockedReason) {
+      return {
+        ok: false,
+        unavailable: false,
+        error: "threadpool_acquire_failed",
+        message: blockedReason,
+        role: status.role,
+        retryable: true,
+        detail: summarizeReadinessDetail(status),
+      };
+    }
+    return { ok: true, role: status.role, status };
+  }
+
   async function findAllowedThread(threadId) {
     const target = String(threadId || "");
     if (!target) return disallowedThreadPayload(target);
@@ -82,11 +118,21 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
   }
 
   async function requestJson(method, pathname, body) {
-    const response = await fetchImpl(`${normalizedBaseUrl}${pathname}`, {
-      method,
-      headers: body ? { "content-type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort("threadpool-timeout"), requestTimeoutMs) : null;
+    let response;
+    try {
+      response = await fetchImpl(`${normalizedBaseUrl}${pathname}`, {
+        method,
+        headers: body ? { "content-type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller?.signal,
+      });
+    } catch (error) {
+      throw decorateRequestError(error);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     const text = await response.text();
     const payload = text ? parseJson(text) : {};
     if (!response.ok) {
@@ -98,7 +144,7 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
     return payload;
   }
 
-  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), health, config, roles, roleStatus, acquireLease, releaseLease, releaseOwnerLeases, discardThread };
+  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), requestTimeoutMs, health, config, roles, roleStatus, ensureRoleReady, acquireLease, releaseLease, releaseOwnerLeases, discardThread };
 }
 
 function parseAllowedRoles(value) {
@@ -206,8 +252,28 @@ function unavailablePayload(error) {
   return {
     ok: false,
     unavailable: true,
-    error: "threadpool_unavailable",
+    error: error?.code === "threadpool_timeout" ? "threadpool_unavailable" : "threadpool_unavailable",
     message: error instanceof Error ? error.message : "ThreadPool 不可用",
+  };
+}
+
+function readinessBlockedReason(status) {
+  if (status.startupError) return String(status.startupError).slice(0, 240);
+  if (status.warmupError) return String(status.warmupError).slice(0, 240);
+  if (!status.readyForLeases) return "ThreadPool 当前未 ready，请稍后再试";
+  if (!status.canAcquire) return "ThreadPool 当前不可获取 lease，请稍后再试";
+  return null;
+}
+
+function summarizeReadinessDetail(status) {
+  return {
+    role: status.role,
+    readyForLeases: Boolean(status.readyForLeases),
+    canAcquire: Boolean(status.canAcquire),
+    warming: Boolean(status.warming),
+    warmupDetail: status.warmupDetail ?? null,
+    warmupError: status.warmupError ?? null,
+    startupError: status.startupError ?? null,
   };
 }
 
@@ -252,4 +318,19 @@ function basename(value) {
   return String(value).split(/[\\/]/).at(-1) ?? String(value);
 }
 
-module.exports = { DEFAULT_THREADPOOL_URL, DEFAULT_ALLOWED_ROLES, createThreadPoolProxy, sanitizeRoleStatus, summarizeRoleStatus };
+function decorateRequestError(error) {
+  if (error?.name === "AbortError" || error === "threadpool-timeout") {
+    const timeoutError = new Error("ThreadPool 请求超时，请稍后再试");
+    timeoutError.code = "threadpool_timeout";
+    return timeoutError;
+  }
+  if (error instanceof Error) {
+    error.code = error.code ?? "threadpool_request_failed";
+    return error;
+  }
+  const unknown = new Error("ThreadPool 请求失败");
+  unknown.code = "threadpool_request_failed";
+  return unknown;
+}
+
+module.exports = { DEFAULT_THREADPOOL_URL, DEFAULT_ALLOWED_ROLES, DEFAULT_REQUEST_TIMEOUT_MS, createThreadPoolProxy, sanitizeRoleStatus, summarizeRoleStatus };

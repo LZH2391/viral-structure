@@ -130,6 +130,12 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
 
 function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
   const threads = useMemo(() => detail?.threads ?? [], [detail]);
+  const maintenanceBlocked = Boolean(detail?.warming) || detail?.readyForLeases === false;
+  const maintenanceBlockedTitle = detail?.warming
+    ? "ThreadPool 正在 warming，维护操作暂不可用"
+    : detail?.readyForLeases === false
+      ? "ThreadPool 当前未 ready，维护操作暂不可用"
+      : undefined;
   const discard = async (threadId: string) => {
     if (!window.confirm(`确认 discard thread ${shortId(threadId)} ?`)) return;
     await discardThreadPoolThread(threadId);
@@ -177,10 +183,10 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
                     <b className={`threadpool-ctx ${ctx.level}`}>{ctx.text}</b>
                   </div>
                   <div className="threadpool-thread-actions">
-                    <button className="ghost-button" type="button" disabled={thread.seed || thread.status === "leased"} onClick={() => discard(thread.thread_id).catch(() => undefined)}>
+                    <button className="ghost-button" type="button" disabled={maintenanceBlocked || thread.seed || thread.status === "leased"} title={maintenanceBlockedTitle} onClick={() => discard(thread.thread_id).catch(() => undefined)}>
                       discard
                     </button>
-                    <button className="ghost-button" type="button" disabled={thread.status !== "leased" || !thread.owner_id} onClick={() => releaseOwner(thread.owner_id ?? "").catch(() => undefined)}>
+                    <button className="ghost-button" type="button" disabled={maintenanceBlocked || thread.status !== "leased" || !thread.owner_id} title={maintenanceBlockedTitle} onClick={() => releaseOwner(thread.owner_id ?? "").catch(() => undefined)}>
                       清理 owner
                     </button>
                   </div>
