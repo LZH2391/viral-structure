@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useStat
 import { getCapabilities, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
@@ -270,6 +270,20 @@ export function WorkbenchApp() {
     finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
   };
 
+  const handleSelectAudioFeature = useCallback(
+    (marker: AudioFeatureMarker) => {
+      dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: state.audioFeatures?.artifactId ?? null, selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
+      const audio = audioRef.current;
+      if (!audio) return;
+      const seek = () => {
+        audio.currentTime = Math.max(0, Math.min(marker.time, Number.isFinite(audio.duration) ? audio.duration : marker.time));
+      };
+      if (Number.isFinite(audio.duration) && audio.duration > 0) seek();
+      else audio.addEventListener("loadedmetadata", seek, { once: true });
+    },
+    [state.audioFeatures?.artifactId],
+  );
+
   const fileLabel = state.isUploadingSample ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim() : state.sampleVideo?.fileName ?? "未选择文件";
 
   return (
@@ -315,6 +329,8 @@ export function WorkbenchApp() {
           activeMediaKind={state.activeMediaKind}
           selectedDerivativeId={state.selectedDerivativeId}
           selectedFrameId={state.selectedFrameId}
+          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
+          audioFeatures={state.audioFeatures}
           processingText={state.processingJob ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%` : "未加载样例"}
           traceText={state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace"}
           uiTraceId={state.uiTraceId}
@@ -323,6 +339,7 @@ export function WorkbenchApp() {
           videoRef={videoRef}
           audioRef={audioRef}
           miniCanvasRef={miniCanvasRef}
+          onSelectAudioFeature={handleSelectAudioFeature}
         />
         <PropertyPanel
           sampleVideo={state.sampleVideo}
@@ -378,7 +395,8 @@ export function WorkbenchApp() {
             dispatch({ type: "select-media", activeMediaKind: "subtitle", selectedDerivativeId: state.subtitles?.artifactId ?? null, selectedFrameId: null, selectedSubtitleId: segmentId });
           }}
           onSelectAudioFeature={(markerId) => {
-            dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: state.audioFeatures?.artifactId ?? null, selectedFrameId: null, selectedAudioFeatureMarkerId: markerId });
+            const marker = findAudioFeatureMarker(state.audioFeatures, markerId);
+            if (marker) handleSelectAudioFeature(marker);
           }}
           onFrameVisibleChange={(visible) => dispatch({ type: "set-frame-visible", visible })}
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
@@ -435,6 +453,15 @@ function buildIngestError(job: ProcessingJob) {
   const error = new Error(summary.message || "样例处理失败") as Error & { code?: string };
   error.code = summary.code || "sample_ingest_failed";
   return error;
+}
+
+function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], markerId: string): AudioFeatureMarker | null {
+  if (!audioFeatures) return null;
+  const markers = [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time })),
+  ];
+  return markers.find((marker) => marker.id === markerId) ?? null;
 }
 
 function delay(ms: number) {

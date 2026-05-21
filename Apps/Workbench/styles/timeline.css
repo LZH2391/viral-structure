@@ -191,13 +191,16 @@
 
 .audio-feature-layer {
   position: absolute;
-  inset: 34px 0 4px;
+  left: 66px;
+  right: 8px;
+  top: 34px;
+  height: 20px;
   pointer-events: none;
 }
 
 .audio-feature-marker {
   position: absolute;
-  top: 2px;
+  top: 1px;
   width: 7px;
   height: 18px;
   border: 0;

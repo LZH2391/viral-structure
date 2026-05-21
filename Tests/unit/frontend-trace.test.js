@@ -123,6 +123,8 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(resize, /new ResizeObserver/);
   assert.match(resize, /requestAnimationFrame\(update\)/);
   assert.match(preview, /fitMediaViewport/);
+  assert.match(preview, /audio-waveform-feature-marker/);
+  assert.match(preview, /audio\.currentTime/);
   assert.match(preview, /letterboxInsets/);
   assert.match(state, /width: artifact\.metadata\.width/);
   assert.match(state, /aspectRatio: buildAspectRatio/);

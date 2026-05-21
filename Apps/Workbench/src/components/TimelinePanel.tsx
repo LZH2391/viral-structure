@@ -186,7 +186,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       key={marker.id}
                       className={`audio-feature-marker ${marker.type} ${selectedAudioFeatureMarkerId === marker.id ? "active" : ""}`}
                       type="button"
-                      style={{ left: frameLeft(marker.time, metrics) }}
+                      style={{ left: `${markerLeftPercent(marker.time, metrics.duration)}%` }}
                       aria-label={`${marker.type} ${formatTime(marker.time)}`}
                       title={`${marker.type} ${formatTime(marker.time)}`}
                       onClick={() => onSelectAudioFeature(marker.id)}
@@ -240,6 +240,11 @@ function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact |
     ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
     ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
   ].sort((a, b) => a.time - b.time);
+}
+
+function markerLeftPercent(time: number, duration: number) {
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, time);
+  return Math.max(0, Math.min(100, (time / safeDuration) * 100));
 }
 
 function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: AudioSeparationArtifact | null) {

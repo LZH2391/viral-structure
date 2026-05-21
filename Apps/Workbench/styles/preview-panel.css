@@ -126,6 +126,10 @@
   font-size: 12px;
 }
 
+.audio-waveform-surface {
+  position: relative;
+}
+
 .audio-waveform-canvas {
   width: 100%;
   height: min(132px, 28vh);
@@ -133,6 +137,41 @@
   border-radius: 8px;
   background: #0b1118;
   cursor: crosshair;
+}
+
+.audio-waveform-feature-layer {
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+}
+
+.audio-waveform-feature-marker {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  transform: translateX(-4px);
+  cursor: pointer;
+  opacity: 0.86;
+  pointer-events: auto;
+}
+
+.audio-waveform-feature-marker.beat {
+  background: rgba(56, 189, 248, 0.88);
+}
+
+.audio-waveform-feature-marker.onset {
+  width: 6px;
+  background: rgba(245, 158, 11, 0.9);
+}
+
+.audio-waveform-feature-marker.active {
+  outline: 2px solid #f8fafc;
+  outline-offset: 1px;
+  opacity: 1;
 }
 
 .media-empty-preview {

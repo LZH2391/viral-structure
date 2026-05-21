@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
-import type { MediaDerivative, MediaKind, SampleVideo } from "../types";
+import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, MediaKind, SampleVideo } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
 import { fitMediaViewport } from "../utils/mediaViewport";
@@ -12,6 +12,8 @@ type PreviewPanelProps = {
   activeMediaKind: MediaKind;
   selectedDerivativeId: string | null;
   selectedFrameId: string | null;
+  selectedAudioFeatureMarkerId: string | null;
+  audioFeatures?: AudioFeatureAnalysisArtifact | null;
   processingText: string;
   traceText: string;
   uiTraceId: string;
@@ -20,6 +22,7 @@ type PreviewPanelProps = {
   videoRef: RefObject<HTMLVideoElement>;
   audioRef: RefObject<HTMLAudioElement>;
   miniCanvasRef: RefObject<HTMLCanvasElement>;
+  onSelectAudioFeature: (marker: AudioFeatureMarker) => void;
 };
 
 export function PreviewPanel(props: PreviewPanelProps) {
@@ -31,8 +34,10 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const size = useElementSize(previewStageRef);
   const activeMedia = useMemo(() => resolveActiveMedia(props), [props]);
   const audioDerivative = useMemo(() => props.mediaDerivatives.find((item) => item.type === "audio-track") ?? null, [props.mediaDerivatives]);
-  const waveformUrl = useMemo(() => runtimeUrl(audioDerivative?.uri ?? sampleVideo?.audioUri), [audioDerivative?.uri, sampleVideo?.audioUri]);
+  const waveformUrl = useMemo(() => (activeMedia.kind === "audio" ? activeMedia.url : runtimeUrl(audioDerivative?.uri ?? sampleVideo?.audioUri)), [activeMedia, audioDerivative?.uri, sampleVideo?.audioUri]);
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
+  const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(props.audioFeatures), [props.audioFeatures]);
+  const selectedMarker = useMemo(() => audioFeatureMarkers.find((marker) => marker.id === props.selectedAudioFeatureMarkerId) ?? null, [audioFeatureMarkers, props.selectedAudioFeatureMarkerId]);
 
   const waveform = useAudioWaveform({
     audio: audioRef.current,
@@ -67,6 +72,21 @@ export function PreviewPanel(props: PreviewPanelProps) {
     if (activeMedia.kind === "audio") videoRef.current?.pause();
     else audioRef.current?.pause();
   }, [activeMedia.kind, audioRef, videoRef]);
+
+  useEffect(() => {
+    if (activeMedia.kind !== "audio" || !selectedMarker) return undefined;
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+    const seek = () => {
+      audio.currentTime = Math.max(0, Math.min(selectedMarker.time, Number.isFinite(audio.duration) ? audio.duration : selectedMarker.time));
+    };
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      seek();
+      return undefined;
+    }
+    audio.addEventListener("loadedmetadata", seek, { once: true });
+    return () => audio.removeEventListener("loadedmetadata", seek);
+  }, [activeMedia.kind, audioRef, selectedMarker]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -119,7 +139,22 @@ export function PreviewPanel(props: PreviewPanelProps) {
               </button>
               <AudioTime audioRef={audioRef} />
             </div>
-            <canvas id="audioWaveformCanvas" ref={setMainCanvas} className="audio-waveform-canvas" width="960" height="220" />
+            <div className="audio-waveform-surface">
+              <canvas id="audioWaveformCanvas" ref={setMainCanvas} className="audio-waveform-canvas" width="960" height="220" />
+              <div className="audio-waveform-feature-layer" aria-label="音频基础标记">
+                {audioFeatureMarkers.map((marker) => (
+                  <button
+                    key={marker.id}
+                    className={`audio-waveform-feature-marker ${marker.type} ${selectedMarker?.id === marker.id ? "active" : ""}`}
+                    type="button"
+                    style={{ left: `${markerLeft(marker.time, props.audioFeatures?.durationSeconds ?? sampleVideo.duration)}%` }}
+                    aria-label={`${marker.type} ${formatTime(marker.time)}`}
+                    title={`${marker.type} ${formatTime(marker.time)}`}
+                    onClick={() => props.onSelectAudioFeature(marker)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
         <audio id="audioPreview" ref={audioRef} className="audio-preview" preload="metadata" src={audioUrl ?? undefined} />
@@ -162,7 +197,7 @@ function resolveActiveMedia({ sampleVideo, mediaDerivatives, activeMediaKind, se
     const url = runtimeUrl(frame?.imageUri);
     return url ? { kind: "image" as const, url, alt: "抽帧图片" } : { kind: "empty" as const, text: "暂无可预览图片" };
   }
-  if (activeMediaKind === "audio") {
+  if (activeMediaKind === "audio" || activeMediaKind === "audioFeature") {
     const audio = derivative ?? mediaDerivatives.find((item) => item.type === "audio-track");
     const url = runtimeUrl(audio?.uri ?? sampleVideo.audioUri);
     return url ? { kind: "audio" as const, url } : { kind: "empty" as const, text: audio?.summary || sampleVideo.audioSummary || "未检测到可抽取音频轨" };
@@ -178,4 +213,26 @@ function mediaLabel(kind: MediaKind): string {
 
 function isVideoDerivative(item: MediaDerivative | null) {
   return item?.type === "original-video" || item?.type === "normalized-video";
+}
+
+function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {
+  if (!audioFeatures || audioFeatures.status === "degraded") return [];
+  const nearestRms = (time: number) => {
+    const frames = audioFeatures.energyFrames ?? [];
+    if (!frames.length) return null;
+    let best = frames[0];
+    for (const frame of frames) {
+      if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
+    }
+    return best.rms;
+  };
+  return [
+    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
+    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
+  ].sort((a, b) => a.time - b.time);
+}
+
+function markerLeft(time: number, duration?: number | null) {
+  const safeDuration = Number.isFinite(duration) && duration && duration > 0 ? Number(duration) : Math.max(1, time);
+  return Math.max(0, Math.min(100, (time / safeDuration) * 100));
 }
