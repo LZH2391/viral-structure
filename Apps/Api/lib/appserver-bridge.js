@@ -61,7 +61,21 @@ function createAppServerBridge({
     return result;
   }
 
-  return { pythonRuntimeRoot, runTurnWithInputs, startTurnWithInputs, collectTurnResult };
+  async function readThread({ workspaceRoot, threadId, timeoutSeconds = 60 }) {
+    const payload = {
+      operation: "readThread",
+      pythonRuntimeRoot,
+      workspaceRoot,
+      threadId,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok) throw appServerError(result, "appserver_thread_read_failed");
+    return result;
+  }
+
+  return { pythonRuntimeRoot, runTurnWithInputs, startTurnWithInputs, collectTurnResult, readThread };
 }
 
 function appServerError(result, fallbackCode) {

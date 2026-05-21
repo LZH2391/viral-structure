@@ -84,12 +84,23 @@
 }
 
 .agent-shot-current {
+  display: grid;
+  gap: 4px;
   border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 6px;
   background: rgba(245, 158, 11, 0.08);
   color: #f8fafc;
   padding: 8px 10px;
   font-size: 12px;
+}
+
+.agent-shot-current strong {
+  font-size: 13px;
+}
+
+.agent-shot-current span,
+.agent-shot-current small {
+  color: #f8fafc;
 }
 
 .agent-history-list {
@@ -153,17 +164,28 @@
 }
 
 .agent-shot-item strong {
-  grid-row: span 2;
+  grid-row: span 3;
   font-size: 12px;
 }
 
-.agent-shot-item span,
+.agent-shot-time,
+.agent-shot-summary,
 .agent-shot-item small {
   overflow: hidden;
-  color: var(--muted);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-shot-time,
+.agent-shot-item small {
+  color: var(--muted);
+}
+
+.agent-shot-summary {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .detail-block {

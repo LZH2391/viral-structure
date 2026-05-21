@@ -179,6 +179,87 @@
   gap: 8px;
 }
 
+.threadpool-conversation-panel {
+  display: grid;
+  gap: 8px;
+  min-height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 12px;
+}
+
+.threadpool-conversation-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.threadpool-conversation-header div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.threadpool-conversation-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.threadpool-conversation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.threadpool-conversation-turn {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.28);
+  padding: 10px;
+}
+
+.threadpool-conversation-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.threadpool-conversation-meta span,
+.threadpool-conversation-meta small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.threadpool-conversation-block {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111820;
+  padding: 8px 10px;
+}
+
+.threadpool-conversation-block summary {
+  cursor: pointer;
+  color: #d8e1ea;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.threadpool-conversation-block p,
+.threadpool-conversation-block pre {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.threadpool-conversation-block pre {
+  max-height: 220px;
+  overflow: auto;
+}
+
 .run-pill.good {
   border-color: #2f7d51;
   color: #9be7b6;

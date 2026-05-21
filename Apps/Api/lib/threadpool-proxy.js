@@ -144,7 +144,7 @@ function createThreadPoolProxy({
     return payload;
   }
 
-  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), requestTimeoutMs, health, config, roles, roleStatus, ensureRoleReady, acquireLease, releaseLease, releaseOwnerLeases, discardThread };
+  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), requestTimeoutMs, health, config, roles, roleStatus, ensureRoleReady, acquireLease, releaseLease, releaseOwnerLeases, discardThread, findAllowedThread };
 }
 
 function parseAllowedRoles(value) {

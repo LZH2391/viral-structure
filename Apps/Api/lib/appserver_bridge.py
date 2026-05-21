@@ -40,6 +40,8 @@ def main() -> int:
             return start_turn_with_inputs(client, payload)
         if operation == "collectTurnResult":
             return collect_turn_result(client, payload)
+        if operation == "readThread":
+            return read_thread(client, payload)
         if operation == "runTurnWithInputs":
             return run_turn_with_inputs(client, payload)
         write_json({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"})
@@ -145,6 +147,17 @@ def run_turn_with_inputs(client, payload) -> int:
             "turnId": result.turn_id,
             "status": result.status,
             "finalMessage": result.final_message,
+        }
+    )
+    return 0
+
+
+def read_thread(client, payload) -> int:
+    thread = client.read_thread(str(payload["threadId"]), include_turns=True)
+    write_json(
+        {
+            "ok": True,
+            "thread": thread,
         }
     )
     return 0

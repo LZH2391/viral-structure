@@ -7,7 +7,8 @@ const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
@@ -103,6 +104,28 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
 });
 
+test("shot boundary turn inputs include subtitle context as semantic-only aid", () => {
+  const artifact = createArtifact({
+    subtitleStatus: "processed",
+    subtitleSegments: [
+      { id: "subtitle_1", start: 0, end: 0.8, text: "第一句字幕".repeat(40), confidence: null },
+      { id: "subtitle_2", start: 1, end: 1.8, text: "第二句字幕", confidence: null },
+    ],
+  });
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const turnInputs = buildTurnInputs({ prepared, contactSheets });
+  const promptText = turnInputs[0].text;
+
+  assert.match(promptText, /subtitleContextSummary/);
+  assert.match(promptText, /subtitleContext/);
+  assert.match(promptText, /字幕当作语义辅助/);
+  assert.match(promptText, /"subtitleSegmentCount":2/);
+  assert.match(promptText, /"truncated":false/);
+  assert.match(promptText, /shots\[\]\.summary/);
+  assert.doesNotMatch(promptText, /第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕/);
+});
+
 test("shot boundary repair turn inputs use field contract without timestamp examples", () => {
   const artifact = createArtifact();
   const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
@@ -128,9 +151,10 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   });
   const promptText = turnInputs[0].text;
 
-  assert.match(promptText, /分析采样：\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
+  assert.match(promptText, /"analysisSampling":\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
   assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
   assert.match(promptText, /"boundaries\[\]\.reason":"short string"/);
+  assert.match(promptText, /shots\[\]\.summary/);
   assert.match(promptText, /"hasPriorOutput":true/);
   assert.match(promptText, /"outputLength":34/);
   assert.doesNotMatch(promptText, /"timestamp":12\.48/);
@@ -164,6 +188,95 @@ test("shot boundary normalizes timestamp boundaries and builds contiguous shots"
   assert.equal(shots[0].start, 0);
   assert.equal(shots.at(-1).end, 4);
   assert.equal(shots[0].shotNo, "S001");
+  assert.equal(shots[0].summary, "x".repeat(80));
+  assert.equal(shots[0].endBoundaryReason, "x".repeat(160));
+});
+
+test("processed shot analysis maps shot summaries and keeps fallback reason compatibility", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const analysis = buildProcessedAnalysis(
+    JSON.stringify({
+      boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "人物转场", needReview: false }],
+      shots: [{ summary: "人物正脸特写" }],
+    }),
+    prepared,
+    contactSheets,
+    { artifactId: "artifact_shot", skillPath: "SKILL.md", skillHash: "hash" },
+    { thread_id: "thread_1", lease_id: "lease_1" },
+    { turnId: "turn_1" },
+  );
+
+  assert.equal(analysis.subtitleContextSummary.subtitleSegmentCount, 0);
+  assert.equal(analysis.shots[0].summary, "人物正脸特写");
+  assert.equal(analysis.shots[0].endBoundaryReason, "人物转场");
+  assert.equal(analysis.shots[0].reason, "人物转场");
+  assert.equal(analysis.shots[1].summary, "人物转场");
+  assert.equal(analysis.shots[1].endBoundaryReason, null);
+});
+
+test("subtitle hash participates in shot boundary cache params", () => {
+  const artifactA = createArtifact({
+    subtitleStatus: "processed",
+    subtitleSegments: [{ id: "subtitle_1", start: 0, end: 1, text: "第一版字幕", confidence: null }],
+  });
+  const artifactB = createArtifact({
+    subtitleStatus: "processed",
+    subtitleSegments: [{ id: "subtitle_1", start: 0, end: 1, text: "第二版字幕", confidence: null }],
+  });
+  const preparedA = prepareInput(artifactA, 1, { runtimeRoot: "C:\\Runtime" });
+  const preparedB = prepareInput(artifactB, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheetsA = createContactSheets(preparedA, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const contactSheetsB = createContactSheets(preparedB, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const paramsA = buildShotBoundaryCacheParams({
+    sourceArtifactId: preparedA.sourceArtifactId,
+    extractSampling: preparedA.extractSampling,
+    analysisSampling: preparedA.analysisSampling,
+    frameDimensions: preparedA.frameDimensions,
+    contactSheets: contactSheetsA,
+    subtitleContextSummary: preparedA.subtitleContextSummary,
+    skillHash: "skill_hash",
+  });
+  const paramsB = buildShotBoundaryCacheParams({
+    sourceArtifactId: preparedB.sourceArtifactId,
+    extractSampling: preparedB.extractSampling,
+    analysisSampling: preparedB.analysisSampling,
+    frameDimensions: preparedB.frameDimensions,
+    contactSheets: contactSheetsB,
+    subtitleContextSummary: preparedB.subtitleContextSummary,
+    skillHash: "skill_hash",
+  });
+
+  assert.equal(paramsA.subtitleArtifactId, "artifact_subtitle");
+  assert.equal(paramsA.subtitleSegmentCount, 1);
+  assert.notEqual(paramsA.subtitleTextHash, paramsB.subtitleTextHash);
+});
+
+test("thread conversation summary keeps compact turn-safe fields", () => {
+  const summary = summarizeThreadConversation({
+    id: "thread_1",
+    title: "shot-boundary-analyzer",
+    status: "idle",
+    turns: [
+      {
+        id: "turn_1",
+        status: "completed",
+        createdAt: "2026-05-21T10:00:00.000Z",
+        items: [
+          { type: "userMessage", text: "请分析这段视频的镜头变化和语义" },
+          { type: "agentMessage", text: "已完成，输出 JSON。" },
+        ],
+        last_token_usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
+      },
+    ],
+  });
+
+  assert.equal(summary.threadId, "thread_1");
+  assert.equal(summary.turns[0].turnId, "turn_1");
+  assert.match(summary.turns[0].inputSummary, /请分析这段视频/);
+  assert.match(summary.turns[0].finalMessage, /已完成/);
+  assert.equal(summary.turns[0].tokenUsage.totalTokens, 165);
 });
 
 test("threadpool role status removes init prompt and keeps safe summary", () => {
@@ -210,6 +323,8 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
   const blocked = await proxy.roleStatus("ae-precomp-design-producer");
   assert.equal(blocked.ok, false);
   assert.equal(blocked.error, "threadpool_role_not_allowed");
+  const allowedThread = await proxy.findAllowedThread("thread_1");
+  assert.equal(allowedThread.ok, true);
   const discarded = await proxy.discardThread({ threadId: "thread_1", reason: "test" });
   assert.equal(discarded.status, "discarded");
 });
@@ -304,7 +419,10 @@ test("shot boundary collect completed writes artifact and releases lease", async
         threadId: "thread_1",
         turnId: "turn_1",
         status: "completed",
-        finalMessage: `补充说明\n${JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] })}\n已完成`,
+        finalMessage: `补充说明\n${JSON.stringify({
+          boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
+          shots: [{ summary: "人物半身口播" }, { summary: "产品特写镜头" }],
+        })}\n已完成`,
       }),
     },
   });
@@ -322,6 +440,10 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
   assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 0);
   assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "人物半身口播");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].endBoundaryReason, "cut");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "产品特写镜头");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[1].endBoundaryReason, null);
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
 });
 
@@ -782,7 +904,9 @@ test("shot boundary empty boundaries after repair stays failed", async () => {
   assert.equal(artifact.shotBoundaryAnalysis.validation.validatorCode, "shot_boundary_empty_boundaries");
 });
 
-function createArtifact() {
+function createArtifact(overrides = {}) {
+  const subtitleStatus = overrides.subtitleStatus ?? null;
+  const subtitleSegments = overrides.subtitleSegments ?? (subtitleStatus === "processed" ? [{ id: "subtitle_1", start: 0, end: 1, text: "你好", confidence: null }] : []);
   return {
     sampleVideoId: "sample_1",
     trace: { traceId: "trace_1" },
@@ -804,6 +928,15 @@ function createArtifact() {
       timestamp: index / 3,
       imageUri: `/runtime/Artifacts/sample_1/frames/frame-${index}.jpg`,
     })),
+    subtitles: subtitleStatus ? {
+      artifactId: "artifact_subtitle",
+      parentArtifactId: "artifact_audio",
+      type: "subtitle-track",
+      summary: subtitleStatus === "processed" ? `${subtitleSegments.length} 条字幕` : "字幕识别未产出",
+      status: subtitleStatus,
+      reason: subtitleStatus === "degraded" ? "字幕识别降级" : null,
+      segments: subtitleSegments,
+    } : null,
   };
 }
 
@@ -997,6 +1130,7 @@ function createCachedShotAnalysis() {
       stride: 1,
       roundingPolicy: "ceil_stride_not_exceed_requested",
     },
+    subtitleContextSummary: null,
     contactSheets: [],
     boundaryCandidateArtifacts: [],
     boundaries: [],
@@ -1012,7 +1146,7 @@ function createCachedShotAnalysis() {
       sheetCount: 2,
       inputMode: "multi_contact_sheet",
     },
-    shots: [{ id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.4, reason: "未检测到明确切镜边界" }],
+    shots: [{ id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.4, reason: "未检测到明确切镜边界", summary: "未检测到明确切镜边界", endBoundaryReason: null }],
     createdAt: new Date().toISOString(),
   };
 }
@@ -1041,6 +1175,7 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
       stride,
       roundingPolicy: "ceil_stride_not_exceed_requested",
     },
+    subtitleContextSummary: null,
     contactSheets: createContactSheets(prepareInput(createArtifact(), analysisFps, { runtimeRoot: rootRuntime("cached") }), rootRuntime("cached")),
     boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
@@ -1057,8 +1192,8 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
       inputMode: "multi_contact_sheet",
     },
     shots: [
-      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1.2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" },
-      { id: "shot_2", index: 1, shotNo: "S002", start: 1.2, end: 2, representativeFrameId: "frame_4", confidence: 0.8, reason: "视觉连续" },
+      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1.2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut", summary: "人物侧脸口播", endBoundaryReason: "cut" },
+      { id: "shot_2", index: 1, shotNo: "S002", start: 1.2, end: 2, representativeFrameId: "frame_4", confidence: 0.8, reason: "视觉连续", summary: "产品特写镜头", endBoundaryReason: null },
     ],
     createdAt: new Date().toISOString(),
   };

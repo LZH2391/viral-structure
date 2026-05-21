@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, ShotBoundaryAnalysisHistoryEntry, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
-import { formatTime } from "../utils/format";
+import { formatSecondsCompact, formatTime } from "../utils/format";
 import { getShotBoundaryGuard, type ShotBoundaryGuard } from "../utils/workbenchHelpers";
 
 const SHOT_BOUNDARY_GUARD_POLL_MS = 2000;
@@ -178,7 +178,9 @@ function AgentRunPanel({
       {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
       {analysis?.shots?.length && hasValidShotResult && currentShot ? (
         <div className="agent-shot-current" aria-live="polite">
-          当前 {currentShot.shotNo ?? `S${String(currentShot.index + 1).padStart(3, "0")}`} / {formatTime(currentShot.start)} - {formatTime(currentShot.end)}
+          <strong>{resolveShotSummary(currentShot)}</strong>
+          <span>当前 {currentShot.shotNo ?? `S${String(currentShot.index + 1).padStart(3, "0")}`} / {formatSecondsCompact(currentShot.start)} - {formatSecondsCompact(currentShot.end)}</span>
+          {resolveShotEndBoundaryReason(currentShot) ? <small>切换：{resolveShotEndBoundaryReason(currentShot)}</small> : null}
         </div>
       ) : null}
       {analysis?.shots?.length && hasValidShotResult ? (
@@ -192,8 +194,9 @@ function AgentRunPanel({
               onClick={() => onSelectShot(shot.start)}
             >
               <strong>{shot.shotNo ?? `S${String(shot.index + 1).padStart(3, "0")}`}</strong>
-              <span>{formatTime(shot.start)} - {formatTime(shot.end)}</span>
-              <small>{shot.reason}</small>
+              <span className="agent-shot-time">{formatSecondsCompact(shot.start)} - {formatSecondsCompact(shot.end)}</span>
+              <b className="agent-shot-summary">{resolveShotSummary(shot)}</b>
+              <small title={resolveShotEndBoundaryReason(shot) ?? undefined}>{resolveShotEndBoundaryReason(shot) ? `切换：${resolveShotEndBoundaryReason(shot)}` : "切换原因缺失"}</small>
             </button>
           ))}
         </div>
@@ -377,13 +380,23 @@ function resolveAnalysisSamplingPreview(sampleVideo: SampleVideo | null, request
 function resolveRenderedAnalysisSampling(analysis?: ShotBoundaryAnalysisArtifact | null) {
   const requestedFps = Number(analysis?.analysisSampling?.requestedFps ?? analysis?.analysisSampling?.fps ?? Number.NaN);
   const stride = analysis?.analysisSampling?.stride ?? null;
-  const fallbackEffectiveFps = Number.isFinite(requestedFps) && Number.isFinite(stride) && stride > 0 ? requestedFps / stride : Number.NaN;
+  const hasStride = typeof stride === "number" && Number.isFinite(stride) && stride > 0;
+  const fallbackEffectiveFps = Number.isFinite(requestedFps) && hasStride ? requestedFps / stride : Number.NaN;
   return {
     requestedFps,
     effectiveFps: Number(analysis?.analysisSampling?.effectiveFps ?? fallbackEffectiveFps),
     stride,
     roundingPolicy: analysis?.analysisSampling?.roundingPolicy ?? "legacy_stride_fallback",
   };
+}
+
+function resolveShotSummary(shot: ShotBoundaryAnalysisArtifact["shots"][number]) {
+  return String(shot.summary ?? shot.reason ?? "镜头内容").trim() || "镜头内容";
+}
+
+function resolveShotEndBoundaryReason(shot: ShotBoundaryAnalysisArtifact["shots"][number]) {
+  const text = String(shot.endBoundaryReason ?? shot.reason ?? "").trim();
+  return text || null;
 }
 
 function formatFpsValue(value?: number | null) {

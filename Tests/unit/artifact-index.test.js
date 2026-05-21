@@ -262,14 +262,15 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) 
       stride: Math.max(1, Math.ceil(3 / analysisFps)),
       roundingPolicy: "ceil_stride_not_exceed_requested",
     },
+    subtitleContextSummary: null,
     contactSheets,
     boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
     agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", skillPath: "SKILL.md", skillHash, threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
     shots: [
-      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1, representativeFrameId: "frame_1", confidence: 0.8, reason: "cut" },
-      { id: "shot_2", index: 1, shotNo: "S002", start: 1, end: 3, representativeFrameId: "frame_2", confidence: 0.8, reason: "视觉连续" },
+      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1, representativeFrameId: "frame_1", confidence: 0.8, reason: "cut", summary: "人物正脸中景", endBoundaryReason: "cut" },
+      { id: "shot_2", index: 1, shotNo: "S002", start: 1, end: 3, representativeFrameId: "frame_2", confidence: 0.8, reason: "视觉连续", summary: "产品细节特写", endBoundaryReason: null },
     ],
     createdAt: new Date().toISOString(),
   };

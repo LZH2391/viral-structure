@@ -16,6 +16,8 @@ const { recordApiRequestFailure } = require("./lib/api-request-debug");
 const { readCapabilities } = require("./lib/capabilities");
 const { createThreadPoolProxy } = require("./lib/threadpool-proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary-service");
+const { createAppServerBridge } = require("./lib/appserver-bridge");
+const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -27,7 +29,8 @@ const jobStore = createJobStore({ filePath: path.join(store.runtimeRoot, "Jobs",
 const artifactIndex = createArtifactIndex({ store });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const threadPool = createThreadPoolProxy();
-const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool });
+const appServer = createAppServerBridge();
+const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 store.ensureRuntimeDirs()
@@ -47,6 +50,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/threadpool/config") return handleThreadPoolRead(res, "config", () => threadPool.config());
     if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => threadPool.roles());
     if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return handleThreadPoolRead(res, "role-status", () => threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))));
+    if (req.method === "GET" && /^\/api\/threadpool\/threads\/[^/]+\/conversation$/.test(url.pathname)) return handleThreadConversation(res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "POST" && url.pathname === "/api/threadpool/leases/release-owner") return handleOwnerLeaseRelease(req, res);
     if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res);
@@ -136,6 +140,53 @@ async function handleThreadPoolRead(res, scope, action) {
 async function handleThreadDiscard(req, res, threadId) {
   const body = await readJsonBody(req);
   return handleThreadPoolRead(res, "discard", () => threadPool.discardThread({ threadId, reason: body.reason || "manual-discard" }));
+}
+
+async function handleThreadConversation(res, threadId) {
+  const traceContext = createTraceContext(createTraceIds());
+  const startedAt = Date.now();
+  await logger.writeStageLog({
+    traceContext,
+    stageName: "threadPool.conversation.read",
+    event: "stage.start",
+    inputSummary: { threadId },
+  });
+  try {
+    const allowedThread = await threadPool.findAllowedThread(threadId);
+    if (!allowedThread?.ok) {
+      return sendJson(res, 403, allowedThread);
+    }
+    const thread = await appServer.readThread({ workspaceRoot: rootDir, threadId });
+    const conversation = summarizeThreadConversation(thread.thread ?? {});
+    await logger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.conversation.read",
+      event: "stage.end",
+      outputSummary: {
+        threadId: conversation.threadId,
+        turnCount: conversation.turns.length,
+        status: conversation.status ?? null,
+      },
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, 200, conversation);
+  } catch (error) {
+    const snapshot = await logger.writeDebugSnapshot({
+      traceContext,
+      stageName: "threadPool.conversation.read",
+      reason: "threadpool_conversation_read_failed",
+      inputSummary: { threadId },
+      debugPayload: { message: error instanceof Error ? error.message : "Thread conversation 读取失败" },
+    });
+    await logger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.conversation.read",
+      event: "stage.fail",
+      errorSummary: { code: "threadpool_conversation_read_failed", message: "Thread conversation 读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_conversation_read_failed", message: "Thread conversation 读取失败" });
+  }
 }
 
 async function handleOwnerLeaseRelease(req, res) {

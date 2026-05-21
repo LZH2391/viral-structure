@@ -9,6 +9,8 @@ const MIN_SHOT_DURATION_SECONDS = 0.01;
 const MAX_REPAIR_ATTEMPTS = 1;
 const ANALYSIS_ROUNDING_POLICY = "ceil_stride_not_exceed_requested";
 const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
+const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
+const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
 
 function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);
@@ -30,6 +32,7 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
     requestedFrameSampleRateFps,
     requestedAnalysisFps,
   });
+  const subtitleContextSummary = buildSubtitleContextSummary(artifact.subtitles, durationSeconds);
   const sourceArtifactId = artifact.sampleVideo?.artifactId ?? null;
   const sampledFrames = frames.reduce((result, frame, sourceFrameIndex) => {
     if (sourceFrameIndex % analysisSampling.stride !== 0) return result;
@@ -63,6 +66,8 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
       cappedByMaxFrames: Boolean(summary.cappedByMaxFrames),
     },
     analysisSampling,
+    subtitleContextSummary: subtitleContextSummary.summary,
+    subtitleContext: subtitleContextSummary.items,
     frames: sampledFrames,
   });
 }
@@ -100,7 +105,9 @@ function buildTurnInputs({ prepared, contactSheets }) {
       startTime: round(resolveSheetStartTime(sheet)),
       endTime: round(resolveSheetEndTime(sheet)),
     })),
+    subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
   };
+  if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
   const outputContract = {
     boundaries: "non-empty array, strictly ascending by timestamp",
     "boundaries[].timestamp": "number, seconds, 0 < timestamp < durationSeconds",
@@ -108,13 +115,17 @@ function buildTurnInputs({ prepared, contactSheets }) {
     "boundaries[].boundaryType": "string",
     "boundaries[].reason": "short string",
     "boundaries[].needReview": "boolean",
+    shots: "array, should align with detected shots count, each item describes what this shot contains",
+    "shots[].summary": "string, 8-24 chars preferred, describe subject/action/scene, no timestamps or local paths",
   };
   const prompt = [
     "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
     "你只需要输出切镜时间点，不要输出 frameId、路径、完整输入明细、剧情解释或 OCR 结果。",
+    "请额外为每一镜输出 shots[].summary，描述“这镜是什么”；shot summary 不是切换原因。",
+    "如果提供了 subtitleContext，只把字幕当作语义辅助，不要把普通字幕断句直接当切镜边界；切镜边界仍以视觉变化为主。",
     `任务输入：${JSON.stringify(manifest)}`,
     `输出契约：${JSON.stringify(outputContract)}`,
-    "返回前自检：JSON 可解析；boundaries 不能为空；timestamp 必须在 0 到 durationSeconds 之间；boundaries 必须严格升序且不能重复；不要输出本地路径。",
+    "返回前自检：JSON 可解析；boundaries 不能为空；timestamp 必须在 0 到 durationSeconds 之间；boundaries 必须严格升序且不能重复；shots[].summary 应尽量覆盖每一镜；不要输出本地路径。",
   ].join("\n");
   const inputs = [{ type: "text", text: prompt, text_elements: [] }];
   for (const sheet of contactSheets) {
@@ -131,20 +142,28 @@ function buildRepairTurnInputs({ prepared, contactSheets, validationError, prior
     "boundaries[].boundaryType": "string",
     "boundaries[].reason": "short string",
     "boundaries[].needReview": "boolean",
+    shots: "array, should align with detected shots count, each item describes what this shot contains",
+    "shots[].summary": "string, 8-24 chars preferred, describe subject/action/scene, no timestamps or local paths",
   };
   const priorOutputText = String(priorTurnOutput ?? "").trim();
+  const manifest = {
+    durationSeconds: round(prepared.durationSeconds),
+    analysisSampling: prepared.analysisSampling,
+    sheetCount: contactSheets.length,
+    subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
+  };
+  if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
   const prompt = [
     "上一次切镜输出未通过校验。请在同一任务上修复，只返回 JSON object。",
     `修复轮次：${repairAttemptCount}`,
-    `视频时长：${round(prepared.durationSeconds)} 秒`,
-    `分析采样：${JSON.stringify(prepared.analysisSampling)}`,
+    `任务输入：${JSON.stringify(manifest)}`,
     `校验失败：${JSON.stringify(validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message })}`,
     `上次输出摘要：${JSON.stringify({
       hasPriorOutput: Boolean(priorOutputText),
       outputLength: priorOutputText.length,
     })}`,
     `输出契约：${JSON.stringify(outputContract)}`,
-    "要求：只保留你能确认的切换时间点；严格按时间升序；不要返回空 boundaries；不要输出 frameId、路径或解释性正文。",
+    "要求：只保留你能确认的切换时间点；严格按时间升序；不要返回空 boundaries；继续输出 shots[].summary；字幕只作语义辅助，不作为唯一切镜依据；不要输出 frameId、路径或解释性正文。",
   ].join("\n");
   const inputs = [{ type: "text", text: prompt, text_elements: [] }];
   for (const sheet of contactSheets) {
@@ -156,12 +175,13 @@ function buildRepairTurnInputs({ prepared, contactSheets, validationError, prior
 function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn, options = {}) {
   const parsed = extractJsonObject(message);
   const rawBoundaries = Array.isArray(parsed.boundaries) ? parsed.boundaries : null;
+  const rawShots = Array.isArray(parsed.shots) ? parsed.shots : null;
   const normalizedBoundaries = normalizeTimestampBoundaries(rawBoundaries);
   const validation = validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
   if (!validation.ok) {
     throw codedError("shot_boundary_validation_failed", validation.message, {
       turnId: turn?.turnId ?? null,
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries),
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, rawShots),
       validation: validation.summary,
     }, false);
   }
@@ -170,13 +190,13 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     throw codedError("agent_output_quality_failed", "切镜 Agent 输出存在编码异常，已阻止写入 processed 产物", {
       turnId: turn?.turnId ?? null,
       parseFailureReason: qualityIssue.reason,
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries),
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, rawShots),
       suspiciousReason: qualityIssue.suspiciousReason,
       validation: validation.summary,
     }, false);
   }
   const mergedBoundaries = normalizedBoundaries;
-  const shots = buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds);
+  const shots = buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, rawShots);
   return {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
@@ -186,6 +206,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     sourceFrameArtifactIds: prepared.frames.map((frame) => frame.artifactId),
     extractSampling: prepared.extractSampling,
     analysisSampling: prepared.analysisSampling,
+    subtitleContextSummary: prepared.subtitleContextSummary ?? null,
     contactSheets: contactSheets.map(stripLocalImagePath),
     boundaryCandidateArtifacts: [],
     boundaries: mergedBoundaries,
@@ -282,8 +303,9 @@ function validateTimestampBoundaries(boundaries, durationSeconds) {
   };
 }
 
-function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
+function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedShots = []) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
+  const safeParsedShots = Array.isArray(parsedShots) ? parsedShots : [];
   const normalizedFrames = Array.isArray(frames)
     ? frames
       .map((frame) => ({
@@ -307,6 +329,8 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
       representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, end),
       confidence: boundary.confidence,
       reason: boundary.reason,
+      summary: resolveShotSummary(safeParsedShots[shots.length]?.summary, boundary.reason),
+      endBoundaryReason: boundary.reason,
     });
     start = end;
   }
@@ -319,6 +343,8 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds) {
     representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, safeDuration),
     confidence: boundaries.at(-1)?.confidence ?? 0.5,
     reason: boundaries.at(-1)?.reason ?? "视觉连续",
+    summary: resolveShotSummary(safeParsedShots[shots.length]?.summary, boundaries.at(-1)?.reason ?? "视觉连续"),
+    endBoundaryReason: null,
   });
   return shots
     .filter((shot) => shot.end > shot.start && shot.representativeFrameId)
@@ -343,6 +369,7 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
       stride: null,
       roundingPolicy: ANALYSIS_ROUNDING_POLICY,
     },
+    subtitleContextSummary: context.prepared?.subtitleContextSummary ?? null,
     contactSheets: contactSheets.map(stripLocalImagePath),
     boundaryCandidateArtifacts: [],
     boundaries: [],
@@ -402,10 +429,20 @@ function buildShotBoundaryCacheParams({
   analysisSampling,
   frameDimensions,
   contactSheets,
+  subtitleContextSummary,
+  subtitleArtifactId,
+  subtitleSegmentCount,
+  subtitleTextHash,
   skillHash,
   skillPath = SKILL_PATH,
 } = {}) {
   const sheets = Array.isArray(contactSheets) ? contactSheets : [];
+  const resolvedSubtitleSummary = subtitleContextSummary ?? {
+    subtitleArtifactId: subtitleArtifactId ?? null,
+    subtitleSegmentCount: Number(subtitleSegmentCount ?? 0),
+    subtitleTextHash: subtitleTextHash ?? null,
+    truncated: false,
+  };
   return {
     sourceArtifactId: sourceArtifactId ?? null,
     extractSampling: extractSampling ?? null,
@@ -419,6 +456,9 @@ function buildShotBoundaryCacheParams({
       startTime: round(resolveSheetStartTime(sheet)),
       endTime: round(resolveSheetEndTime(sheet)),
     })),
+    subtitleArtifactId: resolvedSubtitleSummary.subtitleArtifactId ?? null,
+    subtitleSegmentCount: Number(resolvedSubtitleSummary.subtitleSegmentCount ?? 0),
+    subtitleTextHash: resolvedSubtitleSummary.subtitleTextHash ?? null,
     skillHash: skillHash ?? skillContentHashSync(skillPath),
   };
 }
@@ -430,6 +470,7 @@ function cacheParams(input, contactSheets, options = {}) {
     analysisSampling: input?.analysisSampling,
     frameDimensions: input?.frameDimensions,
     contactSheets,
+    subtitleContextSummary: input?.subtitleContextSummary,
     skillHash: options.skillHash,
     skillPath: options.skillPath,
   });
@@ -525,13 +566,72 @@ function detectReasonEncodingIssue(boundaries) {
   return null;
 }
 
-function summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries) {
+function summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, rawShots) {
   return {
     messagePreview: String(message ?? "").replace(/\s+/g, " ").slice(0, 200),
     rawBoundaryCount: Array.isArray(rawBoundaries) ? rawBoundaries.length : 0,
     normalizedBoundaryCount: Array.isArray(normalizedBoundaries) ? normalizedBoundaries.length : 0,
+    rawShotCount: Array.isArray(rawShots) ? rawShots.length : 0,
     timestamps: Array.isArray(normalizedBoundaries) ? normalizedBoundaries.slice(0, 5).map((boundary) => boundary.timestamp) : [],
   };
+}
+
+function buildSubtitleContextSummary(subtitlesArtifact, durationSeconds) {
+  if (!subtitlesArtifact || subtitlesArtifact.status !== "processed" || !Array.isArray(subtitlesArtifact.segments)) {
+    return {
+      items: [],
+      summary: {
+        subtitleArtifactId: null,
+        subtitleSegmentCount: 0,
+        subtitleTextHash: null,
+        truncated: false,
+      },
+    };
+  }
+  const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : Number.POSITIVE_INFINITY;
+  const relevantSegments = subtitlesArtifact.segments
+    .map((segment) => ({
+      start: roundNormalizedTime(Number(segment?.start ?? 0)),
+      end: roundNormalizedTime(Number(segment?.end ?? 0)),
+      text: normalizeSubtitleText(segment?.text),
+    }))
+    .filter((segment) => segment.text && segment.end >= 0 && segment.start <= safeDuration);
+  const items = [];
+  let totalChars = 0;
+  let truncated = false;
+  for (const segment of relevantSegments) {
+    const nextChars = totalChars + segment.text.length;
+    if (nextChars > MAX_SUBTITLE_CONTEXT_TOTAL_CHARS) {
+      truncated = true;
+      break;
+    }
+    items.push({
+      start: segment.start,
+      end: Math.max(segment.start, segment.end),
+      text: segment.text,
+    });
+    totalChars = nextChars;
+  }
+  if (!items.length && relevantSegments.length > 0) truncated = true;
+  return {
+    items,
+    summary: {
+      subtitleArtifactId: subtitlesArtifact.artifactId ?? null,
+      subtitleSegmentCount: items.length,
+      subtitleTextHash: items.length ? contentHash(items.map((segment) => `${segment.start}-${segment.end}:${segment.text}`).join("\n")) : null,
+      truncated,
+    },
+  };
+}
+
+function normalizeSubtitleText(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_SUBTITLE_SEGMENT_TEXT_LENGTH);
+}
+
+function resolveShotSummary(summary, fallbackReason) {
+  const normalized = String(summary ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+  if (normalized) return normalized;
+  return String(fallbackReason ?? "镜头内容").replace(/\s+/g, " ").trim().slice(0, 80) || "镜头内容";
 }
 
 function stripLocalImagePath(sheet) {

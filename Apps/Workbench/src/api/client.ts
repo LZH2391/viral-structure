@@ -1,4 +1,4 @@
-import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
+import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -69,6 +69,10 @@ export async function discardThreadPoolThread(threadId: string) {
       body: JSON.stringify({ reason: "manual-discard-from-workbench" }),
     }),
   );
+}
+
+export async function getThreadConversation(threadId: string) {
+  return readJson<ThreadConversation>(await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/conversation`));
 }
 
 export async function releaseThreadPoolOwnerLeases(ownerId: string) {

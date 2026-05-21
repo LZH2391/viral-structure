@@ -13,6 +13,13 @@ export function formatTime(value: number | undefined | null): string {
   return `${minutes}:${seconds}`;
 }
 
+export function formatSecondsCompact(value: number | undefined | null): string {
+  if (!Number.isFinite(value)) return "0s";
+  const rounded = Math.round(Number(value) * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1).replace(/\.0$/, "");
+  return `${text}s`;
+}
+
 export function sanitizeText(value: unknown, maxLength = 72): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (text.length <= maxLength) return text;

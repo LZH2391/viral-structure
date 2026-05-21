@@ -123,6 +123,12 @@ export type ShotBoundaryAnalysisArtifact = {
     stride: number | null;
     roundingPolicy?: string | null;
   };
+  subtitleContextSummary?: {
+    subtitleArtifactId?: string | null;
+    subtitleSegmentCount: number;
+    subtitleTextHash?: string | null;
+    truncated: boolean;
+  } | null;
   agent?: {
     provider: "codex-appserver" | string;
     role: string;
@@ -223,6 +229,8 @@ export type ShotBoundaryAnalysisArtifact = {
     representativeFrameId: string;
     confidence: number;
     reason: string;
+    summary?: string | null;
+    endBoundaryReason?: string | null;
   }>;
   reason?: string | null;
   debugSnapshotUri?: string | null;
@@ -293,6 +301,26 @@ export type ThreadPoolRoleDetail = {
     thread_status?: string | null;
     last_seen_at?: string | null;
   }>;
+};
+
+export type ThreadConversationTurn = {
+  turnId: string;
+  status: string;
+  createdAt?: string | null;
+  inputSummary?: string | null;
+  finalMessage?: string | null;
+  tokenUsage?: {
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    totalTokens?: number | null;
+  } | null;
+};
+
+export type ThreadConversation = {
+  threadId: string;
+  title?: string | null;
+  status?: string | null;
+  turns: ThreadConversationTurn[];
 };
 
 export type AudioSeparationArtifact = {

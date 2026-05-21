@@ -157,6 +157,7 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   const resize = read(root, "Apps/Workbench/src/hooks/useElementSize.ts");
   const state = read(root, "Apps/Workbench/src/state.ts");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const format = read(root, "Apps/Workbench/src/utils/format.ts");
 
   assert.match(resize, /new ResizeObserver/);
   assert.match(resize, /requestAnimationFrame\(update\)/);
@@ -172,6 +173,8 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(state, /aspectRatio: buildAspectRatio/);
   assert.match(property, /label="分辨率"/);
   assert.match(property, /label="媒体类型"/);
+  assert.match(format, /export function formatSecondsCompact/);
+  assert.match(format, /return `\$\{text\}s`/);
 });
 
 test("upload options and optional media tracks are visible in workbench UI", () => {
@@ -243,6 +246,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const threadpoolHtml = read(root, "Apps/Workbench/threadpool.html");
   const threadpoolEntry = read(root, "Apps/Workbench/src/threadpool.tsx");
   const threadpoolApp = read(root, "Apps/Workbench/src/components/ThreadPoolApp.tsx");
+  const threadpoolCss = read(root, "Apps/Workbench/styles/threadpool.css");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
   assert.match(vite, /threadpool: "Apps\/Workbench\/threadpool\.html"/);
@@ -253,10 +257,16 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(app, /workspace-grid \$\{activeView === "workspace" \? "" : "is-hidden-view"\}/);
   assert.doesNotMatch(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
   assert.match(api, /\/api\/threadpool\/roles/);
+  assert.match(api, /\/api\/threadpool\/threads\/\$\{encodeURIComponent\(threadId\)\}\/conversation/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
+  assert.match(threadpoolApp, /getThreadConversation/);
+  assert.match(threadpoolApp, /查看对话/);
+  assert.match(threadpoolApp, /ThreadConversationPanel/);
   assert.match(threadpoolApp, /window\.confirm/);
+  assert.match(threadpoolCss, /\.threadpool-conversation-panel/);
+  assert.match(threadpoolCss, /\.threadpool-conversation-block summary/);
   assert.match(property, /AgentRunPanel/);
   assert.match(property, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
@@ -291,15 +301,21 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(app, /currentShotId=\{currentShotId\}/);
   assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
-  assert.match(property, /当前 \{currentShot\.shotNo \?\? `S\$\{String\(currentShot\.index \+ 1\)\.padStart\(3, "0"\)\}`\} \/ \{formatTime\(currentShot\.start\)\} - \{formatTime\(currentShot\.end\)\}/);
+  assert.match(property, /resolveShotSummary\(currentShot\)/);
+  assert.match(property, /formatSecondsCompact\(currentShot\.start\)\} - \{formatSecondsCompact\(currentShot\.end\)/);
+  assert.match(property, /resolveShotEndBoundaryReason\(shot\)/);
+  assert.match(property, /shot\.summary \?\? shot\.reason/);
   assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
   assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);
   assert.match(property, /className=\{`agent-history-item \$\{analysis\?\.artifactId === entry\.artifactId \? "is-current" : ""\}`\}/);
   assert.match(css, /\.agent-shot-list[\s\S]*max-height: 220px;[\s\S]*overflow: auto;/);
   assert.match(css, /\.agent-shot-current/);
   assert.match(css, /\.agent-shot-item\.active,\s*[\s\S]*\.agent-shot-item\[aria-current="true"\]/);
+  assert.match(css, /\.agent-shot-summary/);
   assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
+  assert.match(types, /summary\?: string \| null;/);
+  assert.match(types, /endBoundaryReason\?: string \| null;/);
 });
 
 test("findCurrentShot uses half-open ranges and keeps final boundary inclusive", async () => {
@@ -339,7 +355,10 @@ test("appserver bridge and startup script use local agent runtime", () => {
 
   assert.match(bridge, /DEFAULT_PYTHON_RUNTIME_ROOT/);
   assert.match(bridge, /pythonRuntimeRoot = process\.env\.PYTHON_RUNTIME_ROOT \|\| DEFAULT_PYTHON_RUNTIME_ROOT/);
+  assert.match(bridge, /async function readThread/);
   assert.match(bridgePy, /from agent_runtime\.appserver\.client import AppServerSessionClient/);
+  assert.match(bridgePy, /if operation == "readThread"/);
+  assert.match(bridgePy, /client\.read_thread\(str\(payload\["threadId"\]\), include_turns=True\)/);
   assert.match(bridgePy, /local_runtime_root/);
   assert.match(startup, /\$env:PYTHON_RUNTIME_ROOT/);
   assert.match(startup, /Join-Path \$env:PYTHON_RUNTIME_ROOT "scripts\\thread_pool_service\.py"/);

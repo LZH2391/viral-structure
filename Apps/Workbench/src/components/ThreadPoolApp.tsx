@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { discardThreadPoolThread, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
-import type { ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
+import { discardThreadPoolThread, getThreadConversation, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
+import type { ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
 import { formatThreadContextUsage } from "../utils/threadpoolFormat";
 import { shortId } from "../utils/format";
 
@@ -130,12 +130,29 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
 
 function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
   const threads = useMemo(() => detail?.threads ?? [], [detail]);
+  const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
+  const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
+  const [conversation, setConversation] = useState<ThreadConversation | null>(null);
   const maintenanceBlocked = Boolean(detail?.warming) || detail?.readyForLeases === false;
   const maintenanceBlockedTitle = detail?.warming
     ? "ThreadPool 正在 warming，维护操作暂不可用"
     : detail?.readyForLeases === false
       ? "ThreadPool 当前未 ready，维护操作暂不可用"
       : undefined;
+
+  useEffect(() => {
+    if (!conversationThreadId) {
+      setConversation(null);
+      setConversationStatus("选择 thread 查看对话");
+      return;
+    }
+    if (!threads.some((thread) => thread.thread_id === conversationThreadId)) {
+      setConversationThreadId(null);
+      setConversation(null);
+      setConversationStatus("选择 thread 查看对话");
+    }
+  }, [conversationThreadId, threads]);
+
   const discard = async (threadId: string) => {
     if (!window.confirm(`确认 discard thread ${shortId(threadId)} ?`)) return;
     await discardThreadPoolThread(threadId);
@@ -145,6 +162,18 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
     if (!ownerId || !window.confirm(`清理本工作区 owner ${shortId(ownerId)} 的 lease ?`)) return;
     await releaseThreadPoolOwnerLeases(ownerId);
     await onChanged();
+  };
+  const viewConversation = async (threadId: string) => {
+    setConversationThreadId(threadId);
+    setConversationStatus(`读取 ${shortId(threadId)} 对话`);
+    try {
+      const next = await getThreadConversation(threadId);
+      setConversation(next);
+      setConversationStatus(`已同步 ${shortId(threadId)} 对话`);
+    } catch (error) {
+      setConversation(null);
+      setConversationStatus(error instanceof Error ? error.message : "读取对话失败");
+    }
   };
   return (
     <section className="threadpool-detail" aria-label="ThreadPool role detail">
@@ -189,11 +218,20 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
                     <button className="ghost-button" type="button" disabled={maintenanceBlocked || thread.status !== "leased" || !thread.owner_id} title={maintenanceBlockedTitle} onClick={() => releaseOwner(thread.owner_id ?? "").catch(() => undefined)}>
                       清理 owner
                     </button>
+                    <button className="ghost-button" type="button" onClick={() => viewConversation(thread.thread_id).catch(() => undefined)}>
+                      查看对话
+                    </button>
                   </div>
                 </article>
               );
             }) : <EmptyState text="暂无 thread" />}
           </div>
+          <div className="threadpool-section-title">Conversation</div>
+          <ThreadConversationPanel
+            status={conversationStatus}
+            conversation={conversation}
+            activeThreadId={conversationThreadId}
+          />
           <div className="threadpool-section-title">Leases</div>
           <div className="threadpool-lease-list">
             {(detail.leases ?? []).map((lease) => (
@@ -202,6 +240,50 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
           </div>
         </div>
       ) : <EmptyState text="选择左侧 role 查看详情" />}
+    </section>
+  );
+}
+
+function ThreadConversationPanel({
+  status,
+  conversation,
+  activeThreadId,
+}: {
+  status: string;
+  conversation: ThreadConversation | null;
+  activeThreadId: string | null;
+}) {
+  return (
+    <section className="threadpool-conversation-panel" aria-label="Thread conversation inspector">
+      <div className="threadpool-conversation-header">
+        <div>
+          <strong>{conversation?.title || (activeThreadId ? shortId(activeThreadId) : "未选择 thread")}</strong>
+          <span>{conversation ? `${conversation.status ?? "unknown"} / ${conversation.turns.length} turns` : status}</span>
+        </div>
+      </div>
+      {conversation?.turns?.length ? (
+        <div className="threadpool-conversation-list">
+          {conversation.turns.map((turn) => (
+            <article key={turn.turnId} className="threadpool-conversation-turn">
+              <div className="threadpool-conversation-meta">
+                <strong>{shortId(turn.turnId)}</strong>
+                <span>{turn.status}</span>
+                <small>{formatConversationMeta(turn)}</small>
+              </div>
+              <details className="threadpool-conversation-block">
+                <summary>输入摘要</summary>
+                <p>{turn.inputSummary || "无"}</p>
+              </details>
+              <details className="threadpool-conversation-block">
+                <summary>最终输出</summary>
+                <pre>{turn.finalMessage || "无"}</pre>
+              </details>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState text={activeThreadId ? "该 thread 暂无可读 turn" : "选择 thread 查看真实对话"} />
+      )}
     </section>
   );
 }
@@ -228,4 +310,14 @@ function EmptyState({ text }: { text: string }) {
       <span>刷新后查看 ThreadPool 状态</span>
     </div>
   );
+}
+
+function formatConversationMeta(turn: NonNullable<ThreadConversation["turns"]>[number]) {
+  const parts = [
+    turn.createdAt ? formatSeenAt(turn.createdAt) : null,
+    turn.tokenUsage?.inputTokens != null ? `in ${turn.tokenUsage.inputTokens}` : null,
+    turn.tokenUsage?.outputTokens != null ? `out ${turn.tokenUsage.outputTokens}` : null,
+    turn.tokenUsage?.totalTokens != null ? `total ${turn.tokenUsage.totalTokens}` : null,
+  ].filter(Boolean);
+  return parts.join(" / ") || "无 token";
 }

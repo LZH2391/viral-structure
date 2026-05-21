@@ -276,6 +276,7 @@ function stageParams(artifact, stageName) {
         }
         : null,
       contactSheets: artifact.shotBoundaryAnalysis?.contactSheets ?? [],
+      subtitleContextSummary: artifact.shotBoundaryAnalysis?.subtitleContextSummary ?? null,
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     });
   }

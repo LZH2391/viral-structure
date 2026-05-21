@@ -125,6 +125,9 @@ function createShotBoundaryService({
           effectiveAnalysisFps: input.analysisSampling.effectiveFps,
           roundingPolicy: input.analysisSampling.roundingPolicy,
           extractFps: round(input.extractSampling.actualFrameCount / input.durationSeconds),
+          subtitleSegmentCount: input.subtitleContextSummary?.subtitleSegmentCount ?? 0,
+          subtitleTextHash: input.subtitleContextSummary?.subtitleTextHash ?? null,
+          subtitleTruncated: Boolean(input.subtitleContextSummary?.truncated),
         }),
       });
       context.prepared = prepared;
@@ -730,6 +733,9 @@ function buildAgentRun({ context, lease, turn, prepared, contactSheets }) {
       effectiveAnalysisFps: prepared.analysisSampling.effectiveFps,
       roundingPolicy: prepared.analysisSampling.roundingPolicy,
       sheetCount: contactSheets.length,
+      subtitleSegmentCount: prepared.subtitleContextSummary?.subtitleSegmentCount ?? 0,
+      subtitleTextHash: prepared.subtitleContextSummary?.subtitleTextHash ?? null,
+      subtitleTruncated: Boolean(prepared.subtitleContextSummary?.truncated),
     },
     startedAt: now,
     updatedAt: now,
