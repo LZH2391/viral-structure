@@ -12,8 +12,11 @@ const STAGES = {
   inputPrepared: "agent.shotBoundary.inputPrepared",
   threadAcquired: "agent.shotBoundary.threadAcquired",
   turnStarted: "agent.shotBoundary.turnStarted",
+  turnCollected: "agent.shotBoundary.turnCollected",
   resultWritten: "agent.shotBoundary.resultWritten",
 };
+const POLL_INTERVAL_MS = 2000;
+const ORPHAN_TTL_MS = 30 * 60 * 1000;
 
 function createShotBoundaryService({
   rootDir,
@@ -24,7 +27,11 @@ function createShotBoundaryService({
   threadPool = createThreadPoolProxy(),
   appServer = createAppServerBridge(),
   skillPath = SKILL_PATH,
+  pollIntervalMs = POLL_INTERVAL_MS,
+  orphanTtlMs = ORPHAN_TTL_MS,
 } = {}) {
+  const collectingJobs = new Set();
+
   async function enqueue({ sampleVideoId, analysisFps = 1 }) {
     await store.ensureRuntimeDirs();
     const sampleArtifact = await loadSampleArtifact(sampleVideoId);
@@ -33,6 +40,11 @@ function createShotBoundaryService({
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     runAnalysis({ sampleVideoId, analysisFps: Number(analysisFps || 1), sampleArtifact, traceContext, artifactId, job }).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
+  }
+
+  function scheduleCollect(jobId, delayMs = pollIntervalMs) {
+    const timer = setTimeout(() => collectAgentRun(jobId).catch(() => undefined), delayMs);
+    timer.unref?.();
   }
 
   async function runAnalysis(context) {
@@ -67,7 +79,7 @@ function createShotBoundaryService({
         artifactId: context.artifactId,
         parentArtifactId: context.sampleArtifact.sampleVideo.artifactId,
         inputSummary: { role: ROLE, threadId: lease.thread_id, leaseId: lease.lease_id, frameCount: prepared.frames.length },
-        action: () => appServer.runTurnWithInputs({
+        action: () => appServer.startTurnWithInputs({
           workspaceRoot: rootDir,
           threadId: lease.thread_id,
           skillPath,
@@ -76,27 +88,109 @@ function createShotBoundaryService({
         }),
         outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status }),
       });
-      const analysis = parseAgentResult(turn.finalMessage, prepared, context, lease, turn);
-      await runStage(context, STAGES.resultWritten, 95, {
-        artifactId: analysis.artifactId,
-        parentArtifactId: analysis.parentArtifactId,
-        inputSummary: { turnId: turn.turnId, frameCount: prepared.frames.length, stride: prepared.analysisSampling.stride },
-        action: async () => {
-          await attachAnalysis(context.sampleVideoId, analysis);
-          await artifactIndex.registerSampleArtifact({ artifact: await loadSampleArtifact(context.sampleVideoId), fileHash: await resolveExistingFileHash(context.sampleVideoId), traceId: context.traceContext.traceId });
-          await threadPool.releaseLease({ leaseId: lease.lease_id, ownerId: context.traceContext.traceId });
-          lease = null;
-          return analysis;
-        },
-        outputSummary: (result) => ({ status: result.status, shotCount: result.shots.length, artifactType: result.type }),
-      });
-      jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100 });
+      const agentRun = buildAgentRun({ context, lease, turn, prepared });
+      jobStore.updateJob(context.job.jobId, { agentRun, stage: STAGES.turnStarted, status: SAMPLE_STATUS.processing, progress: 80 });
+      lease = null;
+      scheduleCollect(context.job.jobId, 0);
     } catch (error) {
       if (lease?.thread_id) {
         await threadPool.discardThread({ threadId: lease.thread_id, reason: "shot-boundary-analysis-failed" }).catch(() => undefined);
       }
       await markFailed(context, error);
     }
+  }
+
+  async function collectAgentRun(jobId) {
+    if (collectingJobs.has(jobId)) return { status: "collecting" };
+    collectingJobs.add(jobId);
+    try {
+      const job = jobStore.getJob(jobId);
+      const agentRun = job?.agentRun;
+      if (job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed) return { status: job.status };
+      if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
+      const sampleArtifact = await loadSampleArtifact(agentRun.sampleVideoId);
+      const context = createRecoveredContext({ job, agentRun, sampleArtifact });
+      if (Date.now() - Date.parse(agentRun.startedAt) > orphanTtlMs) {
+        const error = codedError("shot_boundary_turn_orphaned", "切镜 Agent 长时间未完成，已清理遗留 lease");
+        await failAgentRun(context, error);
+        return { status: SAMPLE_STATUS.failed };
+      }
+      const prepared = prepareInput(sampleArtifact, agentRun.analysisFps);
+      try {
+        jobStore.updateJob(job.jobId, { agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() }, stage: STAGES.turnCollected, status: SAMPLE_STATUS.processing, progress: 88 });
+        const turn = await runStage(context, STAGES.turnCollected, 88, {
+          artifactId: agentRun.artifactId,
+          parentArtifactId: agentRun.parentArtifactId,
+          inputSummary: { role: ROLE, threadId: agentRun.threadId, turnId: agentRun.turnId, frameCount: prepared.frames.length },
+          action: () => appServer.collectTurnResult({
+            workspaceRoot: rootDir,
+            threadId: agentRun.threadId,
+            turnId: agentRun.turnId,
+            timeoutSeconds: 60,
+          }),
+          outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status }),
+        });
+        if (turn.status !== "completed") {
+          const updatedRun = { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() };
+          jobStore.updateJob(job.jobId, { agentRun: updatedRun, stage: STAGES.turnCollected, status: SAMPLE_STATUS.processing, progress: 88, errorSummary: null });
+          scheduleCollect(job.jobId);
+          return turn;
+        }
+        await writeCompletedAnalysis({ context, prepared, agentRun, turn });
+        return turn;
+      } catch (error) {
+        if (isRetryableCollectError(error)) {
+          await markRetryableCollectFailure(context, error);
+          scheduleCollect(job.jobId);
+          return { status: "retrying" };
+        }
+        await failAgentRun(context, error);
+        return { status: SAMPLE_STATUS.failed };
+      }
+    } finally {
+      collectingJobs.delete(jobId);
+    }
+  }
+
+  async function writeCompletedAnalysis({ context, prepared, agentRun, turn }) {
+    const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+    const analysis = parseAgentResult(turn.finalMessage, prepared, context, lease, turn);
+    await runStage(context, STAGES.resultWritten, 95, {
+      artifactId: analysis.artifactId,
+      parentArtifactId: analysis.parentArtifactId,
+      inputSummary: { turnId: turn.turnId, frameCount: prepared.frames.length, stride: prepared.analysisSampling.stride },
+      action: async () => {
+        await attachAnalysis(context.sampleVideoId, analysis);
+        await artifactIndex.registerSampleArtifact({ artifact: await loadSampleArtifact(context.sampleVideoId), fileHash: await resolveExistingFileHash(context.sampleVideoId), traceId: context.traceContext.traceId });
+        await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
+        return analysis;
+      },
+      outputSummary: (result) => ({ status: result.status, shotCount: result.shots.length, artifactType: result.type }),
+    });
+    jobStore.updateJob(context.job.jobId, {
+      agentRun: { ...agentRun, status: "completed", updatedAt: new Date().toISOString() },
+      stage: SAMPLE_STATUS.processed,
+      status: SAMPLE_STATUS.processed,
+      progress: 100,
+      errorSummary: null,
+    });
+  }
+
+  async function failAgentRun(context, error) {
+    const agentRun = context.job.agentRun;
+    if (agentRun?.threadId) {
+      await threadPool.discardThread({ threadId: agentRun.threadId, reason: "shot-boundary-analysis-failed" }).catch(() => undefined);
+    }
+    if (agentRun?.traceId && typeof threadPool.releaseOwnerLeases === "function") {
+      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
+    }
+    await markFailed(context, error);
+  }
+
+  async function recoverActiveAgentRuns() {
+    const jobs = typeof jobStore.listActiveAgentRuns === "function" ? jobStore.listActiveAgentRuns({ role: ROLE }) : [];
+    await Promise.all(jobs.map((job) => collectAgentRun(job.jobId).catch(() => undefined)));
+    return { recovered: jobs.length };
   }
 
   async function runStage(context, stageName, progress, options) {
@@ -114,7 +208,8 @@ function createShotBoundaryService({
   }
 
   async function markFailed(context, error) {
-    const activeStage = context.activeStage ?? { stageName: STAGES.turnStarted, artifactId: context.artifactId, parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null, inputSummary: null, outputSummary: null, startedAt: Date.now() };
+    const agentRun = context.job?.agentRun ?? null;
+    const activeStage = context.activeStage ?? { stageName: agentRun ? STAGES.turnCollected : STAGES.turnStarted, artifactId: context.artifactId, parentArtifactId: agentRun?.parentArtifactId ?? context.sampleArtifact?.sampleVideo?.artifactId ?? null, inputSummary: null, outputSummary: null, startedAt: Date.now() };
     const errorSummary = safeError(error, activeStage.stageName);
     const failedArtifact = buildFailedArtifact(context, errorSummary);
     await attachAnalysis(context.sampleVideoId, failedArtifact).catch(() => undefined);
@@ -138,8 +233,31 @@ function createShotBoundaryService({
       durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
       errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
     });
-    jobStore.updateJob(context.job.jobId, { stage: activeStage.stageName, status: SAMPLE_STATUS.failed, progress: 100, errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri } });
+    jobStore.updateJob(context.job.jobId, {
+      agentRun: context.job.agentRun ? { ...context.job.agentRun, status: "failed", updatedAt: new Date().toISOString() } : context.job.agentRun,
+      stage: activeStage.stageName,
+      status: SAMPLE_STATUS.failed,
+      progress: 100,
+      errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
+    });
     context.activeStage = null;
+  }
+
+  async function markRetryableCollectFailure(context, error) {
+    const agentRun = context.job.agentRun;
+    const errorSummary = {
+      code: error?.code ?? "appserver_turn_collect_retryable",
+      message: error instanceof Error ? error.message : "AppServer turn 补查暂时失败",
+      stageName: STAGES.turnCollected,
+      retryable: true,
+    };
+    jobStore.updateJob(context.job.jobId, {
+      agentRun: agentRun ? { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() } : agentRun,
+      stage: STAGES.turnCollected,
+      status: SAMPLE_STATUS.processing,
+      progress: 88,
+      errorSummary,
+    });
   }
 
   async function loadSampleArtifact(sampleVideoId) {
@@ -169,7 +287,52 @@ function createShotBoundaryService({
     return detail?.fileHash ?? `sampleVideoId:${sampleVideoId}`;
   }
 
-  return { enqueue, prepareInput };
+  return { enqueue, prepareInput, collectAgentRun, recoverActiveAgentRuns };
+}
+
+function buildAgentRun({ context, lease, turn, prepared }) {
+  const now = new Date().toISOString();
+  return {
+    provider: "codex-appserver",
+    role: ROLE,
+    leaseId: lease.lease_id,
+    threadId: lease.thread_id,
+    turnId: turn.turnId ?? null,
+    traceId: context.traceContext.traceId,
+    artifactId: context.artifactId,
+    parentArtifactId: prepared.sourceArtifactId ?? null,
+    sampleVideoId: context.sampleVideoId,
+    analysisFps: context.analysisFps,
+    status: "turn_submitted",
+    preparedInputSummary: {
+      frameCount: prepared.frames.length,
+      stride: prepared.analysisSampling.stride,
+      analysisFps: prepared.analysisSampling.fps,
+    },
+    startedAt: now,
+    updatedAt: now,
+  };
+}
+
+function createRecoveredContext({ job, agentRun, sampleArtifact }) {
+  return {
+    sampleVideoId: agentRun.sampleVideoId,
+    analysisFps: agentRun.analysisFps,
+    sampleArtifact,
+    traceContext: {
+      runId: agentRun.traceId,
+      traceId: agentRun.traceId,
+      stageId: `stage_recover_${Date.now()}`,
+    },
+    artifactId: agentRun.artifactId,
+    job,
+    activeStage: null,
+  };
+}
+
+function isRetryableCollectError(error) {
+  const code = String(error?.code ?? "");
+  return ["appserver_bridge_failed", "appserver_bridge_timeout", "appserver_turn_collect_failed"].includes(code);
 }
 
 function prepareInput(artifact, analysisFps) {
@@ -277,6 +440,7 @@ function normalizeShots(rawShots, frames, durationSeconds) {
 }
 
 function buildFailedArtifact(context, errorSummary) {
+  const agentRun = context.job?.agentRun ?? null;
   return {
     artifactId: context.artifactId,
     parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null,
@@ -285,7 +449,7 @@ function buildFailedArtifact(context, errorSummary) {
     sourceFrameArtifactIds: [],
     extractSampling: null,
     analysisSampling: { fps: context.analysisFps, stride: null },
-    agent: { provider: "codex-appserver", role: ROLE, skillPath: SKILL_PATH, threadId: null, leaseId: null, turnId: null },
+    agent: { provider: "codex-appserver", role: ROLE, skillPath: SKILL_PATH, threadId: agentRun?.threadId ?? null, leaseId: agentRun?.leaseId ?? null, turnId: agentRun?.turnId ?? null },
     shots: [],
     reason: errorSummary.message,
     createdAt: new Date().toISOString(),

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { discardThreadPoolThread, getThreadPoolRoleStatus, getThreadPoolRoles } from "../api/client";
+import { discardThreadPoolThread, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
 import type { ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
 import { formatThreadContextUsage } from "../utils/threadpoolFormat";
 import { shortId } from "../utils/format";
@@ -135,6 +135,11 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
     await discardThreadPoolThread(threadId);
     await onChanged();
   };
+  const releaseOwner = async (ownerId: string) => {
+    if (!ownerId || !window.confirm(`清理本工作区 owner ${shortId(ownerId)} 的 lease ?`)) return;
+    await releaseThreadPoolOwnerLeases(ownerId);
+    await onChanged();
+  };
   return (
     <section className="threadpool-detail" aria-label="ThreadPool role detail">
       <div className="library-detail-header">
@@ -162,17 +167,23 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
           <div className="threadpool-table" id="threadpoolThreadList">
             {threads.length ? threads.map((thread) => {
               const ctx = formatThreadContextUsage(thread.latest_input_tokens, thread.threshold_input_tokens);
+              const suspectedOrphan = thread.status === "leased" && Boolean(thread.last_seen_at) && Date.now() - Date.parse(thread.last_seen_at ?? "") > 30 * 60 * 1000;
               return (
-                <article key={thread.thread_id} className="threadpool-thread">
+                <article key={thread.thread_id} className={`threadpool-thread ${suspectedOrphan ? "suspected-orphan" : ""}`}>
                   <div>
                     <strong>{shortId(thread.thread_id)}</strong>
-                    <span>{thread.status} / {thread.owner_id ? `owner ${shortId(thread.owner_id)}` : "no owner"}</span>
-                    <small>{thread.lease_id ? `lease ${shortId(thread.lease_id)}` : "no lease"} / last {shortId(thread.last_owner_id ?? "") || "none"}</small>
+                    <span>{thread.status} / owner {thread.owner_id ? shortId(thread.owner_id) : "none"} / last owner {shortId(thread.last_owner_id ?? "") || "none"}</span>
+                    <small>{thread.lease_id ? `lease ${shortId(thread.lease_id)}` : "no lease"} / seen {formatSeenAt(thread.last_seen_at)} {suspectedOrphan ? "/ suspected orphan" : ""}</small>
                     <b className={`threadpool-ctx ${ctx.level}`}>{ctx.text}</b>
                   </div>
-                  <button className="ghost-button" type="button" disabled={thread.seed || thread.status === "leased"} onClick={() => discard(thread.thread_id).catch(() => undefined)}>
-                    discard
-                  </button>
+                  <div className="threadpool-thread-actions">
+                    <button className="ghost-button" type="button" disabled={thread.seed || thread.status === "leased"} onClick={() => discard(thread.thread_id).catch(() => undefined)}>
+                      discard
+                    </button>
+                    <button className="ghost-button" type="button" disabled={thread.status !== "leased" || !thread.owner_id} onClick={() => releaseOwner(thread.owner_id ?? "").catch(() => undefined)}>
+                      清理 owner
+                    </button>
+                  </div>
                 </article>
               );
             }) : <EmptyState text="暂无 thread" />}
@@ -180,13 +191,19 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
           <div className="threadpool-section-title">Leases</div>
           <div className="threadpool-lease-list">
             {(detail.leases ?? []).map((lease) => (
-              <Detail key={lease.lease_id} label={shortId(lease.lease_id)} value={`${shortId(lease.thread_id)} / ${lease.owner_id}`} />
+              <Detail key={lease.lease_id} label={shortId(lease.lease_id)} value={`${shortId(lease.thread_id)} / owner ${shortId(lease.owner_id)} / seen ${formatSeenAt(lease.last_seen_at)}`} />
             ))}
           </div>
         </div>
       ) : <EmptyState text="选择左侧 role 查看详情" />}
     </section>
   );
+}
+
+function formatSeenAt(value?: string | null) {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "unknown" : date.toLocaleTimeString("zh-CN", { hour12: false });
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

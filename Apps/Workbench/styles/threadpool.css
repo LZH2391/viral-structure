@@ -135,10 +135,21 @@
   padding: 10px;
 }
 
+.threadpool-thread.suspected-orphan {
+  border-color: #7d6d2f;
+}
+
 .threadpool-thread div {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.threadpool-thread-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .threadpool-thread span,

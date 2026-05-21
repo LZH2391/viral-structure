@@ -17,6 +17,7 @@ def sanitize_for_appserver_text(value):
 
 def main() -> int:
     payload = sanitize_for_appserver_text(json.loads(sys.stdin.read() or "{}"))
+    operation = payload.get("operation") or "runTurnWithInputs"
     cep_root = Path(payload["cepRoot"]).resolve()
     sys.path.insert(0, str(cep_root))
 
@@ -32,26 +33,49 @@ def main() -> int:
     )
     client.start()
     try:
-        turn_id = client.start_turn_with_inputs(
-            str(payload["threadId"]),
-            list(payload.get("inputs") or []),
-            skill_path=payload.get("skillPath") or None,
-            cwd=payload["workspaceRoot"],
+        if operation == "startTurnWithInputs":
+            return start_turn_with_inputs(client, payload)
+        if operation == "collectTurnResult":
+            return collect_turn_result(client, payload)
+        if operation == "runTurnWithInputs":
+            return run_turn_with_inputs(client, payload)
+        sys.stdout.write(json.dumps({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"}, ensure_ascii=False))
+        return 1
+    finally:
+        client.close()
+
+
+def start_turn_with_inputs(client, payload) -> int:
+    turn_id = client.start_turn_with_inputs(
+        str(payload["threadId"]),
+        list(payload.get("inputs") or []),
+        skill_path=payload.get("skillPath") or None,
+        cwd=payload["workspaceRoot"],
+    )
+    sys.stdout.write(
+        json.dumps(
+            {
+                "ok": True,
+                "threadId": str(payload["threadId"]),
+                "turnId": turn_id,
+                "status": "submitted",
+            },
+            ensure_ascii=False,
         )
-        status = client.wait_turn_completed(
-            str(payload["threadId"]),
-            turn_id,
-            timeout_seconds=float(payload.get("timeoutSeconds") or 180),
-        )
-        result = client.collect_turn_result(
-            thread_id=str(payload["threadId"]),
-            turn_id=turn_id,
-            return_thread_state=False,
-        )
+    )
+    return 0
+
+
+def collect_turn_result(client, payload) -> int:
+    try:
         sys.stdout.write(
             json.dumps(
                 {
-                    "ok": status == "completed" and result.status == "completed",
+                    "ok": result_status_is_completed(result := client.collect_turn_result(
+                        thread_id=str(payload["threadId"]),
+                        turn_id=str(payload["turnId"]),
+                        return_thread_state=False,
+                    )),
                     "threadId": result.thread_id,
                     "turnId": result.turn_id,
                     "status": result.status,
@@ -61,8 +85,61 @@ def main() -> int:
             )
         )
         return 0
-    finally:
-        client.close()
+    except Exception as error:  # noqa: WPS430
+        message = str(error)
+        running_markers = ("not completed", "running", "in_progress", "pending")
+        if any(marker in message.lower() for marker in running_markers):
+            sys.stdout.write(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "threadId": str(payload["threadId"]),
+                        "turnId": str(payload["turnId"]),
+                        "status": "running",
+                        "finalMessage": "",
+                        "message": message[:240],
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 0
+        raise
+
+
+def run_turn_with_inputs(client, payload) -> int:
+    turn_id = client.start_turn_with_inputs(
+        str(payload["threadId"]),
+        list(payload.get("inputs") or []),
+        skill_path=payload.get("skillPath") or None,
+        cwd=payload["workspaceRoot"],
+    )
+    status = client.wait_turn_completed(
+        str(payload["threadId"]),
+        turn_id,
+        timeout_seconds=float(payload.get("timeoutSeconds") or 180),
+    )
+    result = client.collect_turn_result(
+        thread_id=str(payload["threadId"]),
+        turn_id=turn_id,
+        return_thread_state=False,
+    )
+    sys.stdout.write(
+        json.dumps(
+            {
+                "ok": status == "completed" and result.status == "completed",
+                "threadId": result.thread_id,
+                "turnId": result.turn_id,
+                "status": result.status,
+                "finalMessage": result.final_message,
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def result_status_is_completed(result) -> bool:
+    return result.status == "completed"
 
 
 if __name__ == "__main__":

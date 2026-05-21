@@ -169,6 +169,7 @@ export type ThreadPoolRoleDetail = {
     latest_input_tokens?: number | null;
     threshold_input_tokens?: number | null;
     seed?: boolean;
+    last_seen_at?: string | null;
   }>;
   leases?: Array<{
     lease_id: string;
@@ -176,6 +177,7 @@ export type ThreadPoolRoleDetail = {
     owner_id: string;
     status: "active" | "released" | string;
     thread_status?: string | null;
+    last_seen_at?: string | null;
   }>;
 };
 

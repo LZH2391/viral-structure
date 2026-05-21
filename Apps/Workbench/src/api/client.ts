@@ -67,6 +67,16 @@ export async function discardThreadPoolThread(threadId: string) {
   );
 }
 
+export async function releaseThreadPoolOwnerLeases(ownerId: string) {
+  return readJson<{ ok: boolean }>(
+    await fetch(`${API_BASE_URL}/api/threadpool/leases/release-owner`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ownerId }),
+    }),
+  );
+}
+
 export async function getDebugTraces() {
   return readJson<{ traces: DebugTraceSummary[] }>(await fetch(`${API_BASE_URL}/api/debug/traces`));
 }

@@ -8,6 +8,7 @@ function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT |
 
   async function runTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds = 180 }) {
     const payload = {
+      operation: "runTurnWithInputs",
       cepRoot,
       workspaceRoot,
       threadId,
@@ -26,7 +27,45 @@ function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT |
     return result;
   }
 
-  return { runTurnWithInputs };
+  async function startTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds = 180 }) {
+    const payload = {
+      operation: "startTurnWithInputs",
+      cepRoot,
+      workspaceRoot,
+      threadId,
+      inputs,
+      skillPath,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok) throw appServerError(result, "appserver_turn_start_failed");
+    return result;
+  }
+
+  async function collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds = 180 }) {
+    const payload = {
+      operation: "collectTurnResult",
+      cepRoot,
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok && result?.status !== "running") throw appServerError(result, "appserver_turn_collect_failed");
+    return result;
+  }
+
+  return { runTurnWithInputs, startTurnWithInputs, collectTurnResult };
+}
+
+function appServerError(result, fallbackCode) {
+  const error = new Error(result?.message || "AppServer turn failed");
+  error.code = result?.error || fallbackCode;
+  error.debugPayload = result;
+  return error;
 }
 
 function runPythonJson({ python, script, payload, timeoutMs }) {

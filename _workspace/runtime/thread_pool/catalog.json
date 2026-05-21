@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T14:23:45.033801+08:00",
+  "updated_at": "2026-05-21T14:35:47.531069+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -21,32 +21,14 @@
       "counts": {
         "initializing": 0,
         "idle": 1,
-        "leased": 1,
+        "leased": 0,
         "retired": 0,
         "discarded": 0,
-        "active_leases": 1
+        "active_leases": 0
       },
-      "active_lease_ids": [
-        "74461f2a-2652-4a00-b9c7-947175937b5b"
-      ],
-      "active_leases": [
-        {
-          "lease_id": "74461f2a-2652-4a00-b9c7-947175937b5b",
-          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
-          "owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
-          "last_seen_at": "2026-05-21T14:23:32.492068+08:00",
-          "thread_status": "leased"
-        }
-      ],
+      "active_lease_ids": [],
+      "active_leases": [],
       "thread_entries": [
-        {
-          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
-          "thread_status": "leased",
-          "lease_id": "74461f2a-2652-4a00-b9c7-947175937b5b",
-          "owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
-          "last_owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
-          "last_seen_at": "2026-05-21T14:23:32.492068+08:00"
-        },
         {
           "thread_id": "019e4934-352e-70f1-b0c8-4f99df10ef0c",
           "thread_status": "idle",

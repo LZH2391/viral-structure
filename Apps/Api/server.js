@@ -23,12 +23,16 @@ const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
 const store = createLocalStore(rootDir);
 const logger = createStageLogger(store);
-const jobStore = createJobStore();
+const jobStore = createJobStore({ filePath: path.join(store.runtimeRoot, "Jobs", "processing-jobs.json") });
 const artifactIndex = createArtifactIndex({ store });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const threadPool = createThreadPoolProxy();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
+
+store.ensureRuntimeDirs()
+  .then(() => shotBoundaryService.recoverActiveAgentRuns())
+  .catch(() => undefined);
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -44,6 +48,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => threadPool.roles());
     if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return handleThreadPoolRead(res, "role-status", () => threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))));
     if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
+    if (req.method === "POST" && url.pathname === "/api/threadpool/leases/release-owner") return handleOwnerLeaseRelease(req, res);
     if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res);
     if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)));
     if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)));
@@ -131,6 +136,11 @@ async function handleThreadPoolRead(res, scope, action) {
 async function handleThreadDiscard(req, res, threadId) {
   const body = await readJsonBody(req);
   return handleThreadPoolRead(res, "discard", () => threadPool.discardThread({ threadId, reason: body.reason || "manual-discard" }));
+}
+
+async function handleOwnerLeaseRelease(req, res) {
+  const body = await readJsonBody(req);
+  return handleThreadPoolRead(res, "release-owner", () => threadPool.releaseOwnerLeases(body.ownerId || body.owner_id));
 }
 
 async function handleLibraryItems(res) {

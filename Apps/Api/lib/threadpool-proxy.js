@@ -43,6 +43,10 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
     return requestJson("POST", `/leases/${encodeURIComponent(leaseId)}/release`, { owner_id: ownerId });
   }
 
+  async function releaseOwnerLeases(ownerId) {
+    return requestJson("POST", "/leases/release-owner", { owner_id: ownerId, roles: Array.from(allowedRoleSet) });
+  }
+
   async function discardThread({ threadId, reason }) {
     const association = await findAllowedThread(threadId);
     if (!association.ok) return association;
@@ -94,7 +98,7 @@ function createThreadPoolProxy({ baseUrl = process.env.THREADPOOL_BASE_URL || DE
     return payload;
   }
 
-  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), health, config, roles, roleStatus, acquireLease, releaseLease, discardThread };
+  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), health, config, roles, roleStatus, acquireLease, releaseLease, releaseOwnerLeases, discardThread };
 }
 
 function parseAllowedRoles(value) {
