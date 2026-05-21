@@ -70,7 +70,12 @@ export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (a
 
 export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob: JobDraftWriter) {
   for (let attempt = 0; attempt < 180; attempt += 1) {
-    const job = await getProcessingJob(jobDraft.processingJobId);
+    const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
+    if (!job) {
+      setAgentJob(null);
+      writeActiveAgentJob(null);
+      return null;
+    }
     setAgentJob(job);
     if (job.status === "processed") {
       const artifact = await getSampleArtifact(jobDraft.sampleVideoId);

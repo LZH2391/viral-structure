@@ -261,7 +261,49 @@ function createShotBoundaryService({
   async function recoverActiveAgentRuns() {
     const jobs = typeof jobStore.listActiveAgentRuns === "function" ? jobStore.listActiveAgentRuns({ role: ROLE }) : [];
     await Promise.all(jobs.map((job) => collectAgentRun(job.jobId).catch(() => undefined)));
-    return { recovered: jobs.length };
+    const interrupted = await failInterruptedPreAgentJobs();
+    return { recovered: jobs.length, interrupted };
+  }
+
+  async function failInterruptedPreAgentJobs() {
+    const jobs = typeof jobStore.listJobs === "function" ? jobStore.listJobs().filter(isInterruptedPreAgentJob) : [];
+    await Promise.all(jobs.map((job) => failInterruptedPreAgentJob(job).catch(() => undefined)));
+    return jobs.length;
+  }
+
+  async function failInterruptedPreAgentJob(job) {
+    if (job.traceId && typeof threadPool.releaseOwnerLeases === "function") {
+      await threadPool.releaseOwnerLeases(job.traceId).catch(() => undefined);
+    }
+    const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
+    const artifactId = `artifact_${randomUUID()}`;
+    const context = {
+      sampleVideoId: job.sampleVideoId,
+      analysisFps: 1,
+      sampleArtifact,
+      traceContext: {
+        runId: job.traceId,
+        traceId: job.traceId,
+        stageId: `stage_recover_${Date.now()}`,
+      },
+      artifactId,
+      job,
+      activeStage: {
+        stageName: isShotStage(job.stage) ? job.stage : STAGES.threadAcquired,
+        artifactId,
+        parentArtifactId: sampleArtifact?.sampleVideo?.artifactId ?? null,
+        inputSummary: { jobId: job.jobId, previousStage: job.stage, previousProgress: job.progress },
+        outputSummary: null,
+        startedAt: Date.now(),
+      },
+    };
+    const error = codedError(
+      "shot_boundary_job_interrupted",
+      "切镜任务在提交 Agent 前被中断，已清理为失败状态，请重新运行",
+      { previousStage: job.stage, previousProgress: job.progress, retryable: true },
+      true,
+    );
+    await markFailed(context, error);
   }
 
   async function runStage(context, stageName, progress, options) {
@@ -391,6 +433,16 @@ function createShotBoundaryService({
   }
 
   return { enqueue, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
+}
+
+function isInterruptedPreAgentJob(job) {
+  if (!job || job.agentRun) return false;
+  if (![SAMPLE_STATUS.pending, SAMPLE_STATUS.processing].includes(job.status)) return false;
+  return isShotStage(job.stage);
+}
+
+function isShotStage(stageName) {
+  return Object.values(STAGES).includes(stageName);
 }
 
 function buildAgentRun({ context, lease, turn, prepared, contactSheets }) {

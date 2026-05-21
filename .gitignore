@@ -3,6 +3,7 @@
 /Runtime/Artifacts/*
 /Runtime/ArtifactIndex/*
 /Runtime/DebugSnapshots/*
+/Runtime/Jobs/*
 /Runtime/Temp/*
 /MP4/
 /PlanMD/
@@ -18,4 +19,5 @@
 !/Runtime/Artifacts/README.md
 !/Runtime/ArtifactIndex/README.md
 !/Runtime/DebugSnapshots/README.md
+!/Runtime/Jobs/README.md
 !/Runtime/Temp/README.md

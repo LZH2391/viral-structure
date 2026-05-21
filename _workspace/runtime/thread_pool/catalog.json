@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T17:11:59.622379+08:00",
+  "updated_at": "2026-05-21T17:24:10.543558+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -7,9 +7,9 @@
       "min_idle": 1,
       "skill_path": "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
       "init_prompt": "你是镜头切分分析 Agent。初始化阶段只阅读 `C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md`，理解只基于帧 manifest 做视觉镜头切分的职责。不要读取无关文件，不使用音频、字幕、beats 或外部历史。正式任务只返回 JSON object，不输出解释性文本。完成初始化后只回复：已就绪",
-      "current_init_fingerprint": "c8da2b74e7b4fedacc5b2b4f91fb4c89099d9fc18cb15a2a91aa5f5337c9d143",
-      "seed_thread_id": "019e49ab-b9d2-7d91-98df-34c9f833e1d1",
-      "seed_init_fingerprint": "c8da2b74e7b4fedacc5b2b4f91fb4c89099d9fc18cb15a2a91aa5f5337c9d143",
+      "current_init_fingerprint": "08f0dc917cef5121f2d9d4616192db458902ff734b215f41c7fc63f1e4a709e4",
+      "seed_thread_id": "019e49d6-e145-75b1-9794-3e5bd978a809",
+      "seed_init_fingerprint": "08f0dc917cef5121f2d9d4616192db458902ff734b215f41c7fc63f1e4a709e4",
       "recovering": false,
       "ready_for_leases": true,
       "startup_error": null,
@@ -21,16 +21,34 @@
       "counts": {
         "initializing": 0,
         "idle": 1,
-        "leased": 0,
+        "leased": 1,
         "retired": 0,
         "discarded": 0,
-        "active_leases": 0
+        "active_leases": 1
       },
-      "active_lease_ids": [],
-      "active_leases": [],
+      "active_lease_ids": [
+        "3d075f49-2745-4cec-9a18-ad73da7973cf"
+      ],
+      "active_leases": [
+        {
+          "lease_id": "3d075f49-2745-4cec-9a18-ad73da7973cf",
+          "thread_id": "019e49d6-f68a-7683-8b05-c28dc5f9a35b",
+          "owner_id": "trace_5a2b2c9f-5aeb-4bd6-b7a5-4236b767b8fe",
+          "last_seen_at": "2026-05-21T17:23:23.655105+08:00",
+          "thread_status": "leased"
+        }
+      ],
       "thread_entries": [
         {
-          "thread_id": "019e49ac-bf49-7bf1-b33c-ea609cfdfa6a",
+          "thread_id": "019e49d6-f68a-7683-8b05-c28dc5f9a35b",
+          "thread_status": "leased",
+          "lease_id": "3d075f49-2745-4cec-9a18-ad73da7973cf",
+          "owner_id": "trace_5a2b2c9f-5aeb-4bd6-b7a5-4236b767b8fe",
+          "last_owner_id": "trace_5a2b2c9f-5aeb-4bd6-b7a5-4236b767b8fe",
+          "last_seen_at": "2026-05-21T17:23:23.655105+08:00"
+        },
+        {
+          "thread_id": "019e49d8-c63f-7ba0-a69b-2579537925b4",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

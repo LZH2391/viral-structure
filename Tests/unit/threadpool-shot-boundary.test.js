@@ -351,6 +351,30 @@ test("shot boundary recovery completes active inflight", async () => {
   assert.equal(harness.jobStore.getJob(job.jobId).status, "processed");
 });
 
+test("shot boundary recovery fails interrupted pre-agent job", async () => {
+  const harness = await createShotHarness();
+  const job = harness.jobStore.createJob({ sampleVideoId: "sample_1", traceId: "trace_interrupted" });
+  harness.jobStore.updateJob(job.jobId, {
+    status: "processing",
+    stage: STAGES.threadAcquired,
+    progress: 60,
+  });
+  const recovered = await harness.service.recoverActiveAgentRuns();
+  const failed = harness.jobStore.getJob(job.jobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
+
+  assert.equal(recovered.recovered, 0);
+  assert.equal(recovered.interrupted, 1);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.errorSummary.code, "shot_boundary_job_interrupted");
+  assert.equal(failed.errorSummary.retryable, true);
+  assert.equal(failed.errorSummary.stageName, STAGES.threadAcquired);
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.equal(failLog.stageName, STAGES.threadAcquired);
+  assert.deepEqual(harness.threadPool.ownerReleased, ["trace_interrupted"]);
+});
+
 test("threadpool owner release stays within allowed role payload", async () => {
   const requests = [];
   const proxy = createThreadPoolProxy({
