@@ -56,8 +56,12 @@
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: clamp(220px, 19vw, 280px) minmax(0, 1fr) clamp(220px, 23vw, 320px);
-  grid-template-rows: minmax(0, 1fr) clamp(168px, 21vh, 190px);
+  grid-template-areas:
+    "resource left-resizer preview right-resizer property"
+    "timeline-resizer timeline-resizer timeline-resizer timeline-resizer timeline-resizer"
+    "timeline timeline timeline timeline timeline";
+  grid-template-columns: var(--workspace-left-width, 260px) 6px minmax(420px, 1fr) 6px var(--workspace-right-width, 320px);
+  grid-template-rows: minmax(0, 1fr) 6px var(--workspace-timeline-height, 190px);
   min-height: 0;
 }
 
@@ -89,4 +93,78 @@
   min-height: 0;
   border-color: var(--line);
   background: var(--panel);
+}
+
+.resource-panel {
+  grid-area: resource;
+}
+
+.preview-panel {
+  grid-area: preview;
+}
+
+.property-panel {
+  grid-area: property;
+}
+
+.timeline-panel {
+  grid-area: timeline;
+}
+
+.workspace-resize-handle {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: #111820;
+  outline: 0;
+}
+
+.workspace-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.workspace-resize-handle:hover::before,
+.workspace-resize-handle:focus-visible::before,
+.workspace-resize-handle:active::before {
+  background: rgba(66, 216, 255, 0.42);
+}
+
+.left-resizer,
+.right-resizer {
+  cursor: col-resize;
+}
+
+.left-resizer {
+  grid-area: left-resizer;
+}
+
+.right-resizer {
+  grid-area: right-resizer;
+}
+
+.timeline-resizer {
+  grid-area: timeline-resizer;
+  cursor: row-resize;
+}
+
+body.is-resizing-workspace {
+  user-select: none;
+}
+
+body.is-resizing-workspace-col {
+  cursor: col-resize;
+}
+
+body.is-resizing-workspace-row {
+  cursor: row-resize;
+}
+
+body.is-resizing-workspace * {
+  cursor: inherit !important;
 }

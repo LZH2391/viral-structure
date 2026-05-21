@@ -9,6 +9,7 @@ import { clampVisibleSeconds } from "../utils/timeline";
 import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
+import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { DebugApp } from "./DebugApp";
 import { LibraryApp } from "./LibraryApp";
@@ -18,6 +19,7 @@ import { ResourcePanel } from "./ResourcePanel";
 import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
 import { TimelinePanel } from "./TimelinePanel";
+import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
@@ -40,6 +42,8 @@ export function WorkbenchApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const miniCanvasRef = useRef<HTMLCanvasElement>(null);
+  const workspaceGridRef = useRef<HTMLElement>(null);
+  const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
 
   useEffect(() => {
     const draft = readWorkbenchDraft();
@@ -361,7 +365,7 @@ export function WorkbenchApp() {
           </button>
         </div>
       </header>
-      <main className={`workspace-grid ${activeView === "workspace" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "workspace"}>
+      <main ref={workspaceGridRef} className={`workspace-grid ${activeView === "workspace" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "workspace"}>
         <ResourcePanel
           fileLabel={fileLabel}
           isUploading={state.isUploadingSample}
@@ -376,6 +380,7 @@ export function WorkbenchApp() {
           onEnableAudioFeatureAnalysisChange={setEnableAudioFeatureAnalysis}
           onUpload={handleSampleUpload}
         />
+        <WorkspaceResizeHandle kind="left-panel" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <PreviewPanel
           sampleVideo={state.sampleVideo}
           mediaDerivatives={state.mediaDerivatives}
@@ -395,6 +400,7 @@ export function WorkbenchApp() {
           miniCanvasRef={miniCanvasRef}
           onSelectAudioFeature={handleSelectAudioFeature}
         />
+        <WorkspaceResizeHandle kind="right-panel" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <PropertyPanel
           sampleVideo={state.sampleVideo}
           activeMediaKind={state.activeMediaKind}
@@ -424,6 +430,7 @@ export function WorkbenchApp() {
           }}
           onSubtitleDraftChange={(draft) => dispatch({ type: "update-subtitle-draft", ...draft })}
         />
+        <WorkspaceResizeHandle kind="timeline" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <TimelinePanel
           sampleVideo={state.sampleVideo}
           mediaDerivatives={state.mediaDerivatives}

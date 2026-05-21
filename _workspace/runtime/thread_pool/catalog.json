@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T14:14:32.504318+08:00",
+  "updated_at": "2026-05-21T14:23:45.033801+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -27,28 +27,28 @@
         "active_leases": 1
       },
       "active_lease_ids": [
-        "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7"
+        "74461f2a-2652-4a00-b9c7-947175937b5b"
       ],
       "active_leases": [
         {
-          "lease_id": "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7",
-          "thread_id": "019e492b-0b46-7062-8e3b-09067ac6301b",
-          "owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
-          "last_seen_at": "2026-05-21T14:14:26.098789+08:00",
+          "lease_id": "74461f2a-2652-4a00-b9c7-947175937b5b",
+          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
+          "owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
+          "last_seen_at": "2026-05-21T14:23:32.492068+08:00",
           "thread_status": "leased"
         }
       ],
       "thread_entries": [
         {
-          "thread_id": "019e492b-0b46-7062-8e3b-09067ac6301b",
+          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
           "thread_status": "leased",
-          "lease_id": "1ea8e922-f686-4d0b-86a8-4bd4a251f9d7",
-          "owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
-          "last_owner_id": "trace_9c723e62-8c9a-4085-a8ee-95344e74dbdc",
-          "last_seen_at": "2026-05-21T14:14:26.098789+08:00"
+          "lease_id": "74461f2a-2652-4a00-b9c7-947175937b5b",
+          "owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
+          "last_owner_id": "trace_d699d022-82ea-46cc-b227-5a6bbe7ace04",
+          "last_seen_at": "2026-05-21T14:23:32.492068+08:00"
         },
         {
-          "thread_id": "019e492b-c6bd-7f40-a61f-e6edf99df24f",
+          "thread_id": "019e4934-352e-70f1-b0c8-4f99df10ef0c",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
+const ts = require("typescript");
 
 function read(root, file) {
   return fs.readFileSync(path.join(root, file), "utf8");
@@ -238,4 +240,47 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(property, /AgentRunPanel/);
   assert.match(property, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
+});
+
+test("workbench workspace layout supports persisted splitters", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const hook = read(root, "Apps/Workbench/src/hooks/useResizableWorkspaceLayout.ts");
+  const handle = read(root, "Apps/Workbench/src/components/WorkspaceResizeHandle.tsx");
+  const layoutCss = read(root, "Apps/Workbench/styles/layout.css");
+  const responsiveCss = read(root, "Apps/Workbench/styles/responsive.css");
+
+  assert.match(app, /useResizableWorkspaceLayout/);
+  assert.match(app, /WorkspaceResizeHandle/);
+  assert.match(app, /workspaceGridRef/);
+  assert.match(hook, /workbench:layout/);
+  assert.match(hook, /clampWorkspaceLayout/);
+  assert.match(hook, /setProperty\("--workspace-left-width"/);
+  assert.match(hook, /setProperty\("--workspace-right-width"/);
+  assert.match(hook, /setProperty\("--workspace-timeline-height"/);
+  assert.match(handle, /role="separator"/);
+  assert.match(handle, /onDoubleClick=\{\(\) => onReset\(kind\)\}/);
+  assert.match(handle, /ArrowRight/);
+  assert.match(layoutCss, /grid-template-areas:[\s\S]*left-resizer[\s\S]*right-resizer[\s\S]*timeline-resizer/);
+  assert.match(layoutCss, /\.workspace-resize-handle/);
+  assert.match(layoutCss, /body\.is-resizing-workspace/);
+  assert.match(responsiveCss, /max-width: 980px[\s\S]*\.workspace-resize-handle[\s\S]*display: none/);
+});
+
+test("workbench workspace layout clamp keeps panel sizes in range", async () => {
+  const root = path.resolve(__dirname, "../..");
+  const source = read(root, "Apps/Workbench/src/hooks/useResizableWorkspaceLayout.ts");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } });
+  const exports = {};
+  vm.runInNewContext(compiled.outputText, {
+    exports,
+    require: () => ({ useCallback: (value) => value, useEffect: () => undefined, useRef: (current) => ({ current }) }),
+  });
+  const { clampWorkspaceLayout } = exports;
+  const grid = { getBoundingClientRect: () => ({ width: 1000 }) };
+
+  const plain = (value) => JSON.parse(JSON.stringify(value));
+  assert.deepEqual(plain(clampWorkspaceLayout({ left: 100, right: 100, timeline: 80 }, grid)), { left: 220, right: 260, timeline: 150 });
+  assert.deepEqual(plain(clampWorkspaceLayout({ left: 900, right: 900, timeline: 900 }, grid)), { left: 308, right: 260, timeline: 360 });
+  assert.deepEqual(plain(clampWorkspaceLayout({ left: 260, right: 320, timeline: 190 }, grid)), { left: 260, right: 308, timeline: 190 });
 });
