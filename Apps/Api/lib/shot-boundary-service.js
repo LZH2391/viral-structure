@@ -183,7 +183,7 @@ function prepareInput(artifact, analysisFps) {
   if (analysisFps > extractFps) throw codedError("analysis_fps_exceeds_extract_fps", "分析采样率高于抽帧采样率，请重新抽帧或降低分析采样率");
   const stride = Math.max(1, Math.round(extractFps / analysisFps));
   const sourceArtifactId = artifact.sampleVideo?.artifactId;
-  return {
+  return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,
     sourceArtifactId,
     traceId: artifact.trace?.traceId ?? null,
@@ -205,20 +205,28 @@ function prepareInput(artifact, analysisFps) {
       fileName: basename(frame.imageUri),
       filePath: frame.imageUri,
     })),
-  };
+  });
 }
 
 function buildTurnInputs(input) {
+  const safeInput = sanitizeForAppServerText(input);
   return [
     {
       type: "text",
       text: [
         "请基于以下帧 manifest 做镜头切分分析，只返回 JSON object。",
-        JSON.stringify(input),
+        JSON.stringify(safeInput),
       ].join("\n"),
       text_elements: [],
     },
   ];
+}
+
+function sanitizeForAppServerText(value) {
+  if (typeof value === "string") return value.replace(/[\uD800-\uDFFF]/g, "");
+  if (Array.isArray(value)) return value.map((item) => sanitizeForAppServerText(item));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeForAppServerText(item)]));
 }
 
 function parseAgentResult(message, input, context, lease, turn) {
@@ -342,4 +350,4 @@ function basename(value) {
   return String(value ?? "").split(/[\\/]/).at(-1) ?? "";
 }
 
-module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, normalizeShots };
+module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, normalizeShots, sanitizeForAppServerText };

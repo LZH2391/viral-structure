@@ -5,8 +5,18 @@ import sys
 from pathlib import Path
 
 
+def sanitize_for_appserver_text(value):
+    if isinstance(value, str):
+        return "".join(ch for ch in value if not 0xD800 <= ord(ch) <= 0xDFFF)
+    if isinstance(value, list):
+        return [sanitize_for_appserver_text(item) for item in value]
+    if isinstance(value, dict):
+        return {key: sanitize_for_appserver_text(item) for key, item in value.items()}
+    return value
+
+
 def main() -> int:
-    payload = json.loads(sys.stdin.read() or "{}")
+    payload = sanitize_for_appserver_text(json.loads(sys.stdin.read() or "{}"))
     cep_root = Path(payload["cepRoot"]).resolve()
     sys.path.insert(0, str(cep_root))
 

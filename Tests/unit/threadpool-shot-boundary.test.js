@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { prepareInput, normalizeShots } = require("../../Apps/Api/lib/shot-boundary-service");
+const { prepareInput, buildTurnInputs, normalizeShots } = require("../../Apps/Api/lib/shot-boundary-service");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
@@ -9,6 +9,32 @@ test("shot boundary sampling computes stride and rejects oversampling", () => {
   assert.equal(input.analysisSampling.stride, 3);
   assert.equal(input.frames.length, 2);
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
+});
+
+test("shot boundary turn inputs remove invalid surrogate text", () => {
+  const artifact = createArtifact();
+  artifact.sampleVideoId = "sample_\uDCAA1";
+  artifact.trace.traceId = "trace_\uDCAA1";
+  artifact.sampleVideo.artifactId = "artifact_\uDCAAsample";
+  artifact.frames[0] = {
+    ...artifact.frames[0],
+    frameId: "frame_\uDCAA0",
+    artifactId: "artifact_\uDCAAframe_0",
+    parentArtifactId: "artifact_\uDCAAparent",
+    imageUri: "/runtime/Artifacts/sample_1/frames/frame-\uDCAA0.jpg",
+  };
+
+  const input = prepareInput(artifact, 1);
+  const turnInputs = buildTurnInputs(input);
+  const manifestText = turnInputs[0].text.split("\n").at(-1);
+  const parsed = JSON.parse(manifestText);
+
+  assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(input)), false);
+  assert.equal(/[\uD800-\uDFFF]/.test(turnInputs[0].text), false);
+  assert.equal(parsed.frames.length, 2);
+  assert.equal(parsed.analysisSampling.stride, 3);
+  assert.equal(parsed.frames[0].fileName, "frame-0.jpg");
+  assert.equal(parsed.frames[0].filePath, "/runtime/Artifacts/sample_1/frames/frame-0.jpg");
 });
 
 test("shot boundary normalizes agent shots to frame ids and safe ranges", () => {
