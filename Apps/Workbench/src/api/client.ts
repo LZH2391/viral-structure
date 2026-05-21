@@ -1,4 +1,4 @@
-import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, ProcessingJob, SampleArtifact, UiDebugEventRequest } from "../types";
+import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, UiDebugEventRequest } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -36,6 +36,22 @@ export async function getDebugTraces() {
 
 export async function getDebugTraceDetail(traceId: string) {
   return readJson<DebugTraceDetail>(await fetch(`${API_BASE_URL}/api/debug/traces/${encodeURIComponent(traceId)}`));
+}
+
+export async function getLibraryItems() {
+  return readJson<{ items: LibraryItemSummary[] }>(await fetch(`${API_BASE_URL}/api/library/items`));
+}
+
+export async function getLibraryItemDetail(sampleVideoId: string) {
+  return readJson<LibraryItemDetail>(await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}`));
+}
+
+export async function loadLibraryItem(sampleVideoId: string) {
+  return readJson<{ sampleArtifact: SampleArtifact }>(
+    await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}/load`, {
+      method: "POST",
+    }),
+  );
 }
 
 export async function postUiDebugEvent(event: UiDebugEventRequest) {

@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         main: "Apps/Workbench/index.html",
         debug: "Apps/Workbench/debug.html",
+        library: "Apps/Workbench/library.html",
       },
     },
   },

@@ -335,6 +335,51 @@ export type DebugTraceSummary = {
   latestStageName?: string | null;
 };
 
+export type LibraryItemSummary = {
+  sampleVideoId: string;
+  filename: string;
+  durationSeconds?: number | null;
+  width?: number | null;
+  height?: number | null;
+  updatedAt?: string | null;
+  tags: string[];
+  cacheAvailable: boolean;
+  traceId?: string | null;
+};
+
+export type LibraryArtifactNode = {
+  id: string;
+  label: string;
+  stageName: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  status: string;
+  params?: unknown;
+  traceId?: string | null;
+  cacheKey?: string | null;
+  uri?: string | null;
+  summary?: string | null;
+};
+
+export type LibraryItemDetail = LibraryItemSummary & {
+  workspaceId?: string;
+  fileHash?: string;
+  processorVersion?: string;
+  artifact: SampleArtifact;
+  artifactNodes: LibraryArtifactNode[];
+  artifactTree: LibraryArtifactNode[];
+  cacheEntries: Array<{
+    cacheKey: string;
+    stageName: string;
+    artifactId: string;
+    parentArtifactId: string | null;
+    params?: unknown;
+    processorVersion?: string;
+    status?: string;
+    uri?: string | null;
+  }>;
+};
+
 export type DebugEvent = {
   event?: string;
   stage?: string;

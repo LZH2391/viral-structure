@@ -85,8 +85,9 @@ test("optional audio feature analysis writes artifact and stage logs", async () 
     logger,
     jobStore,
     mediaProcessor: createProcessor(store),
+    demucsAdapter: createSuccessfulDemucsAdapter(store),
     librosaAdapter: {
-      async extractAudioFeatures({ parentArtifactId }) {
+      async extractAudioFeatures({ parentArtifactId, sourceAudioArtifactId, params }) {
         return {
           artifactId: "artifact_audio_features",
           parentArtifactId,
@@ -94,14 +95,14 @@ test("optional audio feature analysis writes artifact and stage logs", async () 
           status: "processed",
           reason: null,
           debugSnapshotUri: null,
-          sourceAudioArtifactId: parentArtifactId,
+          sourceAudioArtifactId,
           durationSeconds: 2,
           tempoBpm: 120,
           beats: [0.25, 1.25],
           onsets: [0.5],
           energyFrames: [{ time: 0.25, rms: 0.4 }],
           spectralSummary: { centroidMean: 1000, bandwidthMean: 200, rolloffMean: 1800, zeroCrossingRateMean: 0.03 },
-          analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
+          analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: params.sourceRole },
         };
       },
       audioFeaturesDegraded() {
@@ -112,7 +113,7 @@ test("optional audio feature analysis writes artifact and stage logs", async () 
 
   const upload = await service.enqueueUpload({
     workspaceId: "workspace_1",
-    fields: { enableAudioFeatureAnalysis: "true" },
+    fields: { enableAudioSeparation: "true", enableAudioFeatureAnalysis: "true" },
     file: { filename: "sample.mp4", extension: ".mp4", mimeType: "video/mp4", size: 5, buffer: Buffer.from("hello") },
   });
   const job = await waitForJob(jobStore, upload.processingJobId, "processed");
@@ -121,7 +122,9 @@ test("optional audio feature analysis writes artifact and stage logs", async () 
   const artifact = await store.readJson(path.join(store.sampleDir(upload.sampleVideoId), "artifact.json"));
   assert.equal(artifact.processingOptions.enableAudioFeatureAnalysis, true);
   assert.equal(artifact.audioFeatures.type, "audio-feature-analysis");
-  assert.equal(artifact.audioFeatures.parentArtifactId, artifact.audio.artifactId);
+  assert.equal(artifact.audioFeatures.parentArtifactId, artifact.audioSeparation.music.artifactId);
+  assert.equal(artifact.audioFeatures.sourceAudioArtifactId, artifact.audioSeparation.music.artifactId);
+  assert.equal(artifact.audioFeatures.analysisParams.sourceRole, "music");
   assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
 
   const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`), "utf8");
@@ -129,6 +132,7 @@ test("optional audio feature analysis writes artifact and stage logs", async () 
   const featureEnd = logs.find((line) => line.stageName === STAGES.audioFeaturesExtracted && line.event === "stage.end");
   assert.equal(featureEnd.outputSummary.beatCount, 2);
   assert.equal(featureEnd.outputSummary.onsetCount, 1);
+  assert.equal(featureEnd.outputSummary.sourceAudioArtifactId, artifact.audioSeparation.music.artifactId);
 });
 
 test("audio feature analysis degrades when audio source is unavailable", async () => {
@@ -185,6 +189,20 @@ function createProcessor(store) {
     async extractAudio({ audioPath, parentArtifactId }) {
       await fs.writeFile(audioPath, Buffer.from("audio"));
       return { artifactId: "artifact_audio", parentArtifactId, type: "audio-track", uri: store.runtimeUri(audioPath), summary: "音频轨" };
+    },
+  };
+}
+
+function createSuccessfulDemucsAdapter(store) {
+  return {
+    async separateAudio({ parentArtifactId }) {
+      return {
+        original: { artifactId: parentArtifactId, parentArtifactId: null, type: "audio-track", uri: "/runtime/audio.m4a", summary: "原音频" },
+        vocal: { artifactId: "artifact_vocal", parentArtifactId, type: "audio-vocal", uri: "/runtime/vocals.wav", summary: "人声" },
+        music: { artifactId: "artifact_music", parentArtifactId, type: "audio-music", uri: "/runtime/no_vocals.wav", summary: "伴奏" },
+        status: "processed",
+        reason: null,
+      };
     },
   };
 }

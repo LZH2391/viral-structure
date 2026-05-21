@@ -8,16 +8,17 @@ const defaultDemucsAdapter = require("../../../Infrastructure/MediaProcessing/de
 const defaultTranscoder = require("../../../Infrastructure/MediaProcessing/audio-transcoder");
 const defaultLibrosaAdapter = require("../../../Infrastructure/MediaProcessing/librosa-adapter");
 const defaultIatClient = require("../../../Infrastructure/ModelGateway/xfyun-iat-client");
+const { createArtifactIndex, hashBuffer } = require("../../../Infrastructure/ArtifactIndex/artifact-index");
 const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
-function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient }) {
+function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
     const sampleVideoId = `sample_${randomUUID()}`;
     const sampleArtifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    runProcessing({ workspaceId, file, fields, job, traceContext, sampleVideoId, sampleArtifactId });
+    runProcessing({ workspaceId, file, fields, job, traceContext, sampleVideoId, sampleArtifactId, fileHash: hashBuffer(file.buffer) });
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
 
@@ -26,7 +27,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       await store.ensureRuntimeDirs();
       await runStage(context, STAGES.uploadReceived, 5, {
         artifactId: context.sampleArtifactId,
-        inputSummary: { ...summarizeFile(context.file), frameSampleRateFps: context.fields.frameSampleRateFps ?? null, enableAudioSeparation: context.fields.enableAudioSeparation ?? null, enableSubtitleRecognition: context.fields.enableSubtitleRecognition ?? null, enableAudioFeatureAnalysis: context.fields.enableAudioFeatureAnalysis ?? null },
+        inputSummary: { ...summarizeFile(context.file), fileHash: safeHash(context.fileHash), frameSampleRateFps: context.fields.frameSampleRateFps ?? null, enableAudioSeparation: context.fields.enableAudioSeparation ?? null, enableSubtitleRecognition: context.fields.enableSubtitleRecognition ?? null, enableAudioFeatureAnalysis: context.fields.enableAudioFeatureAnalysis ?? null },
         action: async () => ({ sampleVideoId: context.sampleVideoId }),
         outputSummary: () => ({ sampleVideoId: context.sampleVideoId, sampleArtifactId: context.sampleArtifactId }),
       });
@@ -47,8 +48,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       const cover = await readCover(context, inputPath, sampleDir);
       const frames = await readFrames(context, inputPath, sampleDir, metadata.durationSeconds);
       const audio = await readAudio(context, inputPath, sampleDir);
-      const audioFeatures = await maybeExtractAudioFeatures(context, audio);
       const audioSeparation = await maybeSeparateAudio(context, audio, sampleDir);
+      const audioFeatures = await maybeExtractAudioFeatures(context, audio, audioSeparation);
       const subtitles = await maybeRecognizeSubtitles(context, audio, audioSeparation, sampleDir, metadata.durationSeconds);
       await writeArtifact(context, inputPath, { metadata, cover, frames, audio, audioFeatures, audioSeparation, subtitles, frameOutputSummary: context.frameOutputSummary, sampleVideoId: context.sampleVideoId }, sampleDir);
     } catch (error) {
@@ -65,6 +66,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       parentArtifactId: options.parentArtifactId ?? null,
       inputSummary: options.inputSummary ?? null,
       outputSummary: null,
+      cacheHit: null,
       startedAt,
     };
     jobStore.updateJob(context.job.jobId, { stage: stageName, status: SAMPLE_STATUS.processing, progress });
@@ -77,8 +79,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       inputSummary: options.logInputSummary === undefined ? options.inputSummary ?? null : options.logInputSummary,
     });
     const result = await options.action();
-    const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
-    const artifactId = options.artifactIdFromResult ? options.artifactIdFromResult(result) : options.artifactId;
+    const outputSummary = mergeCacheSummary(options.outputSummary ? options.outputSummary(result) : null, context.activeStage.cacheHit);
+    const artifactId = context.activeStage.cacheHit?.artifactId ?? (options.artifactIdFromResult ? options.artifactIdFromResult(result) : options.artifactId);
     context.activeStage.outputSummary = outputSummary;
     await logger.writeStageLog({
       traceContext: context.traceContext,
@@ -127,7 +129,11 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     return runStage(context, STAGES.coverExtracted, 50, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: sourceSummary(context),
-      action: async () => mediaProcessor.extractCover({ inputPath, coverPath, parentArtifactId: context.sampleArtifactId, store }),
+      action: async () => {
+        const cached = await findStageCache(context, STAGES.coverExtracted, {});
+        if (cached) return cached.artifact.cover;
+        return mediaProcessor.extractCover({ inputPath, coverPath, parentArtifactId: context.sampleArtifactId, store });
+      },
       artifactIdFromResult: (cover) => cover.artifactId,
       outputSummary: (cover) => ({ artifactType: cover.type, uri: cover.uri }),
     });
@@ -140,7 +146,14 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: { ...sourceSummary(context), durationSeconds: Math.round(durationSeconds), frameSampleRateFps, targetFrameCount: plannedFrameCount, maxFrames: 120 },
-      action: async () => mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store }),
+      action: async () => {
+        const cached = await findStageCache(context, STAGES.framesExtracted, { frameSampleRateFps });
+        if (cached) {
+          context.frameOutputSummary = cached.artifact.frameOutputSummary ?? { frameSampleRateFps, targetFrameCount: cached.artifact.frames?.length ?? 0, actualFrameCount: cached.artifact.frames?.length ?? 0, maxFrames: 120 };
+          return cached.artifact.frames ?? [];
+        }
+        return mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store });
+      },
       outputSummary: (frames) => {
         context.frameOutputSummary = { frameSampleRateFps, targetFrameCount: plannedFrameCount, actualFrameCount: frames.length, maxFrames: 120 };
         return { ...context.frameOutputSummary, artifactType: "frame-set" };
@@ -154,6 +167,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       parentArtifactId: context.sampleArtifactId,
       inputSummary: sourceSummary(context),
       action: async () => {
+        const cached = await findStageCache(context, STAGES.audioExtracted, {});
+        if (cached) return cached.artifact.audio;
         const audio = await mediaProcessor.extractAudio({ inputPath, audioPath, parentArtifactId: context.sampleArtifactId, store });
         if (!audio.uri && audio.debugSummary) {
           const outputSummary = buildAudioOutputSummary(audio);
@@ -182,6 +197,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       parentArtifactId: audio.artifactId,
       inputSummary: { audioArtifactId: audio.artifactId, audioAvailable: Boolean(audio.uri) },
       action: async () => {
+        const cached = await findStageCache(context, STAGES.audioSeparated, { demucsMode: "two-stems-vocals", enabled: true });
+        if (cached) return cached.artifact.audioSeparation;
         if (!audio.uri) {
           const error = optionalCapabilityError("audio_source_unavailable", "原音频不可用，跳过人声/音乐分离", "audio.separate");
           const degraded = audioSeparationDegraded(audio, error.safeSummary);
@@ -206,28 +223,33 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     });
   }
 
-  async function maybeExtractAudioFeatures(context, audio) {
+  async function maybeExtractAudioFeatures(context, audio, audioSeparation) {
     if (!context.processingOptions.enableAudioFeatureAnalysis) return null;
+    const source = audioSeparation?.music?.uri ? audioSeparation.music : audio;
+    const sourceRole = audioSeparation?.music?.uri ? "music" : "original";
     return runStage(context, STAGES.audioFeaturesExtracted, 84, {
-      parentArtifactId: audio.artifactId,
-      inputSummary: { sourceAudioArtifactId: audio.artifactId, audioAvailable: Boolean(audio.uri), sourceRole: "original" },
+      parentArtifactId: source?.artifactId ?? audio.artifactId,
+      inputSummary: { sourceAudioArtifactId: source?.artifactId ?? null, audioAvailable: Boolean(source?.uri), sourceRole },
       action: async () => {
-        if (!audio.uri) {
-          const error = optionalCapabilityError("audio_feature_source_unavailable", "原音频不可用，跳过音频基础分析", "audio.features.extract");
-          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: audio.artifactId, reason: error.safeSummary });
-          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, "audio_feature_analysis_degraded", buildAudioFeaturesSummary(degraded), error.mediaDebug);
-          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, error, degraded.debugSnapshotUri);
+        const cacheParams = { provider: "librosa", enabled: true, sourceRole, sourceAudioArtifactId: source?.artifactId ?? null };
+        const cached = await findStageCache(context, STAGES.audioFeaturesExtracted, cacheParams);
+        if (cached) return cached.artifact.audioFeatures;
+        if (!source?.uri) {
+          const error = optionalCapabilityError("audio_feature_source_unavailable", "可分析音频不可用，跳过音频基础分析", "audio.features.extract");
+          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: source?.artifactId ?? audio.artifactId, sourceAudioArtifactId: source?.artifactId ?? audio.artifactId, reason: error.safeSummary, params: { sourceRole } });
+          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, degraded.parentArtifactId, "audio_feature_analysis_degraded", buildAudioFeaturesSummary(degraded), error.mediaDebug);
+          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, degraded.parentArtifactId, error, degraded.debugSnapshotUri);
           return degraded;
         }
         try {
-          return await librosaAdapter.extractAudioFeatures({ audioPath: runtimePathFromUri(audio.uri), parentArtifactId: audio.artifactId, store });
+          return await librosaAdapter.extractAudioFeatures({ audioPath: runtimePathFromUri(source.uri), parentArtifactId: source.artifactId, sourceAudioArtifactId: source.artifactId, store, params: { sourceRole } });
         } catch (error) {
-          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: audio.artifactId, reason: error.safeSummary || error.message || "音频基础分析失败" });
-          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, "audio_feature_analysis_degraded", {
+          const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: source.artifactId, sourceAudioArtifactId: source.artifactId, reason: error.safeSummary || error.message || "音频基础分析失败", params: { sourceRole } });
+          degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, source.artifactId, "audio_feature_analysis_degraded", {
             status: degraded.status,
             reason: degraded.reason,
           }, error.mediaDebug ?? buildDebugPayload(error, buildErrorSummary(error, STAGES.audioFeaturesExtracted)));
-          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, audio.artifactId, error, degraded.debugSnapshotUri);
+          await writeNonBlockingFailure(context, STAGES.audioFeaturesExtracted, degraded.artifactId, source.artifactId, error, degraded.debugSnapshotUri);
           return degraded;
         }
       },
@@ -243,6 +265,8 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       parentArtifactId: source?.artifactId ?? audio.artifactId,
       inputSummary: { sourceArtifactId: source?.artifactId ?? null, preferredSource: audioSeparation?.vocal?.uri ? "vocal" : "original", maxSegmentSeconds: 60 },
       action: async () => {
+        const cached = await findStageCache(context, STAGES.subtitleRecognized, { provider: "xfyun-iat", maxSegmentSeconds: 60, enabled: true });
+        if (cached) return cached.artifact.subtitles;
         if (!source?.uri) {
           const error = optionalCapabilityError("subtitle_source_unavailable", "可识别音频不可用", "subtitle.recognize");
           const degraded = subtitleDegraded(source?.artifactId ?? audio.artifactId, error.safeSummary);
@@ -282,6 +306,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       action: async () => {
         const nextArtifact = buildArtifact({ context, inputPath, media, store });
         await store.writeJson(path.join(sampleDir, "artifact.json"), nextArtifact);
+        await artifactIndex.registerSampleArtifact({ artifact: nextArtifact, fileHash: context.fileHash, traceId: context.traceContext.traceId });
         return nextArtifact;
       },
       outputSummary: (nextArtifact) => ({ frameCount: nextArtifact.frames.length, status: nextArtifact.status }),
@@ -324,6 +349,15 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
   }
 
   return { enqueueUpload };
+
+  async function findStageCache(context, stageName, params) {
+    const entry = await artifactIndex.findCacheEntry({ fileHash: context.fileHash, stageName, params });
+    if (!entry?.sampleVideoId) return null;
+    const artifact = await artifactIndex.loadItem(entry.sampleVideoId);
+    if (!artifact) return null;
+    if (context.activeStage?.stageName === stageName) context.activeStage.cacheHit = entry;
+    return { entry, artifact };
+  }
 
   async function writeStageSnapshot(context, stageName, artifactId, parentArtifactId, reason, outputSummary, debugPayload) {
     const snapshot = await logger.writeDebugSnapshot({
@@ -499,6 +533,21 @@ function optionalCapabilityError(code, message, mediaOperation) {
     mediaOperation,
   };
   return error;
+}
+
+function mergeCacheSummary(summary, entry) {
+  if (!entry) return summary;
+  return {
+    ...(summary ?? {}),
+    cacheHit: true,
+    sourceArtifactId: entry.artifactId,
+    sourceSampleVideoId: entry.sampleVideoId,
+    cacheKey: entry.cacheKey,
+  };
+}
+
+function safeHash(value) {
+  return value ? `${String(value).slice(0, 12)}...` : null;
 }
 
 module.exports = { createSampleProcessingService, STAGES };

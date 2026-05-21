@@ -6,6 +6,7 @@ const { createStageLogger } = require("../../Infrastructure/Observability/stage-
 const { parseMultipartUpload } = require("./lib/multipart");
 const { createJobStore } = require("./lib/job-store");
 const { createSampleProcessingService } = require("./lib/sample-processing-service");
+const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { sendJson, notFound, runtimeContentType } = require("./lib/http-utils");
 const { createWorkbenchStaticHandler } = require("./lib/static-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
@@ -18,7 +19,8 @@ const port = Number(process.env.PORT || 5177);
 const store = createLocalStore(rootDir);
 const logger = createStageLogger(store);
 const jobStore = createJobStore();
-const service = createSampleProcessingService({ store, logger, jobStore });
+const artifactIndex = createArtifactIndex({ store });
+const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 const server = http.createServer(async (req, res) => {
@@ -29,6 +31,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url);
     if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1));
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
+    if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res);
+    if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)));
+    if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return handleUiDebugEvent(req, res);
     if (req.method === "GET" && url.pathname === "/api/debug/traces") return handleDebugTraces(res);
     if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)));
@@ -63,6 +68,22 @@ async function handleArtifact(res, sampleVideoId) {
   const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
   if (!fs.existsSync(artifactPath)) return sendJson(res, 202, { sampleVideoId, status: "processing" });
   return sendJson(res, 200, await store.readJson(artifactPath));
+}
+
+async function handleLibraryItems(res) {
+  return sendJson(res, 200, { items: await artifactIndex.listItems() });
+}
+
+async function handleLibraryItem(res, sampleVideoId) {
+  const item = await artifactIndex.getItem(sampleVideoId);
+  if (!item) return notFound(res);
+  return sendJson(res, 200, item);
+}
+
+async function handleLibraryLoad(res, sampleVideoId) {
+  const artifact = await artifactIndex.loadItem(sampleVideoId);
+  if (!artifact) return notFound(res);
+  return sendJson(res, 200, { sampleArtifact: artifact });
 }
 
 async function handleDebugTraces(res) {

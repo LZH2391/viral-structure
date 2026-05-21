@@ -39,7 +39,8 @@ test("librosa JSON output is normalized and sorted", () => {
 test("extractAudioFeatures builds artifact from runner JSON", async () => {
   const artifact = await extractAudioFeatures({
     audioPath: "C:\\tmp\\audio.m4a",
-    parentArtifactId: "artifact_audio",
+    parentArtifactId: "artifact_music",
+    sourceAudioArtifactId: "artifact_music",
     store: {},
     runner: async () => ({
       stdout: JSON.stringify({
@@ -54,7 +55,8 @@ test("extractAudioFeatures builds artifact from runner JSON", async () => {
       stderr: "",
     }),
   });
-  assert.equal(artifact.parentArtifactId, "artifact_audio");
+  assert.equal(artifact.parentArtifactId, "artifact_music");
+  assert.equal(artifact.sourceAudioArtifactId, "artifact_music");
   assert.equal(artifact.type, "audio-feature-analysis");
   assert.deepEqual(artifact.beats, [0.1]);
 });

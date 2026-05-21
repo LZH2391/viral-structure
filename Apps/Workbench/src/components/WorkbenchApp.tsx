@@ -283,6 +283,9 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
+          <a className="ghost-button action-link" href="http://127.0.0.1:5177/library">
+            处理库
+          </a>
           <a className="ghost-button action-link" href="http://127.0.0.1:5177/debug">
             运行追踪
           </a>

@@ -1,6 +1,7 @@
 # Runtime artifacts
 /Runtime/Uploads/*
 /Runtime/Artifacts/*
+/Runtime/ArtifactIndex/*
 /Runtime/DebugSnapshots/*
 /Runtime/Temp/*
 /MP4/
@@ -14,5 +15,6 @@
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md
 !/Runtime/Artifacts/README.md
+!/Runtime/ArtifactIndex/README.md
 !/Runtime/DebugSnapshots/README.md
 !/Runtime/Temp/README.md

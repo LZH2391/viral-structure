@@ -8,6 +8,7 @@ function createLocalStore(rootDir) {
     await Promise.all([
       fs.mkdir(path.join(runtimeRoot, "Uploads"), { recursive: true }),
       fs.mkdir(path.join(runtimeRoot, "Artifacts"), { recursive: true }),
+      fs.mkdir(path.join(runtimeRoot, "ArtifactIndex"), { recursive: true }),
       fs.mkdir(path.join(runtimeRoot, "DebugSnapshots"), { recursive: true }),
       fs.mkdir(path.join(runtimeRoot, "Temp"), { recursive: true }),
     ]);

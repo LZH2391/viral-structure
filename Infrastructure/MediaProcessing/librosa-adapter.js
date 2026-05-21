@@ -19,7 +19,7 @@ async function isLibrosaAvailable({ command = pythonCommand(), runner = runComma
   }
 }
 
-async function extractAudioFeatures({ audioPath, parentArtifactId, store, params = {}, runner = runCommand }) {
+async function extractAudioFeatures({ audioPath, parentArtifactId, sourceAudioArtifactId = parentArtifactId, store, params = {}, runner = runCommand }) {
   const finalParams = { ...DEFAULT_PARAMS, ...params };
   try {
     const { stdout } = await runner(pythonCommand(), [
@@ -39,7 +39,7 @@ async function extractAudioFeatures({ audioPath, parentArtifactId, store, params
     ]);
     return buildAudioFeaturesArtifact({
       parentArtifactId,
-      sourceAudioArtifactId: parentArtifactId,
+      sourceAudioArtifactId,
       result: validateLibrosaResult(JSON.parse(stdout)),
     });
   } catch (error) {

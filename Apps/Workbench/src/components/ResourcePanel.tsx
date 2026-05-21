@@ -99,7 +99,7 @@ export function ResourcePanel({
               onChange={(event) => onEnableAudioFeatureAnalysisChange(event.currentTarget.checked)}
             />
             <span>音频基础分析</span>
-            <small>{capabilities?.librosaAvailable === false ? "需要 Python/Librosa 环境" : "提取 beat / onset / RMS"}</small>
+            <small>{capabilities?.librosaAvailable === false ? "需要 Python/Librosa 环境" : "优先分析伴奏轨"}</small>
           </label>
         </div>
       </section>

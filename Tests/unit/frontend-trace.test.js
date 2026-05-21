@@ -151,3 +151,22 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(property, /draftVersionId/);
   assert.match(property, /AudioFeatureRows/);
 });
+
+test("library page exposes local artifact index views", () => {
+  const root = path.resolve(__dirname, "../..");
+  const vite = read(root, "vite.config.ts");
+  const libraryHtml = read(root, "Apps/Workbench/library.html");
+  const libraryEntry = read(root, "Apps/Workbench/src/library.tsx");
+  const libraryApp = read(root, "Apps/Workbench/src/components/LibraryApp.tsx");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+
+  assert.match(vite, /library: "Apps\/Workbench\/library\.html"/);
+  assert.match(libraryHtml, /src="\/src\/library\.tsx"/);
+  assert.match(libraryEntry, /<LibraryApp \/>/);
+  assert.match(app, /href="http:\/\/127\.0\.0\.1:5177\/library"/);
+  assert.match(api, /\/api\/library\/items/);
+  assert.match(libraryApp, /处理库/);
+  assert.match(libraryApp, /loadLibraryItem/);
+  assert.match(libraryApp, /libraryArtifactTree/);
+});

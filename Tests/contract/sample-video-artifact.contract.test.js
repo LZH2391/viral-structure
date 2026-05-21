@@ -49,21 +49,21 @@ test("audio feature artifact keeps source lineage and raw feature arrays", () =>
     processingOptions: { frameSampleRateFps: 1, enableAudioFeatureAnalysis: true },
     audioFeatures: {
       artifactId: "artifact_audio_features",
-      parentArtifactId: "artifact_audio",
+      parentArtifactId: "artifact_music",
       type: "audio-feature-analysis",
       status: "processed",
-      sourceAudioArtifactId: "artifact_audio",
+      sourceAudioArtifactId: "artifact_music",
       durationSeconds: 2,
       tempoBpm: 120,
       beats: [0.25, 1.25],
       onsets: [0.5],
       energyFrames: [{ time: 0.25, rms: 0.4 }],
       spectralSummary: { centroidMean: 1000 },
-      analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "original" },
+      analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "music" },
     },
   };
   assert.equal(artifact.processingOptions.enableAudioFeatureAnalysis, true);
-  assert.equal(artifact.audioFeatures.parentArtifactId, "artifact_audio");
-  assert.equal(artifact.audioFeatures.sourceAudioArtifactId, "artifact_audio");
+  assert.equal(artifact.audioFeatures.parentArtifactId, "artifact_music");
+  assert.equal(artifact.audioFeatures.sourceAudioArtifactId, "artifact_music");
   assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
 });
