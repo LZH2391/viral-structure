@@ -105,6 +105,7 @@ export type ShotBoundaryAnalysisArtifact = {
   shots: Array<{
     id: string;
     index: number;
+    shotNo?: string;
     start: number;
     end: number;
     representativeFrameId: string;

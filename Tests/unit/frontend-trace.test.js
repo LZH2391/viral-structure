@@ -177,6 +177,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const propertyCss = read(root, "Apps/Workbench/styles/property-panel.css");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
   assert.match(app, /useState\(3\)/);
@@ -196,6 +197,12 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(property, /subtitle-editor/);
   assert.match(property, /draftVersionId/);
   assert.match(property, /AudioFeatureRows/);
+  assert.match(property, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
+  assert.match(property, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
+  assert.match(property, /0.5 fps 推荐：长镜头、慢节奏、只需粗略切分/);
+  assert.match(property, /采样率越高，图片越多，分析更细但耗时更久/);
+  assert.match(property, /shot\.shotNo \?\?/);
+  assert.match(propertyCss, /grid-template-columns: 44px minmax\(0, 1fr\)/);
 });
 
 test("library page exposes local artifact index views", () => {

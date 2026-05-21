@@ -59,6 +59,14 @@
   padding: 8px 9px;
 }
 
+.detail-hint {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .agent-shot-list {
   display: grid;
   gap: 6px;
@@ -68,7 +76,7 @@
 
 .agent-shot-item {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 4px 8px;
   align-items: center;
   border: 1px solid var(--line);
@@ -86,6 +94,7 @@
 
 .agent-shot-item strong {
   grid-row: span 2;
+  font-size: 12px;
 }
 
 .agent-shot-item span,

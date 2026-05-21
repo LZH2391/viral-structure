@@ -69,6 +69,8 @@ function AgentRunPanel({
   onSelectShot: (time: number) => void;
 }) {
   const running = job?.status === "pending" || job?.status === "processing";
+  const maxAnalysisFps = resolveMaxAnalysisFps(sampleVideo);
+  const analysisFpsExceeded = Number.isFinite(maxAnalysisFps) && analysisFps > maxAnalysisFps;
   return (
     <section className="property-section agent-run-panel">
       <div className="section-heading">Agent</div>
@@ -77,19 +79,26 @@ function AgentRunPanel({
           <strong>shot-boundary</strong>
           <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? `${analysis.shots.length} 镜` : "等待分析"}</span>
         </div>
-        <button className="primary-button" type="button" disabled={!sampleVideo || running} onClick={onRun}>
+        <button className="primary-button" type="button" disabled={!sampleVideo || running || analysisFpsExceeded} onClick={onRun}>
           {running ? "运行中" : "开始"}
         </button>
       </div>
       <label className="agent-field">
         <span>分析采样率</span>
-        <input type="number" min="0.1" max="24" step="0.1" value={analysisFps} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || 1))} />
+        <input type="number" min="0.1" max={maxAnalysisFps} step="0.1" value={analysisFps} aria-invalid={analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || 1))} />
       </label>
+      <div className="detail-hint">
+        <div>1 fps 推荐：普通口播、生活记录、稳定剪辑。</div>
+        <div>2-3 fps 推荐：动作快、转场多、镜头变化密的视频。</div>
+        <div>0.5 fps 推荐：长镜头、慢节奏、只需粗略切分。</div>
+        <div>采样率越高，图片越多，分析更细但耗时更久。</div>
+      </div>
+      {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
       {analysis?.shots?.length ? (
         <div className="agent-shot-list">
           {analysis.shots.slice(0, 12).map((shot) => (
             <button key={shot.id} className="agent-shot-item" type="button" onClick={() => onSelectShot(shot.start)}>
-              <strong>{shot.index + 1}</strong>
+              <strong>{shot.shotNo ?? `S${String(shot.index + 1).padStart(3, "0")}`}</strong>
               <span>{formatTime(shot.start)} - {formatTime(shot.end)}</span>
               <small>{shot.reason}</small>
             </button>
@@ -228,6 +237,15 @@ function AudioFeatureRows({ artifact, marker }: { artifact: AudioFeatureAnalysis
 
 function markerLabel(type: AudioFeatureMarker["type"]) {
   return type === "beat" ? "beat 标记" : "onset 标记";
+}
+
+function resolveMaxAnalysisFps(sampleVideo: SampleVideo | null): number {
+  const summary = sampleVideo?.frameOutputSummary as { actualFrameCount?: number; frameSampleRateFps?: number } | null | undefined;
+  const durationSeconds = Number(sampleVideo?.duration ?? 0);
+  const extractFps = durationSeconds > 0 ? Number(summary?.actualFrameCount ?? 0) / durationSeconds : Number.NaN;
+  const fallback = Number(summary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 24);
+  const resolved = Number.isFinite(extractFps) && extractFps > 0 ? extractFps : fallback;
+  return Math.max(0.1, Math.round(resolved * 1000) / 1000);
 }
 
 function formatNumber(value?: number | null, suffix = "") {

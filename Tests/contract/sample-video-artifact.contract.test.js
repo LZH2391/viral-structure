@@ -72,3 +72,34 @@ test("audio feature artifact keeps source lineage and raw feature arrays", () =>
   assert.equal(artifact.audioFeatures.beatFrames[0].valid, true);
   assert.equal(artifact.audioFeatures.loudnessSummary.lowSignal, false);
 });
+
+test("shot boundary artifact keeps shotNo while remaining compatible with legacy fields", () => {
+  const artifact = {
+    shotBoundaryAnalysis: {
+      artifactId: "artifact_shot_boundary",
+      parentArtifactId: "artifact_sample",
+      type: "shot-boundary-analysis",
+      status: "processed",
+      sourceFrameArtifactIds: ["artifact_frame_0", "artifact_frame_1"],
+      extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
+      analysisSampling: { fps: 1, stride: 3 },
+      shots: [
+        {
+          id: "shot_1",
+          index: 0,
+          shotNo: "S001",
+          start: 0,
+          end: 1.2,
+          representativeFrameId: "frame_0",
+          confidence: 0.8,
+          reason: "视觉变化摘要",
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    },
+  };
+  assert.equal(artifact.shotBoundaryAnalysis.parentArtifactId, "artifact_sample");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].index, 0);
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].representativeFrameId, "frame_0");
+});

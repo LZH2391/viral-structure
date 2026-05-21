@@ -17,6 +17,7 @@ const STAGES = {
 };
 const POLL_INTERVAL_MS = 2000;
 const ORPHAN_TTL_MS = 30 * 60 * 1000;
+const MIN_SHOT_DURATION_SECONDS = 0.01;
 
 function createShotBoundaryService({
   rootDir,
@@ -359,30 +360,52 @@ function prepareInput(artifact, analysisFps) {
       maxFrames: Number(summary.maxFrames ?? 120),
     },
     analysisSampling: { fps: analysisFps, stride },
-    frames: frames.filter((_, index) => index % stride === 0).map((frame, index) => ({
-      index,
-      frameId: frame.frameId,
-      artifactId: frame.artifactId,
-      parentArtifactId: frame.parentArtifactId ?? null,
-      timestamp: Number(frame.timestamp ?? 0),
-      fileName: basename(frame.imageUri),
-      filePath: frame.imageUri,
-    })),
+    frames: frames.reduce((result, frame, sourceFrameIndex) => {
+      if (sourceFrameIndex % stride !== 0) return result;
+      result.push({
+        inputIndex: result.length,
+        sourceFrameIndex,
+        frameId: frame.frameId,
+        artifactId: frame.artifactId,
+        parentArtifactId: frame.parentArtifactId ?? null,
+        timestamp: Number(frame.timestamp ?? 0),
+        fileName: basename(frame.imageUri),
+        filePath: frame.imageUri,
+      });
+      return result;
+    }, []),
   });
 }
 
 function buildTurnInputs(input) {
-  const safeInput = sanitizeForAppServerText(input);
-  return [
+  const extractFps = input.durationSeconds > 0 ? round(input.extractSampling.actualFrameCount / input.durationSeconds) : round(input.extractSampling.requestedFps);
+  const inputs = [
     {
       type: "text",
       text: [
-        "请基于以下帧 manifest 做镜头切分分析，只返回 JSON object。",
-        JSON.stringify(safeInput),
+        "请基于后续 localImage 图片序列做镜头切分，只返回 JSON object。",
+        "图片已按时间顺序排列；每张图片前的文字给出 frameId 和 timestamp。",
+        `采样信息：extractFps=${extractFps}，analysisFps=${round(input.analysisSampling.fps)}，stride=${input.analysisSampling.stride}，durationSeconds=${round(input.durationSeconds)}，frameCount=${input.frames.length}。`,
+        `时间范围：0 到 ${round(input.durationSeconds)} 秒。`,
+        "输出必须可用于脚本切分原视频轨：start/end 单位为秒，覆盖 0 到 durationSeconds，按时间升序，不重叠。",
+        `输出 schema：${JSON.stringify({ shots: [{ index: 0, shotNo: "S001", start: 0, end: round(input.durationSeconds), representativeFrameId: "frame_example", confidence: 0.8, reason: "视觉变化摘要" }] })}`,
+        "返回前自检：JSON 可解析；shots 非空；每个 representativeFrameId 来自输入；start < end；首镜头 start=0；末镜头 end=durationSeconds。",
       ].join("\n"),
       text_elements: [],
     },
   ];
+  for (const frame of input.frames) {
+    inputs.push({
+      type: "text",
+      text: buildFrameCaption(frame),
+      text_elements: [],
+    });
+    inputs.push({
+      type: "localImage",
+      path: frame.filePath,
+    });
+  }
+  return sanitizeForAppServerText(inputs);
 }
 
 function sanitizeForAppServerText(value) {
@@ -419,24 +442,99 @@ function parseAgentResult(message, input, context, lease, turn) {
 }
 
 function normalizeShots(rawShots, frames, durationSeconds) {
-  const frameIds = new Set(frames.map((frame) => frame.frameId));
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
-  const normalized = rawShots.map((shot, index) => {
-    const start = clamp(Number(shot.start ?? 0), 0, safeDuration);
-    const end = clamp(Number(shot.end ?? safeDuration), start + 0.01, safeDuration);
-    const representativeFrameId = frameIds.has(shot.representativeFrameId) ? shot.representativeFrameId : frames[0]?.frameId ?? "";
-    return {
+  const normalizedFrames = Array.isArray(frames)
+    ? frames
+      .map((frame) => ({
+        frameId: frame.frameId,
+        timestamp: Number(frame.timestamp ?? 0),
+      }))
+      .filter((frame) => frame.frameId)
+      .sort((first, second) => first.timestamp - second.timestamp)
+    : [];
+  const normalized = rawShots
+    .map((shot, index) => ({
+      start: clamp(Number(shot?.start ?? 0), 0, safeDuration),
+      end: clamp(Number(shot?.end ?? safeDuration), 0, safeDuration),
+      shotNo: normalizeShotNo(shot?.shotNo),
+      representativeFrameId: typeof shot?.representativeFrameId === "string" ? shot.representativeFrameId : "",
+      confidence: clamp(Number(shot?.confidence ?? 0.5), 0, 1),
+      reason: String(shot?.reason ?? "视觉变化").slice(0, 160),
+    }))
+    .filter((shot) => Number.isFinite(shot.start) && Number.isFinite(shot.end))
+    .sort((first, second) => first.start - second.start || first.end - second.end);
+  if (!normalized.length) return [buildFallbackShot(normalizedFrames, safeDuration)];
+  const output = [];
+  for (let index = 0; index < normalized.length; index += 1) {
+    const shot = normalized[index];
+    const start = output.length ? output[output.length - 1].end : 0;
+    if (start >= safeDuration) break;
+    const isLast = index === normalized.length - 1;
+    const minEnd = Math.min(safeDuration, start + MIN_SHOT_DURATION_SECONDS);
+    const end = isLast ? safeDuration : clamp(shot.end, minEnd, safeDuration);
+    output.push({
       id: `shot_${index + 1}`,
       index,
+      shotNo: shot.shotNo || formatShotNo(index),
       start,
-      end,
-      representativeFrameId,
-      confidence: clamp(Number(shot.confidence ?? 0.5), 0, 1),
-      reason: String(shot.reason ?? "视觉变化").slice(0, 160),
-    };
-  }).filter((shot) => shot.end > shot.start && shot.representativeFrameId);
-  if (normalized.length) return normalized;
-  return [{ id: "shot_1", index: 0, start: 0, end: safeDuration, representativeFrameId: frames[0]?.frameId ?? "", confidence: 0.4, reason: "帧数量不足，保留单镜头" }];
+      end: roundNormalizedTime(end),
+      representativeFrameId: resolveRepresentativeFrameId(shot.representativeFrameId, normalizedFrames, start, end),
+      confidence: shot.confidence,
+      reason: shot.reason,
+    });
+  }
+  const valid = output.filter((shot) => shot.end > shot.start && shot.representativeFrameId);
+  if (!valid.length) return [buildFallbackShot(normalizedFrames, safeDuration)];
+  valid[valid.length - 1].end = roundNormalizedTime(safeDuration);
+  return valid;
+}
+
+function buildFrameCaption(frame) {
+  return [
+    `frameId=${frame.frameId}`,
+    `inputIndex=${frame.inputIndex}`,
+    `sourceFrameIndex=${frame.sourceFrameIndex}`,
+    `timestampSeconds=${round(frame.timestamp)}`,
+    `artifactId=${frame.artifactId}`,
+  ].join("\n");
+}
+
+function normalizeShotNo(value) {
+  return String(value ?? "").trim();
+}
+
+function formatShotNo(index) {
+  return `S${String(index + 1).padStart(3, "0")}`;
+}
+
+function buildFallbackShot(frames, durationSeconds) {
+  return {
+    id: "shot_1",
+    index: 0,
+    shotNo: formatShotNo(0),
+    start: 0,
+    end: roundNormalizedTime(durationSeconds),
+    representativeFrameId: resolveRepresentativeFrameId("", frames, 0, durationSeconds),
+    confidence: 0.4,
+    reason: "帧数量不足，保留单镜头",
+  };
+}
+
+function resolveRepresentativeFrameId(frameId, frames, start, end) {
+  if (frameId && frames.some((frame) => frame.frameId === frameId)) return frameId;
+  if (!frames.length) return "";
+  const midpoint = (start + end) / 2;
+  const inRange = frames.filter((frame) => frame.timestamp >= start && frame.timestamp <= end);
+  const candidates = inRange.length ? inRange : frames;
+  let best = candidates[0];
+  for (const frame of candidates) {
+    if (Math.abs(frame.timestamp - midpoint) < Math.abs(best.timestamp - midpoint)) best = frame;
+  }
+  return best?.frameId ?? frames[0]?.frameId ?? "";
+}
+
+function roundNormalizedTime(value) {
+  return round(clamp(value, 0, Number.POSITIVE_INFINITY)) ?? 0;
 }
 
 function buildFailedArtifact(context, errorSummary) {

@@ -30,28 +30,59 @@ test("shot boundary turn inputs remove invalid surrogate text", () => {
 
   const input = prepareInput(artifact, 1);
   const turnInputs = buildTurnInputs(input);
-  const manifestText = turnInputs[0].text.split("\n").at(-1);
-  const parsed = JSON.parse(manifestText);
+  const promptText = turnInputs[0].text;
+  const textItems = turnInputs.filter((item) => item.type === "text");
+  const imageItems = turnInputs.filter((item) => item.type === "localImage");
 
   assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(input)), false);
-  assert.equal(/[\uD800-\uDFFF]/.test(turnInputs[0].text), false);
-  assert.equal(parsed.frames.length, 2);
-  assert.equal(parsed.analysisSampling.stride, 3);
-  assert.equal(parsed.frames[0].fileName, "frame-0.jpg");
-  assert.equal(parsed.frames[0].filePath, "/runtime/Artifacts/sample_1/frames/frame-0.jpg");
+  assert.equal(/[\uD800-\uDFFF]/.test(promptText), false);
+  assert.equal(textItems.length, 3);
+  assert.equal(imageItems.length, 2);
+  assert.match(promptText, /只返回 JSON object/);
+  assert.match(promptText, /extractFps=3/);
+  assert.doesNotMatch(promptText, /frame-0\.jpg/);
+  assert.doesNotMatch(promptText, /runtime\/Artifacts/);
+  assert.doesNotMatch(promptText, /SKILL\.md/);
+  assert.match(textItems[1].text, /frameId=frame_0/);
+  assert.match(textItems[1].text, /sourceFrameIndex=0/);
+  assert.match(textItems[2].text, /frameId=frame_3/);
+  assert.equal(imageItems[0].path, "/runtime/Artifacts/sample_1/frames/frame-0.jpg");
+  assert.equal(imageItems[1].path, "/runtime/Artifacts/sample_1/frames/frame-3.jpg");
 });
 
 test("shot boundary normalizes agent shots to frame ids and safe ranges", () => {
   const frames = [
-    { frameId: "frame_1" },
-    { frameId: "frame_2" },
+    { frameId: "frame_1", timestamp: 0.2 },
+    { frameId: "frame_2", timestamp: 5.2 },
   ];
   const shots = normalizeShots([{ start: -1, end: 9, representativeFrameId: "missing", confidence: 2, reason: "x".repeat(300) }], frames, 6);
   assert.equal(shots[0].start, 0);
   assert.equal(shots[0].end, 6);
-  assert.equal(shots[0].representativeFrameId, "frame_1");
+  assert.equal(shots[0].shotNo, "S001");
+  assert.equal(shots[0].representativeFrameId, "frame_2");
   assert.equal(shots[0].confidence, 1);
   assert.equal(shots[0].reason.length, 160);
+});
+
+test("shot boundary normalize keeps contiguous coverage and reindexes shot numbers", () => {
+  const frames = [
+    { frameId: "frame_0", timestamp: 0 },
+    { frameId: "frame_1", timestamp: 1.1 },
+    { frameId: "frame_2", timestamp: 2.3 },
+    { frameId: "frame_3", timestamp: 3.8 },
+  ];
+  const shots = normalizeShots([
+    { start: 2.6, end: 3.2, representativeFrameId: "missing", shotNo: "" },
+    { start: 0.4, end: 1.5, representativeFrameId: "frame_1", shotNo: "S009" },
+  ], frames, 4);
+
+  assert.equal(shots.length, 2);
+  assert.equal(shots[0].start, 0);
+  assert.equal(shots[0].end, shots[1].start);
+  assert.equal(shots[1].end, 4);
+  assert.equal(shots[0].shotNo, "S009");
+  assert.equal(shots[1].shotNo, "S002");
+  assert.equal(shots[1].representativeFrameId, "frame_2");
 });
 
 test("threadpool role status removes init prompt and keeps safe summary", () => {
@@ -124,7 +155,7 @@ test("shot boundary collect completed writes artifact and releases lease", async
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" }] }) }),
+      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: `补充说明\n${JSON.stringify({ shots: [{ start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut" }] })}\n已完成` }),
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1 });
@@ -136,6 +167,7 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_1");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
 });
 
