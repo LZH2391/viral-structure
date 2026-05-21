@@ -21,8 +21,8 @@ test("embedded agent runtime files exist for appserver and threadpool minimal cl
     "Infrastructure/AgentRuntime/agent_runtime/threadpool/models.py",
     "Infrastructure/AgentRuntime/agent_runtime/threadpool/store.py",
     "Infrastructure/AgentRuntime/scripts/thread_pool_service.py",
-    "docs/appserver-session-client.md",
-    "docs/role-thread-pool.md",
+    "Docs/appserver-session-client.md",
+    "Docs/role-thread-pool.md",
     "requirements.txt",
   ];
 

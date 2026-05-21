@@ -14,9 +14,8 @@
 - `Assets`：prompt、结构 schema、评估标准等高频变化资产。
 - `Runtime`：本地运行产物，默认不入库。
 - `Docs`：长期产品、领域和架构文档。
-- `PlanMD`：阶段计划和讨论过程。
 
-长期架构约束以 `Docs/Architecture` 为准；`PlanMD` 只记录阶段性计划和讨论结果。
+长期架构约束以 `Docs/Architecture` 为准。阶段讨论和本地计划不作为公开仓库内容提交。
 
 ## 环境要求
 
@@ -71,7 +70,6 @@ http://127.0.0.1:5177/threadpool
 本项目不提交 `.env` 文件。需要的本地配置请通过系统环境变量、PowerShell 会话变量或本地私有脚本注入。
 
 - `PYTHON_RUNTIME_ROOT`：本仓库内置 AgentRuntime 根目录，默认 `Infrastructure\AgentRuntime`。
-- `CEP_WORKSPACE_CORE_ROOT`：兼容旧版 CEP Workspace Core 的 fallback 根目录，非默认必需项。
 - `CODEX_APP_SERVER_WS_URL`：AppServer websocket 地址，默认 `ws://127.0.0.1:8146`。
 - `THREADPOOL_BASE_URL`：ThreadPool HTTP 服务地址。
 - `THREADPOOL_PORT`：本地 ThreadPool 端口。
@@ -133,4 +131,4 @@ shot-boundary 主链路现在默认使用仓库内置的轻量 AgentRuntime：
 - `Infrastructure/AgentRuntime/agent_runtime/threadpool`
 - `Infrastructure/AgentRuntime/scripts/thread_pool_service.py`
 
-这套 runtime 只覆盖当前课题所需的 AppServer Session Client 和 Role ThreadPool 最小闭包，不包含 AE 工作流、SDK、workstream 平台。`CEP_WORKSPACE_CORE_ROOT` 仅保留为兼容回退路径，便于对比回归。
+这套 runtime 只覆盖当前课题所需的 AppServer Session Client 和 Role ThreadPool 最小闭包，不包含 AE 工作流、SDK、workstream 平台。

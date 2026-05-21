@@ -6,7 +6,7 @@
 - `Infrastructure/AgentRuntime/agent_runtime/threadpool/store.py`
 - `Infrastructure/AgentRuntime/scripts/thread_pool_service.py`
 
-当前仓库已经内置 shot-boundary 主链路所需的最小 ThreadPool runtime，不再默认依赖外部 `AE_WorkspaceCore` 目录。
+当前仓库已经内置 shot-boundary 主链路所需的最小 ThreadPool runtime。
 
 ## 模块分工
 
@@ -55,13 +55,11 @@ FastAPI 服务入口，保留现有 HTTP API：
 .\start-api-server.ps1
 ```
 
-脚本会优先使用：
+脚本使用：
 
 ```text
 Infrastructure/AgentRuntime/scripts/thread_pool_service.py
 ```
-
-如果显式设置了 `CEP_WORKSPACE_CORE_ROOT`，且本地 runtime 缺失，才回退到旧 CEP 路径做兼容对比。
 
 ## 当前边界
 

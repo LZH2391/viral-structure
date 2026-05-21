@@ -284,7 +284,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
 });
 
-test("appserver bridge and startup script prefer local agent runtime with CEP fallback", () => {
+test("appserver bridge and startup script use local agent runtime", () => {
   const root = path.resolve(__dirname, "../..");
   const bridge = read(root, "Apps/Api/lib/appserver-bridge.js");
   const bridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
@@ -296,7 +296,8 @@ test("appserver bridge and startup script prefer local agent runtime with CEP fa
   assert.match(bridgePy, /local_runtime_root/);
   assert.match(startup, /\$env:PYTHON_RUNTIME_ROOT/);
   assert.match(startup, /Join-Path \$env:PYTHON_RUNTIME_ROOT "scripts\\thread_pool_service\.py"/);
-  assert.match(startup, /CEP_WORKSPACE_CORE_ROOT/);
+  assert.equal(bridge.includes("cepRoot"), false);
+  assert.equal(bridgePy.includes("cepRoot"), false);
 });
 
 test("workbench workspace layout supports persisted splitters", () => {

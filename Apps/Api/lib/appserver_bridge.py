@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -61,10 +60,6 @@ def install_runtime_paths(payload) -> None:
     if local_runtime_root.exists():
         sys.path.insert(0, str(local_runtime_root))
         return
-
-    compat_root = os.environ.get("CEP_WORKSPACE_CORE_ROOT") or payload.get("cepRoot")
-    if compat_root:
-        sys.path.insert(0, str(Path(str(compat_root)).resolve()))
 
 
 def load_stdin_json():
