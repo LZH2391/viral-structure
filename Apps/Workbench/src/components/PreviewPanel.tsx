@@ -1,9 +1,9 @@
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, MediaKind, SampleVideo } from "../types";
 import { runtimeUrl } from "../api/client";
-import { formatTime } from "../utils/format";
+import { formatPreciseTime, formatTime } from "../utils/format";
 import { fitMediaViewport } from "../utils/mediaViewport";
-import { buildAudioFeatureMarkers } from "../utils/audioFeatureMarkers";
+import { buildAudioFeatureMarkers, markerLeftPercent, resolveAudioFeatureDuration } from "../utils/audioFeatureMarkers";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
 import { useElementSize } from "../hooks/useElementSize";
 
@@ -50,7 +50,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(props.audioFeatures), [props.audioFeatures]);
   const selectedMarker = useMemo(() => audioFeatureMarkers.find((marker) => marker.id === props.selectedAudioFeatureMarkerId) ?? null, [audioFeatureMarkers, props.selectedAudioFeatureMarkerId]);
-  const audioDuration = props.audioFeatures?.durationSeconds ?? sampleVideo?.duration ?? null;
+  const audioDuration = useMemo(() => resolveAudioFeatureDuration(props.audioFeatures, sampleVideo?.duration ?? null), [props.audioFeatures, sampleVideo?.duration]);
 
   const { renderWithProgress } = useAudioWaveform({
     audio: audioRef.current,
@@ -166,9 +166,9 @@ export function PreviewPanel(props: PreviewPanelProps) {
                     key={marker.id}
                     className={`audio-waveform-feature-marker ${marker.type} ${selectedMarker?.id === marker.id ? "active" : ""}`}
                     type="button"
-                    style={{ left: `${markerLeft(marker.time, props.audioFeatures?.durationSeconds ?? sampleVideo.duration)}%` }}
-                    aria-label={`${marker.type} ${formatTime(marker.time)}`}
-                    title={`${marker.type} ${formatTime(marker.time)}`}
+                    style={{ left: `${markerLeftPercent(marker.time, audioDuration)}%` }}
+                    aria-label={`${marker.type} ${formatPreciseTime(marker.time, 3)}`}
+                    title={`${marker.type} ${formatPreciseTime(marker.time, 3)}`}
                     onClick={() => props.onSelectAudioFeature(marker)}
                   />
                 ))}
@@ -232,11 +232,6 @@ function mediaLabel(kind: MediaKind): string {
 
 function isVideoDerivative(item: MediaDerivative | null) {
   return item?.type === "original-video" || item?.type === "normalized-video";
-}
-
-function markerLeft(time: number, duration?: number | null) {
-  const safeDuration = Number.isFinite(duration) && duration && duration > 0 ? Number(duration) : Math.max(1, time);
-  return Math.max(0, Math.min(100, (time / safeDuration) * 100));
 }
 
 function resolveSeekDuration(audio: HTMLAudioElement, fallbackDuration: number | null | undefined, targetTime: number) {

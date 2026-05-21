@@ -21,6 +21,18 @@ export function findAudioFeatureMarker(audioFeatures: AudioFeatureAnalysisArtifa
   return buildAudioFeatureMarkers(audioFeatures).find((marker) => marker.id === markerId) ?? null;
 }
 
+export function resolveAudioFeatureDuration(audioFeatures: AudioFeatureAnalysisArtifact | null | undefined, fallbackDuration?: number | null) {
+  const markerDuration = Number(audioFeatures?.durationSeconds);
+  if (Number.isFinite(markerDuration) && markerDuration > 0) return markerDuration;
+  const fallback = Number(fallbackDuration);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
+export function markerLeftPercent(time: number, duration?: number | null) {
+  const safeDuration = Number.isFinite(duration) && duration && duration > 0 ? Number(duration) : Math.max(1, time);
+  return Math.max(0, Math.min(100, (time / safeDuration) * 100));
+}
+
 function toUiMarker(marker: NonNullable<AudioFeatureAnalysisArtifact["beatFrames"]>[number], type: AudioFeatureMarker["type"], index: number): AudioFeatureMarker {
   return {
     id: `${type}_${index}_${marker.time}`,

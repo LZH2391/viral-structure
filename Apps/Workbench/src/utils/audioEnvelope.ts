@@ -8,6 +8,7 @@ type EnvelopeBucket = {
   peak: number;
   rms: number;
 };
+const LOW_SIGNAL_RMS_P95_DBFS = -20;
 
 export function buildVisualEnvelope(audioBuffer: AudioEnvelopeSource, count: number): number[] {
   const buckets: EnvelopeBucket[] = [];
@@ -110,7 +111,7 @@ function isLowSignal(buckets: EnvelopeBucket[]): boolean {
   const noiseFloor = percentile(dbValues, 0.1);
   const activeThreshold = Math.max(-48, noiseFloor + 10);
   const activeRatio = dbValues.filter((value) => value >= activeThreshold).length / dbValues.length;
-  return percentile(dbValues, 0.95) < -50 || activeRatio < 0.03;
+  return percentile(dbValues, 0.95) < LOW_SIGNAL_RMS_P95_DBFS || activeRatio < 0.03;
 }
 
 function amplitudeToDb(value: number): number {

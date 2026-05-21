@@ -1,8 +1,8 @@
 import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
-import { formatTime } from "../utils/format";
-import { buildAudioFeatureMarkers } from "../utils/audioFeatureMarkers";
+import { formatPreciseTime, formatTime } from "../utils/format";
+import { buildAudioFeatureMarkers, markerLeftPercent } from "../utils/audioFeatureMarkers";
 import { clampVisibleSeconds, createTimelineMetrics, frameLeft, timeToTimelineLeft, visibleFrames } from "../utils/timeline";
 import { useElementSize } from "../hooks/useElementSize";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
@@ -76,9 +76,13 @@ export function TimelinePanel(props: TimelinePanelProps) {
   const audioLayers = buildAudioLayers(audio, audioSeparation);
   const subtitleSegments = subtitles?.segments ?? [];
   const selectedAudio = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId && item.type.startsWith("audio-")) ?? audio;
-  const audioUrl = runtimeUrl(selectedAudio?.uri ?? audio?.uri);
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(audioFeatures), [audioFeatures]);
   const audioFeatureLayerKey = resolveAudioFeatureLayerKey(audioFeatures, audioLayers);
+  const collapsedAudioLayer = useMemo(() => resolveCollapsedAudioLayer(audioLayers, audioFeatureLayerKey), [audioFeatureLayerKey, audioLayers]);
+  const visibleAudioLayers = useMemo(() => (audioExpanded ? audioLayers : [collapsedAudioLayer]), [audioExpanded, audioLayers, collapsedAudioLayer]);
+  const waveformLayerKey = useMemo(() => resolveWaveformLayerKey(audioLayers, visibleAudioLayers, audioExpanded, selectedAudio?.artifactId ?? null, audioFeatureLayerKey), [audioExpanded, audioFeatureLayerKey, audioLayers, selectedAudio?.artifactId, visibleAudioLayers]);
+  const waveformLayer = useMemo(() => visibleAudioLayers.find((layer) => layer.key === waveformLayerKey) ?? visibleAudioLayers[0] ?? null, [visibleAudioLayers, waveformLayerKey]);
+  const audioUrl = runtimeUrl(waveformLayer?.uri ?? selectedAudio?.uri ?? audio?.uri);
   const frames = sampleVideo?.frameArtifacts ?? [];
   const metrics = useMemo(
     () => createTimelineMetrics(sampleVideo, { visibleSeconds: timelineVisibleSeconds, viewportWidth: size.width }),
@@ -92,7 +96,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
       const left = timeToPlayheadLeft(time, metrics);
       const playhead = playheadRef.current;
       if (playhead) playhead.style.transform = `translate3d(${left}px, 0, 0)`;
-      if (playheadLabelRef.current) playheadLabelRef.current.textContent = formatTime(time);
+      if (playheadLabelRef.current) playheadLabelRef.current.textContent = formatPreciseTime(time);
     },
   });
 
@@ -109,8 +113,8 @@ export function TimelinePanel(props: TimelinePanelProps) {
     trace: {
       uiTraceId,
       backendTraceId: backendTraceId ?? null,
-      artifactId: audio?.artifactId ?? null,
-      parentArtifactId: audio?.parentArtifactId ?? sampleVideo?.artifactId ?? null,
+      artifactId: waveformLayer?.artifactId ?? audio?.artifactId ?? null,
+      parentArtifactId: waveformLayer?.parentArtifactId ?? audio?.parentArtifactId ?? sampleVideo?.artifactId ?? null,
     },
   });
 
@@ -194,14 +198,14 @@ export function TimelinePanel(props: TimelinePanelProps) {
               <button className="audio-expand-button" type="button" onClick={() => setAudioExpanded((value) => !value)} aria-expanded={audioExpanded}>
                 {audioExpanded ? "收起" : "展开"}
               </button>
-              {(audioExpanded ? audioLayers : audioLayers.slice(0, 1)).map((layer, index) => {
-                const showFeatureLayer = layer.key === audioFeatureLayerKey || (!audioExpanded && index === 0);
+              {visibleAudioLayers.map((layer, index) => {
+                const showFeatureLayer = layer.key === audioFeatureLayerKey || (!audioExpanded && layer.key === collapsedAudioLayer.key);
                 return (
                   <button key={layer.key} className={`audio-track-button audio-layer-${index} ${showFeatureLayer ? "has-feature-layer" : ""} ${layer.uri ? "" : "audio-track-empty"} ${activeMediaKind === "audio" && layer.artifactId === selectedDerivativeId ? "active" : ""}`} type="button" style={{ width: metrics.contentWidth }} onClick={() => onSelectAudio(layer.artifactId)}>
                     <strong>{layer.label}</strong>
                     {layer.uri ? (
                       <canvas
-                        ref={index === 0 ? setMiniCanvas : undefined}
+                        ref={layer.key === waveformLayerKey ? setMiniCanvas : undefined}
                         className="audio-mini-waveform"
                         data-audio-wave-mini
                         width={Math.max(1, Math.round(metrics.contentWidth))}
@@ -223,8 +227,8 @@ export function TimelinePanel(props: TimelinePanelProps) {
                               tabIndex={0}
                               className={`audio-feature-marker ${marker.type} ${selectedAudioFeatureMarkerId === marker.id ? "active" : ""}`}
                               style={{ left: `${markerLeftPercent(marker.time, metrics.duration)}%` }}
-                              aria-label={`${marker.type} ${formatTime(marker.time)}`}
-                              title={`${marker.type} ${formatTime(marker.time)}`}
+                              aria-label={`${marker.type} ${formatPreciseTime(marker.time, 3)}`}
+                              title={`${marker.type} ${formatPreciseTime(marker.time, 3)}`}
                               onClick={() => onSelectAudioFeature(marker.id)}
                               onKeyDown={(event) => {
                                 if (event.key === "Enter" || event.key === " ") onSelectAudioFeature(marker.id);
@@ -286,17 +290,13 @@ function resolveTimelinePlaybackParentArtifactId(activeMediaKind: MediaKind, sam
   return sampleVideo?.parentArtifactId ?? null;
 }
 
-function markerLeftPercent(time: number, duration: number) {
-  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : Math.max(1, time);
-  return Math.max(0, Math.min(100, (time / safeDuration) * 100));
-}
-
 function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: AudioSeparationArtifact | null) {
   return [
     {
       key: "original",
       label: "原音频",
       artifactId: audio?.artifactId ?? audioSeparation?.original?.artifactId ?? null,
+      parentArtifactId: audio?.parentArtifactId ?? audioSeparation?.original?.parentArtifactId ?? null,
       uri: audio?.uri ?? audioSeparation?.original?.uri ?? null,
       summary: audio?.summary ?? audioSeparation?.original?.summary ?? null,
     },
@@ -304,6 +304,7 @@ function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: Audio
       key: "vocal",
       label: "人声",
       artifactId: audioSeparation?.vocal?.artifactId ?? null,
+      parentArtifactId: audioSeparation?.vocal?.parentArtifactId ?? null,
       uri: audioSeparation?.vocal?.uri ?? null,
       summary: audioSeparation?.vocal?.summary ?? audioSeparation?.reason ?? null,
     },
@@ -311,6 +312,7 @@ function buildAudioLayers(audio: MediaDerivative | null, audioSeparation?: Audio
       key: "music",
       label: "伴奏",
       artifactId: audioSeparation?.music?.artifactId ?? null,
+      parentArtifactId: audioSeparation?.music?.parentArtifactId ?? null,
       uri: audioSeparation?.music?.uri ?? null,
       summary: audioSeparation?.music?.summary ?? audioSeparation?.reason ?? null,
     },
@@ -324,4 +326,23 @@ function resolveAudioFeatureLayerKey(audioFeatures: AudioFeatureAnalysisArtifact
   if (matched) return matched.key;
   if (sourceRole === "music") return "music";
   return "original";
+}
+
+function resolveCollapsedAudioLayer(layers: ReturnType<typeof buildAudioLayers>, audioFeatureLayerKey: ReturnType<typeof resolveAudioFeatureLayerKey>) {
+  return layers.find((layer) => layer.key === audioFeatureLayerKey && layer.uri) ?? layers.find((layer) => layer.key === "original" && layer.uri) ?? layers[0];
+}
+
+function resolveWaveformLayerKey(
+  layers: ReturnType<typeof buildAudioLayers>,
+  visibleLayers: ReturnType<typeof buildAudioLayers>,
+  audioExpanded: boolean,
+  selectedAudioArtifactId: string | null,
+  audioFeatureLayerKey: ReturnType<typeof resolveAudioFeatureLayerKey>,
+) {
+  if (!audioExpanded) return visibleLayers[0]?.key ?? "original";
+  const selectedLayer = layers.find((layer) => layer.artifactId && layer.artifactId === selectedAudioArtifactId && layer.uri);
+  if (selectedLayer) return selectedLayer.key;
+  const featureLayer = layers.find((layer) => layer.key === audioFeatureLayerKey && layer.uri);
+  if (featureLayer) return featureLayer.key;
+  return visibleLayers[0]?.key ?? "original";
 }

@@ -1,6 +1,6 @@
 import { RefObject, useCallback, useEffect, useRef, type PointerEvent } from "react";
 import { beginUiStage, emitUiStage } from "../observability/uiStage";
-import { formatTime } from "../utils/format";
+import { formatPreciseTime } from "../utils/format";
 import { timelineLeftToTime, timeToTimelineLeft } from "../utils/timeline";
 import type { TimelinePlaybackController } from "../hooks/useTimelinePlayback";
 
@@ -50,7 +50,7 @@ export function TimelinePlayhead(props: TimelinePlayheadProps) {
       const left = timeToTimelineLeft(nextTime, { duration, contentWidth });
       const root = playheadRef.current;
       if (root) root.style.transform = `translate3d(${left}px, 0, 0)`;
-      if (labelRef.current) labelRef.current.textContent = formatTime(nextTime);
+      if (labelRef.current) labelRef.current.textContent = formatPreciseTime(nextTime);
     },
     [contentWidth, duration, labelRef, playheadRef],
   );
@@ -182,7 +182,7 @@ export function TimelinePlayhead(props: TimelinePlayheadProps) {
           onPointerCancel={finishScrub}
         >
           <span ref={labelRef} className="timeline-playhead-time">
-            00:00
+            00:00.00
           </span>
         </button>
         <span className="timeline-playhead-line" aria-hidden="true" />

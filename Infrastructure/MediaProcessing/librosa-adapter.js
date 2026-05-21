@@ -9,6 +9,7 @@ const DEFAULT_PARAMS = {
   maxEnergyFrames: 240,
   sourceRole: "original",
 };
+const LOW_SIGNAL_RMS_P95_DBFS = -20;
 
 async function isLibrosaAvailable({ command = pythonCommand(), runner = runCommand } = {}) {
   try {
@@ -170,7 +171,7 @@ function normalizeLoudnessSummary(value = {}, energyFrames = []) {
   const measuredActiveRatio = dbfsValues.length < 3 ? 1 : dbfsValues.filter((item) => item >= activeThresholdDbfs).length / dbfsValues.length;
   const activeRatio = optionalNumber(value.activeRatio) ?? measuredActiveRatio;
   const rmsP95Dbfs = optionalNumber(value.rmsP95Dbfs) ?? percentile(dbfsValues, 0.95);
-  const lowSignal = Boolean(value.lowSignal ?? (rmsP95Dbfs < -50 || activeRatio < 0.03));
+  const lowSignal = Boolean(value.lowSignal ?? (rmsP95Dbfs < LOW_SIGNAL_RMS_P95_DBFS || activeRatio < 0.03));
   return {
     rmsP50Dbfs: optionalNumber(value.rmsP50Dbfs) ?? percentile(dbfsValues, 0.5),
     rmsP95Dbfs,
@@ -241,7 +242,7 @@ function defaultEnergyGate(noiseFloorDbfs) {
     noiseFloorDbfs: floor,
     activeThresholdDbfs: floor === null ? -48 : Math.max(-48, floor + 10),
     markerThresholdDbfs: floor === null ? -45 : Math.max(-45, floor + 12),
-    lowSignalRmsP95Dbfs: -50,
+    lowSignalRmsP95Dbfs: LOW_SIGNAL_RMS_P95_DBFS,
     lowSignalActiveRatio: 0.03,
   };
 }

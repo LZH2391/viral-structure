@@ -37,6 +37,36 @@
       "progress": 100,
       "traceId": "trace_bdae1c4e-06d0-4855-83ac-e191abc31374",
       "errorSummary": null
+    },
+    {
+      "jobId": "job_3f2bb29a-2329-41b8-9cb9-d7e0f8a6cccc",
+      "sampleVideoId": "sample_31e02628-a1de-41ac-98ac-6f8dac2906a0",
+      "stage": "agent.shotBoundary.turnStarted",
+      "status": "failed",
+      "progress": 100,
+      "traceId": "trace_e8017ef5-7c1d-4b50-934f-f040700c0087",
+      "errorSummary": {
+        "code": "appserver_bridge_failed",
+        "message": "AppServer bridge exited with 1",
+        "stageName": "agent.shotBoundary.turnStarted",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_a58cac86-1703-4dba-8e62-6dbcf04939b3_4285221d52.json"
+      }
+    },
+    {
+      "jobId": "job_12afa812-417d-4d07-b4c3-ff299e9c6b9c",
+      "sampleVideoId": "sample_31e02628-a1de-41ac-98ac-6f8dac2906a0",
+      "stage": "agent.shotBoundary.turnStarted",
+      "status": "failed",
+      "progress": 100,
+      "traceId": "trace_5c5936e9-750c-4615-967d-ab3b2c3dc106",
+      "errorSummary": {
+        "code": "appserver_bridge_failed",
+        "message": "AppServer bridge exited with 1",
+        "stageName": "agent.shotBoundary.turnStarted",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_5eb219e3-4a5e-401c-9679-1e8824251d4f_6e4958f6e7.json"
+      }
     }
   ]
 }

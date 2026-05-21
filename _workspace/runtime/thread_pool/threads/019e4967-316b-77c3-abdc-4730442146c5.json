@@ -1,5 +1,5 @@
 {
-  "thread_id": "019e494a-d329-7b31-86dd-5fa764b92fcd",
+  "thread_id": "019e4967-316b-77c3-abdc-4730442146c5",
   "role": "shot-boundary-analyzer",
   "status": "idle",
   "is_seed": false,
@@ -9,7 +9,7 @@
   "discard_reason": null,
   "init_turn_id": null,
   "init_fingerprint": "39523a788abbdf02c983f3c04f09e8e1abe923ca3eda25c08172ae8169140214",
-  "created_at": "2026-05-21T14:48:27.270177+08:00",
-  "updated_at": "2026-05-21T15:04:02.183733+08:00",
-  "last_validated_at": "2026-05-21T15:04:02.183733+08:00"
+  "created_at": "2026-05-21T15:19:26.397364+08:00",
+  "updated_at": "2026-05-21T15:19:26.397364+08:00",
+  "last_validated_at": "2026-05-21T15:19:26.397364+08:00"
 }

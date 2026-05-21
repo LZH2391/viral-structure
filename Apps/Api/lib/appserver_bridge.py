@@ -16,7 +16,7 @@ def sanitize_for_appserver_text(value):
 
 
 def main() -> int:
-    payload = sanitize_for_appserver_text(json.loads(sys.stdin.read() or "{}"))
+    payload = sanitize_for_appserver_text(load_stdin_json())
     operation = payload.get("operation") or "runTurnWithInputs"
     cep_root = Path(payload["cepRoot"]).resolve()
     sys.path.insert(0, str(cep_root))
@@ -43,6 +43,13 @@ def main() -> int:
         return 1
     finally:
         client.close()
+
+
+def load_stdin_json():
+    raw = sys.stdin.buffer.read()
+    if not raw:
+        return {}
+    return json.loads(raw.decode("utf-8"))
 
 
 def start_turn_with_inputs(client, payload) -> int:

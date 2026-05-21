@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
-import { formatTime } from "../utils/format";
+import { formatPreciseTime, formatTime } from "../utils/format";
 import { findAudioFeatureMarker } from "../utils/audioFeatureMarkers";
 
 type PropertyPanelProps = {
@@ -214,7 +214,7 @@ function AudioFeatureRows({ artifact, marker }: { artifact: AudioFeatureAnalysis
   return (
     <>
       <DetailRow label="媒体类型" value={marker ? markerLabel(marker.type) : "音频基础分析"} />
-      <DetailRow label="时间点" value={marker ? formatTime(marker.time) : "未选择"} />
+      <DetailRow label="时间点" value={marker ? formatPreciseTime(marker.time, 3) : "未选择"} />
       <DetailRow label="tempo" value={formatNumber(artifact.tempoBpm, " BPM")} />
       <DetailRow label="RMS" value={formatNumber(marker?.rms)} />
       <DetailRow label="dBFS" value={formatNumber(marker?.dbfs, " dB")} />

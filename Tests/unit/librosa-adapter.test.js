@@ -107,9 +107,9 @@ test("marker frames keep high energy markers and explain filtered markers", () =
     beats: [0.1, 0.4],
     onsets: [],
     energyFrames: [
-      { time: 0.1, rms: 0.02, dbfs: -34 },
+      { time: 0.1, rms: 0.2, dbfs: -14 },
       { time: 0.4, rms: 0.001, dbfs: -60 },
-      { time: 0.8, rms: 0.03, dbfs: -30 },
+      { time: 0.8, rms: 0.18, dbfs: -14.9 },
     ],
     spectralSummary: {},
     analysisParams: {},
