@@ -177,7 +177,6 @@ function createShotBoundaryService({
         action: () => appServer.startTurnWithInputs({
           workspaceRoot: rootDir,
           threadId: lease.thread_id,
-          skillPath,
           inputs: buildTurnInputs({ prepared, contactSheets }),
           timeoutSeconds: 240,
         }),
@@ -386,7 +385,6 @@ function createShotBoundaryService({
       action: () => appServer.startTurnWithInputs({
         workspaceRoot: rootDir,
         threadId: agentRun.threadId,
-        skillPath,
         inputs: buildRepairTurnInputs({
           prepared,
           contactSheets,

@@ -233,9 +233,13 @@ test("shot boundary warming fails before acquire and writes failed job", async (
 });
 
 test("shot boundary start turn persists inflight without waiting for final message", async () => {
+  const startTurnPayloads = [];
   const harness = await createShotHarness({
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
+      startTurnWithInputs: async (payload) => {
+        startTurnPayloads.push(payload);
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
       collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
     },
   });
@@ -249,6 +253,8 @@ test("shot boundary start turn persists inflight without waiting for final messa
   assert.equal(job.agentRun.contactSheets.length, 2);
   assert.equal(job.status, "processing");
   assert.equal(harness.threadPool.released.length, 0);
+  assert.equal(startTurnPayloads.length, 1);
+  assert.equal("skillPath" in startTurnPayloads[0], false);
 });
 
 test("shot boundary collect completed writes artifact and releases lease", async () => {
@@ -695,9 +701,13 @@ test("shot boundary success releases lease and thread returns idle", async () =>
 
 test("shot boundary empty boundaries triggers repair and can recover", async () => {
   let collectCount = 0;
+  const startTurnPayloads = [];
   const harness = await createShotHarness({
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: collectCount ? "turn_2" : "turn_1", status: "submitted" }),
+      startTurnWithInputs: async (payload) => {
+        startTurnPayloads.push(payload);
+        return { ok: true, threadId: "thread_1", turnId: collectCount ? "turn_2" : "turn_1", status: "submitted" };
+      },
       collectTurnResult: async () => {
         collectCount += 1;
         if (collectCount === 1) return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ boundaries: [] }) };
@@ -713,6 +723,9 @@ test("shot boundary empty boundaries triggers repair and can recover", async () 
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "repaired_turn");
   assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 1);
+  assert.equal(startTurnPayloads.length, 2);
+  assert.equal("skillPath" in startTurnPayloads[0], false);
+  assert.equal("skillPath" in startTurnPayloads[1], false);
 });
 
 test("shot boundary empty boundaries after repair stays failed", async () => {
