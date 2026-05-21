@@ -5,6 +5,7 @@
 /Runtime/DebugSnapshots/*
 /Runtime/Jobs/*
 /Runtime/Temp/*
+/_workspace/
 /MP4/
 /PlanMD/
 /ffmpeg-*/
@@ -13,6 +14,14 @@
 /node_modules/
 /Apps/Workbench/dist/
 /OldDontUseMe/
+
+# Local environment and generated files
+.env
+.env.*
+*.log
+*.pyc
+__pycache__/
+**/__pycache__/
 
 # Keep runtime directory placeholders
 !/Runtime/Uploads/README.md
