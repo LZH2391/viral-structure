@@ -3,9 +3,10 @@ const crypto = require("crypto");
 const HOST = "iat.xf-yun.com";
 const PATHNAME = "/v1";
 const DEFAULT_OPTIONS = { domain: "slm", language: "zh_cn", accent: "mandarin" };
-const DEFAULT_TIMEOUT_MS = 30000;
+const RESPONSE_TIMEOUT_MS = 30000;
+const PCM_BYTES_PER_SECOND = 16000 * 2;
 const FRAME_INTERVAL_MS = 40;
-const FRAME_BYTES = 16000 * 2 * FRAME_INTERVAL_MS / 1000;
+const FRAME_BYTES = PCM_BYTES_PER_SECOND * FRAME_INTERVAL_MS / 1000;
 
 async function recognizeAudio({ audioBuffer, env = process.env, options = DEFAULT_OPTIONS }) {
   const credentials = readCredentials(env);
@@ -43,12 +44,13 @@ function requestRecognition({ audioBuffer, credentials, options }) {
     let opened = false;
     let receivedMessages = 0;
     let sendTimer = null;
+    const timeoutMs = recognitionTimeoutMs(buffer.length);
     const timeout = setTimeout(() => {
       finish(reject, configuredError("xfyun_iat_timeout", "讯飞字幕识别响应超时", {
         retryable: true,
-        detail: `opened=${opened};messages=${receivedMessages};bytes=${buffer.length}`,
+        detail: `opened=${opened};messages=${receivedMessages};bytes=${buffer.length};timeoutMs=${timeoutMs}`,
       }));
-    }, DEFAULT_TIMEOUT_MS);
+    }, timeoutMs);
     const finish = (fn, value) => {
       if (settled) return;
       settled = true;
@@ -98,6 +100,11 @@ function requestRecognition({ audioBuffer, credentials, options }) {
       }
     };
   });
+}
+
+function recognitionTimeoutMs(byteLength) {
+  const streamMs = Math.ceil(Math.max(0, byteLength) / PCM_BYTES_PER_SECOND * 1000);
+  return Math.max(RESPONSE_TIMEOUT_MS, streamMs + RESPONSE_TIMEOUT_MS);
 }
 
 function sendAudioFrames(ws, audioBuffer, credentials, options, onTimer) {
@@ -160,4 +167,4 @@ function sanitizeDetail(value) {
   return String(value ?? "").replace(/[A-Za-z]:\\[^\s]+/g, "[path]").slice(0, 180);
 }
 
-module.exports = { recognizeAudio, readCredentials, buildAuthorizedUrl, decodeResultText, mergeTextSegments };
+module.exports = { recognizeAudio, readCredentials, buildAuthorizedUrl, decodeResultText, mergeTextSegments, recognitionTimeoutMs };

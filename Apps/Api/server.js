@@ -35,6 +35,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res);
     if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)));
     if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)));
+    if (req.method === "DELETE" && /^\/api\/library\/items\/[^/]+\/cache$/.test(url.pathname)) return handleLibraryDeleteCache(res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return handleUiDebugEvent(req, res);
     if (req.method === "GET" && url.pathname === "/api/debug/traces") return handleDebugTraces(res);
     if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)));
@@ -85,6 +86,15 @@ async function handleLibraryLoad(res, sampleVideoId) {
   const artifact = await artifactIndex.loadItem(sampleVideoId);
   if (!artifact) return notFound(res);
   return sendJson(res, 200, { sampleArtifact: artifact });
+}
+
+async function handleLibraryDeleteCache(res, sampleVideoId) {
+  const result = await artifactIndex.deleteCacheForItem(sampleVideoId);
+  if (!result) return notFound(res);
+  for (const removedId of result.removedSampleVideoIds) {
+    await fs.promises.rm(store.sampleDir(removedId), { recursive: true, force: true }).catch(() => undefined);
+  }
+  return sendJson(res, 200, { ok: true, ...result });
 }
 
 async function handleDebugTraces(res) {

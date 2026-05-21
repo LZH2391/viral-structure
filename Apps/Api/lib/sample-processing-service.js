@@ -14,11 +14,17 @@ const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
 function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
+    const fileHash = hashBuffer(file.buffer);
+    const processingOptions = resolveProcessingOptions(fields);
+    if (fields.cacheDecision !== "refresh") {
+      const cached = await artifactIndex.findLatestByFileHash(fileHash);
+      if (cached) return { cacheHit: true, cachedItem: cached, fileHash: safeHash(fileHash) };
+    }
     const traceContext = createTraceContext(createTraceIds());
     const sampleVideoId = `sample_${randomUUID()}`;
     const sampleArtifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    runProcessing({ workspaceId, file, fields, job, traceContext, sampleVideoId, sampleArtifactId, fileHash: hashBuffer(file.buffer) });
+    runProcessing({ workspaceId, file, fields, processingOptions, bypassCache: fields.cacheDecision === "refresh", job, traceContext, sampleVideoId, sampleArtifactId, fileHash });
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
 
@@ -37,7 +43,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         logInputSummary: null,
         action: async () => {
           assertUpload(context.file);
-          context.processingOptions = resolveProcessingOptions(context.fields);
+          context.processingOptions = context.processingOptions ?? resolveProcessingOptions(context.fields);
           return context.processingOptions;
         },
         outputSummary: (options) => ({ accepted: true, frameSampleRateFps: options.frameSampleRateFps, enableAudioSeparation: options.enableAudioSeparation, enableSubtitleRecognition: options.enableSubtitleRecognition, enableAudioFeatureAnalysis: options.enableAudioFeatureAnalysis }),
@@ -351,6 +357,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
   return { enqueueUpload };
 
   async function findStageCache(context, stageName, params) {
+    if (context.bypassCache) return null;
     const entry = await artifactIndex.findCacheEntry({ fileHash: context.fileHash, stageName, params });
     if (!entry?.sampleVideoId) return null;
     const artifact = await artifactIndex.loadItem(entry.sampleVideoId);

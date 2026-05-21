@@ -46,6 +46,7 @@ export function ResourcePanel({
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               if (file) onUpload(file);
+              event.currentTarget.value = "";
             }}
           />
           <span className="upload-title">选择样例视频</span>

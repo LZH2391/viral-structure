@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getLibraryItemDetail, getLibraryItems, loadLibraryItem, runtimeUrl } from "../api/client";
+import { deleteLibraryItemCache, getLibraryItemDetail, getLibraryItems, loadLibraryItem, runtimeUrl } from "../api/client";
 import type { LibraryArtifactNode, LibraryItemDetail, LibraryItemSummary } from "../types";
 import { formatClock, formatTime, shortId } from "../utils/format";
 
@@ -73,7 +73,7 @@ export function LibraryApp() {
       </header>
       <main className="library-grid">
         <LibraryList items={items} selectedId={selectedId} onSelect={setSelectedId} />
-        <LibraryDetail detail={selectedDetail} />
+        <LibraryDetail detail={selectedDetail} onDeleted={refresh} />
       </main>
     </div>
   );
@@ -101,8 +101,12 @@ function LibraryList({ items, selectedId, onSelect }: { items: LibraryItemSummar
   );
 }
 
-function LibraryDetail({ detail }: { detail: LibraryItemDetail | null }) {
+function LibraryDetail({ detail, onDeleted }: { detail: LibraryItemDetail | null; onDeleted: () => Promise<void> }) {
   const visibleNodes = (detail?.artifactTree ?? detail?.artifactNodes ?? []).slice(0, DETAIL_LIMIT);
+  const deleteCache = () => {
+    if (!detail) return;
+    deleteLibraryItemCache(detail.sampleVideoId).then(() => onDeleted()).catch(() => undefined);
+  };
   return (
     <section className="library-detail" aria-label="处理库详情">
       <div className="library-detail-header">
@@ -115,6 +119,9 @@ function LibraryDetail({ detail }: { detail: LibraryItemDetail | null }) {
         <div className="library-actions">
           <button id="loadLibraryItemBtn" className="ghost-button" type="button" disabled={!detail} onClick={() => detail && loadLibraryItem(detail.sampleVideoId).then((data) => writeWorkbenchDraft(data.sampleArtifact)).catch(() => undefined)}>
             加载到工作台
+          </button>
+          <button id="deleteLibraryCacheBtn" className="ghost-button" type="button" disabled={!detail} onClick={deleteCache}>
+            删除缓存
           </button>
           <a className="ghost-button action-link" href={detail?.traceId ? `http://127.0.0.1:5177/debug` : "#"}>
             打开运行追踪

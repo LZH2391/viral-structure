@@ -6,6 +6,7 @@
 /Runtime/Temp/*
 /MP4/
 /PlanMD/
+/ffmpeg-*/
 
 # Frontend build artifacts
 /node_modules/

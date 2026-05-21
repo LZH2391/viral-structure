@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { decodeResultText, mergeTextSegments, readCredentials } = require("../../Infrastructure/ModelGateway/xfyun-iat-client");
+const { decodeResultText, mergeTextSegments, readCredentials, recognitionTimeoutMs } = require("../../Infrastructure/ModelGateway/xfyun-iat-client");
 
 test("xfyun credentials keep APIKey and APISecret in separate fields", () => {
   const credentials = readCredentials({ XFYUN_APP_ID: "app", XFYUN_API_KEY: "key", XFYUN_API_SECRET: "secret" });
@@ -22,4 +22,9 @@ test("xfyun result decoder accepts base64 result text", () => {
 test("xfyun text segments merge into a subtitle segment", () => {
   assert.deepEqual(mergeTextSegments([{ text: "你" }, { text: "好" }]), [{ start: 0, end: 0, text: "你好", confidence: null }]);
   assert.deepEqual(mergeTextSegments([{ text: "" }]), []);
+});
+
+test("xfyun timeout includes streaming duration plus response budget", () => {
+  assert.equal(recognitionTimeoutMs(0), 30000);
+  assert.equal(recognitionTimeoutMs(16000 * 2 * 42), 72000);
 });

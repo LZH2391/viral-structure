@@ -1,8 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { getCapabilities, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
+import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, DraftState, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, StructureCard, WorkbenchState } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
@@ -14,6 +14,7 @@ import { TimelinePanel } from "./TimelinePanel";
 
 const STORAGE_KEY = "workbench:last-sample";
 type AudioSeekRequest = { requestId: number; time: number };
+type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
@@ -24,6 +25,7 @@ export function WorkbenchApp() {
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [currentTime, setCurrentTime] = useState(0);
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
+  const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -175,7 +177,7 @@ export function WorkbenchApp() {
   );
 
   const handleSampleUpload = useCallback(
-    async (file: File) => {
+    async (file: File, cacheDecision: "ask" | "refresh" = "ask") => {
       const token = uploadTokenRef.current + 1;
       uploadTokenRef.current = token;
       const stage = beginStage(STAGES.ingest, null, {
@@ -188,8 +190,14 @@ export function WorkbenchApp() {
       dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
       let latestJob: ProcessingJob | null = null;
       try {
-        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition, enableAudioFeatureAnalysis });
+        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition, enableAudioFeatureAnalysis, cacheDecision });
         if (token !== uploadTokenRef.current) return;
+        if ("cacheHit" in upload && upload.cacheHit) {
+          setCachePrompt({ file, cachedItem: upload.cachedItem, token });
+          dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "命中缓存", processingJob: null });
+          setSaveStatus("命中同视频缓存，等待选择");
+          return;
+        }
         const pendingJob: ProcessingJob = {
           jobId: upload.processingJobId,
           sampleVideoId: upload.sampleVideoId,
@@ -242,6 +250,33 @@ export function WorkbenchApp() {
     },
     [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, writeDraft],
   );
+
+  const reuseCache = useCallback(async () => {
+    if (!cachePrompt) return;
+    const prompt = cachePrompt;
+    setCachePrompt(null);
+    const stage = beginStage(STAGES.ingest, null, { cacheDecision: "reuse", sampleVideoId: prompt.cachedItem.sampleVideoId });
+    try {
+      const detail = await getLibraryItemDetail(prompt.cachedItem.sampleVideoId);
+      if (prompt.token !== uploadTokenRef.current) return;
+      dispatch({ type: "apply-artifact", artifact: detail.artifact });
+      dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "已复用缓存", processingJob: null });
+      const version = addVersion("复用缓存样例", stage.stageName, detail.artifact.sampleVideo.artifactId, null);
+      dispatch({ type: "add-version", version });
+      writeDraft({ sampleVideoId: detail.artifact.sampleVideoId, artifactId: detail.artifact.sampleVideo.artifactId, traceId: detail.artifact.trace?.traceId ?? null, sampleArtifact: detail.artifact, selectedFrameId: detail.artifact.frames[0]?.frameId ?? null, selectedDerivativeId: detail.artifact.sampleVideo.normalized.artifactId, versions: [version] });
+      setSaveStatus("已复用缓存");
+      finishStage(stage, detail.artifact.sampleVideo.artifactId, { cacheHit: true, sampleVideoId: detail.artifact.sampleVideoId });
+    } catch (error) {
+      failStage(stage, error, { errorMessage: error instanceof Error ? error.message : "复用缓存失败" });
+    }
+  }, [beginStage, cachePrompt, failStage, finishStage, writeDraft]);
+
+  const refreshCache = useCallback(() => {
+    if (!cachePrompt) return;
+    const file = cachePrompt.file;
+    setCachePrompt(null);
+    handleSampleUpload(file, "refresh");
+  }, [cachePrompt, handleSampleUpload]);
 
   const handleUnderstand = () => {
     if (!state.sampleVideo) return;
@@ -401,6 +436,7 @@ export function WorkbenchApp() {
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
         />
       </main>
+      {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
       <form id="profileForm" className="sr-only" onSubmit={handleGeneratePlan}>
         <input name="topic" />
         <input name="sellingPoints" />
@@ -422,6 +458,31 @@ function buildRunStatus(state: WorkbenchState) {
   if (!latest) return { label: "等待输入", stageId: null, backendTraceId: state.processingJob?.traceId ?? null };
   const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
   return { label: labelMap[latest.level] ?? "等待输入", stageId: latest.fields.stageId, backendTraceId: latest.fields.backendTraceId ?? state.processingJob?.traceId ?? null };
+}
+
+function CacheDecisionDialog({ item, onReuse, onRefresh, onCancel }: { item: LibraryItemSummary; onReuse: () => void; onRefresh: () => void; onCancel: () => void }) {
+  return (
+    <div className="cache-dialog-backdrop" role="presentation">
+      <section className="cache-dialog" role="dialog" aria-modal="true" aria-labelledby="cacheDialogTitle">
+        <div>
+          <div className="section-heading">命中缓存</div>
+          <h2 id="cacheDialogTitle">发现同视频处理记录</h2>
+          <p>{item.filename} / {item.durationSeconds ? `${Math.round(item.durationSeconds)}s` : "未知时长"}</p>
+        </div>
+        <div className="cache-dialog-actions">
+          <button className="ghost-button" type="button" onClick={onCancel}>
+            取消
+          </button>
+          <button className="ghost-button" type="button" onClick={onRefresh}>
+            重新生成覆盖
+          </button>
+          <button className="primary-button" type="button" onClick={onReuse}>
+            复用缓存
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {

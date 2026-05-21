@@ -39,6 +39,29 @@ test("artifact index registers list, detail, load and cache entries", async () =
   assert.equal(cache.sampleVideoId, "sample_1");
 });
 
+test("artifact index lists latest item per file and skips degraded cache entries", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-latest-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const fileHash = hashBuffer(Buffer.from("same-video"));
+
+  await index.registerSampleArtifact({ artifact: createArtifact({ sampleVideoId: "sample_old", subtitleStatus: "degraded" }), fileHash, traceId: "trace_old" });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await index.registerSampleArtifact({ artifact: createArtifact({ sampleVideoId: "sample_new", subtitleStatus: "processed" }), fileHash, traceId: "trace_new" });
+
+  const items = await index.listItems();
+  assert.equal(items.length, 1);
+  assert.equal(items[0].sampleVideoId, "sample_new");
+
+  const rawIndex = await index.readIndex();
+  assert.equal(Object.values(rawIndex.cacheEntries).some((entry) => entry.stageName === "sample.subtitle.recognized" && entry.status === "degraded"), false);
+
+  const deleted = await index.deleteCacheForItem("sample_new");
+  assert.deepEqual(new Set(deleted.removedSampleVideoIds), new Set(["sample_old", "sample_new"]));
+  assert.equal((await index.listItems()).length, 0);
+});
+
 test("same file and params hit cached media stages on second upload", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-cache-hit-"));
   const store = createLocalStore(tempRoot);
@@ -50,22 +73,46 @@ test("same file and params hit cached media stages on second upload", async () =
 
   const first = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1" } });
   await waitForJob(jobStore, first.processingJobId, "processed");
-  const second = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1" } });
+  const second = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1", cacheDecision: "refresh" } });
   await waitForJob(jobStore, second.processingJobId, "processed");
 
-  assert.equal(mediaProcessor.counts.cover, 1);
-  assert.equal(mediaProcessor.counts.frames, 1);
-  assert.equal(mediaProcessor.counts.audio, 1);
+  assert.equal(mediaProcessor.counts.cover, 2);
+  assert.equal(mediaProcessor.counts.frames, 2);
+  assert.equal(mediaProcessor.counts.audio, 2);
 
   const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${second.traceId}.log.jsonl`), "utf8");
   const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
-  assert.ok(logs.some((line) => line.stageName === STAGES.framesExtracted && line.outputSummary?.cacheHit === true));
-  assert.ok(logs.some((line) => line.stageName === STAGES.audioExtracted && line.outputSummary?.cacheHit === true));
+  assert.equal(logs.some((line) => line.outputSummary?.cacheHit === true), false);
 });
 
-function createArtifact() {
+test("upload returns cache candidate before processing and refresh bypasses stage cache", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-cache-choice-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const mediaProcessor = createCountingProcessor(store);
+  const service = createSampleProcessingService({ store, logger, jobStore, mediaProcessor });
+  const file = { filename: "sample.mp4", extension: ".mp4", mimeType: "video/mp4", size: 5, buffer: Buffer.from("video") };
+
+  const first = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1" } });
+  await waitForJob(jobStore, first.processingJobId, "processed");
+  const ask = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1" } });
+  assert.equal(ask.cacheHit, true);
+  assert.equal(ask.cachedItem.sampleVideoId, first.sampleVideoId);
+
+  const refreshed = await service.enqueueUpload({ workspaceId: "workspace_1", file, fields: { frameSampleRateFps: "1", cacheDecision: "refresh" } });
+  await waitForJob(jobStore, refreshed.processingJobId, "processed");
+  assert.equal(mediaProcessor.counts.cover, 2);
+  assert.equal(mediaProcessor.counts.frames, 2);
+  assert.equal(mediaProcessor.counts.audio, 2);
+});
+
+
+function createArtifact(overrides = {}) {
+  const sampleVideoId = overrides.sampleVideoId ?? "sample_1";
+  const subtitleStatus = overrides.subtitleStatus ?? null;
   return {
-    sampleVideoId: "sample_1",
+    sampleVideoId,
     workspaceId: "workspace_1",
     status: "processed",
     trace: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
@@ -79,6 +126,17 @@ function createArtifact() {
     cover: { artifactId: "artifact_cover", parentArtifactId: "artifact_sample", type: "cover-frame", uri: "/runtime/cover.jpg", summary: "封面帧" },
     frames: [{ frameId: "frame_1", artifactId: "artifact_frame", parentArtifactId: "artifact_sample", timestamp: 0, imageUri: "/runtime/frame.jpg" }],
     audio: { artifactId: "artifact_audio", parentArtifactId: "artifact_sample", type: "audio-track", uri: "/runtime/audio.m4a", summary: "音频轨" },
+    subtitles: subtitleStatus ? {
+      artifactId: `artifact_subtitle_${sampleVideoId}`,
+      parentArtifactId: "artifact_audio",
+      type: "subtitle-track",
+      uri: null,
+      summary: subtitleStatus === "processed" ? "1 条字幕" : "字幕识别未产出",
+      segments: subtitleStatus === "processed" ? [{ id: "subtitle_1", start: 0, end: 1, text: "你好", confidence: null }] : [],
+      status: subtitleStatus,
+      reason: subtitleStatus === "degraded" ? "讯飞字幕识别响应超时" : null,
+      debugSnapshotUri: subtitleStatus === "degraded" ? "/runtime/snapshot.json" : null,
+    } : null,
     metadata: { durationSeconds: 3, width: 720, height: 1280 },
   };
 }

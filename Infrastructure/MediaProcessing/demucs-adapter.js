@@ -7,7 +7,7 @@ const { runCommand } = require("./ffmpeg-runner");
 async function separateAudio({ audioPath, outputDir, parentArtifactId, store }) {
   await fs.mkdir(outputDir, { recursive: true });
   try {
-    await runCommand("demucs", ["--two-stems", "vocals", "--out", outputDir, audioPath]);
+    await runCommand(resolvePython(), [path.join(__dirname, "demucs_separate.py"), "--two-stems", "vocals", "--out", outputDir, audioPath]);
     const stems = await findDemucsStems(outputDir);
     if (!stems.vocals || !stems.noVocals) throw demucsError("demucs_output_missing", "Demucs 未产出完整人声/伴奏文件", null);
     return {
@@ -71,6 +71,10 @@ function demucsError(code, message, cause) {
     mediaOperation: "audio.separate",
   };
   return error;
+}
+
+function resolvePython() {
+  return process.env.PYTHON || "python";
 }
 
 module.exports = { separateAudio, findDemucsStems };

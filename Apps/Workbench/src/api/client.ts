@@ -4,18 +4,23 @@ const WORKSPACE_ID = "default-workspace";
 
 export const API_BASE_URL = location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:5177";
 
-export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean } = {}) {
+export type UploadSampleResponse =
+  | { cacheHit: true; cachedItem: LibraryItemSummary; fileHash?: string }
+  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
+
+export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 1));
   formData.append("enableAudioSeparation", String(Boolean(options.enableAudioSeparation)));
   formData.append("enableSubtitleRecognition", String(Boolean(options.enableSubtitleRecognition)));
   formData.append("enableAudioFeatureAnalysis", String(Boolean(options.enableAudioFeatureAnalysis)));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
   const response = await fetch(`${API_BASE_URL}/api/workspaces/${WORKSPACE_ID}/sample-videos`, {
     method: "POST",
     body: formData,
   });
-  return readJson<{ processingJobId: string; sampleVideoId: string; traceId: string }>(response);
+  return readJson<UploadSampleResponse>(response);
 }
 
 export async function getCapabilities() {
@@ -50,6 +55,14 @@ export async function loadLibraryItem(sampleVideoId: string) {
   return readJson<{ sampleArtifact: SampleArtifact }>(
     await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}/load`, {
       method: "POST",
+    }),
+  );
+}
+
+export async function deleteLibraryItemCache(sampleVideoId: string) {
+  return readJson<{ ok: true; removedSampleVideoIds: string[] }>(
+    await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}/cache`, {
+      method: "DELETE",
     }),
   );
 }

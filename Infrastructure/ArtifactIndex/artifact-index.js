@@ -40,6 +40,7 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
     for (const entry of item.cacheEntries) {
       index.cacheEntries[entry.cacheKey] = {
         ...entry,
+        fileHash,
         sampleVideoId: item.sampleVideoId,
         updatedAt: item.updatedAt,
       };
@@ -50,7 +51,12 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
 
   async function listItems() {
     const index = await readIndex();
-    return Object.values(index.items)
+    const latestByFile = new Map();
+    for (const item of Object.values(index.items).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))) {
+      const groupKey = item.fileHash || item.sampleVideoId;
+      if (!latestByFile.has(groupKey)) latestByFile.set(groupKey, item);
+    }
+    return Array.from(latestByFile.values())
       .map((item) => summarizeLibraryItem(item))
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
@@ -76,6 +82,33 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
     return index.cacheEntries[cacheKey] ?? null;
   }
 
+  async function deleteCacheForItem(sampleVideoId) {
+    const index = await readIndex();
+    const item = index.items[sampleVideoId];
+    if (!item) return null;
+    const fileHash = item.fileHash;
+    const removedSampleVideoIds = [];
+    for (const [id, current] of Object.entries(index.items)) {
+      if (current.fileHash === fileHash) {
+        delete index.items[id];
+        removedSampleVideoIds.push(id);
+      }
+    }
+    for (const [cacheKey, entry] of Object.entries(index.cacheEntries)) {
+      if (entry.fileHash === fileHash || removedSampleVideoIds.includes(entry.sampleVideoId)) delete index.cacheEntries[cacheKey];
+    }
+    await writeIndex(index);
+    return { fileHash, removedSampleVideoIds };
+  }
+
+  async function findLatestByFileHash(fileHash) {
+    const index = await readIndex();
+    const items = Object.values(index.items)
+      .filter((item) => item.fileHash === fileHash)
+      .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    return items[0] ? summarizeLibraryItem(items[0]) : null;
+  }
+
   return {
     indexRoot,
     indexPath,
@@ -86,6 +119,8 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
     getItem,
     loadItem,
     findCacheEntry,
+    deleteCacheForItem,
+    findLatestByFileHash,
     createCacheKey: (input) => createCacheKey({ version: processorVersion, ...input }),
   };
 }
@@ -115,7 +150,7 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion }) {
 
 function buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion }) {
   return artifactTree
-    .filter((node) => node.stageName && node.artifactId && node.status !== "missing")
+    .filter((node) => node.stageName && node.artifactId && node.status === "processed")
     .map((node) => {
       const params = stageParams(artifact, node.stageName);
       return {
