@@ -33,7 +33,17 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const [mainCanvas, setMainCanvas] = useState<HTMLCanvasElement | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const size = useElementSize(previewStageRef);
-  const activeMedia = useMemo(() => resolveActiveMedia(props), [props]);
+  const activeMedia = useMemo(
+    () =>
+      resolveActiveMedia({
+        sampleVideo,
+        mediaDerivatives: props.mediaDerivatives,
+        activeMediaKind: props.activeMediaKind,
+        selectedDerivativeId: props.selectedDerivativeId,
+        selectedFrameId: props.selectedFrameId,
+      }),
+    [props.activeMediaKind, props.mediaDerivatives, props.selectedDerivativeId, props.selectedFrameId, sampleVideo],
+  );
   const audioDerivative = useMemo(() => props.mediaDerivatives.find((item) => item.type === "audio-track") ?? null, [props.mediaDerivatives]);
   const waveformUrl = useMemo(() => (activeMedia.kind === "audio" ? activeMedia.url : runtimeUrl(audioDerivative?.uri ?? sampleVideo?.audioUri)), [activeMedia, audioDerivative?.uri, sampleVideo?.audioUri]);
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
@@ -193,7 +203,7 @@ function AudioTime({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
   );
 }
 
-function resolveActiveMedia({ sampleVideo, mediaDerivatives, activeMediaKind, selectedDerivativeId, selectedFrameId }: PreviewPanelProps) {
+function resolveActiveMedia({ sampleVideo, mediaDerivatives, activeMediaKind, selectedDerivativeId, selectedFrameId }: Pick<PreviewPanelProps, "sampleVideo" | "mediaDerivatives" | "activeMediaKind" | "selectedDerivativeId" | "selectedFrameId">) {
   if (!sampleVideo) return { kind: "empty" as const, text: "未加载样例" };
   const derivative = mediaDerivatives.find((item) => item.artifactId === selectedDerivativeId) ?? null;
   if (activeMediaKind === "cover") {

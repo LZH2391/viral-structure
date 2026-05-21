@@ -7,8 +7,9 @@ const { parseMultipartUpload } = require("./lib/multipart");
 const { createJobStore } = require("./lib/job-store");
 const { createSampleProcessingService } = require("./lib/sample-processing-service");
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
-const { sendJson, notFound, runtimeContentType } = require("./lib/http-utils");
+const { sendJson, notFound } = require("./lib/http-utils");
 const { createWorkbenchStaticHandler } = require("./lib/static-files");
+const { sendRuntimeFile } = require("./lib/runtime-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/debug-traces");
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/ui-debug-events");
 const { recordApiRequestFailure } = require("./lib/api-request-debug");
@@ -37,7 +38,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return handleUiDebugEvent(req, res);
     if (req.method === "GET" && url.pathname === "/api/debug/traces") return handleDebugTraces(res);
     if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)));
-    if (req.method === "GET" && url.pathname.startsWith("/runtime/")) return handleRuntime(res, url.pathname);
+    if (req.method === "GET" && url.pathname.startsWith("/runtime/")) return sendRuntimeFile(req, res, store.runtimeRoot, url.pathname);
     if (req.method === "GET" && staticWorkbench.handle(req, res, url.pathname)) return undefined;
     return notFound(res);
   } catch (error) {
@@ -99,14 +100,6 @@ async function handleDebugTraceDetail(res, traceId) {
   const trace = await readDebugTraceDetail(store.runtimeRoot, traceId);
   if (!trace) return notFound(res);
   return sendJson(res, 200, trace);
-}
-
-function handleRuntime(res, pathname) {
-  const relative = decodeURIComponent(pathname.replace(/^\/runtime\//, ""));
-  const filePath = path.resolve(store.runtimeRoot, relative);
-  if (!filePath.startsWith(path.resolve(store.runtimeRoot)) || !fs.existsSync(filePath)) return notFound(res);
-  res.writeHead(200, { "content-type": runtimeContentType(filePath), "access-control-allow-origin": "*" });
-  fs.createReadStream(filePath).pipe(res);
 }
 
 if (require.main === module) {

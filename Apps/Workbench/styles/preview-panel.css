@@ -54,7 +54,6 @@
 
 .sample-video,
 .media-image-preview,
-.audio-preview,
 .audio-waveform-panel,
 .media-empty-preview {
   display: none;
@@ -71,6 +70,9 @@
 }
 
 .audio-preview {
+  position: fixed;
+  left: -2px;
+  top: -2px;
   inline-size: 1px;
   block-size: 1px;
   opacity: 0;
