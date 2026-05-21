@@ -7,24 +7,32 @@ const ROLE = "shot-boundary-analyzer";
 const SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md";
 const MIN_SHOT_DURATION_SECONDS = 0.01;
 const MAX_REPAIR_ATTEMPTS = 1;
+const ANALYSIS_ROUNDING_POLICY = "ceil_stride_not_exceed_requested";
+const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
 
 function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);
   const frames = Array.isArray(artifact.frames) ? artifact.frames : [];
   const summary = artifact.frameOutputSummary ?? {};
   const actualFrameCount = Number(summary.actualFrameCount ?? frames.length);
-  const requestedFps = Number(summary.frameSampleRateFps ?? artifact.processingOptions?.frameSampleRateFps ?? 1);
-  const extractFps = durationSeconds > 0 ? actualFrameCount / durationSeconds : requestedFps;
-  if (!durationSeconds || !frames.length || !Number.isFinite(extractFps) || extractFps <= 0) {
+  const requestedFrameSampleRateFps = Number(summary.frameSampleRateFps ?? artifact.processingOptions?.frameSampleRateFps ?? 1);
+  const requestedAnalysisFps = Number(analysisFps ?? 0);
+  if (!durationSeconds || !frames.length || !Number.isFinite(requestedFrameSampleRateFps) || requestedFrameSampleRateFps <= 0) {
     throw codedError("shot_boundary_input_invalid", "抽帧产物不足，无法启动镜头切分");
   }
-  if (analysisFps > extractFps) {
+  if (!Number.isFinite(requestedAnalysisFps) || requestedAnalysisFps <= 0) {
+    throw codedError("analysis_fps_invalid", "分析采样率无效，请输入大于 0 的数值");
+  }
+  if (requestedAnalysisFps > requestedFrameSampleRateFps) {
     throw codedError("analysis_fps_exceeds_extract_fps", "分析采样率高于抽帧采样率，请重新抽帧或降低分析采样率");
   }
-  const stride = Math.max(1, Math.round(extractFps / analysisFps));
+  const analysisSampling = resolveAnalysisSampling({
+    requestedFrameSampleRateFps,
+    requestedAnalysisFps,
+  });
   const sourceArtifactId = artifact.sampleVideo?.artifactId ?? null;
   const sampledFrames = frames.reduce((result, frame, sourceFrameIndex) => {
-    if (sourceFrameIndex % stride !== 0) return result;
+    if (sourceFrameIndex % analysisSampling.stride !== 0) return result;
     result.push({
       inputIndex: result.length,
       sourceFrameIndex,
@@ -47,14 +55,38 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
       height: Number(artifact.metadata?.height ?? 0),
     },
     extractSampling: {
-      requestedFps,
+      requestedFps: requestedFrameSampleRateFps,
       targetFrameCount: Number(summary.targetFrameCount ?? frames.length),
       actualFrameCount,
       maxFrames: Number(summary.maxFrames ?? 120),
+      samplingPolicy: summary.samplingPolicy ?? FRAME_SAMPLING_POLICY,
+      cappedByMaxFrames: Boolean(summary.cappedByMaxFrames),
     },
-    analysisSampling: { fps: analysisFps, stride },
+    analysisSampling,
     frames: sampledFrames,
   });
+}
+
+function resolveAnalysisSampling({ requestedFrameSampleRateFps, requestedAnalysisFps }) {
+  const extractFps = Number(requestedFrameSampleRateFps ?? 0);
+  const requestedFps = Number(requestedAnalysisFps ?? 0);
+  if (!Number.isFinite(extractFps) || extractFps <= 0 || !Number.isFinite(requestedFps) || requestedFps <= 0) {
+    return {
+      fps: requestedFps,
+      requestedFps,
+      effectiveFps: null,
+      stride: null,
+      roundingPolicy: ANALYSIS_ROUNDING_POLICY,
+    };
+  }
+  const stride = Math.max(1, Math.ceil(extractFps / requestedFps));
+  return {
+    fps: requestedFps,
+    requestedFps,
+    effectiveFps: round(extractFps / stride),
+    stride,
+    roundingPolicy: ANALYSIS_ROUNDING_POLICY,
+  };
 }
 
 function buildTurnInputs({ prepared, contactSheets }) {
@@ -304,7 +336,13 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
     resultOrigin: validation?.repairAttemptCount ? "failed_validation" : "new_turn",
     sourceFrameArtifactIds: [],
     extractSampling: null,
-    analysisSampling: { fps: context.analysisFps, stride: null },
+    analysisSampling: {
+      fps: context.analysisFps,
+      requestedFps: context.analysisFps,
+      effectiveFps: null,
+      stride: null,
+      roundingPolicy: ANALYSIS_ROUNDING_POLICY,
+    },
     contactSheets: contactSheets.map(stripLocalImagePath),
     boundaryCandidateArtifacts: [],
     boundaries: [],
@@ -602,6 +640,7 @@ module.exports = {
   evaluateCacheEligibility,
   normalizeTimestampBoundaries,
   prepareInput,
+  resolveAnalysisSampling,
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,

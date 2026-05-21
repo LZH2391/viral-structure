@@ -1,14 +1,17 @@
 function planFrameTimestamps(durationSeconds, options = {}) {
-  const frameSampleRateFps = options.frameSampleRateFps ?? 1;
-  const maxFrames = options.maxFrames ?? 120;
+  const frameSampleRateFps = Number(options.frameSampleRateFps ?? 1);
+  const maxFrames = Number(options.maxFrames ?? 120);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return [0];
-  const targetFrames = Math.max(1, Math.ceil(durationSeconds * frameSampleRateFps));
-  const count = Math.min(maxFrames, targetFrames);
-  if (count === 1) return [0];
-  return Array.from({ length: count }, (_, index) => {
-    const raw = (durationSeconds * index) / (count - 1);
-    return Number(Math.min(raw, Math.max(durationSeconds - 0.1, 0)).toFixed(3));
-  });
+  if (!Number.isFinite(frameSampleRateFps) || frameSampleRateFps <= 0) return [0];
+  const safeMaxFrames = Number.isFinite(maxFrames) && maxFrames > 0 ? Math.floor(maxFrames) : 120;
+  const step = 1 / frameSampleRateFps;
+  const timestamps = [];
+  for (let index = 0; index < safeMaxFrames; index += 1) {
+    const timestamp = index * step;
+    if (timestamp >= durationSeconds) break;
+    timestamps.push(Number(timestamp.toFixed(3)));
+  }
+  return timestamps.length ? timestamps : [0];
 }
 
 module.exports = { planFrameTimestamps };

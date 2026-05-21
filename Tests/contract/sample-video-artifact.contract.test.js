@@ -28,7 +28,14 @@ test("artifact ref keeps parent relation", () => {
 test("sample artifact keeps processing options and frame summary", () => {
   const artifact = {
     processingOptions: { frameSampleRateFps: 1 },
-    frameOutputSummary: { frameSampleRateFps: 1, targetFrameCount: 5, actualFrameCount: 5, maxFrames: 120 },
+    frameOutputSummary: {
+      frameSampleRateFps: 1,
+      targetFrameCount: 5,
+      actualFrameCount: 5,
+      maxFrames: 120,
+      samplingPolicy: "fixed_interval_from_zero",
+      cappedByMaxFrames: false,
+    },
     frames: [
       createFrameArtifact({
         frameId: "frame_1",
@@ -41,6 +48,8 @@ test("sample artifact keeps processing options and frame summary", () => {
   };
   assert.equal(artifact.processingOptions.frameSampleRateFps, 1);
   assert.equal(artifact.frameOutputSummary.actualFrameCount, 5);
+  assert.equal(artifact.frameOutputSummary.samplingPolicy, "fixed_interval_from_zero");
+  assert.equal(artifact.frameOutputSummary.cappedByMaxFrames, false);
   assert.equal(artifact.frames[0].parentArtifactId, "artifact_sample");
 });
 

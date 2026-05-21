@@ -12,6 +12,10 @@ const { createArtifactIndex, hashBuffer } = require("../../../Infrastructure/Art
 const { planFrameTimestamps } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
+
+const FRAME_MAX_COUNT = 120;
+const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
+
 function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const fileHash = hashBuffer(file.buffer);
@@ -155,20 +159,43 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
   async function readFrames(context, inputPath, sampleDir, durationSeconds) {
     const framesDir = path.join(sampleDir, "frames");
     const frameSampleRateFps = context.processingOptions.frameSampleRateFps;
-    const plannedFrameCount = planFrameTimestamps(durationSeconds, { frameSampleRateFps }).length;
+    const plannedFrameCount = planFrameTimestamps(durationSeconds, { frameSampleRateFps, maxFrames: FRAME_MAX_COUNT }).length;
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
-      inputSummary: { ...sourceSummary(context), durationSeconds: Math.round(durationSeconds), frameSampleRateFps, targetFrameCount: plannedFrameCount, maxFrames: 120 },
+      inputSummary: {
+        ...sourceSummary(context),
+        durationSeconds: Math.round(durationSeconds),
+        frameSampleRateFps,
+        targetFrameCount: plannedFrameCount,
+        maxFrames: FRAME_MAX_COUNT,
+        samplingPolicy: FRAME_SAMPLING_POLICY,
+      },
       action: async () => {
-        const cached = await findStageCache(context, STAGES.framesExtracted, { frameSampleRateFps });
+        const cached = await findStageCache(context, STAGES.framesExtracted, {
+          frameSampleRateFps,
+          maxFrames: FRAME_MAX_COUNT,
+          samplingPolicy: FRAME_SAMPLING_POLICY,
+        });
         if (cached) {
-          context.frameOutputSummary = cached.artifact.frameOutputSummary ?? { frameSampleRateFps, targetFrameCount: cached.artifact.frames?.length ?? 0, actualFrameCount: cached.artifact.frames?.length ?? 0, maxFrames: 120 };
+          context.frameOutputSummary = normalizeFrameOutputSummary(cached.artifact.frameOutputSummary, {
+            durationSeconds,
+            frameSampleRateFps,
+            actualFrameCount: cached.artifact.frames?.length ?? 0,
+            targetFrameCount: plannedFrameCount,
+            maxFrames: FRAME_MAX_COUNT,
+          });
           return cached.artifact.frames ?? [];
         }
         return mediaProcessor.extractFrames({ inputPath, framesDir, durationSeconds, frameSampleRateFps, parentArtifactId: context.sampleArtifactId, store });
       },
       outputSummary: (frames) => {
-        context.frameOutputSummary = { frameSampleRateFps, targetFrameCount: plannedFrameCount, actualFrameCount: frames.length, maxFrames: 120 };
+        context.frameOutputSummary = buildFrameOutputSummary({
+          durationSeconds,
+          frameSampleRateFps,
+          actualFrameCount: frames.length,
+          targetFrameCount: plannedFrameCount,
+          maxFrames: FRAME_MAX_COUNT,
+        });
         return { ...context.frameOutputSummary, artifactType: "frame-set" };
       },
     });
@@ -591,6 +618,32 @@ function mergeCacheSummary(summary, entry) {
 
 function safeHash(value) {
   return value ? `${String(value).slice(0, 12)}...` : null;
+}
+
+function buildFrameOutputSummary({ durationSeconds, frameSampleRateFps, actualFrameCount, targetFrameCount, maxFrames }) {
+  const uncappedFrameCount = Number.isFinite(durationSeconds) && durationSeconds > 0 && Number.isFinite(frameSampleRateFps) && frameSampleRateFps > 0
+    ? Math.max(1, Math.ceil(durationSeconds * frameSampleRateFps))
+    : 1;
+  return {
+    frameSampleRateFps,
+    targetFrameCount,
+    actualFrameCount,
+    maxFrames,
+    samplingPolicy: FRAME_SAMPLING_POLICY,
+    cappedByMaxFrames: uncappedFrameCount > maxFrames,
+  };
+}
+
+function normalizeFrameOutputSummary(summary, fallback) {
+  const safe = summary && typeof summary === "object" ? summary : {};
+  return {
+    frameSampleRateFps: Number(safe.frameSampleRateFps ?? fallback.frameSampleRateFps),
+    targetFrameCount: Number(safe.targetFrameCount ?? fallback.targetFrameCount),
+    actualFrameCount: Number(safe.actualFrameCount ?? fallback.actualFrameCount),
+    maxFrames: Number(safe.maxFrames ?? fallback.maxFrames),
+    samplingPolicy: safe.samplingPolicy ?? FRAME_SAMPLING_POLICY,
+    cappedByMaxFrames: typeof safe.cappedByMaxFrames === "boolean" ? safe.cappedByMaxFrames : false,
+  };
 }
 
 module.exports = { createSampleProcessingService, STAGES };

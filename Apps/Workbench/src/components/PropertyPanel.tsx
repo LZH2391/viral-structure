@@ -127,6 +127,8 @@ function AgentRunPanel({
   const runDisabled = !sampleVideo || running || analysisFpsExceeded || (guard.disabled && guard.state !== "warming");
   const runLabel = running ? "运行中" : guard.buttonLabel;
   const hasValidShotResult = isValidShotResult(analysis);
+  const samplingPreview = resolveAnalysisSamplingPreview(sampleVideo, analysisFps);
+  const renderedSampling = resolveRenderedAnalysisSampling(analysis);
   const handleRun = () => {
     if (guard.state === "warming") {
       window.alert(guard.message ?? "ThreadPool 正在 warming，请稍后再试");
@@ -157,13 +159,17 @@ function AgentRunPanel({
         <div>0.5 fps 推荐：长镜头、慢节奏、只需粗略切分。</div>
         <div>采样率越高，图片越多，分析更细但耗时更久。</div>
       </div>
+      {samplingPreview ? <div className="agent-sampling-preview">预计实际：约 {formatFpsValue(samplingPreview.effectiveFps)} fps / 每 {samplingPreview.stride} 帧取 1 帧</div> : null}
       {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {analysis ? (
         <div className="detail-hint">
           <div>来源：{renderResultOrigin(analysis.resultOrigin)}</div>
           <div>turn：{analysis.agent?.turnId ? shortTurnId(analysis.agent.turnId) : "无"}</div>
-          <div>analysisFps：{analysis.analysisSampling?.fps ?? "无"}</div>
+          <div>requestedAnalysisFps：{formatFpsValue(renderedSampling.requestedFps)}</div>
+          <div>effectiveAnalysisFps：{formatFpsValue(renderedSampling.effectiveFps)}</div>
+          <div>stride：{renderedSampling.stride ?? "无"}</div>
+          <div>roundingPolicy：{renderedSampling.roundingPolicy}</div>
           <div>boundaryCount：{analysis.boundaries?.length ?? 0}</div>
           <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
           <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
@@ -351,12 +357,46 @@ function nearestRms(audioFeatures: AudioFeatureAnalysisArtifact, time: number) {
 }
 
 function resolveMaxAnalysisFps(sampleVideo: SampleVideo | null): number {
-  const summary = sampleVideo?.frameOutputSummary as { actualFrameCount?: number; frameSampleRateFps?: number } | null | undefined;
-  const durationSeconds = Number(sampleVideo?.duration ?? 0);
-  const extractFps = durationSeconds > 0 ? Number(summary?.actualFrameCount ?? 0) / durationSeconds : Number.NaN;
-  const fallback = Number(summary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 24);
-  const resolved = Number.isFinite(extractFps) && extractFps > 0 ? extractFps : fallback;
-  return Math.max(0.1, Math.round(resolved * 1000) / 1000);
+  const summary = sampleVideo?.frameOutputSummary;
+  const resolved = Number(summary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 24);
+  const safe = Number.isFinite(resolved) && resolved > 0 ? resolved : 24;
+  return Math.max(0.1, Math.round(safe * 1000) / 1000);
+}
+
+function resolveAnalysisSamplingPreview(sampleVideo: SampleVideo | null, requestedAnalysisFps: number) {
+  const requestedFrameSampleRateFps = Number(sampleVideo?.frameOutputSummary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 0);
+  if (!Number.isFinite(requestedFrameSampleRateFps) || requestedFrameSampleRateFps <= 0) return null;
+  if (!Number.isFinite(requestedAnalysisFps) || requestedAnalysisFps <= 0) return null;
+  const stride = Math.max(1, Math.ceil(requestedFrameSampleRateFps / requestedAnalysisFps));
+  return {
+    stride,
+    effectiveFps: roundToThree(requestedFrameSampleRateFps / stride),
+  };
+}
+
+function resolveRenderedAnalysisSampling(analysis?: ShotBoundaryAnalysisArtifact | null) {
+  const requestedFps = Number(analysis?.analysisSampling?.requestedFps ?? analysis?.analysisSampling?.fps ?? Number.NaN);
+  const stride = analysis?.analysisSampling?.stride ?? null;
+  const fallbackEffectiveFps = Number.isFinite(requestedFps) && Number.isFinite(stride) && stride > 0 ? requestedFps / stride : Number.NaN;
+  return {
+    requestedFps,
+    effectiveFps: Number(analysis?.analysisSampling?.effectiveFps ?? fallbackEffectiveFps),
+    stride,
+    roundingPolicy: analysis?.analysisSampling?.roundingPolicy ?? "legacy_stride_fallback",
+  };
+}
+
+function formatFpsValue(value?: number | null) {
+  if (!Number.isFinite(value)) return "无";
+  return trimTrailingZeros(roundToThree(Number(value)).toFixed(3));
+}
+
+function roundToThree(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
+function trimTrailingZeros(value: string) {
+  return value.replace(/\.?0+$/, "");
 }
 
 function formatNumber(value?: number | null, suffix = "") {

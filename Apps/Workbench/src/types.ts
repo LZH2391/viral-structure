@@ -42,6 +42,15 @@ export type ErrorSummary = {
   debugSnapshotUri?: string | null;
 };
 
+export type FrameOutputSummary = {
+  frameSampleRateFps: number;
+  targetFrameCount: number;
+  actualFrameCount: number;
+  maxFrames: number;
+  samplingPolicy?: string | null;
+  cappedByMaxFrames?: boolean | null;
+};
+
 export type SampleArtifact = {
   sampleVideoId: string;
   workspaceId: string;
@@ -65,7 +74,7 @@ export type SampleArtifact = {
   };
   cover?: ArtifactRef | null;
   frames: FrameArtifact[];
-  frameOutputSummary?: unknown;
+  frameOutputSummary?: FrameOutputSummary | null;
   audio?: ArtifactRef | null;
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
   audioSeparation?: AudioSeparationArtifact | null;
@@ -104,10 +113,15 @@ export type ShotBoundaryAnalysisArtifact = {
     targetFrameCount: number;
     actualFrameCount: number;
     maxFrames: number;
+    samplingPolicy?: string | null;
+    cappedByMaxFrames?: boolean | null;
   } | null;
   analysisSampling: {
     fps: number;
+    requestedFps?: number | null;
+    effectiveFps?: number | null;
     stride: number | null;
+    roundingPolicy?: string | null;
   };
   agent?: {
     provider: "codex-appserver" | string;
@@ -373,7 +387,7 @@ export type SampleVideo = {
   audioUri?: string | null;
   audioSummary?: string | null;
   processingOptions?: SampleArtifact["processingOptions"] | null;
-  frameOutputSummary?: unknown;
+  frameOutputSummary?: FrameOutputSummary | null;
   frameArtifacts: SampleFrame[];
 };
 

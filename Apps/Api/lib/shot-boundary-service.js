@@ -122,6 +122,8 @@ function createShotBoundaryService({
           frameCount: input.frames.length,
           stride: input.analysisSampling.stride,
           analysisFps: input.analysisSampling.fps,
+          effectiveAnalysisFps: input.analysisSampling.effectiveFps,
+          roundingPolicy: input.analysisSampling.roundingPolicy,
           extractFps: round(input.extractSampling.actualFrameCount / input.durationSeconds),
         }),
       });
@@ -725,6 +727,8 @@ function buildAgentRun({ context, lease, turn, prepared, contactSheets }) {
       frameCount: prepared.frames.length,
       stride: prepared.analysisSampling.stride,
       analysisFps: prepared.analysisSampling.fps,
+      effectiveAnalysisFps: prepared.analysisSampling.effectiveFps,
+      roundingPolicy: prepared.analysisSampling.roundingPolicy,
       sheetCount: contactSheets.length,
     },
     startedAt: now,

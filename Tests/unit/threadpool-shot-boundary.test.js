@@ -7,15 +7,47 @@ const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
   const artifact = createArtifact();
   const input = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   assert.equal(input.analysisSampling.stride, 3);
+  assert.equal(input.analysisSampling.effectiveFps, 1);
   assert.equal(input.frames.length, 2);
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
+});
+
+test("shot boundary sampling uses ceil stride without exceeding requested fps", () => {
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 1 }), {
+    fps: 1,
+    requestedFps: 1,
+    effectiveFps: 1,
+    stride: 3,
+    roundingPolicy: "ceil_stride_not_exceed_requested",
+  });
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2 }), {
+    fps: 2,
+    requestedFps: 2,
+    effectiveFps: 1.5,
+    stride: 2,
+    roundingPolicy: "ceil_stride_not_exceed_requested",
+  });
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2.4 }), {
+    fps: 2.4,
+    requestedFps: 2.4,
+    effectiveFps: 1.5,
+    stride: 2,
+    roundingPolicy: "ceil_stride_not_exceed_requested",
+  });
+  assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 3 }), {
+    fps: 3,
+    requestedFps: 3,
+    effectiveFps: 3,
+    stride: 1,
+    roundingPolicy: "ceil_stride_not_exceed_requested",
+  });
 });
 
 test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", () => {
@@ -47,7 +79,7 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /sampleVideoId/);
   assert.doesNotMatch(promptText, /frameIndexMap/);
   assert.match(promptText, /"durationSeconds":2/);
-  assert.match(promptText, /"analysisSampling":\{"fps":1,"stride":3\}/);
+  assert.match(promptText, /"analysisSampling":\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
   assert.match(promptText, /"sheetCount":2/);
   assert.match(promptText, /"sheetIndex":0/);
   assert.match(promptText, /"sheetIndex":1/);
@@ -61,7 +93,6 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /sourceArtifactId/);
   assert.doesNotMatch(promptText, /sheetId/);
   assert.doesNotMatch(promptText, /extractSampling/);
-  assert.doesNotMatch(promptText, /requestedFps/);
   assert.doesNotMatch(promptText, /actualFrameCount/);
   assert.doesNotMatch(promptText, /targetFrameCount/);
   assert.doesNotMatch(promptText, /maxFrames/);
@@ -97,7 +128,7 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   });
   const promptText = turnInputs[0].text;
 
-  assert.match(promptText, /分析采样：\{"fps":1,"stride":3\}/);
+  assert.match(promptText, /分析采样：\{"fps":1,"requestedFps":1,"effectiveFps":1,"stride":3,"roundingPolicy":"ceil_stride_not_exceed_requested"\}/);
   assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
   assert.match(promptText, /"boundaries\[\]\.reason":"short string"/);
   assert.match(promptText, /"hasPriorOutput":true/);
@@ -395,10 +426,7 @@ test("same fps lookup reuses registered shot cache params while different fps mi
   const stableKey = (fileHash, stageName, params) => JSON.stringify({
     fileHash,
     stageName,
-    params: {
-      ...params,
-      analysisSampling: params.analysisSampling ? { fps: params.analysisSampling.fps, stride: params.analysisSampling.stride } : null,
-    },
+    params,
   });
   let startTurnCount = 0;
   const harness = await createShotHarness({
@@ -761,7 +789,14 @@ function createArtifact() {
     processingOptions: { frameSampleRateFps: 3 },
     sampleVideo: { artifactId: "artifact_sample" },
     metadata: { durationSeconds: 2, width: 1280, height: 720 },
-    frameOutputSummary: { frameSampleRateFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
+    frameOutputSummary: {
+      frameSampleRateFps: 3,
+      targetFrameCount: 6,
+      actualFrameCount: 6,
+      maxFrames: 120,
+      samplingPolicy: "fixed_interval_from_zero",
+      cappedByMaxFrames: false,
+    },
     frames: Array.from({ length: 6 }, (_, index) => ({
       frameId: `frame_${index}`,
       artifactId: `artifact_frame_${index}`,
@@ -947,8 +982,21 @@ function createCachedShotAnalysis() {
     type: "shot-boundary-analysis",
     status: "processed",
     sourceFrameArtifactIds: [],
-    extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
-    analysisSampling: { fps: 3, stride: 1 },
+    extractSampling: {
+      requestedFps: 3,
+      targetFrameCount: 6,
+      actualFrameCount: 6,
+      maxFrames: 120,
+      samplingPolicy: "fixed_interval_from_zero",
+      cappedByMaxFrames: false,
+    },
+    analysisSampling: {
+      fps: 3,
+      requestedFps: 3,
+      effectiveFps: 3,
+      stride: 1,
+      roundingPolicy: "ceil_stride_not_exceed_requested",
+    },
     contactSheets: [],
     boundaryCandidateArtifacts: [],
     boundaries: [],
@@ -970,6 +1018,7 @@ function createCachedShotAnalysis() {
 }
 
 function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
+  const stride = Math.max(1, Math.ceil(3 / analysisFps));
   return {
     artifactId: "artifact_cached_valid_shot",
     parentArtifactId: "artifact_sample",
@@ -977,8 +1026,21 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
     status: "processed",
     resultOrigin: "new_turn",
     sourceFrameArtifactIds: [],
-    extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
-    analysisSampling: { fps: analysisFps, stride: Math.max(1, Math.round(3 / analysisFps)) },
+    extractSampling: {
+      requestedFps: 3,
+      targetFrameCount: 6,
+      actualFrameCount: 6,
+      maxFrames: 120,
+      samplingPolicy: "fixed_interval_from_zero",
+      cappedByMaxFrames: false,
+    },
+    analysisSampling: {
+      fps: analysisFps,
+      requestedFps: analysisFps,
+      effectiveFps: 3 / stride,
+      stride,
+      roundingPolicy: "ceil_stride_not_exceed_requested",
+    },
     contactSheets: createContactSheets(prepareInput(createArtifact(), analysisFps, { runtimeRoot: rootRuntime("cached") }), rootRuntime("cached")),
     boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],

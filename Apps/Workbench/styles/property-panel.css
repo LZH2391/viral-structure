@@ -67,6 +67,15 @@
   line-height: 1.5;
 }
 
+.agent-sampling-preview {
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.08);
+  color: #dbeafe;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
 .agent-shot-list {
   display: grid;
   gap: 6px;
