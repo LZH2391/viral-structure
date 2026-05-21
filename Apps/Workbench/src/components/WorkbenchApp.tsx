@@ -439,6 +439,7 @@ export function WorkbenchApp() {
           processingProgress={state.processingJob?.progress}
           errorMessage={state.errorSummary?.message}
           shotBoundaryAnalysis={state.sampleArtifact?.shotBoundaryAnalysis ?? null}
+          shotBoundaryAnalysisHistory={state.sampleArtifact?.shotBoundaryAnalysisHistory ?? null}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={setAgentAnalysisFps}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
+import type { AgentRunJob, AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative, SampleVideo, ShotBoundaryAnalysisArtifact, ShotBoundaryAnalysisHistoryEntry, StructureCard, SubtitleArtifact, SubtitleDraft } from "../types";
 import { formatTime } from "../utils/format";
 import { getShotBoundaryGuard, type ShotBoundaryGuard } from "../utils/workbenchHelpers";
 
@@ -23,6 +23,7 @@ type PropertyPanelProps = {
   processingProgress?: number | null;
   errorMessage?: string | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
+  shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   agentJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   onAgentAnalysisFpsChange: (value: number) => void;
@@ -37,6 +38,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
       <AgentRunPanel
         sampleVideo={props.sampleVideo}
         analysis={props.shotBoundaryAnalysis}
+        analysisHistory={props.shotBoundaryAnalysisHistory}
         job={props.agentJob}
         analysisFps={props.agentAnalysisFps}
         onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
@@ -56,6 +58,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
 function AgentRunPanel({
   sampleVideo,
   analysis,
+  analysisHistory,
   job,
   analysisFps,
   onAnalysisFpsChange,
@@ -64,6 +67,7 @@ function AgentRunPanel({
 }: {
   sampleVideo: SampleVideo | null;
   analysis?: ShotBoundaryAnalysisArtifact | null;
+  analysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   job?: AgentRunJob | null;
   analysisFps: number;
   onAnalysisFpsChange: (value: number) => void;
@@ -74,6 +78,7 @@ function AgentRunPanel({
   const maxAnalysisFps = resolveMaxAnalysisFps(sampleVideo);
   const analysisFpsExceeded = Number.isFinite(maxAnalysisFps) && analysisFps > maxAnalysisFps;
   const [guard, setGuard] = useState<ShotBoundaryGuard>({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
+  const historyEntries = analysisHistory ?? [];
 
   useEffect(() => {
     let cancelled = false;
@@ -128,7 +133,7 @@ function AgentRunPanel({
       <div className="agent-capability-row">
         <div>
           <strong>shot-boundary</strong>
-          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? (hasValidShotResult ? `${analysis.shots.length} 镜` : "无有效切镜结果") : "等待分析"}</span>
+          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? (hasValidShotResult ? `${analysis.shots.length} / ${analysis.shots.length} 镜` : "无有效切镜结果") : "等待分析"}</span>
         </div>
         <button className="primary-button" type="button" disabled={runDisabled} title={guard.message ?? undefined} onClick={handleRun}>
           {runLabel}
@@ -159,12 +164,23 @@ function AgentRunPanel({
       {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
       {analysis?.shots?.length && hasValidShotResult ? (
         <div className="agent-shot-list">
-          {analysis.shots.slice(0, 12).map((shot) => (
+          {analysis.shots.map((shot) => (
             <button key={shot.id} className="agent-shot-item" type="button" onClick={() => onSelectShot(shot.start)}>
               <strong>{shot.shotNo ?? `S${String(shot.index + 1).padStart(3, "0")}`}</strong>
               <span>{formatTime(shot.start)} - {formatTime(shot.end)}</span>
               <small>{shot.reason}</small>
             </button>
+          ))}
+        </div>
+      ) : null}
+      {historyEntries.length ? (
+        <div className="agent-history-list">
+          {historyEntries.slice(-5).reverse().map((entry) => (
+            <div key={`${entry.artifactId}_${entry.createdAt}`} className={`agent-history-item ${analysis?.artifactId === entry.artifactId ? "is-current" : ""}`}>
+              <strong>{renderResultOrigin(entry.resultOrigin)}</strong>
+              <span>{entry.analysisFps ?? "?"} fps / {entry.boundaryCount} 边界 / {entry.shotCount} 镜</span>
+              <small>{formatHistoryMeta(entry)}</small>
+            </div>
           ))}
         </div>
       ) : null}
@@ -432,4 +448,11 @@ function isValidShotResult(analysis?: ShotBoundaryAnalysisArtifact | null) {
     && /未检测到明确切镜边界/.test(String(shots[0]?.reason ?? ""));
   if (looksLikeLegacyFallback) return false;
   return boundaries.length > 0 && shots.length > 0;
+}
+
+function formatHistoryMeta(entry: ShotBoundaryAnalysisHistoryEntry) {
+  const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
+  const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
+  const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";
+  return `${time} / turn ${turn}${validator}`;
 }

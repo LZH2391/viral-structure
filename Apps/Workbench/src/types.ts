@@ -71,11 +71,25 @@ export type SampleArtifact = {
   audioSeparation?: AudioSeparationArtifact | null;
   subtitles?: SubtitleArtifact | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
+  shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
     width?: number | null;
     height?: number | null;
   };
+};
+
+export type ShotBoundaryAnalysisHistoryEntry = {
+  artifactId: string;
+  status: "processed" | "failed" | string;
+  resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  analysisFps: number | null;
+  boundaryCount: number;
+  shotCount: number;
+  turnId: string | null;
+  traceId: string | null;
+  createdAt: string;
+  validatorCode?: string | null;
 };
 
 export type ShotBoundaryAnalysisArtifact = {
@@ -535,6 +549,12 @@ export type LibraryItemSummary = {
   tags: string[];
   cacheAvailable: boolean;
   traceId?: string | null;
+  sourceSampleVideoId?: string | null;
+  sourceTurnId?: string | null;
+  sourceCreatedAt?: string | null;
+  boundaryCount?: number | null;
+  shotCount?: number | null;
+  analysisFps?: number | null;
 };
 
 export type LibraryArtifactNode = {

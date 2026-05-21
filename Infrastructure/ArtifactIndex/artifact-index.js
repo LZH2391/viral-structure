@@ -1,6 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
+const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
 
 const INDEX_VERSION = 1;
 
@@ -264,24 +265,19 @@ function stageParams(artifact, stageName) {
     };
   }
   if (stageName === "shot.boundary_merge" || stageName === "agent.shotBoundary.resultWritten") {
-    return {
+    return buildShotBoundaryCacheParams({
       sourceArtifactId: artifact.shotBoundaryAnalysis?.parentArtifactId ?? artifact.sampleVideo?.artifactId ?? null,
       extractSampling: artifact.shotBoundaryAnalysis?.extractSampling ?? null,
       analysisSampling: artifact.shotBoundaryAnalysis?.analysisSampling ?? null,
-      frameDimensions: artifact.shotBoundaryAnalysis?.contactSheets?.[0]?.layout
+      frameDimensions: artifact.metadata
         ? {
           width: artifact.metadata?.width ?? null,
           height: artifact.metadata?.height ?? null,
         }
         : null,
-      sheetCount: artifact.shotBoundaryAnalysis?.contactSheets?.length ?? 0,
-      sheetLayouts: (artifact.shotBoundaryAnalysis?.contactSheets ?? []).map((sheet) => ({
-        frameCount: sheet.frameCount ?? 0,
-        layout: sheet.layout ?? null,
-        constraints: sheet.constraints ?? null,
-      })),
+      contactSheets: artifact.shotBoundaryAnalysis?.contactSheets ?? [],
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
-    };
+    });
   }
   return {};
 }

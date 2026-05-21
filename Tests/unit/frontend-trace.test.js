@@ -228,6 +228,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const vite = read(root, "vite.config.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const cacheDialog = read(root, "Apps/Workbench/src/components/CacheDecisionDialog.tsx");
   const threadpoolHtml = read(root, "Apps/Workbench/threadpool.html");
   const threadpoolEntry = read(root, "Apps/Workbench/src/threadpool.tsx");
   const threadpoolApp = read(root, "Apps/Workbench/src/components/ThreadPoolApp.tsx");
@@ -250,6 +251,8 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(property, /onRunShotBoundary/);
   assert.match(property, /renderResultOrigin/);
   assert.match(property, /repairAttemptCount/);
+  assert.match(cacheDialog, /发现切镜缓存/);
+  assert.match(cacheDialog, /fps \/ \{item\.shotCount \?\? "\?"\} 镜 \/ turn/);
   assert.match(property, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
   assert.match(property, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
 });
@@ -259,8 +262,26 @@ test("property panel treats processed passed shot data without boundaries as inv
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
 
   assert.match(property, /return boundaries\.length > 0 && shots\.length > 0;/);
-  assert.match(property, /hasValidShotResult \? `\$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
+  assert.match(property, /hasValidShotResult \? `\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
   assert.match(property, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
+});
+
+test("property panel shows all shots and recent shot analysis history", () => {
+  const root = path.resolve(__dirname, "../..");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const css = read(root, "Apps/Workbench/styles/property-panel.css");
+  const types = read(root, "Apps/Workbench/src/types.ts");
+
+  assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
+  assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
+  assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
+  assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
+  assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);
+  assert.match(property, /className=\{`agent-history-item \$\{analysis\?\.artifactId === entry\.artifactId \? "is-current" : ""\}`\}/);
+  assert.match(css, /\.agent-shot-list[\s\S]*max-height: 220px;[\s\S]*overflow: auto;/);
+  assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
+  assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
 });
 
 test("workbench workspace layout supports persisted splitters", () => {

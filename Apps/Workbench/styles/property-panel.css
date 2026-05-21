@@ -74,6 +74,41 @@
   overflow: auto;
 }
 
+.agent-history-list {
+  display: grid;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.agent-history-item {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 8px;
+}
+
+.agent-history-item.is-current {
+  border-color: var(--accent);
+}
+
+.agent-history-item strong,
+.agent-history-item span,
+.agent-history-item small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-item span,
+.agent-history-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .agent-shot-item {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T18:58:47.488155+08:00",
+  "updated_at": "2026-05-21T19:11:21.968625+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -20,7 +20,7 @@
       "can_acquire": true,
       "counts": {
         "initializing": 0,
-        "idle": 1,
+        "idle": 2,
         "leased": 0,
         "retired": 0,
         "discarded": 0,
@@ -31,6 +31,14 @@
       "thread_entries": [
         {
           "thread_id": "019e4a30-1bc5-76d2-b86b-06fc77540f05",
+          "thread_status": "idle",
+          "lease_id": null,
+          "owner_id": null,
+          "last_owner_id": "trace_04b9b579-8bbe-4a0a-b9fe-7bba157679c8",
+          "last_seen_at": "2026-05-21T19:11:21.798641+08:00"
+        },
+        {
+          "thread_id": "019e4a31-0a90-7d93-b80e-1f332a62f6da",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

@@ -8,6 +8,7 @@ const { createStageLogger, expandStageLogLines } = require("../../Infrastructure
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
 const { createArtifactIndex, createCacheKey, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
+const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
 
 test("cache key is stable and changes when params change", () => {
   const first = createCacheKey({ fileHash: "file_1", stageName: "sample.frames.extracted", params: { frameSampleRateFps: 1 }, version: "v1" });
@@ -138,19 +139,57 @@ test("failed shot boundary artifact does not register processed shot cache entry
   const cache = await index.findCacheEntry({
     fileHash,
     stageName: "shot.boundary_merge",
-    params: {
+    params: buildShotBoundaryCacheParams({
       sourceArtifactId: "artifact_sample",
       extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
       analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
       frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
-      sheetCount: 0,
-      sheetLayouts: [],
+      contactSheets: [],
       skillHash: "hash",
-    },
+    }),
     version: "test-v1",
   });
 
   assert.equal(cache, null);
+});
+
+test("shot boundary cache params keep sheet start and end time stable across register and lookup", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-stable-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const fileHash = hashBuffer(Buffer.from("shot-stable"));
+  const artifact = createArtifact({ sampleVideoId: "sample_stable_shot" });
+  artifact.shotBoundaryAnalysis = createProcessedShotAnalysis({
+    analysisFps: 1,
+    skillHash: "skill_hash_a",
+    contactSheets: [
+      createContactSheet("sheet-001", [
+        { timestamp: 0, inputIndex: 0, sourceFrameIndex: 0, frameId: "frame_1" },
+        { timestamp: 1, inputIndex: 1, sourceFrameIndex: 1, frameId: "frame_2" },
+      ]),
+    ],
+  });
+
+  await index.registerSampleArtifact({ artifact, fileHash, traceId: "trace_shot_stable" });
+  const params = buildShotBoundaryCacheParams({
+    sourceArtifactId: artifact.shotBoundaryAnalysis.parentArtifactId,
+    extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
+    analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
+    frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
+    contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+    skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
+  });
+  const cache = await index.findCacheEntry({
+    fileHash,
+    stageName: "shot.boundary_merge",
+    params,
+    version: "test-v1",
+  });
+
+  assert.equal(cache.sampleVideoId, "sample_stable_shot");
+  assert.equal(cache.params.sheetLayouts[0].startTime, 0);
+  assert.equal(cache.params.sheetLayouts[0].endTime, 1);
 });
 
 
@@ -184,6 +223,53 @@ function createArtifact(overrides = {}) {
       debugSnapshotUri: subtitleStatus === "degraded" ? "/runtime/snapshot.json" : null,
     } : null,
     metadata: { durationSeconds: 3, width: 720, height: 1280 },
+  };
+}
+
+function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) {
+  return {
+    artifactId: "artifact_shot_processed",
+    parentArtifactId: "artifact_sample",
+    type: "shot-boundary-analysis",
+    status: "processed",
+    resultOrigin: "new_turn",
+    sourceFrameArtifactIds: ["artifact_frame"],
+    extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
+    analysisSampling: { fps: analysisFps, stride: 3 / analysisFps },
+    contactSheets,
+    boundaryCandidateArtifacts: [],
+    boundaries: [{ timestamp: 1, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
+    validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
+    agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", skillPath: "SKILL.md", skillHash, threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
+    shots: [
+      { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1, representativeFrameId: "frame_1", confidence: 0.8, reason: "cut" },
+      { id: "shot_2", index: 1, shotNo: "S002", start: 1, end: 3, representativeFrameId: "frame_2", confidence: 0.8, reason: "视觉连续" },
+    ],
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function createContactSheet(sheetId, gridItems) {
+  return {
+    artifactId: `artifact_${sheetId}`,
+    parentArtifactId: "artifact_sample",
+    type: "contact_sheet",
+    artifactType: "contact_sheet",
+    status: "processed",
+    sheetId,
+    sheetIndex: 0,
+    frameCount: gridItems.length,
+    overlapFrameIds: [],
+    gridItems: gridItems.map((item, index) => ({
+      artifactId: `artifact_frame_${index}`,
+      parentArtifactId: "artifact_sample",
+      gridIndex: index,
+      row: 0,
+      col: index,
+      ...item,
+    })),
+    layout: { rows: 1, cols: Math.max(1, gridItems.length), width: 600, height: 320, cellWidth: 300, cellHeight: 160, visibleFrameWidth: 300, visibleFrameHeight: 160, labelHeight: 24 },
+    constraints: { maxDimension: 4096, minFrameShortSide: 144, minFrameLongSide: 256, labelHeight: 24, overlapFrameCount: 0 },
   };
 }
 

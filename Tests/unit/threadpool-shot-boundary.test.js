@@ -6,7 +6,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { normalizeTimestampBoundaries, buildShotsFromBoundaries } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
 
 test("shot boundary sampling computes stride and rejects oversampling", () => {
@@ -274,12 +274,14 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
   await delay(20);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
   const job = harness.jobStore.getJob(result.processingJobId);
-  const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
+  const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end" && entry.outputSummary?.cacheKey);
+  const cacheMissLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end" && entry.outputSummary?.cacheLookup === "miss");
 
   assert.equal(startTurnCount, 1);
   assert.equal(job.status, "processing");
   assert.equal(artifact.shotBoundaryAnalysis, undefined);
   assert.equal(cacheReuseLog, undefined);
+  assert.equal(cacheMissLog.outputSummary.reason, "eligibility_rejected");
 });
 
 test("shot boundary valid cache can be reused", async () => {
@@ -311,8 +313,130 @@ test("shot boundary valid cache can be reused", async () => {
   assert.equal(cacheReuseLog.outputSummary.sourceSampleVideoId, "sample_cached");
   assert.equal(cacheReuseLog.outputSummary.cacheKey, "cache_1");
   assert.equal(cacheReuseLog.outputSummary.sourceTurnId, "turn_cached");
+  assert.equal(cacheReuseLog.outputSummary.analysisFps, 3);
   assert.equal(cacheReuseLog.outputSummary.boundaryCount, 1);
   assert.equal(cacheReuseLog.outputSummary.shotCount, 2);
+});
+
+test("same fps lookup reuses registered shot cache params while different fps misses", async () => {
+  const cacheEntries = new Map();
+  const stableKey = (fileHash, stageName, params) => JSON.stringify({
+    fileHash,
+    stageName,
+    params: {
+      ...params,
+      analysisSampling: params.analysisSampling ? { fps: params.analysisSampling.fps, stride: params.analysisSampling.stride } : null,
+    },
+  });
+  let startTurnCount = 0;
+  const harness = await createShotHarness({
+    artifactIndex: {
+      getItem: async () => ({ fileHash: "hash_1" }),
+      findCacheEntry: async ({ fileHash, stageName, params }) => cacheEntries.get(stableKey(fileHash, stageName, params)) ?? null,
+      loadItem: async (sampleVideoId) => sampleVideoId === "sample_cached" ? { ...createArtifact(), sampleVideoId, shotBoundaryAnalysis: createValidCachedShotAnalysis({ analysisFps: 1 }) } : null,
+      registerSampleArtifact: async ({ artifact }) => {
+        const params = buildShotBoundaryCacheParams({
+          sourceArtifactId: artifact.shotBoundaryAnalysis.parentArtifactId,
+          extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
+          analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
+          frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
+          contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+          skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
+        });
+        cacheEntries.set(stableKey("hash_1", STAGES.resultWritten, params), { sampleVideoId: "sample_cached", cacheKey: "cache_registered" });
+        return { ok: true };
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        startTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
+      }),
+    },
+  });
+
+  const first = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "refresh" });
+  await delay(20);
+  await harness.service.collectAgentRun(first.processingJobId);
+  const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "ask" });
+  const third = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 2, cacheDecision: "ask" });
+
+  assert.equal(startTurnCount, 1);
+  assert.equal(second.cacheHit, true);
+  assert.equal(second.cachedItem.analysisFps, 1);
+  assert.equal(third.cacheHit, undefined);
+});
+
+test("cache miss log distinguishes key miss from eligibility rejection", async () => {
+  const harness = await createShotHarness({
+    artifactIndex: {
+      getItem: async () => ({ fileHash: "hash_1" }),
+      findCacheEntry: async ({ params }) => (params.analysisSampling?.fps === 1 ? { sampleVideoId: "sample_cached", cacheKey: "cache_bad" } : null),
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createCachedShotAnalysis() }),
+    },
+  });
+
+  await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "ask" });
+  await delay(20);
+  await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 2, cacheDecision: "ask" });
+  await delay(20);
+  const cacheLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
+
+  assert.equal(cacheLogs.some((entry) => entry.outputSummary?.reason === "eligibility_rejected"), true);
+  assert.equal(cacheLogs.some((entry) => entry.outputSummary?.reason === "key_miss"), true);
+});
+
+test("shot boundary history appends for refresh and cache reuse without overwriting prior entries", async () => {
+  const cacheEntries = new Map();
+  const harness = await createShotHarness({
+    artifactIndex: {
+      getItem: async () => ({ fileHash: "hash_1" }),
+      findCacheEntry: async ({ fileHash, stageName, params }) => cacheEntries.get(JSON.stringify({ fileHash, stageName, params })) ?? null,
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createValidCachedShotAnalysis() }),
+      registerSampleArtifact: async ({ artifact }) => {
+        const params = buildShotBoundaryCacheParams({
+          sourceArtifactId: artifact.shotBoundaryAnalysis.parentArtifactId,
+          extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
+          analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
+          frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
+          contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+          skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
+        });
+        cacheEntries.set(JSON.stringify({ fileHash: "hash_1", stageName: STAGES.resultWritten, params }), { sampleVideoId: "sample_cached", cacheKey: "cache_registered" });
+        return { ok: true };
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: `turn_${Date.now()}`, status: "submitted" }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_history_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
+      }),
+    },
+  });
+
+  const first = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "refresh" });
+  await delay(20);
+  await harness.service.collectAgentRun(first.processingJobId);
+  const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "reuse" });
+  await delay(20);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+
+  assert.equal(second.processingJobId != null, true);
+  assert.equal(Array.isArray(artifact.shotBoundaryAnalysisHistory), true);
+  assert.equal(artifact.shotBoundaryAnalysisHistory.length >= 2, true);
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).resultOrigin, "new_turn");
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).resultOrigin, "cache_reuse");
 });
 
 test("shot boundary keeps Chinese reason text without mojibake", async () => {
@@ -766,7 +890,7 @@ function createCachedShotAnalysis() {
   };
 }
 
-function createValidCachedShotAnalysis() {
+function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
   return {
     artifactId: "artifact_cached_valid_shot",
     parentArtifactId: "artifact_sample",
@@ -775,8 +899,8 @@ function createValidCachedShotAnalysis() {
     resultOrigin: "new_turn",
     sourceFrameArtifactIds: [],
     extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
-    analysisSampling: { fps: 3, stride: 1 },
-    contactSheets: [],
+    analysisSampling: { fps: analysisFps, stride: Math.max(1, Math.round(3 / analysisFps)) },
+    contactSheets: createContactSheets(prepareInput(createArtifact(), analysisFps, { runtimeRoot: rootRuntime("cached") }), rootRuntime("cached")),
     boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },

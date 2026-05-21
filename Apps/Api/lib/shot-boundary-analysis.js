@@ -341,6 +341,7 @@ function buildCacheReuseAnalysis(analysis) {
     ...analysis,
     resultOrigin: "cache_reuse",
     validation: analysis.validation ?? null,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -360,22 +361,43 @@ function evaluateCacheEligibility(analysis) {
   };
 }
 
-function cacheParams(input, contactSheets, options = {}) {
+function buildShotBoundaryCacheParams({
+  sourceArtifactId,
+  extractSampling,
+  analysisSampling,
+  frameDimensions,
+  contactSheets,
+  skillHash,
+  skillPath = SKILL_PATH,
+} = {}) {
+  const sheets = Array.isArray(contactSheets) ? contactSheets : [];
   return {
-    sourceArtifactId: input.sourceArtifactId,
-    extractSampling: input.extractSampling,
-    analysisSampling: input.analysisSampling,
-    frameDimensions: input.frameDimensions,
-    sheetCount: contactSheets.length,
-    sheetLayouts: contactSheets.map((sheet) => ({
-      frameCount: sheet.frameCount,
-      layout: sheet.layout,
-      constraints: sheet.constraints,
+    sourceArtifactId: sourceArtifactId ?? null,
+    extractSampling: extractSampling ?? null,
+    analysisSampling: analysisSampling ?? null,
+    frameDimensions: frameDimensions ?? null,
+    sheetCount: sheets.length,
+    sheetLayouts: sheets.map((sheet) => ({
+      frameCount: Number(sheet?.frameCount ?? 0),
+      layout: sheet?.layout ?? null,
+      constraints: sheet?.constraints ?? null,
       startTime: round(resolveSheetStartTime(sheet)),
       endTime: round(resolveSheetEndTime(sheet)),
     })),
-    skillHash: options.skillHash ?? skillContentHashSync(options.skillPath ?? SKILL_PATH),
+    skillHash: skillHash ?? skillContentHashSync(skillPath),
   };
+}
+
+function cacheParams(input, contactSheets, options = {}) {
+  return buildShotBoundaryCacheParams({
+    sourceArtifactId: input?.sourceArtifactId,
+    extractSampling: input?.extractSampling,
+    analysisSampling: input?.analysisSampling,
+    frameDimensions: input?.frameDimensions,
+    contactSheets,
+    skillHash: options.skillHash,
+    skillPath: options.skillPath,
+  });
 }
 
 async function resolveSkillHash(skillPath = SKILL_PATH) {
@@ -573,6 +595,7 @@ module.exports = {
   MAX_REPAIR_ATTEMPTS,
   buildCacheReuseAnalysis,
   buildFailedArtifact,
+  buildShotBoundaryCacheParams,
   buildProcessedAnalysis,
   buildRepairTurnInputs,
   buildTurnInputs,

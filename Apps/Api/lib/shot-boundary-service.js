@@ -91,6 +91,12 @@ function createShotBoundaryService({
           tags: ["切镜"],
           cacheAvailable: true,
           traceId: cached.analysis.agent?.turnId ?? null,
+          sourceSampleVideoId: cached.cache.sampleVideoId,
+          sourceTurnId: cached.analysis.agent?.turnId ?? null,
+          sourceCreatedAt: cached.analysis.createdAt ?? null,
+          boundaryCount: cached.analysis.boundaries?.length ?? 0,
+          shotCount: cached.analysis.shots?.length ?? 0,
+          analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
         },
       };
     }
@@ -566,6 +572,7 @@ function createShotBoundaryService({
     const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
     const artifact = await store.readJson(artifactPath);
     artifact.shotBoundaryAnalysis = analysis;
+    artifact.shotBoundaryAnalysisHistory = appendShotBoundaryHistory(artifact.shotBoundaryAnalysisHistory, analysis, artifact.trace?.traceId ?? null);
     await store.writeJson(artifactPath, artifact);
     return artifact;
   }
@@ -573,18 +580,58 @@ function createShotBoundaryService({
   async function findCachedArtifact(context, prepared, contactSheets) {
     if (context.cacheDecision === "refresh") return null;
     const fileHash = await resolveExistingFileHash(context.sampleVideoId);
-    if (!fileHash) return null;
+    if (!fileHash) {
+      await logCacheLookup(context, {
+        cacheLookup: "miss",
+        reason: "file_hash_missing",
+        analysisFps: context.analysisFps,
+        skillHash: context.skillHash,
+      });
+      return null;
+    }
+    const params = cacheParams(prepared, contactSheets, { skillHash: context.skillHash });
     const cache = await artifactIndex.findCacheEntry({
       fileHash,
       stageName: STAGES.resultWritten,
-      params: cacheParams(prepared, contactSheets, { skillHash: context.skillHash }),
+      params,
     });
-    if (!cache?.sampleVideoId) return null;
+    if (!cache?.sampleVideoId) {
+      await logCacheLookup(context, {
+        cacheLookup: "miss",
+        reason: "key_miss",
+        analysisFps: context.analysisFps,
+        skillHash: context.skillHash,
+      });
+      return null;
+    }
     const artifact = await artifactIndex.loadItem(cache.sampleVideoId);
     const analysis = artifact?.shotBoundaryAnalysis ?? null;
     const cacheEligibility = evaluateCacheEligibility(analysis);
-    if (!cacheEligibility.eligible) return null;
+    if (!cacheEligibility.eligible) {
+      await logCacheLookup(context, {
+        cacheLookup: "miss",
+        reason: "eligibility_rejected",
+        analysisFps: context.analysisFps,
+        skillHash: context.skillHash,
+        sourceSampleVideoId: cache.sampleVideoId,
+        eligibility: cacheEligibility,
+      });
+      return null;
+    }
     return { cache, analysis, cacheEligibility };
+  }
+
+  async function logCacheLookup(context, summary) {
+    context.traceContext = nextStage(context.traceContext);
+    await logger.writeStageLog({
+      traceContext: context.traceContext,
+      stageName: STAGES.cacheReuse,
+      event: "stage.end",
+      artifactId: context.artifactId,
+      parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null,
+      outputSummary: summary,
+      durationMs: 0,
+    });
   }
 
   async function logCacheReuse(context, cached) {
@@ -595,6 +642,8 @@ function createShotBoundaryService({
       sourceSampleVideoId: cached.cache.sampleVideoId,
       cacheKey: cached.cache.cacheKey,
       sourceTurnId: analysis.agent?.turnId ?? null,
+      sourceCreatedAt: analysis.createdAt ?? null,
+      analysisFps: analysis.analysisSampling?.fps ?? context.analysisFps,
       boundaryCount: analysis.boundaries?.length ?? 0,
       shotCount: analysis.shots?.length ?? 0,
       cacheEligibility: cached.cacheEligibility ?? null,
@@ -628,6 +677,23 @@ function createShotBoundaryService({
   }
 
   return { enqueue, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
+}
+
+function appendShotBoundaryHistory(history, analysis, traceId) {
+  const entries = Array.isArray(history) ? history : [];
+  const next = {
+    artifactId: analysis?.artifactId ?? null,
+    status: analysis?.status ?? "failed",
+    resultOrigin: analysis?.resultOrigin ?? "new_turn",
+    analysisFps: analysis?.analysisSampling?.fps ?? null,
+    boundaryCount: analysis?.boundaries?.length ?? 0,
+    shotCount: analysis?.shots?.length ?? 0,
+    turnId: analysis?.agent?.turnId ?? null,
+    traceId: traceId ?? null,
+    createdAt: analysis?.createdAt ?? new Date().toISOString(),
+    validatorCode: analysis?.validation?.validatorCode ?? null,
+  };
+  return [...entries, next];
 }
 
 function isInterruptedPreAgentJob(job) {
