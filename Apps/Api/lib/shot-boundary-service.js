@@ -14,6 +14,7 @@ const {
   cacheParams,
   codedError,
   prepareInput,
+  resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
 } = require("./shot-boundary-analysis");
@@ -21,6 +22,7 @@ const {
 const STAGES = {
   inputPrepared: "shot.input_prepare",
   contactSheetPrepared: "shot.contact_sheet",
+  cacheReuse: "shot.cache_reuse",
   threadAcquired: "shot.thread_acquire",
   turnStarted: "shot.boundary_analyze.submit",
   turnCollected: "shot.boundary_analyze.collect",
@@ -62,6 +64,8 @@ function createShotBoundaryService({
   async function runAnalysis(context) {
     let lease = null;
     try {
+      context.skillPath = skillPath;
+      context.skillHash = await resolveSkillHash(skillPath);
       const prepared = await runStage(context, STAGES.inputPrepared, 20, {
         artifactId: context.artifactId,
         parentArtifactId: context.sampleArtifact.sampleVideo.artifactId,
@@ -104,7 +108,8 @@ function createShotBoundaryService({
       });
       const cached = await findCachedArtifact(context, prepared, contactSheets);
       if (cached) {
-        await attachAnalysis(context.sampleVideoId, cached);
+        await logCacheReuse(context, cached);
+        await attachAnalysis(context.sampleVideoId, cached.analysis);
         jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100 });
         return;
       }
@@ -420,11 +425,46 @@ function createShotBoundaryService({
     const cache = await artifactIndex.findCacheEntry({
       fileHash,
       stageName: STAGES.resultWritten,
-      params: cacheParams(prepared, contactSheets),
+      params: cacheParams(prepared, contactSheets, { skillHash: context.skillHash }),
     });
     if (!cache?.sampleVideoId) return null;
     const artifact = await artifactIndex.loadItem(cache.sampleVideoId);
-    return artifact?.shotBoundaryAnalysis ?? null;
+    const analysis = artifact?.shotBoundaryAnalysis ?? null;
+    return analysis ? { cache, analysis } : null;
+  }
+
+  async function logCacheReuse(context, cached) {
+    const analysis = cached.analysis;
+    const startedAt = Date.now();
+    context.traceContext = nextStage(context.traceContext);
+    const outputSummary = {
+      sourceSampleVideoId: cached.cache.sampleVideoId,
+      cacheKey: cached.cache.cacheKey,
+      sourceTurnId: analysis.agent?.turnId ?? null,
+      boundaryCount: analysis.boundaries?.length ?? 0,
+      shotCount: analysis.shots?.length ?? 0,
+    };
+    await logger.writeStageLog({
+      traceContext: context.traceContext,
+      stageName: STAGES.cacheReuse,
+      event: "stage.start",
+      artifactId: context.artifactId,
+      parentArtifactId: analysis.parentArtifactId ?? context.sampleArtifact?.sampleVideo?.artifactId ?? null,
+      inputSummary: {
+        sampleVideoId: context.sampleVideoId,
+        sourceSampleVideoId: cached.cache.sampleVideoId,
+        cacheKey: cached.cache.cacheKey,
+      },
+    });
+    await logger.writeStageLog({
+      traceContext: context.traceContext,
+      stageName: STAGES.cacheReuse,
+      event: "stage.end",
+      artifactId: context.artifactId,
+      parentArtifactId: analysis.parentArtifactId ?? context.sampleArtifact?.sampleVideo?.artifactId ?? null,
+      outputSummary,
+      durationMs: Date.now() - startedAt,
+    });
   }
 
   async function resolveExistingFileHash(sampleVideoId) {
@@ -450,6 +490,8 @@ function buildAgentRun({ context, lease, turn, prepared, contactSheets }) {
   return {
     provider: "codex-appserver",
     role: ROLE,
+    skillPath: context.skillPath ?? SKILL_PATH,
+    skillHash: context.skillHash ?? null,
     leaseId: lease.lease_id,
     threadId: lease.thread_id,
     turnId: turn.turnId ?? null,
@@ -482,6 +524,8 @@ function createRecoveredContext({ job, agentRun, sampleArtifact }) {
       stageId: `stage_recover_${Date.now()}`,
     },
     artifactId: agentRun.artifactId,
+    skillPath: agentRun.skillPath ?? SKILL_PATH,
+    skillHash: agentRun.skillHash ?? null,
     job,
     activeStage: null,
   };

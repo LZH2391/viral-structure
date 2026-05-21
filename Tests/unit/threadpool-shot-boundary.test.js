@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
 const { normalizeBoundaryCandidates, buildShotsFromBoundaries } = require("../../Apps/Api/lib/shot-boundary-analysis");
@@ -220,6 +221,70 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId }]);
 });
 
+test("shot boundary skill content change misses old shot cache", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "shot-skill-hash-"));
+  const skillPath = path.join(tempRoot, "SKILL.md");
+  await fs.writeFile(skillPath, "new skill content", "utf8");
+  const oldSkillHash = hashText("old skill content");
+  let startTurnCount = 0;
+  const cacheLookups = [];
+  const harness = await createShotHarness({
+    skillPath,
+    artifactIndex: {
+      findCacheEntry: async ({ params }) => {
+        cacheLookups.push(params);
+        return params.skillHash === oldSkillHash ? { sampleVideoId: "sample_cached", cacheKey: "old_cache" } : null;
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        startTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+    },
+  });
+
+  await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+
+  assert.equal(cacheLookups.length, 1);
+  assert.equal(cacheLookups[0].skillHash, hashText("new skill content"));
+  assert.notEqual(cacheLookups[0].skillHash, oldSkillHash);
+  assert.equal(startTurnCount, 1);
+});
+
+test("shot boundary cache hit skips turn and writes cache reuse log", async () => {
+  let startTurnCount = 0;
+  const cachedAnalysis = createCachedShotAnalysis();
+  const harness = await createShotHarness({
+    artifactIndex: {
+      findCacheEntry: async () => ({ sampleVideoId: "sample_cached", cacheKey: "cache_1" }),
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        startTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
+
+  assert.equal(startTurnCount, 0);
+  assert.equal(job.status, "processed");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_cached");
+  assert.equal(cacheReuseLog.outputSummary.sourceSampleVideoId, "sample_cached");
+  assert.equal(cacheReuseLog.outputSummary.cacheKey, "cache_1");
+  assert.equal(cacheReuseLog.outputSummary.sourceTurnId, "turn_cached");
+  assert.equal(cacheReuseLog.outputSummary.boundaryCount, 0);
+  assert.equal(cacheReuseLog.outputSummary.shotCount, 1);
+});
+
 test("shot boundary keeps Chinese reason text without mojibake", async () => {
   const harness = await createShotHarness({
     appServer: {
@@ -433,7 +498,7 @@ function createArtifact() {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -507,6 +572,7 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     getItem: async () => ({ fileHash: "hash_1" }),
     registerSampleArtifact: async () => ({ ok: true }),
     loadItem: async () => null,
+    ...artifactIndexOverrides,
   };
   const contactSheetGenerator = {
     generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
@@ -519,6 +585,7 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     artifactIndex,
     threadPool,
     contactSheetGenerator,
+    skillPath,
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
       collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
@@ -598,12 +665,44 @@ function createContactSheets(prepared, sampleDir) {
   ];
 }
 
+function createCachedShotAnalysis() {
+  return {
+    artifactId: "artifact_cached_shot",
+    parentArtifactId: "artifact_sample",
+    type: "shot-boundary-analysis",
+    status: "processed",
+    sourceFrameArtifactIds: [],
+    extractSampling: { requestedFps: 3, targetFrameCount: 6, actualFrameCount: 6, maxFrames: 120 },
+    analysisSampling: { fps: 3, stride: 1 },
+    contactSheets: [],
+    boundaryCandidateArtifacts: [],
+    boundaries: [],
+    agent: {
+      provider: "codex-appserver",
+      role: "shot-boundary-analyzer",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
+      skillHash: "cached_hash",
+      threadId: "thread_cached",
+      leaseId: "lease_cached",
+      turnId: "turn_cached",
+      sheetCount: 2,
+      inputMode: "multi_contact_sheet",
+    },
+    shots: [{ id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.4, reason: "未检测到明确切镜边界" }],
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function rootRuntime(name) {
   return path.join("C:\\Runtime", name);
 }
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hashText(value) {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 function response(payload, status = 200) {

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T17:34:36.309838+08:00",
+  "updated_at": "2026-05-21T17:47:16.397481+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -21,16 +21,50 @@
       "counts": {
         "initializing": 0,
         "idle": 1,
-        "leased": 0,
+        "leased": 2,
         "retired": 0,
         "discarded": 0,
-        "active_leases": 0
+        "active_leases": 2
       },
-      "active_lease_ids": [],
-      "active_leases": [],
+      "active_lease_ids": [
+        "9a2a61f8-c559-4d10-b338-6f9da81a0656",
+        "be50bef0-df61-4b04-8a5c-635182417728"
+      ],
+      "active_leases": [
+        {
+          "lease_id": "9a2a61f8-c559-4d10-b338-6f9da81a0656",
+          "thread_id": "019e49e6-5e4c-7122-9c63-9e38feb79592",
+          "owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
+          "last_seen_at": "2026-05-21T17:46:46.394610+08:00",
+          "thread_status": "leased"
+        },
+        {
+          "lease_id": "be50bef0-df61-4b04-8a5c-635182417728",
+          "thread_id": "019e49e3-0885-7a22-a320-d26803679021",
+          "owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
+          "last_seen_at": "2026-05-21T17:38:14.534440+08:00",
+          "thread_status": "leased"
+        }
+      ],
       "thread_entries": [
         {
           "thread_id": "019e49e3-0885-7a22-a320-d26803679021",
+          "thread_status": "leased",
+          "lease_id": "be50bef0-df61-4b04-8a5c-635182417728",
+          "owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
+          "last_owner_id": "trace_77622892-ac42-4bae-9ef8-0f7d5e00bd52",
+          "last_seen_at": "2026-05-21T17:38:14.534440+08:00"
+        },
+        {
+          "thread_id": "019e49e6-5e4c-7122-9c63-9e38feb79592",
+          "thread_status": "leased",
+          "lease_id": "9a2a61f8-c559-4d10-b338-6f9da81a0656",
+          "owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
+          "last_owner_id": "trace_502cb757-5be7-4c95-a082-4aa411f9e584",
+          "last_seen_at": "2026-05-21T17:46:46.394610+08:00"
+        },
+        {
+          "thread_id": "019e49ee-2e30-7921-9b22-be3f39481695",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

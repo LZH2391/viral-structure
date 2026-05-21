@@ -1,4 +1,6 @@
 const path = require("path");
+const fs = require("fs/promises");
+const fsSync = require("fs");
 const { randomUUID, createHash } = require("crypto");
 
 const ROLE = "shot-boundary-analyzer";
@@ -111,7 +113,8 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     agent: {
       provider: "codex-appserver",
       role: ROLE,
-      skillPath: SKILL_PATH,
+      skillPath: context.skillPath ?? SKILL_PATH,
+      skillHash: context.skillHash ?? skillContentHashSync(context.skillPath ?? SKILL_PATH),
       threadId: lease.thread_id,
       leaseId: lease.lease_id,
       turnId: turn.turnId,
@@ -240,7 +243,8 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
     agent: {
       provider: "codex-appserver",
       role: ROLE,
-      skillPath: SKILL_PATH,
+      skillPath: context.skillPath ?? SKILL_PATH,
+      skillHash: context.skillHash ?? skillContentHashSync(context.skillPath ?? SKILL_PATH),
       threadId: agentRun?.threadId ?? null,
       leaseId: agentRun?.leaseId ?? null,
       turnId: agentRun?.turnId ?? null,
@@ -253,7 +257,7 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
   };
 }
 
-function cacheParams(input, contactSheets) {
+function cacheParams(input, contactSheets, options = {}) {
   return {
     sourceArtifactId: input.sourceArtifactId,
     extractSampling: input.extractSampling,
@@ -265,8 +269,29 @@ function cacheParams(input, contactSheets) {
       layout: sheet.layout,
       constraints: sheet.constraints,
     })),
-    skillHash: createHash("sha256").update(SKILL_PATH).digest("hex").slice(0, 16),
+    skillHash: options.skillHash ?? skillContentHashSync(options.skillPath ?? SKILL_PATH),
   };
+}
+
+async function resolveSkillHash(skillPath = SKILL_PATH) {
+  try {
+    const content = await fs.readFile(skillPath, "utf8");
+    return contentHash(content);
+  } catch {
+    return contentHash(String(skillPath ?? ""));
+  }
+}
+
+function contentHash(value) {
+  return createHash("sha256").update(String(value ?? "")).digest("hex").slice(0, 16);
+}
+
+function skillContentHashSync(skillPath = SKILL_PATH) {
+  try {
+    return contentHash(fsSync.readFileSync(skillPath, "utf8"));
+  } catch {
+    return contentHash(String(skillPath ?? ""));
+  }
 }
 
 function safeError(error, stageName) {
@@ -451,6 +476,7 @@ module.exports = {
   cacheParams,
   codedError,
   prepareInput,
+  resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
   sanitizeForAppServerText,

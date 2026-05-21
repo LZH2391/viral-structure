@@ -280,7 +280,7 @@ function stageParams(artifact, stageName) {
         layout: sheet.layout ?? null,
         constraints: sheet.constraints ?? null,
       })),
-      skillHash: crypto.createHash("sha256").update(artifact.shotBoundaryAnalysis?.agent?.skillPath ?? "").digest("hex").slice(0, 16),
+      skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     };
   }
   return {};
