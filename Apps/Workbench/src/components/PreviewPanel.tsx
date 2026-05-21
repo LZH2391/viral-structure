@@ -3,6 +3,7 @@ import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, MediaDerivative,
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
 import { fitMediaViewport } from "../utils/mediaViewport";
+import { buildAudioFeatureMarkers } from "../utils/audioFeatureMarkers";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
 import { useElementSize } from "../hooks/useElementSize";
 
@@ -231,23 +232,6 @@ function mediaLabel(kind: MediaKind): string {
 
 function isVideoDerivative(item: MediaDerivative | null) {
   return item?.type === "original-video" || item?.type === "normalized-video";
-}
-
-function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {
-  if (!audioFeatures || audioFeatures.status === "degraded") return [];
-  const nearestRms = (time: number) => {
-    const frames = audioFeatures.energyFrames ?? [];
-    if (!frames.length) return null;
-    let best = frames[0];
-    for (const frame of frames) {
-      if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
-    }
-    return best.rms;
-  };
-  return [
-    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
-    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
-  ].sort((a, b) => a.time - b.time);
 }
 
 function markerLeft(time: number, duration?: number | null) {

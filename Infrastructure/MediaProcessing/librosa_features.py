@@ -34,7 +34,8 @@ def downsample_energy(times, rms_values, max_frames):
         rms_value = finite_or_none(rms)
         if time_value is None or rms_value is None:
             continue
-        pairs.append({"time": round(time_value, 4), "rms": round(rms_value, 6)})
+        dbfs_value = 20 * math.log10(max(rms_value, 0.000001))
+        pairs.append({"time": round(time_value, 4), "rms": round(rms_value, 6), "dbfs": round(dbfs_value, 3)})
     if max_frames <= 0 or len(pairs) <= max_frames:
         return pairs
     stride = math.ceil(len(pairs) / max_frames)

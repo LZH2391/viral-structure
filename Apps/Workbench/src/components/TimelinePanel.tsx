@@ -2,6 +2,7 @@ import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
+import { buildAudioFeatureMarkers } from "../utils/audioFeatureMarkers";
 import { clampVisibleSeconds, createTimelineMetrics, frameLeft, timeToTimelineLeft, visibleFrames } from "../utils/timeline";
 import { useElementSize } from "../hooks/useElementSize";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
@@ -283,23 +284,6 @@ function resolveTimelinePlaybackParentArtifactId(activeMediaKind: MediaKind, sam
   if (activeMediaKind === "audio" || activeMediaKind === "audioFeature") return selectedAudio?.parentArtifactId ?? sampleVideo?.artifactId ?? null;
   if (activeMediaKind === "subtitle") return subtitles?.parentArtifactId ?? sampleVideo?.artifactId ?? null;
   return sampleVideo?.parentArtifactId ?? null;
-}
-
-function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {
-  if (!audioFeatures || audioFeatures.status === "degraded") return [];
-  const nearestRms = (time: number) => {
-    const frames = audioFeatures.energyFrames ?? [];
-    if (!frames.length) return null;
-    let best = frames[0];
-    for (const frame of frames) {
-      if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
-    }
-    return best.rms;
-  };
-  return [
-    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
-    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
-  ].sort((a, b) => a.time - b.time);
 }
 
 function markerLeftPercent(time: number, duration: number) {

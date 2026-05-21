@@ -33,7 +33,32 @@ export function buildVisualEnvelope(audioBuffer: AudioEnvelopeSource, count: num
       rms: sampleCount ? Math.sqrt(energy / sampleCount) : 0,
     });
   }
+  if (isLowSignal(buckets)) return buckets.map((bucket) => clamp01(bucket.rms / 0.08));
   return normalizeEnvelope(buckets);
+}
+
+export function isLowSignalBuckets(audioBuffer: AudioEnvelopeSource, count: number): boolean {
+  const buckets: EnvelopeBucket[] = [];
+  const channelCount = audioBuffer.numberOfChannels || 1;
+  const step = Math.max(1, Math.floor(audioBuffer.length / count));
+  for (let index = 0; index < count; index += 1) {
+    let peak = 0;
+    let energy = 0;
+    let sampleCount = 0;
+    const start = index * step;
+    const end = Math.min(start + step, audioBuffer.length);
+    for (let channel = 0; channel < channelCount; channel += 1) {
+      const data = audioBuffer.getChannelData(channel);
+      for (let sample = start; sample < end; sample += 1) {
+        const value = Math.abs(data[sample] || 0);
+        peak = Math.max(peak, value);
+        energy += value * value;
+        sampleCount += 1;
+      }
+    }
+    buckets.push({ peak, rms: sampleCount ? Math.sqrt(energy / sampleCount) : 0 });
+  }
+  return isLowSignal(buckets);
 }
 
 function normalizeEnvelope(buckets: EnvelopeBucket[]): number[] {
@@ -77,6 +102,15 @@ function stretchVisualRange(values: number[]): number[] {
     const normalized = clamp01((value - floor) / range);
     return Math.max(0.1, Math.min(0.98, 0.1 + Math.pow(normalized, 0.72) * 0.88));
   });
+}
+
+function isLowSignal(buckets: EnvelopeBucket[]): boolean {
+  const dbValues = buckets.map((bucket) => amplitudeToDb(bucket.rms)).filter((value) => Number.isFinite(value)).sort((first, second) => first - second);
+  if (!dbValues.length) return true;
+  const noiseFloor = percentile(dbValues, 0.1);
+  const activeThreshold = Math.max(-48, noiseFloor + 10);
+  const activeRatio = dbValues.filter((value) => value >= activeThreshold).length / dbValues.length;
+  return percentile(dbValues, 0.95) < -50 || activeRatio < 0.03;
 }
 
 function amplitudeToDb(value: number): number {

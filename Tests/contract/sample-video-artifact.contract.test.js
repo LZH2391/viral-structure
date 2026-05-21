@@ -57,13 +57,18 @@ test("audio feature artifact keeps source lineage and raw feature arrays", () =>
       tempoBpm: 120,
       beats: [0.25, 1.25],
       onsets: [0.5],
-      energyFrames: [{ time: 0.25, rms: 0.4 }],
+      energyFrames: [{ time: 0.25, rms: 0.4, dbfs: -7.96 }],
+      loudnessSummary: { rmsP50Dbfs: -16, rmsP95Dbfs: -8, peakP95Dbfs: -7, noiseFloorDbfs: -40, activeRatio: 0.6, lowSignal: false, gateReason: null },
+      beatFrames: [{ time: 0.25, rms: 0.4, dbfs: -7.96, energyRank: 0.9, valid: true, reason: null }],
+      onsetFrames: [{ time: 0.5, rms: 0.3, dbfs: -10.46, energyRank: 0.7, valid: true, reason: null }],
       spectralSummary: { centroidMean: 1000 },
-      analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "music" },
+      analysisParams: { librosaVersion: "0.11.0", sampleRate: 22050, hopLength: 512, nFft: 2048, sourceRole: "music", energyGate: { markerThresholdDbfs: -45 } },
     },
   };
   assert.equal(artifact.processingOptions.enableAudioFeatureAnalysis, true);
   assert.equal(artifact.audioFeatures.parentArtifactId, "artifact_music");
   assert.equal(artifact.audioFeatures.sourceAudioArtifactId, "artifact_music");
   assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
+  assert.equal(artifact.audioFeatures.beatFrames[0].valid, true);
+  assert.equal(artifact.audioFeatures.loudnessSummary.lowSignal, false);
 });
