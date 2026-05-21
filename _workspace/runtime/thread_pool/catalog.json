@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-21T14:35:47.531069+08:00",
+  "updated_at": "2026-05-21T14:48:27.616771+08:00",
   "config_path": "C:\\ByteDanceFullStack\\Infrastructure\\ThreadPool\\thread_roles.json",
   "orphan_ttl_minutes": 30,
   "roles": {
@@ -30,7 +30,7 @@
       "active_leases": [],
       "thread_entries": [
         {
-          "thread_id": "019e4934-352e-70f1-b0c8-4f99df10ef0c",
+          "thread_id": "019e494a-d329-7b31-86dd-5fa764b92fcd",
           "thread_status": "idle",
           "lease_id": null,
           "owner_id": null,

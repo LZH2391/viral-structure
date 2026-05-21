@@ -1,0 +1,33 @@
+{
+  "jobs": [
+    {
+      "jobId": "job_060bc755-2c53-4999-90eb-5d70ffc1a824",
+      "sampleVideoId": "sample_7296cef1-07fb-4b06-b93e-7d906ba19470",
+      "stage": "processed",
+      "status": "processed",
+      "progress": 100,
+      "traceId": "trace_7246928f-d900-4b9d-8a6a-870bbfb06546",
+      "errorSummary": null,
+      "agentRun": {
+        "provider": "codex-appserver",
+        "role": "shot-boundary-analyzer",
+        "leaseId": "3007f552-ade0-4a75-be59-89ce1fcf32da",
+        "threadId": "019e4934-352e-70f1-b0c8-4f99df10ef0c",
+        "turnId": "019e494a-bbf6-7201-826c-caf0536951c2",
+        "traceId": "trace_7246928f-d900-4b9d-8a6a-870bbfb06546",
+        "artifactId": "artifact_0658c44e-4535-4150-9216-efd46cd30cc7",
+        "parentArtifactId": "artifact_35fa54a5-48c8-4d10-8955-1f009c1fe659",
+        "sampleVideoId": "sample_7296cef1-07fb-4b06-b93e-7d906ba19470",
+        "analysisFps": 1,
+        "status": "completed",
+        "preparedInputSummary": {
+          "frameCount": 19,
+          "stride": 3,
+          "analysisFps": 1
+        },
+        "startedAt": "2026-05-21T06:48:15.129Z",
+        "updatedAt": "2026-05-21T06:48:27.552Z"
+      }
+    }
+  ]
+}

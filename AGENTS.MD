@@ -3,7 +3,7 @@
 ### Git 处理
 - 默认不自动提交 `commit`，由用户手动提交。
 - 每完成一轮可交付的变更后，提醒用户需要手动提交，并给出本次相关文件、验证结果、和建议 commit message。
-- 建议 commit message基于你自己的改动，不要浪费时间去看git stauts,git diff什么的。
+- 建议 commit message基于你自己的改动，不要浪费时间去看git stauts,git diff，遗留什么的。
 - 只有在用户明确要求“提交 / commit / 直接提交”时，才执行提交。
 
 ### 中间产物
