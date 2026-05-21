@@ -254,6 +254,15 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(property, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
 });
 
+test("property panel treats processed passed shot data without boundaries as invalid result", () => {
+  const root = path.resolve(__dirname, "../..");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+
+  assert.match(property, /return boundaries\.length > 0 && shots\.length > 0;/);
+  assert.match(property, /hasValidShotResult \? `\$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
+  assert.match(property, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
+});
+
 test("workbench workspace layout supports persisted splitters", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");

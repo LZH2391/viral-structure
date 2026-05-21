@@ -431,5 +431,5 @@ function isValidShotResult(analysis?: ShotBoundaryAnalysisArtifact | null) {
     && shots.length === 1
     && /未检测到明确切镜边界/.test(String(shots[0]?.reason ?? ""));
   if (looksLikeLegacyFallback) return false;
-  return shots.length > 0;
+  return boundaries.length > 0 && shots.length > 0;
 }
