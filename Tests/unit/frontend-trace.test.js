@@ -88,6 +88,9 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   assert.match(worker, /audio_decode_failed/);
   assert.match(worker, /import \{ buildVisualEnvelope \}/);
   assert.match(hook, /audio\.waveform\.decode/);
+  assert.match(hook, /durationSeconds/);
+  assert.match(hook, /resolveDuration/);
+  assert.match(hook, /seekAudio/);
   assert.match(hook, /fallbackReason/);
   assert.match(hook, /audio_empty_peaks/);
   assert.match(envelope, /buildVisualEnvelope\(audioBuffer/);
@@ -117,6 +120,7 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const preview = read(root, "Apps/Workbench/src/components/PreviewPanel.tsx");
+  const previewCss = read(root, "Apps/Workbench/styles/preview-panel.css");
   const resize = read(root, "Apps/Workbench/src/hooks/useElementSize.ts");
   const state = read(root, "Apps/Workbench/src/state.ts");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
@@ -129,6 +133,7 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(preview, /audioSeekRequest/);
   assert.match(app, /setAudioSeekRequest/);
   assert.match(app, /resolveAudioFeatureSourceId/);
+  assert.match(previewCss, /audio-waveform-feature-marker[\s\S]*width: 2px/);
   assert.match(preview, /letterboxInsets/);
   assert.match(state, /width: artifact\.metadata\.width/);
   assert.match(state, /aspectRatio: buildAspectRatio/);
@@ -139,10 +144,15 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
 test("upload options and optional media tracks are visible in workbench UI", () => {
   const root = path.resolve(__dirname, "../..");
   const resource = read(root, "Apps/Workbench/src/components/ResourcePanel.tsx");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
+  assert.match(app, /useState\(3\)/);
+  assert.match(app, /const \[enableAudioSeparation, setEnableAudioSeparation\] = useState\(true\)/);
+  assert.match(app, /const \[enableSubtitleRecognition, setEnableSubtitleRecognition\] = useState\(true\)/);
+  assert.match(app, /const \[enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis\] = useState\(true\)/);
   assert.match(api, /\/api\/capabilities/);
   assert.match(api, /enableAudioSeparation/);
   assert.match(api, /enableSubtitleRecognition/);

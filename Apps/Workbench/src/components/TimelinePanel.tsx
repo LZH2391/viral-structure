@@ -86,6 +86,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
     url: audioUrl,
     active: false,
     animate: false,
+    durationSeconds: audioFeatures?.durationSeconds ?? sampleVideo?.duration ?? null,
     trace: {
       uiTraceId,
       backendTraceId: backendTraceId ?? null,

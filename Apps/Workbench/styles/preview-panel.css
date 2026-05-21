@@ -147,30 +147,33 @@
 
 .audio-waveform-feature-marker {
   position: absolute;
-  top: 0;
-  width: 8px;
-  height: 100%;
+  top: 18px;
+  bottom: 18px;
+  width: 2px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 2px;
   padding: 0;
-  transform: translateX(-4px);
+  transform: translateX(-1px);
   cursor: pointer;
-  opacity: 0.86;
+  opacity: 0.72;
   pointer-events: auto;
 }
 
 .audio-waveform-feature-marker.beat {
-  background: rgba(56, 189, 248, 0.88);
+  background: rgba(56, 189, 248, 0.78);
 }
 
 .audio-waveform-feature-marker.onset {
-  width: 6px;
-  background: rgba(245, 158, 11, 0.9);
+  top: 40%;
+  bottom: 18px;
+  width: 2px;
+  background: rgba(245, 158, 11, 0.86);
 }
 
 .audio-waveform-feature-marker.active {
-  outline: 2px solid #f8fafc;
-  outline-offset: 1px;
+  width: 3px;
+  transform: translateX(-1.5px);
+  box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.22);
   opacity: 1;
 }
 

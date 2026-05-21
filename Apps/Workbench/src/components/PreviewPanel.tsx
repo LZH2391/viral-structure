@@ -39,6 +39,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(props.audioFeatures), [props.audioFeatures]);
   const selectedMarker = useMemo(() => audioFeatureMarkers.find((marker) => marker.id === props.selectedAudioFeatureMarkerId) ?? null, [audioFeatureMarkers, props.selectedAudioFeatureMarkerId]);
+  const audioDuration = props.audioFeatures?.durationSeconds ?? sampleVideo?.duration ?? null;
 
   const { renderWithProgress } = useAudioWaveform({
     audio: audioRef.current,
@@ -47,6 +48,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
     url: waveformUrl,
     active: activeMedia.kind === "audio",
     animate: true,
+    durationSeconds: audioDuration,
     trace: {
       uiTraceId: props.uiTraceId,
       backendTraceId: props.backendTraceId ?? null,
@@ -80,9 +82,10 @@ export function PreviewPanel(props: PreviewPanelProps) {
     if (!audio) return undefined;
     const targetTime = props.audioSeekRequest.time;
     const seek = () => {
-      const maxTime = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : targetTime;
-      audio.currentTime = Math.max(0, Math.min(targetTime, maxTime));
-      renderWithProgress(maxTime > 0 ? audio.currentTime / maxTime : 0);
+      const maxTime = resolveSeekDuration(audio, audioDuration, targetTime);
+      const nextTime = Math.max(0, Math.min(targetTime, maxTime));
+      audio.currentTime = nextTime;
+      renderWithProgress(maxTime > 0 ? nextTime / maxTime : 0);
     };
     audio.addEventListener("loadedmetadata", seek, { once: true });
     audio.addEventListener("canplay", seek, { once: true });
@@ -91,7 +94,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
       audio.removeEventListener("loadedmetadata", seek);
       audio.removeEventListener("canplay", seek);
     };
-  }, [activeMedia.kind, audioRef, props.audioSeekRequest, renderWithProgress]);
+  }, [activeMedia.kind, audioDuration, audioRef, props.audioSeekRequest, renderWithProgress]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -240,4 +243,10 @@ function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact |
 function markerLeft(time: number, duration?: number | null) {
   const safeDuration = Number.isFinite(duration) && duration && duration > 0 ? Number(duration) : Math.max(1, time);
   return Math.max(0, Math.min(100, (time / safeDuration) * 100));
+}
+
+function resolveSeekDuration(audio: HTMLAudioElement, fallbackDuration: number | null | undefined, targetTime: number) {
+  if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+  if (Number.isFinite(fallbackDuration) && fallbackDuration && fallbackDuration > 0) return Number(fallbackDuration);
+  return Math.max(1, targetTime);
 }

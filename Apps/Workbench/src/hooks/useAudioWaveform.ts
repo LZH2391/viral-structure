@@ -23,6 +23,7 @@ type WaveformOptions = {
   url: string | null;
   active: boolean;
   animate?: boolean;
+  durationSeconds?: number | null;
   trace?: {
     uiTraceId: string;
     backendTraceId?: string | null;
@@ -36,7 +37,7 @@ const WAVEFORM_CACHE_VERSION = "visual-envelope-v6";
 const WAVEFORM_PEAK_COUNT = 900;
 const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.16 + Math.abs(Math.sin(index / 5) * Math.cos(index / 13)) * 0.5);
 
-export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true, trace }: WaveformOptions) {
+export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true, durationSeconds, trace }: WaveformOptions) {
   const peaksRef = useRef<number[]>([]);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
@@ -48,12 +49,12 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
 
   const render = useCallback(
     (externalProgress?: number | null) => {
-      const duration = audio && Number.isFinite(audio.duration) ? audio.duration : 0;
+      const duration = audio ? resolveDuration(audio, durationSeconds) : 0;
       const progress = externalProgress ?? (duration ? clamp(audio!.currentTime / duration) : 0);
       drawCanvas(mainCanvas, { peaks: peaksRef.current, progress, hoverRatio: hoverRatioRef.current }, mainStaticRef.current);
       drawCanvas(miniCanvas, { peaks: peaksRef.current, progress, hoverRatio: hoverRatioRef.current }, miniStaticRef.current);
     },
-    [audio, mainCanvas, miniCanvas],
+    [audio, durationSeconds, mainCanvas, miniCanvas],
   );
 
   const rebuildStaticCaches = useCallback(() => {
@@ -206,11 +207,12 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     (canvas: HTMLCanvasElement | null) => {
       if (!canvas || !audio) return () => undefined;
       const seek = (event: PointerEvent) => {
-        const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        const duration = resolveDuration(audio, durationSeconds);
         if (!duration) return;
         const rect = canvas.getBoundingClientRect();
-        audio.currentTime = duration * clamp((event.clientX - rect.left) / Math.max(rect.width, 1));
-        render();
+        const targetTime = duration * clamp((event.clientX - rect.left) / Math.max(rect.width, 1));
+        seekAudio(audio, targetTime, duration);
+        render(targetTime / duration);
       };
       const onPointerDown = (event: PointerEvent) => {
         if (!url) return;
@@ -236,7 +238,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
         canvas.removeEventListener("pointerleave", onPointerLeave);
       };
     },
-    [audio, render, url],
+    [audio, durationSeconds, render, url],
   );
 
   useEffect(() => bindCanvas(mainCanvas), [bindCanvas, mainCanvas]);
@@ -251,6 +253,28 @@ function buildStaticCanvas(canvas: HTMLCanvasElement | null, peaks: number[], ra
   const width = Math.max(1, Math.round((rect.width || canvas.width) * ratio));
   const height = Math.max(1, Math.round((rect.height || canvas.height) * ratio));
   return createStaticWaveform(width, height, peaks);
+}
+
+function resolveDuration(audio: HTMLAudioElement, fallbackDuration?: number | null) {
+  if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
+  return Number.isFinite(fallbackDuration) && fallbackDuration && fallbackDuration > 0 ? Number(fallbackDuration) : 0;
+}
+
+function seekAudio(audio: HTMLAudioElement, time: number, duration: number) {
+  const targetTime = Math.max(0, Math.min(time, duration));
+  const apply = () => {
+    try {
+      audio.currentTime = targetTime;
+    } catch {
+      audio.addEventListener("loadedmetadata", apply, { once: true });
+      audio.load();
+    }
+  };
+  if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+    audio.addEventListener("loadedmetadata", apply, { once: true });
+    audio.addEventListener("canplay", apply, { once: true });
+  }
+  apply();
 }
 
 type DecodeResult = { ok: true; peaks: number[] } | { ok: false; error: WaveformError };
