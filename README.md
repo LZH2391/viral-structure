@@ -24,13 +24,20 @@
 - Node.js 18+
 - Python 3.10+
 - FFmpeg，可通过 `FFMPEG_BIN` / `FFPROBE_BIN` 指向本机安装路径
-- 本地 CEP Workspace Core / AppServer / ThreadPool 环境
+- Codex AppServer 本地可启动
+- Python 依赖：`pydantic`、`websocket-client`、`fastapi`、`uvicorn`
 - 可选：讯飞 IAT 凭据，用于字幕识别
 
 ## 安装
 
 ```powershell
 npm install
+```
+
+如需运行本仓库内置的 AgentRuntime / ThreadPool，请额外安装 Python 依赖：
+
+```powershell
+python -m pip install pydantic websocket-client fastapi uvicorn
 ```
 
 ## 启动
@@ -63,7 +70,8 @@ http://127.0.0.1:5177/threadpool
 
 本项目不提交 `.env` 文件。需要的本地配置请通过系统环境变量、PowerShell 会话变量或本地私有脚本注入。
 
-- `CEP_WORKSPACE_CORE_ROOT`：本地 CEP Workspace Core 根目录。
+- `PYTHON_RUNTIME_ROOT`：本仓库内置 AgentRuntime 根目录，默认 `Infrastructure\AgentRuntime`。
+- `CEP_WORKSPACE_CORE_ROOT`：兼容旧版 CEP Workspace Core 的 fallback 根目录，非默认必需项。
 - `CODEX_APP_SERVER_WS_URL`：AppServer websocket 地址，默认 `ws://127.0.0.1:8146`。
 - `THREADPOOL_BASE_URL`：ThreadPool HTTP 服务地址。
 - `THREADPOOL_PORT`：本地 ThreadPool 端口。
@@ -116,3 +124,13 @@ git status --short
 ```
 
 确认没有 `.env`、运行素材、调试快照、ThreadPool lease/thread 状态、真实 API 密钥或本地隐私路径进入提交。
+
+## AgentRuntime 说明
+
+shot-boundary 主链路现在默认使用仓库内置的轻量 AgentRuntime：
+
+- `Infrastructure/AgentRuntime/agent_runtime/appserver`
+- `Infrastructure/AgentRuntime/agent_runtime/threadpool`
+- `Infrastructure/AgentRuntime/scripts/thread_pool_service.py`
+
+这套 runtime 只覆盖当前课题所需的 AppServer Session Client 和 Role ThreadPool 最小闭包，不包含 AE 工作流、SDK、workstream 平台。`CEP_WORKSPACE_CORE_ROOT` 仅保留为兼容回退路径，便于对比回归。

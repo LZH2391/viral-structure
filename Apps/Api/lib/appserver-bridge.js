@@ -1,14 +1,20 @@
 const { spawn } = require("child_process");
 const path = require("path");
 
+const DEFAULT_PYTHON_RUNTIME_ROOT = path.resolve(__dirname, "..", "..", "..", "Infrastructure", "AgentRuntime");
 const DEFAULT_CEP_ROOT = "C:\\Users\\Administrator\\AppData\\Roaming\\Adobe\\CEP\\extensions\\AE_WorkspaceCore";
 
-function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT || DEFAULT_CEP_ROOT, python = process.env.PYTHON || "python" } = {}) {
+function createAppServerBridge({
+  pythonRuntimeRoot = process.env.PYTHON_RUNTIME_ROOT || DEFAULT_PYTHON_RUNTIME_ROOT,
+  cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT || DEFAULT_CEP_ROOT,
+  python = process.env.PYTHON || "python",
+} = {}) {
   const bridgePath = path.join(__dirname, "appserver_bridge.py");
 
   async function runTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds = 180 }) {
     const payload = {
       operation: "runTurnWithInputs",
+      pythonRuntimeRoot,
       cepRoot,
       workspaceRoot,
       threadId,
@@ -30,6 +36,7 @@ function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT |
   async function startTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds = 180 }) {
     const payload = {
       operation: "startTurnWithInputs",
+      pythonRuntimeRoot,
       cepRoot,
       workspaceRoot,
       threadId,
@@ -46,6 +53,7 @@ function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT |
   async function collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds = 180 }) {
     const payload = {
       operation: "collectTurnResult",
+      pythonRuntimeRoot,
       cepRoot,
       workspaceRoot,
       threadId,
@@ -58,7 +66,7 @@ function createAppServerBridge({ cepRoot = process.env.CEP_WORKSPACE_CORE_ROOT |
     return result;
   }
 
-  return { runTurnWithInputs, startTurnWithInputs, collectTurnResult };
+  return { pythonRuntimeRoot, runTurnWithInputs, startTurnWithInputs, collectTurnResult };
 }
 
 function appServerError(result, fallbackCode) {
@@ -114,4 +122,4 @@ function runPythonJson({ python, script, payload, timeoutMs }) {
   });
 }
 
-module.exports = { DEFAULT_CEP_ROOT, createAppServerBridge };
+module.exports = { DEFAULT_CEP_ROOT, DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge };

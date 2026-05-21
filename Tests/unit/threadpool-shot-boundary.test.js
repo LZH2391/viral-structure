@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
+const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
 const { normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
@@ -201,6 +202,12 @@ test("threadpool proxy timeout becomes unavailable payload", async () => {
   assert.equal(health.unavailable, true);
   assert.equal(health.error, "threadpool_unavailable");
   assert.match(health.message, /超时/);
+});
+
+test("appserver bridge defaults to in-repo python runtime root", () => {
+  const bridge = createAppServerBridge({ python: "python" });
+  assert.equal(bridge.pythonRuntimeRoot, DEFAULT_PYTHON_RUNTIME_ROOT);
+  assert.match(DEFAULT_PYTHON_RUNTIME_ROOT, /Infrastructure[\\/]AgentRuntime$/);
 });
 
 test("shot boundary warming fails before acquire and writes failed job", async () => {

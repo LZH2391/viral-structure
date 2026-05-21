@@ -1,0 +1,4 @@
+pydantic
+websocket-client
+fastapi
+uvicorn

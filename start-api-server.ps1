@@ -12,6 +12,7 @@ function Start-WorkbenchStack {
   if (-not $env:THREADPOOL_PORT) { $env:THREADPOOL_PORT = "8877" }
   if (-not $env:THREADPOOL_WORKSPACE_ROOT) { $env:THREADPOOL_WORKSPACE_ROOT = $repoRoot }
   if (-not $env:THREADPOOL_CONFIG_PATH) { $env:THREADPOOL_CONFIG_PATH = Join-Path $repoRoot "Infrastructure\ThreadPool\thread_roles.json" }
+  if (-not $env:PYTHON_RUNTIME_ROOT) { $env:PYTHON_RUNTIME_ROOT = Join-Path $repoRoot "Infrastructure\AgentRuntime" }
   if (-not $env:CEP_WORKSPACE_ROOT) { $env:CEP_WORKSPACE_ROOT = "C:\Users\Administrator\AppData\Roaming\Adobe\CEP\extensions" }
   if (-not $env:CEP_WORKSPACE_CORE_ROOT) { $env:CEP_WORKSPACE_CORE_ROOT = Join-Path $env:CEP_WORKSPACE_ROOT "AE_WorkspaceCore" }
 
@@ -26,7 +27,10 @@ function Start-WorkbenchStack {
   $apiUrl = "http://127.0.0.1:$apiPort/"
   $viteUrl = "http://127.0.0.1:$vitePort/"
   $threadPoolHealthUrl = "$($env:THREADPOOL_BASE_URL)/health"
-  $threadPoolScript = Join-Path $env:CEP_WORKSPACE_CORE_ROOT "scripts\thread_pool_service.py"
+  $threadPoolScript = Join-Path $env:PYTHON_RUNTIME_ROOT "scripts\thread_pool_service.py"
+  if (-not (Test-Path $threadPoolScript) -and (Test-Path $env:CEP_WORKSPACE_CORE_ROOT)) {
+    $threadPoolScript = Join-Path $env:CEP_WORKSPACE_CORE_ROOT "scripts\thread_pool_service.py"
+  }
 
   $node = Resolve-CommandPath @("node.exe", "node")
   $npm = Resolve-CommandPath @("npm.cmd", "npm")
@@ -60,7 +64,10 @@ function Start-WorkbenchStack {
       Kind = "threadpool"
       Port = $threadPoolPort
       Ready = { Test-HttpOk $threadPoolHealthUrl }
-      Start = { Start-ManagedProcess "ThreadPool" $python @($threadPoolScript, "--workspace-root", $env:THREADPOOL_WORKSPACE_ROOT, "--config-path", $env:THREADPOOL_CONFIG_PATH, "--port", $env:THREADPOOL_PORT, "--transport-url", $env:CODEX_APP_SERVER_WS_URL) $env:CEP_WORKSPACE_CORE_ROOT }
+      Start = {
+        $threadPoolWorkdir = if ($threadPoolScript.StartsWith($env:PYTHON_RUNTIME_ROOT, [System.StringComparison]::OrdinalIgnoreCase)) { $repoRoot } else { $env:CEP_WORKSPACE_CORE_ROOT }
+        Start-ManagedProcess "ThreadPool" $python @($threadPoolScript, "--workspace-root", $env:THREADPOOL_WORKSPACE_ROOT, "--config-path", $env:THREADPOOL_CONFIG_PATH, "--port", $env:THREADPOOL_PORT, "--transport-url", $env:CODEX_APP_SERVER_WS_URL) $threadPoolWorkdir
+      }
     },
     @{
       Name = "API server"

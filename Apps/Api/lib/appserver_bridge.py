@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -22,10 +23,9 @@ def sanitize_for_appserver_text(value):
 def main() -> int:
     payload = sanitize_for_appserver_text(load_stdin_json())
     operation = payload.get("operation") or "runTurnWithInputs"
-    cep_root = Path(payload["cepRoot"]).resolve()
-    sys.path.insert(0, str(cep_root))
+    install_runtime_paths(payload)
 
-    from ae_workspace_core.appserver.client import AppServerSessionClient  # noqa: WPS433
+    from agent_runtime.appserver.client import AppServerSessionClient  # noqa: WPS433
 
     client = AppServerSessionClient(
         payload["workspaceRoot"],
@@ -47,6 +47,24 @@ def main() -> int:
         return 1
     finally:
         client.close()
+
+
+def install_runtime_paths(payload) -> None:
+    python_runtime_root = payload.get("pythonRuntimeRoot")
+    if python_runtime_root:
+        runtime_root = Path(str(python_runtime_root)).resolve()
+        if runtime_root.exists():
+            sys.path.insert(0, str(runtime_root))
+            return
+
+    local_runtime_root = Path(__file__).resolve().parents[2] / "Infrastructure" / "AgentRuntime"
+    if local_runtime_root.exists():
+        sys.path.insert(0, str(local_runtime_root))
+        return
+
+    compat_root = os.environ.get("CEP_WORKSPACE_CORE_ROOT") or payload.get("cepRoot")
+    if compat_root:
+        sys.path.insert(0, str(Path(str(compat_root)).resolve()))
 
 
 def load_stdin_json():
