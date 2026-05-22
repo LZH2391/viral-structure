@@ -54,9 +54,13 @@ test("workbench upload cancels stale polling and restores local draft", () => {
   assert.match(app, /const uploadTokenRef = useRef\(0\)/);
   assert.match(app, /if \(token !== uploadTokenRef\.current\) return/);
   assert.match(app, /readWorkbenchDraft/);
+  assert.match(app, /getSampleArtifact\(sampleVideoId\)/);
+  assert.match(app, /setSaveStatus\("已同步最新样例"\)/);
+  assert.match(app, /resolveDraftDerivativeId/);
   assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(value\)\)/);
   assert.match(draft, /localStorage\.getItem\(WORKBENCH_DRAFT_STORAGE_KEY\)/);
   assert.match(state, /type: "restore-draft"/);
+  assert.match(state, /case "set-shot-boundary-analysis":[\s\S]*return applySampleArtifact\(state, action\.artifact\)/);
   assert.match(state, /sampleArtifact: SampleArtifact/);
   assert.match(state, /activeUploadJob/);
   assert.match(state, /activeAgentJob/);
@@ -222,7 +226,8 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(agentRunPanel, /CommerceBriefPanel/);
   assert.match(agentRunPanel, /带货总结/);
   assert.match(agentRunPanel, /卖什么/);
-  assert.match(formatters, /legacy_stride_fallback/);
+  assert.match(formatters, /target_grid_nearest_unique/);
+  assert.match(formatters, /isLegacyStride: false/);
   assert.match(app, /normalizeAnalysisFps/);
   assert.match(agentRunPanel, /shot\.shotNo \?\?/);
   assert.match(propertyCss, /\.agent-sampling-preview/);

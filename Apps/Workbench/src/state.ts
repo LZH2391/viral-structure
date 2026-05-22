@@ -116,10 +116,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
         subtitles: action.artifact.subtitles ?? null,
       };
     case "set-shot-boundary-analysis":
-      return {
-        ...state,
-        sampleArtifact: action.artifact,
-      };
+      return applySampleArtifact(state, action.artifact);
     case "set-error":
       return { ...state, errorSummary: action.errorSummary, isUploadingSample: false, uploadStatusText: action.uploadStatusText };
     case "select-media":

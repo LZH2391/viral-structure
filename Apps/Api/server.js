@@ -20,6 +20,7 @@ const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createScriptSegmentService } = require("./lib/script-segment-service");
+const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -105,9 +106,9 @@ function handleJob(res, jobId) {
 }
 
 async function handleArtifact(res, sampleVideoId) {
-  const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-  if (!fs.existsSync(artifactPath)) return sendJson(res, 202, { sampleVideoId, status: "processing" });
-  return sendJson(res, 200, await store.readJson(artifactPath));
+  const artifact = await loadCurrentSampleArtifact({ sampleVideoId, store, artifactIndex });
+  if (!artifact) return sendJson(res, 202, { sampleVideoId, status: "processing" });
+  return sendJson(res, 200, artifact);
 }
 
 async function handleShotBoundary(req, res, sampleVideoId) {

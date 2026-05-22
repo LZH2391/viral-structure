@@ -77,6 +77,22 @@ export function WorkbenchApp() {
     if (draft?.sampleArtifact) {
       dispatch({ type: "restore-draft", draft });
       setSaveStatus("已恢复最近样例");
+      const sampleVideoId = draft.sampleVideoId ?? draft.sampleArtifact.sampleVideoId;
+      getSampleArtifact(sampleVideoId)
+        .then((artifact) => {
+          dispatch({ type: "apply-artifact", artifact });
+          writeWorkbenchDraft({
+            ...draft,
+            sampleVideoId: artifact.sampleVideoId,
+            artifactId: artifact.sampleVideo.artifactId,
+            traceId: artifact.trace?.traceId ?? draft.traceId ?? null,
+            sampleArtifact: artifact,
+            selectedFrameId: artifact.frames.some((frame) => frame.frameId === draft.selectedFrameId) ? draft.selectedFrameId : artifact.frames[0]?.frameId ?? null,
+            selectedDerivativeId: resolveDraftDerivativeId(artifact, draft.selectedDerivativeId),
+          });
+          setSaveStatus("已同步最新样例");
+        })
+        .catch(() => setSaveStatus("已恢复最近样例，最新样例同步失败"));
     }
     if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
     if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob, ({ job, cachedItem }) => {
@@ -843,4 +859,17 @@ export function WorkbenchApp() {
       </button>
     </div>
   );
+}
+
+function resolveDraftDerivativeId(artifact: SampleArtifact, selectedDerivativeId?: string | null) {
+  if (!selectedDerivativeId) return artifact.sampleVideo.normalized.artifactId;
+  const derivativeIds = [
+    artifact.sampleVideo.original.artifactId,
+    artifact.sampleVideo.normalized.artifactId,
+    artifact.cover?.artifactId,
+    artifact.audio?.artifactId,
+    artifact.audioSeparation?.vocal?.artifactId,
+    artifact.audioSeparation?.music?.artifactId,
+  ].filter(Boolean);
+  return derivativeIds.includes(selectedDerivativeId) ? selectedDerivativeId : artifact.sampleVideo.normalized.artifactId;
 }

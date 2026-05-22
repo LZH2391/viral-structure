@@ -54,6 +54,10 @@ test("artifact index lists latest item per file and skips degraded cache entries
   const items = await index.listItems();
   assert.equal(items.length, 1);
   assert.equal(items[0].sampleVideoId, "sample_new");
+  const latestDetail = await index.findLatestItemByFileHash(fileHash);
+  assert.equal(latestDetail.sampleVideoId, "sample_new");
+  assert.equal(latestDetail.artifact.sampleVideoId, "sample_new");
+  assert.equal(latestDetail.artifactTree.some((node) => node.stageName === "sample.frames.extracted"), true);
 
   const rawIndex = await index.readIndex();
   assert.equal(Object.values(rawIndex.cacheEntries).some((entry) => entry.stageName === "sample.subtitle.recognized" && entry.status === "degraded"), false);

@@ -67,10 +67,7 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
     const index = await readIndex();
     const item = index.items[sampleVideoId] ?? null;
     if (!item) return null;
-    return {
-      ...item,
-      artifactTree: buildArtifactTree(item.artifact),
-    };
+    return detailFromItem(item);
   }
 
   async function loadItem(sampleVideoId) {
@@ -104,11 +101,16 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
   }
 
   async function findLatestByFileHash(fileHash) {
+    const item = await findLatestItemByFileHash(fileHash);
+    return item ? summarizeLibraryItem(item) : null;
+  }
+
+  async function findLatestItemByFileHash(fileHash) {
     const index = await readIndex();
     const items = Object.values(index.items)
       .filter((item) => item.fileHash === fileHash)
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-    return items[0] ? summarizeLibraryItem(items[0]) : null;
+    return items[0] ? detailFromItem(items[0]) : null;
   }
 
   return {
@@ -123,7 +125,15 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
     findCacheEntry,
     deleteCacheForItem,
     findLatestByFileHash,
+    findLatestItemByFileHash,
     createCacheKey: (input) => createCacheKey({ version: processorVersion, ...input }),
+  };
+}
+
+function detailFromItem(item) {
+  return {
+    ...item,
+    artifactTree: buildArtifactTree(item.artifact),
   };
 }
 
