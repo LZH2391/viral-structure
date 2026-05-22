@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const sharp = require("sharp");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
+const { isNonTerminalTurnStatus } = require("../../Apps/Api/lib/appserver-bridge");
 const { createScriptSegmentService, STAGES, prepareInput } = require("../../Apps/Api/lib/script-segment-service");
 const {
   prepareInputPackage,
@@ -203,6 +204,36 @@ test("script segment service keeps collecting submitted turn until completed", a
   assert.equal(harness.calls.collected.length, 2);
   assert.equal(artifact.scriptSegmentAnalysis.status, "processed");
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
+});
+
+test("script segment collect window waits three minutes worth of attempts", async () => {
+  const harness = await createScriptHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        return { ok: false, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted", finalMessage: "" };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  const job = await waitForJob(harness.jobStore, result.processingJobId, "failed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_script_1"), "artifact.json"));
+
+  assert.equal(harness.calls.collected.length, 120);
+  assert.equal(job.errorSummary.code, "appserver_turn_collect_timeout");
+  assert.equal(artifact.scriptSegmentAnalysis.validation.validatorCode, "appserver_turn_collect_timeout");
+});
+
+test("appserver bridge treats queued submitted and created as non-terminal statuses", () => {
+  assert.equal(isNonTerminalTurnStatus("created"), true);
+  assert.equal(isNonTerminalTurnStatus("queued"), true);
+  assert.equal(isNonTerminalTurnStatus("submitted"), true);
+  assert.equal(isNonTerminalTurnStatus("failed"), false);
 });
 
 test("script segment enqueue rejects stale expected shot boundary artifact", async () => {

@@ -42,6 +42,8 @@ function sanitizeDebugPayload(error) {
     code: error?.code ?? null,
     message: error instanceof Error ? error.message : String(error ?? "unknown").slice(0, 240),
     turnId: details?.turnId ?? null,
+    status: details?.status ?? null,
+    appServerMessage: details?.message ?? null,
     attemptCount: details?.attemptCount ?? null,
     requestTimeoutMs: details?.requestTimeoutMs ?? details?.lastRequestError?.request?.requestTimeoutMs ?? null,
     readinessDetail: details?.readinessDetail ?? details?.threadPool ?? null,

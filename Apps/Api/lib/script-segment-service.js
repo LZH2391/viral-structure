@@ -36,7 +36,8 @@ const {
 
 const DEFAULT_POLL_INTERVAL_MS = 1500;
 const MAX_REPAIR_ATTEMPTS = 1;
-const MAX_COLLECT_ATTEMPTS = 40;
+const SCRIPT_SEGMENT_COLLECT_TIMEOUT_MS = 180000;
+const MAX_COLLECT_ATTEMPTS = Math.ceil(SCRIPT_SEGMENT_COLLECT_TIMEOUT_MS / DEFAULT_POLL_INTERVAL_MS);
 
 function createScriptSegmentService({
   rootDir = path.resolve(__dirname, "../..", ".."),

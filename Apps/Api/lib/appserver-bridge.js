@@ -131,7 +131,7 @@ function runPythonJson({ python, script, payload, timeoutMs }) {
   });
 }
 
-module.exports = { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge };
+module.exports = { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge, isNonTerminalTurnStatus };
 
 function isNonTerminalTurnStatus(status) {
   return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress"].includes(String(status ?? "").trim().toLowerCase());

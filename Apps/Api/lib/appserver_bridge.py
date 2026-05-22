@@ -107,7 +107,7 @@ def collect_turn_result(client, payload) -> int:
         return 0
     except Exception as error:  # noqa: WPS430
         message = str(error)
-        running_markers = ("not completed", "running", "in_progress", "pending")
+        running_markers = ("not completed", "running", "in_progress", "inprogress", "pending", "queued", "submitted", "created")
         if any(marker in message.lower() for marker in running_markers):
             write_json(
                 {
