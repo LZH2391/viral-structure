@@ -31,7 +31,8 @@ test("xfyun result decoder keeps word timing when available", () => {
   }), "utf8").toString("base64");
 
   assert.deepEqual(decodeResultSegments(payload), [
-    { start: 0, end: 2.6, text: "你好。", confidence: 0.775 },
+    { start: 0, end: 1.2, text: "你", confidence: 0.9 },
+    { start: 1.2, end: 2.6, text: "好。", confidence: 0.75 },
     { start: 4.2, end: 5.2, text: "再见", confidence: 0.9 },
   ]);
 });
@@ -41,6 +42,38 @@ test("xfyun text segments merge into timed subtitle segments", () => {
   assert.deepEqual(mergeTextSegments([{ start: 0, end: 1, text: "你好。" }, { start: 2, end: 3, text: "再见" }]), [
     { start: 0, end: 1, text: "你好。", confidence: null },
     { start: 2, end: 3, text: "再见", confidence: null },
+  ]);
+  assert.deepEqual(mergeTextSegments([
+    { start: 0, end: 0.6, text: "就这个" },
+    { start: 0.7, end: 1.2, text: "两块多一" },
+    { start: 1.25, end: 1.35, text: "条" },
+    { start: 1.4, end: 1.5, text: "的" },
+    { start: 1.55, end: 1.8, text: "辣卤鳗鱼" },
+    { start: 1.85, end: 1.95, text: "，" },
+    { start: 2.1, end: 2.5, text: "彻底让" },
+    { start: 2.55, end: 3.1, text: "我实现了" },
+  ]), [
+    { start: 0, end: 1.5, text: "就这个两块多一条的", confidence: null },
+    { start: 1.55, end: 1.95, text: "辣卤鳗鱼，", confidence: null },
+    { start: 2.1, end: 3.1, text: "彻底让我实现了", confidence: null },
+  ]);
+  assert.deepEqual(mergeTextSegments([
+    { start: 0, end: 0.3, text: "一" },
+    { start: 0.9, end: 1.2, text: "二" },
+    { start: 1.3, end: 1.6, text: "三" },
+  ]), [
+    { start: 0, end: 0.3, text: "一", confidence: null },
+    { start: 0.9, end: 1.6, text: "二三", confidence: null },
+  ]);
+  assert.deepEqual(mergeTextSegments([
+    { start: 0, end: 0.4, text: "现" },
+    { start: 0.4, end: 0.8, text: "在" },
+    { start: 0.8, end: 1.1, text: "到" },
+    { start: 1.1, end: 1.4, text: "手" },
+    { start: 1.4, end: 1.7, text: "8" },
+    { start: 1.7, end: 1.9, text: "袋" },
+  ]), [
+    { start: 0, end: 1.9, text: "现在到手8袋", confidence: null },
   ]);
   assert.deepEqual(mergeTextSegments([{ text: "" }]), []);
 });

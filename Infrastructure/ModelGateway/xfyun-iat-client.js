@@ -189,8 +189,8 @@ function shouldMergeSubtitle(previous, next) {
   const gap = next.start - previous.end;
   const mergedLength = previous.text.length + next.text.length;
   const mergedDuration = Math.max(previous.end, next.end) - previous.start;
-  const previousEndsSentence = /[。！？!?；;]/.test(previous.text.at(-1) ?? "");
-  return !previousEndsSentence && gap <= 0.8 && mergedLength <= 32 && mergedDuration <= 6;
+  const previousEndsClause = /[，。！？!?；;、,.]/.test(previous.text.at(-1) ?? "");
+  return !previousEndsClause && gap <= 0.3 && mergedLength <= 12 && mergedDuration <= 2.4;
 }
 
 function isPunctuation(text) {
