@@ -383,17 +383,30 @@ test("workbench removes create input view entry", () => {
 
 test("property panel shows all shots and recent shot analysis history", () => {
   const root = path.resolve(__dirname, "../..");
+  const propertyPanel = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
+  const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
+  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script">\("shot"\)/);
+  assert.match(propertyPanel, /role="tablist"/);
+  assert.match(propertyPanel, /shot/);
+  assert.match(propertyPanel, /script/);
+  assert.match(propertyPanel, /<ScriptSegmentPanel/);
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
   assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
   assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
+  assert.match(scriptPanel, /strong>script-segment</);
+  assert.match(scriptPanel, /segmentCount：/);
+  assert.match(scriptPanel, /运行脚本段落分析|运行/);
   assert.match(app, /currentShot=\{currentShot\}/);
   assert.match(app, /currentShotId=\{currentShotId\}/);
+  assert.match(app, /scriptSegmentAnalysis=\{state\.sampleArtifact\?\.scriptSegmentAnalysis \?\? null\}/);
+  assert.match(app, /scriptSegmentJob=\{scriptSegmentJob\}/);
+  assert.match(app, /onRunScriptSegment=\{/);
   assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
   assert.match(property, /resolveShotSummary\(currentShot\)/);
@@ -406,11 +419,15 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-shot-list[\s\S]*max-height: 220px;[\s\S]*overflow: auto;/);
   assert.match(css, /\.agent-shot-current/);
   assert.match(css, /\.agent-shot-item\.active,\s*[\s\S]*\.agent-shot-item\[aria-current="true"\]/);
+  assert.match(css, /\.property-tabs/);
+  assert.match(css, /\.property-tab\.active,\s*[\s\S]*\.property-tab\[aria-selected="true"\]/);
   assert.match(css, /\.agent-shot-summary/);
   assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
+  assert.match(css, /\.agent-script-item/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
   assert.match(types, /summary\?: string \| null;/);
   assert.match(types, /endBoundaryReason\?: string \| null;/);
+  assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
 });
 
 test("findCurrentShot uses half-open ranges and keeps final boundary inclusive", async () => {

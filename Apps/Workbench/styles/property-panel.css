@@ -8,6 +8,33 @@
   padding-bottom: 12px;
 }
 
+.property-tabs-section {
+  display: grid;
+  gap: 12px;
+}
+
+.property-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.property-tab {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text-soft);
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.property-tab.active,
+.property-tab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
 .agent-run-panel {
   display: grid;
   gap: 10px;
@@ -162,6 +189,10 @@
   border-color: var(--warn);
   background: var(--warn-soft);
   box-shadow: inset 3px 0 0 rgba(242, 169, 59, 0.56);
+}
+
+.agent-script-item {
+  cursor: default;
 }
 
 .agent-shot-item strong {

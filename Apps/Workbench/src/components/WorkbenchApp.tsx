@@ -639,6 +639,8 @@ export function WorkbenchApp() {
           currentShot={currentShot}
           currentShotId={currentShotId}
           agentJob={agentJob}
+          scriptSegmentAnalysis={state.sampleArtifact?.scriptSegmentAnalysis ?? null}
+          scriptSegmentJob={scriptSegmentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => {
@@ -663,6 +665,9 @@ export function WorkbenchApp() {
                 );
               })
               .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
+          }}
+          onRunScriptSegment={() => {
+            void handleUnderstand().catch((error) => setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败"));
           }}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
