@@ -203,6 +203,17 @@ export function buildIngestError(job: ProcessingJob) {
   return error;
 }
 
+export function buildSubtitleSaveError(error: unknown, fallbackMessage = "字幕保存失败") {
+  const raw = error as { code?: string; message?: string; traceId?: string; debugSnapshotUri?: string };
+  const traceId = raw?.traceId ? `traceId: ${raw.traceId}` : null;
+  const debugSnapshotUri = raw?.debugSnapshotUri ? `debugSnapshot: ${raw.debugSnapshotUri}` : null;
+  const details = [traceId, debugSnapshotUri].filter(Boolean).join(" / ");
+  const message = details ? `${raw?.message || fallbackMessage}（${details}）` : (raw?.message || fallbackMessage);
+  const next = new Error(message) as Error & { code?: string };
+  next.code = raw?.code || "subtitle_revision_failed";
+  return next;
+}
+
 export function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], markerId: string): AudioFeatureMarker | null {
   if (!audioFeatures) return null;
   const markers = [

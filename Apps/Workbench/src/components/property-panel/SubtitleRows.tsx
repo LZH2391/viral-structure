@@ -38,6 +38,7 @@ export function SubtitleRows({
     <div className="subtitle-editor">
       <DetailRow label="字幕来源" value={artifact.artifactId} />
       <DetailRow label="parent" value={artifact.parentArtifactId ?? "无"} />
+      <DetailRow label="保存状态" value={renderDraftStatus(draft)} />
       <label>
         <span>文本</span>
         <textarea value={text} rows={4} onChange={(event) => setText(event.currentTarget.value)} onBlur={commit} />
@@ -53,6 +54,15 @@ export function SubtitleRows({
         </label>
       </div>
       <DetailRow label="草稿版本" value={draft?.draftVersionId ?? "未编辑"} />
+      {draft?.errorMessage ? <DetailRow label="失败原因" value={draft.errorMessage} /> : null}
     </div>
   );
+}
+
+function renderDraftStatus(draft?: SubtitleDraft) {
+  if (!draft) return "未编辑";
+  if (draft.saveState === "saving") return "保存中";
+  if (draft.saveState === "saved") return "已保存";
+  if (draft.saveState === "failed") return "保存失败";
+  return "未编辑";
 }

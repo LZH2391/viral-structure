@@ -188,7 +188,13 @@ function buildArtifactTree(artifact) {
   pushRef(nodes, artifact.audioSeparation?.vocal, "sample.audio.separated", artifact);
   pushRef(nodes, artifact.audioSeparation?.music, "sample.audio.separated", artifact);
   if (artifact.subtitles) {
-    pushNode(nodes, artifact.subtitles, "sample.subtitle.recognized", artifact, `${artifact.subtitles.segments?.length ?? 0} 条字幕`);
+    pushNode(
+      nodes,
+      artifact.subtitles,
+      artifact.subtitles.source === "manual_edit" ? "sample.subtitle.revised" : "sample.subtitle.recognized",
+      artifact,
+      `${artifact.subtitles.segments?.length ?? 0} 条字幕`,
+    );
   }
   if (artifact.audioFeatures) {
     pushNode(nodes, artifact.audioFeatures, "sample.audio.features.extracted", artifact, `${artifact.audioFeatures.beats?.length ?? 0} beats`);
@@ -256,6 +262,15 @@ function stageParams(artifact, stageName) {
   if (stageName === "sample.frames.extracted") return { frameSampleRateFps: options.frameSampleRateFps ?? 1 };
   if (stageName === "sample.audio.separated") return { demucsMode: "two-stems-vocals", enabled: Boolean(options.enableAudioSeparation) };
   if (stageName === "sample.subtitle.recognized") return { provider: "xfyun-iat", maxSegmentSeconds: 60, enabled: Boolean(options.enableSubtitleRecognition) };
+  if (stageName === "sample.subtitle.revised") {
+    return {
+      source: artifact.subtitles?.source ?? null,
+      revisionIndex: artifact.subtitles?.revisionIndex ?? null,
+      revisionOfArtifactId: artifact.subtitles?.revisionOfArtifactId ?? null,
+      textHash: artifact.subtitles?.textHash ?? null,
+      segmentCount: artifact.subtitles?.segments?.length ?? 0,
+    };
+  }
   if (stageName === "sample.audio.features.extracted") {
     return {
       provider: "librosa",

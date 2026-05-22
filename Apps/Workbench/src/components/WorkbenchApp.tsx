@@ -1,12 +1,12 @@
 import { FormEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, uploadSampleVideo } from "../api/client";
+import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -28,6 +28,7 @@ type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number }
 type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
+const SUBTITLE_SAVE_STAGE = "sample.subtitle.revised";
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
@@ -82,6 +83,7 @@ export function WorkbenchApp() {
 
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
+  const subtitleDraftEntries = Object.values(state.subtitleDrafts);
 
   const writeLog = useCallback(
     (event: string, level: "info" | "done" | "fail", fields: LogFields) => {
@@ -348,6 +350,117 @@ export function WorkbenchApp() {
     }
   }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
 
+  const buildSubtitleSegmentsForSave = useCallback(
+    (draft: SubtitleDraft) => {
+      const subtitles = state.subtitles;
+      if (!state.sampleVideo || !subtitles) throw new Error("当前没有可保存字幕");
+      return subtitles.segments.map((segment) => (
+        segment.id === draft.segmentId
+          ? {
+            id: segment.id,
+            start: draft.start,
+            end: draft.end,
+            text: draft.text,
+            confidence: segment.confidence ?? null,
+          }
+          : {
+            id: segment.id,
+            start: segment.start,
+            end: segment.end,
+            text: segment.text,
+            confidence: segment.confidence ?? null,
+          }
+      ));
+    },
+    [state.sampleVideo, state.subtitles],
+  );
+
+  const isSubtitleDraftChanged = useCallback((artifact: SubtitleArtifact | null | undefined, draft: SubtitleDraft) => {
+    const sourceArtifactId = artifact?.artifactId ?? null;
+    if (!artifact || draft.sourceArtifactId !== sourceArtifactId) return true;
+    const sourceSegment = artifact.segments.find((item) => item.id === draft.segmentId);
+    if (!sourceSegment) return true;
+    return sourceSegment.text !== draft.text || sourceSegment.start !== draft.start || sourceSegment.end !== draft.end;
+  }, []);
+
+  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
+    writeWorkbenchDraft({
+      sampleVideoId: artifact.sampleVideoId,
+      artifactId: artifact.sampleVideo.artifactId,
+      traceId,
+      sampleArtifact: artifact,
+      selectedFrameId: artifact.frames[0]?.frameId ?? null,
+      selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
+      versions: state.versions,
+    });
+  }, [state.versions]);
+
+  const saveSubtitleDraft = useCallback(async (draft: SubtitleDraft, options: { silent?: boolean } = {}) => {
+    const subtitles = state.subtitles;
+    const sampleVideo = state.sampleVideo;
+    if (!subtitles || !sampleVideo) return { ok: false as const, reason: "missing_subtitles" };
+    if (!isSubtitleDraftChanged(subtitles, draft)) {
+      dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId });
+      if (!options.silent) setSaveStatus("字幕未变化，无需保存");
+      return { ok: true as const, changed: false };
+    }
+    const stage = beginStage(SUBTITLE_SAVE_STAGE, subtitles.artifactId ?? sampleVideo.artifactId, {
+      sampleVideoId: sampleVideo.id,
+      sourceSubtitleArtifactId: subtitles.artifactId ?? null,
+      segmentId: draft.segmentId,
+    });
+    dispatch({ type: "set-subtitle-draft-status", segmentId: draft.segmentId, saveState: "saving" });
+    try {
+      const segments = buildSubtitleSegmentsForSave(draft);
+      const result = await saveSubtitleRevision(sampleVideo.id, segments);
+      dispatch({ type: "apply-artifact", artifact: result.sampleArtifact });
+      dispatch({
+        type: "set-subtitle-draft-status",
+        segmentId: draft.segmentId,
+        saveState: "saved",
+        lastSavedArtifactId: result.sampleArtifact.subtitles?.artifactId ?? null,
+      });
+      dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId });
+      persistWorkbenchArtifact(result.sampleArtifact, result.traceId ?? state.processingJob?.traceId ?? null);
+      setSaveStatus("字幕已自动保存");
+      finishStage(stage, result.sampleArtifact.subtitles?.artifactId ?? stage.artifactId, {
+        sampleVideoId: result.sampleArtifact.sampleVideoId,
+        subtitleArtifactId: result.sampleArtifact.subtitles?.artifactId ?? null,
+        revisionIndex: result.sampleArtifact.subtitles?.revisionIndex ?? null,
+        changed: result.changed,
+      });
+      return { ok: true as const, changed: result.changed, artifact: result.sampleArtifact };
+    } catch (error) {
+      const normalizedError = buildSubtitleSaveError(error);
+      const message = normalizedError.message;
+      dispatch({ type: "set-subtitle-draft-status", segmentId: draft.segmentId, saveState: "failed", errorMessage: message });
+      failStage(stage, normalizedError, {
+        errorCode: (normalizedError as { code?: string })?.code,
+        errorMessage: message,
+        errorStage: SUBTITLE_SAVE_STAGE,
+        backendTraceId: (error as { traceId?: string })?.traceId ?? state.processingJob?.traceId ?? null,
+        debugSnapshotUri: (error as { debugSnapshotUri?: string })?.debugSnapshotUri ?? null,
+        debugPayload: { kind: "subtitle-save-failure", segmentId: draft.segmentId, sourceArtifactId: draft.sourceArtifactId ?? null },
+      });
+      setSaveStatus(`字幕保存失败：${message}`);
+      return { ok: false as const, error: normalizedError };
+    }
+  }, [beginStage, buildSubtitleSegmentsForSave, failStage, finishStage, isSubtitleDraftChanged, persistWorkbenchArtifact, state.processingJob?.traceId, state.sampleVideo, state.subtitles]);
+
+  const flushSubtitleDraftsBeforeShotBoundary = useCallback(async () => {
+    if (!subtitleDraftEntries.length) return true;
+    const subtitles = state.subtitles;
+    for (const draft of subtitleDraftEntries) {
+      if (!subtitles || !isSubtitleDraftChanged(subtitles, draft)) {
+        dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId });
+        continue;
+      }
+      const result = await saveSubtitleDraft(draft, { silent: true });
+      if (!result.ok) return false;
+    }
+    return true;
+  }, [isSubtitleDraftChanged, saveSubtitleDraft, state.subtitles, subtitleDraftEntries]);
+
   const handleUnderstand = () => {
     if (!state.sampleVideo) return;
     const stage = beginStage(STAGES.understand, state.sampleVideo.artifactId);
@@ -474,19 +587,29 @@ export function WorkbenchApp() {
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
-          onRunShotBoundary={() => runShotBoundaryAnalysis(
-            state,
-            agentAnalysisFps,
-            setAgentJob,
-            dispatch,
-            writeActiveAgentJob,
-            async ({ job, cachedItem }) => {
-              if (!job.jobId || !job.sampleVideoId) return;
-              setShotCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-              setSaveStatus("命中切镜缓存，等待选择");
-            },
-            "ask",
-          ).catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"))}
+          onRunShotBoundary={() => {
+            flushSubtitleDraftsBeforeShotBoundary()
+              .then((ready) => {
+                if (!ready) {
+                  setSaveStatus("字幕保存失败，已阻止切镜分析；请修复后重试");
+                  throw new Error("字幕保存失败，已阻止切镜分析");
+                }
+                return runShotBoundaryAnalysis(
+                  state,
+                  agentAnalysisFps,
+                  setAgentJob,
+                  dispatch,
+                  writeActiveAgentJob,
+                  async ({ job, cachedItem }) => {
+                    if (!job.jobId || !job.sampleVideoId) return;
+                    setShotCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+                    setSaveStatus("命中切镜缓存，等待选择");
+                  },
+                  "ask",
+                );
+              })
+              .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
+          }}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             const card = findCurrentStructureCard(state.structureCards, time);
@@ -496,7 +619,29 @@ export function WorkbenchApp() {
             setCurrentTime(time);
             dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
           }}
-          onSubtitleDraftChange={(draft) => dispatch({ type: "update-subtitle-draft", ...draft })}
+          onSubtitleDraftChange={(draft) => {
+            dispatch({ type: "update-subtitle-draft", ...draft });
+            const currentSubtitleArtifact = state.subtitles;
+            const sourceSegment = currentSubtitleArtifact?.segments.find((item) => item.id === draft.segmentId);
+            const changed = !sourceSegment
+              || sourceSegment.text !== draft.text
+              || sourceSegment.start !== draft.start
+              || sourceSegment.end !== draft.end
+              || currentSubtitleArtifact?.artifactId !== draft.sourceArtifactId;
+            if (!changed) {
+              dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId });
+              setSaveStatus("字幕未变化，无需保存");
+              return;
+            }
+            const nextDraft = {
+              ...draft,
+              draftVersionId: state.subtitleDrafts[draft.segmentId]?.draftVersionId ?? createId("version"),
+              saveState: "idle" as const,
+              errorMessage: null,
+              lastSavedArtifactId: state.subtitleDrafts[draft.segmentId]?.lastSavedArtifactId ?? null,
+            };
+            void saveSubtitleDraft(nextDraft);
+          }}
         />
         <WorkspaceResizeHandle kind="timeline" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <TimelinePanel

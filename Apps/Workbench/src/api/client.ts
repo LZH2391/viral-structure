@@ -49,6 +49,19 @@ export async function startShotBoundaryAnalysis(sampleVideoId: string, options: 
   );
 }
 
+export async function saveSubtitleRevision(
+  sampleVideoId: string,
+  segments: Array<{ id: string; start: number; end: number; text: string; confidence?: number | null }>,
+) {
+  return readJson<{ sampleArtifact: SampleArtifact; traceId: string; changed: boolean }>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/subtitles/revisions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ segments }),
+    }),
+  );
+}
+
 export async function resolveShotBoundaryCacheDecision(jobId: string, decision: "reuse" | "refresh") {
   return readJson<ProcessingJob>(
     await fetch(`${API_BASE_URL}/api/processing-jobs/${encodeURIComponent(jobId)}/cache-decision`, {

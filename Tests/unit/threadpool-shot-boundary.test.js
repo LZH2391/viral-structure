@@ -376,6 +376,23 @@ test("subtitle hash participates in shot boundary cache params", () => {
   assert.notEqual(paramsA.subtitleTextHash, paramsB.subtitleTextHash);
 });
 
+test("revised subtitle artifact participates in shot boundary subtitle context summary", () => {
+  const artifact = createArtifact({
+    subtitleStatus: "processed",
+    subtitleArtifactId: "artifact_subtitle_revision_1",
+    subtitleParentArtifactId: "artifact_subtitle_recognition",
+    subtitleSource: "manual_edit",
+    subtitleRevisionIndex: 1,
+    subtitleRevisionOfArtifactId: "artifact_subtitle_recognition",
+    subtitleSegments: [{ id: "subtitle_1", start: 0, end: 1, text: "手改后的字幕版本", confidence: null }],
+  });
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+
+  assert.equal(prepared.subtitleContextSummary.subtitleArtifactId, "artifact_subtitle_revision_1");
+  assert.equal(prepared.subtitleContextSummary.subtitleSegmentCount, 1);
+  assert.ok(prepared.subtitleContextSummary.subtitleTextHash);
+});
+
 test("thread conversation summary keeps compact turn-safe fields", () => {
   const summary = summarizeThreadConversation({
     id: "thread_1",
@@ -1266,9 +1283,13 @@ function createArtifact(overrides = {}) {
       imageUri: `/runtime/Artifacts/sample_1/frames/frame-${index}.jpg`,
     })),
     subtitles: subtitleStatus ? {
-      artifactId: "artifact_subtitle",
-      parentArtifactId: "artifact_audio",
+      artifactId: overrides.subtitleArtifactId ?? "artifact_subtitle",
+      parentArtifactId: overrides.subtitleParentArtifactId ?? "artifact_audio",
       type: "subtitle-track",
+      source: overrides.subtitleSource ?? (subtitleStatus === "processed" ? "recognition" : "degraded"),
+      revisionIndex: overrides.subtitleRevisionIndex ?? null,
+      revisionOfArtifactId: overrides.subtitleRevisionOfArtifactId ?? null,
+      textHash: overrides.subtitleTextHash ?? hashText(subtitleSegments.map((segment) => `${segment.start}-${segment.end}:${segment.text}`).join("\n")),
       summary: subtitleStatus === "processed" ? `${subtitleSegments.length} 条字幕` : "字幕识别未产出",
       status: subtitleStatus,
       reason: subtitleStatus === "degraded" ? "字幕识别降级" : null,

@@ -76,3 +76,35 @@ test("audio feature artifact keeps source lineage and raw feature arrays", () =>
   assert.equal(artifact.audioFeatures.sourceAudioArtifactId, "artifact_music");
   assert.deepEqual(artifact.audioFeatures.beats, [0.25, 1.25]);
 });
+
+test("subtitle artifact can carry revision lineage and history", () => {
+  const artifact = {
+    subtitles: {
+      artifactId: "artifact_subtitle_revision_1",
+      parentArtifactId: "artifact_subtitle_recognition",
+      revisionOfArtifactId: "artifact_subtitle_recognition",
+      source: "manual_edit",
+      revisionIndex: 1,
+      textHash: "abcd1234efgh5678",
+      type: "subtitle-track",
+      segments: [{ id: "subtitle_1", start: 0, end: 1, text: "手改字幕" }],
+      status: "processed",
+    },
+    subtitlesRevisionHistory: [
+      {
+        artifactId: "artifact_subtitle_recognition",
+        parentArtifactId: "artifact_audio",
+        revisionOfArtifactId: "artifact_subtitle_recognition",
+        segmentCount: 1,
+        textHash: "sourcehash1234567",
+        traceId: "trace_1",
+        createdAt: "2026-05-22T00:00:00.000Z",
+      },
+    ],
+  };
+  assert.equal(artifact.subtitles.source, "manual_edit");
+  assert.equal(artifact.subtitles.parentArtifactId, "artifact_subtitle_recognition");
+  assert.equal(artifact.subtitles.revisionOfArtifactId, "artifact_subtitle_recognition");
+  assert.equal(artifact.subtitles.revisionIndex, 1);
+  assert.equal(artifact.subtitlesRevisionHistory[0].artifactId, "artifact_subtitle_recognition");
+});

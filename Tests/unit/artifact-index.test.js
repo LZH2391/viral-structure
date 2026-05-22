@@ -63,6 +63,52 @@ test("artifact index lists latest item per file and skips degraded cache entries
   assert.equal((await index.listItems()).length, 0);
 });
 
+test("artifact index keeps subtitle revised stage params and lineage", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-subtitle-revised-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const artifact = createArtifact({ sampleVideoId: "sample_subtitle_revision" });
+  artifact.subtitles = {
+    artifactId: "artifact_subtitle_revision_1",
+    parentArtifactId: "artifact_subtitle_sample_subtitle_revision",
+    revisionOfArtifactId: "artifact_subtitle_sample_subtitle_revision",
+    source: "manual_edit",
+    revisionIndex: 1,
+    textHash: "subtitlehash123456",
+    type: "subtitle-track",
+    uri: null,
+    summary: "1 条字幕",
+    segments: [{ id: "subtitle_1", start: 0, end: 1, text: "手改字幕", confidence: null }],
+    status: "processed",
+    reason: null,
+    debugSnapshotUri: null,
+  };
+  artifact.subtitlesRevisionHistory = [
+    {
+      artifactId: "artifact_subtitle_sample_subtitle_revision",
+      parentArtifactId: "artifact_audio",
+      revisionOfArtifactId: "artifact_subtitle_sample_subtitle_revision",
+      segmentCount: 1,
+      textHash: "subtitlehash000000",
+      traceId: "trace_old",
+      createdAt: "2026-05-22T00:00:00.000Z",
+    },
+  ];
+
+  await index.registerSampleArtifact({ artifact, fileHash: hashBuffer(Buffer.from("subtitle-revision")), traceId: "trace_revision" });
+  const detail = await index.getItem("sample_subtitle_revision");
+  const subtitleNode = detail.artifactTree.find((node) => node.stageName === "sample.subtitle.revised");
+
+  assert.ok(subtitleNode);
+  assert.equal(subtitleNode.artifactId, "artifact_subtitle_revision_1");
+  assert.equal(subtitleNode.parentArtifactId, "artifact_subtitle_sample_subtitle_revision");
+  assert.equal(subtitleNode.params.source, "manual_edit");
+  assert.equal(subtitleNode.params.revisionIndex, 1);
+  assert.equal(subtitleNode.params.revisionOfArtifactId, "artifact_subtitle_sample_subtitle_revision");
+  assert.equal(subtitleNode.params.textHash, "subtitlehash123456");
+});
+
 test("same file and params hit cached media stages on second upload", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-cache-hit-"));
   const store = createLocalStore(tempRoot);

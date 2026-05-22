@@ -89,6 +89,7 @@ export type SampleArtifact = {
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
   audioSeparation?: AudioSeparationArtifact | null;
   subtitles?: SubtitleArtifact | null;
+  subtitlesRevisionHistory?: SubtitleRevisionHistoryEntry[] | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   metadata: {
@@ -400,12 +401,28 @@ export type SubtitleArtifact = {
   artifactId: string;
   parentArtifactId: string | null;
   type: "subtitle-track";
+  revisionOfArtifactId?: string | null;
+  source?: "recognition" | "manual_edit" | "degraded" | string;
+  revisionIndex?: number | null;
+  textHash?: string | null;
+  traceId?: string | null;
+  createdAt?: string | null;
   uri?: string | null;
   summary?: string | null;
   segments: SubtitleSegment[];
   status?: string;
   reason?: string | null;
   debugSnapshotUri?: string | null;
+};
+
+export type SubtitleRevisionHistoryEntry = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  revisionOfArtifactId?: string | null;
+  segmentCount: number;
+  textHash?: string | null;
+  traceId: string | null;
+  createdAt: string;
 };
 
 export type SampleFrame = {
@@ -452,6 +469,9 @@ export type SubtitleDraft = {
   end: number;
   sourceArtifactId: string | null;
   draftVersionId: string;
+  saveState?: "idle" | "saving" | "saved" | "failed";
+  errorMessage?: string | null;
+  lastSavedArtifactId?: string | null;
 };
 
 export type StructureCard = {

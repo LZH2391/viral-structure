@@ -85,6 +85,8 @@ export type WorkbenchAction =
   | { type: "set-active-stage"; stageId: string | null }
   | { type: "set-capabilities"; capabilities: BackendCapabilities }
   | { type: "update-subtitle-draft"; segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }
+  | { type: "set-subtitle-draft-status"; segmentId: string; saveState: "idle" | "saving" | "saved" | "failed"; errorMessage?: string | null; lastSavedArtifactId?: string | null }
+  | { type: "clear-subtitle-draft"; segmentId: string }
   | { type: "restore-draft"; draft: DraftState };
 
 export type DraftState = {
@@ -163,9 +165,37 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
             end: action.end,
             sourceArtifactId: action.sourceArtifactId,
             draftVersionId: state.subtitleDrafts[action.segmentId]?.draftVersionId ?? createId("version"),
+            saveState: state.subtitleDrafts[action.segmentId]?.saveState ?? "idle",
+            errorMessage: null,
+            lastSavedArtifactId: state.subtitleDrafts[action.segmentId]?.lastSavedArtifactId ?? null,
           },
         },
       };
+    case "set-subtitle-draft-status": {
+      const current = state.subtitleDrafts[action.segmentId];
+      if (!current) return state;
+      return {
+        ...state,
+        subtitleDrafts: {
+          ...state.subtitleDrafts,
+          [action.segmentId]: {
+            ...current,
+            saveState: action.saveState,
+            errorMessage: action.errorMessage ?? null,
+            lastSavedArtifactId: action.lastSavedArtifactId ?? current.lastSavedArtifactId ?? null,
+          },
+        },
+      };
+    }
+    case "clear-subtitle-draft": {
+      if (!state.subtitleDrafts[action.segmentId]) return state;
+      const nextDrafts = { ...state.subtitleDrafts };
+      delete nextDrafts[action.segmentId];
+      return {
+        ...state,
+        subtitleDrafts: nextDrafts,
+      };
+    }
     case "restore-draft": {
       const restored = applySampleArtifact(state, action.draft.sampleArtifact);
       return {

@@ -38,6 +38,7 @@ function buildArtifact({ context, inputPath, media, store }) {
     audioFeatures: media.audioFeatures ?? null,
     audioSeparation: media.audioSeparation ?? null,
     subtitles: media.subtitles ?? null,
+    subtitlesRevisionHistory: media.subtitlesRevisionHistory ?? null,
     metadata: media.metadata,
   };
 }
