@@ -49,6 +49,16 @@ export async function startShotBoundaryAnalysis(sampleVideoId: string, options: 
   );
 }
 
+export async function resolveShotBoundaryCacheDecision(jobId: string, decision: "reuse" | "refresh") {
+  return readJson<ProcessingJob>(
+    await fetch(`${API_BASE_URL}/api/processing-jobs/${encodeURIComponent(jobId)}/cache-decision`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision }),
+    }),
+  );
+}
+
 export async function getThreadPoolHealth() {
   return readJson<ThreadPoolHealth>(await fetch(`${API_BASE_URL}/api/threadpool/health`));
 }

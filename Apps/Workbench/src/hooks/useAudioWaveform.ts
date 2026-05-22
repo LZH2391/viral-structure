@@ -81,6 +81,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     }
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    const fallbackAbortController = new AbortController();
     const decodeStage = trace?.uiTraceId
       ? beginUiStage({
           uiTraceId: trace.uiTraceId,
@@ -143,7 +144,8 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
       });
     };
     const decodeInMainThread = (fallbackReason: string, workerError: WaveformError | null = null) => {
-      void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT).then((result) => {
+      void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT, fallbackAbortController.signal).then((result) => {
+        if (!result.ok && result.cancelled) return;
         if (result.ok) {
           commitPeaks(result.peaks, { decoder: "main-thread", peakCount: result.peaks.length, fallbackReason });
           return;
@@ -167,6 +169,7 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
     worker.postMessage({ id: requestId, url, count: WAVEFORM_PEAK_COUNT });
     return () => {
       cancelled = true;
+      fallbackAbortController.abort();
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
@@ -277,19 +280,24 @@ function seekAudio(audio: HTMLAudioElement, time: number, duration: number) {
   apply();
 }
 
-type DecodeResult = { ok: true; peaks: number[] } | { ok: false; error: WaveformError };
+type DecodeResult = { ok: true; peaks: number[] } | { ok: false; error: WaveformError; cancelled?: false } | { ok: false; cancelled: true };
 
-async function decodePeaksInMainThread(url: string, count: number): Promise<DecodeResult> {
+async function decodePeaksInMainThread(url: string, count: number, signal?: AbortSignal): Promise<DecodeResult> {
   const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) return { ok: false, error: { code: "audio_context_unavailable", message: "当前环境不支持音频解码", retryable: false } };
   let context: AudioContext | null = null;
   try {
-    const response = await fetch(url);
+    if (signal?.aborted) return { ok: false, cancelled: true };
+    const response = await fetch(url, { signal });
+    if (signal?.aborted) return { ok: false, cancelled: true };
     const buffer = await response.arrayBuffer();
+    if (signal?.aborted) return { ok: false, cancelled: true };
     context = new AudioContextClass();
     const audioBuffer = await context.decodeAudioData(buffer);
+    if (signal?.aborted) return { ok: false, cancelled: true };
     return { ok: true, peaks: buildVisualEnvelope(audioBuffer, count) };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted || (error as Error)?.name === "AbortError") return { ok: false, cancelled: true };
     return { ok: false, error: { code: "audio_decode_failed", message: "音频解码失败", retryable: true } };
   } finally {
     await context?.close?.();

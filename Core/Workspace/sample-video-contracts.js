@@ -1,6 +1,7 @@
 const SAMPLE_STATUS = {
   pending: "pending",
   processing: "processing",
+  cacheWaiting: "cache_waiting",
   processed: "processed",
   failed: "failed",
 };

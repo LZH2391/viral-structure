@@ -448,6 +448,49 @@ test("shot boundary start turn persists inflight without waiting for final messa
   assert.equal("skillPath" in startTurnPayloads[0], false);
 });
 
+test("shot boundary enqueue returns before contact sheet work finishes", async () => {
+  let releaseContactSheet;
+  const contactSheetStarted = new Promise((resolve) => {
+    releaseContactSheet = resolve;
+  });
+  const harness = await createShotHarness({
+    contactSheetGenerator: {
+      generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => {
+        await contactSheetStarted;
+        return createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir);
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  const pending = harness.jobStore.getJob(result.processingJobId);
+  releaseContactSheet();
+  await delay(20);
+
+  assert.equal(result.processingJobId != null, true);
+  assert.equal(pending.status, "processing");
+});
+
+test("shot boundary contact sheet failure writes stage fail and debug snapshot", async () => {
+  const error = new Error("sharp failed");
+  error.code = "contact_sheet_failed";
+  const harness = await createShotHarness({
+    contactSheetGenerator: {
+      generateContactSheets: async () => { throw error; },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "contact_sheet_failed");
+  assert.equal(failLog.stageName, STAGES.contactSheetPrepared);
+  assert.equal(harness.logger.snapshots.length, 1);
+});
+
 test("shot boundary collect completed writes artifact and releases lease", async () => {
   const harness = await createShotHarness({
     appServer: {
@@ -533,18 +576,16 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
     },
   });
 
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "reuse" });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
   await delay(20);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
   const job = harness.jobStore.getJob(result.processingJobId);
-  const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end" && entry.outputSummary?.cacheKey);
-  const cacheMissLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end" && entry.outputSummary?.cacheLookup === "miss");
+  const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end" && entry.outputSummary?.cacheLookup === "miss");
 
   assert.equal(startTurnCount, 1);
   assert.equal(job.status, "processing");
   assert.equal(artifact.shotBoundaryAnalysis, undefined);
-  assert.equal(cacheReuseLog, undefined);
-  assert.equal(cacheMissLog.outputSummary.reason, "eligibility_rejected");
+  assert.equal(cacheLookupLog.outputSummary.reason, "eligibility_rejected");
 });
 
 test("shot boundary valid cache can be reused", async () => {
@@ -563,7 +604,12 @@ test("shot boundary valid cache can be reused", async () => {
     },
   });
 
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "reuse" });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
+  await delay(20);
+  const waitingJob = harness.jobStore.getJob(result.processingJobId);
+  assert.equal(waitingJob.status, "cache_waiting");
+  assert.equal(waitingJob.cachePrompt.cachedItem.analysisFps, 3);
+  await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "reuse" });
   await delay(20);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
   const job = harness.jobStore.getJob(result.processingJobId);
@@ -579,6 +625,35 @@ test("shot boundary valid cache can be reused", async () => {
   assert.equal(cacheReuseLog.outputSummary.analysisFps, 3);
   assert.equal(cacheReuseLog.outputSummary.boundaryCount, 1);
   assert.equal(cacheReuseLog.outputSummary.shotCount, 2);
+});
+
+test("shot boundary cache decision refresh continues same job and trace", async () => {
+  let startTurnCount = 0;
+  const harness = await createShotHarness({
+    artifactIndex: {
+      findCacheEntry: async () => ({ sampleVideoId: "sample_cached", cacheKey: "cache_1" }),
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createValidCachedShotAnalysis() }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        startTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
+  await delay(20);
+  const waitingJob = harness.jobStore.getJob(result.processingJobId);
+  await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "refresh" });
+  await delay(20);
+  const refreshedJob = harness.jobStore.getJob(result.processingJobId);
+
+  assert.equal(waitingJob.status, "cache_waiting");
+  assert.equal(refreshedJob.traceId, result.traceId);
+  assert.equal(refreshedJob.jobId, result.processingJobId);
+  assert.equal(refreshedJob.status, "processing");
+  assert.equal(startTurnCount, 1);
 });
 
 test("same fps lookup reuses registered shot cache params while different fps misses", async () => {
@@ -626,12 +701,16 @@ test("same fps lookup reuses registered shot cache params while different fps mi
   await delay(20);
   await harness.service.collectAgentRun(first.processingJobId);
   const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "ask" });
+  await delay(20);
   const third = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 2, cacheDecision: "ask" });
+  await delay(20);
+  const secondJob = harness.jobStore.getJob(second.processingJobId);
+  const thirdJob = harness.jobStore.getJob(third.processingJobId);
 
-  assert.equal(startTurnCount, 1);
-  assert.equal(second.cacheHit, true);
-  assert.equal(second.cachedItem.analysisFps, 1);
-  assert.equal(third.cacheHit, undefined);
+  assert.equal(startTurnCount, 2);
+  assert.equal(secondJob.status, "cache_waiting");
+  assert.equal(secondJob.cachePrompt.cachedItem.analysisFps, 1);
+  assert.notEqual(thirdJob.status, "cache_waiting");
 });
 
 test("cache miss log distinguishes key miss from eligibility rejection", async () => {
@@ -647,7 +726,7 @@ test("cache miss log distinguishes key miss from eligibility rejection", async (
   await delay(20);
   await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 2, cacheDecision: "ask" });
   await delay(20);
-  const cacheLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
+  const cacheLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end");
 
   assert.equal(cacheLogs.some((entry) => entry.outputSummary?.reason === "eligibility_rejected"), true);
   assert.equal(cacheLogs.some((entry) => entry.outputSummary?.reason === "key_miss"), true);
@@ -688,7 +767,9 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
   const first = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "refresh" });
   await delay(20);
   await harness.service.collectAgentRun(first.processingJobId);
-  const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "reuse" });
+  const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 1, cacheDecision: "ask" });
+  await delay(20);
+  await harness.service.resolveCacheDecision({ jobId: second.processingJobId, decision: "reuse" });
   await delay(20);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
 
@@ -697,6 +778,9 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
   assert.equal(artifact.shotBoundaryAnalysisHistory.length >= 2, true);
   assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).resultOrigin, "new_turn");
   assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).resultOrigin, "cache_reuse");
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).traceId, first.traceId);
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).traceId, second.traceId);
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).sourceTraceId, "trace_1");
 });
 
 test("shot boundary keeps Chinese reason text without mojibake", async () => {
@@ -981,7 +1065,7 @@ function createArtifact(overrides = {}) {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -1058,7 +1142,7 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     loadItem: async () => null,
     ...artifactIndexOverrides,
   };
-  const contactSheetGenerator = {
+  const contactSheetGenerator = contactSheetGeneratorOverride ?? {
     generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
   };
   const service = createShotBoundaryService({

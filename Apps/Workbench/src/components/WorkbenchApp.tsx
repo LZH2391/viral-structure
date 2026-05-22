@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, uploadSampleVideo } from "../api/client";
+import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, WorkbenchState } from "../types";
@@ -23,7 +23,7 @@ import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
-type ShotCachePrompt = { cachedItem: LibraryItemSummary; token: number } | null;
+type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 
@@ -59,7 +59,10 @@ export function WorkbenchApp() {
       setSaveStatus("已恢复最近样例");
     }
     if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
-    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob).catch(() => setSaveStatus("恢复切镜任务失败"));
+    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob, ({ job, cachedItem }) => {
+      setShotCachePrompt({ jobId: job.jobId ?? draft.activeAgentJob!.processingJobId, sampleVideoId: job.sampleVideoId ?? draft.activeAgentJob!.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+      setSaveStatus("命中切镜缓存，等待选择");
+    }).catch(() => setSaveStatus("恢复切镜任务失败"));
     if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps));
   }, []);
 
@@ -328,18 +331,32 @@ export function WorkbenchApp() {
     const prompt = shotCachePrompt;
     setShotCachePrompt(null);
     try {
-      await runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob, undefined, "reuse");
+      const job = await resolveShotBoundaryCacheDecision(prompt.jobId, "reuse");
+      setAgentJob(job);
+      const artifact = await getSampleArtifact(prompt.sampleVideoId);
+      dispatch({ type: "set-shot-boundary-analysis", artifact });
+      writeActiveAgentJob(null);
       setSaveStatus("已复用切镜缓存");
     } catch (error) {
       setSaveStatus(error instanceof Error ? error.message : "复用切镜缓存失败");
     }
-  }, [agentAnalysisFps, shotCachePrompt, state]);
+  }, [shotCachePrompt, state.sampleVideo]);
 
-  const refreshShotCache = useCallback(() => {
-    if (!state.sampleVideo) return;
+  const refreshShotCache = useCallback(async () => {
+    if (!state.sampleVideo || !shotCachePrompt) return;
+    const prompt = shotCachePrompt;
     setShotCachePrompt(null);
-    runShotBoundaryAnalysis(state, agentAnalysisFps, setAgentJob, dispatch, writeActiveAgentJob, undefined, "refresh").catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
-  }, [agentAnalysisFps, state]);
+    try {
+      const job = await resolveShotBoundaryCacheDecision(prompt.jobId, "refresh");
+      setAgentJob(job);
+      await attachAgentJob({ processingJobId: prompt.jobId, sampleVideoId: prompt.sampleVideoId, traceId: job.traceId, analysisFps: agentAnalysisFps }, setAgentJob, dispatch, writeActiveAgentJob, ({ job: waitingJob, cachedItem }) => {
+        setShotCachePrompt({ jobId: waitingJob.jobId ?? prompt.jobId, sampleVideoId: waitingJob.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+        setSaveStatus("命中切镜缓存，等待选择");
+      });
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "切镜分析失败");
+    }
+  }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
 
   const handleUnderstand = () => {
     if (!state.sampleVideo) return;
@@ -473,8 +490,9 @@ export function WorkbenchApp() {
             setAgentJob,
             dispatch,
             writeActiveAgentJob,
-            async (cachedItem) => {
-              setShotCachePrompt({ cachedItem, token: uploadTokenRef.current });
+            async ({ job, cachedItem }) => {
+              if (!job.jobId || !job.sampleVideoId) return;
+              setShotCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
               setSaveStatus("命中切镜缓存，等待选择");
             },
             "ask",

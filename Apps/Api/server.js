@@ -44,6 +44,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/capabilities") return handleCapabilities(res);
     if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url);
     if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1));
+    if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return handleJobCacheDecision(req, res, url.pathname.split("/").at(-2));
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "GET" && url.pathname === "/api/threadpool/health") return handleThreadPoolRead(res, "health", () => threadPool.health());
@@ -96,7 +97,13 @@ async function handleArtifact(res, sampleVideoId) {
 async function handleShotBoundary(req, res, sampleVideoId) {
   const body = await readJsonBody(req);
   const result = await shotBoundaryService.enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1, cacheDecision: body.cacheDecision ?? "ask" });
-  return sendJson(res, result?.cacheHit ? 200 : 202, result);
+  return sendJson(res, 202, result);
+}
+
+async function handleJobCacheDecision(req, res, jobId) {
+  const body = await readJsonBody(req);
+  const result = await shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
+  return sendJson(res, 200, result);
 }
 
 async function handleThreadPoolRead(res, scope, action) {

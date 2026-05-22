@@ -113,6 +113,9 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   assert.match(hook, /const peaksCache = new Map<string, number\[\]>\(\)/);
   assert.match(hook, /new Worker\(new URL\("\.\.\/workers\/audioPeaks\.worker\.ts"/);
   assert.match(hook, /decodePeaksInMainThread/);
+  assert.match(hook, /new AbortController\(\)/);
+  assert.match(hook, /fetch\(url, \{ signal \}\)/);
+  assert.match(hook, /result\.cancelled/);
   assert.match(hook, /workerRef\.current\?\.terminate\(\)/);
   assert.match(hook, /time - lastFrameAtRef\.current >= 66/);
   assert.match(worker, /decodeAudioData/);
@@ -263,7 +266,13 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /\/api\/threadpool\/roles/);
   assert.match(api, /\/api\/threadpool\/threads\/\$\{encodeURIComponent\(threadId\)\}\/conversation/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
+  assert.match(api, /\/api\/processing-jobs\/\$\{encodeURIComponent\(jobId\)\}\/cache-decision/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
+  assert.match(app, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "reuse"\)/);
+  assert.match(app, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "refresh"\)/);
+  assert.match(app, /jobId: job\.jobId/);
+  assert.match(app, /cache_waiting|setShotCachePrompt/);
+  assert.match(api, /resolveShotBoundaryCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
   assert.match(threadpoolApp, /getThreadConversation/);
   assert.match(threadpoolApp, /查看对话/);

@@ -10,7 +10,7 @@ export type ActiveJobDraft = {
 };
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
-export type ShotBoundaryCacheHandler = (item: import("../types").LibraryItemSummary) => Promise<void> | void;
+export type ShotBoundaryCacheHandler = (payload: { job: ProcessingJob; cachedItem: import("../types").LibraryItemSummary }) => Promise<void> | void;
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -25,7 +25,10 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   if (guard.state !== "ready") throw new Error(guard.message ?? "ThreadPool 当前不可用，请稍后再试");
   const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision });
   if ("cacheHit" in started && started.cacheHit) {
-    await onCacheHit?.(started.cachedItem);
+    await onCacheHit?.({
+      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "shot.cache_lookup", status: "cache_waiting", progress: 55 },
+      cachedItem: started.cachedItem,
+    });
     return;
   }
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
@@ -35,6 +38,10 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
     await delay(1000);
     latest = await getProcessingJob(started.processingJobId);
     setAgentJob(latest);
+    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+      return;
+    }
     if (latest.status === "processed") {
       const artifact = await getSampleArtifact(started.sampleVideoId);
       dispatch({ type: "set-shot-boundary-analysis", artifact });
@@ -73,7 +80,7 @@ export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (a
   return null;
 }
 
-export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob: JobDraftWriter) {
+export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler) {
   for (let attempt = 0; attempt < 180; attempt += 1) {
     const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
     if (!job) {
@@ -82,6 +89,10 @@ export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job
       return null;
     }
     setAgentJob(job);
+    if (job.status === "cache_waiting" && job.cachePrompt?.cachedItem) {
+      await onCacheHit?.({ job, cachedItem: job.cachePrompt.cachedItem });
+      return null;
+    }
     if (job.status === "processed") {
       const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
       dispatch({ type: "set-shot-boundary-analysis", artifact });
@@ -165,6 +176,7 @@ export function stageLabel(job: ProcessingJob): string {
     "sample.artifact.written": "生成产物",
     "shot.input_prepare": "准备切镜输入",
     "shot.contact_sheet": "生成联表",
+    "shot.cache_lookup": "检查切镜缓存",
     "shot.thread_acquire": "检查 ThreadPool",
     "shot.boundary_analyze.submit": "提交切镜分析",
     "shot.boundary_analyze.collect": "等待切镜结果",

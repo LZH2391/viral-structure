@@ -22,10 +22,16 @@ export type ProcessingJob = {
   jobId: string | null;
   sampleVideoId: string | null;
   stage: string;
-  status: "pending" | "processing" | "processed" | "failed" | string;
+  status: "pending" | "processing" | "cache_waiting" | "processed" | "failed" | string;
   progress: number;
   traceId: string;
   errorSummary?: ErrorSummary | null;
+  cachePrompt?: {
+    cachedItem: LibraryItemSummary;
+    sourceSampleVideoId?: string | null;
+    sourceTurnId?: string | null;
+    analysisFps?: number | null;
+  } | null;
 };
 
 export type BackendCapabilities = {
@@ -97,6 +103,7 @@ export type ShotBoundaryAnalysisHistoryEntry = {
   shotCount: number;
   turnId: string | null;
   traceId: string | null;
+  sourceTraceId?: string | null;
   createdAt: string;
   validatorCode?: string | null;
 };
