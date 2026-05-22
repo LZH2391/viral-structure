@@ -338,19 +338,12 @@ test("workbench exposes commerce brief summary and visible content profile input
   const root = path.resolve(__dirname, "../..");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const commerce = read(root, "Apps/Workbench/src/components/property-panel/CommerceBriefPanel.tsx");
-  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
-  const state = read(root, "Apps/Workbench/src/state.ts");
   const types = read(root, "Apps/Workbench/src/types.ts");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const roles = read(root, "Infrastructure/ThreadPool/thread_roles.json");
 
   assert.match(commerce, /section-heading">样例总结 \/ 新内容/);
   assert.match(commerce, /label="卖什么"/);
-  assert.match(commerce, /新商品\/主题/);
-  assert.match(commerce, /生成迁移方案/);
-  assert.match(app, /type: "set-content-profile"/);
-  assert.doesNotMatch(app, /<form id="profileForm"/);
-  assert.match(state, /type: "set-content-profile"; profile: ContentProfile/);
   assert.match(types, /commerceBrief\?: \{/);
   assert.match(types, /sellingObject: string;/);
   assert.match(css, /\.commerce-brief-panel/);
@@ -358,7 +351,7 @@ test("workbench exposes commerce brief summary and visible content profile input
   assert.doesNotMatch(property, /CommerceBriefPanel/);
 });
 
-test("workbench generate plan triggers script segment analysis before transfer", () => {
+test("workbench understand flow triggers script segment analysis", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
@@ -368,7 +361,6 @@ test("workbench generate plan triggers script segment analysis before transfer",
 
   assert.match(app, /runScriptSegmentAnalysis/);
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
-  assert.match(app, /sourceScriptSegmentArtifactId/);
   assert.match(helpers, /startScriptSegmentAnalysis/);
   assert.match(helpers, /"script_segment\.input_prepare": "准备脚本段落输入"/);
   assert.match(helpers, /"script_segment\.repair": "修复脚本段落结果"/);
@@ -379,19 +371,16 @@ test("workbench generate plan triggers script segment analysis before transfer",
   assert.match(index, /"script-segment-analysis": "脚本段落"/);
 });
 
-test("workbench exposes standalone create input view and removes form from property panel", () => {
+test("workbench removes create input view entry", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
-  const createInput = read(root, "Apps/Workbench/src/components/CreateInputApp.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
 
-  assert.match(view, /"workspace" \| "create" \| "library" \| "debug" \| "threadpool"/);
-  assert.match(view, /if \(pathname === "\/create"\) return "create"/);
-  assert.match(app, /setWorkbenchView\("create", setActiveView\)/);
-  assert.match(app, /<CreateInputApp/);
-  assert.match(createInput, /创作输入/);
-  assert.match(createInput, /CommerceBriefPanel/);
+  assert.match(view, /"workspace" \| "library" \| "debug" \| "threadpool"/);
+  assert.doesNotMatch(view, /\/create/);
+  assert.doesNotMatch(app, /创作输入/);
+  assert.doesNotMatch(app, /CreateInputApp/);
   assert.doesNotMatch(property, /profile-form/);
 });
 

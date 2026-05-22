@@ -1,6 +1,6 @@
-import { FormEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
-import { buildContentProfile, createGeneratedPlan, createStructureCardsFromSegments } from "../domain";
+import { createStructureCardsFromSegments } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SampleArtifact, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
@@ -13,7 +13,6 @@ import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
-import { CreateInputApp } from "./CreateInputApp";
 import { DebugApp } from "./DebugApp";
 import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
@@ -94,8 +93,6 @@ export function WorkbenchApp() {
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
   const subtitleDraftEntries = Object.values(state.subtitleDrafts);
-  const contentProfile = state.contentProfile ?? buildContentProfile(null);
-
   useEffect(() => {
     subtitleSaveStateRef.current = {
       sampleVideo: state.sampleVideo,
@@ -548,39 +545,6 @@ export function WorkbenchApp() {
     }
   }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, scriptSegmentJob?.traceId, state, state.processingJob?.traceId]);
 
-  const handleGeneratePlan = useCallback(async () => {
-    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return;
-    let sourceArtifact: SampleArtifact | null = state.sampleArtifact;
-    if (!sourceArtifact?.scriptSegmentAnalysis?.segments?.length) {
-      sourceArtifact = await handleUnderstand();
-    }
-    if (!sourceArtifact) return;
-    const structureCards = createStructureCardsFromSegments(sourceArtifact ?? null);
-    if (!structureCards.length) return;
-    const parentArtifactId = sourceArtifact?.scriptSegmentAnalysis?.artifactId ?? state.sampleVideo.artifactId;
-    const stage = beginStage(STAGES.transfer, parentArtifactId, {
-      sampleVideoId: state.sampleVideo.id,
-      structureCardCount: structureCards.length,
-      sourceScriptSegmentArtifactId: parentArtifactId,
-    });
-    try {
-      const profile = contentProfile;
-      const result = createGeneratedPlan(profile, structureCards, parentArtifactId);
-      dispatch({ type: "set-generated-plan", generatedPlan: result.generatedPlan, mappings: result.mappings, profile });
-      dispatch({ type: "add-version", version: addVersion("迁移方案生成", stage.stageName, result.generatedArtifactId, parentArtifactId) });
-      finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
-    } catch (error) {
-      failStage(stage, error, {
-        errorCode: (error as { code?: string })?.code,
-        errorMessage: error instanceof Error ? error.message : "迁移方案生成失败",
-        errorStage: STAGES.transfer,
-        backendTraceId: state.processingJob?.traceId ?? null,
-        debugPayload: { kind: "transfer-generate-failure", sampleVideoId: state.sampleVideo.id },
-      });
-      throw error;
-    }
-  }, [beginStage, contentProfile, dispatch, failStage, finishStage, handleUnderstand, state]);
-
   const handleSelectAudioFeature = useCallback(
     (marker: AudioFeatureMarker) => {
       dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
@@ -605,9 +569,6 @@ export function WorkbenchApp() {
         <div className="top-actions">
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
-          </button>
-          <button className={`tab-button ${activeView === "create" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("create", setActiveView)}>
-            创作输入
           </button>
           <button className={`tab-button ${activeView === "debug" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("debug", setActiveView)}>
             运行追踪
@@ -784,26 +745,6 @@ export function WorkbenchApp() {
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
         />
       </main>
-      {activeView === "create" ? (
-        <CreateInputApp
-          embedded
-          onBack={() => setWorkbenchView("workspace", setActiveView)}
-          commerceBrief={shotBoundaryAnalysis?.commerceBrief ?? null}
-          profile={contentProfile}
-          onProfileChange={(field, value) => {
-            dispatch({
-              type: "set-content-profile",
-              profile: {
-                ...contentProfile,
-                [field]: sanitizeText(value, field === "sellingPoints" ? 200 : 80),
-              },
-            });
-          }}
-          onGeneratePlan={() => {
-            void handleGeneratePlan().catch((error) => setSaveStatus(error instanceof Error ? error.message : "迁移方案生成失败"));
-          }}
-        />
-      ) : null}
       {activeView === "library" ? <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}

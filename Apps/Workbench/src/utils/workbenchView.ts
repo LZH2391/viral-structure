@@ -1,8 +1,7 @@
-export type WorkbenchView = "workspace" | "create" | "library" | "debug" | "threadpool";
+export type WorkbenchView = "workspace" | "library" | "debug" | "threadpool";
 
 export function initialViewFromPath(): WorkbenchView {
   const pathname = window.location.pathname.replace(/\/+$/, "");
-  if (pathname === "/create") return "create";
   if (pathname === "/library") return "library";
   if (pathname === "/debug") return "debug";
   if (pathname === "/threadpool") return "threadpool";

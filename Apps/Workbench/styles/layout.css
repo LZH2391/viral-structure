@@ -185,3 +185,37 @@ body.is-resizing-workspace-row {
 body.is-resizing-workspace * {
   cursor: inherit !important;
 }
+
+.segment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.segment-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 12px;
+}
+
+.segment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+}
+
+.segment-card-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.segment-card-body {
+  display: grid;
+  gap: 6px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
