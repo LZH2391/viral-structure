@@ -14,6 +14,7 @@ const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
 const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
+const ROLE_PROFILE_PATH = "Assets/RoleProfiles/shot-boundary-analyzer/role.json";
 
 function safeError(error, stageName) {
   return {
@@ -266,6 +267,7 @@ async function resolveSkillHash(skillPath = SKILL_PATH) {
 module.exports = {
   ROLE,
   SKILL_PATH,
+  ROLE_PROFILE_PATH,
   MIN_SHOT_DURATION_SECONDS,
   MAX_REPAIR_ATTEMPTS,
   ANALYSIS_SELECTION_POLICY,

@@ -12,6 +12,7 @@ from uuid import uuid4
 from ..appserver.client import AppServerSessionClient
 from ..storage import file_lock, read_json, write_json
 from .models import LeaseRecord, RoleConfig, ThreadRecord
+from .role_profile import load_role_profile
 from .store import ThreadPoolStore
 
 MAX_INACTIVE_LEASE_RECORDS = 64
@@ -388,7 +389,24 @@ class ThreadPoolManager:
         for role_name, payload in role_map.items():
             if not isinstance(payload, dict):
                 raise ValueError(f"role config must be object: {role_name}")
-            config = RoleConfig.model_validate({"name": role_name, **payload})
+            normalized_payload = dict(payload)
+            profile_path = normalized_payload.get("profile_path")
+            if profile_path is not None:
+                loaded_profile = load_role_profile(self.workspace_root, role_name, profile_path)
+                normalized_payload.update(
+                    {
+                        "profile_path": str(loaded_profile.profile_path),
+                        "profile_version": loaded_profile.profile_version,
+                        "skill_path": loaded_profile.skill_path,
+                        "init_prompt": loaded_profile.init_prompt,
+                        "init_ready_text": loaded_profile.init_ready_text,
+                        "init_template_path": loaded_profile.init_template_path,
+                        "init_template_hash": loaded_profile.init_template_hash,
+                    }
+                )
+            config = RoleConfig.model_validate({"name": role_name, **normalized_payload})
+            if not config.init_prompt:
+                raise ValueError(f"role init_prompt cannot be empty: {role_name}")
             roles[config.name] = config
         return roles
 
@@ -868,8 +886,9 @@ class ThreadPoolManager:
                 "roles": {
                     role_name: {
                         "min_idle": config.min_idle,
+                        "profile_path": config.profile_path,
+                        "profile_version": config.profile_version,
                         "skill_path": config.skill_path,
-                        "init_prompt": config.init_prompt,
                         "current_init_fingerprint": self._role_init_fingerprint(config),
                         "seed_thread_id": None if role_name not in seed_by_role else seed_by_role[role_name].thread_id,
                         "seed_init_fingerprint": None if role_name not in seed_by_role else seed_by_role[role_name].init_fingerprint,
@@ -908,7 +927,9 @@ class ThreadPoolManager:
             "ok": True,
             "role": config.name,
             "min_idle": config.min_idle,
-            "init_prompt": config.init_prompt,
+            "profile_path": config.profile_path,
+            "profile_version": config.profile_version,
+            "skill_path": config.skill_path,
             "current_init_fingerprint": self._role_init_fingerprint(config),
             "counts": counts,
             "seed_thread_id": role_entry.get("seed_thread_id"),
@@ -940,7 +961,8 @@ class ThreadPoolManager:
 
     def _role_init_fingerprint(self, config: RoleConfig) -> str:
         payload = {
-            "init_prompt": config.init_prompt,
+            "profile_version": config.profile_version,
+            "init_template_hash": config.init_template_hash,
             "init_ready_text": config.init_ready_text,
             "skill_path": config.skill_path,
             "skill_body_sha256": self._skill_body_sha256(config.skill_path),

@@ -10,9 +10,22 @@ async function submitRepairTurn({
   stages,
   appServer,
   rootDir,
-  buildRepairTurnInputs,
+  renderRepairTurnInputs,
   role,
 }) {
+  const repairTurn = renderRepairTurnInputs({
+    prepared,
+    contactSheets,
+    validationError,
+    priorTurnOutput: priorTurn.finalMessage,
+    repairAttemptCount,
+    roleProfile: context.roleProfile,
+  });
+  context.promptTemplate = {
+    promptTemplateId: repairTurn.promptTemplateId,
+    promptTemplateVersion: repairTurn.promptTemplateVersion,
+    promptTemplateHash: repairTurn.promptTemplateHash,
+  };
   const started = await runStage(context, stages.turnRepaired, 91, {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
@@ -20,16 +33,20 @@ async function submitRepairTurn({
     action: () => appServer.startTurnWithInputs({
       workspaceRoot: rootDir,
       threadId: agentRun.threadId,
-      inputs: buildRepairTurnInputs({
-        prepared,
-        contactSheets,
-        validationError,
-        priorTurnOutput: priorTurn.finalMessage,
-        repairAttemptCount,
-      }),
+      inputs: repairTurn.inputs,
       timeoutSeconds: 240,
     }),
-    outputSummary: (result) => ({ role, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
+    outputSummary: (result) => ({
+      role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      repairAttemptCount,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    }),
   });
   return runStage(context, stages.repairCollected, 93, {
     artifactId: context.artifactId,
@@ -41,7 +58,17 @@ async function submitRepairTurn({
       turnId: started.turnId,
       timeoutSeconds: 120,
     }),
-    outputSummary: (result) => ({ role, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
+    outputSummary: (result) => ({
+      role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      repairAttemptCount,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    }),
   });
 }
 
@@ -57,7 +84,7 @@ async function resolveFinalAnalysis({
   buildProcessedAnalysis,
   appServer,
   rootDir,
-  buildRepairTurnInputs,
+  renderRepairTurnInputs,
   codedError,
   role,
 }) {
@@ -140,7 +167,7 @@ async function resolveFinalAnalysis({
         stages,
         appServer,
         rootDir,
-        buildRepairTurnInputs,
+        renderRepairTurnInputs,
         role,
       });
       resultOrigin = "repaired_turn";
@@ -167,7 +194,7 @@ async function writeCompletedAnalysis({
   maxRepairAttempts,
   appServer,
   rootDir,
-  buildRepairTurnInputs,
+  renderRepairTurnInputs,
   codedError,
   role,
   jobStore,
@@ -187,7 +214,7 @@ async function writeCompletedAnalysis({
     buildProcessedAnalysis,
     appServer,
     rootDir,
-    buildRepairTurnInputs,
+    renderRepairTurnInputs,
     codedError,
     role,
   });

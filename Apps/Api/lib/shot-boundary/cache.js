@@ -13,7 +13,14 @@ async function findCachedArtifact({
   if (!fileHash) {
     return { cache: null, analysis: null, cacheEligibility: null, summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "file_hash_missing" }) };
   }
-  const params = cacheParams(prepared, contactSheets, { skillHash: context.skillHash });
+  const params = cacheParams(prepared, contactSheets, {
+    skillHash: context.skillHash,
+    profileVersion: context.roleProfile?.profileVersion,
+    promptTemplateId: context.promptTemplate?.promptTemplateId,
+    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion,
+    promptTemplateHash: context.promptTemplate?.promptTemplateHash,
+    initFingerprint: context.initFingerprint,
+  });
   const cache = await artifactIndex.findCacheEntry({
     fileHash,
     stageName,
@@ -54,7 +61,17 @@ async function runCacheLookup({ context, prepared, contactSheets, runStage, stag
   const result = await runStage(context, stageName, 55, {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
-    inputSummary: { sampleVideoId: context.sampleVideoId, analysisFps: context.analysisFps, sheetCount: contactSheets.length, skillHash: context.skillHash },
+    inputSummary: {
+      sampleVideoId: context.sampleVideoId,
+      analysisFps: context.analysisFps,
+      sheetCount: contactSheets.length,
+      skillHash: context.skillHash,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      initFingerprint: context.initFingerprint ?? null,
+    },
     action: () => findCached(),
     outputSummary: (lookup) => lookup.summary,
   });
@@ -98,6 +115,12 @@ function buildCachePrompt(context, cached) {
     analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
     cacheKey: cached.cache.cacheKey ?? null,
     artifactId: context.artifactId,
+    profilePath: context.roleProfile?.profilePath ?? null,
+    profileVersion: context.roleProfile?.profileVersion ?? null,
+    promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+    promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    initFingerprint: context.initFingerprint ?? null,
     skillPath: context.skillPath,
     skillHash: context.skillHash,
   };
@@ -120,6 +143,9 @@ function buildCachedItem(context, cached) {
     boundaryCount: cached.analysis.boundaries?.length ?? 0,
     shotCount: cached.analysis.shots?.length ?? 0,
     analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
+    profileVersion: cached.analysis.agent?.profileVersion ?? null,
+    promptTemplateId: cached.analysis.agent?.promptTemplateId ?? null,
+    promptTemplateVersion: cached.analysis.agent?.promptTemplateVersion ?? null,
   };
 }
 
@@ -127,6 +153,11 @@ function cacheLookupSummary(context, details) {
   return {
     analysisFps: context.analysisFps,
     skillHash: context.skillHash,
+    profileVersion: context.roleProfile?.profileVersion ?? null,
+    promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+    promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    initFingerprint: context.initFingerprint ?? null,
     ...details,
   };
 }
@@ -152,6 +183,9 @@ async function reuseCachedAnalysis({
       sampleVideoId: context.sampleVideoId,
       sourceSampleVideoId: cachePrompt?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sampleVideoId ?? null,
       cacheKey: cachePrompt?.cacheKey ?? null,
+      profileVersion: cachePrompt?.profileVersion ?? null,
+      promptTemplateId: cachePrompt?.promptTemplateId ?? null,
+      promptTemplateVersion: cachePrompt?.promptTemplateVersion ?? null,
     },
     action: async () => {
       const cached = await resolvePrompt();

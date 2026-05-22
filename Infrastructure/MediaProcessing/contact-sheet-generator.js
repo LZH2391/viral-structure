@@ -139,18 +139,23 @@ function findBestLayout({ count, sourceWidth, sourceHeight, constraints }) {
 
 function buildSheetArtifact({ sheetIndex, parentArtifactId, frames, layout, constraints }) {
   const sheetId = `sheet-${String(sheetIndex + 1).padStart(3, "0")}`;
-  const gridItems = frames.map((frame, index) => ({
-    frameId: frame.frameId,
-    artifactId: frame.artifactId ?? null,
-    parentArtifactId: frame.parentArtifactId ?? null,
-    timestamp: Number(frame.timestamp ?? 0),
-    inputIndex: Number(frame.inputIndex ?? index),
-    sourceFrameIndex: Number(frame.sourceFrameIndex ?? index),
-    filePath: frame.filePath ?? null,
-    gridIndex: index,
-    row: Math.floor(index / layout.cols),
-    col: index % layout.cols,
-  }));
+  const gridItems = frames.map((frame, index) => {
+    const inputIndex = normalizeNonNegativeInteger(frame.inputIndex, index);
+    const sourceFrameIndex = normalizeNonNegativeInteger(frame.sourceFrameIndex, index);
+    return {
+      frameId: frame.frameId,
+      artifactId: frame.artifactId ?? null,
+      parentArtifactId: frame.parentArtifactId ?? null,
+      timestamp: Number(frame.timestamp ?? 0),
+      inputIndex,
+      sourceFrameIndex,
+      displayFrameLabel: buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index),
+      filePath: frame.filePath ?? null,
+      gridIndex: index,
+      row: Math.floor(index / layout.cols),
+      col: index % layout.cols,
+    };
+  });
   return {
     artifactId: `artifact_${randomUUID()}`,
     parentArtifactId,
@@ -248,7 +253,22 @@ async function buildFrameCell({ framePath, label, cellWidth, cellHeight, frameBo
 
 function buildFrameLabel(item) {
   const timestamp = Number(item.timestamp ?? 0);
-  return `${item.frameId}  ${timestamp.toFixed(3)}s`;
+  const displayLabel = item.displayFrameLabel || item.frameId;
+  return `${displayLabel}  ${timestamp.toFixed(3)}s`;
+}
+
+function buildDisplayFrameLabel(frame, fallbackIndex = 0) {
+  const ordinal = Number.isInteger(frame?.inputIndex) && frame.inputIndex >= 0
+    ? frame.inputIndex + 1
+    : Number.isInteger(frame?.sourceFrameIndex) && frame.sourceFrameIndex >= 0
+      ? frame.sourceFrameIndex + 1
+      : fallbackIndex + 1;
+  return `frame-${String(ordinal).padStart(3, "0")}`;
+}
+
+function normalizeNonNegativeInteger(value, fallback = 0) {
+  const normalized = Number(value);
+  return Number.isInteger(normalized) && normalized >= 0 ? normalized : fallback;
 }
 
 function buildLabelSvg({ width, height, text }) {
@@ -271,6 +291,8 @@ function escapeXml(value) {
 
 module.exports = {
   DEFAULT_CONSTRAINTS,
+  buildDisplayFrameLabel,
+  buildFrameLabel,
   generateContactSheets,
   planContactSheets,
 };

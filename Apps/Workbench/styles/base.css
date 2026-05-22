@@ -1,15 +1,27 @@
 :root {
-  --bg: #111318;
-  --panel: #1a1e25;
-  --panel-2: #222832;
-  --panel-3: #2a313b;
-  --line: #363f4c;
-  --text: #eef1f4;
-  --muted: #9ba8b6;
-  --accent: #38bdf8;
-  --accent-2: #f59e0b;
-  --good: #22c55e;
-  --danger: #ef4444;
+  --bg: #0e0f12;
+  --bg-elevated: #131519;
+  --panel: #181a1f;
+  --panel-2: #1d2026;
+  --panel-3: #242830;
+  --panel-4: #2b313a;
+  --panel-soft: #20242b;
+  --line: #2a2e36;
+  --line-strong: #343a44;
+  --text: #eef2f6;
+  --text-soft: #c8d0da;
+  --muted: #8f98a3;
+  --muted-2: #6f7781;
+  --accent: #11cfe0;
+  --accent-hover: #35d9e7;
+  --accent-soft: rgba(17, 207, 224, 0.14);
+  --warn: #f2a93b;
+  --warn-soft: rgba(242, 169, 59, 0.14);
+  --danger: #f06565;
+  --good: #32c97a;
+  --field-bg: #111318;
+  --field-bg-strong: #0c0e12;
+  --shadow-panel: 0 12px 30px rgba(0, 0, 0, 0.22);
   --surface: #f8fafc;
   --ink: #1f2937;
 }
@@ -28,7 +40,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
   letter-spacing: 0;
   overflow: hidden;
 }
@@ -59,10 +71,10 @@ button:disabled {
 
 .section-heading {
   margin: 14px 0 8px;
-  color: #dce5ee;
+  color: var(--text-soft);
   font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-weight: 600;
+  text-transform: none;
 }
 
 .empty-state {
@@ -71,7 +83,8 @@ button:disabled {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #202630;
+  background: var(--panel-2);
+  box-shadow: var(--shadow-panel);
 }
 
 .sr-only {

@@ -15,11 +15,15 @@ class RoleConfig(BaseModel):
 
     name: str
     min_idle: int = 4
-    init_prompt: str
+    init_prompt: str | None = None
+    profile_path: str | None = None
+    profile_version: str | None = None
+    init_template_path: str | None = None
+    init_template_hash: str | None = None
     skill_path: str | None = None
     init_ready_text: str | None = None
 
-    @field_validator("name", "init_prompt")
+    @field_validator("name")
     @classmethod
     def ensure_text(cls, value: str) -> str:
         text = str(value).strip()
@@ -27,7 +31,7 @@ class RoleConfig(BaseModel):
             raise ValueError("field cannot be empty")
         return text
 
-    @field_validator("skill_path", "init_ready_text")
+    @field_validator("init_prompt", "profile_path", "profile_version", "init_template_path", "init_template_hash", "skill_path", "init_ready_text")
     @classmethod
     def normalize_skill_path(cls, value: str | None) -> str | None:
         if value is None:

@@ -6,7 +6,7 @@
 .frame-track-toggle input {
   width: 14px;
   height: 14px;
-  accent-color: var(--accent-2);
+  accent-color: var(--warn);
 }
 
 .timeline-controls {
@@ -15,7 +15,7 @@
   justify-content: center;
   padding: 8px 8px 0;
   border-right: 1px solid var(--line);
-  background: #151a20;
+  background: var(--bg-elevated);
 }
 
 .timeline-controls label {
@@ -28,9 +28,9 @@
 .timeline-controls input {
   width: 72px;
   height: 26px;
-  border: 1px solid #3a4654;
+  border: 1px solid var(--line-strong);
   border-radius: 5px;
-  background: #10151b;
+  background: var(--field-bg);
   color: var(--text);
   padding: 0 6px;
 }

@@ -14,17 +14,17 @@
   display: grid;
   grid-template-rows: 28px 38px 58px 64px 44px;
   border-right: 1px solid var(--line);
-  background: #151a20;
+  background: var(--bg-elevated);
 }
 
 .timeline-label {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border-bottom: 1px solid #2c3440;
-  color: #cbd5e1;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-soft);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -82,10 +82,10 @@
   z-index: 2;
   width: 46px;
   height: 24px;
-  border: 1px solid #f8fafc;
+  border: 1px solid rgba(255, 248, 236, 0.8);
   border-radius: 5px;
-  background: #f59e0b;
-  color: #10151b;
+  background: var(--warn);
+  color: #16110a;
   padding: 0;
   transform: translateX(-23px);
   cursor: grab;
@@ -105,7 +105,7 @@
   display: block;
   overflow: hidden;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 22px;
   text-align: center;
   white-space: nowrap;
@@ -117,15 +117,15 @@
   bottom: 0;
   left: 0;
   width: 2px;
-  background: #f59e0b;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.65), 0 0 10px rgba(245, 158, 11, 0.55);
+  background: var(--warn);
+  box-shadow: 0 0 0 1px rgba(10, 11, 14, 0.6), 0 0 8px rgba(242, 169, 59, 0.35);
   transform: translateX(-1px);
 }
 
 .timeline-ruler {
   position: relative;
-  border-bottom: 1px solid #2c3440;
-  background: #10151b;
+  border-bottom: 1px solid var(--line);
+  background: var(--field-bg-strong);
 }
 
 .ruler-tick {
@@ -144,15 +144,15 @@
   width: 1px;
   height: 100%;
   margin-right: 5px;
-  background: #3a4654;
+  background: var(--line-strong);
 }
 
 .track {
   position: relative;
   min-width: 0;
   padding: 5px 0;
-  border-bottom: 1px solid #2c3440;
-  background: #171c23;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .video-clip,
@@ -172,12 +172,13 @@
 }
 
 .video-clip {
-  background: #213447;
+  background: #253641;
 }
 
 .video-clip.active {
   border-color: var(--accent);
-  background: #174158;
+  background: #1f4651;
+  box-shadow: inset 0 0 0 1px rgba(17, 207, 224, 0.24);
 }
 
 .video-clip strong,
@@ -191,7 +192,7 @@
 .audio-track-button span {
   min-width: 0;
   overflow: hidden;
-  color: #b8c4d1;
+  color: var(--text-soft);
   font-size: 11px;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -203,23 +204,23 @@
   top: 6px;
   width: 76px;
   height: 44px;
-  border: 1px solid #4b5563;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   overflow: hidden;
-  background: #25303b;
+  background: var(--panel-3);
   cursor: pointer;
 }
 
 .frame-cell.active {
-  border-color: var(--accent-2);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.28);
+  border-color: var(--warn);
+  box-shadow: 0 0 0 2px rgba(242, 169, 59, 0.22);
 }
 
 .frame-cell img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #0a0d12;
+  background: var(--field-bg-strong);
 }
 
 .frame-cell span {
@@ -251,7 +252,8 @@
 
 .audio-track-button.active {
   border-color: var(--accent);
-  background: #163142;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(17, 207, 224, 0.2);
 }
 
 .audio-track-button span {
@@ -264,9 +266,9 @@
   width: 100%;
   height: 18px;
   grid-column: 2;
-  border: 1px solid #263848;
+  border: 1px solid var(--line);
   border-radius: 5px;
-  background: #0b1118;
+  background: var(--field-bg-strong);
   cursor: crosshair;
 }
 
@@ -293,13 +295,13 @@
 }
 
 .audio-feature-marker.beat {
-  background: rgba(56, 189, 248, 0.82);
+  background: rgba(17, 207, 224, 0.82);
 }
 
 .audio-feature-marker.onset {
   top: 5px;
   height: 7px;
-  background: rgba(245, 158, 11, 0.86);
+  background: rgba(242, 169, 59, 0.84);
 }
 
 .audio-feature-marker.active {
@@ -329,8 +331,8 @@
   z-index: 2;
   border: 1px solid var(--line);
   border-radius: 5px;
-  background: #101820;
-  color: #cbd5e1;
+  background: var(--field-bg);
+  color: var(--text-soft);
   padding: 2px 7px;
   font-size: 11px;
   cursor: pointer;
@@ -346,9 +348,9 @@
   height: 28px;
   min-width: 46px;
   overflow: hidden;
-  border: 1px solid #557089;
+  border: 1px solid #5b625f;
   border-radius: 5px;
-  background: #233447;
+  background: #373a3f;
   color: var(--text);
   padding: 0 7px;
   font-size: 11px;
@@ -360,8 +362,8 @@
 }
 
 .subtitle-clip.active {
-  border-color: var(--accent-2);
-  background: #3a3420;
+  border-color: var(--warn);
+  background: #4a4130;
 }
 
 .subtitle-empty {

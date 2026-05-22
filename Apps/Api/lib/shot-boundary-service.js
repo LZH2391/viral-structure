@@ -5,6 +5,7 @@ const { createTraceIds, nextStage } = require("../../../Infrastructure/Observabi
 const defaultContactSheetGenerator = require("../../../Infrastructure/MediaProcessing/contact-sheet-generator");
 const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
+const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { appendShotBoundaryHistory } = require("./shot-boundary/history");
 const {
   finalizeLease,
@@ -36,15 +37,17 @@ const {
   buildCacheReuseAnalysis,
   buildFailedArtifact,
   buildProcessedAnalysis,
-  buildRepairTurnInputs,
   buildTurnInputs,
+  renderAnalyzeTurnInputs,
   cacheParams,
   codedError,
   evaluateCacheEligibility,
   prepareInput,
+  renderRepairTurnInputs,
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
+  contentHash,
 } = require("./shot-boundary-analysis");
 
 const STAGES = {
@@ -76,7 +79,7 @@ function createShotBoundaryService({
   pollIntervalMs = POLL_INTERVAL_MS,
   orphanTtlMs = ORPHAN_TTL_MS,
 } = {}) {
-  const collectingJobs = new Set();
+  const collectingJobs = new Map();
 
   async function enqueue({ sampleVideoId, analysisFps = 1, cacheDecision = "ask" }) {
     await store.ensureRuntimeDirs();
@@ -93,8 +96,12 @@ function createShotBoundaryService({
       artifactId,
       skillPath,
       skillHash: await resolveSkillHash(skillPath),
+      roleProfile: await loadRoleProfileByRole(ROLE),
+      initFingerprint: null,
+      promptTemplate: null,
       job,
     };
+    context.initFingerprint = buildInitFingerprint(context);
     runAnalysis(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
@@ -118,6 +125,13 @@ function createShotBoundaryService({
       artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
       skillPath: job.cachePrompt.skillPath ?? skillPath,
       skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(skillPath),
+      roleProfile: await loadRoleProfileByRole(ROLE),
+      initFingerprint: job.cachePrompt.initFingerprint ?? null,
+      promptTemplate: {
+        promptTemplateId: job.cachePrompt.promptTemplateId ?? null,
+        promptTemplateVersion: job.cachePrompt.promptTemplateVersion ?? null,
+        promptTemplateHash: job.cachePrompt.promptTemplateHash ?? null,
+      },
       job,
     };
     if (decision === "reuse") {
@@ -184,6 +198,12 @@ function createShotBoundaryService({
         }),
       });
       context.contactSheets = contactSheets;
+      const analyzeTurn = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile: context.roleProfile });
+      context.promptTemplate = {
+        promptTemplateId: analyzeTurn.promptTemplateId,
+        promptTemplateVersion: analyzeTurn.promptTemplateVersion,
+        promptTemplateHash: analyzeTurn.promptTemplateHash,
+      };
       const cached = await runCacheLookup(context, prepared, contactSheets);
       if (cached && context.cacheDecision === "ask") {
         markCacheWaiting(context, cached);
@@ -215,10 +235,19 @@ function createShotBoundaryService({
         action: () => appServer.startTurnWithInputs({
           workspaceRoot: rootDir,
           threadId: lease.thread_id,
-          inputs: buildTurnInputs({ prepared, contactSheets }),
+          inputs: analyzeTurn.inputs,
           timeoutSeconds: 240,
         }),
-        outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status }),
+        outputSummary: (result) => ({
+          role: ROLE,
+          threadId: result.threadId,
+          turnId: result.turnId,
+          status: result.status,
+          profileVersion: context.roleProfile?.profileVersion ?? null,
+          promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+          promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+          promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+        }),
       });
       const agentRun = buildAgentRun({ context, lease, turn, prepared, contactSheets });
       jobStore.updateJob(context.job.jobId, {
@@ -238,15 +267,17 @@ function createShotBoundaryService({
   }
 
   async function collectAgentRun(jobId) {
-    if (collectingJobs.has(jobId)) return { status: "collecting" };
-    collectingJobs.add(jobId);
-    try {
+    if (collectingJobs.has(jobId)) return collectingJobs.get(jobId);
+    const task = (async () => {
       const job = jobStore.getJob(jobId);
       const agentRun = job?.agentRun;
       if (job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed) return { status: job.status };
       if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
       const sampleArtifact = await loadSampleArtifact(agentRun.sampleVideoId);
       const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
+      if (!context.roleProfile?.turnTemplates) {
+        context.roleProfile = await loadRoleProfileByRole(ROLE);
+      }
       if (Date.now() - Date.parse(agentRun.startedAt) > orphanTtlMs) {
         const error = codedError("shot_boundary_turn_orphaned", "切镜 Agent 长时间未完成，已清理遗留 lease");
         await failAgentRun(context, error);
@@ -269,7 +300,16 @@ function createShotBoundaryService({
             turnId: agentRun.turnId,
             timeoutSeconds: 60,
           }),
-          outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status }),
+          outputSummary: (result) => ({
+            role: ROLE,
+            threadId: result.threadId,
+            turnId: result.turnId,
+            status: result.status,
+            profileVersion: context.roleProfile?.profileVersion ?? null,
+            promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+            promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+            promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+          }),
         });
         if (turn.status !== "completed") {
           jobStore.updateJob(job.jobId, {
@@ -300,7 +340,7 @@ function createShotBoundaryService({
           maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
           appServer,
           rootDir,
-          buildRepairTurnInputs,
+          renderRepairTurnInputs,
           codedError,
           role: ROLE,
           jobStore,
@@ -316,6 +356,10 @@ function createShotBoundaryService({
         await failAgentRun(context, error);
         return { status: SAMPLE_STATUS.failed };
       }
+    })();
+    collectingJobs.set(jobId, task);
+    try {
+      return await task;
     } finally {
       collectingJobs.delete(jobId);
     }
@@ -605,8 +649,17 @@ function badRequestError(code, message) {
   return error;
 }
 
+function buildInitFingerprint(context) {
+  return contentHash(JSON.stringify({
+    profileVersion: context.roleProfile?.profileVersion ?? null,
+    initTemplateHash: context.roleProfile?.init?.templateHash ?? null,
+    skillHash: context.skillHash ?? null,
+    readyText: context.roleProfile?.init?.readyText ?? null,
+  }));
+}
+
 function round(value) {
   return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
 }
 
-module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs };
+module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };

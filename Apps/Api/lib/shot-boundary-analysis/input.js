@@ -4,7 +4,6 @@ const {
   MAX_ANALYSIS_FPS,
   ANALYSIS_SELECTION_POLICY,
   ANALYSIS_DUPLICATE_POLICY,
-  SKILL_PATH,
   sanitizeForAppServerText,
   buildSubtitleContextSummary,
   resolveLocalImagePath,
@@ -12,6 +11,7 @@ const {
   round,
   roundNormalizedTime,
 } = require("./shared");
+const { renderTurnTemplate } = require("../role-profile-loader");
 
 function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);
@@ -183,21 +183,28 @@ function buildTurnInputs({ prepared, contactSheets }) {
     shots: "array, should align with detected shots count, each item describes what this shot contains",
     "shots[].summary": "string, 8-24 chars preferred, describe subject/action/scene, no timestamps or local paths",
   };
-  const prompt = [
-    "请基于后续多张 localImage 联表做切镜分析，只返回 JSON object。",
-    "联表中的帧已经按目标时间网格从抽帧结果中选出，模型只需要基于这些帧判断边界，不需要自行重采样。",
-    "你只需要输出切镜时间点，不要输出 frameId、路径、完整输入明细、剧情解释或 OCR 结果。",
-    "请额外为每一镜输出 shots[].summary，描述“这镜是什么”；shot summary 不是切换原因。",
-    "如果提供了 subtitleContext，只把字幕当作语义辅助，不要把普通字幕断句直接当切镜边界；切镜边界仍以视觉变化为主。",
-    `任务输入：${JSON.stringify(manifest)}`,
-    `输出契约：${JSON.stringify(outputContract)}`,
-    "返回前自检：JSON 可解析；boundaries 不能为空；timestamp 必须在 0 到 durationSeconds 之间；boundaries 必须严格升序且不能重复；shots[].summary 应尽量覆盖每一镜；不要输出本地路径。",
-  ].join("\n");
-  const inputs = [{ type: "text", text: prompt, text_elements: [] }];
+  return {
+    manifest,
+    outputContract,
+  };
+}
+
+function renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile }) {
+  const built = buildTurnInputs({ prepared, contactSheets });
+  const prompt = renderTurnTemplate(roleProfile, "analyze", {
+    manifestJson: JSON.stringify(built.manifest),
+    outputContractJson: JSON.stringify(built.outputContract),
+  });
+  const inputs = [{ type: "text", text: prompt.text, text_elements: [] }];
   for (const sheet of contactSheets) {
     inputs.push({ type: "localImage", path: sheet.localImagePath });
   }
-  return sanitizeForAppServerText(inputs);
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText(inputs),
+    manifest: built.manifest,
+    outputContract: built.outputContract,
+  };
 }
 
 function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
@@ -219,24 +226,35 @@ function buildRepairTurnInputs({ prepared, contactSheets, validationError, prior
     subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
   };
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
-  const prompt = [
-    "上一次切镜输出未通过校验。请在同一任务上修复，只返回 JSON object。",
-    "联表中的帧已经按目标时间网格从抽帧结果中选出，模型只需要基于这些帧判断边界，不需要自行重采样。",
-    `修复轮次：${repairAttemptCount}`,
-    `任务输入：${JSON.stringify(manifest)}`,
-    `校验失败：${JSON.stringify(validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message })}`,
-    `上次输出摘要：${JSON.stringify({
+  return {
+    manifest,
+    outputContract,
+    validation: validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message },
+    priorOutputSummary: {
       hasPriorOutput: Boolean(priorOutputText),
       outputLength: priorOutputText.length,
-    })}`,
-    `输出契约：${JSON.stringify(outputContract)}`,
-    "要求：只保留你能确认的切换时间点；严格按时间升序；不要返回空 boundaries；继续输出 shots[].summary；字幕只作语义辅助，不作为唯一切镜依据；不要输出 frameId、路径或解释性正文。",
-  ].join("\n");
-  const inputs = [{ type: "text", text: prompt, text_elements: [] }];
+    },
+  };
+}
+
+function renderRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount, roleProfile }) {
+  const built = buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount });
+  const prompt = renderTurnTemplate(roleProfile, "repair", {
+    repairAttemptCount,
+    manifestJson: JSON.stringify(built.manifest),
+    validationJson: JSON.stringify(built.validation),
+    priorOutputSummaryJson: JSON.stringify(built.priorOutputSummary),
+    outputContractJson: JSON.stringify(built.outputContract),
+  });
+  const inputs = [{ type: "text", text: prompt.text, text_elements: [] }];
   for (const sheet of contactSheets) {
     inputs.push({ type: "localImage", path: sheet.localImagePath });
   }
-  return sanitizeForAppServerText(inputs);
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText(inputs),
+    ...built,
+  };
 }
 
 module.exports = {
@@ -247,5 +265,7 @@ module.exports = {
   countTargetGridFrames,
   toPromptAnalysisSampling,
   buildTurnInputs,
+  renderAnalyzeTurnInputs,
   buildRepairTurnInputs,
+  renderRepairTurnInputs,
 };

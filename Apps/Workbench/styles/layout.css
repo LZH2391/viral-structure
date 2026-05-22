@@ -12,7 +12,7 @@
   gap: 20px;
   padding: 0 18px;
   border-bottom: 1px solid var(--line);
-  background: #171b21;
+  background: var(--bg-elevated);
 }
 
 .project-block {
@@ -42,8 +42,9 @@
   min-height: 24px;
   padding: 0 10px;
   border-radius: 999px;
-  background: #24313b;
-  color: #c7edf9;
+  border: 1px solid rgba(17, 207, 224, 0.24);
+  background: rgba(17, 207, 224, 0.08);
+  color: var(--text-soft);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -82,7 +83,7 @@
   min-height: 48px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
-  background: #171b21;
+  background: var(--bg-elevated);
 }
 
 .resource-panel,
@@ -117,7 +118,7 @@
   min-width: 0;
   min-height: 0;
   border: 0;
-  background: #111820;
+  background: var(--bg);
   outline: 0;
 }
 
@@ -132,7 +133,7 @@
 .workspace-resize-handle:hover::before,
 .workspace-resize-handle:focus-visible::before,
 .workspace-resize-handle:active::before {
-  background: rgba(66, 216, 255, 0.42);
+  background: rgba(17, 207, 224, 0.18);
 }
 
 .left-resizer,

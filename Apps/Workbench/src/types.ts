@@ -168,6 +168,7 @@ export type ShotBoundaryAnalysisArtifact = {
       frameId: string;
       artifactId?: string | null;
       parentArtifactId?: string | null;
+      displayFrameLabel?: string;
       timestamp: number;
       inputIndex: number;
       sourceFrameIndex: number;

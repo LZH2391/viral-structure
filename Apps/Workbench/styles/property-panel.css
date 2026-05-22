@@ -46,7 +46,7 @@
 .agent-field {
   display: grid;
   gap: 5px;
-  color: #d8e1ea;
+  color: var(--text-soft);
   font-size: 12px;
 }
 
@@ -54,7 +54,7 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #111820;
+  background: var(--field-bg);
   color: var(--text);
   padding: 8px 9px;
 }
@@ -68,10 +68,10 @@
 }
 
 .agent-sampling-preview {
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  border: 1px solid rgba(17, 207, 224, 0.24);
   border-radius: 6px;
-  background: rgba(59, 130, 246, 0.08);
-  color: #dbeafe;
+  background: var(--accent-soft);
+  color: var(--text-soft);
   padding: 8px 10px;
   font-size: 12px;
 }
@@ -86,12 +86,13 @@
 .agent-shot-current {
   display: grid;
   gap: 4px;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: 1px solid rgba(242, 169, 59, 0.32);
   border-radius: 6px;
-  background: rgba(245, 158, 11, 0.08);
-  color: #f8fafc;
+  background: var(--warn-soft);
+  color: var(--text);
   padding: 8px 10px;
   font-size: 12px;
+  box-shadow: inset 3px 0 0 rgba(242, 169, 59, 0.52);
 }
 
 .agent-shot-current strong {
@@ -100,7 +101,7 @@
 
 .agent-shot-current span,
 .agent-shot-current small {
-  color: #f8fafc;
+  color: var(--text-soft);
 }
 
 .agent-history-list {
@@ -153,14 +154,14 @@
 
 .agent-shot-item:hover {
   border-color: var(--accent);
-  background: #163142;
+  background: var(--accent-soft);
 }
 
 .agent-shot-item.active,
 .agent-shot-item[aria-current="true"] {
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.22);
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  box-shadow: inset 3px 0 0 rgba(242, 169, 59, 0.56);
 }
 
 .agent-shot-item strong {
@@ -183,7 +184,7 @@
 }
 
 .agent-shot-summary {
-  color: #f8fafc;
+  color: var(--text);
   font-size: 13px;
   font-weight: 700;
 }
@@ -204,7 +205,7 @@
 }
 
 .detail-row b {
-  color: #d8e1ea;
+  color: var(--text-soft);
 }
 
 .profile-form {
@@ -215,7 +216,7 @@
 .profile-form label {
   display: grid;
   gap: 5px;
-  color: #d8e1ea;
+  color: var(--text-soft);
   font-size: 12px;
 }
 
@@ -226,7 +227,7 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #111820;
+  background: var(--field-bg);
   color: var(--text);
   padding: 8px 9px;
   resize: vertical;
@@ -240,7 +241,7 @@
 .subtitle-editor label {
   display: grid;
   gap: 5px;
-  color: #d8e1ea;
+  color: var(--text-soft);
   font-size: 12px;
 }
 

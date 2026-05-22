@@ -6,10 +6,12 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
-const { createShotBoundaryService, prepareInput, buildTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
+const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
+const { planContactSheets } = require("../../Infrastructure/MediaProcessing/contact-sheet-generator");
 
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
   const artifact = createArtifact();
@@ -86,7 +88,36 @@ test("target-grid selection handles non-integer durations and target counts abov
   assert.deepEqual(selectAnalysisFramesByTargetGrid(frames, 1.1, 1).map((item) => item.sourceFrameIndex), [0, 3]);
 });
 
-test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", () => {
+test("contact sheet grid items include sequential display labels without changing tracking ids", () => {
+  const sheets = planContactSheets({
+    frames: [
+      { frameId: "frame_a1b2", artifactId: "artifact_frame_0", parentArtifactId: "artifact_sample", timestamp: 0, inputIndex: 0, sourceFrameIndex: 7, filePath: "C:\\Runtime\\frame-0.jpg" },
+      { frameId: "frame_c3d4", artifactId: "artifact_frame_1", parentArtifactId: "artifact_sample", timestamp: 4.393, inputIndex: 1, sourceFrameIndex: 11, filePath: "C:\\Runtime\\frame-1.jpg" },
+      { frameId: "frame_e5f6", artifactId: "artifact_frame_2", parentArtifactId: "artifact_sample", timestamp: 9.125, inputIndex: 2, sourceFrameIndex: 18, filePath: "C:\\Runtime\\frame-2.jpg" },
+    ],
+    frameWidth: 1280,
+    frameHeight: 720,
+    parentArtifactId: "artifact_sample",
+  });
+
+  assert.equal(sheets.length, 1);
+  assert.deepEqual(
+    sheets[0].gridItems.map((item) => ({
+      frameId: item.frameId,
+      displayFrameLabel: item.displayFrameLabel,
+      inputIndex: item.inputIndex,
+      sourceFrameIndex: item.sourceFrameIndex,
+    })),
+    [
+      { frameId: "frame_a1b2", displayFrameLabel: "frame-001", inputIndex: 0, sourceFrameIndex: 7 },
+      { frameId: "frame_c3d4", displayFrameLabel: "frame-002", inputIndex: 1, sourceFrameIndex: 11 },
+      { frameId: "frame_e5f6", displayFrameLabel: "frame-003", inputIndex: 2, sourceFrameIndex: 18 },
+    ],
+  );
+  assert.deepEqual(sheets[0].overlapFrameIds, []);
+});
+
+test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", async () => {
   const artifact = createArtifact();
   artifact.sampleVideoId = "sample_\uDCAA1";
   artifact.trace.traceId = "trace_\uDCAA1";
@@ -101,10 +132,11 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
 
   const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
-  const turnInputs = buildTurnInputs({ prepared, contactSheets });
-  const promptText = turnInputs[0].text;
-  const textItems = turnInputs.filter((item) => item.type === "text");
-  const imageItems = turnInputs.filter((item) => item.type === "localImage");
+  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
+  const turnInputs = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile });
+  const promptText = turnInputs.inputs[0].text;
+  const textItems = turnInputs.inputs.filter((item) => item.type === "text");
+  const imageItems = turnInputs.inputs.filter((item) => item.type === "localImage");
 
   assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(prepared)), false);
   assert.equal(/[\uD800-\uDFFF]/.test(promptText), false);
@@ -136,11 +168,14 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /"timestamp":12\.48/);
   assert.doesNotMatch(promptText, /"timestamp":0/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
+  assert.equal(turnInputs.promptTemplateId, "analyze");
+  assert.match(turnInputs.promptTemplateVersion, /^analyze\.v1$/);
+  assert.ok(turnInputs.promptTemplateHash);
   assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
   assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
 });
 
-test("shot boundary turn inputs include subtitle context as semantic-only aid", () => {
+test("shot boundary turn inputs include subtitle context as semantic-only aid", async () => {
   const artifact = createArtifact({
     subtitleStatus: "processed",
     subtitleSegments: [
@@ -150,8 +185,9 @@ test("shot boundary turn inputs include subtitle context as semantic-only aid", 
   });
   const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
-  const turnInputs = buildTurnInputs({ prepared, contactSheets });
-  const promptText = turnInputs[0].text;
+  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
+  const turnInputs = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile });
+  const promptText = turnInputs.inputs[0].text;
 
   assert.match(promptText, /subtitleContextSummary/);
   assert.match(promptText, /subtitleContext/);
@@ -162,7 +198,7 @@ test("shot boundary turn inputs include subtitle context as semantic-only aid", 
   assert.doesNotMatch(promptText, /第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕/);
 });
 
-test("shot boundary repair turn inputs use field contract without timestamp examples", () => {
+test("shot boundary repair turn inputs use field contract without timestamp examples", async () => {
   const artifact = createArtifact();
   const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
   const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
@@ -178,14 +214,16 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
     },
   };
 
-  const turnInputs = buildRepairTurnInputs({
+  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
+  const turnInputs = renderRepairTurnInputs({
     prepared,
     contactSheets,
     validationError,
     priorTurnOutput: JSON.stringify({ boundaries: [{ timestamp: 9.9 }] }),
     repairAttemptCount: 1,
+    roleProfile,
   });
-  const promptText = turnInputs[0].text;
+  const promptText = turnInputs.inputs[0].text;
 
   assert.match(promptText, /"analysisSampling":\{"requestedFps":1,"targetFrameCount":2,"selectedFrameCount":2,"effectiveFps":1,"selectionPolicy":"target_grid_nearest_unique","duplicatePolicy":"nearest_unselected_tie_later","roundingPolicy":"target_grid_nearest_unique"\}/);
   assert.match(promptText, /不需要自行重采样/);
@@ -201,7 +239,9 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   assert.doesNotMatch(promptText, /sourceArtifactId/);
   assert.doesNotMatch(promptText, /sheetId/);
   assert.doesNotMatch(promptText, /extractSampling/);
-  assert.equal(turnInputs.filter((item) => item.type === "localImage").length, 2);
+  assert.equal(turnInputs.promptTemplateId, "repair");
+  assert.match(turnInputs.promptTemplateVersion, /^repair\.v1$/);
+  assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, 2);
 });
 
 test("shot boundary normalizes timestamp boundaries and builds contiguous shots", () => {
@@ -332,6 +372,8 @@ test("threadpool role status removes init prompt and keeps safe summary", () => 
     active_leases: [],
   });
   assert.equal(status.config.skill_path, "SKILL.md");
+  assert.equal(status.config.profile_path, null);
+  assert.equal(status.config.profile_version, null);
   assert.equal("init_prompt" in status, false);
   assert.equal(status.threads[0].status, "idle");
   assert.equal(status.threads[0].latest_input_tokens, 700);
@@ -516,6 +558,11 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-22.1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "analyze");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateVersion, "analyze.v1");
+  assert.ok(artifact.shotBoundaryAnalysis.agent.promptTemplateHash);
+  assert.ok(artifact.shotBoundaryAnalysis.agent.initFingerprint);
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "new_turn");
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
@@ -555,6 +602,11 @@ test("shot boundary skill content change misses old shot cache", async () => {
   await delay(20);
 
   assert.ok(cacheLookups.length >= 1);
+  assert.equal(cacheLookups.at(-1).profileVersion, "2026-05-22.1");
+  assert.equal(cacheLookups.at(-1).promptTemplateId, "analyze");
+  assert.equal(cacheLookups.at(-1).promptTemplateVersion, "analyze.v1");
+  assert.ok(cacheLookups.at(-1).promptTemplateHash);
+  assert.ok(cacheLookups.at(-1).initFingerprint);
   assert.equal(cacheLookups.at(-1).skillHash, hashText("new skill content"));
   assert.notEqual(cacheLookups.at(-1).skillHash, oldSkillHash);
   assert.equal(startTurnCount, 1);
@@ -609,6 +661,11 @@ test("shot boundary valid cache can be reused", async () => {
   const waitingJob = harness.jobStore.getJob(result.processingJobId);
   assert.equal(waitingJob.status, "cache_waiting");
   assert.equal(waitingJob.cachePrompt.cachedItem.analysisFps, 3);
+  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-22.1");
+  assert.equal(waitingJob.cachePrompt.promptTemplateId, "analyze");
+  assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "analyze.v1");
+  assert.ok(waitingJob.cachePrompt.promptTemplateHash);
+  assert.ok(waitingJob.cachePrompt.initFingerprint);
   await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "reuse" });
   await delay(20);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
@@ -676,6 +733,11 @@ test("same fps lookup reuses registered shot cache params while different fps mi
           analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
           frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
           contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+          profileVersion: artifact.shotBoundaryAnalysis.agent.profileVersion,
+          promptTemplateId: artifact.shotBoundaryAnalysis.agent.promptTemplateId,
+          promptTemplateVersion: artifact.shotBoundaryAnalysis.agent.promptTemplateVersion,
+          promptTemplateHash: artifact.shotBoundaryAnalysis.agent.promptTemplateHash,
+          initFingerprint: artifact.shotBoundaryAnalysis.agent.initFingerprint,
           skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
         });
         cacheEntries.set(stableKey("hash_1", STAGES.resultWritten, params), { sampleVideoId: "sample_cached", cacheKey: "cache_registered" });
@@ -746,6 +808,11 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
           analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
           frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
           contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+          profileVersion: artifact.shotBoundaryAnalysis.agent.profileVersion,
+          promptTemplateId: artifact.shotBoundaryAnalysis.agent.promptTemplateId,
+          promptTemplateVersion: artifact.shotBoundaryAnalysis.agent.promptTemplateVersion,
+          promptTemplateHash: artifact.shotBoundaryAnalysis.agent.promptTemplateHash,
+          initFingerprint: artifact.shotBoundaryAnalysis.agent.initFingerprint,
           skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
         });
         cacheEntries.set(JSON.stringify({ fileHash: "hash_1", stageName: STAGES.resultWritten, params }), { sampleVideoId: "sample_cached", cacheKey: "cache_registered" });
@@ -1186,6 +1253,7 @@ function createContactSheets(prepared, sampleDir) {
         frameId: frame.frameId,
         artifactId: frame.artifactId,
         parentArtifactId: frame.parentArtifactId,
+        displayFrameLabel: `frame-${String((frame.inputIndex ?? index) + 1).padStart(3, "0")}`,
         timestamp: frame.timestamp,
         inputIndex: frame.inputIndex,
         sourceFrameIndex: frame.sourceFrameIndex,
@@ -1217,6 +1285,7 @@ function createContactSheets(prepared, sampleDir) {
         frameId: frame.frameId,
         artifactId: frame.artifactId,
         parentArtifactId: frame.parentArtifactId,
+        displayFrameLabel: `frame-${String((frame.inputIndex ?? (index + 3)) + 1).padStart(3, "0")}`,
         timestamp: frame.timestamp,
         inputIndex: frame.inputIndex,
         sourceFrameIndex: frame.sourceFrameIndex,
@@ -1267,6 +1336,12 @@ function createCachedShotAnalysis() {
     agent: {
       provider: "codex-appserver",
       role: "shot-boundary-analyzer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
+      profileVersion: "2026-05-22.1",
+      promptTemplateId: "analyze",
+      promptTemplateVersion: "analyze.v1",
+      promptTemplateHash: "cached_prompt_hash",
+      initFingerprint: "cached_init_fingerprint",
       skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
       skillHash: "cached_hash",
       threadId: "thread_cached",
@@ -1317,6 +1392,12 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
     agent: {
       provider: "codex-appserver",
       role: "shot-boundary-analyzer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
+      profileVersion: "2026-05-22.1",
+      promptTemplateId: "analyze",
+      promptTemplateVersion: "analyze.v1",
+      promptTemplateHash: "cached_prompt_hash",
+      initFingerprint: "cached_init_fingerprint",
       skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
       skillHash: "cached_hash",
       threadId: "thread_cached",

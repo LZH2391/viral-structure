@@ -18,6 +18,11 @@ function buildShotBoundaryCacheParams({
   subtitleSegmentCount,
   subtitleTextHash,
   skillHash,
+  profileVersion,
+  promptTemplateId,
+  promptTemplateVersion,
+  promptTemplateHash,
+  initFingerprint,
   skillPath = SKILL_PATH,
 } = {}) {
   const sheets = Array.isArray(contactSheets) ? contactSheets : [];
@@ -43,6 +48,11 @@ function buildShotBoundaryCacheParams({
     subtitleArtifactId: resolvedSubtitleSummary.subtitleArtifactId ?? null,
     subtitleSegmentCount: Number(resolvedSubtitleSummary.subtitleSegmentCount ?? 0),
     subtitleTextHash: resolvedSubtitleSummary.subtitleTextHash ?? null,
+    profileVersion: profileVersion ?? null,
+    promptTemplateId: promptTemplateId ?? null,
+    promptTemplateVersion: promptTemplateVersion ?? null,
+    promptTemplateHash: promptTemplateHash ?? null,
+    initFingerprint: initFingerprint ?? null,
     skillHash: skillHash ?? skillContentHashSync(skillPath),
   };
 }
@@ -56,6 +66,11 @@ function cacheParams(input, contactSheets, options = {}) {
     contactSheets,
     subtitleContextSummary: input?.subtitleContextSummary,
     skillHash: options.skillHash,
+    profileVersion: options.profileVersion,
+    promptTemplateId: options.promptTemplateId,
+    promptTemplateVersion: options.promptTemplateVersion,
+    promptTemplateHash: options.promptTemplateHash,
+    initFingerprint: options.initFingerprint,
     skillPath: options.skillPath,
   });
 }
