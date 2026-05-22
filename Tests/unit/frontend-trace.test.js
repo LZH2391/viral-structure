@@ -19,7 +19,7 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   assert.match(state, /uiTraceId: createId\("uiTrace"\)/);
   assert.match(state, /ingest: "sample\.ingest"/);
   assert.match(state, /understand: "sample\.understand"/);
-  assert.match(state, /transfer: "structure\.transfer"/);
+  assert.doesNotMatch(state, /structure\.transfer/);
   assert.match(app, /uiTraceId: state\.uiTraceId/);
   assert.match(app, /backendTraceId: state\.processingJob\?\.traceId/);
   assert.match(app, /beginUiStage/);
@@ -337,13 +337,10 @@ test("subtitle autosave uses queued save tokens and forwards revision preconditi
 test("workbench exposes commerce brief summary and visible content profile inputs", () => {
   const root = path.resolve(__dirname, "../..");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
-  const commerce = read(root, "Apps/Workbench/src/components/property-panel/CommerceBriefPanel.tsx");
   const types = read(root, "Apps/Workbench/src/types.ts");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const roles = read(root, "Infrastructure/ThreadPool/thread_roles.json");
 
-  assert.match(commerce, /section-heading">样例总结 \/ 新内容/);
-  assert.match(commerce, /label="卖什么"/);
   assert.match(types, /commerceBrief\?: \{/);
   assert.match(types, /sellingObject: string;/);
   assert.match(css, /\.commerce-brief-panel/);

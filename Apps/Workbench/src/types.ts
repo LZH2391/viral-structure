@@ -1,6 +1,5 @@
 export type StageLevel = "info" | "done" | "fail";
 export type MediaKind = "video" | "cover" | "frame" | "audio" | "subtitle" | "audioFeature";
-export type PreviewMode = "sample" | "generated" | "compare";
 
 export type ArtifactRef = {
   artifactId: string;
@@ -538,44 +537,6 @@ export type ScriptSegmentArtifact = {
   createdAt: string;
 };
 
-export type ContentProfile = {
-  topic: string;
-  sellingPoints: string;
-  audience: string;
-  platform: string;
-  duration: string;
-  tone: string;
-};
-
-export type GeneratedShot = {
-  id: string;
-  sourceStructureId: string;
-  start: number;
-  end: number;
-  beat: string;
-  script: string;
-  subtitle: string;
-  camera: string;
-};
-
-export type GeneratedPlan = {
-  id: string;
-  artifactId: string;
-  parentArtifactId: string | null;
-  title: string;
-  coverTitle: string;
-  shots: GeneratedShot[];
-};
-
-export type Mapping = {
-  id: string;
-  sourceName: string;
-  targetName: string;
-  sourceArtifactId: string;
-  targetArtifactId: string;
-  explanation: string;
-};
-
 export type VersionItem = {
   id: string;
   label: string;
@@ -635,7 +596,6 @@ export type WorkbenchState = {
   uiTraceId: string;
   activeStageId: string | null;
   capabilities: BackendCapabilities | null;
-  activePreviewMode: PreviewMode;
   activeMediaKind: MediaKind;
   timelineFrameVisible: boolean;
   timelineVisibleSeconds: number;
@@ -649,9 +609,6 @@ export type WorkbenchState = {
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
   subtitles?: SubtitleArtifact | null;
   structureCards: StructureCard[];
-  contentProfile: ContentProfile | null;
-  generatedPlan: GeneratedPlan | null;
-  mappings: Mapping[];
   versions: VersionItem[];
   logs: UiLog[];
   debugSnapshots: DebugSnapshot[];
