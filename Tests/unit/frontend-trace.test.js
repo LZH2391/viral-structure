@@ -215,14 +215,18 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(agentRunPanel, /分析采样率必须是 1 到 10 之间的整数/);
   assert.match(agentRunPanel, /采样率越高，图片越多，分析更细但耗时更久/);
   assert.match(agentRunPanel, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
-  assert.match(agentRunPanel, /requestedAnalysisFps：\{formatFpsValue\(renderedSampling\.requestedFps\)\}/);
-  assert.match(agentRunPanel, /effectiveAnalysisFps：\{formatFpsValue\(renderedSampling\.effectiveFps\)\}/);
-  assert.match(agentRunPanel, /selectionPolicy：\{renderedSampling\.selectionPolicy\}/);
-  assert.match(agentRunPanel, /roundingPolicy：\{renderedSampling\.roundingPolicy\}/);
+  assert.doesNotMatch(agentRunPanel, /requestedAnalysisFps：/);
+  assert.doesNotMatch(agentRunPanel, /effectiveAnalysisFps：/);
+  assert.doesNotMatch(agentRunPanel, /selectionPolicy：/);
+  assert.doesNotMatch(agentRunPanel, /roundingPolicy：/);
+  assert.match(agentRunPanel, /CommerceBriefPanel/);
+  assert.match(agentRunPanel, /带货总结/);
+  assert.match(agentRunPanel, /卖什么/);
   assert.match(formatters, /legacy_stride_fallback/);
   assert.match(app, /normalizeAnalysisFps/);
   assert.match(agentRunPanel, /shot\.shotNo \?\?/);
   assert.match(propertyCss, /\.agent-sampling-preview/);
+  assert.match(propertyCss, /\.shot-commerce-brief/);
   assert.match(propertyCss, /grid-template-columns: 44px minmax\(0, 1fr\)/);
 });
 
@@ -287,7 +291,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(agentRunPanel, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
   assert.match(agentRunPanel, /renderResultOrigin/);
-  assert.match(agentRunPanel, /repairAttemptCount/);
+  assert.doesNotMatch(agentRunPanel, /repairAttemptCount/);
   assert.match(agentRunPanel, /ThreadPool 获取 lease 超时，Agent turn 未提交，可重试/);
   assert.match(cacheDialog, /发现切镜缓存/);
   assert.match(cacheDialog, /fps \/ \{item\.shotCount \?\? "\?"\} 镜 \/ turn/);
@@ -345,6 +349,7 @@ test("workbench exposes commerce brief summary and visible content profile input
   assert.match(types, /sellingObject: string;/);
   assert.match(css, /\.commerce-brief-panel/);
   assert.match(roles, /"script-segment-analyzer"/);
+  assert.match(roles, /"script-segment-analyzer"[\s\S]*"min_idle": 1/);
   assert.doesNotMatch(property, /CommerceBriefPanel/);
 });
 

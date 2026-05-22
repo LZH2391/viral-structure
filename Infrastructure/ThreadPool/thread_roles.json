@@ -9,7 +9,7 @@
     },
     "script-segment-analyzer": {
       "profile_path": "Assets/RoleProfiles/script-segment-analyzer/role.json",
-      "min_idle": 0
+      "min_idle": 1
     }
   }
 }

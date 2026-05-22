@@ -255,6 +255,43 @@
   padding: 16px;
 }
 
+.shot-commerce-brief {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.commerce-brief-heading {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.commerce-brief-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.commerce-brief-row {
+  display: grid;
+  gap: 3px;
+}
+
+.commerce-brief-row span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.commerce-brief-row strong {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .profile-form label {
   display: grid;
   gap: 5px;

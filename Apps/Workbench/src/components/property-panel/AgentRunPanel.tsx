@@ -10,10 +10,8 @@ import {
   resolveAnalysisFpsExceededHint,
   resolveAnalysisSamplingPreview,
   resolveMaxAnalysisFps,
-  resolveRenderedAnalysisSampling,
   resolveShotEndBoundaryReason,
   resolveShotSummary,
-  shortTurnId,
 } from "./formatters";
 
 const SHOT_BOUNDARY_GUARD_POLL_MS = 2000;
@@ -91,7 +89,6 @@ export function AgentRunPanel({
   const hasValidShotResult = isValidShotResult(analysis);
   const samplingPreview = resolveAnalysisSamplingPreview(sampleVideo, analysisFps);
   const analysisFpsExceededHint = resolveAnalysisFpsExceededHint(sampleVideo, analysisFps);
-  const renderedSampling = resolveRenderedAnalysisSampling(analysis);
   const jobErrorSummary = job?.errorSummary ?? null;
   const jobTurnId = analysis?.agent?.turnId ?? null;
   const preAgentLeaseFailure = job?.status === "failed"
@@ -137,22 +134,7 @@ export function AgentRunPanel({
       {analysisFpsExceeded ? <div className="detail-hint">{analysisFpsExceededHint ?? `分析采样率不能高于当前抽帧 fps（${maxAnalysisFps}）。`}</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {jobStatusHint ? <div className="detail-hint">{jobStatusHint}</div> : null}
-      {analysis ? (
-        <div className="detail-hint">
-          <div>来源：{renderResultOrigin(analysis.resultOrigin)}</div>
-          <div>turn：{analysis.agent?.turnId ? shortTurnId(analysis.agent.turnId) : "无"}</div>
-          <div>requestedAnalysisFps：{formatFpsValue(renderedSampling.requestedFps)}</div>
-          <div>effectiveAnalysisFps：{formatFpsValue(renderedSampling.effectiveFps)}</div>
-          {renderedSampling.isLegacyStride ? <div>stride：{renderedSampling.stride}</div> : null}
-          <div>targetFrameCount：{renderedSampling.targetFrameCount ?? "无"}</div>
-          <div>selectedFrameCount：{renderedSampling.selectedFrameCount ?? "无"}</div>
-          <div>selectionPolicy：{renderedSampling.selectionPolicy}</div>
-          <div>roundingPolicy：{renderedSampling.roundingPolicy}</div>
-          <div>boundaryCount：{analysis.boundaries?.length ?? 0}</div>
-          <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
-          <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
-        </div>
-      ) : null}
+      {analysis?.commerceBrief ? <CommerceBriefPanel brief={analysis.commerceBrief} /> : null}
       {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
       {analysis?.shots?.length && hasValidShotResult && currentShot ? (
         <div className="agent-shot-current" aria-live="polite">
@@ -191,5 +173,31 @@ export function AgentRunPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function CommerceBriefPanel({ brief }: { brief: NonNullable<ShotBoundaryAnalysisArtifact["commerceBrief"]> }) {
+  const uncertainties = brief.uncertainties?.filter(Boolean) ?? [];
+  return (
+    <div className="commerce-brief-panel shot-commerce-brief" aria-label="带货总结">
+      <div className="commerce-brief-heading">带货总结</div>
+      <div className="commerce-brief-grid">
+        <CommerceBriefRow label="卖什么" value={brief.sellingObject} />
+        <CommerceBriefRow label="怎么证明" value={brief.proofApproach} />
+        <CommerceBriefRow label="承诺结果" value={brief.promisedOutcome} />
+        <CommerceBriefRow label="打动对象" value={brief.persuasionTarget} />
+        <CommerceBriefRow label="转化动作" value={brief.conversionAction} />
+        <CommerceBriefRow label="不确定点" value={uncertainties.length ? uncertainties.join("；") : "无"} />
+      </div>
+    </div>
+  );
+}
+
+function CommerceBriefRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="commerce-brief-row">
+      <span>{label}</span>
+      <strong>{String(value ?? "").trim() || "未观察到"}</strong>
+    </div>
   );
 }

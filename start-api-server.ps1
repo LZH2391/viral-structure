@@ -16,7 +16,7 @@ function Start-WorkbenchStack {
 
   $env:CODEX_APP_SERVER_WS_URL = $env:APP_SERVER_URL
   $env:THREADPOOL_BASE_URL = "http://127.0.0.1:$($env:THREADPOOL_PORT)"
-  $env:THREADPOOL_ALLOWED_ROLES = "shot-boundary-analyzer"
+  $env:THREADPOOL_ALLOWED_ROLES = "shot-boundary-analyzer,script-segment-analyzer"
 
   $apiPort = [int]$env:PORT
   $vitePort = [int]$env:VITE_PORT
