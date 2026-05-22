@@ -1,17 +1,23 @@
 import type { LibraryItemSummary } from "../types";
 
 export function CacheDecisionDialog({ item, onReuse, onRefresh, onCancel }: { item: LibraryItemSummary; onReuse: () => void; onRefresh: () => void; onCancel: () => void }) {
-  const isShotCache = item.tags?.includes("切镜");
+  const isShotCache = item.cacheKind === "shot_boundary" || item.tags?.includes("切镜");
+  const isScriptCache = item.cacheKind === "script_segment" || item.tags?.includes("脚本段落");
   return (
     <div className="cache-dialog-backdrop" role="presentation">
       <section className="cache-dialog" role="dialog" aria-modal="true" aria-labelledby="cacheDialogTitle">
         <div>
           <div className="section-heading">命中缓存</div>
-          <h2 id="cacheDialogTitle">{isShotCache ? "发现切镜缓存" : "发现同视频处理记录"}</h2>
+          <h2 id="cacheDialogTitle">{isShotCache ? "发现切镜缓存" : isScriptCache ? "发现脚本段落缓存" : "发现同视频处理记录"}</h2>
           <p>{item.filename} / {item.durationSeconds ? `${Math.round(item.durationSeconds)}s` : "未知时长"}</p>
           {isShotCache ? (
             <p>
               {item.analysisFps ?? "?"} fps / {item.shotCount ?? "?"} 镜 / turn {shortCacheTurnId(item.sourceTurnId)}
+            </p>
+          ) : null}
+          {isScriptCache ? (
+            <p>
+              {item.segmentCount ?? "?"} 段 / turn {shortCacheTurnId(item.sourceTurnId)} / 更新时间 {item.sourceCreatedAt ? new Date(item.sourceCreatedAt).toLocaleString("zh-CN", { hour12: false }) : "未知"}
             </p>
           ) : null}
         </div>

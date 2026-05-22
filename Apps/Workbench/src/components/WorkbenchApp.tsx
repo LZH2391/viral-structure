@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
+import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveCacheDecision, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
 import { createStructureCardsFromSegments } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SampleArtifact, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
@@ -26,6 +26,7 @@ import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
+type ScriptCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 const SUBTITLE_SAVE_STAGE = "sample.subtitle.revised";
@@ -42,6 +43,7 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
+  const [scriptCachePrompt, setScriptCachePrompt] = useState<ScriptCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const [scriptSegmentJob, setScriptSegmentJob] = useState<ProcessingJob | null>(null);
   const audioSeekRequestIdRef = useRef(0);
@@ -367,6 +369,65 @@ export function WorkbenchApp() {
     }
   }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
 
+  const reuseScriptCache = useCallback(async () => {
+    if (!scriptCachePrompt) return;
+    const prompt = scriptCachePrompt;
+    setScriptCachePrompt(null);
+    try {
+      const job = await resolveCacheDecision(prompt.jobId, "reuse");
+      setScriptSegmentJob(job);
+      const artifact = await getSampleArtifact(prompt.sampleVideoId);
+      dispatch({ type: "apply-artifact", artifact });
+      persistWorkbenchArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null);
+      dispatch({
+        type: "add-version",
+        version: addVersion(
+          "复用脚本段落缓存",
+          STAGES.understand,
+          artifact.scriptSegmentAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
+          artifact.scriptSegmentAnalysis?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
+        ),
+      });
+      setScriptSegmentJob(null);
+      setSaveStatus("已复用脚本段落缓存");
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "复用脚本段落缓存失败");
+    }
+  }, [persistWorkbenchArtifact, scriptCachePrompt, state.processingJob?.traceId]);
+
+  const refreshScriptCache = useCallback(async () => {
+    if (!state.sampleVideo || !scriptCachePrompt) return;
+    const prompt = scriptCachePrompt;
+    setScriptCachePrompt(null);
+    try {
+      const result = await runScriptSegmentAnalysis(
+        state,
+        dispatch,
+        setScriptSegmentJob,
+        async ({ job, cachedItem }) => {
+          setScriptCachePrompt({ jobId: job.jobId ?? prompt.jobId, sampleVideoId: job.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+          setSaveStatus("命中脚本段落缓存，等待选择");
+        },
+        "refresh",
+      );
+      if (result?.artifact?.scriptSegmentAnalysis) {
+        persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
+        dispatch({
+          type: "add-version",
+          version: addVersion(
+            "脚本段落重新生成",
+            STAGES.understand,
+            result.artifact.scriptSegmentAnalysis.artifactId,
+            result.artifact.scriptSegmentAnalysis.parentArtifactId ?? state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+          ),
+        });
+        setSaveStatus("脚本段落已重新生成");
+      }
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败");
+    }
+  }, [dispatch, persistWorkbenchArtifact, scriptCachePrompt, state, state.processingJob?.traceId, state.sampleArtifact?.shotBoundaryAnalysis?.artifactId]);
+
   const buildSubtitleSegmentsForSave = useCallback((subtitles: SubtitleArtifact, drafts: Record<string, SubtitleDraft>) => {
     return subtitles.segments.map((segment) => {
       const draft = drafts[segment.id];
@@ -388,14 +449,6 @@ export function WorkbenchApp() {
     });
   }, []);
 
-  const isSubtitleDraftChanged = useCallback((artifact: SubtitleArtifact | null | undefined, draft: SubtitleDraft) => {
-    const sourceArtifactId = artifact?.artifactId ?? null;
-    if (!artifact || draft.sourceArtifactId !== sourceArtifactId) return true;
-    const sourceSegment = artifact.segments.find((item) => item.id === draft.segmentId);
-    if (!sourceSegment) return true;
-    return sourceSegment.text !== draft.text || sourceSegment.start !== draft.start || sourceSegment.end !== draft.end;
-  }, []);
-
   const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
     writeWorkbenchDraft({
       sampleVideoId: artifact.sampleVideoId,
@@ -407,6 +460,14 @@ export function WorkbenchApp() {
       versions: state.versions,
     });
   }, [state.versions]);
+
+  const isSubtitleDraftChanged = useCallback((artifact: SubtitleArtifact | null | undefined, draft: SubtitleDraft) => {
+    const sourceArtifactId = artifact?.artifactId ?? null;
+    if (!artifact || draft.sourceArtifactId !== sourceArtifactId) return true;
+    const sourceSegment = artifact.segments.find((item) => item.id === draft.segmentId);
+    if (!sourceSegment) return true;
+    return sourceSegment.text !== draft.text || sourceSegment.start !== draft.start || sourceSegment.end !== draft.end;
+  }, []);
 
   const saveSubtitleDraft = useCallback(async (draft: SubtitleDraft, options: { silent?: boolean; allowConflictRetry?: boolean } = {}) => {
     const currentState = subtitleSaveStateRef.current;
@@ -513,7 +574,18 @@ export function WorkbenchApp() {
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
     });
     try {
-      const result = await runScriptSegmentAnalysis(state, dispatch, setScriptSegmentJob);
+      const result = await runScriptSegmentAnalysis(
+        state,
+        dispatch,
+        setScriptSegmentJob,
+        async ({ job, cachedItem }) => {
+          if (!job.jobId || !job.sampleVideoId) return;
+          setScriptCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+          setSaveStatus("命中脚本段落缓存，等待选择");
+        },
+        "ask",
+      );
+      if (!result) return null;
       if (!result?.artifact?.scriptSegmentAnalysis) {
         throw new Error("脚本段落分析未返回有效产物");
       }
@@ -640,6 +712,7 @@ export function WorkbenchApp() {
           currentShotId={currentShotId}
           agentJob={agentJob}
           scriptSegmentAnalysis={state.sampleArtifact?.scriptSegmentAnalysis ?? null}
+          scriptSegmentAnalysisHistory={state.sampleArtifact?.scriptSegmentAnalysisHistory ?? null}
           scriptSegmentJob={scriptSegmentJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
@@ -668,6 +741,15 @@ export function WorkbenchApp() {
           }}
           onRunScriptSegment={() => {
             void handleUnderstand().catch((error) => setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败"));
+          }}
+          onSelectScriptSegment={(time) => {
+            if (videoRef.current) videoRef.current.currentTime = time;
+            const card = findCurrentStructureCard(state.structureCards, time);
+            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
+            lastSegmentIdRef.current = card?.id ?? null;
+            lastShotIdRef.current = shot?.id ?? null;
+            setCurrentTime(time);
+            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
           }}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
@@ -755,6 +837,7 @@ export function WorkbenchApp() {
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
       {shotCachePrompt ? <CacheDecisionDialog item={shotCachePrompt.cachedItem} onReuse={reuseShotCache} onRefresh={refreshShotCache} onCancel={() => setShotCachePrompt(null)} /> : null}
+      {scriptCachePrompt ? <CacheDecisionDialog item={scriptCachePrompt.cachedItem} onReuse={reuseScriptCache} onRefresh={refreshScriptCache} onCancel={() => setScriptCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>

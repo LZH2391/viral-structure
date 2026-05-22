@@ -195,6 +195,59 @@ test("script segment service writes artifact index entry and stage logs", async 
   assert.equal(logs.some((line) => line.stageName === STAGES.materialized && line.event === "stage.end"), true);
 });
 
+test("script segment service cache reuse creates current artifact with lineage and history", async () => {
+  const harness = await createScriptHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_script_1",
+        turnId: "turn_script_1",
+        status: "completed",
+        finalMessage: JSON.stringify({
+          segments: [
+            {
+              label: "开场引题",
+              roleInScript: "先抛出结果建立停留理由",
+              shotRefs: ["shot_1"],
+              evidence: ["展示整理前后反差"],
+              transferableRule: "先亮结果再展开解释",
+              confidence: 0.81,
+              needReview: false,
+            },
+            {
+              label: "卖点证明",
+              roleInScript: "用连续镜头解释产品价值",
+              shotRefs: ["shot_2", "shot_3"],
+              evidence: ["演示收纳盒摆放和分类", "回到整洁台面并提示点击"],
+              transferableRule: "中段用连续证据证明核心卖点",
+              confidence: 0.79,
+              needReview: false,
+            },
+          ],
+        }),
+      }),
+    },
+  });
+
+  const first = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  await waitForJob(harness.jobStore, first.processingJobId, "processed");
+
+  const second = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  const waitingJob = await waitForJob(harness.jobStore, second.processingJobId, "cache_waiting");
+  assert.equal(waitingJob.cachePrompt?.cacheKind, "script_segment");
+  await harness.service.resolveCacheDecision({ jobId: second.processingJobId, decision: "reuse" });
+  await waitForJob(harness.jobStore, second.processingJobId, "processed");
+
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_script_1"), "artifact.json"));
+  assert.equal(artifact.scriptSegmentAnalysis.resultOrigin, "cache_reuse");
+  assert.equal(artifact.scriptSegmentAnalysis.parentArtifactId, "artifact_shot_boundary");
+  assert.equal(artifact.scriptSegmentAnalysis.sourceSampleVideoId, "sample_script_1");
+  assert.equal(artifact.scriptSegmentAnalysis.sourceScriptSegmentArtifactId, artifact.scriptSegmentAnalysisHistory.at(-2).artifactId);
+  assert.equal(artifact.scriptSegmentAnalysisHistory.at(-1).resultOrigin, "cache_reuse");
+  assert.equal(artifact.scriptSegmentAnalysisHistory.at(-1).cacheKey, artifact.scriptSegmentAnalysis.cacheKey);
+});
+
 async function createScriptHarness({ appServer = {} } = {}) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-script-segment-agent-"));
   const store = createLocalStore(tempRoot);

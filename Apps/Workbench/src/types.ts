@@ -26,9 +26,12 @@ export type ProcessingJob = {
   traceId: string;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {
+    cacheKind?: "sample" | "shot_boundary" | "script_segment" | string;
     cachedItem: LibraryItemSummary;
     sourceSampleVideoId?: string | null;
     sourceTurnId?: string | null;
+    sourceCreatedAt?: string | null;
+    cacheKey?: string | null;
     analysisFps?: number | null;
   } | null;
 };
@@ -92,6 +95,7 @@ export type SampleArtifact = {
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
+  scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
     width?: number | null;
@@ -494,6 +498,26 @@ export type StructureCard = {
   order: number;
   explanation: string;
   transferableRule: string;
+  shotRefs: string[];
+  evidence: string[];
+  confidence: number;
+  needReview: boolean;
+  sourceSegmentId: string;
+};
+
+export type ScriptSegmentHistoryEntry = {
+  artifactId: string;
+  status: "processed" | "failed" | string;
+  resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  segmentCount: number;
+  turnId: string | null;
+  traceId: string | null;
+  sourceTraceId?: string | null;
+  sourceSampleVideoId?: string | null;
+  sourceTurnId?: string | null;
+  cacheKey?: string | null;
+  createdAt: string;
+  validatorCode?: string | null;
 };
 
 export type ScriptSegmentArtifact = {
@@ -501,9 +525,16 @@ export type ScriptSegmentArtifact = {
   parentArtifactId: string | null;
   type: "script-segment-analysis";
   status: "processed" | "failed" | string;
+  resultOrigin?: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
   stageName?: string | null;
   sampleVideoId?: string;
   sourceShotBoundaryArtifactId?: string | null;
+  sourceShotCount?: number | null;
+  sourceSampleVideoId?: string | null;
+  sourceScriptSegmentArtifactId?: string | null;
+  sourceTurnId?: string | null;
+  sourceCreatedAt?: string | null;
+  cacheKey?: string | null;
   commerceBrief?: ShotBoundaryAnalysisArtifact["commerceBrief"];
   segments: Array<{
     segmentId: string;
@@ -635,13 +666,19 @@ export type LibraryItemSummary = {
   updatedAt?: string | null;
   tags: string[];
   cacheAvailable: boolean;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | string;
   traceId?: string | null;
   sourceSampleVideoId?: string | null;
   sourceTurnId?: string | null;
   sourceCreatedAt?: string | null;
+  cacheKey?: string | null;
   boundaryCount?: number | null;
   shotCount?: number | null;
   analysisFps?: number | null;
+  segmentCount?: number | null;
+  profileVersion?: string | null;
+  promptTemplateId?: string | null;
+  promptTemplateVersion?: string | null;
 };
 
 export type LibraryArtifactNode = {

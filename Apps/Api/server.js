@@ -128,14 +128,19 @@ async function handleSubtitleRevision(req, res, sampleVideoId) {
 }
 
 async function handleScriptSegments(req, res, sampleVideoId) {
-  await readJsonBody(req).catch(() => ({}));
-  const result = await scriptSegmentService.enqueue({ sampleVideoId });
+  const body = await readJsonBody(req).catch(() => ({}));
+  const result = await scriptSegmentService.enqueue({ sampleVideoId, cacheDecision: body.cacheDecision ?? "ask" });
   return sendJson(res, 202, result);
 }
 
 async function handleJobCacheDecision(req, res, jobId) {
   const body = await readJsonBody(req);
-  const result = await shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
+  const job = jobStore.getJob(jobId);
+  if (!job) return notFound(res);
+  const cacheKind = job.cachePrompt?.cacheKind ?? null;
+  const result = cacheKind === "script_segment"
+    ? await scriptSegmentService.resolveCacheDecision({ jobId, decision: body.decision })
+    : await shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
 }
 

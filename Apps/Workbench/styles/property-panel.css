@@ -192,7 +192,16 @@
 }
 
 .agent-script-item {
-  cursor: default;
+  cursor: pointer;
+}
+
+.agent-script-meta {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-shot-item strong {

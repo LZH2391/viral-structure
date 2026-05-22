@@ -1,5 +1,6 @@
 const { randomUUID } = require("crypto");
 const { validateSegments } = require("./validation");
+const { buildScriptSegmentContentFingerprint } = require("./cache-params");
 const {
   ROLE,
   SKILL_PATH,
@@ -29,9 +30,16 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     parentArtifactId: input.parentArtifactId,
     type: "script-segment-analysis",
     status: "processed",
+    resultOrigin: repairAttemptCount > 0 ? "repaired_turn" : "new_turn",
     stageName: STAGES.materialized,
     sampleVideoId: input.sampleVideoId,
     sourceShotBoundaryArtifactId: input.parentArtifactId,
+    sourceShotCount: input.shots.length,
+    sourceSampleVideoId: null,
+    sourceScriptSegmentArtifactId: null,
+    sourceTurnId: null,
+    sourceCreatedAt: null,
+    cacheKey: context.cacheKey ?? buildScriptSegmentContentFingerprint(input),
     commerceBrief: input.commerceBrief ?? null,
     segments: validation.segments,
     validation: {
@@ -53,9 +61,16 @@ function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {
     parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? context.artifact?.sampleVideo?.artifactId ?? null,
     type: "script-segment-analysis",
     status: "failed",
+    resultOrigin: context.validationSummary?.repairAttemptCount ? "failed_validation" : "new_turn",
     stageName: context.activeStage?.stageName ?? STAGES.analyzed,
     sampleVideoId: context.sampleVideoId,
     sourceShotBoundaryArtifactId: context.artifact?.shotBoundaryAnalysis?.artifactId ?? null,
+    sourceShotCount: context.input?.shots?.length ?? context.artifact?.shotBoundaryAnalysis?.shots?.length ?? 0,
+    sourceSampleVideoId: null,
+    sourceScriptSegmentArtifactId: null,
+    sourceTurnId: null,
+    sourceCreatedAt: null,
+    cacheKey: context.cacheKey ?? (context.input ? buildScriptSegmentContentFingerprint(context.input) : null),
     commerceBrief: context.input?.commerceBrief ?? context.artifact?.shotBoundaryAnalysis?.commerceBrief ?? null,
     segments: [],
     validation: {
@@ -87,7 +102,43 @@ function buildAgentArtifact(context, agentRun, turn) {
   };
 }
 
+function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
+  return {
+    ...cachedAnalysis,
+    artifactId: context.artifactId ?? `artifact_${randomUUID()}`,
+    parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? cachedAnalysis?.parentArtifactId ?? null,
+    sourceShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? cachedAnalysis?.sourceShotBoundaryArtifactId ?? null,
+    sourceShotCount: context.input?.shots?.length ?? cachedAnalysis?.sourceShotCount ?? 0,
+    resultOrigin: "cache_reuse",
+    sourceSampleVideoId: cachedAnalysis?.sampleVideoId ?? cachedAnalysis?.sourceSampleVideoId ?? null,
+    sourceScriptSegmentArtifactId: cachedAnalysis?.artifactId ?? null,
+    sourceTurnId: cachedAnalysis?.agent?.turnId ?? null,
+    sourceCreatedAt: cachedAnalysis?.createdAt ?? null,
+    sampleVideoId: context.sampleVideoId,
+    cacheKey: context.cacheKey ?? cachedAnalysis?.cacheKey ?? null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function evaluateCacheEligibility(analysis, options = {}) {
+  const statusProcessed = analysis?.status === "processed";
+  const validationPassed = analysis?.validation?.status === "passed";
+  const hasSegments = Array.isArray(analysis?.segments) && analysis.segments.length > 0;
+  const validatorClean = !analysis?.validation?.validatorCode;
+  const cacheKeyMatches = !options.cacheKey || analysis?.cacheKey === options.cacheKey;
+  return {
+    eligible: Boolean(statusProcessed && validationPassed && hasSegments && validatorClean && cacheKeyMatches),
+    statusProcessed,
+    validationPassed,
+    hasSegments,
+    validatorClean,
+    cacheKeyMatches,
+  };
+}
+
 module.exports = {
   buildProcessedAnalysis,
   buildFailedArtifact,
+  buildCacheReuseAnalysis,
+  evaluateCacheEligibility,
 };

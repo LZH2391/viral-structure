@@ -2,6 +2,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { buildScriptSegmentCacheParams } = require("../../Apps/Api/lib/script-segment-analysis/cache-params");
 
 const INDEX_VERSION = 1;
 
@@ -313,15 +314,21 @@ function stageParams(artifact, stageName) {
     });
   }
   if (stageName === "script_segment.materialize") {
-    return {
-      sourceShotBoundaryArtifactId: artifact.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
-      segmentCount: artifact.scriptSegmentAnalysis?.segments?.length ?? 0,
-      validatorCode: artifact.scriptSegmentAnalysis?.validation?.validatorCode ?? null,
-      repairAttemptCount: artifact.scriptSegmentAnalysis?.validation?.repairAttemptCount ?? 0,
-      skillHash: artifact.scriptSegmentAnalysis?.agent?.skillHash ?? null,
-    };
+    return buildScriptSegmentStageParams(artifact);
   }
   return {};
+}
+
+function buildScriptSegmentStageParams(artifact) {
+  return buildScriptSegmentCacheParams({
+    inputFingerprint: artifact.scriptSegmentAnalysis?.cacheKey ?? null,
+    shotCount: artifact.scriptSegmentAnalysis?.sourceShotCount ?? 0,
+    profileVersion: artifact.scriptSegmentAnalysis?.agent?.profileVersion ?? null,
+    promptTemplateId: artifact.scriptSegmentAnalysis?.agent?.promptTemplateId ?? null,
+    promptTemplateVersion: artifact.scriptSegmentAnalysis?.agent?.promptTemplateVersion ?? null,
+    promptTemplateHash: artifact.scriptSegmentAnalysis?.agent?.promptTemplateHash ?? null,
+    skillHash: artifact.scriptSegmentAnalysis?.agent?.skillHash ?? null,
+  });
 }
 
 function artifactLabel(type) {

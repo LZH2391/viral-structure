@@ -12,7 +12,9 @@ export type ShotBoundaryStartResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
-export type ScriptSegmentStartResponse = { processingJobId: string; sampleVideoId: string; traceId: string };
+export type ScriptSegmentStartResponse =
+  | { cacheHit: true; cachedItem: LibraryItemSummary }
+  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
@@ -69,17 +71,17 @@ export async function saveSubtitleRevision(
   );
 }
 
-export async function startScriptSegmentAnalysis(sampleVideoId: string) {
+export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
   return readJson<ScriptSegmentStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ cacheDecision: options.cacheDecision ?? "ask" }),
     }),
   );
 }
 
-export async function resolveShotBoundaryCacheDecision(jobId: string, decision: "reuse" | "refresh") {
+export async function resolveCacheDecision(jobId: string, decision: "reuse" | "refresh") {
   return readJson<ProcessingJob>(
     await fetch(`${API_BASE_URL}/api/processing-jobs/${encodeURIComponent(jobId)}/cache-decision`, {
       method: "POST",
@@ -87,6 +89,10 @@ export async function resolveShotBoundaryCacheDecision(jobId: string, decision: 
       body: JSON.stringify({ decision }),
     }),
   );
+}
+
+export async function resolveShotBoundaryCacheDecision(jobId: string, decision: "reuse" | "refresh") {
+  return resolveCacheDecision(jobId, decision);
 }
 
 export async function getThreadPoolHealth() {

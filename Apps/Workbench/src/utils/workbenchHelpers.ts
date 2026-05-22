@@ -1,6 +1,6 @@
 import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
-import type { AudioFeatureMarker, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -11,6 +11,7 @@ export type ActiveJobDraft = {
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
 export type ShotBoundaryCacheHandler = (payload: { job: ProcessingJob; cachedItem: import("../types").LibraryItemSummary }) => Promise<void> | void;
+export type ScriptSegmentCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -63,9 +64,18 @@ export async function runScriptSegmentAnalysis(
   state: WorkbenchState,
   dispatch: (action: WorkbenchAction) => void,
   onJobUpdate?: (job: ProcessingJob | null) => void,
+  onCacheHit?: ScriptSegmentCacheHandler,
+  cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
   if (!state.sampleVideo) return null;
-  const started = await startScriptSegmentAnalysis(state.sampleVideo.id);
+  const started = await startScriptSegmentAnalysis(state.sampleVideo.id, { cacheDecision });
+  if ("cacheHit" in started && started.cacheHit) {
+    await onCacheHit?.({
+      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "script_segment.cache_lookup", status: "cache_waiting", progress: 28 },
+      cachedItem: started.cachedItem,
+    });
+    return null;
+  }
   let latest: ProcessingJob = {
     jobId: started.processingJobId,
     sampleVideoId: started.sampleVideoId,
@@ -79,6 +89,10 @@ export async function runScriptSegmentAnalysis(
     await delay(1000);
     latest = await getProcessingJob(started.processingJobId);
     onJobUpdate?.(latest);
+    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+      return null;
+    }
     if (latest.status === "processed") {
       const artifact = await getSampleArtifact(started.sampleVideoId);
       dispatch({ type: "apply-artifact", artifact });
@@ -220,10 +234,12 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",
     "shot.cache_reuse": "复用切镜缓存",
+    "script_segment.cache_lookup": "检查脚本段落缓存",
     "script_segment.input_prepare": "准备脚本段落输入",
     "script_segment.analyze": "分析脚本段落",
     "script_segment.validate": "校验脚本段落结果",
     "script_segment.repair": "修复脚本段落结果",
+    "script_segment.cache_reuse": "复用脚本段落缓存",
     "script_segment.materialize": "写入脚本段落产物",
     processed: "生成产物完成",
   };

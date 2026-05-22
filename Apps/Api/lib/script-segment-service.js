@@ -9,7 +9,21 @@ const { finalizeLease, cleanupLease } = require("./shot-boundary/threadpool-runn
 const { buildAgentRun, updateAgentRun } = require("./script-segment-analysis/agent-run");
 const { prepareInput, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("./script-segment-analysis/input");
 const { executeAnalyzeTurn, executeRepairTurn } = require("./script-segment-analysis/runner");
-const { buildProcessedAnalysis, buildFailedArtifact } = require("./script-segment-analysis/result-builder");
+const {
+  buildProcessedAnalysis,
+  buildFailedArtifact,
+  buildCacheReuseAnalysis,
+  evaluateCacheEligibility,
+} = require("./script-segment-analysis/result-builder");
+const { buildScriptSegmentContentFingerprint } = require("./script-segment-analysis/cache-params");
+const { appendScriptSegmentHistory } = require("./script-segment/history");
+const {
+  findCachedArtifact,
+  runCacheLookup,
+  resolveCachedPrompt,
+  markCacheWaiting,
+  reuseCachedAnalysis,
+} = require("./script-segment/cache");
 const {
   ROLE,
   SKILL_PATH,
@@ -34,7 +48,7 @@ function createScriptSegmentService({
   appServer = createAppServerBridge(),
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 } = {}) {
-  async function enqueue({ sampleVideoId }) {
+  async function enqueue({ sampleVideoId, cacheDecision = "ask" }) {
     await store.ensureRuntimeDirs();
     const artifact = await loadArtifact(sampleVideoId, store);
     const traceContext = createTraceContext(createTraceIds());
@@ -42,6 +56,7 @@ function createScriptSegmentService({
     const roleProfile = await loadRoleProfileByRole(ROLE);
     const context = {
       sampleVideoId,
+      cacheDecision,
       artifact,
       traceContext,
       job,
@@ -54,9 +69,60 @@ function createScriptSegmentService({
       promptTemplate: null,
       agentRun: null,
       validationSummary: null,
+      cacheKey: null,
     };
     run(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
+  }
+
+  async function resolveCacheDecision({ jobId, decision }) {
+    const job = jobStore.getJob(jobId);
+    if (!job || job.status !== SAMPLE_STATUS.cacheWaiting || job.cachePrompt?.cacheKind !== "script_segment") {
+      throw badRequestError("cache_decision_invalid_job", "只能对等待缓存选择的脚本段落任务执行该操作");
+    }
+    const artifact = await loadArtifact(job.sampleVideoId, store);
+    const roleProfile = await loadRoleProfileByRole(ROLE);
+    const input = prepareInput(artifact);
+    const analyzeTurn = renderAnalyzeTurnInputs({ input, roleProfile });
+    const context = {
+      sampleVideoId: job.sampleVideoId,
+      cacheDecision: decision,
+      artifact,
+      traceContext: {
+        runId: job.traceId,
+        traceId: job.traceId,
+        stageId: `stage_cache_decision_${Date.now()}`,
+      },
+      job,
+      roleProfile,
+      skillPath: job.cachePrompt.skillPath ?? SKILL_PATH,
+      skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(SKILL_PATH),
+      activeStage: null,
+      artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
+      input,
+      promptTemplate: {
+        promptTemplateId: analyzeTurn.promptTemplateId,
+        promptTemplateVersion: analyzeTurn.promptTemplateVersion,
+        promptTemplateHash: analyzeTurn.promptTemplateHash,
+      },
+      agentRun: null,
+      validationSummary: null,
+      cacheKey: buildScriptSegmentContentFingerprint(input),
+    };
+    if (decision === "reuse") {
+      try {
+        await reuseCachedAnalysisLocal(context, job.cachePrompt);
+      } catch (error) {
+        await markFailed(context, error, store);
+      }
+      return jobStore.getJob(jobId);
+    }
+    if (decision === "refresh") {
+      jobStore.updateJob(jobId, { cachePrompt: null, errorSummary: null, status: SAMPLE_STATUS.processing, stage: STAGES.cacheLookup, progress: 28 });
+      run({ ...context, cacheDecision: "refresh" }).catch(() => undefined);
+      return jobStore.getJob(jobId);
+    }
+    throw badRequestError("cache_decision_invalid", "缓存选择无效，请选择复用或重新生成");
   }
 
   async function run(context) {
@@ -79,6 +145,7 @@ function createScriptSegmentService({
         }),
       });
       context.input = input;
+      context.cacheKey = buildScriptSegmentContentFingerprint(input);
 
       const analyzeTurn = renderAnalyzeTurnInputs({ input, roleProfile: context.roleProfile });
       context.promptTemplate = {
@@ -86,6 +153,15 @@ function createScriptSegmentService({
         promptTemplateVersion: analyzeTurn.promptTemplateVersion,
         promptTemplateHash: analyzeTurn.promptTemplateHash,
       };
+      const cached = await runCacheLookupLocal(context, input);
+      if (cached && context.cacheDecision === "ask") {
+        markCacheWaitingLocal(context, cached);
+        return null;
+      }
+      if (cached && context.cacheDecision === "reuse") {
+        await reuseCachedAnalysisLocal(context, buildScriptSegmentCachePrompt(context, cached));
+        return null;
+      }
 
       const analyzed = await runStage(context, STAGES.analyzed, 56, {
         artifactId: context.artifactId,
@@ -396,13 +472,110 @@ function createScriptSegmentService({
     context.activeStage = null;
   }
 
-  return { enqueue };
+  return { enqueue, resolveCacheDecision };
+
+  async function runCacheLookupLocal(context, input) {
+    return runCacheLookup({
+      context,
+      input,
+      runStage,
+      stageName: STAGES.cacheLookup,
+      findCached: () => findCachedArtifact({
+        context,
+        input,
+        artifactIndex,
+        stageName: STAGES.materialized,
+        evaluateCacheEligibility,
+        resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHash(sampleVideoId, artifactIndex),
+      }),
+    });
+  }
+
+  function markCacheWaitingLocal(context, cached) {
+    return markCacheWaiting({
+      context,
+      cached,
+      jobStore,
+      sampleStatus: SAMPLE_STATUS,
+      stageName: STAGES.cacheLookup,
+    });
+  }
+
+  async function reuseCachedAnalysisLocal(context, cachePrompt) {
+    await reuseCachedAnalysis({
+      context,
+      cachePrompt,
+      runStage,
+      stageName: STAGES.cacheReuse,
+      resolvePrompt: () => resolveCachedPrompt({
+        cachePrompt,
+        artifactIndex,
+        evaluateCacheEligibility,
+        codedError,
+        expectedCacheKey: context.cacheKey ?? null,
+      }),
+      buildCacheReuseAnalysis,
+      attachAnalysis: (sampleVideoId, analysis, traceMeta) => attachScriptSegments(sampleVideoId, analysis, store, traceMeta),
+      registerArtifact: async (artifact) => {
+        await artifactIndex.registerSampleArtifact({
+          artifact,
+          fileHash: await resolveExistingFileHash(context.sampleVideoId, artifactIndex),
+          traceId: context.traceContext.traceId,
+        });
+      },
+    });
+    jobStore.updateJob(context.job.jobId, {
+      stage: SAMPLE_STATUS.processed,
+      status: SAMPLE_STATUS.processed,
+      progress: 100,
+      cachePrompt: null,
+      errorSummary: null,
+    });
+  }
+
+  function buildScriptSegmentCachePrompt(context, cached) {
+    return {
+      cacheKind: "script_segment",
+      cachedItem: {
+        sampleVideoId: cached.cache.sampleVideoId,
+        filename: context.artifact.sampleVideo?.original?.summary ?? "样例视频",
+        durationSeconds: context.artifact.metadata?.durationSeconds ?? null,
+        width: context.artifact.metadata?.width ?? null,
+        height: context.artifact.metadata?.height ?? null,
+        updatedAt: cached.cache.updatedAt ?? null,
+        tags: ["脚本段落"],
+        cacheAvailable: true,
+        cacheKind: "script_segment",
+        traceId: cached.analysis?.agent?.turnId ?? null,
+        sourceSampleVideoId: cached.cache.sampleVideoId,
+        sourceTurnId: cached.analysis?.agent?.turnId ?? null,
+        sourceCreatedAt: cached.analysis?.createdAt ?? null,
+        cacheKey: context.cacheKey ?? cached.cache.cacheKey ?? null,
+        segmentCount: cached.analysis?.segments?.length ?? 0,
+      },
+      sourceSampleVideoId: cached.cache.sampleVideoId,
+      sourceTurnId: cached.analysis?.agent?.turnId ?? null,
+      sourceCreatedAt: cached.analysis?.createdAt ?? null,
+      cacheKey: context.cacheKey ?? cached.cache.cacheKey ?? null,
+      artifactId: context.artifactId,
+      skillPath: context.skillPath,
+      skillHash: context.skillHash,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+    };
+  }
 }
 
-async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store) {
+async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store, traceMeta = {}) {
   const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
   const artifact = await store.readJson(artifactPath);
   artifact.scriptSegmentAnalysis = scriptSegmentAnalysis;
+  artifact.scriptSegmentAnalysisHistory = appendScriptSegmentHistory(artifact.scriptSegmentAnalysisHistory, scriptSegmentAnalysis, {
+    traceId: traceMeta.traceId ?? artifact.trace?.traceId ?? null,
+    sourceTraceId: traceMeta.sourceTraceId ?? artifact.trace?.traceId ?? null,
+  });
   await store.writeJson(artifactPath, artifact);
   return artifact;
 }

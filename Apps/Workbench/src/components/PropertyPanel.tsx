@@ -5,6 +5,7 @@ import type {
   MediaDerivative,
   SampleVideo,
   ScriptSegmentArtifact,
+  ScriptSegmentHistoryEntry,
   ShotBoundaryAnalysisArtifact,
   ShotBoundaryAnalysisHistoryEntry,
   StructureCard,
@@ -38,12 +39,14 @@ export type PropertyPanelProps = {
   currentShotId?: string | null;
   agentJob?: AgentRunJob | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
+  scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   scriptSegmentJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   onAgentAnalysisFpsChange: (value: number) => void;
   onRunShotBoundary: () => void;
   onRunScriptSegment: () => void;
   onSelectShot: (time: number) => void;
+  onSelectScriptSegment: (time: number) => void;
   onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
 
@@ -89,8 +92,11 @@ export function PropertyPanel(props: PropertyPanelProps) {
         ) : (
           <ScriptSegmentPanel
             analysis={props.scriptSegmentAnalysis}
+            analysisHistory={props.scriptSegmentAnalysisHistory}
+            currentCard={props.currentCard}
             job={props.scriptSegmentJob}
             onRun={props.onRunScriptSegment}
+            onSelectSegment={props.onSelectScriptSegment}
           />
         )}
       </section>

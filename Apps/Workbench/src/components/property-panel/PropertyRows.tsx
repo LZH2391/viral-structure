@@ -51,6 +51,10 @@ export function PropertyRows({
         <DetailRow label="时间" value={`${formatTime(currentCard.start)} - ${formatTime(currentCard.end)}`} />
         <DetailRow label="解释" value={currentCard.explanation} />
         <DetailRow label="规则" value={currentCard.transferableRule} />
+        <DetailRow label="镜头引用" value={currentCard.shotRefs.join(", ") || "无"} />
+        <DetailRow label="证据" value={currentCard.evidence.join("；") || "无"} />
+        <DetailRow label="置信度" value={String(currentCard.confidence)} />
+        <DetailRow label="需复核" value={currentCard.needReview ? "是" : "否"} />
       </>
     );
   }

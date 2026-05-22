@@ -18,5 +18,10 @@ function mapSegmentToStructureCard(segment: ScriptSegmentArtifact["segments"][nu
     order: index + 1,
     explanation: segment.roleInScript,
     transferableRule: segment.transferableRule,
+    shotRefs: segment.shotRefs,
+    evidence: segment.evidence,
+    confidence: segment.confidence,
+    needReview: segment.needReview,
+    sourceSegmentId: segment.segmentId,
   };
 }
