@@ -34,14 +34,33 @@ async function processMedia({ inputPath, sampleVideoId, sampleArtifactId, sample
 function normalizeMetadata(data) {
   const videoStream = (data.streams || []).find((stream) => stream.codec_type === "video") || {};
   const format = data.format || {};
+  const duration = resolveDuration(videoStream, format);
   return {
-    durationSeconds: Number(format.duration || videoStream.duration || 0),
+    durationSeconds: duration.durationSeconds,
+    durationSource: duration.durationSource,
     width: videoStream.width ?? null,
     height: videoStream.height ?? null,
     formatName: format.format_name ?? null,
     bitrate: Number(format.bit_rate || 0) || null,
     hasAudio: (data.streams || []).some((stream) => stream.codec_type === "audio"),
   };
+}
+
+function resolveDuration(videoStream, format) {
+  const videoStreamDuration = normalizeDurationSeconds(videoStream?.duration);
+  if (videoStreamDuration > 0) {
+    return { durationSeconds: videoStreamDuration, durationSource: "video_stream" };
+  }
+  const formatDuration = normalizeDurationSeconds(format?.duration);
+  if (formatDuration > 0) {
+    return { durationSeconds: formatDuration, durationSource: "format_fallback" };
+  }
+  return { durationSeconds: 0, durationSource: null };
+}
+
+function normalizeDurationSeconds(value) {
+  const duration = Number(value);
+  return Number.isFinite(duration) && duration > 0 ? duration : 0;
 }
 
 async function extractCover({ inputPath, coverPath, artifactId = `artifact_${randomUUID()}`, parentArtifactId, store }) {
@@ -127,6 +146,7 @@ module.exports = {
   probeMetadata,
   processMedia,
   normalizeMetadata,
+  resolveDuration,
   extractCover,
   extractFrames,
   extractAudio,

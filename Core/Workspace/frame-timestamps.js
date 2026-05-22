@@ -24,10 +24,11 @@ function planFrameTimestampSampling(durationSeconds, options = {}) {
     );
   }
   const timestamps = [];
+  const maxSafeTimestamp = resolveMaxSafeTimestamp(durationSeconds);
   for (let index = 0; index < uncappedFrameCount; index += 1) {
-    const timestamp = index * step;
-    if (timestamp >= durationSeconds) break;
-    timestamps.push(Number(timestamp.toFixed(3)));
+    const roundedTimestamp = Number((index * step).toFixed(3));
+    if (roundedTimestamp > maxSafeTimestamp) break;
+    timestamps.push(roundedTimestamp);
   }
   return buildSamplingResult(timestamps.length ? timestamps : [0], frameSampleRateFps, safeMaxFrames, false, "fixed_interval_from_zero");
 }
@@ -35,9 +36,14 @@ function planFrameTimestampSampling(durationSeconds, options = {}) {
 function planCappedFullDurationGrid(durationSeconds, maxFrames) {
   const safeMaxFrames = Math.max(1, Math.floor(maxFrames));
   if (safeMaxFrames === 1) return [0];
-  const lastTimestamp = Math.max(0, durationSeconds - 0.001);
+  const lastTimestamp = resolveMaxSafeTimestamp(durationSeconds);
   const step = lastTimestamp / (safeMaxFrames - 1);
   return Array.from({ length: safeMaxFrames }, (_, index) => Number((index * step).toFixed(3)));
+}
+
+function resolveMaxSafeTimestamp(durationSeconds) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return 0;
+  return Math.max(0, Math.floor((durationSeconds - 0.001) * 1000) / 1000);
 }
 
 function buildSamplingResult(timestamps, frameSampleRateFps, maxFrames, cappedByMaxFrames, samplingPolicy) {

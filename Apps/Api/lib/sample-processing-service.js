@@ -130,10 +130,15 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       action: async () => {
         const metadata = await mediaProcessor.probeMetadata(inputPath);
         assertDuration(metadata.durationSeconds);
+        context.metadataSummary = {
+          durationSeconds: metadata.durationSeconds,
+          durationSource: metadata.durationSource ?? null,
+        };
         return metadata;
       },
       outputSummary: (metadata) => ({
         durationSeconds: Math.round(metadata.durationSeconds),
+        durationSource: metadata.durationSource ?? null,
         width: metadata.width,
         height: metadata.height,
         hasAudio: metadata.hasAudio,
@@ -166,6 +171,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
       inputSummary: {
         ...sourceSummary(context),
         durationSeconds: Math.round(durationSeconds),
+        durationSource: context.metadataSummary?.durationSource ?? null,
         frameSampleRateFps,
         targetFrameCount,
         maxFrames: FRAME_MAX_COUNT,

@@ -142,6 +142,7 @@ test("frame extraction summary records 6000 maxFrames without capping moderate h
   const frameEnd = logs.find((line) => line.stageName === STAGES.framesExtracted && line.event === "stage.end");
 
   assert.equal(frameStart.inputSummary.frameSampleRateFps, 10);
+  assert.equal(frameStart.inputSummary.durationSource, "video_stream");
   assert.equal(frameStart.inputSummary.targetFrameCount, 189);
   assert.equal(frameStart.inputSummary.maxFrames, 6000);
   assert.equal(frameStart.inputSummary.samplingPolicy, "fixed_interval_from_zero");
@@ -246,7 +247,7 @@ function createDegradedAudioProcessor(store) {
 function createFrameSummaryProcessor(store, { durationSeconds, frameCount }) {
   return {
     async probeMetadata() {
-      return { durationSeconds, width: 720, height: 1280, hasAudio: true };
+      return { durationSeconds, durationSource: "video_stream", width: 720, height: 1280, hasAudio: true };
     },
     async extractCover({ coverPath, parentArtifactId }) {
       return {
