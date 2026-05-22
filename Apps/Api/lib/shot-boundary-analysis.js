@@ -10,6 +10,8 @@ const MAX_REPAIR_ATTEMPTS = 1;
 const ANALYSIS_SELECTION_POLICY = "target_grid_nearest_unique";
 const ANALYSIS_DUPLICATE_POLICY = "nearest_unselected_tie_later";
 const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
+const MIN_ANALYSIS_FPS = 1;
+const MAX_ANALYSIS_FPS = 10;
 const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
 const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
 
@@ -23,8 +25,8 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   if (!durationSeconds || !frames.length || !Number.isFinite(requestedFrameSampleRateFps) || requestedFrameSampleRateFps <= 0) {
     throw codedError("shot_boundary_input_invalid", "抽帧产物不足，无法启动镜头切分");
   }
-  if (!Number.isFinite(requestedAnalysisFps) || requestedAnalysisFps <= 0) {
-    throw codedError("analysis_fps_invalid", "分析采样率无效，请输入大于 0 的数值");
+  if (!Number.isFinite(requestedAnalysisFps) || !Number.isInteger(requestedAnalysisFps) || requestedAnalysisFps < MIN_ANALYSIS_FPS || requestedAnalysisFps > MAX_ANALYSIS_FPS) {
+    throw codedError("analysis_fps_invalid", "分析采样率无效，请输入 1 到 10 之间的整数");
   }
   if (requestedAnalysisFps > requestedFrameSampleRateFps) {
     throw codedError("analysis_fps_exceeds_extract_fps", "分析采样率高于抽帧采样率，请重新抽帧或降低分析采样率");
@@ -799,6 +801,8 @@ module.exports = {
   ROLE,
   SKILL_PATH,
   MAX_REPAIR_ATTEMPTS,
+  MIN_ANALYSIS_FPS,
+  MAX_ANALYSIS_FPS,
   buildCacheReuseAnalysis,
   buildFailedArtifact,
   buildShotBoundaryCacheParams,

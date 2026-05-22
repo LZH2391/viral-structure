@@ -203,9 +203,12 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(property, /subtitle-editor/);
   assert.match(property, /draftVersionId/);
   assert.match(property, /AudioFeatureRows/);
+  assert.match(app, /normalizeAnalysisFps/);
   assert.match(property, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
   assert.match(property, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
-  assert.match(property, /0.5 fps 推荐：长镜头、慢节奏、只需粗略切分/);
+  assert.match(property, /4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频/);
+  assert.match(property, /step="1"/);
+  assert.match(property, /分析采样率必须是 1 到 10 之间的整数/);
   assert.match(property, /采样率越高，图片越多，分析更细但耗时更久/);
   assert.match(property, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
   assert.match(property, /requestedAnalysisFps：\{formatFpsValue\(renderedSampling\.requestedFps\)\}/);

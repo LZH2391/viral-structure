@@ -24,6 +24,9 @@ test("shot boundary sampling selects target-grid nearest unique frames and rejec
   assert.deepEqual(input.frames.map((frame) => frame.sourceFrameIndex), [0, 2, 3, 5]);
   assert.deepEqual(input.frames.map((frame) => frame.timestamp), [0, 0.667, 1, 1.667]);
   assert.throws(() => prepareInput(artifact, 4), /高于抽帧采样率/);
+  assert.throws(() => prepareInput(artifact, 0.5), /1 到 10 之间的整数/);
+  assert.throws(() => prepareInput(artifact, 2.5), /1 到 10 之间的整数/);
+  assert.throws(() => prepareInput(artifact, 11), /1 到 10 之间的整数/);
 });
 
 test("shot boundary sampling metadata uses target-grid policy", () => {

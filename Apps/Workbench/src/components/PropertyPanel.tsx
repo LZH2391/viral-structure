@@ -4,6 +4,8 @@ import { formatSecondsCompact, formatTime } from "../utils/format";
 import { getShotBoundaryGuard, type ShotBoundaryGuard } from "../utils/workbenchHelpers";
 
 const SHOT_BOUNDARY_GUARD_POLL_MS = 2000;
+const MIN_ANALYSIS_FPS = 1;
+const MAX_ANALYSIS_FPS = 10;
 
 type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -85,6 +87,7 @@ function AgentRunPanel({
   const running = job?.status === "pending" || job?.status === "processing";
   const maxAnalysisFps = resolveMaxAnalysisFps(sampleVideo);
   const analysisFpsExceeded = Number.isFinite(maxAnalysisFps) && analysisFps > maxAnalysisFps;
+  const analysisFpsInvalid = !Number.isInteger(analysisFps) || analysisFps < MIN_ANALYSIS_FPS || analysisFps > MAX_ANALYSIS_FPS;
   const [guard, setGuard] = useState<ShotBoundaryGuard>({ state: "loading", buttonLabel: "检查中", message: null, disabled: true });
   const historyEntries = analysisHistory ?? [];
 
@@ -124,7 +127,7 @@ function AgentRunPanel({
     };
   }, [running, sampleVideo?.id]);
 
-  const runDisabled = !sampleVideo || running || analysisFpsExceeded || (guard.disabled && guard.state !== "warming");
+  const runDisabled = !sampleVideo || running || analysisFpsInvalid || analysisFpsExceeded || (guard.disabled && guard.state !== "warming");
   const runLabel = running ? "运行中" : guard.buttonLabel;
   const hasValidShotResult = isValidShotResult(analysis);
   const samplingPreview = resolveAnalysisSamplingPreview(sampleVideo, analysisFps);
@@ -151,14 +154,15 @@ function AgentRunPanel({
       </div>
       <label className="agent-field">
         <span>分析采样率</span>
-        <input type="number" min="0.1" max={maxAnalysisFps} step="0.1" value={analysisFps} aria-invalid={analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || 1))} />
+        <input type="number" min={MIN_ANALYSIS_FPS} max={maxAnalysisFps} step="1" value={analysisFps} aria-invalid={analysisFpsInvalid || analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || MIN_ANALYSIS_FPS))} />
       </label>
       <div className="detail-hint">
         <div>1 fps 推荐：普通口播、生活记录、稳定剪辑。</div>
         <div>2-3 fps 推荐：动作快、转场多、镜头变化密的视频。</div>
-        <div>0.5 fps 推荐：长镜头、慢节奏、只需粗略切分。</div>
+        <div>4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频。</div>
         <div>采样率越高，图片越多，分析更细但耗时更久。</div>
       </div>
+      {analysisFpsInvalid ? <div className="detail-hint">分析采样率必须是 1 到 10 之间的整数。</div> : null}
       {samplingPreview ? <div className="agent-sampling-preview">预计分析：目标 {formatFpsValue(samplingPreview.requestedFps)} fps / 约 {samplingPreview.selectedFrameCount} 帧 / 最近不重复取帧</div> : null}
       {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
@@ -366,7 +370,7 @@ function resolveMaxAnalysisFps(sampleVideo: SampleVideo | null): number {
   const summary = sampleVideo?.frameOutputSummary;
   const resolved = Number(summary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 24);
   const safe = Number.isFinite(resolved) && resolved > 0 ? resolved : 24;
-  return Math.max(0.1, Math.round(safe * 1000) / 1000);
+  return Math.max(MIN_ANALYSIS_FPS, Math.min(MAX_ANALYSIS_FPS, Math.floor(safe)));
 }
 
 function resolveAnalysisSamplingPreview(sampleVideo: SampleVideo | null, requestedAnalysisFps: number) {

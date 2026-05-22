@@ -24,6 +24,8 @@ import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 type ShotCachePrompt = { cachedItem: LibraryItemSummary; token: number } | null;
+const MIN_ANALYSIS_FPS = 1;
+const MAX_ANALYSIS_FPS = 10;
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
@@ -58,7 +60,7 @@ export function WorkbenchApp() {
     }
     if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
     if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob).catch(() => setSaveStatus("恢复切镜任务失败"));
-    if (draft?.activeAgentJob) setAgentAnalysisFps(draft.activeAgentJob.analysisFps);
+    if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps));
   }, []);
 
   useEffect(() => {
@@ -464,7 +466,7 @@ export function WorkbenchApp() {
           currentShotId={currentShotId}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
-          onAgentAnalysisFpsChange={setAgentAnalysisFps}
+          onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value))}
           onRunShotBoundary={() => runShotBoundaryAnalysis(
             state,
             agentAnalysisFps,
@@ -551,6 +553,12 @@ export function WorkbenchApp() {
       </button>
     </div>
   );
+}
+
+function normalizeAnalysisFps(value: number) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return MIN_ANALYSIS_FPS;
+  return Math.max(MIN_ANALYSIS_FPS, Math.min(MAX_ANALYSIS_FPS, Math.round(numeric)));
 }
 
 function buildRunStatus(state: WorkbenchState) {
