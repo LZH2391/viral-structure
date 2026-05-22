@@ -23,6 +23,8 @@ function buildAgentRun({ context, lease, turn, input }) {
     preparedInputSummary: {
       shotCount: input.shots.length,
       hasCommerceBrief: Boolean(input.commerceBrief),
+      sheetCount: context.inputPackage?.sheetCount ?? 0,
+      emptyShotCount: context.inputPackage?.emptyShotCount ?? 0,
     },
     startedAt: now,
     updatedAt: now,

@@ -323,6 +323,10 @@ function buildScriptSegmentStageParams(artifact) {
   return buildScriptSegmentCacheParams({
     inputFingerprint: artifact.scriptSegmentAnalysis?.cacheKey ?? null,
     shotCount: artifact.scriptSegmentAnalysis?.sourceShotCount ?? 0,
+    inputPackageManifestHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.manifestHash ?? null,
+    visualManifestHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.visualManifestHash ?? null,
+    outputContractHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.outputContractHash ?? null,
+    sourceShotArtifactId: artifact.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
     profileVersion: artifact.scriptSegmentAnalysis?.agent?.profileVersion ?? null,
     promptTemplateId: artifact.scriptSegmentAnalysis?.agent?.promptTemplateId ?? null,
     promptTemplateVersion: artifact.scriptSegmentAnalysis?.agent?.promptTemplateVersion ?? null,

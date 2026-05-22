@@ -7,7 +7,7 @@ const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { createAppServerBridge } = require("./appserver-bridge");
 const { finalizeLease, cleanupLease } = require("./shot-boundary/threadpool-runner");
 const { buildAgentRun, updateAgentRun } = require("./script-segment-analysis/agent-run");
-const { prepareInput, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("./script-segment-analysis/input");
+const { prepareInput, prepareInputPackage, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("./script-segment-analysis/input");
 const { executeAnalyzeTurn, executeRepairTurn } = require("./script-segment-analysis/runner");
 const {
   buildProcessedAnalysis,
@@ -66,6 +66,7 @@ function createScriptSegmentService({
       activeStage: null,
       artifactId: `artifact_${randomUUID()}`,
       input: null,
+      inputPackage: null,
       promptTemplate: null,
       agentRun: null,
       validationSummary: null,
@@ -82,8 +83,13 @@ function createScriptSegmentService({
     }
     const artifact = await loadArtifact(job.sampleVideoId, store);
     const roleProfile = await loadRoleProfileByRole(ROLE);
-    const input = prepareInput(artifact);
-    const analyzeTurn = renderAnalyzeTurnInputs({ input, roleProfile });
+    const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
+    const inputPackage = await prepareInputPackage({
+      input,
+      sampleDir: store.sampleDir(job.sampleVideoId),
+      store,
+    });
+    const cacheKey = buildScriptSegmentContentFingerprint(input, inputPackage);
     const context = {
       sampleVideoId: job.sampleVideoId,
       cacheDecision: decision,
@@ -100,14 +106,15 @@ function createScriptSegmentService({
       activeStage: null,
       artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
       input,
+      inputPackage,
       promptTemplate: {
-        promptTemplateId: analyzeTurn.promptTemplateId,
-        promptTemplateVersion: analyzeTurn.promptTemplateVersion,
-        promptTemplateHash: analyzeTurn.promptTemplateHash,
+        promptTemplateId: null,
+        promptTemplateVersion: null,
+        promptTemplateHash: null,
       },
       agentRun: null,
       validationSummary: null,
-      cacheKey: buildScriptSegmentContentFingerprint(input),
+      cacheKey,
     };
     if (decision === "reuse") {
       try {
@@ -137,7 +144,7 @@ function createScriptSegmentService({
           shotCount: context.artifact.shotBoundaryAnalysis?.shots?.length ?? 0,
           hasCommerceBrief: Boolean(context.artifact.shotBoundaryAnalysis?.commerceBrief),
         },
-        action: () => prepareInput(context.artifact),
+        action: () => prepareInput(context.artifact, { runtimeRoot: store.runtimeRoot }),
         outputSummary: (result) => ({
           shotCount: result.shots.length,
           hasCommerceBrief: Boolean(result.commerceBrief),
@@ -145,9 +152,33 @@ function createScriptSegmentService({
         }),
       });
       context.input = input;
-      context.cacheKey = buildScriptSegmentContentFingerprint(input);
 
-      const analyzeTurn = renderAnalyzeTurnInputs({ input, roleProfile: context.roleProfile });
+      const inputPackage = await runStage(context, STAGES.inputPackaged, 24, {
+        artifactId: context.artifactId,
+        parentArtifactId: input.parentArtifactId,
+        inputSummary: {
+          sampleVideoId: context.sampleVideoId,
+          sourceShotBoundaryArtifactId: input.parentArtifactId,
+          shotCount: input.shots.length,
+          frameCount: input.frames?.length ?? 0,
+        },
+        action: () => prepareInputPackage({
+          input,
+          sampleDir: store.sampleDir(context.sampleVideoId),
+          store,
+        }),
+        outputSummary: (result) => ({
+          shotCount: result.manifest.shotCount,
+          sheetCount: result.sheetCount,
+          emptyShotCount: result.emptyShotCount,
+          manifestHash: result.hashes.manifestHash,
+          visualManifestHash: result.hashes.visualManifestHash,
+        }),
+      });
+      context.inputPackage = inputPackage;
+      context.cacheKey = buildScriptSegmentContentFingerprint(input, inputPackage);
+
+      const analyzeTurn = renderAnalyzeTurnInputs({ input, inputPackage, roleProfile: context.roleProfile });
       context.promptTemplate = {
         promptTemplateId: analyzeTurn.promptTemplateId,
         promptTemplateVersion: analyzeTurn.promptTemplateVersion,
@@ -169,6 +200,8 @@ function createScriptSegmentService({
         inputSummary: {
           role: ROLE,
           shotCount: input.shots.length,
+          sheetCount: inputPackage.sheetCount,
+          emptyShotCount: inputPackage.emptyShotCount,
           promptTemplateVersion: context.promptTemplate.promptTemplateVersion,
         },
         action: async () => {
@@ -309,6 +342,7 @@ function createScriptSegmentService({
     for (let repairAttemptCount = 1; repairAttemptCount <= MAX_REPAIR_ATTEMPTS; repairAttemptCount += 1) {
       const repairTurn = renderRepairTurnInputs({
         input: context.input,
+        inputPackage: context.inputPackage,
         validationError,
         priorTurnOutput: validationError?.debugPayload?.outputSummary?.messagePreview ?? "",
         repairAttemptCount,
@@ -328,6 +362,7 @@ function createScriptSegmentService({
           leaseId: context.agentRun?.leaseId ?? null,
           repairAttemptCount,
           validatorCode: validationError?.debugPayload?.validation?.validatorCode ?? validationError?.code ?? null,
+          sheetCount: context.inputPackage?.sheetCount ?? 0,
         },
         action: async () => {
           const executed = await executeRepairTurn({

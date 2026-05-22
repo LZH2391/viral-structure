@@ -21,6 +21,11 @@ async function generateContactSheets({
   parentArtifactId,
   store,
   constraints = {},
+  outputSubdir = "contact-sheets",
+  sheetPurpose = "shot_boundary_analysis",
+  buildSheetId = null,
+  buildGridItemLabel = null,
+  outputFileNameBuilder = null,
 } = {}) {
   const resolved = { ...DEFAULT_CONSTRAINTS, ...constraints };
   const plannedSheets = planContactSheets({
@@ -29,12 +34,18 @@ async function generateContactSheets({
     frameHeight,
     parentArtifactId,
     constraints: resolved,
+    sheetPurpose,
+    buildSheetId,
+    buildGridItemLabel,
   });
-  const outputDir = path.join(sampleDir, "contact-sheets");
+  const outputDir = path.join(sampleDir, outputSubdir);
   await fs.mkdir(outputDir, { recursive: true });
   const rendered = [];
   for (const sheet of plannedSheets) {
-    const outputPath = path.join(outputDir, `${sheet.sheetId}.jpg`);
+    const fileName = typeof outputFileNameBuilder === "function"
+      ? outputFileNameBuilder(sheet)
+      : `${sheet.sheetId}.jpg`;
+    const outputPath = path.join(outputDir, fileName);
     await renderContactSheet({ sheet, outputPath, quality: resolved.quality });
     rendered.push({
       ...sheet,
@@ -52,6 +63,9 @@ function planContactSheets({
   frameHeight,
   parentArtifactId,
   constraints = DEFAULT_CONSTRAINTS,
+  sheetPurpose = "shot_boundary_analysis",
+  buildSheetId = null,
+  buildGridItemLabel = null,
 } = {}) {
   const normalizedFrames = Array.isArray(frames) ? frames.filter((frame) => frame?.frameId) : [];
   if (!normalizedFrames.length) throw new Error("缺少可生成联表的帧");
@@ -86,6 +100,9 @@ function planContactSheets({
       frames: sheetFrames,
       layout,
       constraints,
+      sheetPurpose,
+      buildSheetId,
+      buildGridItemLabel,
     }));
     if (endIndex >= normalizedFrames.length) break;
   }
@@ -137,11 +154,25 @@ function findBestLayout({ count, sourceWidth, sourceHeight, constraints }) {
   return best;
 }
 
-function buildSheetArtifact({ sheetIndex, parentArtifactId, frames, layout, constraints }) {
-  const sheetId = `sheet-${String(sheetIndex + 1).padStart(3, "0")}`;
+function buildSheetArtifact({
+  sheetIndex,
+  parentArtifactId,
+  frames,
+  layout,
+  constraints,
+  sheetPurpose = "shot_boundary_analysis",
+  buildSheetId = null,
+  buildGridItemLabel = null,
+}) {
+  const sheetId = typeof buildSheetId === "function"
+    ? String(buildSheetId({ sheetIndex, parentArtifactId, frames, layout }) ?? "")
+    : `sheet-${String(sheetIndex + 1).padStart(3, "0")}`;
   const gridItems = frames.map((frame, index) => {
     const inputIndex = normalizeNonNegativeInteger(frame.inputIndex, index);
     const sourceFrameIndex = normalizeNonNegativeInteger(frame.sourceFrameIndex, index);
+    const displayFrameLabel = typeof buildGridItemLabel === "function"
+      ? String(buildGridItemLabel(frame, index, { sheetIndex, inputIndex, sourceFrameIndex }) ?? "").trim()
+      : buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index);
     return {
       frameId: frame.frameId,
       artifactId: frame.artifactId ?? null,
@@ -149,8 +180,10 @@ function buildSheetArtifact({ sheetIndex, parentArtifactId, frames, layout, cons
       timestamp: Number(frame.timestamp ?? 0),
       inputIndex,
       sourceFrameIndex,
-      displayFrameLabel: buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index),
+      displayFrameLabel: displayFrameLabel || buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index),
       filePath: frame.filePath ?? null,
+      shotId: frame.shotId ?? null,
+      shotNo: frame.shotNo ?? null,
       gridIndex: index,
       row: Math.floor(index / layout.cols),
       col: index % layout.cols,
@@ -162,7 +195,7 @@ function buildSheetArtifact({ sheetIndex, parentArtifactId, frames, layout, cons
     type: "contact_sheet",
     artifactType: "contact_sheet",
     status: "processed",
-    sheetPurpose: "shot_boundary_analysis",
+    sheetPurpose,
     sheetId,
     sheetIndex,
     frameCount: frames.length,

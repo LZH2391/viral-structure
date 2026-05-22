@@ -5,6 +5,7 @@ const ROLE = "script-segment-analyzer";
 const SKILL_PATH = "C:/ByteDanceFullStack/.agents/skills/script-segment-analyzer/SKILL.md";
 const STAGES = {
   inputPrepared: "script_segment.input_prepare",
+  inputPackaged: "script_segment.input_package",
   cacheLookup: "script_segment.cache_lookup",
   analyzed: "script_segment.analyze",
   validated: "script_segment.validate",

@@ -236,6 +236,7 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.cache_reuse": "复用切镜缓存",
     "script_segment.cache_lookup": "检查脚本段落缓存",
     "script_segment.input_prepare": "准备脚本段落输入",
+    "script_segment.input_package": "生成脚本段落输入包",
     "script_segment.analyze": "分析脚本段落",
     "script_segment.validate": "校验脚本段落结果",
     "script_segment.repair": "修复脚本段落结果",

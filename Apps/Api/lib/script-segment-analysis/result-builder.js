@@ -39,8 +39,9 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     sourceScriptSegmentArtifactId: null,
     sourceTurnId: null,
     sourceCreatedAt: null,
-    cacheKey: context.cacheKey ?? buildScriptSegmentContentFingerprint(input),
+    cacheKey: context.cacheKey ?? buildScriptSegmentContentFingerprint(input, context.inputPackage),
     commerceBrief: input.commerceBrief ?? null,
+    inputPackage: context.inputPackage ?? null,
     segments: validation.segments,
     validation: {
       status: "passed",
@@ -70,8 +71,9 @@ function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {
     sourceScriptSegmentArtifactId: null,
     sourceTurnId: null,
     sourceCreatedAt: null,
-    cacheKey: context.cacheKey ?? (context.input ? buildScriptSegmentContentFingerprint(context.input) : null),
+    cacheKey: context.cacheKey ?? (context.input ? buildScriptSegmentContentFingerprint(context.input, context.inputPackage) : null),
     commerceBrief: context.input?.commerceBrief ?? context.artifact?.shotBoundaryAnalysis?.commerceBrief ?? null,
+    inputPackage: context.inputPackage ?? null,
     segments: [],
     validation: {
       status: "failed",

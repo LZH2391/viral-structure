@@ -3,14 +3,82 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const sharp = require("sharp");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createScriptSegmentService, STAGES, prepareInput } = require("../../Apps/Api/lib/script-segment-service");
+const {
+  prepareInputPackage,
+  renderAnalyzeTurnInputs,
+  frameBelongsToShot,
+} = require("../../Apps/Api/lib/script-segment-analysis/input");
+const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 
 test("prepareInput requires processed shot boundary shots", () => {
   assert.throws(() => prepareInput(createArtifact({ shotBoundaryAnalysis: null })), /可分析的切镜结果/);
+});
+
+test("script segment analyze turn uses file paths plus localImage inputs", async () => {
+  const artifact = createArtifact();
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-script-segment-input-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  await store.ensureSampleDirs(artifact.sampleVideoId);
+  await seedFrameFiles(store, artifact);
+  const prepared = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
+  const inputPackage = await prepareInputPackage({
+    input: prepared,
+    sampleDir: store.sampleDir(artifact.sampleVideoId),
+    store,
+  });
+  const roleProfile = await loadRoleProfileByRole("script-segment-analyzer");
+  const turnInputs = renderAnalyzeTurnInputs({ input: prepared, inputPackage, roleProfile });
+  const promptText = turnInputs.inputs[0].text;
+  const imageItems = turnInputs.inputs.filter((item) => item.type === "localImage");
+
+  assert.match(promptText, /manifestPath/);
+  assert.match(promptText, /outputContractPath/);
+  assert.match(promptText, /visualManifestPath/);
+  assert.match(promptText, /本次包含 3 个镜头/);
+  assert.doesNotMatch(promptText, /"shots":\[/);
+  assert.doesNotMatch(promptText, /"segments":\[/);
+  assert.equal(imageItems.length, inputPackage.visualManifest.sheetCount);
+});
+
+test("script segment frame ownership keeps half-open ranges and last shot closed", () => {
+  const shot1 = { shotId: "shot_1", start: 0, end: 1.2 };
+  const shot2 = { shotId: "shot_2", start: 1.2, end: 3.8 };
+  const shot3 = { shotId: "shot_3", start: 3.8, end: 6 };
+
+  assert.equal(frameBelongsToShot({ timestamp: 1.2 }, shot1, false), false);
+  assert.equal(frameBelongsToShot({ timestamp: 1.2 }, shot2, false), true);
+  assert.equal(frameBelongsToShot({ timestamp: 3.8 }, shot2, false), false);
+  assert.equal(frameBelongsToShot({ timestamp: 3.8 }, shot3, true), true);
+  assert.equal(frameBelongsToShot({ timestamp: 6 }, shot3, true), true);
+});
+
+test("script segment input package records empty shots without failing", async () => {
+  const artifact = createArtifact();
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-script-segment-empty-shot-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  await store.ensureSampleDirs(artifact.sampleVideoId);
+  artifact.frames = [
+    { frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId: "artifact_sample", timestamp: 0, imageUri: "/runtime/Artifacts/sample_script_1/frames/frame-1.jpg" },
+  ];
+  await seedFrameFiles(store, artifact);
+  const prepared = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
+  const inputPackage = await prepareInputPackage({
+    input: prepared,
+    sampleDir: store.sampleDir(artifact.sampleVideoId),
+    store,
+  });
+
+  assert.equal(inputPackage.emptyShotCount, 2);
+  assert.equal(inputPackage.visualManifest.shots.filter((shot) => shot.empty).length, 2);
+  assert.equal(inputPackage.visualManifest.sheetCount, 1);
 });
 
 test("script segment service submits script-segment-analyzer turn through appserver and threadpool", async () => {
@@ -70,6 +138,8 @@ test("script segment service submits script-segment-analyzer turn through appser
   assert.equal(artifact.scriptSegmentAnalysis.agent.promptTemplateVersion, "analyze.v1");
   assert.equal(artifact.scriptSegmentAnalysis.agent.role, "script-segment-analyzer");
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
+  assert.ok(artifact.scriptSegmentAnalysis.inputPackage);
+  assert.equal(artifact.scriptSegmentAnalysis.inputPackage.sheetCount, 3);
   assert.equal(harness.calls.release.length, 1);
 });
 
@@ -192,6 +262,7 @@ test("script segment service writes artifact index entry and stage logs", async 
   assert.ok(node);
   assert.equal(detail.tags.includes("结构理解"), true);
   assert.equal(logs.some((line) => line.stageName === STAGES.analyzed && line.event === "stage.end"), true);
+  assert.equal(logs.some((line) => line.stageName === STAGES.inputPackaged && line.event === "stage.end"), true);
   assert.equal(logs.some((line) => line.stageName === STAGES.materialized && line.event === "stage.end"), true);
 });
 
@@ -257,6 +328,7 @@ async function createScriptHarness({ appServer = {} } = {}) {
   const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1" });
   const artifact = createArtifact();
   await store.ensureSampleDirs(artifact.sampleVideoId);
+  await seedFrameFiles(store, artifact);
   await store.writeJson(path.join(store.sampleDir(artifact.sampleVideoId), "artifact.json"), artifact);
   await artifactIndex.registerSampleArtifact({ artifact, fileHash: hashBuffer(Buffer.from("script-segment-video")), traceId: "trace_source" });
 
@@ -290,6 +362,24 @@ async function createScriptHarness({ appServer = {} } = {}) {
     pollIntervalMs: 1,
   });
   return { store, logger, jobStore, artifactIndex, service, calls };
+}
+
+async function seedFrameFiles(store, artifact) {
+  const framesDir = path.join(store.sampleDir(artifact.sampleVideoId), "frames");
+  await fs.mkdir(framesDir, { recursive: true });
+  const pixel = await sharp({
+    create: {
+      width: 2,
+      height: 2,
+      channels: 3,
+      background: "#ffffff",
+    },
+  }).jpeg().toBuffer();
+  for (let index = 0; index < (artifact.frames?.length ?? 0); index += 1) {
+    const filePath = path.join(framesDir, `frame-${index + 1}.jpg`);
+    await fs.writeFile(filePath, pixel);
+    artifact.frames[index].imageUri = store.runtimeUri(filePath);
+  }
 }
 
 function createArtifact(overrides = {}) {
@@ -375,10 +465,12 @@ function createArtifact(overrides = {}) {
 }
 
 async function waitForJob(jobStore, jobId, status) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  let lastJob = null;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     const job = jobStore.getJob(jobId);
+    lastJob = job;
     if (job?.status === status) return job;
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error(`job ${jobId} did not reach ${status}`);
+  throw new Error(`job ${jobId} did not reach ${status}: ${JSON.stringify(lastJob)}`);
 }

@@ -369,6 +369,7 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(helpers, /"script_segment\.cache_lookup": "检查脚本段落缓存"/);
   assert.match(helpers, /"script_segment\.cache_reuse": "复用脚本段落缓存"/);
   assert.match(helpers, /"script_segment\.input_prepare": "准备脚本段落输入"/);
+  assert.match(helpers, /"script_segment\.input_package": "生成脚本段落输入包"/);
   assert.match(helpers, /"script_segment\.repair": "修复脚本段落结果"/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/script-segments/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);

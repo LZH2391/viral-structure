@@ -1,8 +1,8 @@
 const { contentHash, stableJson } = require("./shared");
 
-const INPUT_SCHEMA_VERSION = "script_segment_input.v1";
+const INPUT_SCHEMA_VERSION = "script_segment_input.v2";
 
-function buildScriptSegmentContentFingerprint(input) {
+function buildScriptSegmentContentFingerprint(input, inputPackage = null) {
   return contentHash(stableJson({
     schemaVersion: INPUT_SCHEMA_VERSION,
     commerceBrief: input?.commerceBrief ?? null,
@@ -17,12 +17,25 @@ function buildScriptSegmentContentFingerprint(input) {
         audioHintSummary: shot?.audioHintSummary ?? null,
       }))
       : [],
+    inputPackage: inputPackage
+      ? {
+        manifestHash: inputPackage?.hashes?.manifestHash ?? null,
+        outputContractHash: inputPackage?.hashes?.outputContractHash ?? null,
+        visualManifestHash: inputPackage?.hashes?.visualManifestHash ?? null,
+        sheetCount: inputPackage?.sheetCount ?? null,
+        emptyShotCount: inputPackage?.emptyShotCount ?? null,
+      }
+      : null,
   }));
 }
 
 function buildScriptSegmentCacheParams({
   inputFingerprint,
   shotCount,
+  inputPackageManifestHash,
+  visualManifestHash,
+  outputContractHash,
+  sourceShotArtifactId,
   profileVersion,
   promptTemplateId,
   promptTemplateVersion,
@@ -33,6 +46,10 @@ function buildScriptSegmentCacheParams({
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
     inputFingerprint: inputFingerprint ?? null,
     shotCount: Number(shotCount ?? 0),
+    inputPackageManifestHash: inputPackageManifestHash ?? null,
+    visualManifestHash: visualManifestHash ?? null,
+    outputContractHash: outputContractHash ?? null,
+    sourceShotArtifactId: sourceShotArtifactId ?? null,
     profileVersion: profileVersion ?? null,
     promptTemplateId: promptTemplateId ?? null,
     promptTemplateVersion: promptTemplateVersion ?? null,
