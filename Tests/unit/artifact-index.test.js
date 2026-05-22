@@ -186,10 +186,8 @@ test("failed shot boundary artifact does not register processed shot cache entry
         selectionPolicy: "target_grid_nearest_unique",
         duplicatePolicy: "nearest_unselected_tie_later",
         roundingPolicy: "target_grid_nearest_unique",
-        stride: null,
       },
       contactSheets: [],
-      boundaryCandidateArtifacts: [],
       boundaries: [],
       validation: { status: "failed", rawBoundaryCount: 0, normalizedBoundaryCount: 0, repairAttemptCount: 1, validatorCode: "shot_boundary_empty_boundaries" },
       agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", skillPath: "SKILL.md", skillHash: "hash", threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
@@ -369,7 +367,6 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets, ag
       selectionPolicy: "target_grid_nearest_unique",
       duplicatePolicy: "nearest_unselected_tie_later",
       roundingPolicy: "target_grid_nearest_unique",
-      stride: null,
     },
     subtitleContextSummary: null,
     commerceBrief: {
@@ -381,7 +378,6 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets, ag
       uncertainties: [],
     },
     contactSheets,
-    boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
     agent: {

@@ -140,7 +140,7 @@ export type ShotBoundaryAnalysisArtifact = {
     effectiveFps?: number | null;
     selectionPolicy?: string | null;
     duplicatePolicy?: string | null;
-    stride: number | null;
+    stride?: number | null;
     roundingPolicy?: string | null;
   };
   subtitleContextSummary?: {
@@ -207,24 +207,6 @@ export type ShotBoundaryAnalysisArtifact = {
       format?: string;
       quality?: number;
     };
-    createdAt?: string;
-  }>;
-  boundaryCandidateArtifacts?: Array<{
-    artifactId: string;
-    parentArtifactId: string | null;
-    type: "shot_boundary_candidates" | string;
-    artifactType?: "shot_boundary_candidates" | string;
-    status?: string;
-    sheetId: string;
-    sheetIndex: number;
-    frameCount?: number;
-    boundaries: Array<{
-      timestamp: number;
-      confidence: number;
-      boundaryType: string;
-      reason: string;
-      needReview: boolean;
-    }>;
     createdAt?: string;
   }>;
   boundaries?: Array<{

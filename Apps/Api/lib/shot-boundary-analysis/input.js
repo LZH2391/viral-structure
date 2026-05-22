@@ -94,7 +94,6 @@ function resolveAnalysisSampling(input, maybeRequestedAnalysisFps) {
     selectionPolicy: ANALYSIS_SELECTION_POLICY,
     duplicatePolicy: ANALYSIS_DUPLICATE_POLICY,
     roundingPolicy: ANALYSIS_SELECTION_POLICY,
-    stride: null,
   };
 }
 

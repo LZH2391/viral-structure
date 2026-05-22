@@ -67,19 +67,15 @@ export function resolveAnalysisFpsExceededHint(sampleVideo: SampleVideo | null, 
 
 export function resolveRenderedAnalysisSampling(analysis?: ShotBoundaryAnalysisArtifact | null) {
   const requestedFps = Number(analysis?.analysisSampling?.requestedFps ?? analysis?.analysisSampling?.fps ?? Number.NaN);
-  const stride = analysis?.analysisSampling?.stride ?? null;
-  const hasStride = typeof stride === "number" && Number.isFinite(stride) && stride > 0;
-  const extractFps = Number(analysis?.extractSampling?.requestedFps ?? Number.NaN);
-  const fallbackEffectiveFps = Number.isFinite(extractFps) && hasStride ? extractFps / stride : Number.NaN;
   return {
     requestedFps,
-    effectiveFps: Number(analysis?.analysisSampling?.effectiveFps ?? fallbackEffectiveFps),
+    effectiveFps: Number(analysis?.analysisSampling?.effectiveFps ?? Number.NaN),
     targetFrameCount: analysis?.analysisSampling?.targetFrameCount ?? null,
     selectedFrameCount: analysis?.analysisSampling?.selectedFrameCount ?? null,
-    selectionPolicy: analysis?.analysisSampling?.selectionPolicy ?? (hasStride ? "legacy_stride" : "target_grid_nearest_unique"),
-    stride,
-    isLegacyStride: hasStride,
-    roundingPolicy: analysis?.analysisSampling?.roundingPolicy ?? "legacy_stride_fallback",
+    selectionPolicy: analysis?.analysisSampling?.selectionPolicy ?? "target_grid_nearest_unique",
+    stride: analysis?.analysisSampling?.stride ?? null,
+    isLegacyStride: false,
+    roundingPolicy: analysis?.analysisSampling?.roundingPolicy ?? "target_grid_nearest_unique",
   };
 }
 

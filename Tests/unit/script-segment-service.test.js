@@ -489,7 +489,6 @@ function createArtifact(overrides = {}) {
         selectionPolicy: "target_grid_nearest_unique",
         duplicatePolicy: "nearest_unselected_tie_later",
         roundingPolicy: "target_grid_nearest_unique",
-        stride: null,
       },
       commerceBrief: {
         sellingObject: "厨房收纳好物",

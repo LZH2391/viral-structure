@@ -16,7 +16,6 @@ const { planContactSheets } = require("../../Infrastructure/MediaProcessing/cont
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
   const artifact = createArtifact();
   const input = prepareInput(artifact, 2, { runtimeRoot: "C:\\Runtime" });
-  assert.equal(input.analysisSampling.stride, null);
   assert.equal(input.analysisSampling.selectionPolicy, "target_grid_nearest_unique");
   assert.equal(input.analysisSampling.duplicatePolicy, "nearest_unselected_tie_later");
   assert.equal(input.analysisSampling.targetFrameCount, 4);
@@ -41,7 +40,6 @@ test("shot boundary sampling metadata uses target-grid policy", () => {
     selectionPolicy: "target_grid_nearest_unique",
     duplicatePolicy: "nearest_unselected_tie_later",
     roundingPolicy: "target_grid_nearest_unique",
-    stride: null,
   });
   assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2, durationSeconds: 2, targetFrameCount: 4, selectedFrameCount: 4 }), {
     fps: 2,
@@ -52,7 +50,6 @@ test("shot boundary sampling metadata uses target-grid policy", () => {
     selectionPolicy: "target_grid_nearest_unique",
     duplicatePolicy: "nearest_unselected_tie_later",
     roundingPolicy: "target_grid_nearest_unique",
-    stride: null,
   });
   assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 2.4, durationSeconds: 2, targetFrameCount: 5, selectedFrameCount: 5 }), {
     fps: 2.4,
@@ -63,7 +60,6 @@ test("shot boundary sampling metadata uses target-grid policy", () => {
     selectionPolicy: "target_grid_nearest_unique",
     duplicatePolicy: "nearest_unselected_tie_later",
     roundingPolicy: "target_grid_nearest_unique",
-    stride: null,
   });
   assert.deepEqual(resolveAnalysisSampling({ requestedFrameSampleRateFps: 3, requestedAnalysisFps: 3, durationSeconds: 2, targetFrameCount: 6, selectedFrameCount: 6 }), {
     fps: 3,
@@ -74,9 +70,7 @@ test("shot boundary sampling metadata uses target-grid policy", () => {
     selectionPolicy: "target_grid_nearest_unique",
     duplicatePolicy: "nearest_unselected_tie_later",
     roundingPolicy: "target_grid_nearest_unique",
-    stride: null,
   });
-  assert.equal(resolveAnalysisSampling(3, 2).stride, null);
   assert.equal(resolveAnalysisSampling(3, 2).selectionPolicy, "target_grid_nearest_unique");
 });
 
@@ -259,7 +253,7 @@ test("shot boundary normalizes timestamp boundaries and builds contiguous shots"
   assert.equal(boundaries.length, 2);
   assert.equal(boundaries[0].confidence, 1);
   assert.equal(boundaries[0].reason.length, 160);
-  assert.equal(boundaries[0].boundaryType, "hard_cut");
+  assert.equal(boundaries[0].boundaryType, null);
   assert.equal(boundaries[0].needReview, true);
   assert.equal(shots.length, 3);
   assert.equal(shots[0].start, 0);
@@ -1655,11 +1649,9 @@ function createCachedShotAnalysis() {
       selectionPolicy: "target_grid_nearest_unique",
       duplicatePolicy: "nearest_unselected_tie_later",
       roundingPolicy: "target_grid_nearest_unique",
-      stride: null,
     },
     subtitleContextSummary: null,
     contactSheets: [],
-    boundaryCandidateArtifacts: [],
     boundaries: [],
     validation: { status: "passed", rawBoundaryCount: 0, normalizedBoundaryCount: 0, repairAttemptCount: 0, validatorCode: null },
     agent: {
@@ -1711,11 +1703,9 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
       selectionPolicy: "target_grid_nearest_unique",
       duplicatePolicy: "nearest_unselected_tie_later",
       roundingPolicy: "target_grid_nearest_unique",
-      stride: null,
     },
     subtitleContextSummary: null,
     contactSheets: createContactSheets(prepareInput(createArtifact(), analysisFps, { runtimeRoot: rootRuntime("cached") }), rootRuntime("cached")),
-    boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
     agent: {

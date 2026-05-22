@@ -87,7 +87,6 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     subtitleContextSummary: prepared.subtitleContextSummary ?? null,
     commerceBrief,
     contactSheets: contactSheets.map(stripLocalImagePath),
-    boundaryCandidateArtifacts: [],
     boundaries: mergedBoundaries,
     validation: {
       status: "passed",
@@ -140,11 +139,9 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
       selectionPolicy: ANALYSIS_SELECTION_POLICY,
       duplicatePolicy: ANALYSIS_DUPLICATE_POLICY,
       roundingPolicy: ANALYSIS_SELECTION_POLICY,
-      stride: null,
     },
     subtitleContextSummary: context.prepared?.subtitleContextSummary ?? null,
     contactSheets: contactSheets.map(stripLocalImagePath),
-    boundaryCandidateArtifacts: [],
     boundaries: [],
     validation: {
       status: "failed",
