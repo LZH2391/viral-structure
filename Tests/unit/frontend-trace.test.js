@@ -67,6 +67,7 @@ test("timeline selection and zoom avoid high-frequency full rerenders", () => {
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
   const metrics = read(root, "Apps/Workbench/src/utils/timeline.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const playbackSync = read(root, "Apps/Workbench/src/hooks/useWorkbenchPlaybackSync.ts");
   const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
 
   assert.match(timeline, /onBlur=\{\(\) => onVisibleSecondsChange\(clampVisibleSeconds\(draftSeconds\)\)\}/);
@@ -75,9 +76,10 @@ test("timeline selection and zoom avoid high-frequency full rerenders", () => {
   assert.match(metrics, /function shouldAppendEndTick/);
   assert.match(app, /lastSegmentIdRef/);
   assert.match(app, /lastShotIdRef/);
-  assert.match(app, /video\.addEventListener\("seeked", onSeeked\)/);
-  assert.match(app, /video\.addEventListener\("loadedmetadata", onLoadedMetadata\)/);
-  assert.match(app, /findCurrentShot/);
+  assert.match(app, /useWorkbenchPlaybackSync/);
+  assert.match(playbackSync, /video\.addEventListener\("seeked", onSeeked\)/);
+  assert.match(playbackSync, /video\.addEventListener\("loadedmetadata", onLoadedMetadata\)/);
+  assert.match(playbackSync, /findCurrentShot/);
   assert.match(helpers, /currentTime >= shot\.start && \(isLastShot \? currentTime <= shot\.end : currentTime < shot\.end\)/);
 });
 
@@ -159,7 +161,7 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   const previewCss = read(root, "Apps/Workbench/styles/preview-panel.css");
   const resize = read(root, "Apps/Workbench/src/hooks/useElementSize.ts");
   const state = read(root, "Apps/Workbench/src/state.ts");
-  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const sharedRows = read(root, "Apps/Workbench/src/components/property-panel/SharedRows.tsx");
   const format = read(root, "Apps/Workbench/src/utils/format.ts");
 
   assert.match(resize, /new ResizeObserver/);
@@ -174,8 +176,8 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(preview, /letterboxInsets/);
   assert.match(state, /width: artifact\.metadata\.width/);
   assert.match(state, /aspectRatio: buildAspectRatio/);
-  assert.match(property, /label="分辨率"/);
-  assert.match(property, /label="媒体类型"/);
+  assert.match(sharedRows, /label="分辨率"/);
+  assert.match(sharedRows, /label="媒体类型"/);
   assert.match(format, /export function formatSecondsCompact/);
   assert.match(format, /return `\$\{text\}s`/);
 });
@@ -186,6 +188,8 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
+  const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const propertyCss = read(root, "Apps/Workbench/styles/property-panel.css");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
@@ -203,23 +207,21 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);
   assert.match(timeline, /audio-feature-marker/);
-  assert.match(property, /subtitle-editor/);
-  assert.match(property, /draftVersionId/);
-  assert.match(property, /AudioFeatureRows/);
+  assert.match(property, /PropertyRows/);
+  assert.match(agentRunPanel, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
+  assert.match(agentRunPanel, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
+  assert.match(agentRunPanel, /4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频/);
+  assert.match(agentRunPanel, /step="1"/);
+  assert.match(agentRunPanel, /分析采样率必须是 1 到 10 之间的整数/);
+  assert.match(agentRunPanel, /采样率越高，图片越多，分析更细但耗时更久/);
+  assert.match(agentRunPanel, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
+  assert.match(agentRunPanel, /requestedAnalysisFps：\{formatFpsValue\(renderedSampling\.requestedFps\)\}/);
+  assert.match(agentRunPanel, /effectiveAnalysisFps：\{formatFpsValue\(renderedSampling\.effectiveFps\)\}/);
+  assert.match(agentRunPanel, /selectionPolicy：\{renderedSampling\.selectionPolicy\}/);
+  assert.match(agentRunPanel, /roundingPolicy：\{renderedSampling\.roundingPolicy\}/);
+  assert.match(formatters, /legacy_stride_fallback/);
   assert.match(app, /normalizeAnalysisFps/);
-  assert.match(property, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
-  assert.match(property, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
-  assert.match(property, /4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频/);
-  assert.match(property, /step="1"/);
-  assert.match(property, /分析采样率必须是 1 到 10 之间的整数/);
-  assert.match(property, /采样率越高，图片越多，分析更细但耗时更久/);
-  assert.match(property, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
-  assert.match(property, /requestedAnalysisFps：\{formatFpsValue\(renderedSampling\.requestedFps\)\}/);
-  assert.match(property, /effectiveAnalysisFps：\{formatFpsValue\(renderedSampling\.effectiveFps\)\}/);
-  assert.match(property, /selectionPolicy：\{renderedSampling\.selectionPolicy\}/);
-  assert.match(property, /roundingPolicy：\{renderedSampling\.roundingPolicy\}/);
-  assert.match(property, /legacy_stride_fallback/);
-  assert.match(property, /shot\.shotNo \?\?/);
+  assert.match(agentRunPanel, /shot\.shotNo \?\?/);
   assert.match(propertyCss, /\.agent-sampling-preview/);
   assert.match(propertyCss, /grid-template-columns: 44px minmax\(0, 1fr\)/);
 });
@@ -249,6 +251,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const vite = read(root, "vite.config.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const cacheDialog = read(root, "Apps/Workbench/src/components/CacheDecisionDialog.tsx");
   const threadpoolHtml = read(root, "Apps/Workbench/threadpool.html");
   const threadpoolEntry = read(root, "Apps/Workbench/src/threadpool.tsx");
@@ -281,28 +284,30 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(threadpoolCss, /\.threadpool-conversation-panel/);
   assert.match(threadpoolCss, /\.threadpool-conversation-block summary/);
   assert.match(property, /AgentRunPanel/);
-  assert.match(property, /shot-boundary/);
+  assert.match(agentRunPanel, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);
-  assert.match(property, /renderResultOrigin/);
-  assert.match(property, /repairAttemptCount/);
+  assert.match(agentRunPanel, /renderResultOrigin/);
+  assert.match(agentRunPanel, /repairAttemptCount/);
   assert.match(cacheDialog, /发现切镜缓存/);
   assert.match(cacheDialog, /fps \/ \{item\.shotCount \?\? "\?"\} 镜 \/ turn/);
-  assert.match(property, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
-  assert.match(property, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
+  assert.match(agentRunPanel, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
+  assert.match(agentRunPanel, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
 });
 
 test("property panel treats processed passed shot data without boundaries as invalid result", () => {
   const root = path.resolve(__dirname, "../..");
-  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
+  const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
 
-  assert.match(property, /return boundaries\.length > 0 && shots\.length > 0;/);
-  assert.match(property, /hasValidShotResult \? `\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
-  assert.match(property, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
+  assert.match(formatters, /return boundaries\.length > 0 && shots\.length > 0;/);
+  assert.match(agentRunPanel, /hasValidShotResult \? `\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
+  assert.match(agentRunPanel, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
 });
 
 test("property panel shows all shots and recent shot analysis history", () => {
   const root = path.resolve(__dirname, "../..");
-  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
+  const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
@@ -317,7 +322,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(property, /resolveShotSummary\(currentShot\)/);
   assert.match(property, /formatSecondsCompact\(currentShot\.start\)\} - \{formatSecondsCompact\(currentShot\.end\)/);
   assert.match(property, /resolveShotEndBoundaryReason\(shot\)/);
-  assert.match(property, /shot\.summary \?\? shot\.reason/);
+  assert.match(formatters, /shot\.summary \?\? shot\.reason/);
   assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
   assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);
   assert.match(property, /className=\{`agent-history-item \$\{analysis\?\.artifactId === entry\.artifactId \? "is-current" : ""\}`\}/);

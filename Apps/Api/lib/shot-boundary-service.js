@@ -5,6 +5,30 @@ const { createTraceIds, nextStage } = require("../../../Infrastructure/Observabi
 const defaultContactSheetGenerator = require("../../../Infrastructure/MediaProcessing/contact-sheet-generator");
 const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
+const { appendShotBoundaryHistory } = require("./shot-boundary/history");
+const {
+  finalizeLease,
+  cleanupLease,
+  fallbackEnsureRoleReady,
+  threadPoolReadinessError,
+  normalizeThreadPoolAcquireError,
+} = require("./shot-boundary/threadpool-runner");
+const {
+  isShotStage: isShotStageImpl,
+  isInterruptedPreAgentJob: isInterruptedPreAgentJobImpl,
+  buildAgentRun: buildAgentRunImpl,
+  createRecoveredContext: createRecoveredContextImpl,
+  isRetryableCollectError,
+} = require("./shot-boundary/agent-run");
+const {
+  findCachedArtifact: findCachedArtifactImpl,
+  runCacheLookup: runCacheLookupImpl,
+  resolveCachedPrompt: resolveCachedPromptImpl,
+  markCacheWaiting: markCacheWaitingImpl,
+  resolveExistingFileHash: resolveExistingFileHashImpl,
+  reuseCachedAnalysis: reuseCachedAnalysisImpl,
+} = require("./shot-boundary/cache");
+const { writeCompletedAnalysis } = require("./shot-boundary/result-writer");
 const {
   ROLE,
   MAX_REPAIR_ATTEMPTS,
@@ -175,11 +199,11 @@ function createShotBoundaryService({
         inputSummary: { role: ROLE, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
         action: async () => {
           const readiness = typeof threadPool.ensureRoleReady === "function" ? await threadPool.ensureRoleReady(ROLE) : await fallbackEnsureRoleReady(threadPool, ROLE);
-          if (!readiness?.ok) throw threadPoolReadinessError(readiness);
+          if (!readiness?.ok) throw threadPoolReadinessError(readiness, codedError);
           try {
             return await threadPool.acquireLease({ role: ROLE, ownerId: context.traceContext.traceId });
           } catch (error) {
-            throw normalizeThreadPoolAcquireError(error, readiness?.status ?? null);
+            throw normalizeThreadPoolAcquireError(error, readiness?.status ?? null, codedError);
           }
         },
         outputSummary: (result) => ({ role: ROLE, leaseId: result.lease_id, threadId: result.thread_id }),
@@ -222,7 +246,7 @@ function createShotBoundaryService({
       if (job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed) return { status: job.status };
       if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
       const sampleArtifact = await loadSampleArtifact(agentRun.sampleVideoId);
-      const context = createRecoveredContext({ job, agentRun, sampleArtifact });
+      const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
       if (Date.now() - Date.parse(agentRun.startedAt) > orphanTtlMs) {
         const error = codedError("shot_boundary_turn_orphaned", "切镜 Agent 长时间未完成，已清理遗留 lease");
         await failAgentRun(context, error);
@@ -258,7 +282,30 @@ function createShotBoundaryService({
           scheduleCollect(job.jobId);
           return turn;
         }
-        await writeCompletedAnalysis({ context, agentRun, turn });
+        await writeCompletedAnalysis({
+          context,
+          agentRun,
+          turn,
+          runStage,
+          stages: STAGES,
+          prepareInput,
+          store,
+          buildProcessedAnalysis,
+          attachAnalysis,
+          artifactIndex,
+          resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
+          loadSampleArtifact,
+          finalizeLease,
+          threadPool,
+          maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
+          appServer,
+          rootDir,
+          buildRepairTurnInputs,
+          codedError,
+          role: ROLE,
+          jobStore,
+          sampleStatus: SAMPLE_STATUS,
+        });
         return turn;
       } catch (error) {
         if (isRetryableCollectError(error)) {
@@ -272,159 +319,6 @@ function createShotBoundaryService({
     } finally {
       collectingJobs.delete(jobId);
     }
-  }
-
-  async function writeCompletedAnalysis({ context, agentRun, turn }) {
-    const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
-    const contactSheets = agentRun.contactSheets ?? [];
-    const resolved = await resolveFinalAnalysis({ context, agentRun, turn, prepared, contactSheets });
-    await runStage(context, STAGES.resultWritten, 95, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId ?? null,
-      inputSummary: { turnId: resolved.finalTurn.turnId, frameCount: prepared.frames.length, sheetCount: contactSheets.length, resultOrigin: resolved.resultOrigin, repairAttemptCount: resolved.repairAttemptCount },
-      action: async () => {
-        const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-        const analysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
-          resultOrigin: resolved.resultOrigin,
-          repairAttemptCount: resolved.repairAttemptCount,
-        });
-        await attachAnalysis(context.sampleVideoId, analysis, {
-          traceId: context.traceContext.traceId,
-          sourceTraceId: context.sampleArtifact?.trace?.traceId ?? null,
-        });
-        await artifactIndex.registerSampleArtifact({
-          artifact: await loadSampleArtifact(context.sampleVideoId),
-          fileHash: await resolveExistingFileHash(context.sampleVideoId),
-          traceId: context.traceContext.traceId,
-        });
-        await finalizeLease(threadPool, agentRun, { shouldDiscard: false });
-        return analysis;
-      },
-      outputSummary: (result) => ({
-        status: result.status,
-        sheetCount: result.contactSheets?.length ?? 0,
-        boundaryCount: result.boundaries?.length ?? 0,
-        shotCount: result.shots.length,
-        artifactType: result.type,
-        resultOrigin: result.resultOrigin,
-        repairAttemptCount: result.validation?.repairAttemptCount ?? 0,
-      }),
-    });
-    jobStore.updateJob(context.job.jobId, {
-      agentRun: { ...agentRun, status: "completed", updatedAt: new Date().toISOString() },
-      stage: SAMPLE_STATUS.processed,
-      status: SAMPLE_STATUS.processed,
-      progress: 100,
-      errorSummary: null,
-    });
-  }
-
-  async function resolveFinalAnalysis({ context, agentRun, turn, prepared, contactSheets }) {
-    let repairAttemptCount = 0;
-    let finalTurn = turn;
-    let resultOrigin = "new_turn";
-    while (repairAttemptCount <= MAX_REPAIR_ATTEMPTS) {
-      try {
-        await runStage(context, STAGES.turnValidated, 90, {
-          artifactId: context.artifactId,
-          parentArtifactId: prepared.sourceArtifactId,
-          inputSummary: { turnId: finalTurn.turnId, repairAttemptCount },
-          action: async () => {
-            const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-            return buildProcessedAnalysis(finalTurn.finalMessage, prepared, contactSheets, context, lease, finalTurn, {
-              resultOrigin,
-              repairAttemptCount,
-            });
-          },
-          outputSummary: (result) => ({
-            turnId: finalTurn.turnId,
-            resultOrigin,
-            boundaryCount: result.boundaries?.length ?? 0,
-            shotCount: result.shots?.length ?? 0,
-            repairAttemptCount,
-          }),
-        });
-        return {
-          finalTurn,
-          repairAttemptCount,
-          resultOrigin,
-          validationSummary: {
-            status: "passed",
-            rawBoundaryCount: null,
-            normalizedBoundaryCount: null,
-            repairAttemptCount,
-            validatorCode: null,
-          },
-        };
-      } catch (error) {
-        if (error?.code !== "shot_boundary_validation_failed" || repairAttemptCount >= MAX_REPAIR_ATTEMPTS) {
-          context.validationSummary = {
-            ...(error?.debugPayload?.validation ?? {}),
-            status: "failed",
-            repairAttemptCount,
-            validatorCode: error?.debugPayload?.validation?.validatorCode ?? error?.code ?? null,
-          };
-          error.debugPayload = {
-            ...(error.debugPayload ?? {}),
-            repairAttemptCount,
-            validation: context.validationSummary,
-            turnId: finalTurn?.turnId ?? null,
-            resultOrigin,
-          };
-          throw error;
-        }
-        repairAttemptCount += 1;
-        context.validationSummary = {
-          ...(error?.debugPayload?.validation ?? {}),
-          status: "failed",
-          repairAttemptCount,
-          validatorCode: error?.debugPayload?.validation?.validatorCode ?? error?.code ?? null,
-        };
-        error.debugPayload = {
-          ...(error.debugPayload ?? {}),
-          repairAttemptCount,
-          validation: context.validationSummary,
-          turnId: finalTurn?.turnId ?? null,
-          resultOrigin,
-        };
-        finalTurn = await submitRepairTurn({ context, agentRun, prepared, contactSheets, validationError: error, priorTurn: finalTurn, repairAttemptCount });
-        resultOrigin = "repaired_turn";
-      }
-    }
-    throw codedError("shot_boundary_validation_failed", "切镜结果校验失败", { repairAttemptCount: MAX_REPAIR_ATTEMPTS }, false);
-  }
-
-  async function submitRepairTurn({ context, agentRun, prepared, contactSheets, validationError, priorTurn, repairAttemptCount }) {
-    const started = await runStage(context, STAGES.turnRepaired, 91, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId,
-      inputSummary: { threadId: agentRun.threadId, previousTurnId: priorTurn.turnId, repairAttemptCount, validatorCode: validationError.debugPayload?.validation?.validatorCode ?? validationError.code },
-      action: () => appServer.startTurnWithInputs({
-        workspaceRoot: rootDir,
-        threadId: agentRun.threadId,
-        inputs: buildRepairTurnInputs({
-          prepared,
-          contactSheets,
-          validationError,
-          priorTurnOutput: priorTurn.finalMessage,
-          repairAttemptCount,
-        }),
-        timeoutSeconds: 240,
-      }),
-      outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
-    });
-    return runStage(context, STAGES.repairCollected, 93, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId,
-      inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount },
-      action: () => appServer.collectTurnResult({
-        workspaceRoot: rootDir,
-        threadId: agentRun.threadId,
-        turnId: started.turnId,
-        timeoutSeconds: 120,
-      }),
-      outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status, repairAttemptCount }),
-    });
   }
 
   async function failAgentRun(context, error) {
@@ -598,117 +492,37 @@ function createShotBoundaryService({
     return artifact;
   }
 
-  async function findCachedArtifact(context, prepared, contactSheets) {
-    if (context.cacheDecision === "refresh") return null;
-    const fileHash = await resolveExistingFileHash(context.sampleVideoId);
-    if (!fileHash) {
-      return { cache: null, analysis: null, cacheEligibility: null, summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "file_hash_missing" }) };
-    }
-    const params = cacheParams(prepared, contactSheets, { skillHash: context.skillHash });
-    const cache = await artifactIndex.findCacheEntry({
-      fileHash,
-      stageName: STAGES.resultWritten,
-      params,
-    });
-    if (!cache?.sampleVideoId) {
-      return { cache: null, analysis: null, cacheEligibility: null, summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "key_miss" }) };
-    }
-    const artifact = await artifactIndex.loadItem(cache.sampleVideoId);
-    const analysis = artifact?.shotBoundaryAnalysis ?? null;
-    const cacheEligibility = evaluateCacheEligibility(analysis);
-    if (!cacheEligibility.eligible) {
-      return {
-        cache,
-        analysis,
-        cacheEligibility,
-        summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "eligibility_rejected", sourceSampleVideoId: cache.sampleVideoId, cacheKey: cache.cacheKey ?? null, eligibility: cacheEligibility }),
-      };
-    }
-    return {
-      cache,
-      analysis,
-      cacheEligibility,
-      summary: cacheLookupSummary(context, {
-        cacheLookup: "hit",
-        reason: "eligible",
-        sourceSampleVideoId: cache.sampleVideoId,
-        cacheKey: cache.cacheKey ?? null,
-        sourceTurnId: analysis.agent?.turnId ?? null,
-        boundaryCount: analysis.boundaries?.length ?? 0,
-        shotCount: analysis.shots?.length ?? 0,
+  async function runCacheLookupLocal(context, prepared, contactSheets) {
+    return runCacheLookupImpl({
+      context,
+      prepared,
+      contactSheets,
+      runStage,
+      stageName: STAGES.cacheLookup,
+      findCached: () => findCachedArtifactImpl({
+        context,
+        prepared,
+        contactSheets,
+        artifactIndex,
+        stageName: STAGES.resultWritten,
+        cacheParams,
+        evaluateCacheEligibility,
+        resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
       }),
-    };
+    });
   }
 
-  async function runCacheLookup(context, prepared, contactSheets) {
-    if (context.cacheDecision === "refresh") return null;
-    const result = await runStage(context, STAGES.cacheLookup, 55, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId,
-      inputSummary: { sampleVideoId: context.sampleVideoId, analysisFps: context.analysisFps, sheetCount: contactSheets.length, skillHash: context.skillHash },
-      action: () => findCachedArtifact(context, prepared, contactSheets),
-      outputSummary: (lookup) => lookup.summary,
-    });
-    return result.cache && result.analysis && result.cacheEligibility?.eligible ? result : null;
-  }
-
-  async function reuseCachedAnalysis(context, cachePrompt) {
-    await runStage(context, STAGES.cacheReuse, 95, {
-      artifactId: context.artifactId,
-      parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null,
-      inputSummary: {
-        sampleVideoId: context.sampleVideoId,
-        sourceSampleVideoId: cachePrompt?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sampleVideoId ?? null,
-        cacheKey: cachePrompt?.cacheKey ?? null,
-      },
-      action: async () => {
-        const cached = await resolveCachedPrompt(cachePrompt);
-        const analysis = buildCacheReuseAnalysis(cached.analysis);
-        await attachAnalysis(context.sampleVideoId, analysis, {
-          traceId: context.traceContext.traceId,
-          sourceTraceId: context.sampleArtifact?.trace?.traceId ?? null,
-        });
-        return { cached, analysis };
-      },
-      outputSummary: ({ cached, analysis }) => ({
-        sourceSampleVideoId: cached.cache.sampleVideoId,
-        cacheKey: cached.cache.cacheKey,
-        sourceTurnId: analysis.agent?.turnId ?? null,
-        sourceCreatedAt: analysis.createdAt ?? null,
-        analysisFps: analysis.analysisSampling?.fps ?? context.analysisFps,
-        boundaryCount: analysis.boundaries?.length ?? 0,
-        shotCount: analysis.shots?.length ?? 0,
-        cacheEligibility: cached.cacheEligibility ?? null,
-      }),
+  async function reuseCachedAnalysisLocal(context, cachePrompt) {
+    await reuseCachedAnalysisImpl({
+      context,
+      cachePrompt,
+      runStage,
+      stageName: STAGES.cacheReuse,
+      resolvePrompt: () => resolveCachedPromptImpl({ cachePrompt, artifactIndex, evaluateCacheEligibility, codedError }),
+      buildCacheReuseAnalysis,
+      attachAnalysis,
     });
     jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100, cachePrompt: null, errorSummary: null });
-  }
-
-  async function resolveCachedPrompt(cachePrompt) {
-    const sampleVideoId = cachePrompt?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sampleVideoId;
-    if (!sampleVideoId) throw codedError("shot_cache_source_missing", "切镜缓存来源缺失，请重新分析", null, false);
-    const artifact = await artifactIndex.loadItem(sampleVideoId);
-    const analysis = artifact?.shotBoundaryAnalysis ?? null;
-    const cacheEligibility = evaluateCacheEligibility(analysis);
-    if (!cacheEligibility.eligible) throw codedError("shot_cache_not_reusable", "切镜缓存不可复用，请重新分析", { eligibility: cacheEligibility }, false);
-    return {
-      cache: {
-        sampleVideoId,
-        cacheKey: cachePrompt.cacheKey ?? null,
-      },
-      analysis,
-      cacheEligibility,
-    };
-  }
-
-  function markCacheWaiting(context, cached) {
-    jobStore.updateJob(context.job.jobId, {
-      status: SAMPLE_STATUS.cacheWaiting,
-      stage: STAGES.cacheLookup,
-      progress: 55,
-      cachePrompt: buildCachePrompt(context, cached),
-      errorSummary: null,
-    });
   }
 
   function buildCachePrompt(context, cached) {
@@ -754,218 +568,41 @@ function createShotBoundaryService({
     };
   }
 
-  async function resolveExistingFileHash(sampleVideoId) {
-    const detail = await artifactIndex.getItem(sampleVideoId);
-    return detail?.fileHash ?? `sampleVideoId:${sampleVideoId}`;
+  async function runCacheLookup(context, prepared, contactSheets) {
+    return runCacheLookupLocal(context, prepared, contactSheets);
+  }
+
+  async function reuseCachedAnalysis(context, cachePrompt) {
+    return reuseCachedAnalysisLocal(context, cachePrompt);
+  }
+
+  function markCacheWaiting(context, cached) {
+    return markCacheWaitingImpl({ context, cached, jobStore, sampleStatus: SAMPLE_STATUS, stageName: STAGES.cacheLookup });
+  }
+
+  function buildAgentRun(args) {
+    return buildAgentRunImpl({ ...args, role: ROLE, skillPath: SKILL_PATH });
+  }
+
+  function createRecoveredContext(args) {
+    return createRecoveredContextImpl(args);
+  }
+
+  function isInterruptedPreAgentJob(job) {
+    return isInterruptedPreAgentJobImpl(job, SAMPLE_STATUS, STAGES);
+  }
+
+  function isShotStage(stageName) {
+    return isShotStageImpl(stageName, STAGES);
   }
 
   return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
-}
-
-function appendShotBoundaryHistory(history, analysis, traceMeta) {
-  const entries = Array.isArray(history) ? history : [];
-  const next = {
-    artifactId: analysis?.artifactId ?? null,
-    status: analysis?.status ?? "failed",
-    resultOrigin: analysis?.resultOrigin ?? "new_turn",
-    analysisFps: analysis?.analysisSampling?.fps ?? null,
-    boundaryCount: analysis?.boundaries?.length ?? 0,
-    shotCount: analysis?.shots?.length ?? 0,
-    turnId: analysis?.agent?.turnId ?? null,
-    traceId: traceMeta?.traceId ?? null,
-    sourceTraceId: traceMeta?.sourceTraceId ?? null,
-    createdAt: analysis?.createdAt ?? new Date().toISOString(),
-    validatorCode: analysis?.validation?.validatorCode ?? null,
-  };
-  return [...entries, next];
-}
-
-function isInterruptedPreAgentJob(job) {
-  if (!job || job.agentRun) return false;
-  if (![SAMPLE_STATUS.pending, SAMPLE_STATUS.processing].includes(job.status)) return false;
-  return isShotStage(job.stage);
-}
-
-function isShotStage(stageName) {
-  return Object.values(STAGES).includes(stageName);
-}
-
-function buildAgentRun({ context, lease, turn, prepared, contactSheets }) {
-  const now = new Date().toISOString();
-  return {
-    provider: "codex-appserver",
-    role: ROLE,
-    skillPath: context.skillPath ?? SKILL_PATH,
-    skillHash: context.skillHash ?? null,
-    leaseId: lease.lease_id,
-    threadId: lease.thread_id,
-    turnId: turn.turnId ?? null,
-    traceId: context.traceContext.traceId,
-    artifactId: context.artifactId,
-    parentArtifactId: prepared.sourceArtifactId ?? null,
-    sampleVideoId: context.sampleVideoId,
-    analysisFps: context.analysisFps,
-    status: "turn_submitted",
-    contactSheets,
-    preparedInputSummary: {
-      frameCount: prepared.frames.length,
-      requestedFps: prepared.analysisSampling.requestedFps,
-      selectedFrameCount: prepared.analysisSampling.selectedFrameCount,
-      effectiveFps: prepared.analysisSampling.effectiveFps,
-      selectionPolicy: prepared.analysisSampling.selectionPolicy,
-      sheetCount: contactSheets.length,
-      subtitleSegmentCount: prepared.subtitleContextSummary?.subtitleSegmentCount ?? 0,
-      subtitleTextHash: prepared.subtitleContextSummary?.subtitleTextHash ?? null,
-      subtitleTruncated: Boolean(prepared.subtitleContextSummary?.truncated),
-    },
-    startedAt: now,
-    updatedAt: now,
-  };
-}
-
-function createRecoveredContext({ job, agentRun, sampleArtifact }) {
-  return {
-    sampleVideoId: agentRun.sampleVideoId,
-    analysisFps: agentRun.analysisFps,
-    sampleArtifact,
-    traceContext: {
-      runId: agentRun.traceId,
-      traceId: agentRun.traceId,
-      stageId: `stage_recover_${Date.now()}`,
-    },
-    artifactId: agentRun.artifactId,
-    skillPath: agentRun.skillPath ?? SKILL_PATH,
-    skillHash: agentRun.skillHash ?? null,
-    cacheDecision: "refresh",
-    job,
-    activeStage: null,
-  };
-}
-
-function isRetryableCollectError(error) {
-  const code = String(error?.code ?? "");
-  return ["appserver_bridge_failed", "appserver_bridge_timeout", "appserver_turn_collect_failed"].includes(code);
-}
-
-async function finalizeLease(threadPool, agentRun, options = {}) {
-  if (options.shouldDiscard && agentRun?.threadId) {
-    await threadPool.discardThread({ threadId: agentRun.threadId, reason: options.reason || "shot-boundary-analysis-failed" });
-    if (typeof threadPool.releaseOwnerLeases === "function" && agentRun?.traceId) {
-      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
-    }
-    return { mode: "discard" };
-  }
-  await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
-  return { mode: "lease-release" };
-}
-
-async function cleanupLease(threadPool, lease, ownerId, reason) {
-  if (lease?.thread_id) {
-    await threadPool.discardThread({ threadId: lease.thread_id, reason }).catch(() => undefined);
-  }
-  if (ownerId && typeof threadPool.releaseOwnerLeases === "function") {
-    await threadPool.releaseOwnerLeases(ownerId).catch(() => undefined);
-  }
-}
-
-async function fallbackEnsureRoleReady(threadPool, role) {
-  const status = await threadPool.roleStatus(role);
-  if (!status?.ok) return status;
-  if (status.warming) {
-    return {
-      ok: false,
-      error: "threadpool_warming",
-      message: "ThreadPool 正在 warming，请稍后再试",
-      retryable: true,
-      detail: {
-        role: status.role,
-        readyForLeases: Boolean(status.readyForLeases),
-        canAcquire: Boolean(status.canAcquire),
-        warming: Boolean(status.warming),
-        warmupDetail: status.warmupDetail ?? null,
-        warmupError: status.warmupError ?? null,
-        startupError: status.startupError ?? null,
-      },
-    };
-  }
-  if (status.startupError || status.warmupError || !status.readyForLeases || !status.canAcquire) {
-    return {
-      ok: false,
-      error: "threadpool_acquire_failed",
-      message: String(status.startupError || status.warmupError || (!status.readyForLeases ? "ThreadPool 当前未 ready，请稍后再试" : "ThreadPool 当前不可获取 lease，请稍后再试")).slice(0, 240),
-      retryable: true,
-      detail: {
-        role: status.role,
-        readyForLeases: Boolean(status.readyForLeases),
-        canAcquire: Boolean(status.canAcquire),
-        warming: Boolean(status.warming),
-        warmupDetail: status.warmupDetail ?? null,
-        warmupError: status.warmupError ?? null,
-        startupError: status.startupError ?? null,
-      },
-    };
-  }
-  return { ok: true, role, status };
-}
-
-function threadPoolReadinessError(readiness) {
-  return codedError(
-    readiness?.error ?? "threadpool_acquire_failed",
-    readiness?.message ?? "ThreadPool 当前不可用，请稍后再试",
-    {
-      threadPool: readiness?.detail ?? null,
-      readinessError: readiness?.error ?? null,
-      retryable: readiness?.retryable ?? true,
-    },
-    readiness?.retryable ?? true,
-  );
 }
 
 function badRequestError(code, message) {
   const error = codedError(code, message, null, false);
   error.statusCode = 400;
   return error;
-}
-
-function normalizeThreadPoolAcquireError(error, status) {
-  if (error?.code === "threadpool_timeout" || error?.code === "threadpool_request_failed") {
-    return codedError(
-      "threadpool_unavailable",
-      "ThreadPool 当前不可用，请稍后再试",
-      {
-        threadPool: status
-          ? {
-            role: status.role,
-            readyForLeases: Boolean(status.readyForLeases),
-            canAcquire: Boolean(status.canAcquire),
-            warming: Boolean(status.warming),
-            warmupError: status.warmupError ?? null,
-            startupError: status.startupError ?? null,
-          }
-          : null,
-        requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
-      },
-      true,
-    );
-  }
-  return codedError(
-    "threadpool_acquire_failed",
-    error instanceof Error ? error.message : "ThreadPool 获取 lease 失败",
-    {
-      threadPool: status
-        ? {
-          role: status.role,
-          readyForLeases: Boolean(status.readyForLeases),
-          canAcquire: Boolean(status.canAcquire),
-          warming: Boolean(status.warming),
-          warmupError: status.warmupError ?? null,
-          startupError: status.startupError ?? null,
-        }
-        : null,
-      requestError: error instanceof Error ? error.message : String(error ?? "unknown"),
-    },
-    true,
-  );
 }
 
 function round(value) {

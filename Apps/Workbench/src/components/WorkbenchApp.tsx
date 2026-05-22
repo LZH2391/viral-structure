@@ -1,15 +1,17 @@
-import { FormEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, uploadSampleVideo } from "../api/client";
 import { createGeneratedPlan, createStructureCards } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
 import { attachAgentJob, attachProcessingJob, buildIngestError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
+import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
+import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { DebugApp } from "./DebugApp";
 import { LibraryApp } from "./LibraryApp";
@@ -34,7 +36,6 @@ export function WorkbenchApp() {
   const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(true);
   const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(true);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
-  const [currentTime, setCurrentTime] = useState(0);
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
   const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
@@ -51,6 +52,13 @@ export function WorkbenchApp() {
   const lastShotIdRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
+  const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
+    videoRef,
+    structureCards: state.structureCards,
+    shotBoundaryAnalysis,
+    lastSegmentIdRef,
+    lastShotIdRef,
+  });
 
   useEffect(() => {
     const draft = readWorkbenchDraft();
@@ -63,7 +71,7 @@ export function WorkbenchApp() {
       setShotCachePrompt({ jobId: job.jobId ?? draft.activeAgentJob!.processingJobId, sampleVideoId: job.sampleVideoId ?? draft.activeAgentJob!.sampleVideoId, cachedItem, token: uploadTokenRef.current });
       setSaveStatus("命中切镜缓存，等待选择");
     }).catch(() => setSaveStatus("恢复切镜任务失败"));
-    if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps));
+    if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
   }, []);
 
   useEffect(() => {
@@ -72,39 +80,6 @@ export function WorkbenchApp() {
       .catch(() => setSaveStatus("能力检测失败"));
   }, []);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return undefined;
-    const syncPlaybackContext = (forceUpdate = false) => {
-      const time = video.currentTime || 0;
-      const card = findCurrentStructureCard(state.structureCards, time);
-      const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
-      const nextSegmentId = card?.id ?? null;
-      const nextShotId = shot?.id ?? null;
-      const segmentChanged = nextSegmentId !== lastSegmentIdRef.current;
-      const shotChanged = nextShotId !== lastShotIdRef.current;
-      lastSegmentIdRef.current = nextSegmentId;
-      lastShotIdRef.current = nextShotId;
-      if (forceUpdate || segmentChanged || shotChanged) {
-        setCurrentTime(time);
-      }
-    };
-    const onTimeUpdate = () => syncPlaybackContext(false);
-    const onSeeked = () => syncPlaybackContext(true);
-    const onLoadedMetadata = () => syncPlaybackContext(true);
-    syncPlaybackContext(true);
-    video.addEventListener("timeupdate", onTimeUpdate);
-    video.addEventListener("seeked", onSeeked);
-    video.addEventListener("loadedmetadata", onLoadedMetadata);
-    return () => {
-      video.removeEventListener("timeupdate", onTimeUpdate);
-      video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("loadedmetadata", onLoadedMetadata);
-    };
-  }, [shotBoundaryAnalysis, state.structureCards]);
-
-  const currentCard = useMemo(() => findCurrentStructureCard(state.structureCards, currentTime), [currentTime, state.structureCards]);
-  const currentShot = useMemo(() => findCurrentShot(shotBoundaryAnalysis?.shots, currentTime), [currentTime, shotBoundaryAnalysis]);
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
 
@@ -483,7 +458,7 @@ export function WorkbenchApp() {
           currentShotId={currentShotId}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
-          onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value))}
+          onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => runShotBoundaryAnalysis(
             state,
             agentAnalysisFps,
@@ -571,17 +546,4 @@ export function WorkbenchApp() {
       </button>
     </div>
   );
-}
-
-function normalizeAnalysisFps(value: number) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return MIN_ANALYSIS_FPS;
-  return Math.max(MIN_ANALYSIS_FPS, Math.min(MAX_ANALYSIS_FPS, Math.round(numeric)));
-}
-
-function buildRunStatus(state: WorkbenchState) {
-  const latest = state.logs[0];
-  if (!latest) return { label: "等待输入", stageId: null, backendTraceId: state.processingJob?.traceId ?? null };
-  const labelMap = { info: "运行中", done: "阶段完成", fail: "阶段失败" };
-  return { label: labelMap[latest.level] ?? "等待输入", stageId: latest.fields.stageId, backendTraceId: latest.fields.backendTraceId ?? state.processingJob?.traceId ?? null };
 }
