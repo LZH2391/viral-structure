@@ -234,7 +234,7 @@ function createProcessor(store, options = {}) {
       return { artifactId: "artifact_cover", parentArtifactId, type: "cover-frame", uri: store.runtimeUri(coverPath), summary: "封面帧" };
     },
     async extractFrames({ framesDir, parentArtifactId }) {
-      return [{ frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-001.jpg")) }];
+      return [{ frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-00001.jpg")) }];
     },
     async extractAudio({ audioPath, parentArtifactId }) {
       await fs.writeFile(audioPath, Buffer.from("audio"));
@@ -266,7 +266,7 @@ function createDegradedAudioProcessor(store) {
       return { artifactId: "artifact_cover", parentArtifactId, type: "cover-frame", uri: store.runtimeUri(coverPath), summary: "封面帧" };
     },
     async extractFrames({ framesDir, parentArtifactId }) {
-      return [{ frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-001.jpg")) }];
+      return [{ frameId: "frame_1", artifactId: "artifact_frame_1", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-00001.jpg")) }];
     },
     async extractAudio({ parentArtifactId }) {
       return {

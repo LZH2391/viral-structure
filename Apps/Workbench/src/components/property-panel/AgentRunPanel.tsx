@@ -7,6 +7,7 @@ import {
   formatHistoryMeta,
   isValidShotResult,
   renderResultOrigin,
+  resolveAnalysisFpsExceededHint,
   resolveAnalysisSamplingPreview,
   resolveMaxAnalysisFps,
   resolveRenderedAnalysisSampling,
@@ -89,6 +90,7 @@ export function AgentRunPanel({
   const runLabel = running ? "运行中" : guard.buttonLabel;
   const hasValidShotResult = isValidShotResult(analysis);
   const samplingPreview = resolveAnalysisSamplingPreview(sampleVideo, analysisFps);
+  const analysisFpsExceededHint = resolveAnalysisFpsExceededHint(sampleVideo, analysisFps);
   const renderedSampling = resolveRenderedAnalysisSampling(analysis);
   const handleRun = () => {
     if (guard.state === "warming") {
@@ -123,7 +125,7 @@ export function AgentRunPanel({
       </div>
       {analysisFpsInvalid ? <div className="detail-hint">分析采样率必须是 1 到 10 之间的整数。</div> : null}
       {samplingPreview ? <div className="agent-sampling-preview">预计分析：目标 {formatFpsValue(samplingPreview.requestedFps)} fps / 约 {samplingPreview.selectedFrameCount} 帧 / 最近不重复取帧</div> : null}
-      {analysisFpsExceeded ? <div className="detail-hint">分析采样率不能高于当前抽帧 fps（{maxAnalysisFps}）。</div> : null}
+      {analysisFpsExceeded ? <div className="detail-hint">{analysisFpsExceededHint ?? `分析采样率不能高于当前抽帧 fps（${maxAnalysisFps}）。`}</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {analysis ? (
         <div className="detail-hint">

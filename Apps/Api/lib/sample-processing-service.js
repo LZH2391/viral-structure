@@ -13,7 +13,7 @@ const { planFrameTimestampSampling } = require("../../../Core/Workspace/frame-ti
 const { buildArtifact } = require("./sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
 
-const FRAME_MAX_COUNT = 120;
+const FRAME_MAX_COUNT = 6000;
 const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
 
 function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
@@ -160,14 +160,14 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     const framesDir = path.join(sampleDir, "frames");
     const frameSampleRateFps = context.processingOptions.frameSampleRateFps;
     const frameSampling = planFrameTimestampSampling(durationSeconds, { frameSampleRateFps, maxFrames: FRAME_MAX_COUNT });
-    const plannedFrameCount = frameSampling.timestamps.length;
+    const targetFrameCount = frameSampling.targetFrameCount;
     return runStage(context, STAGES.framesExtracted, 70, {
       parentArtifactId: context.sampleArtifactId,
       inputSummary: {
         ...sourceSummary(context),
         durationSeconds: Math.round(durationSeconds),
         frameSampleRateFps,
-        targetFrameCount: plannedFrameCount,
+        targetFrameCount,
         maxFrames: FRAME_MAX_COUNT,
         samplingPolicy: frameSampling.samplingPolicy,
         cappedByMaxFrames: frameSampling.cappedByMaxFrames,
@@ -184,7 +184,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
             durationSeconds,
             frameSampleRateFps,
             actualFrameCount: cached.artifact.frames?.length ?? 0,
-            targetFrameCount: plannedFrameCount,
+            targetFrameCount,
             maxFrames: FRAME_MAX_COUNT,
             samplingPolicy: frameSampling.samplingPolicy,
             cappedByMaxFrames: frameSampling.cappedByMaxFrames,
@@ -198,7 +198,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
           durationSeconds,
           frameSampleRateFps,
           actualFrameCount: frames.length,
-          targetFrameCount: plannedFrameCount,
+          targetFrameCount,
           maxFrames: FRAME_MAX_COUNT,
           samplingPolicy: frameSampling.samplingPolicy,
           cappedByMaxFrames: frameSampling.cappedByMaxFrames,

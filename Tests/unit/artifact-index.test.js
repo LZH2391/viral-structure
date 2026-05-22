@@ -127,7 +127,7 @@ test("failed shot boundary artifact does not register processed shot cache entry
         requestedFps: 1,
         targetFrameCount: 1,
         actualFrameCount: 1,
-        maxFrames: 120,
+        maxFrames: 6000,
         samplingPolicy: "fixed_interval_from_zero",
         cappedByMaxFrames: false,
       },
@@ -257,7 +257,7 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) 
       requestedFps: 3,
       targetFrameCount: 6,
       actualFrameCount: 6,
-      maxFrames: 120,
+      maxFrames: 6000,
       samplingPolicy: "fixed_interval_from_zero",
       cappedByMaxFrames: false,
     },
@@ -332,7 +332,7 @@ function createCountingProcessor(store) {
     },
     async extractFrames({ framesDir, parentArtifactId }) {
       counts.frames += 1;
-      return [{ frameId: "frame_1", artifactId: "artifact_frame", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-001.jpg")) }];
+      return [{ frameId: "frame_1", artifactId: "artifact_frame", parentArtifactId, timestamp: 0, imageUri: store.runtimeUri(path.join(framesDir, "frame-00001.jpg")) }];
     },
     async extractAudio({ audioPath, parentArtifactId }) {
       counts.audio += 1;

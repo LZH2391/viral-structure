@@ -32,7 +32,7 @@ test("sample artifact keeps processing options and frame summary", () => {
       frameSampleRateFps: 1,
       targetFrameCount: 5,
       actualFrameCount: 5,
-      maxFrames: 120,
+      maxFrames: 6000,
       samplingPolicy: "fixed_interval_from_zero",
       cappedByMaxFrames: false,
     },

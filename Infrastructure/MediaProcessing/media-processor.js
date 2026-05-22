@@ -64,7 +64,7 @@ async function extractFrames({ inputPath, framesDir, durationSeconds, frameSampl
   const frames = [];
   for (let index = 0; index < timestamps.length; index += 1) {
     const timestamp = timestamps[index];
-    const imagePath = path.join(framesDir, `frame-${String(index + 1).padStart(3, "0")}.jpg`);
+    const imagePath = path.join(framesDir, `frame-${String(index + 1).padStart(5, "0")}.jpg`);
     try {
       await runCommand("ffmpeg", ["-y", "-ss", String(timestamp), "-i", inputPath, "-frames:v", "1", imagePath]);
     } catch (error) {

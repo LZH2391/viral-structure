@@ -192,7 +192,13 @@ export function stageLabel(job: ProcessingJob): string {
 
 export function buildIngestError(job: ProcessingJob) {
   const summary = job.errorSummary ?? {};
-  const error = new Error(summary.message || "样例处理失败") as Error & { code?: string };
+  const traceId = job.traceId ? `traceId: ${job.traceId}` : null;
+  const debugSnapshotUri = summary.debugSnapshotUri ? `debugSnapshot: ${summary.debugSnapshotUri}` : null;
+  const details = [traceId, debugSnapshotUri].filter(Boolean).join(" / ");
+  const message = details
+    ? `${summary.message || "样例处理失败"}（${details}）`
+    : (summary.message || "样例处理失败");
+  const error = new Error(message) as Error & { code?: string };
   error.code = summary.code || "sample_ingest_failed";
   return error;
 }

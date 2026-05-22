@@ -58,6 +58,13 @@ export function resolveAnalysisSamplingPreview(sampleVideo: SampleVideo | null, 
   };
 }
 
+export function resolveAnalysisFpsExceededHint(sampleVideo: SampleVideo | null, requestedAnalysisFps: number) {
+  const currentFrameSampleRateFps = Number(sampleVideo?.frameOutputSummary?.frameSampleRateFps ?? sampleVideo?.processingOptions?.frameSampleRateFps ?? 0);
+  if (!Number.isFinite(currentFrameSampleRateFps) || currentFrameSampleRateFps <= 0) return null;
+  if (!Number.isFinite(requestedAnalysisFps) || requestedAnalysisFps <= currentFrameSampleRateFps) return null;
+  return `当前样例抽帧 fps 为 ${formatFpsValue(currentFrameSampleRateFps)}；如需更高分析 fps，请用更高抽帧 fps 重新处理并确认成功。`;
+}
+
 export function resolveRenderedAnalysisSampling(analysis?: ShotBoundaryAnalysisArtifact | null) {
   const requestedFps = Number(analysis?.analysisSampling?.requestedFps ?? analysis?.analysisSampling?.fps ?? Number.NaN);
   const stride = analysis?.analysisSampling?.stride ?? null;

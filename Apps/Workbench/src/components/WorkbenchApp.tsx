@@ -208,6 +208,7 @@ export function WorkbenchApp() {
       });
       dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
       let latestJob: ProcessingJob | null = null;
+      const previousArtifact = state.sampleArtifact;
       try {
         const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition, enableAudioFeatureAnalysis, cacheDecision });
         if (token !== uploadTokenRef.current) return;
@@ -253,13 +254,23 @@ export function WorkbenchApp() {
             return;
           }
           if (job.status === "failed") {
-            dispatch({ type: "set-error", errorSummary: job.errorSummary ?? null, uploadStatusText: "处理失败" });
+            dispatch({
+              type: "set-error",
+              errorSummary: previousArtifact
+                ? {
+                  ...(job.errorSummary ?? null),
+                  message: `新处理失败，当前仍保留旧样例结果。${job.errorSummary?.message ? ` ${job.errorSummary.message}` : ""}`.trim(),
+                }
+                : (job.errorSummary ?? null),
+              uploadStatusText: previousArtifact ? "新处理失败，仍使用旧样例结果" : "处理失败",
+            });
             writeActiveUploadJob(null);
             throw buildIngestError(job);
           }
         }
         throw new Error("处理超时，请稍后查询任务状态");
       } catch (error) {
+        const preserveOldArtifact = Boolean(previousArtifact);
         failStage(stage, error, {
           errorCode: (error as { code?: string })?.code,
           errorMessage: error instanceof Error ? error.message : "样例处理失败",
@@ -267,11 +278,15 @@ export function WorkbenchApp() {
           processingJob: latestJob ?? state.processingJob,
           debugPayload: { kind: "sample-ingest-failure", processingJob: latestJob ?? state.processingJob },
         });
-        dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "处理失败" });
+        dispatch({
+          type: "set-upload-state",
+          isUploadingSample: false,
+          uploadStatusText: preserveOldArtifact ? "新处理失败，仍使用旧样例结果" : "处理失败",
+        });
         writeActiveUploadJob(null);
       }
     },
-    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob],
+    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, state.sampleArtifact],
   );
 
   const reuseCache = useCallback(async () => {

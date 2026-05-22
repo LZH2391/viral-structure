@@ -4,14 +4,14 @@ function planFrameTimestamps(durationSeconds, options = {}) {
 
 function planFrameTimestampSampling(durationSeconds, options = {}) {
   const frameSampleRateFps = Number(options.frameSampleRateFps ?? 1);
-  const maxFrames = Number(options.maxFrames ?? 120);
+  const maxFrames = Number(options.maxFrames ?? 6000);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     return buildSamplingResult([0], frameSampleRateFps, maxFrames, false, "fixed_interval_from_zero");
   }
   if (!Number.isFinite(frameSampleRateFps) || frameSampleRateFps <= 0) {
     return buildSamplingResult([0], frameSampleRateFps, maxFrames, false, "fixed_interval_from_zero");
   }
-  const safeMaxFrames = Number.isFinite(maxFrames) && maxFrames > 0 ? Math.floor(maxFrames) : 120;
+  const safeMaxFrames = Number.isFinite(maxFrames) && maxFrames > 0 ? Math.floor(maxFrames) : 6000;
   const step = 1 / frameSampleRateFps;
   const uncappedFrameCount = Math.max(1, Math.ceil(durationSeconds * frameSampleRateFps));
   if (uncappedFrameCount > safeMaxFrames) {
@@ -45,7 +45,7 @@ function buildSamplingResult(timestamps, frameSampleRateFps, maxFrames, cappedBy
     timestamps,
     frameSampleRateFps,
     targetFrameCount: timestamps.length,
-    maxFrames: Number.isFinite(maxFrames) && maxFrames > 0 ? Math.floor(maxFrames) : 120,
+    maxFrames: Number.isFinite(maxFrames) && maxFrames > 0 ? Math.floor(maxFrames) : 6000,
     samplingPolicy,
     cappedByMaxFrames,
   };

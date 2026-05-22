@@ -7,6 +7,7 @@ const { createLocalStore } = require("../../Infrastructure/Storage/local-store")
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
+const { structuredMediaError } = require("../../Infrastructure/MediaProcessing/media-processor");
 const { PROCESSING_ERRORS } = require("../../Core/Workspace/sample-video-contracts");
 
 test("failed upload stage writes start, fail and a debug snapshot", async () => {
@@ -108,6 +109,87 @@ test("audio extraction degradation keeps processing successful and writes snapsh
   assert.doesNotMatch(JSON.stringify(snapshot.debugPayload), /[A-Za-z]:\\/);
 });
 
+test("frame extraction summary records 6000 maxFrames without capping moderate high-fps uploads", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-frames-summary-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({
+    store,
+    logger,
+    jobStore,
+    mediaProcessor: createFrameSummaryProcessor(store, { durationSeconds: 18.9, frameCount: 189 }),
+  });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { frameSampleRateFps: "10" },
+    file: {
+      filename: "sample.mp4",
+      extension: ".mp4",
+      mimeType: "video/mp4",
+      size: 5,
+      buffer: Buffer.from("hello"),
+    },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "processed");
+  assert.equal(job.status, "processed");
+
+  const logPath = path.join(store.runtimeRoot, "DebugSnapshots", `${upload.traceId}.log.jsonl`);
+  const logText = await fs.readFile(logPath, "utf8");
+  const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
+  const frameStart = logs.find((line) => line.stageName === STAGES.framesExtracted && line.event === "stage.start");
+  const frameEnd = logs.find((line) => line.stageName === STAGES.framesExtracted && line.event === "stage.end");
+
+  assert.equal(frameStart.inputSummary.frameSampleRateFps, 10);
+  assert.equal(frameStart.inputSummary.targetFrameCount, 189);
+  assert.equal(frameStart.inputSummary.maxFrames, 6000);
+  assert.equal(frameStart.inputSummary.samplingPolicy, "fixed_interval_from_zero");
+  assert.equal(frameStart.inputSummary.cappedByMaxFrames, false);
+
+  assert.equal(frameEnd.outputSummary.maxFrames, 6000);
+  assert.equal(frameEnd.outputSummary.targetFrameCount, 189);
+  assert.equal(frameEnd.outputSummary.actualFrameCount, 189);
+  assert.equal(frameEnd.outputSummary.cappedByMaxFrames, false);
+});
+
+test("frame extraction failure writes safe stage.fail summary and snapshot media debug", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-frame-fail-"));
+  const store = createLocalStore(tempRoot);
+  const logger = createStageLogger(store);
+  const jobStore = createJobStore();
+  const service = createSampleProcessingService({
+    store,
+    logger,
+    jobStore,
+    mediaProcessor: createFailingFrameProcessor(store),
+  });
+
+  const upload = await service.enqueueUpload({
+    workspaceId: "workspace_1",
+    fields: { frameSampleRateFps: "10" },
+    file: {
+      filename: "sample.mp4",
+      extension: ".mp4",
+      mimeType: "video/mp4",
+      size: 5,
+      buffer: Buffer.from("hello"),
+    },
+  });
+  const job = await waitForJob(jobStore, upload.processingJobId, "failed");
+  assert.equal(job.errorSummary.code, PROCESSING_ERRORS.frameExtractFailed);
+  assert.equal(job.errorSummary.stageName, STAGES.framesExtracted);
+  assert.equal(job.errorSummary.message, "抽帧失败");
+  assert.ok(job.errorSummary.debugSnapshotUri);
+
+  const snapshot = JSON.parse(await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", path.basename(job.errorSummary.debugSnapshotUri)), "utf8"));
+  assert.equal(snapshot.stageName, STAGES.framesExtracted);
+  assert.equal(snapshot.reason, PROCESSING_ERRORS.frameExtractFailed);
+  assert.equal(snapshot.debugPayload.media.mediaOperation, "frames.extract");
+  assert.equal(snapshot.debugPayload.media.commandSummary.command, "ffmpeg");
+  assert.doesNotMatch(JSON.stringify(snapshot.debugPayload), /[A-Za-z]:\\/);
+});
+
 async function waitForJob(jobStore, jobId, status) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const job = jobStore.getJob(jobId);
@@ -138,7 +220,7 @@ function createDegradedAudioProcessor(store) {
           artifactId: "artifact_frame_1",
           parentArtifactId,
           timestamp: 0,
-          imageUri: store.runtimeUri(path.join(framesDir, "frame-001.jpg")),
+          imageUri: store.runtimeUri(path.join(framesDir, "frame-00001.jpg")),
         },
       ];
     },
@@ -156,6 +238,74 @@ function createDegradedAudioProcessor(store) {
           mediaOperation: "audio.extract",
           retryable: false,
         },
+      };
+    },
+  };
+}
+
+function createFrameSummaryProcessor(store, { durationSeconds, frameCount }) {
+  return {
+    async probeMetadata() {
+      return { durationSeconds, width: 720, height: 1280, hasAudio: true };
+    },
+    async extractCover({ coverPath, parentArtifactId }) {
+      return {
+        artifactId: "artifact_cover",
+        parentArtifactId,
+        type: "cover-frame",
+        uri: store.runtimeUri(coverPath),
+        summary: "封面帧",
+      };
+    },
+    async extractFrames({ framesDir, parentArtifactId }) {
+      return Array.from({ length: frameCount }, (_, index) => ({
+        frameId: `frame_${index + 1}`,
+        artifactId: `artifact_frame_${index + 1}`,
+        parentArtifactId,
+        timestamp: Number((index / 10).toFixed(3)),
+        imageUri: store.runtimeUri(path.join(framesDir, `frame-${String(index + 1).padStart(5, "0")}.jpg`)),
+      }));
+    },
+    async extractAudio({ audioPath, parentArtifactId }) {
+      return {
+        artifactId: "artifact_audio",
+        parentArtifactId,
+        type: "audio-track",
+        uri: store.runtimeUri(audioPath),
+        summary: "音频轨",
+      };
+    },
+  };
+}
+
+function createFailingFrameProcessor(store) {
+  return {
+    async probeMetadata() {
+      return { durationSeconds: 18.9, width: 720, height: 1280, hasAudio: true };
+    },
+    async extractCover({ coverPath, parentArtifactId }) {
+      return {
+        artifactId: "artifact_cover",
+        parentArtifactId,
+        type: "cover-frame",
+        uri: store.runtimeUri(coverPath),
+        summary: "封面帧",
+      };
+    },
+    async extractFrames() {
+      const cause = new Error("ffmpeg exited with code 1");
+      cause.commandSummary = { command: "ffmpeg", args: ["-y", "-ss", "0", "-i", "<path:source.mp4>", "-frames:v", "1", "<path:frame-00001.jpg>"] };
+      cause.stderrSummary = "Error while decoding frame from <path:source.mp4>";
+      cause.exitCode = 1;
+      throw structuredMediaError(PROCESSING_ERRORS.frameExtractFailed, "抽帧失败", cause, "frames.extract");
+    },
+    async extractAudio({ audioPath, parentArtifactId }) {
+      return {
+        artifactId: "artifact_audio",
+        parentArtifactId,
+        type: "audio-track",
+        uri: store.runtimeUri(audioPath),
+        summary: "音频轨",
       };
     },
   };
