@@ -12,9 +12,6 @@ function buildScriptSegmentContentFingerprint(input, inputPackage = null) {
         start: shot?.start ?? null,
         end: shot?.end ?? null,
         summary: shot?.summary ?? null,
-        subtitleSummary: shot?.subtitleSummary ?? null,
-        ocrSummary: shot?.ocrSummary ?? null,
-        audioHintSummary: shot?.audioHintSummary ?? null,
       }))
       : [],
     inputPackage: inputPackage

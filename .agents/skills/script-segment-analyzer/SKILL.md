@@ -30,12 +30,6 @@ description: 基于 shots 与 commerceBrief 分析样例脚本段落结构，返
 - end
 - summary
 
-可选辅助信息：
-
-- subtitleSummary
-- ocrSummary
-- audioCueSummary
-
 系统侧可能另外维护 metadata / lineage（如 sampleVideoId、artifactId、traceId、cacheKey、shotNo、index、representativeFrameId、localPath），这些仅用于追踪或映射，不作为你的分析依据，也不要在输出里引用。
 
 ## 怎么判断段落边界

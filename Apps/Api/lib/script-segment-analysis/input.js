@@ -32,9 +32,6 @@ function prepareInput(artifact, options = {}) {
     start: normalizeNumber(shot.start, 0),
     end: normalizeNumber(shot.end, normalizeNumber(shot.start, 0)),
     summary: normalizeText(shot.summary ?? shot.reason ?? "镜头内容", 160),
-    subtitleSummary: null,
-    ocrSummary: null,
-    audioHintSummary: null,
   }));
   return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,

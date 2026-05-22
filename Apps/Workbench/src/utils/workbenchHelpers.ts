@@ -101,6 +101,8 @@ export async function runScriptSegmentAnalysis(
     }
     if (latest.status === "failed") {
       onJobUpdate?.(latest);
+      const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
+      if (artifact) dispatch({ type: "apply-artifact", artifact });
       throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
     }
   }

@@ -24,10 +24,15 @@ export function ScriptSegmentPanel({
   const running = job?.status === "pending" || job?.status === "processing";
   const segments = analysis?.segments ?? [];
   const historyEntries = analysisHistory ?? [];
+  const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
+  const failureMessage = analysis?.reason ?? job?.errorSummary?.message ?? null;
+  const debugSnapshotUri = analysis?.debugSnapshotUri ?? job?.errorSummary?.debugSnapshotUri ?? null;
   const statusText = job
     ? `${job.stage} / ${job.progress}%`
     : analysis
-      ? `${segments.length} / ${segments.length} 段`
+      ? failed
+        ? "分析失败"
+        : `${segments.length} / ${segments.length} 段`
       : "等待分析";
 
   return (
@@ -45,12 +50,20 @@ export function ScriptSegmentPanel({
       {analysis ? (
         <div className="detail-hint">
           <div>turn：{analysis.agent?.turnId ?? "无"}</div>
+          <div>status：{analysis.status}</div>
           <div>segmentCount：{segments.length}</div>
           <div>resultOrigin：{renderScriptResultOrigin(analysis.resultOrigin)}</div>
           <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
           <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
           <div>sourceTurn：{analysis.sourceTurnId ?? "无"}</div>
           <div>cacheKey：{analysis.cacheKey ? analysis.cacheKey.slice(0, 12) : "无"}</div>
+        </div>
+      ) : null}
+      {failed ? (
+        <div className="detail-hint">
+          <div>脚本段落分析失败，当前没有可展示分段。请重试或打开运行追踪查看原因。</div>
+          {failureMessage ? <div>原因：{failureMessage}</div> : null}
+          {debugSnapshotUri ? <div>debugSnapshot：{debugSnapshotUri}</div> : null}
         </div>
       ) : null}
       {analysis?.reason ? <div className="detail-hint">原因：{analysis.reason}</div> : null}
@@ -76,7 +89,7 @@ export function ScriptSegmentPanel({
           ))}
         </div>
       ) : (
-        <div className="detail-hint">还没有脚本段落结果。运行后会在这里展示分段。</div>
+        <div className="detail-hint">{failed ? "本次失败产物已记录，但没有有效 segments。" : "还没有脚本段落结果。运行后会在这里展示分段。"}</div>
       )}
       {historyEntries.length ? (
         <div className="agent-history-list">
