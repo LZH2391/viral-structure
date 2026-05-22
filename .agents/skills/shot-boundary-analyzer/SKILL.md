@@ -11,8 +11,6 @@ description: 基于 contact sheet 联表分析镜头边界，并返回结构化 
 任务会提供一个轻量 JSON 对象，包含：
 
 - durationSeconds
-- analysisSampling
-- sheetCount
 - sheets
 
 可能还会包含：
@@ -22,12 +20,12 @@ description: 基于 contact sheet 联表分析镜头边界，并返回结构化 
 
 每个 `sheet` 包含：
 
-- sheetId / sheetIndex
-- frameCount
 - startTime
 - endTime
 
 任务还会同时提供多张 `localImage`，顺序与 `sheets` 一致。
+
+系统侧可能另外维护 metadata / lineage（如 analysisSampling、sheetCount、sheetId、frameCount、trace 信息），这些仅用于追踪，不作为你的分析依据，也不要在输出里引用。
 
 ## 切镜指导
 联表每格为一个采样帧，格下文字为帧序号和时间戳，用于定位时间。
@@ -57,7 +55,6 @@ description: 基于 contact sheet 联表分析镜头边界，并返回结构化 
       "endBoundary": {
         "timestamp": 12.48,
         "confidence": 0.8,
-        "boundaryType": "hard_cut",
         "reason": "视觉变化摘要",
         "needReview": false
       }
@@ -68,6 +65,7 @@ description: 基于 contact sheet 联表分析镜头边界，并返回结构化 
 
 ## 规则
 - `shots` 必须保持 shot-centric 结构：第一镜 `start=0`，最后一镜 `end=durationSeconds`，相邻镜头连续衔接，除最后一镜外 `endBoundary.timestamp` 必须等于该镜 `end`。
+- `boundaryType` 不是必填；如果你没有稳定依据，可以省略，不要为了凑字段硬写。
 - `summary` 只描述这一镜的内容，`reason` 只描述为什么在这里切。
 - `confidence` 必须是 0 到 1 之间的数字，`needReview=true` 用于表达看不清、遮挡严重、帧间信息不足等不确定情况。
 - `commerceBrief` 只回答这 6 个带货语义问题：卖什么、如何证明、承诺解决什么、打动谁/什么、是否有转化动作、不确定点。

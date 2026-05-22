@@ -45,6 +45,11 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.doesNotMatch(promptText, /"shots":\[/);
   assert.doesNotMatch(promptText, /"segments":\[/);
   assert.equal(imageItems.length, inputPackage.visualManifest.sheetCount);
+  assert.equal("sampleVideoId" in inputPackage.manifest, false);
+  assert.equal("parentArtifactId" in inputPackage.manifest, false);
+  assert.equal("sampleVideoId" in inputPackage.lineage, true);
+  assert.equal("parentArtifactId" in inputPackage.lineage, true);
+  assert.match(JSON.stringify(inputPackage.outputContract), /模型无需返回这些字段/);
 });
 
 test("script segment frame ownership keeps half-open ranges and last shot closed", () => {
@@ -140,6 +145,9 @@ test("script segment service submits script-segment-analyzer turn through appser
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
   assert.ok(artifact.scriptSegmentAnalysis.inputPackage);
   assert.equal(artifact.scriptSegmentAnalysis.inputPackage.sheetCount, 3);
+  assert.equal(artifact.scriptSegmentAnalysis.segments[0].segmentId, "segment_1");
+  assert.equal(artifact.scriptSegmentAnalysis.segments[0].start, 0);
+  assert.equal(artifact.scriptSegmentAnalysis.segments[0].end, 1.2);
   assert.equal(harness.calls.release.length, 1);
 });
 

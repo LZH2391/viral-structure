@@ -123,6 +123,7 @@ function buildOutputContract() {
         needReview: false,
       },
     ],
+    notes: "系统会根据 shotRefs 派生 segmentId/start/end，模型无需返回这些字段",
   };
 }
 

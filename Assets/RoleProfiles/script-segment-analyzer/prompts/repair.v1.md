@@ -11,4 +11,5 @@
 当前校验失败摘要：{{validationJson}}
 上次输出摘要：{{priorOutputSummaryJson}}
 仍需结合随 turn 附带的 `localImage` 判断镜头内部变化；不要重新切镜，不要改变 shot 边界。
+如果系统另有 metadata / lineage 文件，它们仅用于系统追踪，不要在分析或输出中引用。
 要求：segments 按时间顺序且完整覆盖所有 shots；shotRefs 只引用输入中的 shotId；label 保持开放命名；roleInScript 写具体说服职责；evidence 只保留安全摘要；transferableRule 只总结结构规则；不要输出解释性正文；只返回 output contract 要求的 JSON object。

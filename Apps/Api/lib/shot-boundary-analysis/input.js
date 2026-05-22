@@ -162,17 +162,22 @@ function toPromptAnalysisSampling(analysisSampling) {
 function buildTurnInputs({ prepared, contactSheets }) {
   const manifest = {
     durationSeconds: round(prepared.durationSeconds),
-    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
-    sheetCount: contactSheets.length,
     sheets: contactSheets.map((sheet) => ({
-      sheetIndex: sheet.sheetIndex,
-      frameCount: sheet.frameCount,
       startTime: round(require("./shared").resolveSheetStartTime(sheet)),
       endTime: round(require("./shared").resolveSheetEndTime(sheet)),
     })),
     subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
   };
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
+  const metadata = {
+    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
+    sheetCount: contactSheets.length,
+    sheets: contactSheets.map((sheet) => ({
+      sheetIndex: sheet.sheetIndex,
+      frameCount: sheet.frameCount,
+      sheetId: sheet.sheetId ?? null,
+    })),
+  };
   const outputContract = {
     schemaVersion: "shot-centric.v2",
     commerceBrief: "object, summarize only what can be grounded from frames and subtitle context",
@@ -189,12 +194,12 @@ function buildTurnInputs({ prepared, contactSheets }) {
     "shots[].endBoundary": "object|null, null only for the last shot",
     "shots[].endBoundary.timestamp": "number, seconds, must equal current shot end, 0 < timestamp < durationSeconds",
     "shots[].endBoundary.confidence": "number, 0..1",
-    "shots[].endBoundary.boundaryType": "string",
     "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
     "shots[].endBoundary.needReview": "boolean",
   };
   return {
     manifest,
+    metadata,
     outputContract,
   };
 }
@@ -213,6 +218,7 @@ function renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile }) {
     ...prompt,
     inputs: sanitizeForAppServerText(inputs),
     manifest: built.manifest,
+    metadata: built.metadata,
     outputContract: built.outputContract,
   };
 }
@@ -234,20 +240,31 @@ function buildRepairTurnInputs({ prepared, contactSheets, validationError, prior
     "shots[].endBoundary": "object|null, null only for the last shot",
     "shots[].endBoundary.timestamp": "number, seconds, must equal current shot end, 0 < timestamp < durationSeconds",
     "shots[].endBoundary.confidence": "number, 0..1",
-    "shots[].endBoundary.boundaryType": "string",
     "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
     "shots[].endBoundary.needReview": "boolean",
   };
   const priorOutputText = String(priorTurnOutput ?? "").trim();
   const manifest = {
     durationSeconds: round(prepared.durationSeconds),
-    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
-    sheetCount: contactSheets.length,
+    sheets: contactSheets.map((sheet) => ({
+      startTime: round(require("./shared").resolveSheetStartTime(sheet)),
+      endTime: round(require("./shared").resolveSheetEndTime(sheet)),
+    })),
     subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
   };
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
+  const metadata = {
+    analysisSampling: toPromptAnalysisSampling(prepared.analysisSampling),
+    sheetCount: contactSheets.length,
+    sheets: contactSheets.map((sheet) => ({
+      sheetIndex: sheet.sheetIndex,
+      frameCount: sheet.frameCount,
+      sheetId: sheet.sheetId ?? null,
+    })),
+  };
   return {
     manifest,
+    metadata,
     outputContract,
     validation: validationError.debugPayload?.validation ?? { code: validationError.code, message: validationError.message },
     priorOutputSummary: {

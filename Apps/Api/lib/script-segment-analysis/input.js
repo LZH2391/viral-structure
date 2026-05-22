@@ -55,6 +55,8 @@ function prepareInput(artifact, options = {}) {
 function buildTurnInputs({ inputPackage }) {
   return {
     manifest: inputPackage.manifest,
+    metadata: inputPackage.metadata,
+    lineage: inputPackage.lineage,
     outputContract: inputPackage.outputContract,
     visualManifest: inputPackage.visualManifest,
   };
@@ -67,6 +69,8 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   await fs.mkdir(sheetsDir, { recursive: true });
 
   const manifest = buildManifest(input);
+  const metadata = buildMetadata(inputPackageDir, input);
+  const lineage = buildLineage(input);
   const outputContract = buildOutputContract();
   const shotFramePages = planShotFramePages(input);
   const visualManifest = await buildVisualManifest({
@@ -78,10 +82,14 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   });
 
   const manifestPath = path.join(inputPackageDir, "manifest.json");
+  const metadataPath = path.join(inputPackageDir, "metadata.json");
+  const lineagePath = path.join(inputPackageDir, "lineage.json");
   const outputContractPath = path.join(inputPackageDir, "output-contract.json");
   const visualManifestPath = path.join(inputPackageDir, "visual-manifest.json");
   await Promise.all([
     store.writeJson(manifestPath, manifest),
+    store.writeJson(metadataPath, metadata),
+    store.writeJson(lineagePath, lineage),
     store.writeJson(outputContractPath, outputContract),
     store.writeJson(visualManifestPath, visualManifest),
   ]);
@@ -96,6 +104,10 @@ async function prepareInputPackage({ input, sampleDir, store }) {
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
     manifest,
     manifestPath,
+    metadata,
+    metadataPath,
+    lineage,
+    lineagePath,
     outputContract,
     outputContractPath,
     visualManifest,
@@ -124,6 +136,8 @@ function renderAnalyzeTurnInputs({ input, inputPackage, roleProfile }) {
     ...prompt,
     inputs: sanitizeForAppServerText(inputs),
     manifest: built.manifest,
+    metadata: built.metadata,
+    lineage: built.lineage,
     outputContract: built.outputContract,
     visualManifest: built.visualManifest,
   };
@@ -133,6 +147,10 @@ function buildRepairTurnInputs({ input, inputPackage, validationError, priorTurn
   return {
     manifest: inputPackage.manifest,
     manifestPath: inputPackage.manifestPath,
+    metadata: inputPackage.metadata,
+    metadataPath: inputPackage.metadataPath,
+    lineage: inputPackage.lineage,
+    lineagePath: inputPackage.lineagePath,
     visualManifest: inputPackage.visualManifest,
     visualManifestPath: inputPackage.visualManifestPath,
     validation: validationError?.debugPayload?.validation ?? { code: validationError?.code ?? null, message: validationError?.message ?? null },
@@ -177,13 +195,26 @@ function renderRepairTurnInputs({ input, inputPackage, validationError, priorTur
 function buildManifest(input) {
   return {
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
-    sampleVideoId: input.sampleVideoId,
-    parentArtifactId: input.parentArtifactId,
-    durationSeconds: input.durationSeconds ?? null,
-    frameDimensions: input.frameDimensions ?? { width: 0, height: 0 },
     commerceBrief: input.commerceBrief,
     shotCount: input.shots.length,
     shots: input.shots,
+  };
+}
+
+function buildMetadata(inputPackageDir, input) {
+  return {
+    schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
+    inputPackageDir,
+    durationSeconds: input.durationSeconds ?? null,
+    frameDimensions: input.frameDimensions ?? { width: 0, height: 0 },
+  };
+}
+
+function buildLineage(input) {
+  return {
+    schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
+    sampleVideoId: input.sampleVideoId,
+    parentArtifactId: input.parentArtifactId,
   };
 }
 

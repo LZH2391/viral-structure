@@ -20,7 +20,9 @@ function normalizeTimestampBoundaries(rawBoundaries) {
   return rawBoundaries.map((boundary) => ({
     timestamp: roundNormalizedTime(Number(boundary?.timestamp)),
     confidence: clamp(Number(boundary?.confidence ?? 0.5), 0, 1),
-    boundaryType: normalizeBoundaryType(boundary?.boundaryType),
+    boundaryType: boundary?.boundaryType == null || boundary?.boundaryType === ""
+      ? null
+      : normalizeBoundaryType(boundary?.boundaryType),
     reason: String(boundary?.reason ?? "视觉变化").slice(0, 160),
     needReview: Boolean(boundary?.needReview),
   }));
@@ -36,7 +38,9 @@ function normalizeShotCentricShots(rawShots) {
       ? {
         timestamp: roundNormalizedTime(Number(shot.endBoundary?.timestamp)),
         confidence: clamp(Number(shot.endBoundary?.confidence ?? 0.5), 0, 1),
-        boundaryType: normalizeBoundaryType(shot.endBoundary?.boundaryType),
+        boundaryType: shot.endBoundary?.boundaryType == null || shot.endBoundary?.boundaryType === ""
+          ? null
+          : normalizeBoundaryType(shot.endBoundary?.boundaryType),
         reason: String(shot.endBoundary?.reason ?? "视觉变化").slice(0, 160),
         needReview: Boolean(shot.endBoundary?.needReview),
       }

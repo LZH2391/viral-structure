@@ -20,8 +20,6 @@ description: 基于 shots 与 commerceBrief 分析样例脚本段落结构，返
 ## 输入
 任务会提供一个轻量 JSON 对象，包含：
 
-- sampleVideoId
-- sourceArtifactId
 - shots
 - commerceBrief
 
@@ -37,6 +35,8 @@ description: 基于 shots 与 commerceBrief 分析样例脚本段落结构，返
 - subtitleSummary
 - ocrSummary
 - audioCueSummary
+
+系统侧可能另外维护 metadata / lineage（如 sampleVideoId、artifactId、traceId、cacheKey、shotNo、index、representativeFrameId、localPath），这些仅用于追踪或映射，不作为你的分析依据，也不要在输出里引用。
 
 ## 怎么判断段落边界
 
@@ -90,6 +90,7 @@ description: 基于 shots 与 commerceBrief 分析样例脚本段落结构，返
 - `evidence`：只写支持你判断的安全摘要，说明你为什么认为这些镜头在完成这个任务。
 - `transferableRule`：总结“这类任务通常如何被组织出来”的可迁移规则，抽象的是结构方法，不是新商品脚本。
 - `confidence` / `needReview`：当边界信号弱、证据冲突或一组镜头可能兼具两种任务时，用它表达不确定性。
+- 系统会根据 `shotRefs` 派生 `segmentId / start / end` 等字段，你不需要返回这些字段。
 
 ## 输出
 只返回一个 JSON 对象：
