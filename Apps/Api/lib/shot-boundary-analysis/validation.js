@@ -24,8 +24,42 @@ function normalizeTimestampBoundaries(rawBoundaries) {
   }));
 }
 
-function validateTimestampBoundaries(boundaries, durationSeconds) {
+function normalizeShotCentricShots(rawShots) {
+  if (!Array.isArray(rawShots)) return [];
+  return rawShots.map((shot) => ({
+    summary: resolveShotSummary(shot?.summary, ""),
+    start: roundNormalizedTime(Number(shot?.start)),
+    end: roundNormalizedTime(Number(shot?.end)),
+    endBoundary: shot?.endBoundary && typeof shot.endBoundary === "object"
+      ? {
+        timestamp: roundNormalizedTime(Number(shot.endBoundary?.timestamp)),
+        confidence: clamp(Number(shot.endBoundary?.confidence ?? 0.5), 0, 1),
+        boundaryType: normalizeBoundaryType(shot.endBoundary?.boundaryType),
+        reason: String(shot.endBoundary?.reason ?? "视觉变化").slice(0, 160),
+        needReview: Boolean(shot.endBoundary?.needReview),
+      }
+      : null,
+  }));
+}
+
+function deriveBoundariesFromShots(rawShots) {
+  return normalizeShotCentricShots(rawShots)
+    .map((shot) => shot.endBoundary)
+    .filter(Boolean);
+}
+
+function validateTimestampBoundaries(boundaries, durationSeconds, options = {}) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
+  if (options.allowEmpty) {
+    return {
+      ok: true,
+      summary: {
+        rawBoundaryCount: Array.isArray(boundaries) ? boundaries.length : 0,
+        normalizedBoundaryCount: Array.isArray(boundaries) ? boundaries.length : 0,
+        validatorCode: null,
+      },
+    };
+  }
   if (!Array.isArray(boundaries)) {
     return invalidValidation("shot_boundary_missing_boundaries", "切镜 Agent 未返回 boundaries", {
       rawBoundaryCount: 0,
@@ -83,6 +117,111 @@ function validateTimestampBoundaries(boundaries, durationSeconds) {
   };
 }
 
+function validateShotCentricShots(rawShots, durationSeconds) {
+  if (!Array.isArray(rawShots)) {
+    return invalidValidation("shot_boundary_missing_shots", "切镜 Agent 未返回 shots", {
+      rawBoundaryCount: 0,
+      normalizedBoundaryCount: 0,
+      validatorCode: "shot_boundary_missing_shots",
+    });
+  }
+  if (!rawShots.length) {
+    return invalidValidation("shot_boundary_empty_shots", "切镜 Agent 未返回明确镜头分段", {
+      rawBoundaryCount: 0,
+      normalizedBoundaryCount: 0,
+      validatorCode: "shot_boundary_empty_shots",
+    });
+  }
+  const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 0;
+  const shots = normalizeShotCentricShots(rawShots);
+  let previousEnd = null;
+  for (let index = 0; index < shots.length; index += 1) {
+    const shot = shots[index];
+    const isLastShot = index === shots.length - 1;
+    if (!Number.isFinite(shot.start) || !Number.isFinite(shot.end) || shot.end <= shot.start) {
+      return invalidValidation("shot_boundary_shot_time_invalid", "shots 起止时间无效", {
+        rawBoundaryCount: Math.max(0, shots.length - 1),
+        normalizedBoundaryCount: Math.max(0, shots.length - 1),
+        validatorCode: "shot_boundary_shot_time_invalid",
+        failingIndex: index,
+      });
+    }
+    if (index === 0 && shot.start !== 0) {
+      return invalidValidation("shot_boundary_first_shot_start_invalid", "第一镜 start 必须为 0", {
+        rawBoundaryCount: Math.max(0, shots.length - 1),
+        normalizedBoundaryCount: Math.max(0, shots.length - 1),
+        validatorCode: "shot_boundary_first_shot_start_invalid",
+        failingIndex: index,
+        start: shot.start,
+      });
+    }
+    if (previousEnd !== null && shot.start !== previousEnd) {
+      return invalidValidation("shot_boundary_shot_not_contiguous", "shots 未保持连续衔接", {
+        rawBoundaryCount: Math.max(0, shots.length - 1),
+        normalizedBoundaryCount: Math.max(0, shots.length - 1),
+        validatorCode: "shot_boundary_shot_not_contiguous",
+        failingIndex: index,
+        start: shot.start,
+        previousEnd,
+      });
+    }
+    if (isLastShot) {
+      if (shot.endBoundary !== null) {
+        return invalidValidation("shot_boundary_last_end_boundary_invalid", "最后一镜 endBoundary 必须为 null", {
+          rawBoundaryCount: Math.max(0, shots.length - 1),
+          normalizedBoundaryCount: Math.max(0, shots.length - 1),
+          validatorCode: "shot_boundary_last_end_boundary_invalid",
+          failingIndex: index,
+        });
+      }
+      if (safeDuration > 0 && shot.end !== roundNormalizedTime(safeDuration)) {
+        return invalidValidation("shot_boundary_last_shot_end_invalid", "最后一镜 end 必须等于 durationSeconds", {
+          rawBoundaryCount: Math.max(0, shots.length - 1),
+          normalizedBoundaryCount: Math.max(0, shots.length - 1),
+          validatorCode: "shot_boundary_last_shot_end_invalid",
+          failingIndex: index,
+          end: shot.end,
+          durationSeconds: roundNormalizedTime(safeDuration),
+        });
+      }
+    } else {
+      if (!shot.endBoundary) {
+        return invalidValidation("shot_boundary_missing_end_boundary", "除最后一镜外 endBoundary 不能为空", {
+          rawBoundaryCount: Math.max(0, shots.length - 1),
+          normalizedBoundaryCount: Math.max(0, shots.length - 1),
+          validatorCode: "shot_boundary_missing_end_boundary",
+          failingIndex: index,
+        });
+      }
+      if (shot.endBoundary.timestamp !== shot.end) {
+        return invalidValidation("shot_boundary_end_boundary_mismatch", "shot.endBoundary.timestamp 必须等于 shot.end", {
+          rawBoundaryCount: Math.max(0, shots.length - 1),
+          normalizedBoundaryCount: Math.max(0, shots.length - 1),
+          validatorCode: "shot_boundary_end_boundary_mismatch",
+          failingIndex: index,
+          end: shot.end,
+          boundaryTimestamp: shot.endBoundary.timestamp,
+        });
+      }
+    }
+    previousEnd = shot.end;
+  }
+  const boundaries = deriveBoundariesFromShots(rawShots);
+  const boundaryValidation = validateTimestampBoundaries(boundaries, durationSeconds, { allowEmpty: true });
+  if (!boundaryValidation.ok) return boundaryValidation;
+  return {
+    ok: true,
+    summary: {
+      rawBoundaryCount: boundaries.length,
+      normalizedBoundaryCount: boundaries.length,
+      validatorCode: null,
+      schemaVersion: "shot-centric.v2",
+    },
+    shots,
+    boundaries,
+  };
+}
+
 function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedShots = []) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
   const safeParsedShots = Array.isArray(parsedShots) ? parsedShots : [];
@@ -133,7 +272,10 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedSho
 
 module.exports = {
   normalizeTimestampBoundaries,
+  normalizeShotCentricShots,
+  deriveBoundariesFromShots,
   validateTimestampBoundaries,
+  validateShotCentricShots,
   buildShotsFromBoundaries,
   detectReasonEncodingIssue,
   summarizeAgentOutput,

@@ -11,7 +11,10 @@ const {
 const { extractJsonObject } = require("./shared");
 const {
   normalizeTimestampBoundaries,
+  normalizeShotCentricShots,
+  deriveBoundariesFromShots,
   validateTimestampBoundaries,
+  validateShotCentricShots,
   buildShotsFromBoundaries,
   detectReasonEncodingIssue,
   summarizeAgentOutput,
@@ -20,14 +23,22 @@ const { buildShotBoundaryCacheParams, cacheParams } = require("./cache-params");
 
 function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn, options = {}) {
   const parsed = extractJsonObject(message);
-  const rawBoundaries = Array.isArray(parsed.boundaries) ? parsed.boundaries : null;
-  const rawShots = Array.isArray(parsed.shots) ? parsed.shots : null;
+  const parsedShots = Array.isArray(parsed.shots) ? parsed.shots : null;
+  const shotCentricValidation = validateShotCentricShots(parsedShots, prepared.durationSeconds);
+  const usingShotCentricSchema = shotCentricValidation.ok;
+  const rawBoundaries = usingShotCentricSchema
+    ? deriveBoundariesFromShots(parsedShots)
+    : (Array.isArray(parsed.boundaries) ? parsed.boundaries : null);
   const normalizedBoundaries = normalizeTimestampBoundaries(rawBoundaries);
-  const validation = validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
+  const normalizedShotCentricShots = usingShotCentricSchema ? normalizeShotCentricShots(parsedShots) : null;
+  const validation = usingShotCentricSchema
+    ? shotCentricValidation
+    : validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
   if (!validation.ok) {
     throw require("./shared").codedError("shot_boundary_validation_failed", validation.message, {
       turnId: turn?.turnId ?? null,
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, rawShots),
+      outputSchemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
       validation: validation.summary,
     }, false);
   }
@@ -36,13 +47,16 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     throw require("./shared").codedError("agent_output_quality_failed", "切镜 Agent 输出存在编码异常，已阻止写入 processed 产物", {
       turnId: turn?.turnId ?? null,
       parseFailureReason: qualityIssue.reason,
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, rawShots),
+      outputSchemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
       suspiciousReason: qualityIssue.suspiciousReason,
       validation: validation.summary,
     }, false);
   }
   const mergedBoundaries = normalizedBoundaries;
-  const shots = buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, rawShots);
+  const shots = usingShotCentricSchema
+    ? buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, normalizedShotCentricShots)
+    : buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, parsedShots);
   return {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
@@ -62,6 +76,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
       normalizedBoundaryCount: mergedBoundaries.length,
       repairAttemptCount: options.repairAttemptCount ?? 0,
       validatorCode: null,
+      schemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
     },
     agent: {
       provider: "codex-appserver",

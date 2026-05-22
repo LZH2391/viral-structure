@@ -1,6 +1,6 @@
 {
   "role": "shot-boundary-analyzer",
-  "profileVersion": "2026-05-22.1",
+  "profileVersion": "2026-05-22.2",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-boundary-analyzer/SKILL.md",
   "init": {
     "template": "init.md",
@@ -8,12 +8,12 @@
   },
   "turnTemplates": {
     "analyze": {
-      "template": "prompts/analyze.v1.md",
-      "version": "analyze.v1"
+      "template": "prompts/analyze.v2.md",
+      "version": "analyze.v2"
     },
     "repair": {
-      "template": "prompts/repair.v1.md",
-      "version": "repair.v1"
+      "template": "prompts/repair.v2.md",
+      "version": "repair.v2"
     }
   }
 }

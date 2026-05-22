@@ -174,14 +174,17 @@ function buildTurnInputs({ prepared, contactSheets }) {
   };
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
   const outputContract = {
-    boundaries: "non-empty array, strictly ascending by timestamp",
-    "boundaries[].timestamp": "number, seconds, 0 < timestamp < durationSeconds",
-    "boundaries[].confidence": "number, 0..1",
-    "boundaries[].boundaryType": "string",
-    "boundaries[].reason": "short string",
-    "boundaries[].needReview": "boolean",
-    shots: "array, should align with detected shots count, each item describes what this shot contains",
-    "shots[].summary": "string, 8-24 chars preferred, describe subject/action/scene, no timestamps or local paths",
+    schemaVersion: "shot-centric.v2",
+    shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
+    "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
+    "shots[].start": "number, seconds, first shot must start at 0",
+    "shots[].end": "number, seconds, last shot must end at durationSeconds",
+    "shots[].endBoundary": "object|null, null only for the last shot",
+    "shots[].endBoundary.timestamp": "number, seconds, must equal current shot end, 0 < timestamp < durationSeconds",
+    "shots[].endBoundary.confidence": "number, 0..1",
+    "shots[].endBoundary.boundaryType": "string",
+    "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
+    "shots[].endBoundary.needReview": "boolean",
   };
   return {
     manifest,
@@ -209,14 +212,17 @@ function renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile }) {
 
 function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
   const outputContract = {
-    boundaries: "non-empty array, strictly ascending by timestamp",
-    "boundaries[].timestamp": "number, seconds, 0 < timestamp < durationSeconds",
-    "boundaries[].confidence": "number, 0..1",
-    "boundaries[].boundaryType": "string",
-    "boundaries[].reason": "short string",
-    "boundaries[].needReview": "boolean",
-    shots: "array, should align with detected shots count, each item describes what this shot contains",
-    "shots[].summary": "string, 8-24 chars preferred, describe subject/action/scene, no timestamps or local paths",
+    schemaVersion: "shot-centric.v2",
+    shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
+    "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
+    "shots[].start": "number, seconds, first shot must start at 0",
+    "shots[].end": "number, seconds, last shot must end at durationSeconds",
+    "shots[].endBoundary": "object|null, null only for the last shot",
+    "shots[].endBoundary.timestamp": "number, seconds, must equal current shot end, 0 < timestamp < durationSeconds",
+    "shots[].endBoundary.confidence": "number, 0..1",
+    "shots[].endBoundary.boundaryType": "string",
+    "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
+    "shots[].endBoundary.needReview": "boolean",
   };
   const priorOutputText = String(priorTurnOutput ?? "").trim();
   const manifest = {

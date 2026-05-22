@@ -158,8 +158,9 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.match(promptText, /"startTime":0/);
   assert.match(promptText, /"endTime":1/);
   assert.match(promptText, /"endTime":0/);
-  assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
-  assert.match(promptText, /"boundaries\[\]\.confidence":"number, 0\.\.1"/);
+  assert.match(promptText, /"schemaVersion":"shot-centric\.v2"/);
+  assert.match(promptText, /"shots\[\]\.start":"number, seconds, first shot must start at 0"/);
+  assert.match(promptText, /"shots\[\]\.endBoundary\.timestamp":"number, seconds, must equal current shot end, 0 < timestamp < durationSeconds"/);
   assert.doesNotMatch(promptText, /sourceArtifactId/);
   assert.doesNotMatch(promptText, /sheetId/);
   assert.doesNotMatch(promptText, /extractSampling/);
@@ -169,7 +170,7 @@ test("shot boundary turn inputs remove invalid surrogate text and include multip
   assert.doesNotMatch(promptText, /"timestamp":0/);
   assert.doesNotMatch(promptText, /runtime\/Artifacts/);
   assert.equal(turnInputs.promptTemplateId, "analyze");
-  assert.match(turnInputs.promptTemplateVersion, /^analyze\.v1$/);
+  assert.match(turnInputs.promptTemplateVersion, /^analyze\.v2$/);
   assert.ok(turnInputs.promptTemplateHash);
   assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
   assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
@@ -195,6 +196,7 @@ test("shot boundary turn inputs include subtitle context as semantic-only aid", 
   assert.match(promptText, /"subtitleSegmentCount":2/);
   assert.match(promptText, /"truncated":false/);
   assert.match(promptText, /shots\[\]\.summary/);
+  assert.match(promptText, /shots\[\]\.endBoundary/);
   assert.doesNotMatch(promptText, /第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕/);
 });
 
@@ -228,8 +230,8 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   assert.match(promptText, /"analysisSampling":\{"requestedFps":1,"targetFrameCount":2,"selectedFrameCount":2,"effectiveFps":1,"selectionPolicy":"target_grid_nearest_unique","duplicatePolicy":"nearest_unselected_tie_later","roundingPolicy":"target_grid_nearest_unique"\}/);
   assert.match(promptText, /不需要自行重采样/);
   assert.doesNotMatch(promptText, /stride/);
-  assert.match(promptText, /"boundaries\[\]\.timestamp":"number, seconds, 0 < timestamp < durationSeconds"/);
-  assert.match(promptText, /"boundaries\[\]\.reason":"short string"/);
+  assert.match(promptText, /"shots\[\]\.endBoundary\.timestamp":"number, seconds, must equal current shot end, 0 < timestamp < durationSeconds"/);
+  assert.match(promptText, /"shots\[\]\.endBoundary\.reason":"short string, explain why the cut happens here, not the shot summary"/);
   assert.match(promptText, /shots\[\]\.summary/);
   assert.match(promptText, /"hasPriorOutput":true/);
   assert.match(promptText, /"outputLength":34/);
@@ -240,7 +242,7 @@ test("shot boundary repair turn inputs use field contract without timestamp exam
   assert.doesNotMatch(promptText, /sheetId/);
   assert.doesNotMatch(promptText, /extractSampling/);
   assert.equal(turnInputs.promptTemplateId, "repair");
-  assert.match(turnInputs.promptTemplateVersion, /^repair\.v1$/);
+  assert.match(turnInputs.promptTemplateVersion, /^repair\.v2$/);
   assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, 2);
 });
 
@@ -291,6 +293,49 @@ test("processed shot analysis maps shot summaries and keeps fallback reason comp
   assert.equal(analysis.shots[0].endBoundaryReason, "人物转场");
   assert.equal(analysis.shots[0].reason, "人物转场");
   assert.equal(analysis.shots[1].summary, "人物转场");
+  assert.equal(analysis.shots[1].endBoundaryReason, null);
+});
+
+test("processed shot analysis accepts shot-centric output and derives boundaries", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const analysis = buildProcessedAnalysis(
+    JSON.stringify({
+      shots: [
+        {
+          summary: "包装上的卤鳗鱼特写",
+          start: 0,
+          end: 1.2,
+          endBoundary: {
+            timestamp: 1.2,
+            confidence: 0.8,
+            boundaryType: "hard_cut",
+            reason: "包装特写切到手持展示",
+            needReview: false,
+          },
+        },
+        {
+          summary: "手持多包鳗鱼展示",
+          start: 1.2,
+          end: 2,
+          endBoundary: null,
+        },
+      ],
+    }),
+    prepared,
+    contactSheets,
+    { artifactId: "artifact_shot", skillPath: "SKILL.md", skillHash: "hash" },
+    { thread_id: "thread_1", lease_id: "lease_1" },
+    { turnId: "turn_1" },
+  );
+
+  assert.equal(analysis.validation.schemaVersion, "shot-centric.v2");
+  assert.equal(analysis.boundaries.length, 1);
+  assert.equal(analysis.boundaries[0].timestamp, 1.2);
+  assert.equal(analysis.shots[0].summary, "包装上的卤鳗鱼特写");
+  assert.equal(analysis.shots[0].endBoundaryReason, "包装特写切到手持展示");
+  assert.equal(analysis.shots[1].summary, "手持多包鳗鱼展示");
   assert.equal(analysis.shots[1].endBoundaryReason, null);
 });
 
@@ -658,9 +703,9 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_1");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-22.1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-22.2");
   assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "analyze");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateVersion, "analyze.v1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateVersion, "analyze.v2");
   assert.ok(artifact.shotBoundaryAnalysis.agent.promptTemplateHash);
   assert.ok(artifact.shotBoundaryAnalysis.agent.initFingerprint);
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "new_turn");
@@ -702,9 +747,9 @@ test("shot boundary skill content change misses old shot cache", async () => {
   await delay(20);
 
   assert.ok(cacheLookups.length >= 1);
-  assert.equal(cacheLookups.at(-1).profileVersion, "2026-05-22.1");
+  assert.equal(cacheLookups.at(-1).profileVersion, "2026-05-22.2");
   assert.equal(cacheLookups.at(-1).promptTemplateId, "analyze");
-  assert.equal(cacheLookups.at(-1).promptTemplateVersion, "analyze.v1");
+  assert.equal(cacheLookups.at(-1).promptTemplateVersion, "analyze.v2");
   assert.ok(cacheLookups.at(-1).promptTemplateHash);
   assert.ok(cacheLookups.at(-1).initFingerprint);
   assert.equal(cacheLookups.at(-1).skillHash, hashText("new skill content"));
@@ -761,9 +806,9 @@ test("shot boundary valid cache can be reused", async () => {
   const waitingJob = harness.jobStore.getJob(result.processingJobId);
   assert.equal(waitingJob.status, "cache_waiting");
   assert.equal(waitingJob.cachePrompt.cachedItem.analysisFps, 3);
-  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-22.1");
+  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-22.2");
   assert.equal(waitingJob.cachePrompt.promptTemplateId, "analyze");
-  assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "analyze.v1");
+  assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "analyze.v2");
   assert.ok(waitingJob.cachePrompt.promptTemplateHash);
   assert.ok(waitingJob.cachePrompt.initFingerprint);
   await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "reuse" });
@@ -1437,9 +1482,9 @@ function createCachedShotAnalysis() {
       provider: "codex-appserver",
       role: "shot-boundary-analyzer",
       profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
-      profileVersion: "2026-05-22.1",
+      profileVersion: "2026-05-22.2",
       promptTemplateId: "analyze",
-      promptTemplateVersion: "analyze.v1",
+      promptTemplateVersion: "analyze.v2",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
       skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
@@ -1493,9 +1538,9 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
       provider: "codex-appserver",
       role: "shot-boundary-analyzer",
       profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
-      profileVersion: "2026-05-22.1",
+      profileVersion: "2026-05-22.2",
       promptTemplateId: "analyze",
-      promptTemplateVersion: "analyze.v1",
+      promptTemplateVersion: "analyze.v2",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
       skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",

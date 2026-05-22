@@ -43,6 +43,7 @@ function sanitizeDebugPayload(error) {
     requestTimeoutMs: details?.requestTimeoutMs ?? details?.lastRequestError?.request?.requestTimeoutMs ?? null,
     readinessDetail: details?.readinessDetail ?? details?.threadPool ?? null,
     lastRequestError: details?.lastRequestError ?? details?.requestError ?? null,
+    outputSchemaVersion: details?.outputSchemaVersion ?? null,
     outputSummary: details?.outputSummary ?? null,
     parseFailureReason: details?.parseFailureReason ?? null,
     suspiciousReason: details?.suspiciousReason ?? null,
