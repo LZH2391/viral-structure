@@ -369,6 +369,18 @@ export function WorkbenchApp() {
     }
   }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
 
+  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
+    writeWorkbenchDraft({
+      sampleVideoId: artifact.sampleVideoId,
+      artifactId: artifact.sampleVideo.artifactId,
+      traceId,
+      sampleArtifact: artifact,
+      selectedFrameId: artifact.frames[0]?.frameId ?? null,
+      selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
+      versions: state.versions,
+    });
+  }, [state.versions]);
+
   const reuseScriptCache = useCallback(async () => {
     if (!scriptCachePrompt) return;
     const prompt = scriptCachePrompt;
@@ -445,21 +457,9 @@ export function WorkbenchApp() {
           end: segment.end,
           text: segment.text,
           confidence: segment.confidence ?? null,
-        };
+      };
     });
   }, []);
-
-  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
-    writeWorkbenchDraft({
-      sampleVideoId: artifact.sampleVideoId,
-      artifactId: artifact.sampleVideo.artifactId,
-      traceId,
-      sampleArtifact: artifact,
-      selectedFrameId: artifact.frames[0]?.frameId ?? null,
-      selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
-      versions: state.versions,
-    });
-  }, [state.versions]);
 
   const isSubtitleDraftChanged = useCallback((artifact: SubtitleArtifact | null | undefined, draft: SubtitleDraft) => {
     const sourceArtifactId = artifact?.artifactId ?? null;
