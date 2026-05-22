@@ -304,6 +304,11 @@ function stageParams(artifact, stageName) {
         : null,
       contactSheets: artifact.shotBoundaryAnalysis?.contactSheets ?? [],
       subtitleContextSummary: artifact.shotBoundaryAnalysis?.subtitleContextSummary ?? null,
+      profileVersion: artifact.shotBoundaryAnalysis?.agent?.profileVersion ?? null,
+      promptTemplateId: artifact.shotBoundaryAnalysis?.agent?.promptTemplateId ?? null,
+      promptTemplateVersion: artifact.shotBoundaryAnalysis?.agent?.promptTemplateVersion ?? null,
+      promptTemplateHash: artifact.shotBoundaryAnalysis?.agent?.promptTemplateHash ?? null,
+      initFingerprint: artifact.shotBoundaryAnalysis?.agent?.initFingerprint ?? null,
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     });
   }

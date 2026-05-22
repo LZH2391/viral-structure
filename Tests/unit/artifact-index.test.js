@@ -255,6 +255,59 @@ test("shot boundary cache params keep sheet start and end time stable across reg
   assert.equal(cache.params.sheetLayouts[0].endTime, 1);
 });
 
+test("shot boundary cache registration includes role prompt fingerprint params", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-agent-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const fileHash = hashBuffer(Buffer.from("shot-agent"));
+  const artifact = createArtifact({ sampleVideoId: "sample_agent_shot" });
+  artifact.shotBoundaryAnalysis = createProcessedShotAnalysis({
+    analysisFps: 1,
+    skillHash: "skill_hash_agent",
+    contactSheets: [
+      createContactSheet("sheet-001", [
+        { timestamp: 0, inputIndex: 0, sourceFrameIndex: 0, frameId: "frame_1" },
+        { timestamp: 1, inputIndex: 1, sourceFrameIndex: 1, frameId: "frame_2" },
+      ]),
+    ],
+    agent: {
+      profileVersion: "2026-05-22.2",
+      promptTemplateId: "analyze",
+      promptTemplateVersion: "analyze.v2",
+      promptTemplateHash: "prompt_hash_a",
+      initFingerprint: "init_hash_a",
+    },
+  });
+
+  await index.registerSampleArtifact({ artifact, fileHash, traceId: "trace_shot_agent" });
+  const params = buildShotBoundaryCacheParams({
+    sourceArtifactId: artifact.shotBoundaryAnalysis.parentArtifactId,
+    extractSampling: artifact.shotBoundaryAnalysis.extractSampling,
+    analysisSampling: artifact.shotBoundaryAnalysis.analysisSampling,
+    frameDimensions: { width: artifact.metadata.width, height: artifact.metadata.height },
+    contactSheets: artifact.shotBoundaryAnalysis.contactSheets,
+    subtitleContextSummary: artifact.shotBoundaryAnalysis.subtitleContextSummary,
+    profileVersion: artifact.shotBoundaryAnalysis.agent.profileVersion,
+    promptTemplateId: artifact.shotBoundaryAnalysis.agent.promptTemplateId,
+    promptTemplateVersion: artifact.shotBoundaryAnalysis.agent.promptTemplateVersion,
+    promptTemplateHash: artifact.shotBoundaryAnalysis.agent.promptTemplateHash,
+    initFingerprint: artifact.shotBoundaryAnalysis.agent.initFingerprint,
+    skillHash: artifact.shotBoundaryAnalysis.agent.skillHash,
+  });
+  const cache = await index.findCacheEntry({
+    fileHash,
+    stageName: "shot.boundary_merge",
+    params,
+    version: "test-v1",
+  });
+
+  assert.equal(cache.sampleVideoId, "sample_agent_shot");
+  assert.equal(cache.params.profileVersion, "2026-05-22.2");
+  assert.equal(cache.params.promptTemplateVersion, "analyze.v2");
+  assert.equal(cache.params.initFingerprint, "init_hash_a");
+});
+
 
 function createArtifact(overrides = {}) {
   const sampleVideoId = overrides.sampleVideoId ?? "sample_1";
@@ -289,7 +342,7 @@ function createArtifact(overrides = {}) {
   };
 }
 
-function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) {
+function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets, agent = {} }) {
   const targetFrameCount = Math.ceil(3 * analysisFps);
   const selectedFrameCount = Math.min(targetFrameCount, 6);
   return {
@@ -331,7 +384,21 @@ function createProcessedShotAnalysis({ analysisFps, skillHash, contactSheets }) 
     boundaryCandidateArtifacts: [],
     boundaries: [{ timestamp: 1, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
-    agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", skillPath: "SKILL.md", skillHash, threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
+    agent: {
+      provider: "codex-appserver",
+      role: "shot-boundary-analyzer",
+      profilePath: "Assets/RoleProfiles/shot-boundary-analyzer/role.json",
+      profileVersion: agent.profileVersion ?? null,
+      promptTemplateId: agent.promptTemplateId ?? null,
+      promptTemplateVersion: agent.promptTemplateVersion ?? null,
+      promptTemplateHash: agent.promptTemplateHash ?? null,
+      initFingerprint: agent.initFingerprint ?? null,
+      skillPath: "SKILL.md",
+      skillHash,
+      threadId: "thread_1",
+      leaseId: "lease_1",
+      turnId: "turn_1",
+    },
     shots: [
       { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1, representativeFrameId: "frame_1", confidence: 0.8, reason: "cut", summary: "人物正脸中景", endBoundaryReason: "cut" },
       { id: "shot_2", index: 1, shotNo: "S002", start: 1, end: 3, representativeFrameId: "frame_2", confidence: 0.8, reason: "视觉连续", summary: "产品细节特写", endBoundaryReason: null },
