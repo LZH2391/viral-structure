@@ -92,6 +92,15 @@ export function AgentRunPanel({
   const samplingPreview = resolveAnalysisSamplingPreview(sampleVideo, analysisFps);
   const analysisFpsExceededHint = resolveAnalysisFpsExceededHint(sampleVideo, analysisFps);
   const renderedSampling = resolveRenderedAnalysisSampling(analysis);
+  const jobErrorSummary = job?.errorSummary ?? null;
+  const jobTurnId = analysis?.agent?.turnId ?? null;
+  const preAgentLeaseFailure = job?.status === "failed"
+    && (job.stage === "shot.thread_acquire" || jobErrorSummary?.stageName === "shot.thread_acquire")
+    && !jobTurnId
+    && jobErrorSummary?.turnSubmitted !== true;
+  const jobStatusHint = preAgentLeaseFailure
+    ? "ThreadPool 获取 lease 超时，Agent turn 未提交，可重试"
+    : (job?.status === "failed" && jobErrorSummary?.message ? jobErrorSummary.message : null);
   const handleRun = () => {
     if (guard.state === "warming") {
       window.alert(guard.message ?? "ThreadPool 正在 warming，请稍后再试");
@@ -127,6 +136,7 @@ export function AgentRunPanel({
       {samplingPreview ? <div className="agent-sampling-preview">预计分析：目标 {formatFpsValue(samplingPreview.requestedFps)} fps / 约 {samplingPreview.selectedFrameCount} 帧 / 最近不重复取帧</div> : null}
       {analysisFpsExceeded ? <div className="detail-hint">{analysisFpsExceededHint ?? `分析采样率不能高于当前抽帧 fps（${maxAnalysisFps}）。`}</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
+      {jobStatusHint ? <div className="detail-hint">{jobStatusHint}</div> : null}
       {analysis ? (
         <div className="detail-hint">
           <div>来源：{renderResultOrigin(analysis.resultOrigin)}</div>

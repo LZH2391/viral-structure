@@ -10,9 +10,7 @@ const { appendShotBoundaryHistory } = require("./shot-boundary/history");
 const {
   finalizeLease,
   cleanupLease,
-  fallbackEnsureRoleReady,
-  threadPoolReadinessError,
-  normalizeThreadPoolAcquireError,
+  acquireLeaseWithRetry,
 } = require("./shot-boundary/threadpool-runner");
 const {
   isShotStage: isShotStageImpl,
@@ -65,6 +63,8 @@ const STAGES = {
 };
 const POLL_INTERVAL_MS = 2000;
 const ORPHAN_TTL_MS = 30 * 60 * 1000;
+const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
+const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
 
 function createShotBoundaryService({
   rootDir,
@@ -213,21 +213,26 @@ function createShotBoundaryService({
         await reuseCachedAnalysis(context, buildCachePrompt(context, cached));
         return;
       }
-      lease = await runStage(context, STAGES.threadAcquired, 60, {
+      const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: ROLE, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
-        action: async () => {
-          const readiness = typeof threadPool.ensureRoleReady === "function" ? await threadPool.ensureRoleReady(ROLE) : await fallbackEnsureRoleReady(threadPool, ROLE);
-          if (!readiness?.ok) throw threadPoolReadinessError(readiness, codedError);
-          try {
-            return await threadPool.acquireLease({ role: ROLE, ownerId: context.traceContext.traceId });
-          } catch (error) {
-            throw normalizeThreadPoolAcquireError(error, readiness?.status ?? null, codedError);
-          }
-        },
-        outputSummary: (result) => ({ role: ROLE, leaseId: result.lease_id, threadId: result.thread_id }),
+        action: () => acquireLeaseWithRetry(threadPool, {
+          role: ROLE,
+          ownerId: context.traceContext.traceId,
+          maxAttempts: THREADPOOL_ACQUIRE_MAX_ATTEMPTS,
+          backoffMs: THREADPOOL_ACQUIRE_BACKOFF_MS,
+          codedError,
+        }),
+        outputSummary: (result) => ({
+          role: ROLE,
+          leaseId: result.lease.lease_id,
+          threadId: result.lease.thread_id,
+          attemptCount: result.attemptCount,
+          requestTimeoutMs: result.requestTimeoutMs ?? null,
+        }),
       });
+      lease = leaseAcquisition.lease;
       const turn = await runStage(context, STAGES.turnStarted, 80, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
@@ -477,7 +482,13 @@ function createShotBoundaryService({
       outputSummary: activeStage.outputSummary,
       debugPayload: sanitizeDebugPayload(error),
     });
-    const errorSummary = { ...safeError(error, activeStage.stageName), debugSnapshotUri: snapshot.uri };
+    const isPreAgentFailure = !agentRun?.turnId && isPreAgentStage(activeStage.stageName);
+    const errorSummary = {
+      ...safeError(error, activeStage.stageName),
+      debugSnapshotUri: snapshot.uri,
+      preAgentFailure: isPreAgentFailure,
+      turnSubmitted: Boolean(agentRun?.turnId),
+    };
     const failedArtifact = buildFailedArtifact({ ...context, validationSummary: context.validationSummary }, errorSummary, agentRun?.contactSheets ?? []);
     await attachAnalysis(context.sampleVideoId, failedArtifact, {
       traceId: context.traceContext.traceId,
@@ -656,6 +667,10 @@ function buildInitFingerprint(context) {
     skillHash: context.skillHash ?? null,
     readyText: context.roleProfile?.init?.readyText ?? null,
   }));
+}
+
+function isPreAgentStage(stageName) {
+  return [STAGES.inputPrepared, STAGES.contactSheetPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
 }
 
 function round(value) {

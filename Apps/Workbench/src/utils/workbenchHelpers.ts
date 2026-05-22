@@ -49,7 +49,7 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
       return;
     }
     if (latest.status === "failed") {
-      setAgentJob(null);
+      setAgentJob(latest);
       writeActiveAgentJob?.(null);
       throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
     }
@@ -100,7 +100,7 @@ export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job
       return artifact;
     }
     if (job.status === "failed") {
-      setAgentJob(null);
+      setAgentJob(job);
       writeActiveAgentJob(null);
       return null;
     }
@@ -177,7 +177,7 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.input_prepare": "准备切镜输入",
     "shot.contact_sheet": "生成联表",
     "shot.cache_lookup": "检查切镜缓存",
-    "shot.thread_acquire": "检查 ThreadPool",
+    "shot.thread_acquire": "等待 ThreadPool lease",
     "shot.boundary_analyze.submit": "提交切镜分析",
     "shot.boundary_analyze.collect": "等待切镜结果",
     "shot.boundary_validate": "校验切镜结果",

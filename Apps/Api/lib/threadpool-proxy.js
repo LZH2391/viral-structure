@@ -1,12 +1,14 @@
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
 const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer"];
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
+const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 15000;
 
 function createThreadPoolProxy({
   baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL,
   fetchImpl = fetch,
   allowedRoles = parseAllowedRoles(process.env.THREADPOOL_ALLOWED_ROLES),
   requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  leaseAcquireTimeoutMs = DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS,
 } = {}) {
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
   const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
@@ -42,7 +44,9 @@ function createThreadPoolProxy({
 
   async function acquireLease({ role, ownerId }) {
     assertAllowedRole(role);
-    return requestJson("POST", "/leases/acquire", { role, owner_id: ownerId });
+    return requestJson("POST", "/leases/acquire", { role, owner_id: ownerId }, {
+      requestTimeoutMs: leaseAcquireTimeoutMs,
+    });
   }
 
   async function releaseLease({ leaseId, ownerId }) {
@@ -117,9 +121,11 @@ function createThreadPoolProxy({
     }
   }
 
-  async function requestJson(method, pathname, body) {
+  async function requestJson(method, pathname, body, options = {}) {
+    const resolvedRequestTimeoutMs = Number.isFinite(options.requestTimeoutMs) ? Number(options.requestTimeoutMs) : requestTimeoutMs;
+    const request = { method, pathname, requestTimeoutMs: resolvedRequestTimeoutMs };
     const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort("threadpool-timeout"), requestTimeoutMs) : null;
+    const timer = controller ? setTimeout(() => controller.abort("threadpool-timeout"), resolvedRequestTimeoutMs) : null;
     let response;
     try {
       response = await fetchImpl(`${normalizedBaseUrl}${pathname}`, {
@@ -129,7 +135,7 @@ function createThreadPoolProxy({
         signal: controller?.signal,
       });
     } catch (error) {
-      throw decorateRequestError(error);
+      throw decorateRequestError(error, request);
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -139,12 +145,28 @@ function createThreadPoolProxy({
       const error = new Error(safeErrorMessage(payload, response.status));
       error.statusCode = response.status;
       error.payload = payload;
+      error.request = request;
       throw error;
     }
     return payload;
   }
 
-  return { baseUrl: normalizedBaseUrl, allowedRoles: Array.from(allowedRoleSet), requestTimeoutMs, health, config, roles, roleStatus, ensureRoleReady, acquireLease, releaseLease, releaseOwnerLeases, discardThread, findAllowedThread };
+  return {
+    baseUrl: normalizedBaseUrl,
+    allowedRoles: Array.from(allowedRoleSet),
+    requestTimeoutMs,
+    leaseAcquireTimeoutMs,
+    health,
+    config,
+    roles,
+    roleStatus,
+    ensureRoleReady,
+    acquireLease,
+    releaseLease,
+    releaseOwnerLeases,
+    discardThread,
+    findAllowedThread,
+  };
 }
 
 function parseAllowedRoles(value) {
@@ -258,6 +280,7 @@ function unavailablePayload(error) {
     unavailable: true,
     error: error?.code === "threadpool_timeout" ? "threadpool_unavailable" : "threadpool_unavailable",
     message: error instanceof Error ? error.message : "ThreadPool 不可用",
+    request: error?.request ?? null,
   };
 }
 
@@ -322,19 +345,30 @@ function basename(value) {
   return String(value).split(/[\\/]/).at(-1) ?? String(value);
 }
 
-function decorateRequestError(error) {
+function decorateRequestError(error, request) {
   if (error?.name === "AbortError" || error === "threadpool-timeout") {
     const timeoutError = new Error("ThreadPool 请求超时，请稍后再试");
     timeoutError.code = "threadpool_timeout";
+    timeoutError.request = request ?? null;
     return timeoutError;
   }
   if (error instanceof Error) {
     error.code = error.code ?? "threadpool_request_failed";
+    error.request = error.request ?? request ?? null;
     return error;
   }
   const unknown = new Error("ThreadPool 请求失败");
   unknown.code = "threadpool_request_failed";
+  unknown.request = request ?? null;
   return unknown;
 }
 
-module.exports = { DEFAULT_THREADPOOL_URL, DEFAULT_ALLOWED_ROLES, DEFAULT_REQUEST_TIMEOUT_MS, createThreadPoolProxy, sanitizeRoleStatus, summarizeRoleStatus };
+module.exports = {
+  DEFAULT_THREADPOOL_URL,
+  DEFAULT_ALLOWED_ROLES,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS,
+  createThreadPoolProxy,
+  sanitizeRoleStatus,
+  summarizeRoleStatus,
+};

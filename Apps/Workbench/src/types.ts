@@ -46,6 +46,10 @@ export type ErrorSummary = {
   code?: string;
   message?: string;
   debugSnapshotUri?: string | null;
+  stageName?: string | null;
+  retryable?: boolean | null;
+  preAgentFailure?: boolean | null;
+  turnSubmitted?: boolean | null;
 };
 
 export type FrameOutputSummary = {

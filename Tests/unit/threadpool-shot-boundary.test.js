@@ -428,6 +428,31 @@ test("threadpool proxy timeout becomes unavailable payload", async () => {
   assert.equal(health.unavailable, true);
   assert.equal(health.error, "threadpool_unavailable");
   assert.match(health.message, /超时/);
+  assert.equal(health.request.requestTimeoutMs, 10);
+  assert.equal(health.request.pathname, "/health");
+  assert.equal(health.request.method, "GET");
+});
+
+test("threadpool proxy acquire lease uses dedicated timeout", async () => {
+  const requests = [];
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-analyzer"],
+    requestTimeoutMs: 3000,
+    leaseAcquireTimeoutMs: 15000,
+    fetchImpl: async (url, options = {}) => {
+      requests.push({
+        pathname: new URL(url).pathname,
+        method: options.method,
+      });
+      return response({ ok: true, lease_id: "lease_1", thread_id: "thread_1" });
+    },
+  });
+
+  await proxy.acquireLease({ role: "shot-boundary-analyzer", ownerId: "trace_1" });
+
+  assert.equal(proxy.requestTimeoutMs, 3000);
+  assert.equal(proxy.leaseAcquireTimeoutMs, 15000);
+  assert.deepEqual(requests, [{ pathname: "/leases/acquire", method: "POST" }]);
 });
 
 test("appserver bridge defaults to in-repo python runtime root", () => {
@@ -463,6 +488,81 @@ test("shot boundary warming fails before acquire and writes failed job", async (
   assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
   assert.equal(failLog.stageName, STAGES.threadAcquired);
   assert.equal(harness.threadPool.discarded.length, 0);
+});
+
+test("shot boundary acquire timeout retries and then submits turn", async () => {
+  let acquireAttempts = 0;
+  const startTurnPayloads = [];
+  const harness = await createShotHarness({
+    threadPoolOverrides: {
+      acquireLease: async () => {
+        acquireAttempts += 1;
+        if (acquireAttempts === 1) {
+          const error = new Error("ThreadPool 请求超时，请稍后再试");
+          error.code = "threadpool_timeout";
+          error.request = { method: "POST", pathname: "/leases/acquire", requestTimeoutMs: 15000 };
+          throw error;
+        }
+        return { lease_id: "lease_1", thread_id: "thread_1" };
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        startTurnPayloads.push(payload);
+        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+      },
+      collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(650);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const stageEnd = harness.logger.logs.find((entry) => entry.event === "stage.end" && entry.stageName === STAGES.threadAcquired);
+
+  assert.equal(acquireAttempts, 2);
+  assert.equal(job.status, "processing");
+  assert.equal(job.agentRun.turnId, "turn_1");
+  assert.equal(startTurnPayloads.length, 1);
+  assert.equal(stageEnd.outputSummary.attemptCount, 2);
+  assert.equal(stageEnd.outputSummary.requestTimeoutMs, 15000);
+  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId]);
+});
+
+test("shot boundary acquire timeout exhausts retries as pre-agent failure", async () => {
+  let acquireAttempts = 0;
+  const harness = await createShotHarness({
+    threadPoolOverrides: {
+      acquireLease: async () => {
+        acquireAttempts += 1;
+        const error = new Error("ThreadPool 请求超时，请稍后再试");
+        error.code = "threadpool_timeout";
+        error.request = { method: "POST", pathname: "/leases/acquire", requestTimeoutMs: 15000 };
+        throw error;
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(1700);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail" && entry.stageName === STAGES.threadAcquired);
+  const snapshot = harness.logger.snapshots.find((entry) => entry.stageName === STAGES.threadAcquired);
+
+  assert.equal(acquireAttempts, 3);
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "threadpool_unavailable");
+  assert.equal(job.errorSummary.retryable, true);
+  assert.equal(job.errorSummary.preAgentFailure, true);
+  assert.equal(job.errorSummary.turnSubmitted, false);
+  assert.equal(job.agentRun ?? null, null);
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, null);
+  assert.equal(snapshot.debugPayload.attemptCount, 3);
+  assert.equal(snapshot.debugPayload.requestTimeoutMs, 15000);
+  assert.equal(snapshot.debugPayload.lastRequestError.request.pathname, "/leases/acquire");
+  assert.equal(failLog.errorSummary.preAgentFailure, true);
+  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId, result.traceId, result.traceId]);
 });
 
 test("shot boundary start turn persists inflight without waiting for final message", async () => {

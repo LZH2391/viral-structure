@@ -288,10 +288,21 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(property, /onRunShotBoundary/);
   assert.match(agentRunPanel, /renderResultOrigin/);
   assert.match(agentRunPanel, /repairAttemptCount/);
+  assert.match(agentRunPanel, /ThreadPool 获取 lease 超时，Agent turn 未提交，可重试/);
   assert.match(cacheDialog, /发现切镜缓存/);
   assert.match(cacheDialog, /fps \/ \{item\.shotCount \?\? "\?"\} 镜 \/ turn/);
   assert.match(agentRunPanel, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
   assert.match(agentRunPanel, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
+  assert.match(agentRunPanel, /job\.stage === "shot\.thread_acquire"/);
+  assert.match(agentRunPanel, /!jobTurnId/);
+  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
+});
+
+test("workbench helper labels shot thread acquire as waiting lease", () => {
+  const root = path.resolve(__dirname, "../..");
+  const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
+
+  assert.match(helpers, /"shot\.thread_acquire": "等待 ThreadPool lease"/);
 });
 
 test("property panel treats processed passed shot data without boundaries as invalid result", () => {
