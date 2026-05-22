@@ -167,13 +167,18 @@ function normalizeCommerceBrief(rawBrief) {
     proofApproach: normalizeCommerceBriefField(brief.proofApproach),
     promisedOutcome: normalizeCommerceBriefField(brief.promisedOutcome),
     persuasionTarget: normalizeCommerceBriefField(brief.persuasionTarget),
-    conversionAction: normalizeCommerceBriefField(brief.conversionAction),
+    conversionAction: normalizeCommerceBriefConversionAction(brief.conversionAction),
     uncertainties: normalizeCommerceBriefUncertainties(brief.uncertainties),
   };
 }
 
 function normalizeCommerceBriefField(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_COMMERCE_BRIEF_FIELD_LENGTH);
+}
+
+function normalizeCommerceBriefConversionAction(value) {
+  const normalized = normalizeCommerceBriefField(value);
+  return normalized || "未观察到明显转化动作";
 }
 
 function normalizeCommerceBriefUncertainties(value) {

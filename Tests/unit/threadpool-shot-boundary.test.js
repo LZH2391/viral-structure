@@ -372,6 +372,82 @@ test("processed shot analysis tolerates incomplete commerceBrief on legacy path"
   assert.equal(analysis.commerceBrief, null);
 });
 
+test("processed shot analysis normalizes missing conversionAction to explicit fallback", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 3, { runtimeRoot: "C:\\Runtime" });
+  const analysis = buildProcessedAnalysis(JSON.stringify({
+    commerceBrief: {
+      sellingObject: "零食礼包",
+      proofApproach: "试吃展示",
+      promisedOutcome: "快速了解口味",
+      persuasionTarget: "想囤零食的人",
+      conversionAction: "",
+      uncertainties: [],
+    },
+    shots: [
+      {
+        summary: "人物半身口播",
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+      },
+      {
+        summary: "产品特写镜头",
+        start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
+  }), prepared, createContactSheets(prepared, rootRuntime("commerce-fallback")), {
+    artifactId: "artifact_test",
+    roleProfile: { profileVersion: "2026-05-22.2" },
+    promptTemplate: { promptTemplateId: "analyze", promptTemplateVersion: "analyze.v2", promptTemplateHash: "hash_1" },
+    skillHash: "skill_hash_1",
+  }, { thread_id: "thread_1", lease_id: "lease_1" }, { threadId: "thread_1", turnId: "turn_1" }, {
+    resultOrigin: "new_turn",
+    repairAttemptCount: 0,
+  });
+
+  assert.equal(analysis.commerceBrief.conversionAction, "未观察到明显转化动作");
+});
+
+test("processed shot analysis rejects invalid commerceBrief uncertainties type on strict path", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 3, { runtimeRoot: "C:\\Runtime" });
+  assert.throws(() => buildProcessedAnalysis(JSON.stringify({
+    commerceBrief: {
+      sellingObject: "零食礼包",
+      proofApproach: "试吃展示",
+      promisedOutcome: "快速了解口味",
+      persuasionTarget: "想囤零食的人",
+      conversionAction: "下单试吃",
+      uncertainties: "invalid",
+    },
+    shots: [
+      {
+        summary: "人物半身口播",
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+      },
+      {
+        summary: "产品特写镜头",
+        start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
+  }), prepared, createContactSheets(prepared, rootRuntime("commerce-invalid")), {
+    artifactId: "artifact_test",
+    roleProfile: { profileVersion: "2026-05-22.2" },
+    promptTemplate: { promptTemplateId: "analyze", promptTemplateVersion: "analyze.v2", promptTemplateHash: "hash_1" },
+    skillHash: "skill_hash_1",
+  }, { thread_id: "thread_1", lease_id: "lease_1" }, { threadId: "thread_1", turnId: "turn_1" }, {
+    resultOrigin: "new_turn",
+    repairAttemptCount: 0,
+  }), /commerceBrief/);
+});
+
 test("processed shot analysis does not fallback to legacy boundaries when v2 shots are invalid", () => {
   const artifact = createArtifact();
   const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });

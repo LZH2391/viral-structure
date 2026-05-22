@@ -6,11 +6,13 @@ export function CommerceBriefPanel({
   profile,
   onProfileChange,
   onGeneratePlan,
+  standalone = false,
 }: {
   commerceBrief?: ShotBoundaryAnalysisArtifact["commerceBrief"];
   profile: ContentProfile;
   onProfileChange: (field: keyof ContentProfile, value: string) => void;
   onGeneratePlan: () => void;
+  standalone?: boolean;
 }) {
   const hasCommerceBrief = Boolean(
     commerceBrief?.sellingObject
@@ -22,16 +24,16 @@ export function CommerceBriefPanel({
   );
 
   return (
-    <section className="property-section">
+    <section className={`property-section ${standalone ? "is-standalone-section" : ""}`}>
       <div className="section-heading">样例总结 / 新内容</div>
-      <div className="detail-block commerce-brief-panel">
+      <div className={`detail-block commerce-brief-panel ${standalone ? "is-standalone" : ""}`}>
         {hasCommerceBrief ? (
           <>
             <DetailRow label="卖什么" value={commerceBrief?.sellingObject || "待分析"} />
             <DetailRow label="如何证明" value={commerceBrief?.proofApproach || "待分析"} />
             <DetailRow label="承诺结果" value={commerceBrief?.promisedOutcome || "待分析"} />
             <DetailRow label="打动谁/什么" value={commerceBrief?.persuasionTarget || "待分析"} />
-            <DetailRow label="转化动作" value={commerceBrief?.conversionAction || "未识别明显动作"} />
+            <DetailRow label="转化动作" value={commerceBrief?.conversionAction || "未观察到明显转化动作"} />
             <DetailRow label="不确定点" value={commerceBrief?.uncertainties?.length ? commerceBrief.uncertainties.join("；") : "无明显不确定点"} />
           </>
         ) : (

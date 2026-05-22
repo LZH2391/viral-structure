@@ -1,7 +1,6 @@
 import type {
   AgentRunJob,
   AudioFeatureAnalysisArtifact,
-  ContentProfile,
   MediaDerivative,
   SampleVideo,
   ShotBoundaryAnalysisArtifact,
@@ -11,7 +10,6 @@ import type {
   SubtitleDraft,
 } from "../types";
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
-import { CommerceBriefPanel } from "./property-panel/CommerceBriefPanel";
 import { PropertyRows } from "./property-panel/PropertyRows";
 
 export type PropertyPanelProps = {
@@ -37,11 +35,8 @@ export type PropertyPanelProps = {
   currentShotId?: string | null;
   agentJob?: AgentRunJob | null;
   agentAnalysisFps: number;
-  contentProfile: ContentProfile;
   onAgentAnalysisFpsChange: (value: number) => void;
   onRunShotBoundary: () => void;
-  onContentProfileChange: (field: keyof ContentProfile, value: string) => void;
-  onGeneratePlan: () => void;
   onSelectShot: (time: number) => void;
   onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
@@ -60,12 +55,6 @@ export function PropertyPanel(props: PropertyPanelProps) {
         onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
         onRun={props.onRunShotBoundary}
         onSelectShot={props.onSelectShot}
-      />
-      <CommerceBriefPanel
-        commerceBrief={props.shotBoundaryAnalysis?.commerceBrief ?? null}
-        profile={props.contentProfile}
-        onProfileChange={props.onContentProfileChange}
-        onGeneratePlan={props.onGeneratePlan}
       />
       <section className="property-section">
         <div className="section-heading">当前片段</div>

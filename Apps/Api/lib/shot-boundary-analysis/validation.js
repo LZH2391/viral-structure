@@ -225,16 +225,16 @@ function validateShotCentricShots(rawShots, durationSeconds) {
 }
 
 function validateCommerceBrief(rawBrief) {
-  const brief = normalizeCommerceBrief(rawBrief);
-  if (!brief.sellingObject || !brief.proofApproach || !brief.promisedOutcome || !brief.persuasionTarget) {
-    return invalidValidation("shot_boundary_commerce_brief_incomplete", "commerceBrief 关键信息不完整", {
-      validatorCode: "shot_boundary_commerce_brief_incomplete",
-      commerceBrief: summarizeCommerceBrief(brief),
-    });
-  }
-  if (!Array.isArray(brief.uncertainties)) {
+  if (rawBrief?.uncertainties !== undefined && !Array.isArray(rawBrief.uncertainties)) {
     return invalidValidation("shot_boundary_commerce_brief_uncertainties_invalid", "commerceBrief.uncertainties 必须为数组", {
       validatorCode: "shot_boundary_commerce_brief_uncertainties_invalid",
+      commerceBrief: summarizeCommerceBrief(normalizeCommerceBrief(rawBrief)),
+    });
+  }
+  const brief = normalizeCommerceBrief(rawBrief);
+  if (!brief.sellingObject || !brief.proofApproach || !brief.promisedOutcome || !brief.persuasionTarget || !brief.conversionAction) {
+    return invalidValidation("shot_boundary_commerce_brief_incomplete", "commerceBrief 关键信息不完整", {
+      validatorCode: "shot_boundary_commerce_brief_incomplete",
       commerceBrief: summarizeCommerceBrief(brief),
     });
   }

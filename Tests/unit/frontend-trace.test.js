@@ -344,7 +344,6 @@ test("workbench exposes commerce brief summary and visible content profile input
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const roles = read(root, "Infrastructure/ThreadPool/thread_roles.json");
 
-  assert.match(property, /CommerceBriefPanel/);
   assert.match(commerce, /section-heading">样例总结 \/ 新内容/);
   assert.match(commerce, /label="卖什么"/);
   assert.match(commerce, /新商品\/主题/);
@@ -356,6 +355,7 @@ test("workbench exposes commerce brief summary and visible content profile input
   assert.match(types, /sellingObject: string;/);
   assert.match(css, /\.commerce-brief-panel/);
   assert.match(roles, /"script-segment-analyzer"/);
+  assert.doesNotMatch(property, /CommerceBriefPanel/);
 });
 
 test("workbench generate plan triggers script segment analysis before transfer", () => {
@@ -377,6 +377,22 @@ test("workbench generate plan triggers script segment analysis before transfer",
   assert.match(server, /script-segments/);
   assert.match(index, /script_segment\.materialize/);
   assert.match(index, /"script-segment-analysis": "脚本段落"/);
+});
+
+test("workbench exposes standalone create input view and removes form from property panel", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const createInput = read(root, "Apps/Workbench/src/components/CreateInputApp.tsx");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
+
+  assert.match(view, /"workspace" \| "create" \| "library" \| "debug" \| "threadpool"/);
+  assert.match(view, /if \(pathname === "\/create"\) return "create"/);
+  assert.match(app, /setWorkbenchView\("create", setActiveView\)/);
+  assert.match(app, /<CreateInputApp/);
+  assert.match(createInput, /创作输入/);
+  assert.match(createInput, /CommerceBriefPanel/);
+  assert.doesNotMatch(property, /profile-form/);
 });
 
 test("property panel shows all shots and recent shot analysis history", () => {

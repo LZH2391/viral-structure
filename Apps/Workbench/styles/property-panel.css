@@ -217,6 +217,13 @@
   gap: 12px;
 }
 
+.commerce-brief-panel.is-standalone {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 16px;
+}
+
 .profile-form label {
   display: grid;
   gap: 5px;

@@ -75,6 +75,22 @@
   min-width: 0;
 }
 
+.create-shell {
+  height: 100%;
+  min-width: 0;
+}
+
+.create-grid {
+  height: 100%;
+  overflow: auto;
+  padding: 16px;
+}
+
+.create-panel {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
 .embedded-view-header {
   display: flex;
   align-items: center;

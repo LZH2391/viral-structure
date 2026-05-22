@@ -13,6 +13,7 @@ import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
+import { CreateInputApp } from "./CreateInputApp";
 import { DebugApp } from "./DebugApp";
 import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
@@ -605,6 +606,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>
+          <button className={`tab-button ${activeView === "create" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("create", setActiveView)}>
+            创作输入
+          </button>
           <button className={`tab-button ${activeView === "debug" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("debug", setActiveView)}>
             运行追踪
           </button>
@@ -675,7 +679,6 @@ export function WorkbenchApp() {
           currentShotId={currentShotId}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
-          contentProfile={contentProfile}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => {
             flushSubtitleDraftsBeforeShotBoundary()
@@ -700,16 +703,6 @@ export function WorkbenchApp() {
               })
               .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
           }}
-          onContentProfileChange={(field, value) => {
-            dispatch({
-              type: "set-content-profile",
-              profile: {
-                ...contentProfile,
-                [field]: sanitizeText(value, field === "sellingPoints" ? 200 : 80),
-              },
-            });
-          }}
-          onGeneratePlan={handleGeneratePlan}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             const card = findCurrentStructureCard(state.structureCards, time);
@@ -791,6 +784,26 @@ export function WorkbenchApp() {
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
         />
       </main>
+      {activeView === "create" ? (
+        <CreateInputApp
+          embedded
+          onBack={() => setWorkbenchView("workspace", setActiveView)}
+          commerceBrief={shotBoundaryAnalysis?.commerceBrief ?? null}
+          profile={contentProfile}
+          onProfileChange={(field, value) => {
+            dispatch({
+              type: "set-content-profile",
+              profile: {
+                ...contentProfile,
+                [field]: sanitizeText(value, field === "sellingPoints" ? 200 : 80),
+              },
+            });
+          }}
+          onGeneratePlan={() => {
+            void handleGeneratePlan().catch((error) => setSaveStatus(error instanceof Error ? error.message : "迁移方案生成失败"));
+          }}
+        />
+      ) : null}
       {activeView === "library" ? <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
