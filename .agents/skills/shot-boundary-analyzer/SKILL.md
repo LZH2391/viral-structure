@@ -1,21 +1,24 @@
 ---
 name: shot-boundary-analyzer
-description: 基于 contact sheet 联表分析镜头边界，并返回结构化 shot-boundary JSON 结果。
+description: 基于 contact sheet 联表分析镜头边界，并返回结构化 shot-boundary JSON 结果与带货简要总结。
 ---
 
 # SKILL: 镜头切分分析
 
-你只分析任务提供的 contact sheet 联表。不要读取无关文件，不要使用音频、字幕、beats、onsets 或外部历史做推断。
+你只分析任务提供的 contact sheet 联表，以及任务里显式附带的字幕语义摘要。不要读取无关文件，不要使用 beats、onsets、外部历史或未提供的上下文做推断。
 
 ## 输入
 任务会提供一个轻量 JSON 对象，包含：
 
-- sourceArtifactId
 - durationSeconds
-- extractSampling
 - analysisSampling
 - sheetCount
 - sheets
+
+可能还会包含：
+
+- subtitleContextSummary
+- subtitleContext
 
 每个 `sheet` 包含：
 
@@ -38,24 +41,37 @@ description: 基于 contact sheet 联表分析镜头边界，并返回结构化 
 
 ```json
 {
-  "boundaries": [
+  "commerceBrief": {
+    "sellingObject": "卖什么",
+    "proofApproach": "如何证明",
+    "promisedOutcome": "承诺解决什么",
+    "persuasionTarget": "打动谁/什么",
+    "conversionAction": "是否有转化动作",
+    "uncertainties": ["仍不确定的点"]
+  },
+  "shots": [
     {
-      "timestamp": 12.48,
-      "confidence": 0.8,
-      "boundaryType": "hard_cut",
-      "reason": "视觉变化摘要",
-      "needReview": false
+      "summary": "这一镜是什么",
+      "start": 0,
+      "end": 12.48,
+      "endBoundary": {
+        "timestamp": 12.48,
+        "confidence": 0.8,
+        "boundaryType": "hard_cut",
+        "reason": "视觉变化摘要",
+        "needReview": false
+      }
     }
   ]
 }
 ```
 
 ## 规则
-- `timestamp` 表示切换发生的时间点，必须位于视频时长范围内。
-- 只输出明确的切换时间点，不要输出 frameId 对、索引、路径或大段解释。
-- `boundaries` 按时间升序输出，不要重复，不要乱序。
-- `confidence` 必须是 0 到 1 之间的数字。
-- `reason` 保持简短，只写视觉变化原因，不要包含本地路径。
-- `needReview=true` 用于表达看不清、遮挡严重、帧间信息不足等不确定情况。
-- 如果没有把握，请只返回能确认的边界；不要为了凑结果编造切换时间。
-- 不要做 OCR、剧情总结、主题归纳或结构迁移。
+- `shots` 必须保持 shot-centric 结构：第一镜 `start=0`，最后一镜 `end=durationSeconds`，相邻镜头连续衔接，除最后一镜外 `endBoundary.timestamp` 必须等于该镜 `end`。
+- `summary` 只描述这一镜的内容，`reason` 只描述为什么在这里切。
+- `confidence` 必须是 0 到 1 之间的数字，`needReview=true` 用于表达看不清、遮挡严重、帧间信息不足等不确定情况。
+- `commerceBrief` 只回答这 6 个带货语义问题：卖什么、如何证明、承诺解决什么、打动谁/什么、是否有转化动作、不确定点。
+- `commerceBrief` 只能基于画面、字幕语义、镜头摘要归纳；不能编造品牌、价格、功效、销量、用户评价。
+- `uncertainties` 必须是字符串数组；没有明显不确定点时返回空数组。
+- 不要做脚本段落拆解，不要做结构迁移，不要生成新脚本或新口播。
+- 不要输出 frameId、索引、路径、OCR 原文或解释性正文。

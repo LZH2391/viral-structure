@@ -1,4 +1,4 @@
-import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startShotBoundaryAnalysis } from "../api/client";
+import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
@@ -57,6 +57,41 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   setAgentJob(null);
   writeActiveAgentJob?.(null);
   throw new Error("切镜分析超时");
+}
+
+export async function runScriptSegmentAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+) {
+  if (!state.sampleVideo) return null;
+  const started = await startScriptSegmentAnalysis(state.sampleVideo.id);
+  let latest: ProcessingJob = {
+    jobId: started.processingJobId,
+    sampleVideoId: started.sampleVideoId,
+    traceId: started.traceId,
+    stage: "script_segment.input_prepare",
+    status: "pending",
+    progress: 0,
+  };
+  onJobUpdate?.(latest);
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    await delay(1000);
+    latest = await getProcessingJob(started.processingJobId);
+    onJobUpdate?.(latest);
+    if (latest.status === "processed") {
+      const artifact = await getSampleArtifact(started.sampleVideoId);
+      dispatch({ type: "apply-artifact", artifact });
+      onJobUpdate?.(null);
+      return { artifact, job: latest };
+    }
+    if (latest.status === "failed") {
+      onJobUpdate?.(latest);
+      throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
+    }
+  }
+  onJobUpdate?.(null);
+  throw new Error("脚本段落分析超时");
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
@@ -185,6 +220,11 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",
     "shot.cache_reuse": "复用切镜缓存",
+    "script_segment.input_prepare": "准备脚本段落输入",
+    "script_segment.analyze": "分析脚本段落",
+    "script_segment.validate": "校验脚本段落结果",
+    "script_segment.repair": "修复脚本段落结果",
+    "script_segment.materialize": "写入脚本段落产物",
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";

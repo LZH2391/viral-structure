@@ -92,6 +92,7 @@ export type SampleArtifact = {
   subtitlesRevisionHistory?: SubtitleRevisionHistoryEntry[] | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
+  scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
   metadata: {
     durationSeconds: number;
     width?: number | null;
@@ -230,6 +231,14 @@ export type ShotBoundaryAnalysisArtifact = {
     reason: string;
     needReview: boolean;
   }>;
+  commerceBrief?: {
+    sellingObject: string;
+    proofApproach: string;
+    promisedOutcome: string;
+    persuasionTarget: string;
+    conversionAction: string;
+    uncertainties: string[];
+  } | null;
   validation?: {
     status: "passed" | "failed" | string;
     rawBoundaryCount: number | null;
@@ -486,6 +495,47 @@ export type StructureCard = {
   order: number;
   explanation: string;
   transferableRule: string;
+};
+
+export type ScriptSegmentArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: "script-segment-analysis";
+  status: "processed" | "failed" | string;
+  stageName?: string | null;
+  sampleVideoId?: string;
+  sourceShotBoundaryArtifactId?: string | null;
+  commerceBrief?: ShotBoundaryAnalysisArtifact["commerceBrief"];
+  segments: Array<{
+    segmentId: string;
+    label: string;
+    roleInScript: string;
+    shotRefs: string[];
+    evidence: string[];
+    transferableRule: string;
+    confidence: number;
+    needReview: boolean;
+    start: number;
+    end: number;
+  }>;
+  validation?: {
+    status: "passed" | "failed" | string;
+    segmentCount: number;
+    validatorCode: string | null;
+    repairAttemptCount: number;
+  } | null;
+  agent?: {
+    provider: "codex-appserver" | string;
+    role: string;
+    skillPath: string;
+    skillHash?: string | null;
+    threadId: string | null;
+    leaseId: string | null;
+    turnId: string | null;
+  } | null;
+  reason?: string | null;
+  debugSnapshotUri?: string | null;
+  createdAt: string;
 };
 
 export type ContentProfile = {

@@ -12,6 +12,8 @@ export type ShotBoundaryStartResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
+export type ScriptSegmentStartResponse = { processingJobId: string; sampleVideoId: string; traceId: string };
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -63,6 +65,16 @@ export async function saveSubtitleRevision(
         expectedSubtitleArtifactId: options.expectedSubtitleArtifactId ?? null,
         expectedRevisionIndex: options.expectedRevisionIndex ?? null,
       }),
+    }),
+  );
+}
+
+export async function startScriptSegmentAnalysis(sampleVideoId: string) {
+  return readJson<ScriptSegmentStartResponse>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
     }),
   );
 }

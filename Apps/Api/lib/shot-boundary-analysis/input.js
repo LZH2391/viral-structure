@@ -175,6 +175,13 @@ function buildTurnInputs({ prepared, contactSheets }) {
   if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) manifest.subtitleContext = prepared.subtitleContext;
   const outputContract = {
     schemaVersion: "shot-centric.v2",
+    commerceBrief: "object, summarize only what can be grounded from frames and subtitle context",
+    "commerceBrief.sellingObject": "string, what is being sold, no fabricated brand/price/effect",
+    "commerceBrief.proofApproach": "string, how the sample proves value using visuals/subtitles",
+    "commerceBrief.promisedOutcome": "string, what problem or result is promised, grounded only",
+    "commerceBrief.persuasionTarget": "string, who or what motivation is being persuaded",
+    "commerceBrief.conversionAction": "string, what conversion action is requested, empty if absent",
+    "commerceBrief.uncertainties": "string array, uncertain points only, empty array allowed",
     shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
     "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
     "shots[].start": "number, seconds, first shot must start at 0",
@@ -213,6 +220,13 @@ function renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile }) {
 function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
   const outputContract = {
     schemaVersion: "shot-centric.v2",
+    commerceBrief: "object, summarize only what can be grounded from frames and subtitle context",
+    "commerceBrief.sellingObject": "string, what is being sold, no fabricated brand/price/effect",
+    "commerceBrief.proofApproach": "string, how the sample proves value using visuals/subtitles",
+    "commerceBrief.promisedOutcome": "string, what problem or result is promised, grounded only",
+    "commerceBrief.persuasionTarget": "string, who or what motivation is being persuaded",
+    "commerceBrief.conversionAction": "string, what conversion action is requested, empty if absent",
+    "commerceBrief.uncertainties": "string array, uncertain points only, empty array allowed",
     shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
     "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
     "shots[].start": "number, seconds, first shot must start at 0",

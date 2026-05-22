@@ -6,6 +6,10 @@
     "shot-boundary-analyzer": {
       "profile_path": "Assets/RoleProfiles/shot-boundary-analyzer/role.json",
       "min_idle": 1
+    },
+    "script-segment-analyzer": {
+      "profile_path": "Assets/RoleProfiles/script-segment-analyzer/role.json",
+      "min_idle": 0
     }
   }
 }

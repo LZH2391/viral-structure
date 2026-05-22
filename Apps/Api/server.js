@@ -19,6 +19,7 @@ const { createShotBoundaryService } = require("./lib/shot-boundary-service");
 const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
+const { createScriptSegmentService } = require("./lib/script-segment-service");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -33,6 +34,7 @@ const threadPool = createThreadPoolProxy();
 const appServer = createAppServerBridge();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
+const scriptSegmentService = createScriptSegmentService({ store, logger, jobStore, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 store.ensureRuntimeDirs()
@@ -50,6 +52,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2));
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)));
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
+    if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/script-segments$/.test(url.pathname)) return handleScriptSegments(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "GET" && url.pathname === "/api/threadpool/health") return handleThreadPoolRead(res, "health", () => threadPool.health());
     if (req.method === "GET" && url.pathname === "/api/threadpool/config") return handleThreadPoolRead(res, "config", () => threadPool.config());
     if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => threadPool.roles());
@@ -122,6 +125,12 @@ async function handleSubtitleRevision(req, res, sampleVideoId) {
     expectedRevisionIndex: body.expectedRevisionIndex ?? null,
   });
   return sendJson(res, 200, result);
+}
+
+async function handleScriptSegments(req, res, sampleVideoId) {
+  await readJsonBody(req).catch(() => ({}));
+  const result = await scriptSegmentService.enqueue({ sampleVideoId });
+  return sendJson(res, 202, result);
 }
 
 async function handleJobCacheDecision(req, res, jobId) {

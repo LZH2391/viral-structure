@@ -213,6 +213,10 @@
   gap: 10px;
 }
 
+.commerce-brief-panel {
+  gap: 12px;
+}
+
 .profile-form label {
   display: grid;
   gap: 5px;

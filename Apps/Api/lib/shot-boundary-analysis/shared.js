@@ -14,6 +14,8 @@ const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
 const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
+const MAX_COMMERCE_BRIEF_FIELD_LENGTH = 120;
+const MAX_COMMERCE_BRIEF_UNCERTAINTIES = 5;
 const ROLE_PROFILE_PATH = "Assets/RoleProfiles/shot-boundary-analyzer/role.json";
 
 function safeError(error, stageName) {
@@ -158,6 +160,41 @@ function resolveShotSummary(summary, fallbackReason) {
   return String(fallbackReason ?? "镜头内容").replace(/\s+/g, " ").trim().slice(0, 80) || "镜头内容";
 }
 
+function normalizeCommerceBrief(rawBrief) {
+  const brief = rawBrief && typeof rawBrief === "object" ? rawBrief : {};
+  return {
+    sellingObject: normalizeCommerceBriefField(brief.sellingObject),
+    proofApproach: normalizeCommerceBriefField(brief.proofApproach),
+    promisedOutcome: normalizeCommerceBriefField(brief.promisedOutcome),
+    persuasionTarget: normalizeCommerceBriefField(brief.persuasionTarget),
+    conversionAction: normalizeCommerceBriefField(brief.conversionAction),
+    uncertainties: normalizeCommerceBriefUncertainties(brief.uncertainties),
+  };
+}
+
+function normalizeCommerceBriefField(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_COMMERCE_BRIEF_FIELD_LENGTH);
+}
+
+function normalizeCommerceBriefUncertainties(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => normalizeCommerceBriefField(item))
+    .filter(Boolean)
+    .slice(0, MAX_COMMERCE_BRIEF_UNCERTAINTIES);
+}
+
+function summarizeCommerceBrief(brief) {
+  return {
+    hasSellingObject: Boolean(brief?.sellingObject),
+    hasProofApproach: Boolean(brief?.proofApproach),
+    hasPromisedOutcome: Boolean(brief?.promisedOutcome),
+    hasPersuasionTarget: Boolean(brief?.persuasionTarget),
+    hasConversionAction: Boolean(brief?.conversionAction),
+    uncertaintyCount: Array.isArray(brief?.uncertainties) ? brief.uncertainties.length : 0,
+  };
+}
+
 function stripLocalImagePath(sheet) {
   const { localImagePath, ...safeSheet } = sheet;
   return {
@@ -282,6 +319,8 @@ module.exports = {
   MAX_ANALYSIS_FPS,
   MAX_SUBTITLE_SEGMENT_TEXT_LENGTH,
   MAX_SUBTITLE_CONTEXT_TOTAL_CHARS,
+  MAX_COMMERCE_BRIEF_FIELD_LENGTH,
+  MAX_COMMERCE_BRIEF_UNCERTAINTIES,
   safeError,
   codedError,
   sanitizeDebugPayload,
@@ -292,6 +331,8 @@ module.exports = {
   buildSubtitleContextSummary,
   normalizeSubtitleText,
   resolveShotSummary,
+  normalizeCommerceBrief,
+  summarizeCommerceBrief,
   stripLocalImagePath,
   normalizeBoundaryType,
   resolveRepresentativeFrameIdByTime,

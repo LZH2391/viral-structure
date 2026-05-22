@@ -1,5 +1,6 @@
 import type {
   BackendCapabilities,
+  ContentProfile,
   DebugSnapshot,
   ErrorSummary,
   GeneratedPlan,
@@ -16,6 +17,7 @@ import type {
   WorkbenchState,
 } from "./types";
 import { createId } from "./utils/format";
+import { createStructureCardsFromSegments } from "./domain";
 
 export const STAGES = {
   ingest: "sample.ingest",
@@ -79,7 +81,8 @@ export type WorkbenchAction =
   | { type: "set-frame-visible"; visible: boolean }
   | { type: "set-visible-seconds"; visibleSeconds: number }
   | { type: "set-structure-cards"; cards: StructureCard[] }
-  | { type: "set-generated-plan"; generatedPlan: GeneratedPlan; mappings: Mapping[] }
+  | { type: "set-generated-plan"; generatedPlan: GeneratedPlan; mappings: Mapping[]; profile?: ContentProfile | null }
+  | { type: "set-content-profile"; profile: ContentProfile }
   | { type: "add-version"; version: VersionItem }
   | { type: "add-log"; log: UiLog; fields: LogFields }
   | { type: "add-snapshot"; snapshot: DebugSnapshot }
@@ -145,7 +148,15 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
     case "set-structure-cards":
       return { ...state, structureCards: action.cards };
     case "set-generated-plan":
-      return { ...state, generatedPlan: action.generatedPlan, mappings: action.mappings, activePreviewMode: "generated" };
+      return {
+        ...state,
+        contentProfile: action.profile ?? state.contentProfile,
+        generatedPlan: action.generatedPlan,
+        mappings: action.mappings,
+        activePreviewMode: "generated",
+      };
+    case "set-content-profile":
+      return { ...state, contentProfile: action.profile };
     case "add-version":
       return {
         ...state,
@@ -264,7 +275,7 @@ export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtif
     selectedSubtitleId: null,
     selectedAudioFeatureMarkerId: null,
     activeMediaKind: "video",
-    structureCards: [],
+    structureCards: createStructureCardsFromSegments(artifact),
     generatedPlan: null,
     mappings: [],
     subtitleDrafts: {},

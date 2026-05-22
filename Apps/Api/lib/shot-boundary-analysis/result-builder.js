@@ -4,6 +4,7 @@ const {
   ANALYSIS_SELECTION_POLICY,
   ANALYSIS_DUPLICATE_POLICY,
   skillContentHashSync,
+  summarizeCommerceBrief,
   stripLocalImagePath,
   resolveShotSummary,
   sanitizeDebugPayload,
@@ -15,6 +16,7 @@ const {
   deriveBoundariesFromShots,
   validateTimestampBoundaries,
   validateShotCentricShots,
+  validateCommerceBrief,
   buildShotsFromBoundaries,
   detectReasonEncodingIssue,
   summarizeAgentOutput,
@@ -25,8 +27,10 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
   const parsed = extractJsonObject(message);
   const promptTemplateVersion = context.promptTemplate?.promptTemplateVersion ?? null;
   const strictShotCentric = /^((analyze|repair)\.v2)$/.test(String(promptTemplateVersion ?? ""));
+  const hasCommerceBriefPayload = Object.prototype.hasOwnProperty.call(parsed, "commerceBrief");
   const hasShotCentricPayload = Object.prototype.hasOwnProperty.call(parsed, "shots");
   const parsedShots = Array.isArray(parsed.shots) ? parsed.shots : null;
+  const commerceBriefValidation = validateCommerceBrief(parsed.commerceBrief);
   const shotCentricValidation = hasShotCentricPayload
     ? validateShotCentricShots(parsedShots, prepared.durationSeconds)
     : null;
@@ -39,6 +43,14 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
   const validation = (strictShotCentric && hasShotCentricPayload)
     ? shotCentricValidation
     : validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
+  if (strictShotCentric && hasCommerceBriefPayload && !commerceBriefValidation.ok) {
+    throw require("./shared").codedError("shot_boundary_validation_failed", commerceBriefValidation.message, {
+      turnId: turn?.turnId ?? null,
+      outputSchemaVersion: "shot-centric.v2",
+      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
+      validation: commerceBriefValidation.summary,
+    }, false);
+  }
   if (!validation.ok) {
     throw require("./shared").codedError("shot_boundary_validation_failed", validation.message, {
       turnId: turn?.turnId ?? null,
@@ -59,6 +71,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     }, false);
   }
   const mergedBoundaries = normalizedBoundaries;
+  const commerceBrief = commerceBriefValidation.ok ? commerceBriefValidation.commerceBrief : null;
   const shots = usingShotCentricSchema
     ? buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, normalizedShotCentricShots)
     : buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, parsedShots);
@@ -72,6 +85,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     extractSampling: prepared.extractSampling,
     analysisSampling: prepared.analysisSampling,
     subtitleContextSummary: prepared.subtitleContextSummary ?? null,
+    commerceBrief,
     contactSheets: contactSheets.map(stripLocalImagePath),
     boundaryCandidateArtifacts: [],
     boundaries: mergedBoundaries,
@@ -82,6 +96,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
       repairAttemptCount: options.repairAttemptCount ?? 0,
       validatorCode: null,
       schemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
+      commerceBrief: summarizeCommerceBrief(commerceBrief),
     },
     agent: {
       provider: "codex-appserver",
@@ -155,6 +170,7 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
       sheetCount: contactSheets.length || agentRun?.contactSheets?.length || 0,
       inputMode: "multi_contact_sheet",
     },
+    commerceBrief: null,
     shots: [],
     reason: errorSummary.message,
     debugSnapshotUri: errorSummary.debugSnapshotUri ?? null,

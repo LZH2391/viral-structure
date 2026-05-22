@@ -302,6 +302,14 @@ test("processed shot analysis accepts shot-centric output and derives boundaries
   const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
   const analysis = buildProcessedAnalysis(
     JSON.stringify({
+      commerceBrief: {
+        sellingObject: "卤鳗鱼即食产品",
+        proofApproach: "包装展示加手持实拍",
+        promisedOutcome: "方便快速吃到熟食",
+        persuasionTarget: "想省事又想吃得像样的人",
+        conversionAction: "下单试吃",
+        uncertainties: ["未看到明确价格信息"],
+      },
       shots: [
         {
           summary: "包装上的卤鳗鱼特写",
@@ -331,12 +339,37 @@ test("processed shot analysis accepts shot-centric output and derives boundaries
   );
 
   assert.equal(analysis.validation.schemaVersion, "shot-centric.v2");
+  assert.equal(analysis.commerceBrief.sellingObject, "卤鳗鱼即食产品");
+  assert.equal(analysis.commerceBrief.uncertainties[0], "未看到明确价格信息");
   assert.equal(analysis.boundaries.length, 1);
   assert.equal(analysis.boundaries[0].timestamp, 1.2);
   assert.equal(analysis.shots[0].summary, "包装上的卤鳗鱼特写");
   assert.equal(analysis.shots[0].endBoundaryReason, "包装特写切到手持展示");
   assert.equal(analysis.shots[1].summary, "手持多包鳗鱼展示");
   assert.equal(analysis.shots[1].endBoundaryReason, null);
+});
+
+test("processed shot analysis tolerates incomplete commerceBrief on legacy path", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+  const analysis = buildProcessedAnalysis(
+    JSON.stringify({
+      commerceBrief: {
+        sellingObject: "多功能收纳盒".repeat(30),
+        uncertainties: "invalid",
+      },
+      boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "展示角度变化", needReview: false }],
+      shots: [{ summary: "桌面收纳盒展示" }],
+    }),
+    prepared,
+    contactSheets,
+    { artifactId: "artifact_shot", skillPath: "SKILL.md", skillHash: "hash" },
+    { thread_id: "thread_1", lease_id: "lease_1" },
+    { turnId: "turn_1" },
+  );
+
+  assert.equal(analysis.commerceBrief, null);
 });
 
 test("processed shot analysis does not fallback to legacy boundaries when v2 shots are invalid", () => {

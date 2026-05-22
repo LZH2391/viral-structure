@@ -1,4 +1,4 @@
-import type { ContentProfile, GeneratedPlan, Mapping, SampleVideo, StructureCard } from "./types";
+import type { ContentProfile, GeneratedPlan, Mapping, SampleArtifact, SampleVideo, ScriptSegmentArtifact, StructureCard } from "./types";
 import { createId, sanitizeText } from "./utils/format";
 
 export const PROMPT_TEMPLATE_VERSION = "workbench.transfer.v1";
@@ -23,6 +23,13 @@ export function createStructureCards(sample: SampleVideo | null): StructureCard[
     explanation,
     transferableRule: `${name} 保留节奏功能，替换为新主题证据`,
   }));
+}
+
+export function createStructureCardsFromSegments(artifact: SampleArtifact | null): StructureCard[] {
+  const segments = artifact?.scriptSegmentAnalysis?.segments ?? [];
+  if (!segments.length) return [];
+  const parentArtifactId = artifact?.scriptSegmentAnalysis?.artifactId ?? artifact?.sampleVideo?.artifactId ?? null;
+  return segments.map((segment, index) => mapSegmentToStructureCard(segment, parentArtifactId, index));
 }
 
 export function createGeneratedPlan(profile: ContentProfile, structureCards: StructureCard[], parentArtifactId: string) {
@@ -67,6 +74,20 @@ export function buildContentProfile(form: HTMLFormElement | null): ContentProfil
     platform: sanitizeText(data.get("platform"), 60) || "短视频平台",
     duration: sanitizeText(data.get("duration"), 32) || "与样例接近",
     tone: sanitizeText(data.get("tone"), 60) || "清晰、有节奏",
+  };
+}
+
+function mapSegmentToStructureCard(segment: ScriptSegmentArtifact["segments"][number], parentArtifactId: string | null, index: number): StructureCard {
+  return {
+    id: segment.segmentId,
+    artifactId: `${segment.segmentId}_structure`,
+    parentArtifactId,
+    name: segment.label,
+    start: segment.start,
+    end: segment.end,
+    order: index + 1,
+    explanation: segment.roleInScript,
+    transferableRule: segment.transferableRule,
   };
 }
 

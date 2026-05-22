@@ -2,6 +2,8 @@ const {
   MIN_SHOT_DURATION_SECONDS,
   ANALYSIS_SELECTION_POLICY,
   ANALYSIS_DUPLICATE_POLICY,
+  normalizeCommerceBrief,
+  summarizeCommerceBrief,
   normalizeBoundaryType,
   resolveRepresentativeFrameIdByTime,
   formatShotNo,
@@ -222,6 +224,30 @@ function validateShotCentricShots(rawShots, durationSeconds) {
   };
 }
 
+function validateCommerceBrief(rawBrief) {
+  const brief = normalizeCommerceBrief(rawBrief);
+  if (!brief.sellingObject || !brief.proofApproach || !brief.promisedOutcome || !brief.persuasionTarget) {
+    return invalidValidation("shot_boundary_commerce_brief_incomplete", "commerceBrief 关键信息不完整", {
+      validatorCode: "shot_boundary_commerce_brief_incomplete",
+      commerceBrief: summarizeCommerceBrief(brief),
+    });
+  }
+  if (!Array.isArray(brief.uncertainties)) {
+    return invalidValidation("shot_boundary_commerce_brief_uncertainties_invalid", "commerceBrief.uncertainties 必须为数组", {
+      validatorCode: "shot_boundary_commerce_brief_uncertainties_invalid",
+      commerceBrief: summarizeCommerceBrief(brief),
+    });
+  }
+  return {
+    ok: true,
+    summary: {
+      validatorCode: null,
+      commerceBrief: summarizeCommerceBrief(brief),
+    },
+    commerceBrief: brief,
+  };
+}
+
 function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedShots = []) {
   const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
   const safeParsedShots = Array.isArray(parsedShots) ? parsedShots : [];
@@ -276,6 +302,7 @@ module.exports = {
   deriveBoundariesFromShots,
   validateTimestampBoundaries,
   validateShotCentricShots,
+  validateCommerceBrief,
   buildShotsFromBoundaries,
   detectReasonEncodingIssue,
   summarizeAgentOutput,

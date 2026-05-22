@@ -1,12 +1,12 @@
 import { FormEvent, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
-import { createGeneratedPlan, createStructureCards } from "../domain";
+import { buildContentProfile, createGeneratedPlan, createStructureCardsFromSegments } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
+import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SampleArtifact, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runScriptSegmentAnalysis, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -43,6 +43,7 @@ export function WorkbenchApp() {
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
+  const [scriptSegmentJob, setScriptSegmentJob] = useState<ProcessingJob | null>(null);
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const subtitleSaveTokenRef = useRef(0);
@@ -92,6 +93,7 @@ export function WorkbenchApp() {
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
   const subtitleDraftEntries = Object.values(state.subtitleDrafts);
+  const contentProfile = state.contentProfile ?? buildContentProfile(null);
 
   useEffect(() => {
     subtitleSaveStateRef.current = {
@@ -505,35 +507,78 @@ export function WorkbenchApp() {
     return !Object.values(subtitleSaveStateRef.current.subtitleDrafts).some((entry) => entry.saveState === "failed");
   }, [enqueueSubtitleDraftSave, isSubtitleDraftChanged]);
 
-  const handleUnderstand = () => {
-    if (!state.sampleVideo) return;
-    const stage = beginStage(STAGES.understand, state.sampleVideo.artifactId);
-    const cards = createStructureCards(state.sampleVideo);
-    dispatch({ type: "set-structure-cards", cards });
-    const structureArtifactId = createId("artifact");
-    dispatch({ type: "add-version", version: addVersion("结构理解完成", stage.stageName, structureArtifactId, state.sampleVideo.artifactId) });
-    finishStage(stage, structureArtifactId, { cardCount: cards.length });
-  };
+  const handleUnderstand = useCallback(async () => {
+    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
+    const stage = beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+      shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
+    });
+    try {
+      const result = await runScriptSegmentAnalysis(state, dispatch, setScriptSegmentJob);
+      if (!result?.artifact?.scriptSegmentAnalysis) {
+        throw new Error("脚本段落分析未返回有效产物");
+      }
+      persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
+      dispatch({
+        type: "add-version",
+        version: addVersion(
+          "结构理解完成",
+          stage.stageName,
+          result.artifact.scriptSegmentAnalysis.artifactId,
+          result.artifact.scriptSegmentAnalysis.parentArtifactId ?? state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+        ),
+      });
+      finishStage(stage, result.artifact.scriptSegmentAnalysis.artifactId, {
+        segmentCount: result.artifact.scriptSegmentAnalysis.segments.length,
+        validatorCode: result.artifact.scriptSegmentAnalysis.validation?.validatorCode ?? null,
+      });
+      return result.artifact;
+    } catch (error) {
+      setScriptSegmentJob(null);
+      failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "脚本段落分析失败",
+        errorStage: STAGES.understand,
+        backendTraceId: scriptSegmentJob?.traceId ?? state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "script-segment-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, scriptSegmentJob?.traceId, state, state.processingJob?.traceId]);
 
-  const handleGeneratePlan = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!state.sampleVideo || state.structureCards.length === 0) return;
-    const parentArtifactId = state.structureCards[state.structureCards.length - 1].artifactId;
-    const stage = beginStage(STAGES.transfer, parentArtifactId);
-    const form = event.currentTarget;
-    const profile = {
-      topic: sanitizeText(new FormData(form).get("topic"), 60) || "新主题",
-      sellingPoints: sanitizeText(new FormData(form).get("sellingPoints"), 120) || "核心卖点待补充",
-      audience: sanitizeText(new FormData(form).get("audience"), 60) || "目标人群待补充",
-      platform: sanitizeText(new FormData(form).get("platform"), 60) || "短视频平台",
-      duration: sanitizeText(new FormData(form).get("duration"), 32) || "与样例接近",
-      tone: sanitizeText(new FormData(form).get("tone"), 60) || "清晰、有节奏",
-    };
-    const result = createGeneratedPlan(profile, state.structureCards, parentArtifactId);
-    dispatch({ type: "set-generated-plan", generatedPlan: result.generatedPlan, mappings: result.mappings });
-    dispatch({ type: "add-version", version: addVersion("迁移方案生成", stage.stageName, result.generatedArtifactId, parentArtifactId) });
-    finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
-  };
+  const handleGeneratePlan = useCallback(async () => {
+    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return;
+    let sourceArtifact: SampleArtifact | null = state.sampleArtifact;
+    if (!sourceArtifact?.scriptSegmentAnalysis?.segments?.length) {
+      sourceArtifact = await handleUnderstand();
+    }
+    if (!sourceArtifact) return;
+    const structureCards = createStructureCardsFromSegments(sourceArtifact ?? null);
+    if (!structureCards.length) return;
+    const parentArtifactId = sourceArtifact?.scriptSegmentAnalysis?.artifactId ?? state.sampleVideo.artifactId;
+    const stage = beginStage(STAGES.transfer, parentArtifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      structureCardCount: structureCards.length,
+      sourceScriptSegmentArtifactId: parentArtifactId,
+    });
+    try {
+      const profile = contentProfile;
+      const result = createGeneratedPlan(profile, structureCards, parentArtifactId);
+      dispatch({ type: "set-generated-plan", generatedPlan: result.generatedPlan, mappings: result.mappings, profile });
+      dispatch({ type: "add-version", version: addVersion("迁移方案生成", stage.stageName, result.generatedArtifactId, parentArtifactId) });
+      finishStage(stage, result.generatedArtifactId, { shotCount: result.generatedPlan.shots.length, mappingCount: result.mappings.length });
+    } catch (error) {
+      failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "迁移方案生成失败",
+        errorStage: STAGES.transfer,
+        backendTraceId: state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "transfer-generate-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [beginStage, contentProfile, dispatch, failStage, finishStage, handleUnderstand, state]);
 
   const handleSelectAudioFeature = useCallback(
     (marker: AudioFeatureMarker) => {
@@ -630,6 +675,7 @@ export function WorkbenchApp() {
           currentShotId={currentShotId}
           agentJob={agentJob}
           agentAnalysisFps={agentAnalysisFps}
+          contentProfile={contentProfile}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => {
             flushSubtitleDraftsBeforeShotBoundary()
@@ -654,6 +700,16 @@ export function WorkbenchApp() {
               })
               .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
           }}
+          onContentProfileChange={(field, value) => {
+            dispatch({
+              type: "set-content-profile",
+              profile: {
+                ...contentProfile,
+                [field]: sanitizeText(value, field === "sellingPoints" ? 200 : 80),
+              },
+            });
+          }}
+          onGeneratePlan={handleGeneratePlan}
           onSelectShot={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             const card = findCurrentStructureCard(state.structureCards, time);
@@ -740,15 +796,6 @@ export function WorkbenchApp() {
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
       {shotCachePrompt ? <CacheDecisionDialog item={shotCachePrompt.cachedItem} onReuse={reuseShotCache} onRefresh={refreshShotCache} onCancel={() => setShotCachePrompt(null)} /> : null}
-      <form id="profileForm" className="sr-only" onSubmit={handleGeneratePlan}>
-        <input name="topic" />
-        <input name="sellingPoints" />
-        <input name="audience" />
-        <input name="platform" />
-        <input name="duration" />
-        <input name="tone" />
-        <button type="submit">生成方案</button>
-      </form>
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>

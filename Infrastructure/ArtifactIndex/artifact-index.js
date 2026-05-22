@@ -206,7 +206,18 @@ function buildArtifactTree(artifact) {
     for (const candidate of artifact.shotBoundaryAnalysis.boundaryCandidateArtifacts ?? []) {
       pushNode(nodes, candidate, "shot.boundary_candidates", artifact, `${candidate.boundaries?.length ?? 0} 条边界`);
     }
-    pushNode(nodes, artifact.shotBoundaryAnalysis, "shot.boundary_merge", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜 / ${artifact.shotBoundaryAnalysis.boundaries?.length ?? 0} 边界`);
+    const commerceBrief = artifact.shotBoundaryAnalysis.commerceBrief;
+    const commerceSummary = commerceBrief?.sellingObject ? ` / 带货总结:${commerceBrief.sellingObject}` : "";
+    pushNode(nodes, artifact.shotBoundaryAnalysis, "shot.boundary_merge", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜 / ${artifact.shotBoundaryAnalysis.boundaries?.length ?? 0} 边界${commerceSummary}`);
+  }
+  if (artifact.scriptSegmentAnalysis) {
+    pushNode(
+      nodes,
+      artifact.scriptSegmentAnalysis,
+      "script_segment.materialize",
+      artifact,
+      `${artifact.scriptSegmentAnalysis.segments?.length ?? 0} 段 / ${artifact.scriptSegmentAnalysis.validation?.status ?? "unknown"}`,
+    );
   }
   return nodes;
 }
@@ -254,6 +265,7 @@ function buildTags(artifact) {
     artifact.subtitles?.segments?.length ? "字幕" : null,
     artifact.audioFeatures ? "音频特征" : null,
     artifact.shotBoundaryAnalysis ? "切镜" : null,
+    artifact.scriptSegmentAnalysis ? "结构理解" : null,
   ].filter(Boolean);
 }
 
@@ -295,6 +307,15 @@ function stageParams(artifact, stageName) {
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     });
   }
+  if (stageName === "script_segment.materialize") {
+    return {
+      sourceShotBoundaryArtifactId: artifact.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
+      segmentCount: artifact.scriptSegmentAnalysis?.segments?.length ?? 0,
+      validatorCode: artifact.scriptSegmentAnalysis?.validation?.validatorCode ?? null,
+      repairAttemptCount: artifact.scriptSegmentAnalysis?.validation?.repairAttemptCount ?? 0,
+      skillHash: artifact.scriptSegmentAnalysis?.agent?.skillHash ?? null,
+    };
+  }
   return {};
 }
 
@@ -311,6 +332,7 @@ function artifactLabel(type) {
     contact_sheet: "切镜联表",
     shot_boundary_candidates: "切镜候选",
     "shot-boundary-analysis": "镜头切分",
+    "script-segment-analysis": "脚本段落",
   };
   return labels[type] ?? type ?? "产物";
 }

@@ -5,4 +5,4 @@
 校验失败：{{validationJson}}
 上次输出摘要：{{priorOutputSummaryJson}}
 输出契约：{{outputContractJson}}
-要求：继续采用 shot-centric 结构，只返回 shots 数组；不要返回独立 boundaries 数组；每个 shot 直接包含 summary / start / end / endBoundary；严格按时间升序；第一镜 start 必须为 0；最后一镜 end 必须等于 durationSeconds；除最后一镜外每个 shot.endBoundary.timestamp 必须等于该镜 end；summary 只描述镜头内容；reason 只描述切换原因；字幕只作语义辅助，不作为唯一切镜依据；不要输出 frameId、路径或解释性正文。
+要求：继续采用 `commerceBrief + shots` 结构；不要返回独立 boundaries 数组；每个 shot 直接包含 summary / start / end / endBoundary；commerceBrief 只回答 6 个问题，不编造品牌、价格、功效；严格按时间升序；第一镜 start 必须为 0；最后一镜 end 必须等于 durationSeconds；除最后一镜外每个 shot.endBoundary.timestamp 必须等于该镜 end；summary 只描述镜头内容；reason 只描述切换原因；字幕只作语义辅助，不作为唯一切镜依据；不要输出 frameId、路径或解释性正文。
