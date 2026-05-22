@@ -71,12 +71,15 @@ export async function saveSubtitleRevision(
   );
 }
 
-export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
   return readJson<ScriptSegmentStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ cacheDecision: options.cacheDecision ?? "ask" }),
+      body: JSON.stringify({
+        cacheDecision: options.cacheDecision ?? "ask",
+        expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
+      }),
     }),
   );
 }

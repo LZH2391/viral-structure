@@ -205,6 +205,22 @@ test("script segment service keeps collecting submitted turn until completed", a
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
 });
 
+test("script segment enqueue rejects stale expected shot boundary artifact", async () => {
+  const harness = await createScriptHarness();
+
+  await assert.rejects(
+    harness.service.enqueue({
+      sampleVideoId: "sample_script_1",
+      expectedShotBoundaryArtifactId: "artifact_previous_shot_boundary",
+    }),
+    (error) => {
+      assert.equal(error.code, "script_segment_shot_boundary_stale");
+      assert.equal(error.statusCode, 409);
+      return true;
+    },
+  );
+});
+
 test("script segment service repairs invalid output and preserves same thread", async () => {
   const harness = await createScriptHarness({
     appServer: {

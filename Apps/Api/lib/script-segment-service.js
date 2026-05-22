@@ -48,9 +48,10 @@ function createScriptSegmentService({
   appServer = createAppServerBridge(),
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 } = {}) {
-  async function enqueue({ sampleVideoId, cacheDecision = "ask" }) {
+  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
     await store.ensureRuntimeDirs();
     const artifact = await loadArtifact(sampleVideoId, store);
+    assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId);
     const traceContext = createTraceContext(createTraceIds());
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     const roleProfile = await loadRoleProfileByRole(ROLE);
@@ -58,6 +59,7 @@ function createScriptSegmentService({
       sampleVideoId,
       cacheDecision,
       artifact,
+      expectedShotBoundaryArtifactId,
       traceContext,
       job,
       roleProfile,
@@ -82,6 +84,7 @@ function createScriptSegmentService({
       throw badRequestError("cache_decision_invalid_job", "只能对等待缓存选择的脚本段落任务执行该操作");
     }
     const artifact = await loadArtifact(job.sampleVideoId, store);
+    assertExpectedShotBoundaryArtifact(artifact, job.cachePrompt.expectedShotBoundaryArtifactId ?? null);
     const roleProfile = await loadRoleProfileByRole(ROLE);
     const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
     const inputPackage = await prepareInputPackage({
@@ -94,6 +97,7 @@ function createScriptSegmentService({
       sampleVideoId: job.sampleVideoId,
       cacheDecision: decision,
       artifact,
+      expectedShotBoundaryArtifactId: job.cachePrompt.expectedShotBoundaryArtifactId ?? null,
       traceContext: {
         runId: job.traceId,
         traceId: job.traceId,
@@ -278,6 +282,7 @@ function createScriptSegmentService({
           turnId: analysis.agent?.turnId ?? null,
         },
         action: async () => {
+          assertExpectedShotBoundaryArtifact(await loadArtifact(context.sampleVideoId, store), context.input.parentArtifactId);
           const nextArtifact = await attachScriptSegments(context.sampleVideoId, analysis, store);
           await artifactIndex.registerSampleArtifact({
             artifact: nextArtifact,
@@ -400,6 +405,7 @@ function createScriptSegmentService({
           repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
         },
         action: async () => {
+          assertExpectedShotBoundaryArtifact(await loadArtifact(context.sampleVideoId, store), context.input.parentArtifactId);
           const nextArtifact = await attachScriptSegments(context.sampleVideoId, analysis, store);
           await artifactIndex.registerSampleArtifact({
             artifact: nextArtifact,
@@ -599,8 +605,32 @@ function createScriptSegmentService({
       promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       profileVersion: context.roleProfile?.profileVersion ?? null,
+      expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
     };
   }
+}
+
+function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId) {
+  const expected = String(expectedShotBoundaryArtifactId ?? "").trim();
+  if (!expected) return;
+  const actual = String(artifact?.shotBoundaryAnalysis?.artifactId ?? "").trim();
+  if (actual === expected) return;
+  throw conflictError("script_segment_shot_boundary_stale", "切镜结果已更新，请刷新后再运行脚本段落分析", {
+    expectedShotBoundaryArtifactId: expected,
+    actualShotBoundaryArtifactId: actual || null,
+  });
+}
+
+function badRequestError(code, message, debugPayload = null) {
+  const error = codedError(code, message, debugPayload, false);
+  error.statusCode = 400;
+  return error;
+}
+
+function conflictError(code, message, debugPayload = null) {
+  const error = codedError(code, message, debugPayload, false);
+  error.statusCode = 409;
+  return error;
 }
 
 async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store, traceMeta = {}) {

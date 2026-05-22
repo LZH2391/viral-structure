@@ -68,7 +68,10 @@ export async function runScriptSegmentAnalysis(
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
   if (!state.sampleVideo) return null;
-  const started = await startScriptSegmentAnalysis(state.sampleVideo.id, { cacheDecision });
+  const started = await startScriptSegmentAnalysis(state.sampleVideo.id, {
+    cacheDecision,
+    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+  });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
       job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "script_segment.cache_lookup", status: "cache_waiting", progress: 28 },

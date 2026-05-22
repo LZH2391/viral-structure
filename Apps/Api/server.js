@@ -129,7 +129,11 @@ async function handleSubtitleRevision(req, res, sampleVideoId) {
 
 async function handleScriptSegments(req, res, sampleVideoId) {
   const body = await readJsonBody(req).catch(() => ({}));
-  const result = await scriptSegmentService.enqueue({ sampleVideoId, cacheDecision: body.cacheDecision ?? "ask" });
+  const result = await scriptSegmentService.enqueue({
+    sampleVideoId,
+    cacheDecision: body.cacheDecision ?? "ask",
+    expectedShotBoundaryArtifactId: body.expectedShotBoundaryArtifactId ?? null,
+  });
   return sendJson(res, 202, result);
 }
 

@@ -366,6 +366,7 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(app, /runScriptSegmentAnalysis/);
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
   assert.match(helpers, /startScriptSegmentAnalysis/);
+  assert.match(helpers, /expectedShotBoundaryArtifactId: state\.sampleArtifact\?\.shotBoundaryAnalysis\?\.artifactId \?\? null/);
   assert.match(helpers, /"script_segment\.cache_lookup": "检查脚本段落缓存"/);
   assert.match(helpers, /"script_segment\.cache_reuse": "复用脚本段落缓存"/);
   assert.match(helpers, /"script_segment\.input_prepare": "准备脚本段落输入"/);
@@ -373,7 +374,9 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(helpers, /"script_segment\.repair": "修复脚本段落结果"/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/script-segments/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
+  assert.match(api, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(server, /createScriptSegmentService/);
+  assert.match(server, /expectedShotBoundaryArtifactId: body\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(server, /script-segments/);
   assert.match(index, /script_segment\.materialize/);
   assert.match(index, /"script-segment-analysis": "脚本段落"/);
