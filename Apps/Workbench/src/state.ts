@@ -72,6 +72,7 @@ export type WorkbenchAction =
   | { type: "set-upload-state"; isUploadingSample: boolean; uploadStatusText: string | null; processingJob?: ProcessingJob | null; errorSummary?: ErrorSummary | null }
   | { type: "set-processing-job"; processingJob: ProcessingJob | null; uploadStatusText: string | null }
   | { type: "apply-artifact"; artifact: SampleArtifact }
+  | { type: "sync-subtitle-artifact"; artifact: SampleArtifact }
   | { type: "set-shot-boundary-analysis"; artifact: SampleArtifact }
   | { type: "set-error"; errorSummary: ErrorSummary | null; uploadStatusText: string | null }
   | { type: "select-media"; activeMediaKind: MediaKind; selectedDerivativeId: string | null; selectedFrameId: string | null; selectedSubtitleId?: string | null; selectedAudioFeatureMarkerId?: string | null }
@@ -84,9 +85,9 @@ export type WorkbenchAction =
   | { type: "add-snapshot"; snapshot: DebugSnapshot }
   | { type: "set-active-stage"; stageId: string | null }
   | { type: "set-capabilities"; capabilities: BackendCapabilities }
-  | { type: "update-subtitle-draft"; segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }
-  | { type: "set-subtitle-draft-status"; segmentId: string; saveState: "idle" | "saving" | "saved" | "failed"; errorMessage?: string | null; lastSavedArtifactId?: string | null }
-  | { type: "clear-subtitle-draft"; segmentId: string }
+  | { type: "update-subtitle-draft"; segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null; saveToken?: number | null; queuedAt?: number | null }
+  | { type: "set-subtitle-draft-status"; segmentId: string; saveState: "idle" | "saving" | "saved" | "failed"; saveToken?: number | null; errorMessage?: string | null; lastSavedArtifactId?: string | null }
+  | { type: "clear-subtitle-draft"; segmentId: string; saveToken?: number | null }
   | { type: "restore-draft"; draft: DraftState };
 
 export type DraftState = {
@@ -115,6 +116,12 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
       return { ...state, processingJob: action.processingJob, uploadStatusText: action.uploadStatusText };
     case "apply-artifact":
       return applySampleArtifact(state, action.artifact);
+    case "sync-subtitle-artifact":
+      return {
+        ...state,
+        sampleArtifact: action.artifact,
+        subtitles: action.artifact.subtitles ?? null,
+      };
     case "set-shot-boundary-analysis":
       return {
         ...state,
@@ -165,6 +172,8 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
             end: action.end,
             sourceArtifactId: action.sourceArtifactId,
             draftVersionId: state.subtitleDrafts[action.segmentId]?.draftVersionId ?? createId("version"),
+            saveToken: action.saveToken ?? state.subtitleDrafts[action.segmentId]?.saveToken ?? null,
+            queuedAt: action.queuedAt ?? Date.now(),
             saveState: state.subtitleDrafts[action.segmentId]?.saveState ?? "idle",
             errorMessage: null,
             lastSavedArtifactId: state.subtitleDrafts[action.segmentId]?.lastSavedArtifactId ?? null,
@@ -174,12 +183,14 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
     case "set-subtitle-draft-status": {
       const current = state.subtitleDrafts[action.segmentId];
       if (!current) return state;
+      if (action.saveToken != null && current.saveToken != null && current.saveToken !== action.saveToken) return state;
       return {
         ...state,
         subtitleDrafts: {
           ...state.subtitleDrafts,
           [action.segmentId]: {
             ...current,
+            saveToken: action.saveToken ?? current.saveToken ?? null,
             saveState: action.saveState,
             errorMessage: action.errorMessage ?? null,
             lastSavedArtifactId: action.lastSavedArtifactId ?? current.lastSavedArtifactId ?? null,
@@ -189,6 +200,7 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
     }
     case "clear-subtitle-draft": {
       if (!state.subtitleDrafts[action.segmentId]) return state;
+      if (action.saveToken != null && state.subtitleDrafts[action.segmentId]?.saveToken != null && state.subtitleDrafts[action.segmentId]?.saveToken !== action.saveToken) return state;
       const nextDrafts = { ...state.subtitleDrafts };
       delete nextDrafts[action.segmentId];
       return {

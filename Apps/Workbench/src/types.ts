@@ -469,6 +469,8 @@ export type SubtitleDraft = {
   end: number;
   sourceArtifactId: string | null;
   draftVersionId: string;
+  saveToken?: number | null;
+  queuedAt?: number | null;
   saveState?: "idle" | "saving" | "saved" | "failed";
   errorMessage?: string | null;
   lastSavedArtifactId?: string | null;

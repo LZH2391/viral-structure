@@ -23,21 +23,26 @@ const { buildShotBoundaryCacheParams, cacheParams } = require("./cache-params");
 
 function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn, options = {}) {
   const parsed = extractJsonObject(message);
+  const promptTemplateVersion = context.promptTemplate?.promptTemplateVersion ?? null;
+  const strictShotCentric = /^((analyze|repair)\.v2)$/.test(String(promptTemplateVersion ?? ""));
+  const hasShotCentricPayload = Object.prototype.hasOwnProperty.call(parsed, "shots");
   const parsedShots = Array.isArray(parsed.shots) ? parsed.shots : null;
-  const shotCentricValidation = validateShotCentricShots(parsedShots, prepared.durationSeconds);
-  const usingShotCentricSchema = shotCentricValidation.ok;
+  const shotCentricValidation = hasShotCentricPayload
+    ? validateShotCentricShots(parsedShots, prepared.durationSeconds)
+    : null;
+  const usingShotCentricSchema = Boolean(shotCentricValidation?.ok);
   const rawBoundaries = usingShotCentricSchema
     ? deriveBoundariesFromShots(parsedShots)
-    : (Array.isArray(parsed.boundaries) ? parsed.boundaries : null);
+    : (strictShotCentric && hasShotCentricPayload ? [] : (Array.isArray(parsed.boundaries) ? parsed.boundaries : null));
   const normalizedBoundaries = normalizeTimestampBoundaries(rawBoundaries);
   const normalizedShotCentricShots = usingShotCentricSchema ? normalizeShotCentricShots(parsedShots) : null;
-  const validation = usingShotCentricSchema
+  const validation = (strictShotCentric && hasShotCentricPayload)
     ? shotCentricValidation
     : validateTimestampBoundaries(normalizedBoundaries, prepared.durationSeconds);
   if (!validation.ok) {
     throw require("./shared").codedError("shot_boundary_validation_failed", validation.message, {
       turnId: turn?.turnId ?? null,
-      outputSchemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
+      outputSchemaVersion: (strictShotCentric && hasShotCentricPayload) ? "shot-centric.v2" : "legacy-boundary.v1",
       outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
       validation: validation.summary,
     }, false);
@@ -47,7 +52,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     throw require("./shared").codedError("agent_output_quality_failed", "切镜 Agent 输出存在编码异常，已阻止写入 processed 产物", {
       turnId: turn?.turnId ?? null,
       parseFailureReason: qualityIssue.reason,
-      outputSchemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
+      outputSchemaVersion: (strictShotCentric && hasShotCentricPayload) ? "shot-centric.v2" : "legacy-boundary.v1",
       outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
       suspiciousReason: qualityIssue.suspiciousReason,
       validation: validation.summary,

@@ -7,7 +7,7 @@ const STAGE_NAME = "sample.subtitle.revised";
 const MAX_SEGMENT_TEXT_LENGTH = 240;
 
 function createSubtitleRevisionService({ store, logger, artifactIndex }) {
-  async function saveRevision({ sampleVideoId, segments }) {
+  async function saveRevision({ sampleVideoId, segments, expectedSubtitleArtifactId = null, expectedRevisionIndex = null }) {
     const traceContext = createTraceContext(createTraceIds());
     const context = {
       sampleVideoId,
@@ -24,6 +24,7 @@ function createSubtitleRevisionService({ store, logger, artifactIndex }) {
       }
 
       const currentSubtitles = artifact.subtitles;
+      assertExpectedSubtitleRevision(currentSubtitles, { expectedSubtitleArtifactId, expectedRevisionIndex });
       const normalizedSegments = normalizeSubtitleSegments(segments, artifact.metadata?.durationSeconds);
       if (!normalizedSegments.length) throw badRequestError("subtitle_segments_empty", "字幕列表不能为空");
       if (!hasSubtitleChanges(currentSubtitles.segments, normalizedSegments)) {
@@ -35,6 +36,8 @@ function createSubtitleRevisionService({ store, logger, artifactIndex }) {
       const inputSummary = {
         sampleVideoId,
         sourceSubtitleArtifactId: currentSubtitles.artifactId ?? null,
+        expectedSubtitleArtifactId,
+        expectedRevisionIndex,
         revisionOfArtifactId,
         requestedSegmentCount: normalizedSegments.length,
         nextRevisionIndex: revisionIndex,
@@ -276,6 +279,7 @@ function buildErrorSummary(error, stageName) {
     message: error?.safeSummary ?? (error instanceof Error ? error.message : "字幕保存失败"),
     stageName,
     retryable: typeof error?.retryable === "boolean" ? error.retryable : true,
+    statusCode: Number.isInteger(error?.statusCode) ? error.statusCode : null,
   };
 }
 
@@ -291,6 +295,27 @@ function buildDebugPayload(error, inputSummary) {
   };
 }
 
+function assertExpectedSubtitleRevision(currentSubtitles, options) {
+  const expectedArtifactId = options?.expectedSubtitleArtifactId ?? null;
+  const expectedRevisionIndex = Number.isInteger(options?.expectedRevisionIndex) ? options.expectedRevisionIndex : null;
+  if (expectedArtifactId === null && expectedRevisionIndex === null) return;
+  const currentArtifactId = currentSubtitles?.artifactId ?? null;
+  const currentRevisionIndex = Number.isInteger(currentSubtitles?.revisionIndex) ? currentSubtitles.revisionIndex : 0;
+  if (expectedArtifactId === currentArtifactId && expectedRevisionIndex === currentRevisionIndex) return;
+  const error = new Error("字幕版本已变化，请刷新后重试");
+  error.code = "subtitle_revision_conflict";
+  error.safeSummary = "字幕版本已变化，请刷新后重试";
+  error.retryable = true;
+  error.statusCode = 409;
+  error.debugPayload = {
+    expectedSubtitleArtifactId: expectedArtifactId,
+    expectedRevisionIndex,
+    currentSubtitleArtifactId: currentArtifactId,
+    currentRevisionIndex,
+  };
+  throw error;
+}
+
 function badRequestError(code, message, debugPayload = null) {
   const error = new Error(message);
   error.code = code;
@@ -304,7 +329,7 @@ function badRequestError(code, message, debugPayload = null) {
 function apiError(errorSummary, traceId) {
   const error = new Error(errorSummary.message || "字幕保存失败");
   error.code = errorSummary.code;
-  error.statusCode = errorSummary.retryable === false ? 400 : 500;
+  error.statusCode = errorSummary.statusCode ?? (errorSummary.retryable === false ? 400 : 500);
   error.debugSnapshotUri = errorSummary.debugSnapshotUri ?? null;
   error.stageName = errorSummary.stageName ?? STAGE_NAME;
   error.traceId = traceId ?? null;
@@ -318,4 +343,5 @@ module.exports = {
   normalizeSubtitleSegments,
   buildSubtitleTextHash,
   appendRevisionHistory,
+  assertExpectedSubtitleRevision,
 };

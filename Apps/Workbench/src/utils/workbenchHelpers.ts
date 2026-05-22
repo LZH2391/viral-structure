@@ -204,13 +204,33 @@ export function buildIngestError(job: ProcessingJob) {
 }
 
 export function buildSubtitleSaveError(error: unknown, fallbackMessage = "字幕保存失败") {
-  const raw = error as { code?: string; message?: string; traceId?: string; debugSnapshotUri?: string };
+  const raw = error as {
+    code?: string;
+    message?: string;
+    traceId?: string;
+    debugSnapshotUri?: string;
+    stageName?: string | null;
+    retryable?: boolean | null;
+    statusCode?: number;
+  };
   const traceId = raw?.traceId ? `traceId: ${raw.traceId}` : null;
   const debugSnapshotUri = raw?.debugSnapshotUri ? `debugSnapshot: ${raw.debugSnapshotUri}` : null;
   const details = [traceId, debugSnapshotUri].filter(Boolean).join(" / ");
   const message = details ? `${raw?.message || fallbackMessage}（${details}）` : (raw?.message || fallbackMessage);
-  const next = new Error(message) as Error & { code?: string };
+  const next = new Error(message) as Error & {
+    code?: string;
+    traceId?: string | null;
+    debugSnapshotUri?: string | null;
+    stageName?: string | null;
+    retryable?: boolean | null;
+    statusCode?: number;
+  };
   next.code = raw?.code || "subtitle_revision_failed";
+  next.traceId = raw?.traceId ?? null;
+  next.debugSnapshotUri = raw?.debugSnapshotUri ?? null;
+  next.stageName = raw?.stageName ?? null;
+  next.retryable = raw?.retryable ?? null;
+  next.statusCode = raw?.statusCode;
   return next;
 }
 

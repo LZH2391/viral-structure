@@ -69,8 +69,18 @@ const server = http.createServer(async (req, res) => {
     return notFound(res);
   } catch (error) {
     await recordApiRequestFailure(logger, req, error).catch(() => undefined);
-    if (error.statusCode === 400) return sendJson(res, 400, { error: error.code ?? "bad_request", message: error.message });
-    return sendJson(res, 500, { error: "internal_error", message: "请求处理失败" });
+    if (error.statusCode) {
+      return sendJson(res, error.statusCode, {
+        error: error.code ?? (error.statusCode === 400 ? "bad_request" : "request_failed"),
+        code: error.code ?? null,
+        message: error.message,
+        traceId: error.traceId ?? null,
+        debugSnapshotUri: error.debugSnapshotUri ?? null,
+        stageName: error.stageName ?? null,
+        retryable: typeof error.retryable === "boolean" ? error.retryable : error.statusCode >= 500,
+      });
+    }
+    return sendJson(res, 500, { error: "internal_error", code: "internal_error", message: "请求处理失败", retryable: true });
   }
 });
 
@@ -105,7 +115,12 @@ async function handleShotBoundary(req, res, sampleVideoId) {
 
 async function handleSubtitleRevision(req, res, sampleVideoId) {
   const body = await readJsonBody(req);
-  const result = await subtitleRevisionService.saveRevision({ sampleVideoId, segments: body.segments });
+  const result = await subtitleRevisionService.saveRevision({
+    sampleVideoId,
+    segments: body.segments,
+    expectedSubtitleArtifactId: body.expectedSubtitleArtifactId ?? null,
+    expectedRevisionIndex: body.expectedRevisionIndex ?? null,
+  });
   return sendJson(res, 200, result);
 }
 

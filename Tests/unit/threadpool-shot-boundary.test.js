@@ -339,6 +339,51 @@ test("processed shot analysis accepts shot-centric output and derives boundaries
   assert.equal(analysis.shots[1].endBoundaryReason, null);
 });
 
+test("processed shot analysis does not fallback to legacy boundaries when v2 shots are invalid", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
+
+  assert.throws(
+    () => buildProcessedAnalysis(
+      JSON.stringify({
+        shots: [
+          {
+            summary: "首镜",
+            start: 0.2,
+            end: 1.2,
+            endBoundary: {
+              timestamp: 1.2,
+              confidence: 0.8,
+              boundaryType: "hard_cut",
+              reason: "错误首镜起点",
+              needReview: false,
+            },
+          },
+          {
+            summary: "尾镜",
+            start: 1.2,
+            end: 2,
+            endBoundary: null,
+          },
+        ],
+        boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "legacy fallback", needReview: false }],
+      }),
+      prepared,
+      contactSheets,
+      { artifactId: "artifact_shot", skillPath: "SKILL.md", skillHash: "hash", promptTemplate: { promptTemplateVersion: "analyze.v2" } },
+      { thread_id: "thread_1", lease_id: "lease_1" },
+      { turnId: "turn_1" },
+    ),
+    (error) => {
+      assert.equal(error.code, "shot_boundary_validation_failed");
+      assert.equal(error.debugPayload.outputSchemaVersion, "shot-centric.v2");
+      assert.equal(error.debugPayload.validation.validatorCode, "shot_boundary_first_shot_start_invalid");
+      return true;
+    },
+  );
+});
+
 test("subtitle hash participates in shot boundary cache params", () => {
   const artifactA = createArtifact({
     subtitleStatus: "processed",
@@ -705,8 +750,20 @@ test("shot boundary collect completed writes artifact and releases lease", async
         turnId: "turn_1",
         status: "completed",
         finalMessage: `补充说明\n${JSON.stringify({
-          boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }],
-          shots: [{ summary: "人物半身口播" }, { summary: "产品特写镜头" }],
+          shots: [
+            {
+              summary: "人物半身口播",
+              start: 0,
+              end: 1.2,
+              endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+            },
+            {
+              summary: "产品特写镜头",
+              start: 1.2,
+              end: 2,
+              endBoundary: null,
+            },
+          ],
         })}\n已完成`,
       }),
     },

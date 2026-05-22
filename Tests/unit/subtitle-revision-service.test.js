@@ -78,6 +78,40 @@ test("subtitle revision rejects invalid ranges and writes fail log with snapshot
   );
 });
 
+test("subtitle revision rejects stale expected revision with 409 conflict and fail log", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-subtitle-revision-conflict-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const logger = createStageLogger(store);
+  const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const sampleVideoId = "sample_1";
+  const artifact = createArtifact();
+  await store.writeJson(path.join(store.sampleDir(sampleVideoId), "artifact.json"), artifact);
+  await artifactIndex.registerSampleArtifact({ artifact, fileHash: hashBuffer(Buffer.from("video")), traceId: "trace_source" });
+  const service = createSubtitleRevisionService({ store, logger, artifactIndex });
+
+  try {
+    await service.saveRevision({
+      sampleVideoId,
+      segments: [{ id: "subtitle_1", start: 0, end: 1, text: "原始字幕一", confidence: null }],
+      expectedSubtitleArtifactId: "artifact_subtitle_stale",
+      expectedRevisionIndex: 9,
+    });
+    assert.fail("expected subtitle revision conflict");
+  } catch (error) {
+    assert.equal(error.code, "subtitle_revision_conflict");
+    assert.equal(error.statusCode, 409);
+    assert.equal(error.retryable, true);
+    assert.ok(error.debugSnapshotUri);
+    assert.ok(error.traceId);
+    const logText = await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", `${error.traceId}.log.jsonl`), "utf8");
+    const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
+    const failLog = logs.find((line) => line.event === "stage.fail");
+    assert.equal(failLog.errorSummary.code, "subtitle_revision_conflict");
+    assert.equal(failLog.errorSummary.retryable, true);
+  }
+});
+
 function createArtifact() {
   return {
     sampleVideoId: "sample_1",

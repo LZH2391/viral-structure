@@ -52,12 +52,17 @@ export async function startShotBoundaryAnalysis(sampleVideoId: string, options: 
 export async function saveSubtitleRevision(
   sampleVideoId: string,
   segments: Array<{ id: string; start: number; end: number; text: string; confidence?: number | null }>,
+  options: { expectedSubtitleArtifactId?: string | null; expectedRevisionIndex?: number | null } = {},
 ) {
   return readJson<{ sampleArtifact: SampleArtifact; traceId: string; changed: boolean }>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/subtitles/revisions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ segments }),
+      body: JSON.stringify({
+        segments,
+        expectedSubtitleArtifactId: options.expectedSubtitleArtifactId ?? null,
+        expectedRevisionIndex: options.expectedRevisionIndex ?? null,
+      }),
     }),
   );
 }
@@ -157,6 +162,22 @@ export function runtimeUrl(uri?: string | null): string | null {
 
 async function readJson<T>(response: Response): Promise<T> {
   const json = await response.json();
-  if (!response.ok) throw new Error(json.message || json.error || "API 请求失败");
+  if (!response.ok) {
+    const error = new Error(json.message || json.error || "API 请求失败") as Error & {
+      code?: string;
+      traceId?: string | null;
+      debugSnapshotUri?: string | null;
+      stageName?: string | null;
+      retryable?: boolean | null;
+      statusCode?: number;
+    };
+    error.code = json.code || json.error || "api_request_failed";
+    error.traceId = json.traceId ?? null;
+    error.debugSnapshotUri = json.debugSnapshotUri ?? null;
+    error.stageName = json.stageName ?? null;
+    error.retryable = typeof json.retryable === "boolean" ? json.retryable : null;
+    error.statusCode = response.status;
+    throw error;
+  }
   return json as T;
 }

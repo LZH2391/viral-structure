@@ -315,6 +315,25 @@ test("property panel treats processed passed shot data without boundaries as inv
   assert.match(agentRunPanel, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
 });
 
+test("subtitle autosave uses queued save tokens and forwards revision preconditions", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+  const state = read(root, "Apps/Workbench/src/state.ts");
+  const types = read(root, "Apps/Workbench/src/types.ts");
+
+  assert.match(app, /subtitleSaveQueueRef = useRef\(Promise\.resolve\(true\)\)/);
+  assert.match(app, /subtitleSaveTokenRef = useRef\(0\)/);
+  assert.match(app, /expectedSubtitleArtifactId: subtitles\.artifactId \?\? null/);
+  assert.match(app, /expectedRevisionIndex: subtitles\.revisionIndex \?\? null/);
+  assert.match(app, /code === "subtitle_revision_conflict"/);
+  assert.match(app, /saveToken: draft\.saveToken \?\? null/);
+  assert.match(api, /expectedSubtitleArtifactId: options\.expectedSubtitleArtifactId \?\? null/);
+  assert.match(api, /expectedRevisionIndex: options\.expectedRevisionIndex \?\? null/);
+  assert.match(types, /saveToken\?: number \| null;/);
+  assert.match(types, /queuedAt\?: number \| null;/);
+});
+
 test("property panel shows all shots and recent shot analysis history", () => {
   const root = path.resolve(__dirname, "../..");
   const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
