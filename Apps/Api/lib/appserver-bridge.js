@@ -57,7 +57,7 @@ function createAppServerBridge({
       transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
     };
     const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
-    if (!result?.ok && result?.status !== "running") throw appServerError(result, "appserver_turn_collect_failed");
+    if (!result?.ok && !isNonTerminalTurnStatus(result?.status)) throw appServerError(result, "appserver_turn_collect_failed");
     return result;
   }
 
@@ -132,3 +132,7 @@ function runPythonJson({ python, script, payload, timeoutMs }) {
 }
 
 module.exports = { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge };
+
+function isNonTerminalTurnStatus(status) {
+  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress"].includes(String(status ?? "").trim().toLowerCase());
+}

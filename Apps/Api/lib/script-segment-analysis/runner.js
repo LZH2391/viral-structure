@@ -77,7 +77,7 @@ async function collectTurnToCompletion({
       timeoutSeconds: 120,
     });
     if (result?.status === "completed") return result;
-    if (result?.status !== "running" && result?.status !== "submitted") {
+    if (!isNonTerminalTurnStatus(result?.status)) {
       throw codedError("appserver_turn_collect_failed", "脚本段落 Agent 结果收集失败", {
         turnId,
         status: result?.status ?? null,
@@ -101,3 +101,7 @@ module.exports = {
   executeRepairTurn,
   collectTurnToCompletion,
 };
+
+function isNonTerminalTurnStatus(status) {
+  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress"].includes(String(status ?? "").trim().toLowerCase());
+}

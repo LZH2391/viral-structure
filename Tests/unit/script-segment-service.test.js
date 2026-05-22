@@ -151,6 +151,60 @@ test("script segment service submits script-segment-analyzer turn through appser
   assert.equal(harness.calls.release.length, 1);
 });
 
+test("script segment service keeps collecting submitted turn until completed", async () => {
+  const harness = await createScriptHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        if (harness.calls.collected.length === 1) {
+          return { ok: false, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted", finalMessage: "" };
+        }
+        return {
+          ok: true,
+          threadId: "thread_script_1",
+          turnId: "turn_script_1",
+          status: "completed",
+          finalMessage: JSON.stringify({
+            segments: [
+              {
+                label: "开场引题",
+                roleInScript: "先抛出结果建立停留理由",
+                shotRefs: ["shot_1"],
+                evidence: ["展示整理前后反差"],
+                transferableRule: "先亮结果再展开解释",
+                confidence: 0.81,
+                needReview: false,
+              },
+              {
+                label: "卖点证明",
+                roleInScript: "用连续镜头解释产品价值",
+                shotRefs: ["shot_2", "shot_3"],
+                evidence: ["演示收纳盒摆放和分类", "回到整洁台面并提示点击"],
+                transferableRule: "中段用连续证据证明核心卖点",
+                confidence: 0.79,
+                needReview: false,
+              },
+            ],
+          }),
+        };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  const job = await waitForJob(harness.jobStore, result.processingJobId, "processed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_script_1"), "artifact.json"));
+
+  assert.equal(job.status, "processed");
+  assert.equal(harness.calls.collected.length, 2);
+  assert.equal(artifact.scriptSegmentAnalysis.status, "processed");
+  assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
+});
+
 test("script segment service repairs invalid output and preserves same thread", async () => {
   const harness = await createScriptHarness({
     appServer: {

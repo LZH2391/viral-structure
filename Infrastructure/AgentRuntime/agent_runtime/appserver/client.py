@@ -85,7 +85,7 @@ ReviewTurnResult = TurnRunResult
 
 _SHARED_APP_SERVER_CLIENT: "AppServerSessionClient | None" = None
 _SHARED_APP_SERVER_CLIENT_KEY: tuple[Any, ...] | None = None
-_NON_TERMINAL_TURN_STATUSES = {"running", "inprogress"}
+_NON_TERMINAL_TURN_STATUSES = {"created", "pending", "queued", "submitted", "running", "inprogress", "in_progress"}
 
 
 class AppServerSessionClient:
