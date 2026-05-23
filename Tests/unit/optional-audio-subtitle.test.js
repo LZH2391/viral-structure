@@ -42,12 +42,12 @@ test("optional audio separation and subtitles keep base processing successful wi
         return { path: outputPath, summary: { sampleRate: 16000 } };
       },
     },
-    iatClient: {
+    asrClient: {
       async recognizeAudio() {
         const error = new Error("missing credentials");
-        error.code = "xfyun_credentials_missing";
-        error.safeSummary = "讯飞字幕识别凭证未配置";
-        error.modelDebug = { provider: "xfyun", stage: STAGES.subtitleRecognized, retryable: false };
+        error.code = "doubao_credentials_missing";
+        error.safeSummary = "豆包字幕识别凭证未配置";
+        error.modelDebug = { provider: "doubao-sauc", stage: STAGES.subtitleRecognized, retryable: false };
         throw error;
       },
     },
@@ -92,13 +92,25 @@ test("untimed subtitle results are distributed across media duration", async () 
         return { path: outputPath, summary: { sampleRate: 16000 } };
       },
     },
-    iatClient: {
+    asrClient: {
       async recognizeAudio() {
-        return [
-          { start: 0, end: 0, text: "第一句比较长" },
-          { start: 0, end: 0, text: "第二句" },
-          { start: 0, end: 0, text: "第三句" },
-        ];
+        return {
+          segments: [
+            { start: 0, end: 0, text: "第一句比较长" },
+            { start: 0, end: 0, text: "第二句" },
+            { start: 0, end: 0, text: "第三句" },
+          ],
+          timing: {
+            utterances: [],
+            words: [],
+          },
+          providerMeta: {
+            resourceId: "volc.bigasr.sauc.duration",
+            connectId: "connect_1",
+            requestId: "request_1",
+            logId: "log_1",
+          },
+        };
       },
     },
   });
@@ -113,6 +125,7 @@ test("untimed subtitle results are distributed across media duration", async () 
 
   const artifact = await store.readJson(path.join(store.sampleDir(upload.sampleVideoId), "artifact.json"));
   assert.equal(artifact.subtitles.segments.length, 3);
+  assert.equal(artifact.subtitles.provider, "doubao-sauc");
   assert.equal(artifact.subtitles.segments[0].start, 0);
   assert.ok(artifact.subtitles.segments[0].end < artifact.subtitles.segments[1].start || artifact.subtitles.segments[0].end === artifact.subtitles.segments[1].start);
   assert.ok(artifact.subtitles.segments[1].end <= artifact.subtitles.segments[2].start);
@@ -122,6 +135,7 @@ test("untimed subtitle results are distributed across media duration", async () 
   const logs = expandStageLogLines(logText.trim().split("\n").map(JSON.parse));
   const subtitleEnd = logs.find((line) => line.stageName === STAGES.subtitleRecognized && line.event === "stage.end");
   assert.equal(subtitleEnd.outputSummary.lastSegmentEnd, 10);
+  assert.equal(subtitleEnd.outputSummary.provider, "doubao-sauc");
 });
 
 test("optional audio feature analysis writes artifact and stage logs", async () => {

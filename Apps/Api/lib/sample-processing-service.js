@@ -7,7 +7,7 @@ const defaultMediaProcessor = require("../../../Infrastructure/MediaProcessing/m
 const defaultDemucsAdapter = require("../../../Infrastructure/MediaProcessing/demucs-adapter");
 const defaultTranscoder = require("../../../Infrastructure/MediaProcessing/audio-transcoder");
 const defaultLibrosaAdapter = require("../../../Infrastructure/MediaProcessing/librosa-adapter");
-const defaultIatClient = require("../../../Infrastructure/ModelGateway/xfyun-iat-client");
+const defaultAsrClient = require("../../../Infrastructure/ModelGateway/doubao-sauc-client");
 const { createArtifactIndex, hashBuffer } = require("../../../Infrastructure/ArtifactIndex/artifact-index");
 const { planFrameTimestampSampling } = require("../../../Core/Workspace/frame-timestamps");
 const { buildArtifact } = require("./sample-video-artifact");
@@ -16,7 +16,7 @@ const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErr
 const FRAME_MAX_COUNT = 6000;
 const FRAME_SAMPLING_POLICY = "fixed_interval_from_zero";
 
-function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, iatClient = defaultIatClient, artifactIndex = createArtifactIndex({ store }) }) {
+function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, asrClient = defaultAsrClient, artifactIndex = createArtifactIndex({ store }) }) {
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const fileHash = hashBuffer(file.buffer);
     let processingOptions = null;
@@ -316,9 +316,20 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     const source = audioSeparation?.vocal?.uri ? audioSeparation.vocal : audio;
     return runStage(context, STAGES.subtitleRecognized, 90, {
       parentArtifactId: source?.artifactId ?? audio.artifactId,
-      inputSummary: { sourceArtifactId: source?.artifactId ?? null, preferredSource: audioSeparation?.vocal?.uri ? "vocal" : "original", maxSegmentSeconds: 60 },
+      inputSummary: {
+        sourceArtifactId: source?.artifactId ?? null,
+        preferredSource: audioSeparation?.vocal?.uri ? "vocal" : "original",
+        provider: "doubao-sauc",
+        protocolVersion: 1,
+        resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+      },
       action: async () => {
-        const cached = await findStageCache(context, STAGES.subtitleRecognized, { provider: "xfyun-iat", maxSegmentSeconds: 60, enabled: true });
+        const cached = await findStageCache(context, STAGES.subtitleRecognized, {
+          provider: "doubao-sauc",
+          resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+          protocolVersion: 1,
+          enabled: true,
+        });
         if (cached) return cached.artifact.subtitles;
         if (!source?.uri) {
           const error = optionalCapabilityError("subtitle_source_unavailable", "可识别音频不可用", "subtitle.recognize");
@@ -330,11 +341,11 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         try {
           const pcmPath = path.join(sampleDir, "subtitle-audio.pcm");
           const pcm = await transcoder.transcodeForIat({ inputPath: runtimePathFromUri(source.uri), outputPath: pcmPath });
-          const buffer = await fs.readFile(pcm.path);
-          const recognized = await recognizePcmInChunks(buffer, durationSeconds, iatClient);
+          const recognized = await asrClient.recognizeAudio({ audioPath: pcm.path });
           return buildSubtitleArtifact({
             parentArtifactId: source.artifactId,
-            segments: normalizeSubtitleSegments(recognized, durationSeconds),
+            recognized,
+            segments: normalizeSubtitleSegments(recognized?.segments ?? [], durationSeconds),
             uri: null,
           });
         } catch (error) {
@@ -494,13 +505,22 @@ function buildAudioFeaturesSummary(result) {
   };
 }
 
-function buildSubtitleArtifact({ parentArtifactId, segments, uri }) {
+function buildSubtitleArtifact({ parentArtifactId, segments, recognized, uri }) {
   return {
     artifactId: `artifact_${randomUUID()}`,
     parentArtifactId,
     type: "subtitle-track",
     uri,
     summary: `${segments.length} 条字幕`,
+    provider: "doubao-sauc",
+    providerMeta: {
+      resourceId: recognized?.providerMeta?.resourceId ?? "volc.bigasr.sauc.duration",
+      connectId: recognized?.providerMeta?.connectId ?? null,
+      requestId: recognized?.providerMeta?.requestId ?? null,
+      logId: recognized?.providerMeta?.logId ?? null,
+    },
+    utterances: Array.isArray(recognized?.timing?.utterances) ? recognized.timing.utterances : [],
+    words: Array.isArray(recognized?.timing?.words) ? recognized.timing.words : [],
     segments,
     status: "processed",
     reason: null,
@@ -515,6 +535,15 @@ function subtitleDegraded(parentArtifactId, reason) {
     type: "subtitle-track",
     uri: null,
     summary: "字幕识别未产出",
+    provider: "doubao-sauc",
+    providerMeta: {
+      resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+      connectId: null,
+      requestId: null,
+      logId: null,
+    },
+    utterances: [],
+    words: [],
     segments: [],
     status: "degraded",
     reason,
@@ -563,28 +592,6 @@ function subtitleTimingWeight(text) {
   return Math.max(1, String(text ?? "").replace(/[，。！？!?；;、,.\s]/g, "").length);
 }
 
-async function recognizePcmInChunks(buffer, durationSeconds, iatClient) {
-  const bytesPerSecond = 16000 * 2;
-  const maxChunkSeconds = 55;
-  const estimatedSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : Math.ceil(buffer.length / bytesPerSecond);
-  const chunks = [];
-  for (let offsetSecond = 0; offsetSecond < estimatedSeconds; offsetSecond += maxChunkSeconds) {
-    const startByte = Math.floor(offsetSecond * bytesPerSecond);
-    const endByte = Math.min(buffer.length, Math.floor((offsetSecond + maxChunkSeconds) * bytesPerSecond));
-    if (endByte <= startByte) continue;
-    const recognized = await iatClient.recognizeAudio({ audioBuffer: buffer.subarray(startByte, endByte) });
-    const shouldPreserveUntimedSegments = recognized.length > 1 && recognized.every((segment) => !hasUsefulTiming(segment));
-    for (const segment of recognized) {
-      chunks.push({
-        ...segment,
-        start: (segment.start ?? 0) + offsetSecond,
-        end: shouldPreserveUntimedSegments ? 0 : (segment.end && segment.end > 0 ? segment.end : Math.min(maxChunkSeconds, estimatedSeconds - offsetSecond)) + offsetSecond,
-      });
-    }
-  }
-  return chunks;
-}
-
 function clampTime(value, max) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return 0;
@@ -596,9 +603,15 @@ function buildSubtitleSummary(subtitles) {
   const lastSegmentEnd = subtitles.segments.reduce((max, segment) => Math.max(max, segment.end ?? 0), 0);
   return {
     status: subtitles.status,
+    provider: subtitles.provider ?? "doubao-sauc",
     segmentCount: subtitles.segments.length,
+    utteranceCount: subtitles.utterances?.length ?? 0,
+    wordCount: subtitles.words?.length ?? 0,
+    finalTextLength: subtitles.segments.reduce((total, segment) => total + String(segment.text ?? "").length, 0),
     sourceArtifactId: subtitles.parentArtifactId,
     lastSegmentEnd,
+    resourceId: subtitles.providerMeta?.resourceId ?? null,
+    logId: subtitles.providerMeta?.logId ?? null,
     reason: subtitles.reason ?? null,
     debugSnapshotUri: subtitles.debugSnapshotUri ?? null,
   };

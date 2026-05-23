@@ -1,6 +1,6 @@
 import type { BackendCapabilities } from "../types";
 
-const REQUIRED_XFYUN_ENV = ["XFYUN_APP_ID", "XFYUN_API_KEY", "XFYUN_API_SECRET"];
+const REQUIRED_DOUBAO_ENV = ["DOUBAO_SAUC_APP_ID", "DOUBAO_SAUC_ACCESS_TOKEN"];
 
 type ResourcePanelProps = {
   fileLabel: string;
@@ -32,7 +32,7 @@ export function ResourcePanel({
   onUpload,
 }: ResourcePanelProps) {
   const demucsDisabled = isUploading || capabilities?.demucsAvailable === false;
-  const subtitleDisabled = isUploading || capabilities?.xfyunIatConfigured === false;
+  const subtitleDisabled = isUploading || capabilities?.doubaoSaucConfigured === false;
   const audioFeatureDisabled = isUploading || capabilities?.librosaAvailable === false;
   return (
     <aside className="resource-panel" aria-label="资源区">
@@ -89,7 +89,7 @@ export function ResourcePanel({
               onChange={(event) => onEnableSubtitleRecognitionChange(event.currentTarget.checked)}
             />
             <span>字幕识别</span>
-            <small>{capabilities?.xfyunIatConfigured === false ? `需要配置 ${(capabilities.xfyunRequiredEnv ?? REQUIRED_XFYUN_ENV).join(" / ")}` : "优先使用人声轨"}</small>
+            <small>{capabilities?.doubaoSaucConfigured === false ? `需要配置 ${(capabilities.doubaoSaucRequiredEnv ?? REQUIRED_DOUBAO_ENV).join(" / ")}` : "优先使用人声轨"}</small>
           </label>
           <label className={`option-toggle ${audioFeatureDisabled ? "disabled" : ""}`}>
             <input

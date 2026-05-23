@@ -40,8 +40,8 @@ export type BackendCapabilities = {
   demucsAvailable: boolean;
   ffmpegAvailable?: boolean;
   librosaAvailable?: boolean;
-  xfyunIatConfigured: boolean;
-  xfyunRequiredEnv?: string[];
+  doubaoSaucConfigured: boolean;
+  doubaoSaucRequiredEnv?: string[];
 };
 
 export type ErrorSummary = {
@@ -395,6 +395,20 @@ export type SubtitleSegment = {
   confidence?: number | null;
 };
 
+export type SubtitleWord = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+export type SubtitleUtterance = {
+  start: number;
+  end: number;
+  text: string;
+  definite?: boolean | null;
+  words: SubtitleWord[];
+};
+
 export type SubtitleArtifact = {
   artifactId: string;
   parentArtifactId: string | null;
@@ -407,6 +421,15 @@ export type SubtitleArtifact = {
   createdAt?: string | null;
   uri?: string | null;
   summary?: string | null;
+  provider?: "doubao-sauc" | string;
+  providerMeta?: {
+    resourceId?: string | null;
+    connectId?: string | null;
+    requestId?: string | null;
+    logId?: string | null;
+  } | null;
+  utterances?: SubtitleUtterance[];
+  words?: SubtitleWord[];
   segments: SubtitleSegment[];
   status?: string;
   reason?: string | null;

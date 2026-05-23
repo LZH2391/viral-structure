@@ -284,7 +284,14 @@ function stageParams(artifact, stageName) {
   const options = artifact.processingOptions ?? {};
   if (stageName === "sample.frames.extracted") return { frameSampleRateFps: options.frameSampleRateFps ?? 1 };
   if (stageName === "sample.audio.separated") return { demucsMode: "two-stems-vocals", enabled: Boolean(options.enableAudioSeparation) };
-  if (stageName === "sample.subtitle.recognized") return { provider: "xfyun-iat", maxSegmentSeconds: 60, enabled: Boolean(options.enableSubtitleRecognition) };
+  if (stageName === "sample.subtitle.recognized") {
+    return {
+      provider: artifact.subtitles?.provider ?? "doubao-sauc",
+      resourceId: artifact.subtitles?.providerMeta?.resourceId ?? "volc.bigasr.sauc.duration",
+      protocolVersion: 1,
+      enabled: Boolean(options.enableSubtitleRecognition),
+    };
+  }
   if (stageName === "sample.subtitle.revised") {
     return {
       source: artifact.subtitles?.source ?? null,

@@ -207,11 +207,11 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(api, /enableAudioFeatureAnalysis/);
   assert.match(resource, /enableAudioSeparationInput/);
   assert.match(resource, /enableAudioFeatureAnalysisInput/);
-  assert.match(resource, /XFYUN_APP_ID/);
+  assert.match(resource, /DOUBAO_SAUC_APP_ID/);
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);
   assert.match(timeline, /audio-feature-marker/);
-  assert.match(property, /PropertyRows/);
+  assert.match(property, /MetaInfoPanel/);
   assert.match(agentRunPanel, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
   assert.match(agentRunPanel, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
   assert.match(agentRunPanel, /4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频/);
@@ -410,7 +410,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script">\("shot"\)/);
+  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "meta">\("shot"\)/);
   assert.match(propertyPanel, /role="tablist"/);
   assert.match(propertyPanel, /shot/);
   assert.match(propertyPanel, /script/);

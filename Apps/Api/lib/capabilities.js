@@ -7,8 +7,8 @@ async function readCapabilities(env = process.env) {
     demucsAvailable,
     ffmpegAvailable,
     librosaAvailable,
-    xfyunIatConfigured: hasXfyunCredentials(env),
-    xfyunRequiredEnv: ["XFYUN_APP_ID", "XFYUN_API_KEY", "XFYUN_API_SECRET"],
+    doubaoSaucConfigured: hasDoubaoCredentials(env),
+    doubaoSaucRequiredEnv: ["DOUBAO_SAUC_APP_ID", "DOUBAO_SAUC_ACCESS_TOKEN"],
   };
 }
 
@@ -21,8 +21,8 @@ async function hasDemucs() {
   }
 }
 
-function hasXfyunCredentials(env = process.env) {
-  return Boolean(env.XFYUN_APP_ID && env.XFYUN_API_KEY && env.XFYUN_API_SECRET);
+function hasDoubaoCredentials(env = process.env) {
+  return Boolean((env.DOUBAO_SAUC_APP_ID || env.VOLCENGINE_APP_ID) && (env.DOUBAO_SAUC_ACCESS_TOKEN || env.VOLCENGINE_ACCESS_TOKEN));
 }
 
-module.exports = { readCapabilities, hasXfyunCredentials, hasDemucs };
+module.exports = { readCapabilities, hasDoubaoCredentials, hasDemucs };

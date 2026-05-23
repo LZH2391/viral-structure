@@ -25,7 +25,7 @@
 - FFmpeg，可通过 `FFMPEG_BIN` / `FFPROBE_BIN` 指向本机安装路径
 - Codex AppServer 本地可启动
 - Python 依赖：`pydantic`、`websocket-client`、`fastapi`、`uvicorn`
-- 可选：讯飞 IAT 凭据，用于字幕识别
+- 可选：豆包 SAUC 凭据，用于字幕识别
 
 ## 安装
 
@@ -109,6 +109,6 @@ Infrastructure\AgentRuntime
 - `THREADPOOL_CONFIG_PATH`：ThreadPool 角色配置文件路径。
 - `FFMPEG_BIN`：本机 FFmpeg 可执行文件路径。
 - `FFPROBE_BIN`：本机 FFprobe 可执行文件路径。
-- `XFYUN_APP_ID`：讯飞应用 ID。
-- `XFYUN_API_KEY`：讯飞 API Key。
-- `XFYUN_API_SECRET`：讯飞 API Secret。
+- `DOUBAO_SAUC_APP_ID`：豆包 SAUC 应用 ID。
+- `DOUBAO_SAUC_ACCESS_TOKEN`：豆包 SAUC Access Token。
+- `DOUBAO_SAUC_RESOURCE_ID`：豆包 SAUC 资源 ID，默认 `volc.bigasr.sauc.duration`。
