@@ -123,7 +123,7 @@ test("prepareInput falls back to word text when segment text cannot align", () =
       utterances: [],
       words: [
         { start: 0, end: 0.6, text: "原" },
-        { start: 0.6, end: 1.2, text: "词" },
+        { start: 1.05, end: 1.4, text: "词" },
       ],
     },
     shotBoundaryAnalysis: {
