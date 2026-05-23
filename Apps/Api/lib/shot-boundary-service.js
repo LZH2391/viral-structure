@@ -314,12 +314,12 @@ function createShotBoundaryService({
         return { status: SAMPLE_STATUS.failed };
       }
       try {
-        jobStore.updateJob(job.jobId, {
-          agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
-          stage: STAGES.turnCollected,
-          status: SAMPLE_STATUS.processing,
-          progress: 88,
-        });
+          jobStore.updateJob(job.jobId, {
+            agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
+            stage: STAGES.turnCollected,
+            status: SAMPLE_STATUS.processing,
+            progress: 88,
+          });
         const turn = await runStage(context, STAGES.turnCollected, 88, {
           artifactId: agentRun.artifactId,
           parentArtifactId: agentRun.parentArtifactId,
@@ -341,6 +341,7 @@ function createShotBoundaryService({
             promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
           }),
         });
+        updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status);
         if (turn.status !== "completed") {
           jobStore.updateJob(job.jobId, {
             agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
@@ -392,6 +393,7 @@ function createShotBoundaryService({
           sampleStatus: SAMPLE_STATUS,
           summaryPollIntervalMs,
           summaryCollectMaxAttempts,
+          updateActiveThreadMessage: (threadId, turnId, message, status) => updateActiveThreadMessage(context, threadId, turnId, message, status),
         });
         return turn;
       } catch (error) {
@@ -410,6 +412,12 @@ function createShotBoundaryService({
     } finally {
       collectingJobs.delete(jobId);
     }
+  }
+
+  function updateActiveThreadMessage(context, threadId, turnId, message, status) {
+    const normalized = buildActiveThreadMessage(threadId, turnId, message, status);
+    jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
+    return normalized;
   }
 
   async function failAgentRun(context, error) {
@@ -552,6 +560,7 @@ function createShotBoundaryService({
       status: SAMPLE_STATUS.failed,
       progress: 100,
       errorSummary,
+      activeThreadMessage: null,
     });
     context.activeStage = null;
   }
@@ -623,7 +632,7 @@ function createShotBoundaryService({
       buildCacheReuseAnalysis,
       attachAnalysis,
     });
-    jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100, cachePrompt: null, errorSummary: null });
+    jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100, cachePrompt: null, errorSummary: null, activeThreadMessage: null });
   }
 
   function buildCachePrompt(context, cached) {
@@ -717,6 +726,22 @@ function buildInitFingerprint(context) {
 
 function isPreAgentStage(stageName) {
   return [STAGES.inputPrepared, STAGES.contactSheetPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
+}
+
+function buildActiveThreadMessage(threadId, turnId, message, status) {
+  const text = String(message ?? "").trim();
+  if (!text || !isPendingTurnStatus(status)) return null;
+  return {
+    threadId: threadId ?? null,
+    turnId: turnId ?? null,
+    role: "thread",
+    text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function isPendingTurnStatus(status) {
+  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 function round(value) {

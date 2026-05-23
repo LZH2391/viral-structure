@@ -12,6 +12,7 @@ async function submitRepairTurn({
   rootDir,
   renderRepairTurnInputs,
   role,
+  updateActiveThreadMessage,
 }) {
   const repairTurn = renderRepairTurnInputs({
     prepared,
@@ -48,7 +49,7 @@ async function submitRepairTurn({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     }),
   });
-  return runStage(context, stages.repairCollected, 93, {
+  const collected = await runStage(context, stages.repairCollected, 93, {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
     inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount },
@@ -70,6 +71,8 @@ async function submitRepairTurn({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     }),
   });
+  await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+  return collected;
 }
 
 async function resolveFinalAnalysis({
@@ -88,6 +91,7 @@ async function resolveFinalAnalysis({
   codedError,
   role,
   repairAttemptOffset = 0,
+  updateActiveThreadMessage,
 }) {
   let repairAttemptCount = repairAttemptOffset;
   let finalTurn = turn;
@@ -171,6 +175,7 @@ async function resolveFinalAnalysis({
         rootDir,
         renderRepairTurnInputs,
         role,
+        updateActiveThreadMessage,
       });
       resultOrigin = repairAttemptOffset > 0 ? "review_reworked_turn" : "repaired_turn";
     }
@@ -197,6 +202,7 @@ async function resolveReviewedAnalysis({
   store,
   threadPool,
   jobStore,
+  updateActiveThreadMessage,
 }) {
   let currentTurn = initialTurn;
   let analyzerRepairOffset = 0;
@@ -220,6 +226,7 @@ async function resolveReviewedAnalysis({
       codedError,
       role,
       repairAttemptOffset: analyzerRepairOffset,
+      updateActiveThreadMessage,
     });
     const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
     const shotAnalysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
@@ -243,6 +250,7 @@ async function resolveReviewedAnalysis({
       threadPool,
       jobStore,
       reviewReworkCount,
+      updateActiveThreadMessage,
     });
     lastReviewResult = review.result;
     lastReviewRun = review.run;
@@ -296,6 +304,7 @@ async function resolveReviewedAnalysis({
       rootDir,
       renderRepairTurnInputs,
       role,
+      updateActiveThreadMessage,
     });
     analyzerRepairOffset = maxRepairAttempts + reviewReworkCount;
     if (reviewReworkCount >= reviewer.maxReworkCount) {
@@ -315,6 +324,7 @@ async function resolveReviewedAnalysis({
         codedError,
         role,
         repairAttemptOffset: analyzerRepairOffset,
+        updateActiveThreadMessage,
       });
       const acceptedReview = summarizeAcceptedReworkReview(reviewer, review.result, reviewReworkCount);
       const finalShotAnalysis = buildProcessedAnalysis(finalResolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: finalResolved.validationSummary }, lease, finalResolved.finalTurn, {
@@ -395,6 +405,7 @@ async function runReviewTurn({
   threadPool,
   jobStore,
   reviewReworkCount,
+  updateActiveThreadMessage,
 }) {
   let lease = null;
   const reviewerProfile = await reviewer.loadRoleProfileByRole(reviewer.role);
@@ -488,6 +499,7 @@ async function runReviewTurn({
         status: result.status,
       }),
     });
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
     if (collected.status !== "completed") {
       throw require("../shot-boundary-analysis").codedError("shot_boundary_review_turn_incomplete", "切镜 reviewer 未完成", {
         turnId: collected.turnId ?? started.turnId,
@@ -546,6 +558,7 @@ async function runSummaryTurn({
   role,
   summaryPollIntervalMs = 2000,
   summaryCollectMaxAttempts = 90,
+  updateActiveThreadMessage,
 }) {
   const summaryTurn = renderSummaryTurnInputs({
     shots: shotAnalysis.shots,
@@ -589,6 +602,7 @@ async function runSummaryTurn({
     role,
     summaryPollIntervalMs,
     summaryCollectMaxAttempts,
+    updateActiveThreadMessage,
   });
   const commerceBrief = await runStage(context, stages.summaryValidated, 95, {
     artifactId: context.artifactId,
@@ -620,6 +634,7 @@ async function collectSummaryTurn({
   role,
   summaryPollIntervalMs,
   summaryCollectMaxAttempts,
+  updateActiveThreadMessage,
 }) {
   let collected = null;
   const maxAttempts = Math.max(1, Number(summaryCollectMaxAttempts || 1));
@@ -647,6 +662,7 @@ async function collectSummaryTurn({
         promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       }),
     });
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
     if (collected.status === "completed") return collected;
     if (!isPendingTurnStatus(collected.status)) {
       throwSummaryIncomplete(context, stages, started, shotAnalysis, collected, false);
@@ -712,6 +728,7 @@ async function writeCompletedAnalysis({
   summaryPollIntervalMs,
   summaryCollectMaxAttempts,
   reviewer,
+  updateActiveThreadMessage,
 }) {
   const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
   const contactSheets = agentRun.contactSheets ?? [];
@@ -734,6 +751,7 @@ async function writeCompletedAnalysis({
     store,
     threadPool,
     jobStore,
+    updateActiveThreadMessage,
   });
   const shotAnalysis = resolved.shotAnalysis;
   const summary = await runSummaryTurn({
@@ -749,6 +767,7 @@ async function writeCompletedAnalysis({
     role,
     summaryPollIntervalMs,
     summaryCollectMaxAttempts,
+    updateActiveThreadMessage,
   });
   await runStage(context, stages.resultWritten, 95, {
     artifactId: context.artifactId,
@@ -805,6 +824,7 @@ async function writeCompletedAnalysis({
     status: sampleStatus.processed,
     progress: 100,
     errorSummary: null,
+    activeThreadMessage: null,
   });
 }
 

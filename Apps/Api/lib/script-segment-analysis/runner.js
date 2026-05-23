@@ -10,6 +10,7 @@ async function executeAnalyzeTurn({
   rootDir,
   pollIntervalMs,
   maxCollectAttempts,
+  onTurnCollect,
 }) {
   const leaseAcquisition = await acquireLeaseWithRetry(threadPool, {
     role: ROLE,
@@ -32,6 +33,7 @@ async function executeAnalyzeTurn({
     turnId: started.turnId,
     pollIntervalMs,
     maxCollectAttempts,
+    onTurnCollect,
   });
   return { lease, started, finalTurn };
 }
@@ -43,6 +45,7 @@ async function executeRepairTurn({
   rootDir,
   pollIntervalMs,
   maxCollectAttempts,
+  onTurnCollect,
 }) {
   const started = await appServer.startTurnWithInputs({
     workspaceRoot: rootDir,
@@ -57,6 +60,7 @@ async function executeRepairTurn({
     turnId: started.turnId,
     pollIntervalMs,
     maxCollectAttempts,
+    onTurnCollect,
   });
   return { started, finalTurn };
 }
@@ -68,6 +72,7 @@ async function collectTurnToCompletion({
   turnId,
   pollIntervalMs,
   maxCollectAttempts,
+  onTurnCollect,
 }) {
   for (let attempt = 0; attempt < maxCollectAttempts; attempt += 1) {
     const result = await appServer.collectTurnResult({
@@ -76,6 +81,7 @@ async function collectTurnToCompletion({
       turnId,
       timeoutSeconds: 120,
     });
+    await onTurnCollect?.(result);
     if (result?.status === "completed") return result;
     if (!isNonTerminalTurnStatus(result?.status)) {
       throw codedError("appserver_turn_collect_failed", "脚本段落 Agent 结果收集失败", {

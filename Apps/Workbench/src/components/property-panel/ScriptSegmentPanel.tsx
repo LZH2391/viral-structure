@@ -27,6 +27,7 @@ export function ScriptSegmentPanel({
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = analysis?.reason ?? job?.errorSummary?.message ?? null;
   const debugSnapshotUri = analysis?.debugSnapshotUri ?? job?.errorSummary?.debugSnapshotUri ?? null;
+  const activeThreadMessage = resolveActiveThreadMessage(job);
   const statusText = job
     ? `${job.stage} / ${job.progress}%`
     : analysis
@@ -47,6 +48,12 @@ export function ScriptSegmentPanel({
           {running ? "运行中" : "运行"}
         </button>
       </div>
+      {activeThreadMessage ? (
+        <div className="agent-thread-message" aria-live="polite">
+          <span>线程消息</span>
+          <strong>{activeThreadMessage.text}</strong>
+        </div>
+      ) : null}
       {analysis ? (
         <div className="detail-hint">
           <div>turn：{analysis.agent?.turnId ?? "无"}</div>
@@ -104,4 +111,14 @@ export function ScriptSegmentPanel({
       ) : null}
     </section>
   );
+}
+
+function resolveActiveThreadMessage(job?: AgentRunJob | null) {
+  if (!job || job.status !== "processing") return null;
+  if (!job.agentRun?.threadId || !job.agentRun?.turnId) return null;
+  const message = job.activeThreadMessage;
+  if (!message?.text?.trim()) return null;
+  if (message.threadId && message.threadId !== job.agentRun.threadId) return null;
+  if (message.turnId && message.turnId !== job.agentRun.turnId) return null;
+  return message;
 }

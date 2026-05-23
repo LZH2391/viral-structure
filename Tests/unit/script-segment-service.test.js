@@ -333,6 +333,81 @@ test("script segment service keeps collecting submitted turn until completed", a
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
 });
 
+test("script segment service surfaces latest running thread message and clears it on completion", async () => {
+  let releaseCompletion;
+  const completionGate = new Promise((resolve) => {
+    releaseCompletion = resolve;
+  });
+  const harness = await createScriptHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        if (harness.calls.collected.length === 1) {
+          return {
+            ok: false,
+            threadId: "thread_script_1",
+            turnId: "turn_script_1",
+            status: "running",
+            finalMessage: "",
+            activeThreadMessage: "正在整理脚本段落证据",
+          };
+        }
+        await completionGate;
+        return {
+          ok: true,
+          threadId: "thread_script_1",
+          turnId: "turn_script_1",
+          status: "completed",
+          activeThreadMessage: null,
+          finalMessage: JSON.stringify({
+            segments: [
+              {
+                label: "开场引题",
+                roleInScript: "先抛出结果建立停留理由",
+                shotRefs: ["shot_1"],
+                evidence: ["展示整理前后反差"],
+                transferableRule: "先亮结果再展开解释",
+                confidence: 0.81,
+                needReview: false,
+              },
+              {
+                label: "卖点证明",
+                roleInScript: "用连续镜头解释产品价值",
+                shotRefs: ["shot_2"],
+                evidence: ["演示收纳盒摆放和分类"],
+                transferableRule: "中段用连续证据证明核心卖点",
+                confidence: 0.79,
+                needReview: false,
+              },
+              {
+                label: "收束转化",
+                roleInScript: "收束结果并提示行动",
+                shotRefs: ["shot_3"],
+                evidence: ["回到整洁台面并提示点击"],
+                transferableRule: "结尾回到结果并给出行动提示",
+                confidence: 0.78,
+                needReview: false,
+              },
+            ],
+          }),
+        };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.activeThreadMessage?.text === "正在整理脚本段落证据");
+  releaseCompletion();
+  const job = await waitForJob(harness.jobStore, result.processingJobId, "processed");
+
+  assert.equal(job.activeThreadMessage, null);
+  assert.equal(harness.calls.collected.length, 2);
+});
+
 test("script segment collect window waits three minutes worth of attempts", async () => {
   const harness = await createScriptHarness({
     appServer: {
@@ -708,4 +783,15 @@ async function waitForJob(jobStore, jobId, status) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error(`job ${jobId} did not reach ${status}: ${JSON.stringify(lastJob)}`);
+}
+
+async function waitForJobField(jobStore, jobId, predicate) {
+  let lastJob = null;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const job = jobStore.getJob(jobId);
+    lastJob = job;
+    if (job && predicate(job)) return job;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`job ${jobId} did not match predicate: ${JSON.stringify(lastJob)}`);
 }

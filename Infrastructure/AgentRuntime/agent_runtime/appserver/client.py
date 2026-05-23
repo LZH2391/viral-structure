@@ -39,6 +39,7 @@ class TurnRunResult:
     turn_id: str
     status: str
     final_message: str | None
+    active_thread_message: str | None = None
     thread_state: dict[str, Any] | None = None
 
 
@@ -126,6 +127,7 @@ class AppServerSessionClient:
         self._turn_statuses: dict[str, str] = {}
         self._turn_errors: dict[str, Any] = {}
         self._turn_final_messages: dict[str, str] = {}
+        self._turn_active_thread_messages: dict[str, str] = {}
         self._turn_completed_listeners: dict[int, Callable[[TurnCompletedEvent], None]] = {}
         self._thread_token_usage_listeners: dict[int, Callable[[ThreadTokenUsageEvent], None]] = {}
         self._thread_lifecycle_listeners: dict[int, Callable[[ThreadLifecycleEvent], None]] = {}
@@ -557,12 +559,16 @@ class AppServerSessionClient:
             self._sync_turn_state_from_thread(thread_id, turn_id)
         status = self._turn_statuses.get(turn_id, "running")
         final_message = None if _is_non_terminal_turn_status(status) else self.get_final_agent_message(thread_id, turn_id)
+        active_thread_message = self._turn_active_thread_messages.get(turn_id) if _is_non_terminal_turn_status(status) else None
+        if not _is_non_terminal_turn_status(status):
+            self._turn_active_thread_messages.pop(turn_id, None)
         thread_state = self.read_thread(thread_id, include_turns=False) if return_thread_state else None
         return TurnRunResult(
             thread_id=thread_id,
             turn_id=turn_id,
             status=status,
             final_message=final_message,
+            active_thread_message=active_thread_message,
             thread_state=thread_state,
         )
 
@@ -621,12 +627,16 @@ class AppServerSessionClient:
             if _is_non_terminal_turn_status(status):
                 raise
         final_message = self.get_final_agent_message(thread_id, turn_id)
+        active_thread_message = self._turn_active_thread_messages.get(turn_id) if _is_non_terminal_turn_status(status) else None
+        if not _is_non_terminal_turn_status(status):
+            self._turn_active_thread_messages.pop(turn_id, None)
         thread_state = self.read_thread(thread_id, include_turns=False) if return_thread_state else None
         return TurnRunResult(
             thread_id=thread_id,
             turn_id=turn_id,
             status=status,
             final_message=final_message,
+            active_thread_message=active_thread_message,
             thread_state=thread_state,
         )
 
@@ -735,6 +745,11 @@ class AppServerSessionClient:
             final_message = self._extract_turn_final_message(turn)
             if final_message is not None:
                 self._turn_final_messages[turn_id] = final_message
+            active_thread_message = self._extract_turn_active_thread_message(turn, status=status)
+            if active_thread_message is not None:
+                self._turn_active_thread_messages[turn_id] = active_thread_message
+            else:
+                self._turn_active_thread_messages.pop(turn_id, None)
             self._maybe_notify_turn_completed(turn_id)
             return
 
@@ -885,6 +900,42 @@ class AppServerSessionClient:
                 merged = "".join(parts).strip()
                 if merged:
                     return merged
+        return None
+
+    @staticmethod
+    def _extract_turn_active_thread_message(turn: Mapping[str, Any], *, status: str | None = None) -> str | None:
+        final_message = AppServerSessionClient._extract_turn_final_message(turn) if not _is_non_terminal_turn_status(status) else None
+        for item in reversed(list(turn.get("items", []))):
+            if not isinstance(item, Mapping):
+                continue
+            item_type = str(item.get("type") or "").strip()
+            role = str(item.get("role") or item.get("author") or "").strip().lower()
+            if item_type not in {"agentMessage", "assistantMessage", "assistant_message", "message"} and role not in {"assistant", "agent", "thread"}:
+                continue
+            candidate = AppServerSessionClient._extract_text_from_item(item)
+            if not candidate:
+                continue
+            if final_message is not None and candidate == final_message:
+                continue
+            return candidate
+        return None
+
+    @staticmethod
+    def _extract_text_from_item(item: Mapping[str, Any]) -> str | None:
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+        content = item.get("content")
+        if isinstance(content, list):
+            parts: list[str] = []
+            for content_item in content:
+                if isinstance(content_item, Mapping) and content_item.get("type") == "text":
+                    part = str(content_item.get("text") or "").strip()
+                    if part:
+                        parts.append(part)
+            merged = "\n".join(parts).strip()
+            if merged:
+                return merged
         return None
 
     @classmethod

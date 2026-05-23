@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   AgentRunJob,
   AudioFeatureAnalysisArtifact,
@@ -53,11 +53,32 @@ export type PropertyPanelProps = {
 
 export function PropertyPanel(props: PropertyPanelProps) {
   const [activeTab, setActiveTab] = useState<"shot" | "script" | "rhythm" | "packaging" | "meta">("shot");
+  const tabsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    if (!tabs) return;
+
+    const handleTabsWheel = (event: WheelEvent) => {
+      if (tabs.scrollWidth <= tabs.clientWidth) return;
+
+      const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (!rawDelta) return;
+
+      const deltaUnit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? tabs.clientWidth : 1;
+      event.preventDefault();
+      event.stopPropagation();
+      tabs.scrollLeft += rawDelta * deltaUnit;
+    };
+
+    tabs.addEventListener("wheel", handleTabsWheel, { passive: false });
+    return () => tabs.removeEventListener("wheel", handleTabsWheel);
+  }, []);
 
   return (
     <aside className="property-panel" aria-label="属性区">
       <section className="property-section property-tabs-section">
-        <div className="property-tabs" role="tablist" aria-label="分析面板">
+        <div ref={tabsRef} className="property-tabs" role="tablist" aria-label="分析面板">
           <button
             className={`property-tab ${activeTab === "shot" ? "active" : ""}`}
             type="button"
@@ -65,7 +86,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
             aria-selected={activeTab === "shot"}
             onClick={() => setActiveTab("shot")}
           >
-            shot
+            切镜
           </button>
           <button
             className={`property-tab ${activeTab === "script" ? "active" : ""}`}
@@ -74,7 +95,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
             aria-selected={activeTab === "script"}
             onClick={() => setActiveTab("script")}
           >
-            script
+            脚本
           </button>
           <button
             className={`property-tab ${activeTab === "rhythm" ? "active" : ""}`}

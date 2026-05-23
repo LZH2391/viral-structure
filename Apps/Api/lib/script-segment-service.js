@@ -219,6 +219,7 @@ function createScriptSegmentService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
+            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
           });
           lease = executed.lease;
           context.agentRun = buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
@@ -228,6 +229,7 @@ function createScriptSegmentService({
             status: SAMPLE_STATUS.processing,
             progress: 56,
             errorSummary: null,
+            activeThreadMessage: null,
           });
           const analysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount: 0,
@@ -313,6 +315,7 @@ function createScriptSegmentService({
         status: SAMPLE_STATUS.processed,
         progress: 100,
         errorSummary: null,
+        activeThreadMessage: null,
       });
       return materializedArtifact;
     } catch (error) {
@@ -378,6 +381,7 @@ function createScriptSegmentService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
+            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
           });
           const analysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount,
@@ -427,6 +431,7 @@ function createScriptSegmentService({
         status: SAMPLE_STATUS.processed,
         progress: 100,
         errorSummary: null,
+        activeThreadMessage: null,
       });
       return materializedArtifact;
     }
@@ -510,8 +515,15 @@ function createScriptSegmentService({
       status: SAMPLE_STATUS.failed,
       progress: 100,
       errorSummary,
+      activeThreadMessage: null,
     });
     context.activeStage = null;
+  }
+
+  function updateActiveThreadMessage(context, turn) {
+    const activeThreadMessage = buildActiveThreadMessage(turn?.threadId, turn?.turnId, turn?.activeThreadMessage, turn?.status);
+    jobStore.updateJob(context.job.jobId, { activeThreadMessage });
+    return activeThreadMessage;
   }
 
   return { enqueue, resolveCacheDecision };
@@ -572,6 +584,7 @@ function createScriptSegmentService({
       progress: 100,
       cachePrompt: null,
       errorSummary: null,
+      activeThreadMessage: null,
     });
   }
 
@@ -632,6 +645,22 @@ function conflictError(code, message, debugPayload = null) {
   const error = codedError(code, message, debugPayload, false);
   error.statusCode = 409;
   return error;
+}
+
+function buildActiveThreadMessage(threadId, turnId, message, status) {
+  const text = String(message ?? "").trim();
+  if (!text || !isPendingTurnStatus(status)) return null;
+  return {
+    threadId: threadId ?? null,
+    turnId: turnId ?? null,
+    role: "thread",
+    text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function isPendingTurnStatus(status) {
+  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store, traceMeta = {}) {

@@ -1,6 +1,7 @@
 .property-panel {
+  --property-panel-inline-padding: 12px;
   overflow: auto;
-  padding: 0 12px 12px;
+  padding: 0 var(--property-panel-inline-padding) 12px;
 }
 
 .property-section {
@@ -14,18 +15,30 @@
 }
 
 .property-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
   gap: 8px;
+  margin-inline: calc(var(--property-panel-inline-padding) * -1);
+  padding: 12px var(--property-panel-inline-padding);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  overscroll-behavior-inline: contain;
+  background: var(--panel);
 }
 
 .property-tab {
+  flex: 0 0 clamp(84px, 31%, 128px);
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
   color: var(--text-soft);
-  padding: 8px 10px;
+  padding: 8px 12px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .property-tab.active,
@@ -101,6 +114,28 @@
   color: var(--text-soft);
   padding: 8px 10px;
   font-size: 12px;
+}
+
+.agent-thread-message {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(17, 207, 224, 0.18);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.agent-thread-message span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-thread-message strong {
+  color: var(--text-soft);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .agent-shot-list {

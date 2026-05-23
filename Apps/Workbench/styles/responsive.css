@@ -5,6 +5,7 @@
   }
 
   .property-panel {
+    --property-panel-inline-padding: 8px;
     padding-inline: 8px;
   }
 }

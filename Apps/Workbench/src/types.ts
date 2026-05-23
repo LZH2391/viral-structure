@@ -24,6 +24,25 @@ export type ProcessingJob = {
   status: "pending" | "processing" | "cache_waiting" | "processed" | "failed" | string;
   progress: number;
   traceId: string;
+  agentRun?: {
+    provider?: "codex-appserver" | string;
+    role?: string;
+    skillPath?: string;
+    skillHash?: string | null;
+    threadId?: string | null;
+    leaseId?: string | null;
+    turnId?: string | null;
+    status?: string;
+    startedAt?: string | null;
+    updatedAt?: string | null;
+  } | null;
+  activeThreadMessage?: {
+    threadId?: string | null;
+    turnId?: string | null;
+    role?: string | null;
+    text: string;
+    createdAt?: string | null;
+  } | null;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {
     cacheKind?: "sample" | "shot_boundary" | "script_segment" | string;

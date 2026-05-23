@@ -303,6 +303,7 @@ function buildRestoredJob(draft: DraftState): ProcessingJob | null {
     stage: "restored",
     progress: 100,
     traceId: draft.traceId,
+    activeThreadMessage: null,
   };
 }
 

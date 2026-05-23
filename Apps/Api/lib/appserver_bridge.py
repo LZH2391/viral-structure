@@ -105,6 +105,7 @@ def collect_turn_result(client, payload) -> int:
                 "turnId": result.turn_id,
                 "status": result.status,
                 "finalMessage": result.final_message,
+                "activeThreadMessage": result.active_thread_message,
             }
         )
         return 0
@@ -150,6 +151,7 @@ def run_turn_with_inputs(client, payload) -> int:
             "turnId": result.turn_id,
             "status": result.status,
             "finalMessage": result.final_message,
+            "activeThreadMessage": result.active_thread_message,
         }
     )
     return 0

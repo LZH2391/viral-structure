@@ -1,3 +1,5 @@
+const { extractLatestThreadMessage } = require("./thread-active-message");
+
 function summarizeThreadConversation(thread) {
   const safeThread = thread && typeof thread === "object" ? thread : {};
   const turns = Array.isArray(safeThread.turns) ? safeThread.turns : [];
@@ -16,9 +18,15 @@ function summarizeTurn(turn) {
     status: String(turn.status ?? "unknown"),
     createdAt: turn.createdAt ?? turn.created_at ?? null,
     inputSummary: summarizeTurnInput(turn),
+    threadMessages: summarizeTurnThreadMessages(turn),
     finalMessage: summarizeTurnFinalMessage(turn),
     tokenUsage: summarizeTurnTokenUsage(turn),
   };
+}
+
+function summarizeTurnThreadMessages(turn) {
+  const message = extractLatestThreadMessage({ turns: [turn] });
+  return message ? [{ role: message.role, text: message.text, createdAt: message.createdAt ?? null }] : [];
 }
 
 function summarizeTurnInput(turn) {

@@ -91,6 +91,7 @@ export function AgentRunPanel({
   const analysisFpsExceededHint = resolveAnalysisFpsExceededHint(sampleVideo, analysisFps);
   const jobErrorSummary = job?.errorSummary ?? null;
   const jobTurnId = analysis?.agent?.turnId ?? null;
+  const activeThreadMessage = resolveActiveThreadMessage(job);
   const preAgentLeaseFailure = job?.status === "failed"
     && (job.stage === "shot.thread_acquire" || jobErrorSummary?.stageName === "shot.thread_acquire")
     && !jobTurnId
@@ -134,6 +135,12 @@ export function AgentRunPanel({
       {analysisFpsExceeded ? <div className="detail-hint">{analysisFpsExceededHint ?? `分析采样率不能高于当前抽帧 fps（${maxAnalysisFps}）。`}</div> : null}
       {!running && guard.message ? <div className="detail-hint">{guard.message}</div> : null}
       {jobStatusHint ? <div className="detail-hint">{jobStatusHint}</div> : null}
+      {activeThreadMessage ? (
+        <div className="agent-thread-message" aria-live="polite">
+          <span>线程消息</span>
+          <strong>{activeThreadMessage.text}</strong>
+        </div>
+      ) : null}
       {analysis?.commerceBrief ? <CommerceBriefPanel brief={analysis.commerceBrief} /> : null}
       {analysis && !hasValidShotResult ? <div className="detail-hint">无有效切镜结果 / 需重新分析</div> : null}
       {analysis?.shots?.length && hasValidShotResult && currentShot ? (
@@ -174,6 +181,16 @@ export function AgentRunPanel({
       ) : null}
     </section>
   );
+}
+
+function resolveActiveThreadMessage(job?: AgentRunJob | null) {
+  if (!job || job.status !== "processing") return null;
+  if (!job.agentRun?.threadId || !job.agentRun?.turnId) return null;
+  const message = job.activeThreadMessage;
+  if (!message?.text?.trim()) return null;
+  if (message.threadId && message.threadId !== job.agentRun.threadId) return null;
+  if (message.turnId && message.turnId !== job.agentRun.turnId) return null;
+  return message;
 }
 
 function CommerceBriefPanel({ brief }: { brief: NonNullable<ShotBoundaryAnalysisArtifact["commerceBrief"]> }) {

@@ -459,7 +459,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-shot-current/);
   assert.match(css, /\.agent-shot-item\.active,\s*[\s\S]*\.agent-shot-item\[aria-current="true"\]/);
   assert.match(css, /\.property-tabs/);
-  assert.match(css, /repeat\(auto-fit, minmax\(72px, 1fr\)\)/);
+  assert.match(css, /flex: 0 0 clamp\(84px, 31%, 128px\)/);
   assert.match(css, /\.property-tab\.active,\s*[\s\S]*\.property-tab\[aria-selected="true"\]/);
   assert.match(css, /\.structure-placeholder-panel/);
   assert.match(css, /\.structure-placeholder-block/);
@@ -476,6 +476,28 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
 });
 
+test("agent cards show only the latest active running thread message", () => {
+  const root = path.resolve(__dirname, "../..");
+  const types = read(root, "Apps/Workbench/src/types.ts");
+  const shotPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
+  const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
+  const css = read(root, "Apps/Workbench/styles/property-panel.css");
+
+  assert.match(types, /activeThreadMessage\?: \{/);
+  assert.match(types, /agentRun\?: \{/);
+  assert.match(shotPanel, /resolveActiveThreadMessage\(job\)/);
+  assert.match(scriptPanel, /resolveActiveThreadMessage\(job\)/);
+  assert.match(shotPanel, /job\.status !== "processing"/);
+  assert.match(scriptPanel, /job\.status !== "processing"/);
+  assert.match(shotPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
+  assert.match(scriptPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
+  assert.match(shotPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
+  assert.match(scriptPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
+  assert.match(shotPanel, /className="agent-thread-message"/);
+  assert.match(scriptPanel, /className="agent-thread-message"/);
+  assert.match(css, /\.agent-thread-message/);
+});
+
 test("structure placeholder skills exist without backend role registration", () => {
   const root = path.resolve(__dirname, "../..");
   const rhythmSkill = read(root, ".agents/skills/rhythm-structure-analyzer/SKILL.md");
@@ -486,7 +508,7 @@ test("structure placeholder skills exist without backend role registration", () 
   const server = read(root, "Apps/Api/server.js");
 
   assert.match(rhythmSkill, /name: rhythm-structure-analyzer/);
-  assert.match(rhythmSkill, /占位版本/);
+  assert.match(rhythmSkill, /不重切 shot/);
   assert.match(packagingSkill, /name: packaging-structure-analyzer/);
   assert.match(packagingSkill, /占位版本/);
   assert.match(rhythmRole, /"status": "placeholder"/);
@@ -547,6 +569,24 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(startup, /ready_for_leases/);
   assert.equal(bridge.includes("cepRoot"), false);
   assert.equal(bridgePy.includes("cepRoot"), false);
+});
+
+test("appserver collect exposes active thread message without final residue", () => {
+  const root = path.resolve(__dirname, "../..");
+  const client = read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/client.py");
+  const bridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
+  const shotService = read(root, "Apps/Api/lib/shot-boundary-service.js");
+  const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
+
+  assert.match(client, /active_thread_message: str \| None = None/);
+  assert.match(client, /_turn_active_thread_messages/);
+  assert.match(client, /_extract_turn_active_thread_message\(turn, status=status\)/);
+  assert.match(client, /if not _is_non_terminal_turn_status\(status\):[\s\S]*_turn_active_thread_messages\.pop\(turn_id, None\)/);
+  assert.match(bridgePy, /"activeThreadMessage": result\.active_thread_message/);
+  assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status\)/);
+  assert.match(scriptService, /buildActiveThreadMessage\(turn\?\.threadId, turn\?\.turnId, turn\?\.activeThreadMessage, turn\?\.status\)/);
+  assert.match(shotService, /activeThreadMessage: null/);
+  assert.match(scriptService, /activeThreadMessage: null/);
 });
 
 test("workbench api client safely parses empty and invalid JSON responses", () => {
