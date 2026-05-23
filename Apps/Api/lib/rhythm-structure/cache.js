@@ -131,6 +131,7 @@ function buildCachePrompt(context, cached) {
     cacheKey: context.cacheKey ?? cached.cache.cacheKey ?? null,
     artifactId: context.artifactId,
     expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
+    expectedScriptSegmentArtifactId: context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null,
     profileVersion: context.roleProfile?.profileVersion ?? null,
     promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,

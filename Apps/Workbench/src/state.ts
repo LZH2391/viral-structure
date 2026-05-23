@@ -93,6 +93,9 @@ export type DraftState = {
   versions?: VersionItem[];
   activeUploadJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activeAgentJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number };
+  activeShotBoundaryJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number };
+  activeScriptSegmentJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
+  activeRhythmStructureJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
 };
 
 export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction): WorkbenchState {

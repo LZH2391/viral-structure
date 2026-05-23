@@ -2,6 +2,7 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const { createTraceContext, SAMPLE_STATUS } = require("../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../Infrastructure/Observability/trace");
+const { createAnalysisRuntime, assertExpectedArtifact } = require("./analysis-service-shared");
 const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { createAppServerBridge } = require("./appserver-bridge");
@@ -49,6 +50,23 @@ function createScriptSegmentService({
   appServer = createAppServerBridge(),
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 } = {}) {
+  const runtime = createAnalysisRuntime({
+    logger,
+    jobStore,
+    sampleStatus: SAMPLE_STATUS,
+    safeError,
+    sanitizeDebugPayload,
+    buildFailedArtifact,
+    attachFailedAnalysis: (sampleVideoId, failedArtifact) => attachScriptSegments(sampleVideoId, failedArtifact, store),
+    defaultFailedStageName: STAGES.analyzed,
+    resolveDefaultParentArtifactId: (context) => (
+      context.input?.parentArtifactId
+      ?? context.artifact?.shotBoundaryAnalysis?.artifactId
+      ?? context.artifact?.sampleVideo?.artifactId
+      ?? null
+    ),
+  });
+
   async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
     await store.ensureRuntimeDirs();
     const artifact = await loadArtifact(sampleVideoId, store);
@@ -74,6 +92,7 @@ function createScriptSegmentService({
       agentRun: null,
       validationSummary: null,
       cacheKey: null,
+      nextStage,
     };
     run(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
@@ -120,12 +139,13 @@ function createScriptSegmentService({
       agentRun: null,
       validationSummary: null,
       cacheKey,
+      nextStage,
     };
     if (decision === "reuse") {
       try {
         await reuseCachedAnalysisLocal(context, job.cachePrompt);
       } catch (error) {
-        await markFailed(context, error, store);
+        await runtime.markFailed(context, error);
       }
       return jobStore.getJob(jobId);
     }
@@ -140,7 +160,7 @@ function createScriptSegmentService({
   async function run(context) {
     let lease = null;
     try {
-      const input = await runStage(context, STAGES.inputPrepared, 18, {
+      const input = await runtime.runStage(context, STAGES.inputPrepared, 18, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.shotBoundaryAnalysis?.artifactId ?? context.artifact.sampleVideo?.artifactId ?? null,
         inputSummary: {
@@ -158,7 +178,7 @@ function createScriptSegmentService({
       });
       context.input = input;
 
-      const inputPackage = await runStage(context, STAGES.inputPackaged, 24, {
+      const inputPackage = await runtime.runStage(context, STAGES.inputPackaged, 24, {
         artifactId: context.artifactId,
         parentArtifactId: input.parentArtifactId,
         inputSummary: {
@@ -199,7 +219,7 @@ function createScriptSegmentService({
         return null;
       }
 
-      const analyzed = await runStage(context, STAGES.analyzed, 56, {
+      const analyzed = await runtime.runStage(context, STAGES.analyzed, 56, {
         artifactId: context.artifactId,
         parentArtifactId: input.parentArtifactId,
         inputSummary: {
@@ -219,7 +239,7 @@ function createScriptSegmentService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
-            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
+            onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           lease = executed.lease;
           context.agentRun = buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
@@ -251,7 +271,7 @@ function createScriptSegmentService({
       let analysis = analyzed.analysis;
       let finalTurn = analyzed.finalTurn;
 
-      const validated = await runStage(context, STAGES.validated, 74, {
+      const validated = await runtime.runStage(context, STAGES.validated, 74, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -276,7 +296,7 @@ function createScriptSegmentService({
         }, false);
       }
 
-      const materializedArtifact = await runStage(context, STAGES.materialized, 96, {
+      const materializedArtifact = await runtime.runStage(context, STAGES.materialized, 96, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -342,7 +362,7 @@ function createScriptSegmentService({
       } else if (context.agentRun?.threadId) {
         await cleanupLease(threadPool, { thread_id: context.agentRun.threadId, lease_id: context.agentRun.leaseId }, context.traceContext.traceId, "script-segment-analysis-failed");
       }
-      await markFailed(context, error, store);
+      await runtime.markFailed(context, error);
       return null;
     }
   }
@@ -362,7 +382,7 @@ function createScriptSegmentService({
         promptTemplateVersion: repairTurn.promptTemplateVersion,
         promptTemplateHash: repairTurn.promptTemplateHash,
       };
-      const repaired = await runStage(context, STAGES.repaired, 88, {
+      const repaired = await runtime.runStage(context, STAGES.repaired, 88, {
         artifactId: context.artifactId,
         parentArtifactId: context.input.parentArtifactId,
         inputSummary: {
@@ -381,7 +401,7 @@ function createScriptSegmentService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
-            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
+            onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           const analysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount,
@@ -400,7 +420,7 @@ function createScriptSegmentService({
       });
 
       const analysis = repaired.analysis;
-      const materializedArtifact = await runStage(context, STAGES.materialized, 96, {
+      const materializedArtifact = await runtime.runStage(context, STAGES.materialized, 96, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -438,101 +458,13 @@ function createScriptSegmentService({
     return null;
   }
 
-  async function runStage(context, stageName, progress, options) {
-    context.traceContext = nextStage(context.traceContext);
-    const startedAt = Date.now();
-    context.activeStage = {
-      stageName,
-      artifactId: options.artifactId ?? null,
-      parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
-      outputSummary: null,
-      startedAt,
-    };
-    jobStore.updateJob(context.job.jobId, { stage: stageName, status: SAMPLE_STATUS.processing, progress, errorSummary: null });
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.start",
-      artifactId: context.activeStage.artifactId,
-      parentArtifactId: context.activeStage.parentArtifactId,
-      inputSummary: context.activeStage.inputSummary,
-    });
-    const result = await options.action();
-    const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
-    context.activeStage.outputSummary = outputSummary;
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.end",
-      artifactId: context.activeStage.artifactId,
-      parentArtifactId: context.activeStage.parentArtifactId,
-      outputSummary,
-      durationMs: Date.now() - startedAt,
-    });
-    context.activeStage = null;
-    return result;
-  }
-
-  async function markFailed(context, error, store) {
-    const activeStage = context.activeStage ?? {
-      stageName: STAGES.analyzed,
-      artifactId: context.artifactId,
-      parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? context.artifact?.sampleVideo?.artifactId ?? null,
-      inputSummary: {
-        sampleVideoId: context.sampleVideoId,
-      },
-      outputSummary: null,
-      startedAt: Date.now(),
-    };
-    const safe = safeError(error, activeStage.stageName);
-    const snapshot = await logger.writeDebugSnapshot({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      reason: safe.code,
-      inputSummary: activeStage.inputSummary,
-      outputSummary: activeStage.outputSummary,
-      debugPayload: sanitizeDebugPayload(error),
-    });
-    const errorSummary = { ...safe, debugSnapshotUri: snapshot.uri };
-    const failedArtifact = buildFailedArtifact(context, errorSummary, snapshot.uri);
-    await attachScriptSegments(context.sampleVideoId, failedArtifact, store).catch(() => undefined);
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      event: "stage.fail",
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      outputSummary: activeStage.outputSummary,
-      durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
-      errorSummary,
-    });
-    jobStore.updateJob(context.job.jobId, {
-      agentRun: context.agentRun ? { ...context.agentRun, status: "failed", updatedAt: new Date().toISOString() } : context.agentRun,
-      stage: activeStage.stageName,
-      status: SAMPLE_STATUS.failed,
-      progress: 100,
-      errorSummary,
-      activeThreadMessage: null,
-    });
-    context.activeStage = null;
-  }
-
-  function updateActiveThreadMessage(context, turn) {
-    const activeThreadMessage = buildActiveThreadMessage(turn?.threadId, turn?.turnId, turn?.activeThreadMessage, turn?.status);
-    jobStore.updateJob(context.job.jobId, { activeThreadMessage });
-    return activeThreadMessage;
-  }
-
   return { enqueue, resolveCacheDecision };
 
   async function runCacheLookupLocal(context, input) {
     return runCacheLookup({
       context,
       input,
-      runStage,
+      runStage: runtime.runStage,
       stageName: STAGES.cacheLookup,
       findCached: () => findCachedArtifact({
         context,
@@ -559,7 +491,7 @@ function createScriptSegmentService({
     await reuseCachedAnalysis({
       context,
       cachePrompt,
-      runStage,
+      runStage: runtime.runStage,
       stageName: STAGES.cacheReuse,
       resolvePrompt: () => resolveCachedPrompt({
         cachePrompt,
@@ -625,13 +557,14 @@ function createScriptSegmentService({
 }
 
 function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId) {
-  const expected = String(expectedShotBoundaryArtifactId ?? "").trim();
-  if (!expected) return;
-  const actual = String(artifact?.shotBoundaryAnalysis?.artifactId ?? "").trim();
-  if (actual === expected) return;
-  throw conflictError("script_segment_shot_boundary_stale", "切镜结果已更新，请刷新后再运行脚本段落分析", {
-    expectedShotBoundaryArtifactId: expected,
-    actualShotBoundaryArtifactId: actual || null,
+  return assertExpectedArtifact({
+    expectedArtifactId: expectedShotBoundaryArtifactId,
+    actualArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
+    conflictError,
+    code: "script_segment_shot_boundary_stale",
+    message: "切镜结果已更新，请刷新后再运行脚本段落分析",
+    expectedKey: "expectedShotBoundaryArtifactId",
+    actualKey: "actualShotBoundaryArtifactId",
   });
 }
 
@@ -645,22 +578,6 @@ function conflictError(code, message, debugPayload = null) {
   const error = codedError(code, message, debugPayload, false);
   error.statusCode = 409;
   return error;
-}
-
-function buildActiveThreadMessage(threadId, turnId, message, status) {
-  const text = String(message ?? "").trim();
-  if (!text || !isPendingTurnStatus(status)) return null;
-  return {
-    threadId: threadId ?? null,
-    turnId: turnId ?? null,
-    role: "thread",
-    text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function isPendingTurnStatus(status) {
-  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store, traceMeta = {}) {

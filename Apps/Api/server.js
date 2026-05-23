@@ -147,6 +147,7 @@ async function handleRhythmStructure(req, res, sampleVideoId) {
     sampleVideoId,
     cacheDecision: body.cacheDecision ?? "ask",
     expectedShotBoundaryArtifactId: body.expectedShotBoundaryArtifactId ?? null,
+    expectedScriptSegmentArtifactId: body.expectedScriptSegmentArtifactId ?? null,
   });
   return sendJson(res, 202, result);
 }

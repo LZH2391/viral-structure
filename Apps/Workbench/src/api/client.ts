@@ -88,7 +88,7 @@ export async function startScriptSegmentAnalysis(sampleVideoId: string, options:
   );
 }
 
-export async function startRhythmStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
+export async function startRhythmStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null; expectedScriptSegmentArtifactId?: string | null } = {}) {
   return readJsonResponse<RhythmStructureStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/rhythm-structure`, {
       method: "POST",
@@ -96,6 +96,7 @@ export async function startRhythmStructureAnalysis(sampleVideoId: string, option
       body: JSON.stringify({
         cacheDecision: options.cacheDecision ?? "ask",
         expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
+        expectedScriptSegmentArtifactId: options.expectedScriptSegmentArtifactId ?? null,
       }),
     }),
   );

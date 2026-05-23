@@ -2,11 +2,14 @@ import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoo
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
+export type AnalysisStageKind = "shotBoundary" | "scriptSegment" | "rhythmStructure";
+
 export type ActiveJobDraft = {
   processingJobId: string;
   sampleVideoId: string;
   traceId: string;
   analysisFps?: number;
+  stageKind?: AnalysisStageKind;
 };
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
@@ -67,6 +70,7 @@ export async function runScriptSegmentAnalysis(
   state: WorkbenchState,
   dispatch: (action: WorkbenchAction) => void,
   onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
   onCacheHit?: ScriptSegmentCacheHandler,
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
@@ -91,11 +95,13 @@ export async function runScriptSegmentAnalysis(
     progress: 0,
   };
   onJobUpdate?.(latest);
+  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "scriptSegment" });
   for (let attempt = 0; attempt < 180; attempt += 1) {
     await delay(1000);
     latest = await getProcessingJob(started.processingJobId);
     onJobUpdate?.(latest);
     if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      writeActiveJob?.(null);
       await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
       return null;
     }
@@ -103,16 +109,19 @@ export async function runScriptSegmentAnalysis(
       const artifact = await getSampleArtifact(started.sampleVideoId);
       dispatch({ type: "apply-artifact", artifact });
       onJobUpdate?.(null);
+      writeActiveJob?.(null);
       return { artifact, job: latest };
     }
     if (latest.status === "failed") {
       onJobUpdate?.(latest);
       const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
       if (artifact) dispatch({ type: "apply-artifact", artifact });
+      writeActiveJob?.(null);
       throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
     }
   }
   onJobUpdate?.(null);
+  writeActiveJob?.(null);
   throw new Error("脚本段落分析超时");
 }
 
@@ -120,6 +129,7 @@ export async function runRhythmStructureAnalysis(
   state: WorkbenchState,
   dispatch: (action: WorkbenchAction) => void,
   onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
   onCacheHit?: RhythmStructureCacheHandler,
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
@@ -127,6 +137,7 @@ export async function runRhythmStructureAnalysis(
   const started = await startRhythmStructureAnalysis(state.sampleVideo.id, {
     cacheDecision,
     expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+    expectedScriptSegmentArtifactId: state.sampleArtifact?.scriptSegmentAnalysis?.artifactId ?? null,
   });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
@@ -144,11 +155,13 @@ export async function runRhythmStructureAnalysis(
     progress: 0,
   };
   onJobUpdate?.(latest);
+  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "rhythmStructure" });
   for (let attempt = 0; attempt < 180; attempt += 1) {
     await delay(1000);
     latest = await getProcessingJob(started.processingJobId);
     onJobUpdate?.(latest);
     if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      writeActiveJob?.(null);
       await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
       return null;
     }
@@ -156,16 +169,19 @@ export async function runRhythmStructureAnalysis(
       const artifact = await getSampleArtifact(started.sampleVideoId);
       dispatch({ type: "apply-artifact", artifact });
       onJobUpdate?.(null);
+      writeActiveJob?.(null);
       return { artifact, job: latest };
     }
     if (latest.status === "failed") {
       onJobUpdate?.(latest);
       const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
       if (artifact) dispatch({ type: "apply-artifact", artifact });
+      writeActiveJob?.(null);
       throw new Error(latest.errorSummary?.message ?? "节奏结构分析失败");
     }
   }
   onJobUpdate?.(null);
+  writeActiveJob?.(null);
   throw new Error("节奏结构分析超时");
 }
 
@@ -228,6 +244,43 @@ export async function attachAgentJob(
   }
   setAgentJob(null);
   writeActiveAgentJob(null);
+  return null;
+}
+
+export async function attachAnalysisJob(
+  jobDraft: ActiveJobDraft,
+  setJob: (job: ProcessingJob | null) => void,
+  dispatch: (action: WorkbenchAction) => void,
+  writeActiveJob: JobDraftWriter,
+  options: { artifactAction?: "apply-artifact" | "set-shot-boundary-analysis"; showCacheWaiting?: boolean } = {},
+) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
+    if (!job) {
+      setJob(null);
+      writeActiveJob(null);
+      return null;
+    }
+    if (job.status === "cache_waiting" && options.showCacheWaiting === false) {
+      setJob(job);
+      return null;
+    }
+    setJob(job);
+    if (job.status === "processed") {
+      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+      dispatch({ type: options.artifactAction ?? "apply-artifact", artifact });
+      writeActiveJob(null);
+      setJob(null);
+      return artifact;
+    }
+    if (job.status === "failed") {
+      writeActiveJob(null);
+      return null;
+    }
+    await delay(1000);
+  }
+  setJob(null);
+  writeActiveJob(null);
   return null;
 }
 

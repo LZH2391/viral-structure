@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveCacheDecision, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
-import { createStructureCardsFromSegments } from "../domain";
 import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SampleArtifact, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
-import { createId, sanitizeText, shortId } from "../utils/format";
+import { createId, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runRhythmStructureAnalysis, runScriptSegmentAnalysis, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
+import { useAnalysisJobFlow } from "../hooks/useAnalysisJobFlow";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
@@ -26,8 +26,6 @@ import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
-type ScriptCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
-type RhythmCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 const SUBTITLE_SAVE_STAGE = "sample.subtitle.revised";
@@ -44,11 +42,7 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
-  const [scriptCachePrompt, setScriptCachePrompt] = useState<ScriptCachePrompt>(null);
-  const [rhythmCachePrompt, setRhythmCachePrompt] = useState<RhythmCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
-  const [scriptSegmentJob, setScriptSegmentJob] = useState<ProcessingJob | null>(null);
-  const [rhythmStructureJob, setRhythmStructureJob] = useState<ProcessingJob | null>(null);
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const subtitleSaveTokenRef = useRef(0);
@@ -67,6 +61,41 @@ export function WorkbenchApp() {
   const lastShotIdRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
+  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
+    writeWorkbenchDraft({
+      sampleVideoId: artifact.sampleVideoId,
+      artifactId: artifact.sampleVideo.artifactId,
+      traceId,
+      sampleArtifact: artifact,
+      selectedFrameId: artifact.frames[0]?.frameId ?? null,
+      selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
+      versions: state.versions,
+    });
+  }, [state.versions]);
+  const scriptSegmentFlow = useAnalysisJobFlow({
+    kind: "scriptSegment",
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    uploadTokenRef,
+  });
+  const rhythmStructureFlow = useAnalysisJobFlow({
+    kind: "rhythmStructure",
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    uploadTokenRef,
+  });
+  const scriptSegmentJob = scriptSegmentFlow.job;
+  const rhythmStructureJob = rhythmStructureFlow.job;
+  const scriptCachePrompt = scriptSegmentFlow.cachePrompt;
+  const setScriptCachePrompt = scriptSegmentFlow.setCachePrompt;
+  const setScriptSegmentJob = scriptSegmentFlow.setJob;
+  const rhythmCachePrompt = rhythmStructureFlow.cachePrompt;
+  const setRhythmCachePrompt = rhythmStructureFlow.setCachePrompt;
+  const setRhythmStructureJob = rhythmStructureFlow.setJob;
   const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
     videoRef,
     structureCards: state.structureCards,
@@ -98,8 +127,13 @@ export function WorkbenchApp() {
         .catch(() => setSaveStatus("已恢复最近样例，最新样例同步失败"));
     }
     if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
-    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob, undefined, { showCacheWaiting: false }).catch(() => setSaveStatus("恢复切镜任务失败"));
-    if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
+    const activeShotBoundaryJob = draft?.activeShotBoundaryJob ?? draft?.activeAgentJob;
+    if (activeShotBoundaryJob) {
+      attachAgentJob(activeShotBoundaryJob, setAgentJob, dispatch, writeActiveAgentJob, undefined, { showCacheWaiting: false }).catch(() => setSaveStatus("恢复切镜任务失败"));
+      setAgentAnalysisFps(normalizeAnalysisFps(activeShotBoundaryJob.analysisFps, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
+    }
+    scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
+    rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
   }, []);
 
   useEffect(() => {
@@ -385,18 +419,6 @@ export function WorkbenchApp() {
     }
   }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
 
-  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
-    writeWorkbenchDraft({
-      sampleVideoId: artifact.sampleVideoId,
-      artifactId: artifact.sampleVideo.artifactId,
-      traceId,
-      sampleArtifact: artifact,
-      selectedFrameId: artifact.frames[0]?.frameId ?? null,
-      selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
-      versions: state.versions,
-    });
-  }, [state.versions]);
-
   const reuseScriptCache = useCallback(async () => {
     if (!scriptCachePrompt) return;
     const prompt = scriptCachePrompt;
@@ -406,16 +428,7 @@ export function WorkbenchApp() {
       setScriptSegmentJob(job);
       const artifact = await getSampleArtifact(prompt.sampleVideoId);
       dispatch({ type: "apply-artifact", artifact });
-      persistWorkbenchArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null);
-      dispatch({
-        type: "add-version",
-        version: addVersion(
-          "复用脚本段落缓存",
-          STAGES.understand,
-          artifact.scriptSegmentAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
-          artifact.scriptSegmentAnalysis?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
-        ),
-      });
+      scriptSegmentFlow.applyCompletedArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null, "复用脚本段落缓存");
       setScriptSegmentJob(null);
       setSaveStatus("已复用脚本段落缓存");
     } catch (error) {
@@ -428,33 +441,15 @@ export function WorkbenchApp() {
     const prompt = scriptCachePrompt;
     setScriptCachePrompt(null);
     try {
-      const result = await runScriptSegmentAnalysis(
-        state,
-        dispatch,
-        setScriptSegmentJob,
-        async ({ job, cachedItem }) => {
-          setScriptCachePrompt({ jobId: job.jobId ?? prompt.jobId, sampleVideoId: job.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-          setSaveStatus("命中脚本段落缓存，等待选择");
-        },
-        "refresh",
-      );
+      const result = await scriptSegmentFlow.run("refresh");
       if (result?.artifact?.scriptSegmentAnalysis) {
-        persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
-        dispatch({
-          type: "add-version",
-          version: addVersion(
-            "脚本段落重新生成",
-            STAGES.understand,
-            result.artifact.scriptSegmentAnalysis.artifactId,
-            result.artifact.scriptSegmentAnalysis.parentArtifactId ?? state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
-          ),
-        });
+        scriptSegmentFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "脚本段落重新生成");
         setSaveStatus("脚本段落已重新生成");
       }
     } catch (error) {
       setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败");
     }
-  }, [dispatch, persistWorkbenchArtifact, scriptCachePrompt, state, state.processingJob?.traceId, state.sampleArtifact?.shotBoundaryAnalysis?.artifactId]);
+  }, [scriptCachePrompt, scriptSegmentFlow, setScriptCachePrompt, setSaveStatus, setScriptSegmentJob, state.processingJob?.traceId, state.sampleVideo]);
 
   const reuseRhythmCache = useCallback(async () => {
     if (!rhythmCachePrompt) return;
@@ -465,16 +460,7 @@ export function WorkbenchApp() {
       setRhythmStructureJob(job);
       const artifact = await getSampleArtifact(prompt.sampleVideoId);
       dispatch({ type: "apply-artifact", artifact });
-      persistWorkbenchArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null);
-      dispatch({
-        type: "add-version",
-        version: addVersion(
-          "复用节奏结构缓存",
-          STAGES.understand,
-          artifact.rhythmStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
-          artifact.rhythmStructureAnalysis?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
-        ),
-      });
+      rhythmStructureFlow.applyCompletedArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null, "复用节奏结构缓存");
       setRhythmStructureJob(null);
       setSaveStatus("已复用节奏结构缓存");
     } catch (error) {
@@ -487,33 +473,15 @@ export function WorkbenchApp() {
     const prompt = rhythmCachePrompt;
     setRhythmCachePrompt(null);
     try {
-      const result = await runRhythmStructureAnalysis(
-        state,
-        dispatch,
-        setRhythmStructureJob,
-        async ({ job, cachedItem }) => {
-          setRhythmCachePrompt({ jobId: job.jobId ?? prompt.jobId, sampleVideoId: job.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-          setSaveStatus("命中节奏结构缓存，等待选择");
-        },
-        "refresh",
-      );
+      const result = await rhythmStructureFlow.run("refresh");
       if (result?.artifact?.rhythmStructureAnalysis) {
-        persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
-        dispatch({
-          type: "add-version",
-          version: addVersion(
-            "节奏结构重新生成",
-            STAGES.understand,
-            result.artifact.rhythmStructureAnalysis.artifactId,
-            result.artifact.rhythmStructureAnalysis.parentArtifactId ?? state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
-          ),
-        });
+        rhythmStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构重新生成");
         setSaveStatus("节奏结构已重新生成");
       }
     } catch (error) {
       setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败");
     }
-  }, [dispatch, persistWorkbenchArtifact, rhythmCachePrompt, state, state.processingJob?.traceId, state.sampleArtifact?.shotBoundaryAnalysis?.artifactId]);
+  }, [rhythmCachePrompt, rhythmStructureFlow, setRhythmCachePrompt, setRhythmStructureJob, state.processingJob?.traceId, state.sampleVideo]);
 
   const buildSubtitleSegmentsForSave = useCallback((subtitles: SubtitleArtifact, drafts: Record<string, SubtitleDraft>) => {
     return subtitles.segments.map((segment) => {
@@ -649,31 +617,12 @@ export function WorkbenchApp() {
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
     });
     try {
-      const result = await runScriptSegmentAnalysis(
-        state,
-        dispatch,
-        setScriptSegmentJob,
-        async ({ job, cachedItem }) => {
-          if (!job.jobId || !job.sampleVideoId) return;
-          setScriptCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-          setSaveStatus("命中脚本段落缓存，等待选择");
-        },
-        "ask",
-      );
+      const result = await scriptSegmentFlow.run("ask");
       if (!result) return null;
       if (!result?.artifact?.scriptSegmentAnalysis) {
         throw new Error("脚本段落分析未返回有效产物");
       }
-      persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
-      dispatch({
-        type: "add-version",
-        version: addVersion(
-          "结构理解完成",
-          stage.stageName,
-          result.artifact.scriptSegmentAnalysis.artifactId,
-          result.artifact.scriptSegmentAnalysis.parentArtifactId ?? state.sampleArtifact.shotBoundaryAnalysis.artifactId,
-        ),
-      });
+      scriptSegmentFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "结构理解完成");
       finishStage(stage, result.artifact.scriptSegmentAnalysis.artifactId, {
         segmentCount: result.artifact.scriptSegmentAnalysis.segments.length,
         validatorCode: result.artifact.scriptSegmentAnalysis.validation?.validatorCode ?? null,
@@ -690,7 +639,7 @@ export function WorkbenchApp() {
       });
       throw error;
     }
-  }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, scriptSegmentJob?.traceId, state, state.processingJob?.traceId]);
+  }, [beginStage, failStage, finishStage, scriptSegmentFlow, state, state.processingJob?.traceId]);
 
   const handleRhythmStructure = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
@@ -701,31 +650,12 @@ export function WorkbenchApp() {
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
     });
     try {
-      const result = await runRhythmStructureAnalysis(
-        state,
-        dispatch,
-        setRhythmStructureJob,
-        async ({ job, cachedItem }) => {
-          if (!job.jobId || !job.sampleVideoId) return;
-          setRhythmCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-          setSaveStatus("命中节奏结构缓存，等待选择");
-        },
-        "ask",
-      );
+      const result = await rhythmStructureFlow.run("ask");
       if (!result) return null;
       if (!result?.artifact?.rhythmStructureAnalysis) {
         throw new Error("节奏结构分析未返回有效产物");
       }
-      persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
-      dispatch({
-        type: "add-version",
-        version: addVersion(
-          "节奏结构完成",
-          stage.stageName,
-          result.artifact.rhythmStructureAnalysis.artifactId,
-          result.artifact.rhythmStructureAnalysis.parentArtifactId ?? state.sampleArtifact.shotBoundaryAnalysis.artifactId,
-        ),
-      });
+      rhythmStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构完成");
       finishStage(stage, result.artifact.rhythmStructureAnalysis.artifactId, {
         cardCount: result.artifact.rhythmStructureAnalysis.cards.length,
         validatorCode: result.artifact.rhythmStructureAnalysis.validation?.validatorCode ?? null,
@@ -742,7 +672,7 @@ export function WorkbenchApp() {
       });
       throw error;
     }
-  }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, rhythmStructureJob?.traceId, state, state.processingJob?.traceId]);
+  }, [beginStage, failStage, finishStage, rhythmStructureFlow, state, state.processingJob?.traceId]);
 
   const handleSelectAudioFeature = useCallback(
     (marker: AudioFeatureMarker) => {

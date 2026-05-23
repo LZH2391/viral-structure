@@ -2,6 +2,7 @@
 const { randomUUID } = require("crypto");
 const { createTraceContext, SAMPLE_STATUS } = require("../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../Infrastructure/Observability/trace");
+const { createAnalysisRuntime, assertExpectedArtifact } = require("./analysis-service-shared");
 const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { createAppServerBridge } = require("./appserver-bridge");
@@ -49,10 +50,28 @@ function createRhythmStructureService({
   appServer = createAppServerBridge(),
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 } = {}) {
-  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
+  const runtime = createAnalysisRuntime({
+    logger,
+    jobStore,
+    sampleStatus: SAMPLE_STATUS,
+    safeError,
+    sanitizeDebugPayload,
+    buildFailedArtifact,
+    attachFailedAnalysis: (sampleVideoId, failedArtifact) => attachRhythmStructures(sampleVideoId, failedArtifact, store),
+    defaultFailedStageName: STAGES.analyzed,
+    resolveDefaultParentArtifactId: (context) => (
+      context.input?.parentArtifactId
+      ?? context.artifact?.shotBoundaryAnalysis?.artifactId
+      ?? context.artifact?.sampleVideo?.artifactId
+      ?? null
+    ),
+  });
+
+  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null, expectedScriptSegmentArtifactId = null }) {
     await store.ensureRuntimeDirs();
     const artifact = await loadArtifact(sampleVideoId, store);
     assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId);
+    assertExpectedScriptSegmentArtifact(artifact, expectedScriptSegmentArtifactId);
     const traceContext = createTraceContext(createTraceIds());
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     const roleProfile = await loadRoleProfileByRole(ROLE);
@@ -61,6 +80,7 @@ function createRhythmStructureService({
       cacheDecision,
       artifact,
       expectedShotBoundaryArtifactId,
+      expectedScriptSegmentArtifactId,
       traceContext,
       job,
       roleProfile,
@@ -74,6 +94,7 @@ function createRhythmStructureService({
       agentRun: null,
       validationSummary: null,
       cacheKey: null,
+      nextStage,
     };
     run(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
@@ -86,6 +107,7 @@ function createRhythmStructureService({
     }
     const artifact = await loadArtifact(job.sampleVideoId, store);
     assertExpectedShotBoundaryArtifact(artifact, job.cachePrompt.expectedShotBoundaryArtifactId ?? null);
+    assertExpectedScriptSegmentArtifact(artifact, job.cachePrompt.expectedScriptSegmentArtifactId ?? null);
     const roleProfile = await loadRoleProfileByRole(ROLE);
     const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
     const inputPackage = await prepareInputPackage({
@@ -99,6 +121,7 @@ function createRhythmStructureService({
       cacheDecision: decision,
       artifact,
       expectedShotBoundaryArtifactId: job.cachePrompt.expectedShotBoundaryArtifactId ?? null,
+      expectedScriptSegmentArtifactId: job.cachePrompt.expectedScriptSegmentArtifactId ?? null,
       traceContext: {
         runId: job.traceId,
         traceId: job.traceId,
@@ -120,12 +143,13 @@ function createRhythmStructureService({
       agentRun: null,
       validationSummary: null,
       cacheKey,
+      nextStage,
     };
     if (decision === "reuse") {
       try {
         await reuseCachedAnalysisLocal(context, job.cachePrompt);
       } catch (error) {
-        await markFailed(context, error, store);
+        await runtime.markFailed(context, error);
       }
       return jobStore.getJob(jobId);
     }
@@ -140,7 +164,7 @@ function createRhythmStructureService({
   async function run(context) {
     let lease = null;
     try {
-      const input = await runStage(context, STAGES.inputPrepared, 18, {
+      const input = await runtime.runStage(context, STAGES.inputPrepared, 18, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.shotBoundaryAnalysis?.artifactId ?? context.artifact.sampleVideo?.artifactId ?? null,
         inputSummary: {
@@ -159,7 +183,7 @@ function createRhythmStructureService({
       });
       context.input = input;
 
-      const inputPackage = await runStage(context, STAGES.inputPackaged, 24, {
+      const inputPackage = await runtime.runStage(context, STAGES.inputPackaged, 24, {
         artifactId: context.artifactId,
         parentArtifactId: input.parentArtifactId,
         inputSummary: {
@@ -201,7 +225,7 @@ function createRhythmStructureService({
         return null;
       }
 
-      const analyzed = await runStage(context, STAGES.analyzed, 56, {
+      const analyzed = await runtime.runStage(context, STAGES.analyzed, 56, {
         artifactId: context.artifactId,
         parentArtifactId: input.parentArtifactId,
         inputSummary: {
@@ -221,7 +245,7 @@ function createRhythmStructureService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
-            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
+            onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           lease = executed.lease;
           context.agentRun = buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
@@ -253,7 +277,7 @@ function createRhythmStructureService({
       let analysis = analyzed.analysis;
       let finalTurn = analyzed.finalTurn;
 
-      const validated = await runStage(context, STAGES.validated, 74, {
+      const validated = await runtime.runStage(context, STAGES.validated, 74, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -278,7 +302,7 @@ function createRhythmStructureService({
         }, false);
       }
 
-      const materializedArtifact = await runStage(context, STAGES.materialized, 96, {
+      const materializedArtifact = await runtime.runStage(context, STAGES.materialized, 96, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -287,7 +311,9 @@ function createRhythmStructureService({
           turnId: analysis.agent?.turnId ?? null,
         },
         action: async () => {
-          assertExpectedShotBoundaryArtifact(await loadArtifact(context.sampleVideoId, store), context.input.parentArtifactId);
+          const latestArtifact = await loadArtifact(context.sampleVideoId, store);
+          assertExpectedShotBoundaryArtifact(latestArtifact, context.input.parentArtifactId);
+          assertExpectedScriptSegmentArtifact(latestArtifact, context.input.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null);
           const nextArtifact = await attachRhythmStructures(context.sampleVideoId, analysis, store);
           await artifactIndex.registerSampleArtifact({
             artifact: nextArtifact,
@@ -344,7 +370,7 @@ function createRhythmStructureService({
       } else if (context.agentRun?.threadId) {
         await cleanupLease(threadPool, { thread_id: context.agentRun.threadId, lease_id: context.agentRun.leaseId }, context.traceContext.traceId, "rhythm-structure-analysis-failed");
       }
-      await markFailed(context, error, store);
+      await runtime.markFailed(context, error);
       return null;
     }
   }
@@ -364,7 +390,7 @@ function createRhythmStructureService({
         promptTemplateVersion: repairTurn.promptTemplateVersion,
         promptTemplateHash: repairTurn.promptTemplateHash,
       };
-      const repaired = await runStage(context, STAGES.repaired, 88, {
+      const repaired = await runtime.runStage(context, STAGES.repaired, 88, {
         artifactId: context.artifactId,
         parentArtifactId: context.input.parentArtifactId,
         inputSummary: {
@@ -383,7 +409,7 @@ function createRhythmStructureService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
-            onTurnCollect: (turn) => updateActiveThreadMessage(context, turn),
+            onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           const analysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount,
@@ -402,7 +428,7 @@ function createRhythmStructureService({
       });
 
       const analysis = repaired.analysis;
-      const materializedArtifact = await runStage(context, STAGES.materialized, 96, {
+      const materializedArtifact = await runtime.runStage(context, STAGES.materialized, 96, {
         artifactId: analysis.artifactId,
         parentArtifactId: analysis.parentArtifactId,
         inputSummary: {
@@ -412,7 +438,9 @@ function createRhythmStructureService({
           repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
         },
         action: async () => {
-          assertExpectedShotBoundaryArtifact(await loadArtifact(context.sampleVideoId, store), context.input.parentArtifactId);
+          const latestArtifact = await loadArtifact(context.sampleVideoId, store);
+          assertExpectedShotBoundaryArtifact(latestArtifact, context.input.parentArtifactId);
+          assertExpectedScriptSegmentArtifact(latestArtifact, context.input.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null);
           const nextArtifact = await attachRhythmStructures(context.sampleVideoId, analysis, store);
           await artifactIndex.registerSampleArtifact({
             artifact: nextArtifact,
@@ -440,101 +468,13 @@ function createRhythmStructureService({
     return null;
   }
 
-  async function runStage(context, stageName, progress, options) {
-    context.traceContext = nextStage(context.traceContext);
-    const startedAt = Date.now();
-    context.activeStage = {
-      stageName,
-      artifactId: options.artifactId ?? null,
-      parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
-      outputSummary: null,
-      startedAt,
-    };
-    jobStore.updateJob(context.job.jobId, { stage: stageName, status: SAMPLE_STATUS.processing, progress, errorSummary: null });
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.start",
-      artifactId: context.activeStage.artifactId,
-      parentArtifactId: context.activeStage.parentArtifactId,
-      inputSummary: context.activeStage.inputSummary,
-    });
-    const result = await options.action();
-    const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
-    context.activeStage.outputSummary = outputSummary;
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.end",
-      artifactId: context.activeStage.artifactId,
-      parentArtifactId: context.activeStage.parentArtifactId,
-      outputSummary,
-      durationMs: Date.now() - startedAt,
-    });
-    context.activeStage = null;
-    return result;
-  }
-
-  async function markFailed(context, error, store) {
-    const activeStage = context.activeStage ?? {
-      stageName: STAGES.analyzed,
-      artifactId: context.artifactId,
-      parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? context.artifact?.sampleVideo?.artifactId ?? null,
-      inputSummary: {
-        sampleVideoId: context.sampleVideoId,
-      },
-      outputSummary: null,
-      startedAt: Date.now(),
-    };
-    const safe = safeError(error, activeStage.stageName);
-    const snapshot = await logger.writeDebugSnapshot({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      reason: safe.code,
-      inputSummary: activeStage.inputSummary,
-      outputSummary: activeStage.outputSummary,
-      debugPayload: sanitizeDebugPayload(error),
-    });
-    const errorSummary = { ...safe, debugSnapshotUri: snapshot.uri };
-    const failedArtifact = buildFailedArtifact(context, errorSummary, snapshot.uri);
-    await attachRhythmStructures(context.sampleVideoId, failedArtifact, store).catch(() => undefined);
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      event: "stage.fail",
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      outputSummary: activeStage.outputSummary,
-      durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
-      errorSummary,
-    });
-    jobStore.updateJob(context.job.jobId, {
-      agentRun: context.agentRun ? { ...context.agentRun, status: "failed", updatedAt: new Date().toISOString() } : context.agentRun,
-      stage: activeStage.stageName,
-      status: SAMPLE_STATUS.failed,
-      progress: 100,
-      errorSummary,
-      activeThreadMessage: null,
-    });
-    context.activeStage = null;
-  }
-
-  function updateActiveThreadMessage(context, turn) {
-    const activeThreadMessage = buildActiveThreadMessage(turn?.threadId, turn?.turnId, turn?.activeThreadMessage, turn?.status);
-    jobStore.updateJob(context.job.jobId, { activeThreadMessage });
-    return activeThreadMessage;
-  }
-
   return { enqueue, resolveCacheDecision };
 
   async function runCacheLookupLocal(context, input) {
     return runCacheLookup({
       context,
       input,
-      runStage,
+      runStage: runtime.runStage,
       stageName: STAGES.cacheLookup,
       findCached: () => findCachedArtifact({
         context,
@@ -561,7 +501,7 @@ function createRhythmStructureService({
     await reuseCachedAnalysis({
       context,
       cachePrompt,
-      runStage,
+      runStage: runtime.runStage,
       stageName: STAGES.cacheReuse,
       resolvePrompt: () => resolveCachedPrompt({
         cachePrompt,
@@ -622,18 +562,32 @@ function createRhythmStructureService({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       profileVersion: context.roleProfile?.profileVersion ?? null,
       expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
+      expectedScriptSegmentArtifactId: context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null,
     };
   }
 }
 
 function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId) {
-  const expected = String(expectedShotBoundaryArtifactId ?? "").trim();
-  if (!expected) return;
-  const actual = String(artifact?.shotBoundaryAnalysis?.artifactId ?? "").trim();
-  if (actual === expected) return;
-  throw conflictError("rhythm_structure_shot_boundary_stale", "切镜结果已更新，请刷新后再运行节奏结构分析", {
-    expectedShotBoundaryArtifactId: expected,
-    actualShotBoundaryArtifactId: actual || null,
+  return assertExpectedArtifact({
+    expectedArtifactId: expectedShotBoundaryArtifactId,
+    actualArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
+    conflictError,
+    code: "rhythm_structure_shot_boundary_stale",
+    message: "切镜结果已更新，请刷新后再运行节奏结构分析",
+    expectedKey: "expectedShotBoundaryArtifactId",
+    actualKey: "actualShotBoundaryArtifactId",
+  });
+}
+
+function assertExpectedScriptSegmentArtifact(artifact, expectedScriptSegmentArtifactId) {
+  return assertExpectedArtifact({
+    expectedArtifactId: expectedScriptSegmentArtifactId,
+    actualArtifactId: artifact?.scriptSegmentAnalysis?.artifactId ?? null,
+    conflictError,
+    code: "rhythm_structure_script_segment_stale",
+    message: "脚本段落结果已更新，请刷新后再运行节奏结构分析",
+    expectedKey: "expectedScriptSegmentArtifactId",
+    actualKey: "actualScriptSegmentArtifactId",
   });
 }
 
@@ -647,22 +601,6 @@ function conflictError(code, message, debugPayload = null) {
   const error = codedError(code, message, debugPayload, false);
   error.statusCode = 409;
   return error;
-}
-
-function buildActiveThreadMessage(threadId, turnId, message, status) {
-  const text = String(message ?? "").trim();
-  if (!text || !isPendingTurnStatus(status)) return null;
-  return {
-    threadId: threadId ?? null,
-    turnId: turnId ?? null,
-    role: "thread",
-    text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function isPendingTurnStatus(status) {
-  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 async function attachRhythmStructures(sampleVideoId, rhythmStructureAnalysis, store, traceMeta = {}) {

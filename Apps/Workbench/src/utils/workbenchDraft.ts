@@ -1,5 +1,5 @@
 import type { DraftState } from "../state";
-import type { ActiveJobDraft } from "./workbenchHelpers";
+import type { ActiveJobDraft, AnalysisStageKind } from "./workbenchHelpers";
 
 export const WORKBENCH_DRAFT_STORAGE_KEY = "workbench:last-sample";
 
@@ -28,14 +28,42 @@ export function writeActiveUploadJob(job: ActiveJobDraft | null) {
 }
 
 export function writeActiveAgentJob(job: ActiveJobDraft | null) {
+  writeActiveAnalysisJob("shotBoundary", job);
+}
+
+export function writeActiveAnalysisJob(stageKind: AnalysisStageKind, job: ActiveJobDraft | null) {
+  const draftKey = analysisDraftKey(stageKind);
   updateDraft((draft) => {
     if (!job) {
-      const { activeAgentJob, ...rest } = draft;
-      void activeAgentJob;
+      const { [draftKey]: removed, ...rest } = draft;
+      void removed;
+      if (stageKind === "shotBoundary" && "activeAgentJob" in rest) {
+        const { activeAgentJob, ...legacyRest } = rest;
+        void activeAgentJob;
+        return legacyRest;
+      }
       return rest;
     }
-    return { ...draft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? 1 } };
+    const nextDraft = {
+      ...draft,
+      [draftKey]: {
+        processingJobId: job.processingJobId,
+        sampleVideoId: job.sampleVideoId,
+        traceId: job.traceId,
+        ...(stageKind === "shotBoundary" ? { analysisFps: job.analysisFps ?? 1 } : {}),
+      },
+    };
+    if (stageKind === "shotBoundary") {
+      return { ...nextDraft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? 1 } };
+    }
+    return nextDraft;
   });
+}
+
+function analysisDraftKey(stageKind: AnalysisStageKind): "activeShotBoundaryJob" | "activeScriptSegmentJob" | "activeRhythmStructureJob" {
+  if (stageKind === "scriptSegment") return "activeScriptSegmentJob";
+  if (stageKind === "rhythmStructure") return "activeRhythmStructureJob";
+  return "activeShotBoundaryJob";
 }
 
 function updateDraft(mutator: (draft: Partial<DraftState>) => Partial<DraftState>) {
