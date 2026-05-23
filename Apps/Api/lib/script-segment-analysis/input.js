@@ -406,15 +406,10 @@ function buildShotSubtitleMap(shots, subtitles) {
   if (!Array.isArray(shots) || !shots.length || !subtitles || subtitles.status !== "processed") return map;
 
   const words = Array.isArray(subtitles.words) ? subtitles.words.filter((word) => String(word?.text ?? "").trim()) : [];
+  const segments = Array.isArray(subtitles.segments) ? subtitles.segments.filter((segment) => String(segment?.text ?? "").trim()) : [];
   const utterances = Array.isArray(subtitles.utterances) ? subtitles.utterances.filter((utterance) => String(utterance?.text ?? "").trim()) : [];
 
-  for (const word of words) {
-    const shot = resolveWordShot(shots, word);
-    if (!shot) continue;
-    const entry = map.get(shot.shotId);
-    if (!entry) continue;
-    entry.subtitleText += String(word.text ?? "").trim();
-  }
+  appendShotSubtitleText({ map, shots, words, segments });
 
   for (const shot of shots) {
     const entry = map.get(shot.shotId);
@@ -427,6 +422,75 @@ function buildShotSubtitleMap(shots, subtitles) {
   }
 
   return map;
+}
+
+function appendShotSubtitleText({ map, shots, words, segments }) {
+  const indexedWords = words.map((word, index) => ({ word, index }));
+  const emittedWordIndexes = new Set();
+
+  for (const segment of segments) {
+    const segmentWordItems = indexedWords.filter(({ word }) => wordOverlapsSubtitleSegment(word, segment));
+    if (!segmentWordItems.length) continue;
+    const decoratedTexts = decorateWordsWithSegmentText(segment.text, segmentWordItems.map(({ word }) => word));
+    segmentWordItems.forEach(({ word, index }, itemIndex) => {
+      if (emittedWordIndexes.has(index)) return;
+      appendWordTextToShot(map, shots, word, decoratedTexts[itemIndex] ?? String(word.text ?? "").trim());
+      emittedWordIndexes.add(index);
+    });
+  }
+
+  for (const { word, index } of indexedWords) {
+    if (emittedWordIndexes.has(index)) continue;
+    appendWordTextToShot(map, shots, word, String(word.text ?? "").trim());
+  }
+}
+
+function appendWordTextToShot(map, shots, word, text) {
+  const value = String(text ?? "").trim();
+  if (!value) return;
+  const shot = resolveWordShot(shots, word);
+  if (!shot) return;
+  const entry = map.get(shot.shotId);
+  if (!entry) return;
+  entry.subtitleText += value;
+}
+
+function decorateWordsWithSegmentText(segmentText, segmentWords) {
+  const sourceText = String(segmentText ?? "").trim();
+  const fallback = segmentWords.map((word) => String(word?.text ?? "").trim());
+  if (!sourceText || !fallback.length) return fallback;
+
+  const result = [];
+  let cursor = 0;
+  for (const wordText of fallback) {
+    if (!wordText) {
+      result.push("");
+      continue;
+    }
+    const wordIndex = sourceText.indexOf(wordText, cursor);
+    if (wordIndex < 0) return fallback;
+    const separator = sourceText.slice(cursor, wordIndex);
+    if (separator && result.length) result[result.length - 1] += separator;
+    result.push(wordText);
+    cursor = wordIndex + wordText.length;
+  }
+  if (cursor < sourceText.length && result.length) result[result.length - 1] += sourceText.slice(cursor);
+  return result;
+}
+
+function wordOverlapsSubtitleSegment(word, segment) {
+  const wordStart = normalizeNumber(word?.start, Number.NaN);
+  const wordEnd = normalizeNumber(word?.end, wordStart);
+  const segmentStart = normalizeNumber(segment?.start, Number.NaN);
+  const segmentEnd = normalizeNumber(segment?.end, segmentStart);
+  if (intervalOverlapSeconds(wordStart, wordEnd, segmentStart, segmentEnd) > 0) return true;
+
+  const midpoint = Number.isFinite(wordStart) && Number.isFinite(wordEnd) && wordEnd >= wordStart ? (wordStart + wordEnd) / 2 : wordStart;
+  return Number.isFinite(midpoint)
+    && Number.isFinite(segmentStart)
+    && Number.isFinite(segmentEnd)
+    && midpoint >= segmentStart
+    && midpoint < segmentEnd;
 }
 
 function resolveWordShot(shots, word) {

@@ -892,7 +892,10 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(artifact.shotBoundaryAnalysis.shots[0].endBoundaryReason, "cut");
   assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "产品特写镜头");
   assert.equal(artifact.shotBoundaryAnalysis.shots[1].endBoundaryReason, null);
-  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
+  assert.equal(artifact.shotBoundaryAnalysis.review.decision, "pass");
+  assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].role, "shot-boundary-reviewer");
+  assert.notEqual(artifact.shotBoundaryAnalysis.reviewRuns[0].threadId, artifact.shotBoundaryAnalysis.agent.threadId);
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
 });
 
 test("shot boundary skill content change misses old shot cache", async () => {
@@ -912,7 +915,7 @@ test("shot boundary skill content change misses old shot cache", async () => {
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -943,7 +946,7 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -971,7 +974,7 @@ test("shot boundary valid cache can be reused", async () => {
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1012,7 +1015,7 @@ test("shot boundary registers reusable cache for the same service run", async ()
     useRealArtifactIndex: true,
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: isSummaryTurnPayload(payload) ? "turn_summary_1" : `turn_${shotStartTurnCount}`, status: "submitted" };
       },
       collectTurnResult: async ({ turnId }) => {
@@ -1128,7 +1131,7 @@ test("shot boundary cache decision refresh continues same job and trace", async 
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1181,7 +1184,7 @@ test("same fps lookup reuses registered shot cache params while different fps mi
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
       collectTurnResult: async () => ({
@@ -1543,7 +1546,7 @@ test("shot boundary success releases lease and thread returns idle", async () =>
     await delay(10);
   }
 
-  assert.deepEqual(harness.threadPool.released, [{ leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" }]);
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
   assert.deepEqual(harness.threadPool.discarded, []);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
 });
@@ -1572,11 +1575,12 @@ test("shot boundary empty boundaries triggers repair and can recover", async () 
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "repaired_turn");
   assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 1);
-  assert.equal(startTurnPayloads.length, 3);
+  assert.equal(startTurnPayloads.length, 4);
   assert.equal("skillPath" in startTurnPayloads[0], false);
   assert.equal("skillPath" in startTurnPayloads[1], false);
   assert.equal("skillPath" in startTurnPayloads[2], false);
-  assert.equal(isSummaryTurnPayload(startTurnPayloads[2]), true);
+  assert.equal(isReviewTurnPayload(startTurnPayloads[2]), true);
+  assert.equal(isSummaryTurnPayload(startTurnPayloads[3]), true);
 });
 
 test("shot boundary empty boundaries after repair stays failed", async () => {
@@ -1676,9 +1680,9 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     discarded: [],
     ownerReleased: [],
     config: async () => threadPoolConfig ?? { ok: true, discardOnRelease: false },
-    roleStatus: async () => ({
+    roleStatus: async (role = "shot-boundary-analyzer") => ({
       ok: true,
-      role: "shot-boundary-analyzer",
+      role,
       counts: { idle: 1, leased: 0 },
       minIdle: 1,
       canAcquire: true,
@@ -1691,8 +1695,10 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
       threads: [],
       leases: [],
     }),
-    ensureRoleReady: async () => ({ ok: true, role: "shot-boundary-analyzer", status: { role: "shot-boundary-analyzer", canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
-    acquireLease: async () => ({ lease_id: "lease_1", thread_id: "thread_1" }),
+    ensureRoleReady: async (role = "shot-boundary-analyzer") => ({ ok: true, role, status: { role, canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
+    acquireLease: async ({ role } = {}) => role === "shot-boundary-reviewer"
+      ? { lease_id: "review_lease_1", thread_id: "review_thread_1" }
+      : { lease_id: "lease_1", thread_id: "thread_1" },
     releaseLease: async (payload) => {
       const result = { ...payload, thread_status: "idle" };
       threadPool.released.push(result);
@@ -1737,7 +1743,7 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
         const result = appServerImpl.startTurnWithInputs
           ? await appServerImpl.startTurnWithInputs(payload)
           : { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
-        turnKinds.push({ turnId: result.turnId ?? null, kind: isSummaryTurnPayload(payload) ? "summary" : "shot" });
+        turnKinds.push({ turnId: result.turnId ?? null, kind: isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot") });
         return result;
       },
       collectTurnResult: async (payload) => {
@@ -1748,6 +1754,9 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
           : { ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" };
         if (turnKind === "summary" && result?.status !== "completed") {
           turnKinds.unshift(turnKindEntry);
+        }
+        if (turnKind === "review" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("decision")) {
+          return { ...result, finalMessage: createReviewPassMessage() };
         }
         if (turnKind === "summary" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("commerceBrief")) {
           return { ...result, finalMessage: createSummaryMessage() };
@@ -1765,6 +1774,11 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
 function isSummaryTurnPayload(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
   return text.includes("已完成切镜摘要") && text.includes("commerceBrief");
+}
+
+function isReviewTurnPayload(payload) {
+  const text = String(payload?.inputs?.[0]?.text ?? "");
+  return text.includes("切镜审查") && text.includes("decision") && text.includes("issues");
 }
 
 function createContactSheets(prepared, sampleDir) {
@@ -1848,6 +1862,14 @@ function createSummaryMessage() {
       conversionAction: "未观察到明显转化动作",
       uncertainties: [],
     },
+  });
+}
+
+function createReviewPassMessage() {
+  return JSON.stringify({
+    decision: "pass",
+    reason: "未发现明确误切或漏切",
+    issues: [],
   });
 }
 

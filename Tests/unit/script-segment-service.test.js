@@ -54,19 +54,21 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.match(JSON.stringify(inputPackage.outputContract), /模型无需返回这些字段/);
 });
 
-test("prepareInput aligns shot subtitles by words and keeps utterance context across boundaries", () => {
+test("prepareInput aligns shot subtitles by words while preserving segment punctuation", () => {
   const artifact = createArtifact({
     subtitles: {
       artifactId: "artifact_subtitle",
       parentArtifactId: "artifact_audio",
       type: "subtitle-track",
       status: "processed",
-      segments: [],
+      segments: [
+        { id: "subtitle_1", start: 0.98, end: 3, text: "一整句跨镜头，", confidence: null },
+      ],
       utterances: [
         {
           start: 0.98,
           end: 3,
-          text: "一整句跨镜头字幕",
+          text: "一整句跨镜头字幕。",
           definite: true,
           words: [
             { start: 0.98, end: 1.02, text: "一" },
@@ -103,9 +105,44 @@ test("prepareInput aligns shot subtitles by words and keeps utterance context ac
   const prepared = prepareInput(artifact);
 
   assert.equal(prepared.shots[0].subtitleText, "一");
-  assert.equal(prepared.shots[1].subtitleText, "整句跨镜头");
-  assert.equal(prepared.shots[0].subtitleContextText, "一整句跨镜头字幕");
-  assert.equal(prepared.shots[1].subtitleContextText, "一整句跨镜头字幕");
+  assert.equal(prepared.shots[1].subtitleText, "整句跨镜头，");
+  assert.equal(prepared.shots[0].subtitleContextText, "一整句跨镜头字幕。");
+  assert.equal(prepared.shots[1].subtitleContextText, "一整句跨镜头字幕。");
+});
+
+test("prepareInput falls back to word text when segment text cannot align", () => {
+  const artifact = createArtifact({
+    subtitles: {
+      artifactId: "artifact_subtitle",
+      parentArtifactId: "artifact_audio",
+      type: "subtitle-track",
+      status: "processed",
+      segments: [
+        { id: "subtitle_1", start: 0, end: 2, text: "完全不匹配，", confidence: null },
+      ],
+      utterances: [],
+      words: [
+        { start: 0, end: 0.6, text: "原" },
+        { start: 0.6, end: 1.2, text: "词" },
+      ],
+    },
+    shotBoundaryAnalysis: {
+      artifactId: "artifact_shot_boundary",
+      parentArtifactId: "artifact_sample",
+      type: "shot-boundary-analysis",
+      status: "processed",
+      shots: [
+        { id: "shot_1", shotNo: "S001", start: 0, end: 1, reason: "开场", summary: "开场镜头" },
+        { id: "shot_2", shotNo: "S002", start: 1, end: 2, reason: "主体", summary: "主体镜头" },
+      ],
+      commerceBrief: null,
+    },
+  });
+
+  const prepared = prepareInput(artifact);
+
+  assert.equal(prepared.shots[0].subtitleText, "原");
+  assert.equal(prepared.shots[1].subtitleText, "词");
 });
 
 test("script segment frame ownership keeps half-open ranges and last shot closed", () => {

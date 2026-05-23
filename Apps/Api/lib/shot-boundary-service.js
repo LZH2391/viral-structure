@@ -51,6 +51,16 @@ const {
   contentHash,
   validateCommerceBriefOutput,
 } = require("./shot-boundary-analysis");
+const {
+  REVIEW_ROLE,
+  REVIEW_SKILL_PATH,
+  MAX_REVIEW_REWORK_COUNT,
+  prepareReviewSheets,
+  renderReviewTurnInputs,
+  validateReviewResult,
+  buildAnalyzerReviewReworkError,
+  summarizeReviewResult,
+} = require("./shot-boundary-review");
 
 const STAGES = {
   inputPrepared: "shot.input_prepare",
@@ -64,6 +74,11 @@ const STAGES = {
   summaryStarted: "shot.summary.submit",
   summaryCollected: "shot.summary.collect",
   summaryValidated: "shot.summary_validate",
+  reviewSheetsPrepared: "shot.boundary_review.sheets",
+  reviewThreadAcquired: "shot.boundary_review.thread_acquire",
+  reviewStarted: "shot.boundary_review.submit",
+  reviewCollected: "shot.boundary_review.collect",
+  reviewValidated: "shot.boundary_review.validate",
   turnRepaired: "shot.boundary_repair.submit",
   repairCollected: "shot.boundary_repair.collect",
   resultWritten: "shot.boundary_merge",
@@ -358,6 +373,19 @@ function createShotBoundaryService({
           renderRepairTurnInputs,
           renderSummaryTurnInputs,
           validateCommerceBriefOutput,
+          reviewer: {
+            role: REVIEW_ROLE,
+            skillPath: REVIEW_SKILL_PATH,
+            maxReworkCount: MAX_REVIEW_REWORK_COUNT,
+            loadRoleProfileByRole,
+            prepareReviewSheets,
+            contactSheetGenerator,
+            renderReviewTurnInputs,
+            validateReviewResult,
+            buildAnalyzerReviewReworkError,
+            summarizeReviewResult,
+            acquireLeaseWithRetry,
+          },
           codedError,
           role: ROLE,
           jobStore,

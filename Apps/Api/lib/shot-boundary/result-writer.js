@@ -87,11 +87,13 @@ async function resolveFinalAnalysis({
   renderRepairTurnInputs,
   codedError,
   role,
+  repairAttemptOffset = 0,
 }) {
-  let repairAttemptCount = 0;
+  let repairAttemptCount = repairAttemptOffset;
   let finalTurn = turn;
-  let resultOrigin = "new_turn";
-  while (repairAttemptCount <= maxRepairAttempts) {
+  let resultOrigin = repairAttemptOffset > 0 ? "review_reworked_turn" : "new_turn";
+  const maxAllowedRepairAttempt = repairAttemptOffset + maxRepairAttempts;
+  while (repairAttemptCount <= maxAllowedRepairAttempt) {
     try {
       await runStage(context, stages.turnValidated, 90, {
         artifactId: context.artifactId,
@@ -125,7 +127,7 @@ async function resolveFinalAnalysis({
         },
       };
     } catch (error) {
-      if (error?.code !== "shot_boundary_validation_failed" || repairAttemptCount >= maxRepairAttempts) {
+      if (error?.code !== "shot_boundary_validation_failed" || repairAttemptCount >= maxAllowedRepairAttempt) {
         context.validationSummary = {
           ...(error?.debugPayload?.validation ?? {}),
           status: "failed",
@@ -170,10 +172,297 @@ async function resolveFinalAnalysis({
         renderRepairTurnInputs,
         role,
       });
-      resultOrigin = "repaired_turn";
+      resultOrigin = repairAttemptOffset > 0 ? "review_reworked_turn" : "repaired_turn";
     }
   }
   throw codedError("shot_boundary_validation_failed", "切镜结果校验失败", { repairAttemptCount: maxRepairAttempts }, false);
+}
+
+async function resolveReviewedAnalysis({
+  context,
+  agentRun,
+  initialTurn,
+  prepared,
+  contactSheets,
+  runStage,
+  stages,
+  maxRepairAttempts,
+  buildProcessedAnalysis,
+  appServer,
+  rootDir,
+  renderRepairTurnInputs,
+  codedError,
+  role,
+  reviewer,
+  store,
+  threadPool,
+  jobStore,
+}) {
+  let currentTurn = initialTurn;
+  let analyzerRepairOffset = 0;
+  let reviewReworkCount = 0;
+  let lastReviewResult = null;
+  let lastReviewRun = null;
+  while (true) {
+    const resolved = await resolveFinalAnalysis({
+      context,
+      agentRun,
+      turn: currentTurn,
+      prepared,
+      contactSheets,
+      runStage,
+      stages,
+      maxRepairAttempts,
+      buildProcessedAnalysis,
+      appServer,
+      rootDir,
+      renderRepairTurnInputs,
+      codedError,
+      role,
+      repairAttemptOffset: analyzerRepairOffset,
+    });
+    const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+    const shotAnalysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
+      resultOrigin: resolved.resultOrigin,
+      repairAttemptCount: resolved.repairAttemptCount,
+      review: lastReviewResult ? reviewer.summarizeReviewResult(lastReviewResult) : null,
+      reviewRuns: lastReviewRun ? [lastReviewRun] : [],
+      reviewReworkCount,
+    });
+    const review = await runReviewTurn({
+      context,
+      agentRun,
+      shotAnalysis,
+      prepared,
+      runStage,
+      stages,
+      appServer,
+      rootDir,
+      reviewer,
+      store,
+      threadPool,
+      jobStore,
+      reviewReworkCount,
+    });
+    lastReviewResult = review.result;
+    lastReviewRun = review.run;
+    if (review.result.decision === "pass") {
+      return {
+        ...resolved,
+        shotAnalysis: {
+          ...shotAnalysis,
+          review: reviewer.summarizeReviewResult(review.result),
+          reviewRuns: [review.run],
+          validation: {
+            ...shotAnalysis.validation,
+            review: {
+              decision: review.result.decision,
+              issueCount: review.result.issues.length,
+              reworkCount: reviewReworkCount,
+            },
+          },
+        },
+        reviewResult: review.result,
+        reviewRuns: [review.run],
+        reviewReworkCount,
+      };
+    }
+    if (review.result.decision === "blocked" || reviewReworkCount >= reviewer.maxReworkCount) {
+      const code = review.result.decision === "blocked" ? "shot_boundary_review_blocked" : "shot_boundary_review_rework_limit";
+      throw codedError(code, review.result.reason || "切镜 reviewer 未通过", {
+        review: reviewer.summarizeReviewResult(review.result),
+        reviewRun: lastReviewRun,
+        validation: {
+          validatorCode: code,
+          reviewDecision: review.result.decision,
+          issueCount: review.result.issues.length,
+          reworkCount: reviewReworkCount,
+        },
+      }, false);
+    }
+    reviewReworkCount += 1;
+    const reviewError = reviewer.buildAnalyzerReviewReworkError(review.result, reviewReworkCount);
+    currentTurn = await submitRepairTurn({
+      context,
+      agentRun,
+      prepared,
+      contactSheets,
+      validationError: reviewError,
+      priorTurn: resolved.finalTurn,
+      repairAttemptCount: maxRepairAttempts + reviewReworkCount,
+      runStage,
+      stages,
+      appServer,
+      rootDir,
+      renderRepairTurnInputs,
+      role,
+    });
+    analyzerRepairOffset = maxRepairAttempts + reviewReworkCount;
+    jobStore?.updateJob?.(context.job.jobId, {
+      shotBoundaryReview: {
+        currentReviewResult: reviewer.summarizeReviewResult(review.result),
+        reworkCount: reviewReworkCount,
+        maxReworkCount: reviewer.maxReworkCount,
+        reviewerRole: reviewer.role,
+        reviewerThreadId: review.run.threadId,
+        reviewerTurnId: review.run.turnId,
+        producerThreadId: agentRun.threadId,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  }
+}
+
+async function runReviewTurn({
+  context,
+  agentRun,
+  shotAnalysis,
+  prepared,
+  runStage,
+  stages,
+  appServer,
+  rootDir,
+  reviewer,
+  store,
+  threadPool,
+  jobStore,
+  reviewReworkCount,
+}) {
+  let lease = null;
+  const reviewerProfile = await reviewer.loadRoleProfileByRole(reviewer.role);
+  const reviewSheets = await runStage(context, stages.reviewSheetsPrepared, 91, {
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { shotCount: shotAnalysis.shots?.length ?? 0, reworkCount: reviewReworkCount },
+    action: () => reviewer.prepareReviewSheets({
+      prepared,
+      shotAnalysis,
+      sampleDir: store.sampleDir(context.sampleVideoId),
+      store,
+      contactSheetGenerator: reviewer.contactSheetGenerator,
+    }),
+    outputSummary: (sheets) => ({
+      sheetCount: sheets.filter((sheet) => sheet.localImagePath).length,
+      emptySheetCount: sheets.filter((sheet) => sheet.empty).length,
+      shotCount: shotAnalysis.shots?.length ?? 0,
+    }),
+  });
+  try {
+    const leaseAcquisition = await runStage(context, stages.reviewThreadAcquired, 92, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { role: reviewer.role, producerRole: agentRun.role, producerThreadId: agentRun.threadId, shotCount: shotAnalysis.shots?.length ?? 0 },
+      action: () => reviewer.acquireLeaseWithRetry(threadPool, {
+        role: reviewer.role,
+        ownerId: `${context.traceContext.traceId}:review`,
+        codedError: require("../shot-boundary-analysis").codedError,
+      }),
+      outputSummary: (result) => ({
+        role: reviewer.role,
+        leaseId: result.lease.lease_id,
+        threadId: result.lease.thread_id,
+        attemptCount: result.attemptCount,
+      }),
+    });
+    lease = leaseAcquisition.lease;
+    const reviewTurn = reviewer.renderReviewTurnInputs({
+      prepared,
+      shotAnalysis,
+      reviewSheets,
+      roleProfile: reviewerProfile,
+    });
+    const started = await runStage(context, stages.reviewStarted, 93, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { role: reviewer.role, threadId: lease.thread_id, leaseId: lease.lease_id, shotCount: shotAnalysis.shots?.length ?? 0, sheetCount: reviewSheets.length },
+      action: () => appServer.startTurnWithInputs({
+        workspaceRoot: rootDir,
+        threadId: lease.thread_id,
+        inputs: reviewTurn.inputs,
+        timeoutSeconds: 240,
+      }),
+      outputSummary: (result) => ({
+        role: reviewer.role,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        status: result.status,
+        promptTemplateId: reviewTurn.promptTemplateId,
+        promptTemplateVersion: reviewTurn.promptTemplateVersion,
+        promptTemplateHash: reviewTurn.promptTemplateHash,
+      }),
+    });
+    jobStore?.updateJob?.(context.job.jobId, {
+      shotBoundaryReview: {
+        reworkCount: reviewReworkCount,
+        maxReworkCount: reviewer.maxReworkCount,
+        reviewerRole: reviewer.role,
+        reviewerThreadId: started.threadId,
+        reviewerTurnId: started.turnId,
+        producerThreadId: agentRun.threadId,
+        status: "turn_submitted",
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    const collected = await runStage(context, stages.reviewCollected, 94, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+      action: () => appServer.collectTurnResult({
+        workspaceRoot: rootDir,
+        threadId: lease.thread_id,
+        turnId: started.turnId,
+        timeoutSeconds: 120,
+      }),
+      outputSummary: (result) => ({
+        role: reviewer.role,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        status: result.status,
+      }),
+    });
+    if (collected.status !== "completed") {
+      throw require("../shot-boundary-analysis").codedError("shot_boundary_review_turn_incomplete", "切镜 reviewer 未完成", {
+        turnId: collected.turnId ?? started.turnId,
+        status: collected.status,
+      }, true);
+    }
+    const result = await runStage(context, stages.reviewValidated, 95, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: collected.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+      action: () => reviewer.validateReviewResult(collected.finalMessage, shotAnalysis, collected),
+      outputSummary: (reviewResult) => ({
+        role: reviewer.role,
+        decision: reviewResult.decision,
+        issueCount: reviewResult.issues.length,
+        reworkCount: reviewReworkCount,
+      }),
+    });
+    await threadPool.releaseLease({ leaseId: lease.lease_id, ownerId: `${context.traceContext.traceId}:review` });
+    lease = null;
+    return {
+      result,
+      run: {
+        provider: "codex-appserver",
+        role: reviewer.role,
+        threadId: leaseAcquisition.lease.thread_id,
+        leaseId: leaseAcquisition.lease.lease_id,
+        turnId: collected.turnId ?? started.turnId ?? null,
+        promptTemplateId: reviewTurn.promptTemplateId,
+        promptTemplateVersion: reviewTurn.promptTemplateVersion,
+        promptTemplateHash: reviewTurn.promptTemplateHash,
+        sheetCount: reviewSheets.filter((sheet) => sheet.localImagePath).length,
+        reworkCount: reviewReworkCount,
+        status: "completed",
+      },
+    };
+  } catch (error) {
+    if (lease?.thread_id) {
+      await threadPool.discardThread({ threadId: lease.thread_id, reason: "shot-boundary-review-failed" }).catch(() => undefined);
+      await threadPool.releaseOwnerLeases?.(`${context.traceContext.traceId}:review`).catch(() => undefined);
+    }
+    throw error;
+  }
 }
 
 async function runSummaryTurn({
@@ -313,6 +602,11 @@ function throwSummaryIncomplete(context, stages, started, shotAnalysis, collecte
   }, retryable);
 }
 
+function isReviewTurnPayload(payload) {
+  const text = String(payload?.inputs?.[0]?.text ?? "");
+  return text.includes("切镜审查") && text.includes("decision") && text.includes("issues");
+}
+
 function isPendingTurnStatus(status) {
   return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
@@ -349,13 +643,14 @@ async function writeCompletedAnalysis({
   sampleStatus,
   summaryPollIntervalMs,
   summaryCollectMaxAttempts,
+  reviewer,
 }) {
   const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
   const contactSheets = agentRun.contactSheets ?? [];
-  const resolved = await resolveFinalAnalysis({
+  const resolved = await resolveReviewedAnalysis({
     context,
     agentRun,
-    turn,
+    initialTurn: turn,
     prepared,
     contactSheets,
     runStage,
@@ -367,12 +662,12 @@ async function writeCompletedAnalysis({
     renderRepairTurnInputs,
     codedError,
     role,
+    reviewer,
+    store,
+    threadPool,
+    jobStore,
   });
-  const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-  const shotAnalysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
-    resultOrigin: resolved.resultOrigin,
-    repairAttemptCount: resolved.repairAttemptCount,
-  });
+  const shotAnalysis = resolved.shotAnalysis;
   const summary = await runSummaryTurn({
     context,
     agentRun,

@@ -103,9 +103,11 @@ function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, conte
       rawBoundaryCount: rawBoundaries.length,
       normalizedBoundaryCount: mergedBoundaries.length,
       repairAttemptCount: options.repairAttemptCount ?? 0,
+      reviewReworkCount: options.reviewReworkCount ?? 0,
       validatorCode: null,
       schemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
       commerceBrief: summarizeCommerceBrief(commerceBrief),
+      review: options.review ?? null,
     },
     agent: {
       provider: "codex-appserver",
@@ -125,6 +127,8 @@ function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, conte
       inputMode: "multi_contact_sheet",
     },
     shots,
+    review: options.review ?? null,
+    reviewRuns: Array.isArray(options.reviewRuns) ? options.reviewRuns : [],
     createdAt: new Date().toISOString(),
   };
 }
