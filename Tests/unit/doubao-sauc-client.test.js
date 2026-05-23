@@ -9,6 +9,8 @@ const {
   decodeResultSegments,
   parseRecognitionPayload,
   recognitionTimeoutMs,
+  isSuccessCode,
+  sanitizeHeaders,
 } = require("../../Infrastructure/ModelGateway/doubao-sauc-client");
 
 test("doubao credentials keep app id and access token in separate fields", () => {
@@ -113,4 +115,26 @@ test("doubao parser extracts text utterances and words in seconds", () => {
 test("doubao timeout includes streaming duration plus response budget", () => {
   assert.equal(recognitionTimeoutMs(0), 30000);
   assert.equal(recognitionTimeoutMs(16000 * 2 * 42), 72000);
+});
+
+test("doubao success code accepts official and legacy success codes", () => {
+  assert.equal(isSuccessCode(20000000), true);
+  assert.equal(isSuccessCode(1000), true);
+  assert.equal(isSuccessCode(45000001), false);
+});
+
+test("doubao handshake debug headers redact sensitive values", () => {
+  assert.deepEqual(
+    sanitizeHeaders({
+      "content-type": "application/json",
+      "x-tt-logid": "log_1",
+      authorization: "Bearer secret",
+      "x-api-app-key": "app_secret",
+      "set-cookie": ["a=1"],
+    }),
+    {
+      "content-type": "application/json",
+      "x-tt-logid": "log_1",
+    },
+  );
 });

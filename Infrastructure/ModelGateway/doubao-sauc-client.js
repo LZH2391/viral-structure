@@ -7,6 +7,7 @@ const DEFAULT_MODEL_NAME = "bigmodel";
 const DEFAULT_PROTOCOL_VERSION = 1;
 const DEFAULT_CHUNK_MS = 200;
 const RESPONSE_TIMEOUT_MS = 30000;
+const SUCCESS_CODES = new Set([1000, 20000000]);
 const PCM_SAMPLE_RATE = 16000;
 const PCM_CHANNELS = 1;
 const PCM_BITS = 16;
@@ -72,18 +73,36 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
     let messageCount = 0;
     let logId = null;
     let opened = false;
+    let unexpectedResponseSummary = null;
     const timeout = setTimeout(() => {
       finish(reject, configuredError("doubao_sauc_timeout", "豆包字幕识别响应超时", {
         retryable: true,
         detail: `opened=${opened};messages=${messageCount};bytes=${buffer.length};timeoutMs=${timeoutMs}`,
+        handshake: unexpectedResponseSummary,
         providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
       }));
     }, timeoutMs);
     const ws = wsFactory({
       url: credentials.wsUrl,
       headers: buildHandshakeHeaders(credentials, connectId, requestId),
-      onUnexpectedResponse(response) {
+      onUnexpectedResponse(response, request) {
         logId = response?.headers?.["x-tt-logid"] ?? response?.headers?.["X-Tt-Logid"] ?? logId ?? null;
+        summarizeUnexpectedResponse(response, request)
+          .then((summary) => {
+            unexpectedResponseSummary = summary;
+            if (summary?.logId) logId = summary.logId;
+          })
+          .catch(() => {
+            unexpectedResponseSummary = {
+              statusCode: response?.statusCode ?? null,
+              statusMessage: response?.statusMessage ?? null,
+              headers: sanitizeHeaders(response?.headers ?? null),
+              bodySnippet: null,
+              requestPath: request?.path ?? null,
+              requestMethod: request?.method ?? null,
+              logId,
+            };
+          });
       },
     });
 
@@ -106,6 +125,7 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
     ws.onerror = (event) => finish(reject, configuredError("doubao_sauc_request_failed", "豆包字幕识别请求失败", {
       retryable: true,
       detail: event?.message || event?.error?.message || "websocket error",
+      handshake: unexpectedResponseSummary,
       providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
     }));
 
@@ -118,6 +138,7 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
       finish(reject, configuredError("doubao_sauc_closed", "豆包字幕识别连接提前关闭", {
         retryable: true,
         detail: `code=${event?.code ?? "unknown"};reason=${event?.reason ?? ""};messages=${messageCount}`,
+        handshake: unexpectedResponseSummary,
         providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
       }));
     };
@@ -127,10 +148,11 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
         messageCount += 1;
         const packet = decodeServerMessage(await resolveMessageBuffer(message.data));
         logId = packet.headers?.["x-tt-logid"] ?? packet.headers?.["X-Tt-Logid"] ?? packet.payload?.addition?.logid ?? packet.payload?.result?.logid ?? logId ?? null;
-        if (packet.payload?.code && packet.payload.code !== 1000) {
+        if (packet.payload?.code && !isSuccessCode(packet.payload.code)) {
           finish(reject, configuredError("doubao_sauc_failed", "豆包字幕识别失败", {
             retryable: true,
-            detail: packet.payload.message || packet.payload.code,
+            detail: packet.payload.message || packet.payload.msg || packet.payload.code,
+            upstreamCode: packet.payload.code,
             providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
           }));
           return;
@@ -152,6 +174,7 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
         finish(reject, configuredError("doubao_sauc_parse_failed", "豆包字幕识别结果解析失败", {
           retryable: false,
           detail: error.message,
+          handshake: unexpectedResponseSummary,
           providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
         }));
       }
@@ -368,6 +391,11 @@ function recognitionTimeoutMs(byteLength) {
   return Math.max(RESPONSE_TIMEOUT_MS, streamMs + RESPONSE_TIMEOUT_MS);
 }
 
+function isSuccessCode(code) {
+  const normalized = Number(code);
+  return Number.isFinite(normalized) && SUCCESS_CODES.has(normalized);
+}
+
 function configuredError(code, message, options = {}) {
   const error = new Error(message);
   error.code = code;
@@ -389,6 +417,8 @@ function configuredError(code, message, options = {}) {
       connectId: options.providerMeta?.connectId ?? null,
       requestId: options.providerMeta?.requestId ?? null,
       logId: options.providerMeta?.logId ?? null,
+      upstreamCode: options.upstreamCode ?? null,
+      handshake: options.handshake ?? null,
     },
     retryable: error.retryable,
   };
@@ -413,6 +443,51 @@ async function resolveMessageBuffer(data) {
   return Buffer.alloc(0);
 }
 
+async function summarizeUnexpectedResponse(response, request) {
+  const bodyBuffer = await readUnexpectedResponseBody(response);
+  const headers = sanitizeHeaders(response?.headers ?? null);
+  return {
+    statusCode: response?.statusCode ?? null,
+    statusMessage: response?.statusMessage ?? null,
+    headers,
+    bodySnippet: bodyBuffer.length ? sanitizeDetail(bodyBuffer.toString("utf8")) : null,
+    requestPath: request?.path ?? null,
+    requestMethod: request?.method ?? null,
+    logId: headers?.["x-tt-logid"] ?? headers?.["X-Tt-Logid"] ?? null,
+  };
+}
+
+async function readUnexpectedResponseBody(response) {
+  if (!response || typeof response.on !== "function") return Buffer.alloc(0);
+  return new Promise((resolve) => {
+    const chunks = [];
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    response.on("data", (chunk) => {
+      if (chunks.reduce((sum, item) => sum + item.length, 0) >= 4096) return;
+      chunks.push(Buffer.from(chunk));
+    });
+    response.on("end", () => finish(Buffer.concat(chunks).subarray(0, 4096)));
+    response.on("error", () => finish(Buffer.concat(chunks).subarray(0, 4096)));
+    response.on("close", () => finish(Buffer.concat(chunks).subarray(0, 4096)));
+  });
+}
+
+function sanitizeHeaders(headers) {
+  if (!headers || typeof headers !== "object") return null;
+  const safe = {};
+  for (const [key, value] of Object.entries(headers)) {
+    const lower = String(key).toLowerCase();
+    if (lower === "authorization" || lower === "x-api-app-key" || lower === "x-api-access-key" || lower === "cookie" || lower === "set-cookie") continue;
+    safe[key] = Array.isArray(value) ? value.map((item) => sanitizeDetail(String(item))) : sanitizeDetail(String(value));
+  }
+  return safe;
+}
+
 module.exports = {
   recognizeAudio,
   readCredentials,
@@ -425,4 +500,6 @@ module.exports = {
   parseRecognitionPayload,
   normalizeTimestamp,
   recognitionTimeoutMs,
+  isSuccessCode,
+  sanitizeHeaders,
 };
