@@ -15,6 +15,7 @@ import type {
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
 import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
+import { StructurePlaceholderPanel } from "./property-panel/StructurePlaceholderPanel";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -51,7 +52,7 @@ export type PropertyPanelProps = {
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
-  const [activeTab, setActiveTab] = useState<"shot" | "script" | "meta">("shot");
+  const [activeTab, setActiveTab] = useState<"shot" | "script" | "rhythm" | "packaging" | "meta">("shot");
 
   return (
     <aside className="property-panel" aria-label="属性区">
@@ -74,6 +75,24 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onClick={() => setActiveTab("script")}
           >
             script
+          </button>
+          <button
+            className={`property-tab ${activeTab === "rhythm" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "rhythm"}
+            onClick={() => setActiveTab("rhythm")}
+          >
+            节奏结构
+          </button>
+          <button
+            className={`property-tab ${activeTab === "packaging" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "packaging"}
+            onClick={() => setActiveTab("packaging")}
+          >
+            包装结构
           </button>
           <button
             className={`property-tab ${activeTab === "meta" ? "active" : ""}`}
@@ -106,6 +125,22 @@ export function PropertyPanel(props: PropertyPanelProps) {
             job={props.scriptSegmentJob}
             onRun={props.onRunScriptSegment}
             onSelectSegment={props.onSelectScriptSegment}
+          />
+        ) : activeTab === "rhythm" ? (
+          <StructurePlaceholderPanel
+            title="节奏结构分析"
+            capabilityId="rhythm-structure-analyzer"
+            description="预留用于分析样例镜头在时间、语速、停顿、密度和转折上的节奏组织方式。"
+            inputs={["shots[]", "subtitleText / subtitleContextText", "audioFeatures", "scriptSegmentAnalysis"]}
+            outputs={["rhythmSections", "tempoPattern", "turningPoints", "transferableRhythmRule"]}
+          />
+        ) : activeTab === "packaging" ? (
+          <StructurePlaceholderPanel
+            title="包装结构分析"
+            capabilityId="packaging-structure-analyzer"
+            description="预留用于分析卖点包装、信任包装、价格包装和行动包装如何被镜头与话术组合出来。"
+            inputs={["shots[]", "commerceBrief", "scriptSegmentAnalysis", "rhythmStructureAnalysis"]}
+            outputs={["packagingBlocks", "claimStack", "proofStack", "conversionWrap"]}
           />
         ) : (
           <MetaInfoPanel

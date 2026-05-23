@@ -409,15 +409,23 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const propertyPanel = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
+  const placeholderPanel = read(root, "Apps/Workbench/src/components/property-panel/StructurePlaceholderPanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "meta">\("shot"\)/);
+  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "rhythm" \| "packaging" \| "meta">\("shot"\)/);
   assert.match(propertyPanel, /role="tablist"/);
   assert.match(propertyPanel, /shot/);
   assert.match(propertyPanel, /script/);
+  assert.match(propertyPanel, /节奏结构/);
+  assert.match(propertyPanel, /包装结构/);
+  assert.match(propertyPanel, /rhythm-structure-analyzer/);
+  assert.match(propertyPanel, /packaging-structure-analyzer/);
+  assert.match(propertyPanel, /<StructurePlaceholderPanel/);
+  assert.match(placeholderPanel, /后端未接入/);
+  assert.match(placeholderPanel, /disabled/);
   assert.match(propertyPanel, /<ScriptSegmentPanel/);
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
   assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
@@ -451,7 +459,10 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-shot-current/);
   assert.match(css, /\.agent-shot-item\.active,\s*[\s\S]*\.agent-shot-item\[aria-current="true"\]/);
   assert.match(css, /\.property-tabs/);
+  assert.match(css, /repeat\(auto-fit, minmax\(72px, 1fr\)\)/);
   assert.match(css, /\.property-tab\.active,\s*[\s\S]*\.property-tab\[aria-selected="true"\]/);
+  assert.match(css, /\.structure-placeholder-panel/);
+  assert.match(css, /\.structure-placeholder-block/);
   assert.match(css, /\.agent-shot-summary/);
   assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
   assert.match(css, /\.agent-script-item/);
@@ -463,6 +474,27 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /summary\?: string \| null;/);
   assert.match(types, /endBoundaryReason\?: string \| null;/);
   assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
+});
+
+test("structure placeholder skills exist without backend role registration", () => {
+  const root = path.resolve(__dirname, "../..");
+  const rhythmSkill = read(root, ".agents/skills/rhythm-structure-analyzer/SKILL.md");
+  const packagingSkill = read(root, ".agents/skills/packaging-structure-analyzer/SKILL.md");
+  const rhythmRole = read(root, "Assets/RoleProfiles/rhythm-structure-analyzer/role.json");
+  const packagingRole = read(root, "Assets/RoleProfiles/packaging-structure-analyzer/role.json");
+  const roles = read(root, "Infrastructure/ThreadPool/thread_roles.json");
+  const server = read(root, "Apps/Api/server.js");
+
+  assert.match(rhythmSkill, /name: rhythm-structure-analyzer/);
+  assert.match(rhythmSkill, /占位版本/);
+  assert.match(packagingSkill, /name: packaging-structure-analyzer/);
+  assert.match(packagingSkill, /占位版本/);
+  assert.match(rhythmRole, /"status": "placeholder"/);
+  assert.match(packagingRole, /"status": "placeholder"/);
+  assert.doesNotMatch(roles, /rhythm-structure-analyzer/);
+  assert.doesNotMatch(roles, /packaging-structure-analyzer/);
+  assert.doesNotMatch(server, /rhythm-structure/);
+  assert.doesNotMatch(server, /packaging-structure/);
 });
 
 test("findCurrentShot uses half-open ranges and keeps final boundary inclusive", async () => {

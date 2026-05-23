@@ -1,0 +1,11 @@
+{
+  "role": "packaging-structure-analyzer",
+  "profileVersion": "placeholder-2026-05-23.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/packaging-structure-analyzer/SKILL.md",
+  "status": "placeholder",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {}
+}

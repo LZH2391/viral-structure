@@ -15,7 +15,7 @@
 
 .property-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
 }
 
@@ -246,6 +246,36 @@
   overflow-wrap: anywhere;
   word-break: break-word;
   line-height: 1.45;
+}
+
+.structure-placeholder-panel {
+  min-height: 220px;
+}
+
+.structure-placeholder-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.structure-placeholder-block {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.structure-placeholder-block strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.structure-placeholder-block span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .detail-block {
