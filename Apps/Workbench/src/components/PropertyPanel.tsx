@@ -112,6 +112,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
             sampleVideo={props.sampleVideo}
             mediaDerivatives={props.mediaDerivatives}
             audioFeatures={props.audioFeatures}
+            selectedAudioFeatureMarkerId={props.selectedAudioFeatureMarkerId}
             subtitles={props.subtitles}
             shotBoundaryAnalysis={props.shotBoundaryAnalysis}
             scriptSegmentAnalysis={props.scriptSegmentAnalysis}

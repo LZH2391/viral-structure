@@ -1,12 +1,13 @@
 import type { AudioFeatureAnalysisArtifact, MediaDerivative, SampleVideo, ScriptSegmentArtifact, ShotBoundaryAnalysisArtifact, SubtitleArtifact } from "../../types";
 import { formatTime } from "../../utils/format";
 import { DetailRow } from "./SharedRows";
-import { formatFpsValue, resolutionText } from "./formatters";
+import { findAudioFeatureMarker, formatFpsValue, formatNumber, markerLabel, resolutionText } from "./formatters";
 
 export function MetaInfoPanel({
   sampleVideo,
   mediaDerivatives,
   audioFeatures,
+  selectedAudioFeatureMarkerId,
   subtitles,
   shotBoundaryAnalysis,
   scriptSegmentAnalysis,
@@ -19,6 +20,7 @@ export function MetaInfoPanel({
   sampleVideo: SampleVideo | null;
   mediaDerivatives: MediaDerivative[];
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
+  selectedAudioFeatureMarkerId?: string | null;
   subtitles?: SubtitleArtifact | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
@@ -32,6 +34,7 @@ export function MetaInfoPanel({
     const metadata = sampleVideo.metadata ?? null;
     const frameSummary = sampleVideo.frameOutputSummary ?? null;
     const audioTracks = mediaDerivatives.filter((item) => item.type === "audio-track" || item.type === "audio-vocal" || item.type === "audio-music");
+    const selectedMarker = findAudioFeatureMarker(audioFeatures, selectedAudioFeatureMarkerId ?? null);
     return (
       <section className="property-section agent-run-panel">
         <div className="section-heading">元信息</div>
@@ -53,10 +56,14 @@ export function MetaInfoPanel({
           <DetailRow label="字幕段数" value={String(subtitles?.segments.length ?? 0)} />
           <DetailRow label="节拍标记" value={String(audioFeatures?.beats.length ?? 0)} />
           <DetailRow label="onset 标记" value={String(audioFeatures?.onsets.length ?? 0)} />
+          <DetailRow label="当前音频点" value={selectedMarker ? markerLabel(selectedMarker.type) : "未选择"} />
+          <DetailRow label="音频点时间" value={selectedMarker ? formatTime(selectedMarker.time) : "无"} />
+          <DetailRow label="音频点 RMS" value={selectedMarker ? formatNumber(selectedMarker.rms) : "无"} />
           <DetailRow label="音频时长" value={audioFeatures?.durationSeconds ? formatTime(audioFeatures.durationSeconds) : "无"} />
           <DetailRow label="音频采样率" value={audioFeatures?.analysisParams?.sampleRate ? `${audioFeatures.analysisParams.sampleRate} Hz` : "无"} />
           <DetailRow label="音频源角色" value={audioFeatures?.analysisParams?.sourceRole || "无"} />
           <DetailRow label="节奏 BPM" value={audioFeatures?.tempoBpm ? formatFpsValue(audioFeatures.tempoBpm) : "无"} />
+          <DetailRow label="镜头数" value={shotBoundaryAnalysis ? String(shotBoundaryAnalysis.shots.length) : "无"} />
           <DetailRow label="切镜结果" value={shotBoundaryAnalysis ? `${shotBoundaryAnalysis.shots.length} 镜 / ${shotBoundaryAnalysis.boundaries?.length ?? 0} 边界` : "无"} />
           <DetailRow label="脚本段数" value={scriptSegmentAnalysis ? String(scriptSegmentAnalysis.segments.length) : "无"} />
           <DetailRow label="处理状态" value={sampleVideo.processingStatus} />
