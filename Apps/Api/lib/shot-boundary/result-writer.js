@@ -298,6 +298,61 @@ async function resolveReviewedAnalysis({
       role,
     });
     analyzerRepairOffset = maxRepairAttempts + reviewReworkCount;
+    if (reviewReworkCount >= reviewer.maxReworkCount) {
+      const finalResolved = await resolveFinalAnalysis({
+        context,
+        agentRun,
+        turn: currentTurn,
+        prepared,
+        contactSheets,
+        runStage,
+        stages,
+        maxRepairAttempts,
+        buildProcessedAnalysis,
+        appServer,
+        rootDir,
+        renderRepairTurnInputs,
+        codedError,
+        role,
+        repairAttemptOffset: analyzerRepairOffset,
+      });
+      const acceptedReview = summarizeAcceptedReworkReview(reviewer, review.result, reviewReworkCount);
+      const finalShotAnalysis = buildProcessedAnalysis(finalResolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: finalResolved.validationSummary }, lease, finalResolved.finalTurn, {
+        resultOrigin: finalResolved.resultOrigin,
+        repairAttemptCount: finalResolved.repairAttemptCount,
+        review: acceptedReview,
+        reviewRuns: [review.run],
+        reviewReworkCount,
+      });
+      return {
+        ...finalResolved,
+        shotAnalysis: {
+          ...finalShotAnalysis,
+          review: acceptedReview,
+          reviewRuns: [review.run],
+          validation: {
+            ...finalShotAnalysis.validation,
+            review: {
+              decision: "pass",
+              issueCount: review.result.issues.length,
+              reworkCount: reviewReworkCount,
+              acceptedWithoutFinalReview: true,
+              sourceDecision: review.result.decision,
+            },
+          },
+        },
+        reviewResult: {
+          ...review.result,
+          decision: "pass",
+          reason: acceptedReview.reason,
+          issues: [],
+          acceptedWithoutFinalReview: true,
+          sourceDecision: review.result.decision,
+        },
+        reviewRuns: [review.run],
+        reviewReworkCount,
+      };
+    }
     jobStore?.updateJob?.(context.job.jobId, {
       shotBoundaryReview: {
         currentReviewResult: reviewer.summarizeReviewResult(review.result),
@@ -311,6 +366,19 @@ async function resolveReviewedAnalysis({
       },
     });
   }
+}
+
+function summarizeAcceptedReworkReview(reviewer, reviewResult, reviewReworkCount) {
+  return {
+    ...reviewer.summarizeReviewResult(reviewResult),
+    decision: "pass",
+    reason: `第 ${reviewReworkCount} 次 reviewer rework 已按 issues 修复，按策略不再送审，直接接受结果`,
+    issueCount: 0,
+    issues: [],
+    acceptedWithoutFinalReview: true,
+    sourceDecision: reviewResult.decision,
+    sourceIssueCount: Array.isArray(reviewResult.issues) ? reviewResult.issues.length : 0,
+  };
 }
 
 async function runReviewTurn({

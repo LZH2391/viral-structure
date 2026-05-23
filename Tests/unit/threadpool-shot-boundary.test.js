@@ -898,6 +898,54 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
 });
 
+test("shot boundary accepts second review rework repair without third review", async () => {
+  const startedKinds = [];
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
+        startedKinds.push(kind);
+        const counts = startedKinds.filter((item) => item === kind).length;
+        const threadId = kind === "review" ? "review_thread_1" : "thread_1";
+        return { ok: true, threadId, turnId: `turn_${kind}_${counts}`, status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_review_1" || turnId === "turn_review_2") {
+          return {
+            ok: true,
+            threadId,
+            turnId,
+            status: "completed",
+            finalMessage: createReviewReworkMessage(turnId === "turn_review_1" ? "边界偏早" : "仍需微调"),
+          };
+        }
+        if (turnId === "turn_summary_1") {
+          return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
+        }
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+
+  assert.deepEqual(startedKinds, ["shot", "review", "shot", "review", "shot", "summary"]);
+  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_shot_3");
+  assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "review_reworked_turn");
+  assert.equal(artifact.shotBoundaryAnalysis.review.decision, "pass");
+  assert.equal(artifact.shotBoundaryAnalysis.review.acceptedWithoutFinalReview, true);
+  assert.equal(artifact.shotBoundaryAnalysis.review.sourceDecision, "rework");
+  assert.equal(artifact.shotBoundaryAnalysis.validation.reviewReworkCount, 2);
+  assert.equal(artifact.shotBoundaryAnalysis.validation.review.acceptedWithoutFinalReview, true);
+  assert.equal(artifact.shotBoundaryAnalysis.validation.review.reworkCount, 2);
+  assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].turnId, "turn_review_2");
+  assert.equal(startedKinds.filter((kind) => kind === "review").length, 2);
+});
+
 test("shot boundary skill content change misses old shot cache", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "shot-skill-hash-"));
   const skillPath = path.join(tempRoot, "SKILL.md");
@@ -1871,6 +1919,39 @@ function createReviewPassMessage() {
     reason: "未发现明确误切或漏切",
     issues: [],
   });
+}
+
+function createReviewReworkMessage(issue = "切镜需要微调") {
+  return JSON.stringify({
+    decision: "rework",
+    reason: "发现需要返工的切镜问题",
+    issues: [
+      {
+        issue,
+        minimal_fix: "按问题调整相邻 shot 边界并保持 shots 连续",
+        shot_ids: [1, 2],
+      },
+    ],
+  });
+}
+
+function createShotMessage(label = "turn_shot") {
+  return `补充说明\n${JSON.stringify({
+    shots: [
+      {
+        summary: `${label} 人物半身口播`,
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+      },
+      {
+        summary: `${label} 产品特写镜头`,
+        start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
+  })}\n已完成`;
 }
 
 function createCachedShotAnalysis() {
