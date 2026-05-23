@@ -186,9 +186,11 @@ function buildHandshakeHeaders(credentials, connectId, requestId) {
   return {
     Authorization: `Bearer; ${credentials.accessToken}`,
     "X-Api-App-Key": credentials.appId,
+    "X-Api-Access-Key": credentials.accessToken,
     "X-Api-Resource-Id": credentials.resourceId,
     "X-Api-Connect-Id": connectId,
     "X-Api-Request-Id": requestId,
+    "X-Api-Sequence": "-1",
   };
 }
 

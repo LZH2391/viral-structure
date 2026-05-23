@@ -29,9 +29,11 @@ test("doubao handshake headers include required auth fields", () => {
   }, "connect_1", "request_1");
   assert.equal(headers.Authorization, "Bearer; token");
   assert.equal(headers["X-Api-App-Key"], "app");
+  assert.equal(headers["X-Api-Access-Key"], "token");
   assert.equal(headers["X-Api-Resource-Id"], "resource");
   assert.equal(headers["X-Api-Connect-Id"], "connect_1");
   assert.equal(headers["X-Api-Request-Id"], "request_1");
+  assert.equal(headers["X-Api-Sequence"], "-1");
 });
 
 test("doubao request payloads include utterance and sequence settings", () => {
