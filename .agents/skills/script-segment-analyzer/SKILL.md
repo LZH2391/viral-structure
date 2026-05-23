@@ -32,6 +32,17 @@ description: 基于 shots 与 commerceBrief 分析样例脚本段落结构，返
 
 系统侧可能另外维护 metadata / lineage（如 sampleVideoId、artifactId、traceId、cacheKey、shotNo、index、representativeFrameId、localPath），这些仅用于追踪或映射，不作为你的分析依据，也不要在输出里引用。
 
+系统现在可能会给每个 `shot` 附带：
+
+- `subtitleText`：按镜头时间窗口对齐后的本镜头字幕文本，可能因为镜头边界粒度被切短。
+- `subtitleContextText`：与该镜头时间范围重叠的整句字幕上下文，用于避免语义被边界切碎。
+
+使用建议：
+
+- 判断镜头在完成什么表达任务时，优先结合 `summary` 与 `subtitleContextText` 理解完整语义。
+- 当 `subtitleText` 与 `subtitleContextText` 不完全一致时，不要把这种差异当成冲突；这通常只是边界切分带来的正常现象。
+- 不要试图重新按字幕改写镜头边界，也不要因为字幕跨镜头就把相邻镜头机械合并成一段。
+
 ## 怎么判断段落边界
 
 先按时间顺序通读全部 `shots`，理解这条带货视频的说服链路，再决定如何切段。判断时以“当前这几个镜头正在完成什么表达任务”为主轴。

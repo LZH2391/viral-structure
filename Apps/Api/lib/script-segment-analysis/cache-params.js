@@ -1,6 +1,6 @@
 const { contentHash, stableJson } = require("./shared");
 
-const INPUT_SCHEMA_VERSION = "script_segment_input.v2";
+const INPUT_SCHEMA_VERSION = "script_segment_input.v3";
 
 function buildScriptSegmentContentFingerprint(input, inputPackage = null) {
   return contentHash(stableJson({
@@ -12,6 +12,8 @@ function buildScriptSegmentContentFingerprint(input, inputPackage = null) {
         start: shot?.start ?? null,
         end: shot?.end ?? null,
         summary: shot?.summary ?? null,
+        subtitleText: shot?.subtitleText ?? null,
+        subtitleContextText: shot?.subtitleContextText ?? null,
       }))
       : [],
     inputPackage: inputPackage

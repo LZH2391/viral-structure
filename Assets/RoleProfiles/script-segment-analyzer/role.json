@@ -1,6 +1,6 @@
 {
   "role": "script-segment-analyzer",
-  "profileVersion": "2026-05-22.1",
+  "profileVersion": "2026-05-23.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/script-segment-analyzer/SKILL.md",
   "init": {
     "template": "init.md",
@@ -9,11 +9,11 @@
   "turnTemplates": {
     "analyze": {
       "template": "prompts/analyze.v1.md",
-      "version": "analyze.v1"
+      "version": "analyze.v2"
     },
     "repair": {
       "template": "prompts/repair.v1.md",
-      "version": "repair.v1"
+      "version": "repair.v2"
     }
   }
 }

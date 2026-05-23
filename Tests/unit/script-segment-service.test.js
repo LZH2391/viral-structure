@@ -43,6 +43,7 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.match(promptText, /outputContractPath/);
   assert.match(promptText, /visualManifestPath/);
   assert.match(promptText, /本次包含 3 个镜头/);
+  assert.match(promptText, /subtitleContextText/);
   assert.doesNotMatch(promptText, /"shots":\[/);
   assert.doesNotMatch(promptText, /"segments":\[/);
   assert.equal(imageItems.length, inputPackage.visualManifest.sheetCount);
@@ -51,6 +52,60 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.equal("sampleVideoId" in inputPackage.lineage, true);
   assert.equal("parentArtifactId" in inputPackage.lineage, true);
   assert.match(JSON.stringify(inputPackage.outputContract), /模型无需返回这些字段/);
+});
+
+test("prepareInput aligns shot subtitles by words and keeps utterance context across boundaries", () => {
+  const artifact = createArtifact({
+    subtitles: {
+      artifactId: "artifact_subtitle",
+      parentArtifactId: "artifact_audio",
+      type: "subtitle-track",
+      status: "processed",
+      segments: [],
+      utterances: [
+        {
+          start: 0.98,
+          end: 3,
+          text: "一整句跨镜头字幕",
+          definite: true,
+          words: [
+            { start: 0.98, end: 1.02, text: "一" },
+            { start: 1.02, end: 1.2, text: "整" },
+            { start: 1.2, end: 1.5, text: "句" },
+            { start: 1.5, end: 2.1, text: "跨" },
+            { start: 2.1, end: 2.6, text: "镜" },
+            { start: 2.6, end: 3, text: "头" },
+          ],
+        },
+      ],
+      words: [
+        { start: 0.98, end: 1.02, text: "一" },
+        { start: 1.02, end: 1.2, text: "整" },
+        { start: 1.2, end: 1.5, text: "句" },
+        { start: 1.5, end: 2.1, text: "跨" },
+        { start: 2.1, end: 2.6, text: "镜" },
+        { start: 2.6, end: 3, text: "头" },
+      ],
+    },
+    shotBoundaryAnalysis: {
+      artifactId: "artifact_shot_boundary",
+      parentArtifactId: "artifact_sample",
+      type: "shot-boundary-analysis",
+      status: "processed",
+      shots: [
+        { id: "shot_1", shotNo: "S001", start: 0, end: 1, reason: "开场", summary: "开场镜头" },
+        { id: "shot_2", shotNo: "S002", start: 1, end: 3, reason: "主体", summary: "主体镜头" },
+      ],
+      commerceBrief: null,
+    },
+  });
+
+  const prepared = prepareInput(artifact);
+
+  assert.equal(prepared.shots[0].subtitleText, "一");
+  assert.equal(prepared.shots[1].subtitleText, "整句跨镜头");
+  assert.equal(prepared.shots[0].subtitleContextText, "一整句跨镜头字幕");
+  assert.equal(prepared.shots[1].subtitleContextText, "一整句跨镜头字幕");
 });
 
 test("script segment frame ownership keeps half-open ranges and last shot closed", () => {
@@ -141,7 +196,7 @@ test("script segment service submits script-segment-analyzer turn through appser
   assert.equal(artifact.scriptSegmentAnalysis.agent.threadId, "thread_script_1");
   assert.equal(artifact.scriptSegmentAnalysis.agent.leaseId, "lease_script_1");
   assert.equal(artifact.scriptSegmentAnalysis.agent.turnId, "turn_script_1");
-  assert.equal(artifact.scriptSegmentAnalysis.agent.promptTemplateVersion, "analyze.v1");
+  assert.equal(artifact.scriptSegmentAnalysis.agent.promptTemplateVersion, "analyze.v2");
   assert.equal(artifact.scriptSegmentAnalysis.agent.role, "script-segment-analyzer");
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
   assert.ok(artifact.scriptSegmentAnalysis.inputPackage);
@@ -323,7 +378,7 @@ test("script segment service repairs invalid output and preserves same thread", 
   assert.equal(artifact.scriptSegmentAnalysis.validation.repairAttemptCount, 1);
   assert.equal(artifact.scriptSegmentAnalysis.agent.threadId, "thread_script_1");
   assert.equal(artifact.scriptSegmentAnalysis.agent.turnId, "turn_script_2");
-  assert.equal(artifact.scriptSegmentAnalysis.agent.promptTemplateVersion, "repair.v1");
+  assert.equal(artifact.scriptSegmentAnalysis.agent.promptTemplateVersion, "repair.v2");
 });
 
 test("script segment service writes artifact index entry and stage logs", async () => {
@@ -511,7 +566,7 @@ function createArtifact(overrides = {}) {
       { frameId: "frame_3", artifactId: "artifact_frame_3", parentArtifactId: "artifact_sample", timestamp: 3.8, imageUri: "/runtime/frame-3.jpg" },
     ],
     audio: { artifactId: "artifact_audio", parentArtifactId: "artifact_sample", type: "audio-track", uri: "/runtime/audio.m4a", summary: "音频轨" },
-    subtitles: null,
+    subtitles: overrides.subtitles === undefined ? null : overrides.subtitles,
     shotBoundaryAnalysis: overrides.shotBoundaryAnalysis === undefined ? {
       artifactId: "artifact_shot_boundary",
       parentArtifactId: "artifact_sample",

@@ -17,6 +17,9 @@ const {
 const INPUT_PACKAGE_SCHEMA_VERSION = "script_segment_input_package.v1";
 const SCRIPT_SEGMENT_SHEET_PURPOSE = "script_segment_shot_context";
 const SCRIPT_SEGMENT_SHEET_SUBDIR = "script-segment-shot-sheets";
+const SHOT_SUBTITLE_BOUNDARY_EPSILON_SECONDS = 0.05;
+const SHOT_SUBTITLE_TEXT_MAX_LENGTH = 240;
+const SHOT_SUBTITLE_CONTEXT_MAX_LENGTH = 320;
 
 function prepareInput(artifact, options = {}) {
   const runtimeRoot = options.runtimeRoot ?? null;
@@ -26,12 +29,23 @@ function prepareInput(artifact, options = {}) {
     throw codedError("script_segment_missing_shots", "当前样例没有可分析的切镜结果", null, false);
   }
   const frames = Array.isArray(artifact?.frames) ? artifact.frames : [];
-  const normalizedShots = shots.map((shot, index) => ({
+  const normalizedShotWindows = shots.map((shot, index) => ({
     shotId: String(shot.id),
     shotNo: normalizeShotNo(shot.shotNo, index),
     start: normalizeNumber(shot.start, 0),
     end: normalizeNumber(shot.end, normalizeNumber(shot.start, 0)),
     summary: normalizeText(shot.summary ?? shot.reason ?? "镜头内容", 160),
+    isLastShot: index === shots.length - 1,
+  }));
+  const shotSubtitleMap = buildShotSubtitleMap(normalizedShotWindows, artifact?.subtitles);
+  const normalizedShots = normalizedShotWindows.map((shot) => ({
+    shotId: shot.shotId,
+    shotNo: shot.shotNo,
+    start: shot.start,
+    end: shot.end,
+    summary: shot.summary,
+    subtitleText: normalizeText(shotSubtitleMap.get(shot.shotId)?.subtitleText ?? "", SHOT_SUBTITLE_TEXT_MAX_LENGTH),
+    subtitleContextText: normalizeText(shotSubtitleMap.get(shot.shotId)?.subtitleContextText ?? "", SHOT_SUBTITLE_CONTEXT_MAX_LENGTH),
   }));
   return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,
@@ -312,7 +326,10 @@ async function buildVisualManifest({ input, shotFramePages, sampleDir, sheetsDir
 }
 
 function buildInputSummaryText(inputPackage) {
-  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；输入包路径见下。`;
+  const subtitleReadyShotCount = Array.isArray(inputPackage?.manifest?.shots)
+    ? inputPackage.manifest.shots.filter((shot) => String(shot?.subtitleText ?? shot?.subtitleContextText ?? "").trim()).length
+    : 0;
+  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕。输入包路径见下。`;
 }
 
 function frameBelongsToShot(frame, shot, isLastShot) {
@@ -382,6 +399,80 @@ function normalizeNumber(value, fallback) {
 function normalizeInteger(value, fallback) {
   const next = Number(value);
   return Number.isInteger(next) ? next : fallback;
+}
+
+function buildShotSubtitleMap(shots, subtitles) {
+  const map = new Map((Array.isArray(shots) ? shots : []).map((shot) => [shot.shotId, { subtitleText: "", subtitleContextText: "" }]));
+  if (!Array.isArray(shots) || !shots.length || !subtitles || subtitles.status !== "processed") return map;
+
+  const words = Array.isArray(subtitles.words) ? subtitles.words.filter((word) => String(word?.text ?? "").trim()) : [];
+  const utterances = Array.isArray(subtitles.utterances) ? subtitles.utterances.filter((utterance) => String(utterance?.text ?? "").trim()) : [];
+
+  for (const word of words) {
+    const shot = resolveWordShot(shots, word);
+    if (!shot) continue;
+    const entry = map.get(shot.shotId);
+    if (!entry) continue;
+    entry.subtitleText += String(word.text ?? "").trim();
+  }
+
+  for (const shot of shots) {
+    const entry = map.get(shot.shotId);
+    if (!entry) continue;
+    entry.subtitleContextText = utterances
+      .filter((utterance) => utteranceOverlapsShot(utterance, shot))
+      .map((utterance) => String(utterance.text ?? "").trim())
+      .filter(Boolean)
+      .join("");
+  }
+
+  return map;
+}
+
+function resolveWordShot(shots, word) {
+  const text = String(word?.text ?? "").trim();
+  if (!text) return null;
+  const start = normalizeNumber(word?.start, Number.NaN);
+  const end = normalizeNumber(word?.end, start);
+  let bestShot = null;
+  let bestOverlap = -1;
+  for (const shot of shots) {
+    const overlap = intervalOverlapSeconds(start, end, shot.start, shot.end);
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestShot = shot;
+    }
+  }
+  if (bestOverlap > 0) return bestShot;
+
+  const midpoint = Number.isFinite(start) && Number.isFinite(end) && end >= start ? (start + end) / 2 : start;
+  const strict = shots.find((shot) => shotContainsTime(shot, midpoint, { epsilon: 0 }));
+  if (strict) return strict;
+
+  const fuzzy = shots.find((shot) => shotContainsTime(shot, midpoint, { epsilon: SHOT_SUBTITLE_BOUNDARY_EPSILON_SECONDS }));
+  if (fuzzy) return fuzzy;
+
+  return bestShot;
+}
+
+function utteranceOverlapsShot(utterance, shot) {
+  const start = normalizeNumber(utterance?.start, Number.NaN);
+  const end = normalizeNumber(utterance?.end, start);
+  return intervalOverlapSeconds(start, end, shot.start - SHOT_SUBTITLE_BOUNDARY_EPSILON_SECONDS, shot.end + SHOT_SUBTITLE_BOUNDARY_EPSILON_SECONDS) > 0;
+}
+
+function shotContainsTime(shot, time, { epsilon = 0 } = {}) {
+  if (!Number.isFinite(time)) return false;
+  const start = Number(shot?.start ?? Number.NaN) - epsilon;
+  const end = Number(shot?.end ?? Number.NaN) + epsilon;
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+  if (shot?.isLastShot) return time >= start && time <= end;
+  return time >= start && time < end;
+}
+
+function intervalOverlapSeconds(startA, endA, startB, endB) {
+  if (!Number.isFinite(startA) || !Number.isFinite(endA) || !Number.isFinite(startB) || !Number.isFinite(endB)) return 0;
+  return Math.max(0, Math.min(endA, endB) - Math.max(startA, startB));
 }
 
 module.exports = {
