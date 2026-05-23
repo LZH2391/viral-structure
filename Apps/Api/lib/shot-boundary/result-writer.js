@@ -187,6 +187,8 @@ async function runSummaryTurn({
   renderSummaryTurnInputs,
   validateCommerceBriefOutput,
   role,
+  summaryPollIntervalMs = 2000,
+  summaryCollectMaxAttempts = 90,
 }) {
   const summaryTurn = renderSummaryTurnInputs({
     shots: shotAnalysis.shots,
@@ -218,33 +220,19 @@ async function runSummaryTurn({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     }),
   });
-  const collected = await runStage(context, stages.summaryCollected, 94, {
-    artifactId: context.artifactId,
-    parentArtifactId: shotAnalysis.artifactId,
-    inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
-    action: () => appServer.collectTurnResult({
-      workspaceRoot: rootDir,
-      threadId: agentRun.threadId,
-      turnId: started.turnId,
-      timeoutSeconds: 120,
-    }),
-    outputSummary: (result) => ({
-      role,
-      threadId: result.threadId,
-      turnId: result.turnId,
-      status: result.status,
-      profileVersion: context.roleProfile?.profileVersion ?? null,
-      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
-    }),
+  const collected = await collectSummaryTurn({
+    context,
+    agentRun,
+    started,
+    shotAnalysis,
+    runStage,
+    stages,
+    appServer,
+    rootDir,
+    role,
+    summaryPollIntervalMs,
+    summaryCollectMaxAttempts,
   });
-  if (collected.status !== "completed") {
-    throw require("../shot-boundary-analysis").codedError("shot_summary_turn_incomplete", "带货总结 Agent 未完成", {
-      turnId: collected.turnId ?? started.turnId ?? null,
-      status: collected.status ?? null,
-    }, true);
-  }
   const commerceBrief = await runStage(context, stages.summaryValidated, 95, {
     artifactId: context.artifactId,
     parentArtifactId: shotAnalysis.artifactId,
@@ -261,6 +249,77 @@ async function runSummaryTurn({
     }),
   });
   return { turn: collected, commerceBrief };
+}
+
+async function collectSummaryTurn({
+  context,
+  agentRun,
+  started,
+  shotAnalysis,
+  runStage,
+  stages,
+  appServer,
+  rootDir,
+  role,
+  summaryPollIntervalMs,
+  summaryCollectMaxAttempts,
+}) {
+  let collected = null;
+  const maxAttempts = Math.max(1, Number(summaryCollectMaxAttempts || 1));
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) await delay(summaryPollIntervalMs);
+    collected = await runStage(context, stages.summaryCollected, 94, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0, attempt },
+      action: () => appServer.collectTurnResult({
+        workspaceRoot: rootDir,
+        threadId: agentRun.threadId,
+        turnId: started.turnId,
+        timeoutSeconds: 120,
+      }),
+      outputSummary: (result) => ({
+        role,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        status: result.status,
+        attempt,
+        profileVersion: context.roleProfile?.profileVersion ?? null,
+        promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+        promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+        promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      }),
+    });
+    if (collected.status === "completed") return collected;
+    if (!isPendingTurnStatus(collected.status)) {
+      throwSummaryIncomplete(context, stages, started, shotAnalysis, collected, false);
+    }
+  }
+  throwSummaryIncomplete(context, stages, started, shotAnalysis, collected, true);
+}
+
+function throwSummaryIncomplete(context, stages, started, shotAnalysis, collected, retryable) {
+  context.activeStage = {
+    stageName: stages.summaryCollected,
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+    outputSummary: { turnId: collected?.turnId ?? started.turnId ?? null, status: collected?.status ?? null },
+    startedAt: Date.now(),
+  };
+  throw require("../shot-boundary-analysis").codedError("shot_summary_turn_incomplete", "带货总结 Agent 未完成", {
+    turnId: collected?.turnId ?? started.turnId ?? null,
+    status: collected?.status ?? null,
+  }, retryable);
+}
+
+function isPendingTurnStatus(status) {
+  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
+}
+
+function delay(ms) {
+  const duration = Math.max(0, Number(ms || 0));
+  return duration > 0 ? new Promise((resolve) => setTimeout(resolve, duration)) : Promise.resolve();
 }
 
 async function writeCompletedAnalysis({
@@ -288,6 +347,8 @@ async function writeCompletedAnalysis({
   role,
   jobStore,
   sampleStatus,
+  summaryPollIntervalMs,
+  summaryCollectMaxAttempts,
 }) {
   const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
   const contactSheets = agentRun.contactSheets ?? [];
@@ -323,6 +384,8 @@ async function writeCompletedAnalysis({
     renderSummaryTurnInputs,
     validateCommerceBriefOutput,
     role,
+    summaryPollIntervalMs,
+    summaryCollectMaxAttempts,
   });
   await runStage(context, stages.resultWritten, 95, {
     artifactId: context.artifactId,

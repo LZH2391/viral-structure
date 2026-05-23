@@ -7,6 +7,8 @@ const {
   resolveSheetEndTime,
 } = require("./shared");
 
+const PRE_SPLIT_ANALYZE_V2_TEMPLATE_HASH = "540555e80263042ee85b707fc92d9f7dc54db14b779350da72e7d10bcce08d86";
+
 function buildShotBoundaryCacheParams({
   sourceArtifactId,
   extractSampling,
@@ -80,6 +82,16 @@ function legacyCacheParams(input, contactSheets, options = {}) {
   return stripPromptFingerprint(params);
 }
 
+function splitPredecessorCacheParams(input, contactSheets, options = {}) {
+  const params = cacheParams(input, contactSheets, options);
+  if (params.promptTemplateId !== "analyze" || params.promptTemplateVersion !== "analyze.v2") return null;
+  if (params.promptTemplateHash === PRE_SPLIT_ANALYZE_V2_TEMPLATE_HASH) return null;
+  return {
+    ...params,
+    promptTemplateHash: PRE_SPLIT_ANALYZE_V2_TEMPLATE_HASH,
+  };
+}
+
 function stripPromptFingerprint(params) {
   if (!params || typeof params !== "object") return params;
   const {
@@ -101,6 +113,8 @@ module.exports = {
   buildShotBoundaryCacheParams,
   cacheParams,
   legacyCacheParams,
+  splitPredecessorCacheParams,
+  PRE_SPLIT_ANALYZE_V2_TEMPLATE_HASH,
   stripPromptFingerprint,
   resolveSkillHash,
   skillContentHashSync,

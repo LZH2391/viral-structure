@@ -39,6 +39,7 @@ const {
   renderAnalyzeTurnInputs,
   cacheParams,
   legacyCacheParams,
+  splitPredecessorCacheParams,
   codedError,
   evaluateCacheEligibility,
   prepareInput,
@@ -71,7 +72,7 @@ const POLL_INTERVAL_MS = 2000;
 const ORPHAN_TTL_MS = 30 * 60 * 1000;
 const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
-cacheParams.legacy = legacyCacheParams;
+const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
 
 function createShotBoundaryService({
   rootDir,
@@ -84,6 +85,8 @@ function createShotBoundaryService({
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = SKILL_PATH,
   pollIntervalMs = POLL_INTERVAL_MS,
+  summaryPollIntervalMs = POLL_INTERVAL_MS,
+  summaryCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
   orphanTtlMs = ORPHAN_TTL_MS,
 } = {}) {
   const collectingJobs = new Map();
@@ -359,6 +362,8 @@ function createShotBoundaryService({
           role: ROLE,
           jobStore,
           sampleStatus: SAMPLE_STATUS,
+          summaryPollIntervalMs,
+          summaryCollectMaxAttempts,
         });
         return turn;
       } catch (error) {
@@ -570,6 +575,10 @@ function createShotBoundaryService({
         artifactIndex,
         stageName: STAGES.resultWritten,
         cacheParams,
+        compatibleCacheParams: [
+          { mode: "split_predecessor", build: splitPredecessorCacheParams },
+          { mode: "legacy_promptless", build: legacyCacheParams },
+        ],
         evaluateCacheEligibility,
         resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
       }),

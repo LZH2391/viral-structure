@@ -5,6 +5,7 @@ async function findCachedArtifact({
   artifactIndex,
   stageName,
   cacheParams,
+  compatibleCacheParams = [],
   evaluateCacheEligibility,
   resolveExistingFileHash,
 }) {
@@ -27,16 +28,24 @@ async function findCachedArtifact({
     params,
   });
   let cacheLookupMode = "current";
-  if (!cache?.sampleVideoId && typeof cacheParams.legacy === "function") {
-    const legacyParams = cacheParams.legacy(prepared, contactSheets, {
-      skillHash: context.skillHash,
-    });
+  const compatibleOptions = {
+    skillHash: context.skillHash,
+    profileVersion: context.roleProfile?.profileVersion,
+    promptTemplateId: context.promptTemplate?.promptTemplateId,
+    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion,
+    promptTemplateHash: context.promptTemplate?.promptTemplateHash,
+    initFingerprint: context.initFingerprint,
+  };
+  for (const compatible of compatibleCacheParams) {
+    if (cache?.sampleVideoId || typeof compatible?.build !== "function") break;
+    const fallbackParams = compatible.build(prepared, contactSheets, compatibleOptions);
+    if (!fallbackParams) continue;
     cache = await artifactIndex.findCacheEntry({
       fileHash,
       stageName,
-      params: legacyParams,
+      params: fallbackParams,
     });
-    cacheLookupMode = cache?.sampleVideoId ? "legacy_promptless" : "current";
+    cacheLookupMode = cache?.sampleVideoId ? compatible.mode : "current";
   }
   if (!cache?.sampleVideoId) {
     return { cache: null, analysis: null, cacheEligibility: null, summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "key_miss" }) };
