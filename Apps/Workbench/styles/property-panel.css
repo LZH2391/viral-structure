@@ -193,6 +193,8 @@
 
 .agent-script-item {
   cursor: pointer;
+  align-items: start;
+  padding-block: 10px;
 }
 
 .agent-script-meta {
@@ -227,6 +229,23 @@
   color: var(--text);
   font-size: 13px;
   font-weight: 700;
+}
+
+.agent-script-item strong {
+  grid-row: 1 / span 6;
+  align-self: start;
+}
+
+.agent-script-item .agent-shot-time,
+.agent-script-item .agent-shot-summary,
+.agent-script-item small,
+.agent-script-item .agent-script-meta {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .detail-block {
