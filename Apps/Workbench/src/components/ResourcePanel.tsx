@@ -1,6 +1,6 @@
 import type { BackendCapabilities } from "../types";
 
-const REQUIRED_DOUBAO_ENV = ["DOUBAO_SAUC_APP_ID", "DOUBAO_SAUC_ACCESS_TOKEN"];
+const REQUIRED_DOUBAO_ENV = ["DOUBAO_Api_App_Key", "DOUBAO_Api_Access_Key"];
 
 type ResourcePanelProps = {
   fileLabel: string;

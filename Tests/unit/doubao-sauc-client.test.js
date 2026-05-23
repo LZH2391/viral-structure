@@ -12,7 +12,7 @@ const {
 } = require("../../Infrastructure/ModelGateway/doubao-sauc-client");
 
 test("doubao credentials keep app id and access token in separate fields", () => {
-  const credentials = readCredentials({ DOUBAO_SAUC_APP_ID: "app", DOUBAO_SAUC_ACCESS_TOKEN: "token" });
+  const credentials = readCredentials({ DOUBAO_Api_App_Key: "app", DOUBAO_Api_Access_Key: "token" });
   assert.equal(credentials.ok, true);
   assert.equal(credentials.value.appId, "app");
   assert.equal(credentials.value.accessToken, "token");
@@ -33,7 +33,7 @@ test("doubao handshake headers include required auth fields", () => {
 });
 
 test("doubao request payloads include utterance and sequence settings", () => {
-  const credentials = readCredentials({ DOUBAO_SAUC_APP_ID: "app", DOUBAO_SAUC_ACCESS_TOKEN: "token" }).value;
+  const credentials = readCredentials({ DOUBAO_Api_App_Key: "app", DOUBAO_Api_Access_Key: "token" }).value;
   const full = buildFullClientPayload({
     connectId: "connect_1",
     requestId: "request_1",

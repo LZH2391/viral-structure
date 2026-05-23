@@ -207,7 +207,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(api, /enableAudioFeatureAnalysis/);
   assert.match(resource, /enableAudioSeparationInput/);
   assert.match(resource, /enableAudioFeatureAnalysisInput/);
-  assert.match(resource, /DOUBAO_SAUC_APP_ID/);
+  assert.match(resource, /DOUBAO_Api_App_Key/);
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);
   assert.match(timeline, /audio-feature-marker/);

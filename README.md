@@ -109,6 +109,6 @@ Infrastructure\AgentRuntime
 - `THREADPOOL_CONFIG_PATH`：ThreadPool 角色配置文件路径。
 - `FFMPEG_BIN`：本机 FFmpeg 可执行文件路径。
 - `FFPROBE_BIN`：本机 FFprobe 可执行文件路径。
-- `DOUBAO_SAUC_APP_ID`：豆包 SAUC 应用 ID。
-- `DOUBAO_SAUC_ACCESS_TOKEN`：豆包 SAUC Access Token。
+- `DOUBAO_Api_App_Key`：豆包 SAUC 应用 Key。
+- `DOUBAO_Api_Access_Key`：豆包 SAUC Access Key。
 - `DOUBAO_SAUC_RESOURCE_ID`：豆包 SAUC 资源 ID，默认 `volc.bigasr.sauc.duration`。

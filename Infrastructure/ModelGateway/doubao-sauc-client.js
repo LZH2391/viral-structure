@@ -34,8 +34,8 @@ async function recognizeAudio({
 }
 
 function readCredentials(env = process.env) {
-  const appId = env.DOUBAO_SAUC_APP_ID || env.VOLCENGINE_APP_ID || null;
-  const accessToken = env.DOUBAO_SAUC_ACCESS_TOKEN || env.VOLCENGINE_ACCESS_TOKEN || null;
+  const appId = env.DOUBAO_Api_App_Key || null;
+  const accessToken = env.DOUBAO_Api_Access_Key || null;
   const resourceId = env.DOUBAO_SAUC_RESOURCE_ID || DEFAULT_RESOURCE_ID;
   const wsUrl = env.DOUBAO_SAUC_WS_URL || DEFAULT_WS_URL;
   const modelName = env.DOUBAO_SAUC_MODEL_NAME || DEFAULT_MODEL_NAME;
