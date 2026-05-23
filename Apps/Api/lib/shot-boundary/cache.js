@@ -21,11 +21,23 @@ async function findCachedArtifact({
     promptTemplateHash: context.promptTemplate?.promptTemplateHash,
     initFingerprint: context.initFingerprint,
   });
-  const cache = await artifactIndex.findCacheEntry({
+  let cache = await artifactIndex.findCacheEntry({
     fileHash,
     stageName,
     params,
   });
+  let cacheLookupMode = "current";
+  if (!cache?.sampleVideoId && typeof cacheParams.legacy === "function") {
+    const legacyParams = cacheParams.legacy(prepared, contactSheets, {
+      skillHash: context.skillHash,
+    });
+    cache = await artifactIndex.findCacheEntry({
+      fileHash,
+      stageName,
+      params: legacyParams,
+    });
+    cacheLookupMode = cache?.sampleVideoId ? "legacy_promptless" : "current";
+  }
   if (!cache?.sampleVideoId) {
     return { cache: null, analysis: null, cacheEligibility: null, summary: cacheLookupSummary(context, { cacheLookup: "miss", reason: "key_miss" }) };
   }
@@ -47,6 +59,7 @@ async function findCachedArtifact({
     summary: cacheLookupSummary(context, {
       cacheLookup: "hit",
       reason: "eligible",
+      cacheLookupMode,
       sourceSampleVideoId: cache.sampleVideoId,
       cacheKey: cache.cacheKey ?? null,
       sourceTurnId: analysis.agent?.turnId ?? null,

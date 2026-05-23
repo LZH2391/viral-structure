@@ -38,6 +38,7 @@ const {
   buildTurnInputs,
   renderAnalyzeTurnInputs,
   cacheParams,
+  legacyCacheParams,
   codedError,
   evaluateCacheEligibility,
   prepareInput,
@@ -70,6 +71,7 @@ const POLL_INTERVAL_MS = 2000;
 const ORPHAN_TTL_MS = 30 * 60 * 1000;
 const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
+cacheParams.legacy = legacyCacheParams;
 
 function createShotBoundaryService({
   rootDir,

@@ -7,7 +7,8 @@ const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
@@ -921,13 +922,14 @@ test("shot boundary skill content change misses old shot cache", async () => {
   await delay(20);
 
   assert.ok(cacheLookups.length >= 1);
-  assert.equal(cacheLookups.at(-1).profileVersion, "2026-05-22.2");
-  assert.equal(cacheLookups.at(-1).promptTemplateId, "analyze");
-  assert.equal(cacheLookups.at(-1).promptTemplateVersion, "analyze.v2");
-  assert.ok(cacheLookups.at(-1).promptTemplateHash);
-  assert.ok(cacheLookups.at(-1).initFingerprint);
-  assert.equal(cacheLookups.at(-1).skillHash, hashText("new skill content"));
-  assert.notEqual(cacheLookups.at(-1).skillHash, oldSkillHash);
+  const currentLookup = cacheLookups[0];
+  assert.equal(currentLookup.profileVersion, "2026-05-22.2");
+  assert.equal(currentLookup.promptTemplateId, "analyze");
+  assert.equal(currentLookup.promptTemplateVersion, "analyze.v2");
+  assert.ok(currentLookup.promptTemplateHash);
+  assert.ok(currentLookup.initFingerprint);
+  assert.equal(currentLookup.skillHash, hashText("new skill content"));
+  assert.notEqual(currentLookup.skillHash, oldSkillHash);
   assert.equal(shotStartTurnCount, 1);
 });
 
@@ -1001,6 +1003,74 @@ test("shot boundary valid cache can be reused", async () => {
   assert.equal(cacheReuseLog.outputSummary.analysisFps, 3);
   assert.equal(cacheReuseLog.outputSummary.boundaryCount, 1);
   assert.equal(cacheReuseLog.outputSummary.shotCount, 2);
+});
+
+test("shot boundary registers reusable cache for the same service run", async () => {
+  let shotStartTurnCount = 0;
+  const harness = await createShotHarness({
+    useRealArtifactIndex: true,
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: `turn_${shotStartTurnCount}`, status: "submitted" };
+      },
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
+      }),
+    },
+  });
+
+  const first = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "refresh" });
+  await delay(20);
+  await harness.service.collectAgentRun(first.processingJobId);
+  const second = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
+  await delay(20);
+  const secondJob = harness.jobStore.getJob(second.processingJobId);
+
+  assert.equal(secondJob.status, "cache_waiting");
+  assert.equal(secondJob.cachePrompt.cachedItem.analysisFps, 3);
+  assert.equal(shotStartTurnCount, 1);
+});
+
+test("shot boundary cache lookup falls back to legacy promptless cache params", async () => {
+  const cacheEntries = new Map();
+  const stableKey = (fileHash, stageName, params) => JSON.stringify({ fileHash, stageName, params });
+  const cachedAnalysis = createValidCachedShotAnalysis();
+  const harness = await createShotHarness({
+    artifactIndex: {
+      getItem: async () => ({ fileHash: "hash_1" }),
+      findCacheEntry: async ({ fileHash, stageName, params }) => cacheEntries.get(stableKey(fileHash, stageName, params)) ?? null,
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
+      registerSampleArtifact: async () => ({ ok: true }),
+    },
+  });
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const prepared = prepareInput(artifact, 3, { runtimeRoot: harness.store.runtimeRoot });
+  const contactSheets = createContactSheets(prepared, harness.store.sampleDir("sample_1"));
+  const legacyParams = stripPromptFingerprint(buildShotBoundaryCacheParams({
+    sourceArtifactId: prepared.sourceArtifactId,
+    extractSampling: prepared.extractSampling,
+    analysisSampling: prepared.analysisSampling,
+    frameDimensions: prepared.frameDimensions,
+    contactSheets,
+    subtitleContextSummary: prepared.subtitleContextSummary,
+    skillHash: "302ec99d6733632b",
+  }));
+  cacheEntries.set(stableKey("hash_1", STAGES.resultWritten, legacyParams), { sampleVideoId: "sample_cached", cacheKey: "legacy_cache" });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
+  await delay(20);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end");
+
+  assert.equal(job.status, "cache_waiting");
+  assert.equal(job.cachePrompt.cacheKey, "legacy_cache");
+  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "hit");
+  assert.equal(cacheLookupLog.outputSummary.cacheLookupMode, "legacy_promptless");
 });
 
 test("shot boundary cache decision refresh continues same job and trace", async () => {
@@ -1522,7 +1592,7 @@ function createArtifact(overrides = {}) {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride, useRealArtifactIndex = false } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -1592,13 +1662,16 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     },
     ...threadPoolOverrides,
   };
-  const artifactIndex = {
+  const fakeArtifactIndex = {
     findCacheEntry: async () => null,
     getItem: async () => ({ fileHash: "hash_1" }),
     registerSampleArtifact: async () => ({ ok: true }),
     loadItem: async () => null,
     ...artifactIndexOverrides,
   };
+  const artifactIndex = useRealArtifactIndex
+    ? createArtifactIndex({ store, processorVersion: "test-v1" })
+    : fakeArtifactIndex;
   const contactSheetGenerator = contactSheetGeneratorOverride ?? {
     generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
   };

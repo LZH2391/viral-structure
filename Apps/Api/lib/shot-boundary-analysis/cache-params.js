@@ -75,6 +75,24 @@ function cacheParams(input, contactSheets, options = {}) {
   });
 }
 
+function legacyCacheParams(input, contactSheets, options = {}) {
+  const params = cacheParams(input, contactSheets, options);
+  return stripPromptFingerprint(params);
+}
+
+function stripPromptFingerprint(params) {
+  if (!params || typeof params !== "object") return params;
+  const {
+    profileVersion,
+    promptTemplateId,
+    promptTemplateVersion,
+    promptTemplateHash,
+    initFingerprint,
+    ...legacy
+  } = params;
+  return legacy;
+}
+
 function round(value) {
   return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
 }
@@ -82,6 +100,8 @@ function round(value) {
 module.exports = {
   buildShotBoundaryCacheParams,
   cacheParams,
+  legacyCacheParams,
+  stripPromptFingerprint,
   resolveSkillHash,
   skillContentHashSync,
   contentHash,
