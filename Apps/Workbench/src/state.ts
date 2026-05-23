@@ -228,6 +228,7 @@ export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtif
     coverUri: artifact.cover?.uri ?? null,
     audioUri: artifact.audio?.uri ?? null,
     audioSummary: artifact.audio?.summary ?? null,
+    metadata: artifact.metadata ?? null,
     processingOptions: artifact.processingOptions ?? null,
     frameOutputSummary: artifact.frameOutputSummary ?? null,
     frameArtifacts: artifact.frames.map((frame) => ({

@@ -13,7 +13,7 @@ import type {
   SubtitleDraft,
 } from "../types";
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
-import { PropertyRows } from "./property-panel/PropertyRows";
+import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 
 export type PropertyPanelProps = {
@@ -51,7 +51,7 @@ export type PropertyPanelProps = {
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
-  const [activeTab, setActiveTab] = useState<"shot" | "script">("shot");
+  const [activeTab, setActiveTab] = useState<"shot" | "script" | "meta">("shot");
 
   return (
     <aside className="property-panel" aria-label="属性区">
@@ -75,6 +75,15 @@ export function PropertyPanel(props: PropertyPanelProps) {
           >
             script
           </button>
+          <button
+            className={`property-tab ${activeTab === "meta" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "meta"}
+            onClick={() => setActiveTab("meta")}
+          >
+            元信息
+          </button>
         </div>
         {activeTab === "shot" ? (
           <AgentRunPanel
@@ -89,7 +98,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onRun={props.onRunShotBoundary}
             onSelectShot={props.onSelectShot}
           />
-        ) : (
+        ) : activeTab === "script" ? (
           <ScriptSegmentPanel
             analysis={props.scriptSegmentAnalysis}
             analysisHistory={props.scriptSegmentAnalysisHistory}
@@ -98,13 +107,21 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onRun={props.onRunScriptSegment}
             onSelectSegment={props.onSelectScriptSegment}
           />
+        ) : (
+          <MetaInfoPanel
+            sampleVideo={props.sampleVideo}
+            mediaDerivatives={props.mediaDerivatives}
+            audioFeatures={props.audioFeatures}
+            subtitles={props.subtitles}
+            shotBoundaryAnalysis={props.shotBoundaryAnalysis}
+            scriptSegmentAnalysis={props.scriptSegmentAnalysis}
+            processingTraceId={props.processingTraceId}
+            processingStatus={props.processingStatus}
+            processingStage={props.processingStage}
+            processingProgress={props.processingProgress}
+            errorMessage={props.errorMessage}
+          />
         )}
-      </section>
-      <section className="property-section">
-        <div className="section-heading">当前片段</div>
-        <div id="currentSegment" className="detail-block">
-          <PropertyRows {...props} />
-        </div>
       </section>
     </aside>
   );

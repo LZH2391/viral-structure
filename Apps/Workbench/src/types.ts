@@ -98,8 +98,12 @@ export type SampleArtifact = {
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
+    durationSource?: string | null;
     width?: number | null;
     height?: number | null;
+    formatName?: string | null;
+    bitrate?: number | null;
+    hasAudio?: boolean | null;
   };
 };
 
@@ -441,6 +445,7 @@ export type SampleVideo = {
   coverUri?: string | null;
   audioUri?: string | null;
   audioSummary?: string | null;
+  metadata?: SampleArtifact["metadata"] | null;
   processingOptions?: SampleArtifact["processingOptions"] | null;
   frameOutputSummary?: FrameOutputSummary | null;
   frameArtifacts: SampleFrame[];
