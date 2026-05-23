@@ -42,10 +42,12 @@ const {
   evaluateCacheEligibility,
   prepareInput,
   renderRepairTurnInputs,
+  renderSummaryTurnInputs,
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
   contentHash,
+  validateCommerceBriefOutput,
 } = require("./shot-boundary-analysis");
 
 const STAGES = {
@@ -57,6 +59,9 @@ const STAGES = {
   turnStarted: "shot.boundary_analyze.submit",
   turnCollected: "shot.boundary_analyze.collect",
   turnValidated: "shot.boundary_validate",
+  summaryStarted: "shot.summary.submit",
+  summaryCollected: "shot.summary.collect",
+  summaryValidated: "shot.summary_validate",
   turnRepaired: "shot.boundary_repair.submit",
   repairCollected: "shot.boundary_repair.collect",
   resultWritten: "shot.boundary_merge",
@@ -346,6 +351,8 @@ function createShotBoundaryService({
           appServer,
           rootDir,
           renderRepairTurnInputs,
+          renderSummaryTurnInputs,
+          validateCommerceBriefOutput,
           codedError,
           role: ROLE,
           jobStore,

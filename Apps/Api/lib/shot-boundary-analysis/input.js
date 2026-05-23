@@ -177,15 +177,17 @@ function buildTurnInputs({ prepared, contactSheets }) {
       sheetId: sheet.sheetId ?? null,
     })),
   };
-  const outputContract = {
+  const outputContract = buildShotOutputContract();
+  return {
+    manifest,
+    metadata,
+    outputContract,
+  };
+}
+
+function buildShotOutputContract() {
+  return {
     schemaVersion: "shot-centric.v2",
-    commerceBrief: "object, summarize only what can be grounded from frames and subtitle context",
-    "commerceBrief.sellingObject": "string, what is being sold, no fabricated brand/price/effect",
-    "commerceBrief.proofApproach": "string, how the sample proves value using visuals/subtitles",
-    "commerceBrief.promisedOutcome": "string, what problem or result is promised, grounded only",
-    "commerceBrief.persuasionTarget": "string, who or what motivation is being persuaded",
-    "commerceBrief.conversionAction": "string, must always exist; if absent in sample normalize to 未观察到明显转化动作",
-    "commerceBrief.uncertainties": "string array only, uncertain points only, empty array allowed",
     shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
     "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
     "shots[].start": "number, seconds, first shot must start at 0",
@@ -196,10 +198,18 @@ function buildTurnInputs({ prepared, contactSheets }) {
     "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
     "shots[].endBoundary.needReview": "boolean",
   };
+}
+
+function buildCommerceBriefOutputContract() {
   return {
-    manifest,
-    metadata,
-    outputContract,
+    schemaVersion: "commerce-brief.v1",
+    commerceBrief: "object, summarize only what can be grounded from frames, subtitle context, and completed shots",
+    "commerceBrief.sellingObject": "string, what is being sold, no fabricated brand/price/effect",
+    "commerceBrief.proofApproach": "string, how the sample proves value using visuals/subtitles",
+    "commerceBrief.promisedOutcome": "string, what problem or result is promised, grounded only",
+    "commerceBrief.persuasionTarget": "string, who or what motivation is being persuaded",
+    "commerceBrief.conversionAction": "string, must always exist; if absent in sample normalize to 未观察到明显转化动作",
+    "commerceBrief.uncertainties": "string array only, uncertain points only, empty array allowed",
   };
 }
 
@@ -223,25 +233,7 @@ function renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile }) {
 }
 
 function buildRepairTurnInputs({ prepared, contactSheets, validationError, priorTurnOutput, repairAttemptCount }) {
-  const outputContract = {
-    schemaVersion: "shot-centric.v2",
-    commerceBrief: "object, summarize only what can be grounded from frames and subtitle context",
-    "commerceBrief.sellingObject": "string, what is being sold, no fabricated brand/price/effect",
-    "commerceBrief.proofApproach": "string, how the sample proves value using visuals/subtitles",
-    "commerceBrief.promisedOutcome": "string, what problem or result is promised, grounded only",
-    "commerceBrief.persuasionTarget": "string, who or what motivation is being persuaded",
-    "commerceBrief.conversionAction": "string, must always exist; if absent in sample normalize to 未观察到明显转化动作",
-    "commerceBrief.uncertainties": "string array only, uncertain points only, empty array allowed",
-    shots: "non-empty array, sorted by time, each shot directly contains summary/start/end/endBoundary",
-    "shots[].summary": "string, 8-24 chars preferred, describe what this shot contains, no timestamps/local paths/frameId/OCR raw text",
-    "shots[].start": "number, seconds, first shot must start at 0",
-    "shots[].end": "number, seconds, last shot must end at durationSeconds",
-    "shots[].endBoundary": "object|null, null only for the last shot",
-    "shots[].endBoundary.timestamp": "number, seconds, must equal current shot end, 0 < timestamp < durationSeconds",
-    "shots[].endBoundary.confidence": "number, 0..1",
-    "shots[].endBoundary.reason": "short string, explain why the cut happens here, not the shot summary",
-    "shots[].endBoundary.needReview": "boolean",
-  };
+  const outputContract = buildShotOutputContract();
   const priorOutputText = String(priorTurnOutput ?? "").trim();
   const manifest = {
     durationSeconds: round(prepared.durationSeconds),
@@ -293,6 +285,37 @@ function renderRepairTurnInputs({ prepared, contactSheets, validationError, prio
   };
 }
 
+function buildSummaryTurnInputs({ shots }) {
+  return {
+    outputContract: buildCommerceBriefOutputContract(),
+    shotSummary: {
+      shotCount: Array.isArray(shots) ? shots.length : 0,
+      shots: Array.isArray(shots)
+        ? shots.map((shot) => ({
+          shotNo: shot.shotNo ?? null,
+          start: shot.start ?? null,
+          end: shot.end ?? null,
+          summary: shot.summary ?? null,
+          endBoundaryReason: shot.endBoundaryReason ?? null,
+        }))
+        : [],
+    },
+  };
+}
+
+function renderSummaryTurnInputs({ shots, roleProfile }) {
+  const built = buildSummaryTurnInputs({ shots });
+  const prompt = renderTurnTemplate(roleProfile, "summary", {
+    shotsJson: JSON.stringify(built.shotSummary),
+    outputContractJson: JSON.stringify(built.outputContract),
+  });
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText([{ type: "text", text: prompt.text, text_elements: [] }]),
+    ...built,
+  };
+}
+
 module.exports = {
   prepareInput,
   resolveAnalysisSampling,
@@ -301,7 +324,11 @@ module.exports = {
   countTargetGridFrames,
   toPromptAnalysisSampling,
   buildTurnInputs,
+  buildShotOutputContract,
+  buildCommerceBriefOutputContract,
   renderAnalyzeTurnInputs,
   buildRepairTurnInputs,
   renderRepairTurnInputs,
+  buildSummaryTurnInputs,
+  renderSummaryTurnInputs,
 };

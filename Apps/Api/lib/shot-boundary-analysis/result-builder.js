@@ -25,6 +25,14 @@ const { buildShotBoundaryCacheParams, cacheParams } = require("./cache-params");
 
 function buildProcessedAnalysis(message, prepared, contactSheets, context, lease, turn, options = {}) {
   const parsed = extractJsonObject(message);
+  return buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, context, lease, turn, {
+    ...options,
+    rawMessage: message,
+  });
+}
+
+function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, context, lease, turn, options = {}) {
+  const rawMessage = options.rawMessage ?? JSON.stringify(parsed);
   const promptTemplateVersion = context.promptTemplate?.promptTemplateVersion ?? null;
   const strictShotCentric = /^((analyze|repair)\.v2)$/.test(String(promptTemplateVersion ?? ""));
   const hasCommerceBriefPayload = Object.prototype.hasOwnProperty.call(parsed, "commerceBrief");
@@ -47,7 +55,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     throw require("./shared").codedError("shot_boundary_validation_failed", commerceBriefValidation.message, {
       turnId: turn?.turnId ?? null,
       outputSchemaVersion: "shot-centric.v2",
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
+      outputSummary: summarizeAgentOutput(rawMessage, rawBoundaries, normalizedBoundaries, parsedShots),
       validation: commerceBriefValidation.summary,
     }, false);
   }
@@ -55,7 +63,7 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     throw require("./shared").codedError("shot_boundary_validation_failed", validation.message, {
       turnId: turn?.turnId ?? null,
       outputSchemaVersion: (strictShotCentric && hasShotCentricPayload) ? "shot-centric.v2" : "legacy-boundary.v1",
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
+      outputSummary: summarizeAgentOutput(rawMessage, rawBoundaries, normalizedBoundaries, parsedShots),
       validation: validation.summary,
     }, false);
   }
@@ -65,13 +73,15 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
       turnId: turn?.turnId ?? null,
       parseFailureReason: qualityIssue.reason,
       outputSchemaVersion: (strictShotCentric && hasShotCentricPayload) ? "shot-centric.v2" : "legacy-boundary.v1",
-      outputSummary: summarizeAgentOutput(message, rawBoundaries, normalizedBoundaries, parsedShots),
+      outputSummary: summarizeAgentOutput(rawMessage, rawBoundaries, normalizedBoundaries, parsedShots),
       suspiciousReason: qualityIssue.suspiciousReason,
       validation: validation.summary,
     }, false);
   }
   const mergedBoundaries = normalizedBoundaries;
-  const commerceBrief = commerceBriefValidation.ok ? commerceBriefValidation.commerceBrief : null;
+  const commerceBrief = options.commerceBrief !== undefined
+    ? options.commerceBrief
+    : (commerceBriefValidation.ok ? commerceBriefValidation.commerceBrief : null);
   const shots = usingShotCentricSchema
     ? buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, normalizedShotCentricShots)
     : buildShotsFromBoundaries(mergedBoundaries, prepared.frames, prepared.durationSeconds, parsedShots);
@@ -117,6 +127,23 @@ function buildProcessedAnalysis(message, prepared, contactSheets, context, lease
     shots,
     createdAt: new Date().toISOString(),
   };
+}
+
+function validateCommerceBriefOutput(message, turn) {
+  const parsed = extractJsonObject(message);
+  const validation = validateCommerceBrief(parsed.commerceBrief);
+  if (!validation.ok) {
+    throw require("./shared").codedError("shot_summary_validation_failed", validation.message, {
+      turnId: turn?.turnId ?? null,
+      outputSchemaVersion: "commerce-brief.v1",
+      outputSummary: {
+        messagePreview: String(message ?? "").replace(/\s+/g, " ").slice(0, 200),
+        hasCommerceBrief: Object.prototype.hasOwnProperty.call(parsed, "commerceBrief"),
+      },
+      validation: validation.summary,
+    }, false);
+  }
+  return validation.commerceBrief;
 }
 
 function buildFailedArtifact(context, errorSummary, contactSheets = []) {
@@ -202,6 +229,8 @@ function evaluateCacheEligibility(analysis) {
 
 module.exports = {
   buildProcessedAnalysis,
+  buildProcessedAnalysisFromParsed,
+  validateCommerceBriefOutput,
   buildFailedArtifact,
   buildCacheReuseAnalysis,
   evaluateCacheEligibility,

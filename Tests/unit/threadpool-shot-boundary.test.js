@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
-const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
@@ -899,7 +899,7 @@ test("shot boundary skill content change misses old shot cache", async () => {
   const skillPath = path.join(tempRoot, "SKILL.md");
   await fs.writeFile(skillPath, "new skill content", "utf8");
   const oldSkillHash = hashText("old skill content");
-  let startTurnCount = 0;
+  let shotStartTurnCount = 0;
   const cacheLookups = [];
   const harness = await createShotHarness({
     skillPath,
@@ -910,8 +910,8 @@ test("shot boundary skill content change misses old shot cache", async () => {
       },
     },
     appServer: {
-      startTurnWithInputs: async () => {
-        startTurnCount += 1;
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -928,11 +928,11 @@ test("shot boundary skill content change misses old shot cache", async () => {
   assert.ok(cacheLookups.at(-1).initFingerprint);
   assert.equal(cacheLookups.at(-1).skillHash, hashText("new skill content"));
   assert.notEqual(cacheLookups.at(-1).skillHash, oldSkillHash);
-  assert.equal(startTurnCount, 1);
+  assert.equal(shotStartTurnCount, 1);
 });
 
 test("shot boundary cache hit skips turn and writes cache reuse log", async () => {
-  let startTurnCount = 0;
+  let shotStartTurnCount = 0;
   const cachedAnalysis = createCachedShotAnalysis();
   const harness = await createShotHarness({
     artifactIndex: {
@@ -940,8 +940,8 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
       loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
     },
     appServer: {
-      startTurnWithInputs: async () => {
-        startTurnCount += 1;
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -953,14 +953,14 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
   const job = harness.jobStore.getJob(result.processingJobId);
   const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end" && entry.outputSummary?.cacheLookup === "miss");
 
-  assert.equal(startTurnCount, 1);
+  assert.equal(shotStartTurnCount, 1);
   assert.equal(job.status, "processing");
   assert.equal(artifact.shotBoundaryAnalysis, undefined);
   assert.equal(cacheLookupLog.outputSummary.reason, "eligibility_rejected");
 });
 
 test("shot boundary valid cache can be reused", async () => {
-  let startTurnCount = 0;
+  let shotStartTurnCount = 0;
   const cachedAnalysis = createValidCachedShotAnalysis();
   const harness = await createShotHarness({
     artifactIndex: {
@@ -968,8 +968,8 @@ test("shot boundary valid cache can be reused", async () => {
       loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
     },
     appServer: {
-      startTurnWithInputs: async () => {
-        startTurnCount += 1;
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -991,7 +991,7 @@ test("shot boundary valid cache can be reused", async () => {
   const job = harness.jobStore.getJob(result.processingJobId);
   const cacheReuseLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheReuse && entry.event === "stage.end");
 
-  assert.equal(startTurnCount, 0);
+  assert.equal(shotStartTurnCount, 0);
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "cache_reuse");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_cached");
@@ -1004,15 +1004,15 @@ test("shot boundary valid cache can be reused", async () => {
 });
 
 test("shot boundary cache decision refresh continues same job and trace", async () => {
-  let startTurnCount = 0;
+  let shotStartTurnCount = 0;
   const harness = await createShotHarness({
     artifactIndex: {
       findCacheEntry: async () => ({ sampleVideoId: "sample_cached", cacheKey: "cache_1" }),
       loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createValidCachedShotAnalysis() }),
     },
     appServer: {
-      startTurnWithInputs: async () => {
-        startTurnCount += 1;
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1029,7 +1029,7 @@ test("shot boundary cache decision refresh continues same job and trace", async 
   assert.equal(refreshedJob.traceId, result.traceId);
   assert.equal(refreshedJob.jobId, result.processingJobId);
   assert.equal(refreshedJob.status, "processing");
-  assert.equal(startTurnCount, 1);
+  assert.equal(shotStartTurnCount, 1);
 });
 
 test("same fps lookup reuses registered shot cache params while different fps misses", async () => {
@@ -1039,7 +1039,7 @@ test("same fps lookup reuses registered shot cache params while different fps mi
     stageName,
     params,
   });
-  let startTurnCount = 0;
+  let shotStartTurnCount = 0;
   const harness = await createShotHarness({
     artifactIndex: {
       getItem: async () => ({ fileHash: "hash_1" }),
@@ -1064,8 +1064,8 @@ test("same fps lookup reuses registered shot cache params while different fps mi
       },
     },
     appServer: {
-      startTurnWithInputs: async () => {
-        startTurnCount += 1;
+      startTurnWithInputs: async (payload) => {
+        if (!isSummaryTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
       collectTurnResult: async () => ({
@@ -1088,7 +1088,7 @@ test("same fps lookup reuses registered shot cache params while different fps mi
   const secondJob = harness.jobStore.getJob(second.processingJobId);
   const thirdJob = harness.jobStore.getJob(third.processingJobId);
 
-  assert.equal(startTurnCount, 2);
+  assert.equal(shotStartTurnCount, 2);
   assert.equal(secondJob.status, "cache_waiting");
   assert.equal(secondJob.cachePrompt.cachedItem.analysisFps, 1);
   assert.notEqual(thirdJob.status, "cache_waiting");
@@ -1209,6 +1209,26 @@ test("shot boundary collect retryable error keeps inflight processing", async ()
   assert.equal(job.agentRun.status, "collecting");
   assert.equal(job.errorSummary.retryable, true);
   assert.equal(harness.threadPool.discarded.length, 0);
+});
+
+test("shot boundary summary turn inputs only request commerce brief", async () => {
+  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
+  const turnInputs = renderSummaryTurnInputs({
+    roleProfile,
+    shots: [
+      { shotNo: "S001", start: 0, end: 1.2, summary: "人物半身口播", endBoundaryReason: "cut" },
+      { shotNo: "S002", start: 1.2, end: 2, summary: "产品特写镜头", endBoundaryReason: null },
+    ],
+  });
+  const promptText = turnInputs.inputs[0].text;
+
+  assert.equal(turnInputs.promptTemplateId, "summary");
+  assert.equal(turnInputs.promptTemplateVersion, "summary.v1");
+  assert.match(promptText, /不要重新切镜/);
+  assert.match(promptText, /commerceBrief/);
+  assert.doesNotMatch(promptText, /localImage/);
+  assert.doesNotMatch(JSON.stringify(turnInputs.outputContract), /boundaries/);
+  assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, 0);
 });
 
 test("appserver bridge structured error payload is surfaced", async () => {
@@ -1436,9 +1456,11 @@ test("shot boundary empty boundaries triggers repair and can recover", async () 
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "repaired_turn");
   assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 1);
-  assert.equal(startTurnPayloads.length, 2);
+  assert.equal(startTurnPayloads.length, 3);
   assert.equal("skillPath" in startTurnPayloads[0], false);
   assert.equal("skillPath" in startTurnPayloads[1], false);
+  assert.equal("skillPath" in startTurnPayloads[2], false);
+  assert.equal(isSummaryTurnPayload(startTurnPayloads[2]), true);
 });
 
 test("shot boundary empty boundaries after repair stays failed", async () => {
@@ -1580,6 +1602,8 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
   const contactSheetGenerator = contactSheetGeneratorOverride ?? {
     generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
   };
+  const appServerImpl = appServer ?? {};
+  const turnKinds = [];
   const service = createShotBoundaryService({
     rootDir,
     store,
@@ -1590,13 +1614,32 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     contactSheetGenerator,
     skillPath,
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
-      ...appServer,
+      startTurnWithInputs: async (payload) => {
+        const result = appServerImpl.startTurnWithInputs
+          ? await appServerImpl.startTurnWithInputs(payload)
+          : { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
+        turnKinds.push({ turnId: result.turnId ?? null, kind: isSummaryTurnPayload(payload) ? "summary" : "shot" });
+        return result;
+      },
+      collectTurnResult: async (payload) => {
+        const turnKind = turnKinds.shift()?.kind ?? "shot";
+        const result = appServerImpl.collectTurnResult
+          ? await appServerImpl.collectTurnResult(payload)
+          : { ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" };
+        if (turnKind === "summary" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("commerceBrief")) {
+          return { ...result, finalMessage: createSummaryMessage() };
+        }
+        return result;
+      },
     },
     pollIntervalMs: 60_000,
   });
   return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service };
+}
+
+function isSummaryTurnPayload(payload) {
+  const text = String(payload?.inputs?.[0]?.text ?? "");
+  return text.includes("已完成切镜摘要") && text.includes("commerceBrief");
 }
 
 function createContactSheets(prepared, sampleDir) {
@@ -1668,6 +1711,19 @@ function createContactSheets(prepared, sampleDir) {
       createdAt: new Date().toISOString(),
     },
   ];
+}
+
+function createSummaryMessage() {
+  return JSON.stringify({
+    commerceBrief: {
+      sellingObject: "产品样例",
+      proofApproach: "画面展示",
+      promisedOutcome: "快速理解卖点",
+      persuasionTarget: "潜在购买用户",
+      conversionAction: "未观察到明显转化动作",
+      uncertainties: [],
+    },
+  });
 }
 
 function createCachedShotAnalysis() {

@@ -176,6 +176,93 @@ async function resolveFinalAnalysis({
   throw codedError("shot_boundary_validation_failed", "切镜结果校验失败", { repairAttemptCount: maxRepairAttempts }, false);
 }
 
+async function runSummaryTurn({
+  context,
+  agentRun,
+  shotAnalysis,
+  runStage,
+  stages,
+  appServer,
+  rootDir,
+  renderSummaryTurnInputs,
+  validateCommerceBriefOutput,
+  role,
+}) {
+  const summaryTurn = renderSummaryTurnInputs({
+    shots: shotAnalysis.shots,
+    roleProfile: context.roleProfile,
+  });
+  context.promptTemplate = {
+    promptTemplateId: summaryTurn.promptTemplateId,
+    promptTemplateVersion: summaryTurn.promptTemplateVersion,
+    promptTemplateHash: summaryTurn.promptTemplateHash,
+  };
+  const started = await runStage(context, stages.summaryStarted, 92, {
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { threadId: agentRun.threadId, shotCount: shotAnalysis.shots?.length ?? 0 },
+    action: () => appServer.startTurnWithInputs({
+      workspaceRoot: rootDir,
+      threadId: agentRun.threadId,
+      inputs: summaryTurn.inputs,
+      timeoutSeconds: 240,
+    }),
+    outputSummary: (result) => ({
+      role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    }),
+  });
+  const collected = await runStage(context, stages.summaryCollected, 94, {
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+    action: () => appServer.collectTurnResult({
+      workspaceRoot: rootDir,
+      threadId: agentRun.threadId,
+      turnId: started.turnId,
+      timeoutSeconds: 120,
+    }),
+    outputSummary: (result) => ({
+      role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+    }),
+  });
+  if (collected.status !== "completed") {
+    throw require("../shot-boundary-analysis").codedError("shot_summary_turn_incomplete", "带货总结 Agent 未完成", {
+      turnId: collected.turnId ?? started.turnId ?? null,
+      status: collected.status ?? null,
+    }, true);
+  }
+  const commerceBrief = await runStage(context, stages.summaryValidated, 95, {
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { turnId: collected.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+    action: () => validateCommerceBriefOutput(collected.finalMessage, collected),
+    outputSummary: (brief) => ({
+      turnId: collected.turnId,
+      hasSellingObject: Boolean(brief?.sellingObject),
+      hasProofApproach: Boolean(brief?.proofApproach),
+      hasPromisedOutcome: Boolean(brief?.promisedOutcome),
+      hasPersuasionTarget: Boolean(brief?.persuasionTarget),
+      hasConversionAction: Boolean(brief?.conversionAction),
+      uncertaintyCount: Array.isArray(brief?.uncertainties) ? brief.uncertainties.length : 0,
+    }),
+  });
+  return { turn: collected, commerceBrief };
+}
+
 async function writeCompletedAnalysis({
   context,
   agentRun,
@@ -195,6 +282,8 @@ async function writeCompletedAnalysis({
   appServer,
   rootDir,
   renderRepairTurnInputs,
+  renderSummaryTurnInputs,
+  validateCommerceBriefOutput,
   codedError,
   role,
   jobStore,
@@ -218,16 +307,50 @@ async function writeCompletedAnalysis({
     codedError,
     role,
   });
+  const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+  const shotAnalysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
+    resultOrigin: resolved.resultOrigin,
+    repairAttemptCount: resolved.repairAttemptCount,
+  });
+  const summary = await runSummaryTurn({
+    context,
+    agentRun,
+    shotAnalysis,
+    runStage,
+    stages,
+    appServer,
+    rootDir,
+    renderSummaryTurnInputs,
+    validateCommerceBriefOutput,
+    role,
+  });
   await runStage(context, stages.resultWritten, 95, {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId ?? null,
-    inputSummary: { turnId: resolved.finalTurn.turnId, frameCount: prepared.frames.length, sheetCount: contactSheets.length, resultOrigin: resolved.resultOrigin, repairAttemptCount: resolved.repairAttemptCount },
+    inputSummary: { turnId: resolved.finalTurn.turnId, summaryTurnId: summary.turn.turnId, frameCount: prepared.frames.length, sheetCount: contactSheets.length, resultOrigin: resolved.resultOrigin, repairAttemptCount: resolved.repairAttemptCount },
     action: async () => {
-      const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
-      const analysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
-        resultOrigin: resolved.resultOrigin,
-        repairAttemptCount: resolved.repairAttemptCount,
-      });
+      const analysis = {
+        ...shotAnalysis,
+        commerceBrief: summary.commerceBrief,
+        validation: {
+          ...shotAnalysis.validation,
+          commerceBrief: {
+            hasSellingObject: Boolean(summary.commerceBrief?.sellingObject),
+            hasProofApproach: Boolean(summary.commerceBrief?.proofApproach),
+            hasPromisedOutcome: Boolean(summary.commerceBrief?.promisedOutcome),
+            hasPersuasionTarget: Boolean(summary.commerceBrief?.persuasionTarget),
+            hasConversionAction: Boolean(summary.commerceBrief?.conversionAction),
+            uncertaintyCount: Array.isArray(summary.commerceBrief?.uncertainties) ? summary.commerceBrief.uncertainties.length : 0,
+          },
+        },
+        agent: {
+          ...shotAnalysis.agent,
+          summaryTurnId: summary.turn.turnId,
+          summaryPromptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+          summaryPromptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+          summaryPromptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+        },
+      };
       await attachAnalysis(context.sampleVideoId, analysis, {
         traceId: context.traceContext.traceId,
         sourceTraceId: context.sampleArtifact?.trace?.traceId ?? null,
