@@ -470,8 +470,12 @@ function decorateWordsWithSegmentText(segmentText, segmentWords) {
     const wordIndex = sourceText.indexOf(wordText, cursor);
     if (wordIndex < 0) return fallback;
     const separator = sourceText.slice(cursor, wordIndex);
-    if (separator && result.length) result[result.length - 1] += separator;
-    result.push(wordText);
+    if (separator && result.length) {
+      result[result.length - 1] += separator;
+      result.push(wordText);
+    } else {
+      result.push(`${separator}${wordText}`);
+    }
     cursor = wordIndex + wordText.length;
   }
   if (cursor < sourceText.length && result.length) result[result.length - 1] += sourceText.slice(cursor);

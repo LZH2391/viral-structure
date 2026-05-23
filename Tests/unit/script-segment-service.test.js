@@ -145,6 +145,41 @@ test("prepareInput falls back to word text when segment text cannot align", () =
   assert.equal(prepared.shots[1].subtitleText, "词");
 });
 
+test("prepareInput copies source subtitle punctuation without punctuation allowlist", () => {
+  const artifact = createArtifact({
+    subtitles: {
+      artifactId: "artifact_subtitle",
+      parentArtifactId: "artifact_audio",
+      type: "subtitle-track",
+      status: "processed",
+      segments: [
+        { id: "subtitle_1", start: 0, end: 2, text: "“真的吗？好！”", confidence: null },
+      ],
+      utterances: [],
+      words: [
+        { start: 0, end: 0.9, text: "真的吗" },
+        { start: 1.05, end: 1.6, text: "好" },
+      ],
+    },
+    shotBoundaryAnalysis: {
+      artifactId: "artifact_shot_boundary",
+      parentArtifactId: "artifact_sample",
+      type: "shot-boundary-analysis",
+      status: "processed",
+      shots: [
+        { id: "shot_1", shotNo: "S001", start: 0, end: 1, reason: "开场", summary: "开场镜头" },
+        { id: "shot_2", shotNo: "S002", start: 1, end: 2, reason: "主体", summary: "主体镜头" },
+      ],
+      commerceBrief: null,
+    },
+  });
+
+  const prepared = prepareInput(artifact);
+
+  assert.equal(prepared.shots[0].subtitleText, "“真的吗？");
+  assert.equal(prepared.shots[1].subtitleText, "好！”");
+});
+
 test("script segment frame ownership keeps half-open ranges and last shot closed", () => {
   const shot1 = { shotId: "shot_1", start: 0, end: 1.2 };
   const shot2 = { shotId: "shot_2", start: 1.2, end: 3.8 };
