@@ -45,7 +45,7 @@ export type ProcessingJob = {
   } | null;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {
-    cacheKind?: "sample" | "shot_boundary" | "script_segment" | string;
+    cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
     cachedItem: LibraryItemSummary;
     sourceSampleVideoId?: string | null;
     sourceTurnId?: string | null;
@@ -115,6 +115,8 @@ export type SampleArtifact = {
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
+  rhythmStructureAnalysis?: RhythmStructureArtifact | null;
+  rhythmStructureAnalysisHistory?: RhythmStructureHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
     durationSource?: string | null;
@@ -597,6 +599,84 @@ export type ScriptSegmentArtifact = {
   createdAt: string;
 };
 
+export type RhythmStructureHistoryEntry = {
+  artifactId: string;
+  status: "processed" | "failed" | string;
+  resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  cardCount: number;
+  turnId: string | null;
+  traceId: string | null;
+  sourceTraceId?: string | null;
+  sourceSampleVideoId?: string | null;
+  sourceTurnId?: string | null;
+  cacheKey?: string | null;
+  createdAt: string;
+  validatorCode?: string | null;
+};
+
+export type RhythmStructureArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  type: "rhythm-structure-analysis";
+  status: "processed" | "failed" | string;
+  resultOrigin?: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  stageName?: string | null;
+  sampleVideoId?: string;
+  sourceShotBoundaryArtifactId?: string | null;
+  sourceShotCount?: number | null;
+  sourceScriptSegmentArtifactId?: string | null;
+  sourceScriptSegmentCount?: number | null;
+  sourceSampleVideoId?: string | null;
+  sourceRhythmStructureArtifactId?: string | null;
+  sourceTurnId?: string | null;
+  sourceCreatedAt?: string | null;
+  cacheKey?: string | null;
+  overview: {
+    rhythmShape: string;
+    pacingSummary: string;
+    peakRange: string;
+    turningPoints: string[];
+    transferableRhythmRule: string;
+    uncertainties: string[];
+  } | null;
+  cards: Array<{
+    cardId: string;
+    label: string;
+    rhythmRole: string;
+    shotRefs: string[];
+    evidence: string[];
+    rhythmPattern: string;
+    attentionEffect: string;
+    transferableRule: string;
+    confidence: number;
+    needReview: boolean;
+    start: number;
+    end: number;
+  }>;
+  validation?: {
+    status: "passed" | "failed" | string;
+    cardCount: number;
+    validatorCode: string | null;
+    repairAttemptCount: number;
+  } | null;
+  agent?: {
+    provider: "codex-appserver" | string;
+    role: string;
+    skillPath: string;
+    skillHash?: string | null;
+    threadId: string | null;
+    leaseId: string | null;
+    turnId: string | null;
+    profileVersion?: string | null;
+    promptTemplateId?: string | null;
+    promptTemplateVersion?: string | null;
+    promptTemplateHash?: string | null;
+  } | null;
+  reason?: string | null;
+  debugSnapshotUri?: string | null;
+  createdAt: string;
+};
+
 export type VersionItem = {
   id: string;
   label: string;
@@ -695,7 +775,7 @@ export type LibraryItemSummary = {
   updatedAt?: string | null;
   tags: string[];
   cacheAvailable: boolean;
-  cacheKind?: "sample" | "shot_boundary" | "script_segment" | string;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
   traceId?: string | null;
   sourceSampleVideoId?: string | null;
   sourceTurnId?: string | null;
@@ -705,6 +785,7 @@ export type LibraryItemSummary = {
   shotCount?: number | null;
   analysisFps?: number | null;
   segmentCount?: number | null;
+  cardCount?: number | null;
   profileVersion?: string | null;
   promptTemplateId?: string | null;
   promptTemplateVersion?: string | null;

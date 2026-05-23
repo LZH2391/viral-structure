@@ -3,6 +3,8 @@ import type {
   AgentRunJob,
   AudioFeatureAnalysisArtifact,
   MediaDerivative,
+  RhythmStructureArtifact,
+  RhythmStructureHistoryEntry,
   SampleVideo,
   ScriptSegmentArtifact,
   ScriptSegmentHistoryEntry,
@@ -14,6 +16,7 @@ import type {
 } from "../types";
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
 import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
+import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 import { StructurePlaceholderPanel } from "./property-panel/StructurePlaceholderPanel";
 
@@ -42,12 +45,17 @@ export type PropertyPanelProps = {
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   scriptSegmentJob?: AgentRunJob | null;
+  rhythmStructureAnalysis?: RhythmStructureArtifact | null;
+  rhythmStructureAnalysisHistory?: RhythmStructureHistoryEntry[] | null;
+  rhythmStructureJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   onAgentAnalysisFpsChange: (value: number) => void;
   onRunShotBoundary: () => void;
   onRunScriptSegment: () => void;
+  onRunRhythmStructure: () => void;
   onSelectShot: (time: number) => void;
   onSelectScriptSegment: (time: number) => void;
+  onSelectRhythmCard: (time: number) => void;
   onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
 
@@ -148,12 +156,12 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onSelectSegment={props.onSelectScriptSegment}
           />
         ) : activeTab === "rhythm" ? (
-          <StructurePlaceholderPanel
-            title="节奏结构分析"
-            capabilityId="rhythm-structure-analyzer"
-            description="预留用于分析样例镜头在时间、语速、停顿、密度和转折上的节奏组织方式。"
-            inputs={["shots[]", "subtitleText / subtitleContextText", "audioFeatures", "scriptSegmentAnalysis"]}
-            outputs={["rhythmSections", "tempoPattern", "turningPoints", "transferableRhythmRule"]}
+          <RhythmStructurePanel
+            analysis={props.rhythmStructureAnalysis}
+            analysisHistory={props.rhythmStructureAnalysisHistory}
+            job={props.rhythmStructureJob}
+            onRun={props.onRunRhythmStructure}
+            onSelectCard={props.onSelectRhythmCard}
           />
         ) : activeTab === "packaging" ? (
           <StructurePlaceholderPanel

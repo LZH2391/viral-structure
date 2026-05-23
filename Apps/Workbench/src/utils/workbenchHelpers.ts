@@ -1,4 +1,4 @@
-import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
+import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startRhythmStructureAnalysis, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 
@@ -12,6 +12,7 @@ export type ActiveJobDraft = {
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
 export type ShotBoundaryCacheHandler = (payload: { job: ProcessingJob; cachedItem: import("../types").LibraryItemSummary }) => Promise<void> | void;
 export type ScriptSegmentCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
+export type RhythmStructureCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -113,6 +114,59 @@ export async function runScriptSegmentAnalysis(
   }
   onJobUpdate?.(null);
   throw new Error("脚本段落分析超时");
+}
+
+export async function runRhythmStructureAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+  onCacheHit?: RhythmStructureCacheHandler,
+  cacheDecision: "ask" | "reuse" | "refresh" = "ask",
+) {
+  if (!state.sampleVideo) return null;
+  const started = await startRhythmStructureAnalysis(state.sampleVideo.id, {
+    cacheDecision,
+    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+  });
+  if ("cacheHit" in started && started.cacheHit) {
+    await onCacheHit?.({
+      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "rhythm_structure.cache_lookup", status: "cache_waiting", progress: 28 },
+      cachedItem: started.cachedItem,
+    });
+    return null;
+  }
+  let latest: ProcessingJob = {
+    jobId: started.processingJobId,
+    sampleVideoId: started.sampleVideoId,
+    traceId: started.traceId,
+    stage: "rhythm_structure.input_prepare",
+    status: "pending",
+    progress: 0,
+  };
+  onJobUpdate?.(latest);
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    await delay(1000);
+    latest = await getProcessingJob(started.processingJobId);
+    onJobUpdate?.(latest);
+    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+      return null;
+    }
+    if (latest.status === "processed") {
+      const artifact = await getSampleArtifact(started.sampleVideoId);
+      dispatch({ type: "apply-artifact", artifact });
+      onJobUpdate?.(null);
+      return { artifact, job: latest };
+    }
+    if (latest.status === "failed") {
+      onJobUpdate?.(latest);
+      const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
+      if (artifact) dispatch({ type: "apply-artifact", artifact });
+      throw new Error(latest.errorSummary?.message ?? "节奏结构分析失败");
+    }
+  }
+  onJobUpdate?.(null);
+  throw new Error("节奏结构分析超时");
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
@@ -259,6 +313,14 @@ export function stageLabel(job: ProcessingJob): string {
     "script_segment.repair": "修复脚本段落结果",
     "script_segment.cache_reuse": "复用脚本段落缓存",
     "script_segment.materialize": "写入脚本段落产物",
+    "rhythm_structure.cache_lookup": "检查节奏结构缓存",
+    "rhythm_structure.input_prepare": "准备节奏结构输入",
+    "rhythm_structure.input_package": "生成节奏结构输入包",
+    "rhythm_structure.analyze": "分析节奏结构",
+    "rhythm_structure.validate": "校验节奏结构结果",
+    "rhythm_structure.repair": "修复节奏结构结果",
+    "rhythm_structure.cache_reuse": "复用节奏结构缓存",
+    "rhythm_structure.materialize": "写入节奏结构产物",
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";

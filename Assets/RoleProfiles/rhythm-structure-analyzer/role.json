@@ -1,11 +1,19 @@
 {
   "role": "rhythm-structure-analyzer",
-  "profileVersion": "placeholder-2026-05-23.1",
+  "profileVersion": "2026-05-23.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/rhythm-structure-analyzer/SKILL.md",
-  "status": "placeholder",
   "init": {
     "template": "init.md",
     "readyText": "已就绪"
   },
-  "turnTemplates": {}
+  "turnTemplates": {
+    "analyze": {
+      "template": "prompts/analyze.v1.md",
+      "version": "analyze.v1"
+    },
+    "repair": {
+      "template": "prompts/repair.v1.md",
+      "version": "repair.v1"
+    }
+  }
 }

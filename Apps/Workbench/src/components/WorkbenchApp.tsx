@@ -6,7 +6,7 @@ import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, 
 import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
 import { createId, sanitizeText, shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runScriptSegmentAnalysis, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
+import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runRhythmStructureAnalysis, runScriptSegmentAnalysis, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -27,6 +27,7 @@ type AudioSeekRequest = { requestId: number; time: number };
 type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
 type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 type ScriptCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
+type RhythmCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 const SUBTITLE_SAVE_STAGE = "sample.subtitle.revised";
@@ -44,8 +45,10 @@ export function WorkbenchApp() {
   const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
   const [scriptCachePrompt, setScriptCachePrompt] = useState<ScriptCachePrompt>(null);
+  const [rhythmCachePrompt, setRhythmCachePrompt] = useState<RhythmCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const [scriptSegmentJob, setScriptSegmentJob] = useState<ProcessingJob | null>(null);
+  const [rhythmStructureJob, setRhythmStructureJob] = useState<ProcessingJob | null>(null);
   const audioSeekRequestIdRef = useRef(0);
   const uploadTokenRef = useRef(0);
   const subtitleSaveTokenRef = useRef(0);
@@ -453,6 +456,65 @@ export function WorkbenchApp() {
     }
   }, [dispatch, persistWorkbenchArtifact, scriptCachePrompt, state, state.processingJob?.traceId, state.sampleArtifact?.shotBoundaryAnalysis?.artifactId]);
 
+  const reuseRhythmCache = useCallback(async () => {
+    if (!rhythmCachePrompt) return;
+    const prompt = rhythmCachePrompt;
+    setRhythmCachePrompt(null);
+    try {
+      const job = await resolveCacheDecision(prompt.jobId, "reuse");
+      setRhythmStructureJob(job);
+      const artifact = await getSampleArtifact(prompt.sampleVideoId);
+      dispatch({ type: "apply-artifact", artifact });
+      persistWorkbenchArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null);
+      dispatch({
+        type: "add-version",
+        version: addVersion(
+          "复用节奏结构缓存",
+          STAGES.understand,
+          artifact.rhythmStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
+          artifact.rhythmStructureAnalysis?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
+        ),
+      });
+      setRhythmStructureJob(null);
+      setSaveStatus("已复用节奏结构缓存");
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "复用节奏结构缓存失败");
+    }
+  }, [persistWorkbenchArtifact, rhythmCachePrompt, state.processingJob?.traceId]);
+
+  const refreshRhythmCache = useCallback(async () => {
+    if (!state.sampleVideo || !rhythmCachePrompt) return;
+    const prompt = rhythmCachePrompt;
+    setRhythmCachePrompt(null);
+    try {
+      const result = await runRhythmStructureAnalysis(
+        state,
+        dispatch,
+        setRhythmStructureJob,
+        async ({ job, cachedItem }) => {
+          setRhythmCachePrompt({ jobId: job.jobId ?? prompt.jobId, sampleVideoId: job.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+          setSaveStatus("命中节奏结构缓存，等待选择");
+        },
+        "refresh",
+      );
+      if (result?.artifact?.rhythmStructureAnalysis) {
+        persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
+        dispatch({
+          type: "add-version",
+          version: addVersion(
+            "节奏结构重新生成",
+            STAGES.understand,
+            result.artifact.rhythmStructureAnalysis.artifactId,
+            result.artifact.rhythmStructureAnalysis.parentArtifactId ?? state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+          ),
+        });
+        setSaveStatus("节奏结构已重新生成");
+      }
+    } catch (error) {
+      setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败");
+    }
+  }, [dispatch, persistWorkbenchArtifact, rhythmCachePrompt, state, state.processingJob?.traceId, state.sampleArtifact?.shotBoundaryAnalysis?.artifactId]);
+
   const buildSubtitleSegmentsForSave = useCallback((subtitles: SubtitleArtifact, drafts: Record<string, SubtitleDraft>) => {
     return subtitles.segments.map((segment) => {
       const draft = drafts[segment.id];
@@ -630,6 +692,58 @@ export function WorkbenchApp() {
     }
   }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, scriptSegmentJob?.traceId, state, state.processingJob?.traceId]);
 
+  const handleRhythmStructure = useCallback(async () => {
+    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
+    const stage = beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+      sourceScriptSegmentArtifactId: state.sampleArtifact.scriptSegmentAnalysis?.artifactId ?? null,
+      shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
+    });
+    try {
+      const result = await runRhythmStructureAnalysis(
+        state,
+        dispatch,
+        setRhythmStructureJob,
+        async ({ job, cachedItem }) => {
+          if (!job.jobId || !job.sampleVideoId) return;
+          setRhythmCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
+          setSaveStatus("命中节奏结构缓存，等待选择");
+        },
+        "ask",
+      );
+      if (!result) return null;
+      if (!result?.artifact?.rhythmStructureAnalysis) {
+        throw new Error("节奏结构分析未返回有效产物");
+      }
+      persistWorkbenchArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null);
+      dispatch({
+        type: "add-version",
+        version: addVersion(
+          "节奏结构完成",
+          stage.stageName,
+          result.artifact.rhythmStructureAnalysis.artifactId,
+          result.artifact.rhythmStructureAnalysis.parentArtifactId ?? state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+        ),
+      });
+      finishStage(stage, result.artifact.rhythmStructureAnalysis.artifactId, {
+        cardCount: result.artifact.rhythmStructureAnalysis.cards.length,
+        validatorCode: result.artifact.rhythmStructureAnalysis.validation?.validatorCode ?? null,
+      });
+      return result.artifact;
+    } catch (error) {
+      setRhythmStructureJob(null);
+      failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "节奏结构分析失败",
+        errorStage: STAGES.understand,
+        backendTraceId: rhythmStructureJob?.traceId ?? state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "rhythm-structure-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [beginStage, dispatch, failStage, finishStage, persistWorkbenchArtifact, rhythmStructureJob?.traceId, state, state.processingJob?.traceId]);
+
   const handleSelectAudioFeature = useCallback(
     (marker: AudioFeatureMarker) => {
       dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
@@ -727,6 +841,9 @@ export function WorkbenchApp() {
           scriptSegmentAnalysis={state.sampleArtifact?.scriptSegmentAnalysis ?? null}
           scriptSegmentAnalysisHistory={state.sampleArtifact?.scriptSegmentAnalysisHistory ?? null}
           scriptSegmentJob={scriptSegmentJob}
+          rhythmStructureAnalysis={state.sampleArtifact?.rhythmStructureAnalysis ?? null}
+          rhythmStructureAnalysisHistory={state.sampleArtifact?.rhythmStructureAnalysisHistory ?? null}
+          rhythmStructureJob={rhythmStructureJob}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => {
@@ -755,7 +872,19 @@ export function WorkbenchApp() {
           onRunScriptSegment={() => {
             void handleUnderstand().catch((error) => setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败"));
           }}
+          onRunRhythmStructure={() => {
+            void handleRhythmStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败"));
+          }}
           onSelectScriptSegment={(time) => {
+            if (videoRef.current) videoRef.current.currentTime = time;
+            const card = findCurrentStructureCard(state.structureCards, time);
+            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
+            lastSegmentIdRef.current = card?.id ?? null;
+            lastShotIdRef.current = shot?.id ?? null;
+            setCurrentTime(time);
+            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
+          }}
+          onSelectRhythmCard={(time) => {
             if (videoRef.current) videoRef.current.currentTime = time;
             const card = findCurrentStructureCard(state.structureCards, time);
             const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
@@ -851,6 +980,7 @@ export function WorkbenchApp() {
       {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
       {shotCachePrompt ? <CacheDecisionDialog item={shotCachePrompt.cachedItem} onReuse={reuseShotCache} onRefresh={refreshShotCache} onCancel={() => setShotCachePrompt(null)} /> : null}
       {scriptCachePrompt ? <CacheDecisionDialog item={scriptCachePrompt.cachedItem} onReuse={reuseScriptCache} onRefresh={refreshScriptCache} onCancel={() => setScriptCachePrompt(null)} /> : null}
+      {rhythmCachePrompt ? <CacheDecisionDialog item={rhythmCachePrompt.cachedItem} onReuse={reuseRhythmCache} onRefresh={refreshRhythmCache} onCancel={() => setRhythmCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>

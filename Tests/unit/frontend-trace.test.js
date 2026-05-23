@@ -409,6 +409,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const propertyPanel = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
+  const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
   const placeholderPanel = read(root, "Apps/Workbench/src/components/property-panel/StructurePlaceholderPanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
@@ -421,12 +422,12 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(propertyPanel, /script/);
   assert.match(propertyPanel, /节奏结构/);
   assert.match(propertyPanel, /包装结构/);
-  assert.match(propertyPanel, /rhythm-structure-analyzer/);
   assert.match(propertyPanel, /packaging-structure-analyzer/);
   assert.match(propertyPanel, /<StructurePlaceholderPanel/);
   assert.match(placeholderPanel, /后端未接入/);
   assert.match(placeholderPanel, /disabled/);
   assert.match(propertyPanel, /<ScriptSegmentPanel/);
+  assert.match(propertyPanel, /<RhythmStructurePanel/);
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
   assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
   assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
@@ -438,14 +439,25 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(scriptPanel, /onSelectSegment/);
   assert.match(scriptPanel, /agent-script-meta/);
   assert.match(scriptPanel, /运行脚本段落分析|运行/);
+  assert.match(rhythmPanel, /strong>rhythm-structure</);
+  assert.match(rhythmPanel, /cardCount：/);
+  assert.match(rhythmPanel, /整体形态：/);
+  assert.match(rhythmPanel, /resultOrigin：/);
+  assert.match(rhythmPanel, /cacheKey：/);
+  assert.match(rhythmPanel, /sourceTurn：/);
+  assert.match(rhythmPanel, /onSelectCard/);
   assert.match(app, /currentShot=\{currentShot\}/);
   assert.match(app, /currentShotId=\{currentShotId\}/);
   assert.match(app, /scriptSegmentAnalysis=\{state\.sampleArtifact\?\.scriptSegmentAnalysis \?\? null\}/);
   assert.match(app, /scriptSegmentAnalysisHistory=\{state\.sampleArtifact\?\.scriptSegmentAnalysisHistory \?\? null\}/);
   assert.match(app, /scriptCachePrompt/);
   assert.match(app, /scriptSegmentJob=\{scriptSegmentJob\}/);
+  assert.match(app, /rhythmCachePrompt/);
+  assert.match(app, /rhythmStructureJob=\{rhythmStructureJob\}/);
   assert.match(app, /onRunScriptSegment=\{/);
+  assert.match(app, /onRunRhythmStructure=\{/);
   assert.match(app, /onSelectScriptSegment=\{/);
+  assert.match(app, /onSelectRhythmCard=\{/);
   assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
   assert.match(property, /resolveShotSummary\(currentShot\)/);
@@ -468,12 +480,14 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-script-item/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
   assert.match(types, /scriptSegmentAnalysisHistory\?: ScriptSegmentHistoryEntry\[] \| null;/);
-  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| string;/);
+  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| string;/);
   assert.match(types, /segmentCount\?: number \| null;/);
+  assert.match(types, /cardCount\?: number \| null;/);
   assert.match(types, /sourceSegmentId: string;/);
   assert.match(types, /summary\?: string \| null;/);
   assert.match(types, /endBoundaryReason\?: string \| null;/);
   assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
+  assert.match(types, /rhythmStructureAnalysis\?: RhythmStructureArtifact \| null;/);
 });
 
 test("agent cards show only the latest active running thread message", () => {
@@ -498,7 +512,7 @@ test("agent cards show only the latest active running thread message", () => {
   assert.match(css, /\.agent-thread-message/);
 });
 
-test("structure placeholder skills exist without backend role registration", () => {
+test("rhythm structure skill is registered while packaging remains placeholder", () => {
   const root = path.resolve(__dirname, "../..");
   const rhythmSkill = read(root, ".agents/skills/rhythm-structure-analyzer/SKILL.md");
   const packagingSkill = read(root, ".agents/skills/packaging-structure-analyzer/SKILL.md");
@@ -511,11 +525,13 @@ test("structure placeholder skills exist without backend role registration", () 
   assert.match(rhythmSkill, /不重切 shot/);
   assert.match(packagingSkill, /name: packaging-structure-analyzer/);
   assert.match(packagingSkill, /占位版本/);
-  assert.match(rhythmRole, /"status": "placeholder"/);
+  assert.match(rhythmRole, /"turnTemplates": \{/);
+  assert.match(rhythmRole, /"analyze"/);
+  assert.match(rhythmRole, /"repair"/);
   assert.match(packagingRole, /"status": "placeholder"/);
-  assert.doesNotMatch(roles, /rhythm-structure-analyzer/);
+  assert.match(roles, /rhythm-structure-analyzer/);
   assert.doesNotMatch(roles, /packaging-structure-analyzer/);
-  assert.doesNotMatch(server, /rhythm-structure/);
+  assert.match(server, /rhythm-structure/);
   assert.doesNotMatch(server, /packaging-structure/);
 });
 
@@ -531,7 +547,9 @@ test("findCurrentShot uses half-open ranges and keeps final boundary inclusive",
       getProcessingJob: async () => null,
       getSampleArtifact: async () => null,
       getThreadPoolRoleStatus: async () => null,
+      startRhythmStructureAnalysis: async () => null,
       startShotBoundaryAnalysis: async () => null,
+      startScriptSegmentAnalysis: async () => null,
     }),
   });
   const { findCurrentShot } = exports;

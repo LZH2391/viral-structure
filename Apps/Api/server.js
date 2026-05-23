@@ -20,6 +20,7 @@ const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createScriptSegmentService } = require("./lib/script-segment-service");
+const { createRhythmStructureService } = require("./lib/rhythm-structure-service");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
@@ -36,6 +37,7 @@ const appServer = createAppServerBridge();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const scriptSegmentService = createScriptSegmentService({ store, logger, jobStore, artifactIndex });
+const rhythmStructureService = createRhythmStructureService({ store, logger, jobStore, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 store.ensureRuntimeDirs()
@@ -54,6 +56,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)));
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/script-segments$/.test(url.pathname)) return handleScriptSegments(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
+    if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/rhythm-structure$/.test(url.pathname)) return handleRhythmStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)));
     if (req.method === "GET" && url.pathname === "/api/threadpool/health") return handleThreadPoolRead(res, "health", () => threadPool.health());
     if (req.method === "GET" && url.pathname === "/api/threadpool/config") return handleThreadPoolRead(res, "config", () => threadPool.config());
     if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => threadPool.roles());
@@ -138,6 +141,16 @@ async function handleScriptSegments(req, res, sampleVideoId) {
   return sendJson(res, 202, result);
 }
 
+async function handleRhythmStructure(req, res, sampleVideoId) {
+  const body = await readJsonBody(req).catch(() => ({}));
+  const result = await rhythmStructureService.enqueue({
+    sampleVideoId,
+    cacheDecision: body.cacheDecision ?? "ask",
+    expectedShotBoundaryArtifactId: body.expectedShotBoundaryArtifactId ?? null,
+  });
+  return sendJson(res, 202, result);
+}
+
 async function handleJobCacheDecision(req, res, jobId) {
   const body = await readJsonBody(req);
   const job = jobStore.getJob(jobId);
@@ -145,7 +158,9 @@ async function handleJobCacheDecision(req, res, jobId) {
   const cacheKind = job.cachePrompt?.cacheKind ?? null;
   const result = cacheKind === "script_segment"
     ? await scriptSegmentService.resolveCacheDecision({ jobId, decision: body.decision })
-    : await shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
+    : cacheKind === "rhythm_structure"
+      ? await rhythmStructureService.resolveCacheDecision({ jobId, decision: body.decision })
+      : await shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
 }
 

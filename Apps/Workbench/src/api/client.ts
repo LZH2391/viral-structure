@@ -16,6 +16,10 @@ export type ScriptSegmentStartResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
+export type RhythmStructureStartResponse =
+  | { cacheHit: true; cachedItem: LibraryItemSummary }
+  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -74,6 +78,19 @@ export async function saveSubtitleRevision(
 export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
   return readJsonResponse<ScriptSegmentStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        cacheDecision: options.cacheDecision ?? "ask",
+        expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
+      }),
+    }),
+  );
+}
+
+export async function startRhythmStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
+  return readJsonResponse<RhythmStructureStartResponse>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/rhythm-structure`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

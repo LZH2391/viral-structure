@@ -1,5 +1,5 @@
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
-const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer", "script-segment-analyzer", "shot-boundary-reviewer"];
+const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer", "script-segment-analyzer", "rhythm-structure-analyzer", "shot-boundary-reviewer"];
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 15000;
 

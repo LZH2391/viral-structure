@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
 const { buildScriptSegmentCacheParams } = require("../../Apps/Api/lib/script-segment-analysis/cache-params");
+const { buildRhythmStructureCacheParams } = require("../../Apps/Api/lib/rhythm-structure-analysis/cache-params");
 
 const INDEX_VERSION = 1;
 
@@ -230,6 +231,15 @@ function buildArtifactTree(artifact) {
       `${artifact.scriptSegmentAnalysis.segments?.length ?? 0} 段 / ${artifact.scriptSegmentAnalysis.validation?.status ?? "unknown"}`,
     );
   }
+  if (artifact.rhythmStructureAnalysis) {
+    pushNode(
+      nodes,
+      artifact.rhythmStructureAnalysis,
+      "rhythm_structure.materialize",
+      artifact,
+      `${artifact.rhythmStructureAnalysis.cards?.length ?? 0} 卡 / ${artifact.rhythmStructureAnalysis.validation?.status ?? "unknown"}`,
+    );
+  }
   return nodes;
 }
 
@@ -277,6 +287,7 @@ function buildTags(artifact) {
     artifact.audioFeatures ? "音频特征" : null,
     artifact.shotBoundaryAnalysis ? "切镜" : null,
     artifact.scriptSegmentAnalysis ? "结构理解" : null,
+    artifact.rhythmStructureAnalysis ? "节奏结构" : null,
   ].filter(Boolean);
 }
 
@@ -333,6 +344,9 @@ function stageParams(artifact, stageName) {
   if (stageName === "script_segment.materialize") {
     return buildScriptSegmentStageParams(artifact);
   }
+  if (stageName === "rhythm_structure.materialize") {
+    return buildRhythmStructureStageParams(artifact);
+  }
   return {};
 }
 
@@ -352,6 +366,23 @@ function buildScriptSegmentStageParams(artifact) {
   });
 }
 
+function buildRhythmStructureStageParams(artifact) {
+  return buildRhythmStructureCacheParams({
+    inputFingerprint: artifact.rhythmStructureAnalysis?.cacheKey ?? null,
+    shotCount: artifact.rhythmStructureAnalysis?.sourceShotCount ?? 0,
+    inputPackageManifestHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.manifestHash ?? null,
+    visualManifestHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.visualManifestHash ?? null,
+    outputContractHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.outputContractHash ?? null,
+    sourceShotArtifactId: artifact.rhythmStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
+    sourceScriptSegmentArtifactId: artifact.rhythmStructureAnalysis?.sourceScriptSegmentArtifactId ?? null,
+    profileVersion: artifact.rhythmStructureAnalysis?.agent?.profileVersion ?? null,
+    promptTemplateId: artifact.rhythmStructureAnalysis?.agent?.promptTemplateId ?? null,
+    promptTemplateVersion: artifact.rhythmStructureAnalysis?.agent?.promptTemplateVersion ?? null,
+    promptTemplateHash: artifact.rhythmStructureAnalysis?.agent?.promptTemplateHash ?? null,
+    skillHash: artifact.rhythmStructureAnalysis?.agent?.skillHash ?? null,
+  });
+}
+
 function artifactLabel(type) {
   const labels = {
     "original-video": "原视频",
@@ -366,6 +397,7 @@ function artifactLabel(type) {
     shot_boundary_candidates: "切镜候选",
     "shot-boundary-analysis": "镜头切分",
     "script-segment-analysis": "脚本段落",
+    "rhythm-structure-analysis": "节奏结构",
   };
   return labels[type] ?? type ?? "产物";
 }
