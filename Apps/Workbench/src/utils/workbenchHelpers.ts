@@ -40,6 +40,8 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
     latest = await getProcessingJob(started.processingJobId);
     setAgentJob(latest);
     if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+      setAgentJob(null);
+      writeActiveAgentJob?.(null);
       await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
       return;
     }
@@ -134,7 +136,14 @@ export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (a
   return null;
 }
 
-export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler) {
+export async function attachAgentJob(
+  jobDraft: ActiveJobDraft,
+  setAgentJob: (job: ProcessingJob | null) => void,
+  dispatch: (action: WorkbenchAction) => void,
+  writeActiveAgentJob: JobDraftWriter,
+  onCacheHit?: ShotBoundaryCacheHandler,
+  options?: { showCacheWaiting?: boolean },
+) {
   for (let attempt = 0; attempt < 180; attempt += 1) {
     const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
     if (!job) {
@@ -142,11 +151,14 @@ export async function attachAgentJob(jobDraft: ActiveJobDraft, setAgentJob: (job
       writeActiveAgentJob(null);
       return null;
     }
-    setAgentJob(job);
     if (job.status === "cache_waiting" && job.cachePrompt?.cachedItem) {
+      setAgentJob(null);
+      writeActiveAgentJob(null);
+      if (options?.showCacheWaiting === false) return null;
       await onCacheHit?.({ job, cachedItem: job.cachePrompt.cachedItem });
       return null;
     }
+    setAgentJob(job);
     if (job.status === "processed") {
       const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
       dispatch({ type: "set-shot-boundary-analysis", artifact });

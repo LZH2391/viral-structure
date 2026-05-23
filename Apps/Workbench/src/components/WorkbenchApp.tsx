@@ -95,10 +95,7 @@ export function WorkbenchApp() {
         .catch(() => setSaveStatus("已恢复最近样例，最新样例同步失败"));
     }
     if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
-    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob, ({ job, cachedItem }) => {
-      setShotCachePrompt({ jobId: job.jobId ?? draft.activeAgentJob!.processingJobId, sampleVideoId: job.sampleVideoId ?? draft.activeAgentJob!.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-      setSaveStatus("命中切镜缓存，等待选择");
-    }).catch(() => setSaveStatus("恢复切镜任务失败"));
+    if (draft?.activeAgentJob) attachAgentJob(draft.activeAgentJob, setAgentJob, dispatch, writeActiveAgentJob, undefined, { showCacheWaiting: false }).catch(() => setSaveStatus("恢复切镜任务失败"));
     if (draft?.activeAgentJob) setAgentAnalysisFps(normalizeAnalysisFps(draft.activeAgentJob.analysisFps, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
   }, []);
 
