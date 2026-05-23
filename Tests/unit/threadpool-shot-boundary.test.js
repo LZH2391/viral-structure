@@ -11,7 +11,7 @@ const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoun
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
-const { createThreadPoolProxy, sanitizeRoleStatus } = require("../../Apps/Api/lib/threadpool-proxy");
+const { createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES } = require("../../Apps/Api/lib/threadpool-proxy");
 const { planContactSheets } = require("../../Infrastructure/MediaProcessing/contact-sheet-generator");
 
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
@@ -615,6 +615,17 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
   assert.equal(allowedThread.ok, true);
   const discarded = await proxy.discardThread({ threadId: "thread_1", reason: "test" });
   assert.equal(discarded.status, "discarded");
+});
+
+test("threadpool proxy default allowlist follows thread role config", () => {
+  assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
+    "shot-boundary-analyzer",
+    "script-segment-analyzer",
+    "rhythm-structure-analyzer",
+    "shot-boundary-reviewer",
+  ]);
+  const proxy = createThreadPoolProxy({ fetchImpl: async () => response({ ok: true }) });
+  assert.deepEqual(proxy.allowedRoles, DEFAULT_ALLOWED_ROLES);
 });
 
 test("threadpool proxy timeout becomes unavailable payload", async () => {

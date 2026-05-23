@@ -1,5 +1,10 @@
+const fs = require("fs");
+const path = require("path");
+
+const WORKSPACE_ROOT = path.resolve(__dirname, "..", "..", "..");
+const THREADPOOL_ROLE_CONFIG_PATH = path.join(WORKSPACE_ROOT, "Infrastructure", "ThreadPool", "thread_roles.json");
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
-const DEFAULT_ALLOWED_ROLES = ["shot-boundary-analyzer", "script-segment-analyzer", "rhythm-structure-analyzer", "shot-boundary-reviewer"];
+const DEFAULT_ALLOWED_ROLES = loadAllowedRolesFromConfig();
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 15000;
 
@@ -172,6 +177,17 @@ function createThreadPoolProxy({
 function parseAllowedRoles(value) {
   if (!value) return DEFAULT_ALLOWED_ROLES;
   return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function loadAllowedRolesFromConfig() {
+  try {
+    const raw = fs.readFileSync(THREADPOOL_ROLE_CONFIG_PATH, "utf8");
+    const config = JSON.parse(raw);
+    const roles = Object.keys(config?.roles ?? {}).map(String).filter(Boolean);
+    return roles.length ? roles : ["shot-boundary-analyzer", "script-segment-analyzer"];
+  } catch {
+    return ["shot-boundary-analyzer", "script-segment-analyzer"];
+  }
 }
 
 function sanitizeHealth(payload, allowedRoleSet) {
@@ -364,6 +380,7 @@ function decorateRequestError(error, request) {
 }
 
 module.exports = {
+  THREADPOOL_ROLE_CONFIG_PATH,
   DEFAULT_THREADPOOL_URL,
   DEFAULT_ALLOWED_ROLES,
   DEFAULT_REQUEST_TIMEOUT_MS,
