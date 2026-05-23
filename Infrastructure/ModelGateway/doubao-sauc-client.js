@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const { randomUUID } = require("crypto");
+const { gzipSync, gunzipSync } = require("zlib");
 
 const DEFAULT_WS_URL = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream";
 const DEFAULT_RESOURCE_ID = "volc.bigasr.sauc.duration";
@@ -8,6 +9,24 @@ const DEFAULT_PROTOCOL_VERSION = 1;
 const DEFAULT_CHUNK_MS = 200;
 const RESPONSE_TIMEOUT_MS = 30000;
 const SUCCESS_CODES = new Set([1000, 20000000]);
+const HEADER_SIZE_UNITS = 1;
+const HEADER_SIZE_BYTES = HEADER_SIZE_UNITS * 4;
+const SERIALIZATION_NONE = 0;
+const SERIALIZATION_JSON = 1;
+const COMPRESSION_NONE = 0;
+const COMPRESSION_GZIP = 1;
+const MESSAGE_TYPES = {
+  fullClientRequest: 1,
+  audioOnlyRequest: 2,
+  fullServerResponse: 9,
+  errorResponse: 15,
+};
+const MESSAGE_FLAGS = {
+  none: 0,
+  sequencePositive: 1,
+  lastPacket: 2,
+  lastPacketWithSequence: 3,
+};
 const PCM_SAMPLE_RATE = 16000;
 const PCM_CHANNELS = 1;
 const PCM_BITS = 16;
@@ -86,22 +105,24 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
       url: credentials.wsUrl,
       headers: buildHandshakeHeaders(credentials, connectId, requestId),
       onUnexpectedResponse(response, request) {
-        logId = response?.headers?.["x-tt-logid"] ?? response?.headers?.["X-Tt-Logid"] ?? logId ?? null;
+        const immediateSummary = {
+          statusCode: response?.statusCode ?? null,
+          statusMessage: response?.statusMessage ?? null,
+          headers: sanitizeHeaders(response?.headers ?? null),
+          bodySnippet: null,
+          requestPath: request?.path ?? null,
+          requestMethod: request?.method ?? null,
+          logId: response?.headers?.["x-tt-logid"] ?? response?.headers?.["X-Tt-Logid"] ?? logId ?? null,
+        };
+        unexpectedResponseSummary = immediateSummary;
+        logId = immediateSummary.logId ?? logId ?? null;
         summarizeUnexpectedResponse(response, request)
           .then((summary) => {
             unexpectedResponseSummary = summary;
             if (summary?.logId) logId = summary.logId;
           })
           .catch(() => {
-            unexpectedResponseSummary = {
-              statusCode: response?.statusCode ?? null,
-              statusMessage: response?.statusMessage ?? null,
-              headers: sanitizeHeaders(response?.headers ?? null),
-              bodySnippet: null,
-              requestPath: request?.path ?? null,
-              requestMethod: request?.method ?? null,
-              logId,
-            };
+            unexpectedResponseSummary = immediateSummary;
           });
       },
     });
@@ -148,6 +169,15 @@ async function requestRecognition({ audioBuffer, credentials, wsFactory, connect
         messageCount += 1;
         const packet = decodeServerMessage(await resolveMessageBuffer(message.data));
         logId = packet.headers?.["x-tt-logid"] ?? packet.headers?.["X-Tt-Logid"] ?? packet.payload?.addition?.logid ?? packet.payload?.result?.logid ?? logId ?? null;
+        if (packet.messageType === MESSAGE_TYPES.errorResponse) {
+          finish(reject, configuredError("doubao_sauc_failed", "豆包字幕识别失败", {
+            retryable: true,
+            detail: packet.payload?.error || packet.payload?.message || packet.errorCode,
+            upstreamCode: packet.payload?.code ?? packet.errorCode ?? null,
+            providerMeta: { connectId, requestId, logId, resourceId: credentials.resourceId },
+          }));
+          return;
+        }
         if (packet.payload?.code && !isSuccessCode(packet.payload.code)) {
           finish(reject, configuredError("doubao_sauc_failed", "豆包字幕识别失败", {
             retryable: true,
@@ -238,13 +268,18 @@ function encodeClientRequest({ event, connectId, requestId, credentials, audioCh
   const payload = event === "full_client_request"
     ? buildFullClientPayload({ connectId, requestId, credentials, audioChunk, isLast })
     : buildAudioOnlyPayload({ audioChunk, isLast });
-  const payloadBytes = Buffer.from(JSON.stringify(payload), "utf8");
-  const header = Buffer.alloc(8);
-  header.writeUInt8(DEFAULT_PROTOCOL_VERSION, 0);
-  header.writeUInt8(event === "full_client_request" ? 1 : 2, 1);
-  header.writeUInt16BE(0, 2);
-  header.writeUInt32BE(payloadBytes.length, 4);
-  return Buffer.concat([header, payloadBytes]);
+  const payloadBytes = event === "full_client_request"
+    ? gzipSync(Buffer.from(JSON.stringify(payload), "utf8"))
+    : gzipSync(Buffer.from(audioChunk ?? Buffer.alloc(0)));
+  const header = buildBinaryHeader({
+    messageType: event === "full_client_request" ? MESSAGE_TYPES.fullClientRequest : MESSAGE_TYPES.audioOnlyRequest,
+    messageTypeFlags: event === "audio_only_request" && isLast ? MESSAGE_FLAGS.lastPacket : MESSAGE_FLAGS.none,
+    serializationMethod: event === "full_client_request" ? SERIALIZATION_JSON : SERIALIZATION_NONE,
+    compression: COMPRESSION_GZIP,
+  });
+  const payloadSize = Buffer.alloc(4);
+  payloadSize.writeUInt32BE(payloadBytes.length, 0);
+  return Buffer.concat([header, payloadSize, payloadBytes]);
 }
 
 function buildFullClientPayload({ connectId, requestId, credentials, audioChunk, isLast }) {
@@ -270,29 +305,47 @@ function buildFullClientPayload({ connectId, requestId, credentials, audioChunk,
 
 function buildAudioOnlyPayload({ audioChunk, isLast }) {
   return {
-    audio: {
-      data: Buffer.from(audioChunk ?? Buffer.alloc(0)).toString("base64"),
-    },
-    request: {
-      sequence: isLast ? -1 : 1,
-    },
+    audioChunk: Buffer.from(audioChunk ?? Buffer.alloc(0)),
+    isLast,
   };
 }
 
 function decodeServerMessage(buffer) {
   const bytes = Buffer.from(buffer ?? Buffer.alloc(0));
-  if (bytes.length < 8) throw new Error("server packet too short");
-  const payloadSize = bytes.readUInt32BE(4);
-  const body = bytes.subarray(8, 8 + payloadSize);
-  const payload = body.length ? JSON.parse(body.toString("utf8")) : {};
+  if (bytes.length < HEADER_SIZE_BYTES + 8) throw new Error("server packet too short");
+  const header = decodeBinaryHeader(bytes);
+  const offset = header.headerSize;
+  if (header.messageType === MESSAGE_TYPES.errorResponse) {
+    const errorCode = bytes.readUInt32BE(offset);
+    const payloadSize = bytes.readUInt32BE(offset + 4);
+    const body = bytes.subarray(offset + 8, offset + 8 + payloadSize);
+    const payload = decodePayloadBody(body, header.serializationMethod, header.compression);
+    return {
+      payload,
+      headers: payload?.header || payload?.headers || null,
+      isFinal: true,
+      messageType: header.messageType,
+      errorCode,
+      sequence: null,
+    };
+  }
+  const sequence = bytes.readInt32BE(offset);
+  const payloadSize = bytes.readUInt32BE(offset + 4);
+  const body = bytes.subarray(offset + 8, offset + 8 + payloadSize);
+  const payload = decodePayloadBody(body, header.serializationMethod, header.compression);
   return {
     payload,
     headers: payload?.header || payload?.headers || null,
-    isFinal: isFinalResponse(payload),
+    isFinal: isFinalResponse(payload, header, sequence),
+    messageType: header.messageType,
+    errorCode: null,
+    sequence,
   };
 }
 
-function isFinalResponse(payload) {
+function isFinalResponse(payload, header = null, sequence = null) {
+  if (header?.messageType === MESSAGE_TYPES.fullServerResponse && header.messageTypeFlags === MESSAGE_FLAGS.lastPacketWithSequence) return true;
+  if (Number.isFinite(sequence) && sequence < 0) return true;
   if (!payload || typeof payload !== "object") return false;
   if (payload.is_final === true || payload.is_final === 1) return true;
   if (payload.result?.is_final === true || payload.result?.is_final === 1) return true;
@@ -398,6 +451,37 @@ function isSuccessCode(code) {
   return Number.isFinite(normalized) && SUCCESS_CODES.has(normalized);
 }
 
+function buildBinaryHeader({ messageType, messageTypeFlags, serializationMethod, compression }) {
+  const header = Buffer.alloc(HEADER_SIZE_BYTES);
+  header.writeUInt8(((DEFAULT_PROTOCOL_VERSION & 0x0f) << 4) | (HEADER_SIZE_UNITS & 0x0f), 0);
+  header.writeUInt8(((messageType & 0x0f) << 4) | (messageTypeFlags & 0x0f), 1);
+  header.writeUInt8(((serializationMethod & 0x0f) << 4) | (compression & 0x0f), 2);
+  header.writeUInt8(0, 3);
+  return header;
+}
+
+function decodeBinaryHeader(buffer) {
+  const first = buffer.readUInt8(0);
+  const second = buffer.readUInt8(1);
+  const third = buffer.readUInt8(2);
+  const headerSize = (first & 0x0f) * 4;
+  return {
+    protocolVersion: (first >> 4) & 0x0f,
+    headerSize,
+    messageType: (second >> 4) & 0x0f,
+    messageTypeFlags: second & 0x0f,
+    serializationMethod: (third >> 4) & 0x0f,
+    compression: third & 0x0f,
+  };
+}
+
+function decodePayloadBody(body, serializationMethod, compression) {
+  const payloadBytes = compression === COMPRESSION_GZIP ? gunzipSync(body) : body;
+  if (!payloadBytes.length) return {};
+  if (serializationMethod === SERIALIZATION_JSON) return JSON.parse(payloadBytes.toString("utf8"));
+  return { raw: payloadBytes.toString("utf8") };
+}
+
 function configuredError(code, message, options = {}) {
   const error = new Error(message);
   error.code = code;
@@ -496,6 +580,7 @@ module.exports = {
   buildHandshakeHeaders,
   buildFullClientPayload,
   buildAudioOnlyPayload,
+  encodeClientRequest,
   decodeServerMessage,
   decodeResultText,
   decodeResultSegments,

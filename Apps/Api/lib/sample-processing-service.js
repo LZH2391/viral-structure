@@ -280,7 +280,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     if (!context.processingOptions.enableAudioFeatureAnalysis) return null;
     const source = audioSeparation?.music?.uri ? audioSeparation.music : audio;
     const sourceRole = audioSeparation?.music?.uri ? "music" : "original";
-    return runStage(context, STAGES.audioFeaturesExtracted, 84, {
+    return runStage(context, STAGES.audioFeaturesExtracted, 88, {
       parentArtifactId: source?.artifactId ?? audio.artifactId,
       inputSummary: { sourceAudioArtifactId: source?.artifactId ?? null, audioAvailable: Boolean(source?.uri), sourceRole },
       action: async () => {
@@ -314,7 +314,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
   async function maybeRecognizeSubtitles(context, audio, audioSeparation, sampleDir, durationSeconds) {
     if (!context.processingOptions.enableSubtitleRecognition) return null;
     const source = audioSeparation?.vocal?.uri ? audioSeparation.vocal : audio;
-    return runStage(context, STAGES.subtitleRecognized, 90, {
+    return runStage(context, STAGES.subtitleRecognized, 92, {
       parentArtifactId: source?.artifactId ?? audio.artifactId,
       inputSummary: {
         sourceArtifactId: source?.artifactId ?? null,

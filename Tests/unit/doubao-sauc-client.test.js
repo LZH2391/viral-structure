@@ -5,6 +5,8 @@ const {
   buildHandshakeHeaders,
   buildFullClientPayload,
   buildAudioOnlyPayload,
+  encodeClientRequest,
+  decodeServerMessage,
   decodeResultText,
   decodeResultSegments,
   parseRecognitionPayload,
@@ -50,7 +52,7 @@ test("doubao request payloads include utterance and sequence settings", () => {
   assert.equal(full.request.show_utterances, true);
   assert.equal(full.request.enable_nonstream, false);
   assert.equal(full.request.sequence, 1);
-  assert.equal(audioOnly.request.sequence, -1);
+  assert.deepEqual(audioOnly, { audioChunk: Buffer.from([4, 5]), isLast: true });
 });
 
 test("doubao parser extracts text utterances and words in seconds", () => {
@@ -117,6 +119,36 @@ test("doubao parser extracts text utterances and words in seconds", () => {
 test("doubao timeout includes streaming duration plus response budget", () => {
   assert.equal(recognitionTimeoutMs(0), 30000);
   assert.equal(recognitionTimeoutMs(16000 * 2 * 42), 72000);
+});
+
+test("doubao binary client request uses official 4-byte header layout", () => {
+  const credentials = readCredentials({ DOUBAO_Api_App_Key: "app", DOUBAO_Api_Access_Key: "token" }).value;
+  const packet = encodeClientRequest({
+    event: "full_client_request",
+    connectId: "connect_1",
+    requestId: "request_1",
+    credentials,
+    audioChunk: Buffer.from([1, 2, 3]),
+    isLast: false,
+  });
+  assert.equal(packet.readUInt8(0), 0x11);
+  assert.equal(packet.readUInt8(1), 0x10);
+  assert.equal(packet.readUInt8(2), 0x11);
+});
+
+test("doubao server error frame decodes protocol error payload", () => {
+  const payloadBytes = Buffer.from(JSON.stringify({ error: "decode ws request failed: unsupported protocol version 0" }), "utf8");
+  const gzipped = require("zlib").gzipSync(payloadBytes);
+  const header = Buffer.from([0x11, 0xf0, 0x11, 0x00]);
+  const errorCode = Buffer.alloc(4);
+  errorCode.writeUInt32BE(45000001, 0);
+  const payloadSize = Buffer.alloc(4);
+  payloadSize.writeUInt32BE(gzipped.length, 0);
+  const decoded = decodeServerMessage(Buffer.concat([header, errorCode, payloadSize, gzipped]));
+  assert.equal(decoded.messageType, 15);
+  assert.equal(decoded.errorCode, 45000001);
+  assert.equal(decoded.payload.error, "decode ws request failed: unsupported protocol version 0");
+  assert.equal(decoded.isFinal, true);
 });
 
 test("doubao success code accepts official and legacy success codes", () => {
