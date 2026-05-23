@@ -401,12 +401,7 @@ function finalizeRecognition({ utterances, finalText, providerMeta }) {
   })).filter((item) => item.text);
   return {
     text: String(finalText ?? normalizedUtterances.map((item) => item.text).join("")).trim(),
-    segments: normalizedUtterances.map((item) => ({
-      start: item.start,
-      end: item.end,
-      text: item.text,
-      confidence: null,
-    })),
+    segments: normalizedUtterances.flatMap((item) => splitUtteranceIntoSegments(item)),
     timing: {
       utterances: normalizedUtterances,
       words: normalizedUtterances.flatMap((item) => item.words),
@@ -480,6 +475,90 @@ function decodePayloadBody(body, serializationMethod, compression) {
   if (!payloadBytes.length) return {};
   if (serializationMethod === SERIALIZATION_JSON) return JSON.parse(payloadBytes.toString("utf8"));
   return { raw: payloadBytes.toString("utf8") };
+}
+
+function splitUtteranceIntoSegments(utterance) {
+  const text = String(utterance?.text ?? "").trim();
+  if (!text) return [];
+  const chunks = splitSubtitleText(text);
+  if (chunks.length <= 1) return [{ start: utterance.start, end: utterance.end, text, confidence: null }];
+  const words = Array.isArray(utterance?.words) ? utterance.words.filter((item) => item?.text) : [];
+  if (words.length >= chunks.length) return splitSegmentsByWords(chunks, words);
+  return splitSegmentsByTiming(chunks, utterance.start, utterance.end);
+}
+
+function splitSubtitleText(text) {
+  const chunks = [];
+  let current = "";
+  for (const char of String(text ?? "")) {
+    current += char;
+    if (isSubtitleBreakPunctuation(char)) {
+      const value = current.trim();
+      if (value) chunks.push(value);
+      current = "";
+    }
+  }
+  const tail = current.trim();
+  if (tail) chunks.push(tail);
+  return chunks.length ? chunks : [String(text ?? "").trim()];
+}
+
+function splitSegmentsByWords(chunks, words) {
+  const weights = chunks.map(subtitleTextWeight);
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
+  let assigned = 0;
+  let cumulativeWeight = 0;
+  return chunks.map((chunk, index) => {
+    const remainingChunks = chunks.length - index - 1;
+    const remainingWords = words.length - assigned;
+    let wordCount = remainingWords;
+    if (index < chunks.length - 1) {
+      cumulativeWeight += weights[index];
+      const desired = Math.round(words.length * (cumulativeWeight / totalWeight));
+      const minAllowed = 1;
+      const maxAllowed = Math.max(minAllowed, remainingWords - remainingChunks);
+      wordCount = Math.max(minAllowed, Math.min(maxAllowed, desired - assigned));
+    }
+    const slice = words.slice(assigned, assigned + wordCount);
+    assigned += wordCount;
+    return {
+      start: roundTime(slice[0]?.start ?? words[assigned - wordCount]?.start ?? 0),
+      end: roundTime(slice[slice.length - 1]?.end ?? words[assigned - 1]?.end ?? 0),
+      text: chunk,
+      confidence: null,
+    };
+  }).filter((item) => item.text);
+}
+
+function splitSegmentsByTiming(chunks, start, end) {
+  const safeStart = Number.isFinite(start) ? Number(start) : 0;
+  const safeEnd = Number.isFinite(end) && end > safeStart ? Number(end) : safeStart;
+  const duration = Math.max(0, safeEnd - safeStart);
+  const weights = chunks.map(subtitleTextWeight);
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
+  let cursor = safeStart;
+  return chunks.map((chunk, index) => {
+    const isLast = index === chunks.length - 1;
+    const span = isLast ? safeEnd - cursor : duration * (weights[index] / totalWeight);
+    const chunkStart = cursor;
+    const chunkEnd = isLast ? safeEnd : Math.min(safeEnd, cursor + span);
+    cursor = chunkEnd;
+    return {
+      start: roundTime(chunkStart),
+      end: roundTime(chunkEnd),
+      text: chunk,
+      confidence: null,
+    };
+  }).filter((item) => item.text);
+}
+
+function subtitleTextWeight(text) {
+  const compact = String(text ?? "").replace(/[，。！？!?；;,\s]/g, "");
+  return Math.max(1, compact.length);
+}
+
+function isSubtitleBreakPunctuation(char) {
+  return /[，。！？!?；;]/.test(String(char ?? ""));
 }
 
 function configuredError(code, message, options = {}) {
@@ -588,5 +667,6 @@ module.exports = {
   normalizeTimestamp,
   recognitionTimeoutMs,
   isSuccessCode,
+  splitUtteranceIntoSegments,
   sanitizeHeaders,
 };

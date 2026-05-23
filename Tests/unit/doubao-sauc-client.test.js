@@ -12,6 +12,7 @@ const {
   parseRecognitionPayload,
   recognitionTimeoutMs,
   isSuccessCode,
+  splitUtteranceIntoSegments,
   sanitizeHeaders,
 } = require("../../Infrastructure/ModelGateway/doubao-sauc-client");
 
@@ -149,6 +150,26 @@ test("doubao server error frame decodes protocol error payload", () => {
   assert.equal(decoded.errorCode, 45000001);
   assert.equal(decoded.payload.error, "decode ws request failed: unsupported protocol version 0");
   assert.equal(decoded.isFinal, true);
+});
+
+test("doubao subtitle segments split on comma-like pauses while preserving timings", () => {
+  const segments = splitUtteranceIntoSegments({
+    start: 0,
+    end: 4,
+    text: "睡觉枕头一定要定期除螨，不要像我这样。",
+    words: [
+      { start: 0, end: 0.4, text: "睡觉" },
+      { start: 0.4, end: 0.8, text: "枕头" },
+      { start: 0.8, end: 1.2, text: "一定要" },
+      { start: 1.2, end: 1.6, text: "定期" },
+      { start: 1.6, end: 2, text: "除螨" },
+      { start: 2, end: 3, text: "不要像我这样" },
+    ],
+  });
+  assert.deepEqual(segments, [
+    { start: 0, end: 1.6, text: "睡觉枕头一定要定期除螨，", confidence: null },
+    { start: 1.6, end: 3, text: "不要像我这样。", confidence: null },
+  ]);
 });
 
 test("doubao success code accepts official and legacy success codes", () => {

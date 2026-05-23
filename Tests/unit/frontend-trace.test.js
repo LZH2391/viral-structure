@@ -212,6 +212,10 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(timeline, /audioSeparation/);
   assert.match(timeline, /audio-feature-marker/);
   assert.match(property, /MetaInfoPanel/);
+  assert.match(property, /selectedSubtitleId=\{props\.selectedSubtitleId\}/);
+  assert.match(read(root, "Apps/Workbench/src/components/property-panel/MetaInfoPanel.tsx"), /当前字幕/);
+  assert.match(read(root, "Apps/Workbench/src/components/property-panel/MetaInfoPanel.tsx"), /字幕时间/);
+  assert.match(read(root, "Apps/Workbench/src/components/property-panel/MetaInfoPanel.tsx"), /字幕句级/);
   assert.match(agentRunPanel, /1 fps 推荐：普通口播、生活记录、稳定剪辑/);
   assert.match(agentRunPanel, /2-3 fps 推荐：动作快、转场多、镜头变化密的视频/);
   assert.match(agentRunPanel, /4-10 fps 推荐：高频动作、快速闪切、需要更细切分的视频/);

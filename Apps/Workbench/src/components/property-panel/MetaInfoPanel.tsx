@@ -8,6 +8,7 @@ export function MetaInfoPanel({
   mediaDerivatives,
   audioFeatures,
   selectedAudioFeatureMarkerId,
+  selectedSubtitleId,
   subtitles,
   shotBoundaryAnalysis,
   scriptSegmentAnalysis,
@@ -21,6 +22,7 @@ export function MetaInfoPanel({
   mediaDerivatives: MediaDerivative[];
   audioFeatures?: AudioFeatureAnalysisArtifact | null;
   selectedAudioFeatureMarkerId?: string | null;
+  selectedSubtitleId?: string | null;
   subtitles?: SubtitleArtifact | null;
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
@@ -35,6 +37,8 @@ export function MetaInfoPanel({
     const frameSummary = sampleVideo.frameOutputSummary ?? null;
     const audioTracks = mediaDerivatives.filter((item) => item.type === "audio-track" || item.type === "audio-vocal" || item.type === "audio-music");
     const selectedMarker = findAudioFeatureMarker(audioFeatures, selectedAudioFeatureMarkerId ?? null);
+    const selectedSubtitle = subtitles?.segments.find((item) => item.id === selectedSubtitleId) ?? null;
+    const selectedUtterance = subtitles?.utterances?.find((item) => selectedSubtitle && item.start <= selectedSubtitle.start && item.end >= selectedSubtitle.end) ?? null;
     return (
       <section className="property-section agent-run-panel">
         <div className="section-heading">元信息</div>
@@ -54,6 +58,10 @@ export function MetaInfoPanel({
           <DetailRow label="抽帧策略" value={frameSummary?.samplingPolicy || "无"} />
           <DetailRow label="音频资源" value={String(audioTracks.length)} />
           <DetailRow label="字幕段数" value={String(subtitles?.segments.length ?? 0)} />
+          <DetailRow label="当前字幕" value={selectedSubtitle?.text || "未选择"} />
+          <DetailRow label="字幕时间" value={selectedSubtitle ? `${formatTime(selectedSubtitle.start)} - ${formatTime(selectedSubtitle.end)}` : "无"} />
+          <DetailRow label="字幕句级" value={selectedUtterance?.text || "无"} />
+          <DetailRow label="句级时间" value={selectedUtterance ? `${formatTime(selectedUtterance.start)} - ${formatTime(selectedUtterance.end)}` : "无"} />
           <DetailRow label="节拍标记" value={String(audioFeatures?.beats.length ?? 0)} />
           <DetailRow label="onset 标记" value={String(audioFeatures?.onsets.length ?? 0)} />
           <DetailRow label="当前音频点" value={selectedMarker ? markerLabel(selectedMarker.type) : "未选择"} />
