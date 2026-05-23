@@ -323,21 +323,12 @@ function stageParams(artifact, stageName) {
   if (stageName === "shot.boundary_merge" || stageName === "agent.shotBoundary.resultWritten") {
     return buildShotBoundaryCacheParams({
       sourceArtifactId: artifact.shotBoundaryAnalysis?.parentArtifactId ?? artifact.sampleVideo?.artifactId ?? null,
-      extractSampling: artifact.shotBoundaryAnalysis?.extractSampling ?? null,
       analysisSampling: artifact.shotBoundaryAnalysis?.analysisSampling ?? null,
-      frameDimensions: artifact.metadata
-        ? {
-          width: artifact.metadata?.width ?? null,
-          height: artifact.metadata?.height ?? null,
-        }
-        : null,
-      contactSheets: artifact.shotBoundaryAnalysis?.contactSheets ?? [],
       subtitleContextSummary: artifact.shotBoundaryAnalysis?.subtitleContextSummary ?? null,
       profileVersion: artifact.shotBoundaryAnalysis?.agent?.profileVersion ?? null,
       promptTemplateId: artifact.shotBoundaryAnalysis?.agent?.promptTemplateId ?? null,
       promptTemplateVersion: artifact.shotBoundaryAnalysis?.agent?.promptTemplateVersion ?? null,
       promptTemplateHash: artifact.shotBoundaryAnalysis?.agent?.promptTemplateHash ?? null,
-      initFingerprint: artifact.shotBoundaryAnalysis?.agent?.initFingerprint ?? null,
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     });
   }
@@ -353,10 +344,6 @@ function stageParams(artifact, stageName) {
 function buildScriptSegmentStageParams(artifact) {
   return buildScriptSegmentCacheParams({
     inputFingerprint: artifact.scriptSegmentAnalysis?.cacheKey ?? null,
-    shotCount: artifact.scriptSegmentAnalysis?.sourceShotCount ?? 0,
-    inputPackageManifestHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.manifestHash ?? null,
-    visualManifestHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.visualManifestHash ?? null,
-    outputContractHash: artifact.scriptSegmentAnalysis?.inputPackage?.hashes?.outputContractHash ?? null,
     sourceShotArtifactId: artifact.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
     profileVersion: artifact.scriptSegmentAnalysis?.agent?.profileVersion ?? null,
     promptTemplateId: artifact.scriptSegmentAnalysis?.agent?.promptTemplateId ?? null,
@@ -369,10 +356,6 @@ function buildScriptSegmentStageParams(artifact) {
 function buildRhythmStructureStageParams(artifact) {
   return buildRhythmStructureCacheParams({
     inputFingerprint: artifact.rhythmStructureAnalysis?.cacheKey ?? null,
-    shotCount: artifact.rhythmStructureAnalysis?.sourceShotCount ?? 0,
-    inputPackageManifestHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.manifestHash ?? null,
-    visualManifestHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.visualManifestHash ?? null,
-    outputContractHash: artifact.rhythmStructureAnalysis?.inputPackage?.hashes?.outputContractHash ?? null,
     sourceShotArtifactId: artifact.rhythmStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
     sourceScriptSegmentArtifactId: artifact.rhythmStructureAnalysis?.sourceScriptSegmentArtifactId ?? null,
     profileVersion: artifact.rhythmStructureAnalysis?.agent?.profileVersion ?? null,

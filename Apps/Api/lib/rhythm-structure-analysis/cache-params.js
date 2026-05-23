@@ -40,10 +40,6 @@ function buildRhythmStructureContentFingerprint(input, inputPackage = null) {
 
 function buildRhythmStructureCacheParams({
   inputFingerprint,
-  shotCount,
-  inputPackageManifestHash,
-  visualManifestHash,
-  outputContractHash,
   sourceShotArtifactId,
   sourceScriptSegmentArtifactId,
   profileVersion,
@@ -55,10 +51,6 @@ function buildRhythmStructureCacheParams({
   return {
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
     inputFingerprint: inputFingerprint ?? null,
-    shotCount: Number(shotCount ?? 0),
-    inputPackageManifestHash: inputPackageManifestHash ?? null,
-    visualManifestHash: visualManifestHash ?? null,
-    outputContractHash: outputContractHash ?? null,
     sourceShotArtifactId: sourceShotArtifactId ?? null,
     sourceScriptSegmentArtifactId: sourceScriptSegmentArtifactId ?? null,
     profileVersion: profileVersion ?? null,

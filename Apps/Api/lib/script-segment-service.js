@@ -94,6 +94,8 @@ function createScriptSegmentService({
       cacheKey: null,
       nextStage,
     };
+    context.promptTemplate = buildAnalyzePromptTemplate(roleProfile);
+    context.cacheKey = buildScriptSegmentContentFingerprint(prepareInput(artifact, { runtimeRoot: store.runtimeRoot }));
     run(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
@@ -107,12 +109,12 @@ function createScriptSegmentService({
     assertExpectedShotBoundaryArtifact(artifact, job.cachePrompt.expectedShotBoundaryArtifactId ?? null);
     const roleProfile = await loadRoleProfileByRole(ROLE);
     const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
-    const inputPackage = await prepareInputPackage({
-      input,
-      sampleDir: store.sampleDir(job.sampleVideoId),
-      store,
-    });
-    const cacheKey = buildScriptSegmentContentFingerprint(input, inputPackage);
+    const cacheKey = buildScriptSegmentContentFingerprint(input);
+    const cachedPromptTemplate = {
+      promptTemplateId: job.cachePrompt.promptTemplateId ?? null,
+      promptTemplateVersion: job.cachePrompt.promptTemplateVersion ?? null,
+      promptTemplateHash: job.cachePrompt.promptTemplateHash ?? null,
+    };
     const context = {
       sampleVideoId: job.sampleVideoId,
       cacheDecision: decision,
@@ -130,11 +132,11 @@ function createScriptSegmentService({
       activeStage: null,
       artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
       input,
-      inputPackage,
+      inputPackage: null,
       promptTemplate: {
-        promptTemplateId: null,
-        promptTemplateVersion: null,
-        promptTemplateHash: null,
+        promptTemplateId: cachedPromptTemplate.promptTemplateId ?? buildAnalyzePromptTemplate(roleProfile).promptTemplateId,
+        promptTemplateVersion: cachedPromptTemplate.promptTemplateVersion ?? buildAnalyzePromptTemplate(roleProfile).promptTemplateVersion,
+        promptTemplateHash: cachedPromptTemplate.promptTemplateHash ?? buildAnalyzePromptTemplate(roleProfile).promptTemplateHash,
       },
       agentRun: null,
       validationSummary: null,
@@ -177,6 +179,18 @@ function createScriptSegmentService({
         }),
       });
       context.input = input;
+      if (!context.cacheKey) context.cacheKey = buildScriptSegmentContentFingerprint(input);
+      if (!context.promptTemplate) context.promptTemplate = buildAnalyzePromptTemplate(context.roleProfile);
+
+      const cached = await runCacheLookupLocal(context, input);
+      if (cached && context.cacheDecision === "ask") {
+        markCacheWaitingLocal(context, cached);
+        return null;
+      }
+      if (cached && context.cacheDecision === "reuse") {
+        await reuseCachedAnalysisLocal(context, buildScriptSegmentCachePrompt(context, cached));
+        return null;
+      }
 
       const inputPackage = await runtime.runStage(context, STAGES.inputPackaged, 24, {
         artifactId: context.artifactId,
@@ -201,23 +215,8 @@ function createScriptSegmentService({
         }),
       });
       context.inputPackage = inputPackage;
-      context.cacheKey = buildScriptSegmentContentFingerprint(input, inputPackage);
 
       const analyzeTurn = renderAnalyzeTurnInputs({ input, inputPackage, roleProfile: context.roleProfile });
-      context.promptTemplate = {
-        promptTemplateId: analyzeTurn.promptTemplateId,
-        promptTemplateVersion: analyzeTurn.promptTemplateVersion,
-        promptTemplateHash: analyzeTurn.promptTemplateHash,
-      };
-      const cached = await runCacheLookupLocal(context, input);
-      if (cached && context.cacheDecision === "ask") {
-        markCacheWaitingLocal(context, cached);
-        return null;
-      }
-      if (cached && context.cacheDecision === "reuse") {
-        await reuseCachedAnalysisLocal(context, buildScriptSegmentCachePrompt(context, cached));
-        return null;
-      }
 
       const analyzed = await runtime.runStage(context, STAGES.analyzed, 56, {
         artifactId: context.artifactId,
@@ -554,6 +553,15 @@ function createScriptSegmentService({
       expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
     };
   }
+}
+
+function buildAnalyzePromptTemplate(roleProfile) {
+  const prompt = roleProfile?.turnTemplates?.analyze ?? {};
+  return {
+    promptTemplateId: "analyze",
+    promptTemplateVersion: prompt.templateVersion ?? null,
+    promptTemplateHash: prompt.templateHash ?? null,
+  };
 }
 
 function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId) {

@@ -127,6 +127,7 @@ function createShotBoundaryService({
       job,
     };
     context.initFingerprint = buildInitFingerprint(context);
+    context.promptTemplate = buildAnalyzePromptTemplate(context.roleProfile);
     runAnalysis(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
@@ -201,6 +202,18 @@ function createShotBoundaryService({
         }),
       });
       context.prepared = prepared;
+      if (!context.promptTemplate) context.promptTemplate = buildAnalyzePromptTemplate(context.roleProfile);
+
+      const cached = await runCacheLookup(context, prepared, []);
+      if (cached && context.cacheDecision === "ask") {
+        markCacheWaiting(context, cached);
+        return;
+      }
+      if (cached && context.cacheDecision === "reuse") {
+        await reuseCachedAnalysis(context, buildCachePrompt(context, cached));
+        return;
+      }
+
       const contactSheets = await runStage(context, STAGES.contactSheetPrepared, 45, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
@@ -224,20 +237,6 @@ function createShotBoundaryService({
       });
       context.contactSheets = contactSheets;
       const analyzeTurn = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile: context.roleProfile });
-      context.promptTemplate = {
-        promptTemplateId: analyzeTurn.promptTemplateId,
-        promptTemplateVersion: analyzeTurn.promptTemplateVersion,
-        promptTemplateHash: analyzeTurn.promptTemplateHash,
-      };
-      const cached = await runCacheLookup(context, prepared, contactSheets);
-      if (cached && context.cacheDecision === "ask") {
-        markCacheWaiting(context, cached);
-        return;
-      }
-      if (cached && context.cacheDecision === "reuse") {
-        await reuseCachedAnalysis(context, buildCachePrompt(context, cached));
-        return;
-      }
       const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
@@ -726,6 +725,15 @@ function buildInitFingerprint(context) {
 
 function isPreAgentStage(stageName) {
   return [STAGES.inputPrepared, STAGES.contactSheetPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
+}
+
+function buildAnalyzePromptTemplate(roleProfile) {
+  const prompt = roleProfile?.turnTemplates?.analyze ?? {};
+  return {
+    promptTemplateId: "analyze",
+    promptTemplateVersion: prompt.templateVersion ?? null,
+    promptTemplateHash: prompt.templateHash ?? null,
+  };
 }
 
 function buildActiveThreadMessage(threadId, turnId, message, status) {

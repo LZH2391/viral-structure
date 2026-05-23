@@ -11,10 +11,7 @@ const PRE_SPLIT_ANALYZE_V2_TEMPLATE_HASH = "540555e80263042ee85b707fc92d9f7dc54d
 
 function buildShotBoundaryCacheParams({
   sourceArtifactId,
-  extractSampling,
   analysisSampling,
-  frameDimensions,
-  contactSheets,
   subtitleContextSummary,
   subtitleArtifactId,
   subtitleSegmentCount,
@@ -24,10 +21,8 @@ function buildShotBoundaryCacheParams({
   promptTemplateId,
   promptTemplateVersion,
   promptTemplateHash,
-  initFingerprint,
   skillPath = SKILL_PATH,
 } = {}) {
-  const sheets = Array.isArray(contactSheets) ? contactSheets : [];
   const resolvedSubtitleSummary = subtitleContextSummary ?? {
     subtitleArtifactId: subtitleArtifactId ?? null,
     subtitleSegmentCount: Number(subtitleSegmentCount ?? 0),
@@ -36,17 +31,7 @@ function buildShotBoundaryCacheParams({
   };
   return {
     sourceArtifactId: sourceArtifactId ?? null,
-    extractSampling: extractSampling ?? null,
-    analysisSampling: analysisSampling ?? null,
-    frameDimensions: frameDimensions ?? null,
-    sheetCount: sheets.length,
-    sheetLayouts: sheets.map((sheet) => ({
-      frameCount: Number(sheet?.frameCount ?? 0),
-      layout: sheet?.layout ?? null,
-      constraints: sheet?.constraints ?? null,
-      startTime: round(resolveSheetStartTime(sheet)),
-      endTime: round(resolveSheetEndTime(sheet)),
-    })),
+    analysisFps: Number(analysisSampling?.fps ?? analysisSampling?.requestedFps ?? 0) || null,
     subtitleArtifactId: resolvedSubtitleSummary.subtitleArtifactId ?? null,
     subtitleSegmentCount: Number(resolvedSubtitleSummary.subtitleSegmentCount ?? 0),
     subtitleTextHash: resolvedSubtitleSummary.subtitleTextHash ?? null,
@@ -54,7 +39,6 @@ function buildShotBoundaryCacheParams({
     promptTemplateId: promptTemplateId ?? null,
     promptTemplateVersion: promptTemplateVersion ?? null,
     promptTemplateHash: promptTemplateHash ?? null,
-    initFingerprint: initFingerprint ?? null,
     skillHash: skillHash ?? skillContentHashSync(skillPath),
   };
 }
@@ -62,17 +46,13 @@ function buildShotBoundaryCacheParams({
 function cacheParams(input, contactSheets, options = {}) {
   return buildShotBoundaryCacheParams({
     sourceArtifactId: input?.sourceArtifactId,
-    extractSampling: input?.extractSampling,
     analysisSampling: input?.analysisSampling,
-    frameDimensions: input?.frameDimensions,
-    contactSheets,
     subtitleContextSummary: input?.subtitleContextSummary,
     skillHash: options.skillHash,
     profileVersion: options.profileVersion,
     promptTemplateId: options.promptTemplateId,
     promptTemplateVersion: options.promptTemplateVersion,
     promptTemplateHash: options.promptTemplateHash,
-    initFingerprint: options.initFingerprint,
     skillPath: options.skillPath,
   });
 }
@@ -99,14 +79,9 @@ function stripPromptFingerprint(params) {
     promptTemplateId,
     promptTemplateVersion,
     promptTemplateHash,
-    initFingerprint,
     ...legacy
   } = params;
   return legacy;
-}
-
-function round(value) {
-  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
 }
 
 module.exports = {

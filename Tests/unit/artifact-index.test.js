@@ -218,7 +218,7 @@ test("failed shot boundary artifact does not register processed shot cache entry
   assert.equal(cache, null);
 });
 
-test("shot boundary cache params keep sheet start and end time stable across register and lookup", async () => {
+test("shot boundary cache params stay stable with minimal fingerprint fields", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-stable-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
@@ -253,11 +253,12 @@ test("shot boundary cache params keep sheet start and end time stable across reg
   });
 
   assert.equal(cache.sampleVideoId, "sample_stable_shot");
-  assert.equal(cache.params.sheetLayouts[0].startTime, 0);
-  assert.equal(cache.params.sheetLayouts[0].endTime, 1);
+  assert.equal(cache.params.sourceArtifactId, "artifact_sample");
+  assert.equal(cache.params.analysisFps, 1);
+  assert.equal(cache.params.skillHash, "skill_hash_a");
 });
 
-test("shot boundary cache registration includes role prompt fingerprint params", async () => {
+test("shot boundary cache registration includes role prompt fingerprint params without init fingerprint", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-agent-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
@@ -307,7 +308,7 @@ test("shot boundary cache registration includes role prompt fingerprint params",
   assert.equal(cache.sampleVideoId, "sample_agent_shot");
   assert.equal(cache.params.profileVersion, "2026-05-22.2");
   assert.equal(cache.params.promptTemplateVersion, "analyze.v2");
-  assert.equal(cache.params.initFingerprint, "init_hash_a");
+  assert.equal("initFingerprint" in cache.params, false);
 });
 
 

@@ -989,7 +989,7 @@ test("shot boundary skill content change misses old shot cache", async () => {
   assert.equal(currentLookup.promptTemplateId, "analyze");
   assert.equal(currentLookup.promptTemplateVersion, "analyze.v2");
   assert.ok(currentLookup.promptTemplateHash);
-  assert.ok(currentLookup.initFingerprint);
+  assert.equal("initFingerprint" in currentLookup, false);
   assert.equal(currentLookup.skillHash, hashText("new skill content"));
   assert.notEqual(currentLookup.skillHash, oldSkillHash);
   assert.equal(shotStartTurnCount, 1);
@@ -1276,7 +1276,7 @@ test("cache miss log distinguishes key miss from eligibility rejection", async (
   const harness = await createShotHarness({
     artifactIndex: {
       getItem: async () => ({ fileHash: "hash_1" }),
-      findCacheEntry: async ({ params }) => (params.analysisSampling?.fps === 1 ? { sampleVideoId: "sample_cached", cacheKey: "cache_bad" } : null),
+      findCacheEntry: async ({ params }) => (params.analysisFps === 1 ? { sampleVideoId: "sample_cached", cacheKey: "cache_bad" } : null),
       loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createCachedShotAnalysis() }),
     },
   });

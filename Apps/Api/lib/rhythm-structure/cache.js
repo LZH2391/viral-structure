@@ -15,10 +15,6 @@ async function findCachedArtifact({
   }
   const params = buildRhythmStructureCacheParams({
     inputFingerprint: context.cacheKey,
-    shotCount: input?.shots?.length ?? 0,
-    inputPackageManifestHash: context.inputPackage?.hashes?.manifestHash ?? null,
-    visualManifestHash: context.inputPackage?.hashes?.visualManifestHash ?? null,
-    outputContractHash: context.inputPackage?.hashes?.outputContractHash ?? null,
     sourceShotArtifactId: input?.parentArtifactId ?? null,
     sourceScriptSegmentArtifactId: input?.sourceScriptSegmentArtifactId ?? null,
     profileVersion: context.roleProfile?.profileVersion ?? null,
