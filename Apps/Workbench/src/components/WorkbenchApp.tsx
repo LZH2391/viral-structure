@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { getCapabilities, getLibraryItemDetail, getProcessingJob, getSampleArtifact, resolveCacheDecision, resolveShotBoundaryCacheDecision, saveSubtitleRevision, uploadSampleVideo } from "../api/client";
-import { addVersion, STAGES, workbenchReducer, createInitialState } from "../state";
-import type { AudioFeatureMarker, LibraryItemSummary, LogFields, ProcessingJob, SampleArtifact, SubtitleArtifact, SubtitleDraft, SubtitleSegment } from "../types";
-import { beginUiStage, emitUiStage, safeErrorSummary, type UiStage } from "../observability/uiStage";
-import { createId, shortId } from "../utils/format";
+import { createInitialState, type WorkbenchAction, workbenchReducer } from "../state";
+import type { AudioFeatureMarker, SampleArtifact, WorkbenchState } from "../types";
+import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { attachAgentJob, attachProcessingJob, buildIngestError, buildSubtitleSaveError, delay, findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId, runShotBoundaryAnalysis, stageLabel } from "../utils/workbenchHelpers";
-import { readWorkbenchDraft, writeActiveAgentJob, writeActiveUploadJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
+import { getSampleArtifact, resolveCacheDecision } from "../api/client";
+import { findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
+import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useAnalysisJobFlow } from "../hooks/useAnalysisJobFlow";
 import { useResizableWorkspaceLayout } from "../hooks/useResizableWorkspaceLayout";
+import { useWorkbenchStageLogger } from "../hooks/useWorkbenchStageLogger";
+import { useWorkbenchUploadFlow } from "../hooks/useWorkbenchUploadFlow";
+import { useShotBoundaryFlow } from "../hooks/useShotBoundaryFlow";
+import { useSubtitleDraftFlow } from "../hooks/useSubtitleDraftFlow";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { DebugApp } from "./DebugApp";
@@ -24,11 +27,9 @@ import { TimelinePanel } from "./TimelinePanel";
 import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 
 type AudioSeekRequest = { requestId: number; time: number };
-type CachePrompt = { file: File; cachedItem: LibraryItemSummary; token: number } | null;
-type ShotCachePrompt = { jobId: string; sampleVideoId: string; cachedItem: LibraryItemSummary; token: number } | null;
+
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
-const SUBTITLE_SAVE_STAGE = "sample.subtitle.revised";
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
@@ -38,21 +39,9 @@ export function WorkbenchApp() {
   const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(true);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
-  const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
-  const [cachePrompt, setCachePrompt] = useState<CachePrompt>(null);
-  const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
-  const uploadTokenRef = useRef(0);
-  const subtitleSaveTokenRef = useRef(0);
-  const subtitleSaveQueueRef = useRef(Promise.resolve(true));
-  const subtitleSaveStateRef = useRef({
-    sampleVideo: state.sampleVideo,
-    subtitles: state.subtitles,
-    subtitleDrafts: state.subtitleDrafts,
-    processingTraceId: state.processingJob?.traceId ?? null,
-  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const miniCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,7 +50,8 @@ export function WorkbenchApp() {
   const lastShotIdRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
-  const persistWorkbenchArtifact = useCallback((artifact: Parameters<typeof writeWorkbenchDraft>[0]["sampleArtifact"], traceId: string | null) => {
+
+  const persistWorkbenchArtifact = useCallback((artifact: SampleArtifact, traceId: string | null) => {
     writeWorkbenchDraft({
       sampleVideoId: artifact.sampleVideoId,
       artifactId: artifact.sampleVideo.artifactId,
@@ -72,30 +62,63 @@ export function WorkbenchApp() {
       versions: state.versions,
     });
   }, [state.versions]);
+
+  const stageLogger = useWorkbenchStageLogger({
+    uiTraceId: state.uiTraceId,
+    backendTraceId: state.processingJob?.traceId ?? null,
+    dispatch,
+  });
+
+  const uploadFlow = useWorkbenchUploadFlow({
+    state,
+    dispatch,
+    frameSampleRate,
+    enableAudioSeparation,
+    enableSubtitleRecognition,
+    enableAudioFeatureAnalysis,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    beginStage: stageLogger.beginStage,
+    finishStage: stageLogger.finishStage,
+    failStage: stageLogger.failStage,
+  });
+
+  const shotBoundaryFlow = useShotBoundaryFlow({
+    state,
+    dispatch,
+    agentAnalysisFps,
+    setSaveStatus,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
+  });
+
+  const subtitleDraftFlow = useSubtitleDraftFlow({
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    beginStage: stageLogger.beginStage,
+    finishStage: stageLogger.finishStage,
+    failStage: stageLogger.failStage,
+  });
+
   const scriptSegmentFlow = useAnalysisJobFlow({
     kind: "scriptSegment",
     state,
     dispatch,
     persistWorkbenchArtifact,
     setSaveStatus,
-    uploadTokenRef,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
   });
+
   const rhythmStructureFlow = useAnalysisJobFlow({
     kind: "rhythmStructure",
     state,
     dispatch,
     persistWorkbenchArtifact,
     setSaveStatus,
-    uploadTokenRef,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
   });
-  const scriptSegmentJob = scriptSegmentFlow.job;
-  const rhythmStructureJob = rhythmStructureFlow.job;
-  const scriptCachePrompt = scriptSegmentFlow.cachePrompt;
-  const setScriptCachePrompt = scriptSegmentFlow.setCachePrompt;
-  const setScriptSegmentJob = scriptSegmentFlow.setJob;
-  const rhythmCachePrompt = rhythmStructureFlow.cachePrompt;
-  const setRhythmCachePrompt = rhythmStructureFlow.setCachePrompt;
-  const setRhythmStructureJob = rhythmStructureFlow.setJob;
+
   const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
     videoRef,
     structureCards: state.structureCards,
@@ -104,546 +127,52 @@ export function WorkbenchApp() {
     lastShotIdRef,
   });
 
-  useEffect(() => {
-    const draft = readWorkbenchDraft();
-    if (draft?.sampleArtifact) {
-      dispatch({ type: "restore-draft", draft });
-      setSaveStatus("已恢复最近样例");
-      const sampleVideoId = draft.sampleVideoId ?? draft.sampleArtifact.sampleVideoId;
-      getSampleArtifact(sampleVideoId)
-        .then((artifact) => {
-          dispatch({ type: "apply-artifact", artifact });
-          writeWorkbenchDraft({
-            ...draft,
-            sampleVideoId: artifact.sampleVideoId,
-            artifactId: artifact.sampleVideo.artifactId,
-            traceId: artifact.trace?.traceId ?? draft.traceId ?? null,
-            sampleArtifact: artifact,
-            selectedFrameId: artifact.frames.some((frame) => frame.frameId === draft.selectedFrameId) ? draft.selectedFrameId : artifact.frames[0]?.frameId ?? null,
-            selectedDerivativeId: resolveDraftDerivativeId(artifact, draft.selectedDerivativeId),
-          });
-          setSaveStatus("已同步最新样例");
-        })
-        .catch(() => setSaveStatus("已恢复最近样例，最新样例同步失败"));
-    }
-    if (draft?.activeUploadJob) attachProcessingJob(draft.activeUploadJob, dispatch, writeActiveUploadJob).catch(() => setSaveStatus("恢复上传任务失败"));
-    const activeShotBoundaryJob = draft?.activeShotBoundaryJob ?? draft?.activeAgentJob;
-    if (activeShotBoundaryJob) {
-      attachAgentJob(activeShotBoundaryJob, setAgentJob, dispatch, writeActiveAgentJob, undefined, { showCacheWaiting: false }).catch(() => setSaveStatus("恢复切镜任务失败"));
-      setAgentAnalysisFps(normalizeAnalysisFps(activeShotBoundaryJob.analysisFps, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
-    }
-    scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
-    rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
-  }, []);
-
-  useEffect(() => {
-    getCapabilities()
-      .then((capabilities) => dispatch({ type: "set-capabilities", capabilities }))
-      .catch(() => setSaveStatus("能力检测失败"));
-  }, []);
-
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
-  const subtitleDraftEntries = Object.values(state.subtitleDrafts);
+
   useEffect(() => {
-    subtitleSaveStateRef.current = {
-      sampleVideo: state.sampleVideo,
-      subtitles: state.subtitles,
-      subtitleDrafts: state.subtitleDrafts,
-      processingTraceId: state.processingJob?.traceId ?? null,
+    const restoreJobs = async () => {
+      const shotDraft = await shotBoundaryFlow.restoreDraft();
+      if (shotDraft) setAgentAnalysisFps(normalizeAnalysisFps(shotDraft.analysisFps ?? 1, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
+      const draft = readWorkbenchDraft();
+      await scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
+      await rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
     };
-  }, [state.processingJob?.traceId, state.sampleVideo, state.subtitleDrafts, state.subtitles]);
-
-  const writeLog = useCallback(
-    (event: string, level: "info" | "done" | "fail", fields: LogFields) => {
-      dispatch({
-        type: "add-log",
-        fields,
-        log: {
-          id: createId("log"),
-          event,
-          level,
-          time: new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-          fields,
-        },
-      });
-    },
-    [],
-  );
-
-  const beginStage = useCallback(
-    (stageName: string, parentArtifactId: string | null = null, inputSummary: unknown = null) => {
-      const stage = beginUiStage({
-        uiTraceId: state.uiTraceId,
-        backendTraceId: state.processingJob?.traceId ?? null,
-        stageName,
-        parentArtifactId,
-        inputSummary,
-      });
-      dispatch({ type: "set-active-stage", stageId: stage.stageId });
-      writeLog("stage.start", "info", {
-        runId: stage.runId,
-        uiTraceId: stage.uiTraceId,
-        backendTraceId: state.processingJob?.traceId ?? null,
-        stageId: stage.stageId,
-        artifactId: stage.artifactId,
-        parentArtifactId: stage.parentArtifactId,
-        stageName,
-        inputSummary,
-      });
-      emitUiStage(stage, "stage.start");
-      return stage;
-    },
-    [state.processingJob?.traceId, state.uiTraceId, writeLog],
-  );
-
-  const finishStage = useCallback(
-    (stage: UiStage, artifactId = stage.artifactId, outputSummary: unknown = null) => {
-      const durationMs = Math.max(0, Math.round(performance.now() - stage.startedAt));
-      writeLog("stage.end", "done", {
-        runId: stage.runId,
-        uiTraceId: stage.uiTraceId,
-        backendTraceId: state.processingJob?.traceId ?? null,
-        stageId: stage.stageId,
-        artifactId,
-        parentArtifactId: stage.parentArtifactId,
-        stageName: stage.stageName,
-        outputSummary,
-        durationMs,
-      });
-      dispatch({ type: "set-active-stage", stageId: stage.stageId });
-      emitUiStage(stage, "stage.end", { artifactId, outputSummary, durationMs });
-    },
-    [state.processingJob?.traceId, writeLog],
-  );
-
-  const failStage = useCallback(
-    (stage: UiStage, error: unknown, details: Partial<LogFields> & { processingJob?: ProcessingJob | null; debugPayload?: unknown } = {}) => {
-      const summary = safeErrorSummary(error, details.errorCode ?? "unknown_error", details.errorMessage ?? "未知错误", details.canRetry ?? true);
-      const errorInfo = {
-        errorName: error instanceof Error ? error.name : "Error",
-        errorCode: summary.code,
-        errorStage: details.errorStage ?? details.processingJob?.stage ?? null,
-        errorMessage: summary.message,
-        canRetry: summary.retryable,
-      };
-      const snapshot = {
-        id: createId("snapshot"),
-        runId: stage.runId,
-        uiTraceId: stage.uiTraceId,
-        backendTraceId: details.backendTraceId ?? details.processingJob?.traceId ?? state.processingJob?.traceId ?? null,
-        stageId: stage.stageId,
-        stageName: stage.stageName,
-        artifactId: stage.artifactId,
-        parentArtifactId: stage.parentArtifactId,
-        createdAt: new Date().toISOString(),
-        payload: { kind: "stage-failure", ...errorInfo, processingJob: details.processingJob ?? null },
-      };
-      dispatch({ type: "add-snapshot", snapshot });
-      writeLog("stage.fail", "fail", {
-        runId: stage.runId,
-        uiTraceId: stage.uiTraceId,
-        backendTraceId: snapshot.backendTraceId,
-        stageId: stage.stageId,
-        artifactId: stage.artifactId,
-        parentArtifactId: stage.parentArtifactId,
-        stageName: stage.stageName,
-        ...errorInfo,
-        debugSnapshotId: snapshot.id,
-        debugSnapshotUri: details.debugSnapshotUri ?? null,
-      });
-      emitUiStage(stage, "stage.fail", {
-        errorSummary: {
-          code: errorInfo.errorCode,
-          message: errorInfo.errorMessage,
-          stageName: errorInfo.errorStage ?? stage.stageName,
-          retryable: errorInfo.canRetry,
-          debugSnapshotUri: details.debugSnapshotUri ?? null,
-        },
-        debugPayload: details.debugPayload ?? snapshot.payload,
-      });
-    },
-    [state.processingJob?.traceId, writeLog],
-  );
-
-  const handleSampleUpload = useCallback(
-    async (file: File, cacheDecision: "ask" | "refresh" = "ask") => {
-      const token = uploadTokenRef.current + 1;
-      uploadTokenRef.current = token;
-      const stage = beginStage(STAGES.ingest, null, {
-        filename: file.name,
-        mimeType: file.type || null,
-        sizeBytes: file.size,
-        frameSampleRateFps: frameSampleRate,
-        enableAudioFeatureAnalysis,
-      });
-      dispatch({ type: "set-upload-state", isUploadingSample: true, uploadStatusText: "上传中", processingJob: null, errorSummary: null });
-      let latestJob: ProcessingJob | null = null;
-      const previousArtifact = state.sampleArtifact;
-      try {
-        const upload = await uploadSampleVideo(file, { frameSampleRateFps: frameSampleRate, enableAudioSeparation, enableSubtitleRecognition, enableAudioFeatureAnalysis, cacheDecision });
-        if (token !== uploadTokenRef.current) return;
-        if ("cacheHit" in upload && upload.cacheHit) {
-          setCachePrompt({ file, cachedItem: upload.cachedItem, token });
-          dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "命中缓存", processingJob: null });
-          setSaveStatus("命中同视频缓存，等待选择");
-          return;
-        }
-        const pendingJob: ProcessingJob = {
-          jobId: upload.processingJobId,
-          sampleVideoId: upload.sampleVideoId,
-          status: "pending",
-          stage: "uploaded",
-          progress: 0,
-          traceId: upload.traceId,
-        };
-        latestJob = pendingJob;
-        dispatch({ type: "set-processing-job", processingJob: pendingJob, uploadStatusText: "上传中" });
-        writeActiveUploadJob({ processingJobId: upload.processingJobId, sampleVideoId: upload.sampleVideoId, traceId: upload.traceId });
-        for (let attempt = 0; attempt < 120; attempt += 1) {
-          await delay(1000);
-          if (token !== uploadTokenRef.current) return;
-          const job = await getProcessingJob(upload.processingJobId);
-          if (token !== uploadTokenRef.current) return;
-          latestJob = job;
-          dispatch({ type: "set-processing-job", processingJob: job, uploadStatusText: stageLabel(job) });
-          if (job.status === "processed") {
-            const artifact = await getSampleArtifact(upload.sampleVideoId);
-            if (token !== uploadTokenRef.current) return;
-            dispatch({ type: "apply-artifact", artifact });
-            dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成" });
-            const version = addVersion("样例处理完成", stage.stageName, artifact.sampleVideo.artifactId, null);
-            dispatch({ type: "add-version", version });
-            writeWorkbenchDraft({ sampleVideoId: artifact.sampleVideoId, artifactId: artifact.sampleVideo.artifactId, traceId: job.traceId, sampleArtifact: artifact, selectedFrameId: artifact.frames[0]?.frameId ?? null, selectedDerivativeId: artifact.sampleVideo.normalized.artifactId, versions: [version] });
-            writeActiveUploadJob(null);
-            setSaveStatus("已保存样例处理完成");
-            finishStage(stage, artifact.sampleVideo.artifactId, {
-              sampleVideoId: artifact.sampleVideoId,
-              frameCount: artifact.frames.length,
-              hasAudio: Boolean(artifact.audio?.uri),
-            });
-            return;
-          }
-          if (job.status === "failed") {
-            dispatch({
-              type: "set-error",
-              errorSummary: previousArtifact
-                ? {
-                  ...(job.errorSummary ?? null),
-                  message: `新处理失败，当前仍保留旧样例结果。${job.errorSummary?.message ? ` ${job.errorSummary.message}` : ""}`.trim(),
-                }
-                : (job.errorSummary ?? null),
-              uploadStatusText: previousArtifact ? "新处理失败，仍使用旧样例结果" : "处理失败",
-            });
-            writeActiveUploadJob(null);
-            throw buildIngestError(job);
-          }
-        }
-        throw new Error("处理超时，请稍后查询任务状态");
-      } catch (error) {
-        const preserveOldArtifact = Boolean(previousArtifact);
-        failStage(stage, error, {
-          errorCode: (error as { code?: string })?.code,
-          errorMessage: error instanceof Error ? error.message : "样例处理失败",
-          backendTraceId: latestJob?.traceId ?? state.processingJob?.traceId ?? null,
-          processingJob: latestJob ?? state.processingJob,
-          debugPayload: { kind: "sample-ingest-failure", processingJob: latestJob ?? state.processingJob },
-        });
-        dispatch({
-          type: "set-upload-state",
-          isUploadingSample: false,
-          uploadStatusText: preserveOldArtifact ? "新处理失败，仍使用旧样例结果" : "处理失败",
-        });
-        writeActiveUploadJob(null);
-      }
-    },
-    [beginStage, enableAudioFeatureAnalysis, enableAudioSeparation, enableSubtitleRecognition, failStage, finishStage, frameSampleRate, state.processingJob, state.sampleArtifact],
-  );
-
-  const reuseCache = useCallback(async () => {
-    if (!cachePrompt) return;
-    const prompt = cachePrompt;
-    setCachePrompt(null);
-    const stage = beginStage(STAGES.ingest, null, { cacheDecision: "reuse", sampleVideoId: prompt.cachedItem.sampleVideoId });
-    try {
-      const detail = await getLibraryItemDetail(prompt.cachedItem.sampleVideoId);
-      if (prompt.token !== uploadTokenRef.current) return;
-      dispatch({ type: "apply-artifact", artifact: detail.artifact });
-      dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "已复用缓存", processingJob: null });
-      const version = addVersion("复用缓存样例", stage.stageName, detail.artifact.sampleVideo.artifactId, null);
-      dispatch({ type: "add-version", version });
-      writeWorkbenchDraft({ sampleVideoId: detail.artifact.sampleVideoId, artifactId: detail.artifact.sampleVideo.artifactId, traceId: detail.artifact.trace?.traceId ?? null, sampleArtifact: detail.artifact, selectedFrameId: detail.artifact.frames[0]?.frameId ?? null, selectedDerivativeId: detail.artifact.sampleVideo.normalized.artifactId, versions: [version] });
-      setSaveStatus("已复用缓存");
-      finishStage(stage, detail.artifact.sampleVideo.artifactId, { cacheHit: true, sampleVideoId: detail.artifact.sampleVideoId });
-    } catch (error) {
-      failStage(stage, error, { errorMessage: error instanceof Error ? error.message : "复用缓存失败" });
-    }
-  }, [beginStage, cachePrompt, failStage, finishStage]);
-
-  const refreshCache = useCallback(() => {
-    if (!cachePrompt) return;
-    const file = cachePrompt.file;
-    setCachePrompt(null);
-    handleSampleUpload(file, "refresh");
-  }, [cachePrompt, handleSampleUpload]);
-
-  const reuseShotCache = useCallback(async () => {
-    if (!shotCachePrompt || !state.sampleVideo) return;
-    const prompt = shotCachePrompt;
-    setShotCachePrompt(null);
-    try {
-      const job = await resolveShotBoundaryCacheDecision(prompt.jobId, "reuse");
-      setAgentJob(job);
-      const artifact = await getSampleArtifact(prompt.sampleVideoId);
-      dispatch({ type: "set-shot-boundary-analysis", artifact });
-      writeActiveAgentJob(null);
-      setSaveStatus("已复用切镜缓存");
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "复用切镜缓存失败");
-    }
-  }, [shotCachePrompt, state.sampleVideo]);
-
-  const refreshShotCache = useCallback(async () => {
-    if (!state.sampleVideo || !shotCachePrompt) return;
-    const prompt = shotCachePrompt;
-    setShotCachePrompt(null);
-    try {
-      const job = await resolveShotBoundaryCacheDecision(prompt.jobId, "refresh");
-      setAgentJob(job);
-      await attachAgentJob({ processingJobId: prompt.jobId, sampleVideoId: prompt.sampleVideoId, traceId: job.traceId, analysisFps: agentAnalysisFps }, setAgentJob, dispatch, writeActiveAgentJob, ({ job: waitingJob, cachedItem }) => {
-        setShotCachePrompt({ jobId: waitingJob.jobId ?? prompt.jobId, sampleVideoId: waitingJob.sampleVideoId ?? prompt.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-        setSaveStatus("命中切镜缓存，等待选择");
-      });
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "切镜分析失败");
-    }
-  }, [agentAnalysisFps, shotCachePrompt, state.sampleVideo]);
-
-  const reuseScriptCache = useCallback(async () => {
-    if (!scriptCachePrompt) return;
-    const prompt = scriptCachePrompt;
-    setScriptCachePrompt(null);
-    try {
-      const job = await resolveCacheDecision(prompt.jobId, "reuse");
-      setScriptSegmentJob(job);
-      const artifact = await getSampleArtifact(prompt.sampleVideoId);
-      dispatch({ type: "apply-artifact", artifact });
-      scriptSegmentFlow.applyCompletedArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null, "复用脚本段落缓存");
-      setScriptSegmentJob(null);
-      setSaveStatus("已复用脚本段落缓存");
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "复用脚本段落缓存失败");
-    }
-  }, [persistWorkbenchArtifact, scriptCachePrompt, state.processingJob?.traceId]);
-
-  const refreshScriptCache = useCallback(async () => {
-    if (!state.sampleVideo || !scriptCachePrompt) return;
-    const prompt = scriptCachePrompt;
-    setScriptCachePrompt(null);
-    try {
-      const result = await scriptSegmentFlow.run("refresh");
-      if (result?.artifact?.scriptSegmentAnalysis) {
-        scriptSegmentFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "脚本段落重新生成");
-        setSaveStatus("脚本段落已重新生成");
-      }
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败");
-    }
-  }, [scriptCachePrompt, scriptSegmentFlow, setScriptCachePrompt, setSaveStatus, setScriptSegmentJob, state.processingJob?.traceId, state.sampleVideo]);
-
-  const reuseRhythmCache = useCallback(async () => {
-    if (!rhythmCachePrompt) return;
-    const prompt = rhythmCachePrompt;
-    setRhythmCachePrompt(null);
-    try {
-      const job = await resolveCacheDecision(prompt.jobId, "reuse");
-      setRhythmStructureJob(job);
-      const artifact = await getSampleArtifact(prompt.sampleVideoId);
-      dispatch({ type: "apply-artifact", artifact });
-      rhythmStructureFlow.applyCompletedArtifact(artifact, job.traceId ?? state.processingJob?.traceId ?? null, "复用节奏结构缓存");
-      setRhythmStructureJob(null);
-      setSaveStatus("已复用节奏结构缓存");
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "复用节奏结构缓存失败");
-    }
-  }, [persistWorkbenchArtifact, rhythmCachePrompt, state.processingJob?.traceId]);
-
-  const refreshRhythmCache = useCallback(async () => {
-    if (!state.sampleVideo || !rhythmCachePrompt) return;
-    const prompt = rhythmCachePrompt;
-    setRhythmCachePrompt(null);
-    try {
-      const result = await rhythmStructureFlow.run("refresh");
-      if (result?.artifact?.rhythmStructureAnalysis) {
-        rhythmStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构重新生成");
-        setSaveStatus("节奏结构已重新生成");
-      }
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败");
-    }
-  }, [rhythmCachePrompt, rhythmStructureFlow, setRhythmCachePrompt, setRhythmStructureJob, state.processingJob?.traceId, state.sampleVideo]);
-
-  const buildSubtitleSegmentsForSave = useCallback((subtitles: SubtitleArtifact, drafts: Record<string, SubtitleDraft>) => {
-    return subtitles.segments.map((segment) => {
-      const draft = drafts[segment.id];
-      return draft
-        ? {
-          id: segment.id,
-          start: draft.start,
-          end: draft.end,
-          text: draft.text,
-          confidence: segment.confidence ?? null,
-        }
-        : {
-          id: segment.id,
-          start: segment.start,
-          end: segment.end,
-          text: segment.text,
-          confidence: segment.confidence ?? null,
-      };
-    });
-  }, []);
-
-  const isSubtitleDraftChanged = useCallback((artifact: SubtitleArtifact | null | undefined, draft: SubtitleDraft) => {
-    const sourceArtifactId = artifact?.artifactId ?? null;
-    if (!artifact || draft.sourceArtifactId !== sourceArtifactId) return true;
-    const sourceSegment = artifact.segments.find((item) => item.id === draft.segmentId);
-    if (!sourceSegment) return true;
-    return sourceSegment.text !== draft.text || sourceSegment.start !== draft.start || sourceSegment.end !== draft.end;
-  }, []);
-
-  const saveSubtitleDraft = useCallback(async (draft: SubtitleDraft, options: { silent?: boolean; allowConflictRetry?: boolean } = {}) => {
-    const currentState = subtitleSaveStateRef.current;
-    const subtitles = currentState.subtitles;
-    const sampleVideo = currentState.sampleVideo;
-    if (!subtitles || !sampleVideo) return { ok: false as const, reason: "missing_subtitles" };
-    if (!isSubtitleDraftChanged(subtitles, draft)) {
-      dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId, saveToken: draft.saveToken ?? null });
-      if (!options.silent) setSaveStatus("字幕未变化，无需保存");
-      return { ok: true as const, changed: false };
-    }
-    const stage = beginStage(SUBTITLE_SAVE_STAGE, subtitles.artifactId ?? sampleVideo.artifactId, {
-      sampleVideoId: sampleVideo.id,
-      sourceSubtitleArtifactId: subtitles.artifactId ?? null,
-      segmentId: draft.segmentId,
-      queuedDraftCount: Object.keys(currentState.subtitleDrafts).length,
-    });
-    dispatch({ type: "set-subtitle-draft-status", segmentId: draft.segmentId, saveState: "saving", saveToken: draft.saveToken ?? null });
-    try {
-      const segments = buildSubtitleSegmentsForSave(subtitles, subtitleSaveStateRef.current.subtitleDrafts);
-      const result = await saveSubtitleRevision(sampleVideo.id, segments, {
-        expectedSubtitleArtifactId: subtitles.artifactId ?? null,
-        expectedRevisionIndex: subtitles.revisionIndex ?? null,
-      });
-      dispatch({ type: "sync-subtitle-artifact", artifact: result.sampleArtifact });
-      dispatch({
-        type: "set-subtitle-draft-status",
-        segmentId: draft.segmentId,
-        saveState: "saved",
-        saveToken: draft.saveToken ?? null,
-        lastSavedArtifactId: result.sampleArtifact.subtitles?.artifactId ?? null,
-      });
-      dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId, saveToken: draft.saveToken ?? null });
-      persistWorkbenchArtifact(result.sampleArtifact, result.traceId ?? subtitleSaveStateRef.current.processingTraceId ?? null);
-      setSaveStatus("字幕已自动保存");
-      finishStage(stage, result.sampleArtifact.subtitles?.artifactId ?? stage.artifactId, {
-        sampleVideoId: result.sampleArtifact.sampleVideoId,
-        subtitleArtifactId: result.sampleArtifact.subtitles?.artifactId ?? null,
-        revisionIndex: result.sampleArtifact.subtitles?.revisionIndex ?? null,
-        changed: result.changed,
-      });
-      return { ok: true as const, changed: result.changed, artifact: result.sampleArtifact };
-    } catch (error) {
-      const rawError = error as { code?: string; traceId?: string | null; debugSnapshotUri?: string | null; stageName?: string | null; retryable?: boolean | null };
-      if (rawError?.code === "subtitle_revision_conflict" && options.allowConflictRetry !== false) {
-        const latestArtifact = await getSampleArtifact(sampleVideo.id);
-        dispatch({ type: "sync-subtitle-artifact", artifact: latestArtifact });
-        persistWorkbenchArtifact(latestArtifact, rawError.traceId ?? subtitleSaveStateRef.current.processingTraceId ?? null);
-        const refreshedDraft = subtitleSaveStateRef.current.subtitleDrafts[draft.segmentId];
-        if (refreshedDraft) {
-          return saveSubtitleDraft(refreshedDraft, { ...options, allowConflictRetry: false });
-        }
-      }
-      const normalizedError = buildSubtitleSaveError(error);
-      const message = normalizedError.message;
-      dispatch({ type: "set-subtitle-draft-status", segmentId: draft.segmentId, saveState: "failed", saveToken: draft.saveToken ?? null, errorMessage: message });
-      failStage(stage, normalizedError, {
-        errorCode: (normalizedError as { code?: string })?.code,
-        errorMessage: message,
-        errorStage: SUBTITLE_SAVE_STAGE,
-        backendTraceId: (error as { traceId?: string })?.traceId ?? subtitleSaveStateRef.current.processingTraceId ?? null,
-        debugSnapshotUri: (error as { debugSnapshotUri?: string })?.debugSnapshotUri ?? null,
-        debugPayload: { kind: "subtitle-save-failure", segmentId: draft.segmentId, sourceArtifactId: draft.sourceArtifactId ?? null },
-      });
-      setSaveStatus(`字幕保存失败：${message}`);
-      return { ok: false as const, error: normalizedError };
-    }
-  }, [beginStage, buildSubtitleSegmentsForSave, failStage, finishStage, isSubtitleDraftChanged, persistWorkbenchArtifact]);
-
-  const enqueueSubtitleDraftSave = useCallback((draft: SubtitleDraft, options: { silent?: boolean } = {}) => {
-    subtitleSaveQueueRef.current = subtitleSaveQueueRef.current
-      .catch(() => true)
-      .then(async () => {
-        const currentDraft = subtitleSaveStateRef.current.subtitleDrafts[draft.segmentId];
-        if (!currentDraft || currentDraft.saveToken !== draft.saveToken) return true;
-        const result = await saveSubtitleDraft(currentDraft, options);
-        return result.ok;
-      });
-    return subtitleSaveQueueRef.current;
-  }, [saveSubtitleDraft]);
-
-  const flushSubtitleDraftsBeforeShotBoundary = useCallback(async () => {
-    await subtitleSaveQueueRef.current.catch(() => true);
-    const currentState = subtitleSaveStateRef.current;
-    const drafts = Object.values(currentState.subtitleDrafts);
-    if (!drafts.length) return true;
-    for (const draft of drafts) {
-      if (!currentState.subtitles || !isSubtitleDraftChanged(currentState.subtitles, draft)) {
-        dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId, saveToken: draft.saveToken ?? null });
-        continue;
-      }
-      const ok = await enqueueSubtitleDraftSave(draft, { silent: true });
-      if (!ok) return false;
-    }
-    await subtitleSaveQueueRef.current.catch(() => false);
-    return !Object.values(subtitleSaveStateRef.current.subtitleDrafts).some((entry) => entry.saveState === "failed");
-  }, [enqueueSubtitleDraftSave, isSubtitleDraftChanged]);
+    void restoreJobs();
+  }, [rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
 
   const handleUnderstand = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
-    const stage = beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+    const stage = stageLogger.beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
       sampleVideoId: state.sampleVideo.id,
       sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
     });
     try {
       const result = await scriptSegmentFlow.run("ask");
-      if (!result) return null;
-      if (!result?.artifact?.scriptSegmentAnalysis) {
-        throw new Error("脚本段落分析未返回有效产物");
-      }
+      if (!result?.artifact?.scriptSegmentAnalysis) throw new Error("脚本段落分析未返回有效产物");
       scriptSegmentFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "结构理解完成");
-      finishStage(stage, result.artifact.scriptSegmentAnalysis.artifactId, {
+      stageLogger.finishStage(stage, result.artifact.scriptSegmentAnalysis.artifactId, {
         segmentCount: result.artifact.scriptSegmentAnalysis.segments.length,
         validatorCode: result.artifact.scriptSegmentAnalysis.validation?.validatorCode ?? null,
       });
       return result.artifact;
     } catch (error) {
-      setScriptSegmentJob(null);
-      failStage(stage, error, {
+      scriptSegmentFlow.setJob(null);
+      stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "脚本段落分析失败",
         errorStage: STAGES.understand,
-        backendTraceId: scriptSegmentJob?.traceId ?? state.processingJob?.traceId ?? null,
+        backendTraceId: scriptSegmentFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
         debugPayload: { kind: "script-segment-failure", sampleVideoId: state.sampleVideo.id },
       });
       throw error;
     }
-  }, [beginStage, failStage, finishStage, scriptSegmentFlow, state, state.processingJob?.traceId]);
+  }, [scriptSegmentFlow, stageLogger, state]);
 
   const handleRhythmStructure = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
-    const stage = beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+    const stage = stageLogger.beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
       sampleVideoId: state.sampleVideo.id,
       sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
       sourceScriptSegmentArtifactId: state.sampleArtifact.scriptSegmentAnalysis?.artifactId ?? null,
@@ -651,39 +180,51 @@ export function WorkbenchApp() {
     });
     try {
       const result = await rhythmStructureFlow.run("ask");
-      if (!result) return null;
-      if (!result?.artifact?.rhythmStructureAnalysis) {
-        throw new Error("节奏结构分析未返回有效产物");
-      }
+      if (!result?.artifact?.rhythmStructureAnalysis) throw new Error("节奏结构分析未返回有效产物");
       rhythmStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构完成");
-      finishStage(stage, result.artifact.rhythmStructureAnalysis.artifactId, {
+      stageLogger.finishStage(stage, result.artifact.rhythmStructureAnalysis.artifactId, {
         cardCount: result.artifact.rhythmStructureAnalysis.cards.length,
         validatorCode: result.artifact.rhythmStructureAnalysis.validation?.validatorCode ?? null,
       });
       return result.artifact;
     } catch (error) {
-      setRhythmStructureJob(null);
-      failStage(stage, error, {
+      rhythmStructureFlow.setJob(null);
+      stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "节奏结构分析失败",
         errorStage: STAGES.understand,
-        backendTraceId: rhythmStructureJob?.traceId ?? state.processingJob?.traceId ?? null,
+        backendTraceId: rhythmStructureFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
         debugPayload: { kind: "rhythm-structure-failure", sampleVideoId: state.sampleVideo.id },
       });
       throw error;
     }
-  }, [beginStage, failStage, finishStage, rhythmStructureFlow, state, state.processingJob?.traceId]);
+  }, [rhythmStructureFlow, stageLogger, state]);
 
-  const handleSelectAudioFeature = useCallback(
-    (marker: AudioFeatureMarker) => {
-      dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
-      audioSeekRequestIdRef.current += 1;
-      setAudioSeekRequest({ requestId: audioSeekRequestIdRef.current, time: marker.time });
-    },
-    [state],
-  );
+  const handleSelectAudioFeature = useCallback((marker: AudioFeatureMarker) => {
+    dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
+    audioSeekRequestIdRef.current += 1;
+    setAudioSeekRequest({ requestId: audioSeekRequestIdRef.current, time: marker.time });
+  }, [state]);
 
-  const fileLabel = state.isUploadingSample ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim() : state.sampleVideo?.fileName ?? "未选择文件";
+  const handleSelectTimelineTime = useCallback((time: number) => {
+    if (videoRef.current) videoRef.current.currentTime = time;
+    const card = findCurrentStructureCard(state.structureCards, time);
+    const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
+    lastSegmentIdRef.current = card?.id ?? null;
+    lastShotIdRef.current = shot?.id ?? null;
+    setCurrentTime(time);
+    dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
+  }, [setCurrentTime, shotBoundaryAnalysis?.shots, state]);
+
+  const fileLabel = state.isUploadingSample
+    ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim()
+    : state.sampleVideo?.fileName ?? "未选择文件";
+
+  const processingText = state.processingJob
+    ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%`
+    : "未加载样例";
+
+  const traceText = state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace";
 
   return (
     <div className="app-shell">
@@ -715,7 +256,7 @@ export function WorkbenchApp() {
           fileLabel={fileLabel}
           isUploading={state.isUploadingSample}
           frameSampleRate={frameSampleRate}
-          capabilities={state.capabilities}
+          capabilities={uploadFlow.capabilities}
           enableAudioSeparation={enableAudioSeparation}
           enableSubtitleRecognition={enableSubtitleRecognition}
           enableAudioFeatureAnalysis={enableAudioFeatureAnalysis}
@@ -723,7 +264,7 @@ export function WorkbenchApp() {
           onEnableAudioSeparationChange={setEnableAudioSeparation}
           onEnableSubtitleRecognitionChange={setEnableSubtitleRecognition}
           onEnableAudioFeatureAnalysisChange={setEnableAudioFeatureAnalysis}
-          onUpload={handleSampleUpload}
+          onUpload={uploadFlow.handleSampleUpload}
         />
         <WorkspaceResizeHandle kind="left-panel" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <PreviewPanel
@@ -735,8 +276,8 @@ export function WorkbenchApp() {
           selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
           audioFeatures={state.audioFeatures}
           audioSeekRequest={audioSeekRequest}
-          processingText={state.processingJob ? `${state.uploadStatusText ?? state.processingJob.stage} / ${state.processingJob.progress}%` : "未加载样例"}
-          traceText={state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace"}
+          processingText={processingText}
+          traceText={traceText}
           uiTraceId={state.uiTraceId}
           backendTraceId={state.processingJob?.traceId ?? null}
           errorText={state.errorSummary?.message}
@@ -767,35 +308,23 @@ export function WorkbenchApp() {
           shotBoundaryAnalysisHistory={state.sampleArtifact?.shotBoundaryAnalysisHistory ?? null}
           currentShot={currentShot}
           currentShotId={currentShotId}
-          agentJob={agentJob}
+          agentJob={shotBoundaryFlow.agentJob}
           scriptSegmentAnalysis={state.sampleArtifact?.scriptSegmentAnalysis ?? null}
           scriptSegmentAnalysisHistory={state.sampleArtifact?.scriptSegmentAnalysisHistory ?? null}
-          scriptSegmentJob={scriptSegmentJob}
+          scriptSegmentJob={scriptSegmentFlow.job}
           rhythmStructureAnalysis={state.sampleArtifact?.rhythmStructureAnalysis ?? null}
           rhythmStructureAnalysisHistory={state.sampleArtifact?.rhythmStructureAnalysisHistory ?? null}
-          rhythmStructureJob={rhythmStructureJob}
+          rhythmStructureJob={rhythmStructureFlow.job}
           agentAnalysisFps={agentAnalysisFps}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onRunShotBoundary={() => {
-            flushSubtitleDraftsBeforeShotBoundary()
+            subtitleDraftFlow.flushSubtitleDraftsBeforeShotBoundary()
               .then((ready) => {
                 if (!ready) {
                   setSaveStatus("字幕保存失败，已阻止切镜分析；请修复后重试");
                   throw new Error("字幕保存失败，已阻止切镜分析");
                 }
-                return runShotBoundaryAnalysis(
-                  state,
-                  agentAnalysisFps,
-                  setAgentJob,
-                  dispatch,
-                  writeActiveAgentJob,
-                  async ({ job, cachedItem }) => {
-                    if (!job.jobId || !job.sampleVideoId) return;
-                    setShotCachePrompt({ jobId: job.jobId, sampleVideoId: job.sampleVideoId, cachedItem, token: uploadTokenRef.current });
-                    setSaveStatus("命中切镜缓存，等待选择");
-                  },
-                  "ask",
-                );
+                return shotBoundaryFlow.run();
               })
               .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
           }}
@@ -805,60 +334,10 @@ export function WorkbenchApp() {
           onRunRhythmStructure={() => {
             void handleRhythmStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败"));
           }}
-          onSelectScriptSegment={(time) => {
-            if (videoRef.current) videoRef.current.currentTime = time;
-            const card = findCurrentStructureCard(state.structureCards, time);
-            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
-            lastSegmentIdRef.current = card?.id ?? null;
-            lastShotIdRef.current = shot?.id ?? null;
-            setCurrentTime(time);
-            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
-          }}
-          onSelectRhythmCard={(time) => {
-            if (videoRef.current) videoRef.current.currentTime = time;
-            const card = findCurrentStructureCard(state.structureCards, time);
-            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
-            lastSegmentIdRef.current = card?.id ?? null;
-            lastShotIdRef.current = shot?.id ?? null;
-            setCurrentTime(time);
-            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
-          }}
-          onSelectShot={(time) => {
-            if (videoRef.current) videoRef.current.currentTime = time;
-            const card = findCurrentStructureCard(state.structureCards, time);
-            const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
-            lastSegmentIdRef.current = card?.id ?? null;
-            lastShotIdRef.current = shot?.id ?? null;
-            setCurrentTime(time);
-            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
-          }}
-          onSubtitleDraftChange={(draft) => {
-            const currentSubtitleArtifact = state.subtitles;
-            const sourceSegment = currentSubtitleArtifact?.segments.find((item) => item.id === draft.segmentId);
-            const changed = !sourceSegment
-              || sourceSegment.text !== draft.text
-              || sourceSegment.start !== draft.start
-              || sourceSegment.end !== draft.end
-              || currentSubtitleArtifact?.artifactId !== draft.sourceArtifactId;
-            if (!changed) {
-              dispatch({ type: "clear-subtitle-draft", segmentId: draft.segmentId });
-              setSaveStatus("字幕未变化，无需保存");
-              return;
-            }
-            const saveToken = subtitleSaveTokenRef.current + 1;
-            subtitleSaveTokenRef.current = saveToken;
-            const nextDraft = {
-              ...draft,
-              draftVersionId: state.subtitleDrafts[draft.segmentId]?.draftVersionId ?? createId("version"),
-              saveToken,
-              queuedAt: Date.now(),
-              saveState: "idle" as const,
-              errorMessage: null,
-              lastSavedArtifactId: state.subtitleDrafts[draft.segmentId]?.lastSavedArtifactId ?? null,
-            };
-            dispatch({ type: "update-subtitle-draft", ...nextDraft });
-            void enqueueSubtitleDraftSave(nextDraft);
-          }}
+          onSelectScriptSegment={handleSelectTimelineTime}
+          onSelectRhythmCard={handleSelectTimelineTime}
+          onSelectShot={handleSelectTimelineTime}
+          onSubtitleDraftChange={subtitleDraftFlow.handleSubtitleDraftChange}
         />
         <WorkspaceResizeHandle kind="timeline" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
         <TimelinePanel
@@ -907,10 +386,10 @@ export function WorkbenchApp() {
       {activeView === "library" ? <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
       {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
-      {cachePrompt ? <CacheDecisionDialog item={cachePrompt.cachedItem} onReuse={reuseCache} onRefresh={refreshCache} onCancel={() => setCachePrompt(null)} /> : null}
-      {shotCachePrompt ? <CacheDecisionDialog item={shotCachePrompt.cachedItem} onReuse={reuseShotCache} onRefresh={refreshShotCache} onCancel={() => setShotCachePrompt(null)} /> : null}
-      {scriptCachePrompt ? <CacheDecisionDialog item={scriptCachePrompt.cachedItem} onReuse={reuseScriptCache} onRefresh={refreshScriptCache} onCancel={() => setScriptCachePrompt(null)} /> : null}
-      {rhythmCachePrompt ? <CacheDecisionDialog item={rhythmCachePrompt.cachedItem} onReuse={reuseRhythmCache} onRefresh={refreshRhythmCache} onCancel={() => setRhythmCachePrompt(null)} /> : null}
+      {uploadFlow.cachePrompt ? <CacheDecisionDialog item={uploadFlow.cachePrompt.cachedItem} onReuse={uploadFlow.reuseCache} onRefresh={uploadFlow.refreshCache} onCancel={() => uploadFlow.setCachePrompt(null)} /> : null}
+      {shotBoundaryFlow.shotCachePrompt ? <CacheDecisionDialog item={shotBoundaryFlow.shotCachePrompt.cachedItem} onReuse={shotBoundaryFlow.reuseCache} onRefresh={shotBoundaryFlow.refreshCache} onCancel={() => shotBoundaryFlow.setShotCachePrompt(null)} /> : null}
+      {scriptSegmentFlow.cachePrompt ? <CacheDecisionDialog item={scriptSegmentFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state)} onCancel={() => scriptSegmentFlow.setCachePrompt(null)} /> : null}
+      {rhythmStructureFlow.cachePrompt ? <CacheDecisionDialog item={rhythmStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state)} onCancel={() => rhythmStructureFlow.setCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>
@@ -918,15 +397,58 @@ export function WorkbenchApp() {
   );
 }
 
-function resolveDraftDerivativeId(artifact: SampleArtifact, selectedDerivativeId?: string | null) {
-  if (!selectedDerivativeId) return artifact.sampleVideo.normalized.artifactId;
-  const derivativeIds = [
-    artifact.sampleVideo.original.artifactId,
-    artifact.sampleVideo.normalized.artifactId,
-    artifact.cover?.artifactId,
-    artifact.audio?.artifactId,
-    artifact.audioSeparation?.vocal?.artifactId,
-    artifact.audioSeparation?.music?.artifactId,
-  ].filter(Boolean);
-  return derivativeIds.includes(selectedDerivativeId) ? selectedDerivativeId : artifact.sampleVideo.normalized.artifactId;
+type AnalysisJobFlow = ReturnType<typeof useAnalysisJobFlow>;
+
+async function reuseAnalysisCache(
+  kind: "scriptSegment" | "rhythmStructure",
+  flow: AnalysisJobFlow,
+  setSaveStatus: (value: string) => void,
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+) {
+  if (!flow.cachePrompt) return;
+  const prompt = flow.cachePrompt;
+  flow.setCachePrompt(null);
+  try {
+    const job = await resolveCacheDecision(prompt.jobId, "reuse");
+    flow.setJob(job);
+    const artifact = await getSampleArtifact(prompt.sampleVideoId);
+    dispatch({ type: "apply-artifact", artifact });
+    flow.applyCompletedArtifact(
+      artifact,
+      job.traceId ?? state.processingJob?.traceId ?? null,
+      kind === "scriptSegment" ? "复用脚本段落缓存" : "复用节奏结构缓存",
+    );
+    flow.setJob(null);
+    setSaveStatus(kind === "scriptSegment" ? "已复用脚本段落缓存" : "已复用节奏结构缓存");
+  } catch (error) {
+    setSaveStatus(error instanceof Error ? error.message : kind === "scriptSegment" ? "复用脚本段落缓存失败" : "复用节奏结构缓存失败");
+  }
 }
+
+async function refreshAnalysisCache(
+  kind: "scriptSegment" | "rhythmStructure",
+  flow: AnalysisJobFlow,
+  setSaveStatus: (value: string) => void,
+  state: WorkbenchState,
+) {
+  if (!state.sampleVideo || !flow.cachePrompt) return;
+  flow.setCachePrompt(null);
+  try {
+    const result = await flow.run("refresh");
+    if (kind === "scriptSegment" && result?.artifact?.scriptSegmentAnalysis) {
+      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "脚本段落重新生成");
+      setSaveStatus("脚本段落已重新生成");
+    }
+    if (kind === "rhythmStructure" && result?.artifact?.rhythmStructureAnalysis) {
+      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构重新生成");
+      setSaveStatus("节奏结构已重新生成");
+    }
+  } catch (error) {
+    setSaveStatus(error instanceof Error ? error.message : kind === "scriptSegment" ? "脚本段落分析失败" : "节奏结构分析失败");
+  }
+}
+
+const STAGES = {
+  understand: "sample.understand",
+} as const;

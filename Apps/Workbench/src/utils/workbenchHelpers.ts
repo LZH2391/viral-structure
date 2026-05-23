@@ -1,6 +1,7 @@
 import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startRhythmStructureAnalysis, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
+import { pollProcessingJob } from "../hooks/jobPolling";
 
 export type AnalysisStageKind = "shotBoundary" | "scriptSegment" | "rhythmStructure";
 
@@ -39,27 +40,23 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
   writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps });
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    await delay(1000);
-    latest = await getProcessingJob(started.processingJobId);
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: setAgentJob }) ?? latest;
+  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+    setAgentJob(null);
+    writeActiveAgentJob?.(null);
+    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+    return;
+  }
+  if (latest.status === "processed") {
+    const artifact = await getSampleArtifact(started.sampleVideoId);
+    dispatch({ type: "set-shot-boundary-analysis", artifact });
+    writeActiveAgentJob?.(null);
+    return;
+  }
+  if (latest.status === "failed") {
     setAgentJob(latest);
-    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
-      setAgentJob(null);
-      writeActiveAgentJob?.(null);
-      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
-      return;
-    }
-    if (latest.status === "processed") {
-      const artifact = await getSampleArtifact(started.sampleVideoId);
-      dispatch({ type: "set-shot-boundary-analysis", artifact });
-      writeActiveAgentJob?.(null);
-      return;
-    }
-    if (latest.status === "failed") {
-      setAgentJob(latest);
-      writeActiveAgentJob?.(null);
-      throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
-    }
+    writeActiveAgentJob?.(null);
+    throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
   }
   setAgentJob(null);
   writeActiveAgentJob?.(null);
@@ -96,29 +93,25 @@ export async function runScriptSegmentAnalysis(
   };
   onJobUpdate?.(latest);
   writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "scriptSegment" });
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    await delay(1000);
-    latest = await getProcessingJob(started.processingJobId);
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+    writeActiveJob?.(null);
+    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+    return null;
+  }
+  if (latest.status === "processed") {
+    const artifact = await getSampleArtifact(started.sampleVideoId);
+    dispatch({ type: "apply-artifact", artifact });
+    onJobUpdate?.(null);
+    writeActiveJob?.(null);
+    return { artifact, job: latest };
+  }
+  if (latest.status === "failed") {
     onJobUpdate?.(latest);
-    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
-      writeActiveJob?.(null);
-      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
-      return null;
-    }
-    if (latest.status === "processed") {
-      const artifact = await getSampleArtifact(started.sampleVideoId);
-      dispatch({ type: "apply-artifact", artifact });
-      onJobUpdate?.(null);
-      writeActiveJob?.(null);
-      return { artifact, job: latest };
-    }
-    if (latest.status === "failed") {
-      onJobUpdate?.(latest);
-      const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
-      if (artifact) dispatch({ type: "apply-artifact", artifact });
-      writeActiveJob?.(null);
-      throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
-    }
+    const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
+    if (artifact) dispatch({ type: "apply-artifact", artifact });
+    writeActiveJob?.(null);
+    throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
   }
   onJobUpdate?.(null);
   writeActiveJob?.(null);
@@ -156,29 +149,25 @@ export async function runRhythmStructureAnalysis(
   };
   onJobUpdate?.(latest);
   writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "rhythmStructure" });
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    await delay(1000);
-    latest = await getProcessingJob(started.processingJobId);
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+    writeActiveJob?.(null);
+    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+    return null;
+  }
+  if (latest.status === "processed") {
+    const artifact = await getSampleArtifact(started.sampleVideoId);
+    dispatch({ type: "apply-artifact", artifact });
+    onJobUpdate?.(null);
+    writeActiveJob?.(null);
+    return { artifact, job: latest };
+  }
+  if (latest.status === "failed") {
     onJobUpdate?.(latest);
-    if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
-      writeActiveJob?.(null);
-      await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
-      return null;
-    }
-    if (latest.status === "processed") {
-      const artifact = await getSampleArtifact(started.sampleVideoId);
-      dispatch({ type: "apply-artifact", artifact });
-      onJobUpdate?.(null);
-      writeActiveJob?.(null);
-      return { artifact, job: latest };
-    }
-    if (latest.status === "failed") {
-      onJobUpdate?.(latest);
-      const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
-      if (artifact) dispatch({ type: "apply-artifact", artifact });
-      writeActiveJob?.(null);
-      throw new Error(latest.errorSummary?.message ?? "节奏结构分析失败");
-    }
+    const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
+    if (artifact) dispatch({ type: "apply-artifact", artifact });
+    writeActiveJob?.(null);
+    throw new Error(latest.errorSummary?.message ?? "节奏结构分析失败");
   }
   onJobUpdate?.(null);
   writeActiveJob?.(null);
@@ -186,22 +175,23 @@ export async function runRhythmStructureAnalysis(
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    const job = await getProcessingJob(jobDraft.processingJobId);
-    dispatch({ type: "set-upload-state", isUploadingSample: job.status !== "processed" && job.status !== "failed", uploadStatusText: stageLabel(job), processingJob: job, errorSummary: null });
-    if (job.status === "processed") {
-      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
-      dispatch({ type: "apply-artifact", artifact });
-      dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成", processingJob: job });
-      writeActiveUploadJob(null);
-      return artifact;
-    }
-    if (job.status === "failed") {
-      dispatch({ type: "set-error", errorSummary: job.errorSummary ?? null, uploadStatusText: "处理失败" });
-      writeActiveUploadJob(null);
-      return null;
-    }
-    await delay(1000);
+  const job = await pollProcessingJob(() => getProcessingJob(jobDraft.processingJobId), {
+    onUpdate: (nextJob) => {
+      if (!nextJob) return;
+      dispatch({ type: "set-upload-state", isUploadingSample: nextJob.status !== "processed" && nextJob.status !== "failed", uploadStatusText: stageLabel(nextJob), processingJob: nextJob, errorSummary: null });
+    },
+  });
+  if (job?.status === "processed") {
+    const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+    dispatch({ type: "apply-artifact", artifact });
+    dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成", processingJob: job });
+    writeActiveUploadJob(null);
+    return artifact;
+  }
+  if (job?.status === "failed") {
+    dispatch({ type: "set-error", errorSummary: job.errorSummary ?? null, uploadStatusText: "处理失败" });
+    writeActiveUploadJob(null);
+    return null;
   }
   return null;
 }
@@ -214,33 +204,34 @@ export async function attachAgentJob(
   onCacheHit?: ShotBoundaryCacheHandler,
   options?: { showCacheWaiting?: boolean },
 ) {
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
-    if (!job) {
-      setAgentJob(null);
-      writeActiveAgentJob(null);
-      return null;
-    }
-    if (job.status === "cache_waiting" && job.cachePrompt?.cachedItem) {
-      setAgentJob(null);
-      writeActiveAgentJob(null);
-      if (options?.showCacheWaiting === false) return null;
-      await onCacheHit?.({ job, cachedItem: job.cachePrompt.cachedItem });
-      return null;
-    }
+  const job = await pollProcessingJob(() => getProcessingJob(jobDraft.processingJobId).catch(() => null), {
+    stopOnNull: true,
+    onUpdate: (nextJob) => {
+      if (nextJob) setAgentJob(nextJob);
+    },
+  });
+  if (!job) {
+    setAgentJob(null);
+    writeActiveAgentJob(null);
+    return null;
+  }
+  if (job.status === "cache_waiting" && job.cachePrompt?.cachedItem) {
+    setAgentJob(null);
+    writeActiveAgentJob(null);
+    if (options?.showCacheWaiting === false) return null;
+    await onCacheHit?.({ job, cachedItem: job.cachePrompt.cachedItem });
+    return null;
+  }
+  if (job.status === "processed") {
+    const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+    dispatch({ type: "set-shot-boundary-analysis", artifact });
+    writeActiveAgentJob(null);
+    return artifact;
+  }
+  if (job.status === "failed") {
     setAgentJob(job);
-    if (job.status === "processed") {
-      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
-      dispatch({ type: "set-shot-boundary-analysis", artifact });
-      writeActiveAgentJob(null);
-      return artifact;
-    }
-    if (job.status === "failed") {
-      setAgentJob(job);
-      writeActiveAgentJob(null);
-      return null;
-    }
-    await delay(1000);
+    writeActiveAgentJob(null);
+    return null;
   }
   setAgentJob(null);
   writeActiveAgentJob(null);
@@ -254,30 +245,31 @@ export async function attachAnalysisJob(
   writeActiveJob: JobDraftWriter,
   options: { artifactAction?: "apply-artifact" | "set-shot-boundary-analysis"; showCacheWaiting?: boolean } = {},
 ) {
-  for (let attempt = 0; attempt < 180; attempt += 1) {
-    const job = await getProcessingJob(jobDraft.processingJobId).catch(() => null);
-    if (!job) {
-      setJob(null);
-      writeActiveJob(null);
-      return null;
-    }
-    if (job.status === "cache_waiting" && options.showCacheWaiting === false) {
-      setJob(job);
-      return null;
-    }
+  const job = await pollProcessingJob(() => getProcessingJob(jobDraft.processingJobId).catch(() => null), {
+    stopOnNull: true,
+    onUpdate: (nextJob) => {
+      if (nextJob) setJob(nextJob);
+    },
+  });
+  if (!job) {
+    setJob(null);
+    writeActiveJob(null);
+    return null;
+  }
+  if (job.status === "cache_waiting" && options.showCacheWaiting === false) {
     setJob(job);
-    if (job.status === "processed") {
-      const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
-      dispatch({ type: options.artifactAction ?? "apply-artifact", artifact });
-      writeActiveJob(null);
-      setJob(null);
-      return artifact;
-    }
-    if (job.status === "failed") {
-      writeActiveJob(null);
-      return null;
-    }
-    await delay(1000);
+    return null;
+  }
+  if (job.status === "processed") {
+    const artifact = await getSampleArtifact(jobDraft.sampleVideoId);
+    dispatch({ type: options.artifactAction ?? "apply-artifact", artifact });
+    writeActiveJob(null);
+    setJob(null);
+    return artifact;
+  }
+  if (job.status === "failed") {
+    writeActiveJob(null);
+    return null;
   }
   setJob(null);
   writeActiveJob(null);

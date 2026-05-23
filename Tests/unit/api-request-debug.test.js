@@ -26,6 +26,9 @@ test("records top-level API request failures as request trace", async () => {
   assert.equal(events[1].errorSummary.code, "invalid_json");
   assert.equal(events[1].errorSummary.retryable, false);
   assert.ok(events[1].errorSummary.debugSnapshotUri);
+  assert.equal(result.errorSummary.code, "invalid_json");
+  assert.equal(result.errorSummary.stageName, "api.request.handle");
+  assert.equal(result.errorSummary.debugSnapshotUri, result.snapshot.uri);
 
   const snapshot = JSON.parse(await fs.readFile(path.join(store.runtimeRoot, "DebugSnapshots", path.basename(result.snapshot.uri)), "utf8"));
   assert.equal(snapshot.stageName, "api.request.handle");

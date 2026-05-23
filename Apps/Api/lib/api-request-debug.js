@@ -41,7 +41,7 @@ async function recordApiRequestFailure(logger, req, error) {
     outputSummary: { statusCode },
     errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
   });
-  return { traceContext, snapshot };
+  return { traceContext, snapshot, errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri } };
 }
 
 function safePathname(value) {

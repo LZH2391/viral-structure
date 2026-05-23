@@ -15,6 +15,7 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   const state = read(root, "Apps/Workbench/src/state.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
   const uiStage = read(root, "Apps/Workbench/src/observability/uiStage.ts");
+  const stageLogger = read(root, "Apps/Workbench/src/hooks/useWorkbenchStageLogger.ts");
 
   assert.match(state, /uiTraceId: createId\("uiTrace"\)/);
   assert.match(state, /ingest: "sample\.ingest"/);
@@ -22,7 +23,8 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   assert.doesNotMatch(state, /structure\.transfer/);
   assert.match(app, /uiTraceId: state\.uiTraceId/);
   assert.match(app, /backendTraceId: state\.processingJob\?\.traceId/);
-  assert.match(app, /beginUiStage/);
+  assert.match(app, /useWorkbenchStageLogger/);
+  assert.match(stageLogger, /beginUiStage/);
   assert.match(uiStage, /createId\("run"\)/);
   assert.doesNotMatch(app, /traceId: state\.workspace\.id/);
   assert.match(api, /\/api\/workspaces\/\$\{WORKSPACE_ID\}\/sample-videos/);
@@ -48,15 +50,20 @@ test("React pages replace legacy runtime scripts", () => {
 test("workbench upload cancels stale polling and restores local draft", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const uploadFlow = read(root, "Apps/Workbench/src/hooks/useWorkbenchUploadFlow.ts");
+  const jobPolling = read(root, "Apps/Workbench/src/hooks/jobPolling.ts");
   const state = read(root, "Apps/Workbench/src/state.ts");
   const draft = read(root, "Apps/Workbench/src/utils/workbenchDraft.ts");
 
-  assert.match(app, /const uploadTokenRef = useRef\(0\)/);
-  assert.match(app, /if \(token !== uploadTokenRef\.current\) return/);
-  assert.match(app, /readWorkbenchDraft/);
-  assert.match(app, /getSampleArtifact\(sampleVideoId\)/);
-  assert.match(app, /setSaveStatus\("已同步最新样例"\)/);
-  assert.match(app, /resolveDraftDerivativeId/);
+  assert.match(app, /useWorkbenchUploadFlow/);
+  assert.match(uploadFlow, /const uploadTokenRef = useRef\(0\)/);
+  assert.match(uploadFlow, /if \(token !== uploadTokenRef\.current\) return/);
+  assert.match(uploadFlow, /readWorkbenchDraft/);
+  assert.match(uploadFlow, /getSampleArtifact\(sampleVideoId\)/);
+  assert.match(uploadFlow, /setSaveStatus\("已同步最新样例"\)/);
+  assert.match(uploadFlow, /resolveDraftDerivativeId/);
+  assert.match(uploadFlow, /pollProcessingJob/);
+  assert.match(jobPolling, /stopOnNull\?: boolean/);
   assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(value\)\)/);
   assert.match(draft, /localStorage\.getItem\(WORKBENCH_DRAFT_STORAGE_KEY\)/);
   assert.match(state, /type: "restore-draft"/);
@@ -263,6 +270,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const root = path.resolve(__dirname, "../..");
   const vite = read(root, "vite.config.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const shotBoundaryFlow = read(root, "Apps/Workbench/src/hooks/useShotBoundaryFlow.ts");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const cacheDialog = read(root, "Apps/Workbench/src/components/CacheDecisionDialog.tsx");
@@ -284,10 +292,10 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
   assert.match(api, /\/api\/processing-jobs\/\$\{encodeURIComponent\(jobId\)\}\/cache-decision/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
-  assert.match(app, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "reuse"\)/);
-  assert.match(app, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "refresh"\)/);
-  assert.match(app, /jobId: job\.jobId/);
-  assert.match(app, /cache_waiting|setShotCachePrompt/);
+  assert.match(shotBoundaryFlow, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "reuse"\)/);
+  assert.match(shotBoundaryFlow, /resolveShotBoundaryCacheDecision\(prompt\.jobId, "refresh"\)/);
+  assert.match(shotBoundaryFlow, /jobId: job\.jobId/);
+  assert.match(shotBoundaryFlow, /cache_waiting|setShotCachePrompt/);
   assert.match(api, /resolveShotBoundaryCacheDecision/);
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
@@ -332,17 +340,16 @@ test("property panel treats processed passed shot data without boundaries as inv
 
 test("subtitle autosave uses queued save tokens and forwards revision preconditions", () => {
   const root = path.resolve(__dirname, "../..");
-  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const subtitleFlow = read(root, "Apps/Workbench/src/hooks/useSubtitleDraftFlow.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
-  const state = read(root, "Apps/Workbench/src/state.ts");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(app, /subtitleSaveQueueRef = useRef\(Promise\.resolve\(true\)\)/);
-  assert.match(app, /subtitleSaveTokenRef = useRef\(0\)/);
-  assert.match(app, /expectedSubtitleArtifactId: subtitles\.artifactId \?\? null/);
-  assert.match(app, /expectedRevisionIndex: subtitles\.revisionIndex \?\? null/);
-  assert.match(app, /code === "subtitle_revision_conflict"/);
-  assert.match(app, /saveToken: draft\.saveToken \?\? null/);
+  assert.match(subtitleFlow, /subtitleSaveQueueRef = useRef\(Promise\.resolve\(true\)\)/);
+  assert.match(subtitleFlow, /subtitleSaveTokenRef = useRef\(0\)/);
+  assert.match(subtitleFlow, /expectedSubtitleArtifactId: subtitles\.artifactId \?\? null/);
+  assert.match(subtitleFlow, /expectedRevisionIndex: subtitles\.revisionIndex \?\? null/);
+  assert.match(subtitleFlow, /code === "subtitle_revision_conflict"/);
+  assert.match(subtitleFlow, /saveToken: draft\.saveToken \?\? null/);
   assert.match(api, /expectedSubtitleArtifactId: options\.expectedSubtitleArtifactId \?\? null/);
   assert.match(api, /expectedRevisionIndex: options\.expectedRevisionIndex \?\? null/);
   assert.match(types, /saveToken\?: number \| null;/);
@@ -368,11 +375,14 @@ test("workbench understand flow triggers script segment analysis", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
+  const analysisFlow = read(root, "Apps/Workbench/src/hooks/useAnalysisJobFlow.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
   const server = read(root, "Apps/Api/server.js");
   const index = read(root, "Infrastructure/ArtifactIndex/artifact-index.js");
 
-  assert.match(app, /runScriptSegmentAnalysis/);
+  assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
+  assert.match(app, /scriptSegmentFlow\.run\("ask"\)/);
+  assert.match(analysisFlow, /runScriptSegmentAnalysis/);
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
   assert.match(helpers, /startScriptSegmentAnalysis/);
   assert.match(helpers, /expectedShotBoundaryArtifactId: state\.sampleArtifact\?\.shotBoundaryAnalysis\?\.artifactId \?\? null/);
@@ -450,10 +460,10 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(app, /currentShotId=\{currentShotId\}/);
   assert.match(app, /scriptSegmentAnalysis=\{state\.sampleArtifact\?\.scriptSegmentAnalysis \?\? null\}/);
   assert.match(app, /scriptSegmentAnalysisHistory=\{state\.sampleArtifact\?\.scriptSegmentAnalysisHistory \?\? null\}/);
-  assert.match(app, /scriptCachePrompt/);
-  assert.match(app, /scriptSegmentJob=\{scriptSegmentJob\}/);
-  assert.match(app, /rhythmCachePrompt/);
-  assert.match(app, /rhythmStructureJob=\{rhythmStructureJob\}/);
+  assert.match(app, /scriptSegmentJob=\{scriptSegmentFlow\.job\}/);
+  assert.match(app, /rhythmStructureJob=\{rhythmStructureFlow\.job\}/);
+  assert.match(app, /scriptSegmentFlow\.cachePrompt/);
+  assert.match(app, /rhythmStructureFlow\.cachePrompt/);
   assert.match(app, /onRunScriptSegment=\{/);
   assert.match(app, /onRunRhythmStructure=\{/);
   assert.match(app, /onSelectScriptSegment=\{/);
@@ -595,6 +605,7 @@ test("appserver collect exposes active thread message without final residue", ()
   const bridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
   const shotService = read(root, "Apps/Api/lib/shot-boundary-service.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
+  const shared = read(root, "Apps/Api/lib/analysis-service-shared.js");
 
   assert.match(client, /active_thread_message: str \| None = None/);
   assert.match(client, /_turn_active_thread_messages/);
@@ -602,7 +613,8 @@ test("appserver collect exposes active thread message without final residue", ()
   assert.match(client, /if not _is_non_terminal_turn_status\(status\):[\s\S]*_turn_active_thread_messages\.pop\(turn_id, None\)/);
   assert.match(bridgePy, /"activeThreadMessage": result\.active_thread_message/);
   assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status\)/);
-  assert.match(scriptService, /buildActiveThreadMessage\(turn\?\.threadId, turn\?\.turnId, turn\?\.activeThreadMessage, turn\?\.status\)/);
+  assert.match(shared, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
+  assert.match(scriptService, /runtime\.updateActiveThreadMessage\(context, turn\)/);
   assert.match(shotService, /activeThreadMessage: null/);
   assert.match(scriptService, /activeThreadMessage: null/);
 });
