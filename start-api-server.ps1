@@ -58,7 +58,7 @@ function Start-WorkbenchStack {
       Name = "ThreadPool"
       Kind = "threadpool"
       Port = $threadPoolPort
-      Ready = { Test-HttpOk $threadPoolHealthUrl }
+      Ready = { Test-ThreadPoolReady }
       Start = {
         Start-ManagedProcess "ThreadPool" $python @($threadPoolScript, "--workspace-root", $env:THREADPOOL_WORKSPACE_ROOT, "--config-path", $env:THREADPOOL_CONFIG_PATH, "--port", $env:THREADPOOL_PORT, "--transport-url", $env:CODEX_APP_SERVER_WS_URL) $repoRoot
       }
@@ -177,6 +177,17 @@ function Test-HttpOk([string]$Url) {
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 1
     return [int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 500
+  } catch {
+    return $false
+  }
+}
+
+function Test-ThreadPoolReady() {
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "$($env:THREADPOOL_BASE_URL)/health" -TimeoutSec 1
+    if ([int]$response.StatusCode -lt 200 -or [int]$response.StatusCode -ge 500) { return $false }
+    $payload = $response.Content | ConvertFrom-Json
+    return [bool]$payload.ready_for_leases -and -not [bool]$payload.recovering -and -not [bool]$payload.startup_error
   } catch {
     return $false
   }

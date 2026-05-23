@@ -34,8 +34,8 @@ def main() -> int:
         turn_timeout_seconds=float(payload.get("timeoutSeconds") or 180),
         init_timeout_seconds=90.0,
     )
-    client.start()
     try:
+        client.start()
         if operation == "startTurnWithInputs":
             return start_turn_with_inputs(client, payload)
         if operation == "collectTurnResult":
@@ -45,6 +45,9 @@ def main() -> int:
         if operation == "runTurnWithInputs":
             return run_turn_with_inputs(client, payload)
         write_json({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"})
+        return 1
+    except Exception as exc:
+        write_json(structured_error("appserver_bridge_failed", exc, payload))
         return 1
     finally:
         client.close()
@@ -165,6 +168,17 @@ def read_thread(client, payload) -> int:
 
 def result_status_is_completed(result) -> bool:
     return result.status == "completed"
+
+
+def structured_error(code: str, exc: Exception, payload) -> dict:
+    return {
+        "ok": False,
+        "error": code,
+        "message": str(exc)[:240],
+        "operation": payload.get("operation") or "runTurnWithInputs",
+        "threadId": payload.get("threadId"),
+        "turnId": payload.get("turnId"),
+    }
 
 
 if __name__ == "__main__":

@@ -212,8 +212,16 @@ class WebSocketTransport(AppServerTransport):
         try:
             result = self._handle_tool_call(params)
             self._send_message({"id": request_id, "result": result})
-        except Exception:
-            return
+        except Exception as exc:
+            fallback = {
+                "contentItems": [{"type": "inputText", "text": f"{type(exc).__name__}: {exc}"}],
+                "success": False,
+            }
+            try:
+                self._send_message({"id": request_id, "result": fallback})
+            except Exception:
+                self._process_exit_message = self._connection_error_message(f"tool call failed: {type(exc).__name__}: {exc}")
+                return
         finally:
             with self._state_lock:
                 self._tool_call_threads.discard(current)

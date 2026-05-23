@@ -507,10 +507,37 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(bridgePy, /if operation == "readThread"/);
   assert.match(bridgePy, /client\.read_thread\(str\(payload\["threadId"\]\), include_turns=True\)/);
   assert.match(bridgePy, /local_runtime_root/);
+  assert.match(bridgePy, /structured_error\("appserver_bridge_failed"/);
+  assert.match(bridgePy, /except Exception as exc:/);
   assert.match(startup, /\$env:PYTHON_RUNTIME_ROOT/);
   assert.match(startup, /Join-Path \$env:PYTHON_RUNTIME_ROOT "scripts\\thread_pool_service\.py"/);
+  assert.match(startup, /function Test-ThreadPoolReady/);
+  assert.match(startup, /ready_for_leases/);
   assert.equal(bridge.includes("cepRoot"), false);
   assert.equal(bridgePy.includes("cepRoot"), false);
+});
+
+test("workbench api client safely parses empty and invalid JSON responses", () => {
+  const root = path.resolve(__dirname, "../..");
+  const client = read(root, "Apps/Workbench/src/api/client.ts");
+
+  assert.match(client, /export async function readJsonResponse/);
+  assert.match(client, /parseJsonResponse/);
+  assert.match(client, /summarizeResponseText/);
+  assert.match(client, /responseBodySnippet/);
+  assert.match(client, /responseContentType/);
+  assert.match(client, /API 返回了非 JSON 响应/);
+});
+
+test("workbench api client safely parses empty and invalid JSON responses", async () => {
+  const root = path.resolve(__dirname, "../..");
+  const source = read(root, "Apps/Workbench/src/api/client.ts");
+  assert.match(source, /readJsonResponse/);
+  assert.match(source, /parseJsonResponse/);
+  assert.match(source, /summarizeResponseText/);
+  assert.match(source, /responseBodySnippet/);
+  assert.match(source, /responseContentType/);
+  assert.match(source, /API 返回了非 JSON 响应/);
 });
 
 test("workbench workspace layout supports persisted splitters", () => {

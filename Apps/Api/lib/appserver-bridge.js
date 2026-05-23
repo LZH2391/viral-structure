@@ -114,9 +114,15 @@ function runPythonJson({ python, script, payload, timeoutMs }) {
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        const error = new Error(`AppServer bridge exited with ${code}`);
-        error.code = "appserver_bridge_failed";
-        error.debugPayload = { stderr: stderr.slice(-2000), stdout: stdout.slice(-2000) };
+        const parsed = tryParseJson(stdout);
+        const structured = parsed && typeof parsed === "object" ? parsed : null;
+        const error = new Error(structured?.message || `AppServer bridge exited with ${code}`);
+        error.code = structured?.error || "appserver_bridge_failed";
+        error.debugPayload = {
+          stderr: stderr.slice(-2000),
+          stdout: stdout.slice(-2000),
+          structured: structured ?? null,
+        };
         reject(error);
         return;
       }
@@ -129,6 +135,14 @@ function runPythonJson({ python, script, payload, timeoutMs }) {
     });
     child.stdin.end(JSON.stringify(payload));
   });
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 module.exports = { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge, isNonTerminalTurnStatus };

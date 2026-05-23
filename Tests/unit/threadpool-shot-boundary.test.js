@@ -1211,6 +1211,51 @@ test("shot boundary collect retryable error keeps inflight processing", async ()
   assert.equal(harness.threadPool.discarded.length, 0);
 });
 
+test("appserver bridge structured error payload is surfaced", async () => {
+  const error = new Error("missing-content-type");
+  const payload = structuredErrorForTest("appserver_bridge_failed", error, {
+    operation: "readThread",
+    threadId: "thread_1",
+    turnId: "turn_1",
+  });
+
+  assert.deepEqual(payload, {
+    ok: false,
+    error: "appserver_bridge_failed",
+    message: "Error: missing-content-type",
+    operation: "readThread",
+    threadId: "thread_1",
+    turnId: "turn_1",
+  });
+});
+
+test("threadpool readiness detail exposes ready_for_leases and recovering gate", async () => {
+  const harness = await createShotHarness({
+    threadPoolOverrides: {
+      roleStatus: async () => ({
+        ok: true,
+        role: "shot-boundary-analyzer",
+        counts: { idle: 0, leased: 0 },
+        minIdle: 1,
+        canAcquire: false,
+        canInit: false,
+        warming: true,
+        readyForLeases: false,
+        recovering: true,
+        warmupError: null,
+        startupError: null,
+        threads: [],
+        leases: [],
+      }),
+    },
+  });
+  const status = await harness.threadPool.roleStatus("shot-boundary-analyzer");
+
+  assert.equal(status.readyForLeases, false);
+  assert.equal(status.recovering, true);
+  assert.equal(status.warming, true);
+});
+
 test("shot boundary parse failure writes failed artifact and debug snapshot", async () => {
   const harness = await createShotHarness({
     appServer: {
@@ -1750,5 +1795,16 @@ function response(payload, status = 200) {
     ok: status >= 200 && status < 300,
     status,
     text: async () => JSON.stringify(payload),
+  };
+}
+
+function structuredErrorForTest(code, exc, payload) {
+  return {
+    ok: false,
+    error: code,
+    message: String(exc).slice(0, 240),
+    operation: payload.operation || "runTurnWithInputs",
+    threadId: payload.threadId,
+    turnId: payload.turnId,
   };
 }

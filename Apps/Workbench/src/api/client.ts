@@ -28,23 +28,23 @@ export async function uploadSampleVideo(file: File, options: { frameSampleRateFp
     method: "POST",
     body: formData,
   });
-  return readJson<UploadSampleResponse>(response);
+  return readJsonResponse<UploadSampleResponse>(response);
 }
 
 export async function getCapabilities() {
-  return readJson<BackendCapabilities>(await fetch(`${API_BASE_URL}/api/capabilities`));
+  return readJsonResponse<BackendCapabilities>(await fetch(`${API_BASE_URL}/api/capabilities`));
 }
 
 export async function getProcessingJob(jobId: string) {
-  return readJson<ProcessingJob>(await fetch(`${API_BASE_URL}/api/processing-jobs/${jobId}`));
+  return readJsonResponse<ProcessingJob>(await fetch(`${API_BASE_URL}/api/processing-jobs/${jobId}`));
 }
 
 export async function getSampleArtifact(sampleVideoId: string) {
-  return readJson<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
+  return readJsonResponse<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
 }
 
 export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
-  return readJson<ShotBoundaryStartResponse>(
+  return readJsonResponse<ShotBoundaryStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/shot-boundary`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -58,7 +58,7 @@ export async function saveSubtitleRevision(
   segments: Array<{ id: string; start: number; end: number; text: string; confidence?: number | null }>,
   options: { expectedSubtitleArtifactId?: string | null; expectedRevisionIndex?: number | null } = {},
 ) {
-  return readJson<{ sampleArtifact: SampleArtifact; traceId: string; changed: boolean }>(
+  return readJsonResponse<{ sampleArtifact: SampleArtifact; traceId: string; changed: boolean }>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/subtitles/revisions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -72,7 +72,7 @@ export async function saveSubtitleRevision(
 }
 
 export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
-  return readJson<ScriptSegmentStartResponse>(
+  return readJsonResponse<ScriptSegmentStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -85,7 +85,7 @@ export async function startScriptSegmentAnalysis(sampleVideoId: string, options:
 }
 
 export async function resolveCacheDecision(jobId: string, decision: "reuse" | "refresh") {
-  return readJson<ProcessingJob>(
+  return readJsonResponse<ProcessingJob>(
     await fetch(`${API_BASE_URL}/api/processing-jobs/${encodeURIComponent(jobId)}/cache-decision`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -99,19 +99,19 @@ export async function resolveShotBoundaryCacheDecision(jobId: string, decision: 
 }
 
 export async function getThreadPoolHealth() {
-  return readJson<ThreadPoolHealth>(await fetch(`${API_BASE_URL}/api/threadpool/health`));
+  return readJsonResponse<ThreadPoolHealth>(await fetch(`${API_BASE_URL}/api/threadpool/health`));
 }
 
 export async function getThreadPoolRoles() {
-  return readJson<{ ok: boolean; roles: ThreadPoolRoleSummary[]; health?: ThreadPoolHealth }>(await fetch(`${API_BASE_URL}/api/threadpool/roles`));
+  return readJsonResponse<{ ok: boolean; roles: ThreadPoolRoleSummary[]; health?: ThreadPoolHealth }>(await fetch(`${API_BASE_URL}/api/threadpool/roles`));
 }
 
 export async function getThreadPoolRoleStatus(role: string) {
-  return readJson<ThreadPoolRoleDetail>(await fetch(`${API_BASE_URL}/api/threadpool/roles/${encodeURIComponent(role)}/status`));
+  return readJsonResponse<ThreadPoolRoleDetail>(await fetch(`${API_BASE_URL}/api/threadpool/roles/${encodeURIComponent(role)}/status`));
 }
 
 export async function discardThreadPoolThread(threadId: string) {
-  return readJson<{ ok: boolean; thread_id: string; status: string }>(
+  return readJsonResponse<{ ok: boolean; thread_id: string; status: string }>(
     await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/discard`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -121,11 +121,11 @@ export async function discardThreadPoolThread(threadId: string) {
 }
 
 export async function getThreadConversation(threadId: string) {
-  return readJson<ThreadConversation>(await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/conversation`));
+  return readJsonResponse<ThreadConversation>(await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/conversation`));
 }
 
 export async function releaseThreadPoolOwnerLeases(ownerId: string) {
-  return readJson<{ ok: boolean }>(
+  return readJsonResponse<{ ok: boolean }>(
     await fetch(`${API_BASE_URL}/api/threadpool/leases/release-owner`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -135,23 +135,23 @@ export async function releaseThreadPoolOwnerLeases(ownerId: string) {
 }
 
 export async function getDebugTraces() {
-  return readJson<{ traces: DebugTraceSummary[] }>(await fetch(`${API_BASE_URL}/api/debug/traces`));
+  return readJsonResponse<{ traces: DebugTraceSummary[] }>(await fetch(`${API_BASE_URL}/api/debug/traces`));
 }
 
 export async function getDebugTraceDetail(traceId: string) {
-  return readJson<DebugTraceDetail>(await fetch(`${API_BASE_URL}/api/debug/traces/${encodeURIComponent(traceId)}`));
+  return readJsonResponse<DebugTraceDetail>(await fetch(`${API_BASE_URL}/api/debug/traces/${encodeURIComponent(traceId)}`));
 }
 
 export async function getLibraryItems() {
-  return readJson<{ items: LibraryItemSummary[] }>(await fetch(`${API_BASE_URL}/api/library/items`));
+  return readJsonResponse<{ items: LibraryItemSummary[] }>(await fetch(`${API_BASE_URL}/api/library/items`));
 }
 
 export async function getLibraryItemDetail(sampleVideoId: string) {
-  return readJson<LibraryItemDetail>(await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}`));
+  return readJsonResponse<LibraryItemDetail>(await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}`));
 }
 
 export async function loadLibraryItem(sampleVideoId: string) {
-  return readJson<{ sampleArtifact: SampleArtifact }>(
+  return readJsonResponse<{ sampleArtifact: SampleArtifact }>(
     await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}/load`, {
       method: "POST",
     }),
@@ -159,7 +159,7 @@ export async function loadLibraryItem(sampleVideoId: string) {
 }
 
 export async function deleteLibraryItemCache(sampleVideoId: string) {
-  return readJson<{ ok: true; removedSampleVideoIds: string[] }>(
+  return readJsonResponse<{ ok: true; removedSampleVideoIds: string[] }>(
     await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}/cache`, {
       method: "DELETE",
     }),
@@ -167,7 +167,7 @@ export async function deleteLibraryItemCache(sampleVideoId: string) {
 }
 
 export async function postUiDebugEvent(event: UiDebugEventRequest) {
-  return readJson<{ ok: true; debugSnapshotUri?: string | null }>(
+  return readJsonResponse<{ ok: true; debugSnapshotUri?: string | null }>(
     await fetch(`${API_BASE_URL}/api/debug/ui-events`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -181,24 +181,67 @@ export function runtimeUrl(uri?: string | null): string | null {
   return `${API_BASE_URL}${uri}`;
 }
 
-async function readJson<T>(response: Response): Promise<T> {
-  const json = await response.json();
+export async function readJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const body = parseJsonResponse(text);
   if (!response.ok) {
-    const error = new Error(json.message || json.error || "API 请求失败") as Error & {
+    const error = new Error(resolveApiErrorMessage(body.value, text, response.status)) as Error & {
       code?: string;
       traceId?: string | null;
       debugSnapshotUri?: string | null;
       stageName?: string | null;
       retryable?: boolean | null;
       statusCode?: number;
+      responseBodySnippet?: string | null;
+      responseContentType?: string | null;
     };
-    error.code = json.code || json.error || "api_request_failed";
-    error.traceId = json.traceId ?? null;
-    error.debugSnapshotUri = json.debugSnapshotUri ?? null;
-    error.stageName = json.stageName ?? null;
-    error.retryable = typeof json.retryable === "boolean" ? json.retryable : null;
+    const payload = isRecord(body.value) ? body.value : null;
+    error.code = payload ? String(payload.code || payload.error || "api_request_failed") : "api_request_failed";
+    error.traceId = payload ? toNullableString(payload.traceId) : null;
+    error.debugSnapshotUri = payload ? toNullableString(payload.debugSnapshotUri) : null;
+    error.stageName = payload ? toNullableString(payload.stageName) : null;
+    error.retryable = payload && typeof payload.retryable === "boolean" ? payload.retryable : null;
     error.statusCode = response.status;
+    error.responseBodySnippet = summarizeResponseText(text);
+    error.responseContentType = response.headers.get("content-type");
     throw error;
   }
-  return json as T;
+  if (!body.ok && text.trim()) {
+    throw new Error(`API 返回了非 JSON 响应: ${summarizeResponseText(text) ?? response.status}`);
+  }
+  return (body.value ?? {}) as T;
+}
+
+function parseJsonResponse(text: string): { ok: boolean; value: unknown | null } {
+  const trimmed = String(text ?? "").trim();
+  if (!trimmed) return { ok: true, value: null };
+  try {
+    return { ok: true, value: JSON.parse(trimmed) as unknown };
+  } catch {
+    return { ok: false, value: { raw: trimmed } };
+  }
+}
+
+function resolveApiErrorMessage(body: unknown, text: string, status: number): string {
+  const payload = isRecord(body) ? body : null;
+  const candidate = payload ? String(payload.message || payload.error || "") : "";
+  if (candidate.trim()) return candidate.slice(0, 240);
+  const rawSnippet = summarizeResponseText(text);
+  if (rawSnippet) return rawSnippet;
+  return `API 请求失败: ${status}`;
+}
+
+function summarizeResponseText(text: string): string | null {
+  const trimmed = String(text ?? "").trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/\s+/g, " ").slice(0, 240);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function toNullableString(value: unknown): string | null {
+  if (value == null) return null;
+  return String(value);
 }

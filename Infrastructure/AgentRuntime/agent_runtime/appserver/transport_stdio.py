@@ -137,7 +137,13 @@ class StdioTransport(AppServerTransport):
                     self._resolve_pending_request(int(payload["id"]), payload)
                     continue
                 if isinstance(payload, dict) and payload.get("method") == "item/tool/call" and "id" in payload:
-                    result = self._handle_tool_call(payload.get("params", {}))
+                    try:
+                        result = self._handle_tool_call(payload.get("params", {}))
+                    except Exception as exc:
+                        result = {
+                            "contentItems": [{"type": "inputText", "text": f"{type(exc).__name__}: {exc}"}],
+                            "success": False,
+                        }
                     self._send_message({"id": int(payload["id"]), "result": result})
                     continue
                 if isinstance(payload, dict):
