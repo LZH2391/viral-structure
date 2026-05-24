@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import json
-import re
 import subprocess
 import threading
 import time
@@ -1002,10 +1001,8 @@ class AppServerSessionClient:
             duration = time.perf_counter() - started_at
             output = (completed.stdout or "") + (completed.stderr or "")
             text = f"Exit code: {completed.returncode}\nWall time: {duration:.1f} seconds\nOutput:\n{output}"
-            content_items = [{"type": "inputText", "text": text}]
-            content_items.extend(self._local_images_from_tool_output(output, workdir))
             return {
-                "contentItems": content_items,
+                "contentItems": [{"type": "inputText", "text": text}],
                 "success": completed.returncode == 0,
             }
         except subprocess.TimeoutExpired as exc:
@@ -1029,30 +1026,6 @@ class AppServerSessionClient:
             "contentItems": [{"type": "inputText", "text": message}],
             "success": False,
         }
-
-    @staticmethod
-    def _local_images_from_tool_output(output: str, workdir: Path) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for match in re.finditer(r"(?im)^\s*LOCAL_IMAGE:\s*(.+?)\s*$", output or ""):
-            raw_path = match.group(1).strip().strip('"').strip("'")
-            if not raw_path:
-                continue
-            path = Path(raw_path)
-            if not path.is_absolute():
-                path = (workdir / path).resolve()
-            else:
-                path = path.resolve()
-            if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
-                continue
-            if not path.exists() or not path.is_file():
-                continue
-            normalized = str(path)
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            items.append({"type": "localImage", "path": normalized})
-        return items
 
 
 AppServerReviewerClient = AppServerSessionClient

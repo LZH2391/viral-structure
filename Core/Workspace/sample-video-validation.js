@@ -2,7 +2,7 @@ const { PROCESSING_ERRORS } = require("./sample-video-contracts");
 
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 10 * 60;
-const DEFAULT_FRAME_SAMPLE_RATE_FPS = 1;
+const DEFAULT_FRAME_SAMPLE_RATE_FPS = 10;
 const MIN_FRAME_SAMPLE_RATE_FPS = 1;
 const MAX_FRAME_SAMPLE_RATE_FPS = 10;
 const ALLOWED_EXTENSIONS = new Set([".mp4", ".mov", ".m4v", ".webm"]);

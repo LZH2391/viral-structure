@@ -26,11 +26,11 @@ export type ShotBoundaryGuard = {
   disabled: boolean;
 };
 
-export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, enableReview: boolean, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler, cacheDecision: "ask" | "reuse" | "refresh" = "ask", analysisMode: "v1" | "v2" = "v1") {
+export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, enableReview: boolean, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler, cacheDecision: "ask" | "reuse" | "refresh" = "ask") {
   if (!state.sampleVideo) return;
   const guard = await getShotBoundaryGuard();
   if (guard.state !== "ready") throw new Error(guard.message ?? "ThreadPool 当前不可用，请稍后再试");
-  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision, enableReview, analysisMode });
+  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision, enableReview });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
       job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "shot.cache_lookup", status: "cache_waiting", progress: 55 },

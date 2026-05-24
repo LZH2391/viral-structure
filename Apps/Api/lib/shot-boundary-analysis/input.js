@@ -18,7 +18,7 @@ function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const frames = Array.isArray(artifact.frames) ? artifact.frames : [];
   const summary = artifact.frameOutputSummary ?? {};
   const actualFrameCount = Number(summary.actualFrameCount ?? frames.length);
-  const requestedFrameSampleRateFps = Number(summary.frameSampleRateFps ?? artifact.processingOptions?.frameSampleRateFps ?? 1);
+  const requestedFrameSampleRateFps = Number(summary.frameSampleRateFps ?? artifact.processingOptions?.frameSampleRateFps ?? 10);
   const requestedAnalysisFps = Number(analysisFps ?? 0);
   if (!durationSeconds || !frames.length || !Number.isFinite(requestedFrameSampleRateFps) || requestedFrameSampleRateFps <= 0) {
     throw require("./shared").codedError("shot_boundary_input_invalid", "抽帧产物不足，无法启动镜头切分");

@@ -23,7 +23,7 @@ export type RhythmStructureStartResponse =
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 1));
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
   formData.append("enableAudioSeparation", String(Boolean(options.enableAudioSeparation)));
   formData.append("enableSubtitleRecognition", String(Boolean(options.enableSubtitleRecognition)));
   formData.append("enableAudioFeatureAnalysis", String(Boolean(options.enableAudioFeatureAnalysis)));
@@ -47,12 +47,12 @@ export async function getSampleArtifact(sampleVideoId: string) {
   return readJsonResponse<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
 }
 
-export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh"; enableReview?: boolean; analysisMode?: "v1" | "v2" } = {}) {
+export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh"; enableReview?: boolean } = {}) {
   return readJsonResponse<ShotBoundaryStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/shot-boundary`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1, cacheDecision: options.cacheDecision ?? "ask", enableReview: options.enableReview ?? true, analysisMode: options.analysisMode ?? "v1" }),
+      body: JSON.stringify({ analysisFps: options.analysisFps ?? 10, cacheDecision: options.cacheDecision ?? "ask", enableReview: options.enableReview ?? true }),
     }),
   );
 }

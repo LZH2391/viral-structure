@@ -112,7 +112,7 @@ function createShotBoundaryService({
 } = {}) {
   const collectingJobs = new Map();
 
-  async function enqueue({ sampleVideoId, analysisFps = 1, cacheDecision = "ask", enableReview = true }) {
+  async function enqueue({ sampleVideoId, analysisFps = 10, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
     const sampleArtifact = await loadSampleArtifact(sampleVideoId);
     const traceContext = createTraceContext(createTraceIds());
@@ -120,7 +120,7 @@ function createShotBoundaryService({
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     const context = {
       sampleVideoId,
-      analysisFps: Number(analysisFps || 1),
+      analysisFps: Number(analysisFps || 10),
       cacheDecision,
       enableReview: normalizeEnableReview(enableReview),
       sampleArtifact,
@@ -147,7 +147,7 @@ function createShotBoundaryService({
     const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
     const context = {
       sampleVideoId: job.sampleVideoId,
-      analysisFps: Number(job.cachePrompt.analysisFps ?? 1),
+      analysisFps: Number(job.cachePrompt.analysisFps ?? 10),
       cacheDecision: decision,
       enableReview: normalizeEnableReview(job.cachePrompt.enableReview ?? true),
       sampleArtifact,
@@ -466,7 +466,7 @@ function createShotBoundaryService({
     const artifactId = `artifact_${randomUUID()}`;
     const context = {
       sampleVideoId: job.sampleVideoId,
-      analysisFps: 1,
+      analysisFps: 10,
       sampleArtifact,
       traceContext: {
         runId: job.traceId,

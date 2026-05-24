@@ -30,18 +30,19 @@ type AudioSeekRequest = { requestId: number; time: number };
 
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
+const DEFAULT_FRAME_SAMPLE_RATE_FPS = 10;
+const DEFAULT_ANALYSIS_FPS = 10;
 
 export function WorkbenchApp() {
   const [state, dispatch] = useReducer(workbenchReducer, undefined, createInitialState);
-  const [frameSampleRate, setFrameSampleRate] = useState(3);
+  const [frameSampleRate, setFrameSampleRate] = useState(DEFAULT_FRAME_SAMPLE_RATE_FPS);
   const [enableAudioSeparation, setEnableAudioSeparation] = useState(true);
   const [enableSubtitleRecognition, setEnableSubtitleRecognition] = useState(true);
   const [enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis] = useState(true);
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
-  const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
+  const [agentAnalysisFps, setAgentAnalysisFps] = useState(DEFAULT_ANALYSIS_FPS);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
-  const [shotBoundaryAnalysisMode, setShotBoundaryAnalysisMode] = useState<"v1" | "v2">("v1");
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,7 +91,6 @@ export function WorkbenchApp() {
     dispatch,
     agentAnalysisFps,
     enableReview: enableShotBoundaryReview,
-    analysisMode: shotBoundaryAnalysisMode,
     setSaveStatus,
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
@@ -137,7 +137,7 @@ export function WorkbenchApp() {
   useEffect(() => {
     const restoreJobs = async () => {
       const shotDraft = await shotBoundaryFlow.restoreDraft();
-      if (shotDraft) setAgentAnalysisFps(normalizeAnalysisFps(shotDraft.analysisFps ?? 1, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
+      if (shotDraft) setAgentAnalysisFps(normalizeAnalysisFps(shotDraft.analysisFps ?? DEFAULT_ANALYSIS_FPS, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
       if (shotDraft) setEnableShotBoundaryReview(shotDraft.enableReview ?? true);
       const draft = readWorkbenchDraft();
       await scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
@@ -322,10 +322,8 @@ export function WorkbenchApp() {
           rhythmStructureJob={rhythmStructureFlow.job}
           agentAnalysisFps={agentAnalysisFps}
           enableShotBoundaryReview={enableShotBoundaryReview}
-          shotBoundaryAnalysisMode={shotBoundaryAnalysisMode}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onEnableShotBoundaryReviewChange={setEnableShotBoundaryReview}
-          onShotBoundaryAnalysisModeChange={setShotBoundaryAnalysisMode}
           onRunShotBoundary={() => {
             subtitleDraftFlow.flushSubtitleDraftsBeforeShotBoundary()
               .then((ready) => {

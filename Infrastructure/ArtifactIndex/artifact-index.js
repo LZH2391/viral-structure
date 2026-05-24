@@ -293,7 +293,7 @@ function buildTags(artifact) {
 
 function stageParams(artifact, stageName) {
   const options = artifact.processingOptions ?? {};
-  if (stageName === "sample.frames.extracted") return { frameSampleRateFps: options.frameSampleRateFps ?? 1 };
+  if (stageName === "sample.frames.extracted") return { frameSampleRateFps: options.frameSampleRateFps ?? 10 };
   if (stageName === "sample.audio.separated") return { demucsMode: "two-stems-vocals", enabled: Boolean(options.enableAudioSeparation) };
   if (stageName === "sample.subtitle.recognized") {
     return {

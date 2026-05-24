@@ -51,7 +51,7 @@ export function MetaInfoPanel({
           <DetailRow label="时长来源" value={renderDurationSource(metadata?.durationSource)} />
           <DetailRow label="含音频轨" value={renderBoolean(metadata?.hasAudio)} />
           <DetailRow label="音频摘要" value={sampleVideo.audioSummary || "无"} />
-          <DetailRow label="抽帧采样率" value={`${frameSummary?.frameSampleRateFps ?? sampleVideo.processingOptions?.frameSampleRateFps ?? 1} fps`} />
+          <DetailRow label="抽帧采样率" value={`${frameSummary?.frameSampleRateFps ?? sampleVideo.processingOptions?.frameSampleRateFps ?? 10} fps`} />
           <DetailRow label="目标帧数" value={String(frameSummary?.targetFrameCount ?? "无")} />
           <DetailRow label="实际帧数" value={String(frameSummary?.actualFrameCount ?? sampleVideo.frameArtifacts.length ?? 0)} />
           <DetailRow label="帧数上限" value={String(frameSummary?.maxFrames ?? "无")} />

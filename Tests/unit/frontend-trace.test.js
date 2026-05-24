@@ -204,7 +204,10 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   const propertyCss = read(root, "Apps/Workbench/styles/property-panel.css");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
-  assert.match(app, /useState\(3\)/);
+  assert.match(app, /DEFAULT_FRAME_SAMPLE_RATE_FPS = 10/);
+  assert.match(app, /useState\(DEFAULT_FRAME_SAMPLE_RATE_FPS\)/);
+  assert.match(app, /DEFAULT_ANALYSIS_FPS = 10/);
+  assert.match(app, /useState\(DEFAULT_ANALYSIS_FPS\)/);
   assert.match(app, /const \[enableAudioSeparation, setEnableAudioSeparation\] = useState\(true\)/);
   assert.match(app, /const \[enableSubtitleRecognition, setEnableSubtitleRecognition\] = useState\(true\)/);
   assert.match(app, /const \[enableAudioFeatureAnalysis, setEnableAudioFeatureAnalysis\] = useState\(true\)/);

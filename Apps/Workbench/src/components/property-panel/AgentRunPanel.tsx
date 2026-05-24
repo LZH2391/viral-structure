@@ -27,10 +27,8 @@ export function AgentRunPanel({
   job,
   analysisFps,
   enableReview,
-  analysisMode,
   onAnalysisFpsChange,
   onEnableReviewChange,
-  onAnalysisModeChange,
   onRun,
   onSelectShot,
 }: {
@@ -42,10 +40,8 @@ export function AgentRunPanel({
   job?: AgentRunJob | null;
   analysisFps: number;
   enableReview: boolean;
-  analysisMode: "v1" | "v2";
   onAnalysisFpsChange: (value: number) => void;
   onEnableReviewChange: (value: boolean) => void;
-  onAnalysisModeChange: (value: "v1" | "v2") => void;
   onRun: () => void;
   onSelectShot: (time: number) => void;
 }) {
@@ -131,13 +127,6 @@ export function AgentRunPanel({
       <label className="agent-field">
         <span>分析采样率</span>
         <input type="number" min={MIN_ANALYSIS_FPS} max={maxAnalysisFps} step="1" value={analysisFps} aria-invalid={analysisFpsInvalid || analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || MIN_ANALYSIS_FPS))} />
-      </label>
-      <label className="agent-field agent-review-toggle">
-        <span>模式</span>
-        <select value={analysisMode} disabled={running} onChange={(event) => onAnalysisModeChange(event.currentTarget.value === "v2" ? "v2" : "v1")}>
-          <option value="v1">V1</option>
-          <option value="v2">V2</option>
-        </select>
       </label>
       <label className="agent-field agent-review-toggle">
         <span>Reviewer</span>

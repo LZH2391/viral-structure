@@ -3,7 +3,7 @@ function planFrameTimestamps(durationSeconds, options = {}) {
 }
 
 function planFrameTimestampSampling(durationSeconds, options = {}) {
-  const frameSampleRateFps = Number(options.frameSampleRateFps ?? 1);
+  const frameSampleRateFps = Number(options.frameSampleRateFps ?? 10);
   const maxFrames = Number(options.maxFrames ?? 6000);
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     return buildSamplingResult([0], frameSampleRateFps, maxFrames, false, "fixed_interval_from_zero");

@@ -2,6 +2,7 @@ import type { DraftState } from "../state";
 import type { ActiveJobDraft, AnalysisStageKind } from "./workbenchHelpers";
 
 export const WORKBENCH_DRAFT_STORAGE_KEY = "workbench:last-sample";
+const DEFAULT_ANALYSIS_FPS = 10;
 
 export function readWorkbenchDraft(): DraftState | null {
   try {
@@ -50,11 +51,11 @@ export function writeActiveAnalysisJob(stageKind: AnalysisStageKind, job: Active
         processingJobId: job.processingJobId,
         sampleVideoId: job.sampleVideoId,
         traceId: job.traceId,
-        ...(stageKind === "shotBoundary" ? { analysisFps: job.analysisFps ?? 1, enableReview: job.enableReview ?? true } : {}),
+        ...(stageKind === "shotBoundary" ? { analysisFps: job.analysisFps ?? DEFAULT_ANALYSIS_FPS, enableReview: job.enableReview ?? true } : {}),
       },
     };
     if (stageKind === "shotBoundary") {
-      return { ...nextDraft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? 1, enableReview: job.enableReview ?? true } };
+      return { ...nextDraft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? DEFAULT_ANALYSIS_FPS, enableReview: job.enableReview ?? true } };
     }
     return nextDraft;
   });
