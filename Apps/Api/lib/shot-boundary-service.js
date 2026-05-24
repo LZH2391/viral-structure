@@ -52,8 +52,12 @@ const {
   REVIEW_SKILL_PATH,
   prepareShotSheets,
   renderTransformTurnInputs,
+  renderVisualSummaryTurnInputs,
   validateTransformResult,
   summarizeTransformResult,
+  validateVisualSummaryResult,
+  applyVisualSummaryResult,
+  summarizeVisualSummaryResult,
 } = require("./shot-boundary-review");
 
 const STAGES = {
@@ -68,6 +72,9 @@ const STAGES = {
   reviewCollected: "shot.boundary_transform.collect",
   reviewValidated: "shot.boundary_transform.validate",
   reviewSheetsPrepared: "shot.boundary_transform.sheets",
+  visualSummaryStarted: "shot.boundary_visual_summary.submit",
+  visualSummaryCollected: "shot.boundary_visual_summary.collect",
+  visualSummaryValidated: "shot.boundary_visual_summary.validate",
   resultWritten: "shot.boundary_merge",
 };
 const POLL_INTERVAL_MS = 2000;
@@ -374,8 +381,12 @@ function createShotBoundaryService({
             prepareShotSheets,
             contactSheetGenerator,
             renderTransformTurnInputs,
+            renderVisualSummaryTurnInputs,
             validateTransformResult,
             summarizeTransformResult,
+            validateVisualSummaryResult,
+            applyVisualSummaryResult,
+            summarizeVisualSummaryResult,
             acquireLeaseWithRetry,
           },
           codedError,

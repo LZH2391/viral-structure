@@ -1,6 +1,6 @@
 {
   "role": "shot-boundary-transformer",
-  "profileVersion": "2026-05-24.1",
+  "profileVersion": "2026-05-24.2",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-boundary-transformer/SKILL.md",
   "init": {
     "template": "init.md",
@@ -10,6 +10,10 @@
     "transform": {
       "template": "prompts/transform.v1.md",
       "version": "transform.v1"
+    },
+    "visualSummary": {
+      "template": "prompts/visual-summary.v1.md",
+      "version": "visual-summary.v1"
     }
   }
 }

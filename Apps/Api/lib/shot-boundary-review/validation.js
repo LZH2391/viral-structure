@@ -47,6 +47,54 @@ function summarizeTransformResult(result) {
   };
 }
 
+function validateVisualSummaryResult(message, shots, turn) {
+  const parsed = extractJsonObject(message);
+  if (!Array.isArray(parsed?.shots)) {
+    throw transformValidationError("shot_boundary_visual_summary_contract_invalid", "视觉摘要结果缺少 shots", parsed, turn);
+  }
+  const sourceShots = Array.isArray(shots) ? shots : [];
+  if (parsed.shots.length !== sourceShots.length) {
+    throw transformValidationError("shot_boundary_visual_summary_count_mismatch", "视觉摘要 shots 数量与切镜结果不一致", parsed, turn, {
+      expectedShotCount: sourceShots.length,
+      actualShotCount: parsed.shots.length,
+    });
+  }
+  const summaries = sourceShots.map((shot, index) => {
+    const raw = parsed.shots[index] ?? {};
+    const summary = normalizeText(raw.summary, 120);
+    if (!summary) {
+      throw transformValidationError("shot_boundary_visual_summary_empty", "视觉摘要 summary 不能为空", parsed, turn, {
+        failingIndex: index,
+        shotNo: shot?.shotNo ?? null,
+      });
+    }
+    return {
+      index,
+      shotNo: shot?.shotNo ?? raw.shotNo ?? null,
+      summary,
+    };
+  });
+  return { shots: summaries };
+}
+
+function applyVisualSummaryResult(result, visualSummary) {
+  const summaries = Array.isArray(visualSummary?.shots) ? visualSummary.shots : [];
+  return {
+    ...result,
+    shots: (Array.isArray(result?.shots) ? result.shots : []).map((shot, index) => ({
+      ...shot,
+      summary: summaries[index]?.summary ?? shot.summary,
+    })),
+  };
+}
+
+function summarizeVisualSummaryResult(result) {
+  return {
+    shotCount: Array.isArray(result?.shots) ? result.shots.length : 0,
+    emptySummaryCount: Array.isArray(result?.shots) ? result.shots.filter((shot) => !shot?.summary).length : 0,
+  };
+}
+
 function transformValidationError(code, message, parsed, turn, extra = {}) {
   return codedError(code, message, {
     turnId: turn?.turnId ?? null,
@@ -62,6 +110,9 @@ function transformValidationError(code, message, parsed, turn, extra = {}) {
 module.exports = {
   validateTransformResult,
   summarizeTransformResult,
+  validateVisualSummaryResult,
+  applyVisualSummaryResult,
+  summarizeVisualSummaryResult,
   validateReviewResult: validateTransformResult,
   summarizeReviewResult: summarizeTransformResult,
 };

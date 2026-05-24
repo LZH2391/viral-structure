@@ -637,10 +637,12 @@ test("shot boundary transform collect polls running turn and preserves active me
   await harness.service.collectAgentRun(result.processingJobId);
   const job = harness.jobStore.getJob(result.processingJobId);
   const collectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
+  const visualCollectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.visualSummaryCollected && entry.event === "stage.end");
 
-  assert.equal(transformCollectCount, 3);
+  assert.equal(transformCollectCount, 4);
   assert.equal(collectLogs.length, 3);
   assert.deepEqual(collectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
+  assert.equal(visualCollectLogs.length, 1);
   assert.ok(transformMessages.some((message) => message?.text === "transform 正在整理切镜结果"));
   assert.equal(job.status, "processed");
   assert.equal(job.activeThreadMessage, null);
@@ -665,7 +667,9 @@ test("shot boundary collect completed writes transformed artifact and releases o
   await harness.service.collectAgentRun(result.processingJobId);
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
   const job = harness.jobStore.getJob(result.processingJobId);
-  const transformTurn = harness.startedTurns.find((item) => item.kind === "transform");
+  const transformTurns = harness.startedTurns.filter((item) => item.kind === "transform");
+  const transformTurn = transformTurns[0];
+  const visualSummaryTurn = transformTurns[1];
 
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
@@ -675,7 +679,7 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(artifact.shotBoundaryAnalysis.agent.leaseId, "review_lease_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_transform_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "transform");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-24.1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-24.2");
   assert.equal(artifact.shotBoundaryAnalysis.agent.inputMode, "raw_video_path_text");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.phase, "raw_video_analyze");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.threadId, "thread_1");
@@ -687,13 +691,25 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => sheet.localImagePath === undefined), true);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => (sheet.gridItems ?? []).every((item) => item.filePath === undefined)), true);
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_transform 人物半身口播");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_transform 产品特写镜头");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_transform 人物半身面对镜头");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_transform 产品包装特写");
   assert.equal(artifact.shotBoundaryAnalysis.commerceBrief.videoSummary, "视频先口播介绍，再展示产品特写。");
+  assert.equal(transformTurns.length, 2);
   assert.equal(transformTurn.payload.inputs.length, 1);
   assert.equal(transformTurn.payload.inputs[0].type, "text");
+  assert.equal(transformTurn.payload.inputs.filter((item) => item.type === "localImage").length, 0);
+  assert.equal(visualSummaryTurn.payload.inputs.length, 5);
+  assert.equal(visualSummaryTurn.payload.inputs[0].type, "text");
+  assert.equal(visualSummaryTurn.payload.inputs.filter((item) => item.type === "localImage").length, 4);
   assert.match(transformTurn.payload.inputs[0].text, /结果转换 agent/);
   assert.match(transformTurn.payload.inputs[0].text, /rawAnalyzerResult/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /script-segment-analyzer/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /只写视觉画面内容/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /shots\[\]\.endBoundary\.reason/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /textLength/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /inputIndex/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /sourceFrameIndex/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /fileName/);
   assert.equal(harness.threadPool.released.length, 1);
   assert.deepEqual(harness.threadPool.released[0], { leaseId: "review_lease_1", ownerId: `${result.traceId}:transform`, thread_status: "idle" });
   assert.deepEqual(harness.threadPool.ownerReleased, []);
@@ -728,7 +744,7 @@ test("shot boundary skill content change misses old shot cache", async () => {
 
   assert.ok(cacheLookups.length >= 1);
   const currentLookup = cacheLookups[0];
-  assert.equal(currentLookup.profileVersion, "2026-05-24.1");
+  assert.equal(currentLookup.profileVersion, "2026-05-24.2");
   assert.equal(currentLookup.promptTemplateId, "transform");
   assert.equal(currentLookup.promptTemplateVersion, "transform.v1");
   assert.ok(currentLookup.promptTemplateHash);
@@ -787,7 +803,7 @@ test("shot boundary valid cache can be reused", async () => {
   const waitingJob = harness.jobStore.getJob(result.processingJobId);
   assert.equal(waitingJob.status, "cache_waiting");
   assert.equal(waitingJob.cachePrompt.cachedItem.analysisFps, 3);
-  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-24.1");
+  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-24.2");
   assert.equal(waitingJob.cachePrompt.promptTemplateId, "transform");
   assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "transform.v1");
   assert.ok(waitingJob.cachePrompt.promptTemplateHash);
@@ -1636,7 +1652,9 @@ async function createShotHarness({
 
 function isTransformTurnPayload(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
-  return text.includes("结果转换 agent") || (text.includes("videoSummary") && text.includes("rawAnalyzerResult"));
+  return text.includes("结果转换 agent")
+    || text.includes("修正 shots[].summary")
+    || (text.includes("videoSummary") && text.includes("rawAnalyzerResult"));
 }
 
 function createContactSheets(prepared, sampleDir, options = {}) {
@@ -1716,13 +1734,13 @@ function createTransformMessage() {
   return JSON.stringify({
     shots: [
       {
-        summary: "turn_transform 人物半身口播",
+        summary: "turn_transform 人物半身面对镜头",
         start: 0,
         end: 1.2,
-        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", needReview: false },
       },
       {
-        summary: "turn_transform 产品特写镜头",
+        summary: "turn_transform 产品包装特写",
         start: 1.2,
         end: 2,
         endBoundary: null,

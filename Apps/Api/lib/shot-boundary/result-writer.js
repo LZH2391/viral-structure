@@ -203,7 +203,7 @@ async function runTransformTurn({
       incompleteCode: "shot_boundary_transform_turn_incomplete",
       incompleteMessage: "切镜结果转换 Agent 未完成",
     });
-    const result = await runStage(context, stages.reviewValidated, 94, {
+    let result = await runStage(context, stages.reviewValidated, 94, {
       artifactId: context.artifactId,
       parentArtifactId: prepared.sourceArtifactId,
       inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: collected.turnId },
@@ -227,6 +227,71 @@ async function runTransformTurn({
         emptySheetCount: sheets.filter((sheet) => sheet.empty).length,
       }),
     });
+    const visualSheetCount = resultSheets.filter((sheet) => sheet.localImagePath).length;
+    if (visualSheetCount > 0) {
+      const visualSummaryTurn = reviewer.renderVisualSummaryTurnInputs({
+        result,
+        resultSheets,
+        roleProfile,
+      });
+      const visualStarted = await runStage(context, stages.visualSummaryStarted, 96, {
+        artifactId: context.artifactId,
+        parentArtifactId: prepared.sourceArtifactId,
+        inputSummary: { role: reviewer.role, threadId: lease.thread_id, leaseId: lease.lease_id, shotCount: result.shots.length, sheetCount: visualSheetCount },
+        action: () => appServer.startTurnWithInputs({
+          workspaceRoot: rootDir,
+          threadId: lease.thread_id,
+          inputs: visualSummaryTurn.inputs,
+          timeoutSeconds: 240,
+        }),
+        outputSummary: (value) => ({
+          role: reviewer.role,
+          threadId: value.threadId,
+          turnId: value.turnId,
+          status: value.status,
+          promptTemplateId: visualSummaryTurn.promptTemplateId,
+          promptTemplateVersion: visualSummaryTurn.promptTemplateVersion,
+          promptTemplateHash: visualSummaryTurn.promptTemplateHash,
+        }),
+      });
+      const visualCollected = await collectTurn({
+        context,
+        stageName: stages.visualSummaryCollected,
+        artifactId: context.artifactId,
+        parentArtifactId: prepared.sourceArtifactId,
+        threadId: lease.thread_id,
+        turnId: visualStarted.turnId,
+        appServer,
+        rootDir,
+        runStage,
+        inputSummary: (attempt) => ({ role: reviewer.role, threadId: lease.thread_id, turnId: visualStarted.turnId, attempt }),
+        outputSummary: (value, attempt) => ({
+          role: reviewer.role,
+          threadId: value.threadId,
+          turnId: value.turnId,
+          status: value.status,
+          attempt,
+          finalMessagePreview: safePreview(value.finalMessage),
+        }),
+        updateActiveThreadMessage,
+        activeMessageOptions: {
+          role: reviewer.role,
+          fallbackMessage: "正在修正镜头画面摘要",
+        },
+        maxAttempts: reviewer.reviewCollectMaxAttempts,
+        intervalMs: reviewer.reviewPollIntervalMs,
+        incompleteCode: "shot_boundary_visual_summary_turn_incomplete",
+        incompleteMessage: "镜头画面摘要 Agent 未完成",
+      });
+      const visualSummary = await runStage(context, stages.visualSummaryValidated, 97, {
+        artifactId: context.artifactId,
+        parentArtifactId: prepared.sourceArtifactId,
+        inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: visualCollected.turnId, shotCount: result.shots.length },
+        action: () => reviewer.validateVisualSummaryResult(visualCollected.finalMessage, result.shots, visualCollected),
+        outputSummary: (value) => reviewer.summarizeVisualSummaryResult(value),
+      });
+      result = reviewer.applyVisualSummaryResult(result, visualSummary);
+    }
     return {
       result,
       resultSheets,

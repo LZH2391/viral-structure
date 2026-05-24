@@ -20,12 +20,11 @@ function buildTransformOutputContract() {
     shots: "non-empty array, shot-centric.v2 contract",
     commerceBrief: "object, keep existing sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
     videoSummary: "short string, summarize the whole video",
-    "shots[].summary": "string, describe what this shot contains",
+    "shots[].summary": "string, describe only visible people/objects/actions/scenes in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
     "shots[].start": "number, first shot must start at 0",
     "shots[].end": "number, last shot must end at durationSeconds",
     "shots[].endBoundary": "object|null, null only for the last shot",
     "shots[].endBoundary.timestamp": "number, must equal current shot end",
-    "shots[].endBoundary.reason": "short string, explain why the cut happens here",
   };
 }
 
@@ -35,16 +34,7 @@ function buildTransformManifest({ prepared, rawFinalMessage }) {
     durationSeconds: prepared.durationSeconds,
     analysisSampling: prepared.analysisSampling ?? null,
     subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
-    frameSummary: Array.isArray(prepared.frames)
-      ? prepared.frames.slice(0, 12).map((frame) => ({
-        inputIndex: frame.inputIndex,
-        sourceFrameIndex: frame.sourceFrameIndex,
-        timestamp: frame.timestamp,
-        fileName: frame.fileName ?? null,
-      }))
-      : [],
     rawAnalyzerResult: {
-      textLength: String(rawFinalMessage ?? "").trim().length,
       textPreview: normalizeText(rawFinalMessage, 800),
     },
   };
@@ -64,6 +54,55 @@ function renderTransformTurnInputs({ prepared, rawFinalMessage, roleProfile }) {
   return {
     ...prompt,
     inputs: sanitizeForAppServerText([{ type: "text", text: prompt.text, text_elements: [] }]),
+    manifest,
+    outputContract,
+  };
+}
+
+function buildVisualSummaryOutputContract() {
+  return {
+    shots: "array, same order and count as input shots",
+    "shots[].shotNo": "string, copy from input shot",
+    "shots[].summary": "string, describe only visible people/objects/actions/scenes/product state in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
+  };
+}
+
+function buildVisualSummaryManifest({ shots, resultSheets }) {
+  return {
+    schemaVersion: "shot-boundary-visual-summary-input.v1",
+    shots: (Array.isArray(shots) ? shots : []).map((shot, index) => ({
+      shotNo: shot?.shotNo ?? `S${String(index + 1).padStart(3, "0")}`,
+      start: shot?.start ?? null,
+      end: shot?.end ?? null,
+      currentSummary: normalizeText(shot?.summary, 120),
+    })),
+    sheets: (Array.isArray(resultSheets) ? resultSheets : [])
+      .filter((sheet) => sheet?.localImagePath)
+      .map((sheet) => ({
+        shotNo: sheet.shotNo ?? null,
+        shotIndex: sheet.shotIndex ?? null,
+        start: sheet.start ?? null,
+        end: sheet.end ?? null,
+        pageIndex: sheet.pageIndex ?? 0,
+        pageCount: sheet.pageCount ?? 1,
+        frameCount: sheet.frameCount ?? 0,
+      })),
+  };
+}
+
+function renderVisualSummaryTurnInputs({ result, resultSheets, roleProfile }) {
+  const manifest = buildVisualSummaryManifest({ shots: result?.shots, resultSheets });
+  const outputContract = buildVisualSummaryOutputContract();
+  const prompt = renderTurnTemplate(roleProfile, "visualSummary", {
+    manifestJson: JSON.stringify(manifest),
+    outputContractJson: JSON.stringify(outputContract),
+  });
+  const visualInputs = (Array.isArray(resultSheets) ? resultSheets : [])
+    .filter((sheet) => sheet?.localImagePath)
+    .map((sheet) => ({ type: "localImage", path: sheet.localImagePath }));
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText([{ type: "text", text: prompt.text, text_elements: [] }, ...visualInputs]),
     manifest,
     outputContract,
   };
@@ -147,6 +186,9 @@ module.exports = {
   buildTransformOutputContract,
   buildTransformManifest,
   renderTransformTurnInputs,
+  buildVisualSummaryOutputContract,
+  buildVisualSummaryManifest,
+  renderVisualSummaryTurnInputs,
   prepareShotSheets,
   REVIEW_ROLE,
 };

@@ -23,7 +23,7 @@ function normalizeTimestampBoundaries(rawBoundaries) {
     boundaryType: boundary?.boundaryType == null || boundary?.boundaryType === ""
       ? null
       : normalizeBoundaryType(boundary?.boundaryType),
-    reason: String(boundary?.reason ?? "视觉变化").slice(0, 160),
+    reason: normalizeBoundaryReason(boundary?.reason),
     needReview: Boolean(boundary?.needReview),
   }));
 }
@@ -41,11 +41,17 @@ function normalizeShotCentricShots(rawShots) {
         boundaryType: shot.endBoundary?.boundaryType == null || shot.endBoundary?.boundaryType === ""
           ? null
           : normalizeBoundaryType(shot.endBoundary?.boundaryType),
-        reason: String(shot.endBoundary?.reason ?? "视觉变化").slice(0, 160),
+        reason: normalizeBoundaryReason(shot.endBoundary?.reason),
         needReview: Boolean(shot.endBoundary?.needReview),
       }
       : null,
   }));
+}
+
+function normalizeBoundaryReason(value) {
+  if (value == null) return null;
+  const normalized = String(value).replace(/\s+/g, " ").trim().slice(0, 160);
+  return normalized || null;
 }
 
 function deriveBoundariesFromShots(rawShots) {
@@ -277,9 +283,9 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedSho
       end: roundNormalizedTime(end),
       representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, end),
       confidence: boundary.confidence,
-      reason: boundary.reason,
+      reason: boundary.reason ?? null,
       summary: resolveShotSummary(safeParsedShots[shots.length]?.summary, boundary.reason),
-      endBoundaryReason: boundary.reason,
+      endBoundaryReason: boundary.reason ?? null,
     });
     start = end;
   }
@@ -291,8 +297,8 @@ function buildShotsFromBoundaries(boundaries, frames, durationSeconds, parsedSho
     end: roundNormalizedTime(safeDuration),
     representativeFrameId: resolveRepresentativeFrameIdByTime(normalizedFrames, start, safeDuration),
     confidence: boundaries.at(-1)?.confidence ?? 0.5,
-    reason: boundaries.at(-1)?.reason ?? "视觉连续",
-    summary: resolveShotSummary(safeParsedShots[shots.length]?.summary, boundaries.at(-1)?.reason ?? "视觉连续"),
+    reason: boundaries.at(-1)?.reason ?? null,
+    summary: resolveShotSummary(safeParsedShots[shots.length]?.summary, boundaries.at(-1)?.reason),
     endBoundaryReason: null,
   });
   return shots

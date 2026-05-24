@@ -252,8 +252,8 @@ export type ShotBoundaryAnalysisArtifact = {
   boundaries?: Array<{
     timestamp: number;
     confidence: number;
-    boundaryType: string;
-    reason: string;
+    boundaryType: string | null;
+    reason: string | null;
     needReview: boolean;
   }>;
   commerceBrief?: {
@@ -281,7 +281,7 @@ export type ShotBoundaryAnalysisArtifact = {
     end: number;
     representativeFrameId: string;
     confidence: number;
-    reason: string;
+    reason: string | null;
     summary?: string | null;
     endBoundaryReason?: string | null;
   }>;
