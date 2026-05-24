@@ -5,6 +5,7 @@ import { formatTime } from "../utils/format";
 import { fitMediaViewport } from "../utils/mediaViewport";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
 import { useElementSize } from "../hooks/useElementSize";
+import { beginUiStage, emitUiStage, type UiStage } from "../observability/uiStage";
 
 type PreviewPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -30,8 +31,11 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const { sampleVideo, activeMediaKind, processingText, traceText, errorText, videoRef, audioRef } = props;
   const previewPanelRef = useRef<HTMLElement>(null);
   const previewStageRef = useRef<HTMLDivElement>(null);
+  const videoLoadStageRef = useRef<UiStage | null>(null);
+  const videoLoadFailedRef = useRef(false);
   const [mainCanvas, setMainCanvas] = useState<HTMLCanvasElement | null>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [videoReloadNonce, setVideoReloadNonce] = useState(0);
   const size = useElementSize(previewStageRef);
   const activeMedia = useMemo(
     () =>
@@ -47,6 +51,9 @@ export function PreviewPanel(props: PreviewPanelProps) {
   const audioDerivative = useMemo(() => props.mediaDerivatives.find((item) => item.type === "audio-track") ?? null, [props.mediaDerivatives]);
   const waveformUrl = useMemo(() => (activeMedia.kind === "audio" ? activeMedia.url : runtimeUrl(audioDerivative?.uri ?? sampleVideo?.audioUri)), [activeMedia, audioDerivative?.uri, sampleVideo?.audioUri]);
   const audioUrl = activeMedia.kind === "audio" ? activeMedia.url : null;
+  const videoUrl = activeMedia.kind === "video" ? activeMedia.url : null;
+  const loadedVideoUrl = useMemo(() => buildReloadableMediaUrl(videoUrl, videoReloadNonce), [videoReloadNonce, videoUrl]);
+  const videoKey = `${sampleVideo?.id ?? "none"}:${props.selectedDerivativeId ?? "default"}:${loadedVideoUrl ?? "none"}`;
   const audioFeatureMarkers = useMemo(() => buildAudioFeatureMarkers(props.audioFeatures), [props.audioFeatures]);
   const selectedMarker = useMemo(() => audioFeatureMarkers.find((marker) => marker.id === props.selectedAudioFeatureMarkerId) ?? null, [audioFeatureMarkers, props.selectedAudioFeatureMarkerId]);
   const audioDuration = props.audioFeatures?.durationSeconds ?? sampleVideo?.duration ?? null;
@@ -85,6 +92,77 @@ export function PreviewPanel(props: PreviewPanelProps) {
     if (activeMedia.kind === "audio") videoRef.current?.pause();
     else audioRef.current?.pause();
   }, [activeMedia.kind, audioRef, videoRef]);
+
+  useEffect(() => {
+    setVideoReloadNonce(0);
+  }, [videoUrl]);
+
+  useEffect(() => {
+    if (!loadedVideoUrl) {
+      videoLoadStageRef.current = null;
+      videoLoadFailedRef.current = false;
+      return undefined;
+    }
+    const video = videoRef.current;
+    if (!video) return undefined;
+    videoLoadFailedRef.current = false;
+    const stage = beginUiStage({
+      uiTraceId: props.uiTraceId,
+      backendTraceId: props.backendTraceId ?? null,
+      stageName: "preview.video.load",
+      parentArtifactId: sampleVideo?.parentArtifactId ?? null,
+      inputSummary: {
+        sampleVideoId: sampleVideo?.id ?? null,
+        selectedDerivativeId: props.selectedDerivativeId ?? null,
+        reloadAttempt: videoReloadNonce,
+      },
+    });
+    videoLoadStageRef.current = stage;
+    emitUiStage(stage, "stage.start");
+    video.load();
+    return () => {
+      if (videoLoadStageRef.current === stage) videoLoadStageRef.current = null;
+    };
+  }, [loadedVideoUrl, props.backendTraceId, props.selectedDerivativeId, props.uiTraceId, sampleVideo?.id, sampleVideo?.parentArtifactId, videoRef, videoReloadNonce]);
+
+  const handleVideoLoadedMetadata = () => {
+    const stage = videoLoadStageRef.current;
+    if (!stage) return;
+    const video = videoRef.current;
+    emitUiStage(stage, "stage.end", {
+      outputSummary: {
+        recoveredAfterError: videoLoadFailedRef.current,
+        readyState: video?.readyState ?? null,
+        networkState: video?.networkState ?? null,
+        duration: Number.isFinite(video?.duration) ? video?.duration : null,
+      },
+    });
+    videoLoadStageRef.current = null;
+    videoLoadFailedRef.current = false;
+  };
+
+  const handleVideoError = () => {
+    const video = videoRef.current;
+    const stage = videoLoadStageRef.current;
+    videoLoadFailedRef.current = true;
+    if (stage) {
+      emitUiStage(stage, "stage.fail", {
+        errorSummary: {
+          code: "preview_video_load_failed",
+          message: "视频加载失败",
+          stageName: "preview.video.load",
+          retryable: videoReloadNonce < 1,
+        },
+        debugPayload: {
+          mediaErrorCode: video?.error?.code ?? null,
+          networkState: video?.networkState ?? null,
+          readyState: video?.readyState ?? null,
+          currentSrc: video?.currentSrc ?? loadedVideoUrl,
+        },
+      });
+    }
+    if (videoReloadNonce < 1) setVideoReloadNonce((value) => value + 1);
+  };
 
   useEffect(() => {
     if (activeMedia.kind !== "audio" || !props.audioSeekRequest) return undefined;
@@ -136,7 +214,20 @@ export function PreviewPanel(props: PreviewPanelProps) {
             <span>{traceText || "上传后显示预览、封面和抽帧"}</span>
           </div>
         )}
-        {sampleVideo && activeMedia.kind === "video" && activeMedia.url && <video id="sampleVideo" ref={videoRef} className="sample-video active" src={activeMedia.url} controls playsInline />}
+        {sampleVideo && activeMedia.kind === "video" && loadedVideoUrl && (
+          <video
+            key={videoKey}
+            id="sampleVideo"
+            ref={videoRef}
+            className="sample-video active"
+            src={loadedVideoUrl}
+            controls
+            playsInline
+            preload="metadata"
+            onLoadedMetadata={handleVideoLoadedMetadata}
+            onError={handleVideoError}
+          />
+        )}
         {sampleVideo && activeMedia.kind === "image" && activeMedia.url && <img id="mediaImagePreview" className="media-image-preview active" src={activeMedia.url} alt={activeMedia.alt} />}
         {sampleVideo && activeMedia.kind === "audio" && activeMedia.url && (
           <div id="audioWaveformPanel" className="audio-waveform-panel active" aria-label="音频波形播放器">
@@ -270,4 +361,10 @@ function resolveSeekDuration(audio: HTMLAudioElement, fallbackDuration: number |
   if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
   if (Number.isFinite(fallbackDuration) && fallbackDuration && fallbackDuration > 0) return Number(fallbackDuration);
   return Math.max(1, targetTime);
+}
+
+function buildReloadableMediaUrl(url: string | null, reloadNonce: number) {
+  if (!url || reloadNonce <= 0) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}mediaRetry=${reloadNonce}`;
 }
