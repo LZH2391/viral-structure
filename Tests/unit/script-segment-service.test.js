@@ -12,6 +12,7 @@ const {
   renderAnalyzeTurnInputs,
   frameBelongsToShot,
 } = require("../../Apps/Api/lib/script-segment-analysis/input");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
@@ -641,7 +642,7 @@ async function createScriptHarness({ appServer = {} } = {}) {
   await store.ensureRuntimeDirs();
   const logger = createStageLogger(store);
   const jobStore = createJobStore();
-  const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const artifact = createArtifact();
   await store.ensureSampleDirs(artifact.sampleVideoId);
   await seedFrameFiles(store, artifact);

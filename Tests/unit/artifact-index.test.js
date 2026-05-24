@@ -6,6 +6,7 @@ const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { createJobStore } = require("../../Apps/Api/lib/job-store");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
 const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
 const { createArtifactIndex, createCacheKey, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
@@ -22,7 +23,7 @@ test("artifact index registers list, detail, load and cache entries", async () =
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const artifact = createArtifact();
   const fileHash = hashBuffer(Buffer.from("video"));
   await index.registerSampleArtifact({ artifact, fileHash, traceId: "trace_1" });
@@ -44,7 +45,7 @@ test("artifact index lists latest item per file and skips degraded cache entries
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-latest-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const fileHash = hashBuffer(Buffer.from("same-video"));
 
   await index.registerSampleArtifact({ artifact: createArtifact({ sampleVideoId: "sample_old", subtitleStatus: "degraded" }), fileHash, traceId: "trace_old" });
@@ -71,7 +72,7 @@ test("artifact index keeps subtitle revised stage params and lineage", async () 
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-subtitle-revised-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const artifact = createArtifact({ sampleVideoId: "sample_subtitle_revision" });
   artifact.subtitles = {
     artifactId: "artifact_subtitle_revision_1",
@@ -162,7 +163,7 @@ test("failed shot boundary artifact does not register processed shot cache entry
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-invalid-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const fileHash = hashBuffer(Buffer.from("shot-invalid"));
   const artifact = {
     ...createArtifact({ sampleVideoId: "sample_invalid_shot" }),
@@ -222,7 +223,7 @@ test("shot boundary cache params stay stable with minimal fingerprint fields", a
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-stable-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const fileHash = hashBuffer(Buffer.from("shot-stable"));
   const artifact = createArtifact({ sampleVideoId: "sample_stable_shot" });
   artifact.shotBoundaryAnalysis = createProcessedShotAnalysis({
@@ -262,7 +263,7 @@ test("shot boundary cache registration includes role prompt fingerprint params w
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-cache-agent-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
-  const index = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const fileHash = hashBuffer(Buffer.from("shot-agent"));
   const artifact = createArtifact({ sampleVideoId: "sample_agent_shot" });
   artifact.shotBoundaryAnalysis = createProcessedShotAnalysis({

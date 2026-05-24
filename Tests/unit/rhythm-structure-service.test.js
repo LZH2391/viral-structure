@@ -7,6 +7,7 @@ const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const contactSheetGenerator = require("../../Infrastructure/MediaProcessing/contact-sheet-generator");
 const { createRhythmStructureService, STAGES, prepareInput } = require("../../Apps/Api/lib/rhythm-structure-service");
 const { prepareInputPackage, renderAnalyzeTurnInputs } = require("../../Apps/Api/lib/rhythm-structure-analysis/input");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
@@ -199,7 +200,7 @@ async function createRhythmHarness({ appServer = {} } = {}) {
   await store.ensureRuntimeDirs();
   const logger = createStageLogger(store);
   const jobStore = createJobStore();
-  const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1" });
+  const artifactIndex = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
   const artifact = createArtifact();
   await store.ensureSampleDirs(artifact.sampleVideoId);
   await store.writeJson(path.join(store.sampleDir(artifact.sampleVideoId), "artifact.json"), artifact);

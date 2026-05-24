@@ -28,6 +28,7 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
   return {
     artifactId: context.artifactId ?? `artifact_${randomUUID()}`,
     parentArtifactId: input.parentArtifactId,
+    traceId: context.traceContext?.traceId ?? null,
     type: "script-segment-analysis",
     status: "processed",
     resultOrigin: repairAttemptCount > 0 ? "repaired_turn" : "new_turn",
@@ -56,6 +57,7 @@ function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {
   return {
     artifactId: context.artifactId ?? `artifact_${randomUUID()}`,
     parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? context.artifact?.sampleVideo?.artifactId ?? null,
+    traceId: context.traceContext?.traceId ?? null,
     type: "script-segment-analysis",
     status: "failed",
     resultOrigin: context.validationSummary?.repairAttemptCount ? "failed_validation" : "new_turn",
@@ -101,6 +103,8 @@ function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
     ...cachedAnalysis,
     artifactId: context.artifactId ?? `artifact_${randomUUID()}`,
     parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? cachedAnalysis?.parentArtifactId ?? null,
+    traceId: context.traceContext?.traceId ?? null,
+    sourceTraceId: cachedAnalysis?.traceId ?? cachedAnalysis?.agent?.traceId ?? null,
     sourceShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? cachedAnalysis?.sourceShotBoundaryArtifactId ?? null,
     sourceShotCount: context.input?.shots?.length ?? cachedAnalysis?.sourceShotCount ?? 0,
     resultOrigin: "cache_reuse",

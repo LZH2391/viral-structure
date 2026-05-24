@@ -89,6 +89,8 @@ function normalizeCachePrompt(cachePrompt: ProcessingJob["cachePrompt"]) {
     cacheKey: cachePrompt.cacheKey ?? null,
     analysisFps: cachePrompt.analysisFps ?? null,
     sourceSampleVideoId: cachePrompt.sourceSampleVideoId ?? null,
+    sourceArtifactId: cachePrompt.sourceArtifactId ?? null,
+    sourceTraceId: cachePrompt.sourceTraceId ?? null,
     sourceTurnId: cachePrompt.sourceTurnId ?? null,
     sourceCreatedAt: cachePrompt.sourceCreatedAt ?? null,
     cachedItem: cachePrompt.cachedItem
@@ -98,6 +100,8 @@ function normalizeCachePrompt(cachePrompt: ProcessingJob["cachePrompt"]) {
           cacheKey: cachePrompt.cachedItem.cacheKey ?? null,
           cacheKind: cachePrompt.cachedItem.cacheKind ?? null,
           updatedAt: cachePrompt.cachedItem.updatedAt ?? null,
+          sourceArtifactId: cachePrompt.cachedItem.sourceArtifactId ?? null,
+          sourceTraceId: cachePrompt.cachedItem.sourceTraceId ?? null,
           analysisFps: cachePrompt.cachedItem.analysisFps ?? null,
           segmentCount: cachePrompt.cachedItem.segmentCount ?? null,
           cardCount: cachePrompt.cachedItem.cardCount ?? null,

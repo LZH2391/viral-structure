@@ -88,6 +88,7 @@ function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, conte
   return {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
+    traceId: context.traceContext?.traceId ?? null,
     type: "shot-boundary-analysis",
     status: "processed",
     resultOrigin: options.resultOrigin ?? "new_turn",
@@ -159,6 +160,7 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
   return {
     artifactId: context.artifactId,
     parentArtifactId: context.sampleArtifact?.sampleVideo?.artifactId ?? null,
+    traceId: context.traceContext?.traceId ?? null,
     type: "shot-boundary-analysis",
     status: "failed",
     resultOrigin: validation?.repairAttemptCount ? "failed_validation" : "new_turn",
@@ -212,6 +214,7 @@ function buildFailedArtifact(context, errorSummary, contactSheets = []) {
 function buildCacheReuseAnalysis(analysis) {
   return {
     ...analysis,
+    traceId: analysis?.traceId ?? analysis?.agent?.traceId ?? null,
     resultOrigin: "cache_reuse",
     validation: analysis.validation ?? null,
     createdAt: new Date().toISOString(),

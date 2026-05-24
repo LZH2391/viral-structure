@@ -17,7 +17,7 @@ const {
   evaluateCacheEligibility,
 } = require("./rhythm-structure-analysis/result-builder");
 const { buildRhythmStructureContentFingerprint } = require("./rhythm-structure-analysis/cache-params");
-const { appendRhythmStructureHistory } = require("./rhythm-structure/history");
+const { attachRhythmStructureAnalysis } = require("./rhythm-structure/artifact-writer");
 const {
   findCachedArtifact,
   runCacheLookup,
@@ -609,15 +609,7 @@ function conflictError(code, message, debugPayload = null) {
 }
 
 async function attachRhythmStructures(sampleVideoId, rhythmStructureAnalysis, store, traceMeta = {}) {
-  const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-  const artifact = await store.readJson(artifactPath);
-  artifact.rhythmStructureAnalysis = rhythmStructureAnalysis;
-  artifact.rhythmStructureAnalysisHistory = appendRhythmStructureHistory(artifact.rhythmStructureAnalysisHistory, rhythmStructureAnalysis, {
-    traceId: traceMeta.traceId ?? artifact.trace?.traceId ?? null,
-    sourceTraceId: traceMeta.sourceTraceId ?? artifact.trace?.traceId ?? null,
-  });
-  await store.writeJson(artifactPath, artifact);
-  return artifact;
+  return attachRhythmStructureAnalysis(sampleVideoId, rhythmStructureAnalysis, store, traceMeta);
 }
 
 async function loadArtifact(sampleVideoId, store) {

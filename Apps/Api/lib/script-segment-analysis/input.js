@@ -1,7 +1,13 @@
 const fs = require("fs/promises");
 const path = require("path");
-const contactSheetGenerator = require("../../../../Infrastructure/MediaProcessing/contact-sheet-generator");
 const { renderTurnTemplate } = require("../role-profile-loader");
+const {
+  planShotFramePages: planSharedShotFramePages,
+  frameBelongsToShot: frameBelongsToShotShared,
+  buildShotFrameVisualManifest,
+  stripVisualManifestPaths,
+} = require("../analysis-input/shot-frame-pages");
+const { buildShotSubtitleMap: buildSharedShotSubtitleMap } = require("../analysis-input/subtitle-shot-map");
 const {
   MAX_UNCERTAINTIES,
   MAX_TEXT_FIELD_LENGTH,
@@ -37,7 +43,7 @@ function prepareInput(artifact, options = {}) {
     summary: normalizeText(shot.summary ?? shot.reason ?? "镜头内容", 160),
     isLastShot: index === shots.length - 1,
   }));
-  const shotSubtitleMap = buildShotSubtitleMap(normalizedShotWindows, artifact?.subtitles);
+  const shotSubtitleMap = buildSharedShotSubtitleMap(normalizedShotWindows, artifact?.subtitles);
   const normalizedShots = normalizedShotWindows.map((shot) => ({
     shotId: shot.shotId,
     shotNo: shot.shotNo,
@@ -83,7 +89,7 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   const metadata = buildMetadata(inputPackageDir, input);
   const lineage = buildLineage(input);
   const outputContract = buildOutputContract();
-  const shotFramePages = planShotFramePages(input);
+  const shotFramePages = planSharedShotFramePages(input);
   const visualManifest = await buildVisualManifest({
     input,
     shotFramePages,
@@ -247,82 +253,14 @@ function planShotFramePages(input) {
 }
 
 async function buildVisualManifest({ input, shotFramePages, sampleDir, sheetsDir, store }) {
-  const sheets = [];
-  const shots = [];
-  let emptyShotCount = 0;
-  for (const pageGroup of shotFramePages) {
-    if (!pageGroup.frames.length) {
-      emptyShotCount += 1;
-      shots.push({
-        shotId: pageGroup.shot.shotId,
-        shotNo: pageGroup.shot.shotNo,
-        pageCount: 0,
-        frameCount: 0,
-        empty: true,
-        pages: [],
-      });
-      continue;
-    }
-    const renderedSheets = await contactSheetGenerator.generateContactSheets({
-      frames: pageGroup.frames,
-      frameWidth: input.frameDimensions?.width ?? 0,
-      frameHeight: input.frameDimensions?.height ?? 0,
-      sampleDir,
-      parentArtifactId: input.parentArtifactId,
-      store,
-      outputSubdir: "sheets",
-      sheetPurpose: SCRIPT_SEGMENT_SHEET_PURPOSE,
-      buildSheetId: ({ sheetIndex }) => `${pageGroup.shot.shotNo}-p${sheetIndex + 1}`,
-      buildGridItemLabel: (frame) => `${pageGroup.shot.shotNo} ${Number(frame.timestamp ?? 0).toFixed(3)}s`,
-      outputFileNameBuilder: (sheet) => `${sheet.sheetId}.jpg`,
-      constraints: {
-        ...contactSheetGenerator.DEFAULT_CONSTRAINTS,
-        overlapFrameCount: 0,
-      },
-    });
-    const normalizedSheets = renderedSheets.map((sheet, pageIndex) => {
-      const entry = {
-        shotId: pageGroup.shot.shotId,
-        shotNo: pageGroup.shot.shotNo,
-        sheetId: sheet.sheetId,
-        pageIndex,
-        pageCount: renderedSheets.length,
-        frameCount: sheet.frameCount,
-        localImagePath: sheet.localImagePath,
-        uri: sheet.uri,
-        cells: sheet.gridItems.map((item) => ({
-          frameId: item.frameId,
-          timestamp: item.timestamp,
-          row: item.row,
-          col: item.col,
-          displayLabel: item.displayFrameLabel,
-        })),
-      };
-      sheets.push(entry);
-      return entry;
-    });
-    shots.push({
-      shotId: pageGroup.shot.shotId,
-      shotNo: pageGroup.shot.shotNo,
-      pageCount: normalizedSheets.length,
-      frameCount: pageGroup.frames.length,
-      empty: false,
-      pages: normalizedSheets.map((sheet) => ({
-        pageIndex: sheet.pageIndex,
-        pageCount: sheet.pageCount,
-        frameCount: sheet.frameCount,
-        sheetId: sheet.sheetId,
-      })),
-    });
-  }
-  return sanitizeForAppServerText({
+  return sanitizeForAppServerText(await buildShotFrameVisualManifest({
+    input,
+    shotFramePages,
+    sampleDir,
+    store,
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
     sheetPurpose: SCRIPT_SEGMENT_SHEET_PURPOSE,
-    sheetCount: sheets.length,
-    emptyShotCount,
-    shots,
-    sheets,
-  });
+  }));
 }
 
 function buildInputSummaryText(inputPackage) {
@@ -333,20 +271,7 @@ function buildInputSummaryText(inputPackage) {
 }
 
 function frameBelongsToShot(frame, shot, isLastShot) {
-  const timestamp = Number(frame?.timestamp ?? Number.NaN);
-  const start = Number(shot?.start ?? Number.NaN);
-  const end = Number(shot?.end ?? Number.NaN);
-  if (!Number.isFinite(timestamp) || !Number.isFinite(start) || !Number.isFinite(end)) return false;
-  return isLastShot ? timestamp >= start && timestamp <= end : timestamp >= start && timestamp < end;
-}
-
-function stripVisualManifestPaths(visualManifest) {
-  return {
-    ...visualManifest,
-    sheets: Array.isArray(visualManifest?.sheets)
-      ? visualManifest.sheets.map(({ localImagePath, uri, ...sheet }) => sheet)
-      : [],
-  };
+  return frameBelongsToShotShared(frame, shot, isLastShot);
 }
 
 function normalizeCommerceBrief(brief) {

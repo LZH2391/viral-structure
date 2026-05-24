@@ -9,6 +9,15 @@ export type ArtifactRef = {
   summary?: string | null;
 };
 
+export type AnalysisResultRef = {
+  artifactId: string;
+  artifactType: string;
+  uri: string;
+  current: boolean;
+  createdAt: string;
+  parentArtifactId: string | null;
+};
+
 export type FrameArtifact = {
   frameId: string;
   artifactId: string;
@@ -124,8 +133,10 @@ export type SampleArtifact = {
   shotBoundaryAnalysis?: ShotBoundaryAnalysisArtifact | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
+  scriptSegmentAnalysisRef?: AnalysisResultRef | null;
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   rhythmStructureAnalysis?: RhythmStructureArtifact | null;
+  rhythmStructureAnalysisRef?: AnalysisResultRef | null;
   rhythmStructureAnalysisHistory?: RhythmStructureHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
@@ -628,8 +639,10 @@ export type ScriptSegmentHistoryEntry = {
   traceId: string | null;
   sourceTraceId?: string | null;
   sourceSampleVideoId?: string | null;
+  sourceArtifactId?: string | null;
   sourceTurnId?: string | null;
   cacheKey?: string | null;
+  resultUri?: string | null;
   createdAt: string;
   validatorCode?: string | null;
 };
@@ -691,8 +704,10 @@ export type RhythmStructureHistoryEntry = {
   traceId: string | null;
   sourceTraceId?: string | null;
   sourceSampleVideoId?: string | null;
+  sourceArtifactId?: string | null;
   sourceTurnId?: string | null;
   cacheKey?: string | null;
+  resultUri?: string | null;
   createdAt: string;
   validatorCode?: string | null;
 };
@@ -861,6 +876,8 @@ export type LibraryItemSummary = {
   cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
   traceId?: string | null;
   sourceSampleVideoId?: string | null;
+  sourceTraceId?: string | null;
+  sourceArtifactId?: string | null;
   sourceTurnId?: string | null;
   sourceCreatedAt?: string | null;
   cacheKey?: string | null;

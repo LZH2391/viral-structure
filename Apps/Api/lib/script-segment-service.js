@@ -17,7 +17,7 @@ const {
   evaluateCacheEligibility,
 } = require("./script-segment-analysis/result-builder");
 const { buildScriptSegmentContentFingerprint } = require("./script-segment-analysis/cache-params");
-const { appendScriptSegmentHistory } = require("./script-segment/history");
+const { attachScriptSegmentAnalysis } = require("./script-segment/artifact-writer");
 const {
   findCachedArtifact,
   runCacheLookup,
@@ -585,15 +585,7 @@ function conflictError(code, message, debugPayload = null) {
 }
 
 async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store, traceMeta = {}) {
-  const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-  const artifact = await store.readJson(artifactPath);
-  artifact.scriptSegmentAnalysis = scriptSegmentAnalysis;
-  artifact.scriptSegmentAnalysisHistory = appendScriptSegmentHistory(artifact.scriptSegmentAnalysisHistory, scriptSegmentAnalysis, {
-    traceId: traceMeta.traceId ?? artifact.trace?.traceId ?? null,
-    sourceTraceId: traceMeta.sourceTraceId ?? artifact.trace?.traceId ?? null,
-  });
-  await store.writeJson(artifactPath, artifact);
-  return artifact;
+  return attachScriptSegmentAnalysis(sampleVideoId, scriptSegmentAnalysis, store, traceMeta);
 }
 
 async function loadArtifact(sampleVideoId, store) {

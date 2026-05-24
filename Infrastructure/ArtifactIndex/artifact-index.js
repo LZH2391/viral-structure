@@ -1,13 +1,10 @@
 const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
-const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
-const { buildScriptSegmentCacheParams } = require("../../Apps/Api/lib/script-segment-analysis/cache-params");
-const { buildRhythmStructureCacheParams } = require("../../Apps/Api/lib/rhythm-structure-analysis/cache-params");
 
 const INDEX_VERSION = 1;
 
-function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
+function createArtifactIndex({ store, processorVersion = "local-media-v1", cacheParamBuilders = {} }) {
   const indexRoot = path.join(store.runtimeRoot, "ArtifactIndex");
   const indexPath = path.join(indexRoot, "index.json");
 
@@ -38,7 +35,7 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
 
   async function registerSampleArtifact({ artifact, fileHash, traceId }) {
     const index = await readIndex();
-    const item = buildLibraryItem({ artifact, fileHash, traceId, processorVersion });
+    const item = buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cacheParamBuilders });
     index.items[item.sampleVideoId] = item;
     for (const entry of item.cacheEntries) {
       index.cacheEntries[entry.cacheKey] = {
@@ -134,14 +131,15 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1" }) {
 function detailFromItem(item) {
   return {
     ...item,
-    artifactTree: buildArtifactTree(item.artifact),
+    artifactTree: item.artifactNodes ?? buildArtifactTree(item.artifact),
   };
 }
 
-function buildLibraryItem({ artifact, fileHash, traceId, processorVersion }) {
+function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cacheParamBuilders }) {
   const now = new Date().toISOString();
   const tags = buildTags(artifact);
-  const artifactTree = buildArtifactTree(artifact);
+  const artifactTree = buildArtifactTree(artifact, cacheParamBuilders);
+  const latestAnalysis = artifact.rhythmStructureAnalysis ?? artifact.scriptSegmentAnalysis ?? artifact.shotBoundaryAnalysis ?? null;
   return {
     sampleVideoId: artifact.sampleVideoId,
     workspaceId: artifact.workspaceId,
@@ -151,25 +149,29 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion }) {
     width: artifact.metadata?.width ?? null,
     height: artifact.metadata?.height ?? null,
     traceId: traceId ?? artifact.trace?.traceId ?? null,
+    sourceTraceId: latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? null,
+    sourceTurnId: latestAnalysis?.sourceTurnId ?? latestAnalysis?.agent?.turnId ?? null,
+    sourceArtifactId: latestAnalysis?.sourceScriptSegmentArtifactId ?? latestAnalysis?.sourceRhythmStructureArtifactId ?? latestAnalysis?.artifactId ?? null,
     updatedAt: now,
     tags,
     cacheAvailable: true,
     processorVersion,
     artifact,
     artifactNodes: artifactTree,
-    cacheEntries: buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion }),
+    cacheEntries: buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion, cacheParamBuilders }),
   };
 }
 
-function buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion }) {
+function buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion, cacheParamBuilders }) {
   return artifactTree
     .filter((node) => node.stageName && node.artifactId && node.status === "processed")
     .map((node) => {
-      const params = stageParams(artifact, node.stageName);
+      const params = stageParams(artifact, node.stageName, cacheParamBuilders);
       return {
         cacheKey: createCacheKey({ fileHash, stageName: node.stageName, params, version: processorVersion }),
         stageName: node.stageName,
         artifactId: node.artifactId,
+        artifactType: node.artifactType ?? null,
         parentArtifactId: node.parentArtifactId,
         params,
         processorVersion,
@@ -179,7 +181,7 @@ function buildCacheEntries({ artifact, fileHash, artifactTree, processorVersion 
     });
 }
 
-function buildArtifactTree(artifact) {
+function buildArtifactTree(artifact, cacheParamBuilders = {}) {
   const nodes = [];
   pushRef(nodes, artifact.sampleVideo?.original, "sample.source.saved", artifact);
   pushRef(nodes, artifact.sampleVideo?.normalized, "sample.artifact.written", artifact);
@@ -191,7 +193,7 @@ function buildArtifactTree(artifact) {
     artifactId: "frame-set",
     parentArtifactId: artifact.sampleVideo?.artifactId ?? null,
     status: artifact.frames?.length ? "processed" : "missing",
-    params: stageParams(artifact, "sample.frames.extracted"),
+    params: stageParams(artifact, "sample.frames.extracted", cacheParamBuilders),
     traceId: artifact.trace?.traceId ?? null,
     uri: null,
     summary: `${artifact.frames?.length ?? 0} 帧`,
@@ -223,45 +225,51 @@ function buildArtifactTree(artifact) {
     pushNode(nodes, artifact.shotBoundaryAnalysis, "shot.boundary_merge", artifact, `${artifact.shotBoundaryAnalysis.shots?.length ?? 0} 镜 / ${artifact.shotBoundaryAnalysis.boundaries?.length ?? 0} 边界${commerceSummary}`);
   }
   if (artifact.scriptSegmentAnalysis) {
-    pushNode(
-      nodes,
-      artifact.scriptSegmentAnalysis,
-      "script_segment.materialize",
-      artifact,
-      `${artifact.scriptSegmentAnalysis.segments?.length ?? 0} 段 / ${artifact.scriptSegmentAnalysis.validation?.status ?? "unknown"}`,
-    );
+    pushAnalysisNode(nodes, artifact.scriptSegmentAnalysisRef, artifact.scriptSegmentAnalysis, "script_segment.materialize", artifact, cacheParamBuilders, `${artifact.scriptSegmentAnalysis.segments?.length ?? 0} 段 / ${artifact.scriptSegmentAnalysis.validation?.status ?? "unknown"}`);
   }
   if (artifact.rhythmStructureAnalysis) {
-    pushNode(
-      nodes,
-      artifact.rhythmStructureAnalysis,
-      "rhythm_structure.materialize",
-      artifact,
-      `${artifact.rhythmStructureAnalysis.cards?.length ?? 0} 卡 / ${artifact.rhythmStructureAnalysis.validation?.status ?? "unknown"}`,
-    );
+    pushAnalysisNode(nodes, artifact.rhythmStructureAnalysisRef, artifact.rhythmStructureAnalysis, "rhythm_structure.materialize", artifact, cacheParamBuilders, `${artifact.rhythmStructureAnalysis.cards?.length ?? 0} 卡 / ${artifact.rhythmStructureAnalysis.validation?.status ?? "unknown"}`);
   }
   return nodes;
 }
 
-function pushRef(nodes, ref, stageName, artifact) {
+function pushRef(nodes, ref, stageName, artifact, cacheParamBuilders = {}) {
   if (!ref) return;
-  pushNode(nodes, ref, stageName, artifact, ref.summary ?? ref.type);
+  pushNode(nodes, ref, stageName, artifact, ref.summary ?? ref.type, cacheParamBuilders);
 }
 
-function pushNode(nodes, ref, stageName, artifact, summary) {
+function pushNode(nodes, ref, stageName, artifact, summary, cacheParamBuilders = {}) {
   nodes.push({
     id: ref.artifactId,
     label: artifactLabel(ref.type),
     stageName,
     artifactId: ref.artifactId,
+    artifactType: ref.artifactType ?? ref.type ?? null,
     parentArtifactId: ref.parentArtifactId ?? null,
     status: ref.status ?? (ref.uri === null ? "degraded" : "processed"),
-    params: stageParams(artifact, stageName),
+    params: stageParams(artifact, stageName, cacheParamBuilders),
     traceId: artifact.trace?.traceId ?? null,
     cacheKey: null,
     uri: ref.uri ?? null,
     summary: summary ?? null,
   });
+}
+
+function pushAnalysisNode(nodes, ref, current, stageName, artifact, cacheParamBuilders, summary) {
+  if (ref?.artifactId) {
+    pushNode(nodes, {
+      artifactId: ref.artifactId,
+      artifactType: ref.artifactType ?? current?.type ?? null,
+      parentArtifactId: ref.parentArtifactId ?? current?.parentArtifactId ?? null,
+      status: current?.status ?? "processed",
+      uri: ref.uri ?? null,
+      type: current?.type ?? ref.artifactType ?? null,
+    }, stageName, artifact, summary, cacheParamBuilders);
+    return;
+  }
+  if (current) {
+    pushNode(nodes, current, stageName, artifact, summary, cacheParamBuilders);
+  }
 }
 
 function summarizeLibraryItem(item) {
@@ -275,6 +283,9 @@ function summarizeLibraryItem(item) {
     tags: item.tags,
     cacheAvailable: item.cacheAvailable,
     traceId: item.traceId,
+    sourceTraceId: item.sourceTraceId ?? null,
+    sourceTurnId: item.sourceTurnId ?? null,
+    sourceArtifactId: item.sourceArtifactId ?? null,
   };
 }
 
@@ -291,7 +302,11 @@ function buildTags(artifact) {
   ].filter(Boolean);
 }
 
-function stageParams(artifact, stageName) {
+function stageParams(artifact, stageName, cacheParamBuilders = {}) {
+  const builder = cacheParamBuilders[stageName];
+  if (typeof builder === "function") {
+    return builder(artifact) ?? {};
+  }
   const options = artifact.processingOptions ?? {};
   if (stageName === "sample.frames.extracted") return { frameSampleRateFps: options.frameSampleRateFps ?? 10 };
   if (stageName === "sample.audio.separated") return { demucsMode: "two-stems-vocals", enabled: Boolean(options.enableAudioSeparation) };
@@ -320,51 +335,7 @@ function stageParams(artifact, stageName) {
       sourceAudioArtifactId: artifact.audioFeatures?.sourceAudioArtifactId ?? null,
     };
   }
-  if (stageName === "shot.boundary_merge" || stageName === "agent.shotBoundary.resultWritten") {
-    return buildShotBoundaryCacheParams({
-      sourceArtifactId: artifact.shotBoundaryAnalysis?.parentArtifactId ?? artifact.sampleVideo?.artifactId ?? null,
-      analysisSampling: artifact.shotBoundaryAnalysis?.analysisSampling ?? null,
-      subtitleContextSummary: artifact.shotBoundaryAnalysis?.subtitleContextSummary ?? null,
-      profileVersion: artifact.shotBoundaryAnalysis?.agent?.profileVersion ?? null,
-      promptTemplateId: artifact.shotBoundaryAnalysis?.agent?.promptTemplateId ?? null,
-      promptTemplateVersion: artifact.shotBoundaryAnalysis?.agent?.promptTemplateVersion ?? null,
-      promptTemplateHash: artifact.shotBoundaryAnalysis?.agent?.promptTemplateHash ?? null,
-      reviewMode: artifact.shotBoundaryAnalysis?.agent?.reviewMode ?? (artifact.shotBoundaryAnalysis?.agent?.enableReview === false ? "unreviewed" : "reviewed"),
-      skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
-    });
-  }
-  if (stageName === "script_segment.materialize") {
-    return buildScriptSegmentStageParams(artifact);
-  }
-  if (stageName === "rhythm_structure.materialize") {
-    return buildRhythmStructureStageParams(artifact);
-  }
   return {};
-}
-
-function buildScriptSegmentStageParams(artifact) {
-  return buildScriptSegmentCacheParams({
-    inputFingerprint: artifact.scriptSegmentAnalysis?.cacheKey ?? null,
-    sourceShotArtifactId: artifact.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
-    profileVersion: artifact.scriptSegmentAnalysis?.agent?.profileVersion ?? null,
-    promptTemplateId: artifact.scriptSegmentAnalysis?.agent?.promptTemplateId ?? null,
-    promptTemplateVersion: artifact.scriptSegmentAnalysis?.agent?.promptTemplateVersion ?? null,
-    promptTemplateHash: artifact.scriptSegmentAnalysis?.agent?.promptTemplateHash ?? null,
-    skillHash: artifact.scriptSegmentAnalysis?.agent?.skillHash ?? null,
-  });
-}
-
-function buildRhythmStructureStageParams(artifact) {
-  return buildRhythmStructureCacheParams({
-    inputFingerprint: artifact.rhythmStructureAnalysis?.cacheKey ?? null,
-    sourceShotArtifactId: artifact.rhythmStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
-    sourceScriptSegmentArtifactId: artifact.rhythmStructureAnalysis?.sourceScriptSegmentArtifactId ?? null,
-    profileVersion: artifact.rhythmStructureAnalysis?.agent?.profileVersion ?? null,
-    promptTemplateId: artifact.rhythmStructureAnalysis?.agent?.promptTemplateId ?? null,
-    promptTemplateVersion: artifact.rhythmStructureAnalysis?.agent?.promptTemplateVersion ?? null,
-    promptTemplateHash: artifact.rhythmStructureAnalysis?.agent?.promptTemplateHash ?? null,
-    skillHash: artifact.rhythmStructureAnalysis?.agent?.skillHash ?? null,
-  });
 }
 
 function artifactLabel(type) {

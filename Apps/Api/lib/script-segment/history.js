@@ -9,8 +9,10 @@ function appendScriptSegmentHistory(history, analysis, traceMeta) {
     traceId: traceMeta?.traceId ?? null,
     sourceTraceId: traceMeta?.sourceTraceId ?? null,
     sourceSampleVideoId: analysis?.sourceSampleVideoId ?? null,
+    sourceArtifactId: traceMeta?.sourceArtifactId ?? analysis?.sourceScriptSegmentArtifactId ?? null,
     sourceTurnId: analysis?.sourceTurnId ?? null,
     cacheKey: analysis?.cacheKey ?? null,
+    resultUri: traceMeta?.resultUri ?? null,
     createdAt: analysis?.createdAt ?? new Date().toISOString(),
     validatorCode: analysis?.validation?.validatorCode ?? null,
   };
