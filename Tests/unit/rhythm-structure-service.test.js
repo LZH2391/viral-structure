@@ -143,6 +143,56 @@ test("rhythm service cache reuse creates current artifact with lineage", async (
   assert.equal(artifact.rhythmStructureAnalysisHistory.at(-1).resultOrigin, "cache_reuse");
 });
 
+test("rhythm service surfaces latest running thread message with matching agent run", async () => {
+  let releaseCompletion;
+  const completionGate = new Promise((resolve) => {
+    releaseCompletion = resolve;
+  });
+  const harness = await createRhythmHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_rhythm_1", turnId: "turn_rhythm_1", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        if (harness.calls.collected.length === 1) {
+          return {
+            ok: false,
+            threadId: "thread_rhythm_1",
+            turnId: "turn_rhythm_1",
+            status: "running",
+            finalMessage: "",
+            activeThreadMessage: "正在整理节奏结构证据",
+          };
+        }
+        await completionGate;
+        return {
+          ok: true,
+          threadId: "thread_rhythm_1",
+          turnId: "turn_rhythm_1",
+          status: "completed",
+          activeThreadMessage: null,
+          finalMessage: JSON.stringify(createRhythmOutput()),
+        };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_rhythm_1" });
+  const runningJob = await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.activeThreadMessage?.text === "正在整理节奏结构证据");
+  assert.equal(runningJob.agentRun?.threadId, "thread_rhythm_1");
+  assert.equal(runningJob.agentRun?.turnId, "turn_rhythm_1");
+  assert.equal(runningJob.agentRun?.status, "turn_submitted");
+  assert.equal(runningJob.activeThreadMessage?.threadId, runningJob.agentRun?.threadId);
+  assert.equal(runningJob.activeThreadMessage?.turnId, runningJob.agentRun?.turnId);
+
+  releaseCompletion();
+  const job = await waitForJob(harness.jobStore, result.processingJobId, "processed");
+  assert.equal(job.activeThreadMessage, null);
+  assert.equal(harness.calls.collected.length, 2);
+});
+
 async function createRhythmHarness({ appServer = {} } = {}) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-rhythm-agent-"));
   const store = createLocalStore(tempRoot);
@@ -297,4 +347,15 @@ async function waitForJob(jobStore, jobId, status) {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error(`job ${jobId} did not reach ${status}: ${JSON.stringify(lastJob)}`);
+}
+
+async function waitForJobField(jobStore, jobId, predicate) {
+  let lastJob = null;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const job = jobStore.getJob(jobId);
+    lastJob = job;
+    if (job && predicate(job)) return job;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`job ${jobId} did not reach expected field: ${JSON.stringify(lastJob)}`);
 }

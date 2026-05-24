@@ -10,6 +10,7 @@ async function executeAnalyzeTurn({
   rootDir,
   pollIntervalMs,
   maxCollectAttempts,
+  onTurnStarted,
   onTurnCollect,
 }) {
   const leaseAcquisition = await acquireLeaseWithRetry(threadPool, {
@@ -24,6 +25,7 @@ async function executeAnalyzeTurn({
     inputs: turnInputs.inputs,
     timeoutSeconds: 240,
   });
+  await onTurnStarted?.({ lease, started });
   const finalTurn = await collectTurnToCompletion({
     appServer,
     rootDir,
@@ -43,6 +45,7 @@ async function executeRepairTurn({
   rootDir,
   pollIntervalMs,
   maxCollectAttempts,
+  onTurnStarted,
   onTurnCollect,
 }) {
   const started = await appServer.startTurnWithInputs({
@@ -51,6 +54,7 @@ async function executeRepairTurn({
     inputs: turnInputs.inputs,
     timeoutSeconds: 240,
   });
+  await onTurnStarted?.({ started });
   const finalTurn = await collectTurnToCompletion({
     appServer,
     rootDir,

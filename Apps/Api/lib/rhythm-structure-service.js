@@ -244,10 +244,23 @@ function createRhythmStructureService({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
+            onTurnStarted: ({ lease: startedLease, started }) => {
+              lease = startedLease;
+              context.agentRun = buildAgentRun({ context, lease: startedLease, turn: started, input });
+              jobStore.updateJob(context.job.jobId, {
+                agentRun: context.agentRun,
+                stage: STAGES.analyzed,
+                status: SAMPLE_STATUS.processing,
+                progress: 56,
+                errorSummary: null,
+              });
+            },
             onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           lease = executed.lease;
-          context.agentRun = buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
+          if (!context.agentRun) {
+            context.agentRun = buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
+          }
           jobStore.updateJob(context.job.jobId, {
             agentRun: context.agentRun,
             stage: STAGES.analyzed,

@@ -19,7 +19,7 @@ function buildAgentRun({ context, lease, turn, input }) {
     artifactId: context.artifactId,
     parentArtifactId: input.parentArtifactId ?? null,
     sampleVideoId: context.sampleVideoId,
-    status: "completed",
+    status: "turn_submitted",
     preparedInputSummary: {
       shotCount: input.shots.length,
       hasCommerceBrief: Boolean(input.commerceBrief),

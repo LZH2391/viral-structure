@@ -400,7 +400,12 @@ test("script segment service surfaces latest running thread message and clears i
   });
 
   const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
-  await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.activeThreadMessage?.text === "正在整理脚本段落证据");
+  const runningJob = await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.activeThreadMessage?.text === "正在整理脚本段落证据");
+  assert.equal(runningJob.agentRun?.threadId, "thread_script_1");
+  assert.equal(runningJob.agentRun?.turnId, "turn_script_1");
+  assert.equal(runningJob.agentRun?.status, "turn_submitted");
+  assert.equal(runningJob.activeThreadMessage?.threadId, runningJob.agentRun?.threadId);
+  assert.equal(runningJob.activeThreadMessage?.turnId, runningJob.agentRun?.turnId);
   releaseCompletion();
   const job = await waitForJob(harness.jobStore, result.processingJobId, "processed");
 
