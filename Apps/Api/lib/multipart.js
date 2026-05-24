@@ -14,7 +14,7 @@ async function parseMultipartUpload(req, contentType) {
     const header = part.slice(0, headerEnd);
     const fieldName = parseHeaderValue(header, "name");
     if (!fieldName) continue;
-    if (!part.includes("filename=")) {
+    if (!/filename\*?=/i.test(part)) {
       fields[fieldName] = parseFieldValue(part.slice(headerEnd + 4));
       continue;
     }
@@ -47,8 +47,13 @@ function parseHeaderValue(header, key) {
   if (key.toLowerCase() === "content-type") {
     return /^content-type:\s*([^\r\n]+)/im.exec(header)?.[1]?.trim() ?? null;
   }
-  const regex = new RegExp(`${key}="?([^";\\r\\n]+)"?`, "i");
-  return regex.exec(header)?.[1] ?? null;
+  const extendedRegex = new RegExp(`${escapeRegExp(key)}\\*=([^;\\r\\n]+)`, "i");
+  const extended = extendedRegex.exec(header)?.[1];
+  if (extended) return decodeExtendedHeaderValue(extended);
+  const regex = new RegExp(`${escapeRegExp(key)}=(?:"([^"\\r\\n]*)"|([^;\\r\\n]*))`, "i");
+  const match = regex.exec(header);
+  if (!match) return null;
+  return decodeHeaderParamValue(match[1] ?? match[2] ?? "", key);
 }
 
 function parseFieldValue(value) {
@@ -57,6 +62,26 @@ function parseFieldValue(value) {
 
 function sanitizeFilename(filename) {
   return path.basename(filename).replace(/[^\w.\-\u4e00-\u9fa5]/g, "_");
+}
+
+function decodeHeaderParamValue(value, key) {
+  const text = String(value ?? "").trim();
+  if (key.toLowerCase() !== "filename") return text;
+  return Buffer.from(text, "binary").toString("utf8");
+}
+
+function decodeExtendedHeaderValue(value) {
+  const text = String(value ?? "").trim();
+  const match = /^([^']*)'[^']*'(.*)$/.exec(text);
+  if (!match) return decodeURIComponent(text);
+  const charset = match[1].toLowerCase();
+  const encoded = match[2];
+  if (charset && charset !== "utf-8") return decodeURIComponent(encoded);
+  return decodeURIComponent(encoded);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 module.exports = { parseMultipartUpload };

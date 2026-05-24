@@ -22,6 +22,37 @@ Do not read or rely on existing `shotBoundaryAnalysis`, history, cache, reviewer
 
 Use `shell_command` as needed. You decide what to generate.
 
+## Windows ffmpeg Safety
+
+PowerShell runs your commands on Windows. Be careful with ffmpeg filter syntax:
+
+- Before generating logs or sheets, set variables for the video and work directory, then `Push-Location` into `evidenceOutputDir`.
+- Inside ffmpeg filter arguments, never put a Windows absolute path after `file=`. The `C:` drive colon is parsed by ffmpeg as a filter option separator.
+- For `metadata=print:file=...`, use a relative filename such as `scene-008.log`.
+- Normal ffmpeg input/output arguments may use quoted absolute PowerShell variables.
+- If a command fails with `Error parsing filterchain`, rewrite it with relative filter output paths before trying another analysis route.
+
+Safe scene-score pattern:
+
+```powershell
+$video = "<manifest.video.sourceVideoPath>"
+$work = "<manifest.video.evidenceOutputDir>"
+Push-Location $work
+ffmpeg -hide_banner -i $video -filter:v "select='gt(scene,0.08)',metadata=print:file=scene-008.log" -f null -
+Pop-Location
+```
+
+Safe sheet pattern:
+
+```powershell
+$video = "<manifest.video.sourceVideoPath>"
+$work = "<manifest.video.evidenceOutputDir>"
+Push-Location $work
+ffmpeg -hide_banner -y -i $video -vf "fps=1,scale=180:-1,tile=6x7:padding=4" overview-1fps.jpg
+Write-Output "LOCAL_IMAGE: $work\overview-1fps.jpg"
+Pop-Location
+```
+
 Recommended process:
 
 1. Run `ffprobe` on `sourceVideoPath` to confirm duration, FPS, width, and height.

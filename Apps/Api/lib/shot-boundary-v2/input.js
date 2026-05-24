@@ -30,11 +30,16 @@ function buildV2Manifest({ artifact, prepared = null, agentWorkspace }) {
       scratchOutputRoot: agentWorkspace.outputDir,
       candidateCheckFrames: CANDIDATE_CHECK_FRAMES,
       imageReturnConvention: "When a shell_command creates an image you need to inspect, print LOCAL_IMAGE: <absolute path> on its own line.",
+      windowsFfmpegSafety: {
+        workingDirectoryRule: "For ffmpeg commands that write logs or images, run Push-Location evidenceOutputDir first and write outputs with relative filenames.",
+        filterFileRule: "Inside ffmpeg filter arguments, especially metadata=print:file=..., never use a Windows absolute path such as C:\\...; use a relative filename like scene-008.log.",
+        pathRule: "Quote PowerShell variables passed as normal ffmpeg input/output arguments, but keep filter file= values relative to the current work directory.",
+      },
       requiredStandard: "Only hard cuts, obvious jump cuts, transitions, or abrupt subject/scene/composition changes are final shot boundaries.",
     },
     suggestedProcess: [
       "Use ffprobe on sourceVideoPath to confirm duration, fps, width, and height.",
-      "Use ffmpeg scene-score and/or frame-diff commands to discover possible high-change moments.",
+      "Use ffmpeg scene-score and/or frame-diff commands to discover possible high-change moments. On Windows, run them from evidenceOutputDir and use relative file names inside filter arguments.",
       "Generate overview sheets, dense interval sheets, and candidate check sheets only as needed under evidenceOutputDir.",
       "For each ambiguous candidate, inspect frames at t-3f, t-1f, t, t+1f, and t+3f.",
       "Return final JSON only after your own evidence review.",

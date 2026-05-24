@@ -26,6 +26,7 @@ test("shot boundary v2 manifest gives original video and agent-owned workdir", (
   assert.equal(manifest.workflow.serviceProvidedCandidates, false);
   assert.equal(manifest.workflow.serviceProvidedSheets, false);
   assert.deepEqual(manifest.workflow.candidateCheckFrames, ["t-3f", "t-1f", "t", "t+1f", "t+3f"]);
+  assert.match(manifest.workflow.windowsFfmpegSafety.filterFileRule, /relative filename/);
   assert.match(manifest.video.sourceVideoPath, /source\.mp4$/);
 });
 
