@@ -232,6 +232,7 @@ async function runTransformTurn({
       const visualSummaryTurn = reviewer.renderVisualSummaryTurnInputs({
         result,
         resultSheets,
+        prepared,
         roleProfile,
       });
       const visualStarted = await runStage(context, stages.visualSummaryStarted, 96, {

@@ -10,7 +10,6 @@ const {
   RESULT_SHEET_DIRNAME,
   normalizeTransformShot,
   normalizeReviewFrame,
-  normalizeReviewSubtitleContext,
   sanitizeForAppServerText,
   normalizeText,
 } = require("./shared");
@@ -33,14 +32,10 @@ function buildTransformManifest({ prepared, rawFinalMessage }) {
     schemaVersion: TRANSFORM_INPUT_SCHEMA_VERSION,
     durationSeconds: prepared.durationSeconds,
     analysisSampling: prepared.analysisSampling ?? null,
-    subtitleContextSummary: prepared.subtitleContextSummary ?? { subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
     rawAnalyzerResult: {
       textPreview: normalizeText(rawFinalMessage, 800),
     },
   };
-  if (Array.isArray(prepared.subtitleContext) && prepared.subtitleContext.length) {
-    manifest.subtitleContext = normalizeReviewSubtitleContext(prepared.subtitleContext);
-  }
   return manifest;
 }
 
@@ -67,7 +62,8 @@ function buildVisualSummaryOutputContract() {
   };
 }
 
-function buildVisualSummaryManifest({ shots, resultSheets }) {
+function buildVisualSummaryManifest({ shots, resultSheets, prepared }) {
+  const subtitleMap = buildShotSubtitleMap(shots, prepared?.subtitleContext);
   return {
     schemaVersion: "shot-boundary-visual-summary-input.v1",
     shots: (Array.isArray(shots) ? shots : []).map((shot, index) => ({
@@ -75,6 +71,8 @@ function buildVisualSummaryManifest({ shots, resultSheets }) {
       start: shot?.start ?? null,
       end: shot?.end ?? null,
       currentSummary: normalizeText(shot?.summary, 120),
+      subtitleText: subtitleMap.get(index)?.subtitleText ?? "",
+      subtitleContextText: subtitleMap.get(index)?.subtitleContextText ?? "",
     })),
     sheets: (Array.isArray(resultSheets) ? resultSheets : [])
       .filter((sheet) => sheet?.localImagePath)
@@ -90,8 +88,8 @@ function buildVisualSummaryManifest({ shots, resultSheets }) {
   };
 }
 
-function renderVisualSummaryTurnInputs({ result, resultSheets, roleProfile }) {
-  const manifest = buildVisualSummaryManifest({ shots: result?.shots, resultSheets });
+function renderVisualSummaryTurnInputs({ result, resultSheets, prepared, roleProfile }) {
+  const manifest = buildVisualSummaryManifest({ shots: result?.shots, resultSheets, prepared });
   const outputContract = buildVisualSummaryOutputContract();
   const prompt = renderTurnTemplate(roleProfile, "visualSummary", {
     manifestJson: JSON.stringify(manifest),
@@ -106,6 +104,30 @@ function renderVisualSummaryTurnInputs({ result, resultSheets, roleProfile }) {
     manifest,
     outputContract,
   };
+}
+
+function buildShotSubtitleMap(shots, subtitleContext) {
+  const safeShots = Array.isArray(shots) ? shots : [];
+  const subtitles = (Array.isArray(subtitleContext) ? subtitleContext : [])
+    .map((item) => ({
+      start: Number(item?.start ?? Number.NaN),
+      end: Number(item?.end ?? Number.NaN),
+      text: normalizeText(item?.text, 120),
+    }))
+    .filter((item) => Number.isFinite(item.start) && Number.isFinite(item.end) && item.text);
+  return new Map(safeShots.map((shot, index) => {
+    const start = Number(shot?.start ?? Number.NaN);
+    const end = Number(shot?.end ?? Number.NaN);
+    const texts = Number.isFinite(start) && Number.isFinite(end)
+      ? subtitles.filter((item) => intervalOverlapSeconds(start, end, item.start, item.end) > 0).map((item) => item.text)
+      : [];
+    const joined = normalizeText(texts.join(" "), 240);
+    return [index, { subtitleText: joined, subtitleContextText: joined }];
+  }));
+}
+
+function intervalOverlapSeconds(startA, endA, startB, endB) {
+  return Math.max(0, Math.min(endA, endB) - Math.max(startA, startB));
 }
 
 async function prepareShotSheets({
@@ -188,6 +210,7 @@ module.exports = {
   renderTransformTurnInputs,
   buildVisualSummaryOutputContract,
   buildVisualSummaryManifest,
+  buildShotSubtitleMap,
   renderVisualSummaryTurnInputs,
   prepareShotSheets,
   REVIEW_ROLE,

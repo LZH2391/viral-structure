@@ -571,6 +571,13 @@ test("appserver bridge defaults to in-repo python runtime root", () => {
 
 test("shot boundary raw submit starts standalone thread and sends fixed mp4 path text", async () => {
   const harness = await createShotHarness({
+    artifact: createArtifact({
+      subtitleStatus: "processed",
+      subtitleSegments: [
+        { id: "subtitle_1", start: 0, end: 1.1, text: "这是包装上的鳗鱼", confidence: null },
+        { id: "subtitle_2", start: 1.2, end: 2, text: "手里展示多袋包装", confidence: null },
+      ],
+    }),
     appServer: {
       startThread: async () => ({ ok: true, threadId: "thread_raw_1", status: "created" }),
       startTurnWithInputs: async ({ threadId }) => ({ ok: true, threadId, turnId: "turn_raw_1", status: "submitted" }),
@@ -652,6 +659,13 @@ test("shot boundary transform collect polls running turn and preserves active me
 
 test("shot boundary collect completed writes transformed artifact and releases only transformer lease", async () => {
   const harness = await createShotHarness({
+    artifact: createArtifact({
+      subtitleStatus: "processed",
+      subtitleSegments: [
+        { id: "subtitle_1", start: 0, end: 1.1, text: "这是包装上的鳗鱼", confidence: null },
+        { id: "subtitle_2", start: 1.2, end: 2, text: "手里展示多袋包装", confidence: null },
+      ],
+    }),
     appServer: {
       startTurnWithInputs: async (payload) => {
         if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
@@ -705,8 +719,13 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(visualSummaryTurn.payload.inputs.filter((item) => item.type === "localImage").length, 4);
   assert.match(transformTurn.payload.inputs[0].text, /结果转换 agent/);
   assert.match(transformTurn.payload.inputs[0].text, /rawAnalyzerResult/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /subtitleContext/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /这是包装上的鳗鱼/);
   assert.match(visualSummaryTurn.payload.inputs[0].text, /script-segment-analyzer/);
   assert.match(visualSummaryTurn.payload.inputs[0].text, /只写视觉画面内容/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /subtitleText/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /这是包装上的鳗鱼/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /手里展示多袋包装/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /shots\[\]\.endBoundary\.reason/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /textLength/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /inputIndex/);
