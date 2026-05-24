@@ -16,6 +16,7 @@ const { recordApiRequestFailure } = require("./lib/api-request-debug");
 const { readCapabilities } = require("./lib/capabilities");
 const { createThreadPoolProxy } = require("./lib/threadpool-proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary-service");
+const { createShotBoundaryV2Service } = require("./lib/shot-boundary-v2");
 const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
@@ -35,6 +36,7 @@ const service = createSampleProcessingService({ store, logger, jobStore, artifac
 const threadPool = createThreadPoolProxy();
 const appServer = createAppServerBridge();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
+const shotBoundaryV2Service = createShotBoundaryV2Service({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const scriptSegmentService = createScriptSegmentService({ store, logger, jobStore, artifactIndex });
 const rhythmStructureService = createRhythmStructureService({ store, logger, jobStore, artifactIndex });
@@ -50,6 +52,7 @@ function createServer(deps = {}) {
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
     shotBoundaryService: deps.shotBoundaryService ?? shotBoundaryService,
+    shotBoundaryV2Service: deps.shotBoundaryV2Service ?? shotBoundaryV2Service,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     scriptSegmentService: deps.scriptSegmentService ?? scriptSegmentService,
     rhythmStructureService: deps.rhythmStructureService ?? rhythmStructureService,
@@ -159,6 +162,10 @@ async function handleArtifact(res, sampleVideoId, handlers = {}) {
 
 async function handleShotBoundary(req, res, sampleVideoId, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
+  if (body.analysisMode === "v2" || body.shotBoundaryVersion === "v2") {
+    const result = await (handlers.shotBoundaryV2Service ?? shotBoundaryV2Service).enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1 });
+    return sendJson(res, 202, result);
+  }
   const result = await (handlers.shotBoundaryService ?? shotBoundaryService).enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 1, cacheDecision: body.cacheDecision ?? "ask", enableReview: body.enableReview ?? true });
   return sendJson(res, 202, result);
 }

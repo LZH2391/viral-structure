@@ -41,6 +41,7 @@ export function WorkbenchApp() {
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
+  const [shotBoundaryAnalysisMode, setShotBoundaryAnalysisMode] = useState<"v1" | "v2">("v1");
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -89,6 +90,7 @@ export function WorkbenchApp() {
     dispatch,
     agentAnalysisFps,
     enableReview: enableShotBoundaryReview,
+    analysisMode: shotBoundaryAnalysisMode,
     setSaveStatus,
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
@@ -320,8 +322,10 @@ export function WorkbenchApp() {
           rhythmStructureJob={rhythmStructureFlow.job}
           agentAnalysisFps={agentAnalysisFps}
           enableShotBoundaryReview={enableShotBoundaryReview}
+          shotBoundaryAnalysisMode={shotBoundaryAnalysisMode}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
           onEnableShotBoundaryReviewChange={setEnableShotBoundaryReview}
+          onShotBoundaryAnalysisModeChange={setShotBoundaryAnalysisMode}
           onRunShotBoundary={() => {
             subtitleDraftFlow.flushSubtitleDraftsBeforeShotBoundary()
               .then((ready) => {

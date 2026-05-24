@@ -635,6 +635,7 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
 test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
     "shot-boundary-analyzer",
+    "shot-boundary-v2-analyzer",
     "script-segment-analyzer",
     "rhythm-structure-analyzer",
     "shot-boundary-reviewer",

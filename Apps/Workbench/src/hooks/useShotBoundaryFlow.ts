@@ -12,12 +12,13 @@ type ShotBoundaryFlowOptions = {
   dispatch: (action: WorkbenchAction) => void;
   agentAnalysisFps: number;
   enableReview: boolean;
+  analysisMode: "v1" | "v2";
   setSaveStatus: (value: string) => void;
   uploadTokenRef: { current: number };
 };
 
 export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
-  const { state, dispatch, agentAnalysisFps, enableReview, setSaveStatus, uploadTokenRef } = options;
+  const { state, dispatch, agentAnalysisFps, enableReview, analysisMode, setSaveStatus, uploadTokenRef } = options;
   const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
 
@@ -43,8 +44,9 @@ export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
         setSaveStatus("命中切镜缓存，等待选择");
       },
       "ask",
+      analysisMode,
     );
-  }, [agentAnalysisFps, dispatch, enableReview, setSaveStatus, state, uploadTokenRef]);
+  }, [agentAnalysisFps, analysisMode, dispatch, enableReview, setSaveStatus, state, uploadTokenRef]);
 
   const reuseCache = useCallback(async () => {
     if (!shotCachePrompt || !state.sampleVideo) return;
