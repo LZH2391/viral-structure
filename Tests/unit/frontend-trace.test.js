@@ -405,7 +405,7 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(api, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(server, /createScriptSegmentService/);
-  assert.match(server, /expectedShotBoundaryArtifactId: body\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(server, /expectedShotBoundaryArtifactId: body\.dependencies\?\.shotBoundaryArtifactId \?\? body\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(server, /script-segments/);
   assert.match(index, /script_segment\.materialize/);
   assert.match(index, /"script-segment-analysis": "脚本段落"/);
@@ -626,9 +626,11 @@ test("appserver collect exposes active thread message without final residue", ()
   assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status, options = \{\}\)/);
   assert.match(shotService, /String\(message \?\? ""\)\.trim\(\) \|\| String\(options\.fallbackMessage \?\? ""\)\.trim\(\)/);
   assert.match(shotService, /fallbackMessage: "正在分析镜头边界"/);
-  assert.match(shared, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
+  assert.match(shared, /createAnalysisRuntimeV2/);
+  const runtimeThread = read(root, "Apps/Api/lib/analysis-runtime-v2/thread-runtime.js");
+  assert.match(runtimeThread, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
   assert.match(shotService, /if \(normalized \|\| !isPendingTurnStatus\(status\)\)/);
-  assert.match(shared, /if \(activeThreadMessage \|\| !isPendingTurnStatus\(turn\?\.status\)\)/);
+  assert.match(runtimeThread, /if \(activeThreadMessage \|\| !isPendingTurnStatus\(turn\?\.status\)\)/);
   assert.match(scriptService, /runtime\.updateActiveThreadMessage\(context, turn\)/);
   assert.match(shotService, /activeThreadMessage: null/);
   assert.match(scriptService, /activeThreadMessage: null/);

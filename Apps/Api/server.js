@@ -179,7 +179,7 @@ async function handleScriptSegments(req, res, sampleVideoId, handlers = {}) {
   const result = await (handlers.scriptSegmentService ?? scriptSegmentService).enqueue({
     sampleVideoId,
     cacheDecision: body.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: body.expectedShotBoundaryArtifactId ?? null,
+    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
   });
   return sendJson(res, 202, result);
 }
@@ -189,8 +189,8 @@ async function handleRhythmStructure(req, res, sampleVideoId, handlers = {}) {
   const result = await (handlers.rhythmStructureService ?? rhythmStructureService).enqueue({
     sampleVideoId,
     cacheDecision: body.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: body.expectedShotBoundaryArtifactId ?? null,
-    expectedScriptSegmentArtifactId: body.expectedScriptSegmentArtifactId ?? null,
+    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
+    expectedScriptSegmentArtifactId: body.dependencies?.scriptSegmentArtifactId ?? body.expectedScriptSegmentArtifactId ?? null,
   });
   return sendJson(res, 202, result);
 }

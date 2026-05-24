@@ -48,9 +48,17 @@ export type ProcessingJob = {
     cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
     cachedItem: LibraryItemSummary;
     sourceSampleVideoId?: string | null;
+    sourceArtifactId?: string | null;
     sourceTurnId?: string | null;
+    sourceTraceId?: string | null;
     sourceCreatedAt?: string | null;
     cacheKey?: string | null;
+    dependencies?: {
+      shotBoundaryArtifactId?: string | null;
+      scriptSegmentArtifactId?: string | null;
+      [key: string]: string | number | boolean | null | undefined;
+    } | null;
+    analysisOptions?: Record<string, string | number | boolean | null | undefined> | null;
     analysisFps?: number | null;
     enableReview?: boolean | null;
     reviewMode?: "reviewed" | "unreviewed" | string | null;

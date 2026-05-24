@@ -156,7 +156,7 @@ function createRhythmStructureService({
       return jobStore.getJob(jobId);
     }
     if (decision === "refresh") {
-      jobStore.updateJob(jobId, { cachePrompt: null, errorSummary: null, status: SAMPLE_STATUS.processing, stage: STAGES.cacheLookup, progress: 28 });
+      runtime.job.resumeProcessing(jobId, STAGES.cacheLookup, 28);
       run({ ...context, cacheDecision: "refresh" }).catch(() => undefined);
       return jobStore.getJob(jobId);
     }
@@ -336,14 +336,7 @@ function createRhythmStructureService({
         lease = null;
       }
 
-      jobStore.updateJob(context.job.jobId, {
-        agentRun: context.agentRun ? { ...context.agentRun, status: "completed", updatedAt: new Date().toISOString() } : context.agentRun,
-        stage: SAMPLE_STATUS.processed,
-        status: SAMPLE_STATUS.processed,
-        progress: 100,
-        errorSummary: null,
-        activeThreadMessage: null,
-      });
+      runtime.job.complete(context);
       return materializedArtifact;
     } catch (error) {
       if (error?.code === "rhythm_structure_validation_failed" && context.agentRun?.threadId && context.input) {
@@ -454,14 +447,7 @@ function createRhythmStructureService({
         }),
       });
 
-      jobStore.updateJob(context.job.jobId, {
-        agentRun: context.agentRun ? { ...context.agentRun, status: "completed", updatedAt: new Date().toISOString() } : context.agentRun,
-        stage: SAMPLE_STATUS.processed,
-        status: SAMPLE_STATUS.processed,
-        progress: 100,
-        errorSummary: null,
-        activeThreadMessage: null,
-      });
+      runtime.job.complete(context);
       return materializedArtifact;
     }
     return null;
@@ -519,14 +505,7 @@ function createRhythmStructureService({
         });
       },
     });
-    jobStore.updateJob(context.job.jobId, {
-      stage: SAMPLE_STATUS.processed,
-      status: SAMPLE_STATUS.processed,
-      progress: 100,
-      cachePrompt: null,
-      errorSummary: null,
-      activeThreadMessage: null,
-    });
+    runtime.job.complete(context);
   }
 
   function buildRhythmStructureCachePrompt(context, cached) {
@@ -562,6 +541,11 @@ function createRhythmStructureService({
       profileVersion: context.roleProfile?.profileVersion ?? null,
       expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
       expectedScriptSegmentArtifactId: context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null,
+      dependencies: {
+        shotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
+        scriptSegmentArtifactId: context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null,
+      },
+      analysisOptions: {},
     };
   }
 }

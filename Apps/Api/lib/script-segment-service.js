@@ -152,7 +152,7 @@ function createScriptSegmentService({
       return jobStore.getJob(jobId);
     }
     if (decision === "refresh") {
-      jobStore.updateJob(jobId, { cachePrompt: null, errorSummary: null, status: SAMPLE_STATUS.processing, stage: STAGES.cacheLookup, progress: 28 });
+      runtime.job.resumeProcessing(jobId, STAGES.cacheLookup, 28);
       run({ ...context, cacheDecision: "refresh" }).catch(() => undefined);
       return jobStore.getJob(jobId);
     }
@@ -328,14 +328,7 @@ function createScriptSegmentService({
         lease = null;
       }
 
-      jobStore.updateJob(context.job.jobId, {
-        agentRun: context.agentRun ? { ...context.agentRun, status: "completed", updatedAt: new Date().toISOString() } : context.agentRun,
-        stage: SAMPLE_STATUS.processed,
-        status: SAMPLE_STATUS.processed,
-        progress: 100,
-        errorSummary: null,
-        activeThreadMessage: null,
-      });
+      runtime.job.complete(context);
       return materializedArtifact;
     } catch (error) {
       if (error?.code === "script_segment_validation_failed" && context.agentRun?.threadId && context.input) {
@@ -444,14 +437,7 @@ function createScriptSegmentService({
         }),
       });
 
-      jobStore.updateJob(context.job.jobId, {
-        agentRun: context.agentRun ? { ...context.agentRun, status: "completed", updatedAt: new Date().toISOString() } : context.agentRun,
-        stage: SAMPLE_STATUS.processed,
-        status: SAMPLE_STATUS.processed,
-        progress: 100,
-        errorSummary: null,
-        activeThreadMessage: null,
-      });
+      runtime.job.complete(context);
       return materializedArtifact;
     }
     return null;
@@ -509,14 +495,7 @@ function createScriptSegmentService({
         });
       },
     });
-    jobStore.updateJob(context.job.jobId, {
-      stage: SAMPLE_STATUS.processed,
-      status: SAMPLE_STATUS.processed,
-      progress: 100,
-      cachePrompt: null,
-      errorSummary: null,
-      activeThreadMessage: null,
-    });
+    runtime.job.complete(context);
   }
 
   function buildScriptSegmentCachePrompt(context, cached) {
@@ -551,6 +530,10 @@ function createScriptSegmentService({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       profileVersion: context.roleProfile?.profileVersion ?? null,
       expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
+      dependencies: {
+        shotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
+      },
+      analysisOptions: {},
     };
   }
 }

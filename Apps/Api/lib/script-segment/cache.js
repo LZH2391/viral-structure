@@ -1,4 +1,9 @@
 const { buildScriptSegmentCacheParams } = require("../script-segment-analysis/cache-params");
+const {
+  buildUnifiedCachePrompt,
+  readCacheDependency,
+  resolveCacheSourceSampleVideoId,
+} = require("../analysis-runtime-v2");
 
 async function findCachedArtifact({
   context,
@@ -86,7 +91,7 @@ async function runCacheLookup({ context, input, runStage, stageName, findCached 
 }
 
 async function resolveCachedPrompt({ cachePrompt, artifactIndex, evaluateCacheEligibility, codedError, expectedCacheKey }) {
-  const sampleVideoId = cachePrompt?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sampleVideoId;
+  const sampleVideoId = resolveCacheSourceSampleVideoId(cachePrompt);
   if (!sampleVideoId) throw codedError("script_segment_cache_source_missing", "脚本段落缓存来源缺失，请重新生成", null, false);
   const artifact = await artifactIndex.loadItem(sampleVideoId);
   const analysis = artifact?.scriptSegmentAnalysis ?? null;
@@ -116,22 +121,30 @@ function markCacheWaiting({ context, cached, jobStore, sampleStatus, stageName }
 
 function buildCachePrompt(context, cached) {
   const item = buildCachedItem(context, cached);
-  return {
+  const expectedShotBoundaryArtifactId = context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null;
+  return buildUnifiedCachePrompt({
     cacheKind: "script_segment",
     cachedItem: item,
     sourceSampleVideoId: cached.cache.sampleVideoId,
+    sourceArtifactId: cached.analysis?.artifactId ?? null,
     sourceTurnId: cached.analysis?.agent?.turnId ?? null,
+    sourceTraceId: cached.analysis?.traceId ?? cached.analysis?.agent?.traceId ?? null,
     sourceCreatedAt: cached.analysis?.createdAt ?? null,
     cacheKey: context.cacheKey ?? cached.cache.cacheKey ?? null,
     artifactId: context.artifactId,
-    expectedShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null,
     profileVersion: context.roleProfile?.profileVersion ?? null,
     promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
     promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     skillPath: context.skillPath ?? null,
     skillHash: context.skillHash ?? null,
-  };
+    dependencies: {
+      shotBoundaryArtifactId: expectedShotBoundaryArtifactId,
+    },
+    legacy: {
+      expectedShotBoundaryArtifactId,
+    },
+  });
 }
 
 function buildCachedItem(context, cached) {
@@ -185,7 +198,10 @@ async function reuseCachedAnalysis({
     inputSummary: {
       sampleVideoId: context.sampleVideoId,
       sourceSampleVideoId: cachePrompt?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sourceSampleVideoId ?? cachePrompt?.cachedItem?.sampleVideoId ?? null,
-      sourceShotBoundaryArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? null,
+      sourceShotBoundaryArtifactId: context.input?.parentArtifactId
+        ?? readCacheDependency(cachePrompt, "shotBoundaryArtifactId", "expectedShotBoundaryArtifactId")
+        ?? context.artifact?.shotBoundaryAnalysis?.artifactId
+        ?? null,
       cacheKey: context.cacheKey ?? cachePrompt?.cacheKey ?? null,
       promptTemplateVersion: cachePrompt?.promptTemplateVersion ?? null,
     },
