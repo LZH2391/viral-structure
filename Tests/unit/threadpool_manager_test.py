@@ -157,6 +157,61 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertFalse(status["can_acquire"])
             self.assertIn("waiting for seed initialization", status["warmup_detail"])
 
+    def test_min_idle_replenishment_does_not_report_warming_or_block_acquire(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": false },
+                  "roles": {
+                    "shot-boundary-reviewer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = BlockingInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-reviewer",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-reviewer"]),
+                    created_at="2026-05-24T10:00:00+08:00",
+                    updated_at="2026-05-24T10:00:00+08:00",
+                    last_validated_at="2026-05-24T10:00:00+08:00",
+                )
+            )
+            manager._replenishing_roles.add("shot-boundary-reviewer")
+            manager._warmup_details["shot-boundary-reviewer"] = "creating idle thread 1/1 from seed seed_thread_1"
+            manager._write_catalog()
+
+            health = manager.health_payload()
+            status = manager.get_role_status("shot-boundary-reviewer")
+            manager.close()
+
+            self.assertEqual(health["warming_roles"], [])
+            self.assertIn("shot-boundary-reviewer", health["replenishing_roles"])
+            self.assertFalse(status["warming"])
+            self.assertTrue(status["replenishing"])
+            self.assertTrue(status["can_acquire"])
+            self.assertEqual(status["counts"]["idle"], 0)
+
 
 def configure_started_manager(manager: ThreadPoolManager) -> None:
     raw = manager._load_config()
@@ -169,6 +224,7 @@ def configure_started_manager(manager: ThreadPoolManager) -> None:
     manager._warmup_errors = {}
     manager._warmup_details = {}
     manager._warming_roles = set()
+    manager._replenishing_roles = set()
     manager._write_catalog()
 
 

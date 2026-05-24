@@ -34,6 +34,7 @@ def _role_can_acquire(
     warmup_error: str | None,
     counts: dict[str, int],
     min_idle: int,
+    seed_ready: bool,
 ) -> bool:
     idle = int(counts.get("idle") or 0)
     return bool(
@@ -43,7 +44,7 @@ def _role_can_acquire(
         and not warming
         and not startup_error
         and not warmup_error
-        and idle >= int(min_idle)
+        and (idle > 0 or seed_ready)
     )
 
 
@@ -83,6 +84,7 @@ class ThreadPoolManager:
         self.discard_on_release = True
         self._lock = threading.RLock()
         self._warming_roles: set[str] = set()
+        self._replenishing_roles: set[str] = set()
         self._warmup_errors: dict[str, str] = {}
         self._warmup_details: dict[str, str] = {}
         self._started = False
@@ -108,6 +110,7 @@ class ThreadPoolManager:
             self._warmup_errors = {}
             self._warmup_details = {}
             self._warming_roles = set()
+            self._replenishing_roles = set()
             self._startup_thread = None
             self._write_catalog()
             if background_recover:
@@ -154,7 +157,8 @@ class ThreadPoolManager:
     def health_payload(self) -> dict:
         with self._lock:
             initializing_seed_roles = self._initializing_seed_roles()
-            warming_roles = sorted(self._warming_roles | initializing_seed_roles)
+            warming_roles = sorted(initializing_seed_roles)
+            replenishing_roles = sorted(self._replenishing_roles | (self._warming_roles - initializing_seed_roles))
             return {
                 "ok": True,
                 "service": "thread_pool_service",
@@ -169,6 +173,7 @@ class ThreadPoolManager:
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
                 "warming_roles": warming_roles,
+                "replenishing_roles": replenishing_roles,
                 "warmup_errors": dict(self._warmup_errors),
                 "warmup_details": dict(self._warmup_details),
                 "reported_at": _now(),
@@ -678,9 +683,16 @@ class ThreadPoolManager:
             return
         normalized_role = str(role_name).strip()
         with self._lock:
-            if not normalized_role or normalized_role in self._warming_roles:
+            if (
+                not normalized_role
+                or normalized_role in self._warming_roles
+                or normalized_role in self._replenishing_roles
+            ):
                 return
-            self._warming_roles.add(normalized_role)
+            if self._role_has_initializing_seed(normalized_role):
+                self._warming_roles.add(normalized_role)
+            else:
+                self._replenishing_roles.add(normalized_role)
             self._warmup_details[normalized_role] = "scheduled"
             self._write_catalog()
         worker = threading.Thread(
@@ -710,6 +722,7 @@ class ThreadPoolManager:
         finally:
             with self._lock:
                 self._warming_roles.discard(role_name)
+                self._replenishing_roles.discard(role_name)
                 self._warmup_details.pop(role_name, None)
                 self._write_catalog()
 
@@ -736,7 +749,7 @@ class ThreadPoolManager:
 
     def _set_warmup_detail(self, role_name: str, detail: str) -> None:
         with self._lock:
-            if role_name not in self._warming_roles:
+            if role_name not in self._warming_roles and role_name not in self._replenishing_roles:
                 return
             if self._warmup_details.get(role_name) == detail:
                 return
@@ -882,7 +895,10 @@ class ThreadPoolManager:
         for role_name, config in self.roles.items():
             counts = role_counts.get(role_name, {})
             seed = seed_by_role.get(role_name)
-            warming = role_name in self._warming_roles or (seed is not None and seed.status == "initializing")
+            replenishing = role_name in self._replenishing_roles or (
+                role_name in self._warming_roles and not (seed is not None and seed.status == "initializing")
+            )
+            warming = seed is not None and seed.status == "initializing"
             warmup_error = self._warmup_errors.get(role_name)
             warmup_detail = (
                 f"waiting for seed initialization: {seed.thread_id}"
@@ -898,12 +914,14 @@ class ThreadPoolManager:
                 warmup_error=warmup_error,
                 counts=counts,
                 min_idle=config.min_idle,
+                seed_ready=seed is not None and seed.status == "idle",
             )
             role_runtime_status[role_name] = {
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
                 "warming": warming,
+                "replenishing": replenishing,
                 "warmup_error": warmup_error,
                 "warmup_detail": warmup_detail,
                 "can_init": can_acquire,
@@ -942,7 +960,10 @@ class ThreadPoolManager:
             role_entry = {}
         counts = dict(role_entry.get("counts") or {})
         seed = self._find_seed_thread(config.name)
-        warming = config.name in self._warming_roles or (seed is not None and seed.status == "initializing")
+        replenishing = config.name in self._replenishing_roles or (
+            config.name in self._warming_roles and not (seed is not None and seed.status == "initializing")
+        )
+        warming = seed is not None and seed.status == "initializing"
         warmup_error = self._warmup_errors.get(config.name)
         warmup_detail = (
             f"waiting for seed initialization: {seed.thread_id}"
@@ -958,6 +979,7 @@ class ThreadPoolManager:
             warmup_error=warmup_error,
             counts=counts,
             min_idle=config.min_idle,
+            seed_ready=seed is not None and seed.status == "idle",
         )
         return {
             "ok": True,
@@ -974,6 +996,7 @@ class ThreadPoolManager:
             "ready_for_leases": self._ready_for_leases,
             "startup_error": self._startup_error,
             "warming": warming,
+            "replenishing": replenishing,
             "warmup_error": warmup_error,
             "warmup_detail": warmup_detail,
             "can_init": can_acquire,
@@ -1012,6 +1035,10 @@ class ThreadPoolManager:
             for thread in self.store.list_threads().values()
             if thread.is_seed and thread.status == "initializing"
         }
+
+    def _role_has_initializing_seed(self, role_name: str) -> bool:
+        seed = self._find_seed_thread(role_name)
+        return seed is not None and seed.status == "initializing"
 
     @staticmethod
     def _skill_body_sha256(skill_path: str | None) -> str | None:
