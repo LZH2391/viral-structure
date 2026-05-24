@@ -97,7 +97,7 @@ export function AgentRunPanel({
   const jobTurnId = analysis?.agent?.turnId ?? null;
   const activeThreadMessage = resolveActiveThreadMessage(job);
   const preAgentLeaseFailure = job?.status === "failed"
-    && (job.stage === "shot.thread_acquire" || jobErrorSummary?.stageName === "shot.thread_acquire")
+    && (job.stage === "shot.boundary_transform.thread_acquire" || jobErrorSummary?.stageName === "shot.boundary_transform.thread_acquire")
     && !jobTurnId
     && jobErrorSummary?.turnSubmitted !== true;
   const jobStatusHint = preAgentLeaseFailure
@@ -118,7 +118,7 @@ export function AgentRunPanel({
       <div className="agent-capability-row">
         <div>
           <strong>shot-boundary</strong>
-          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? (hasValidShotResult ? `${analysis.shots.length} / ${analysis.shots.length} 镜` : "无有效切镜结果") : "等待分析"}</span>
+          <span>{job ? `${job.stage} / ${job.progress}%` : analysis ? (hasValidShotResult ? `${analysis.shots.length} 镜 / ${analysis.boundaries?.length ?? 0} 边界` : "无有效切镜结果") : "等待分析"}</span>
         </div>
         <button className="primary-button" type="button" disabled={runDisabled} title={guard.message ?? undefined} onClick={handleRun}>
           {runLabel}
@@ -129,7 +129,7 @@ export function AgentRunPanel({
         <input type="number" min={MIN_ANALYSIS_FPS} max={maxAnalysisFps} step="1" value={analysisFps} aria-invalid={analysisFpsInvalid || analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || MIN_ANALYSIS_FPS))} />
       </label>
       <label className="agent-field agent-review-toggle">
-        <span>Reviewer</span>
+        <span>Transform</span>
         <input type="checkbox" checked={enableReview} disabled={running} onChange={(event) => onEnableReviewChange(event.currentTarget.checked)} />
         <strong>{enableReview ? "开启" : "关闭"}</strong>
       </label>
@@ -205,6 +205,7 @@ function CommerceBriefPanel({ brief }: { brief: NonNullable<ShotBoundaryAnalysis
     <div className="commerce-brief-panel shot-commerce-brief" aria-label="带货总结">
       <div className="commerce-brief-heading">带货总结</div>
       <div className="commerce-brief-grid">
+        <CommerceBriefRow label="结果摘要" value={brief.videoSummary} />
         <CommerceBriefRow label="卖什么" value={brief.sellingObject} />
         <CommerceBriefRow label="怎么证明" value={brief.proofApproach} />
         <CommerceBriefRow label="承诺结果" value={brief.promisedOutcome} />

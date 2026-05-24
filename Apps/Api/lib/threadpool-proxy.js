@@ -184,9 +184,9 @@ function loadAllowedRolesFromConfig() {
     const raw = fs.readFileSync(THREADPOOL_ROLE_CONFIG_PATH, "utf8");
     const config = JSON.parse(raw);
     const roles = Object.keys(config?.roles ?? {}).map(String).filter(Boolean);
-    return roles.length ? roles : ["shot-boundary-analyzer", "script-segment-analyzer"];
+    return roles.length ? roles : ["shot-boundary-transformer", "script-segment-analyzer", "rhythm-structure-analyzer"];
   } catch {
-    return ["shot-boundary-analyzer", "script-segment-analyzer"];
+    return ["shot-boundary-transformer", "script-segment-analyzer", "rhythm-structure-analyzer"];
   }
 }
 

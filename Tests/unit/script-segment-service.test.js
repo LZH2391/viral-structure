@@ -756,8 +756,8 @@ function createArtifact(overrides = {}) {
       },
       agent: {
         provider: "codex-appserver",
-        role: "shot-boundary-analyzer",
-        skillPath: "C:/ByteDanceFullStack/.agents/skills/shot-boundary-analyzer/SKILL.md",
+        role: "shot-boundary-raw-analyze-legacy",
+        skillPath: "C:/ByteDanceFullStack/.agents/skills/shot-boundary-raw-analyze-legacy/SKILL.md",
         skillHash: "skill_hash_shot",
         threadId: "thread_shot_1",
         leaseId: "lease_shot_1",

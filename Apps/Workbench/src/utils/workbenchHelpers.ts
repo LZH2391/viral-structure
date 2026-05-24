@@ -279,7 +279,7 @@ export async function attachAnalysisJob(
 
 export async function getShotBoundaryGuard() {
   try {
-    return resolveShotBoundaryGuard(await getThreadPoolRoleStatus("shot-boundary-analyzer"));
+    return resolveShotBoundaryGuard(await getThreadPoolRoleStatus("shot-boundary-transformer"));
   } catch (error) {
     return {
       state: "blocked",
@@ -343,16 +343,14 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.input_prepare": "准备切镜输入",
     "shot.contact_sheet": "生成联表",
     "shot.cache_lookup": "检查切镜缓存",
-    "shot.thread_acquire": "等待 ThreadPool lease",
-    "shot.boundary_analyze.submit": "提交切镜分析",
-    "shot.boundary_analyze.collect": "等待切镜结果",
-    "shot.boundary_validate": "校验切镜结果",
-    "shot.boundary_review.skip": "跳过切镜审查",
-    "shot.boundary_review.sheets": "生成审查联表",
-    "shot.boundary_review.thread_acquire": "等待审查 lease",
-    "shot.boundary_review.submit": "提交切镜审查",
-    "shot.boundary_review.collect": "等待审查结果",
-    "shot.boundary_review.validate": "校验审查结果",
+    "shot.raw_video_analyze.thread_start": "启动原始切镜线程",
+    "shot.raw_video_analyze.submit": "提交原始切镜分析",
+    "shot.raw_video_analyze.collect": "等待原始切镜结果",
+    "shot.boundary_transform.thread_acquire": "等待 Transform lease",
+    "shot.boundary_transform.submit": "提交切镜结果转换",
+    "shot.boundary_transform.collect": "等待转换结果",
+    "shot.boundary_transform.validate": "校验转换结果",
+    "shot.boundary_transform.sheets": "生成结果联表",
     "shot.boundary_repair.submit": "提交修复分析",
     "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",

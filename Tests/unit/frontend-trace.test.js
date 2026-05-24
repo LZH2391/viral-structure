@@ -234,7 +234,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(agentRunPanel, /采样率越高，图片越多，分析更细但耗时更久/);
   assert.match(app, /const \[enableShotBoundaryReview, setEnableShotBoundaryReview\] = useState\(true\)/);
   assert.match(api, /enableReview: options\.enableReview \?\? true/);
-  assert.match(agentRunPanel, /Reviewer/);
+  assert.match(agentRunPanel, /Transform/);
   assert.match(agentRunPanel, /checked=\{enableReview\}/);
   assert.match(agentRunPanel, /disabled=\{running\}/);
   assert.match(agentRunPanel, /enableReview \? "开启" : "关闭"/);
@@ -245,6 +245,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.doesNotMatch(agentRunPanel, /roundingPolicy：/);
   assert.match(agentRunPanel, /CommerceBriefPanel/);
   assert.match(agentRunPanel, /带货总结/);
+  assert.match(agentRunPanel, /结果摘要/);
   assert.match(agentRunPanel, /卖什么/);
   assert.match(formatters, /target_grid_nearest_unique/);
   assert.match(formatters, /isLegacyStride: false/);
@@ -325,25 +326,25 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(cacheDialog, /fps \/ \{item\.shotCount \?\? "\?"\} 镜 \/ turn/);
   assert.match(agentRunPanel, /SHOT_BOUNDARY_GUARD_POLL_MS = 2000/);
   assert.match(agentRunPanel, /setTimeout\(\(\) => syncGuard\(false\), SHOT_BOUNDARY_GUARD_POLL_MS\)/);
-  assert.match(agentRunPanel, /job\.stage === "shot\.thread_acquire"/);
+  assert.match(agentRunPanel, /job\.stage === "shot\.boundary_transform\.thread_acquire"/);
   assert.match(agentRunPanel, /!jobTurnId/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
 });
 
-test("workbench helper labels shot thread acquire as waiting lease", () => {
+test("workbench helper labels transform thread acquire as waiting lease", () => {
   const root = path.resolve(__dirname, "../..");
   const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
 
-  assert.match(helpers, /"shot\.thread_acquire": "等待 ThreadPool lease"/);
+  assert.match(helpers, /"shot\.boundary_transform\.thread_acquire": "等待 Transform lease"/);
 });
 
-test("property panel treats processed passed shot data without boundaries as invalid result", () => {
+test("property panel treats processed passed single-shot data as valid unless it matches legacy fallback", () => {
   const root = path.resolve(__dirname, "../..");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
 
-  assert.match(formatters, /return boundaries\.length > 0 && shots\.length > 0;/);
-  assert.match(agentRunPanel, /hasValidShotResult \? `\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜` : "无有效切镜结果"/);
+  assert.match(formatters, /return shots\.length > 0;/);
+  assert.match(agentRunPanel, /hasValidShotResult \? `\$\{analysis\.shots\.length\} 镜 \/ \$\{analysis\.boundaries\?\.length \?\? 0\} 边界` : "无有效切镜结果"/);
   assert.match(agentRunPanel, /analysis && !hasValidShotResult \? <div className="detail-hint">无有效切镜结果 \/ 需重新分析<\/div> : null/);
 });
 
@@ -448,7 +449,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(propertyPanel, /<ScriptSegmentPanel/);
   assert.match(propertyPanel, /<RhythmStructurePanel/);
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
-  assert.match(property, /`\$\{analysis\.shots\.length\} \/ \$\{analysis\.shots\.length\} 镜`/);
+  assert.match(property, /`\$\{analysis\.shots\.length\} 镜 \/ \$\{analysis\.boundaries\?\.length \?\? 0\} 边界`/);
   assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
   assert.match(scriptPanel, /strong>script-segment</);
   assert.match(scriptPanel, /segmentCount：/);

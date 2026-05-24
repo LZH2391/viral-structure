@@ -112,131 +112,6 @@ test("contact sheet grid items include sequential display labels without changin
   assert.deepEqual(sheets[0].overlapFrameIds, []);
 });
 
-test("shot boundary turn inputs remove invalid surrogate text and include multiple sheets", async () => {
-  const artifact = createArtifact();
-  artifact.sampleVideoId = "sample_\uDCAA1";
-  artifact.trace.traceId = "trace_\uDCAA1";
-  artifact.sampleVideo.artifactId = "artifact_\uDCAAsample";
-  artifact.frames[0] = {
-    ...artifact.frames[0],
-    frameId: "frame_\uDCAA0",
-    artifactId: "artifact_\uDCAAframe_0",
-    parentArtifactId: "artifact_\uDCAAparent",
-    imageUri: "/runtime/Artifacts/sample_1/frames/frame-\uDCAA0.jpg",
-  };
-
-  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
-  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
-  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
-  const turnInputs = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile });
-  const promptText = turnInputs.inputs[0].text;
-  const textItems = turnInputs.inputs.filter((item) => item.type === "text");
-  const imageItems = turnInputs.inputs.filter((item) => item.type === "localImage");
-
-  assert.equal(/[\uD800-\uDFFF]/.test(JSON.stringify(prepared)), false);
-  assert.equal(/[\uD800-\uDFFF]/.test(promptText), false);
-  assert.equal(textItems.length, 1);
-  assert.equal(imageItems.length, 2);
-  assert.match(promptText, /多张 localImage 联表/);
-  assert.doesNotMatch(promptText, /输入清单/);
-  assert.doesNotMatch(promptText, /sampleVideoId/);
-  assert.doesNotMatch(promptText, /frameIndexMap/);
-  assert.match(promptText, /"durationSeconds":2/);
-  assert.match(promptText, /"startTime":0/);
-  assert.match(promptText, /"endTime":1/);
-  assert.match(promptText, /"endTime":0/);
-  assert.match(promptText, /"schemaVersion":"shot-centric\.v2"/);
-  assert.match(promptText, /"shots\[\]\.start":"number, seconds, first shot must start at 0"/);
-  assert.match(promptText, /"shots\[\]\.endBoundary\.timestamp":"number, seconds, must equal current shot end, 0 < timestamp < durationSeconds"/);
-  assert.doesNotMatch(promptText, /任务输入：.*analysisSampling/);
-  assert.doesNotMatch(promptText, /任务输入：.*sheetCount/);
-  assert.doesNotMatch(promptText, /任务输入：.*sheetIndex/);
-  assert.doesNotMatch(promptText, /任务输入：.*frameCount/);
-  assert.doesNotMatch(promptText, /输出契约：.*boundaryType/);
-  assert.doesNotMatch(promptText, /sourceArtifactId/);
-  assert.doesNotMatch(promptText, /sheetId/);
-  assert.doesNotMatch(promptText, /extractSampling/);
-  assert.doesNotMatch(promptText, /actualFrameCount/);
-  assert.doesNotMatch(promptText, /maxFrames/);
-  assert.doesNotMatch(promptText, /"timestamp":12\.48/);
-  assert.doesNotMatch(promptText, /"timestamp":0/);
-  assert.doesNotMatch(promptText, /runtime\/Artifacts/);
-  assert.equal(turnInputs.promptTemplateId, "analyze");
-  assert.match(turnInputs.promptTemplateVersion, /^analyze\.v2$/);
-  assert.ok(turnInputs.promptTemplateHash);
-  assert.equal(imageItems[0].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-001.jpg");
-  assert.equal(imageItems[1].path, "C:\\Runtime\\Artifacts\\sample_1\\contact-sheets\\sheet-002.jpg");
-});
-
-test("shot boundary turn inputs include subtitle context as semantic-only aid", async () => {
-  const artifact = createArtifact({
-    subtitleStatus: "processed",
-    subtitleSegments: [
-      { id: "subtitle_1", start: 0, end: 0.8, text: "第一句字幕".repeat(40), confidence: null },
-      { id: "subtitle_2", start: 1, end: 1.8, text: "第二句字幕", confidence: null },
-    ],
-  });
-  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
-  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
-  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
-  const turnInputs = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile });
-  const promptText = turnInputs.inputs[0].text;
-
-  assert.match(promptText, /subtitleContextSummary/);
-  assert.match(promptText, /subtitleContext/);
-  assert.match(promptText, /字幕当作语义辅助/);
-  assert.match(promptText, /"subtitleSegmentCount":2/);
-  assert.match(promptText, /"truncated":false/);
-  assert.match(promptText, /shots\[\]\.summary/);
-  assert.match(promptText, /shots\[\]\.endBoundary/);
-  assert.doesNotMatch(promptText, /第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕第一句字幕/);
-});
-
-test("shot boundary repair turn inputs use field contract without timestamp examples", async () => {
-  const artifact = createArtifact();
-  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
-  const contactSheets = createContactSheets(prepared, path.join("C:\\Runtime", "Artifacts", "sample_1"));
-  const validationError = {
-    code: "shot_boundary_validation_failed",
-    message: "切镜结果校验失败",
-    debugPayload: {
-      validation: {
-        code: "shot_boundary_timestamp_out_of_range",
-        message: "切镜时间点超出允许范围",
-        validatorCode: "shot_boundary_timestamp_out_of_range",
-      },
-    },
-  };
-
-  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
-  const turnInputs = renderRepairTurnInputs({
-    prepared,
-    contactSheets,
-    validationError,
-    priorTurnOutput: JSON.stringify({ boundaries: [{ timestamp: 9.9 }] }),
-    repairAttemptCount: 1,
-    roleProfile,
-  });
-  const promptText = turnInputs.inputs[0].text;
-
-  assert.match(promptText, /"shots\[\]\.endBoundary\.timestamp":"number, seconds, must equal current shot end, 0 < timestamp < durationSeconds"/);
-  assert.match(promptText, /"shots\[\]\.endBoundary\.reason":"short string, explain why the cut happens here, not the shot summary"/);
-  assert.match(promptText, /shots\[\]\.summary/);
-  assert.match(promptText, /"hasPriorOutput":true/);
-  assert.match(promptText, /"outputLength":34/);
-  assert.doesNotMatch(promptText, /任务输入：.*analysisSampling/);
-  assert.doesNotMatch(promptText, /任务输入：.*sheetCount/);
-  assert.doesNotMatch(promptText, /输出契约：.*boundaryType/);
-  assert.doesNotMatch(promptText, /"timestamp":12\.48/);
-  assert.doesNotMatch(promptText, /"timestamp":0/);
-  assert.doesNotMatch(promptText, /9\.9/);
-  assert.doesNotMatch(promptText, /sourceArtifactId/);
-  assert.doesNotMatch(promptText, /sheetId/);
-  assert.doesNotMatch(promptText, /extractSampling/);
-  assert.equal(turnInputs.promptTemplateId, "repair");
-  assert.match(turnInputs.promptTemplateVersion, /^repair\.v2$/);
-  assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, 2);
-});
 
 test("shot boundary normalizes timestamp boundaries and builds contiguous shots", () => {
   const frames = [
@@ -557,7 +432,7 @@ test("revised subtitle artifact participates in shot boundary subtitle context s
 test("thread conversation summary keeps compact turn-safe fields", () => {
   const summary = summarizeThreadConversation({
     id: "thread_1",
-    title: "shot-boundary-analyzer",
+    title: "shot-boundary-transformer",
     status: "idle",
     turns: [
       {
@@ -583,10 +458,10 @@ test("thread conversation summary keeps compact turn-safe fields", () => {
 test("threadpool role status removes init prompt and keeps safe summary", () => {
   const status = sanitizeRoleStatus({
     ok: true,
-    role: "shot-boundary-analyzer",
+    role: "shot-boundary-transformer",
     min_idle: 1,
     init_prompt: "very long prompt",
-    skill_path: "C:\\x\\shot-boundary-analyzer\\SKILL.md",
+    skill_path: "C:\\x\\shot-boundary-transformer\\SKILL.md",
     counts: { idle: 1, leased: 0 },
     seed_thread_id: "thread_seed",
     can_acquire: true,
@@ -607,21 +482,21 @@ test("threadpool role status removes init prompt and keeps safe summary", () => 
 
 test("threadpool proxy filters roles outside the workspace allowlist", async () => {
   const proxy = createThreadPoolProxy({
-    allowedRoles: ["shot-boundary-analyzer"],
+    allowedRoles: ["shot-boundary-transformer"],
     fetchImpl: async (url) => {
       const pathname = new URL(url).pathname;
       if (pathname === "/health") {
-        return response({ ok: true, roles: ["shot-boundary-analyzer", "ae-precomp-design-producer"], warming_roles: ["ae-precomp-design-producer"] });
+        return response({ ok: true, roles: ["shot-boundary-transformer", "ae-precomp-design-producer"], warming_roles: ["ae-precomp-design-producer"] });
       }
-      if (pathname === "/roles/shot-boundary-analyzer/status") {
-        return response({ ok: true, role: "shot-boundary-analyzer", min_idle: 1, counts: { idle: 1, leased: 0 }, can_acquire: true, thread_entries: [{ thread_id: "thread_1", thread_status: "idle" }], active_leases: [] });
+      if (pathname === "/roles/shot-boundary-transformer/status") {
+        return response({ ok: true, role: "shot-boundary-transformer", min_idle: 1, counts: { idle: 1, leased: 0 }, can_acquire: true, thread_entries: [{ thread_id: "thread_1", thread_status: "idle" }], active_leases: [] });
       }
       if (pathname === "/threads/thread_1/discard") return response({ ok: true, thread_id: "thread_1", status: "discarded" });
       return response({ ok: false, detail: "unexpected" }, 404);
     },
   });
   const roles = await proxy.roles();
-  assert.deepEqual(roles.roles.map((role) => role.role), ["shot-boundary-analyzer"]);
+  assert.deepEqual(roles.roles.map((role) => role.role), ["shot-boundary-transformer"]);
   assert.deepEqual(roles.health.warming_roles, []);
   const blocked = await proxy.roleStatus("ae-precomp-design-producer");
   assert.equal(blocked.ok, false);
@@ -634,10 +509,9 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
 
 test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
-    "shot-boundary-analyzer",
     "script-segment-analyzer",
     "rhythm-structure-analyzer",
-    "shot-boundary-reviewer",
+    "shot-boundary-transformer",
   ]);
   const proxy = createThreadPoolProxy({ fetchImpl: async () => response({ ok: true }) });
   assert.deepEqual(proxy.allowedRoles, DEFAULT_ALLOWED_ROLES);
@@ -645,7 +519,7 @@ test("threadpool proxy default allowlist follows thread role config", () => {
 
 test("threadpool proxy timeout becomes unavailable payload", async () => {
   const proxy = createThreadPoolProxy({
-    allowedRoles: ["shot-boundary-analyzer"],
+    allowedRoles: ["shot-boundary-transformer"],
     requestTimeoutMs: 10,
     fetchImpl: async (_url, options = {}) => new Promise((resolve, reject) => {
       options.signal?.addEventListener("abort", () => {
@@ -670,7 +544,7 @@ test("threadpool proxy timeout becomes unavailable payload", async () => {
 test("threadpool proxy acquire lease uses dedicated timeout", async () => {
   const requests = [];
   const proxy = createThreadPoolProxy({
-    allowedRoles: ["shot-boundary-analyzer"],
+    allowedRoles: ["shot-boundary-transformer"],
     requestTimeoutMs: 3000,
     leaseAcquireTimeoutMs: 15000,
     fetchImpl: async (url, options = {}) => {
@@ -682,7 +556,7 @@ test("threadpool proxy acquire lease uses dedicated timeout", async () => {
     },
   });
 
-  await proxy.acquireLease({ role: "shot-boundary-analyzer", ownerId: "trace_1" });
+  await proxy.acquireLease({ role: "shot-boundary-transformer", ownerId: "trace_1" });
 
   assert.equal(proxy.requestTimeoutMs, 3000);
   assert.equal(proxy.leaseAcquireTimeoutMs, 15000);
@@ -796,14 +670,14 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "transformed_turn");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.role, "shot-boundary-reviewer");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.role, "shot-boundary-transformer");
   assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "review_thread_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.leaseId, "review_lease_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_transform_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "transform");
   assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-24.1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.inputMode, "raw_video_path_text");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.role, "shot-boundary-analyzer");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.phase, "raw_video_analyze");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.threadId, "thread_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.turnId, "turn_raw_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.leaseId, null);
@@ -969,42 +843,6 @@ test("shot boundary registers reusable cache for the same service run", async ()
   assert.equal(secondJob.status, "cache_waiting");
   assert.equal(secondJob.cachePrompt.cachedItem.analysisFps, 3);
   assert.equal(shotStartTurnCount, 1);
-});
-
-test("shot boundary cache lookup no longer falls back to pre-split analyze prompt params", async () => {
-  const cacheEntries = new Map();
-  const stableKey = (fileHash, stageName, params) => JSON.stringify({ fileHash, stageName, params });
-  const cachedAnalysis = createValidCachedShotAnalysis();
-  const harness = await createShotHarness({
-    artifactIndex: {
-      getItem: async () => ({ fileHash: "hash_1" }),
-      findCacheEntry: async ({ fileHash, stageName, params }) => cacheEntries.get(stableKey(fileHash, stageName, params)) ?? null,
-      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: cachedAnalysis }),
-      registerSampleArtifact: async () => ({ ok: true }),
-    },
-  });
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const prepared = prepareInput(artifact, 3, { runtimeRoot: harness.store.runtimeRoot });
-  const contactSheets = createContactSheets(prepared, harness.store.sampleDir("sample_1"));
-  const analyzeTurn = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile: await loadRoleProfileByRole("shot-boundary-analyzer") });
-  const predecessorParams = splitPredecessorCacheParams(prepared, contactSheets, {
-    skillHash: await resolveSkillHash(),
-    profileVersion: "2026-05-22.2",
-    promptTemplateId: analyzeTurn.promptTemplateId,
-    promptTemplateVersion: analyzeTurn.promptTemplateVersion,
-    promptTemplateHash: analyzeTurn.promptTemplateHash,
-    initFingerprint: "36d01f2d22128b1f",
-  });
-  cacheEntries.set(stableKey("hash_1", STAGES.resultWritten, predecessorParams), { sampleVideoId: "sample_cached", cacheKey: "pre_split_cache" });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
-  await delay(20);
-  const job = harness.jobStore.getJob(result.processingJobId);
-  const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end");
-
-  assert.notEqual(job.status, "cache_waiting");
-  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "miss");
-  assert.equal(cacheLookupLog.outputSummary.reason, "key_miss");
 });
 
 test("shot boundary cache lookup no longer falls back to legacy promptless cache params", async () => {
@@ -1281,26 +1119,6 @@ test("shot boundary collect retryable error keeps inflight processing", async ()
   assert.equal(harness.threadPool.discarded.length, 0);
 });
 
-test("shot boundary summary turn inputs only request commerce brief", async () => {
-  const roleProfile = await loadRoleProfileByRole("shot-boundary-analyzer");
-  const turnInputs = renderSummaryTurnInputs({
-    roleProfile,
-    shots: [
-      { shotNo: "S001", start: 0, end: 1.2, summary: "人物半身口播", endBoundaryReason: "cut" },
-      { shotNo: "S002", start: 1.2, end: 2, summary: "产品特写镜头", endBoundaryReason: null },
-    ],
-  });
-  const promptText = turnInputs.inputs[0].text;
-
-  assert.equal(turnInputs.promptTemplateId, "summary");
-  assert.equal(turnInputs.promptTemplateVersion, "summary.v1");
-  assert.match(promptText, /不要重新切镜/);
-  assert.match(promptText, /commerceBrief/);
-  assert.doesNotMatch(promptText, /localImage/);
-  assert.doesNotMatch(JSON.stringify(turnInputs.outputContract), /boundaries/);
-  assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, 0);
-});
-
 test("appserver bridge structured error payload is surfaced", async () => {
   const error = new Error("missing-content-type");
   const payload = structuredErrorForTest("appserver_bridge_failed", error, {
@@ -1324,7 +1142,7 @@ test("threadpool readiness detail exposes ready_for_leases and recovering gate",
     threadPoolOverrides: {
       roleStatus: async () => ({
         ok: true,
-        role: "shot-boundary-analyzer",
+        role: "shot-boundary-transformer",
         counts: { idle: 0, leased: 0 },
         minIdle: 1,
         canAcquire: false,
@@ -1339,7 +1157,7 @@ test("threadpool readiness detail exposes ready_for_leases and recovering gate",
       }),
     },
   });
-  const status = await harness.threadPool.roleStatus("shot-boundary-analyzer");
+  const status = await harness.threadPool.roleStatus("shot-boundary-transformer");
 
   assert.equal(status.readyForLeases, false);
   assert.equal(status.recovering, true);
@@ -1373,9 +1191,8 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(harness.logger.snapshots.length, 1);
   assert.deepEqual(harness.threadPool.discarded, [
     { threadId: "review_thread_1", reason: "shot-boundary-transform-failed" },
-    { threadId: "thread_1", reason: "shot-boundary-analysis-failed" },
   ]);
-  assert.deepEqual(harness.threadPool.ownerReleased, [`${result.traceId}:transform`, result.traceId]);
+  assert.deepEqual(harness.threadPool.ownerReleased, [`${result.traceId}:transform`]);
 });
 
 test("shot boundary mojibake reason fails quality gate and writes debug snapshot", async () => {
@@ -1456,7 +1273,7 @@ test("shot boundary recovery completes active inflight", async () => {
     progress: 80,
     agentRun: {
       provider: "codex-appserver",
-      role: "shot-boundary-analyzer",
+      role: "raw_video_analyze",
       leaseId: null,
       threadId: "thread_1",
       turnId: "turn_1",
@@ -1525,7 +1342,7 @@ test("shot boundary recovery fails interrupted pre-agent job", async () => {
 test("threadpool owner release sends owner_id only", async () => {
   const requests = [];
   const proxy = createThreadPoolProxy({
-    allowedRoles: ["shot-boundary-analyzer"],
+    allowedRoles: ["shot-boundary-transformer"],
     fetchImpl: async (url, options = {}) => {
       requests.push({ pathname: new URL(url).pathname, body: options.body ? JSON.parse(options.body) : null });
       return response({ ok: true, released: 1 });
@@ -1714,7 +1531,7 @@ async function createShotHarness({
     discarded: [],
     ownerReleased: [],
     config: async () => threadPoolConfig ?? { ok: true, discardOnRelease: false },
-    roleStatus: async (role = "shot-boundary-analyzer") => ({
+    roleStatus: async (role = "shot-boundary-transformer") => ({
       ok: true,
       role,
       counts: { idle: 1, leased: 0 },
@@ -1729,8 +1546,8 @@ async function createShotHarness({
       threads: [],
       leases: [],
     }),
-    ensureRoleReady: async (role = "shot-boundary-analyzer") => ({ ok: true, role, status: { role, canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
-    acquireLease: async ({ role } = {}) => role === "shot-boundary-reviewer"
+    ensureRoleReady: async (role = "shot-boundary-transformer") => ({ ok: true, role, status: { role, canAcquire: true, readyForLeases: true, warming: false, warmupError: null, startupError: null } }),
+    acquireLease: async ({ role } = {}) => role === "shot-boundary-transformer"
       ? { lease_id: "review_lease_1", thread_id: "review_thread_1" }
       : { lease_id: "lease_1", thread_id: "thread_1" },
     releaseLease: async (payload) => {
@@ -1973,14 +1790,14 @@ function createCachedShotAnalysis() {
     validation: { status: "passed", rawBoundaryCount: 0, normalizedBoundaryCount: 0, repairAttemptCount: 0, validatorCode: null },
     agent: {
       provider: "codex-appserver",
-      role: "shot-boundary-reviewer",
-      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-reviewer\\role.json",
+      role: "shot-boundary-transformer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-transformer\\role.json",
       profileVersion: "2026-05-24.1",
       promptTemplateId: "transform",
       promptTemplateVersion: "transform.v1",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
-      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-transformer\\SKILL.md",
       skillHash: "cached_hash",
       threadId: "review_thread_cached",
       leaseId: "review_lease_cached",
@@ -1988,7 +1805,7 @@ function createCachedShotAnalysis() {
       sheetCount: 2,
       inputMode: "raw_video_path_text",
       rawAnalyzer: {
-        role: "shot-boundary-analyzer",
+        phase: "raw_video_analyze",
         threadId: "thread_cached",
         leaseId: null,
         turnId: "turn_raw_cached",
@@ -2035,14 +1852,14 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
     agent: {
       provider: "codex-appserver",
-      role: "shot-boundary-reviewer",
-      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-reviewer\\role.json",
+      role: "shot-boundary-transformer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-transformer\\role.json",
       profileVersion: "2026-05-24.1",
       promptTemplateId: "transform",
       promptTemplateVersion: "transform.v1",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
-      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-transformer\\SKILL.md",
       skillHash: "cached_hash",
       threadId: "review_thread_cached",
       leaseId: "review_lease_cached",
@@ -2050,7 +1867,7 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
       sheetCount: 2,
       inputMode: "raw_video_path_text",
       rawAnalyzer: {
-        role: "shot-boundary-analyzer",
+        phase: "raw_video_analyze",
         threadId: "thread_cached",
         leaseId: null,
         turnId: "turn_raw_cached",

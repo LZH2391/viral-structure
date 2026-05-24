@@ -3,8 +3,8 @@ const fs = require("fs/promises");
 const fsSync = require("fs");
 const { createHash } = require("crypto");
 
-const ROLE = "shot-boundary-analyzer";
-const SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md";
+const ROLE = "raw_video_analyze";
+const SKILL_PATH = null;
 const MIN_SHOT_DURATION_SECONDS = 0.01;
 const MAX_REPAIR_ATTEMPTS = 1;
 const ANALYSIS_SELECTION_POLICY = "target_grid_nearest_unique";
@@ -17,7 +17,7 @@ const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
 const MAX_COMMERCE_BRIEF_FIELD_LENGTH = 120;
 const MAX_COMMERCE_BRIEF_UNCERTAINTIES = 5;
 const MAX_VIDEO_SUMMARY_LENGTH = 160;
-const ROLE_PROFILE_PATH = "Assets/RoleProfiles/shot-boundary-analyzer/role.json";
+const ROLE_PROFILE_PATH = null;
 
 function safeError(error, stageName) {
   return {

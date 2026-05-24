@@ -8,17 +8,20 @@ function isInterruptedPreAgentJob(job, sampleStatus, stages) {
   return isShotStage(job.stage, stages);
 }
 
-function buildAgentRun({ context, lease, turn, prepared, contactSheets, role, skillPath }) {
+function buildAgentRun({ context, lease, turn, prepared, contactSheets, role, skillPath, roleProfile, promptTemplate, initFingerprint }) {
   const now = new Date().toISOString();
+  const resolvedRoleProfile = roleProfile === undefined ? context.roleProfile : roleProfile;
+  const resolvedPromptTemplate = promptTemplate === undefined ? context.promptTemplate : promptTemplate;
+  const resolvedInitFingerprint = initFingerprint === undefined ? context.initFingerprint : initFingerprint;
   return {
     provider: "codex-appserver",
     role,
-    profilePath: context.roleProfile?.profilePath ?? null,
-    profileVersion: context.roleProfile?.profileVersion ?? null,
-    promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-    promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
-    initFingerprint: context.initFingerprint ?? null,
+    profilePath: resolvedRoleProfile?.profilePath ?? null,
+    profileVersion: resolvedRoleProfile?.profileVersion ?? null,
+    promptTemplateId: resolvedPromptTemplate?.promptTemplateId ?? null,
+    promptTemplateVersion: resolvedPromptTemplate?.promptTemplateVersion ?? null,
+    promptTemplateHash: resolvedPromptTemplate?.promptTemplateHash ?? null,
+    initFingerprint: resolvedInitFingerprint ?? null,
     skillPath: context.skillPath ?? skillPath,
     skillHash: context.skillHash ?? null,
     leaseId: lease?.lease_id ?? null,

@@ -3,10 +3,6 @@
     "discard_on_release": false
   },
   "roles": {
-    "shot-boundary-analyzer": {
-      "profile_path": "Assets/RoleProfiles/shot-boundary-analyzer/role.json",
-      "min_idle": 1
-    },
     "script-segment-analyzer": {
       "profile_path": "Assets/RoleProfiles/script-segment-analyzer/role.json",
       "min_idle": 1
@@ -15,8 +11,8 @@
       "profile_path": "Assets/RoleProfiles/rhythm-structure-analyzer/role.json",
       "min_idle": 1
     },
-    "shot-boundary-reviewer": {
-      "profile_path": "Assets/RoleProfiles/shot-boundary-reviewer/role.json",
+    "shot-boundary-transformer": {
+      "profile_path": "Assets/RoleProfiles/shot-boundary-transformer/role.json",
       "min_idle": 1
     }
   }

@@ -50,7 +50,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 {
                   "thread_pool": { "discard_on_release": false },
                   "roles": {
-                    "shot-boundary-reviewer": {
+                    "shot-boundary-transformer": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready"
@@ -73,10 +73,10 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="idle_thread_1",
-                    role="shot-boundary-reviewer",
+                    role="shot-boundary-transformer",
                     status="idle",
                     is_seed=False,
-                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-reviewer"]),
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
                     created_at="2026-05-24T10:00:00+08:00",
                     updated_at="2026-05-24T10:00:00+08:00",
                     last_validated_at="2026-05-24T10:00:00+08:00",
@@ -84,13 +84,13 @@ class ThreadPoolManagerTests(unittest.TestCase):
             )
             manager._write_catalog()
 
-            worker = threading.Thread(target=lambda: manager.acquire(role="shot-boundary-reviewer", owner_id="trace_1"))
+            worker = threading.Thread(target=lambda: manager.acquire(role="shot-boundary-transformer", owner_id="trace_1"))
             worker.start()
             self.assertTrue(client.validate_started.wait(timeout=1.0))
 
             started_at = time.monotonic()
             health = manager.health_payload()
-            status = manager.get_role_status("shot-boundary-reviewer")
+            status = manager.get_role_status("shot-boundary-transformer")
             duration = time.monotonic() - started_at
 
             client.release_validate.set()
@@ -111,7 +111,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 """
                 {
                   "roles": {
-                    "shot-boundary-reviewer": {
+                    "shot-boundary-transformer": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready"
@@ -133,11 +133,11 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="seed_thread_1",
-                    role="shot-boundary-reviewer",
+                    role="shot-boundary-transformer",
                     status="initializing",
                     is_seed=True,
                     init_turn_id="seed_turn_1",
-                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-reviewer"]),
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
                     created_at="2026-05-24T10:00:00+08:00",
                     updated_at="2026-05-24T10:00:00+08:00",
                     last_validated_at="2026-05-24T10:00:00+08:00",
@@ -147,12 +147,12 @@ class ThreadPoolManagerTests(unittest.TestCase):
 
             started_at = time.monotonic()
             health = manager.health_payload()
-            status = manager.get_role_status("shot-boundary-reviewer")
+            status = manager.get_role_status("shot-boundary-transformer")
             duration = time.monotonic() - started_at
             manager.close()
 
             self.assertLess(duration, 0.5)
-            self.assertIn("shot-boundary-reviewer", health["warming_roles"])
+            self.assertIn("shot-boundary-transformer", health["warming_roles"])
             self.assertTrue(status["warming"])
             self.assertFalse(status["can_acquire"])
             self.assertIn("waiting for seed initialization", status["warmup_detail"])
@@ -166,7 +166,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 {
                   "thread_pool": { "discard_on_release": false },
                   "roles": {
-                    "shot-boundary-reviewer": {
+                    "shot-boundary-transformer": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready"
@@ -188,25 +188,25 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="seed_thread_1",
-                    role="shot-boundary-reviewer",
+                    role="shot-boundary-transformer",
                     status="idle",
                     is_seed=True,
-                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-reviewer"]),
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
                     created_at="2026-05-24T10:00:00+08:00",
                     updated_at="2026-05-24T10:00:00+08:00",
                     last_validated_at="2026-05-24T10:00:00+08:00",
                 )
             )
-            manager._replenishing_roles.add("shot-boundary-reviewer")
-            manager._warmup_details["shot-boundary-reviewer"] = "creating idle thread 1/1 from seed seed_thread_1"
+            manager._replenishing_roles.add("shot-boundary-transformer")
+            manager._warmup_details["shot-boundary-transformer"] = "creating idle thread 1/1 from seed seed_thread_1"
             manager._write_catalog()
 
             health = manager.health_payload()
-            status = manager.get_role_status("shot-boundary-reviewer")
+            status = manager.get_role_status("shot-boundary-transformer")
             manager.close()
 
             self.assertEqual(health["warming_roles"], [])
-            self.assertIn("shot-boundary-reviewer", health["replenishing_roles"])
+            self.assertIn("shot-boundary-transformer", health["replenishing_roles"])
             self.assertFalse(status["warming"])
             self.assertTrue(status["replenishing"])
             self.assertTrue(status["can_acquire"])

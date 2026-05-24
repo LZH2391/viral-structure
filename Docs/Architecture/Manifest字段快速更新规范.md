@@ -6,7 +6,7 @@
 
 本文档适用于当前以 `manifest.json`、`metadata.json`、`lineage.json`、`output-contract.json`、`visual-manifest.json` 组织的分析输入包，尤其适用于：
 
-- `shot-boundary-analyzer`
+- `shot-boundary-transformer`
 - `script-segment-analyzer`
 - 后续新增的同类分析 role
 

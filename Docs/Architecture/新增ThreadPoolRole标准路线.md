@@ -276,7 +276,7 @@
 
 建议优先参考现有两条链路：
 
-- `shot-boundary-analyzer`
+- `shot-boundary-transformer`
   - service: [shot-boundary-service.js](C:/ByteDanceFullStack/Apps/Api/lib/shot-boundary-service.js)
   - input: [input.js](C:/ByteDanceFullStack/Apps/Api/lib/shot-boundary-analysis/input.js)
 - `script-segment-analyzer`

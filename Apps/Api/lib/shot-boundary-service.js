@@ -100,7 +100,7 @@ function createShotBoundaryService({
     const traceContext = createTraceContext(createTraceIds());
     const artifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    const context = {
+  const context = {
       sampleVideoId,
       analysisFps: Number(analysisFps || 10),
       cacheDecision,
@@ -110,7 +110,7 @@ function createShotBoundaryService({
       artifactId,
       skillPath,
       skillHash: await resolveSkillHash(skillPath),
-      roleProfile: await loadRoleProfileByRole(ROLE),
+      roleProfile: null,
       reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: null,
       promptTemplate: null,
@@ -144,7 +144,7 @@ function createShotBoundaryService({
       artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
       skillPath: job.cachePrompt.skillPath ?? skillPath,
       skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(skillPath),
-      roleProfile: await loadRoleProfileByRole(ROLE),
+      roleProfile: null,
       reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: job.cachePrompt.initFingerprint ?? null,
       promptTemplate: {
@@ -230,7 +230,7 @@ function createShotBoundaryService({
           timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({
-          role: ROLE,
+          role: "raw_video_analyze",
           leaseId: null,
           threadId: result.threadId,
           status: result.status,
@@ -254,7 +254,7 @@ function createShotBoundaryService({
           timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({
-          role: ROLE,
+          role: "raw_video_analyze",
           threadId: result.threadId,
           turnId: result.turnId,
           status: result.status,
@@ -271,7 +271,7 @@ function createShotBoundaryService({
       lease = null;
       scheduleCollect(context.job.jobId, 0);
     } catch (error) {
-      if (lease?.thread_id) {
+      if (lease?.thread_id && lease?.lease_id) {
         await cleanupLease(threadPool, lease, context.traceContext.traceId, "shot-boundary-analysis-failed");
       }
       await markFailed(context, error);
@@ -287,9 +287,7 @@ function createShotBoundaryService({
       if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
       const sampleArtifact = await loadSampleArtifact(agentRun.sampleVideoId);
       const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
-      if (!context.roleProfile?.turnTemplates) {
-        context.roleProfile = await loadRoleProfileByRole(ROLE);
-      }
+      context.roleProfile = null;
       context.reviewRoleProfile = await loadRoleProfileByRole(REVIEW_ROLE);
       context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
       context.reviewSkillHash = await resolveSkillHash(REVIEW_SKILL_PATH);
@@ -316,18 +314,18 @@ function createShotBoundaryService({
             timeoutSeconds: 60,
           }),
           outputSummary: (result) => ({
-            role: ROLE,
+            role: "raw_video_analyze",
             threadId: result.threadId,
             turnId: result.turnId,
             status: result.status,
-            profileVersion: context.roleProfile?.profileVersion ?? null,
-            promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-            promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-            promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+            profileVersion: null,
+            promptTemplateId: null,
+            promptTemplateVersion: null,
+            promptTemplateHash: null,
           }),
         });
         updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, {
-          role: ROLE,
+          role: "raw_video_analyze",
           fallbackMessage: "正在分析镜头边界",
         });
         if (turn.status !== "completed") {
@@ -381,7 +379,7 @@ function createShotBoundaryService({
             acquireLeaseWithRetry,
           },
           codedError,
-          role: ROLE,
+          role: "raw_video_analyze",
           jobStore,
           sampleStatus: SAMPLE_STATUS,
           store,
@@ -416,7 +414,7 @@ function createShotBoundaryService({
 
   async function failAgentRun(context, error) {
     const agentRun = context.job.agentRun;
-    if (agentRun?.threadId || agentRun?.traceId) {
+    if (agentRun?.leaseId && (agentRun?.threadId || agentRun?.traceId)) {
       await cleanupLease(threadPool, agentRun ? { thread_id: agentRun.threadId, lease_id: agentRun.leaseId } : null, agentRun?.traceId ?? null, "shot-boundary-analysis-failed");
     }
     await markFailed(context, error);
@@ -711,7 +709,14 @@ function createShotBoundaryService({
   }
 
   function buildAgentRun(args) {
-    return buildAgentRunImpl({ ...args, role: ROLE, skillPath: SKILL_PATH });
+    return buildAgentRunImpl({
+      ...args,
+      role: "raw_video_analyze",
+      skillPath: null,
+      roleProfile: null,
+      promptTemplate: null,
+      initFingerprint: null,
+    });
   }
 
   function createRecoveredContext(args) {

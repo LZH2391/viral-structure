@@ -30,9 +30,9 @@ const { pollProcessingJob, isSameProcessingJobSnapshot } = loadJobPolling();
 
 test("pollProcessingJob skips repeated equivalent snapshots", async () => {
   const snapshots = [
-    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.boundary_analyze.collect", status: "processing", progress: 10 },
-    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.boundary_analyze.collect", status: "processing", progress: 10 },
-    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.boundary_analyze.collect", status: "processed", progress: 100 },
+    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.raw_video_analyze.collect", status: "processing", progress: 10 },
+    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.raw_video_analyze.collect", status: "processing", progress: 10 },
+    { jobId: "job_1", sampleVideoId: "sample_1", traceId: "trace_1", stage: "shot.raw_video_analyze.collect", status: "processed", progress: 100 },
   ];
   const updates = [];
   let index = 0;
@@ -107,7 +107,7 @@ test("isSameProcessingJobSnapshot compares only normalized fields", () => {
     jobId: "job_4",
     sampleVideoId: "sample_4",
     traceId: "trace_4",
-    stage: "shot.thread_acquire",
+    stage: "shot.boundary_transform.thread_acquire",
     status: "processing",
     progress: 55,
     activeThreadMessage: { threadId: "thread_1", turnId: "turn_1", role: "assistant", text: "working", createdAt: "t1" },

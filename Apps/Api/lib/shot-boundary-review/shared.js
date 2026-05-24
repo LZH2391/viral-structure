@@ -1,8 +1,8 @@
 const path = require("path");
 const { createHash } = require("crypto");
 
-const REVIEW_ROLE = "shot-boundary-reviewer";
-const REVIEW_SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md";
+const REVIEW_ROLE = "shot-boundary-transformer";
+const REVIEW_SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-transformer\\SKILL.md";
 const TRANSFORM_INPUT_SCHEMA_VERSION = "shot-boundary-transform-input.v1";
 const TRANSFORM_RESULT_SCHEMA_VERSION = "shot-centric-transform.v1";
 const RESULT_SHEET_PURPOSE = "shot_boundary_result_sheet";

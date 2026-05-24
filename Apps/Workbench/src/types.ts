@@ -190,6 +190,15 @@ export type ShotBoundaryAnalysisArtifact = {
     inputMode?: string;
     enableReview?: boolean;
     reviewMode?: "reviewed" | "unreviewed" | string;
+    rawAnalyzer?: {
+      phase?: string | null;
+      role?: string | null;
+      threadId?: string | null;
+      turnId?: string | null;
+      leaseId?: string | null;
+      inputMode?: string | null;
+      rawResultPreview?: string | null;
+    } | null;
   };
   contactSheets?: Array<{
     artifactId: string;
@@ -254,6 +263,7 @@ export type ShotBoundaryAnalysisArtifact = {
     persuasionTarget: string;
     conversionAction: string;
     uncertainties: string[];
+    videoSummary?: string | null;
   } | null;
   validation?: {
     status: "passed" | "failed" | string;

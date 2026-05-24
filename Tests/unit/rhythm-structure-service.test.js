@@ -265,7 +265,7 @@ function createArtifact() {
       contactSheets: [],
       boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "反差进入演示", needReview: false }],
       validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
-      agent: { provider: "codex-appserver", role: "shot-boundary-analyzer", threadId: "thread_shot_1", leaseId: "lease_shot_1", turnId: "turn_shot_1" },
+      agent: { provider: "codex-appserver", role: "shot-boundary-raw-analyze-legacy", threadId: "thread_shot_1", leaseId: "lease_shot_1", turnId: "turn_shot_1" },
       shots: [
         { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1.2, representativeFrameId: "frame_1", confidence: 0.83, reason: "开场结果", summary: "展示整理前后反差", endBoundaryReason: "反差进入演示" },
         { id: "shot_2", index: 1, shotNo: "S002", start: 1.2, end: 3.8, representativeFrameId: "frame_2", confidence: 0.79, reason: "使用演示", summary: "演示收纳盒摆放和分类", endBoundaryReason: "动作连续推进" },
