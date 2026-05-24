@@ -18,6 +18,16 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
     ROLE,
     SKILL_PATH,
     STAGES,
+    progress: {
+      inputPrepared: 18,
+      inputPackaged: 24,
+      cacheLookup: 28,
+      analyzed: 56,
+      validated: 74,
+      repaired: 88,
+      cacheReuse: 92,
+      materialized: 96,
+    },
     store,
     resolveSkillHash,
     prepareInput,
@@ -181,10 +191,10 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
       });
     },
     markCacheWaiting({ context, cached, runtime }) {
-      return markCacheWaiting({
-        context,
-        cached,
-        jobStore: { updateJob: (...args) => runtime.job.markCacheWaiting ? runtime.job.markCacheWaiting(...args) : null },
+      return runtime.job.markCacheWaiting(context, {
+        stageName: STAGES.cacheLookup,
+        progress: 28,
+        cachePrompt: buildCachePrompt(context, cached),
       });
     },
     buildCachePrompt,

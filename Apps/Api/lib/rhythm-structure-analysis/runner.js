@@ -101,6 +101,10 @@ async function collectTurnToCompletion({
 
 async function waitBeforeRetry(delayMs) {
   if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  if (delayMs <= 5) {
+    await Promise.resolve();
+    return;
+  }
   await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 

@@ -67,7 +67,9 @@ function createAnalysisPipelineRunner({
             onTurnStarted: ({ lease: startedLease, started }) => {
               lease = startedLease;
               context.agentRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
-              runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.analyzed, descriptor.progress.analyzed);
+              runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.analyzed, descriptor.progress.analyzed, {
+                agentRun: context.agentRun,
+              });
             },
             onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
@@ -75,6 +77,10 @@ function createAnalysisPipelineRunner({
           if (!context.agentRun) {
             context.agentRun = descriptor.buildAgentRun({ context, lease: executed.lease, turn: executed.started, input });
           }
+          runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.analyzed, descriptor.progress.analyzed, {
+            agentRun: context.agentRun,
+            activeThreadMessage: null,
+          });
           const analysis = descriptor.buildProcessedAnalysis(executed.finalTurn.finalMessage, input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount: 0,
           });
@@ -150,6 +156,10 @@ function createAnalysisPipelineRunner({
           repairAttemptCount,
         });
         context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
+        runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.repaired, descriptor.progress.repaired, {
+          agentRun: context.agentRun,
+          activeThreadMessage: null,
+        });
         return { analysis, finalTurn: executed.finalTurn, repairAttemptCount };
       },
       outputSummary: (result) => descriptor.buildRepairOutputSummary(context, result),

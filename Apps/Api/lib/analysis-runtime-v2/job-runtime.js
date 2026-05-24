@@ -14,13 +14,14 @@ function createJobRuntime({ jobStore, sampleStatus }) {
     });
   }
 
-  function resumeProcessing(jobId, stage, progress) {
+  function resumeProcessing(jobId, stage, progress, patch = {}) {
     return jobStore.updateJob(jobId, {
       cachePrompt: null,
       errorSummary: null,
       status: sampleStatus.processing,
       stage,
       progress,
+      ...patch,
     });
   }
 
