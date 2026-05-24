@@ -83,6 +83,8 @@ const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
 const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
 const REVIEW_COLLECT_MAX_ATTEMPTS = 90;
+const WORKSPACE_ROOT = path.resolve(__dirname, "..", "..", "..");
+const VIDEO_SHOT_SKILL_PATH = path.join(WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
 
 function createShotBoundaryService({
   rootDir,
@@ -93,7 +95,7 @@ function createShotBoundaryService({
   threadPool = createThreadPoolProxy(),
   appServer = createAppServerBridge(),
   contactSheetGenerator = defaultContactSheetGenerator,
-  skillPath = SKILL_PATH,
+  skillPath = VIDEO_SHOT_SKILL_PATH,
   pollIntervalMs = POLL_INTERVAL_MS,
   reviewPollIntervalMs = POLL_INTERVAL_MS,
   reviewCollectMaxAttempts = REVIEW_COLLECT_MAX_ATTEMPTS,
@@ -247,7 +249,11 @@ function createShotBoundaryService({
       lease = rawThread;
       const rawTurnInputs = [{
         type: "text",
-        text: `对[${rawVideoPath}]这个视频进行切镜，分析有几个镜头。`,
+        text: [
+          "请使用 Video-shot skill 执行原始视频切镜。",
+          `视频路径：${rawVideoPath}`,
+          "边界：只读该视频路径，只输出 raw 切镜自由文本；不查仓库、不调用其他技能、不看工作区项目实现。",
+        ].join("\n"),
         text_elements: [],
       }];
       const turn = await runStage(context, STAGES.turnStarted, 80, {
@@ -258,6 +264,7 @@ function createShotBoundaryService({
           workspaceRoot: rootDir,
           threadId: rawThread.thread_id,
           inputs: rawTurnInputs,
+          skillPath: context.skillPath,
           timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({

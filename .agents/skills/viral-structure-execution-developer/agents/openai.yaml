@@ -1,4 +1,3 @@
 interface:
   display_name: "执行开发者"
   short_description: "负责按任务卡实现功能"
-  default_prompt: "负责按任务卡实现功能，遵守定义边界，类型定义优先，遇到模糊需求先停下来问协调者，不做架构决策。"

@@ -588,8 +588,10 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
   assert.equal(rawTurn.payload.threadId, "thread_raw_1");
   assert.equal(rawTurn.payload.inputs.length, 1);
   assert.equal(rawTurn.payload.inputs[0].type, "text");
-  assert.equal(rawTurn.payload.inputs[0].text, `对[${path.join(harness.store.runtimeRoot, "source.mp4")}]这个视频进行切镜，分析有几个镜头。`);
-  assert.equal("skillPath" in rawTurn.payload, false);
+  assert.match(rawTurn.payload.inputs[0].text, /请使用 Video-shot skill 执行原始视频切镜/);
+  assert.match(rawTurn.payload.inputs[0].text, new RegExp(escapeRegExp(path.join(harness.store.runtimeRoot, "source.mp4"))));
+  assert.match(rawTurn.payload.inputs[0].text, /不查仓库、不调用其他技能、不看工作区项目实现/);
+  assert.match(rawTurn.payload.skillPath, /[\\\/]\.agents[\\\/]skills[\\\/]video-shot[\\\/]SKILL\.md$/);
   assert.equal(job.status, "processing");
   assert.equal(job.agentRun.threadId, "thread_raw_1");
   assert.equal(job.agentRun.leaseId, null);
@@ -1903,6 +1905,10 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
 
 function rootRuntime(name) {
   return path.join("C:\\Runtime", name);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function delay(ms) {
