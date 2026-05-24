@@ -6,6 +6,19 @@ function renderCardTime(card: RhythmStructureArtifact["cards"][number]) {
   return `${formatSecondsCompact(card.start)} - ${formatSecondsCompact(card.end)}`;
 }
 
+function renderConfidence(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return "置信度未知";
+  const normalized = Number(value);
+  return `${Math.round(Math.max(0, Math.min(1, normalized)) * 100)}%`;
+}
+
+function renderEvidencePreview(evidence: string[]) {
+  const first = evidence.find((item) => item.trim());
+  if (!first) return "无证据";
+  const remaining = evidence.filter((item) => item.trim()).length - 1;
+  return remaining > 0 ? `${first} +${remaining}` : first;
+}
+
 export function RhythmStructurePanel({
   analysis,
   analysisHistory,
@@ -65,13 +78,32 @@ export function RhythmStructurePanel({
         </div>
       ) : null}
       {analysis?.overview ? (
-        <div className="detail-hint">
-          <div>整体形态：{analysis.overview.rhythmShape}</div>
-          <div>节奏总览：{analysis.overview.pacingSummary}</div>
-          <div>峰值范围：{analysis.overview.peakRange || "无"}</div>
-          <div>转折点：{analysis.overview.turningPoints.join("；") || "无"}</div>
-          <div>迁移规律：{analysis.overview.transferableRhythmRule}</div>
-          {analysis.overview.uncertainties.length ? <div>不确定：{analysis.overview.uncertainties.join("；")}</div> : null}
+        <div className="rhythm-overview-panel">
+          <div className="rhythm-overview-heading">
+            <span>整体节奏</span>
+            <strong>{analysis.overview.rhythmShape}</strong>
+          </div>
+          <div className="rhythm-overview-grid">
+            <div>
+              <span>走势</span>
+              <strong>{analysis.overview.pacingSummary}</strong>
+            </div>
+            <div>
+              <span>峰值</span>
+              <strong>{analysis.overview.peakRange || "无"}</strong>
+            </div>
+            <div>
+              <span>转折</span>
+              <strong>{analysis.overview.turningPoints.join("；") || "无"}</strong>
+            </div>
+            <div>
+              <span>迁移</span>
+              <strong>{analysis.overview.transferableRhythmRule}</strong>
+            </div>
+          </div>
+          {analysis.overview.uncertainties.length ? (
+            <div className="rhythm-overview-note">不确定：{analysis.overview.uncertainties.join("；")}</div>
+          ) : null}
         </div>
       ) : null}
       {failed ? (
@@ -82,24 +114,33 @@ export function RhythmStructurePanel({
         </div>
       ) : null}
       {cards.length ? (
-        <div className="agent-shot-list">
+        <div className="agent-shot-list rhythm-card-list">
           {cards.map((card, index) => (
             <button
               key={card.cardId}
-              className="agent-shot-item agent-script-item"
+              className="rhythm-card-item"
               type="button"
               onClick={() => onSelectCard(card.start)}
             >
-              <strong>R{String(index + 1).padStart(3, "0")}</strong>
-              <span className="agent-shot-time">{renderCardTime(card)}</span>
-              <b className="agent-shot-summary">{card.label}</b>
-              <small title={card.rhythmRole}>{card.rhythmRole}</small>
-              <span className="agent-script-meta">shots: {card.shotRefs.join(", ") || "无"}</span>
-              <span className="agent-script-meta">pattern: {card.rhythmPattern}</span>
-              <span className="agent-script-meta">effect: {card.attentionEffect}</span>
-              <span className="agent-script-meta">evidence: {card.evidence.join("；") || "无"}</span>
-              <span className="agent-script-meta">rule: {card.transferableRule}</span>
-              <span className="agent-script-meta">confidence: {card.confidence} / needReview: {card.needReview ? "是" : "否"}</span>
+              <span className="rhythm-card-index">R{String(index + 1).padStart(3, "0")}</span>
+              <span className={`rhythm-card-badge ${card.needReview ? "needs-review" : ""}`}>
+                {card.needReview ? "需复核" : renderConfidence(card.confidence)}
+              </span>
+              <span className="rhythm-card-time">{renderCardTime(card)}</span>
+              <strong className="rhythm-card-title">{card.label}</strong>
+              <span className="rhythm-card-role">{card.rhythmRole}</span>
+              <span className="rhythm-card-pattern">{card.rhythmPattern}</span>
+              <span className="rhythm-card-block">
+                <b>观感作用</b>
+                <small>{card.attentionEffect}</small>
+              </span>
+              <span className="rhythm-card-block">
+                <b>迁移规则</b>
+                <small>{card.transferableRule}</small>
+              </span>
+              <span className="rhythm-card-meta" title={card.evidence.join("；") || undefined}>
+                shots {card.shotRefs.join(", ") || "无"} / 证据：{renderEvidencePreview(card.evidence)}
+              </span>
             </button>
           ))}
         </div>

@@ -461,7 +461,11 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(scriptPanel, /运行脚本段落分析|运行/);
   assert.match(rhythmPanel, /strong>rhythm-structure</);
   assert.match(rhythmPanel, /cardCount：/);
-  assert.match(rhythmPanel, /整体形态：/);
+  assert.match(rhythmPanel, /rhythm-overview-panel/);
+  assert.match(rhythmPanel, /整体节奏/);
+  assert.match(rhythmPanel, /观感作用/);
+  assert.match(rhythmPanel, /迁移规则/);
+  assert.match(rhythmPanel, /rhythm-card-badge/);
   assert.match(rhythmPanel, /resultOrigin：/);
   assert.match(rhythmPanel, /cacheKey：/);
   assert.match(rhythmPanel, /sourceTurn：/);

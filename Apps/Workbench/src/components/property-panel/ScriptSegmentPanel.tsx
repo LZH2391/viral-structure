@@ -75,7 +75,7 @@ export function ScriptSegmentPanel({
       ) : null}
       {analysis?.reason ? <div className="detail-hint">原因：{analysis.reason}</div> : null}
       {segments.length ? (
-        <div className="agent-shot-list">
+        <div className="agent-shot-list agent-card-list">
           {segments.map((segment, index) => (
             <button
               key={segment.segmentId}

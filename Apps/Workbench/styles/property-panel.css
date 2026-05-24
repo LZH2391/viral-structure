@@ -161,6 +161,11 @@
   overflow: auto;
 }
 
+.agent-card-list {
+  max-height: none;
+  overflow: visible;
+}
+
 .agent-shot-current {
   display: grid;
   gap: 4px;
@@ -296,6 +301,160 @@
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.45;
+}
+
+.rhythm-overview-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.rhythm-overview-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.rhythm-overview-heading span,
+.rhythm-overview-grid span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.rhythm-overview-heading strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.rhythm-overview-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.rhythm-overview-grid div {
+  display: grid;
+  gap: 3px;
+}
+
+.rhythm-overview-grid strong,
+.rhythm-overview-note {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.rhythm-overview-note {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.rhythm-card-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.rhythm-card-item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rhythm-card-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rhythm-card-index {
+  grid-row: 1 / span 6;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rhythm-card-badge {
+  justify-self: end;
+  border: 1px solid rgba(17, 207, 224, 0.22);
+  border-radius: 999px;
+  background: rgba(17, 207, 224, 0.08);
+  color: var(--text-soft);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.rhythm-card-badge.needs-review {
+  border-color: rgba(242, 169, 59, 0.36);
+  background: var(--warn-soft);
+  color: var(--text);
+}
+
+.rhythm-card-time {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.rhythm-card-title {
+  grid-column: 2 / 4;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.rhythm-card-role,
+.rhythm-card-pattern,
+.rhythm-card-block,
+.rhythm-card-meta {
+  grid-column: 2 / 4;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rhythm-card-role {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.rhythm-card-pattern,
+.rhythm-card-meta {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.rhythm-card-block {
+  display: grid;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.rhythm-card-block b {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.rhythm-card-block small {
+  color: var(--text-soft);
+  font-size: 12px;
   line-height: 1.45;
 }
 
