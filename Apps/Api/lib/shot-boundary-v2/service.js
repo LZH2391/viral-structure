@@ -10,7 +10,6 @@ const { acquireLeaseWithRetry, cleanupLease, finalizeLease } = require("../shot-
 const { prepareInput, resolveSkillHash, safeError, codedError } = require("../shot-boundary-analysis");
 const { appendShotBoundaryHistory } = require("../shot-boundary/history");
 const { resolveExistingFileHash } = require("../shot-boundary/cache");
-const { buildEvidencePackage } = require("./evidence");
 const { renderV2AnalyzeTurnInputs } = require("./input");
 const { buildV2ProcessedAnalysis } = require("./result-builder");
 
@@ -18,7 +17,7 @@ const ROLE = "shot-boundary-v2-analyzer";
 const SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-v2-analyzer\\SKILL.md";
 const STAGES = {
   inputPrepared: "shot.v2.input_prepare",
-  evidencePrepared: "shot.v2.evidence_prepare",
+  agentWorkspacePrepared: "shot.v2.agent_workspace",
   threadAcquired: "shot.v2.thread_acquire",
   turnStarted: "shot.v2.analyze.submit",
   turnCollected: "shot.v2.analyze.collect",
@@ -74,25 +73,24 @@ function createShotBoundaryV2Service({
         }),
       });
       context.prepared = prepared;
-      const evidence = await runStage(context, STAGES.evidencePrepared, 45, {
+      const agentWorkspace = await runStage(context, STAGES.agentWorkspacePrepared, 45, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.sampleVideo?.artifactId ?? null,
-        inputSummary: { sampleVideoId: context.sampleVideoId },
-        action: () => buildEvidencePackage({
+        inputSummary: { sampleVideoId: context.sampleVideoId, mode: "agent_driven" },
+        action: () => prepareAgentWorkspace({
           artifact: context.artifact,
           sampleDir: store.sampleDir(context.sampleVideoId),
           store,
-          parentArtifactId: context.artifact.sampleVideo?.artifactId ?? null,
+          prepared,
         }),
         outputSummary: (result) => ({
-          durationSeconds: result.metadata.durationSeconds,
-          candidateCount: result.candidates.length,
-          denseWindowCount: result.denseWindows.length,
-          sheetCount: result.sheets.length,
+          durationSeconds: result.durationSeconds,
+          sourceVideoPath: path.basename(result.sourceVideoPath),
+          outputDirUri: result.outputDirUri,
         }),
       });
-      context.evidence = evidence;
-      const analyzeTurn = renderV2AnalyzeTurnInputs({ artifact: context.artifact, evidence, roleProfile: context.roleProfile });
+      context.agentWorkspace = agentWorkspace;
+      const analyzeTurn = renderV2AnalyzeTurnInputs({ artifact: context.artifact, prepared, agentWorkspace, roleProfile: context.roleProfile });
       context.promptTemplate = {
         promptTemplateId: analyzeTurn.promptTemplateId,
         promptTemplateVersion: analyzeTurn.promptTemplateVersion,
@@ -101,7 +99,7 @@ function createShotBoundaryV2Service({
       const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.sampleVideo?.artifactId ?? null,
-        inputSummary: { role: ROLE, sheetCount: evidence.sheets.length, candidateCount: evidence.candidates.length },
+        inputSummary: { role: ROLE, inputMode: "original_video_agent_driven" },
         action: () => acquireLeaseWithRetry(threadPool, {
           role: ROLE,
           ownerId: context.traceContext.traceId,
@@ -120,11 +118,12 @@ function createShotBoundaryV2Service({
       const started = await runStage(context, STAGES.turnStarted, 75, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.sampleVideo?.artifactId ?? null,
-        inputSummary: { role: ROLE, threadId: lease.thread_id, leaseId: lease.lease_id, sheetCount: evidence.sheets.length },
+        inputSummary: { role: ROLE, threadId: lease.thread_id, leaseId: lease.lease_id, inputMode: "original_video_agent_driven" },
         action: () => appServer.startTurnWithInputs({
           workspaceRoot: rootDir,
           threadId: lease.thread_id,
           inputs: analyzeTurn.inputs,
+          skillPath: context.skillPath,
           timeoutSeconds: 300,
         }),
         outputSummary: (result) => ({ role: ROLE, threadId: result.threadId, turnId: result.turnId, status: result.status }),
@@ -147,8 +146,18 @@ function createShotBoundaryV2Service({
       const analysis = await runStage(context, STAGES.turnValidated, 90, {
         artifactId: context.artifactId,
         parentArtifactId: context.artifact.sampleVideo?.artifactId ?? null,
-        inputSummary: { turnId: collected.turnId, candidateCount: evidence.candidates.length },
-        action: () => buildV2ProcessedAnalysis(collected.finalMessage, prepared, evidence, context, lease, collected),
+        inputSummary: { turnId: collected.turnId, outputDirUri: agentWorkspace.outputDirUri },
+        action: async () => {
+          const generatedSheets = await scanAgentGeneratedSheets(agentWorkspace.outputDir, store);
+          return buildV2ProcessedAnalysis(
+            collected.finalMessage,
+            prepared,
+            { ...agentWorkspace, generatedSheets },
+            context,
+            lease,
+            collected,
+          );
+        },
         outputSummary: (result) => ({
           shotCount: result.shots.length,
           boundaryCount: result.boundaries.length,
@@ -310,9 +319,81 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms || 0))));
 }
 
+async function prepareAgentWorkspace({ artifact, sampleDir, store, prepared }) {
+  const sourceVideoPath = resolveRuntimePath(artifact.sampleVideo?.original?.uri, store.runtimeRoot);
+  if (!sourceVideoPath) {
+    throw codedError("shot_boundary_v2_missing_source_video", "V2 shot boundary source video path is missing", {}, false);
+  }
+  await fs.access(sourceVideoPath).catch((error) => {
+    throw codedError("shot_boundary_v2_source_video_not_found", "V2 shot boundary source video file was not found", {
+      sourceVideoPath,
+      message: error instanceof Error ? error.message : String(error),
+    }, false);
+  });
+  const outputDir = path.join(sampleDir, "shot-boundary-v2", "agent-work");
+  await fs.mkdir(outputDir, { recursive: true });
+  return {
+    mode: "agent_driven",
+    sourceVideoPath,
+    outputDir,
+    outputDirUri: store.runtimeUri(outputDir),
+    durationSeconds: Number(prepared?.durationSeconds ?? artifact.metadata?.durationSeconds ?? 0),
+    metadata: {
+      durationSeconds: Number(prepared?.durationSeconds ?? artifact.metadata?.durationSeconds ?? 0),
+      width: artifact.metadata?.width ?? null,
+      height: artifact.metadata?.height ?? null,
+      fps: artifact.metadata?.fps ?? null,
+    },
+  };
+}
+
+function resolveRuntimePath(uri, runtimeRoot) {
+  const value = String(uri || "");
+  if (!value) return null;
+  if (runtimeRoot && value.startsWith("/runtime/")) {
+    return path.join(runtimeRoot, value.slice("/runtime/".length).split("/").join(path.sep));
+  }
+  return value;
+}
+
+async function scanAgentGeneratedSheets(outputDir, store) {
+  const root = path.resolve(outputDir);
+  const files = [];
+  await walk(root, files);
+  return files
+    .filter((filePath) => /\.(png|jpe?g|webp)$/i.test(filePath))
+    .sort((a, b) => a.localeCompare(b))
+    .map((filePath, index) => ({
+      sheetId: `v2-agent-${String(index + 1).padStart(3, "0")}`,
+      sheetPurpose: "v2_agent_generated",
+      uri: store.runtimeUri(filePath),
+      imagePath: store.runtimeUri(filePath),
+      source: "agent_generated",
+    }));
+}
+
+async function walk(dir, files) {
+  let entries = [];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await walk(entryPath, files);
+    } else if (entry.isFile()) {
+      files.push(entryPath);
+    }
+  }
+}
+
 module.exports = {
   ROLE,
   SKILL_PATH,
   STAGES,
+  prepareAgentWorkspace,
+  scanAgentGeneratedSheets,
   createShotBoundaryV2Service,
 };

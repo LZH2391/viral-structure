@@ -1,65 +1,58 @@
 ---
 name: shot-boundary-v2-analyzer
-description: 基于服务端生成的 scene score、帧差候选、overview sheet、候选五帧对照和密集区 zoom sheet，一次对话输出最终切镜结果。
+description: Given only the original video path and an agent work directory, generate whatever frame sheets/evidence are needed with tools, inspect them, and return final shot boundaries in one turn.
 ---
 
-# SKILL: 切镜 V2 单轮证据分析
+# SKILL: Shot Boundary V2 Agent-Driven Analyzer
 
-你只分析任务提供的 V2 evidence manifest 和 localImage 证据图。不要读取项目里已有分镜结果、历史缓存、reviewer 输出或外部文件。
+You are not reviewing an existing project shot analysis. You are doing your own shot-boundary analysis from the original video.
 
-## 判断原则
+## Inputs
 
-- 候选点只是证据，不是最终答案。
-- 高 scene score 或高帧差只说明画面变化大，不必然是切镜。
-- 最终只按硬切、明显跳切、转场、主体/场景/构图突变来切。
-- 同一机位连续口播、手持移动、产品靠近镜头、手部翻动、字幕/贴纸出现、曝光或压缩变化，不单独算切镜。
-- 候选五帧对照按 `t-3f / t-1f / t / t+1f / t+3f` 阅读，用来判断切点前后是否真的断开。
-- 密集区 zoom sheet 用来区分快切与连续动作。
+The turn prompt provides:
 
-## 输出
+- `manifest.video.sourceVideoPath`: absolute path to the original video.
+- `manifest.video.evidenceOutputDir`: directory where you may write scratch frames, contact sheets, candidate sheets, logs, or JSON.
+- `manifest.durationSeconds`: target final video duration.
+- `outputContract`: the exact JSON shape to return.
 
-只返回 JSON object，不要输出解释性正文：
+Do not read or rely on existing `shotBoundaryAnalysis`, history, cache, reviewer output, or project-generated V1 sheets. Use only the source video and files you create under `evidenceOutputDir`.
 
-```json
-{
-  "shots": [
-    {
-      "summary": "镜头内容",
-      "start": 0,
-      "end": 3.13,
-      "endBoundary": {
-        "timestamp": 3.13,
-        "confidence": 0.85,
-        "reason": "从面部近景硬切到正面口播"
-      }
-    },
-    {
-      "summary": "结尾镜头",
-      "start": 3.13,
-      "end": 10.0,
-      "endBoundary": null
-    }
-  ],
-  "rejectedCandidates": [
-    {
-      "id": "C004",
-      "time": 4.9,
-      "reason": "同机位手持移动，前后主体连续"
-    }
-  ],
-  "methodSummary": {
-    "shotCount": 2,
-    "standard": "hard_cut_or_obvious_jump_cut"
-  }
-}
+## Tool Workflow
+
+Use `shell_command` as needed. You decide what to generate.
+
+Recommended process:
+
+1. Run `ffprobe` on `sourceVideoPath` to confirm duration, FPS, width, and height.
+2. Run one or more `ffmpeg` scene-score passes and/or frame-diff passes to discover possible boundary times.
+3. Generate overview contact sheets under `evidenceOutputDir` as needed.
+4. Generate denser sheets around ambiguous intervals as needed.
+5. For candidate verification, use exactly these frame positions: `t-3f`, `t-1f`, `t`, `t+1f`, `t+3f`.
+6. When a command creates an image you need to inspect, print this line on its own line so the runtime attaches the image to the tool result:
+
+```text
+LOCAL_IMAGE: C:\absolute\path\to\sheet.jpg
 ```
 
-## 规则
+You may print multiple `LOCAL_IMAGE:` lines. Keep generated files inside `evidenceOutputDir`.
 
-- 第一镜 `start` 必须是 0。
-- 最后一镜 `end` 必须等于 manifest 的 `durationSeconds`，最后一镜 `endBoundary` 必须为 null。
-- 相邻镜头必须首尾连续：后一镜 `start` 等于前一镜 `end`。
-- 除最后一镜外，每个 `endBoundary.timestamp` 必须等于该镜 `end`。
-- `confidence` 是 0 到 1 的数字。
-- `rejectedCandidates` 只记录你认为有必要解释的高变化但非切镜候选，不能编造不存在的候选 id。
-- 不要输出 frameId、本地路径、OCR 原文、旧分镜引用或 markdown。
+## Boundary Standard
+
+- Count hard cuts, obvious jump cuts, transitions, and abrupt subject/scene/composition changes.
+- Do not count same-camera continuous talking, handheld drift, product close-up motion, hand movement, subtitle/sticker changes, exposure shifts, compression artifacts, or continuous zoom/pan as shot cuts.
+- High scene score or high frame difference is only a candidate. Confirm visually with generated sheets before accepting.
+- If you reject a high-change moment that could be questioned, include it in `rejectedCandidates` with a short reason.
+
+## Output
+
+Return only one JSON object. No markdown, explanations, local file paths, frame IDs, old-shot references, or prose outside the JSON.
+
+Rules:
+
+- First shot `start` must be `0`.
+- Last shot `end` must equal `manifest.durationSeconds`.
+- Last shot `endBoundary` must be `null`.
+- Adjacent shots must be contiguous: each `start` equals the previous `end`.
+- Every non-final `endBoundary.timestamp` must equal that shot's `end`.
+- `confidence` is a number from `0` to `1`.

@@ -1,19 +1,18 @@
-请基于以下 V2 evidence manifest 和随后附带的 localImage 证据图，直接输出最终切镜 JSON object。
+You are given the original video path and an empty V2 agent work directory. Analyze the video yourself and return the final shot-boundary JSON.
 
 manifest:
 {{manifestJson}}
 
-输出契约:
+output contract:
 {{outputContractJson}}
 
-阅读顺序：
-1. 先看 overview sheet，建立全片大段结构。
-2. 再看 candidate check sheet。每个候选按 `t-3f / t-1f / t / t+1f / t+3f` 五帧判断，候选点只是证据。
-3. 再看 dense zoom sheet，区分快切与同镜头连续动作。
+Process requirements:
+- Use `shell_command` to inspect the original video and generate only the evidence you need.
+- Keep all generated files under `manifest.video.evidenceOutputDir`.
+- When you generate a contact sheet, candidate sheet, or other image you need to inspect, make the command print `LOCAL_IMAGE: <absolute image path>` on its own line. The runtime will attach that image back to you.
+- You may generate overview sheets, scene-score logs, dense sheets, candidate sheets, or any other scratch evidence as needed.
+- Do not read existing project shot analyses, old V1/V2 results, reviewer output, cache, or history.
+- Candidate checks must use `t-3f / t-1f / t / t+1f / t+3f`.
+- Accept only hard cuts, obvious jump cuts, transitions, or abrupt subject/scene/composition changes. Reject continuous camera/hand/product/subtitle/exposure motion.
 
-判断标准：
-- 只把硬切、明显跳切、转场、主体/场景/构图突变算作切镜。
-- 不要把同机位连续口播、手持移动、产品靠近镜头、手部翻动、字幕/贴纸变化、曝光变化算作切镜。
-- 如果高分候选被剔除，请在 `rejectedCandidates` 里简短说明。
-
-只返回 JSON object。不要输出 markdown、解释性正文、本地路径、frameId 或旧分镜引用。
+Return only the JSON object matching the contract. Do not output markdown, explanatory prose, local paths, frame ids, or references to old project shots.

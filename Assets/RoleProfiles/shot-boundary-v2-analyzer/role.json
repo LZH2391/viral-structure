@@ -1,10 +1,10 @@
 {
   "role": "shot-boundary-v2-analyzer",
-  "profileVersion": "2026-05-24.1",
+  "profileVersion": "2026-05-24.2",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-boundary-v2-analyzer/SKILL.md",
   "init": {
     "template": "init.md",
-    "readyText": "已就绪"
+    "readyText": "ready"
   },
   "turnTemplates": {
     "analyze": {

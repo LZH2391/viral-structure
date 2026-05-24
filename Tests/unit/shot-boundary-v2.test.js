@@ -10,27 +10,26 @@ test("shot boundary v2 role profile loads isolated analyzer prompt", async () =>
   assert.match(profile.skillPath, /shot-boundary-v2-analyzer/);
 });
 
-test("shot boundary v2 manifest exposes five-frame candidate check policy", () => {
+test("shot boundary v2 manifest gives original video and agent-owned workdir", () => {
   const manifest = buildV2Manifest({
-    artifact: { sampleVideo: { original: { summary: "sample.mp4" } } },
-    evidence: {
-      metadata: { durationSeconds: 10, width: 960, height: 720, fps: 30 },
-      config: {
-        sceneWeakThreshold: 0.15,
-        sceneStrongThreshold: 0.35,
-        diffFps: 10,
-        candidateFrameOffsets: [-3, -1, 0, 1, 3],
-      },
-      candidates: [{ id: "C001", time: 3.1, strength: "strong", maxSceneScore: 0.5, maxDiffScore: 80, sources: [] }],
-      denseWindows: [{ id: "Z001", start: 2, end: 4, candidateIds: ["C001"] }],
-      sheets: [{ sheetId: "candidate-check-5frames", sheetPurpose: "v2_candidate_check_5frames", window: null }],
+    artifact: { metadata: { width: 960, height: 720 }, sampleVideo: { original: { summary: "sample.mp4" } } },
+    prepared: { durationSeconds: 10, subtitleContextSummary: { subtitleSegmentCount: 0 } },
+    agentWorkspace: {
+      sourceVideoPath: "C:\\Runtime\\Artifacts\\sample\\source.mp4",
+      outputDir: "C:\\Runtime\\Artifacts\\sample\\shot-boundary-v2\\agent-work",
+      outputDirUri: "/runtime/Artifacts/sample/shot-boundary-v2/agent-work",
+      metadata: { width: 960, height: 720, fps: null },
     },
   });
-  assert.deepEqual(manifest.method.candidateCheckFrames, ["t-3f", "t-1f", "t", "t+1f", "t+3f"]);
-  assert.equal(manifest.candidates[0].id, "C001");
+  assert.equal(manifest.schemaVersion, "shot-boundary-v2.agent-driven.v1");
+  assert.equal(manifest.workflow.mode, "agent_driven");
+  assert.equal(manifest.workflow.serviceProvidedCandidates, false);
+  assert.equal(manifest.workflow.serviceProvidedSheets, false);
+  assert.deepEqual(manifest.workflow.candidateCheckFrames, ["t-3f", "t-1f", "t", "t+1f", "t+3f"]);
+  assert.match(manifest.video.sourceVideoPath, /source\.mp4$/);
 });
 
-test("shot boundary v2 result builder keeps v2 method metadata", () => {
+test("shot boundary v2 result builder keeps agent-driven method metadata", () => {
   const prepared = {
     sourceArtifactId: "artifact_source",
     durationSeconds: 6,
@@ -39,26 +38,27 @@ test("shot boundary v2 result builder keeps v2 method metadata", () => {
     analysisSampling: {},
     subtitleContextSummary: null,
   };
-  const evidence = {
-    metadata: { durationSeconds: 6 },
-    candidates: [{ id: "C001", time: 2, strength: "strong" }],
-    denseWindows: [],
-    sheets: [],
+  const agentWorkspace = {
+    outputDirUri: "/runtime/Artifacts/sample/shot-boundary-v2/agent-work",
+    generatedSheets: [
+      { sheetId: "v2-agent-001", sheetPurpose: "v2_agent_generated", uri: "/runtime/sheet.jpg", imagePath: "/runtime/sheet.jpg" },
+    ],
   };
   const message = JSON.stringify({
     shots: [
-      { summary: "开场", start: 0, end: 2, endBoundary: { timestamp: 2, confidence: 0.8, reason: "硬切" } },
-      { summary: "结尾", start: 2, end: 6, endBoundary: null },
+      { summary: "opening shot", start: 0, end: 2, endBoundary: { timestamp: 2, confidence: 0.8, reason: "hard cut" } },
+      { summary: "ending shot", start: 2, end: 6, endBoundary: null },
     ],
-    rejectedCandidates: [{ id: "C001", time: 2.8, reason: "同机位连续动作" }],
+    rejectedCandidates: [{ time: 2.8, reason: "same camera continuous motion" }],
     methodSummary: { shotCount: 2 },
   });
   const analysis = buildV2ProcessedAnalysis(
     message,
     prepared,
-    evidence,
+    agentWorkspace,
     {
       artifactId: "artifact_v2",
+      artifact: { sampleVideo: { original: { uri: "/runtime/Artifacts/sample/source.mp4" } } },
       role: "shot-boundary-v2-analyzer",
       roleProfile: { profilePath: "profile", profileVersion: "v" },
       skillPath: "skill",
@@ -68,8 +68,10 @@ test("shot boundary v2 result builder keeps v2 method metadata", () => {
     { thread_id: "thread_1", lease_id: "lease_1" },
     { turnId: "turn_1" },
   );
-  assert.equal(analysis.method, "shot_boundary_v2_evidence_single_turn");
-  assert.equal(analysis.agent.role, "shot-boundary-v2-analyzer");
+  assert.equal(analysis.method, "shot_boundary_v2_agent_driven_single_turn");
+  assert.equal(analysis.evidence.mode, "agent_driven");
+  assert.equal(analysis.evidence.generatedSheetCount, 1);
+  assert.equal(analysis.agent.inputMode, "v2_original_video_agent_driven_single_turn");
   assert.equal(analysis.validation.schemaVersion, "shot-boundary-v2.result.v1");
   assert.equal(analysis.rejectedCandidates.length, 1);
 });

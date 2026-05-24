@@ -1,8 +1,7 @@
 const { extractJsonObject, stripLocalImagePath, skillContentHashSync } = require("../shot-boundary-analysis/shared");
 const { buildProcessedAnalysisFromParsed } = require("../shot-boundary-analysis/result-builder");
-const { evidenceHash } = require("./evidence");
 
-function buildV2ProcessedAnalysis(message, prepared, evidence, context, lease, turn) {
+function buildV2ProcessedAnalysis(message, prepared, agentWorkspace, context, lease, turn) {
   const parsed = extractJsonObject(message);
   const previousPromptTemplate = context.promptTemplate;
   context.promptTemplate = {
@@ -15,9 +14,9 @@ function buildV2ProcessedAnalysis(message, prepared, evidence, context, lease, t
   };
   let analysis;
   try {
-    analysis = buildProcessedAnalysisFromParsed(normalized, prepared, evidence.sheets, context, lease, turn, {
+    analysis = buildProcessedAnalysisFromParsed(normalized, prepared, agentWorkspace.generatedSheets ?? [], context, lease, turn, {
       rawMessage: message,
-      resultOrigin: "v2_evidence_single_turn",
+      resultOrigin: "v2_agent_driven_single_turn",
       repairAttemptCount: 0,
       reviewReworkCount: 0,
       enableReview: false,
@@ -27,14 +26,14 @@ function buildV2ProcessedAnalysis(message, prepared, evidence, context, lease, t
   }
   return {
     ...analysis,
-    method: "shot_boundary_v2_evidence_single_turn",
+    method: "shot_boundary_v2_agent_driven_single_turn",
     evidence: {
-      hash: evidenceHash(evidence),
-      candidateCount: evidence.candidates.length,
-      denseWindowCount: evidence.denseWindows.length,
-      candidates: evidence.candidates,
-      denseWindows: evidence.denseWindows,
-      sheets: evidence.sheets.map(stripLocalImagePath),
+      mode: "agent_driven",
+      generatedByAgent: true,
+      sourceVideoUri: context.artifact?.sampleVideo?.original?.uri ?? null,
+      outputDirUri: agentWorkspace.outputDirUri ?? null,
+      generatedSheetCount: (agentWorkspace.generatedSheets ?? []).length,
+      sheets: (agentWorkspace.generatedSheets ?? []).map(stripLocalImagePath),
     },
     rejectedCandidates: Array.isArray(parsed.rejectedCandidates) ? parsed.rejectedCandidates.map(normalizeRejectedCandidate) : [],
     methodSummary: parsed.methodSummary && typeof parsed.methodSummary === "object" ? parsed.methodSummary : null,
@@ -48,7 +47,7 @@ function buildV2ProcessedAnalysis(message, prepared, evidence, context, lease, t
       promptTemplateHash: previousPromptTemplate?.promptTemplateHash ?? null,
       skillPath: context.skillPath,
       skillHash: context.skillHash ?? skillContentHashSync(context.skillPath),
-      inputMode: "v2_evidence_sheets_single_turn",
+      inputMode: "v2_original_video_agent_driven_single_turn",
       enableReview: false,
       reviewMode: "none",
     },
