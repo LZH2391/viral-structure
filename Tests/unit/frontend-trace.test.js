@@ -229,6 +229,12 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(agentRunPanel, /step="1"/);
   assert.match(agentRunPanel, /分析采样率必须是 1 到 10 之间的整数/);
   assert.match(agentRunPanel, /采样率越高，图片越多，分析更细但耗时更久/);
+  assert.match(app, /const \[enableShotBoundaryReview, setEnableShotBoundaryReview\] = useState\(true\)/);
+  assert.match(api, /enableReview: options\.enableReview \?\? true/);
+  assert.match(agentRunPanel, /Reviewer/);
+  assert.match(agentRunPanel, /checked=\{enableReview\}/);
+  assert.match(agentRunPanel, /disabled=\{running\}/);
+  assert.match(agentRunPanel, /enableReview \? "开启" : "关闭"/);
   assert.match(agentRunPanel, /预计分析：目标 \{formatFpsValue\(samplingPreview\.requestedFps\)\} fps \/ 约 \{samplingPreview\.selectedFrameCount\} 帧 \/ 最近不重复取帧/);
   assert.doesNotMatch(agentRunPanel, /requestedAnalysisFps：/);
   assert.doesNotMatch(agentRunPanel, /effectiveAnalysisFps：/);

@@ -329,6 +329,7 @@ function stageParams(artifact, stageName) {
       promptTemplateId: artifact.shotBoundaryAnalysis?.agent?.promptTemplateId ?? null,
       promptTemplateVersion: artifact.shotBoundaryAnalysis?.agent?.promptTemplateVersion ?? null,
       promptTemplateHash: artifact.shotBoundaryAnalysis?.agent?.promptTemplateHash ?? null,
+      reviewMode: artifact.shotBoundaryAnalysis?.agent?.reviewMode ?? (artifact.shotBoundaryAnalysis?.agent?.enableReview === false ? "unreviewed" : "reviewed"),
       skillHash: artifact.shotBoundaryAnalysis?.agent?.skillHash ?? null,
     });
   }

@@ -49,7 +49,9 @@ export type PropertyPanelProps = {
   rhythmStructureAnalysisHistory?: RhythmStructureHistoryEntry[] | null;
   rhythmStructureJob?: AgentRunJob | null;
   agentAnalysisFps: number;
+  enableShotBoundaryReview: boolean;
   onAgentAnalysisFpsChange: (value: number) => void;
+  onEnableShotBoundaryReviewChange: (value: boolean) => void;
   onRunShotBoundary: () => void;
   onRunScriptSegment: () => void;
   onRunRhythmStructure: () => void;
@@ -142,7 +144,9 @@ export function PropertyPanel(props: PropertyPanelProps) {
             currentShotId={props.currentShotId}
             job={props.agentJob}
             analysisFps={props.agentAnalysisFps}
+            enableReview={props.enableShotBoundaryReview}
             onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
+            onEnableReviewChange={props.onEnableShotBoundaryReviewChange}
             onRun={props.onRunShotBoundary}
             onSelectShot={props.onSelectShot}
           />

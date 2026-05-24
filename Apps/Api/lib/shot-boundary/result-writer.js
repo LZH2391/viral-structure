@@ -440,6 +440,78 @@ async function resolveReviewedAnalysis({
   }
 }
 
+async function resolveUnreviewedAnalysis({
+  context,
+  agentRun,
+  initialTurn,
+  prepared,
+  contactSheets,
+  runStage,
+  stages,
+  maxRepairAttempts,
+  buildProcessedAnalysis,
+  appServer,
+  rootDir,
+  renderRepairTurnInputs,
+  codedError,
+  role,
+  repairPollIntervalMs,
+  repairCollectMaxAttempts,
+  updateActiveThreadMessage,
+}) {
+  const resolved = await resolveFinalAnalysis({
+    context,
+    agentRun,
+    turn: initialTurn,
+    prepared,
+    contactSheets,
+    runStage,
+    stages,
+    maxRepairAttempts,
+    buildProcessedAnalysis,
+    appServer,
+    rootDir,
+    renderRepairTurnInputs,
+    codedError,
+    role,
+    repairPollIntervalMs,
+    repairCollectMaxAttempts,
+    updateActiveThreadMessage,
+  });
+  const skipSummary = { enabled: false, skipped: true, reason: "disabled_by_request" };
+  const skip = await runStage(context, stages.reviewSkipped, 91, {
+    artifactId: context.artifactId,
+    parentArtifactId: prepared.sourceArtifactId,
+    inputSummary: skipSummary,
+    action: async () => skipSummary,
+    outputSummary: (result) => result,
+  });
+  const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
+  const shotAnalysis = buildProcessedAnalysis(resolved.finalTurn.finalMessage, prepared, contactSheets, { ...context, validationSummary: resolved.validationSummary }, lease, resolved.finalTurn, {
+    resultOrigin: resolved.resultOrigin,
+    repairAttemptCount: resolved.repairAttemptCount,
+    review: skip,
+    reviewRuns: [],
+    reviewReworkCount: 0,
+    enableReview: false,
+  });
+  return {
+    ...resolved,
+    shotAnalysis: {
+      ...shotAnalysis,
+      review: null,
+      reviewRuns: [],
+      validation: {
+        ...shotAnalysis.validation,
+        review: skip,
+      },
+    },
+    reviewResult: null,
+    reviewRuns: [],
+    reviewReworkCount: 0,
+  };
+}
+
 function summarizeAcceptedReworkReview(reviewer, reviewResult, reviewReworkCount) {
   return {
     ...reviewer.summarizeReviewResult(reviewResult),
@@ -893,29 +965,50 @@ async function writeCompletedAnalysis({
 }) {
   const prepared = prepareInput(context.sampleArtifact, agentRun.analysisFps, { runtimeRoot: store.runtimeRoot });
   const contactSheets = agentRun.contactSheets ?? [];
-  const resolved = await resolveReviewedAnalysis({
-    context,
-    agentRun,
-    initialTurn: turn,
-    prepared,
-    contactSheets,
-    runStage,
-    stages,
-    maxRepairAttempts,
-    buildProcessedAnalysis,
-    appServer,
-    rootDir,
-    renderRepairTurnInputs,
-    codedError,
-    role,
-    reviewer,
-    store,
-    threadPool,
-    jobStore,
-    repairPollIntervalMs,
-    repairCollectMaxAttempts,
-    updateActiveThreadMessage,
-  });
+  const reviewEnabled = reviewer?.enabled !== false;
+  const resolved = reviewEnabled
+    ? await resolveReviewedAnalysis({
+      context,
+      agentRun,
+      initialTurn: turn,
+      prepared,
+      contactSheets,
+      runStage,
+      stages,
+      maxRepairAttempts,
+      buildProcessedAnalysis,
+      appServer,
+      rootDir,
+      renderRepairTurnInputs,
+      codedError,
+      role,
+      reviewer,
+      store,
+      threadPool,
+      jobStore,
+      repairPollIntervalMs,
+      repairCollectMaxAttempts,
+      updateActiveThreadMessage,
+    })
+    : await resolveUnreviewedAnalysis({
+      context,
+      agentRun,
+      initialTurn: turn,
+      prepared,
+      contactSheets,
+      runStage,
+      stages,
+      maxRepairAttempts,
+      buildProcessedAnalysis,
+      appServer,
+      rootDir,
+      renderRepairTurnInputs,
+      codedError,
+      role,
+      repairPollIntervalMs,
+      repairCollectMaxAttempts,
+      updateActiveThreadMessage,
+    });
   const shotAnalysis = resolved.shotAnalysis;
   const summary = await runSummaryTurn({
     context,

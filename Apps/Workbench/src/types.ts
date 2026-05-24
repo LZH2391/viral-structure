@@ -52,6 +52,8 @@ export type ProcessingJob = {
     sourceCreatedAt?: string | null;
     cacheKey?: string | null;
     analysisFps?: number | null;
+    enableReview?: boolean | null;
+    reviewMode?: "reviewed" | "unreviewed" | string | null;
   } | null;
 };
 
@@ -135,10 +137,12 @@ export type ShotBoundaryAnalysisHistoryEntry = {
   analysisFps: number | null;
   boundaryCount: number;
   shotCount: number;
-  turnId: string | null;
-  traceId: string | null;
-  sourceTraceId?: string | null;
-  createdAt: string;
+    turnId: string | null;
+    traceId: string | null;
+    sourceTraceId?: string | null;
+    enableReview?: boolean;
+    reviewMode?: "reviewed" | "unreviewed" | string;
+    createdAt: string;
   validatorCode?: string | null;
 };
 
@@ -184,6 +188,8 @@ export type ShotBoundaryAnalysisArtifact = {
     turnId: string | null;
     sheetCount?: number;
     inputMode?: string;
+    enableReview?: boolean;
+    reviewMode?: "reviewed" | "unreviewed" | string;
   };
   contactSheets?: Array<{
     artifactId: string;
@@ -255,6 +261,7 @@ export type ShotBoundaryAnalysisArtifact = {
     normalizedBoundaryCount: number | null;
     repairAttemptCount: number;
     validatorCode: string | null;
+    review?: unknown;
   } | null;
   shots: Array<{
     id: string;
@@ -842,6 +849,8 @@ export type LibraryItemSummary = {
   boundaryCount?: number | null;
   shotCount?: number | null;
   analysisFps?: number | null;
+  enableReview?: boolean | null;
+  reviewMode?: "reviewed" | "unreviewed" | string | null;
   segmentCount?: number | null;
   cardCount?: number | null;
   profileVersion?: string | null;

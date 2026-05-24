@@ -99,6 +99,22 @@
   padding: 8px 9px;
 }
 
+.agent-review-toggle {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+
+.agent-review-toggle input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.agent-review-toggle strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
 .detail-hint {
   display: grid;
   gap: 4px;

@@ -10,6 +10,8 @@ function appendShotBoundaryHistory(history, analysis, traceMeta) {
     turnId: analysis?.agent?.turnId ?? null,
     traceId: traceMeta?.traceId ?? null,
     sourceTraceId: traceMeta?.sourceTraceId ?? null,
+    reviewMode: analysis?.agent?.reviewMode ?? (analysis?.agent?.enableReview === false ? "unreviewed" : "reviewed"),
+    enableReview: analysis?.agent?.enableReview !== false,
     createdAt: analysis?.createdAt ?? new Date().toISOString(),
     validatorCode: analysis?.validation?.validatorCode ?? null,
   };

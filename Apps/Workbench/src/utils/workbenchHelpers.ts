@@ -10,6 +10,7 @@ export type ActiveJobDraft = {
   sampleVideoId: string;
   traceId: string;
   analysisFps?: number;
+  enableReview?: boolean;
   stageKind?: AnalysisStageKind;
 };
 
@@ -25,11 +26,11 @@ export type ShotBoundaryGuard = {
   disabled: boolean;
 };
 
-export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler, cacheDecision: "ask" | "reuse" | "refresh" = "ask") {
+export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps: number, enableReview: boolean, setAgentJob: (job: ProcessingJob | null) => void, dispatch: (action: WorkbenchAction) => void, writeActiveAgentJob?: JobDraftWriter, onCacheHit?: ShotBoundaryCacheHandler, cacheDecision: "ask" | "reuse" | "refresh" = "ask") {
   if (!state.sampleVideo) return;
   const guard = await getShotBoundaryGuard();
   if (guard.state !== "ready") throw new Error(guard.message ?? "ThreadPool 当前不可用，请稍后再试");
-  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision });
+  const started = await startShotBoundaryAnalysis(state.sampleVideo.id, { analysisFps, cacheDecision, enableReview });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
       job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "shot.cache_lookup", status: "cache_waiting", progress: 55 },
@@ -39,7 +40,7 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   }
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
-  writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps });
+  writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps, enableReview });
   latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: setAgentJob }) ?? latest;
   if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
     setAgentJob(null);
@@ -346,6 +347,12 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.boundary_analyze.submit": "提交切镜分析",
     "shot.boundary_analyze.collect": "等待切镜结果",
     "shot.boundary_validate": "校验切镜结果",
+    "shot.boundary_review.skip": "跳过切镜审查",
+    "shot.boundary_review.sheets": "生成审查联表",
+    "shot.boundary_review.thread_acquire": "等待审查 lease",
+    "shot.boundary_review.submit": "提交切镜审查",
+    "shot.boundary_review.collect": "等待审查结果",
+    "shot.boundary_review.validate": "校验审查结果",
     "shot.boundary_repair.submit": "提交修复分析",
     "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",

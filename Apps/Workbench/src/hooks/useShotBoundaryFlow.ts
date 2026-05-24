@@ -11,12 +11,13 @@ type ShotBoundaryFlowOptions = {
   state: WorkbenchState;
   dispatch: (action: WorkbenchAction) => void;
   agentAnalysisFps: number;
+  enableReview: boolean;
   setSaveStatus: (value: string) => void;
   uploadTokenRef: { current: number };
 };
 
 export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
-  const { state, dispatch, agentAnalysisFps, setSaveStatus, uploadTokenRef } = options;
+  const { state, dispatch, agentAnalysisFps, enableReview, setSaveStatus, uploadTokenRef } = options;
   const [agentJob, setAgentJob] = useState<ProcessingJob | null>(null);
   const [shotCachePrompt, setShotCachePrompt] = useState<ShotCachePrompt>(null);
 
@@ -32,6 +33,7 @@ export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
     await runShotBoundaryAnalysis(
       state,
       agentAnalysisFps,
+      enableReview,
       setAgentJob,
       dispatch,
       writeActiveAgentJob,
@@ -42,7 +44,7 @@ export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
       },
       "ask",
     );
-  }, [agentAnalysisFps, dispatch, setSaveStatus, state, uploadTokenRef]);
+  }, [agentAnalysisFps, dispatch, enableReview, setSaveStatus, state, uploadTokenRef]);
 
   const reuseCache = useCallback(async () => {
     if (!shotCachePrompt || !state.sampleVideo) return;
@@ -68,7 +70,7 @@ export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
       const job = await resolveShotBoundaryCacheDecision(prompt.jobId, "refresh");
       setAgentJob(job);
       await attachAgentJob(
-        { processingJobId: prompt.jobId, sampleVideoId: prompt.sampleVideoId, traceId: job.traceId, analysisFps: agentAnalysisFps },
+        { processingJobId: prompt.jobId, sampleVideoId: prompt.sampleVideoId, traceId: job.traceId, analysisFps: agentAnalysisFps, enableReview },
         setAgentJob,
         dispatch,
         writeActiveAgentJob,
@@ -85,7 +87,7 @@ export function useShotBoundaryFlow(options: ShotBoundaryFlowOptions) {
     } catch (error) {
       setSaveStatus(error instanceof Error ? error.message : "切镜分析失败");
     }
-  }, [agentAnalysisFps, dispatch, setSaveStatus, shotCachePrompt, state.sampleVideo, uploadTokenRef]);
+  }, [agentAnalysisFps, dispatch, enableReview, setSaveStatus, shotCachePrompt, state.sampleVideo, uploadTokenRef]);
 
   return {
     agentJob,

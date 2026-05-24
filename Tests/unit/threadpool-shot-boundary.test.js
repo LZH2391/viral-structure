@@ -522,6 +522,21 @@ test("subtitle hash participates in shot boundary cache params", () => {
   assert.notEqual(paramsA.subtitleTextHash, paramsB.subtitleTextHash);
 });
 
+test("review mode participates in shot boundary cache params", () => {
+  const common = {
+    sourceArtifactId: "artifact_sample",
+    analysisSampling: { fps: 3 },
+    subtitleContextSummary: { subtitleArtifactId: null, subtitleSegmentCount: 0, subtitleTextHash: null, truncated: false },
+    skillHash: "skill_hash",
+  };
+  const reviewed = buildShotBoundaryCacheParams({ ...common, reviewMode: "reviewed" });
+  const unreviewed = buildShotBoundaryCacheParams({ ...common, reviewMode: "unreviewed" });
+
+  assert.equal(reviewed.reviewMode, "reviewed");
+  assert.equal(unreviewed.reviewMode, "unreviewed");
+  assert.notDeepEqual(reviewed, unreviewed);
+});
+
 test("revised subtitle artifact participates in shot boundary subtitle context summary", () => {
   const artifact = createArtifact({
     subtitleStatus: "processed",
@@ -907,6 +922,43 @@ test("shot boundary collect completed writes artifact and releases lease", async
   assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].role, "shot-boundary-reviewer");
   assert.notEqual(artifact.shotBoundaryAnalysis.reviewRuns[0].threadId, artifact.shotBoundaryAnalysis.agent.threadId);
   assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
+});
+
+test("shot boundary can skip reviewer by request while preserving summary", async () => {
+  const startedKinds = [];
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
+        startedKinds.push(kind);
+        return { ok: true, threadId: "thread_1", turnId: `turn_${kind}_1`, status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_summary_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, enableReview: false });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const skipLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewSkipped);
+
+  assert.deepEqual(startedKinds, ["shot", "summary"]);
+  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
+  assert.equal(artifact.shotBoundaryAnalysis.review, null);
+  assert.deepEqual(artifact.shotBoundaryAnalysis.reviewRuns, []);
+  assert.equal(artifact.shotBoundaryAnalysis.validation.review.skipped, true);
+  assert.equal(artifact.shotBoundaryAnalysis.validation.review.reason, "disabled_by_request");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.enableReview, false);
+  assert.equal(artifact.shotBoundaryAnalysis.agent.reviewMode, "unreviewed");
+  assert.ok(artifact.shotBoundaryAnalysis.commerceBrief);
+  assert.equal(skipLogs.filter((entry) => entry.event === "stage.start").length, 1);
+  assert.equal(skipLogs.filter((entry) => entry.event === "stage.end").length, 1);
+  assert.equal(harness.logger.logs.some((entry) => entry.stageName === STAGES.reviewStarted), false);
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [result.traceId]);
 });
 
 test("shot boundary reviewer collect polls running turn and preserves active message", async () => {
@@ -1315,7 +1367,7 @@ test("shot boundary cache lookup falls back to legacy promptless cache params", 
     frameDimensions: prepared.frameDimensions,
     contactSheets,
     subtitleContextSummary: prepared.subtitleContextSummary,
-    skillHash: "302ec99d6733632b",
+    skillHash: await resolveSkillHash(),
   }));
   cacheEntries.set(stableKey("hash_1", STAGES.resultWritten, legacyParams), { sampleVideoId: "sample_cached", cacheKey: "legacy_cache" });
 

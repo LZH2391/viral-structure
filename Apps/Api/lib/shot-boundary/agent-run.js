@@ -29,6 +29,8 @@ function buildAgentRun({ context, lease, turn, prepared, contactSheets, role, sk
     parentArtifactId: prepared.sourceArtifactId ?? null,
     sampleVideoId: context.sampleVideoId,
     analysisFps: context.analysisFps,
+    enableReview: context.enableReview !== false,
+    reviewMode: context.enableReview === false ? "unreviewed" : "reviewed",
     status: "turn_submitted",
     contactSheets,
     preparedInputSummary: {
@@ -70,6 +72,7 @@ function createRecoveredContext({ job, agentRun, sampleArtifact, skillPath }) {
     initFingerprint: agentRun.initFingerprint ?? null,
     skillPath: agentRun.skillPath ?? skillPath,
     skillHash: agentRun.skillHash ?? null,
+    enableReview: agentRun.enableReview !== false,
     cacheDecision: "refresh",
     job,
     activeStage: null,

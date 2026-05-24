@@ -79,6 +79,7 @@ const STAGES = {
   reviewStarted: "shot.boundary_review.submit",
   reviewCollected: "shot.boundary_review.collect",
   reviewValidated: "shot.boundary_review.validate",
+  reviewSkipped: "shot.boundary_review.skip",
   turnRepaired: "shot.boundary_repair.submit",
   repairCollected: "shot.boundary_repair.collect",
   resultWritten: "shot.boundary_merge",
@@ -111,7 +112,7 @@ function createShotBoundaryService({
 } = {}) {
   const collectingJobs = new Map();
 
-  async function enqueue({ sampleVideoId, analysisFps = 1, cacheDecision = "ask" }) {
+  async function enqueue({ sampleVideoId, analysisFps = 1, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
     const sampleArtifact = await loadSampleArtifact(sampleVideoId);
     const traceContext = createTraceContext(createTraceIds());
@@ -121,6 +122,7 @@ function createShotBoundaryService({
       sampleVideoId,
       analysisFps: Number(analysisFps || 1),
       cacheDecision,
+      enableReview: normalizeEnableReview(enableReview),
       sampleArtifact,
       traceContext,
       artifactId,
@@ -147,6 +149,7 @@ function createShotBoundaryService({
       sampleVideoId: job.sampleVideoId,
       analysisFps: Number(job.cachePrompt.analysisFps ?? 1),
       cacheDecision: decision,
+      enableReview: normalizeEnableReview(job.cachePrompt.enableReview ?? true),
       sampleArtifact,
       traceContext: {
         runId: job.traceId,
@@ -384,6 +387,7 @@ function createShotBoundaryService({
           renderSummaryTurnInputs,
           validateCommerceBriefOutput,
           reviewer: {
+            enabled: context.enableReview !== false,
             role: REVIEW_ROLE,
             skillPath: REVIEW_SKILL_PATH,
             maxReworkCount: MAX_REVIEW_REWORK_COUNT,
@@ -656,6 +660,8 @@ function createShotBoundaryService({
       sourceTurnId: cached.analysis.agent?.turnId ?? null,
       sourceCreatedAt: cached.analysis.createdAt ?? null,
       analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
+      enableReview: context.enableReview !== false,
+      reviewMode: reviewMode(context),
       cacheKey: cached.cache.cacheKey ?? null,
       artifactId: context.artifactId,
       skillPath: context.skillPath,
@@ -680,12 +686,16 @@ function createShotBoundaryService({
       boundaryCount: cached.analysis.boundaries?.length ?? 0,
       shotCount: cached.analysis.shots?.length ?? 0,
       analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
+      enableReview: context.enableReview !== false,
+      reviewMode: reviewMode(context),
     };
   }
 
   function cacheLookupSummary(context, details) {
     return {
       analysisFps: context.analysisFps,
+      enableReview: context.enableReview !== false,
+      reviewMode: reviewMode(context),
       skillHash: context.skillHash,
       ...details,
     };
@@ -771,3 +781,12 @@ function round(value) {
 }
 
 module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
+
+function normalizeEnableReview(value) {
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return true;
+}
+
+function reviewMode(context) {
+  return context?.enableReview === false ? "unreviewed" : "reviewed";
+}

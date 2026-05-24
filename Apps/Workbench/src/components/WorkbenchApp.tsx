@@ -40,6 +40,7 @@ export function WorkbenchApp() {
   const [saveStatus, setSaveStatus] = useState("本地草稿");
   const [audioSeekRequest, setAudioSeekRequest] = useState<AudioSeekRequest | null>(null);
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(1);
+  const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -87,6 +88,7 @@ export function WorkbenchApp() {
     state,
     dispatch,
     agentAnalysisFps,
+    enableReview: enableShotBoundaryReview,
     setSaveStatus,
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
@@ -134,6 +136,7 @@ export function WorkbenchApp() {
     const restoreJobs = async () => {
       const shotDraft = await shotBoundaryFlow.restoreDraft();
       if (shotDraft) setAgentAnalysisFps(normalizeAnalysisFps(shotDraft.analysisFps ?? 1, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));
+      if (shotDraft) setEnableShotBoundaryReview(shotDraft.enableReview ?? true);
       const draft = readWorkbenchDraft();
       await scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
       await rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
@@ -316,7 +319,9 @@ export function WorkbenchApp() {
           rhythmStructureAnalysisHistory={state.sampleArtifact?.rhythmStructureAnalysisHistory ?? null}
           rhythmStructureJob={rhythmStructureFlow.job}
           agentAnalysisFps={agentAnalysisFps}
+          enableShotBoundaryReview={enableShotBoundaryReview}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
+          onEnableShotBoundaryReviewChange={setEnableShotBoundaryReview}
           onRunShotBoundary={() => {
             subtitleDraftFlow.flushSubtitleDraftsBeforeShotBoundary()
               .then((ready) => {

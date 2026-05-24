@@ -21,6 +21,7 @@ function buildShotBoundaryCacheParams({
   promptTemplateId,
   promptTemplateVersion,
   promptTemplateHash,
+  reviewMode = "reviewed",
   skillPath = SKILL_PATH,
 } = {}) {
   const resolvedSubtitleSummary = subtitleContextSummary ?? {
@@ -39,6 +40,7 @@ function buildShotBoundaryCacheParams({
     promptTemplateId: promptTemplateId ?? null,
     promptTemplateVersion: promptTemplateVersion ?? null,
     promptTemplateHash: promptTemplateHash ?? null,
+    reviewMode: reviewMode === "unreviewed" ? "unreviewed" : "reviewed",
     skillHash: skillHash ?? skillContentHashSync(skillPath),
   };
 }
@@ -53,6 +55,7 @@ function cacheParams(input, contactSheets, options = {}) {
     promptTemplateId: options.promptTemplateId,
     promptTemplateVersion: options.promptTemplateVersion,
     promptTemplateHash: options.promptTemplateHash,
+    reviewMode: options.reviewMode,
     skillPath: options.skillPath,
   });
 }

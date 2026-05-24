@@ -50,11 +50,11 @@ export function writeActiveAnalysisJob(stageKind: AnalysisStageKind, job: Active
         processingJobId: job.processingJobId,
         sampleVideoId: job.sampleVideoId,
         traceId: job.traceId,
-        ...(stageKind === "shotBoundary" ? { analysisFps: job.analysisFps ?? 1 } : {}),
+        ...(stageKind === "shotBoundary" ? { analysisFps: job.analysisFps ?? 1, enableReview: job.enableReview ?? true } : {}),
       },
     };
     if (stageKind === "shotBoundary") {
-      return { ...nextDraft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? 1 } };
+      return { ...nextDraft, activeAgentJob: { processingJobId: job.processingJobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId, analysisFps: job.analysisFps ?? 1, enableReview: job.enableReview ?? true } };
     }
     return nextDraft;
   });

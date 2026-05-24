@@ -47,12 +47,12 @@ export async function getSampleArtifact(sampleVideoId: string) {
   return readJsonResponse<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
 }
 
-export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh"; enableReview?: boolean } = {}) {
   return readJsonResponse<ShotBoundaryStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/shot-boundary`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1, cacheDecision: options.cacheDecision ?? "ask" }),
+      body: JSON.stringify({ analysisFps: options.analysisFps ?? 1, cacheDecision: options.cacheDecision ?? "ask", enableReview: options.enableReview ?? true }),
     }),
   );
 }

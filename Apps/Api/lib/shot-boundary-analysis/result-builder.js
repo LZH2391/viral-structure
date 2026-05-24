@@ -107,7 +107,7 @@ function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, conte
       validatorCode: null,
       schemaVersion: usingShotCentricSchema ? "shot-centric.v2" : "legacy-boundary.v1",
       commerceBrief: summarizeCommerceBrief(commerceBrief),
-      review: options.review ?? null,
+      review: options.review !== undefined ? options.review : null,
     },
     agent: {
       provider: "codex-appserver",
@@ -125,6 +125,8 @@ function buildProcessedAnalysisFromParsed(parsed, prepared, contactSheets, conte
       turnId: turn.turnId,
       sheetCount: contactSheets.length,
       inputMode: "multi_contact_sheet",
+      enableReview: options.enableReview !== false,
+      reviewMode: options.enableReview === false ? "unreviewed" : "reviewed",
     },
     shots,
     review: options.review ?? null,

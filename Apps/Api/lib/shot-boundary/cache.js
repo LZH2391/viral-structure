@@ -21,6 +21,7 @@ async function findCachedArtifact({
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion,
     promptTemplateHash: context.promptTemplate?.promptTemplateHash,
     initFingerprint: context.initFingerprint,
+    reviewMode: reviewMode(context),
   });
   let cache = await artifactIndex.findCacheEntry({
     fileHash,
@@ -35,6 +36,7 @@ async function findCachedArtifact({
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion,
     promptTemplateHash: context.promptTemplate?.promptTemplateHash,
     initFingerprint: context.initFingerprint,
+    reviewMode: reviewMode(context),
   };
   for (const compatible of compatibleCacheParams) {
     if (cache?.sampleVideoId || typeof compatible?.build !== "function") break;
@@ -93,6 +95,7 @@ async function runCacheLookup({ context, prepared, contactSheets, runStage, stag
       promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       initFingerprint: context.initFingerprint ?? null,
+      reviewMode: reviewMode(context),
     },
     action: () => findCached(),
     outputSummary: (lookup) => lookup.summary,
@@ -135,6 +138,8 @@ function buildCachePrompt(context, cached) {
     sourceTurnId: cached.analysis.agent?.turnId ?? null,
     sourceCreatedAt: cached.analysis.createdAt ?? null,
     analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
+    enableReview: context.enableReview !== false,
+    reviewMode: reviewMode(context),
     cacheKey: cached.cache.cacheKey ?? null,
     artifactId: context.artifactId,
     profilePath: context.roleProfile?.profilePath ?? null,
@@ -145,6 +150,8 @@ function buildCachePrompt(context, cached) {
     initFingerprint: context.initFingerprint ?? null,
     skillPath: context.skillPath,
     skillHash: context.skillHash,
+    enableReview: context.enableReview !== false,
+    reviewMode: reviewMode(context),
   };
 }
 
@@ -165,6 +172,8 @@ function buildCachedItem(context, cached) {
     boundaryCount: cached.analysis.boundaries?.length ?? 0,
     shotCount: cached.analysis.shots?.length ?? 0,
     analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
+    enableReview: context.enableReview !== false,
+    reviewMode: reviewMode(context),
     profileVersion: cached.analysis.agent?.profileVersion ?? null,
     promptTemplateId: cached.analysis.agent?.promptTemplateId ?? null,
     promptTemplateVersion: cached.analysis.agent?.promptTemplateVersion ?? null,
@@ -180,6 +189,8 @@ function cacheLookupSummary(context, details) {
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
     promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     initFingerprint: context.initFingerprint ?? null,
+    enableReview: context.enableReview !== false,
+    reviewMode: reviewMode(context),
     ...details,
   };
 }
@@ -208,6 +219,7 @@ async function reuseCachedAnalysis({
       profileVersion: cachePrompt?.profileVersion ?? null,
       promptTemplateId: cachePrompt?.promptTemplateId ?? null,
       promptTemplateVersion: cachePrompt?.promptTemplateVersion ?? null,
+      reviewMode: cachePrompt?.reviewMode ?? null,
     },
     action: async () => {
       const cached = await resolvePrompt();
@@ -241,3 +253,7 @@ module.exports = {
   resolveExistingFileHash,
   reuseCachedAnalysis,
 };
+
+function reviewMode(context) {
+  return context?.enableReview === false ? "unreviewed" : "reviewed";
+}

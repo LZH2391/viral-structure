@@ -26,7 +26,9 @@ export function AgentRunPanel({
   currentShotId,
   job,
   analysisFps,
+  enableReview,
   onAnalysisFpsChange,
+  onEnableReviewChange,
   onRun,
   onSelectShot,
 }: {
@@ -37,7 +39,9 @@ export function AgentRunPanel({
   currentShotId?: string | null;
   job?: AgentRunJob | null;
   analysisFps: number;
+  enableReview: boolean;
   onAnalysisFpsChange: (value: number) => void;
+  onEnableReviewChange: (value: boolean) => void;
   onRun: () => void;
   onSelectShot: (time: number) => void;
 }) {
@@ -123,6 +127,11 @@ export function AgentRunPanel({
       <label className="agent-field">
         <span>分析采样率</span>
         <input type="number" min={MIN_ANALYSIS_FPS} max={maxAnalysisFps} step="1" value={analysisFps} aria-invalid={analysisFpsInvalid || analysisFpsExceeded} disabled={running} onChange={(event) => onAnalysisFpsChange(Number(event.currentTarget.value || MIN_ANALYSIS_FPS))} />
+      </label>
+      <label className="agent-field agent-review-toggle">
+        <span>Reviewer</span>
+        <input type="checkbox" checked={enableReview} disabled={running} onChange={(event) => onEnableReviewChange(event.currentTarget.checked)} />
+        <strong>{enableReview ? "开启" : "关闭"}</strong>
       </label>
       <div className="detail-hint">
         <div>1 fps 推荐：普通口播、生活记录、稳定剪辑。</div>

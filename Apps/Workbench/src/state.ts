@@ -92,8 +92,8 @@ export type DraftState = {
   selectedDerivativeId?: string | null;
   versions?: VersionItem[];
   activeUploadJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
-  activeAgentJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number };
-  activeShotBoundaryJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number };
+  activeAgentJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number; enableReview?: boolean };
+  activeShotBoundaryJob?: { processingJobId: string; sampleVideoId: string; traceId: string; analysisFps: number; enableReview?: boolean };
   activeScriptSegmentJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activeRhythmStructureJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
 };
