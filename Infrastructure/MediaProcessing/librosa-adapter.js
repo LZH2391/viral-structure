@@ -7,7 +7,10 @@ const DEFAULT_PARAMS = {
   hopLength: 512,
   nFft: 2048,
   maxEnergyFrames: 240,
+  maxEventCandidates: 80,
   sourceRole: "original",
+  pannsEnabled: true,
+  pannsCheckpointPath: process.env.PANNS_CHECKPOINT_PATH || null,
 };
 
 async function isLibrosaAvailable({ command = pythonCommand(), runner = runCommand } = {}) {
@@ -36,6 +39,10 @@ async function extractAudioFeatures({ audioPath, parentArtifactId, sourceAudioAr
       String(finalParams.maxEnergyFrames),
       "--source-role",
       finalParams.sourceRole,
+      "--max-event-candidates",
+      String(finalParams.maxEventCandidates),
+      ...(finalParams.pannsEnabled ? [] : ["--disable-panns"]),
+      ...(finalParams.pannsCheckpointPath ? ["--panns-checkpoint-path", finalParams.pannsCheckpointPath] : []),
     ]);
     return buildAudioFeaturesArtifact({
       parentArtifactId,
@@ -65,6 +72,9 @@ function buildAudioFeaturesArtifact({ parentArtifactId, sourceAudioArtifactId, r
     onsets: result.onsets,
     energyFrames: result.energyFrames,
     spectralSummary: result.spectralSummary,
+    audioEventCandidates: result.audioEventCandidates,
+    audioRegions: result.audioRegions,
+    classificationSummary: result.classificationSummary,
     analysisParams: result.analysisParams,
   };
 }
@@ -85,12 +95,25 @@ function audioFeaturesDegraded({ parentArtifactId, sourceAudioArtifactId = paren
     onsets: [],
     energyFrames: [],
     spectralSummary: {},
+    audioEventCandidates: [],
+    audioRegions: [],
+    classificationSummary: {
+      status: "degraded",
+      reason,
+      model: finalParams.pannsEnabled ? "panns-cnn14-audioset" : null,
+      wholeFileTopLabels: [],
+      chunks: [],
+    },
     analysisParams: {
       librosaVersion: null,
       sampleRate: finalParams.sampleRate,
       hopLength: finalParams.hopLength,
       nFft: finalParams.nFft,
       sourceRole: finalParams.sourceRole,
+      eventWindowSeconds: null,
+      pannsEnabled: Boolean(finalParams.pannsEnabled),
+      pannsModel: finalParams.pannsEnabled ? "panns-cnn14-audioset" : null,
+      pannsCheckpointPath: finalParams.pannsCheckpointPath,
     },
   };
 }
@@ -103,6 +126,9 @@ function validateLibrosaResult(result) {
     onsets: sortedNumberArray(result.onsets),
     energyFrames: normalizeEnergyFrames(result.energyFrames),
     spectralSummary: normalizeSpectralSummary(result.spectralSummary),
+    audioEventCandidates: normalizeAudioEventCandidates(result.audioEventCandidates),
+    audioRegions: normalizeAudioRegions(result.audioRegions),
+    classificationSummary: normalizeClassificationSummary(result.classificationSummary),
     analysisParams: normalizeAnalysisParams(result.analysisParams),
   };
   return normalized;
@@ -131,7 +157,89 @@ function normalizeSpectralSummary(value = {}) {
     bandwidthMean: optionalNumber(value.bandwidthMean),
     rolloffMean: optionalNumber(value.rolloffMean),
     zeroCrossingRateMean: optionalNumber(value.zeroCrossingRateMean),
+    flatnessMean: optionalNumber(value.flatnessMean),
+    entropyMean: optionalNumber(value.entropyMean),
   };
+}
+
+function normalizeAudioEventCandidates(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((item) => {
+      const time = optionalNumber(item?.time);
+      const start = optionalNumber(item?.start);
+      const end = optionalNumber(item?.end);
+      const confidence = optionalNumber(item?.confidence);
+      return {
+        time,
+        start,
+        end,
+        kind: item?.kind ? String(item.kind) : "unknown",
+        confidence,
+        usableForEdit: Boolean(item?.usableForEdit),
+        evidence: normalizeAudioEvidence(item?.evidence),
+      };
+    })
+    .filter((item) => item.time !== null && item.time >= 0 && item.confidence !== null && item.confidence >= 0 && item.confidence <= 1)
+    .sort((a, b) => a.time - b.time);
+}
+
+function normalizeAudioEvidence(value = {}) {
+  return {
+    rms: optionalNumber(value.rms),
+    onsetPeak: optionalNumber(value.onsetPeak),
+    harmonicRms: optionalNumber(value.harmonicRms),
+    percussiveRms: optionalNumber(value.percussiveRms),
+    spectralFlatness: optionalNumber(value.spectralFlatness),
+    spectralEntropy: optionalNumber(value.spectralEntropy),
+    bandEnergyRatios: {
+      low: optionalNumber(value.bandEnergyRatios?.low),
+      mid: optionalNumber(value.bandEnergyRatios?.mid),
+      presence: optionalNumber(value.bandEnergyRatios?.presence),
+      high: optionalNumber(value.bandEnergyRatios?.high),
+    },
+    labels: (Array.isArray(value.labels) ? value.labels : []).map((label) => String(label)),
+  };
+}
+
+function normalizeAudioRegions(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((item) => ({
+      label: item?.label ? String(item.label) : "unknown",
+      start: optionalNumber(item?.start),
+      end: optionalNumber(item?.end),
+      peakRms: optionalNumber(item?.peakRms),
+      peakOnset: optionalNumber(item?.peakOnset),
+      count: optionalNumber(item?.count),
+    }))
+    .filter((item) => item.start !== null && item.end !== null && item.start >= 0 && item.end >= item.start)
+    .sort((a, b) => a.start - b.start || a.label.localeCompare(b.label));
+}
+
+function normalizeClassificationSummary(value = {}) {
+  return {
+    status: value.status ? String(value.status) : "not_run",
+    reason: value.reason ? String(value.reason) : null,
+    model: value.model ? String(value.model) : null,
+    wholeFileTopLabels: normalizeTopLabels(value.wholeFileTopLabels),
+    chunks: (Array.isArray(value.chunks) ? value.chunks : [])
+      .map((chunk) => ({
+        start: optionalNumber(chunk?.start),
+        end: optionalNumber(chunk?.end),
+        topLabels: normalizeTopLabels(chunk?.topLabels),
+      }))
+      .filter((chunk) => chunk.start !== null && chunk.end !== null && chunk.end >= chunk.start)
+      .sort((a, b) => a.start - b.start),
+  };
+}
+
+function normalizeTopLabels(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((item) => ({
+      label: item?.label ? String(item.label) : "unknown",
+      score: optionalNumber(item?.score),
+    }))
+    .filter((item) => item.score !== null && item.score >= 0)
+    .sort((a, b) => b.score - a.score);
 }
 
 function normalizeAnalysisParams(value = {}) {
@@ -141,6 +249,10 @@ function normalizeAnalysisParams(value = {}) {
     hopLength: optionalNumber(value.hopLength),
     nFft: optionalNumber(value.nFft),
     sourceRole: value.sourceRole ? String(value.sourceRole) : DEFAULT_PARAMS.sourceRole,
+    eventWindowSeconds: optionalNumber(value.eventWindowSeconds),
+    pannsEnabled: value.pannsEnabled === undefined ? null : Boolean(value.pannsEnabled),
+    pannsModel: value.pannsModel ? String(value.pannsModel) : null,
+    pannsCheckpointPath: value.pannsCheckpointPath ? String(value.pannsCheckpointPath) : null,
   };
 }
 

@@ -299,6 +299,17 @@ function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact |
   return [
     ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
     ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(time) })),
+    ...(audioFeatures.audioEventCandidates ?? [])
+      .filter((candidate) => candidate.kind === "sfx_candidate" || candidate.kind === "strong_cut_candidate")
+      .map((candidate, index) => ({
+        id: `event_${candidate.kind}_${index}_${candidate.time}`,
+        type: candidate.kind as "sfx_candidate" | "strong_cut_candidate",
+        time: candidate.time,
+        rms: candidate.evidence?.rms ?? nearestRms(candidate.time),
+        confidence: candidate.confidence ?? null,
+        usableForEdit: candidate.usableForEdit ?? null,
+        evidenceLabels: candidate.evidence?.labels ?? [],
+      })),
   ].sort((a, b) => a.time - b.time);
 }
 

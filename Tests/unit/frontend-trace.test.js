@@ -500,7 +500,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /rhythmStructureAnalysis\?: RhythmStructureArtifact \| null;/);
 });
 
-test("agent cards show only the latest active running thread message", () => {
+test("agent cards show the latest active running thread message across agent turns", () => {
   const root = path.resolve(__dirname, "../..");
   const types = read(root, "Apps/Workbench/src/types.ts");
   const shotPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
@@ -513,9 +513,8 @@ test("agent cards show only the latest active running thread message", () => {
   assert.match(scriptPanel, /resolveActiveThreadMessage\(job\)/);
   assert.match(shotPanel, /job\.status !== "processing"/);
   assert.match(scriptPanel, /job\.status !== "processing"/);
-  assert.match(shotPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.match(scriptPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
-  assert.match(shotPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
+  assert.doesNotMatch(shotPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.match(scriptPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.match(shotPanel, /className="agent-thread-message"/);
   assert.match(scriptPanel, /className="agent-thread-message"/);
@@ -616,6 +615,8 @@ test("appserver collect exposes active thread message without final residue", ()
   assert.match(bridgePy, /"activeThreadMessage": message\[:1200\]/);
   assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status\)/);
   assert.match(shared, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
+  assert.match(shotService, /if \(normalized \|\| !isPendingTurnStatus\(status\)\)/);
+  assert.match(shared, /if \(activeThreadMessage \|\| !isPendingTurnStatus\(turn\?\.status\)\)/);
   assert.match(scriptService, /runtime\.updateActiveThreadMessage\(context, turn\)/);
   assert.match(shotService, /activeThreadMessage: null/);
   assert.match(scriptService, /activeThreadMessage: null/);

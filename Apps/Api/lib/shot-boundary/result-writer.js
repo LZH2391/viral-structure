@@ -12,6 +12,8 @@ async function submitRepairTurn({
   rootDir,
   renderRepairTurnInputs,
   role,
+  repairPollIntervalMs = 2000,
+  repairCollectMaxAttempts = 90,
   updateActiveThreadMessage,
 }) {
   const repairTurn = renderRepairTurnInputs({
@@ -49,30 +51,75 @@ async function submitRepairTurn({
       promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
     }),
   });
-  const collected = await runStage(context, stages.repairCollected, 93, {
-    artifactId: context.artifactId,
-    parentArtifactId: prepared.sourceArtifactId,
-    inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount },
-    action: () => appServer.collectTurnResult({
-      workspaceRoot: rootDir,
-      threadId: agentRun.threadId,
-      turnId: started.turnId,
-      timeoutSeconds: 120,
-    }),
-    outputSummary: (result) => ({
-      role,
-      threadId: result.threadId,
-      turnId: result.turnId,
-      status: result.status,
-      repairAttemptCount,
-      profileVersion: context.roleProfile?.profileVersion ?? null,
-      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
-    }),
+  const collected = await collectRepairTurn({
+    context,
+    agentRun,
+    started,
+    repairAttemptCount,
+    runStage,
+    stages,
+    appServer,
+    rootDir,
+    role,
+    repairPollIntervalMs,
+    repairCollectMaxAttempts,
+    updateActiveThreadMessage,
   });
-  await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
   return collected;
+}
+
+async function collectRepairTurn({
+  context,
+  agentRun,
+  started,
+  repairAttemptCount,
+  runStage,
+  stages,
+  appServer,
+  rootDir,
+  role,
+  repairPollIntervalMs,
+  repairCollectMaxAttempts,
+  updateActiveThreadMessage,
+}) {
+  let collected = null;
+  const maxAttempts = Math.max(1, Number(repairCollectMaxAttempts || 1));
+  const intervalMs = Math.max(0, Number(repairPollIntervalMs ?? 2000));
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) await delay(intervalMs);
+    collected = await runStage(context, stages.repairCollected, 93, {
+      artifactId: context.artifactId,
+      parentArtifactId: agentRun.parentArtifactId,
+      inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount, attempt },
+      action: () => appServer.collectTurnResult({
+        workspaceRoot: rootDir,
+        threadId: agentRun.threadId,
+        turnId: started.turnId,
+        timeoutSeconds: 120,
+      }),
+      outputSummary: (result) => ({
+        role,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        status: result.status,
+        repairAttemptCount,
+        attempt,
+        hasFinalMessage: Boolean(String(result.finalMessage ?? "").trim()),
+        finalMessagePreview: safePreview(result.finalMessage),
+        activeThreadMessagePreview: safePreview(result.activeThreadMessage),
+        profileVersion: context.roleProfile?.profileVersion ?? null,
+        promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+        promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+        promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      }),
+    });
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+    if (collected.status === "completed") return collected;
+    if (!isPendingTurnStatus(collected.status)) {
+      throwRepairCollectIncomplete(context, stages, agentRun, started, collected, repairAttemptCount, attempt, false);
+    }
+  }
+  throwRepairCollectIncomplete(context, stages, agentRun, started, collected, repairAttemptCount, maxAttempts, true);
 }
 
 async function resolveFinalAnalysis({
@@ -91,6 +138,8 @@ async function resolveFinalAnalysis({
   codedError,
   role,
   repairAttemptOffset = 0,
+  repairPollIntervalMs,
+  repairCollectMaxAttempts,
   updateActiveThreadMessage,
 }) {
   let repairAttemptCount = repairAttemptOffset;
@@ -175,6 +224,8 @@ async function resolveFinalAnalysis({
         rootDir,
         renderRepairTurnInputs,
         role,
+        repairPollIntervalMs,
+        repairCollectMaxAttempts,
         updateActiveThreadMessage,
       });
       resultOrigin = repairAttemptOffset > 0 ? "review_reworked_turn" : "repaired_turn";
@@ -202,6 +253,8 @@ async function resolveReviewedAnalysis({
   store,
   threadPool,
   jobStore,
+  repairPollIntervalMs,
+  repairCollectMaxAttempts,
   updateActiveThreadMessage,
 }) {
   let currentTurn = initialTurn;
@@ -226,6 +279,8 @@ async function resolveReviewedAnalysis({
       codedError,
       role,
       repairAttemptOffset: analyzerRepairOffset,
+      repairPollIntervalMs,
+      repairCollectMaxAttempts,
       updateActiveThreadMessage,
     });
     const lease = { thread_id: agentRun.threadId, lease_id: agentRun.leaseId };
@@ -304,6 +359,8 @@ async function resolveReviewedAnalysis({
       rootDir,
       renderRepairTurnInputs,
       role,
+      repairPollIntervalMs,
+      repairCollectMaxAttempts,
       updateActiveThreadMessage,
     });
     analyzerRepairOffset = maxRepairAttempts + reviewReworkCount;
@@ -324,6 +381,8 @@ async function resolveReviewedAnalysis({
         codedError,
         role,
         repairAttemptOffset: analyzerRepairOffset,
+        repairPollIntervalMs,
+        repairCollectMaxAttempts,
         updateActiveThreadMessage,
       });
       const acceptedReview = summarizeAcceptedReworkReview(reviewer, review.result, reviewReworkCount);
@@ -734,6 +793,49 @@ function throwReviewIncomplete(context, stages, started, shotAnalysis, collected
   }, retryable);
 }
 
+function throwRepairCollectIncomplete(context, stages, agentRun, started, collected, repairAttemptCount, attemptCount, retryable) {
+  context.activeStage = {
+    stageName: stages.repairCollected,
+    artifactId: context.artifactId,
+    parentArtifactId: agentRun.parentArtifactId,
+    inputSummary: { threadId: agentRun.threadId, turnId: started.turnId, repairAttemptCount, attemptCount },
+    outputSummary: summarizeCollectedTurn(collected, started.turnId),
+    startedAt: Date.now(),
+  };
+  const status = collected?.status ?? null;
+  const code = retryable ? "appserver_turn_collect_timeout" : "appserver_turn_collect_failed";
+  const message = retryable ? "切镜修复 Agent 长时间未返回结果" : "切镜修复 Agent 结果收集失败";
+  throw require("../shot-boundary-analysis").codedError(code, message, {
+    turnId: collected?.turnId ?? started.turnId ?? null,
+    repairAttemptCount,
+    attemptCount,
+    collectStatus: status,
+    status,
+    finalMessagePreview: safePreview(collected?.finalMessage),
+    activeThreadMessagePreview: safePreview(collected?.activeThreadMessage),
+    validation: {
+      status: "failed",
+      repairAttemptCount,
+      validatorCode: code,
+    },
+  }, retryable);
+}
+
+function summarizeCollectedTurn(collected, fallbackTurnId) {
+  return {
+    turnId: collected?.turnId ?? fallbackTurnId ?? null,
+    status: collected?.status ?? null,
+    hasFinalMessage: Boolean(String(collected?.finalMessage ?? "").trim()),
+    finalMessagePreview: safePreview(collected?.finalMessage),
+    activeThreadMessagePreview: safePreview(collected?.activeThreadMessage),
+  };
+}
+
+function safePreview(value, maxLength = 200) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, maxLength) : null;
+}
+
 function isReviewTurnPayload(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
   return text.includes("切镜审查") && text.includes("decision") && text.includes("issues");
@@ -767,6 +869,8 @@ async function writeCompletedAnalysis({
   appServer,
   rootDir,
   renderRepairTurnInputs,
+  repairPollIntervalMs,
+  repairCollectMaxAttempts,
   renderSummaryTurnInputs,
   validateCommerceBriefOutput,
   codedError,
@@ -799,6 +903,8 @@ async function writeCompletedAnalysis({
     store,
     threadPool,
     jobStore,
+    repairPollIntervalMs,
+    repairCollectMaxAttempts,
     updateActiveThreadMessage,
   });
   const shotAnalysis = resolved.shotAnalysis;

@@ -922,14 +922,15 @@ class AppServerSessionClient:
 
     @staticmethod
     def _extract_text_from_item(item: Mapping[str, Any]) -> str | None:
-        text = item.get("text")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
+        for key in ("text", "message", "final_message", "finalMessage"):
+            text = item.get(key)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
         content = item.get("content")
         if isinstance(content, list):
             parts: list[str] = []
             for content_item in content:
-                if isinstance(content_item, Mapping) and content_item.get("type") == "text":
+                if isinstance(content_item, Mapping) and str(content_item.get("type") or "") in {"text", "output_text"}:
                     part = str(content_item.get("text") or "").strip()
                     if part:
                         parts.append(part)

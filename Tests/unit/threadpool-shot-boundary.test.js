@@ -911,6 +911,7 @@ test("shot boundary collect completed writes artifact and releases lease", async
 
 test("shot boundary reviewer collect polls running turn and preserves active message", async () => {
   let reviewCollectCount = 0;
+  const reviewMessages = [];
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async (payload) => {
@@ -924,6 +925,9 @@ test("shot boundary reviewer collect polls running turn and preserves active mes
           if (reviewCollectCount === 1) {
             return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "reviewer 正在审查切镜" };
           }
+          if (reviewCollectCount === 2) {
+            return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "" };
+          }
           return { ok: true, threadId, turnId, status: "completed", finalMessage: createReviewPassMessage() };
         }
         if (turnId === "turn_summary_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
@@ -933,15 +937,25 @@ test("shot boundary reviewer collect polls running turn and preserves active mes
     reviewPollIntervalMs: 0,
   });
 
+  const originalUpdateJob = harness.jobStore.updateJob;
+  harness.jobStore.updateJob = (jobId, patch) => {
+    const updated = originalUpdateJob(jobId, patch);
+    if (Object.prototype.hasOwnProperty.call(patch, "activeThreadMessage")) {
+      reviewMessages.push(updated?.activeThreadMessage ?? null);
+    }
+    return updated;
+  };
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const job = harness.jobStore.getJob(result.processingJobId);
   const reviewCollectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
 
-  assert.equal(reviewCollectCount, 2);
-  assert.equal(reviewCollectLogs.length, 2);
-  assert.deepEqual(reviewCollectLogs.map((entry) => entry.outputSummary.attempt), [1, 2]);
+  assert.equal(reviewCollectCount, 3);
+  assert.equal(reviewCollectLogs.length, 3);
+  assert.deepEqual(reviewCollectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
+  assert.ok(reviewMessages.some((message) => message?.text === "reviewer 正在审查切镜"));
+  assert.equal(reviewMessages.filter((message) => message?.turnId === "turn_review_1").length, 1);
   assert.equal(job.status, "processed");
   assert.equal(job.activeThreadMessage, null);
 });
@@ -1023,6 +1037,72 @@ test("shot boundary accepts second review rework repair without third review", a
   assert.equal(artifact.shotBoundaryAnalysis.validation.review.reworkCount, 2);
   assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].turnId, "turn_review_2");
   assert.equal(startedKinds.filter((kind) => kind === "review").length, 2);
+});
+
+test("shot boundary waits for review repair turn before validating", async () => {
+  const collectCounts = new Map();
+  const validateStarts = [];
+  let shotStartCount = 0;
+  let reviewStartCount = 0;
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
+        if (kind === "review") {
+          reviewStartCount += 1;
+          return { ok: true, threadId: "review_thread_1", turnId: `turn_review_${reviewStartCount}`, status: "submitted" };
+        }
+        if (kind === "summary") return { ok: true, threadId: "thread_1", turnId: "turn_summary_1", status: "submitted" };
+        shotStartCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: shotStartCount > 1 ? "turn_repair_1" : "turn_shot_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        collectCounts.set(turnId, (collectCounts.get(turnId) ?? 0) + 1);
+        if (turnId === "turn_review_1") {
+          const reviewCount = collectCounts.get(turnId);
+          return {
+            ok: true,
+            threadId,
+            turnId,
+            status: "completed",
+            finalMessage: reviewCount === 1 ? createReviewReworkMessage("边界偏早") : createReviewPassMessage(),
+          };
+        }
+        if (turnId === "turn_review_2") {
+          return { ok: true, threadId, turnId, status: "completed", finalMessage: createReviewPassMessage() };
+        }
+        if (turnId === "turn_repair_1" && collectCounts.get(turnId) === 1) {
+          return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "修复中" };
+        }
+        if (turnId === "turn_summary_1") {
+          return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
+        }
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
+      },
+    },
+    repairPollIntervalMs: 0,
+    repairCollectMaxAttempts: 3,
+  });
+  const originalWriteStageLog = harness.logger.writeStageLog.bind(harness.logger);
+  harness.logger.writeStageLog = async (entry) => {
+    if (entry.event === "stage.start" && entry.stageName === STAGES.turnValidated) {
+      validateStarts.push(entry.inputSummary);
+    }
+    return originalWriteStageLog(entry);
+  };
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const repairCollectEnds = harness.logger.logs.filter((entry) => entry.event === "stage.end" && entry.stageName === STAGES.repairCollected);
+
+  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
+  assert.equal(collectCounts.get("turn_repair_1"), 2);
+  assert.equal(repairCollectEnds[0].outputSummary.status, "running");
+  assert.equal(repairCollectEnds[0].outputSummary.activeThreadMessagePreview, "修复中");
+  assert.equal(repairCollectEnds[1].outputSummary.status, "completed");
+  assert.equal(validateStarts.at(-1).turnId, "turn_repair_1");
 });
 
 test("shot boundary skill content change misses old shot cache", async () => {
@@ -1769,7 +1849,7 @@ function createArtifact(overrides = {}) {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride, useRealArtifactIndex = false, reviewCollectMaxAttempts, reviewPollIntervalMs } = {}) {
+async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride, useRealArtifactIndex = false, reviewCollectMaxAttempts, reviewPollIntervalMs, repairPollIntervalMs, repairCollectMaxAttempts } = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -1867,6 +1947,8 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     skillPath,
     reviewCollectMaxAttempts,
     reviewPollIntervalMs,
+    repairPollIntervalMs,
+    repairCollectMaxAttempts,
     appServer: {
       startTurnWithInputs: async (payload) => {
         const result = appServerImpl.startTurnWithInputs

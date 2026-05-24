@@ -4,7 +4,10 @@ const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
 
 export function markerLabel(type: AudioFeatureMarker["type"]) {
-  return type === "beat" ? "beat 标记" : "onset 标记";
+  if (type === "beat") return "beat 标记";
+  if (type === "onset") return "onset 标记";
+  if (type === "sfx_candidate") return "音效候选";
+  return "强卡点候选";
 }
 
 export function nearestRms(audioFeatures: AudioFeatureAnalysisArtifact, time: number) {
@@ -22,6 +25,17 @@ export function findAudioFeatureMarker(audioFeatures: AudioFeatureAnalysisArtifa
   const markers = [
     ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(audioFeatures, time) })),
     ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(audioFeatures, time) })),
+    ...(audioFeatures.audioEventCandidates ?? [])
+      .filter((candidate) => candidate.kind === "sfx_candidate" || candidate.kind === "strong_cut_candidate")
+      .map((candidate, index) => ({
+        id: `event_${candidate.kind}_${index}_${candidate.time}`,
+        type: candidate.kind as "sfx_candidate" | "strong_cut_candidate",
+        time: candidate.time,
+        rms: candidate.evidence?.rms ?? nearestRms(audioFeatures, candidate.time),
+        confidence: candidate.confidence ?? null,
+        usableForEdit: candidate.usableForEdit ?? null,
+        evidenceLabels: candidate.evidence?.labels ?? [],
+      })),
   ];
   return markers.find((item) => item.id === markerId) ?? null;
 }

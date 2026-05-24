@@ -101,6 +101,8 @@ function createShotBoundaryService({
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = SKILL_PATH,
   pollIntervalMs = POLL_INTERVAL_MS,
+  repairPollIntervalMs = POLL_INTERVAL_MS,
+  repairCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
   summaryPollIntervalMs = POLL_INTERVAL_MS,
   summaryCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
   reviewPollIntervalMs = POLL_INTERVAL_MS,
@@ -374,6 +376,8 @@ function createShotBoundaryService({
           appServer,
           rootDir,
           renderRepairTurnInputs,
+          repairPollIntervalMs,
+          repairCollectMaxAttempts,
           renderSummaryTurnInputs,
           validateCommerceBriefOutput,
           reviewer: {
@@ -420,7 +424,9 @@ function createShotBoundaryService({
 
   function updateActiveThreadMessage(context, threadId, turnId, message, status) {
     const normalized = buildActiveThreadMessage(threadId, turnId, message, status);
-    jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
+    if (normalized || !isPendingTurnStatus(status)) {
+      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
+    }
     return normalized;
   }
 

@@ -304,6 +304,20 @@
   background: rgba(242, 169, 59, 0.84);
 }
 
+.audio-feature-marker.strong_cut_candidate {
+  top: 1px;
+  width: 3px;
+  height: 11px;
+  background: rgba(244, 63, 94, 0.9);
+}
+
+.audio-feature-marker.sfx_candidate {
+  top: 1px;
+  width: 4px;
+  height: 11px;
+  background: rgba(34, 197, 94, 0.92);
+}
+
 .audio-feature-marker.active {
   width: 3px;
   transform: translateX(-1.5px);

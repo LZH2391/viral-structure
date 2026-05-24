@@ -185,11 +185,8 @@ export function AgentRunPanel({
 
 function resolveActiveThreadMessage(job?: AgentRunJob | null) {
   if (!job || job.status !== "processing") return null;
-  if (!job.agentRun?.threadId || !job.agentRun?.turnId) return null;
   const message = job.activeThreadMessage;
   if (!message?.text?.trim()) return null;
-  if (message.threadId && message.threadId !== job.agentRun.threadId) return null;
-  if (message.turnId && message.turnId !== job.agentRun.turnId) return null;
   return message;
 }
 

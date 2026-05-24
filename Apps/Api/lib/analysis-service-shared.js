@@ -105,7 +105,9 @@ function createAnalysisRuntime({
       turn?.activeThreadMessage,
       turn?.status,
     );
-    jobStore.updateJob(context.job.jobId, { activeThreadMessage });
+    if (activeThreadMessage || !isPendingTurnStatus(turn?.status)) {
+      jobStore.updateJob(context.job.jobId, { activeThreadMessage });
+    }
     return activeThreadMessage;
   }
 

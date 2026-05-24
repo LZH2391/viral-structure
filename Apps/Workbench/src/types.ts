@@ -370,9 +370,12 @@ export type AudioSeparationArtifact = {
 
 export type AudioFeatureMarker = {
   id: string;
-  type: "beat" | "onset";
+  type: "beat" | "onset" | "strong_cut_candidate" | "sfx_candidate";
   time: number;
   rms?: number | null;
+  confidence?: number | null;
+  usableForEdit?: boolean | null;
+  evidenceLabels?: string[];
 };
 
 export type EnergyFrame = {
@@ -398,14 +401,69 @@ export type AudioFeatureAnalysisArtifact = {
     bandwidthMean?: number | null;
     rolloffMean?: number | null;
     zeroCrossingRateMean?: number | null;
+    flatnessMean?: number | null;
+    entropyMean?: number | null;
   };
+  audioEventCandidates?: AudioEventCandidate[];
+  audioRegions?: AudioRegion[];
+  classificationSummary?: AudioClassificationSummary;
   analysisParams?: {
     librosaVersion?: string | null;
     sampleRate?: number | null;
     hopLength?: number | null;
     nFft?: number | null;
     sourceRole?: string | null;
+    eventWindowSeconds?: number | null;
+    pannsEnabled?: boolean | null;
+    pannsModel?: string | null;
+    pannsCheckpointPath?: string | null;
   };
+};
+
+export type AudioEventCandidate = {
+  time: number;
+  start?: number | null;
+  end?: number | null;
+  kind: "strong_cut_candidate" | "weak_cut_candidate" | "sfx_candidate" | string;
+  confidence?: number | null;
+  usableForEdit?: boolean | null;
+  evidence?: {
+    rms?: number | null;
+    onsetPeak?: number | null;
+    harmonicRms?: number | null;
+    percussiveRms?: number | null;
+    spectralFlatness?: number | null;
+    spectralEntropy?: number | null;
+    bandEnergyRatios?: {
+      low?: number | null;
+      mid?: number | null;
+      presence?: number | null;
+      high?: number | null;
+    };
+    labels?: string[];
+  };
+};
+
+export type AudioRegion = {
+  label: string;
+  start: number;
+  end: number;
+  peakRms?: number | null;
+  peakOnset?: number | null;
+  count?: number | null;
+};
+
+export type AudioClassificationSummary = {
+  status?: string | null;
+  reason?: string | null;
+  model?: string | null;
+  wholeFileTopLabels?: AudioClassificationLabel[];
+  chunks?: Array<{ start: number; end: number; topLabels: AudioClassificationLabel[] }>;
+};
+
+export type AudioClassificationLabel = {
+  label: string;
+  score?: number | null;
 };
 
 export type SubtitleSegment = {
