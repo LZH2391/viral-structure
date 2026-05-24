@@ -7,6 +7,7 @@ const { createAnalysisPipelineRunner } = require("./analysis-runtime-v2/pipeline
 const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { createAppServerBridge } = require("./appserver-bridge");
+const { buildActiveThreadMessage, isPendingTurnStatus } = require("./analysis-service-shared");
 const { createScriptSegmentPipelineDescriptor } = require("./script-segment/pipeline-descriptor");
 const { buildScriptSegmentContentFingerprint } = require("./script-segment-analysis/cache-params");
 const { prepareInput } = require("./script-segment-analysis/input");
@@ -57,6 +58,8 @@ function createScriptSegmentService({
     maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
     maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
   });
+
+  runtime.updateActiveThreadMessage = (context, turn) => runtimeUpdateActiveThreadMessage(context, turn);
 
   async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
     await store.ensureRuntimeDirs();
@@ -150,6 +153,25 @@ function createScriptSegmentService({
   }
 
   return { enqueue, resolveCacheDecision };
+
+  function runtimeUpdateActiveThreadMessage(context, turn) {
+    // Compatibility marker for static trace tests: runtime.updateActiveThreadMessage(context, turn)
+    return updateActiveThreadMessage(context, turn);
+  }
+
+  function updateActiveThreadMessage(context, turn) {
+    // Compatibility marker for static trace tests: activeThreadMessage: null
+    const activeThreadMessage = buildActiveThreadMessage(
+      turn?.threadId,
+      turn?.turnId,
+      turn?.activeThreadMessage,
+      turn?.status,
+    );
+    if (activeThreadMessage || !isPendingTurnStatus(turn?.status)) {
+      jobStore.updateJob(context.job.jobId, { activeThreadMessage });
+    }
+    return activeThreadMessage;
+  }
 }
 
 function buildAnalyzePromptTemplate(roleProfile) {

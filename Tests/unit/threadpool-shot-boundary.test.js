@@ -8,6 +8,7 @@ const { createJobStore } = require("../../Apps/Api/lib/job-store");
 const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
 const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
 const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint, splitPredecessorCacheParams, resolveSkillHash } = require("../../Apps/Api/lib/shot-boundary-analysis");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
@@ -1663,7 +1664,7 @@ async function createShotHarness({
     ...artifactIndexOverrides,
   };
   const artifactIndex = useRealArtifactIndex
-    ? createArtifactIndex({ store, processorVersion: "test-v1" })
+    ? createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() })
     : fakeArtifactIndex;
   const contactSheetGenerator = contactSheetGeneratorOverride ?? {
     generateContactSheets: async ({ frames, parentArtifactId, sampleDir, outputSubdir, sheetPurpose }) => createContactSheets(

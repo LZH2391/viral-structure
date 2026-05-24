@@ -7,6 +7,7 @@ const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { appendShotBoundaryHistory } = require("./shot-boundary/history");
+const { createShotBoundaryServiceRuntime } = require("./shot-boundary/service-runtime");
 const {
   finalizeLease,
   cleanupLease,
@@ -27,6 +28,7 @@ const {
   resolveExistingFileHash: resolveExistingFileHashImpl,
   reuseCachedAnalysis: reuseCachedAnalysisImpl,
 } = require("./shot-boundary/cache");
+const { buildCachePrompt } = require("./shot-boundary/cache-prompt");
 const { writeCompletedAnalysis } = require("./shot-boundary/result-writer");
 const {
   ROLE,
@@ -105,6 +107,21 @@ function createShotBoundaryService({
 } = {}) {
   const collectingJobs = new Map();
   const rawWorkspaceRoot = rawAnalysisWorkspaceRoot || rootDir;
+  const serviceRuntime = createShotBoundaryServiceRuntime({
+    logger,
+    jobStore,
+    threadPool,
+    sampleStatus: SAMPLE_STATUS,
+    stages: STAGES,
+    nextStage,
+    safeError,
+    sanitizeDebugPayload,
+    buildFailedArtifact,
+    attachAnalysis,
+    isShotStage,
+    isInterruptedPreAgentJob,
+    codedError,
+  });
 
   async function enqueue({ sampleVideoId, analysisFps = 10, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
@@ -291,7 +308,7 @@ function createShotBoundaryService({
       if (lease?.thread_id && lease?.lease_id) {
         await cleanupLease(threadPool, lease, context.traceContext.traceId, "shot-boundary-analysis-failed");
       }
-      await markFailed(context, error);
+      await serviceRuntime.markFailed(context, error);
     }
   }
 
@@ -407,16 +424,16 @@ function createShotBoundaryService({
           updateActiveThreadMessage: (threadId, turnId, message, status, options) => updateActiveThreadMessage(context, threadId, turnId, message, status, options),
         });
         return turn;
-      } catch (error) {
-        if (isRetryableCollectError(error)) {
-          await markRetryableCollectFailure(context, error);
-          scheduleCollect(job.jobId);
-          return { status: "retrying" };
+        } catch (error) {
+          if (isRetryableCollectError(error)) {
+            await markRetryableCollectFailure(context, error);
+            scheduleCollect(job.jobId);
+            return { status: "retrying" };
+          }
+          await failAgentRun(context, error);
+          return { status: SAMPLE_STATUS.failed };
         }
-        await failAgentRun(context, error);
-        return { status: SAMPLE_STATUS.failed };
-      }
-    })();
+      })();
     collectingJobs.set(jobId, task);
     try {
       return await task;
@@ -425,173 +442,11 @@ function createShotBoundaryService({
     }
   }
 
-  function updateActiveThreadMessage(context, threadId, turnId, message, status, options = {}) {
-    const normalized = buildActiveThreadMessage(threadId, turnId, message, status, options);
-    if (normalized || !isPendingTurnStatus(status)) {
-      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
-    }
-    return normalized;
-  }
-
-  async function failAgentRun(context, error) {
-    const agentRun = context.job.agentRun;
-    if (agentRun?.leaseId && (agentRun?.threadId || agentRun?.traceId)) {
-      await cleanupLease(threadPool, agentRun ? { thread_id: agentRun.threadId, lease_id: agentRun.leaseId } : null, agentRun?.traceId ?? null, "shot-boundary-analysis-failed");
-    }
-    await markFailed(context, error);
-  }
-
   async function recoverActiveAgentRuns() {
-    const jobs = typeof jobStore.listActiveAgentRuns === "function" ? jobStore.listActiveAgentRuns({ role: ROLE }) : [];
-    await Promise.all(jobs.map((job) => collectAgentRun(job.jobId).catch(() => undefined)));
-    const interrupted = await failInterruptedPreAgentJobs();
-    return { recovered: jobs.length, interrupted };
-  }
-
-  async function failInterruptedPreAgentJobs() {
-    const jobs = typeof jobStore.listJobs === "function" ? jobStore.listJobs().filter(isInterruptedPreAgentJob) : [];
-    await Promise.all(jobs.map((job) => failInterruptedPreAgentJob(job).catch(() => undefined)));
-    return jobs.length;
-  }
-
-  async function failInterruptedPreAgentJob(job) {
-    if (job.traceId && typeof threadPool.releaseOwnerLeases === "function") {
-      await threadPool.releaseOwnerLeases(job.traceId).catch(() => undefined);
-    }
-    const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
-    const artifactId = `artifact_${randomUUID()}`;
-    const context = {
-      sampleVideoId: job.sampleVideoId,
-      analysisFps: 10,
-      sampleArtifact,
-      traceContext: {
-        runId: job.traceId,
-        traceId: job.traceId,
-        stageId: `stage_recover_${Date.now()}`,
-      },
-      artifactId,
-      job,
-      activeStage: {
-        stageName: isShotStage(job.stage) ? job.stage : STAGES.threadAcquired,
-        artifactId,
-        parentArtifactId: sampleArtifact?.sampleVideo?.artifactId ?? null,
-        inputSummary: { jobId: job.jobId, previousStage: job.stage, previousProgress: job.progress },
-        outputSummary: null,
-        startedAt: Date.now(),
-      },
-    };
-    const error = codedError(
-      "shot_boundary_job_interrupted",
-      "切镜任务在提交 Agent 前被中断，已清理为失败状态，请重新运行",
-      { previousStage: job.stage, previousProgress: job.progress, retryable: true },
-      true,
-    );
-    await markFailed(context, error);
-  }
-
-  async function runStage(context, stageName, progress, options) {
-    context.traceContext = nextStage(context.traceContext);
-    const startedAt = Date.now();
-    context.activeStage = {
-      stageName,
-      artifactId: options.artifactId ?? null,
-      parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
-      outputSummary: null,
-      startedAt,
-    };
-    jobStore.updateJob(context.job.jobId, { stage: stageName, status: SAMPLE_STATUS.processing, progress });
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.start",
-      artifactId: options.artifactId ?? null,
-      parentArtifactId: options.parentArtifactId ?? null,
-      inputSummary: options.inputSummary ?? null,
-    });
-    const result = await options.action();
-    const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
-    context.activeStage.outputSummary = outputSummary;
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName,
-      event: "stage.end",
-      artifactId: options.artifactId ?? null,
-      parentArtifactId: options.parentArtifactId ?? null,
-      outputSummary,
-      durationMs: Date.now() - startedAt,
-    });
-    context.activeStage = null;
-    return result;
-  }
-
-  async function markFailed(context, error) {
-    const agentRun = context.job?.agentRun ?? null;
-    const activeStage = context.activeStage ?? {
-      stageName: agentRun ? STAGES.turnCollected : STAGES.turnStarted,
-      artifactId: context.artifactId,
-      parentArtifactId: agentRun?.parentArtifactId ?? context.sampleArtifact?.sampleVideo?.artifactId ?? null,
-      inputSummary: null,
-      outputSummary: null,
-      startedAt: Date.now(),
-    };
-    const snapshot = await logger.writeDebugSnapshot({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      reason: error?.code ?? "shot_boundary_failed",
-      inputSummary: activeStage.inputSummary,
-      outputSummary: activeStage.outputSummary,
-      debugPayload: sanitizeDebugPayload(error),
-    });
-    const isPreAgentFailure = !agentRun?.turnId && isPreAgentStage(activeStage.stageName);
-    const errorSummary = {
-      ...safeError(error, activeStage.stageName),
-      debugSnapshotUri: snapshot.uri,
-      preAgentFailure: isPreAgentFailure,
-      turnSubmitted: Boolean(agentRun?.turnId),
-    };
-    const failedArtifact = buildFailedArtifact({ ...context, validationSummary: context.validationSummary }, errorSummary, agentRun?.contactSheets ?? []);
-    await attachAnalysis(context.sampleVideoId, failedArtifact, {
-      traceId: context.traceContext.traceId,
-      sourceTraceId: context.sampleArtifact?.trace?.traceId ?? null,
-    }).catch(() => undefined);
-    await logger.writeStageLog({
-      traceContext: context.traceContext,
-      stageName: activeStage.stageName,
-      event: "stage.fail",
-      artifactId: activeStage.artifactId,
-      parentArtifactId: activeStage.parentArtifactId,
-      outputSummary: activeStage.outputSummary,
-      durationMs: activeStage.startedAt ? Date.now() - activeStage.startedAt : null,
-      errorSummary,
-    });
-    jobStore.updateJob(context.job.jobId, {
-      agentRun: context.job.agentRun ? { ...context.job.agentRun, status: "failed", updatedAt: new Date().toISOString() } : context.job.agentRun,
-      stage: activeStage.stageName,
-      status: SAMPLE_STATUS.failed,
-      progress: 100,
-      errorSummary,
-      activeThreadMessage: null,
-    });
-    context.activeStage = null;
-  }
-
-  async function markRetryableCollectFailure(context, error) {
-    const agentRun = context.job.agentRun;
-    const errorSummary = {
-      code: error?.code ?? "appserver_turn_collect_retryable",
-      message: error instanceof Error ? error.message : "AppServer turn 补查暂时失败",
-      stageName: STAGES.turnCollected,
-      retryable: true,
-    };
-    jobStore.updateJob(context.job.jobId, {
-      agentRun: agentRun ? { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() } : agentRun,
-      stage: STAGES.turnCollected,
-      status: SAMPLE_STATUS.processing,
-      progress: 88,
-      errorSummary,
+    return serviceRuntime.recoverActiveAgentRuns({
+      role: ROLE,
+      collectAgentRun,
+      loadSampleArtifact,
     });
   }
 
@@ -619,11 +474,11 @@ function createShotBoundaryService({
     };
     return runCacheLookupImpl({
       context: cacheContext,
-      prepared,
-      contactSheets,
-      runStage,
-      stageName: STAGES.cacheLookup,
-      findCached: () => findCachedArtifactImpl({
+        prepared,
+        contactSheets,
+        runStage: serviceRuntime.runStage,
+        stageName: STAGES.cacheLookup,
+        findCached: () => findCachedArtifactImpl({
         context: cacheContext,
         prepared,
         contactSheets,
@@ -644,71 +499,13 @@ function createShotBoundaryService({
     await reuseCachedAnalysisImpl({
       context,
       cachePrompt,
-      runStage,
+      runStage: serviceRuntime.runStage,
       stageName: STAGES.cacheReuse,
       resolvePrompt: () => resolveCachedPromptImpl({ cachePrompt, artifactIndex, evaluateCacheEligibility, codedError }),
       buildCacheReuseAnalysis,
       attachAnalysis,
     });
     jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100, cachePrompt: null, errorSummary: null, activeThreadMessage: null });
-  }
-
-  function buildCachePrompt(context, cached) {
-    const item = buildCachedItem(context, cached);
-    return {
-      cachedItem: item,
-      sourceSampleVideoId: cached.cache.sampleVideoId,
-      sourceTurnId: cached.analysis.agent?.turnId ?? null,
-      sourceCreatedAt: cached.analysis.createdAt ?? null,
-      analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
-      enableReview: context.enableReview !== false,
-      reviewMode: reviewMode(context),
-      cacheKey: cached.cache.cacheKey ?? null,
-      artifactId: context.artifactId,
-      profilePath: context.reviewRoleProfile?.profilePath ?? null,
-      profileVersion: context.reviewRoleProfile?.profileVersion ?? null,
-      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
-      initFingerprint: context.initFingerprint ?? null,
-      skillPath: context.skillPath ?? skillPath,
-      skillHash: context.skillHash ?? null,
-      reviewSkillPath: REVIEW_SKILL_PATH,
-      reviewSkillHash: context.reviewSkillHash ?? null,
-    };
-  }
-
-  function buildCachedItem(context, cached) {
-    return {
-      sampleVideoId: cached.cache.sampleVideoId,
-      filename: context.sampleArtifact.sampleVideo?.original?.summary ?? "样例视频",
-      durationSeconds: context.sampleArtifact.metadata?.durationSeconds ?? null,
-      width: context.sampleArtifact.metadata?.width ?? null,
-      height: context.sampleArtifact.metadata?.height ?? null,
-      updatedAt: cached.cache.updatedAt ?? null,
-      tags: ["切镜"],
-      cacheAvailable: true,
-      traceId: cached.analysis.agent?.turnId ?? null,
-      sourceSampleVideoId: cached.cache.sampleVideoId,
-      sourceTurnId: cached.analysis.agent?.turnId ?? null,
-      sourceCreatedAt: cached.analysis.createdAt ?? null,
-      boundaryCount: cached.analysis.boundaries?.length ?? 0,
-      shotCount: cached.analysis.shots?.length ?? 0,
-      analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
-      enableReview: context.enableReview !== false,
-      reviewMode: reviewMode(context),
-      skillHash: context.reviewSkillHash,
-    };
-  }
-
-  function cacheLookupSummary(context, details) {
-    return {
-      analysisFps: context.analysisFps,
-      enableReview: context.enableReview !== false,
-      reviewMode: reviewMode(context),
-      skillHash: context.reviewSkillHash,
-      ...details,
-    };
   }
 
   async function runCacheLookup(context, prepared, contactSheets) {
@@ -720,12 +517,12 @@ function createShotBoundaryService({
   }
 
   function markCacheWaiting(context, cached) {
-    jobStore.updateJob(context.job.jobId, {
-      status: SAMPLE_STATUS.cacheWaiting,
-      stage: STAGES.cacheLookup,
-      progress: 55,
-      cachePrompt: buildCachePrompt(context, cached),
-      errorSummary: null,
+    return markCacheWaitingImpl({
+      context,
+      cached,
+      jobStore,
+      sampleStatus: SAMPLE_STATUS,
+      stageName: STAGES.cacheLookup,
     });
   }
 
@@ -752,6 +549,30 @@ function createShotBoundaryService({
     return isShotStageImpl(stageName, STAGES);
   }
 
+  function runStage(context, stageName, progress, options) {
+    return serviceRuntime.runStage(context, stageName, progress, options);
+  }
+
+  function markFailed(context, error) {
+    return serviceRuntime.markFailed(context, error);
+  }
+
+  function updateActiveThreadMessage(context, threadId, turnId, message, status, options = {}) {
+    const normalized = buildActiveThreadMessage(threadId, turnId, message, status, options);
+    if (normalized || !isPendingTurnStatus(status)) {
+      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
+    }
+    return normalized;
+  }
+
+  function failAgentRun(context, error) {
+    return serviceRuntime.failAgentRun(context, error);
+  }
+
+  function markRetryableCollectFailure(context, error) {
+    return serviceRuntime.markRetryableCollectFailure(context, error);
+  }
+
   return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
 }
 
@@ -770,10 +591,6 @@ function buildInitFingerprint(context) {
   }));
 }
 
-function isPreAgentStage(stageName) {
-  return [STAGES.inputPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
-}
-
 function buildTransformPromptTemplate(roleProfile) {
   const prompt = roleProfile?.turnTemplates?.transform ?? {};
   return {
@@ -783,24 +600,28 @@ function buildTransformPromptTemplate(roleProfile) {
   };
 }
 
+function round(value) {
+  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
+}
+
 function buildActiveThreadMessage(threadId, turnId, message, status, options = {}) {
-  const text = String(message ?? "").trim() || String(options.fallbackMessage ?? "").trim();
-  if (!text || !isPendingTurnStatus(status)) return null;
-  return {
-    threadId: threadId ?? null,
-    turnId: turnId ?? null,
-    role: options.role ?? "thread",
-    text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
-    createdAt: new Date().toISOString(),
-  };
+  const normalized = String(message ?? "").trim() || String(options.fallbackMessage ?? "").trim();
+  if (normalized || !isPendingTurnStatus(status)) {
+    return normalized
+      ? {
+          threadId: threadId ?? null,
+          turnId: turnId ?? null,
+          role: options.role ?? "thread",
+          text: normalized.length <= 1200 ? normalized : `${normalized.slice(0, 1200)}...`,
+          createdAt: new Date().toISOString(),
+        }
+      : null;
+  }
+  return null;
 }
 
 function isPendingTurnStatus(status) {
   return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
-}
-
-function round(value) {
-  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
 }
 
 module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
