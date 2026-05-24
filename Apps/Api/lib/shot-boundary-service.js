@@ -345,7 +345,10 @@ function createShotBoundaryService({
             promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
           }),
         });
-        updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status);
+        updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, {
+          role: ROLE,
+          fallbackMessage: "正在分析镜头边界",
+        });
         if (turn.status !== "completed") {
           jobStore.updateJob(job.jobId, {
             agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
@@ -401,7 +404,7 @@ function createShotBoundaryService({
           sampleStatus: SAMPLE_STATUS,
           summaryPollIntervalMs,
           summaryCollectMaxAttempts,
-          updateActiveThreadMessage: (threadId, turnId, message, status) => updateActiveThreadMessage(context, threadId, turnId, message, status),
+          updateActiveThreadMessage: (threadId, turnId, message, status, options) => updateActiveThreadMessage(context, threadId, turnId, message, status, options),
         });
         return turn;
       } catch (error) {
@@ -422,8 +425,8 @@ function createShotBoundaryService({
     }
   }
 
-  function updateActiveThreadMessage(context, threadId, turnId, message, status) {
-    const normalized = buildActiveThreadMessage(threadId, turnId, message, status);
+  function updateActiveThreadMessage(context, threadId, turnId, message, status, options = {}) {
+    const normalized = buildActiveThreadMessage(threadId, turnId, message, status, options);
     if (normalized || !isPendingTurnStatus(status)) {
       jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
     }
@@ -747,13 +750,13 @@ function buildAnalyzePromptTemplate(roleProfile) {
   };
 }
 
-function buildActiveThreadMessage(threadId, turnId, message, status) {
-  const text = String(message ?? "").trim();
+function buildActiveThreadMessage(threadId, turnId, message, status, options = {}) {
+  const text = String(message ?? "").trim() || String(options.fallbackMessage ?? "").trim();
   if (!text || !isPendingTurnStatus(status)) return null;
   return {
     threadId: threadId ?? null,
     turnId: turnId ?? null,
-    role: "thread",
+    role: options.role ?? "thread",
     text: text.length <= 1200 ? text : `${text.slice(0, 1200)}...`,
     createdAt: new Date().toISOString(),
   };

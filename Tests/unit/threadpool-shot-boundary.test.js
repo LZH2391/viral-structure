@@ -955,7 +955,8 @@ test("shot boundary reviewer collect polls running turn and preserves active mes
   assert.equal(reviewCollectLogs.length, 3);
   assert.deepEqual(reviewCollectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
   assert.ok(reviewMessages.some((message) => message?.text === "reviewer 正在审查切镜"));
-  assert.equal(reviewMessages.filter((message) => message?.turnId === "turn_review_1").length, 1);
+  assert.ok(reviewMessages.some((message) => message?.text === "正在审查切镜结果，第 2 轮"));
+  assert.equal(reviewMessages.filter((message) => message?.turnId === "turn_review_1").length, 2);
   assert.equal(job.status, "processed");
   assert.equal(job.activeThreadMessage, null);
 });

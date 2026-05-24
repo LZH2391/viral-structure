@@ -113,7 +113,10 @@ async function collectRepairTurn({
         promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       }),
     });
-    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status, {
+      role,
+      fallbackMessage: `正在修复切镜结果，第 ${repairAttemptCount} 次返工`,
+    });
     if (collected.status === "completed") return collected;
     if (!isPendingTurnStatus(collected.status)) {
       throwRepairCollectIncomplete(context, stages, agentRun, started, collected, repairAttemptCount, attempt, false);
@@ -627,7 +630,10 @@ async function collectReviewTurn({
         attempt,
       }),
     });
-    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status, {
+      role: reviewer.role,
+      fallbackMessage: `正在审查切镜结果，第 ${attempt} 轮`,
+    });
     if (collected.status === "completed") return collected;
     if (!isPendingTurnStatus(collected.status)) {
       throwReviewIncomplete(context, stages, started, shotAnalysis, collected, reviewer.role, false);
@@ -753,7 +759,10 @@ async function collectSummaryTurn({
         promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
       }),
     });
-    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status, {
+      role,
+      fallbackMessage: `正在整理带货总结，第 ${attempt} 轮`,
+    });
     if (collected.status === "completed") return collected;
     if (!isPendingTurnStatus(collected.status)) {
       throwSummaryIncomplete(context, stages, started, shotAnalysis, collected, false);
