@@ -913,6 +913,7 @@ export type DebugEvent = {
   event?: string;
   stage?: string;
   stageName?: string;
+  relatedTraceId?: string | null;
   createdAt?: string;
   time?: string;
   inputSummary?: unknown;
@@ -931,6 +932,7 @@ export type UiStageEvent = "stage.start" | "stage.end" | "stage.fail";
 
 export type UiDebugEventRequest = {
   uiTraceId: string;
+  backendTraceId?: string | null;
   runId: string;
   stageId: string;
   stageName: string;

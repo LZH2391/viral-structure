@@ -60,7 +60,7 @@ export function useAnalysisJobFlow(options: FlowOptions) {
       type: "add-version",
       version: addVersion(
         reason,
-        STAGES.understand,
+        kind === "scriptSegment" ? STAGES.scriptSegmentAnalyze : STAGES.rhythmStructureAnalyze,
         kind === "scriptSegment"
           ? (artifact.scriptSegmentAnalysis?.artifactId ?? artifact.sampleVideo.artifactId)
           : (artifact.rhythmStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId),

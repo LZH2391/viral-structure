@@ -287,14 +287,10 @@ function resolveTimelinePlaybackParentArtifactId(activeMediaKind: MediaKind, sam
 
 function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact | null): AudioFeatureMarker[] {
   if (!audioFeatures || audioFeatures.status === "degraded") return [];
+  const energyIndex = buildEnergyFrameIndex(audioFeatures.energyFrames ?? []);
   const nearestRms = (time: number) => {
-    const frames = audioFeatures.energyFrames ?? [];
-    if (!frames.length) return null;
-    let best = frames[0];
-    for (const frame of frames) {
-      if (Math.abs(frame.time - time) < Math.abs(best.time - time)) best = frame;
-    }
-    return best.rms;
+    const frame = findNearestEnergyFrame(energyIndex, time);
+    return frame?.rms ?? null;
   };
   return [
     ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(time) })),
@@ -311,6 +307,27 @@ function buildAudioFeatureMarkers(audioFeatures?: AudioFeatureAnalysisArtifact |
         evidenceLabels: candidate.evidence?.labels ?? [],
       })),
   ].sort((a, b) => a.time - b.time);
+}
+
+function buildEnergyFrameIndex(frames: AudioFeatureAnalysisArtifact["energyFrames"]) {
+  return [...(frames ?? [])]
+    .filter((frame) => Number.isFinite(frame.time))
+    .sort((a, b) => a.time - b.time);
+}
+
+function findNearestEnergyFrame(frames: AudioFeatureAnalysisArtifact["energyFrames"], time: number) {
+  if (!frames.length || !Number.isFinite(time)) return null;
+  let low = 0;
+  let high = frames.length - 1;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (frames[mid].time < time) low = mid + 1;
+    else high = mid;
+  }
+  const current = frames[low];
+  const previous = low > 0 ? frames[low - 1] : null;
+  if (!previous) return current;
+  return Math.abs(previous.time - time) <= Math.abs(current.time - time) ? previous : current;
 }
 
 function markerLeftPercent(time: number, duration: number) {

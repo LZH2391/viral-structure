@@ -20,12 +20,15 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   assert.match(state, /uiTraceId: createId\("uiTrace"\)/);
   assert.match(state, /ingest: "sample\.ingest"/);
   assert.match(state, /understand: "sample\.understand"/);
+  assert.match(state, /scriptSegmentAnalyze: "script\.segment\.analyze"/);
+  assert.match(state, /rhythmStructureAnalyze: "rhythm\.structure\.analyze"/);
   assert.doesNotMatch(state, /structure\.transfer/);
   assert.match(app, /uiTraceId: state\.uiTraceId/);
   assert.match(app, /backendTraceId: state\.processingJob\?\.traceId/);
   assert.match(app, /useWorkbenchStageLogger/);
   assert.match(stageLogger, /beginUiStage/);
   assert.match(uiStage, /createId\("run"\)/);
+  assert.match(uiStage, /backendTraceId: stage\.backendTraceId \?\? null/);
   assert.doesNotMatch(app, /traceId: state\.workspace\.id/);
   assert.match(api, /\/api\/workspaces\/\$\{WORKSPACE_ID\}\/sample-videos/);
   assert.match(api, /\/api\/processing-jobs\/\$\{jobId\}/);
@@ -126,6 +129,8 @@ test("audio waveform uses worker, cache, and layered canvas drawing", () => {
   assert.match(hook, /const peaksCache = new Map<string, number\[\]>\(\)/);
   assert.match(hook, /new Worker\(new URL\("\.\.\/workers\/audioPeaks\.worker\.ts"/);
   assert.match(hook, /decodePeaksInMainThread/);
+  assert.match(hook, /MAX_MAIN_THREAD_DECODE_SECONDS = 90/);
+  assert.match(hook, /mainThreadDecodeSkipped: true/);
   assert.match(hook, /new AbortController\(\)/);
   assert.match(hook, /fetch\(url, \{ signal \}\)/);
   assert.match(hook, /result\.cancelled/);
@@ -221,6 +226,8 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);
   assert.match(timeline, /audio-feature-marker/);
+  assert.match(timeline, /buildEnergyFrameIndex/);
+  assert.match(timeline, /findNearestEnergyFrame/);
   assert.match(property, /MetaInfoPanel/);
   assert.match(property, /selectedSubtitleId=\{props\.selectedSubtitleId\}/);
   assert.match(read(root, "Apps/Workbench/src/components/property-panel/MetaInfoPanel.tsx"), /当前字幕/);

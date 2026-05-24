@@ -35,6 +35,7 @@ type WaveformOptions = {
 const peaksCache = new Map<string, number[]>();
 const WAVEFORM_CACHE_VERSION = "visual-envelope-v6";
 const WAVEFORM_PEAK_COUNT = 900;
+const MAX_MAIN_THREAD_DECODE_SECONDS = 90;
 const PLACEHOLDER_PEAKS = Array.from({ length: 180 }, (_, index) => 0.16 + Math.abs(Math.sin(index / 5) * Math.cos(index / 13)) * 0.5);
 
 export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, animate = true, durationSeconds, trace }: WaveformOptions) {
@@ -144,6 +145,14 @@ export function useAudioWaveform({ audio, mainCanvas, miniCanvas, url, active, a
       });
     };
     const decodeInMainThread = (fallbackReason: string, workerError: WaveformError | null = null) => {
+      if (!canDecodeWaveformOnMainThread(durationSeconds)) {
+        failDecode(
+          { code: "audio_worker_failed", message: "音频波形 Worker 失败，已跳过主线程全量解码", retryable: true },
+          { fallbackReason, workerError, durationSeconds, mainThreadDecodeSkipped: true },
+        );
+        commitPlaceholder();
+        return;
+      }
       void decodePeaksInMainThread(url, WAVEFORM_PEAK_COUNT, fallbackAbortController.signal).then((result) => {
         if (!result.ok && result.cancelled) return;
         if (result.ok) {
@@ -261,6 +270,10 @@ function buildStaticCanvas(canvas: HTMLCanvasElement | null, peaks: number[], ra
 function resolveDuration(audio: HTMLAudioElement, fallbackDuration?: number | null) {
   if (Number.isFinite(audio.duration) && audio.duration > 0) return audio.duration;
   return Number.isFinite(fallbackDuration) && fallbackDuration && fallbackDuration > 0 ? Number(fallbackDuration) : 0;
+}
+
+function canDecodeWaveformOnMainThread(durationSeconds?: number | null) {
+  return Number.isFinite(durationSeconds) && Number(durationSeconds) > 0 && Number(durationSeconds) <= MAX_MAIN_THREAD_DECODE_SECONDS;
 }
 
 function seekAudio(audio: HTMLAudioElement, time: number, duration: number) {

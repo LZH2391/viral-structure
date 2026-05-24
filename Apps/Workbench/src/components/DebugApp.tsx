@@ -164,6 +164,7 @@ function EventItem({ event }: { event: DebugEvent }) {
         <span>{stageName}</span>
         <time>{formatClock(event.createdAt ?? event.time)}</time>
       </div>
+      {event.relatedTraceId ? <SummaryBlock label="关联 trace" value={{ backendTraceId: event.relatedTraceId }} /> : null}
       <SummaryBlock label="输入" value={event.inputSummary} />
       <SummaryBlock label="输出" value={output} />
       <SummaryBlock label="错误" value={event.errorSummary} />

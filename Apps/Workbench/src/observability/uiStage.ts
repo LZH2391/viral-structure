@@ -40,6 +40,7 @@ export function emitUiStage(stage: UiStage, event: UiStageEvent, details: Partia
   const durationMs = event === "stage.start" ? null : Math.max(0, Math.round(performance.now() - stage.startedAt));
   const payload: UiDebugEventRequest = {
     uiTraceId: stage.uiTraceId,
+    backendTraceId: stage.backendTraceId ?? null,
     runId: stage.runId,
     stageId: stage.stageId,
     stageName: stage.stageName,

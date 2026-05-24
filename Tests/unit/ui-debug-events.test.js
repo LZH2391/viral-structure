@@ -25,6 +25,7 @@ test("ingests frontend UI events into uiTrace jsonl and debug snapshots", async 
   const base = {
     uiTraceId: "uiTrace_test",
     runId: "run_test",
+    backendTraceId: "trace_backend_test",
     stageId: "stage_test",
     stageName: "audio.waveform.decode",
     artifactId: "artifact_audio",
@@ -47,6 +48,7 @@ test("ingests frontend UI events into uiTrace jsonl and debug snapshots", async 
   assert.match(log, /"e":"f"/);
   const restored = expandStageLogLines(log.trim().split("\n").map(JSON.parse));
   assert.equal(restored[1].runId, "run_test");
+  assert.equal(restored[1].relatedTraceId, "trace_backend_test");
   const snapshot = JSON.parse(await fs.readFile(path.join(runtimeRoot, "DebugSnapshots", path.basename(result.debugSnapshotUri)), "utf8"));
   assert.equal(snapshot.traceId, "uiTrace_test");
   assert.equal(snapshot.stageId, "stage_test");
@@ -61,5 +63,9 @@ test("rejects invalid UI trace ids and stage names", () => {
   assert.throws(
     () => normalizeUiEvent({ uiTraceId: "uiTrace_1", runId: "run_1", stageId: "stage_1", stageName: "audio-waveform", event: "stage.start" }),
     /stageName/,
+  );
+  assert.throws(
+    () => normalizeUiEvent({ uiTraceId: "uiTrace_1", backendTraceId: "uiTrace_not_backend", runId: "run_1", stageId: "stage_1", stageName: "audio.waveform.decode", event: "stage.start" }),
+    /backendTraceId/,
   );
 });

@@ -14,6 +14,7 @@ function createStageLogger(store) {
     outputSummary = null,
     durationMs = null,
     errorSummary = null,
+    relatedTraceId = null,
   }) {
     const line = normalizeStageLog({
       event,
@@ -25,6 +26,7 @@ function createStageLogger(store) {
       outputSummary,
       durationMs,
       errorSummary,
+      relatedTraceId,
     });
     const logPath = `${store.runtimeRoot}/DebugSnapshots/${traceContext.traceId}.log.jsonl`;
     const lines = [];
@@ -96,6 +98,7 @@ function normalizeStageLog({
   outputSummary,
   durationMs,
   errorSummary,
+  relatedTraceId,
 }) {
   return {
     event: event ?? null,
@@ -109,6 +112,7 @@ function normalizeStageLog({
     outputSummary: outputSummary ?? null,
     durationMs: durationMs ?? null,
     errorSummary: errorSummary ?? null,
+    relatedTraceId: relatedTraceId ?? null,
     createdAt: new Date().toISOString(),
   };
 }
@@ -136,6 +140,7 @@ function compactStageLog(line) {
     o: line.outputSummary,
     d: line.durationMs,
     err: compactErrorSummary(line.errorSummary),
+    rt: line.relatedTraceId,
     t: line.createdAt,
   });
 }
@@ -164,6 +169,7 @@ function expandStageLogLine(entry, context = {}) {
       outputSummary: entry.o ?? null,
       durationMs: entry.d ?? null,
       errorSummary: expandErrorSummary(entry.err),
+      relatedTraceId: entry.rt ?? null,
       createdAt: entry.t ?? null,
     };
   }
@@ -180,6 +186,7 @@ function expandStageLogLine(entry, context = {}) {
     outputSummary: entry?.outputSummary ?? (entry?.event === "stage.end" ? legacySummary : null),
     durationMs: entry?.durationMs ?? null,
     errorSummary: entry?.errorSummary ?? (entry?.event === "stage.fail" ? legacySummary : null),
+    relatedTraceId: entry?.relatedTraceId ?? entry?.backendTraceId ?? null,
     createdAt: entry?.createdAt ?? entry?.time ?? null,
   };
 }

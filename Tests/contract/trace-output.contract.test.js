@@ -37,6 +37,7 @@ test("stage logger writes compact logs that restore the debug trace contract", a
     "outputSummary",
     "durationMs",
     "errorSummary",
+    "relatedTraceId",
     "createdAt",
   ];
   assert.deepEqual(Object.keys(lines[0]), expectedFields);

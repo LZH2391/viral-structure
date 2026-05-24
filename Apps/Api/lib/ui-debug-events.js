@@ -47,6 +47,7 @@ async function ingestUiDebugEvent(logger, body) {
     outputSummary: event.outputSummary,
     durationMs: event.durationMs,
     errorSummary,
+    relatedTraceId: event.backendTraceId,
   });
 
   return { ok: true, debugSnapshotUri };
@@ -70,6 +71,7 @@ function normalizeUiEvent(body) {
 
   return {
     traceContext: { runId, traceId: uiTraceId, stageId },
+    backendTraceId: optionalBackendTraceId(body.backendTraceId),
     event,
     stageName,
     artifactId: optionalId(body.artifactId),
@@ -80,6 +82,12 @@ function normalizeUiEvent(body) {
     errorSummary: normalizeErrorSummary(body.errorSummary),
     debugPayload: sanitizePayload(body.debugPayload),
   };
+}
+
+function optionalBackendTraceId(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || !/^trace_[A-Za-z0-9_-]+$/.test(value)) throw badRequest("invalid_backend_trace_id", "backendTraceId 不合法");
+  return value;
 }
 
 function requireString(value, field) {

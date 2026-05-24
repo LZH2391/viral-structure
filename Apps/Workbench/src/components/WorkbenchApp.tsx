@@ -148,7 +148,7 @@ export function WorkbenchApp() {
 
   const handleUnderstand = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
-    const stage = stageLogger.beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+    const stage = stageLogger.beginStage(STAGES.scriptSegmentAnalyze, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
       sampleVideoId: state.sampleVideo.id,
       sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
@@ -167,7 +167,7 @@ export function WorkbenchApp() {
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "脚本段落分析失败",
-        errorStage: STAGES.understand,
+        errorStage: STAGES.scriptSegmentAnalyze,
         backendTraceId: scriptSegmentFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
         debugPayload: { kind: "script-segment-failure", sampleVideoId: state.sampleVideo.id },
       });
@@ -177,7 +177,7 @@ export function WorkbenchApp() {
 
   const handleRhythmStructure = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
-    const stage = stageLogger.beginStage(STAGES.understand, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+    const stage = stageLogger.beginStage(STAGES.rhythmStructureAnalyze, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
       sampleVideoId: state.sampleVideo.id,
       sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
       sourceScriptSegmentArtifactId: state.sampleArtifact.scriptSegmentAnalysis?.artifactId ?? null,
@@ -197,7 +197,7 @@ export function WorkbenchApp() {
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "节奏结构分析失败",
-        errorStage: STAGES.understand,
+        errorStage: STAGES.rhythmStructureAnalyze,
         backendTraceId: rhythmStructureFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
         debugPayload: { kind: "rhythm-structure-failure", sampleVideoId: state.sampleVideo.id },
       });
@@ -457,5 +457,6 @@ async function refreshAnalysisCache(
 }
 
 const STAGES = {
-  understand: "sample.understand",
+  scriptSegmentAnalyze: "script.segment.analyze",
+  rhythmStructureAnalyze: "rhythm.structure.analyze",
 } as const;

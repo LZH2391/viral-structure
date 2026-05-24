@@ -19,6 +19,8 @@ import { createStructureCardsFromSegments } from "./domain";
 export const STAGES = {
   ingest: "sample.ingest",
   understand: "sample.understand",
+  scriptSegmentAnalyze: "script.segment.analyze",
+  rhythmStructureAnalyze: "rhythm.structure.analyze",
 } as const;
 
 export type RunStatus = {
