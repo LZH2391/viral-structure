@@ -3,11 +3,12 @@ const { createHash } = require("crypto");
 
 const REVIEW_ROLE = "shot-boundary-reviewer";
 const REVIEW_SKILL_PATH = "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md";
-const REVIEW_INPUT_SCHEMA_VERSION = "shot-boundary-review-input.v1";
-const REVIEW_RESULT_SCHEMA_VERSION = "shot-boundary-review.v1";
-const REVIEW_SHEET_PURPOSE = "shot_boundary_review";
-const REVIEW_SHEET_SUBDIR = "sheets";
-const MAX_REVIEW_REWORK_COUNT = 2;
+const TRANSFORM_INPUT_SCHEMA_VERSION = "shot-boundary-transform-input.v1";
+const TRANSFORM_RESULT_SCHEMA_VERSION = "shot-centric-transform.v1";
+const RESULT_SHEET_PURPOSE = "shot_boundary_result_sheet";
+const RESULT_SHEET_SUBDIR = "sheets";
+const RESULT_SHEET_DIRNAME = "shot-boundary-shots";
+const MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH = 160;
 
 function sanitizeForAppServerText(value) {
   if (typeof value === "string") return value.replace(/[\uD800-\uDFFF]/g, "");
@@ -16,8 +17,8 @@ function sanitizeForAppServerText(value) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeForAppServerText(item)]));
 }
 
-function normalizeReviewShot(shot) {
-  const shotNo = String(shot?.shotNo ?? `S${String((Number(shot?.index) || 0) + 1).padStart(3, "0")}`);
+function normalizeTransformShot(shot, index = 0) {
+  const shotNo = String(shot?.shotNo ?? `S${String(index + 1).padStart(3, "0")}`);
   return {
     shotNo,
     shotId: shot?.id ?? null,
@@ -78,13 +79,14 @@ function basename(value) {
 module.exports = {
   REVIEW_ROLE,
   REVIEW_SKILL_PATH,
-  REVIEW_INPUT_SCHEMA_VERSION,
-  REVIEW_RESULT_SCHEMA_VERSION,
-  REVIEW_SHEET_PURPOSE,
-  REVIEW_SHEET_SUBDIR,
-  MAX_REVIEW_REWORK_COUNT,
+  TRANSFORM_INPUT_SCHEMA_VERSION,
+  TRANSFORM_RESULT_SCHEMA_VERSION,
+  RESULT_SHEET_PURPOSE,
+  RESULT_SHEET_SUBDIR,
+  RESULT_SHEET_DIRNAME,
+  MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH,
   sanitizeForAppServerText,
-  normalizeReviewShot,
+  normalizeTransformShot,
   normalizeReviewFrame,
   normalizeReviewSubtitleContext,
   normalizeText,

@@ -30,7 +30,6 @@ const {
 const { writeCompletedAnalysis } = require("./shot-boundary/result-writer");
 const {
   ROLE,
-  MAX_REPAIR_ATTEMPTS,
   SKILL_PATH,
   buildCacheReuseAnalysis,
   buildFailedArtifact,
@@ -43,45 +42,32 @@ const {
   codedError,
   evaluateCacheEligibility,
   prepareInput,
-  renderRepairTurnInputs,
-  renderSummaryTurnInputs,
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
   contentHash,
-  validateCommerceBriefOutput,
 } = require("./shot-boundary-analysis");
 const {
   REVIEW_ROLE,
   REVIEW_SKILL_PATH,
-  MAX_REVIEW_REWORK_COUNT,
-  prepareReviewSheets,
-  renderReviewTurnInputs,
-  validateReviewResult,
-  buildAnalyzerReviewReworkError,
-  summarizeReviewResult,
+  prepareShotSheets,
+  renderTransformTurnInputs,
+  validateTransformResult,
+  summarizeTransformResult,
 } = require("./shot-boundary-review");
 
 const STAGES = {
   inputPrepared: "shot.input_prepare",
-  contactSheetPrepared: "shot.contact_sheet",
   cacheLookup: "shot.cache_lookup",
   cacheReuse: "shot.cache_reuse",
-  threadAcquired: "shot.thread_acquire",
-  turnStarted: "shot.boundary_analyze.submit",
-  turnCollected: "shot.boundary_analyze.collect",
-  turnValidated: "shot.boundary_validate",
-  summaryStarted: "shot.summary.submit",
-  summaryCollected: "shot.summary.collect",
-  summaryValidated: "shot.summary_validate",
-  reviewSheetsPrepared: "shot.boundary_review.sheets",
-  reviewThreadAcquired: "shot.boundary_review.thread_acquire",
-  reviewStarted: "shot.boundary_review.submit",
-  reviewCollected: "shot.boundary_review.collect",
-  reviewValidated: "shot.boundary_review.validate",
-  reviewSkipped: "shot.boundary_review.skip",
-  turnRepaired: "shot.boundary_repair.submit",
-  repairCollected: "shot.boundary_repair.collect",
+  threadAcquired: "shot.raw_video_analyze.thread_start",
+  turnStarted: "shot.raw_video_analyze.submit",
+  turnCollected: "shot.raw_video_analyze.collect",
+  reviewThreadAcquired: "shot.boundary_transform.thread_acquire",
+  reviewStarted: "shot.boundary_transform.submit",
+  reviewCollected: "shot.boundary_transform.collect",
+  reviewValidated: "shot.boundary_transform.validate",
+  reviewSheetsPrepared: "shot.boundary_transform.sheets",
   resultWritten: "shot.boundary_merge",
 };
 const POLL_INTERVAL_MS = 2000;
@@ -102,10 +88,6 @@ function createShotBoundaryService({
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = SKILL_PATH,
   pollIntervalMs = POLL_INTERVAL_MS,
-  repairPollIntervalMs = POLL_INTERVAL_MS,
-  repairCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
-  summaryPollIntervalMs = POLL_INTERVAL_MS,
-  summaryCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
   reviewPollIntervalMs = POLL_INTERVAL_MS,
   reviewCollectMaxAttempts = REVIEW_COLLECT_MAX_ATTEMPTS,
   orphanTtlMs = ORPHAN_TTL_MS,
@@ -129,12 +111,15 @@ function createShotBoundaryService({
       skillPath,
       skillHash: await resolveSkillHash(skillPath),
       roleProfile: await loadRoleProfileByRole(ROLE),
+      reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: null,
       promptTemplate: null,
+      reviewPromptTemplate: null,
+      reviewSkillHash: await resolveSkillHash(REVIEW_SKILL_PATH),
       job,
     };
     context.initFingerprint = buildInitFingerprint(context);
-    context.promptTemplate = buildAnalyzePromptTemplate(context.roleProfile);
+    context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
     runAnalysis(context).catch(() => undefined);
     return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
   }
@@ -160,14 +145,22 @@ function createShotBoundaryService({
       skillPath: job.cachePrompt.skillPath ?? skillPath,
       skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(skillPath),
       roleProfile: await loadRoleProfileByRole(ROLE),
+      reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: job.cachePrompt.initFingerprint ?? null,
       promptTemplate: {
         promptTemplateId: job.cachePrompt.promptTemplateId ?? null,
         promptTemplateVersion: job.cachePrompt.promptTemplateVersion ?? null,
         promptTemplateHash: job.cachePrompt.promptTemplateHash ?? null,
       },
+      reviewSkillHash: job.cachePrompt.reviewSkillHash ?? await resolveSkillHash(REVIEW_SKILL_PATH),
       job,
     };
+    if (!context.promptTemplate.promptTemplateId) {
+      context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
+    }
+    if (!context.initFingerprint) {
+      context.initFingerprint = buildInitFingerprint(context);
+    }
     if (decision === "reuse") {
       try {
         await reuseCachedAnalysis(context, job.cachePrompt);
@@ -210,7 +203,7 @@ function createShotBoundaryService({
         }),
       });
       context.prepared = prepared;
-      if (!context.promptTemplate) context.promptTemplate = buildAnalyzePromptTemplate(context.roleProfile);
+      if (!context.promptTemplate) context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
 
       const cached = await runCacheLookup(context, prepared, []);
       if (cached && context.cacheDecision === "ask") {
@@ -222,57 +215,42 @@ function createShotBoundaryService({
         return;
       }
 
-      const contactSheets = await runStage(context, STAGES.contactSheetPrepared, 45, {
-        artifactId: context.artifactId,
-        parentArtifactId: prepared.sourceArtifactId,
-        inputSummary: {
-          frameCount: prepared.frames.length,
-          frameWidth: prepared.frameDimensions.width,
-          frameHeight: prepared.frameDimensions.height,
-        },
-        action: () => context.contactSheets ?? contactSheetGenerator.generateContactSheets({
-          frames: prepared.frames,
-          frameWidth: prepared.frameDimensions.width,
-          frameHeight: prepared.frameDimensions.height,
-          sampleDir: store.sampleDir(context.sampleVideoId),
-          parentArtifactId: prepared.sourceArtifactId,
-          store,
-        }),
-        outputSummary: (sheets) => ({
-          sheetCount: sheets.length,
-          frameCount: sheets.reduce((sum, sheet) => sum + sheet.frameCount, 0),
-        }),
-      });
-      context.contactSheets = contactSheets;
-      const analyzeTurn = renderAnalyzeTurnInputs({ prepared, contactSheets, roleProfile: context.roleProfile });
+      const rawVideoPath = resolveRawVideoPath(context.sampleArtifact, store.runtimeRoot);
+      context.inputMode = "raw_video_path_text";
+      context.rawVideoPathInfo = {
+        resolved: true,
+        basename: path.basename(rawVideoPath),
+      };
       const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
-        inputSummary: { role: ROLE, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
-        action: () => acquireLeaseWithRetry(threadPool, {
-          role: ROLE,
-          ownerId: context.traceContext.traceId,
-          maxAttempts: THREADPOOL_ACQUIRE_MAX_ATTEMPTS,
-          backoffMs: THREADPOOL_ACQUIRE_BACKOFF_MS,
-          codedError,
+        inputSummary: { inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
+        action: () => appServer.startThread({
+          workspaceRoot: rootDir,
+          timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({
           role: ROLE,
-          leaseId: result.lease.lease_id,
-          threadId: result.lease.thread_id,
-          attemptCount: result.attemptCount,
-          requestTimeoutMs: result.requestTimeoutMs ?? null,
+          leaseId: null,
+          threadId: result.threadId,
+          status: result.status,
         }),
       });
-      lease = leaseAcquisition.lease;
+      const rawThread = { thread_id: leaseAcquisition.threadId, lease_id: null };
+      lease = rawThread;
+      const rawTurnInputs = [{
+        type: "text",
+        text: `对[${rawVideoPath}]这个视频进行切镜，分析有几个镜头。`,
+        text_elements: [],
+      }];
       const turn = await runStage(context, STAGES.turnStarted, 80, {
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
-        inputSummary: { role: ROLE, threadId: lease.thread_id, leaseId: lease.lease_id, frameCount: prepared.frames.length, sheetCount: contactSheets.length },
+        inputSummary: { role: ROLE, threadId: rawThread.thread_id, leaseId: null, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
         action: () => appServer.startTurnWithInputs({
           workspaceRoot: rootDir,
-          threadId: lease.thread_id,
-          inputs: analyzeTurn.inputs,
+          threadId: rawThread.thread_id,
+          inputs: rawTurnInputs,
           timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({
@@ -280,13 +258,10 @@ function createShotBoundaryService({
           threadId: result.threadId,
           turnId: result.turnId,
           status: result.status,
-          profileVersion: context.roleProfile?.profileVersion ?? null,
-          promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-          promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-          promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+          inputMode: "raw_video_path_text",
         }),
       });
-      const agentRun = buildAgentRun({ context, lease, turn, prepared, contactSheets });
+      const agentRun = buildAgentRun({ context, lease: rawThread, turn, prepared, contactSheets: [] });
       jobStore.updateJob(context.job.jobId, {
         agentRun,
         stage: STAGES.turnStarted,
@@ -315,6 +290,9 @@ function createShotBoundaryService({
       if (!context.roleProfile?.turnTemplates) {
         context.roleProfile = await loadRoleProfileByRole(ROLE);
       }
+      context.reviewRoleProfile = await loadRoleProfileByRole(REVIEW_ROLE);
+      context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
+      context.reviewSkillHash = await resolveSkillHash(REVIEW_SKILL_PATH);
       if (Date.now() - Date.parse(agentRun.startedAt) > orphanTtlMs) {
         const error = codedError("shot_boundary_turn_orphaned", "切镜 Agent 长时间未完成，已清理遗留 lease");
         await failAgentRun(context, error);
@@ -363,6 +341,15 @@ function createShotBoundaryService({
           scheduleCollect(job.jobId);
           return turn;
         }
+        if (!String(turn.finalMessage ?? "").trim()) {
+          throw codedError("shot_raw_video_analyze_empty_result", "原始切镜分析未返回有效结果", {
+            turnId: turn.turnId,
+            status: turn.status,
+            validation: {
+              validatorCode: "shot_raw_video_analyze_empty_result",
+            },
+          }, false);
+        }
         await writeCompletedAnalysis({
           context,
           agentRun,
@@ -378,36 +365,26 @@ function createShotBoundaryService({
           loadSampleArtifact,
           finalizeLease,
           threadPool,
-          maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
           appServer,
           rootDir,
-          renderRepairTurnInputs,
-          repairPollIntervalMs,
-          repairCollectMaxAttempts,
-          renderSummaryTurnInputs,
-          validateCommerceBriefOutput,
           reviewer: {
-            enabled: context.enableReview !== false,
             role: REVIEW_ROLE,
             skillPath: REVIEW_SKILL_PATH,
-            maxReworkCount: MAX_REVIEW_REWORK_COUNT,
             reviewPollIntervalMs,
             reviewCollectMaxAttempts,
             loadRoleProfileByRole,
-            prepareReviewSheets,
+            prepareShotSheets,
             contactSheetGenerator,
-            renderReviewTurnInputs,
-            validateReviewResult,
-            buildAnalyzerReviewReworkError,
-            summarizeReviewResult,
+            renderTransformTurnInputs,
+            validateTransformResult,
+            summarizeTransformResult,
             acquireLeaseWithRetry,
           },
           codedError,
           role: ROLE,
           jobStore,
           sampleStatus: SAMPLE_STATUS,
-          summaryPollIntervalMs,
-          summaryCollectMaxAttempts,
+          store,
           updateActiveThreadMessage: (threadId, turnId, message, status, options) => updateActiveThreadMessage(context, threadId, turnId, message, status, options),
         });
         return turn;
@@ -616,14 +593,19 @@ function createShotBoundaryService({
   }
 
   async function runCacheLookupLocal(context, prepared, contactSheets) {
+    const cacheContext = {
+      ...context,
+      roleProfile: context.reviewRoleProfile ?? context.roleProfile,
+      skillHash: context.reviewSkillHash ?? context.skillHash,
+    };
     return runCacheLookupImpl({
-      context,
+      context: cacheContext,
       prepared,
       contactSheets,
       runStage,
       stageName: STAGES.cacheLookup,
       findCached: () => findCachedArtifactImpl({
-        context,
+        context: cacheContext,
         prepared,
         contactSheets,
         artifactIndex,
@@ -664,8 +646,16 @@ function createShotBoundaryService({
       reviewMode: reviewMode(context),
       cacheKey: cached.cache.cacheKey ?? null,
       artifactId: context.artifactId,
-      skillPath: context.skillPath,
-      skillHash: context.skillHash,
+      profilePath: context.reviewRoleProfile?.profilePath ?? null,
+      profileVersion: context.reviewRoleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      initFingerprint: context.initFingerprint ?? null,
+      skillPath: context.skillPath ?? skillPath,
+      skillHash: context.skillHash ?? null,
+      reviewSkillPath: REVIEW_SKILL_PATH,
+      reviewSkillHash: context.reviewSkillHash ?? null,
     };
   }
 
@@ -688,6 +678,7 @@ function createShotBoundaryService({
       analysisFps: cached.analysis.analysisSampling?.fps ?? context.analysisFps,
       enableReview: context.enableReview !== false,
       reviewMode: reviewMode(context),
+      skillHash: context.reviewSkillHash,
     };
   }
 
@@ -696,7 +687,7 @@ function createShotBoundaryService({
       analysisFps: context.analysisFps,
       enableReview: context.enableReview !== false,
       reviewMode: reviewMode(context),
-      skillHash: context.skillHash,
+      skillHash: context.reviewSkillHash,
       ...details,
     };
   }
@@ -710,7 +701,13 @@ function createShotBoundaryService({
   }
 
   function markCacheWaiting(context, cached) {
-    return markCacheWaitingImpl({ context, cached, jobStore, sampleStatus: SAMPLE_STATUS, stageName: STAGES.cacheLookup });
+    jobStore.updateJob(context.job.jobId, {
+      status: SAMPLE_STATUS.cacheWaiting,
+      stage: STAGES.cacheLookup,
+      progress: 55,
+      cachePrompt: buildCachePrompt(context, cached),
+      errorSummary: null,
+    });
   }
 
   function buildAgentRun(args) {
@@ -740,21 +737,21 @@ function badRequestError(code, message) {
 
 function buildInitFingerprint(context) {
   return contentHash(JSON.stringify({
-    profileVersion: context.roleProfile?.profileVersion ?? null,
-    initTemplateHash: context.roleProfile?.init?.templateHash ?? null,
-    skillHash: context.skillHash ?? null,
-    readyText: context.roleProfile?.init?.readyText ?? null,
+    profileVersion: context.reviewRoleProfile?.profileVersion ?? null,
+    initTemplateHash: context.reviewRoleProfile?.init?.templateHash ?? null,
+    skillHash: context.reviewSkillHash ?? null,
+    readyText: context.reviewRoleProfile?.init?.readyText ?? null,
   }));
 }
 
 function isPreAgentStage(stageName) {
-  return [STAGES.inputPrepared, STAGES.contactSheetPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
+  return [STAGES.inputPrepared, STAGES.cacheLookup, STAGES.threadAcquired].includes(stageName);
 }
 
-function buildAnalyzePromptTemplate(roleProfile) {
-  const prompt = roleProfile?.turnTemplates?.analyze ?? {};
+function buildTransformPromptTemplate(roleProfile) {
+  const prompt = roleProfile?.turnTemplates?.transform ?? {};
   return {
-    promptTemplateId: "analyze",
+    promptTemplateId: "transform",
     promptTemplateVersion: prompt.templateVersion ?? null,
     promptTemplateHash: prompt.templateHash ?? null,
   };
@@ -789,4 +786,28 @@ function normalizeEnableReview(value) {
 
 function reviewMode(context) {
   return context?.enableReview === false ? "unreviewed" : "reviewed";
+}
+
+function resolveRawVideoPath(sampleArtifact, runtimeRoot) {
+  const originalUri = sampleArtifact?.sampleVideo?.original?.uri ?? null;
+  const normalizedUri = sampleArtifact?.sampleVideo?.normalized?.uri ?? null;
+  const targetUri = originalUri || normalizedUri;
+  if (!targetUri) {
+    throw codedError("shot_boundary_video_path_missing", "未找到可用于切镜的本地视频路径", {
+      validation: {
+        validatorCode: "shot_boundary_video_path_missing",
+      },
+    }, false);
+  }
+  const localPath = targetUri.startsWith("/runtime/")
+    ? path.join(runtimeRoot, ...targetUri.slice("/runtime/".length).split("/"))
+    : targetUri;
+  if (!path.isAbsolute(localPath)) {
+    throw codedError("shot_boundary_video_path_invalid", "切镜视频路径解析失败", {
+      validation: {
+        validatorCode: "shot_boundary_video_path_invalid",
+      },
+    }, false);
+  }
+  return localPath;
 }

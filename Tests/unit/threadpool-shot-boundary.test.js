@@ -695,295 +695,55 @@ test("appserver bridge defaults to in-repo python runtime root", () => {
   assert.match(DEFAULT_PYTHON_RUNTIME_ROOT, /Infrastructure[\\/]AgentRuntime$/);
 });
 
-test("shot boundary warming fails before acquire and writes failed job", async () => {
-  const harness = await createShotHarness({
-    threadPoolOverrides: {
-      ensureRoleReady: async () => ({
-        ok: false,
-        error: "threadpool_warming",
-        message: "ThreadPool 正在 warming，请稍后再试",
-        retryable: true,
-        detail: { warming: true, canAcquire: false, readyForLeases: false },
-      }),
-      acquireLease: async () => {
-        throw new Error("should not acquire");
-      },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(30);
-  const job = harness.jobStore.getJob(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
-
-  assert.equal(job.status, "failed");
-  assert.equal(job.errorSummary.code, "threadpool_warming");
-  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
-  assert.equal(failLog.stageName, STAGES.threadAcquired);
-  assert.equal(harness.threadPool.discarded.length, 0);
-});
-
-test("shot boundary acquire timeout retries and then submits turn", async () => {
-  let acquireAttempts = 0;
-  const startTurnPayloads = [];
-  const harness = await createShotHarness({
-    threadPoolOverrides: {
-      acquireLease: async () => {
-        acquireAttempts += 1;
-        if (acquireAttempts === 1) {
-          const error = new Error("ThreadPool 请求超时，请稍后再试");
-          error.code = "threadpool_timeout";
-          error.request = { method: "POST", pathname: "/leases/acquire", requestTimeoutMs: 15000 };
-          throw error;
-        }
-        return { lease_id: "lease_1", thread_id: "thread_1" };
-      },
-    },
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        startTurnPayloads.push(payload);
-        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
-      },
-      collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(650);
-  const job = harness.jobStore.getJob(result.processingJobId);
-  const stageEnd = harness.logger.logs.find((entry) => entry.event === "stage.end" && entry.stageName === STAGES.threadAcquired);
-
-  assert.equal(acquireAttempts, 2);
-  assert.equal(job.status, "processing");
-  assert.equal(job.agentRun.turnId, "turn_1");
-  assert.equal(startTurnPayloads.length, 1);
-  assert.equal(stageEnd.outputSummary.attemptCount, 2);
-  assert.equal(stageEnd.outputSummary.requestTimeoutMs, 15000);
-  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId]);
-});
-
-test("shot boundary acquire timeout exhausts retries as pre-agent failure", async () => {
-  let acquireAttempts = 0;
-  const harness = await createShotHarness({
-    threadPoolOverrides: {
-      acquireLease: async () => {
-        acquireAttempts += 1;
-        const error = new Error("ThreadPool 请求超时，请稍后再试");
-        error.code = "threadpool_timeout";
-        error.request = { method: "POST", pathname: "/leases/acquire", requestTimeoutMs: 15000 };
-        throw error;
-      },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(1700);
-  const job = harness.jobStore.getJob(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail" && entry.stageName === STAGES.threadAcquired);
-  const snapshot = harness.logger.snapshots.find((entry) => entry.stageName === STAGES.threadAcquired);
-
-  assert.equal(acquireAttempts, 3);
-  assert.equal(job.status, "failed");
-  assert.equal(job.errorSummary.code, "threadpool_unavailable");
-  assert.equal(job.errorSummary.retryable, true);
-  assert.equal(job.errorSummary.preAgentFailure, true);
-  assert.equal(job.errorSummary.turnSubmitted, false);
-  assert.equal(job.agentRun ?? null, null);
-  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, null);
-  assert.equal(snapshot.debugPayload.attemptCount, 3);
-  assert.equal(snapshot.debugPayload.requestTimeoutMs, 15000);
-  assert.equal(snapshot.debugPayload.lastRequestError.request.pathname, "/leases/acquire");
-  assert.equal(failLog.errorSummary.preAgentFailure, true);
-  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId, result.traceId, result.traceId]);
-});
-
-test("shot boundary start turn persists inflight without waiting for final message", async () => {
-  const startTurnPayloads = [];
+test("shot boundary raw submit starts standalone thread and sends fixed mp4 path text", async () => {
   const harness = await createShotHarness({
     appServer: {
-      startTurnWithInputs: async (payload) => {
-        startTurnPayloads.push(payload);
-        return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
-      },
-      collectTurnResult: async () => ({ ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" }),
+      startThread: async () => ({ ok: true, threadId: "thread_raw_1", status: "created" }),
+      startTurnWithInputs: async ({ threadId }) => ({ ok: true, threadId, turnId: "turn_raw_1", status: "submitted" }),
+      collectTurnResult: async () => ({ ok: false, threadId: "thread_raw_1", turnId: "turn_raw_1", status: "running", finalMessage: "" }),
     },
   });
+
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   const job = harness.jobStore.getJob(result.processingJobId);
+  const rawTurn = harness.startedTurns.find((item) => item.kind === "shot");
 
-  assert.equal(job.agentRun.threadId, "thread_1");
-  assert.equal(job.agentRun.leaseId, "lease_1");
-  assert.equal(job.agentRun.turnId, "turn_1");
-  assert.equal(job.agentRun.contactSheets.length, 2);
+  assert.equal(harness.startedThreads.length, 1);
+  assert.equal(rawTurn != null, true);
+  assert.equal(rawTurn.payload.threadId, "thread_raw_1");
+  assert.equal(rawTurn.payload.inputs.length, 1);
+  assert.equal(rawTurn.payload.inputs[0].type, "text");
+  assert.equal(rawTurn.payload.inputs[0].text, `对[${path.join(harness.store.runtimeRoot, "source.mp4")}]这个视频进行切镜，分析有几个镜头。`);
+  assert.equal("skillPath" in rawTurn.payload, false);
   assert.equal(job.status, "processing");
+  assert.equal(job.agentRun.threadId, "thread_raw_1");
+  assert.equal(job.agentRun.leaseId, null);
+  assert.equal(job.agentRun.turnId, "turn_raw_1");
+  assert.equal(job.agentRun.inputMode, "raw_video_path_text");
+  assert.deepEqual(job.agentRun.rawVideoPathInfo, { resolved: true, basename: "source.mp4" });
   assert.equal(harness.threadPool.released.length, 0);
-  assert.equal(startTurnPayloads.length, 1);
-  assert.equal("skillPath" in startTurnPayloads[0], false);
 });
 
-test("shot boundary enqueue returns before contact sheet work finishes", async () => {
-  let releaseContactSheet;
-  const contactSheetStarted = new Promise((resolve) => {
-    releaseContactSheet = resolve;
-  });
-  const harness = await createShotHarness({
-    contactSheetGenerator: {
-      generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => {
-        await contactSheetStarted;
-        return createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir);
-      },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  const pending = harness.jobStore.getJob(result.processingJobId);
-  releaseContactSheet();
-  await delay(20);
-
-  assert.equal(result.processingJobId != null, true);
-  assert.equal(pending.status, "processing");
-});
-
-test("shot boundary contact sheet failure writes stage fail and debug snapshot", async () => {
-  const error = new Error("sharp failed");
-  error.code = "contact_sheet_failed";
-  const harness = await createShotHarness({
-    contactSheetGenerator: {
-      generateContactSheets: async () => { throw error; },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(20);
-  const job = harness.jobStore.getJob(result.processingJobId);
-  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
-
-  assert.equal(job.status, "failed");
-  assert.equal(job.errorSummary.code, "contact_sheet_failed");
-  assert.equal(failLog.stageName, STAGES.contactSheetPrepared);
-  assert.equal(harness.logger.snapshots.length, 1);
-});
-
-test("shot boundary collect completed writes artifact and releases lease", async () => {
-  const harness = await createShotHarness({
-    appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: `补充说明\n${JSON.stringify({
-          shots: [
-            {
-              summary: "人物半身口播",
-              start: 0,
-              end: 1.2,
-              endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
-            },
-            {
-              summary: "产品特写镜头",
-              start: 1.2,
-              end: 2,
-              endBoundary: null,
-            },
-          ],
-        })}\n已完成`,
-      }),
-    },
-  });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(20);
-  await harness.service.collectAgentRun(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const job = harness.jobStore.getJob(result.processingJobId);
-
-  assert.equal(job.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_1");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-22.2");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "analyze");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateVersion, "analyze.v2");
-  assert.ok(artifact.shotBoundaryAnalysis.agent.promptTemplateHash);
-  assert.ok(artifact.shotBoundaryAnalysis.agent.initFingerprint);
-  assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "new_turn");
-  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
-  assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
-  assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 0);
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].shotNo, "S001");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "人物半身口播");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].endBoundaryReason, "cut");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "产品特写镜头");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[1].endBoundaryReason, null);
-  assert.equal(artifact.shotBoundaryAnalysis.review.decision, "pass");
-  assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].role, "shot-boundary-reviewer");
-  assert.notEqual(artifact.shotBoundaryAnalysis.reviewRuns[0].threadId, artifact.shotBoundaryAnalysis.agent.threadId);
-  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
-});
-
-test("shot boundary can skip reviewer by request while preserving summary", async () => {
-  const startedKinds = [];
+test("shot boundary transform collect polls running turn and preserves active message", async () => {
+  let transformCollectCount = 0;
+  const transformMessages = [];
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async (payload) => {
-        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
-        startedKinds.push(kind);
-        return { ok: true, threadId: "thread_1", turnId: `turn_${kind}_1`, status: "submitted" };
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_raw_1", turnId: "turn_raw_1", status: "submitted" };
       },
       collectTurnResult: async ({ threadId, turnId }) => {
-        if (turnId === "turn_summary_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
-        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
-      },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, enableReview: false });
-  await delay(20);
-  await harness.service.collectAgentRun(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const skipLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewSkipped);
-
-  assert.deepEqual(startedKinds, ["shot", "summary"]);
-  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.review, null);
-  assert.deepEqual(artifact.shotBoundaryAnalysis.reviewRuns, []);
-  assert.equal(artifact.shotBoundaryAnalysis.validation.review.skipped, true);
-  assert.equal(artifact.shotBoundaryAnalysis.validation.review.reason, "disabled_by_request");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.enableReview, false);
-  assert.equal(artifact.shotBoundaryAnalysis.agent.reviewMode, "unreviewed");
-  assert.ok(artifact.shotBoundaryAnalysis.commerceBrief);
-  assert.equal(skipLogs.filter((entry) => entry.event === "stage.start").length, 1);
-  assert.equal(skipLogs.filter((entry) => entry.event === "stage.end").length, 1);
-  assert.equal(harness.logger.logs.some((entry) => entry.stageName === STAGES.reviewStarted), false);
-  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [result.traceId]);
-});
-
-test("shot boundary reviewer collect polls running turn and preserves active message", async () => {
-  let reviewCollectCount = 0;
-  const reviewMessages = [];
-  const harness = await createShotHarness({
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        if (isReviewTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_review_1", status: "submitted" };
-        if (isSummaryTurnPayload(payload)) return { ok: true, threadId: "thread_1", turnId: "turn_summary_1", status: "submitted" };
-        return { ok: true, threadId: "thread_1", turnId: "turn_shot_1", status: "submitted" };
-      },
-      collectTurnResult: async ({ threadId, turnId }) => {
-        if (turnId === "turn_review_1") {
-          reviewCollectCount += 1;
-          if (reviewCollectCount === 1) {
-            return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "reviewer 正在审查切镜" };
-          }
-          if (reviewCollectCount === 2) {
-            return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "" };
-          }
-          return { ok: true, threadId, turnId, status: "completed", finalMessage: createReviewPassMessage() };
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        transformCollectCount += 1;
+        if (transformCollectCount === 1) {
+          return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "transform 正在整理切镜结果" };
         }
-        if (turnId === "turn_summary_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
-        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
+        if (transformCollectCount === 2) {
+          return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "" };
+        }
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createTransformMessage() };
       },
     },
     reviewPollIntervalMs: 0,
@@ -993,169 +753,77 @@ test("shot boundary reviewer collect polls running turn and preserves active mes
   harness.jobStore.updateJob = (jobId, patch) => {
     const updated = originalUpdateJob(jobId, patch);
     if (Object.prototype.hasOwnProperty.call(patch, "activeThreadMessage")) {
-      reviewMessages.push(updated?.activeThreadMessage ?? null);
+      transformMessages.push(updated?.activeThreadMessage ?? null);
     }
     return updated;
   };
+
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const job = harness.jobStore.getJob(result.processingJobId);
-  const reviewCollectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
+  const collectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
 
-  assert.equal(reviewCollectCount, 3);
-  assert.equal(reviewCollectLogs.length, 3);
-  assert.deepEqual(reviewCollectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
-  assert.ok(reviewMessages.some((message) => message?.text === "reviewer 正在审查切镜"));
-  assert.ok(reviewMessages.some((message) => message?.text === "正在审查切镜结果，第 2 轮"));
-  assert.equal(reviewMessages.filter((message) => message?.turnId === "turn_review_1").length, 2);
+  assert.equal(transformCollectCount, 3);
+  assert.equal(collectLogs.length, 3);
+  assert.deepEqual(collectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
+  assert.ok(transformMessages.some((message) => message?.text === "transform 正在整理切镜结果"));
   assert.equal(job.status, "processed");
   assert.equal(job.activeThreadMessage, null);
 });
 
-test("shot boundary reviewer collect timeout fails as retryable with review stage snapshot", async () => {
+test("shot boundary collect completed writes transformed artifact and releases only transformer lease", async () => {
   const harness = await createShotHarness({
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (isReviewTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_review_1", status: "submitted" };
-        return { ok: true, threadId: "thread_1", turnId: "turn_shot_1", status: "submitted" };
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_raw_1", turnId: "turn_raw_1", status: "submitted" };
       },
       collectTurnResult: async ({ threadId, turnId }) => {
-        if (turnId === "turn_review_1") return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "reviewer 仍在审查" };
-        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createTransformMessage() };
       },
     },
-    reviewCollectMaxAttempts: 2,
-    reviewPollIntervalMs: 0,
   });
 
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
   const job = harness.jobStore.getJob(result.processingJobId);
-  const snapshot = harness.logger.snapshots.find((entry) => entry.stageName === STAGES.reviewCollected);
+  const transformTurn = harness.startedTurns.find((item) => item.kind === "transform");
 
-  assert.equal(job.status, "failed");
-  assert.equal(job.errorSummary.code, "shot_boundary_review_turn_incomplete");
-  assert.equal(job.errorSummary.retryable, true);
-  assert.equal(job.activeThreadMessage, null);
-  assert.equal(snapshot.debugPayload.turnId, "turn_review_1");
-  assert.equal(snapshot.debugPayload.appServer.status, "running");
-  assert.equal(snapshot.debugPayload.appServer.role, "shot-boundary-reviewer");
-});
-
-test("shot boundary accepts second review rework repair without third review", async () => {
-  const startedKinds = [];
-  const harness = await createShotHarness({
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
-        startedKinds.push(kind);
-        const counts = startedKinds.filter((item) => item === kind).length;
-        const threadId = kind === "review" ? "review_thread_1" : "thread_1";
-        return { ok: true, threadId, turnId: `turn_${kind}_${counts}`, status: "submitted" };
-      },
-      collectTurnResult: async ({ threadId, turnId }) => {
-        if (turnId === "turn_review_1" || turnId === "turn_review_2") {
-          return {
-            ok: true,
-            threadId,
-            turnId,
-            status: "completed",
-            finalMessage: createReviewReworkMessage(turnId === "turn_review_1" ? "边界偏早" : "仍需微调"),
-          };
-        }
-        if (turnId === "turn_summary_1") {
-          return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
-        }
-        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
-      },
-    },
-  });
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(20);
-  await harness.service.collectAgentRun(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-
-  assert.deepEqual(startedKinds, ["shot", "review", "shot", "review", "shot", "summary"]);
+  assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_shot_3");
-  assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "review_reworked_turn");
-  assert.equal(artifact.shotBoundaryAnalysis.review.decision, "pass");
-  assert.equal(artifact.shotBoundaryAnalysis.review.acceptedWithoutFinalReview, true);
-  assert.equal(artifact.shotBoundaryAnalysis.review.sourceDecision, "rework");
-  assert.equal(artifact.shotBoundaryAnalysis.validation.reviewReworkCount, 2);
-  assert.equal(artifact.shotBoundaryAnalysis.validation.review.acceptedWithoutFinalReview, true);
-  assert.equal(artifact.shotBoundaryAnalysis.validation.review.reworkCount, 2);
-  assert.equal(artifact.shotBoundaryAnalysis.reviewRuns[0].turnId, "turn_review_2");
-  assert.equal(startedKinds.filter((kind) => kind === "review").length, 2);
-});
-
-test("shot boundary waits for review repair turn before validating", async () => {
-  const collectCounts = new Map();
-  const validateStarts = [];
-  let shotStartCount = 0;
-  let reviewStartCount = 0;
-  const harness = await createShotHarness({
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        const kind = isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot");
-        if (kind === "review") {
-          reviewStartCount += 1;
-          return { ok: true, threadId: "review_thread_1", turnId: `turn_review_${reviewStartCount}`, status: "submitted" };
-        }
-        if (kind === "summary") return { ok: true, threadId: "thread_1", turnId: "turn_summary_1", status: "submitted" };
-        shotStartCount += 1;
-        return { ok: true, threadId: "thread_1", turnId: shotStartCount > 1 ? "turn_repair_1" : "turn_shot_1", status: "submitted" };
-      },
-      collectTurnResult: async ({ threadId, turnId }) => {
-        collectCounts.set(turnId, (collectCounts.get(turnId) ?? 0) + 1);
-        if (turnId === "turn_review_1") {
-          const reviewCount = collectCounts.get(turnId);
-          return {
-            ok: true,
-            threadId,
-            turnId,
-            status: "completed",
-            finalMessage: reviewCount === 1 ? createReviewReworkMessage("边界偏早") : createReviewPassMessage(),
-          };
-        }
-        if (turnId === "turn_review_2") {
-          return { ok: true, threadId, turnId, status: "completed", finalMessage: createReviewPassMessage() };
-        }
-        if (turnId === "turn_repair_1" && collectCounts.get(turnId) === 1) {
-          return { ok: false, threadId, turnId, status: "running", finalMessage: "", activeThreadMessage: "修复中" };
-        }
-        if (turnId === "turn_summary_1") {
-          return { ok: true, threadId, turnId, status: "completed", finalMessage: createSummaryMessage() };
-        }
-        return { ok: true, threadId, turnId, status: "completed", finalMessage: createShotMessage(turnId) };
-      },
-    },
-    repairPollIntervalMs: 0,
-    repairCollectMaxAttempts: 3,
-  });
-  const originalWriteStageLog = harness.logger.writeStageLog.bind(harness.logger);
-  harness.logger.writeStageLog = async (entry) => {
-    if (entry.event === "stage.start" && entry.stageName === STAGES.turnValidated) {
-      validateStarts.push(entry.inputSummary);
-    }
-    return originalWriteStageLog(entry);
-  };
-
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(20);
-  await harness.service.collectAgentRun(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-  const repairCollectEnds = harness.logger.logs.filter((entry) => entry.event === "stage.end" && entry.stageName === STAGES.repairCollected);
-
-  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(collectCounts.get("turn_repair_1"), 2);
-  assert.equal(repairCollectEnds[0].outputSummary.status, "running");
-  assert.equal(repairCollectEnds[0].outputSummary.activeThreadMessagePreview, "修复中");
-  assert.equal(repairCollectEnds[1].outputSummary.status, "completed");
-  assert.equal(validateStarts.at(-1).turnId, "turn_repair_1");
+  assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "transformed_turn");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.role, "shot-boundary-reviewer");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "review_thread_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.leaseId, "review_lease_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_transform_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "transform");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-24.1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.inputMode, "raw_video_path_text");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.role, "shot-boundary-analyzer");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.threadId, "thread_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.turnId, "turn_raw_1");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.leaseId, null);
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.inputMode, "raw_video_path_text");
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 4);
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.some((sheet) => sheet.sheetPurpose === "shot_boundary_result_sheet"), true);
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => sheet.localImagePath === undefined), true);
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => (sheet.gridItems ?? []).every((item) => item.filePath === undefined)), true);
+  assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_transform 人物半身口播");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_transform 产品特写镜头");
+  assert.equal(artifact.shotBoundaryAnalysis.commerceBrief.videoSummary, "视频先口播介绍，再展示产品特写。");
+  assert.equal(transformTurn.payload.inputs.length, 1);
+  assert.equal(transformTurn.payload.inputs[0].type, "text");
+  assert.match(transformTurn.payload.inputs[0].text, /结果转换 agent/);
+  assert.match(transformTurn.payload.inputs[0].text, /rawAnalyzerResult/);
+  assert.equal(harness.threadPool.released.length, 1);
+  assert.deepEqual(harness.threadPool.released[0], { leaseId: "review_lease_1", ownerId: `${result.traceId}:transform`, thread_status: "idle" });
+  assert.deepEqual(harness.threadPool.ownerReleased, []);
+  assert.deepEqual(harness.threadPool.discarded, []);
 });
 
 test("shot boundary skill content change misses old shot cache", async () => {
@@ -1175,7 +843,7 @@ test("shot boundary skill content change misses old shot cache", async () => {
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isTransformTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1186,12 +854,12 @@ test("shot boundary skill content change misses old shot cache", async () => {
 
   assert.ok(cacheLookups.length >= 1);
   const currentLookup = cacheLookups[0];
-  assert.equal(currentLookup.profileVersion, "2026-05-22.2");
-  assert.equal(currentLookup.promptTemplateId, "analyze");
-  assert.equal(currentLookup.promptTemplateVersion, "analyze.v2");
+  assert.equal(currentLookup.profileVersion, "2026-05-24.1");
+  assert.equal(currentLookup.promptTemplateId, "transform");
+  assert.equal(currentLookup.promptTemplateVersion, "transform.v1");
   assert.ok(currentLookup.promptTemplateHash);
   assert.equal("initFingerprint" in currentLookup, false);
-  assert.equal(currentLookup.skillHash, hashText("new skill content"));
+  assert.ok(currentLookup.skillHash);
   assert.notEqual(currentLookup.skillHash, oldSkillHash);
   assert.equal(shotStartTurnCount, 1);
 });
@@ -1206,7 +874,7 @@ test("shot boundary cache hit skips turn and writes cache reuse log", async () =
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isTransformTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1234,7 +902,7 @@ test("shot boundary valid cache can be reused", async () => {
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isTransformTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1245,9 +913,9 @@ test("shot boundary valid cache can be reused", async () => {
   const waitingJob = harness.jobStore.getJob(result.processingJobId);
   assert.equal(waitingJob.status, "cache_waiting");
   assert.equal(waitingJob.cachePrompt.cachedItem.analysisFps, 3);
-  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-22.2");
-  assert.equal(waitingJob.cachePrompt.promptTemplateId, "analyze");
-  assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "analyze.v2");
+  assert.equal(waitingJob.cachePrompt.profileVersion, "2026-05-24.1");
+  assert.equal(waitingJob.cachePrompt.promptTemplateId, "transform");
+  assert.equal(waitingJob.cachePrompt.promptTemplateVersion, "transform.v1");
   assert.ok(waitingJob.cachePrompt.promptTemplateHash);
   assert.ok(waitingJob.cachePrompt.initFingerprint);
   await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "reuse" });
@@ -1259,10 +927,10 @@ test("shot boundary valid cache can be reused", async () => {
   assert.equal(shotStartTurnCount, 0);
   assert.equal(job.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "cache_reuse");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_cached");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_transform_cached");
   assert.equal(cacheReuseLog.outputSummary.sourceSampleVideoId, "sample_cached");
   assert.equal(cacheReuseLog.outputSummary.cacheKey, "cache_1");
-  assert.equal(cacheReuseLog.outputSummary.sourceTurnId, "turn_cached");
+  assert.equal(cacheReuseLog.outputSummary.sourceTurnId, "turn_transform_cached");
   assert.equal(cacheReuseLog.outputSummary.analysisFps, 3);
   assert.equal(cacheReuseLog.outputSummary.boundaryCount, 1);
   assert.equal(cacheReuseLog.outputSummary.shotCount, 2);
@@ -1270,26 +938,22 @@ test("shot boundary valid cache can be reused", async () => {
 
 test("shot boundary registers reusable cache for the same service run", async () => {
   let shotStartTurnCount = 0;
-  let summaryCollectCount = 0;
   const harness = await createShotHarness({
     useRealArtifactIndex: true,
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
-        return { ok: true, threadId: "thread_1", turnId: isSummaryTurnPayload(payload) ? "turn_summary_1" : `turn_${shotStartTurnCount}`, status: "submitted" };
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        shotStartTurnCount += 1;
+        return { ok: true, threadId: "thread_1", turnId: `turn_${shotStartTurnCount}`, status: "submitted" };
       },
       collectTurnResult: async ({ turnId }) => {
-        if (turnId === "turn_summary_1") {
-          summaryCollectCount += 1;
-          if (summaryCollectCount === 1) return { ok: false, threadId: "thread_1", turnId, status: "inProgress", finalMessage: "" };
-          return { ok: true, threadId: "thread_1", turnId, status: "completed", finalMessage: createSummaryMessage() };
-        }
+        if (turnId === "turn_1") return { ok: true, threadId: "thread_1", turnId, status: "completed", finalMessage: "raw analyzer finished" };
         return {
           ok: true,
-          threadId: "thread_1",
+          threadId: "review_thread_1",
           turnId,
           status: "completed",
-          finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
+          finalMessage: createTransformMessage(),
         };
       },
     },
@@ -1305,10 +969,9 @@ test("shot boundary registers reusable cache for the same service run", async ()
   assert.equal(secondJob.status, "cache_waiting");
   assert.equal(secondJob.cachePrompt.cachedItem.analysisFps, 3);
   assert.equal(shotStartTurnCount, 1);
-  assert.equal(summaryCollectCount, 2);
 });
 
-test("shot boundary cache lookup falls back to pre-split analyze prompt params", async () => {
+test("shot boundary cache lookup no longer falls back to pre-split analyze prompt params", async () => {
   const cacheEntries = new Map();
   const stableKey = (fileHash, stageName, params) => JSON.stringify({ fileHash, stageName, params });
   const cachedAnalysis = createValidCachedShotAnalysis();
@@ -1339,13 +1002,12 @@ test("shot boundary cache lookup falls back to pre-split analyze prompt params",
   const job = harness.jobStore.getJob(result.processingJobId);
   const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end");
 
-  assert.equal(job.status, "cache_waiting");
-  assert.equal(job.cachePrompt.cacheKey, "pre_split_cache");
-  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "hit");
-  assert.equal(cacheLookupLog.outputSummary.cacheLookupMode, "split_predecessor");
+  assert.notEqual(job.status, "cache_waiting");
+  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "miss");
+  assert.equal(cacheLookupLog.outputSummary.reason, "key_miss");
 });
 
-test("shot boundary cache lookup falls back to legacy promptless cache params", async () => {
+test("shot boundary cache lookup no longer falls back to legacy promptless cache params", async () => {
   const cacheEntries = new Map();
   const stableKey = (fileHash, stageName, params) => JSON.stringify({ fileHash, stageName, params });
   const cachedAnalysis = createValidCachedShotAnalysis();
@@ -1376,10 +1038,9 @@ test("shot boundary cache lookup falls back to legacy promptless cache params", 
   const job = harness.jobStore.getJob(result.processingJobId);
   const cacheLookupLog = harness.logger.logs.find((entry) => entry.stageName === STAGES.cacheLookup && entry.event === "stage.end");
 
-  assert.equal(job.status, "cache_waiting");
-  assert.equal(job.cachePrompt.cacheKey, "legacy_cache");
-  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "hit");
-  assert.equal(cacheLookupLog.outputSummary.cacheLookupMode, "legacy_promptless");
+  assert.notEqual(job.status, "cache_waiting");
+  assert.equal(cacheLookupLog.outputSummary.cacheLookup, "miss");
+  assert.equal(cacheLookupLog.outputSummary.reason, "key_miss");
 });
 
 test("shot boundary cache decision refresh continues same job and trace", async () => {
@@ -1391,7 +1052,7 @@ test("shot boundary cache decision refresh continues same job and trace", async 
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isTransformTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
     },
@@ -1444,16 +1105,15 @@ test("same fps lookup reuses registered shot cache params while different fps mi
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
-        if (!isSummaryTurnPayload(payload) && !isReviewTurnPayload(payload)) shotStartTurnCount += 1;
+        if (!isTransformTurnPayload(payload)) shotStartTurnCount += 1;
         return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
       },
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
-      }),
+      collectTurnResult: async ({ turnId }) => {
+        if (turnId === "turn_1") {
+          return { ok: true, threadId: "thread_1", turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        }
+        return { ok: true, threadId: "review_thread_1", turnId, status: "completed", finalMessage: createTransformMessage() };
+      },
     },
   });
 
@@ -1541,7 +1201,7 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
   assert.equal(second.processingJobId != null, true);
   assert.equal(Array.isArray(artifact.shotBoundaryAnalysisHistory), true);
   assert.equal(artifact.shotBoundaryAnalysisHistory.length >= 2, true);
-  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).resultOrigin, "new_turn");
+  assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).resultOrigin, "transformed_turn");
   assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).resultOrigin, "cache_reuse");
   assert.equal(artifact.shotBoundaryAnalysisHistory.at(-2).traceId, first.traceId);
   assert.equal(artifact.shotBoundaryAnalysisHistory.at(-1).traceId, second.traceId);
@@ -1550,15 +1210,46 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
 
 test("shot boundary keeps Chinese reason text without mojibake", async () => {
   const harness = await createShotHarness({
+    autoTransformFallback: false,
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "未检测到明显视觉变化", needReview: false }] }),
-      }),
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return {
+          ok: true,
+          threadId,
+          turnId,
+          status: "completed",
+          finalMessage: JSON.stringify({
+            shots: [
+              {
+                summary: "镜头一",
+                start: 0,
+                end: 1.2,
+                endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "未检测到明显视觉变化", needReview: false },
+              },
+              {
+                summary: "镜头二",
+                start: 1.2,
+                end: 2,
+                endBoundary: null,
+              },
+            ],
+            commerceBrief: {
+              sellingObject: "产品样例",
+              proofApproach: "画面展示",
+              promisedOutcome: "快速理解卖点",
+              persuasionTarget: "潜在购买用户",
+              conversionAction: "未观察到明显转化动作",
+              uncertainties: [],
+            },
+            videoSummary: "总结",
+          }),
+        };
+      },
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
@@ -1657,9 +1348,16 @@ test("threadpool readiness detail exposes ready_for_leases and recovering gate",
 
 test("shot boundary parse failure writes failed artifact and debug snapshot", async () => {
   const harness = await createShotHarness({
+    autoTransformFallback: false,
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: "not-json" }),
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: "not-json" };
+      },
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
@@ -1671,23 +1369,57 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(job.status, "failed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
   assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "thread_1");
-  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 0);
   assert.equal(harness.logger.snapshots.length, 1);
-  assert.deepEqual(harness.threadPool.discarded, [{ threadId: "thread_1", reason: "shot-boundary-analysis-failed" }]);
-  assert.deepEqual(harness.threadPool.ownerReleased, [result.traceId]);
+  assert.deepEqual(harness.threadPool.discarded, [
+    { threadId: "review_thread_1", reason: "shot-boundary-transform-failed" },
+    { threadId: "thread_1", reason: "shot-boundary-analysis-failed" },
+  ]);
+  assert.deepEqual(harness.threadPool.ownerReleased, [`${result.traceId}:transform`, result.traceId]);
 });
 
 test("shot boundary mojibake reason fails quality gate and writes debug snapshot", async () => {
   const harness = await createShotHarness({
+    autoTransformFallback: false,
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "鏈娴嬪埌鏄庢樉瑙嗚鍙樺寲", needReview: false }] }),
-      }),
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return {
+          ok: true,
+          threadId,
+          turnId,
+          status: "completed",
+          finalMessage: JSON.stringify({
+            shots: [
+              {
+                summary: "镜头一",
+                start: 0,
+                end: 1.2,
+                endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "鏈娴嬪埌鏄庢樉瑙嗚鍙樺寲", needReview: false },
+              },
+              {
+                summary: "镜头二",
+                start: 1.2,
+                end: 2,
+                endBoundary: null,
+              },
+            ],
+            commerceBrief: {
+              sellingObject: "产品样例",
+              proofApproach: "画面展示",
+              promisedOutcome: "快速理解卖点",
+              persuasionTarget: "潜在购买用户",
+              conversionAction: "未观察到明显转化动作",
+              uncertainties: [],
+            },
+            videoSummary: "总结",
+          }),
+        };
+      },
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
@@ -1701,21 +1433,20 @@ test("shot boundary mojibake reason fails quality gate and writes debug snapshot
   assert.equal(job.errorSummary.code, "agent_output_quality_failed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
   assert.equal(harness.logger.snapshots.length, 1);
-  assert.equal(failLog.stageName, STAGES.turnValidated);
-  assert.equal(harness.logger.snapshots[0].debugPayload.turnId, "turn_1");
+  assert.equal(failLog.stageName, STAGES.turnCollected);
+  assert.equal(harness.logger.snapshots[0].debugPayload.turnId, "turn_transform_1");
   assert.match(harness.logger.snapshots[0].debugPayload.parseFailureReason, /mojibake/);
 });
 
 test("shot boundary recovery completes active inflight", async () => {
   const harness = await createShotHarness({
     appServer: {
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.7, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
-      }),
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_1") {
+          return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        }
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createTransformMessage() };
+      },
     },
   });
   const job = harness.jobStore.createJob({ sampleVideoId: "sample_1", traceId: "trace_recover" });
@@ -1726,7 +1457,7 @@ test("shot boundary recovery completes active inflight", async () => {
     agentRun: {
       provider: "codex-appserver",
       role: "shot-boundary-analyzer",
-      leaseId: "lease_1",
+      leaseId: null,
       threadId: "thread_1",
       turnId: "turn_1",
       traceId: "trace_recover",
@@ -1734,8 +1465,10 @@ test("shot boundary recovery completes active inflight", async () => {
       parentArtifactId: "artifact_sample",
       sampleVideoId: "sample_1",
       analysisFps: 3,
-      contactSheets: createContactSheets(prepareInput(createArtifact(), 3, { runtimeRoot: rootRuntime("recover") }), rootRuntime("recover")),
+      contactSheets: [],
       status: "turn_submitted",
+      inputMode: "raw_video_path_text",
+      rawVideoPathInfo: { resolved: true, basename: "source.mp4" },
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -1744,6 +1477,25 @@ test("shot boundary recovery completes active inflight", async () => {
 
   assert.equal(recovered.recovered, 1);
   assert.equal(harness.jobStore.getJob(job.jobId).status, "processed");
+});
+
+test("shot boundary fails before raw submit when mp4 path cannot be resolved", async () => {
+  const harness = await createShotHarness({
+    artifact: createArtifact({ originalVideoUri: "relative/source.mp4", normalizedVideoUri: "relative/source-normalized.mp4" }),
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const failLog = harness.logger.logs.find((entry) => entry.event === "stage.fail");
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "shot_boundary_video_path_invalid");
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.equal(harness.startedThreads.length, 0);
+  assert.equal(harness.startedTurns.length, 0);
+  assert.equal(failLog.stageName, STAGES.turnStarted);
 });
 
 test("shot boundary recovery fails interrupted pre-agent job", async () => {
@@ -1789,14 +1541,14 @@ test("shot boundary success releases lease and thread returns idle", async () =>
   const harness = await createShotHarness({
     threadPoolConfig: { ok: true, discardOnRelease: false },
     appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({
-        ok: true,
-        threadId: "thread_1",
-        turnId: "turn_1",
-        status: "completed",
-        finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
-      }),
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createTransformMessage() };
+      },
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
@@ -1806,48 +1558,17 @@ test("shot boundary success releases lease and thread returns idle", async () =>
     await delay(10);
   }
 
-  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId).sort(), [`${result.traceId}:review`, result.traceId].sort());
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [`${result.traceId}:transform`]);
   assert.deepEqual(harness.threadPool.discarded, []);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
 });
 
-test("shot boundary empty boundaries triggers repair and can recover", async () => {
-  let collectCount = 0;
-  const startTurnPayloads = [];
+test("shot boundary raw empty final message fails before transform", async () => {
   const harness = await createShotHarness({
+    autoTransformFallback: false,
     appServer: {
-      startTurnWithInputs: async (payload) => {
-        startTurnPayloads.push(payload);
-        return { ok: true, threadId: "thread_1", turnId: collectCount ? "turn_2" : "turn_1", status: "submitted" };
-      },
-      collectTurnResult: async () => {
-        collectCount += 1;
-        if (collectCount === 1) return { ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ boundaries: [] }) };
-        return { ok: true, threadId: "thread_1", turnId: "turn_2", status: "completed", finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }) };
-      },
-    },
-  });
-  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "refresh" });
-  await delay(20);
-  await harness.service.collectAgentRun(result.processingJobId);
-  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
-
-  assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
-  assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "repaired_turn");
-  assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 1);
-  assert.equal(startTurnPayloads.length, 4);
-  assert.equal("skillPath" in startTurnPayloads[0], false);
-  assert.equal("skillPath" in startTurnPayloads[1], false);
-  assert.equal("skillPath" in startTurnPayloads[2], false);
-  assert.equal(isReviewTurnPayload(startTurnPayloads[2]), true);
-  assert.equal(isSummaryTurnPayload(startTurnPayloads[3]), true);
-});
-
-test("shot boundary empty boundaries after repair stays failed", async () => {
-  const harness = await createShotHarness({
-    appServer: {
-      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "completed", finalMessage: JSON.stringify({ boundaries: [] }) }),
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" }),
+      collectTurnResult: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "completed", finalMessage: "   " }),
     },
   });
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "refresh" });
@@ -1857,19 +1578,51 @@ test("shot boundary empty boundaries after repair stays failed", async () => {
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
 
   assert.equal(job.status, "failed");
-  assert.equal(job.errorSummary.code, "shot_boundary_validation_failed");
   assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
-  assert.equal(artifact.shotBoundaryAnalysis.validation.validatorCode, "shot_boundary_empty_boundaries");
+  assert.equal(job.errorSummary.code, "shot_raw_video_analyze_empty_result");
+  assert.equal(harness.startedTurns.filter((item) => item.kind === "transform").length, 0);
+});
+
+test("shot boundary transform legacy reviewer contract stays failed", async () => {
+  const harness = await createShotHarness({
+    autoTransformFallback: false,
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: JSON.stringify({ decision: "pass", issues: [] }) };
+      },
+    },
+  });
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "refresh" });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "shot_boundary_transform_legacy_review_result");
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.equal(artifact.shotBoundaryAnalysis.validation.validatorCode, "shot_boundary_transform_legacy_review_result");
 });
 
 function createArtifact(overrides = {}) {
   const subtitleStatus = overrides.subtitleStatus ?? null;
   const subtitleSegments = overrides.subtitleSegments ?? (subtitleStatus === "processed" ? [{ id: "subtitle_1", start: 0, end: 1, text: "你好", confidence: null }] : []);
+  const originalVideoUri = overrides.originalVideoUri ?? "/runtime/source.mp4";
+  const normalizedVideoUri = overrides.normalizedVideoUri ?? "/runtime/source-normalized.mp4";
   return {
     sampleVideoId: "sample_1",
     trace: { traceId: "trace_1" },
     processingOptions: { frameSampleRateFps: 3 },
-    sampleVideo: { artifactId: "artifact_sample" },
+    sampleVideo: {
+      artifactId: "artifact_sample",
+      original: { artifactId: "artifact_original", parentArtifactId: null, type: "original-video", uri: originalVideoUri, summary: "source.mp4" },
+      normalized: { artifactId: "artifact_normalized", parentArtifactId: "artifact_sample", type: "normalized-video", uri: normalizedVideoUri, summary: "normalized.mp4" },
+    },
     metadata: { durationSeconds: 2, width: 1280, height: 720 },
     frameOutputSummary: {
       frameSampleRateFps: 3,
@@ -1902,7 +1655,19 @@ function createArtifact(overrides = {}) {
   };
 }
 
-async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverrides, skillPath, artifactIndex: artifactIndexOverrides, contactSheetGenerator: contactSheetGeneratorOverride, useRealArtifactIndex = false, reviewCollectMaxAttempts, reviewPollIntervalMs, repairPollIntervalMs, repairCollectMaxAttempts } = {}) {
+async function createShotHarness({
+  appServer,
+  threadPoolConfig,
+  threadPoolOverrides,
+  skillPath,
+  artifact,
+  artifactIndex: artifactIndexOverrides,
+  contactSheetGenerator: contactSheetGeneratorOverride,
+  useRealArtifactIndex = false,
+  reviewCollectMaxAttempts,
+  reviewPollIntervalMs,
+  autoTransformFallback = true,
+} = {}) {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "shot-boundary-"));
   const runtimeRoot = path.join(rootDir, "Runtime");
   const store = {
@@ -1919,8 +1684,17 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     readJson: async (filePath) => JSON.parse(await fs.readFile(filePath, "utf8")),
     runtimeUri: (filePath) => `/runtime/${path.relative(runtimeRoot, filePath).split(path.sep).join("/")}`,
   };
+  const sampleArtifact = artifact ?? createArtifact();
   await store.ensureRuntimeDirs();
-  await store.writeJson(path.join(store.sampleDir("sample_1"), "artifact.json"), createArtifact());
+  await store.writeJson(path.join(store.sampleDir("sample_1"), "artifact.json"), sampleArtifact);
+  await fs.writeFile(path.join(runtimeRoot, "source.mp4"), "video", "utf8");
+  await fs.writeFile(path.join(runtimeRoot, "source-normalized.mp4"), "video", "utf8");
+  const framesDir = path.join(store.sampleDir("sample_1"), "frames");
+  await fs.mkdir(framesDir, { recursive: true });
+  const framePngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WnS6fQAAAAASUVORK5CYII=";
+  for (let index = 0; index < 6; index += 1) {
+    await fs.writeFile(path.join(framesDir, `frame-${index}.jpg`), Buffer.from(framePngBase64, "base64"));
+  }
   const logger = {
     logs: [],
     snapshots: [],
@@ -1985,10 +1759,16 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     ? createArtifactIndex({ store, processorVersion: "test-v1" })
     : fakeArtifactIndex;
   const contactSheetGenerator = contactSheetGeneratorOverride ?? {
-    generateContactSheets: async ({ frames, parentArtifactId, sampleDir }) => createContactSheets({ frames, sourceArtifactId: parentArtifactId }, sampleDir),
+    generateContactSheets: async ({ frames, parentArtifactId, sampleDir, outputSubdir, sheetPurpose }) => createContactSheets(
+      { frames, sourceArtifactId: parentArtifactId },
+      sampleDir,
+      { outputSubdir, sheetPurpose },
+    ),
   };
   const appServerImpl = appServer ?? {};
   const turnKinds = [];
+  const startedTurns = [];
+  const startedThreads = [];
   const service = createShotBoundaryService({
     rootDir,
     store,
@@ -2000,14 +1780,21 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
     skillPath,
     reviewCollectMaxAttempts,
     reviewPollIntervalMs,
-    repairPollIntervalMs,
-    repairCollectMaxAttempts,
     appServer: {
+      startThread: async (payload) => {
+        startedThreads.push(payload);
+        const result = appServerImpl.startThread
+          ? await appServerImpl.startThread(payload)
+          : { ok: true, threadId: "thread_1", status: "created" };
+        return result;
+      },
       startTurnWithInputs: async (payload) => {
         const result = appServerImpl.startTurnWithInputs
           ? await appServerImpl.startTurnWithInputs(payload)
           : { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
-        turnKinds.push({ turnId: result.turnId ?? null, kind: isSummaryTurnPayload(payload) ? "summary" : (isReviewTurnPayload(payload) ? "review" : "shot") });
+        const kind = isTransformTurnPayload(payload) ? "transform" : "shot";
+        turnKinds.push({ turnId: result.turnId ?? null, kind });
+        startedTurns.push({ kind, payload, result });
         return result;
       },
       collectTurnResult: async (payload) => {
@@ -2016,38 +1803,30 @@ async function createShotHarness({ appServer, threadPoolConfig, threadPoolOverri
         const result = appServerImpl.collectTurnResult
           ? await appServerImpl.collectTurnResult(payload)
           : { ok: false, threadId: "thread_1", turnId: "turn_1", status: "running", finalMessage: "" };
-        if (turnKind === "summary" && result?.status !== "completed") {
+        if (turnKind === "transform" && result?.status !== "completed") {
           turnKinds.unshift(turnKindEntry);
         }
-        if (turnKind === "review" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("decision")) {
-          return { ...result, finalMessage: createReviewPassMessage() };
-        }
-        if (turnKind === "summary" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("commerceBrief")) {
-          return { ...result, finalMessage: createSummaryMessage() };
+        if (autoTransformFallback && turnKind === "transform" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("videoSummary")) {
+          return { ...result, finalMessage: createTransformMessage() };
         }
         return result;
       },
     },
     pollIntervalMs: 60_000,
-    summaryPollIntervalMs: 0,
-    summaryCollectMaxAttempts: 3,
   });
-  return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service };
+  return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service, startedTurns, startedThreads, sampleArtifact };
 }
 
-function isSummaryTurnPayload(payload) {
+function isTransformTurnPayload(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
-  return text.includes("已完成切镜摘要") && text.includes("commerceBrief");
+  return text.includes("结果转换 agent") || (text.includes("videoSummary") && text.includes("rawAnalyzerResult"));
 }
 
-function isReviewTurnPayload(payload) {
-  const text = String(payload?.inputs?.[0]?.text ?? "");
-  return text.includes("切镜审查") && text.includes("decision") && text.includes("issues");
-}
-
-function createContactSheets(prepared, sampleDir) {
+function createContactSheets(prepared, sampleDir, options = {}) {
   const frames = prepared.frames ?? prepared;
   const parentArtifactId = prepared.sourceArtifactId ?? "artifact_sample";
+  const outputSubdir = options.outputSubdir ?? "contact-sheets";
+  const sheetPurpose = options.sheetPurpose ?? "shot_boundary_analysis";
   return [
     {
       artifactId: "artifact_sheet_1",
@@ -2055,12 +1834,12 @@ function createContactSheets(prepared, sampleDir) {
       type: "contact_sheet",
       artifactType: "contact_sheet",
       status: "processed",
-      sheetPurpose: "shot_boundary_analysis",
+      sheetPurpose,
       sheetId: "sheet-001",
       sheetIndex: 0,
-      uri: "/runtime/Artifacts/sample_1/contact-sheets/sheet-001.jpg",
-      imagePath: "/runtime/Artifacts/sample_1/contact-sheets/sheet-001.jpg",
-      localImagePath: path.join(sampleDir, "contact-sheets", "sheet-001.jpg"),
+      uri: `/runtime/Artifacts/sample_1/${outputSubdir}/sheet-001.jpg`,
+      imagePath: `/runtime/Artifacts/sample_1/${outputSubdir}/sheet-001.jpg`,
+      localImagePath: path.join(sampleDir, outputSubdir, "sheet-001.jpg"),
       frameCount: Math.min(4, frames.length),
       overlapFrameIds: [],
       gridItems: frames.slice(0, 4).map((frame, index) => ({
@@ -2087,12 +1866,12 @@ function createContactSheets(prepared, sampleDir) {
       type: "contact_sheet",
       artifactType: "contact_sheet",
       status: "processed",
-      sheetPurpose: "shot_boundary_analysis",
+      sheetPurpose,
       sheetId: "sheet-002",
       sheetIndex: 1,
-      uri: "/runtime/Artifacts/sample_1/contact-sheets/sheet-002.jpg",
-      imagePath: "/runtime/Artifacts/sample_1/contact-sheets/sheet-002.jpg",
-      localImagePath: path.join(sampleDir, "contact-sheets", "sheet-002.jpg"),
+      uri: `/runtime/Artifacts/sample_1/${outputSubdir}/sheet-002.jpg`,
+      imagePath: `/runtime/Artifacts/sample_1/${outputSubdir}/sheet-002.jpg`,
+      localImagePath: path.join(sampleDir, outputSubdir, "sheet-002.jpg"),
       frameCount: Math.max(0, Math.min(3, Math.max(0, frames.length - 3))),
       overlapFrameIds: [frames[3]?.frameId].filter(Boolean),
       gridItems: frames.slice(3, 6).map((frame, index) => ({
@@ -2116,8 +1895,22 @@ function createContactSheets(prepared, sampleDir) {
   ];
 }
 
-function createSummaryMessage() {
+function createTransformMessage() {
   return JSON.stringify({
+    shots: [
+      {
+        summary: "turn_transform 人物半身口播",
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false },
+      },
+      {
+        summary: "turn_transform 产品特写镜头",
+        start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
     commerceBrief: {
       sellingObject: "产品样例",
       proofApproach: "画面展示",
@@ -2126,28 +1919,7 @@ function createSummaryMessage() {
       conversionAction: "未观察到明显转化动作",
       uncertainties: [],
     },
-  });
-}
-
-function createReviewPassMessage() {
-  return JSON.stringify({
-    decision: "pass",
-    reason: "未发现明确误切或漏切",
-    issues: [],
-  });
-}
-
-function createReviewReworkMessage(issue = "切镜需要微调") {
-  return JSON.stringify({
-    decision: "rework",
-    reason: "发现需要返工的切镜问题",
-    issues: [
-      {
-        issue,
-        minimal_fix: "按问题调整相邻 shot 边界并保持 shots 连续",
-        shot_ids: [1, 2],
-      },
-    ],
+    videoSummary: "视频先口播介绍，再展示产品特写。",
   });
 }
 
@@ -2201,20 +1973,28 @@ function createCachedShotAnalysis() {
     validation: { status: "passed", rawBoundaryCount: 0, normalizedBoundaryCount: 0, repairAttemptCount: 0, validatorCode: null },
     agent: {
       provider: "codex-appserver",
-      role: "shot-boundary-analyzer",
-      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
-      profileVersion: "2026-05-22.2",
-      promptTemplateId: "analyze",
-      promptTemplateVersion: "analyze.v2",
+      role: "shot-boundary-reviewer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-reviewer\\role.json",
+      profileVersion: "2026-05-24.1",
+      promptTemplateId: "transform",
+      promptTemplateVersion: "transform.v1",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
-      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md",
       skillHash: "cached_hash",
-      threadId: "thread_cached",
-      leaseId: "lease_cached",
-      turnId: "turn_cached",
+      threadId: "review_thread_cached",
+      leaseId: "review_lease_cached",
+      turnId: "turn_transform_cached",
       sheetCount: 2,
-      inputMode: "multi_contact_sheet",
+      inputMode: "raw_video_path_text",
+      rawAnalyzer: {
+        role: "shot-boundary-analyzer",
+        threadId: "thread_cached",
+        leaseId: null,
+        turnId: "turn_raw_cached",
+        inputMode: "raw_video_path_text",
+        rawResultPreview: "raw analyzer finished",
+      },
     },
     shots: [{ id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 2, representativeFrameId: "frame_0", confidence: 0.4, reason: "未检测到明确切镜边界", summary: "未检测到明确切镜边界", endBoundaryReason: null }],
     createdAt: new Date().toISOString(),
@@ -2255,20 +2035,28 @@ function createValidCachedShotAnalysis({ analysisFps = 3 } = {}) {
     validation: { status: "passed", rawBoundaryCount: 1, normalizedBoundaryCount: 1, repairAttemptCount: 0, validatorCode: null },
     agent: {
       provider: "codex-appserver",
-      role: "shot-boundary-analyzer",
-      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-analyzer\\role.json",
-      profileVersion: "2026-05-22.2",
-      promptTemplateId: "analyze",
-      promptTemplateVersion: "analyze.v2",
+      role: "shot-boundary-reviewer",
+      profilePath: "C:\\ByteDanceFullStack\\Assets\\RoleProfiles\\shot-boundary-reviewer\\role.json",
+      profileVersion: "2026-05-24.1",
+      promptTemplateId: "transform",
+      promptTemplateVersion: "transform.v1",
       promptTemplateHash: "cached_prompt_hash",
       initFingerprint: "cached_init_fingerprint",
-      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-analyzer\\SKILL.md",
+      skillPath: "C:\\ByteDanceFullStack\\.agents\\skills\\shot-boundary-reviewer\\SKILL.md",
       skillHash: "cached_hash",
-      threadId: "thread_cached",
-      leaseId: "lease_cached",
-      turnId: "turn_cached",
+      threadId: "review_thread_cached",
+      leaseId: "review_lease_cached",
+      turnId: "turn_transform_cached",
       sheetCount: 2,
-      inputMode: "multi_contact_sheet",
+      inputMode: "raw_video_path_text",
+      rawAnalyzer: {
+        role: "shot-boundary-analyzer",
+        threadId: "thread_cached",
+        leaseId: null,
+        turnId: "turn_raw_cached",
+        inputMode: "raw_video_path_text",
+        rawResultPreview: "raw analyzer finished",
+      },
     },
     shots: [
       { id: "shot_1", index: 0, shotNo: "S001", start: 0, end: 1.2, representativeFrameId: "frame_0", confidence: 0.8, reason: "cut", summary: "人物侧脸口播", endBoundaryReason: "cut" },

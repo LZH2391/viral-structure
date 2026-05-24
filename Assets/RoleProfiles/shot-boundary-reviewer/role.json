@@ -1,15 +1,15 @@
 {
   "role": "shot-boundary-reviewer",
-  "profileVersion": "2026-05-23.1",
+  "profileVersion": "2026-05-24.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-boundary-reviewer/SKILL.md",
   "init": {
     "template": "init.md",
     "readyText": "已就绪"
   },
   "turnTemplates": {
-    "review": {
-      "template": "prompts/review.v1.md",
-      "version": "review.v1"
+    "transform": {
+      "template": "prompts/transform.v1.md",
+      "version": "transform.v1"
     }
   }
 }

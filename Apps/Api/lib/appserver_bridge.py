@@ -36,6 +36,8 @@ def main() -> int:
     )
     try:
         client.start()
+        if operation == "startThread":
+            return start_thread(client, payload)
         if operation == "startTurnWithInputs":
             return start_turn_with_inputs(client, payload)
         if operation == "collectTurnResult":
@@ -87,6 +89,20 @@ def start_turn_with_inputs(client, payload) -> int:
             "threadId": str(payload["threadId"]),
             "turnId": turn_id,
             "status": "submitted",
+        }
+    )
+    return 0
+
+
+def start_thread(client, payload) -> int:
+    thread_id = client.start_reviewer_thread(
+        cwd=payload["workspaceRoot"],
+    )
+    write_json(
+        {
+            "ok": True,
+            "threadId": thread_id,
+            "status": "created",
         }
     )
     return 0
