@@ -570,7 +570,9 @@ test("appserver bridge defaults to in-repo python runtime root", () => {
 });
 
 test("shot boundary raw submit starts standalone thread and sends fixed mp4 path text", async () => {
+  const rawAnalysisWorkspaceRoot = path.join(os.tmpdir(), "codex-raw-workspace");
   const harness = await createShotHarness({
+    rawAnalysisWorkspaceRoot,
     artifact: createArtifact({
       subtitleStatus: "processed",
       subtitleSegments: [
@@ -591,8 +593,10 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
   const rawTurn = harness.startedTurns.find((item) => item.kind === "shot");
 
   assert.equal(harness.startedThreads.length, 1);
+  assert.equal(harness.startedThreads[0].workspaceRoot, rawAnalysisWorkspaceRoot);
   assert.equal(rawTurn != null, true);
   assert.equal(rawTurn.payload.threadId, "thread_raw_1");
+  assert.equal(rawTurn.payload.workspaceRoot, rawAnalysisWorkspaceRoot);
   assert.equal(rawTurn.payload.inputs.length, 1);
   assert.equal(rawTurn.payload.inputs[0].type, "text");
   assert.match(rawTurn.payload.inputs[0].text, /请使用 Video-shot skill 执行原始视频切镜/);
@@ -611,7 +615,9 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
 test("shot boundary transform collect polls running turn and preserves active message", async () => {
   let transformCollectCount = 0;
   const transformMessages = [];
+  const rawAnalysisWorkspaceRoot = path.join(os.tmpdir(), "codex-raw-workspace");
   const harness = await createShotHarness({
+    rawAnalysisWorkspaceRoot,
     appServer: {
       startTurnWithInputs: async (payload) => {
         if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
@@ -645,9 +651,13 @@ test("shot boundary transform collect polls running turn and preserves active me
   await delay(20);
   await harness.service.collectAgentRun(result.processingJobId);
   const job = harness.jobStore.getJob(result.processingJobId);
+  const rawTurn = harness.startedTurns.find((item) => item.kind === "shot");
+  const transformTurn = harness.startedTurns.find((item) => item.kind === "transform");
   const collectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
   const visualCollectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.visualSummaryCollected && entry.event === "stage.end");
 
+  assert.equal(rawTurn.payload.workspaceRoot, rawAnalysisWorkspaceRoot);
+  assert.equal(transformTurn.payload.workspaceRoot, harness.rootDir);
   assert.equal(transformCollectCount, 4);
   assert.equal(collectLogs.length, 3);
   assert.deepEqual(collectLogs.map((entry) => entry.outputSummary.attempt), [1, 2, 3]);
@@ -1514,6 +1524,7 @@ async function createShotHarness({
   threadPoolConfig,
   threadPoolOverrides,
   skillPath,
+  rawAnalysisWorkspaceRoot,
   artifact,
   artifactIndex: artifactIndexOverrides,
   contactSheetGenerator: contactSheetGeneratorOverride,
@@ -1632,6 +1643,7 @@ async function createShotHarness({
     threadPool,
     contactSheetGenerator,
     skillPath,
+    rawAnalysisWorkspaceRoot,
     reviewCollectMaxAttempts,
     reviewPollIntervalMs,
     appServer: {

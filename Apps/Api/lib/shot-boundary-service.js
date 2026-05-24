@@ -85,6 +85,7 @@ const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
 const REVIEW_COLLECT_MAX_ATTEMPTS = 90;
 const WORKSPACE_ROOT = path.resolve(__dirname, "..", "..", "..");
 const VIDEO_SHOT_SKILL_PATH = path.join(WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
+const DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT = process.env.SHOT_RAW_ANALYSIS_WORKSPACE_ROOT || "C:\\Users\\Administrator\\Documents\\Codex";
 
 function createShotBoundaryService({
   rootDir,
@@ -96,12 +97,14 @@ function createShotBoundaryService({
   appServer = createAppServerBridge(),
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = VIDEO_SHOT_SKILL_PATH,
+  rawAnalysisWorkspaceRoot = DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT,
   pollIntervalMs = POLL_INTERVAL_MS,
   reviewPollIntervalMs = POLL_INTERVAL_MS,
   reviewCollectMaxAttempts = REVIEW_COLLECT_MAX_ATTEMPTS,
   orphanTtlMs = ORPHAN_TTL_MS,
 } = {}) {
   const collectingJobs = new Map();
+  const rawWorkspaceRoot = rawAnalysisWorkspaceRoot || rootDir;
 
   async function enqueue({ sampleVideoId, analysisFps = 10, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
@@ -235,7 +238,7 @@ function createShotBoundaryService({
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
         action: () => appServer.startThread({
-          workspaceRoot: rootDir,
+          workspaceRoot: rawWorkspaceRoot,
           timeoutSeconds: 240,
         }),
         outputSummary: (result) => ({
@@ -261,7 +264,7 @@ function createShotBoundaryService({
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: ROLE, threadId: rawThread.thread_id, leaseId: null, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
         action: () => appServer.startTurnWithInputs({
-          workspaceRoot: rootDir,
+          workspaceRoot: rawWorkspaceRoot,
           threadId: rawThread.thread_id,
           inputs: rawTurnInputs,
           skillPath: context.skillPath,
@@ -322,7 +325,7 @@ function createShotBoundaryService({
           parentArtifactId: agentRun.parentArtifactId,
           inputSummary: { role: ROLE, threadId: agentRun.threadId, turnId: agentRun.turnId, sheetCount: agentRun.contactSheets?.length ?? 0 },
           action: () => appServer.collectTurnResult({
-            workspaceRoot: rootDir,
+            workspaceRoot: rawWorkspaceRoot,
             threadId: agentRun.threadId,
             turnId: agentRun.turnId,
             timeoutSeconds: 60,
