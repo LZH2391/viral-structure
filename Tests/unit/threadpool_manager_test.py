@@ -39,6 +39,9 @@ class BlockingInitClient:
     def start_initialized_thread(self, init_prompt, skill_path):
         return SimpleNamespace(thread_id="seed_thread_1", turn_id="seed_turn_1")
 
+    def collect_turn_result(self, thread_id: str, turn_id: str):
+        return SimpleNamespace(status="running", final_message="")
+
 
 class ThreadPoolManagerTests(unittest.TestCase):
     def test_health_and_status_return_while_seed_collect_is_waiting(self) -> None:
@@ -156,6 +159,58 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertTrue(status["warming"])
             self.assertFalse(status["can_acquire"])
             self.assertIn("waiting for seed initialization", status["warmup_detail"])
+
+    def test_acquire_does_not_wait_or_lease_when_seed_is_initializing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = BlockingInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="initializing",
+                    is_seed=True,
+                    init_turn_id="seed_turn_1",
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at="2026-05-24T10:00:00+08:00",
+                    updated_at="2026-05-24T10:00:00+08:00",
+                    last_validated_at="2026-05-24T10:00:00+08:00",
+                )
+            )
+            manager._write_catalog()
+
+            started_at = time.monotonic()
+            with self.assertRaisesRegex(RuntimeError, "thread pool role is warming"):
+                manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
+            duration = time.monotonic() - started_at
+            leases = manager.store.list_leases()
+            manager.close()
+
+            self.assertLess(duration, 0.5)
+            self.assertEqual(leases, {})
 
     def test_min_idle_replenishment_does_not_report_warming_or_block_acquire(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -15,8 +15,6 @@ async function executeAnalyzeTurn({
   const leaseAcquisition = await acquireLeaseWithRetry(threadPool, {
     role: ROLE,
     ownerId: context.traceContext.traceId,
-    maxAttempts: 3,
-    backoffMs: [500, 1000],
     codedError,
   });
   const lease = leaseAcquisition.lease;

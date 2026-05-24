@@ -546,7 +546,7 @@ test("threadpool proxy acquire lease uses dedicated timeout", async () => {
   const proxy = createThreadPoolProxy({
     allowedRoles: ["shot-boundary-transformer"],
     requestTimeoutMs: 3000,
-    leaseAcquireTimeoutMs: 15000,
+    leaseAcquireTimeoutMs: 90000,
     fetchImpl: async (url, options = {}) => {
       requests.push({
         pathname: new URL(url).pathname,
@@ -559,8 +559,50 @@ test("threadpool proxy acquire lease uses dedicated timeout", async () => {
   await proxy.acquireLease({ role: "shot-boundary-transformer", ownerId: "trace_1" });
 
   assert.equal(proxy.requestTimeoutMs, 3000);
-  assert.equal(proxy.leaseAcquireTimeoutMs, 15000);
+  assert.equal(proxy.leaseAcquireTimeoutMs, 90000);
   assert.deepEqual(requests, [{ pathname: "/leases/acquire", method: "POST" }]);
+});
+
+test("threadpool acquire retries warming until role becomes ready", async () => {
+  const { acquireLeaseWithRetry } = require("../../Apps/Api/lib/shot-boundary/threadpool-runner");
+  let readinessCalls = 0;
+  const releasedOwners = [];
+  const threadPool = {
+    leaseAcquireTimeoutMs: 90000,
+    ensureRoleReady: async () => {
+      readinessCalls += 1;
+      if (readinessCalls < 3) {
+        return {
+          ok: false,
+          error: "threadpool_warming",
+          message: "ThreadPool 正在 warming，请稍后再试",
+          retryable: true,
+          detail: { role: "script-segment-analyzer", warming: true, canAcquire: false, readyForLeases: true },
+        };
+      }
+      return {
+        ok: true,
+        status: { role: "script-segment-analyzer", warming: false, canAcquire: true, readyForLeases: true },
+      };
+    },
+    acquireLease: async () => ({ ok: true, lease_id: "lease_1", thread_id: "thread_1" }),
+    releaseOwnerLeases: async (ownerId) => {
+      releasedOwners.push(ownerId);
+      return { ok: true };
+    },
+  };
+
+  const result = await acquireLeaseWithRetry(threadPool, {
+    role: "script-segment-analyzer",
+    ownerId: "trace_1",
+    backoffMs: [0],
+    codedError: (code, message, debugPayload, retryable) => Object.assign(new Error(message), { code, debugPayload, retryable }),
+  });
+
+  assert.equal(result.lease.lease_id, "lease_1");
+  assert.equal(readinessCalls, 3);
+  assert.deepEqual(releasedOwners, ["trace_1", "trace_1"]);
+  assert.equal(result.attemptCount, 3);
 });
 
 test("appserver bridge defaults to in-repo python runtime root", () => {

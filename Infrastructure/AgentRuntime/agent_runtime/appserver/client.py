@@ -990,8 +990,9 @@ class AppServerSessionClient:
                 timeout_seconds = self.request_timeout_seconds
         started_at = time.perf_counter()
         try:
+            powershell_command = self._build_powershell_tool_command(command)
             completed = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", command],
+                ["powershell", "-NoProfile", "-Command", powershell_command],
                 cwd=str(workdir),
                 capture_output=True,
                 text=True,
@@ -1019,6 +1020,20 @@ class AppServerSessionClient:
             }
         except Exception as exc:  # pragma: no cover - defensive
             return self._tool_failure(f"{type(exc).__name__}: {exc}")
+
+    @staticmethod
+    def _build_powershell_tool_command(command: str) -> str:
+        return "\n".join(
+            [
+                "$global:LASTEXITCODE = $null",
+                command,
+                "$__codexCommandSuccess = $?",
+                "$__codexNativeExitCode = $global:LASTEXITCODE",
+                "if ($null -ne $__codexNativeExitCode) { exit $__codexNativeExitCode }",
+                "if ($__codexCommandSuccess) { exit 0 }",
+                "exit 1",
+            ]
+        )
 
     @staticmethod
     def _tool_failure(message: str) -> dict[str, Any]:

@@ -109,7 +109,7 @@ async function waitBeforeRetry(delayMs) {
 
 function shouldRetryAcquire(error) {
   const code = String(error?.code ?? "");
-  return ["threadpool_timeout", "threadpool_request_failed", "threadpool_unavailable", "threadpool_acquire_failed"].includes(code);
+  return ["threadpool_timeout", "threadpool_request_failed", "threadpool_unavailable", "threadpool_acquire_failed", "threadpool_warming"].includes(code);
 }
 
 function buildAcquireFailurePayload({ attemptCount, readinessDetail, lastRequestError, requestTimeoutMs }) {
@@ -124,8 +124,8 @@ function buildAcquireFailurePayload({ attemptCount, readinessDetail, lastRequest
 async function acquireLeaseWithRetry(threadPool, {
   role,
   ownerId,
-  maxAttempts = 3,
-  backoffMs = [500, 1000],
+  maxAttempts = 12,
+  backoffMs = [1000, 2000, 3000, 5000, 8000, 10000],
   codedError,
 }) {
   let attemptCount = 0;

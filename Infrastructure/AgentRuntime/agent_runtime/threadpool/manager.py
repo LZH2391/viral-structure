@@ -222,7 +222,7 @@ class ThreadPoolManager:
         config = self._acquire_config_for_role(role_name)
         while True:
             try:
-                thread = self._find_or_create_available_thread(config)
+                thread = self._find_or_create_available_thread(config, wait_for_ready=not self.async_warmup)
             except SeedInitializationPending as exc:
                 with self._lock:
                     self._warmup_errors.pop(config.name, None)
@@ -527,7 +527,7 @@ class ThreadPoolManager:
     def _lease_retention_key(lease: LeaseRecord) -> str:
         return str(lease.released_at or lease.last_seen_at or lease.created_at or "")
 
-    def _find_or_create_available_thread(self, config: RoleConfig) -> ThreadRecord:
+    def _find_or_create_available_thread(self, config: RoleConfig, *, wait_for_ready: bool) -> ThreadRecord:
         threads = sorted(
             (
                 record
@@ -545,7 +545,7 @@ class ThreadPoolManager:
                 self.store.write_thread(validated)
                 return validated
             self.store.delete_thread(thread.thread_id)
-        return self._create_thread(config, wait_for_ready=True)
+        return self._create_thread(config, wait_for_ready=wait_for_ready)
 
     def _create_thread(self, config: RoleConfig, *, wait_for_ready: bool) -> ThreadRecord:
         seed = self._ensure_seed_thread(config, wait_for_ready=wait_for_ready)
