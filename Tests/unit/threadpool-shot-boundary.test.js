@@ -910,6 +910,33 @@ test("shot boundary cache decision refresh continues same job and trace", async 
   assert.equal(shotStartTurnCount, 1);
 });
 
+test("shot boundary refresh writes cache lookup bypass stage logs before rerun", async () => {
+  const harness = await createShotHarness({
+    artifactIndex: {
+      findCacheEntry: async () => ({ sampleVideoId: "sample_cached", cacheKey: "cache_1" }),
+      loadItem: async () => ({ ...createArtifact(), sampleVideoId: "sample_cached", shotBoundaryAnalysis: createValidCachedShotAnalysis() }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" }),
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "ask" });
+  await delay(20);
+  await harness.service.resolveCacheDecision({ jobId: result.processingJobId, decision: "refresh" });
+  await delay(20);
+
+  const cacheLookupLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.cacheLookup);
+  const refreshStart = cacheLookupLogs.findLast((entry) => entry.event === "stage.start");
+  const refreshEnd = cacheLookupLogs.findLast((entry) => entry.event === "stage.end");
+
+  assert.equal(cacheLookupLogs.filter((entry) => entry.event === "stage.start").length >= 2, true);
+  assert.equal(cacheLookupLogs.filter((entry) => entry.event === "stage.end").length >= 2, true);
+  assert.equal(refreshStart.inputSummary.analysisFps, 3);
+  assert.equal(refreshEnd.outputSummary.cacheLookup, "bypassed");
+  assert.equal(refreshEnd.outputSummary.reason, "refresh_forced");
+ });
+
 test("same fps lookup reuses registered shot cache params while different fps misses", async () => {
   const cacheEntries = new Map();
   const stableKey = (fileHash, stageName, params) => JSON.stringify({
