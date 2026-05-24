@@ -81,28 +81,22 @@ async function findCachedArtifact({
 }
 
 async function runCacheLookup({ context, prepared, contactSheets, runStage, stageName, findCached }) {
-  if (context.cacheDecision === "refresh") {
-    await runStage(context, stageName, 55, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId,
-      inputSummary: buildCacheLookupInputSummary(context, contactSheets),
-      action: async () => ({
-        cache: null,
-        analysis: null,
-        cacheEligibility: null,
-        summary: cacheLookupSummary(context, {
-          cacheLookup: "bypassed",
-          reason: "refresh_forced",
-        }),
-      }),
-      outputSummary: (lookup) => lookup.summary,
-    });
-    return null;
-  }
+  if (context.cacheDecision === "refresh") return null;
   const result = await runStage(context, stageName, 55, {
     artifactId: context.artifactId,
     parentArtifactId: prepared.sourceArtifactId,
-    inputSummary: buildCacheLookupInputSummary(context, contactSheets),
+    inputSummary: {
+      sampleVideoId: context.sampleVideoId,
+      analysisFps: context.analysisFps,
+      sheetCount: contactSheets.length,
+      skillHash: context.skillHash,
+      profileVersion: context.roleProfile?.profileVersion ?? null,
+      promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
+      promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
+      promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
+      initFingerprint: context.initFingerprint ?? null,
+      reviewMode: reviewMode(context),
+    },
     action: () => findCached(),
     outputSummary: (lookup) => lookup.summary,
   });
@@ -198,21 +192,6 @@ function cacheLookupSummary(context, details) {
     enableReview: context.enableReview !== false,
     reviewMode: reviewMode(context),
     ...details,
-  };
-}
-
-function buildCacheLookupInputSummary(context, contactSheets) {
-  return {
-    sampleVideoId: context.sampleVideoId,
-    analysisFps: context.analysisFps,
-    sheetCount: contactSheets.length,
-    skillHash: context.skillHash,
-    profileVersion: context.roleProfile?.profileVersion ?? null,
-    promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
-    promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
-    promptTemplateHash: context.promptTemplate?.promptTemplateHash ?? null,
-    initFingerprint: context.initFingerprint ?? null,
-    reviewMode: reviewMode(context),
   };
 }
 
