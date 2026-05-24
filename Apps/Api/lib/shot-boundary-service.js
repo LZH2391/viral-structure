@@ -88,6 +88,7 @@ const ORPHAN_TTL_MS = 30 * 60 * 1000;
 const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
 const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
+const REVIEW_COLLECT_MAX_ATTEMPTS = 90;
 
 function createShotBoundaryService({
   rootDir,
@@ -102,6 +103,8 @@ function createShotBoundaryService({
   pollIntervalMs = POLL_INTERVAL_MS,
   summaryPollIntervalMs = POLL_INTERVAL_MS,
   summaryCollectMaxAttempts = SUMMARY_COLLECT_MAX_ATTEMPTS,
+  reviewPollIntervalMs = POLL_INTERVAL_MS,
+  reviewCollectMaxAttempts = REVIEW_COLLECT_MAX_ATTEMPTS,
   orphanTtlMs = ORPHAN_TTL_MS,
 } = {}) {
   const collectingJobs = new Map();
@@ -377,6 +380,8 @@ function createShotBoundaryService({
             role: REVIEW_ROLE,
             skillPath: REVIEW_SKILL_PATH,
             maxReworkCount: MAX_REVIEW_REWORK_COUNT,
+            reviewPollIntervalMs,
+            reviewCollectMaxAttempts,
             loadRoleProfileByRole,
             prepareReviewSheets,
             contactSheetGenerator,

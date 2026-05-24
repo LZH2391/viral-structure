@@ -482,30 +482,18 @@ async function runReviewTurn({
         updatedAt: new Date().toISOString(),
       },
     });
-    const collected = await runStage(context, stages.reviewCollected, 94, {
-      artifactId: context.artifactId,
-      parentArtifactId: shotAnalysis.artifactId,
-      inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
-      action: () => appServer.collectTurnResult({
-        workspaceRoot: rootDir,
-        threadId: lease.thread_id,
-        turnId: started.turnId,
-        timeoutSeconds: 120,
-      }),
-      outputSummary: (result) => ({
-        role: reviewer.role,
-        threadId: result.threadId,
-        turnId: result.turnId,
-        status: result.status,
-      }),
+    const collected = await collectReviewTurn({
+      context,
+      shotAnalysis,
+      lease,
+      started,
+      runStage,
+      stages,
+      appServer,
+      rootDir,
+      reviewer,
+      updateActiveThreadMessage,
     });
-    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
-    if (collected.status !== "completed") {
-      throw require("../shot-boundary-analysis").codedError("shot_boundary_review_turn_incomplete", "切镜 reviewer 未完成", {
-        turnId: collected.turnId ?? started.turnId,
-        status: collected.status,
-      }, true);
-    }
     const result = await runStage(context, stages.reviewValidated, 95, {
       artifactId: context.artifactId,
       parentArtifactId: shotAnalysis.artifactId,
@@ -543,6 +531,50 @@ async function runReviewTurn({
     }
     throw error;
   }
+}
+
+async function collectReviewTurn({
+  context,
+  shotAnalysis,
+  lease,
+  started,
+  runStage,
+  stages,
+  appServer,
+  rootDir,
+  reviewer,
+  updateActiveThreadMessage,
+}) {
+  let collected = null;
+  const maxAttempts = Math.max(1, Number(reviewer.reviewCollectMaxAttempts || 90));
+  const intervalMs = Math.max(0, Number(reviewer.reviewPollIntervalMs ?? 2000));
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) await delay(intervalMs);
+    collected = await runStage(context, stages.reviewCollected, 94, {
+      artifactId: context.artifactId,
+      parentArtifactId: shotAnalysis.artifactId,
+      inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0, attempt },
+      action: () => appServer.collectTurnResult({
+        workspaceRoot: rootDir,
+        threadId: lease.thread_id,
+        turnId: started.turnId,
+        timeoutSeconds: 120,
+      }),
+      outputSummary: (result) => ({
+        role: reviewer.role,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        status: result.status,
+        attempt,
+      }),
+    });
+    await updateActiveThreadMessage?.(collected.threadId, collected.turnId, collected.activeThreadMessage ?? null, collected.status);
+    if (collected.status === "completed") return collected;
+    if (!isPendingTurnStatus(collected.status)) {
+      throwReviewIncomplete(context, stages, started, shotAnalysis, collected, reviewer.role, false);
+    }
+  }
+  throwReviewIncomplete(context, stages, started, shotAnalysis, collected, reviewer.role, true);
 }
 
 async function runSummaryTurn({
@@ -681,6 +713,22 @@ function throwSummaryIncomplete(context, stages, started, shotAnalysis, collecte
     startedAt: Date.now(),
   };
   throw require("../shot-boundary-analysis").codedError("shot_summary_turn_incomplete", "带货总结 Agent 未完成", {
+    turnId: collected?.turnId ?? started.turnId ?? null,
+    status: collected?.status ?? null,
+  }, retryable);
+}
+
+function throwReviewIncomplete(context, stages, started, shotAnalysis, collected, role, retryable) {
+  context.activeStage = {
+    stageName: stages.reviewCollected,
+    artifactId: context.artifactId,
+    parentArtifactId: shotAnalysis.artifactId,
+    inputSummary: { role, turnId: started.turnId, shotCount: shotAnalysis.shots?.length ?? 0 },
+    outputSummary: { turnId: collected?.turnId ?? started.turnId ?? null, status: collected?.status ?? null },
+    startedAt: Date.now(),
+  };
+  throw require("../shot-boundary-analysis").codedError("shot_boundary_review_turn_incomplete", "切镜 reviewer 未完成", {
+    role,
     turnId: collected?.turnId ?? started.turnId ?? null,
     status: collected?.status ?? null,
   }, retryable);

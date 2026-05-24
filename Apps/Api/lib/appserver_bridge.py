@@ -120,6 +120,7 @@ def collect_turn_result(client, payload) -> int:
                     "turnId": str(payload["turnId"]),
                     "status": "running",
                     "finalMessage": "",
+                    "activeThreadMessage": message[:1200],
                     "message": message[:240],
                 }
             )

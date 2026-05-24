@@ -613,6 +613,7 @@ test("appserver collect exposes active thread message without final residue", ()
   assert.match(client, /_extract_turn_active_thread_message\(turn, status=status\)/);
   assert.match(client, /if not _is_non_terminal_turn_status\(status\):[\s\S]*_turn_active_thread_messages\.pop\(turn_id, None\)/);
   assert.match(bridgePy, /"activeThreadMessage": result\.active_thread_message/);
+  assert.match(bridgePy, /"activeThreadMessage": message\[:1200\]/);
   assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status\)/);
   assert.match(shared, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
   assert.match(scriptService, /runtime\.updateActiveThreadMessage\(context, turn\)/);

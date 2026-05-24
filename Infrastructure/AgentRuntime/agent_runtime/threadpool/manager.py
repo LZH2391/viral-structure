@@ -153,6 +153,8 @@ class ThreadPoolManager:
 
     def health_payload(self) -> dict:
         with self._lock:
+            initializing_seed_roles = self._initializing_seed_roles()
+            warming_roles = sorted(self._warming_roles | initializing_seed_roles)
             return {
                 "ok": True,
                 "service": "thread_pool_service",
@@ -166,7 +168,7 @@ class ThreadPoolManager:
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
-                "warming_roles": sorted(self._warming_roles),
+                "warming_roles": warming_roles,
                 "warmup_errors": dict(self._warmup_errors),
                 "warmup_details": dict(self._warmup_details),
                 "reported_at": _now(),
@@ -210,32 +212,51 @@ class ThreadPoolManager:
             return payload
 
     def acquire(self, *, role: str, owner_id: str) -> dict:
-        with self._lock:
-            self._require_ready_for_leases()
-            config = self._require_role(role)
-            thread = self._find_or_create_available_thread(config)
+        normalized_owner_id = str(owner_id).strip()
+        role_name = str(role).strip()
+        config = self._acquire_config_for_role(role_name)
+        while True:
+            try:
+                thread = self._find_or_create_available_thread(config)
+            except SeedInitializationPending as exc:
+                with self._lock:
+                    self._warmup_errors.pop(config.name, None)
+                    self._warmup_details[config.name] = f"waiting for seed initialization: {config.name}"
+                    self._write_catalog()
+                raise RuntimeError(f"thread pool role is warming: {exc}") from exc
             now = _now()
-            lease = LeaseRecord(
-                lease_id=str(uuid4()),
-                role=config.name,
-                owner_id=str(owner_id).strip(),
-                thread_id=thread.thread_id,
-                status="active",
-                created_at=now,
-                last_seen_at=now,
-            )
-            thread = thread.model_copy(
-                update={
-                    "status": "leased",
-                    "lease_id": lease.lease_id,
-                    "lease_count": int(thread.lease_count or 0) + 1,
-                    "updated_at": now,
-                }
-            )
-            self.store.write_thread(thread)
-            self.store.write_lease(lease)
+            with self._lock:
+                self._require_ready_for_leases()
+                config = self._require_role(config.name)
+                current_thread = self.store.read_thread(thread.thread_id)
+                if (
+                    current_thread is None
+                    or current_thread.status != "idle"
+                    or current_thread.is_seed
+                    or not self._matches_thread_fingerprint(current_thread, config)
+                ):
+                    continue
+                lease = LeaseRecord(
+                    lease_id=str(uuid4()),
+                    role=config.name,
+                    owner_id=normalized_owner_id,
+                    thread_id=current_thread.thread_id,
+                    status="active",
+                    created_at=now,
+                    last_seen_at=now,
+                )
+                leased_thread = current_thread.model_copy(
+                    update={
+                        "status": "leased",
+                        "lease_id": lease.lease_id,
+                        "lease_count": int(current_thread.lease_count or 0) + 1,
+                        "updated_at": now,
+                    }
+                )
+                self.store.write_thread(leased_thread)
+                self.store.write_lease(lease)
+                self._write_catalog()
             self._schedule_ensure_min_idle(config.name)
-            self._write_catalog()
             return {
                 "ok": True,
                 "lease_id": lease.lease_id,
@@ -362,6 +383,11 @@ class ThreadPoolManager:
             "thread_id": released_lease.thread_id,
             "thread_status": returned_status,
         }
+
+    def _acquire_config_for_role(self, role_name: str) -> RoleConfig:
+        with self._lock:
+            self._require_ready_for_leases()
+            return deepcopy(self._require_role(role_name))
 
     def _load_config(self) -> dict:
         raw = read_json(self.config_path)
@@ -855,9 +881,14 @@ class ThreadPoolManager:
         role_runtime_status: dict[str, dict[str, object]] = {}
         for role_name, config in self.roles.items():
             counts = role_counts.get(role_name, {})
-            warming = role_name in self._warming_roles
+            seed = seed_by_role.get(role_name)
+            warming = role_name in self._warming_roles or (seed is not None and seed.status == "initializing")
             warmup_error = self._warmup_errors.get(role_name)
-            warmup_detail = self._warmup_details.get(role_name)
+            warmup_detail = (
+                f"waiting for seed initialization: {seed.thread_id}"
+                if seed is not None and seed.status == "initializing"
+                else self._warmup_details.get(role_name)
+            )
             can_acquire = _role_can_acquire(
                 ok=True,
                 ready_for_leases=self._ready_for_leases,
@@ -910,9 +941,14 @@ class ThreadPoolManager:
         if not isinstance(role_entry, dict):
             role_entry = {}
         counts = dict(role_entry.get("counts") or {})
-        warming = config.name in self._warming_roles
+        seed = self._find_seed_thread(config.name)
+        warming = config.name in self._warming_roles or (seed is not None and seed.status == "initializing")
         warmup_error = self._warmup_errors.get(config.name)
-        warmup_detail = self._warmup_details.get(config.name)
+        warmup_detail = (
+            f"waiting for seed initialization: {seed.thread_id}"
+            if seed is not None and seed.status == "initializing"
+            else self._warmup_details.get(config.name)
+        )
         can_acquire = _role_can_acquire(
             ok=True,
             ready_for_leases=self._ready_for_leases,
@@ -969,6 +1005,13 @@ class ThreadPoolManager:
         }
         serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    def _initializing_seed_roles(self) -> set[str]:
+        return {
+            thread.role
+            for thread in self.store.list_threads().values()
+            if thread.is_seed and thread.status == "initializing"
+        }
 
     @staticmethod
     def _skill_body_sha256(skill_path: str | None) -> str | None:
