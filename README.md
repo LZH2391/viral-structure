@@ -17,6 +17,13 @@
 
 长期架构约束以 `Docs/Architecture` 为准。阶段讨论和本地计划不作为公开仓库内容提交。
 
+## 关键架构文档
+
+- [基础架构约束](Docs/Architecture/基础架构约束.md)：通用边界、追踪、返工和文件粒度约束。
+- [Debug 追踪规范](Docs/Architecture/Debug追踪规范.md)：stage log、DebugSnapshot、artifact lineage 的硬性要求。
+- [Analysis Role Registry](Docs/Architecture/Analysis%20Role%20Registry.md)：脚本段落、节奏结构、包装结构等分析能力的 descriptor 注册和通用启动入口。
+- [新增 ThreadPool Role 标准路线](Docs/Architecture/新增ThreadPoolRole标准路线.md)：新增 role/profile/service/thread lease 闭环的标准步骤。
+
 ## 环境要求
 
 - Windows PowerShell

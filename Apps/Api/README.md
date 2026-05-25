@@ -40,3 +40,5 @@ node Apps/Api/server.js
 - `GET /api/sample-videos/:sampleVideoId/artifact`
 - `GET /api/debug/traces`
 - `GET /runtime/...`
+
+内部编排层说明见 [lib/README.md](lib/README.md)。

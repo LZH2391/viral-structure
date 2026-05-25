@@ -23,6 +23,8 @@
 - `src/types.ts`：前端共享类型。
 - `styles.css`：样式入口，按区域引入 `styles/` 下的布局、面板、预览和时间线样式。
 
+源码目录分工和分析能力接入规则见 [src/README.md](src/README.md)。
+
 首次或源码变更后先构建：
 
 ```powershell
