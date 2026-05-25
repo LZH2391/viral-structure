@@ -20,6 +20,7 @@ test("analysis runtime v2 exposes modular runtime contracts", () => {
   assert.match(index, /createJobRuntime/);
   assert.match(index, /createThreadRuntime/);
   assert.match(index, /createMaterializeRuntime/);
+  assert.match(index, /createAnalysisFinalOutputStore/);
   assert.match(stage, /stage\.start/);
   assert.match(stage, /stage\.end/);
   assert.match(stage, /stage\.fail/);
@@ -30,6 +31,39 @@ test("analysis runtime v2 exposes modular runtime contracts", () => {
   assert.match(cache, /dependencies/);
   assert.match(cache, /analysisOptions/);
   assert.match(shared, /createAnalysisRuntimeV2/);
+});
+
+test("materialize runtime writes final output for the current analysis kind", async () => {
+  const { createMaterializeRuntime } = require("../../Apps/Api/lib/analysis-runtime-v2/materialize-runtime");
+  const writes = [];
+  const runtime = createMaterializeRuntime({
+    artifactIndex: {
+      registerSampleArtifact: async () => undefined,
+    },
+    resolveExistingFileHash: async () => "file_hash",
+    finalOutputStore: {
+      writeFinalOutput: async (payload) => {
+        writes.push(payload);
+        return payload;
+      },
+    },
+  });
+
+  await runtime.registerSampleArtifact({
+    sampleVideoId: "sample_1",
+    cacheKind: "packaging_structure",
+    finalOutputText: "packaging final",
+    traceContext: { traceId: "trace_packaging" },
+    activeStage: { stageName: "packaging_structure.materialize" },
+  }, {
+    scriptSegmentAnalysis: { artifactId: "artifact_script", type: "script-segment-analysis" },
+    packagingStructureAnalysis: { artifactId: "artifact_packaging", type: "packaging-structure-analysis" },
+  });
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].analysis.artifactId, "artifact_packaging");
+  assert.equal(writes[0].finalOutputText, "packaging final");
+  assert.equal(writes[0].stageName, "packaging_structure.materialize");
 });
 
 test("script cache prompts expose unified dependencies while rhythm depends only on shots", () => {

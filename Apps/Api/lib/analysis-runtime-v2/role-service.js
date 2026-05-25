@@ -58,7 +58,9 @@ function createRoleAnalysisService({
     defaultFailedStageName: defaultFailedStageName ?? stages?.analyzed,
     resolveDefaultParentArtifactId,
     artifactIndex,
+    store,
     resolveExistingFileHash,
+    rootDir,
   });
   const descriptor = createDescriptor({ store, artifactIndex });
   const pipelineRunner = createAnalysisPipelineRunner({
@@ -192,6 +194,8 @@ function createRoleAnalysisService({
       agentRun: null,
       validationSummary: null,
       cacheKey,
+      cacheKind,
+      role,
       nextStage,
       ...contextPatch,
     };

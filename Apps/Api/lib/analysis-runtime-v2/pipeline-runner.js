@@ -84,6 +84,7 @@ function createAnalysisPipelineRunner({
           const analysis = descriptor.buildProcessedAnalysis(executed.finalTurn.finalMessage, input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount: 0,
           });
+          context.finalOutputText = executed.finalTurn.finalMessage ?? null;
           context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
           return { analysis, finalTurn: executed.finalTurn };
         },
@@ -155,6 +156,7 @@ function createAnalysisPipelineRunner({
         const analysis = descriptor.buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
           repairAttemptCount,
         });
+        context.finalOutputText = executed.finalTurn.finalMessage ?? null;
         context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
         runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.repaired, descriptor.progress.repaired, {
           agentRun: context.agentRun,

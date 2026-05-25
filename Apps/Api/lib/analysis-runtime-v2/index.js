@@ -2,6 +2,7 @@ const { createStageRuntime } = require("./stage-runtime");
 const { createJobRuntime } = require("./job-runtime");
 const { createThreadRuntime } = require("./thread-runtime");
 const { createMaterializeRuntime } = require("./materialize-runtime");
+const { createAnalysisFinalOutputStore } = require("../analysis-final-output-store");
 const {
   buildUnifiedCachePrompt,
   buildDependencyRefs,
@@ -33,6 +34,7 @@ function createAnalysisRuntimeV2(options) {
     ? createMaterializeRuntime({
       artifactIndex: options.artifactIndex,
       resolveExistingFileHash: options.resolveExistingFileHash,
+      finalOutputStore: options.store ? createAnalysisFinalOutputStore({ store: options.store, rootDir: options.rootDir }) : null,
     })
     : null;
 

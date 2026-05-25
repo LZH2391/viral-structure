@@ -5,6 +5,7 @@
 /Runtime/DebugSnapshots/*
 /Runtime/Jobs/*
 /Runtime/Temp/*
+/Artifacts/AnalysisFinalOutputs/*
 /_workspace/
 /MP4/
 /PlanMD/
@@ -30,3 +31,4 @@ __pycache__/
 !/Runtime/DebugSnapshots/README.md
 !/Runtime/Jobs/README.md
 !/Runtime/Temp/README.md
+!/Artifacts/AnalysisFinalOutputs/README.md
