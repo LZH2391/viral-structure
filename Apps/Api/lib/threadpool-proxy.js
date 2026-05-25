@@ -249,6 +249,7 @@ function sanitizeRoleStatus(payload) {
     canAcquire: Boolean(payload.can_acquire),
     canInit: "can_init" in payload ? Boolean(payload.can_init) : Boolean(payload.can_acquire),
     warming: Boolean(payload.warming),
+    replenishing: Boolean(payload.replenishing),
     warmupDetail: payload.warmup_detail ?? null,
     warmupError: payload.warmup_error ?? null,
     readyForLeases: Boolean(payload.ready_for_leases),
@@ -270,6 +271,7 @@ function summarizeRoleStatus(status) {
     seedThreadId: status.seedThreadId,
     canAcquire: status.canAcquire,
     warming: status.warming,
+    replenishing: status.replenishing,
     skillPath: status.skillPath,
   };
 }

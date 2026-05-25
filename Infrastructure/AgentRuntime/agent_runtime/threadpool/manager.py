@@ -205,6 +205,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         config = self._acquire_config_for_role(role_name)
         while True:
             try:
+                self._ensure_spare_idle_before_acquire(config)
                 thread = self._find_or_create_available_thread(config, wait_for_ready=True)
             except SeedInitializationPending as exc:
                 with self._lock:
@@ -252,6 +253,31 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "thread_id": thread.thread_id,
                 "status": "leased",
             }
+
+    def _ensure_spare_idle_before_acquire(self, config: RoleConfig) -> None:
+        if config.min_idle <= 0:
+            return
+        if self._idle_count(config.name) > config.min_idle:
+            return
+        try:
+            seed = self._ensure_seed_thread(config, wait_for_ready=True)
+            if seed.status != "idle":
+                raise SeedInitializationPending(f"seed for role {config.name} is still initializing")
+            spare: ThreadRecord | None = None
+            while self._idle_count(config.name) <= config.min_idle:
+                spare = self._create_thread(config, wait_for_ready=True)
+            with self._lock:
+                self._warmup_errors.pop(config.name, None)
+                if spare is not None:
+                    self._warmup_details[config.name] = f"pre-created spare idle thread {spare.thread_id}"
+                self._write_catalog()
+        except Exception as exc:
+            if self._idle_count(config.name) <= 0:
+                raise
+            with self._lock:
+                self._warmup_errors.pop(config.name, None)
+                self._warmup_details[config.name] = f"spare idle pre-create deferred: {type(exc).__name__}"
+                self._write_catalog()
 
     def touch(self, *, lease_id: str, owner_id: str) -> dict:
         with self._lock:

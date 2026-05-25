@@ -15,6 +15,7 @@ export type ThreadPoolRoleSummary = {
   seedThreadId?: string | null;
   canAcquire: boolean;
   warming?: boolean;
+  replenishing?: boolean;
   skillPath?: string | null;
 };
 
@@ -35,6 +36,7 @@ export type ThreadPoolRoleDetail = {
   canAcquire: boolean;
   canInit?: boolean;
   warming?: boolean;
+  replenishing?: boolean;
   warmupDetail?: string | null;
   warmupError?: string | null;
   startupError?: string | null;

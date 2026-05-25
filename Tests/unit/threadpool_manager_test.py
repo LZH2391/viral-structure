@@ -84,6 +84,9 @@ class CompletedInitClient:
 class ReusableThreadClient:
     init_timeout_seconds = 90.0
 
+    def __init__(self) -> None:
+        self.fork_calls = 0
+
     def start(self) -> None:
         return None
 
@@ -95,6 +98,10 @@ class ReusableThreadClient:
 
     def validate_thread(self, thread_id: str) -> bool:
         return True
+
+    def fork_initialized_thread(self, seed_thread_id: str) -> str:
+        self.fork_calls += 1
+        return f"fork_{self.fork_calls}"
 
 
 class ThreadPoolManagerTests(unittest.TestCase):
@@ -155,9 +162,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.close()
 
             self.assertLess(duration, 0.5)
-            self.assertEqual(health["warming_roles"], [])
-            self.assertFalse(status["warming"])
-            self.assertTrue(status["can_acquire"])
+            self.assertIn("shot-boundary-transformer", health["warming_roles"])
+            self.assertTrue(status["warming"])
+            self.assertFalse(status["can_acquire"])
             self.assertEqual(status["counts"]["idle"], 1)
 
     def test_initializing_seed_reports_warming_without_waiting(self) -> None:
@@ -187,6 +194,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 async_warmup=True,
             )
             configure_started_manager(manager)
+            manager._schedule_ensure_min_idle = lambda role_name: None
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="seed_thread_1",
@@ -241,6 +249,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 async_warmup=True,
             )
             configure_started_manager(manager)
+            manager._schedule_ensure_min_idle = lambda role_name: None
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="seed_thread_1",
@@ -258,12 +267,12 @@ class ThreadPoolManagerTests(unittest.TestCase):
 
             lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
             seed = manager.store.read_thread("seed_thread_1")
-            fork = manager.store.read_thread("fork_1")
+            fork = manager.store.read_thread(lease["thread_id"])
             leases = manager.store.list_leases()
             manager.close()
 
             self.assertEqual(client.wait_calls, 1)
-            self.assertEqual(client.fork_calls, 1)
+            self.assertEqual(client.fork_calls, 2)
             self.assertEqual(lease["thread_id"], "fork_1")
             self.assertIsNotNone(seed)
             self.assertEqual(seed.status, "idle")
@@ -379,6 +388,59 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertTrue(status["can_acquire"])
             self.assertEqual(status["counts"]["idle"], 0)
 
+    def test_acquire_precreates_spare_idle_before_leasing_last_idle_thread(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": false },
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = ReusableThreadClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager._schedule_ensure_min_idle = lambda role_name: None
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(build_idle_thread(manager, "idle_thread_1"))
+            manager._write_catalog()
+
+            lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
+            status = manager.get_role_status("shot-boundary-transformer")
+            manager.close()
+
+            self.assertEqual(lease["thread_id"], "idle_thread_1")
+            self.assertEqual(client.fork_calls, 1)
+            self.assertEqual(status["counts"]["leased"], 1)
+            self.assertEqual(status["counts"]["idle"], 1)
+
     def test_discard_on_release_keeps_thread_reusable_during_same_service_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -407,6 +469,18 @@ class ThreadPoolManagerTests(unittest.TestCase):
             )
             configure_started_manager(manager)
             manager._schedule_ensure_min_idle = lambda role_name: None
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
             manager.store.write_thread(build_idle_thread(manager, "idle_thread_1"))
             manager._write_catalog()
 

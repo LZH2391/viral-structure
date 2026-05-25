@@ -317,7 +317,9 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
   assert.match(threadpoolApp, /getThreadConversation/);
-  assert.match(threadpoolApp, /\(detail\?\.threads \?\? \[\]\)\.filter\(\(thread\) => !thread\.seed\)/);
+  assert.doesNotMatch(threadpoolApp, /\(detail\?\.threads \?\? \[\]\)\.filter\(\(thread\) => !thread\.seed\)/);
+  assert.match(threadpoolApp, /thread\.seed \? "seed \/ " : ""/);
+  assert.match(threadpoolApp, /replenishing/);
   assert.match(threadpoolApp, /查看对话/);
   assert.match(threadpoolApp, /ThreadConversationPanel/);
   assert.match(threadpoolApp, /window\.confirm/);

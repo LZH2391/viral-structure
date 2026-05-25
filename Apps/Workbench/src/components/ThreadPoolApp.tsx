@@ -119,7 +119,7 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
           <button key={role.role} className={`threadpool-role ${selectedRole === role.role ? "active" : ""}`} type="button" onClick={() => onSelect(role.role)}>
             <strong>{role.role}</strong>
             <span>{role.idle}/{role.minIdle} idle / {role.leased} leased</span>
-            <b className={role.canAcquire ? "status-good" : role.warming ? "status-warn" : "status-bad"}>{role.canAcquire ? "can acquire" : role.warming ? "warming" : "blocked"}</b>
+            <b className={role.canAcquire ? "status-good" : role.warming || role.replenishing ? "status-warn" : "status-bad"}>{role.canAcquire ? (role.replenishing ? "replenishing" : "can acquire") : role.warming ? "warming" : "blocked"}</b>
             <small>seed {shortId(role.seedThreadId ?? "")}</small>
           </button>
         )) : <EmptyState text="暂无 role 状态" />}
@@ -129,7 +129,7 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
 }
 
 function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
-  const threads = useMemo(() => (detail?.threads ?? []).filter((thread) => !thread.seed), [detail]);
+  const threads = useMemo(() => (detail?.threads ?? []), [detail]);
   const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
   const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
   const [conversation, setConversation] = useState<ThreadConversation | null>(null);
@@ -194,6 +194,7 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
             <Detail label="ready" value={String(Boolean(detail.readyForLeases))} />
             <Detail label="canInit" value={String(Boolean(detail.canInit))} />
             <Detail label="warming" value={detail.warming ? detail.warmupDetail ?? "warming" : "no"} />
+            <Detail label="replenishing" value={detail.replenishing ? detail.warmupDetail ?? "yes" : "no"} />
             <Detail label="canAcquire" value={String(detail.canAcquire)} />
             <Detail label="warmupError" value={detail.warmupError ?? "无"} />
             <Detail label="startupError" value={detail.startupError ?? "无"} />
@@ -207,7 +208,7 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
                 <article key={thread.thread_id} className={`threadpool-thread ${suspectedOrphan ? "suspected-orphan" : ""}`}>
                   <div>
                     <strong>{shortId(thread.thread_id)}</strong>
-                    <span>{thread.status} / owner {thread.owner_id ? shortId(thread.owner_id) : "none"} / last owner {shortId(thread.last_owner_id ?? "") || "none"}</span>
+                    <span>{thread.seed ? "seed / " : ""}{thread.status} / owner {thread.owner_id ? shortId(thread.owner_id) : "none"} / last owner {shortId(thread.last_owner_id ?? "") || "none"}</span>
                     <small>{thread.lease_id ? `lease ${shortId(thread.lease_id)}` : "no lease"} / seen {formatSeenAt(thread.last_seen_at)} {suspectedOrphan ? "/ suspected orphan" : ""}</small>
                     <b className={`threadpool-ctx ${ctx.level}`}>{ctx.text}</b>
                   </div>
