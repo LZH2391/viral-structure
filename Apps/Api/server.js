@@ -191,7 +191,6 @@ async function handleRhythmStructure(req, res, sampleVideoId, handlers = {}) {
     sampleVideoId,
     cacheDecision: body.cacheDecision ?? "ask",
     expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
-    expectedScriptSegmentArtifactId: body.dependencies?.scriptSegmentArtifactId ?? body.expectedScriptSegmentArtifactId ?? null,
   });
   return sendJson(res, 202, result);
 }

@@ -32,7 +32,7 @@ test("analysis runtime v2 exposes modular runtime contracts", () => {
   assert.match(shared, /createAnalysisRuntimeV2/);
 });
 
-test("script and rhythm cache prompts expose unified dependency contract with legacy compatibility", () => {
+test("script cache prompts expose unified dependencies while rhythm depends only on shots", () => {
   const root = path.resolve(__dirname, "../..");
   const scriptCache = read(root, "Apps/Api/lib/script-segment/cache.js");
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
@@ -44,8 +44,8 @@ test("script and rhythm cache prompts expose unified dependency contract with le
   assert.match(scriptCache, /legacy:\s*\{[\s\S]*expectedShotBoundaryArtifactId/);
   assert.match(rhythmCache, /buildUnifiedCachePrompt/);
   assert.match(rhythmCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
-  assert.match(rhythmCache, /scriptSegmentArtifactId/);
-  assert.match(rhythmCache, /legacy:\s*\{[\s\S]*expectedScriptSegmentArtifactId/);
+  assert.doesNotMatch(rhythmCache, /scriptSegmentArtifactId/);
+  assert.doesNotMatch(rhythmCache, /expectedScriptSegmentArtifactId/);
   assert.match(scriptService, /runtime\.job\.complete\(context\)/);
   assert.match(scriptService, /runtime\.job\.resumeProcessing\(jobId, STAGES\.cacheLookup, 28\)/);
   assert.match(rhythmService, /runtime\.job\.complete\(context\)/);
@@ -59,9 +59,9 @@ test("frontend and API accept unified analysis dependencies while preserving leg
   const types = read(root, "Apps/Workbench/src/types.ts");
 
   assert.match(server, /body\.dependencies\?\.shotBoundaryArtifactId \?\? body\.expectedShotBoundaryArtifactId/);
-  assert.match(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
+  assert.doesNotMatch(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
   assert.match(client, /const dependencies = \{ shotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null \}/);
-  assert.match(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
+  assert.doesNotMatch(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
   assert.match(client, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(types, /dependencies\?: \{/);
   assert.match(types, /analysisOptions\?: Record/);

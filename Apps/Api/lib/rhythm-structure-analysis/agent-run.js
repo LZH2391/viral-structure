@@ -22,7 +22,6 @@ function buildAgentRun({ context, lease, turn, input }) {
     status: "turn_submitted",
     preparedInputSummary: {
       shotCount: input.shots.length,
-      scriptSegmentCount: input.scriptSegments?.length ?? 0,
       sheetCount: context.inputPackage?.sheetCount ?? 0,
       emptyShotCount: context.inputPackage?.emptyShotCount ?? 0,
     },

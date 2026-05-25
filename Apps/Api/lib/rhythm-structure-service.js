@@ -58,11 +58,10 @@ function createRhythmStructureService({
     maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
   });
 
-  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null, expectedScriptSegmentArtifactId = null }) {
+  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
     await store.ensureRuntimeDirs();
     const artifact = await loadArtifact(sampleVideoId, store);
     assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId);
-    assertExpectedScriptSegmentArtifact(artifact, expectedScriptSegmentArtifactId);
     const traceContext = createTraceContext(createTraceIds());
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     const roleProfile = await loadRoleProfileByRole(ROLE);
@@ -71,7 +70,6 @@ function createRhythmStructureService({
       cacheDecision,
       artifact,
       expectedShotBoundaryArtifactId,
-      expectedScriptSegmentArtifactId,
       traceContext,
       job,
       roleProfile,
@@ -98,7 +96,6 @@ function createRhythmStructureService({
     }
     const artifact = await loadArtifact(job.sampleVideoId, store);
     assertExpectedShotBoundaryArtifact(artifact, job.cachePrompt.expectedShotBoundaryArtifactId ?? null);
-    assertExpectedScriptSegmentArtifact(artifact, job.cachePrompt.expectedScriptSegmentArtifactId ?? null);
     const roleProfile = await loadRoleProfileByRole(ROLE);
     const analyzePromptTemplate = buildAnalyzePromptTemplate(roleProfile);
     const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
@@ -108,7 +105,6 @@ function createRhythmStructureService({
       cacheDecision: decision,
       artifact,
       expectedShotBoundaryArtifactId: job.cachePrompt.expectedShotBoundaryArtifactId ?? null,
-      expectedScriptSegmentArtifactId: job.cachePrompt.expectedScriptSegmentArtifactId ?? null,
       traceContext: {
         runId: job.traceId,
         traceId: job.traceId,
@@ -174,18 +170,6 @@ function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifa
     message: "切镜结果已更新，请刷新后再运行节奏结构分析",
     expectedKey: "expectedShotBoundaryArtifactId",
     actualKey: "actualShotBoundaryArtifactId",
-  });
-}
-
-function assertExpectedScriptSegmentArtifact(artifact, expectedScriptSegmentArtifactId) {
-  return assertExpectedArtifact({
-    expectedArtifactId: expectedScriptSegmentArtifactId,
-    actualArtifactId: artifact?.scriptSegmentAnalysis?.artifactId ?? null,
-    conflictError,
-    code: "rhythm_structure_script_segment_stale",
-    message: "脚本段落结果已更新，请刷新后再运行节奏结构分析",
-    expectedKey: "expectedScriptSegmentArtifactId",
-    actualKey: "actualScriptSegmentArtifactId",
   });
 }
 

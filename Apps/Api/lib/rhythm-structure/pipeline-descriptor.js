@@ -63,14 +63,11 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         sampleVideoId: context.sampleVideoId,
         sourceShotBoundaryArtifactId: context.artifact.shotBoundaryAnalysis?.artifactId ?? null,
         shotCount: context.artifact.shotBoundaryAnalysis?.shots?.length ?? 0,
-        sourceScriptSegmentArtifactId: context.artifact.scriptSegmentAnalysis?.artifactId ?? null,
-        scriptSegmentCount: context.artifact.scriptSegmentAnalysis?.segments?.length ?? 0,
       };
     },
     buildPreparedOutputSummary(result) {
       return {
         shotCount: result.shots.length,
-        scriptSegmentCount: result.scriptSegments.length,
         parentArtifactId: result.parentArtifactId,
       };
     },
@@ -79,7 +76,6 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         sampleVideoId: context.sampleVideoId,
         sourceShotBoundaryArtifactId: input.parentArtifactId,
         shotCount: input.shots.length,
-        scriptSegmentCount: input.scriptSegments.length,
         frameCount: input.frames?.length ?? 0,
       };
     },
@@ -234,15 +230,6 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         message: "切镜结果已更新，请刷新后再运行节奏结构分析",
         expectedKey: "expectedShotBoundaryArtifactId",
         actualKey: "actualShotBoundaryArtifactId",
-      });
-      assertExpectedArtifact({
-        expectedArtifactId: context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null,
-        actualArtifactId: latestArtifact?.scriptSegmentAnalysis?.artifactId ?? null,
-        conflictError,
-        code: "rhythm_structure_script_segment_stale",
-        message: "脚本段落结果已更新，请刷新后再运行节奏结构分析",
-        expectedKey: "expectedScriptSegmentArtifactId",
-        actualKey: "actualScriptSegmentArtifactId",
       });
     },
     cleanupReason: "rhythm-structure-analysis-failed",

@@ -33,19 +33,18 @@ async function buildShotFrameVisualManifest({
   schemaVersion,
   sheetPurpose,
 }) {
+  const visualAttachments = [];
   const sheets = [];
-  const shots = [];
+  const shotSheets = [];
   let emptyShotCount = 0;
   for (const pageGroup of shotFramePages) {
     if (!pageGroup.frames.length) {
       emptyShotCount += 1;
-      shots.push({
+      shotSheets.push({
         shotId: pageGroup.shot.shotId,
         shotNo: pageGroup.shot.shotNo,
-        pageCount: 0,
-        frameCount: 0,
         empty: true,
-        pages: [],
+        sheetIds: [],
       });
       continue;
     }
@@ -67,57 +66,48 @@ async function buildShotFrameVisualManifest({
       },
     });
     const normalizedSheets = renderedSheets.map((sheet, pageIndex) => {
-      const entry = {
+      visualAttachments.push({
+        sheetId: sheet.sheetId,
         shotId: pageGroup.shot.shotId,
         shotNo: pageGroup.shot.shotNo,
-        sheetId: sheet.sheetId,
-        pageIndex,
-        pageCount: renderedSheets.length,
-        frameCount: sheet.frameCount,
         localImagePath: sheet.localImagePath,
         uri: sheet.uri,
+      });
+      const entry = {
+        sheetId: sheet.sheetId,
+        shotId: pageGroup.shot.shotId,
+        shotNo: pageGroup.shot.shotNo,
+        pageIndex,
         cells: sheet.gridItems.map((item) => ({
           frameId: item.frameId,
           timestamp: item.timestamp,
           row: item.row,
           col: item.col,
-          displayLabel: item.displayFrameLabel,
         })),
       };
       sheets.push(entry);
       return entry;
     });
-    shots.push({
+    shotSheets.push({
       shotId: pageGroup.shot.shotId,
       shotNo: pageGroup.shot.shotNo,
-      pageCount: normalizedSheets.length,
-      frameCount: pageGroup.frames.length,
       empty: false,
-      pages: normalizedSheets.map((sheet) => ({
-        pageIndex: sheet.pageIndex,
-        pageCount: sheet.pageCount,
-        frameCount: sheet.frameCount,
-        sheetId: sheet.sheetId,
-      })),
+      sheetIds: normalizedSheets.map((sheet) => sheet.sheetId),
     });
   }
-  return {
+  const visualManifest = {
     schemaVersion,
     sheetPurpose,
     sheetCount: sheets.length,
     emptyShotCount,
-    shots,
+    shotSheets,
     sheets,
   };
+  return { visualManifest, visualAttachments };
 }
 
 function stripVisualManifestPaths(visualManifest) {
-  return {
-    ...visualManifest,
-    sheets: Array.isArray(visualManifest?.sheets)
-      ? visualManifest.sheets.map(({ localImagePath, uri, ...sheet }) => sheet)
-      : [],
-  };
+  return visualManifest;
 }
 
 module.exports = {

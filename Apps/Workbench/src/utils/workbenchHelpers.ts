@@ -131,7 +131,6 @@ export async function runRhythmStructureAnalysis(
   const started = await startRhythmStructureAnalysis(state.sampleVideo.id, {
     cacheDecision,
     expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
-    expectedScriptSegmentArtifactId: state.sampleArtifact?.scriptSegmentAnalysis?.artifactId ?? null,
   });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({

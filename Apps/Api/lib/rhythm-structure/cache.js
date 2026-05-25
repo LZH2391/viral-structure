@@ -21,7 +21,6 @@ async function findCachedArtifact({
   const params = buildRhythmStructureCacheParams({
     inputFingerprint: context.cacheKey,
     sourceShotArtifactId: input?.parentArtifactId ?? null,
-    sourceScriptSegmentArtifactId: input?.sourceScriptSegmentArtifactId ?? null,
     profileVersion: context.roleProfile?.profileVersion ?? null,
     promptTemplateId: context.promptTemplate?.promptTemplateId ?? null,
     promptTemplateVersion: context.promptTemplate?.promptTemplateVersion ?? null,
@@ -78,8 +77,6 @@ async function runCacheLookup({ context, input, runStage, stageName, findCached 
       sampleVideoId: context.sampleVideoId,
       sourceShotBoundaryArtifactId: input.parentArtifactId,
       shotCount: input.shots.length,
-      sourceScriptSegmentArtifactId: input.sourceScriptSegmentArtifactId ?? null,
-      scriptSegmentCount: input.scriptSegments?.length ?? 0,
       cacheKey: context.cacheKey ?? null,
       skillHash: context.skillHash ?? null,
       profileVersion: context.roleProfile?.profileVersion ?? null,
@@ -125,7 +122,6 @@ function markCacheWaiting({ context, cached, jobStore, sampleStatus, stageName }
 function buildCachePrompt(context, cached) {
   const item = buildCachedItem(context, cached);
   const expectedShotBoundaryArtifactId = context.input?.parentArtifactId ?? context.expectedShotBoundaryArtifactId ?? null;
-  const expectedScriptSegmentArtifactId = context.input?.sourceScriptSegmentArtifactId ?? context.expectedScriptSegmentArtifactId ?? null;
   return buildUnifiedCachePrompt({
     cacheKind: "rhythm_structure",
     cachedItem: item,
@@ -144,11 +140,9 @@ function buildCachePrompt(context, cached) {
     skillHash: context.skillHash ?? null,
     dependencies: {
       shotBoundaryArtifactId: expectedShotBoundaryArtifactId,
-      scriptSegmentArtifactId: expectedScriptSegmentArtifactId,
     },
     legacy: {
       expectedShotBoundaryArtifactId,
-      expectedScriptSegmentArtifactId,
     },
   });
 }
@@ -209,10 +203,6 @@ async function reuseCachedAnalysis({
       sourceShotBoundaryArtifactId: context.input?.parentArtifactId
         ?? readCacheDependency(cachePrompt, "shotBoundaryArtifactId", "expectedShotBoundaryArtifactId")
         ?? context.artifact?.shotBoundaryAnalysis?.artifactId
-        ?? null,
-      sourceScriptSegmentArtifactId: context.input?.sourceScriptSegmentArtifactId
-        ?? readCacheDependency(cachePrompt, "scriptSegmentArtifactId", "expectedScriptSegmentArtifactId")
-        ?? context.artifact?.scriptSegmentAnalysis?.artifactId
         ?? null,
       cacheKey: context.cacheKey ?? cachePrompt?.cacheKey ?? null,
       promptTemplateVersion: cachePrompt?.promptTemplateVersion ?? null,

@@ -2,8 +2,7 @@
 
 输入边界：
 - 只使用 manifest、visualManifest 和随 turn 附带的 localImage 镜头联表。
-- manifest 里有 shots[]、镜头级字幕摘要、切点理由，以及精简 scriptSegments[] 背景。
-- scriptSegments[] 只作为结构背景，不能把输出写成脚本段落分析。
+- manifest 里有 shots[]、镜头级字幕摘要和切点理由。
 - 不分析音频，不要求音频特征，不重切 shot，不改脚本段落，不生成新脚本。
 
 输入摘要：

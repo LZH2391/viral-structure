@@ -18,7 +18,6 @@ const {
   codedError,
   sanitizeForAppServerText,
   normalizeText,
-  normalizeStringArray,
   buildOutputContract,
   stableJson,
   contentHash,
@@ -61,8 +60,6 @@ function prepareInput(artifact, options = {}) {
   return sanitizeForAppServerText({
     sampleVideoId: artifact.sampleVideoId,
     parentArtifactId: shotBoundary?.artifactId ?? artifact.sampleVideo?.artifactId ?? null,
-    sourceScriptSegmentArtifactId: artifact?.scriptSegmentAnalysis?.artifactId ?? null,
-    scriptSegments: normalizeScriptSegments(artifact?.scriptSegmentAnalysis?.segments),
     durationSeconds: normalizeNumber(artifact?.metadata?.durationSeconds, 0),
     frameDimensions: {
       width: normalizeInteger(artifact?.metadata?.width, 0),
@@ -96,7 +93,7 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   const lineage = buildLineage(input);
   const outputContract = buildOutputContract();
   const shotFramePages = planSharedShotFramePages(input);
-  const visualManifest = await buildVisualManifest({
+  const { visualManifest, visualAttachments } = await buildVisualManifest({
     input,
     shotFramePages,
     sampleDir: inputPackageDir,
@@ -135,6 +132,7 @@ async function prepareInputPackage({ input, sampleDir, store }) {
     outputContractPath,
     visualManifest,
     visualManifestPath,
+    visualAttachments,
     sheetCount: visualManifest.sheetCount,
     emptyShotCount: visualManifest.emptyShotCount,
     hashes,
@@ -152,8 +150,8 @@ function renderAnalyzeTurnInputs({ input, inputPackage, roleProfile }) {
     visualManifestPath: inputPackage.visualManifestPath,
   });
   const inputs = [{ type: "text", text: prompt.text, text_elements: [] }];
-  for (const sheet of inputPackage.visualManifest.sheets) {
-    inputs.push({ type: "localImage", path: sheet.localImagePath });
+  for (const attachment of inputPackage.visualAttachments) {
+    inputs.push({ type: "localImage", path: attachment.localImagePath });
   }
   return {
     ...prompt,
@@ -205,8 +203,8 @@ function renderRepairTurnInputs({ input, inputPackage, validationError, priorTur
     text: prompt.text,
     text_elements: [],
   }];
-  for (const sheet of inputPackage.visualManifest.sheets) {
-    inputs.push({ type: "localImage", path: sheet.localImagePath });
+  for (const attachment of inputPackage.visualAttachments) {
+    inputs.push({ type: "localImage", path: attachment.localImagePath });
   }
   return {
     ...prompt,
@@ -219,9 +217,7 @@ function buildManifest(input) {
   return {
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
     shotCount: input.shots.length,
-    scriptSegmentCount: input.scriptSegments.length,
     shots: input.shots,
-    scriptSegments: input.scriptSegments,
   };
 }
 
@@ -239,7 +235,6 @@ function buildLineage(input) {
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
     sampleVideoId: input.sampleVideoId,
     parentArtifactId: input.parentArtifactId,
-    sourceScriptSegmentArtifactId: input.sourceScriptSegmentArtifactId ?? null,
   };
 }
 
@@ -258,26 +253,11 @@ function buildInputSummaryText(inputPackage) {
   const subtitleReadyShotCount = Array.isArray(inputPackage?.manifest?.shots)
     ? inputPackage.manifest.shots.filter((shot) => String(shot?.subtitleText ?? shot?.subtitleContextText ?? "").trim()).length
     : 0;
-  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.manifest.scriptSegmentCount} 条精简脚本段落背景、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕。输入包路径见下。`;
+  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕。输入包路径见下。`;
 }
 
 function frameBelongsToShot(frame, shot, isLastShot) {
   return frameBelongsToShotShared(frame, shot, isLastShot);
-}
-
-function normalizeScriptSegments(segments) {
-  if (!Array.isArray(segments)) return [];
-  return segments
-    .map((segment, index) => ({
-      segmentId: normalizeText(segment?.segmentId) || `segment_${index + 1}`,
-      label: normalizeText(segment?.label, 80),
-      start: normalizeNumber(segment?.start, 0),
-      end: normalizeNumber(segment?.end, normalizeNumber(segment?.start, 0)),
-      shotRefs: Array.isArray(segment?.shotRefs) ? segment.shotRefs.map((item) => String(item ?? "").trim()).filter(Boolean) : [],
-      roleSummary: normalizeText(segment?.roleInScript, 160),
-      evidence: normalizeStringArray(segment?.evidence, 2),
-    }))
-    .filter((segment) => segment.label || segment.roleSummary || segment.shotRefs.length);
 }
 
 module.exports = {

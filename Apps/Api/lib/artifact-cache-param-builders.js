@@ -48,7 +48,6 @@ function buildRhythmStructureStageParams(artifact) {
   return buildRhythmStructureCacheParams({
     inputFingerprint: artifact?.rhythmStructureAnalysis?.cacheKey ?? null,
     sourceShotArtifactId: artifact?.rhythmStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
-    sourceScriptSegmentArtifactId: artifact?.rhythmStructureAnalysis?.sourceScriptSegmentArtifactId ?? null,
     profileVersion: artifact?.rhythmStructureAnalysis?.agent?.profileVersion ?? null,
     promptTemplateId: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateId ?? null,
     promptTemplateVersion: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateVersion ?? null,

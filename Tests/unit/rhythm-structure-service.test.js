@@ -39,7 +39,7 @@ contactSheetGenerator.generateContactSheets = async ({ frames, sampleDir, parent
   }];
 };
 
-test("rhythm input uses shots, subtitles, script summary and localImage sheets without audio fields", async () => {
+test("rhythm input uses shots, subtitles and localImage sheets without script or audio fields", async () => {
   const artifact = createArtifact();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-rhythm-input-"));
   const store = createLocalStore(tempRoot);
@@ -57,16 +57,24 @@ test("rhythm input uses shots, subtitles, script summary and localImage sheets w
   const promptText = turnInputs.inputs[0].text;
   const manifestText = JSON.stringify(inputPackage.manifest);
 
-  assert.equal(input.scriptSegments.length, 2);
-  assert.equal(inputPackage.manifest.scriptSegmentCount, 2);
+  assert.equal(Object.hasOwn(input, "scriptSegments"), false);
+  assert.equal(Object.hasOwn(inputPackage.manifest, "scriptSegmentCount"), false);
   assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, inputPackage.visualManifest.sheetCount);
+  assert.equal(inputPackage.visualAttachments.length, inputPackage.visualManifest.sheetCount);
+  assert.equal("localImagePath" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("uri" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("displayLabel" in inputPackage.visualManifest.sheets[0].cells[0], false);
+  assert.equal("pageCount" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("frameCount" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal(Array.isArray(inputPackage.visualManifest.shotSheets), true);
+  assert.equal("shots" in inputPackage.visualManifest, false);
   assert.match(promptText, /manifestPath/);
   assert.match(promptText, /visualManifestPath/);
   assert.match(promptText, /outputContractPath/);
-  assert.match(promptText, /精简脚本段落背景/);
+  assert.doesNotMatch(promptText, /脚本段落背景/);
   assert.match(manifestText, /subtitleText/);
   assert.match(manifestText, /endBoundaryReason/);
-  assert.match(manifestText, /scriptSegments/);
+  assert.doesNotMatch(manifestText, /scriptSegments/);
   assert.doesNotMatch(promptText, /audioFeatures/);
   assert.doesNotMatch(manifestText, /audioFeatures/);
   assert.doesNotMatch(manifestText, /commerceBrief/);

@@ -48,6 +48,14 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.doesNotMatch(promptText, /"shots":\[/);
   assert.doesNotMatch(promptText, /"segments":\[/);
   assert.equal(imageItems.length, inputPackage.visualManifest.sheetCount);
+  assert.equal(imageItems.length, inputPackage.visualAttachments.length);
+  assert.equal("localImagePath" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("uri" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("displayLabel" in inputPackage.visualManifest.sheets[0].cells[0], false);
+  assert.equal("pageCount" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal("frameCount" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal(Array.isArray(inputPackage.visualManifest.shotSheets), true);
+  assert.equal("shots" in inputPackage.visualManifest, false);
   assert.equal("sampleVideoId" in inputPackage.manifest, false);
   assert.equal("parentArtifactId" in inputPackage.manifest, false);
   assert.equal("sampleVideoId" in inputPackage.lineage, true);
@@ -211,7 +219,7 @@ test("script segment input package records empty shots without failing", async (
   });
 
   assert.equal(inputPackage.emptyShotCount, 2);
-  assert.equal(inputPackage.visualManifest.shots.filter((shot) => shot.empty).length, 2);
+  assert.equal(inputPackage.visualManifest.shotSheets.filter((shot) => shot.empty).length, 2);
   assert.equal(inputPackage.visualManifest.sheetCount, 1);
 });
 

@@ -16,16 +16,6 @@ function buildRhythmStructureContentFingerprint(input, inputPackage = null) {
         subtitleContextText: shot?.subtitleContextText ?? null,
       }))
       : [],
-    scriptSegments: Array.isArray(input?.scriptSegments)
-      ? input.scriptSegments.map((segment) => ({
-        segmentId: segment?.segmentId ?? null,
-        label: segment?.label ?? null,
-        start: segment?.start ?? null,
-        end: segment?.end ?? null,
-        shotRefs: segment?.shotRefs ?? [],
-        roleSummary: segment?.roleSummary ?? null,
-      }))
-      : [],
     inputPackage: inputPackage
       ? {
         manifestHash: inputPackage?.hashes?.manifestHash ?? null,
@@ -41,7 +31,6 @@ function buildRhythmStructureContentFingerprint(input, inputPackage = null) {
 function buildRhythmStructureCacheParams({
   inputFingerprint,
   sourceShotArtifactId,
-  sourceScriptSegmentArtifactId,
   profileVersion,
   promptTemplateId,
   promptTemplateVersion,
@@ -52,7 +41,6 @@ function buildRhythmStructureCacheParams({
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
     inputFingerprint: inputFingerprint ?? null,
     sourceShotArtifactId: sourceShotArtifactId ?? null,
-    sourceScriptSegmentArtifactId: sourceScriptSegmentArtifactId ?? null,
     profileVersion: profileVersion ?? null,
     promptTemplateId: promptTemplateId ?? null,
     promptTemplateVersion: promptTemplateVersion ?? null,

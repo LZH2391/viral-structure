@@ -95,7 +95,7 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   const lineage = buildLineage(input);
   const outputContract = buildOutputContract();
   const shotFramePages = planSharedShotFramePages(input);
-  const visualManifest = await buildVisualManifest({
+  const { visualManifest, visualAttachments } = await buildVisualManifest({
     input,
     shotFramePages,
     sampleDir: inputPackageDir,
@@ -134,6 +134,7 @@ async function prepareInputPackage({ input, sampleDir, store }) {
     outputContractPath,
     visualManifest,
     visualManifestPath,
+    visualAttachments,
     sheetCount: visualManifest.sheetCount,
     emptyShotCount: visualManifest.emptyShotCount,
     hashes,
@@ -151,8 +152,8 @@ function renderAnalyzeTurnInputs({ input, inputPackage, roleProfile }) {
     visualManifestPath: inputPackage.visualManifestPath,
   });
   const inputs = [{ type: "text", text: prompt.text, text_elements: [] }];
-  for (const sheet of inputPackage.visualManifest.sheets) {
-    inputs.push({ type: "localImage", path: sheet.localImagePath });
+  for (const attachment of inputPackage.visualAttachments) {
+    inputs.push({ type: "localImage", path: attachment.localImagePath });
   }
   return {
     ...prompt,
@@ -204,8 +205,8 @@ function renderRepairTurnInputs({ input, inputPackage, validationError, priorTur
     text: prompt.text,
     text_elements: [],
   }];
-  for (const sheet of inputPackage.visualManifest.sheets) {
-    inputs.push({ type: "localImage", path: sheet.localImagePath });
+  for (const attachment of inputPackage.visualAttachments) {
+    inputs.push({ type: "localImage", path: attachment.localImagePath });
   }
   return {
     ...prompt,

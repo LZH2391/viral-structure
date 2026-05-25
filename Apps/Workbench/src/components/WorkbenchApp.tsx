@@ -180,7 +180,6 @@ export function WorkbenchApp() {
     const stage = stageLogger.beginStage(STAGES.rhythmStructureAnalyze, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
       sampleVideoId: state.sampleVideo.id,
       sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
-      sourceScriptSegmentArtifactId: state.sampleArtifact.scriptSegmentAnalysis?.artifactId ?? null,
       shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
     });
     try {
