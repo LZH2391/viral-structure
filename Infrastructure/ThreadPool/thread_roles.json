@@ -1,6 +1,6 @@
 {
   "thread_pool": {
-    "discard_on_release": false
+    "discard_on_release": true
   },
   "roles": {
     "script-segment-analyzer": {

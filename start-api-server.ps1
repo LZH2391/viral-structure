@@ -91,7 +91,6 @@ function Start-WorkbenchStack {
       Ensure-Service $spec $managedProcesses
     }
 
-    Start-Sleep -Milliseconds 1200
     Start-Process $viteUrl | Out-Null
 
     $canReadKeys = $true
@@ -125,7 +124,7 @@ function Resolve-CommandPath([string[]]$Candidates) {
 }
 
 function Resolve-CodexCommandPath() {
-  $commandFromPath = Resolve-CommandPathOrNull @("codex.exe", "codex.cmd")
+  $commandFromPath = Resolve-CommandPathOrNull @("codex.cmd", "codex.exe")
   if ($commandFromPath) { return $commandFromPath }
 
   $installRoots = @(
@@ -178,12 +177,14 @@ function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$Argum
 }
 
 function Ensure-Service($Spec, $Registry) {
+  $stopwatch = [Diagnostics.Stopwatch]::StartNew()
   $existing = Get-ListeningProcessInfo $Spec.Port
   if ($existing) {
     if (-not (Test-ServiceMatch $Spec $existing)) {
       throw "$($Spec.Name) port $($Spec.Port) is occupied by non-workspace process PID $($existing.ProcessId): $($existing.CommandLine)"
     }
-    Write-Host "$($Spec.Name) already online, managing existing PID $($existing.ProcessId)."
+    $stopwatch.Stop()
+    Write-Host "$($Spec.Name) already online in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s, managing existing PID $($existing.ProcessId)."
     Add-ManagedProcess $Registry $Spec $existing.ProcessId $true
     return
   }
@@ -191,6 +192,8 @@ function Ensure-Service($Spec, $Registry) {
   $process = & $Spec.Start
   Add-ManagedProcess $Registry $Spec $process.Id $false
   Wait-ForService $Spec
+  $stopwatch.Stop()
+  Write-Host "$($Spec.Name) ready in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s."
 }
 
 function Add-ManagedProcess($Registry, $Spec, [int]$ProcessId, [bool]$Reused) {
