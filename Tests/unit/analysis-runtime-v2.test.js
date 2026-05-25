@@ -56,10 +56,13 @@ test("script cache prompts expose unified dependencies while rhythm depends only
 test("frontend and API accept unified analysis dependencies while preserving legacy fields", () => {
   const root = path.resolve(__dirname, "../..");
   const server = read(root, "Apps/Api/server.js");
+  const registry = read(root, "Apps/Api/lib/analysis-role-registry.js");
   const client = read(root, "Apps/Workbench/src/api/client.ts");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(server, /body\.dependencies\?\.shotBoundaryArtifactId \?\? body\.expectedShotBoundaryArtifactId/);
+  assert.match(server, /startAnalysis/);
+  assert.match(registry, /\/analyses\/script-segments/);
+  assert.match(registry, /dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId/);
   assert.doesNotMatch(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
   assert.match(client, /const dependencies = \{ shotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null \}/);
   assert.doesNotMatch(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
@@ -68,4 +71,54 @@ test("frontend and API accept unified analysis dependencies while preserving leg
   assert.match(types, /analysisOptions\?: Record/);
   assert.match(types, /sourceArtifactId\?: string \| null/);
   assert.match(types, /sourceTraceId\?: string \| null/);
+});
+
+test("analysis role registry maps route ids, legacy paths, and cache kinds", async () => {
+  const { createAnalysisRoleRegistry } = require("../../Apps/Api/lib/analysis-role-registry");
+  const calls = [];
+  const fakeService = {
+    enqueue: async (payload) => {
+      calls.push({ type: "enqueue", payload });
+      return { processingJobId: "job_analysis", sampleVideoId: payload.sampleVideoId, traceId: "trace_analysis" };
+    },
+    resolveCacheDecision: async (payload) => {
+      calls.push({ type: "cache", payload });
+      return { jobId: payload.jobId, status: "processed" };
+    },
+  };
+  const registry = createAnalysisRoleRegistry({
+    serviceOverrides: {
+      scriptSegmentService: fakeService,
+      rhythmStructureService: fakeService,
+      packagingStructureService: fakeService,
+    },
+  });
+
+  assert.equal(registry.getByAnalysisId("script-segments").cacheKind, "script_segment");
+  assert.equal(registry.getByLegacyPathSegment("rhythm-structure").analysisId, "rhythm-structure");
+  assert.equal(registry.getByCacheKind("packaging_structure").analysisId, "packaging-structure");
+  assert.equal(registry.getByAnalysisId("missing"), null);
+
+  const started = await registry.startAnalysis({
+    analysisId: "packaging-structure",
+    sampleVideoId: "sample_1",
+    body: { cacheDecision: "refresh", dependencies: { shotBoundaryArtifactId: "artifact_shot_1" } },
+  });
+  assert.equal(started.processingJobId, "job_analysis");
+  assert.deepEqual(calls[0], {
+    type: "enqueue",
+    payload: {
+      sampleVideoId: "sample_1",
+      cacheDecision: "refresh",
+      expectedShotBoundaryArtifactId: "artifact_shot_1",
+    },
+  });
+
+  await registry.resolveAnalysisCacheDecision({ cacheKind: "packaging_structure", jobId: "job_1", decision: "reuse" });
+  assert.deepEqual(calls[1], { type: "cache", payload: { jobId: "job_1", decision: "reuse" } });
+  assert.equal(await registry.resolveAnalysisCacheDecision({ cacheKind: "shot_boundary", jobId: "job_2", decision: "reuse" }), null);
+  assert.throws(
+    () => registry.startAnalysis({ analysisId: "missing", sampleVideoId: "sample_1", body: {} }),
+    (error) => error.statusCode === 404 && error.code === "analysis_not_found",
+  );
 });

@@ -20,9 +20,7 @@ const { createShotBoundaryService } = require("./lib/shot-boundary-service");
 const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
-const { createScriptSegmentService } = require("./lib/script-segment-service");
-const { createRhythmStructureService } = require("./lib/rhythm-structure-service");
-const { createPackagingStructureService } = require("./lib/packaging-structure-service");
+const { createAnalysisRoleRegistry } = require("./lib/analysis-role-registry");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
@@ -38,25 +36,39 @@ const threadPool = createThreadPoolProxy();
 const appServer = createAppServerBridge();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
-const scriptSegmentService = createScriptSegmentService({ store, logger, jobStore, artifactIndex });
-const rhythmStructureService = createRhythmStructureService({ store, logger, jobStore, artifactIndex });
-const packagingStructureService = createPackagingStructureService({ store, logger, jobStore, artifactIndex });
+const analysisRegistry = createAnalysisRoleRegistry({ store, logger, jobStore, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
+  const activeStore = deps.store ?? store;
+  const activeLogger = deps.logger ?? logger;
+  const activeJobStore = deps.jobStore ?? jobStore;
+  const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
+  const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({
+    rootDir: deps.rootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    jobStore: activeJobStore,
+    artifactIndex: activeArtifactIndex,
+    threadPool: deps.threadPool ?? threadPool,
+    appServer: deps.appServer ?? appServer,
+    serviceOverrides: {
+      scriptSegmentService: deps.scriptSegmentService,
+      rhythmStructureService: deps.rhythmStructureService,
+      packagingStructureService: deps.packagingStructureService,
+    },
+  });
   const handlers = {
-    logger: deps.logger ?? logger,
-    store: deps.store ?? store,
-    jobStore: deps.jobStore ?? jobStore,
-    artifactIndex: deps.artifactIndex ?? artifactIndex,
+    logger: activeLogger,
+    store: activeStore,
+    jobStore: activeJobStore,
+    artifactIndex: activeArtifactIndex,
     service: deps.service ?? service,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
     shotBoundaryService: deps.shotBoundaryService ?? shotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
-    scriptSegmentService: deps.scriptSegmentService ?? scriptSegmentService,
-    rhythmStructureService: deps.rhythmStructureService ?? rhythmStructureService,
-    packagingStructureService: deps.packagingStructureService ?? packagingStructureService,
+    analysisRegistry: activeAnalysisRegistry,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: deps.rootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,
@@ -80,6 +92,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return await handleArtifact(res, url.pathname.split("/").at(-2), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return await handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return await handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/analyses\/[^/]+$/.test(url.pathname)) return await handleAnalysis(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/script-segments$/.test(url.pathname)) return await handleScriptSegments(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/rhythm-structure$/.test(url.pathname)) return await handleRhythmStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/packaging-structure$/.test(url.pathname)) return await handlePackagingStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -180,31 +193,33 @@ async function handleSubtitleRevision(req, res, sampleVideoId, handlers = {}) {
 }
 
 async function handleScriptSegments(req, res, sampleVideoId, handlers = {}) {
-  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
-  const result = await (handlers.scriptSegmentService ?? scriptSegmentService).enqueue({
-    sampleVideoId,
-    cacheDecision: body.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
-  });
-  return sendJson(res, 202, result);
+  return handleLegacyAnalysis(req, res, sampleVideoId, "script-segments", handlers);
 }
 
 async function handleRhythmStructure(req, res, sampleVideoId, handlers = {}) {
+  return handleLegacyAnalysis(req, res, sampleVideoId, "rhythm-structure", handlers);
+}
+
+async function handlePackagingStructure(req, res, sampleVideoId, handlers = {}) {
+  return handleLegacyAnalysis(req, res, sampleVideoId, "packaging-structure", handlers);
+}
+
+async function handleAnalysis(req, res, sampleVideoId, analysisId, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
-  const result = await (handlers.rhythmStructureService ?? rhythmStructureService).enqueue({
+  const result = await (handlers.analysisRegistry ?? analysisRegistry).startAnalysis({
+    analysisId,
     sampleVideoId,
-    cacheDecision: body.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
+    body,
   });
   return sendJson(res, 202, result);
 }
 
-async function handlePackagingStructure(req, res, sampleVideoId, handlers = {}) {
+async function handleLegacyAnalysis(req, res, sampleVideoId, legacyPathSegment, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
-  const result = await (handlers.packagingStructureService ?? packagingStructureService).enqueue({
+  const result = await (handlers.analysisRegistry ?? analysisRegistry).startLegacyAnalysis({
+    legacyPathSegment,
     sampleVideoId,
-    cacheDecision: body.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
+    body,
   });
   return sendJson(res, 202, result);
 }
@@ -215,13 +230,8 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   const job = activeJobStore.getJob(jobId);
   if (!job) return notFound(res);
   const cacheKind = job.cachePrompt?.cacheKind ?? null;
-  const result = cacheKind === "script_segment"
-    ? await (handlers.scriptSegmentService ?? scriptSegmentService).resolveCacheDecision({ jobId, decision: body.decision })
-    : cacheKind === "rhythm_structure"
-      ? await (handlers.rhythmStructureService ?? rhythmStructureService).resolveCacheDecision({ jobId, decision: body.decision })
-      : cacheKind === "packaging_structure"
-        ? await (handlers.packagingStructureService ?? packagingStructureService).resolveCacheDecision({ jobId, decision: body.decision })
-        : await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
+  const analysisResult = await (handlers.analysisRegistry ?? analysisRegistry).resolveAnalysisCacheDecision({ cacheKind, jobId, decision: body.decision });
+  const result = analysisResult ?? await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
 }
 

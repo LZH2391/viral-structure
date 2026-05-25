@@ -187,6 +187,38 @@ test("packaging structure route enqueues service with shot dependency", async ()
   }
 });
 
+test("generic analysis route enqueues registered service with shot dependency", async () => {
+  const calls = [];
+  const server = createServer({
+    packagingStructureService: {
+      enqueue: async (payload) => {
+        calls.push(payload);
+        return { processingJobId: "job_packaging", sampleVideoId: payload.sampleVideoId, traceId: "trace_packaging" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/sample-videos/sample_1/analyses/packaging-structure", {
+      cacheDecision: "refresh",
+      dependencies: { shotBoundaryArtifactId: "artifact_shot_1" },
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.processingJobId, "job_packaging");
+    assert.deepEqual(calls[0], {
+      sampleVideoId: "sample_1",
+      cacheDecision: "refresh",
+      expectedShotBoundaryArtifactId: "artifact_shot_1",
+    });
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("cache-decision dispatches packaging structure jobs", async () => {
   const calls = [];
   const server = createServer({

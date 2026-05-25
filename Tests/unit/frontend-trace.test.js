@@ -398,6 +398,7 @@ test("workbench understand flow triggers script segment analysis", () => {
   const analysisFlow = read(root, "Apps/Workbench/src/hooks/useAnalysisJobFlow.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
   const server = read(root, "Apps/Api/server.js");
+  const registry = read(root, "Apps/Api/lib/analysis-role-registry.js");
   const index = read(root, "Infrastructure/ArtifactIndex/artifact-index.js");
 
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
@@ -414,8 +415,9 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/script-segments/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(api, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
-  assert.match(server, /createScriptSegmentService/);
-  assert.match(server, /expectedShotBoundaryArtifactId: body\.dependencies\?\.shotBoundaryArtifactId \?\? body\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(registry, /createScriptSegmentService/);
+  assert.match(registry, /expectedShotBoundaryArtifactId: dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(server, /startLegacyAnalysis/);
   assert.match(server, /script-segments/);
   assert.match(index, /script_segment\.materialize/);
   assert.match(index, /"script-segment-analysis": "脚本段落"/);
