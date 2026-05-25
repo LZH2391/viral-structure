@@ -440,7 +440,7 @@ test("workbench removes create input view entry", () => {
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
 
-  assert.match(view, /"workspace" \| "library" \| "debug" \| "threadpool"/);
+  assert.match(view, /"workspace" \| "full-analysis" \| "library" \| "threadpool"/);
   assert.doesNotMatch(view, /\/create/);
   assert.doesNotMatch(app, /创作输入/);
   assert.doesNotMatch(app, /CreateInputApp/);
@@ -729,6 +729,7 @@ test("workbench workspace layout supports persisted splitters", () => {
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const hook = read(root, "Apps/Workbench/src/hooks/useResizableWorkspaceLayout.ts");
   const handle = read(root, "Apps/Workbench/src/components/WorkspaceResizeHandle.tsx");
+  const splitHandle = read(root, "Apps/Workbench/src/components/SplitResizeHandle.tsx");
   const layoutCss = read(root, "Apps/Workbench/styles/layout.css");
   const responsiveCss = read(root, "Apps/Workbench/styles/responsive.css");
 
@@ -740,13 +741,34 @@ test("workbench workspace layout supports persisted splitters", () => {
   assert.match(hook, /setProperty\("--workspace-left-width"/);
   assert.match(hook, /setProperty\("--workspace-right-width"/);
   assert.match(hook, /setProperty\("--workspace-timeline-height"/);
-  assert.match(handle, /role="separator"/);
-  assert.match(handle, /onDoubleClick=\{\(\) => onReset\(kind\)\}/);
-  assert.match(handle, /ArrowRight/);
+  assert.match(splitHandle, /role="separator"/);
+  assert.match(splitHandle, /onDoubleClick=\{onReset\}/);
+  assert.match(splitHandle, /ArrowRight/);
+  assert.match(handle, /onReset=\{\(\) => onReset\(kind\)\}/);
   assert.match(layoutCss, /grid-template-areas:[\s\S]*left-resizer[\s\S]*right-resizer[\s\S]*timeline-resizer/);
   assert.match(layoutCss, /\.workspace-resize-handle/);
   assert.match(layoutCss, /body\.is-resizing-workspace/);
   assert.match(responsiveCss, /max-width: 980px[\s\S]*\.workspace-resize-handle[\s\S]*display: none/);
+});
+
+test("full analysis splitters control top row, row height, and bottom row independently", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const hook = read(root, "Apps/Workbench/src/hooks/useResizableGridLayout.ts");
+  const css = read(root, "Apps/Workbench/styles/full-analysis.css");
+
+  assert.match(app, /leftCssVar: "--full-analysis-left-width"/);
+  assert.match(app, /topCssVar: "--full-analysis-top-height"/);
+  assert.match(app, /bottomLeftCssVar: "--full-analysis-bottom-left-width"/);
+  assert.match(app, /className="full-analysis-top-row"[\s\S]*layout\.startResize\("column", event\)/);
+  assert.match(app, /className="workspace-resize-handle full-analysis-row-resizer"[\s\S]*layout\.startResize\("top-row", event\)/);
+  assert.match(app, /className="full-analysis-bottom-row"[\s\S]*layout\.startResize\("bottom-row", event\)/);
+  assert.match(css, /\.full-analysis-main \{[\s\S]*grid-template-rows: var\(--full-analysis-top-height/);
+  assert.match(css, /\.full-analysis-top-row \{[\s\S]*grid-template-columns: var\(--full-analysis-left-width/);
+  assert.match(css, /\.full-analysis-bottom-row \{[\s\S]*grid-template-columns: var\(--full-analysis-bottom-left-width/);
+  assert.match(hook, /if \(drag\.kind === "column"\) next\.left = drag\.startLayout\.left \+ event\.clientX - drag\.startX/);
+  assert.match(hook, /if \(drag\.kind === "top-row"\) next\.top = drag\.startLayout\.top \+ event\.clientY - drag\.startY/);
+  assert.match(hook, /if \(drag\.kind === "bottom-row"\) next\.bottomLeft = drag\.startLayout\.bottomLeft \+ event\.clientX - drag\.startX/);
 });
 
 test("workbench workspace layout clamp keeps panel sizes in range", async () => {

@@ -215,61 +215,63 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         </header>
       )}
       <main ref={layoutRef} className="full-analysis-main">
-        <section className="full-analysis-upload" aria-label="完整分析上传">
-          <label className="upload-target" htmlFor="fullAnalysisVideoInput">
-            <input
-              id="fullAnalysisVideoInput"
-              type="file"
-              accept="video/*"
-              disabled={isStarting || isRunActive(run)}
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file) void handleUpload(file);
-                event.currentTarget.value = "";
-              }}
-            />
-            <span className="upload-title">{isStarting ? "启动中" : "选择视频并完整分析"}</span>
-            <span className="upload-meta">{artifact?.sampleVideo.original.summary ?? "上传后自动完成切镜、脚本、节奏、包装"}</span>
-          </label>
-          <div className="upload-options compact-options">
-            <label className="sampling-control">
-              <span>抽帧采样率</span>
+        <div className="full-analysis-top-row">
+          <section className="full-analysis-upload" aria-label="完整分析上传">
+            <label className="upload-target" htmlFor="fullAnalysisVideoInput">
               <input
-                type="number"
-                min="1"
-                max="10"
-                step="1"
-                value={frameSampleRate}
+                id="fullAnalysisVideoInput"
+                type="file"
+                accept="video/*"
                 disabled={isStarting || isRunActive(run)}
-                onChange={(event) => setFrameSampleRate(clampNumber(Number(event.currentTarget.value || 10), 1, 10))}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void handleUpload(file);
+                  event.currentTarget.value = "";
+                }}
               />
+              <span className="upload-title">{isStarting ? "启动中" : "选择视频并完整分析"}</span>
+              <span className="upload-meta">{artifact?.sampleVideo.original.summary ?? "上传后自动完成切镜、脚本、节奏、包装"}</span>
             </label>
-            <label className="option-toggle">
-              <input
-                type="checkbox"
-                checked={refreshMode}
-                disabled={isStarting || isRunActive(run)}
-                onChange={(event) => setRefreshMode(event.currentTarget.checked)}
-              />
-              <span>重新生成</span>
-            </label>
-          </div>
-        </section>
-        <SplitResizeHandle
-          className="workspace-resize-handle full-analysis-col-resizer"
-          label="调整左右分界"
-          orientation="vertical"
-          onResizeStart={(event) => layout.startResize("column", event)}
-          onReset={() => layout.resetSize("column")}
-          onNudge={(direction) => layout.nudgeSize("column", direction)}
-        />
-        <section className="full-analysis-preview" aria-label="视频预览">
-          {videoUrl ? (
-            <video controls src={videoUrl} />
-          ) : (
-            <div className="empty-preview">等待视频产物</div>
-          )}
-        </section>
+            <div className="upload-options compact-options">
+              <label className="sampling-control">
+                <span>抽帧采样率</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="1"
+                  value={frameSampleRate}
+                  disabled={isStarting || isRunActive(run)}
+                  onChange={(event) => setFrameSampleRate(clampNumber(Number(event.currentTarget.value || 10), 1, 10))}
+                />
+              </label>
+              <label className="option-toggle">
+                <input
+                  type="checkbox"
+                  checked={refreshMode}
+                  disabled={isStarting || isRunActive(run)}
+                  onChange={(event) => setRefreshMode(event.currentTarget.checked)}
+                />
+                <span>重新生成</span>
+              </label>
+            </div>
+          </section>
+          <SplitResizeHandle
+            className="workspace-resize-handle full-analysis-col-resizer"
+            label="调整上方面板左右分界"
+            orientation="vertical"
+            onResizeStart={(event) => layout.startResize("column", event)}
+            onReset={() => layout.resetSize("column")}
+            onNudge={(direction) => layout.nudgeSize("column", direction)}
+          />
+          <section className="full-analysis-preview" aria-label="视频预览">
+            {videoUrl ? (
+              <video controls src={videoUrl} />
+            ) : (
+              <div className="empty-preview">等待视频产物</div>
+            )}
+          </section>
+        </div>
         <SplitResizeHandle
           className="workspace-resize-handle full-analysis-row-resizer"
           label="调整上下区域高度"
@@ -278,36 +280,38 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           onReset={() => layout.resetSize("top-row")}
           onNudge={(direction) => layout.nudgeSize("top-row", direction)}
         />
-        <section className="full-analysis-flow" aria-label="流程状态">
-          {orderedStages.map((stage) => (
-            <StageStep
-              key={stage.key}
-              stage={stage}
-              job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
-              conversation={resolveJobConversation(stage.childJobId ? childJobs[stage.childJobId] ?? null : null, threadConversations)}
-              onRerun={handleRerun}
-              disabled={!canRerun(stage, run)}
-            />
-          ))}
-        </section>
-        <SplitResizeHandle
-          className="workspace-resize-handle full-analysis-bottom-resizer"
-          label="调整下方面板分界"
-          orientation="vertical"
-          onResizeStart={(event) => layout.startResize("bottom-row", event)}
-          onReset={() => layout.resetSize("bottom-row")}
-          onNudge={(direction) => layout.nudgeSize("bottom-row", direction)}
-        />
-        <section className="full-analysis-results" aria-label="分析结果">
-          <div className="result-tabs">
-            <TabButton active={activeTab === "shot"} label="切镜" onClick={() => setActiveTab("shot")} />
-            <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} />
-            <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} />
-            <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} />
-          </div>
-          {errorText ? <div className="detail-hint failure-hint">{errorText}</div> : null}
-          <ResultPanel tab={activeTab} artifact={artifact} />
-        </section>
+        <div className="full-analysis-bottom-row">
+          <section className="full-analysis-flow" aria-label="流程状态">
+            {orderedStages.map((stage) => (
+              <StageStep
+                key={stage.key}
+                stage={stage}
+                job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
+                conversation={resolveJobConversation(stage.childJobId ? childJobs[stage.childJobId] ?? null : null, threadConversations)}
+                onRerun={handleRerun}
+                disabled={!canRerun(stage, run)}
+              />
+            ))}
+          </section>
+          <SplitResizeHandle
+            className="workspace-resize-handle full-analysis-bottom-resizer"
+            label="调整下方面板左右分界"
+            orientation="vertical"
+            onResizeStart={(event) => layout.startResize("bottom-row", event)}
+            onReset={() => layout.resetSize("bottom-row")}
+            onNudge={(direction) => layout.nudgeSize("bottom-row", direction)}
+          />
+          <section className="full-analysis-results" aria-label="分析结果">
+            <div className="result-tabs">
+              <TabButton active={activeTab === "shot"} label="切镜" onClick={() => setActiveTab("shot")} />
+              <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} />
+              <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} />
+              <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} />
+            </div>
+            {errorText ? <div className="detail-hint failure-hint">{errorText}</div> : null}
+            <ResultPanel tab={activeTab} artifact={artifact} />
+          </section>
+        </div>
       </main>
     </div>
   );

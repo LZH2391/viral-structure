@@ -9,12 +9,7 @@
 
 .full-analysis-main {
   display: grid;
-  grid-template-columns: var(--full-analysis-left-width, 340px) 6px minmax(420px, 1fr);
   grid-template-rows: var(--full-analysis-top-height, 320px) 6px minmax(260px, 1fr);
-  grid-template-areas:
-    "upload full-analysis-col-resizer preview"
-    "full-analysis-row-resizer full-analysis-row-resizer full-analysis-row-resizer"
-    "flow full-analysis-bottom-resizer results";
   gap: 8px;
   padding: 16px;
   min-height: calc(100vh - 64px);
@@ -24,6 +19,21 @@
 
 .embedded-view .full-analysis-main {
   min-height: 100%;
+}
+
+.full-analysis-top-row,
+.full-analysis-bottom-row {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.full-analysis-top-row {
+  grid-template-columns: var(--full-analysis-left-width, 340px) 6px minmax(420px, 1fr);
+}
+
+.full-analysis-bottom-row {
+  grid-template-columns: var(--full-analysis-bottom-left-width, 340px) 6px minmax(420px, 1fr);
 }
 
 .full-analysis-upload,
@@ -37,13 +47,11 @@
 }
 
 .full-analysis-upload {
-  grid-area: upload;
   padding: 14px;
   overflow: auto;
 }
 
 .full-analysis-preview {
-  grid-area: preview;
   min-height: 0;
   display: grid;
   place-items: center;
@@ -63,7 +71,6 @@
 }
 
 .full-analysis-flow {
-  grid-area: flow;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
@@ -138,17 +145,14 @@
 }
 
 .full-analysis-col-resizer {
-  grid-area: full-analysis-col-resizer;
   cursor: col-resize;
 }
 
 .full-analysis-row-resizer {
-  grid-area: full-analysis-row-resizer;
   cursor: row-resize;
 }
 
 .full-analysis-bottom-resizer {
-  grid-area: full-analysis-bottom-resizer;
   cursor: col-resize;
 }
 
@@ -169,7 +173,6 @@
 }
 
 .full-analysis-results {
-  grid-area: results;
   min-height: 0;
   padding: 14px;
   overflow: auto;
@@ -227,26 +230,18 @@
 
 @media (max-width: 980px) {
   .full-analysis-main {
-    grid-template-columns: 1fr;
     grid-template-rows: auto minmax(260px, 52vh) auto minmax(320px, 1fr);
-    grid-template-areas:
-      "upload"
-      "preview"
-      "flow"
-      "results";
+  }
+
+  .full-analysis-top-row,
+  .full-analysis-bottom-row {
+    display: contents;
   }
 
   .full-analysis-col-resizer,
   .full-analysis-row-resizer,
   .full-analysis-bottom-resizer {
     display: none;
-  }
-
-  .full-analysis-upload,
-  .full-analysis-preview,
-  .full-analysis-flow,
-  .full-analysis-results {
-    grid-area: auto;
   }
 
   .full-analysis-flow {
