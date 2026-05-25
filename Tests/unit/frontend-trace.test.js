@@ -252,7 +252,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.doesNotMatch(agentRunPanel, /roundingPolicy：/);
   assert.match(agentRunPanel, /CommerceBriefPanel/);
   assert.match(agentRunPanel, /带货总结/);
-  assert.match(agentRunPanel, /结果摘要/);
+  assert.doesNotMatch(agentRunPanel, /结果摘要/);
   assert.match(agentRunPanel, /卖什么/);
   assert.match(formatters, /target_grid_nearest_unique/);
   assert.match(formatters, /isLegacyStride: false/);
@@ -493,7 +493,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
   assert.match(property, /resolveShotSummary\(currentShot\)/);
   assert.match(property, /formatSecondsCompact\(currentShot\.start\)\} - \{formatSecondsCompact\(currentShot\.end\)/);
-  assert.match(property, /resolveShotEndBoundaryReason\(shot\)/);
+  assert.doesNotMatch(property, /resolveShotEndBoundaryReason/);
   assert.match(formatters, /shot\.summary \?\? shot\.reason/);
   assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
   assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);

@@ -16,7 +16,6 @@ const MAX_SUBTITLE_SEGMENT_TEXT_LENGTH = 120;
 const MAX_SUBTITLE_CONTEXT_TOTAL_CHARS = 1600;
 const MAX_COMMERCE_BRIEF_FIELD_LENGTH = 120;
 const MAX_COMMERCE_BRIEF_UNCERTAINTIES = 5;
-const MAX_VIDEO_SUMMARY_LENGTH = 160;
 const ROLE_PROFILE_PATH = null;
 
 function safeError(error, stageName) {
@@ -173,7 +172,6 @@ function normalizeCommerceBrief(rawBrief) {
     persuasionTarget: normalizeCommerceBriefField(brief.persuasionTarget),
     conversionAction: normalizeCommerceBriefConversionAction(brief.conversionAction),
     uncertainties: normalizeCommerceBriefUncertainties(brief.uncertainties),
-    videoSummary: normalizeVideoSummary(brief.videoSummary),
   };
 }
 
@@ -194,10 +192,6 @@ function normalizeCommerceBriefUncertainties(value) {
     .slice(0, MAX_COMMERCE_BRIEF_UNCERTAINTIES);
 }
 
-function normalizeVideoSummary(value) {
-  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_VIDEO_SUMMARY_LENGTH);
-}
-
 function summarizeCommerceBrief(brief) {
   return {
     hasSellingObject: Boolean(brief?.sellingObject),
@@ -206,7 +200,6 @@ function summarizeCommerceBrief(brief) {
     hasPersuasionTarget: Boolean(brief?.persuasionTarget),
     hasConversionAction: Boolean(brief?.conversionAction),
     uncertaintyCount: Array.isArray(brief?.uncertainties) ? brief.uncertainties.length : 0,
-    hasVideoSummary: Boolean(brief?.videoSummary),
   };
 }
 
@@ -336,7 +329,6 @@ module.exports = {
   MAX_SUBTITLE_CONTEXT_TOTAL_CHARS,
   MAX_COMMERCE_BRIEF_FIELD_LENGTH,
   MAX_COMMERCE_BRIEF_UNCERTAINTIES,
-  MAX_VIDEO_SUMMARY_LENGTH,
   safeError,
   codedError,
   sanitizeDebugPayload,
@@ -348,7 +340,6 @@ module.exports = {
   normalizeSubtitleText,
   resolveShotSummary,
   normalizeCommerceBrief,
-  normalizeVideoSummary,
   summarizeCommerceBrief,
   stripLocalImagePath,
   normalizeBoundaryType,

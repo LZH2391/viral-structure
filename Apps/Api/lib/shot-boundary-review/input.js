@@ -18,7 +18,6 @@ function buildTransformOutputContract() {
   return {
     shots: "non-empty array, shot-centric.v2 contract",
     commerceBrief: "object, keep existing sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
-    videoSummary: "short string, summarize the whole video",
     "shots[].summary": "string, describe only visible people/objects/actions/scenes in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
     "shots[].start": "number, first shot must start at 0",
     "shots[].end": "number, last shot must end at durationSeconds",

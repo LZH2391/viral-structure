@@ -10,7 +10,6 @@ import {
   resolveAnalysisFpsExceededHint,
   resolveAnalysisSamplingPreview,
   resolveMaxAnalysisFps,
-  resolveShotEndBoundaryReason,
   resolveShotSummary,
 } from "./formatters";
 
@@ -156,7 +155,6 @@ export function AgentRunPanel({
         <div className="agent-shot-current" aria-live="polite">
           <strong>{resolveShotSummary(currentShot)}</strong>
           <span>当前 {currentShot.shotNo ?? `S${String(currentShot.index + 1).padStart(3, "0")}`} / {formatSecondsCompact(currentShot.start)} - {formatSecondsCompact(currentShot.end)}</span>
-          {resolveShotEndBoundaryReason(currentShot) ? <small>切换：{resolveShotEndBoundaryReason(currentShot)}</small> : null}
         </div>
       ) : null}
       {analysis?.shots?.length && hasValidShotResult ? (
@@ -172,7 +170,6 @@ export function AgentRunPanel({
               <strong>{shot.shotNo ?? `S${String(shot.index + 1).padStart(3, "0")}`}</strong>
               <span className="agent-shot-time">{formatSecondsCompact(shot.start)} - {formatSecondsCompact(shot.end)}</span>
               <b className="agent-shot-summary">{resolveShotSummary(shot)}</b>
-              <small title={resolveShotEndBoundaryReason(shot) ?? undefined}>{resolveShotEndBoundaryReason(shot) ? `切换：${resolveShotEndBoundaryReason(shot)}` : "切换原因缺失"}</small>
             </button>
           ))}
         </div>
@@ -205,7 +202,6 @@ function CommerceBriefPanel({ brief }: { brief: NonNullable<ShotBoundaryAnalysis
     <div className="commerce-brief-panel shot-commerce-brief" aria-label="带货总结">
       <div className="commerce-brief-heading">带货总结</div>
       <div className="commerce-brief-grid">
-        <CommerceBriefRow label="结果摘要" value={brief.videoSummary} />
         <CommerceBriefRow label="卖什么" value={brief.sellingObject} />
         <CommerceBriefRow label="怎么证明" value={brief.proofApproach} />
         <CommerceBriefRow label="承诺结果" value={brief.promisedOutcome} />

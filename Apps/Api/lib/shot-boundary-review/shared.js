@@ -8,7 +8,6 @@ const TRANSFORM_RESULT_SCHEMA_VERSION = "shot-centric-transform.v1";
 const RESULT_SHEET_PURPOSE = "shot_boundary_result_sheet";
 const RESULT_SHEET_SUBDIR = "sheets";
 const RESULT_SHEET_DIRNAME = "shot-boundary-shots";
-const MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH = 160;
 
 function sanitizeForAppServerText(value) {
   if (typeof value === "string") return value.replace(/[\uD800-\uDFFF]/g, "");
@@ -84,7 +83,6 @@ module.exports = {
   RESULT_SHEET_PURPOSE,
   RESULT_SHEET_SUBDIR,
   RESULT_SHEET_DIRNAME,
-  MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH,
   sanitizeForAppServerText,
   normalizeTransformShot,
   normalizeReviewFrame,

@@ -1,5 +1,5 @@
 请基于已切出的镜头联表修正 shots[].summary，只返回 JSON object。
-你收到的是已经完成切镜的 shots[]，其中可能包含按镜头时间窗口对齐的 subtitleText / subtitleContextText；不要重新切镜，不要改变 start/end/endBoundary，不要输出 commerceBrief/videoSummary。
+你收到的是已经完成切镜的 shots[]，其中可能包含按镜头时间窗口对齐的 subtitleText / subtitleContextText；不要重新切镜，不要改变 start/end/endBoundary，不要输出 commerceBrief 或其他未被要求字段。
 随 turn 附带的 localImage 是按任务输入 sheets 顺序排列的每镜联表；每张联表只用于理解对应 shot 画面里实际可见的人、物、动作、场景与产品状态。
 shots[].summary 只写视觉画面内容；必须是短名词短语，不得超过 15 字，优先 8-14 字。不要写完整句，不要罗列多个细节；但必须保留最能区分该镜头的主体、关键物体/部位和动作/构图。如果画面包含商品、包装、身体部位或使用动作，summary 必须保留最能区分该镜头的名词，不要只保留动词。字幕只用于辅助识别画面中可见对象、包装文字、商品名或身体部位；不要把字幕里的 hook、卖点、价格、观点、口播目的、脚本段落职责或转化任务写进 summary，这些属于后续 script-segment-analyzer 的边界。
 好例子：包装上整条鱼特写、手持包装鱼体展示、多袋包装铺陈展示、人物下巴涂抹、手指展示下巴、床边拉扯床单。

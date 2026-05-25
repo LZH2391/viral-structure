@@ -97,11 +97,6 @@ export function resolveShotSummary(shot: ShotBoundaryAnalysisArtifact["shots"][n
   return String(shot.summary ?? shot.reason ?? "镜头内容").trim() || "镜头内容";
 }
 
-export function resolveShotEndBoundaryReason(shot: ShotBoundaryAnalysisArtifact["shots"][number]) {
-  const text = String(shot.endBoundaryReason ?? shot.reason ?? "").trim();
-  return text || null;
-}
-
 export function formatFpsValue(value?: number | null) {
   if (!Number.isFinite(value)) return "无";
   return trimTrailingZeros(roundToThree(Number(value)).toFixed(3));

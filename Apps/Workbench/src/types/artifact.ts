@@ -213,7 +213,6 @@ export type ShotBoundaryAnalysisArtifact = {
     persuasionTarget: string;
     conversionAction: string;
     uncertainties: string[];
-    videoSummary?: string | null;
   } | null;
   validation?: {
     status: "passed" | "failed" | string;

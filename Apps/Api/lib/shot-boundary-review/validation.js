@@ -7,7 +7,6 @@ const {
 const {
   TRANSFORM_RESULT_SCHEMA_VERSION,
   normalizeText,
-  MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH,
 } = require("./shared");
 
 function validateTransformResult(message, prepared, turn) {
@@ -30,10 +29,7 @@ function validateTransformResult(message, prepared, turn) {
     schemaVersion: TRANSFORM_RESULT_SCHEMA_VERSION,
     shots: shotValidation.shots,
     boundaries: shotValidation.boundaries,
-    commerceBrief: {
-      ...commerceValidation.commerceBrief,
-      videoSummary: normalizeText(parsed?.videoSummary, MAX_TRANSFORM_VIDEO_SUMMARY_LENGTH),
-    },
+    commerceBrief: commerceValidation.commerceBrief,
   };
 }
 
@@ -43,7 +39,6 @@ function summarizeTransformResult(result) {
     shotCount: Array.isArray(result?.shots) ? result.shots.length : 0,
     boundaryCount: Array.isArray(result?.boundaries) ? result.boundaries.length : 0,
     hasSellingObject: Boolean(result?.commerceBrief?.sellingObject),
-    hasVideoSummary: Boolean(result?.commerceBrief?.videoSummary),
   };
 }
 

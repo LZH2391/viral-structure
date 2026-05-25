@@ -97,7 +97,6 @@ async function writeCompletedAnalysis({
       shotCount: result.shots.length,
       artifactType: result.type,
       resultOrigin: result.resultOrigin,
-      hasVideoSummary: Boolean(result.commerceBrief?.videoSummary),
     }),
   });
   jobStore.updateJob(context.job.jobId, {

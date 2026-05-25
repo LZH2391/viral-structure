@@ -762,7 +762,7 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
   assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_transform 人物半身面对镜头");
   assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_transform 产品包装特写");
-  assert.equal(artifact.shotBoundaryAnalysis.commerceBrief.videoSummary, "视频先口播介绍，再展示产品特写。");
+  assert.equal(Object.prototype.hasOwnProperty.call(artifact.shotBoundaryAnalysis.commerceBrief, "videoSummary"), false);
   assert.equal(transformTurns.length, 2);
   assert.equal(transformTurn.payload.inputs.length, 1);
   assert.equal(transformTurn.payload.inputs[0].type, "text");
@@ -1174,7 +1174,6 @@ test("shot boundary keeps Chinese reason text without mojibake", async () => {
               conversionAction: "未观察到明显转化动作",
               uncertainties: [],
             },
-            videoSummary: "总结",
           }),
         };
       },
@@ -1323,7 +1322,6 @@ test("shot boundary mojibake reason fails quality gate and writes debug snapshot
               conversionAction: "未观察到明显转化动作",
               uncertainties: [],
             },
-            videoSummary: "总结",
           }),
         };
       },
@@ -1715,7 +1713,7 @@ async function createShotHarness({
         if (turnKind === "transform" && result?.status !== "completed") {
           turnKinds.unshift(turnKindEntry);
         }
-        if (autoTransformFallback && turnKind === "transform" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("videoSummary")) {
+        if (autoTransformFallback && turnKind === "transform" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("commerceBrief")) {
           return { ...result, finalMessage: createTransformMessage() };
         }
         return result;
@@ -1730,7 +1728,7 @@ function isTransformTurnPayload(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
   return text.includes("结果转换 agent")
     || text.includes("修正 shots[].summary")
-    || (text.includes("videoSummary") && text.includes("rawAnalyzerResult"));
+    || (text.includes("commerceBrief") && text.includes("rawAnalyzerResult"));
 }
 
 function createContactSheets(prepared, sampleDir, options = {}) {
@@ -1830,7 +1828,6 @@ function createTransformMessage() {
       conversionAction: "未观察到明显转化动作",
       uncertainties: [],
     },
-    videoSummary: "视频先口播介绍，再展示产品特写。",
   });
 }
 
