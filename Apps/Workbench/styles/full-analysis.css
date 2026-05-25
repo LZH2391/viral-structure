@@ -83,7 +83,7 @@
   min-height: 128px;
   max-height: 280px;
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -142,6 +142,12 @@
 .workflow-step-thread-wrap::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgba(143, 152, 163, 0.32);
+}
+
+.workflow-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .full-analysis-col-resizer {

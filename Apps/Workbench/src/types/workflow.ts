@@ -24,6 +24,7 @@ export type WorkflowRun = {
   workflowRunId: string;
   workflowKey: "full-analysis" | string;
   workflowVersion: string;
+  cacheDecision?: "ask" | "reuse" | "refresh" | string;
   status: "running" | "processed" | "failed" | "partial_failed" | string;
   traceId: string;
   runId: string;

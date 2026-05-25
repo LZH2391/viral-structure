@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import { getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
 import type { ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
+import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { formatSecondsCompact, shortId } from "../utils/format";
 import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
 type ThreadMessageItem = { kind: "history" | "active" | "final"; text: string };
+type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
 const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "aggregate"];
+const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure"];
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
@@ -28,6 +31,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [isStarting, setIsStarting] = useState(false);
   const [frameSampleRate, setFrameSampleRate] = useState(10);
   const [refreshMode, setRefreshMode] = useState(false);
+  const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
   const pollTimerRef = useRef<number | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
@@ -61,6 +65,18 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       .map((stage) => stage.childJobId as string),
     [orderedStages],
   );
+
+  const activeCachePrompt = useMemo(() => {
+    return orderedStages
+      .map((stage) => ({
+        stage,
+        order: CACHE_PROMPT_ORDER.indexOf(stage.key),
+        job: stage.childJobId ? childJobs[stage.childJobId] ?? null : null,
+      }))
+      .filter((item): item is WorkflowCachePrompt => item.order >= 0 && Boolean(item.job?.jobId && item.job.cachePrompt?.cachedItem && item.job.status === "cache_waiting"))
+      .filter((item) => !dismissedCachePromptJobIds.includes(item.job.jobId as string))
+      .sort((a, b) => a.order - b.order)[0] ?? null;
+  }, [childJobs, dismissedCachePromptJobIds, orderedStages]);
 
   const threadIds = useMemo(
     () => Array.from(new Set(
@@ -163,6 +179,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     setIsStarting(true);
     setErrorText(null);
     setArtifact(null);
+    setDismissedCachePromptJobIds([]);
     setStatusText("创建完整分析任务");
     try {
       const nextRun = await startFullAnalysisRun(file, {
@@ -170,7 +187,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         enableAudioSeparation: true,
         enableSubtitleRecognition: true,
         enableAudioFeatureAnalysis: true,
-        cacheDecision: refreshMode ? "refresh" : "reuse",
+        cacheDecision: refreshMode ? "refresh" : "ask",
       });
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
@@ -193,6 +210,27 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       startPolling(nextRun.workflowRunId);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "重跑步骤失败");
+    }
+  }, [run, startPolling]);
+
+  const resolveWorkflowCache = useCallback(async (prompt: WorkflowCachePrompt, decision: "reuse" | "refresh") => {
+    if (!prompt.job.jobId) return;
+    setErrorText(null);
+    setDismissedCachePromptJobIds((current) => current.filter((jobId) => jobId !== prompt.job.jobId));
+    setStatusText(`${prompt.stage.label}${decision === "reuse" ? "复用缓存" : "重新生成"}`);
+    try {
+      const nextJob = await resolveCacheDecision(prompt.job.jobId, decision);
+      setChildJobs((current) => ({ ...current, [prompt.job.jobId as string]: nextJob }));
+      if (run) {
+        const nextRun = await getWorkflowRun(run.workflowRunId);
+        setRun(nextRun);
+        setStatusText(statusLabel(nextRun));
+        startPolling(nextRun.workflowRunId);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `${prompt.stage.label}缓存选择失败`;
+      setErrorText(message);
+      setStatusText(message);
     }
   }, [run, startPolling]);
 
@@ -289,6 +327,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
                 job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
                 conversation={resolveJobConversation(stage.childJobId ? childJobs[stage.childJobId] ?? null : null, threadConversations)}
                 onRerun={handleRerun}
+                onResolveCache={(cacheStage, job, decision) => resolveWorkflowCache({ stage: cacheStage, job, order: CACHE_PROMPT_ORDER.indexOf(cacheStage.key) }, decision)}
                 disabled={!canRerun(stage, run)}
               />
             ))}
@@ -313,6 +352,17 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           </section>
         </div>
       </main>
+      {activeCachePrompt ? (
+        <CacheDecisionDialog
+          item={activeCachePrompt.job.cachePrompt!.cachedItem}
+          onReuse={() => resolveWorkflowCache(activeCachePrompt, "reuse")}
+          onRefresh={() => resolveWorkflowCache(activeCachePrompt, "refresh")}
+          onCancel={() => {
+            setDismissedCachePromptJobIds((current) => activeCachePrompt.job.jobId && !current.includes(activeCachePrompt.job.jobId) ? [...current, activeCachePrompt.job.jobId] : current);
+            setStatusText(`${activeCachePrompt.stage.label}等待缓存选择`);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -322,12 +372,14 @@ function StageStep({
   job,
   conversation,
   onRerun,
+  onResolveCache,
   disabled,
 }: {
   stage: WorkflowStageState;
   job: ProcessingJob | null;
   conversation: ThreadConversation | null;
   onRerun: (stageKey: string) => void;
+  onResolveCache: (stage: WorkflowStageState, job: ProcessingJob, decision: "reuse" | "refresh") => void;
   disabled: boolean;
 }) {
   const failed = stage.status === "failed";
@@ -357,6 +409,16 @@ function StageStep({
         </div>
       ) : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
+      {job?.status === "cache_waiting" && job.cachePrompt?.cachedItem ? (
+        <div className="workflow-step-actions">
+          <button className="ghost-button" type="button" onClick={() => onResolveCache(stage, job, "refresh")}>
+            重新生成
+          </button>
+          <button className="primary-button" type="button" onClick={() => onResolveCache(stage, job, "reuse")}>
+            复用缓存
+          </button>
+        </div>
+      ) : null}
       {stage.key !== "upload" && stage.key !== "aggregate" ? (
         <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={() => onRerun(stage.key)}>
           重跑

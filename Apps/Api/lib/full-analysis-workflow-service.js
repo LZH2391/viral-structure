@@ -34,10 +34,12 @@ function createFullAnalysisWorkflowService({
     const traceContext = createTraceContext(createTraceIds());
     const workflowRunId = `workflow_${randomUUID()}`;
     const now = new Date().toISOString();
+    const cacheDecision = fields.cacheDecision === "refresh" ? "refresh" : "ask";
     const run = workflowRunStore.createRun({
       workflowRunId,
       workflowKey: WORKFLOW_KEY,
       workflowVersion: WORKFLOW_VERSION,
+      cacheDecision,
       status: "running",
       traceId: traceContext.traceId,
       runId: traceContext.runId,
@@ -59,7 +61,7 @@ function createFullAnalysisWorkflowService({
       file,
       fields: {
         ...fields,
-        cacheDecision: fields.cacheDecision === "refresh" ? "refresh" : "reuse",
+        cacheDecision,
       },
     }, traceContext);
     return publicRun(workflowRunStore.getRun(workflowRunId) ?? run);
@@ -169,7 +171,7 @@ function createFullAnalysisWorkflowService({
       return shotBoundaryService.enqueue({
         sampleVideoId: run.sampleVideoId,
         analysisFps: Number(input.analysisFps ?? 10),
-        cacheDecision: input.cacheDecision ?? "reuse",
+        cacheDecision: input.cacheDecision ?? run.cacheDecision ?? "ask",
         enableReview: input.enableReview ?? true,
       });
     }
@@ -184,7 +186,7 @@ function createFullAnalysisWorkflowService({
         analysisId,
         sampleVideoId: run.sampleVideoId,
         body: {
-          cacheDecision: input.cacheDecision ?? "reuse",
+          cacheDecision: input.cacheDecision ?? run.cacheDecision ?? "ask",
           dependencies: {
             shotBoundaryArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
           },
@@ -250,8 +252,9 @@ function createFullAnalysisWorkflowService({
   async function maybeStartNext(run) {
     const upload = findStage(run, "upload");
     const shot = findStage(run, "shotBoundary");
+    const cacheDecision = run.cacheDecision ?? "ask";
     if (upload.status === "processed" && shot.status === "pending") {
-      await startStage(run.workflowRunId, "shotBoundary", { cacheDecision: "reuse" }, {
+      await startStage(run.workflowRunId, "shotBoundary", { cacheDecision }, {
         runId: run.runId,
         traceId: run.traceId,
         stageId: `stage_${randomUUID()}`,
@@ -261,7 +264,7 @@ function createFullAnalysisWorkflowService({
     const analysisKeys = ["scriptSegment", "rhythmStructure", "packagingStructure"];
     if (shot.status === "processed") {
       const pending = analysisKeys.filter((key) => findStage(run, key).status === "pending");
-      await Promise.all(pending.map((key) => startStage(run.workflowRunId, key, { cacheDecision: "reuse" }, {
+      await Promise.all(pending.map((key) => startStage(run.workflowRunId, key, { cacheDecision }, {
         runId: run.runId,
         traceId: run.traceId,
         stageId: `stage_${randomUUID()}`,
@@ -503,6 +506,7 @@ function publicRun(run) {
     workflowRunId: run.workflowRunId,
     workflowKey: run.workflowKey,
     workflowVersion: run.workflowVersion,
+    cacheDecision: run.cacheDecision ?? "ask",
     status: run.status,
     traceId: run.traceId,
     runId: run.runId,
