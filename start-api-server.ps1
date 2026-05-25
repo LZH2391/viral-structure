@@ -270,17 +270,27 @@ function Get-ListeningProcessInfo([int]$Port) {
   }
 }
 
+function Test-CommandLinePathMatch([string]$CommandLine, [string[]]$Paths) {
+  $normalizedCommandLine = $CommandLine -replace "/", "\"
+  foreach ($path in $Paths) {
+    if (-not $path) { continue }
+    $normalizedPath = $path -replace "/", "\"
+    if ($normalizedCommandLine -match [regex]::Escape($normalizedPath)) { return $true }
+  }
+  return $false
+}
+
 function Test-ServiceMatch($Spec, $ProcessInfo) {
   $commandLine = [string]$ProcessInfo.CommandLine
   switch ($Spec.Kind) {
     "api" {
-      return ($commandLine -match "Apps\\Api\\server\.js") -or ($commandLine -match [regex]::Escape((Join-Path $repoRoot "Apps\Api\server.js")))
+      return Test-CommandLinePathMatch $commandLine @("Apps\Api\server.js", (Join-Path $repoRoot "Apps\Api\server.js"))
     }
     "vite" {
-      return ($commandLine -match "dev:workbench") -or (($commandLine -match "vite") -and ($commandLine -match [regex]::Escape($repoRoot)))
+      return ($commandLine -match "dev:workbench") -or (($commandLine -match "vite") -and (Test-CommandLinePathMatch $commandLine @($repoRoot)))
     }
     "threadpool" {
-      return ($commandLine -match "thread_pool_service\.py") -and ($commandLine -match [regex]::Escape($env:THREADPOOL_CONFIG_PATH))
+      return ($commandLine -match "thread_pool_service\.py") -and (Test-CommandLinePathMatch $commandLine @($env:THREADPOOL_CONFIG_PATH))
     }
     "appserver" {
       return ($commandLine -match "app-server") -and ($commandLine -match [regex]::Escape($env:CODEX_APP_SERVER_WS_URL))
