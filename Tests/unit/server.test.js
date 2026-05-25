@@ -179,6 +179,73 @@ test("analysis roles endpoint returns public descriptors only", async () => {
   }
 });
 
+test("full analysis workflow routes create, read, and rerun runs", async () => {
+  const calls = [];
+  const fakeRun = { workflowRunId: "workflow_1", workflowKey: "full-analysis", workflowVersion: "full-analysis.v1", status: "running", traceId: "trace_workflow", runId: "run_workflow", sampleVideoId: "sample_1", currentStageKeys: ["upload"], stages: [] };
+  const server = createServer({
+    fullAnalysisWorkflowService: {
+      start: async (payload) => {
+        calls.push({ type: "start", workspaceId: payload.workspaceId, fileName: payload.file.filename });
+        return fakeRun;
+      },
+      get: (workflowRunId) => workflowRunId === "workflow_1" ? fakeRun : null,
+      rerunStage: async (payload) => {
+        calls.push({ type: "rerun", ...payload });
+        return { ...fakeRun, currentStageKeys: [payload.stageKey] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const boundary = "----codex-boundary";
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="workspaceId"\r\n\r\ndefault-workspace\r\n`, "utf8"),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="sample.mp4"\r\nContent-Type: video/mp4\r\n\r\nvideo\r\n`, "utf8"),
+      Buffer.from(`--${boundary}--\r\n`, "utf8"),
+    ]);
+    const address = server.address();
+    const created = await new Promise((resolve, reject) => {
+      const request = require("node:http").request({
+        agent: false,
+        method: "POST",
+        host: "127.0.0.1",
+        port: address.port,
+        path: "/api/workflows/full-analysis/runs",
+        headers: {
+          connection: "close",
+          "content-type": `multipart/form-data; boundary=${boundary}`,
+          "content-length": body.length,
+        },
+      }, (response) => {
+        const chunks = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => resolve({ statusCode: response.statusCode, body: JSON.parse(Buffer.concat(chunks).toString("utf8")) }));
+      });
+      request.on("error", reject);
+      request.end(body);
+    });
+    assert.equal(created.statusCode, 202);
+    assert.equal(created.body.workflowRunId, "workflow_1");
+
+    const read = await makeRequest(server, "GET", "/api/workflows/runs/workflow_1");
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.traceId, "trace_workflow");
+
+    const rerun = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/stages/scriptSegment/rerun");
+    assert.equal(rerun.statusCode, 202);
+    assert.deepEqual(calls, [
+      { type: "start", workspaceId: "default-workspace", fileName: "sample.mp4" },
+      { type: "rerun", workflowRunId: "workflow_1", stageKey: "scriptSegment" },
+    ]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("packaging structure route enqueues service with shot dependency", async () => {
   const calls = [];
   const server = createServer({

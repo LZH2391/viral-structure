@@ -281,6 +281,9 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
+          <a className="tab-button" href="/full-analysis">
+            完整分析
+          </a>
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>

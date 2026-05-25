@@ -6,6 +6,7 @@ const { resolveWorkbenchPath, contentType } = require("../../Apps/Api/lib/static
 test("serves workbench and debug pages from HTTP routes", () => {
   const root = path.resolve(__dirname, "../../Apps/Workbench");
   assert.equal(resolveWorkbenchPath(root, "/"), path.join(root, "index.html"));
+  assert.equal(resolveWorkbenchPath(root, "/full-analysis"), path.join(root, "full-analysis.html"));
   assert.equal(resolveWorkbenchPath(root, "/debug"), path.join(root, "debug.html"));
   assert.equal(resolveWorkbenchPath(root, "/threadpool"), path.join(root, "threadpool.html"));
   assert.equal(resolveWorkbenchPath(root, "/threadpool/"), path.join(root, "threadpool.html"));

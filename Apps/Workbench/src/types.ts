@@ -4,6 +4,7 @@ export type * from "./types/threadpool";
 export type * from "./types/library";
 export type * from "./types/job";
 export type * from "./types/workbench";
+export type * from "./types/workflow";
 
 import type {
   PackagingStructureArtifact,

@@ -11,6 +11,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: "Apps/Workbench/index.html",
+        fullAnalysis: "Apps/Workbench/full-analysis.html",
         debug: "Apps/Workbench/debug.html",
         library: "Apps/Workbench/library.html",
         threadpool: "Apps/Workbench/threadpool.html",

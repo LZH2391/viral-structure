@@ -1,4 +1,4 @@
-import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
+import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -33,6 +33,34 @@ export async function uploadSampleVideo(file: File, options: { frameSampleRateFp
     body: formData,
   });
   return readJsonResponse<UploadSampleResponse>(response);
+}
+
+export async function startFullAnalysisRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "reuse" | "refresh" } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("enableAudioSeparation", String(options.enableAudioSeparation ?? true));
+  formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
+  formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
+  formData.append("cacheDecision", options.cacheDecision ?? "reuse");
+  const response = await fetch(`${API_BASE_URL}/api/workflows/full-analysis/runs`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<WorkflowRun>(response);
+}
+
+export async function getWorkflowRun(workflowRunId: string) {
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`));
+}
+
+export async function rerunWorkflowStage(workflowRunId: string, stageKey: string) {
+  return readJsonResponse<WorkflowRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}/stages/${encodeURIComponent(stageKey)}/rerun`, {
+      method: "POST",
+    }),
+  );
 }
 
 export async function getCapabilities() {

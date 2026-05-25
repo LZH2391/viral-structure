@@ -5,6 +5,7 @@ const { createLocalStore } = require("../../Infrastructure/Storage/local-store")
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
 const { parseMultipartUpload } = require("./lib/multipart");
 const { createJobStore } = require("./lib/job-store");
+const { createWorkflowRunStore } = require("./lib/workflow-run-store");
 const { createSampleProcessingService } = require("./lib/sample-processing-service");
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createArtifactCacheParamBuilders } = require("./lib/artifact-cache-param-builders");
@@ -21,6 +22,7 @@ const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/analysis-role-registry");
+const { createFullAnalysisWorkflowService } = require("./lib/full-analysis-workflow-service");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
@@ -30,6 +32,7 @@ const port = Number(process.env.PORT || 5177);
 const store = createLocalStore(rootDir);
 const logger = createStageLogger(store);
 const jobStore = createJobStore({ filePath: path.join(store.runtimeRoot, "Jobs", "processing-jobs.json") });
+const workflowRunStore = createWorkflowRunStore({ filePath: path.join(store.runtimeRoot, "WorkflowRuns", "workflow-runs.json") });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const threadPool = createThreadPoolProxy();
@@ -37,13 +40,17 @@ const appServer = createAppServerBridge();
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const analysisRegistry = createAnalysisRoleRegistry({ store, logger, jobStore, artifactIndex });
+const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, analysisRegistry, jobStore, logger, store, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
   const activeStore = deps.store ?? store;
   const activeLogger = deps.logger ?? logger;
   const activeJobStore = deps.jobStore ?? jobStore;
+  const activeWorkflowRunStore = deps.workflowRunStore ?? workflowRunStore;
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
+  const activeSampleService = deps.service ?? service;
+  const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
   const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
@@ -62,13 +69,25 @@ function createServer(deps = {}) {
     logger: activeLogger,
     store: activeStore,
     jobStore: activeJobStore,
+    workflowRunStore: activeWorkflowRunStore,
     artifactIndex: activeArtifactIndex,
-    service: deps.service ?? service,
+    service: activeSampleService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
-    shotBoundaryService: deps.shotBoundaryService ?? shotBoundaryService,
+    shotBoundaryService: activeShotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     analysisRegistry: activeAnalysisRegistry,
+    fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
+      workflowRunStore: activeWorkflowRunStore,
+      service: activeSampleService,
+      shotBoundaryService: activeShotBoundaryService,
+      analysisRegistry: activeAnalysisRegistry,
+      jobStore: activeJobStore,
+      logger: activeLogger,
+      store: activeStore,
+      artifactIndex: activeArtifactIndex,
+      loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
+    }),
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: deps.rootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,
@@ -87,6 +106,9 @@ function createServer(deps = {}) {
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
+      if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) return await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) return await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
       if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1), handlers);
       if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return await handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
@@ -162,6 +184,28 @@ async function handleCapabilities(res, handlers = {}) {
 
 async function handleAnalysisRoles(res, handlers = {}) {
   return sendJson(res, 200, { roles: (handlers.analysisRegistry ?? analysisRegistry).list() });
+}
+
+async function handleFullAnalysisRun(req, res, handlers = {}) {
+  const { file, fields } = await parseMultipartUpload(req, req.headers["content-type"]);
+  const result = await (handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService).start({
+    workspaceId: fields.workspaceId || "default-workspace",
+    file,
+    fields,
+  });
+  return sendJson(res, 202, result);
+}
+
+async function handleWorkflowRun(res, workflowRunId, handlers = {}) {
+  const run = (handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService).get(workflowRunId);
+  if (!run) return notFound(res);
+  return sendJson(res, 200, run);
+}
+
+async function handleWorkflowStageRerun(res, workflowRunId, stageKey, handlers = {}) {
+  const run = await (handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService).rerunStage({ workflowRunId, stageKey });
+  if (!run) return notFound(res);
+  return sendJson(res, 202, run);
 }
 
 function handleJob(res, jobId, handlers = {}) {
