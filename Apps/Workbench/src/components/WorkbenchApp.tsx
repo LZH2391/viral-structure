@@ -51,6 +51,7 @@ export function WorkbenchApp() {
   const workspaceGridRef = useRef<HTMLElement>(null);
   const lastSegmentIdRef = useRef<string | null>(null);
   const lastShotIdRef = useRef<string | null>(null);
+  const restoredAnalysisJobsRef = useRef(false);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
 
@@ -144,6 +145,8 @@ export function WorkbenchApp() {
   const runStatus = buildRunStatus(state);
 
   useEffect(() => {
+    if (restoredAnalysisJobsRef.current) return;
+    restoredAnalysisJobsRef.current = true;
     const restoreJobs = async () => {
       const shotDraft = await shotBoundaryFlow.restoreDraft();
       if (shotDraft) setAgentAnalysisFps(normalizeAnalysisFps(shotDraft.analysisFps ?? DEFAULT_ANALYSIS_FPS, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS));

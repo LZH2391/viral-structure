@@ -42,7 +42,10 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   let latest: ProcessingJob = { jobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stage: "agent.shotBoundary.inputPrepared", status: "pending", progress: 0 };
   setAgentJob(latest);
   writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps, enableReview });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: setAgentJob }) ?? latest;
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
+    onUpdate: setAgentJob,
+    preservePreviousOnNull: true,
+  }) ?? latest;
   if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
     setAgentJob(null);
     writeActiveAgentJob?.(null);
@@ -95,7 +98,10 @@ export async function runScriptSegmentAnalysis(
   };
   onJobUpdate?.(latest);
   writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "scriptSegment" });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
+    onUpdate: onJobUpdate,
+    preservePreviousOnNull: true,
+  }) ?? latest;
   if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
     writeActiveJob?.(null);
     await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
@@ -150,7 +156,10 @@ export async function runRhythmStructureAnalysis(
   };
   onJobUpdate?.(latest);
   writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "rhythmStructure" });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
+    onUpdate: onJobUpdate,
+    preservePreviousOnNull: true,
+  }) ?? latest;
   if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
     writeActiveJob?.(null);
     await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
@@ -205,7 +214,10 @@ export async function runPackagingStructureAnalysis(
   };
   onJobUpdate?.(latest);
   writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "packagingStructure" });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
+    onUpdate: onJobUpdate,
+    preservePreviousOnNull: true,
+  }) ?? latest;
   if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
     writeActiveJob?.(null);
     await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
@@ -262,12 +274,12 @@ export async function attachAgentJob(
 ) {
   const job = await pollProcessingJob(() => getProcessingJob(jobDraft.processingJobId).catch(() => null), {
     stopOnNull: true,
+    preservePreviousOnNull: true,
     onUpdate: (nextJob) => {
       if (nextJob) setAgentJob(nextJob);
     },
   });
   if (!job) {
-    setAgentJob(null);
     writeActiveAgentJob(null);
     return null;
   }
@@ -289,8 +301,6 @@ export async function attachAgentJob(
     writeActiveAgentJob(null);
     return null;
   }
-  setAgentJob(null);
-  writeActiveAgentJob(null);
   return null;
 }
 
@@ -303,12 +313,12 @@ export async function attachAnalysisJob(
 ) {
   const job = await pollProcessingJob(() => getProcessingJob(jobDraft.processingJobId).catch(() => null), {
     stopOnNull: true,
+    preservePreviousOnNull: true,
     onUpdate: (nextJob) => {
       if (nextJob) setJob(nextJob);
     },
   });
   if (!job) {
-    setJob(null);
     writeActiveJob(null);
     return null;
   }
@@ -327,8 +337,6 @@ export async function attachAnalysisJob(
     writeActiveJob(null);
     return null;
   }
-  setJob(null);
-  writeActiveJob(null);
   return null;
 }
 
