@@ -70,6 +70,15 @@
   display: none;
 }
 
+.view-shell {
+  min-height: 0;
+  min-width: 0;
+}
+
+.view-shell.is-hidden-view {
+  display: none;
+}
+
 .embedded-view {
   height: 100%;
   min-width: 0;

@@ -76,7 +76,7 @@ function DebugHeader({ status, count, updatedAt, onRefresh }: { status: string; 
         <span id="debugUpdatedAt" className="trace-label">{updatedAt}</span>
       </div>
       <div className="top-actions">
-        <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
+        <a className="ghost-button action-link" href="/">
           返回工作台
         </a>
         <button id="refreshDebugBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>

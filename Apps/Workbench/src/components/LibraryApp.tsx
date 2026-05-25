@@ -75,11 +75,21 @@ function LibraryHeader({ items, status, updatedAt, onRefresh }: { items: Library
         </span>
       </div>
       <div className="top-actions">
-        <a className="tab-button" href="/">工作台</a>
-        <a className="tab-button" href="/full-analysis">完整分析</a>
-        <a className="tab-button active" href="/library">处理库</a>
-        <a className="tab-button" href="/debug">运行追踪</a>
-        <a className="tab-button" href="/threadpool">ThreadPool</a>
+        <button className="tab-button" type="button" onClick={() => window.location.assign("/")}>
+          工作台
+        </button>
+        <button className="tab-button" type="button" onClick={() => window.location.assign("/full-analysis")}>
+          完整分析
+        </button>
+        <button className="tab-button active" type="button">
+          处理库
+        </button>
+        <button className="tab-button" type="button" onClick={() => window.location.assign("/debug")}>
+          运行追踪
+        </button>
+        <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
+          ThreadPool
+        </button>
         <button id="refreshLibraryBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
           刷新
         </button>
@@ -155,9 +165,9 @@ function LibraryDetail({ detail, onDeleted }: { detail: LibraryItemDetail | null
           <button id="deleteLibraryCacheBtn" className="ghost-button" type="button" disabled={!detail} onClick={deleteCache}>
             删除缓存
           </button>
-          <a className="ghost-button action-link" href={detail?.traceId ? `http://127.0.0.1:5177/debug` : "#"}>
+          <button className="ghost-button" type="button" disabled={!detail?.traceId} onClick={() => window.location.assign("/debug")}>
             打开运行追踪
-          </a>
+          </button>
         </div>
       </div>
       <div id="libraryArtifactTree" className="library-artifact-tree">
@@ -244,5 +254,5 @@ function writeWorkbenchDraft(sampleArtifact: LibraryItemDetail["artifact"]) {
       versions: [],
     }),
   );
-  window.location.href = "http://127.0.0.1:5177/";
+  window.location.assign("/");
 }

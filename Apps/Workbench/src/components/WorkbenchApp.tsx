@@ -18,6 +18,7 @@ import { useSubtitleDraftFlow } from "../hooks/useSubtitleDraftFlow";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { DebugApp } from "./DebugApp";
+import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
 import { PropertyPanel } from "./PropertyPanel";
@@ -45,6 +46,13 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(DEFAULT_ANALYSIS_FPS);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
+  const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
+    workspace: true,
+    "full-analysis": initialViewFromPath() === "full-analysis",
+    library: initialViewFromPath() === "library",
+    debug: initialViewFromPath() === "debug",
+    threadpool: initialViewFromPath() === "threadpool",
+  }));
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -144,6 +152,16 @@ export function WorkbenchApp() {
 
   const currentShotId = currentShot?.id ?? null;
   const runStatus = buildRunStatus(state);
+
+  useEffect(() => {
+    setMountedViews((current) => (current[activeView] ? current : { ...current, [activeView]: true }));
+  }, [activeView]);
+
+  useEffect(() => {
+    const handlePopState = () => setActiveView(initialViewFromPath());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     if (restoredAnalysisJobsRef.current) return;
@@ -284,9 +302,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "workspace" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
             工作台
           </button>
-          <a className="tab-button" href="/full-analysis">
+          <button className={`tab-button ${activeView === "full-analysis" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("full-analysis", setActiveView)}>
             完整分析
-          </a>
+          </button>
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>
@@ -439,9 +457,26 @@ export function WorkbenchApp() {
           onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
         />
       </main>
-      {activeView === "library" ? <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
-      {activeView === "debug" ? <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
-      {activeView === "threadpool" ? <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} /> : null}
+      {mountedViews["full-analysis"] ? (
+        <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
+          <FullAnalysisApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+        </section>
+      ) : null}
+      {mountedViews.library ? (
+        <section className={`view-shell ${activeView === "library" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "library"}>
+          <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+        </section>
+      ) : null}
+      {mountedViews.debug ? (
+        <section className={`view-shell ${activeView === "debug" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "debug"}>
+          <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+        </section>
+      ) : null}
+      {mountedViews.threadpool ? (
+        <section className={`view-shell ${activeView === "threadpool" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "threadpool"}>
+          <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+        </section>
+      ) : null}
       {uploadFlow.cachePrompt ? <CacheDecisionDialog item={uploadFlow.cachePrompt.cachedItem} onReuse={uploadFlow.reuseCache} onRefresh={uploadFlow.refreshCache} onCancel={() => uploadFlow.setCachePrompt(null)} /> : null}
       {shotBoundaryFlow.shotCachePrompt ? <CacheDecisionDialog item={shotBoundaryFlow.shotCachePrompt.cachedItem} onReuse={shotBoundaryFlow.reuseCache} onRefresh={shotBoundaryFlow.refreshCache} onCancel={() => shotBoundaryFlow.setShotCachePrompt(null)} /> : null}
       {scriptSegmentFlow.cachePrompt ? <CacheDecisionDialog item={scriptSegmentFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state)} onCancel={() => scriptSegmentFlow.setCachePrompt(null)} /> : null}
