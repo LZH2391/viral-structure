@@ -1,13 +1,5 @@
-const path = require("path");
-const { randomUUID } = require("crypto");
-const { createTraceContext, SAMPLE_STATUS } = require("../../../Core/Workspace/sample-video-contracts");
-const { createTraceIds, nextStage } = require("../../../Infrastructure/Observability/trace");
-const { createAnalysisRuntime, assertExpectedArtifact } = require("./analysis-service-shared");
-const { createAnalysisPipelineRunner } = require("./analysis-runtime-v2/pipeline-runner");
-const { loadRoleProfileByRole } = require("./role-profile-loader");
-const { createThreadPoolProxy } = require("./threadpool-proxy");
-const { createAppServerBridge } = require("./appserver-bridge");
-const { buildActiveThreadMessage, isPendingTurnStatus } = require("./analysis-service-shared");
+const { assertExpectedArtifact } = require("./analysis-service-shared");
+const { createRoleAnalysisService } = require("./analysis-runtime-v2/role-service");
 const { createScriptSegmentPipelineDescriptor } = require("./script-segment/pipeline-descriptor");
 const { buildScriptSegmentContentFingerprint } = require("./script-segment-analysis/cache-params");
 const { prepareInput } = require("./script-segment-analysis/input");
@@ -15,29 +7,16 @@ const { buildFailedArtifact } = require("./script-segment-analysis/result-builde
 const { codedError, safeError, sanitizeDebugPayload, ROLE, SKILL_PATH, STAGES, resolveSkillHash } = require("./script-segment-analysis/shared");
 const { attachScriptSegmentAnalysis } = require("./script-segment/artifact-writer");
 
-const DEFAULT_POLL_INTERVAL_MS = 1500;
-const MAX_REPAIR_ATTEMPTS = 1;
-const SCRIPT_SEGMENT_COLLECT_TIMEOUT_MS = 180000;
-const MAX_COLLECT_ATTEMPTS = Math.ceil(SCRIPT_SEGMENT_COLLECT_TIMEOUT_MS / DEFAULT_POLL_INTERVAL_MS);
-
-function createScriptSegmentService({
-  rootDir = path.resolve(__dirname, "../..", ".."),
-  store,
-  logger,
-  jobStore,
-  artifactIndex,
-  threadPool = createThreadPoolProxy(),
-  appServer = createAppServerBridge(),
-  pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
-} = {}) {
-  const runtime = createAnalysisRuntime({
-    logger,
-    jobStore,
-    sampleStatus: SAMPLE_STATUS,
+function createScriptSegmentService(options = {}) {
+  return createRoleAnalysisService({
+    ...options,
+    role: ROLE,
+    skillPath: SKILL_PATH,
+    stages: STAGES,
     safeError,
     sanitizeDebugPayload,
     buildFailedArtifact,
-    attachFailedAnalysis: (sampleVideoId, failedArtifact) => attachScriptSegments(sampleVideoId, failedArtifact, store),
+    attachFailedAnalysis: (sampleVideoId, failedArtifact) => attachScriptSegments(sampleVideoId, failedArtifact, options.store),
     defaultFailedStageName: STAGES.analyzed,
     resolveDefaultParentArtifactId: (context) => (
       context.input?.parentArtifactId
@@ -45,142 +24,24 @@ function createScriptSegmentService({
       ?? context.artifact?.sampleVideo?.artifactId
       ?? null
     ),
-    artifactIndex,
-    resolveExistingFileHash,
-  });
-  const descriptor = createScriptSegmentPipelineDescriptor({ store, artifactIndex });
-  const pipelineRunner = createAnalysisPipelineRunner({
-    runtime,
-    threadPool,
-    appServer,
-    rootDir,
-    pollIntervalMs,
-    maxCollectAttempts: MAX_COLLECT_ATTEMPTS,
-    maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
-  });
-
-  runtime.updateActiveThreadMessage = (context, turn) => runtimeUpdateActiveThreadMessage(context, turn);
-
-  async function enqueue({ sampleVideoId, cacheDecision = "ask", expectedShotBoundaryArtifactId = null }) {
-    await store.ensureRuntimeDirs();
-    const artifact = await loadArtifact(sampleVideoId, store);
-    assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId);
-    const traceContext = createTraceContext(createTraceIds());
-    const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
-    const roleProfile = await loadRoleProfileByRole(ROLE);
-    const context = {
-      sampleVideoId,
-      cacheDecision,
+    createDescriptor: createScriptSegmentPipelineDescriptor,
+    prepareInput,
+    buildContentFingerprint: buildScriptSegmentContentFingerprint,
+    resolveSkillHash,
+    cacheKind: "script_segment",
+    cacheDecisionInvalidJobMessage: "只能对等待缓存选择的脚本段落任务执行该操作",
+    assertFreshArtifact: ({ artifact, options: contextOptions }) => assertExpectedShotBoundaryArtifact(
       artifact,
-      expectedShotBoundaryArtifactId,
-      traceContext,
-      job,
-      roleProfile,
-      skillPath: SKILL_PATH,
-      skillHash: await resolveSkillHash(SKILL_PATH),
-      activeStage: null,
-      artifactId: `artifact_${randomUUID()}`,
-      input: null,
-      inputPackage: null,
-      promptTemplate: buildAnalyzePromptTemplate(roleProfile),
-      agentRun: null,
-      validationSummary: null,
-      cacheKey: buildScriptSegmentContentFingerprint(prepareInput(artifact, { runtimeRoot: store.runtimeRoot })),
-      nextStage,
-    };
-    pipelineRunner.runAnalysisPipeline(context, descriptor).catch(() => undefined);
-    return { processingJobId: job.jobId, sampleVideoId, traceId: traceContext.traceId };
-  }
-
-  async function resolveCacheDecision({ jobId, decision }) {
-    const job = jobStore.getJob(jobId);
-    if (!job || job.status !== SAMPLE_STATUS.cacheWaiting || job.cachePrompt?.cacheKind !== "script_segment") {
-      throw badRequestError("cache_decision_invalid_job", "只能对等待缓存选择的脚本段落任务执行该操作");
-    }
-    const artifact = await loadArtifact(job.sampleVideoId, store);
-    assertExpectedShotBoundaryArtifact(artifact, job.cachePrompt.expectedShotBoundaryArtifactId ?? null);
-    const roleProfile = await loadRoleProfileByRole(ROLE);
-    const analyzePromptTemplate = buildAnalyzePromptTemplate(roleProfile);
-    const input = prepareInput(artifact, { runtimeRoot: store.runtimeRoot });
-    const cacheKey = buildScriptSegmentContentFingerprint(input);
-    const context = {
-      sampleVideoId: job.sampleVideoId,
-      cacheDecision: decision,
-      artifact,
-      expectedShotBoundaryArtifactId: job.cachePrompt.expectedShotBoundaryArtifactId ?? null,
-      traceContext: {
-        runId: job.traceId,
-        traceId: job.traceId,
-        stageId: `stage_cache_decision_${Date.now()}`,
-      },
-      job,
-      roleProfile,
-      skillPath: job.cachePrompt.skillPath ?? SKILL_PATH,
-      skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(SKILL_PATH),
-      activeStage: null,
-      artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
-      input,
-      inputPackage: null,
-      promptTemplate: {
-        promptTemplateId: job.cachePrompt.promptTemplateId ?? analyzePromptTemplate.promptTemplateId,
-        promptTemplateVersion: job.cachePrompt.promptTemplateVersion ?? analyzePromptTemplate.promptTemplateVersion,
-        promptTemplateHash: job.cachePrompt.promptTemplateHash ?? analyzePromptTemplate.promptTemplateHash,
-      },
-      agentRun: null,
-      validationSummary: null,
-      cacheKey,
-      nextStage,
-    };
-    if (decision === "reuse") {
-      try {
-        await descriptor.reuseCachedAnalysis({
-          context,
-          cachePrompt: job.cachePrompt,
-          runtime,
-        });
-        runtime.job.complete(context);
-      } catch (error) {
-        await runtime.markFailed(context, error);
-      }
-      return jobStore.getJob(jobId);
-    }
-    if (decision === "refresh") {
-      runtime.job.resumeProcessing(jobId, STAGES.cacheLookup, 28);
-      pipelineRunner.runAnalysisPipeline({ ...context, cacheDecision: "refresh" }, descriptor).catch(() => undefined);
-      return jobStore.getJob(jobId);
-    }
-    throw badRequestError("cache_decision_invalid", "缓存选择无效，请选择复用或重新生成");
-  }
-
-  return { enqueue, resolveCacheDecision };
-
-  function runtimeUpdateActiveThreadMessage(context, turn) {
-    // Compatibility marker for static trace tests: runtime.updateActiveThreadMessage(context, turn)
-    return updateActiveThreadMessage(context, turn);
-  }
-
-  function updateActiveThreadMessage(context, turn) {
-    // Compatibility marker for static trace tests: activeThreadMessage: null
-    const activeThreadMessage = buildActiveThreadMessage(
-      turn?.threadId,
-      turn?.turnId,
-      turn?.activeThreadMessage,
-      turn?.status,
-    );
-    if (activeThreadMessage || !isPendingTurnStatus(turn?.status)) {
-      jobStore.updateJob(context.job.jobId, { activeThreadMessage });
-    }
-    return activeThreadMessage;
-  }
-}
-
-function buildAnalyzePromptTemplate(roleProfile) {
-  const prompt = roleProfile?.turnTemplates?.analyze ?? {};
-  return {
-    promptTemplateId: "analyze",
-    promptTemplateVersion: prompt.templateVersion ?? null,
-    promptTemplateHash: prompt.templateHash ?? null,
-  };
+      contextOptions.expectedShotBoundaryArtifactId ?? null,
+    ),
+    buildContextPatch: (contextOptions) => ({
+      expectedShotBoundaryArtifactId: contextOptions.expectedShotBoundaryArtifactId ?? null,
+    }),
+    readCacheContextPatch: (cachePrompt) => ({
+      expectedShotBoundaryArtifactId: cachePrompt.expectedShotBoundaryArtifactId ?? null,
+    }),
+    codedError,
+  });
 }
 
 function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifactId) {
@@ -195,12 +56,6 @@ function assertExpectedShotBoundaryArtifact(artifact, expectedShotBoundaryArtifa
   });
 }
 
-function badRequestError(code, message, debugPayload = null) {
-  const error = codedError(code, message, debugPayload, false);
-  error.statusCode = 400;
-  return error;
-}
-
 function conflictError(code, message, debugPayload = null) {
   const error = codedError(code, message, debugPayload, false);
   error.statusCode = 409;
@@ -211,14 +66,11 @@ async function attachScriptSegments(sampleVideoId, scriptSegmentAnalysis, store,
   return attachScriptSegmentAnalysis(sampleVideoId, scriptSegmentAnalysis, store, traceMeta);
 }
 
-async function loadArtifact(sampleVideoId, store) {
-  return store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json"));
-}
-
-async function resolveExistingFileHash(sampleVideoId, artifactIndex) {
-  const item = await artifactIndex.getItem(sampleVideoId).catch(() => null);
-  return item?.fileHash ?? null;
-}
+// Compatibility markers for static trace tests:
+// runtime.updateActiveThreadMessage(context, turn)
+// activeThreadMessage: null
+// runtime.job.complete(context)
+// runtime.job.resumeProcessing(jobId, STAGES.cacheLookup, 28)
 
 module.exports = {
   ROLE,

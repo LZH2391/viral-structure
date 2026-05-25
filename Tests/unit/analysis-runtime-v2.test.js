@@ -38,6 +38,7 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
   const rhythmService = read(root, "Apps/Api/lib/rhythm-structure-service.js");
+  const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
 
   assert.match(scriptCache, /buildUnifiedCachePrompt/);
   assert.match(scriptCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
@@ -46,10 +47,10 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   assert.match(rhythmCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
   assert.doesNotMatch(rhythmCache, /scriptSegmentArtifactId/);
   assert.doesNotMatch(rhythmCache, /expectedScriptSegmentArtifactId/);
-  assert.match(scriptService, /runtime\.job\.complete\(context\)/);
-  assert.match(scriptService, /runtime\.job\.resumeProcessing\(jobId, STAGES\.cacheLookup, 28\)/);
-  assert.match(rhythmService, /runtime\.job\.complete\(context\)/);
-  assert.match(rhythmService, /runtime\.job\.resumeProcessing\(jobId, STAGES\.cacheLookup, 28\)/);
+  assert.match(scriptService, /createRoleAnalysisService/);
+  assert.match(rhythmService, /createRoleAnalysisService/);
+  assert.match(roleService, /runtime\.job\.complete\(context\)/);
+  assert.match(roleService, /runtime\.job\.resumeProcessing\(jobId, stages\.cacheLookup, descriptor\.progress\.cacheLookup\)/);
 });
 
 test("frontend and API accept unified analysis dependencies while preserving legacy fields", () => {
