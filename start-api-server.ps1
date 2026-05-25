@@ -322,7 +322,7 @@ function Get-ProcessTreeIds([int]$RootPid) {
       $pending.Enqueue([int]$child.ProcessId)
     }
   }
-  return $seen.ToArray()
+  return @($seen)
 }
 
 Start-WorkbenchStack

@@ -75,9 +75,11 @@ function LibraryHeader({ items, status, updatedAt, onRefresh }: { items: Library
         </span>
       </div>
       <div className="top-actions">
-        <a className="ghost-button action-link" href="http://127.0.0.1:5177/">
-          返回工作台
-        </a>
+        <a className="tab-button" href="/">工作台</a>
+        <a className="tab-button" href="/full-analysis">完整分析</a>
+        <a className="tab-button active" href="/library">处理库</a>
+        <a className="tab-button" href="/debug">运行追踪</a>
+        <a className="tab-button" href="/threadpool">ThreadPool</a>
         <button id="refreshLibraryBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
           刷新
         </button>

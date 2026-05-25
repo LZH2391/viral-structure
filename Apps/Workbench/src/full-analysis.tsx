@@ -104,7 +104,10 @@ function FullAnalysisApp() {
         </div>
         <div className="top-actions">
           <a className="tab-button" href="/">工作台</a>
+          <a className="tab-button active" href="/full-analysis">完整分析</a>
+          <a className="tab-button" href="/library">处理库</a>
           <a className="tab-button" href="/debug">运行追踪</a>
+          <a className="tab-button" href="/threadpool">ThreadPool</a>
         </div>
       </header>
       <main className="full-analysis-main">

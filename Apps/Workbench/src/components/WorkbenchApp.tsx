@@ -281,6 +281,9 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
+          <button className={`tab-button ${activeView === "workspace" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
+            工作台
+          </button>
           <a className="tab-button" href="/full-analysis">
             完整分析
           </a>
@@ -292,9 +295,6 @@ export function WorkbenchApp() {
           </button>
           <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
-          </button>
-          <button className="ghost-button" type="button" disabled>
-            导出
           </button>
         </div>
       </header>
