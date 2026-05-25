@@ -73,12 +73,19 @@
 .workflow-step {
   min-height: 118px;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto auto 1fr auto;
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
+}
+
+.workflow-step-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .workflow-step strong {
@@ -95,6 +102,16 @@
   font-size: 12px;
   font-style: normal;
   overflow-wrap: anywhere;
+}
+
+.workflow-step-stage,
+.workflow-step-progress,
+.workflow-step-trace {
+  color: var(--text-soft);
+}
+
+.workflow-step-thread {
+  color: var(--accent);
 }
 
 .workflow-step-running {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getSampleArtifact, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
-import type { SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
+import { getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import type { ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
 import { formatSecondsCompact, shortId } from "../utils/format";
+import { stageLabel } from "../utils/workbenchHelpers";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
 
@@ -16,6 +17,7 @@ type FullAnalysisAppProps = {
 export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {}) {
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [artifact, setArtifact] = useState<SampleArtifact | null>(null);
+  const [childJobs, setChildJobs] = useState<Record<string, ProcessingJob | null>>({});
   const [activeTab, setActiveTab] = useState<ResultTab>("shot");
   const [statusText, setStatusText] = useState("等待上传");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -28,6 +30,13 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     const stages = run?.stages ?? [];
     return [...stages].sort((a, b) => STAGE_ORDER.indexOf(a.key) - STAGE_ORDER.indexOf(b.key));
   }, [run]);
+
+  const runningChildJobIds = useMemo(
+    () => orderedStages
+      .filter((stage) => Boolean(stage.childJobId && ["running", "pending"].includes(getStageRuntimeStatus(stage))))
+      .map((stage) => stage.childJobId as string),
+    [orderedStages],
+  );
 
   const startPolling = useCallback((workflowRunId: string) => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
@@ -53,6 +62,36 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   useEffect(() => () => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!runningChildJobIds.length) return;
+    let cancelled = false;
+
+    const syncChildJobs = async () => {
+      const updates = await Promise.all(runningChildJobIds.map(async (jobId) => {
+        try {
+          return [jobId, await getProcessingJob(jobId)] as const;
+        } catch {
+          return [jobId, null] as const;
+        }
+      }));
+      if (cancelled) return;
+      setChildJobs((current) => {
+        const next = { ...current };
+        for (const [jobId, job] of updates) next[jobId] = job;
+        return next;
+      });
+    };
+
+    void syncChildJobs();
+    const timer = window.setInterval(() => {
+      void syncChildJobs();
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [runningChildJobIds]);
 
   const handleUpload = useCallback(async (file: File) => {
     setIsStarting(true);
@@ -159,7 +198,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         </section>
         <section className="full-analysis-flow" aria-label="流程状态">
           {orderedStages.map((stage) => (
-            <StageStep key={stage.key} stage={stage} onRerun={handleRerun} disabled={!canRerun(stage, run)} />
+            <StageStep key={stage.key} stage={stage} job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null} onRerun={handleRerun} disabled={!canRerun(stage, run)} />
           ))}
         </section>
         <section className="full-analysis-results" aria-label="分析结果">
@@ -177,18 +216,28 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   );
 }
 
-function StageStep({ stage, onRerun, disabled }: { stage: WorkflowStageState; onRerun: (stageKey: string) => void; disabled: boolean }) {
+function StageStep({ stage, job, onRerun, disabled }: { stage: WorkflowStageState; job: ProcessingJob | null; onRerun: (stageKey: string) => void; disabled: boolean }) {
   const failed = stage.status === "failed";
+  const runtimeStatus = getStageRuntimeStatus(stage);
+  const runtimeLabel = resolveRuntimeLabel(stage, job);
+  const runtimeStageText = resolveRuntimeStageText(stage, job);
+  const runtimeProgress = resolveRuntimeProgress(stage, job);
+  const activeThreadMessage = resolveActiveThreadMessage(job);
+  const traceText = job?.traceId ?? stage.childTraceId ?? null;
   return (
     <div className={`workflow-step workflow-step-${stage.status}`}>
-      <div>
+      <div className="workflow-step-heading">
         <strong>{stage.label}</strong>
-        <span>{stageStatusLabel(stage)}</span>
+        <span>{runtimeLabel}</span>
       </div>
       <small>{stage.artifactId ? `artifact ${shortId(stage.artifactId)}` : stage.childJobId ? `job ${shortId(stage.childJobId)}` : `attempt ${stage.attemptNo}`}</small>
+      {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
+      {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
+      {traceText ? <span className="workflow-step-trace">trace {shortId(traceText)}</span> : null}
+      {activeThreadMessage ? <em className="workflow-step-thread">{activeThreadMessage}</em> : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
       {stage.key !== "upload" && stage.key !== "aggregate" ? (
-        <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled} onClick={() => onRerun(stage.key)}>
+        <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={() => onRerun(stage.key)}>
           重跑
         </button>
       ) : null}
@@ -270,6 +319,41 @@ function stageStatusLabel(stage: WorkflowStageState) {
   if (stage.status === "failed") return "失败";
   if (stage.status === "running") return "运行中";
   return "等待";
+}
+
+function getStageRuntimeStatus(stage: WorkflowStageState) {
+  if (stage.status === "running") return "running";
+  if (stage.status === "processed") return "processed";
+  if (stage.status === "failed") return "failed";
+  return "pending";
+}
+
+function resolveRuntimeLabel(stage: WorkflowStageState, job: ProcessingJob | null) {
+  if (job) {
+    if (job.status === "failed") return "失败";
+    if (job.status === "processed") return "完成";
+    if (job.status === "cache_waiting") return "等待缓存决策";
+    if (job.status === "processing") return "运行中";
+    if (job.status === "pending") return "排队中";
+  }
+  return stageStatusLabel(stage);
+}
+
+function resolveRuntimeStageText(stage: WorkflowStageState, job: ProcessingJob | null) {
+  if (job?.stage) return stageLabel(job);
+  if (stage.status === "processed" && stage.outputSummary) return "阶段完成";
+  return stage.stageName ?? null;
+}
+
+function resolveRuntimeProgress(stage: WorkflowStageState, job: ProcessingJob | null) {
+  if (job && Number.isFinite(job.progress)) return job.progress;
+  if (stage.status === "processed") return 100;
+  return null;
+}
+
+function resolveActiveThreadMessage(job: ProcessingJob | null) {
+  const text = job?.activeThreadMessage?.text?.trim();
+  return text ? text : null;
 }
 
 function isRunActive(run: WorkflowRun | null) {
