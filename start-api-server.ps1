@@ -29,7 +29,7 @@ function Start-WorkbenchStack {
   $node = Resolve-CommandPath @("node.exe", "node")
   $npm = Resolve-CommandPath @("npm.cmd", "npm")
   $python = Resolve-CommandPath @("python.exe", "python")
-  $codex = Resolve-CommandPath @("codex.cmd", "codex")
+  $codex = Resolve-CodexCommandPath
 
   if (-not (Test-Path $threadPoolScript)) {
     throw "ThreadPool service script not found: $threadPoolScript"
@@ -122,6 +122,36 @@ function Resolve-CommandPath([string[]]$Candidates) {
     if ($command) { return $command.Source }
   }
   throw "$($Candidates[0]) not found in PATH."
+}
+
+function Resolve-CodexCommandPath() {
+  $commandFromPath = Resolve-CommandPathOrNull @("codex.exe", "codex", "codex.cmd")
+  if ($commandFromPath) { return $commandFromPath }
+
+  $installRoots = @(
+    "C:\Program Files\codex",
+    (Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps")
+  ) | Where-Object { Test-Path $_ }
+
+  $candidates = foreach ($root in $installRoots) {
+    Get-ChildItem -Path $root -Filter "codex.exe" -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -match "OpenAI\.Codex_.*\\app\\resources\\codex\.exe$" }
+  }
+
+  $resolved = $candidates |
+    Sort-Object FullName -Descending |
+    Select-Object -ExpandProperty FullName -First 1
+
+  if ($resolved) { return $resolved }
+  throw "codex executable not found in PATH or installed Codex directories."
+}
+
+function Resolve-CommandPathOrNull([string[]]$Candidates) {
+  foreach ($candidate in $Candidates) {
+    $command = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+  }
+  return $null
 }
 
 function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$ArgumentList, [string]$WorkingDirectory) {
