@@ -119,13 +119,13 @@ function Start-WorkbenchStack {
 function Resolve-CommandPath([string[]]$Candidates) {
   foreach ($candidate in $Candidates) {
     $command = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
+    if ($command -and (Test-DirectStartCommandPath $command.Source)) { return $command.Source }
   }
   throw "$($Candidates[0]) not found in PATH."
 }
 
 function Resolve-CodexCommandPath() {
-  $commandFromPath = Resolve-CommandPathOrNull @("codex.exe", "codex", "codex.cmd")
+  $commandFromPath = Resolve-CommandPathOrNull @("codex.exe", "codex.cmd")
   if ($commandFromPath) { return $commandFromPath }
 
   $installRoots = @(
@@ -143,15 +143,33 @@ function Resolve-CodexCommandPath() {
     Select-Object -ExpandProperty FullName -First 1
 
   if ($resolved) { return $resolved }
+  $unsupported = Resolve-UnsupportedCommandPathOrNull @("codex", "codex.ps1")
+  if ($unsupported) {
+    throw "codex resolved to a Windows shim that cannot be started directly: $unsupported. Ensure codex.exe or codex.cmd is available in PATH."
+  }
   throw "codex executable not found in PATH or installed Codex directories."
 }
 
 function Resolve-CommandPathOrNull([string[]]$Candidates) {
   foreach ($candidate in $Candidates) {
     $command = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
+    if ($command -and (Test-DirectStartCommandPath $command.Source)) { return $command.Source }
   }
   return $null
+}
+
+function Resolve-UnsupportedCommandPathOrNull([string[]]$Candidates) {
+  foreach ($candidate in $Candidates) {
+    $command = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+  }
+  return $null
+}
+
+function Test-DirectStartCommandPath([string]$Path) {
+  if (-not $Path) { return $false }
+  $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+  return @(".exe", ".cmd", ".bat", ".com") -contains $extension
 }
 
 function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$ArgumentList, [string]$WorkingDirectory) {
