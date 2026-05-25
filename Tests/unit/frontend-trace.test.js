@@ -754,6 +754,7 @@ test("workbench workspace layout supports persisted splitters", () => {
 test("full analysis splitters control top row, row height, and bottom row independently", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
   const hook = read(root, "Apps/Workbench/src/hooks/useResizableGridLayout.ts");
   const css = read(root, "Apps/Workbench/styles/full-analysis.css");
 
@@ -763,7 +764,12 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(app, /className="full-analysis-top-row"[\s\S]*layout\.startResize\("column", event\)/);
   assert.match(app, /className="workspace-resize-handle full-analysis-row-resizer"[\s\S]*layout\.startResize\("top-row", event\)/);
   assert.match(app, /className="full-analysis-bottom-row"[\s\S]*layout\.startResize\("bottom-row", event\)/);
+  assert.match(app, /checkFullAnalysisUploadCache/);
+  assert.match(app, /setUploadCachePrompt/);
+  assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
+  assert.match(api, /cache: "no-store"/);
   assert.match(css, /\.full-analysis-main \{[\s\S]*grid-template-rows: var\(--full-analysis-top-height/);
+  assert.match(css, /\.full-analysis-shell \{[\s\S]*overflow: auto/);
   assert.match(css, /\.full-analysis-top-row \{[\s\S]*grid-template-columns: var\(--full-analysis-left-width/);
   assert.match(css, /\.full-analysis-bottom-row \{[\s\S]*grid-template-columns: var\(--full-analysis-bottom-left-width/);
   assert.match(hook, /if \(drag\.kind === "column"\) next\.left = drag\.startLayout\.left \+ event\.clientX - drag\.startX/);

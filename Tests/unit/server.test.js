@@ -39,6 +39,47 @@ function makeRequest(server, method, requestPath, body) {
   });
 }
 
+function makeMultipartRequest(server, { path: requestPath, fields = {}, file }) {
+  const boundary = `----test-${Date.now().toString(36)}`;
+  const chunks = [];
+  for (const [name, value] of Object.entries(fields)) {
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, "utf8"));
+  }
+  chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.name}"\r\nContent-Type: ${file.type}\r\n\r\n`, "utf8"));
+  chunks.push(Buffer.from(file.content, "utf8"));
+  chunks.push(Buffer.from(`\r\n--${boundary}--\r\n`, "utf8"));
+  const body = Buffer.concat(chunks);
+  return new Promise((resolve, reject) => {
+    const address = server.address();
+    const request = require("node:http").request({
+      agent: false,
+      method: "POST",
+      host: "127.0.0.1",
+      port: address.port,
+      path: requestPath,
+      headers: {
+        connection: "close",
+        "content-type": `multipart/form-data; boundary=${boundary}`,
+        "content-length": body.length,
+      },
+    }, (response) => {
+      const responseChunks = [];
+      response.on("data", (chunk) => responseChunks.push(chunk));
+      response.on("end", () => {
+        const text = Buffer.concat(responseChunks).toString("utf8");
+        response.destroy();
+        resolve({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          body: text ? JSON.parse(text) : null,
+        });
+      });
+    });
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
 function closeServer(server) {
   return new Promise((resolve, reject) => {
     server.closeIdleConnections?.();
@@ -243,6 +284,40 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
     ]);
   } finally {
     await closeServer(server);
+  }
+});
+
+test("full analysis cache check reports existing upload cache without starting workflow", async () => {
+  const cachedItem = { sampleVideoId: "sample_cached", filename: "cached.mp4", tags: [], cacheAvailable: true };
+  const calls = [];
+  const server = createServer({
+    artifactIndex: {
+      findLatestByFileHash: async (fileHash) => {
+        calls.push(fileHash);
+        return cachedItem;
+      },
+    },
+    fullAnalysisWorkflowService: {
+      start: async () => {
+        throw new Error("should not start workflow");
+      },
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeMultipartRequest(server, {
+      path: "/api/workflows/full-analysis/cache-check",
+      fields: { workspaceId: "default-workspace" },
+      file: { name: "cached.mp4", type: "video/mp4", content: "cached-video" },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.cacheHit, true);
+    assert.equal(response.body.cachedItem.sampleVideoId, "sample_cached");
+    assert.equal(calls.length, 1);
+  } finally {
+    server.close();
   }
 });
 

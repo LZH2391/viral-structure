@@ -51,8 +51,21 @@ export async function startFullAnalysisRun(file: File, options: { frameSampleRat
   return readJsonResponse<WorkflowRun>(response);
 }
 
+export async function checkFullAnalysisUploadCache(file: File, options: { frameSampleRateFps?: number; cacheDecision?: "ask" | "refresh" } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  const response = await fetch(`${API_BASE_URL}/api/workflows/full-analysis/cache-check`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<{ cacheHit: true; cachedItem: LibraryItemSummary } | { cacheHit: false }>(response);
+}
+
 export async function getWorkflowRun(workflowRunId: string) {
-  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`));
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`, { cache: "no-store" }));
 }
 
 export async function rerunWorkflowStage(workflowRunId: string, stageKey: string) {
@@ -72,11 +85,11 @@ export async function getAnalysisRoles() {
 }
 
 export async function getProcessingJob(jobId: string) {
-  return readJsonResponse<ProcessingJob>(await fetch(`${API_BASE_URL}/api/processing-jobs/${jobId}`));
+  return readJsonResponse<ProcessingJob>(await fetch(`${API_BASE_URL}/api/processing-jobs/${jobId}`, { cache: "no-store" }));
 }
 
 export async function getSampleArtifact(sampleVideoId: string) {
-  return readJsonResponse<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`));
+  return readJsonResponse<SampleArtifact>(await fetch(`${API_BASE_URL}/api/sample-videos/${sampleVideoId}/artifact`, { cache: "no-store" }));
 }
 
 export async function startShotBoundaryAnalysis(sampleVideoId: string, options: { analysisFps?: number; cacheDecision?: "ask" | "reuse" | "refresh"; enableReview?: boolean } = {}) {

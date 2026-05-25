@@ -267,6 +267,170 @@
       "updatedAt": "2026-05-25T13:21:46.811Z",
       "completedAt": null,
       "errorSummary": null
+    },
+    {
+      "workflowRunId": "workflow_e64d033b-f5cd-4caf-a3db-b747d3c28ab7",
+      "workflowKey": "full-analysis",
+      "workflowVersion": "full-analysis.v1",
+      "cacheDecision": "ask",
+      "status": "partial_failed",
+      "traceId": "trace_893ac786-2a9a-428e-8cf8-15b9bbe1d1d1",
+      "runId": "run_40398ce9-e4e6-4cdc-bc98-85f0b6aaa299",
+      "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "currentStageKeys": [],
+      "stages": [
+        {
+          "key": "upload",
+          "stageName": "upload.ingest",
+          "label": "上传",
+          "artifactKey": "sampleVideo",
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_4ef0796c-d045-47a8-87a9-585bcdaea261",
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": {
+            "cacheHit": true,
+            "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-25T14:40:10.124Z",
+          "completedAt": "2026-05-25T14:40:10.180Z"
+        },
+        {
+          "key": "shotBoundary",
+          "stageName": "shot.boundary",
+          "label": "切镜",
+          "artifactKey": "shotBoundaryAnalysis",
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_dd688ef8-5ac7-49ad-97e7-337f81886649",
+          "childJobId": "job_caa10a05-8231-4f96-82cd-223d6724da4b",
+          "childTraceId": "trace_682b4ace-cd34-459b-8332-345ae7cbdb54",
+          "artifactId": "artifact_0c617959-f827-404b-8ac5-31777cffa3cb",
+          "parentArtifactId": "artifact_bf721421-2d65-4f1e-949b-c3142246c95e",
+          "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_caa10a05-8231-4f96-82cd-223d6724da4b",
+            "childTraceId": "trace_682b4ace-cd34-459b-8332-345ae7cbdb54",
+            "artifactId": "artifact_0c617959-f827-404b-8ac5-31777cffa3cb"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-25T14:40:12.183Z",
+          "completedAt": "2026-05-25T14:46:57.820Z"
+        },
+        {
+          "key": "scriptSegment",
+          "stageName": "script.segment.analyze",
+          "label": "脚本",
+          "artifactKey": "scriptSegmentAnalysis",
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_e69e5b25-07dc-437a-94d8-f862c9430ce7",
+          "childJobId": "job_5950e368-9503-42e9-8b68-f21a4afda710",
+          "childTraceId": "trace_4edc4eda-56be-4853-b252-9b83df53c2f4",
+          "artifactId": "artifact_23385023-7042-4d32-8a01-5a507cd0b594",
+          "parentArtifactId": "artifact_0c617959-f827-404b-8ac5-31777cffa3cb",
+          "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_5950e368-9503-42e9-8b68-f21a4afda710",
+            "childTraceId": "trace_4edc4eda-56be-4853-b252-9b83df53c2f4",
+            "artifactId": "artifact_23385023-7042-4d32-8a01-5a507cd0b594"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-25T14:46:57.822Z",
+          "completedAt": "2026-05-25T14:51:09.770Z"
+        },
+        {
+          "key": "rhythmStructure",
+          "stageName": "rhythm.structure.analyze",
+          "label": "节奏",
+          "artifactKey": "rhythmStructureAnalysis",
+          "status": "failed",
+          "attemptNo": 1,
+          "stageId": "stage_b239fdb8-748e-47e9-adc7-5d06b9760a69",
+          "childJobId": "job_7d154d94-2e10-420d-9812-6713c51ee286",
+          "childTraceId": "trace_8f434911-f684-419d-943e-935450313b69",
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": {
+            "code": "threadpool_acquire_failed",
+            "message": "ThreadPool 当前不可获取 lease，请稍后再试",
+            "stageName": "rhythmStructure",
+            "retryable": true,
+            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_b239fdb8-748e-47e9-adc7-5d06b9760a69_1274656ef3.json"
+          },
+          "startedAt": "2026-05-25T14:46:57.822Z",
+          "completedAt": "2026-05-25T14:49:23.333Z"
+        },
+        {
+          "key": "packagingStructure",
+          "stageName": "packaging.structure.analyze",
+          "label": "包装",
+          "artifactKey": "packagingStructureAnalysis",
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_42f26c1b-1ea2-4cd4-8b50-ba20962c7b73",
+          "childJobId": "job_55ce8404-9531-41c9-a58e-12699604f066",
+          "childTraceId": "trace_4505cfbc-18a2-4f16-b974-c62776694d95",
+          "artifactId": "artifact_70f94070-4ce0-4c25-9f34-8856bd768ce7",
+          "parentArtifactId": "artifact_0c617959-f827-404b-8ac5-31777cffa3cb",
+          "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_55ce8404-9531-41c9-a58e-12699604f066",
+            "childTraceId": "trace_4505cfbc-18a2-4f16-b974-c62776694d95",
+            "artifactId": "artifact_70f94070-4ce0-4c25-9f34-8856bd768ce7"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-25T14:46:57.823Z",
+          "completedAt": "2026-05-25T14:53:24.290Z"
+        },
+        {
+          "key": "aggregate",
+          "stageName": "workflow.aggregate",
+          "label": "汇总",
+          "artifactKey": null,
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_34a4d119-85f1-4857-a897-f9787cce2639",
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": "artifact_bf721421-2d65-4f1e-949b-c3142246c95e",
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": {
+            "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+            "shotCount": 16,
+            "scriptSegmentCount": 5,
+            "rhythmSectionCount": 0,
+            "packagingBlockCount": 5
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-25T14:53:24.292Z",
+          "completedAt": "2026-05-25T14:53:24.430Z"
+        }
+      ],
+      "createdAt": "2026-05-25T14:40:10.122Z",
+      "updatedAt": "2026-05-25T14:53:26.438Z",
+      "completedAt": "2026-05-25T14:53:26.438Z",
+      "errorSummary": {
+        "code": "threadpool_acquire_failed",
+        "message": "ThreadPool 当前不可获取 lease，请稍后再试",
+        "stageName": "rhythmStructure",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_b239fdb8-748e-47e9-adc7-5d06b9760a69_1274656ef3.json"
+      }
     }
   ]
 }

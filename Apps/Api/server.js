@@ -8,6 +8,7 @@ const { createJobStore } = require("./lib/job-store");
 const { createWorkflowRunStore } = require("./lib/workflow-run-store");
 const { createSampleProcessingService } = require("./lib/sample-processing-service");
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
+const { hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createArtifactCacheParamBuilders } = require("./lib/artifact-cache-param-builders");
 const { sendJson, notFound } = require("./lib/http-utils");
 const { createWorkbenchStaticHandler } = require("./lib/static-files");
@@ -109,6 +110,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) return await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) return await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
@@ -200,6 +202,13 @@ async function handleFullAnalysisRun(req, res, handlers = {}) {
     fields,
   });
   return sendJson(res, 202, result);
+}
+
+async function handleFullAnalysisCacheCheck(req, res, handlers = {}) {
+  const { file, fields } = await parseMultipartUpload(req, req.headers["content-type"]);
+  if (fields.cacheDecision === "refresh") return sendJson(res, 200, { cacheHit: false });
+  const cachedItem = await (handlers.artifactIndex ?? artifactIndex).findLatestByFileHash(hashBuffer(file.buffer));
+  return sendJson(res, 200, cachedItem ? { cacheHit: true, cachedItem } : { cacheHit: false });
 }
 
 async function handleWorkflowRun(res, workflowRunId, handlers = {}) {

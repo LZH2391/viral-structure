@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
-import type { ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
+import { checkFullAnalysisUploadCache, getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import type { LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { formatSecondsCompact, shortId } from "../utils/format";
@@ -10,6 +10,7 @@ import { stageLabel } from "../utils/workbenchHelpers";
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
 type ThreadMessageItem = { kind: "history" | "active" | "final"; text: string };
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
+type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
 
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
@@ -32,6 +33,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [frameSampleRate, setFrameSampleRate] = useState(10);
   const [refreshMode, setRefreshMode] = useState(false);
   const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
+  const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
   const pollTimerRef = useRef<number | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
@@ -175,7 +177,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     };
   }, [threadIds]);
 
-  const handleUpload = useCallback(async (file: File) => {
+  const startFullAnalysis = useCallback(async (file: File, cacheDecision: "ask" | "reuse" | "refresh") => {
     setIsStarting(true);
     setErrorText(null);
     setArtifact(null);
@@ -187,7 +189,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         enableAudioSeparation: true,
         enableSubtitleRecognition: true,
         enableAudioFeatureAnalysis: true,
-        cacheDecision: refreshMode ? "refresh" : "ask",
+        cacheDecision,
       });
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
@@ -198,7 +200,34 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     } finally {
       setIsStarting(false);
     }
-  }, [frameSampleRate, refreshMode, startPolling]);
+  }, [frameSampleRate, startPolling]);
+
+  const handleUpload = useCallback(async (file: File) => {
+    setIsStarting(true);
+    setErrorText(null);
+    setArtifact(null);
+    setRun(null);
+    setUploadCachePrompt(null);
+    setDismissedCachePromptJobIds([]);
+    setStatusText(refreshMode ? "创建完整分析任务" : "检查上传缓存");
+    try {
+      if (!refreshMode) {
+        const cache = await checkFullAnalysisUploadCache(file, { frameSampleRateFps: frameSampleRate });
+        if (cache.cacheHit) {
+          setUploadCachePrompt({ file, cachedItem: cache.cachedItem });
+          setStatusText("命中同视频缓存，等待选择");
+          return;
+        }
+      }
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "检查上传缓存失败");
+      setStatusText("缓存检查失败");
+      return;
+    } finally {
+      setIsStarting(false);
+    }
+    await startFullAnalysis(file, refreshMode ? "refresh" : "ask");
+  }, [frameSampleRate, refreshMode, startFullAnalysis]);
 
   const handleRerun = useCallback(async (stageKey: string) => {
     if (!run) return;
@@ -360,6 +389,25 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           onCancel={() => {
             setDismissedCachePromptJobIds((current) => activeCachePrompt.job.jobId && !current.includes(activeCachePrompt.job.jobId) ? [...current, activeCachePrompt.job.jobId] : current);
             setStatusText(`${activeCachePrompt.stage.label}等待缓存选择`);
+          }}
+        />
+      ) : null}
+      {uploadCachePrompt ? (
+        <CacheDecisionDialog
+          item={uploadCachePrompt.cachedItem}
+          onReuse={() => {
+            const prompt = uploadCachePrompt;
+            setUploadCachePrompt(null);
+            void startFullAnalysis(prompt.file, "reuse");
+          }}
+          onRefresh={() => {
+            const prompt = uploadCachePrompt;
+            setUploadCachePrompt(null);
+            void startFullAnalysis(prompt.file, "refresh");
+          }}
+          onCancel={() => {
+            setUploadCachePrompt(null);
+            setStatusText("等待上传");
           }}
         />
       ) : null}

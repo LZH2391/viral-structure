@@ -1,5 +1,6 @@
 .full-analysis-shell {
   min-height: 100vh;
+  overflow: auto;
 }
 
 .full-analysis-shell.embedded-view {
@@ -13,12 +14,14 @@
   gap: 8px;
   padding: 16px;
   min-height: calc(100vh - 64px);
+  height: max-content;
   background: var(--bg);
   align-items: stretch;
 }
 
 .embedded-view .full-analysis-main {
   min-height: 100%;
+  height: 100%;
 }
 
 .full-analysis-top-row,

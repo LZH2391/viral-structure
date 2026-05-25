@@ -10,7 +10,12 @@ from uvicorn.config import LOGGING_CONFIG
 class SuppressHealthAccessFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        return '"GET /health ' not in message and "'GET /health " not in message
+        return (
+            '"GET /health ' not in message
+            and "'GET /health " not in message
+            and '"GET /roles/' not in message
+            and "'GET /roles/" not in message
+        )
 
 
 def build_uvicorn_log_config() -> dict[str, Any]:
