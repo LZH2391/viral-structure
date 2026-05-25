@@ -87,7 +87,7 @@ async function writeCompletedAnalysis({
         fileHash: await resolveExistingFileHash(context.sampleVideoId),
         traceId: context.traceContext.traceId,
       });
-      await finalizeLease(threadPool, transform.run, { shouldDiscard: false });
+      await finalizeLease(threadPool, transform.run);
       return shotAnalysis;
     },
     outputSummary: (result) => ({

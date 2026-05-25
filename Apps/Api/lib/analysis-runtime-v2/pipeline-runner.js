@@ -187,7 +187,7 @@ function createAnalysisPipelineRunner({
       },
       outputSummary: (artifact) => descriptor.buildMaterializeOutputSummary(artifact),
     });
-    await runtime.thread.finalize(context, threadPool, { shouldDiscard: false });
+    await runtime.thread.finalize(context, threadPool);
     runtime.job.complete(context);
     return materializedArtifact;
   }

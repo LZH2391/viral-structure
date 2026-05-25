@@ -21,14 +21,7 @@ function summarizeRequestError(error) {
   };
 }
 
-async function finalizeLease(threadPool, agentRun, options = {}) {
-  if (options.shouldDiscard && agentRun?.threadId) {
-    await threadPool.discardThread({ threadId: agentRun.threadId, reason: options.reason || "shot-boundary-analysis-failed" });
-    if (typeof threadPool.releaseOwnerLeases === "function" && agentRun?.traceId) {
-      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
-    }
-    return { mode: "discard" };
-  }
+async function finalizeLease(threadPool, agentRun) {
   await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId });
   return { mode: "lease-release" };
 }

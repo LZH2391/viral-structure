@@ -15,14 +15,13 @@ function createThreadRuntime({ jobStore }) {
     return activeThreadMessage;
   }
 
-  async function finalize(context, threadPool, options = {}) {
+  async function finalize(context, threadPool) {
     if (!context.agentRun?.leaseId) return null;
-    const result = await finalizeLease(threadPool, {
+    return finalizeLease(threadPool, {
       leaseId: context.agentRun.leaseId,
       threadId: context.agentRun.threadId,
       traceId: context.traceContext.traceId,
-    }, { shouldDiscard: Boolean(options.shouldDiscard) });
-    return result;
+    });
   }
 
   async function cleanup(context, threadPool, lease, reason) {
