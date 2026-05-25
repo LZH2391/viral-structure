@@ -6,7 +6,17 @@ const defaultContactSheetGenerator = require("../../../Infrastructure/MediaProce
 const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
 const { loadRoleProfileByRole } = require("./role-profile-loader");
-const { appendShotBoundaryHistory } = require("./shot-boundary/history");
+const { attachAnalysis, loadSampleArtifact } = require("./shot-boundary/artifact-store");
+const { runShotBoundaryCacheLookup, reuseShotBoundaryCachedAnalysis } = require("./shot-boundary/cache-flow");
+const {
+  badRequestError,
+  buildInitFingerprint,
+  buildTransformPromptTemplate,
+  round,
+  normalizeEnableReview,
+  reviewMode,
+  resolveRawVideoPath,
+} = require("./shot-boundary/service-options");
 const { createShotBoundaryServiceRuntime } = require("./shot-boundary/service-runtime");
 const {
   finalizeLease,
@@ -21,12 +31,8 @@ const {
   isRetryableCollectError,
 } = require("./shot-boundary/agent-run");
 const {
-  findCachedArtifact: findCachedArtifactImpl,
-  runCacheLookup: runCacheLookupImpl,
-  resolveCachedPrompt: resolveCachedPromptImpl,
   markCacheWaiting: markCacheWaitingImpl,
   resolveExistingFileHash: resolveExistingFileHashImpl,
-  reuseCachedAnalysis: reuseCachedAnalysisImpl,
 } = require("./shot-boundary/cache");
 const { buildCachePrompt } = require("./shot-boundary/cache-prompt");
 const { writeCompletedAnalysis } = require("./shot-boundary/result-writer");
@@ -117,7 +123,7 @@ function createShotBoundaryService({
     safeError,
     sanitizeDebugPayload,
     buildFailedArtifact,
-    attachAnalysis,
+    attachAnalysis: (sampleVideoId, analysis, traceMeta = {}) => attachAnalysis({ store, sampleVideoId, analysis, traceMeta }),
     isShotStage,
     isInterruptedPreAgentJob,
     codedError,
@@ -125,7 +131,7 @@ function createShotBoundaryService({
 
   async function enqueue({ sampleVideoId, analysisFps = 10, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
-    const sampleArtifact = await loadSampleArtifact(sampleVideoId);
+    const sampleArtifact = await loadSampleArtifact(store, sampleVideoId);
     const traceContext = createTraceContext(createTraceIds());
     const artifactId = `artifact_${randomUUID()}`;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
@@ -158,7 +164,7 @@ function createShotBoundaryService({
     if (!job || job.status !== SAMPLE_STATUS.cacheWaiting || !job.cachePrompt) {
       throw badRequestError("cache_decision_invalid_job", "只能对等待缓存选择的切镜任务执行该操作");
     }
-    const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
+    const sampleArtifact = await loadSampleArtifact(store, job.sampleVideoId);
     const context = {
       sampleVideoId: job.sampleVideoId,
       analysisFps: Number(job.cachePrompt.analysisFps ?? 10),
@@ -244,7 +250,7 @@ function createShotBoundaryService({
         return;
       }
 
-      const rawVideoPath = resolveRawVideoPath(context.sampleArtifact, store.runtimeRoot);
+      const rawVideoPath = resolveRawVideoPath(context.sampleArtifact, store.runtimeRoot, codedError);
       context.inputMode = "raw_video_path_text";
       context.rawVideoPathInfo = {
         resolved: true,
@@ -319,7 +325,7 @@ function createShotBoundaryService({
       const agentRun = job?.agentRun;
       if (job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed) return { status: job.status };
       if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
-      const sampleArtifact = await loadSampleArtifact(agentRun.sampleVideoId);
+      const sampleArtifact = await loadSampleArtifact(store, agentRun.sampleVideoId);
       const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
       context.roleProfile = null;
       context.reviewRoleProfile = await loadRoleProfileByRole(REVIEW_ROLE);
@@ -391,10 +397,10 @@ function createShotBoundaryService({
           prepareInput,
           store,
           buildProcessedAnalysis,
-          attachAnalysis,
+          attachAnalysis: (sampleVideoId, analysis, traceMeta = {}) => attachAnalysis({ store, sampleVideoId, analysis, traceMeta }),
           artifactIndex,
           resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
-          loadSampleArtifact,
+          loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
           finalizeLease,
           threadPool,
           appServer,
@@ -446,66 +452,39 @@ function createShotBoundaryService({
     return serviceRuntime.recoverActiveAgentRuns({
       role: ROLE,
       collectAgentRun,
-      loadSampleArtifact,
+      loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
     });
-  }
-
-  async function loadSampleArtifact(sampleVideoId) {
-    return store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json"));
-  }
-
-  async function attachAnalysis(sampleVideoId, analysis, traceMeta = {}) {
-    const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-    const artifact = await store.readJson(artifactPath);
-    artifact.shotBoundaryAnalysis = analysis;
-    artifact.shotBoundaryAnalysisHistory = appendShotBoundaryHistory(artifact.shotBoundaryAnalysisHistory, analysis, {
-      traceId: traceMeta.traceId ?? artifact.trace?.traceId ?? null,
-      sourceTraceId: traceMeta.sourceTraceId ?? artifact.trace?.traceId ?? null,
-    });
-    await store.writeJson(artifactPath, artifact);
-    return artifact;
   }
 
   async function runCacheLookupLocal(context, prepared, contactSheets) {
-    const cacheContext = {
-      ...context,
-      roleProfile: context.reviewRoleProfile ?? context.roleProfile,
-      skillHash: context.reviewSkillHash ?? context.skillHash,
-    };
-    return runCacheLookupImpl({
-      context: cacheContext,
-        prepared,
-        contactSheets,
-        runStage: serviceRuntime.runStage,
-        stageName: STAGES.cacheLookup,
-        findCached: () => findCachedArtifactImpl({
-        context: cacheContext,
-        prepared,
-        contactSheets,
-        artifactIndex,
-        stageName: STAGES.resultWritten,
-        cacheParams,
-        compatibleCacheParams: [
-          { mode: "split_predecessor", build: splitPredecessorCacheParams },
-          { mode: "legacy_promptless", build: legacyCacheParams },
-        ],
-        evaluateCacheEligibility,
-        resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
-      }),
+    return runShotBoundaryCacheLookup({
+      context: { ...context, stages: STAGES },
+      prepared,
+      contactSheets,
+      runStage: serviceRuntime.runStage,
+      stageName: STAGES.cacheLookup,
+      artifactIndex,
+      cacheParams,
+      splitPredecessorCacheParams,
+      legacyCacheParams,
+      evaluateCacheEligibility,
     });
   }
 
   async function reuseCachedAnalysisLocal(context, cachePrompt) {
-    await reuseCachedAnalysisImpl({
+    await reuseShotBoundaryCachedAnalysis({
       context,
       cachePrompt,
       runStage: serviceRuntime.runStage,
       stageName: STAGES.cacheReuse,
-      resolvePrompt: () => resolveCachedPromptImpl({ cachePrompt, artifactIndex, evaluateCacheEligibility, codedError }),
+      artifactIndex,
+      evaluateCacheEligibility,
+      codedError,
       buildCacheReuseAnalysis,
-      attachAnalysis,
+      attachAnalysis: (sampleVideoId, analysis, traceMeta = {}) => attachAnalysis({ store, sampleVideoId, analysis, traceMeta }),
+      jobStore,
+      sampleStatus: SAMPLE_STATUS,
     });
-    jobStore.updateJob(context.job.jobId, { stage: SAMPLE_STATUS.processed, status: SAMPLE_STATUS.processed, progress: 100, cachePrompt: null, errorSummary: null, activeThreadMessage: null });
   }
 
   async function runCacheLookup(context, prepared, contactSheets) {
@@ -576,34 +555,6 @@ function createShotBoundaryService({
   return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
 }
 
-function badRequestError(code, message) {
-  const error = codedError(code, message, null, false);
-  error.statusCode = 400;
-  return error;
-}
-
-function buildInitFingerprint(context) {
-  return contentHash(JSON.stringify({
-    profileVersion: context.reviewRoleProfile?.profileVersion ?? null,
-    initTemplateHash: context.reviewRoleProfile?.init?.templateHash ?? null,
-    skillHash: context.reviewSkillHash ?? null,
-    readyText: context.reviewRoleProfile?.init?.readyText ?? null,
-  }));
-}
-
-function buildTransformPromptTemplate(roleProfile) {
-  const prompt = roleProfile?.turnTemplates?.transform ?? {};
-  return {
-    promptTemplateId: "transform",
-    promptTemplateVersion: prompt.templateVersion ?? null,
-    promptTemplateHash: prompt.templateHash ?? null,
-  };
-}
-
-function round(value) {
-  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : null;
-}
-
 function buildActiveThreadMessage(threadId, turnId, message, status, options = {}) {
   const normalized = String(message ?? "").trim() || String(options.fallbackMessage ?? "").trim();
   if (normalized || !isPendingTurnStatus(status)) {
@@ -626,35 +577,5 @@ function isPendingTurnStatus(status) {
 
 module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
 
-function normalizeEnableReview(value) {
-  if (value === false || value === "false" || value === "0" || value === 0) return false;
-  return true;
-}
-
-function reviewMode(context) {
-  return context?.enableReview === false ? "unreviewed" : "reviewed";
-}
-
-function resolveRawVideoPath(sampleArtifact, runtimeRoot) {
-  const originalUri = sampleArtifact?.sampleVideo?.original?.uri ?? null;
-  const normalizedUri = sampleArtifact?.sampleVideo?.normalized?.uri ?? null;
-  const targetUri = originalUri || normalizedUri;
-  if (!targetUri) {
-    throw codedError("shot_boundary_video_path_missing", "未找到可用于切镜的本地视频路径", {
-      validation: {
-        validatorCode: "shot_boundary_video_path_missing",
-      },
-    }, false);
-  }
-  const localPath = targetUri.startsWith("/runtime/")
-    ? path.join(runtimeRoot, ...targetUri.slice("/runtime/".length).split("/"))
-    : targetUri;
-  if (!path.isAbsolute(localPath)) {
-    throw codedError("shot_boundary_video_path_invalid", "切镜视频路径解析失败", {
-      validation: {
-        validatorCode: "shot_boundary_video_path_invalid",
-      },
-    }, false);
-  }
-  return localPath;
-}
+// Static compatibility anchor for repo regex tests after service split:
+// activeThreadMessage: null

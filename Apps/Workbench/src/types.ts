@@ -15,6 +15,11 @@ import type {
 export type StaticTraceTypeCompatibility = {
   saveToken?: number | null;
   queuedAt?: number | null;
+  dependencies?: {
+    shotBoundaryArtifactId?: string | null;
+    scriptSegmentArtifactId?: string | null;
+  } | null;
+  analysisOptions?: Record<string, string | number | boolean | null | undefined> | null;
   commerceBrief?: {
     sellingObject: string;
   } | null;
@@ -24,6 +29,8 @@ export type StaticTraceTypeCompatibility = {
   segmentCount?: number | null;
   cardCount?: number | null;
   sourceSegmentId: string;
+  sourceArtifactId?: string | null;
+  sourceTraceId?: string | null;
   summary?: string | null;
   endBoundaryReason?: string | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
