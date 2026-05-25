@@ -41,6 +41,65 @@ test("artifact index registers list, detail, load and cache entries", async () =
   assert.equal(cache.sampleVideoId, "sample_1");
 });
 
+test("artifact index registers packaging structure analysis node, tag and cache params", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-packaging-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
+  const artifact = createArtifact();
+  artifact.packagingStructureAnalysis = {
+    artifactId: "artifact_packaging_1",
+    parentArtifactId: "artifact_shot_processed",
+    type: "packaging-structure-analysis",
+    status: "processed",
+    sourceShotBoundaryArtifactId: "artifact_shot_processed",
+    cacheKey: "packaging-cache-key",
+    overview: { summary: "包装摘要", fields: [], uncertainties: [] },
+    shotPackagingNotes: [{ noteId: "note_1", shotRef: "shot_1", fields: [{ label: "字幕", value: "标题化" }], packagingFunction: "抓眼", confidence: 0.8, needReview: false, start: 0, end: 1 }],
+    packagingBlocks: [{ blockId: "block_1", label: "结果包装", shotRefs: ["shot_1"], fields: [{ label: "元素", value: "大字幕" }], packagingFunction: "放大承诺", confidence: 0.8, needReview: false, start: 0, end: 1 }],
+    claimStack: [],
+    proofStack: [],
+    conversionWrap: null,
+    validation: { status: "passed", shotPackagingNoteCount: 1, packagingBlockCount: 1, validatorCode: null, repairAttemptCount: 0 },
+    agent: { role: "packaging-structure-analyzer", profileVersion: "2026-05-25.1", promptTemplateId: "analyze", promptTemplateVersion: "analyze.v1", promptTemplateHash: "prompt-hash", skillHash: "skill-hash", threadId: "thread_1", leaseId: "lease_1", turnId: "turn_1" },
+    createdAt: new Date().toISOString(),
+  };
+  artifact.packagingStructureAnalysisRef = {
+    artifactId: "artifact_packaging_1",
+    artifactType: "packaging-structure-analysis",
+    uri: "/runtime/analysis-results/packaging_structure/artifact_packaging_1.json",
+    current: true,
+    createdAt: artifact.packagingStructureAnalysis.createdAt,
+    parentArtifactId: "artifact_shot_processed",
+  };
+
+  const fileHash = hashBuffer(Buffer.from("packaging-index-video"));
+  await index.registerSampleArtifact({ artifact, fileHash, traceId: "trace_packaging_index" });
+  const detail = await index.getItem("sample_1");
+  const node = detail.artifactTree.find((entry) => entry.stageName === "packaging_structure.materialize");
+  const cache = await index.findCacheEntry({
+    fileHash,
+    stageName: "packaging_structure.materialize",
+    params: {
+      inputSchemaVersion: "packaging_structure_input.v1",
+      inputFingerprint: "packaging-cache-key",
+      sourceShotArtifactId: "artifact_shot_processed",
+      profileVersion: "2026-05-25.1",
+      promptTemplateId: "analyze",
+      promptTemplateVersion: "analyze.v1",
+      promptTemplateHash: "prompt-hash",
+      skillHash: "skill-hash",
+    },
+    version: "test-v1",
+  });
+
+  assert.ok(node);
+  assert.equal(node.artifactType, "packaging-structure-analysis");
+  assert.equal(detail.tags.includes("包装结构"), true);
+  assert.equal(detail.sourceArtifactId, "artifact_packaging_1");
+  assert.equal(cache.sampleVideoId, "sample_1");
+});
+
 test("artifact index lists latest item per file and skips degraded cache entries", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-latest-"));
   const store = createLocalStore(tempRoot);

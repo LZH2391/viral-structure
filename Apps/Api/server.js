@@ -22,6 +22,7 @@ const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createScriptSegmentService } = require("./lib/script-segment-service");
 const { createRhythmStructureService } = require("./lib/rhythm-structure-service");
+const { createPackagingStructureService } = require("./lib/packaging-structure-service");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
@@ -39,6 +40,7 @@ const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, 
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const scriptSegmentService = createScriptSegmentService({ store, logger, jobStore, artifactIndex });
 const rhythmStructureService = createRhythmStructureService({ store, logger, jobStore, artifactIndex });
+const packagingStructureService = createPackagingStructureService({ store, logger, jobStore, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
@@ -54,6 +56,7 @@ function createServer(deps = {}) {
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     scriptSegmentService: deps.scriptSegmentService ?? scriptSegmentService,
     rhythmStructureService: deps.rhythmStructureService ?? rhythmStructureService,
+    packagingStructureService: deps.packagingStructureService ?? packagingStructureService,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: deps.rootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,
@@ -70,29 +73,30 @@ function createServer(deps = {}) {
     try {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
       const url = new URL(req.url, `http://${req.headers.host}`);
-      if (req.method === "GET" && url.pathname === "/api/capabilities") return handleCapabilities(res, handlers);
-      if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return handleUpload(req, res, url, handlers);
+      if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
+      if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
       if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1), handlers);
-      if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
-      if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return handleArtifact(res, url.pathname.split("/").at(-2), handlers);
-      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
-      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/script-segments$/.test(url.pathname)) return handleScriptSegments(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/rhythm-structure$/.test(url.pathname)) return handleRhythmStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "GET" && url.pathname === "/api/threadpool/health") return handleThreadPoolRead(res, "health", () => handlers.threadPool.health(), handlers);
-      if (req.method === "GET" && url.pathname === "/api/threadpool/config") return handleThreadPoolRead(res, "config", () => handlers.threadPool.config(), handlers);
-      if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return handleThreadPoolRead(res, "roles", () => handlers.threadPool.roles(), handlers);
-      if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return handleThreadPoolRead(res, "role-status", () => handlers.threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))), handlers);
-      if (req.method === "GET" && /^\/api\/threadpool\/threads\/[^/]+\/conversation$/.test(url.pathname)) return handleThreadConversation(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && url.pathname === "/api/threadpool/leases/release-owner") return handleOwnerLeaseRelease(req, res, handlers);
-      if (req.method === "GET" && url.pathname === "/api/library/items") return handleLibraryItems(res, handlers);
-      if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
-      if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "DELETE" && /^\/api\/library\/items\/[^/]+\/cache$/.test(url.pathname)) return handleLibraryDeleteCache(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return handleUiDebugEvent(req, res, handlers);
-      if (req.method === "GET" && url.pathname === "/api/debug/traces") return handleDebugTraces(res, handlers);
-      if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return await handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
+      if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return await handleArtifact(res, url.pathname.split("/").at(-2), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return await handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return await handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/script-segments$/.test(url.pathname)) return await handleScriptSegments(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/rhythm-structure$/.test(url.pathname)) return await handleRhythmStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/packaging-structure$/.test(url.pathname)) return await handlePackagingStructure(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "GET" && url.pathname === "/api/threadpool/health") return await handleThreadPoolRead(res, "health", () => handlers.threadPool.health(), handlers);
+      if (req.method === "GET" && url.pathname === "/api/threadpool/config") return await handleThreadPoolRead(res, "config", () => handlers.threadPool.config(), handlers);
+      if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return await handleThreadPoolRead(res, "roles", () => handlers.threadPool.roles(), handlers);
+      if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return await handleThreadPoolRead(res, "role-status", () => handlers.threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))), handlers);
+      if (req.method === "GET" && /^\/api\/threadpool\/threads\/[^/]+\/conversation$/.test(url.pathname)) return await handleThreadConversation(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return await handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && url.pathname === "/api/threadpool/leases/release-owner") return await handleOwnerLeaseRelease(req, res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/library/items") return await handleLibraryItems(res, handlers);
+      if (req.method === "GET" && /^\/api\/library\/items\/[^/]+$/.test(url.pathname)) return await handleLibraryItem(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "POST" && /^\/api\/library\/items\/[^/]+\/load$/.test(url.pathname)) return await handleLibraryLoad(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "DELETE" && /^\/api\/library\/items\/[^/]+\/cache$/.test(url.pathname)) return await handleLibraryDeleteCache(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && url.pathname === "/api/debug/ui-events") return await handleUiDebugEvent(req, res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/debug/traces") return await handleDebugTraces(res, handlers);
+      if (req.method === "GET" && /^\/api\/debug\/traces\/[^/]+$/.test(url.pathname)) return await handleDebugTraceDetail(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "GET" && url.pathname.startsWith("/runtime/")) return handlers.sendRuntimeFileImpl(req, res, handlers.store.runtimeRoot, url.pathname);
       if (req.method === "GET" && handlers.staticWorkbench.handle(req, res, url.pathname)) return undefined;
       return notFound(res);
@@ -195,6 +199,16 @@ async function handleRhythmStructure(req, res, sampleVideoId, handlers = {}) {
   return sendJson(res, 202, result);
 }
 
+async function handlePackagingStructure(req, res, sampleVideoId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const result = await (handlers.packagingStructureService ?? packagingStructureService).enqueue({
+    sampleVideoId,
+    cacheDecision: body.cacheDecision ?? "ask",
+    expectedShotBoundaryArtifactId: body.dependencies?.shotBoundaryArtifactId ?? body.expectedShotBoundaryArtifactId ?? null,
+  });
+  return sendJson(res, 202, result);
+}
+
 async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
   const activeJobStore = handlers.jobStore ?? jobStore;
@@ -205,7 +219,9 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
     ? await (handlers.scriptSegmentService ?? scriptSegmentService).resolveCacheDecision({ jobId, decision: body.decision })
     : cacheKind === "rhythm_structure"
       ? await (handlers.rhythmStructureService ?? rhythmStructureService).resolveCacheDecision({ jobId, decision: body.decision })
-      : await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
+      : cacheKind === "packaging_structure"
+        ? await (handlers.packagingStructureService ?? packagingStructureService).resolveCacheDecision({ jobId, decision: body.decision })
+        : await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
 }
 

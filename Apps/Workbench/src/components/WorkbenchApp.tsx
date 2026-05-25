@@ -123,6 +123,15 @@ export function WorkbenchApp() {
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
 
+  const packagingStructureFlow = useAnalysisJobFlow({
+    kind: "packagingStructure",
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
+  });
+
   const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
     videoRef,
     structureCards: state.structureCards,
@@ -142,9 +151,10 @@ export function WorkbenchApp() {
       const draft = readWorkbenchDraft();
       await scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
       await rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
+      await packagingStructureFlow.attachDraftJob(draft?.activePackagingStructureJob).catch(() => setSaveStatus("恢复包装结构任务失败"));
     };
     void restoreJobs();
-  }, [rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
+  }, [packagingStructureFlow, rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
 
   const handleUnderstand = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
@@ -203,6 +213,36 @@ export function WorkbenchApp() {
       throw error;
     }
   }, [rhythmStructureFlow, stageLogger, state]);
+
+  const handlePackagingStructure = useCallback(async () => {
+    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
+    const stage = stageLogger.beginStage(STAGES.packagingStructureAnalyze, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+      shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
+    });
+    try {
+      const result = await packagingStructureFlow.run("ask");
+      if (!result?.artifact?.packagingStructureAnalysis) throw new Error("包装结构分析未返回有效产物");
+      packagingStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "包装结构完成");
+      stageLogger.finishStage(stage, result.artifact.packagingStructureAnalysis.artifactId, {
+        packagingBlockCount: result.artifact.packagingStructureAnalysis.packagingBlocks.length,
+        shotPackagingNoteCount: result.artifact.packagingStructureAnalysis.shotPackagingNotes.length,
+        validatorCode: result.artifact.packagingStructureAnalysis.validation?.validatorCode ?? null,
+      });
+      return result.artifact;
+    } catch (error) {
+      packagingStructureFlow.setJob(null);
+      stageLogger.failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "包装结构分析失败",
+        errorStage: STAGES.packagingStructureAnalyze,
+        backendTraceId: packagingStructureFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "packaging-structure-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [packagingStructureFlow, stageLogger, state]);
 
   const handleSelectAudioFeature = useCallback((marker: AudioFeatureMarker) => {
     dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
@@ -315,6 +355,9 @@ export function WorkbenchApp() {
           rhythmStructureAnalysis={state.sampleArtifact?.rhythmStructureAnalysis ?? null}
           rhythmStructureAnalysisHistory={state.sampleArtifact?.rhythmStructureAnalysisHistory ?? null}
           rhythmStructureJob={rhythmStructureFlow.job}
+          packagingStructureAnalysis={state.sampleArtifact?.packagingStructureAnalysis ?? null}
+          packagingStructureAnalysisHistory={state.sampleArtifact?.packagingStructureAnalysisHistory ?? null}
+          packagingStructureJob={packagingStructureFlow.job}
           agentAnalysisFps={agentAnalysisFps}
           enableShotBoundaryReview={enableShotBoundaryReview}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
@@ -336,8 +379,12 @@ export function WorkbenchApp() {
           onRunRhythmStructure={() => {
             void handleRhythmStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败"));
           }}
+          onRunPackagingStructure={() => {
+            void handlePackagingStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "包装结构分析失败"));
+          }}
           onSelectScriptSegment={handleSelectTimelineTime}
           onSelectRhythmCard={handleSelectTimelineTime}
+          onSelectPackagingBlock={handleSelectTimelineTime}
           onSelectShot={handleSelectTimelineTime}
           onSubtitleDraftChange={subtitleDraftFlow.handleSubtitleDraftChange}
         />
@@ -392,6 +439,7 @@ export function WorkbenchApp() {
       {shotBoundaryFlow.shotCachePrompt ? <CacheDecisionDialog item={shotBoundaryFlow.shotCachePrompt.cachedItem} onReuse={shotBoundaryFlow.reuseCache} onRefresh={shotBoundaryFlow.refreshCache} onCancel={() => shotBoundaryFlow.setShotCachePrompt(null)} /> : null}
       {scriptSegmentFlow.cachePrompt ? <CacheDecisionDialog item={scriptSegmentFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state)} onCancel={() => scriptSegmentFlow.setCachePrompt(null)} /> : null}
       {rhythmStructureFlow.cachePrompt ? <CacheDecisionDialog item={rhythmStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state)} onCancel={() => rhythmStructureFlow.setCachePrompt(null)} /> : null}
+      {packagingStructureFlow.cachePrompt ? <CacheDecisionDialog item={packagingStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state)} onCancel={() => packagingStructureFlow.setCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>
@@ -402,7 +450,7 @@ export function WorkbenchApp() {
 type AnalysisJobFlow = ReturnType<typeof useAnalysisJobFlow>;
 
 async function reuseAnalysisCache(
-  kind: "scriptSegment" | "rhythmStructure",
+  kind: "scriptSegment" | "rhythmStructure" | "packagingStructure",
   flow: AnalysisJobFlow,
   setSaveStatus: (value: string) => void,
   state: WorkbenchState,
@@ -419,17 +467,17 @@ async function reuseAnalysisCache(
     flow.applyCompletedArtifact(
       artifact,
       job.traceId ?? state.processingJob?.traceId ?? null,
-      kind === "scriptSegment" ? "复用脚本段落缓存" : "复用节奏结构缓存",
+      analysisCopy(kind, "复用缓存"),
     );
     flow.setJob(null);
-    setSaveStatus(kind === "scriptSegment" ? "已复用脚本段落缓存" : "已复用节奏结构缓存");
+    setSaveStatus(analysisCopy(kind, "已复用缓存"));
   } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : kind === "scriptSegment" ? "复用脚本段落缓存失败" : "复用节奏结构缓存失败");
+    setSaveStatus(error instanceof Error ? error.message : analysisCopy(kind, "复用缓存失败"));
   }
 }
 
 async function refreshAnalysisCache(
-  kind: "scriptSegment" | "rhythmStructure",
+  kind: "scriptSegment" | "rhythmStructure" | "packagingStructure",
   flow: AnalysisJobFlow,
   setSaveStatus: (value: string) => void,
   state: WorkbenchState,
@@ -446,12 +494,22 @@ async function refreshAnalysisCache(
       flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构重新生成");
       setSaveStatus("节奏结构已重新生成");
     }
+    if (kind === "packagingStructure" && result?.artifact?.packagingStructureAnalysis) {
+      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "包装结构重新生成");
+      setSaveStatus("包装结构已重新生成");
+    }
   } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : kind === "scriptSegment" ? "脚本段落分析失败" : "节奏结构分析失败");
+    setSaveStatus(error instanceof Error ? error.message : analysisCopy(kind, "分析失败"));
   }
 }
 
 const STAGES = {
   scriptSegmentAnalyze: "script.segment.analyze",
   rhythmStructureAnalyze: "rhythm.structure.analyze",
+  packagingStructureAnalyze: "packaging.structure.analyze",
 } as const;
+
+function analysisCopy(kind: "scriptSegment" | "rhythmStructure" | "packagingStructure", suffix: string) {
+  const prefix = kind === "scriptSegment" ? "脚本段落" : kind === "rhythmStructure" ? "节奏结构" : "包装结构";
+  return `${prefix}${suffix}`;
+}

@@ -440,7 +440,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const property = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
   const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
-  const placeholderPanel = read(root, "Apps/Workbench/src/components/property-panel/StructurePlaceholderPanel.tsx");
+  const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
@@ -452,10 +452,11 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(propertyPanel, /script/);
   assert.match(propertyPanel, /节奏结构/);
   assert.match(propertyPanel, /包装结构/);
-  assert.match(propertyPanel, /packaging-structure-analyzer/);
-  assert.match(propertyPanel, /<StructurePlaceholderPanel/);
-  assert.match(placeholderPanel, /后端未接入/);
-  assert.match(placeholderPanel, /disabled/);
+  assert.match(propertyPanel, /<PackagingStructurePanel/);
+  assert.match(packagingPanel, /strong>packaging-structure</);
+  assert.match(packagingPanel, /整体包装/);
+  assert.match(packagingPanel, /shotPackagingNotes/);
+  assert.match(packagingPanel, /packagingBlocks/);
   assert.match(propertyPanel, /<ScriptSegmentPanel/);
   assert.match(propertyPanel, /<RhythmStructurePanel/);
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
@@ -491,12 +492,18 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(app, /scriptSegmentAnalysisHistory=\{state\.sampleArtifact\?\.scriptSegmentAnalysisHistory \?\? null\}/);
   assert.match(app, /scriptSegmentJob=\{scriptSegmentFlow\.job\}/);
   assert.match(app, /rhythmStructureJob=\{rhythmStructureFlow\.job\}/);
+  assert.match(app, /packagingStructureAnalysis=\{state\.sampleArtifact\?\.packagingStructureAnalysis \?\? null\}/);
+  assert.match(app, /packagingStructureAnalysisHistory=\{state\.sampleArtifact\?\.packagingStructureAnalysisHistory \?\? null\}/);
+  assert.match(app, /packagingStructureJob=\{packagingStructureFlow\.job\}/);
   assert.match(app, /scriptSegmentFlow\.cachePrompt/);
   assert.match(app, /rhythmStructureFlow\.cachePrompt/);
+  assert.match(app, /packagingStructureFlow\.cachePrompt/);
   assert.match(app, /onRunScriptSegment=\{/);
   assert.match(app, /onRunRhythmStructure=\{/);
+  assert.match(app, /onRunPackagingStructure=\{/);
   assert.match(app, /onSelectScriptSegment=\{/);
   assert.match(app, /onSelectRhythmCard=\{/);
+  assert.match(app, /onSelectPackagingBlock=\{/);
   assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
   assert.match(property, /resolveShotSummary\(currentShot\)/);
@@ -512,14 +519,12 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.property-tabs/);
   assert.match(css, /flex: 0 0 clamp\(84px, 31%, 128px\)/);
   assert.match(css, /\.property-tab\.active,\s*[\s\S]*\.property-tab\[aria-selected="true"\]/);
-  assert.match(css, /\.structure-placeholder-panel/);
-  assert.match(css, /\.structure-placeholder-block/);
   assert.match(css, /\.agent-shot-summary/);
   assert.match(css, /\.agent-history-list[\s\S]*max-height: 160px;[\s\S]*overflow: auto;/);
   assert.match(css, /\.agent-script-item/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
   assert.match(types, /scriptSegmentAnalysisHistory\?: ScriptSegmentHistoryEntry\[] \| null;/);
-  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| string;/);
+  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| "packaging_structure" \| string;/);
   assert.match(types, /segmentCount\?: number \| null;/);
   assert.match(types, /sectionCount\?: number \| null;/);
   assert.match(types, /cardCount\?: number \| null;/);
@@ -528,6 +533,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /endBoundaryReason\?: string \| null;/);
   assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
   assert.match(types, /rhythmStructureAnalysis\?: RhythmStructureArtifact \| null;/);
+  assert.match(types, /packagingStructureAnalysis\?: PackagingStructureArtifact \| null;/);
 });
 
 test("agent cards show the latest active running thread message across agent turns", () => {
@@ -536,6 +542,7 @@ test("agent cards show the latest active running thread message across agent tur
   const shotPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
   const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
+  const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
 
   assert.match(types, /activeThreadMessage\?: \{/);
@@ -543,21 +550,26 @@ test("agent cards show the latest active running thread message across agent tur
   assert.match(shotPanel, /resolveActiveThreadMessage\(job\)/);
   assert.match(scriptPanel, /resolveActiveThreadMessage\(job\)/);
   assert.match(rhythmPanel, /resolveActiveThreadMessage\(job\)/);
+  assert.match(packagingPanel, /resolveActiveThreadMessage\(job\)/);
   assert.match(shotPanel, /job\.status !== "processing"/);
   assert.match(scriptPanel, /job\.status !== "processing"/);
   assert.match(rhythmPanel, /job\.status !== "processing"/);
+  assert.match(packagingPanel, /job\.status !== "processing"/);
   assert.doesNotMatch(scriptPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(rhythmPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
+  assert.doesNotMatch(packagingPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(shotPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.doesNotMatch(scriptPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.doesNotMatch(rhythmPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
+  assert.doesNotMatch(packagingPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.match(shotPanel, /className="agent-thread-message"/);
   assert.match(scriptPanel, /className="agent-thread-message"/);
   assert.match(rhythmPanel, /className="agent-thread-message"/);
+  assert.match(packagingPanel, /className="agent-thread-message"/);
   assert.match(css, /\.agent-thread-message/);
 });
 
-test("rhythm structure skill is registered while packaging remains placeholder", () => {
+test("rhythm and packaging structure skills are registered as independent analyzers", () => {
   const root = path.resolve(__dirname, "../..");
   const rhythmSkill = read(root, ".agents/skills/rhythm-structure-analyzer/SKILL.md");
   const packagingSkill = read(root, ".agents/skills/packaging-structure-analyzer/SKILL.md");
@@ -569,15 +581,22 @@ test("rhythm structure skill is registered while packaging remains placeholder",
   assert.match(rhythmSkill, /name: rhythm-structure-analyzer/);
   assert.match(rhythmSkill, /不重切 shot/);
   assert.match(packagingSkill, /name: packaging-structure-analyzer/);
-  assert.match(packagingSkill, /占位版本/);
+  assert.doesNotMatch(packagingSkill, /占位版本/);
+  assert.match(packagingSkill, /不依赖 `scriptSegmentAnalysis` 或 `rhythmStructureAnalysis`/);
+  assert.match(packagingSkill, /subtitleText/);
+  assert.match(packagingSkill, /subtitleContextText/);
+  assert.match(packagingSkill, /visualRefs/);
   assert.match(rhythmRole, /"turnTemplates": \{/);
   assert.match(rhythmRole, /"analyze"/);
   assert.match(rhythmRole, /"repair"/);
-  assert.match(packagingRole, /"status": "placeholder"/);
+  assert.doesNotMatch(packagingRole, /"status": "placeholder"/);
+  assert.match(packagingRole, /"turnTemplates": \{/);
+  assert.match(packagingRole, /"analyze"/);
+  assert.match(packagingRole, /"repair"/);
   assert.match(roles, /rhythm-structure-analyzer/);
-  assert.doesNotMatch(roles, /packaging-structure-analyzer/);
+  assert.match(roles, /packaging-structure-analyzer/);
   assert.match(server, /rhythm-structure/);
-  assert.doesNotMatch(server, /packaging-structure/);
+  assert.match(server, /packaging-structure/);
 });
 
 test("findCurrentShot uses half-open ranges and keeps final boundary inclusive", async () => {

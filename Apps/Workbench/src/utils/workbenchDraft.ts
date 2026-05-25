@@ -61,9 +61,10 @@ export function writeActiveAnalysisJob(stageKind: AnalysisStageKind, job: Active
   });
 }
 
-function analysisDraftKey(stageKind: AnalysisStageKind): "activeShotBoundaryJob" | "activeScriptSegmentJob" | "activeRhythmStructureJob" {
+function analysisDraftKey(stageKind: AnalysisStageKind): "activeShotBoundaryJob" | "activeScriptSegmentJob" | "activeRhythmStructureJob" | "activePackagingStructureJob" {
   if (stageKind === "scriptSegment") return "activeScriptSegmentJob";
   if (stageKind === "rhythmStructure") return "activeRhythmStructureJob";
+  if (stageKind === "packagingStructure") return "activePackagingStructureJob";
   return "activeShotBoundaryJob";
 }
 

@@ -139,7 +139,7 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cache
   const now = new Date().toISOString();
   const tags = buildTags(artifact);
   const artifactTree = buildArtifactTree(artifact, cacheParamBuilders);
-  const latestAnalysis = artifact.rhythmStructureAnalysis ?? artifact.scriptSegmentAnalysis ?? artifact.shotBoundaryAnalysis ?? null;
+  const latestAnalysis = artifact.packagingStructureAnalysis ?? artifact.rhythmStructureAnalysis ?? artifact.scriptSegmentAnalysis ?? artifact.shotBoundaryAnalysis ?? null;
   return {
     sampleVideoId: artifact.sampleVideoId,
     workspaceId: artifact.workspaceId,
@@ -151,7 +151,7 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cache
     traceId: traceId ?? artifact.trace?.traceId ?? null,
     sourceTraceId: latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? null,
     sourceTurnId: latestAnalysis?.sourceTurnId ?? latestAnalysis?.agent?.turnId ?? null,
-    sourceArtifactId: latestAnalysis?.sourceScriptSegmentArtifactId ?? latestAnalysis?.sourceRhythmStructureArtifactId ?? latestAnalysis?.artifactId ?? null,
+    sourceArtifactId: latestAnalysis?.sourceScriptSegmentArtifactId ?? latestAnalysis?.sourceRhythmStructureArtifactId ?? latestAnalysis?.sourcePackagingStructureArtifactId ?? latestAnalysis?.artifactId ?? null,
     updatedAt: now,
     tags,
     cacheAvailable: true,
@@ -230,6 +230,9 @@ function buildArtifactTree(artifact, cacheParamBuilders = {}) {
   if (artifact.rhythmStructureAnalysis) {
     pushAnalysisNode(nodes, artifact.rhythmStructureAnalysisRef, artifact.rhythmStructureAnalysis, "rhythm_structure.materialize", artifact, cacheParamBuilders, `${artifact.rhythmStructureAnalysis.cards?.length ?? 0} 卡 / ${artifact.rhythmStructureAnalysis.validation?.status ?? "unknown"}`);
   }
+  if (artifact.packagingStructureAnalysis) {
+    pushAnalysisNode(nodes, artifact.packagingStructureAnalysisRef, artifact.packagingStructureAnalysis, "packaging_structure.materialize", artifact, cacheParamBuilders, `${artifact.packagingStructureAnalysis.packagingBlocks?.length ?? 0} 包装块 / ${artifact.packagingStructureAnalysis.validation?.status ?? "unknown"}`);
+  }
   return nodes;
 }
 
@@ -299,6 +302,7 @@ function buildTags(artifact) {
     artifact.shotBoundaryAnalysis ? "切镜" : null,
     artifact.scriptSegmentAnalysis ? "结构理解" : null,
     artifact.rhythmStructureAnalysis ? "节奏结构" : null,
+    artifact.packagingStructureAnalysis ? "包装结构" : null,
   ].filter(Boolean);
 }
 
@@ -353,6 +357,7 @@ function artifactLabel(type) {
     "shot-boundary-analysis": "镜头切分",
     "script-segment-analysis": "脚本段落",
     "rhythm-structure-analysis": "节奏结构",
+    "packaging-structure-analysis": "包装结构",
   };
   return labels[type] ?? type ?? "产物";
 }

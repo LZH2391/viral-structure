@@ -6,6 +6,8 @@ export type * from "./types/job";
 export type * from "./types/workbench";
 
 import type {
+  PackagingStructureArtifact,
+  PackagingStructureHistoryEntry,
   RhythmStructureArtifact,
   ScriptSegmentArtifact,
   ScriptSegmentHistoryEntry,
@@ -25,10 +27,13 @@ export type StaticTraceTypeCompatibility = {
   } | null;
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
-  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
+  packagingStructureAnalysisHistory?: PackagingStructureHistoryEntry[] | null;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | string;
   segmentCount?: number | null;
   sectionCount?: number | null;
   cardCount?: number | null;
+  packagingBlockCount?: number | null;
+  shotPackagingNoteCount?: number | null;
   sourceSegmentId: string;
   sourceArtifactId?: string | null;
   sourceTraceId?: string | null;
@@ -36,6 +41,7 @@ export type StaticTraceTypeCompatibility = {
   endBoundaryReason?: string | null;
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
   rhythmStructureAnalysis?: RhythmStructureArtifact | null;
+  packagingStructureAnalysis?: PackagingStructureArtifact | null;
   activeThreadMessage?: {
     threadId?: string | null;
     turnId?: string | null;

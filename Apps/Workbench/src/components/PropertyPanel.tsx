@@ -3,6 +3,8 @@ import type {
   AgentRunJob,
   AudioFeatureAnalysisArtifact,
   MediaDerivative,
+  PackagingStructureArtifact,
+  PackagingStructureHistoryEntry,
   RhythmStructureArtifact,
   RhythmStructureHistoryEntry,
   SampleVideo,
@@ -16,9 +18,9 @@ import type {
 } from "../types";
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
 import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
+import { PackagingStructurePanel } from "./property-panel/PackagingStructurePanel";
 import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
-import { StructurePlaceholderPanel } from "./property-panel/StructurePlaceholderPanel";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -48,6 +50,9 @@ export type PropertyPanelProps = {
   rhythmStructureAnalysis?: RhythmStructureArtifact | null;
   rhythmStructureAnalysisHistory?: RhythmStructureHistoryEntry[] | null;
   rhythmStructureJob?: AgentRunJob | null;
+  packagingStructureAnalysis?: PackagingStructureArtifact | null;
+  packagingStructureAnalysisHistory?: PackagingStructureHistoryEntry[] | null;
+  packagingStructureJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   enableShotBoundaryReview: boolean;
   onAgentAnalysisFpsChange: (value: number) => void;
@@ -55,9 +60,11 @@ export type PropertyPanelProps = {
   onRunShotBoundary: () => void;
   onRunScriptSegment: () => void;
   onRunRhythmStructure: () => void;
+  onRunPackagingStructure: () => void;
   onSelectShot: (time: number) => void;
   onSelectScriptSegment: (time: number) => void;
   onSelectRhythmCard: (time: number) => void;
+  onSelectPackagingBlock: (time: number) => void;
   onSubtitleDraftChange: (draft: { segmentId: string; text: string; start: number; end: number; sourceArtifactId: string | null }) => void;
 };
 
@@ -168,12 +175,12 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onSelectCard={props.onSelectRhythmCard}
           />
         ) : activeTab === "packaging" ? (
-          <StructurePlaceholderPanel
-            title="包装结构分析"
-            capabilityId="packaging-structure-analyzer"
-            description="预留用于分析卖点包装、信任包装、价格包装和行动包装如何被镜头与话术组合出来。"
-            inputs={["shots[]", "commerceBrief", "scriptSegmentAnalysis", "rhythmStructureAnalysis"]}
-            outputs={["packagingBlocks", "claimStack", "proofStack", "conversionWrap"]}
+          <PackagingStructurePanel
+            analysis={props.packagingStructureAnalysis}
+            analysisHistory={props.packagingStructureAnalysisHistory}
+            job={props.packagingStructureJob}
+            onRun={props.onRunPackagingStructure}
+            onSelectPackagingBlock={props.onSelectPackagingBlock}
           />
         ) : (
           <MetaInfoPanel

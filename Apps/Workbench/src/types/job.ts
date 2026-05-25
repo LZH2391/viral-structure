@@ -29,7 +29,7 @@ export type ProcessingJob = {
   } | null;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {
-    cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
+    cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | string;
     cachedItem: LibraryItemSummary;
     sourceSampleVideoId?: string | null;
     sourceArtifactId?: string | null;

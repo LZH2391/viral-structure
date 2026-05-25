@@ -1,4 +1,4 @@
-import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, RhythmStructureArtifact, RhythmStructureHistoryEntry, SampleVideo, ScriptSegmentArtifact, ScriptSegmentHistoryEntry, ShotBoundaryAnalysisArtifact, ShotBoundaryAnalysisHistoryEntry } from "../../types";
+import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, PackagingStructureArtifact, PackagingStructureHistoryEntry, RhythmStructureArtifact, RhythmStructureHistoryEntry, SampleVideo, ScriptSegmentArtifact, ScriptSegmentHistoryEntry, ShotBoundaryAnalysisArtifact, ShotBoundaryAnalysisHistoryEntry } from "../../types";
 
 const MIN_ANALYSIS_FPS = 1;
 const MAX_ANALYSIS_FPS = 10;
@@ -143,6 +143,13 @@ export function renderRhythmResultOrigin(origin?: RhythmStructureArtifact["resul
   return "new turn";
 }
 
+export function renderPackagingResultOrigin(origin?: PackagingStructureArtifact["resultOrigin"]) {
+  if (origin === "repaired_turn") return "repaired turn";
+  if (origin === "cache_reuse") return "cache reuse";
+  if (origin === "failed_validation") return "failed validation";
+  return "new turn";
+}
+
 export function shortTurnId(turnId: string) {
   return turnId.length > 10 ? turnId.slice(-10) : turnId;
 }
@@ -174,6 +181,13 @@ export function formatScriptHistoryMeta(entry: ScriptSegmentHistoryEntry) {
 }
 
 export function formatRhythmHistoryMeta(entry: RhythmStructureHistoryEntry) {
+  const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
+  const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
+  const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";
+  return `${time} / turn ${turn}${validator}`;
+}
+
+export function formatPackagingHistoryMeta(entry: PackagingStructureHistoryEntry) {
   const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
   const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
   const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";

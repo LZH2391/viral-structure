@@ -1,6 +1,7 @@
 const { buildShotBoundaryCacheParams } = require("./shot-boundary-analysis");
 const { buildScriptSegmentCacheParams } = require("./script-segment-analysis/cache-params");
 const { buildRhythmStructureCacheParams } = require("./rhythm-structure-analysis/cache-params");
+const { buildPackagingStructureCacheParams } = require("./packaging-structure-analysis/cache-params");
 
 function createArtifactCacheParamBuilders() {
   return {
@@ -8,6 +9,7 @@ function createArtifactCacheParamBuilders() {
     "agent.shotBoundary.resultWritten": buildShotBoundaryStageParams,
     "script_segment.materialize": buildScriptSegmentStageParams,
     "rhythm_structure.materialize": buildRhythmStructureStageParams,
+    "packaging_structure.materialize": buildPackagingStructureStageParams,
   };
 }
 
@@ -53,6 +55,18 @@ function buildRhythmStructureStageParams(artifact) {
     promptTemplateVersion: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateVersion ?? null,
     promptTemplateHash: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateHash ?? null,
     skillHash: artifact?.rhythmStructureAnalysis?.agent?.skillHash ?? null,
+  });
+}
+
+function buildPackagingStructureStageParams(artifact) {
+  return buildPackagingStructureCacheParams({
+    inputFingerprint: artifact?.packagingStructureAnalysis?.cacheKey ?? null,
+    sourceShotArtifactId: artifact?.packagingStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
+    profileVersion: artifact?.packagingStructureAnalysis?.agent?.profileVersion ?? null,
+    promptTemplateId: artifact?.packagingStructureAnalysis?.agent?.promptTemplateId ?? null,
+    promptTemplateVersion: artifact?.packagingStructureAnalysis?.agent?.promptTemplateVersion ?? null,
+    promptTemplateHash: artifact?.packagingStructureAnalysis?.agent?.promptTemplateHash ?? null,
+    skillHash: artifact?.packagingStructureAnalysis?.agent?.skillHash ?? null,
   });
 }
 

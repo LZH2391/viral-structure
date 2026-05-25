@@ -11,6 +11,10 @@
       "profile_path": "Assets/RoleProfiles/rhythm-structure-analyzer/role.json",
       "min_idle": 3
     },
+    "packaging-structure-analyzer": {
+      "profile_path": "Assets/RoleProfiles/packaging-structure-analyzer/role.json",
+      "min_idle": 3
+    },
     "shot-boundary-transformer": {
       "profile_path": "Assets/RoleProfiles/shot-boundary-transformer/role.json",
       "min_idle": 3

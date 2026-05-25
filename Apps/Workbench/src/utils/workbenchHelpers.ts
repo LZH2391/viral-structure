@@ -1,9 +1,9 @@
-import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startRhythmStructureAnalysis, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
+import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startPackagingStructureAnalysis, startRhythmStructureAnalysis, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 import { pollProcessingJob } from "../hooks/jobPolling";
 
-export type AnalysisStageKind = "shotBoundary" | "scriptSegment" | "rhythmStructure";
+export type AnalysisStageKind = "shotBoundary" | "scriptSegment" | "rhythmStructure" | "packagingStructure";
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -18,6 +18,7 @@ export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
 export type ShotBoundaryCacheHandler = (payload: { job: ProcessingJob; cachedItem: import("../types").LibraryItemSummary }) => Promise<void> | void;
 export type ScriptSegmentCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
 export type RhythmStructureCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
+export type PackagingStructureCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -172,6 +173,61 @@ export async function runRhythmStructureAnalysis(
   onJobUpdate?.(null);
   writeActiveJob?.(null);
   throw new Error("节奏结构分析超时");
+}
+
+export async function runPackagingStructureAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
+  onCacheHit?: PackagingStructureCacheHandler,
+  cacheDecision: "ask" | "reuse" | "refresh" = "ask",
+) {
+  if (!state.sampleVideo) return null;
+  const started = await startPackagingStructureAnalysis(state.sampleVideo.id, {
+    cacheDecision,
+    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+  });
+  if ("cacheHit" in started && started.cacheHit) {
+    await onCacheHit?.({
+      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "packaging_structure.cache_lookup", status: "cache_waiting", progress: 28 },
+      cachedItem: started.cachedItem,
+    });
+    return null;
+  }
+  let latest: ProcessingJob = {
+    jobId: started.processingJobId,
+    sampleVideoId: started.sampleVideoId,
+    traceId: started.traceId,
+    stage: "packaging_structure.input_prepare",
+    status: "pending",
+    progress: 0,
+  };
+  onJobUpdate?.(latest);
+  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "packagingStructure" });
+  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId), { onUpdate: onJobUpdate }) ?? latest;
+  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
+    writeActiveJob?.(null);
+    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
+    return null;
+  }
+  if (latest.status === "processed") {
+    const artifact = await getSampleArtifact(started.sampleVideoId);
+    dispatch({ type: "apply-artifact", artifact });
+    onJobUpdate?.(null);
+    writeActiveJob?.(null);
+    return { artifact, job: latest };
+  }
+  if (latest.status === "failed") {
+    onJobUpdate?.(latest);
+    const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
+    if (artifact) dispatch({ type: "apply-artifact", artifact });
+    writeActiveJob?.(null);
+    throw new Error(latest.errorSummary?.message ?? "包装结构分析失败");
+  }
+  onJobUpdate?.(null);
+  writeActiveJob?.(null);
+  throw new Error("包装结构分析超时");
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
@@ -370,6 +426,14 @@ export function stageLabel(job: ProcessingJob): string {
     "rhythm_structure.repair": "修复节奏结构结果",
     "rhythm_structure.cache_reuse": "复用节奏结构缓存",
     "rhythm_structure.materialize": "写入节奏结构产物",
+    "packaging_structure.cache_lookup": "检查包装结构缓存",
+    "packaging_structure.input_prepare": "准备包装结构输入",
+    "packaging_structure.input_package": "生成包装结构输入包",
+    "packaging_structure.analyze": "分析包装结构",
+    "packaging_structure.validate": "校验包装结构结果",
+    "packaging_structure.repair": "修复包装结构结果",
+    "packaging_structure.cache_reuse": "复用包装结构缓存",
+    "packaging_structure.materialize": "写入包装结构产物",
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";
