@@ -35,8 +35,10 @@ const jobStore = createJobStore({ filePath: path.join(store.runtimeRoot, "Jobs",
 const workflowRunStore = createWorkflowRunStore({ filePath: path.join(store.runtimeRoot, "WorkflowRuns", "workflow-runs.json") });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
-const threadPool = createThreadPoolProxy();
 const appServer = createAppServerBridge();
+const threadPool = createThreadPoolProxy({
+  readThreadImpl: async (threadId) => appServer.readThread({ workspaceRoot: rootDir, threadId }),
+});
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const analysisRegistry = createAnalysisRoleRegistry({ store, logger, jobStore, artifactIndex });
