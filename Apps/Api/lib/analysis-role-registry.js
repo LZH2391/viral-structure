@@ -1,47 +1,18 @@
-const { createScriptSegmentService } = require("./script-segment-service");
-const { createRhythmStructureService } = require("./rhythm-structure-service");
-const { createPackagingStructureService } = require("./packaging-structure-service");
+const { buildShotBoundaryDependentStartOptions } = require("./analysis-role-definition");
+const { createScriptSegmentAnalysisDefinition } = require("./script-segment/analysis-definition");
+const { createRhythmStructureAnalysisDefinition } = require("./rhythm-structure/analysis-definition");
+const { createPackagingStructureAnalysisDefinition } = require("./packaging-structure/analysis-definition");
 
 const ANALYSIS_ROLE_DEFINITIONS = [
-  {
-    analysisId: "script-segments",
-    serviceKey: "scriptSegmentService",
-    legacyPathSegment: "script-segments",
-    cacheKind: "script_segment",
-    createService: createScriptSegmentService,
-    route: "/api/sample-videos/:sampleVideoId/analyses/script-segments",
-    legacyRoute: "/api/sample-videos/:sampleVideoId/script-segments",
-    ui: { label: "script-segments", artifactKey: "scriptSegmentAnalysis" },
-    startOptionsFromBody: buildShotBoundaryDependentStartOptions,
-  },
-  {
-    analysisId: "rhythm-structure",
-    serviceKey: "rhythmStructureService",
-    legacyPathSegment: "rhythm-structure",
-    cacheKind: "rhythm_structure",
-    createService: createRhythmStructureService,
-    route: "/api/sample-videos/:sampleVideoId/analyses/rhythm-structure",
-    legacyRoute: "/api/sample-videos/:sampleVideoId/rhythm-structure",
-    ui: { label: "rhythm-structure", artifactKey: "rhythmStructureAnalysis" },
-    startOptionsFromBody: buildShotBoundaryDependentStartOptions,
-  },
-  {
-    analysisId: "packaging-structure",
-    serviceKey: "packagingStructureService",
-    legacyPathSegment: "packaging-structure",
-    cacheKind: "packaging_structure",
-    createService: createPackagingStructureService,
-    route: "/api/sample-videos/:sampleVideoId/analyses/packaging-structure",
-    legacyRoute: "/api/sample-videos/:sampleVideoId/packaging-structure",
-    ui: { label: "packaging-structure", artifactKey: "packagingStructureAnalysis" },
-    startOptionsFromBody: buildShotBoundaryDependentStartOptions,
-  },
+  createScriptSegmentAnalysisDefinition(),
+  createRhythmStructureAnalysisDefinition(),
+  createPackagingStructureAnalysisDefinition(),
 ];
 
 function createAnalysisRoleRegistry(options = {}) {
   const serviceOverrides = options.serviceOverrides ?? {};
   const entries = ANALYSIS_ROLE_DEFINITIONS.map((definition) => {
-    const service = serviceOverrides[definition.serviceKey] ?? definition.createService(options);
+    const service = serviceOverrides[definition.serviceKey] ?? createServiceForDefinition(definition, options);
     return { ...definition, service };
   });
   const byAnalysisId = indexBy(entries, "analysisId");
@@ -71,13 +42,14 @@ function createAnalysisRoleRegistry(options = {}) {
   };
 }
 
-function buildShotBoundaryDependentStartOptions({ sampleVideoId, body = {} }) {
-  const dependencies = body?.dependencies && typeof body.dependencies === "object" ? body.dependencies : {};
-  return {
-    sampleVideoId,
-    cacheDecision: body?.cacheDecision ?? "ask",
-    expectedShotBoundaryArtifactId: dependencies.shotBoundaryArtifactId ?? body?.expectedShotBoundaryArtifactId ?? null,
-  };
+function createServiceForDefinition(definition, options) {
+  if (definition.executorKind === "role-service" && typeof definition.createService === "function") {
+    return definition.createService(options);
+  }
+  if (definition.executorKind === "custom-service" && typeof definition.createService === "function") {
+    return definition.createService(options);
+  }
+  throw new Error(`Unsupported analysis executor: ${definition.executorKind ?? "unknown"}`);
 }
 
 function indexBy(entries, key) {
@@ -87,12 +59,15 @@ function indexBy(entries, key) {
 function toPublicEntry(entry) {
   return {
     analysisId: entry.analysisId,
-    serviceKey: entry.serviceKey,
-    legacyPathSegment: entry.legacyPathSegment,
+    stageKind: entry.stageKind,
     cacheKind: entry.cacheKind,
+    artifactKey: entry.artifact?.key ?? null,
+    artifactType: entry.artifact?.type ?? null,
     route: entry.route,
     legacyRoute: entry.legacyRoute,
+    dependencies: entry.dependencies,
     ui: entry.ui,
+    stages: entry.stages,
   };
 }
 

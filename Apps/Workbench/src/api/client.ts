@@ -1,4 +1,4 @@
-import type { BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
+import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -12,17 +12,13 @@ export type ShotBoundaryStartResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
-export type ScriptSegmentStartResponse =
+export type AnalysisStartResponse =
   | { cacheHit: true; cachedItem: LibraryItemSummary }
   | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
 
-export type RhythmStructureStartResponse =
-  | { cacheHit: true; cachedItem: LibraryItemSummary }
-  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
-
-export type PackagingStructureStartResponse =
-  | { cacheHit: true; cachedItem: LibraryItemSummary }
-  | { processingJobId: string; sampleVideoId: string; traceId: string; cacheHit?: false };
+export type ScriptSegmentStartResponse = AnalysisStartResponse;
+export type RhythmStructureStartResponse = AnalysisStartResponse;
+export type PackagingStructureStartResponse = AnalysisStartResponse;
 
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
@@ -41,6 +37,10 @@ export async function uploadSampleVideo(file: File, options: { frameSampleRateFp
 
 export async function getCapabilities() {
   return readJsonResponse<BackendCapabilities>(await fetch(`${API_BASE_URL}/api/capabilities`));
+}
+
+export async function getAnalysisRoles() {
+  return readJsonResponse<{ roles: AnalysisRoleSummary[] }>(await fetch(`${API_BASE_URL}/api/analysis-roles`));
 }
 
 export async function getProcessingJob(jobId: string) {
@@ -79,10 +79,10 @@ export async function saveSubtitleRevision(
   );
 }
 
-export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
+export async function startAnalysisRole(analysisId: string, sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
   const dependencies = { shotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null };
-  return readJsonResponse<ScriptSegmentStartResponse>(
-    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/script-segments`, {
+  return readJsonResponse<AnalysisStartResponse>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/analyses/${encodeURIComponent(analysisId)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -92,40 +92,18 @@ export async function startScriptSegmentAnalysis(sampleVideoId: string, options:
       }),
     }),
   );
+}
+
+export async function startScriptSegmentAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
+  return startAnalysisRole("script-segments", sampleVideoId, options);
 }
 
 export async function startRhythmStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
-  const dependencies = {
-    shotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
-  };
-  return readJsonResponse<RhythmStructureStartResponse>(
-    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/rhythm-structure`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        cacheDecision: options.cacheDecision ?? "ask",
-        dependencies,
-        expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
-      }),
-    }),
-  );
+  return startAnalysisRole("rhythm-structure", sampleVideoId, options);
 }
 
 export async function startPackagingStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
-  const dependencies = {
-    shotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
-  };
-  return readJsonResponse<PackagingStructureStartResponse>(
-    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/packaging-structure`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        cacheDecision: options.cacheDecision ?? "ask",
-        dependencies,
-        expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
-      }),
-    }),
-  );
+  return startAnalysisRole("packaging-structure", sampleVideoId, options);
 }
 
 export async function resolveCacheDecision(jobId: string, decision: "reuse" | "refresh") {

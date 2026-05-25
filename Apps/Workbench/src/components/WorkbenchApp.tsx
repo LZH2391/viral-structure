@@ -5,6 +5,7 @@ import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
 import { getSampleArtifact, resolveCacheDecision } from "../api/client";
 import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
+import { getAnalysisRole, type AnalysisKind } from "../utils/analysisRoles";
 import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -453,13 +454,14 @@ export function WorkbenchApp() {
 type AnalysisJobFlow = ReturnType<typeof useAnalysisJobFlow>;
 
 async function reuseAnalysisCache(
-  kind: "scriptSegment" | "rhythmStructure" | "packagingStructure",
+  kind: AnalysisKind,
   flow: AnalysisJobFlow,
   setSaveStatus: (value: string) => void,
   state: WorkbenchState,
   dispatch: (action: WorkbenchAction) => void,
 ) {
   if (!flow.cachePrompt) return;
+  const role = getAnalysisRole(kind);
   const prompt = flow.cachePrompt;
   flow.setCachePrompt(null);
   try {
@@ -470,39 +472,32 @@ async function reuseAnalysisCache(
     flow.applyCompletedArtifact(
       artifact,
       job.traceId ?? state.processingJob?.traceId ?? null,
-      analysisCopy(kind, "复用缓存"),
+      role.reuseReason,
     );
     flow.setJob(null);
-    setSaveStatus(analysisCopy(kind, "已复用缓存"));
+    setSaveStatus(`${role.displayName}已复用缓存`);
   } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : analysisCopy(kind, "复用缓存失败"));
+    setSaveStatus(error instanceof Error ? error.message : `${role.displayName}复用缓存失败`);
   }
 }
 
 async function refreshAnalysisCache(
-  kind: "scriptSegment" | "rhythmStructure" | "packagingStructure",
+  kind: AnalysisKind,
   flow: AnalysisJobFlow,
   setSaveStatus: (value: string) => void,
   state: WorkbenchState,
 ) {
   if (!state.sampleVideo || !flow.cachePrompt) return;
+  const role = getAnalysisRole(kind);
   flow.setCachePrompt(null);
   try {
     const result = await flow.run("refresh");
-    if (kind === "scriptSegment" && result?.artifact?.scriptSegmentAnalysis) {
-      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "脚本段落重新生成");
-      setSaveStatus("脚本段落已重新生成");
-    }
-    if (kind === "rhythmStructure" && result?.artifact?.rhythmStructureAnalysis) {
-      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构重新生成");
-      setSaveStatus("节奏结构已重新生成");
-    }
-    if (kind === "packagingStructure" && result?.artifact?.packagingStructureAnalysis) {
-      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "包装结构重新生成");
-      setSaveStatus("包装结构已重新生成");
+    if (result?.artifact && role.getArtifact(result.artifact)) {
+      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, role.refreshReason);
+      setSaveStatus(`${role.displayName}已重新生成`);
     }
   } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : analysisCopy(kind, "分析失败"));
+    setSaveStatus(error instanceof Error ? error.message : role.failureMessage);
   }
 }
 
@@ -511,8 +506,3 @@ const STAGES = {
   rhythmStructureAnalyze: "rhythm.structure.analyze",
   packagingStructureAnalyze: "packaging.structure.analyze",
 } as const;
-
-function analysisCopy(kind: "scriptSegment" | "rhythmStructure" | "packagingStructure", suffix: string) {
-  const prefix = kind === "scriptSegment" ? "脚本段落" : kind === "rhythmStructure" ? "节奏结构" : "包装结构";
-  return `${prefix}${suffix}`;
-}

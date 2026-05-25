@@ -38,6 +38,7 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
   const rhythmService = read(root, "Apps/Api/lib/rhythm-structure-service.js");
+  const roleDefinition = read(root, "Apps/Api/lib/analysis-role-definition.js");
   const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
 
   assert.match(scriptCache, /buildUnifiedCachePrompt/);
@@ -47,8 +48,9 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   assert.match(rhythmCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
   assert.doesNotMatch(rhythmCache, /scriptSegmentArtifactId/);
   assert.doesNotMatch(rhythmCache, /expectedScriptSegmentArtifactId/);
-  assert.match(scriptService, /createRoleAnalysisService/);
-  assert.match(rhythmService, /createRoleAnalysisService/);
+  assert.match(roleDefinition, /createRoleAnalysisService/);
+  assert.match(scriptService, /createScriptSegmentAnalysisDefinition/);
+  assert.match(rhythmService, /createRhythmStructureAnalysisDefinition/);
   assert.match(roleService, /runtime\.job\.complete\(context\)/);
   assert.match(roleService, /runtime\.job\.resumeProcessing\(jobId, stages\.cacheLookup, descriptor\.progress\.cacheLookup\)/);
 });
@@ -57,13 +59,17 @@ test("frontend and API accept unified analysis dependencies while preserving leg
   const root = path.resolve(__dirname, "../..");
   const server = read(root, "Apps/Api/server.js");
   const registry = read(root, "Apps/Api/lib/analysis-role-registry.js");
+  const roleDefinition = read(root, "Apps/Api/lib/analysis-role-definition.js");
   const client = read(root, "Apps/Workbench/src/api/client.ts");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
   assert.match(server, /startAnalysis/);
-  assert.match(registry, /\/analyses\/script-segments/);
-  assert.match(registry, /dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId/);
+  assert.match(roleDefinition, /\/analyses\/\$\{config\.analysisId\}/);
+  assert.match(roleDefinition, /dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId/);
+  assert.match(registry, /createScriptSegmentAnalysisDefinition/);
   assert.doesNotMatch(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
+  assert.match(client, /startAnalysisRole/);
+  assert.match(client, /\/analyses\/\$\{encodeURIComponent\(analysisId\)\}/);
   assert.match(client, /const dependencies = \{ shotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null \}/);
   assert.doesNotMatch(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
   assert.match(client, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
@@ -98,6 +104,13 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
   assert.equal(registry.getByLegacyPathSegment("rhythm-structure").analysisId, "rhythm-structure");
   assert.equal(registry.getByCacheKind("packaging_structure").analysisId, "packaging-structure");
   assert.equal(registry.getByAnalysisId("missing"), null);
+  const publicEntry = registry.list().find((entry) => entry.analysisId === "packaging-structure");
+  assert.equal(publicEntry.artifactKey, "packagingStructureAnalysis");
+  assert.equal(publicEntry.artifactType, "packaging-structure-analysis");
+  assert.equal(publicEntry.createService, undefined);
+  assert.equal(publicEntry.skillPath, undefined);
+  assert.equal(publicEntry.serviceKey, undefined);
+  assert.equal(publicEntry.executorKind, undefined);
 
   const started = await registry.startAnalysis({
     analysisId: "packaging-structure",

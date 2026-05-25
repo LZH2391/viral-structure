@@ -86,6 +86,7 @@ function createServer(deps = {}) {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
       if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1), handlers);
       if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return await handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
@@ -157,6 +158,10 @@ async function handleUpload(req, res, url, handlers = {}) {
 
 async function handleCapabilities(res, handlers = {}) {
   return sendJson(res, 200, await (handlers.readCapabilitiesImpl ?? readCapabilities)());
+}
+
+async function handleAnalysisRoles(res, handlers = {}) {
+  return sendJson(res, 200, { roles: (handlers.analysisRegistry ?? analysisRegistry).list() });
 }
 
 function handleJob(res, jobId, handlers = {}) {

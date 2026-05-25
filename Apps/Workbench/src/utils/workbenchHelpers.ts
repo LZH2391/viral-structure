@@ -1,9 +1,10 @@
-import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startPackagingStructureAnalysis, startRhythmStructureAnalysis, startScriptSegmentAnalysis, startShotBoundaryAnalysis } from "../api/client";
+import { getLibraryItemDetail, getProcessingJob, getSampleArtifact, getThreadPoolRoleStatus, startAnalysisRole, startShotBoundaryAnalysis } from "../api/client";
 import { type WorkbenchAction } from "../state";
 import type { AudioFeatureMarker, LibraryItemSummary, ProcessingJob, ShotBoundaryAnalysisArtifact, StructureCard, ThreadPoolRoleDetail, WorkbenchState } from "../types";
 import { pollProcessingJob } from "../hooks/jobPolling";
+import { getAnalysisRole, listAnalysisRoles, type AnalysisKind } from "./analysisRoles";
 
-export type AnalysisStageKind = "shotBoundary" | "scriptSegment" | "rhythmStructure" | "packagingStructure";
+export type AnalysisStageKind = "shotBoundary" | AnalysisKind;
 
 export type ActiveJobDraft = {
   processingJobId: string;
@@ -16,9 +17,12 @@ export type ActiveJobDraft = {
 
 export type JobDraftWriter = (job: ActiveJobDraft | null) => void;
 export type ShotBoundaryCacheHandler = (payload: { job: ProcessingJob; cachedItem: import("../types").LibraryItemSummary }) => Promise<void> | void;
-export type ScriptSegmentCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
-export type RhythmStructureCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
-export type PackagingStructureCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
+export type AnalysisCacheHandler = (payload: { job: ProcessingJob; cachedItem: LibraryItemSummary }) => Promise<void> | void;
+export type ScriptSegmentCacheHandler = AnalysisCacheHandler;
+export type RhythmStructureCacheHandler = AnalysisCacheHandler;
+export type PackagingStructureCacheHandler = AnalysisCacheHandler;
+
+const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
 
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
@@ -68,22 +72,24 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   throw new Error("切镜分析超时");
 }
 
-export async function runScriptSegmentAnalysis(
+export async function runAnalysisRole(
+  kind: AnalysisKind,
   state: WorkbenchState,
   dispatch: (action: WorkbenchAction) => void,
   onJobUpdate?: (job: ProcessingJob | null) => void,
   writeActiveJob?: JobDraftWriter,
-  onCacheHit?: ScriptSegmentCacheHandler,
+  onCacheHit?: AnalysisCacheHandler,
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
   if (!state.sampleVideo) return null;
-  const started = await startScriptSegmentAnalysis(state.sampleVideo.id, {
+  const role = getAnalysisRole(kind);
+  const started = await startAnalysisRole(role.analysisId, state.sampleVideo.id, {
     cacheDecision,
     expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
   });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
-      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "script_segment.cache_lookup", status: "cache_waiting", progress: 28 },
+      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: role.cacheLookupStage, status: "cache_waiting", progress: 28 },
       cachedItem: started.cachedItem,
     });
     return null;
@@ -92,12 +98,12 @@ export async function runScriptSegmentAnalysis(
     jobId: started.processingJobId,
     sampleVideoId: started.sampleVideoId,
     traceId: started.traceId,
-    stage: "script_segment.input_prepare",
+    stage: role.initialStage,
     status: "pending",
     progress: 0,
   };
   onJobUpdate?.(latest);
-  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "scriptSegment" });
+  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: role.kind });
   latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
     onUpdate: onJobUpdate,
     preservePreviousOnNull: true,
@@ -119,11 +125,22 @@ export async function runScriptSegmentAnalysis(
     const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
     if (artifact) dispatch({ type: "apply-artifact", artifact });
     writeActiveJob?.(null);
-    throw new Error(latest.errorSummary?.message ?? "脚本段落分析失败");
+    throw new Error(latest.errorSummary?.message ?? role.failureMessage);
   }
   onJobUpdate?.(null);
   writeActiveJob?.(null);
-  throw new Error("脚本段落分析超时");
+  throw new Error(role.timeoutMessage);
+}
+
+export async function runScriptSegmentAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
+  onCacheHit?: ScriptSegmentCacheHandler,
+  cacheDecision: "ask" | "reuse" | "refresh" = "ask",
+) {
+  return runAnalysisRole("scriptSegment", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, cacheDecision);
 }
 
 export async function runRhythmStructureAnalysis(
@@ -134,54 +151,7 @@ export async function runRhythmStructureAnalysis(
   onCacheHit?: RhythmStructureCacheHandler,
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
-  if (!state.sampleVideo) return null;
-  const started = await startRhythmStructureAnalysis(state.sampleVideo.id, {
-    cacheDecision,
-    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
-  });
-  if ("cacheHit" in started && started.cacheHit) {
-    await onCacheHit?.({
-      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "rhythm_structure.cache_lookup", status: "cache_waiting", progress: 28 },
-      cachedItem: started.cachedItem,
-    });
-    return null;
-  }
-  let latest: ProcessingJob = {
-    jobId: started.processingJobId,
-    sampleVideoId: started.sampleVideoId,
-    traceId: started.traceId,
-    stage: "rhythm_structure.input_prepare",
-    status: "pending",
-    progress: 0,
-  };
-  onJobUpdate?.(latest);
-  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "rhythmStructure" });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
-    onUpdate: onJobUpdate,
-    preservePreviousOnNull: true,
-  }) ?? latest;
-  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
-    writeActiveJob?.(null);
-    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
-    return null;
-  }
-  if (latest.status === "processed") {
-    const artifact = await getSampleArtifact(started.sampleVideoId);
-    dispatch({ type: "apply-artifact", artifact });
-    onJobUpdate?.(null);
-    writeActiveJob?.(null);
-    return { artifact, job: latest };
-  }
-  if (latest.status === "failed") {
-    onJobUpdate?.(latest);
-    const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
-    if (artifact) dispatch({ type: "apply-artifact", artifact });
-    writeActiveJob?.(null);
-    throw new Error(latest.errorSummary?.message ?? "节奏结构分析失败");
-  }
-  onJobUpdate?.(null);
-  writeActiveJob?.(null);
-  throw new Error("节奏结构分析超时");
+  return runAnalysisRole("rhythmStructure", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, cacheDecision);
 }
 
 export async function runPackagingStructureAnalysis(
@@ -192,54 +162,7 @@ export async function runPackagingStructureAnalysis(
   onCacheHit?: PackagingStructureCacheHandler,
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
-  if (!state.sampleVideo) return null;
-  const started = await startPackagingStructureAnalysis(state.sampleVideo.id, {
-    cacheDecision,
-    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
-  });
-  if ("cacheHit" in started && started.cacheHit) {
-    await onCacheHit?.({
-      job: { jobId: null, sampleVideoId: state.sampleVideo.id, traceId: "", stage: "packaging_structure.cache_lookup", status: "cache_waiting", progress: 28 },
-      cachedItem: started.cachedItem,
-    });
-    return null;
-  }
-  let latest: ProcessingJob = {
-    jobId: started.processingJobId,
-    sampleVideoId: started.sampleVideoId,
-    traceId: started.traceId,
-    stage: "packaging_structure.input_prepare",
-    status: "pending",
-    progress: 0,
-  };
-  onJobUpdate?.(latest);
-  writeActiveJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, stageKind: "packagingStructure" });
-  latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
-    onUpdate: onJobUpdate,
-    preservePreviousOnNull: true,
-  }) ?? latest;
-  if (latest.status === "cache_waiting" && latest.cachePrompt?.cachedItem) {
-    writeActiveJob?.(null);
-    await onCacheHit?.({ job: latest, cachedItem: latest.cachePrompt.cachedItem });
-    return null;
-  }
-  if (latest.status === "processed") {
-    const artifact = await getSampleArtifact(started.sampleVideoId);
-    dispatch({ type: "apply-artifact", artifact });
-    onJobUpdate?.(null);
-    writeActiveJob?.(null);
-    return { artifact, job: latest };
-  }
-  if (latest.status === "failed") {
-    onJobUpdate?.(latest);
-    const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
-    if (artifact) dispatch({ type: "apply-artifact", artifact });
-    writeActiveJob?.(null);
-    throw new Error(latest.errorSummary?.message ?? "包装结构分析失败");
-  }
-  onJobUpdate?.(null);
-  writeActiveJob?.(null);
-  throw new Error("包装结构分析超时");
+  return runAnalysisRole("packagingStructure", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, cacheDecision);
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
@@ -418,30 +341,7 @@ export function stageLabel(job: ProcessingJob): string {
     "shot.boundary_repair.collect": "等待修复结果",
     "shot.boundary_merge": "合并切镜结果",
     "shot.cache_reuse": "复用切镜缓存",
-    "script_segment.cache_lookup": "检查脚本段落缓存",
-    "script_segment.input_prepare": "准备脚本段落输入",
-    "script_segment.input_package": "生成脚本段落输入包",
-    "script_segment.analyze": "分析脚本段落",
-    "script_segment.validate": "校验脚本段落结果",
-    "script_segment.repair": "修复脚本段落结果",
-    "script_segment.cache_reuse": "复用脚本段落缓存",
-    "script_segment.materialize": "写入脚本段落产物",
-    "rhythm_structure.cache_lookup": "检查节奏结构缓存",
-    "rhythm_structure.input_prepare": "准备节奏结构输入",
-    "rhythm_structure.input_package": "生成节奏结构输入包",
-    "rhythm_structure.analyze": "分析节奏结构",
-    "rhythm_structure.validate": "校验节奏结构结果",
-    "rhythm_structure.repair": "修复节奏结构结果",
-    "rhythm_structure.cache_reuse": "复用节奏结构缓存",
-    "rhythm_structure.materialize": "写入节奏结构产物",
-    "packaging_structure.cache_lookup": "检查包装结构缓存",
-    "packaging_structure.input_prepare": "准备包装结构输入",
-    "packaging_structure.input_package": "生成包装结构输入包",
-    "packaging_structure.analyze": "分析包装结构",
-    "packaging_structure.validate": "校验包装结构结果",
-    "packaging_structure.repair": "修复包装结构结果",
-    "packaging_structure.cache_reuse": "复用包装结构缓存",
-    "packaging_structure.materialize": "写入包装结构产物",
+    ...ANALYSIS_STAGE_LABELS,
     processed: "生成产物完成",
   };
   return labels[job?.stage] ?? job?.stage ?? "处理中";

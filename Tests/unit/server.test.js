@@ -155,6 +155,30 @@ test("top-level request catch returns 500 payload with trace metadata", async ()
   }
 });
 
+test("analysis roles endpoint returns public descriptors only", async () => {
+  const server = createServer({
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/analysis-roles");
+    assert.equal(response.statusCode, 200);
+    const role = response.body.roles.find((entry) => entry.analysisId === "script-segments");
+    assert.equal(role.artifactKey, "scriptSegmentAnalysis");
+    assert.equal(role.cacheKind, "script_segment");
+    assert.equal(role.route, "/api/sample-videos/:sampleVideoId/analyses/script-segments");
+    assert.equal(role.skillPath, undefined);
+    assert.equal(role.createService, undefined);
+    assert.equal(role.serviceKey, undefined);
+    assert.equal(role.executorKind, undefined);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("packaging structure route enqueues service with shot dependency", async () => {
   const calls = [];
   const server = createServer({

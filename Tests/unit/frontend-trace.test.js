@@ -403,20 +403,24 @@ test("workbench understand flow triggers script segment analysis", () => {
 
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
   assert.match(app, /scriptSegmentFlow\.run\("ask"\)/);
-  assert.match(analysisFlow, /runScriptSegmentAnalysis/);
+  assert.match(analysisFlow, /runAnalysisRole/);
+  assert.match(analysisFlow, /getAnalysisRole/);
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
-  assert.match(helpers, /startScriptSegmentAnalysis/);
+  assert.match(helpers, /startAnalysisRole/);
+  assert.match(helpers, /runAnalysisRole/);
   assert.match(helpers, /expectedShotBoundaryArtifactId: state\.sampleArtifact\?\.shotBoundaryAnalysis\?\.artifactId \?\? null/);
-  assert.match(helpers, /"script_segment\.cache_lookup": "检查脚本段落缓存"/);
-  assert.match(helpers, /"script_segment\.cache_reuse": "复用脚本段落缓存"/);
-  assert.match(helpers, /"script_segment\.input_prepare": "准备脚本段落输入"/);
-  assert.match(helpers, /"script_segment\.input_package": "生成脚本段落输入包"/);
-  assert.match(helpers, /"script_segment\.repair": "修复脚本段落结果"/);
-  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/script-segments/);
+  assert.match(read(root, "Apps/Workbench/src/utils/analysisRoles.ts"), /"script_segment\.cache_lookup": "检查脚本段落缓存"/);
+  assert.match(read(root, "Apps/Workbench/src/utils/analysisRoles.ts"), /"script_segment\.cache_reuse": "复用脚本段落缓存"/);
+  assert.match(read(root, "Apps/Workbench/src/utils/analysisRoles.ts"), /"script_segment\.input_prepare": "准备脚本段落输入"/);
+  assert.match(read(root, "Apps/Workbench/src/utils/analysisRoles.ts"), /"script_segment\.input_package": "生成脚本段落输入包"/);
+  assert.match(read(root, "Apps/Workbench/src/utils/analysisRoles.ts"), /"script_segment\.repair": "修复脚本段落结果"/);
+  assert.match(api, /getAnalysisRoles/);
+  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/analyses\/\$\{encodeURIComponent\(analysisId\)\}/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(api, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
-  assert.match(registry, /createScriptSegmentService/);
-  assert.match(registry, /expectedShotBoundaryArtifactId: dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(registry, /createScriptSegmentAnalysisDefinition/);
+  assert.match(read(root, "Apps/Api/lib/analysis-role-definition.js"), /expectedShotBoundaryArtifactId: dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(server, /\/api\/analysis-roles/);
   assert.match(server, /startLegacyAnalysis/);
   assert.match(server, /script-segments/);
   assert.match(index, /script_segment\.materialize/);
@@ -613,6 +617,8 @@ test("findCurrentShot uses half-open ranges and keeps final boundary inclusive",
       getProcessingJob: async () => null,
       getSampleArtifact: async () => null,
       getThreadPoolRoleStatus: async () => null,
+      listAnalysisRoles: () => [],
+      startAnalysisRole: async () => null,
       startRhythmStructureAnalysis: async () => null,
       startShotBoundaryAnalysis: async () => null,
       startScriptSegmentAnalysis: async () => null,

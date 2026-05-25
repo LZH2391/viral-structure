@@ -62,3 +62,31 @@ export type StaticTraceTypeCompatibility = {
     updatedAt?: string | null;
   } | null;
 };
+
+export type AnalysisRoleSummary = {
+  analysisId: string;
+  stageKind: string;
+  cacheKind: string;
+  artifactKey: string | null;
+  artifactType: string | null;
+  route: string;
+  legacyRoute: string;
+  dependencies: Array<{
+    key: string;
+    artifactKey: string;
+    requestKey: string;
+    label: string;
+  }>;
+  ui: {
+    label: string;
+    displayName?: string;
+    stageId?: string;
+    completeReason?: string;
+    refreshReason?: string;
+    reuseReason?: string;
+    invalidResultMessage?: string;
+    failureMessage?: string;
+    timeoutMessage?: string;
+  };
+  stages: Record<string, string>;
+};
