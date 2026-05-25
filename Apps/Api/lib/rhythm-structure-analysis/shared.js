@@ -14,8 +14,8 @@ const STAGES = {
   materialized: "rhythm_structure.materialize",
 };
 
-const MAX_CARDS = 16;
-const MAX_EVIDENCE_PER_CARD = 4;
+const MAX_SECTIONS = 16;
+const MAX_FIELDS_PER_SCOPE = 12;
 const MAX_TEXT_FIELD_LENGTH = 120;
 const MAX_UNCERTAINTIES = 5;
 
@@ -33,6 +33,7 @@ function safeError(error, stageName) {
     message: error instanceof Error ? error.message : "节奏结构分析失败",
     stageName,
     retryable: typeof error?.retryable === "boolean" ? error.retryable : true,
+    validatorCode: error?.debugPayload?.validation?.validatorCode ?? null,
   };
 }
 
@@ -50,6 +51,7 @@ function sanitizeDebugPayload(error) {
     lastRequestError: details?.lastRequestError ?? details?.requestError ?? null,
     outputSummary: details?.outputSummary ?? null,
     validation: details?.validation ?? null,
+    validatorCode: details?.validation?.validatorCode ?? null,
     repairAttemptCount: details?.repairAttemptCount ?? null,
   };
 }
@@ -86,11 +88,11 @@ async function resolveSkillHash(skillPath = SKILL_PATH) {
   }
 }
 
-function summarizeAgentOutput(message, cards) {
+function summarizeAgentOutput(message, sections) {
   return {
     messagePreview: String(message ?? "").replace(/\s+/g, " ").slice(0, 200),
-    rawCardCount: Array.isArray(cards) ? cards.length : 0,
-    labels: Array.isArray(cards) ? cards.slice(0, 6).map((card) => String(card?.label ?? "").slice(0, 40)) : [],
+    rawSectionCount: Array.isArray(sections) ? sections.length : 0,
+    labels: Array.isArray(sections) ? sections.slice(0, 6).map((section) => String(section?.label ?? "").slice(0, 40)) : [],
   };
 }
 
@@ -106,6 +108,17 @@ function normalizeStringArray(value, maxLength) {
     .slice(0, maxLength);
 }
 
+function normalizeFieldArray(value, maxLength = MAX_FIELDS_PER_SCOPE) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => ({
+      label: normalizeText(item?.label, 60),
+      value: normalizeText(item?.value, 240),
+    }))
+    .filter((item) => item.label && item.value)
+    .slice(0, maxLength);
+}
+
 function normalizeConfidence(value, fallback = 0.72) {
   const next = Number(value);
   if (!Number.isFinite(next)) return fallback;
@@ -115,27 +128,30 @@ function normalizeConfidence(value, fallback = 0.72) {
 function buildOutputContract() {
   return {
     overview: {
-      rhythmShape: "整体节奏形态，例如先松后紧、阶梯递进、突然爆发后回落",
-      pacingSummary: "用一句话说明快慢、密度、停顿和注意力推进",
-      peakRange: "高潮或注意力峰值所在时间范围，可为空字符串",
-      turningPoints: ["最关键的节奏转折点"],
-      transferableRhythmRule: "可迁移的节奏组织规律，不写成脚本或卖点任务",
+      summary: "整体节奏现象摘要，只描述样例中实际发生的快慢、密度、停顿、爆点、回落等变化",
+      fields: [
+        {
+          label: "开放字段名称，例如节奏形态、密度变化、停顿位置、爆点范围",
+          value: "对应字段内容，只描述节奏现象，不写迁移规则",
+        },
+      ],
       uncertainties: ["证据不足或存在多种读法时写在这里"],
     },
-    cards: [
+    sections: [
       {
-        label: "节奏卡名称",
-        rhythmRole: "这段在观感推进中的节奏作用",
+        label: "节奏区间名称，开放命名",
         shotRefs: ["shot_1"],
-        rhythmPattern: "快慢、密度、停顿、重复、爆点或回落等节奏观察",
-        evidence: ["只保留安全摘要"],
-        attentionEffect: "它如何影响观众注意力",
-        transferableRule: "抽象出的可迁移节奏规律",
+        fields: [
+          {
+            label: "开放字段名称，例如节奏观察、结构信号、停顿位置、爆点范围",
+            value: "对应字段内容，只描述这个区间的节奏现象和支撑信号",
+          },
+        ],
         confidence: 0.78,
         needReview: false,
       },
     ],
-    notes: "系统会根据 shotRefs 派生 cardId/start/end，模型无需返回这些字段；不要输出音频分析、脚本改写或重切镜头。",
+    notes: "系统会根据 shotRefs 派生 sectionId/start/end，模型无需返回这些字段；不要输出迁移规则、音频分析、脚本改写或重切镜头。",
   };
 }
 
@@ -158,8 +174,8 @@ module.exports = {
   ROLE,
   SKILL_PATH,
   STAGES,
-  MAX_CARDS,
-  MAX_EVIDENCE_PER_CARD,
+  MAX_SECTIONS,
+  MAX_FIELDS_PER_SCOPE,
   MAX_TEXT_FIELD_LENGTH,
   MAX_UNCERTAINTIES,
   codedError,
@@ -172,6 +188,7 @@ module.exports = {
   summarizeAgentOutput,
   normalizeText,
   normalizeStringArray,
+  normalizeFieldArray,
   normalizeConfidence,
   buildOutputContract,
   stableJson,

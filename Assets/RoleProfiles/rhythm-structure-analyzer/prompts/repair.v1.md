@@ -21,4 +21,4 @@
 上次输出摘要：
 {{priorOutputSummaryJson}}
 
-这是第 {{repairAttemptCount}} 次修复。请输出严格 JSON 对象，必须包含 overview 和 cards。只返回 JSON，不要 Markdown，不要解释 JSON 外的内容。
+这是第 {{repairAttemptCount}} 次修复。请输出严格 JSON 对象，必须包含 overview 和 sections。sections 使用开放 fields[] 描述节奏现象和支撑信号，不输出迁移规则，不使用 transferableRule / rhythmRole / rhythmPattern / attentionEffect。只返回 JSON，不要 Markdown，不要解释 JSON 外的内容。

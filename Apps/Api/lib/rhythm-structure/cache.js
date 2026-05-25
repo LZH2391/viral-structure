@@ -64,7 +64,7 @@ async function findCachedArtifact({
       cacheKey: cache.cacheKey ?? context.cacheKey ?? null,
       sourceTurnId: analysis?.agent?.turnId ?? null,
       sourceTraceId: analysis?.traceId ?? analysis?.agent?.traceId ?? null,
-      cardCount: analysis?.cards?.length ?? 0,
+      sectionCount: analysis?.sections?.length ?? 0,
     }),
   };
 }
@@ -171,7 +171,7 @@ function buildCachedItem(context, cached) {
     sourceTurnId: cached.analysis?.agent?.turnId ?? null,
     sourceCreatedAt: cached.analysis?.createdAt ?? null,
     cacheKey: context.cacheKey ?? cached.cache.cacheKey ?? null,
-    cardCount: cached.analysis?.cards?.length ?? 0,
+    sectionCount: cached.analysis?.sections?.length ?? 0,
     profileVersion: cached.analysis?.agent?.profileVersion ?? null,
     promptTemplateId: cached.analysis?.agent?.promptTemplateId ?? null,
     promptTemplateVersion: cached.analysis?.agent?.promptTemplateVersion ?? null,
@@ -235,7 +235,7 @@ async function reuseCachedAnalysis({
       cacheKey: analysis.cacheKey ?? cached.cache.cacheKey ?? null,
       sourceTurnId: analysis.sourceTurnId ?? analysis.agent?.turnId ?? null,
       sourceCreatedAt: analysis.sourceCreatedAt ?? null,
-      cardCount: analysis.cards?.length ?? 0,
+      sectionCount: analysis.sections?.length ?? 0,
       cacheEligibility: cached.cacheEligibility ?? null,
     }),
   });

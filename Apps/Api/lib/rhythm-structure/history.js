@@ -4,7 +4,7 @@
     artifactId: analysis?.artifactId ?? null,
     status: analysis?.status ?? "failed",
     resultOrigin: analysis?.resultOrigin ?? "new_turn",
-    cardCount: analysis?.cards?.length ?? 0,
+    sectionCount: analysis?.sections?.length ?? 0,
     turnId: analysis?.agent?.turnId ?? null,
     traceId: traceMeta?.traceId ?? null,
     sourceTraceId: traceMeta?.sourceTraceId ?? null,

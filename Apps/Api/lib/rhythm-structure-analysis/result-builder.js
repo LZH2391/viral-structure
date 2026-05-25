@@ -20,7 +20,7 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
         status: "failed",
         repairAttemptCount,
       },
-      outputSummary: summarizeAgentOutput(message, parsed?.cards),
+      outputSummary: summarizeAgentOutput(message, parsed?.sections),
       turnId: turn?.turnId ?? agentRun?.turnId ?? null,
       repairAttemptCount,
     }, false);
@@ -41,10 +41,10 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     sourceScriptSegmentCount: input.scriptSegments?.length ?? 0,
     inputPackage: context.inputPackage ?? null,
     overview: validation.overview,
-    cards: validation.cards,
+    sections: validation.sections,
     validation: {
       status: "passed",
-      cardCount: validation.cards.length,
+      sectionCount: validation.sections.length,
       validatorCode: null,
       repairAttemptCount,
     },
@@ -72,11 +72,11 @@ function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {
     sourceScriptSegmentCount: context.input?.scriptSegments?.length ?? context.artifact?.scriptSegmentAnalysis?.segments?.length ?? 0,
     inputPackage: context.inputPackage ?? null,
     overview: null,
-    cards: [],
+    sections: [],
     validation: {
       status: "failed",
-      cardCount: 0,
-      validatorCode: context.validationSummary?.validatorCode ?? errorSummary?.code ?? null,
+      sectionCount: 0,
+      validatorCode: context.validationSummary?.validatorCode ?? errorSummary?.validatorCode ?? errorSummary?.code ?? null,
       repairAttemptCount: context.validationSummary?.repairAttemptCount ?? 0,
     },
     agent: buildAgentArtifact(context, context.agentRun ?? null, null),
@@ -125,14 +125,14 @@ function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
 function evaluateCacheEligibility(analysis, options = {}) {
   const statusProcessed = analysis?.status === "processed";
   const validationPassed = analysis?.validation?.status === "passed";
-  const hasCards = Array.isArray(analysis?.cards) && analysis.cards.length > 0;
+  const hasSections = Array.isArray(analysis?.sections) && analysis.sections.length > 0;
   const validatorClean = !analysis?.validation?.validatorCode;
   const cacheKeyMatches = !options.cacheKey || analysis?.cacheKey === options.cacheKey;
   return {
-    eligible: Boolean(statusProcessed && validationPassed && hasCards && validatorClean && cacheKeyMatches),
+    eligible: Boolean(statusProcessed && validationPassed && hasSections && validatorClean && cacheKeyMatches),
     statusProcessed,
     validationPassed,
-    hasCards,
+    hasSections,
     validatorClean,
     cacheKeyMatches,
   };

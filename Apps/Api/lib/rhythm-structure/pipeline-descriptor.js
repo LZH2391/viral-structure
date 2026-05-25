@@ -108,20 +108,20 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         leaseId: context.agentRun?.leaseId ?? null,
         turnId: result.finalTurn?.turnId ?? null,
         status: result.analysis.status,
-        cardCount: result.analysis.cards.length,
+        sectionCount: result.analysis.sections.length,
         promptTemplateVersion: result.analysis.agent?.promptTemplateVersion ?? null,
       };
     },
     buildValidateInputSummary(analysis, finalTurn) {
       return {
-        cardCount: analysis.cards.length,
+        sectionCount: analysis.sections.length,
         turnId: finalTurn?.turnId ?? null,
       };
     },
     buildValidateOutputSummary(result) {
       return {
         status: result.validation?.status ?? null,
-        cardCount: result.cards.length,
+        sectionCount: result.sections.length,
         validatorCode: result.validation?.validatorCode ?? null,
         repairAttemptCount: result.validation?.repairAttemptCount ?? 0,
       };
@@ -154,20 +154,20 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         threadId: context.agentRun?.threadId ?? null,
         turnId: result.finalTurn?.turnId ?? null,
         status: result.analysis.status,
-        cardCount: result.analysis.cards.length,
+        sectionCount: result.analysis.sections.length,
         repairAttemptCount: result.repairAttemptCount,
       };
     },
     buildMaterializeInputSummary(analysis) {
       return {
-        cardCount: analysis.cards.length,
+        sectionCount: analysis.sections.length,
         threadId: analysis.agent?.threadId ?? null,
         turnId: analysis.agent?.turnId ?? null,
       };
     },
     buildMaterializeOutputSummary(artifact) {
       return {
-        cardCount: artifact.rhythmStructureAnalysis?.cards?.length ?? 0,
+        sectionCount: artifact.rhythmStructureAnalysis?.sections?.length ?? 0,
         rhythmArtifactId: artifact.rhythmStructureAnalysis?.artifactId ?? null,
       };
     },

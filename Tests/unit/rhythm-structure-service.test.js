@@ -72,7 +72,7 @@ test("rhythm input uses shots, subtitles, script summary and localImage sheets w
   assert.doesNotMatch(manifestText, /commerceBrief/);
 });
 
-test("rhythm service writes overview cards, artifact history, cache entry and trace logs", async () => {
+test("rhythm service writes overview sections, artifact history, cache entry and trace logs", async () => {
   const harness = await createRhythmHarness({
     appServer: {
       startTurnWithInputs: async (payload) => {
@@ -106,13 +106,14 @@ test("rhythm service writes overview cards, artifact history, cache entry and tr
   assert.equal(artifact.rhythmStructureAnalysis.agent.threadId, "thread_rhythm_1");
   assert.equal(artifact.rhythmStructureAnalysis.agent.turnId, "turn_rhythm_1");
   assert.equal(artifact.rhythmStructureAnalysis.agent.promptTemplateVersion, "analyze.v1");
-  assert.equal(artifact.rhythmStructureAnalysis.overview.rhythmShape, "先压缩再释放");
-  assert.equal(artifact.rhythmStructureAnalysis.cards.length, 2);
-  assert.equal(artifact.rhythmStructureAnalysis.cards[0].cardId, "rhythm_card_1");
-  assert.equal(artifact.rhythmStructureAnalysis.cards[0].start, 0);
-  assert.equal(artifact.rhythmStructureAnalysis.cards[0].end, 1.2);
-  assert.equal(artifact.rhythmStructureAnalysis.validation.cardCount, 2);
-  assert.equal(artifact.rhythmStructureAnalysisHistory.at(-1).cardCount, 2);
+  assert.equal(artifact.rhythmStructureAnalysis.overview.summary, "开头压缩信息快速抓眼，中段连续推进，末尾回落收束。");
+  assert.equal(artifact.rhythmStructureAnalysis.sections.length, 2);
+  assert.equal(artifact.rhythmStructureAnalysis.sections[0].sectionId, "rhythm_section_1");
+  assert.equal(artifact.rhythmStructureAnalysis.sections[0].fields[0].label, "节奏观察");
+  assert.equal(artifact.rhythmStructureAnalysis.sections[0].start, 0);
+  assert.equal(artifact.rhythmStructureAnalysis.sections[0].end, 1.2);
+  assert.equal(artifact.rhythmStructureAnalysis.validation.sectionCount, 2);
+  assert.equal(artifact.rhythmStructureAnalysisHistory.at(-1).sectionCount, 2);
   assert.ok(artifact.rhythmStructureAnalysis.inputPackage);
   assert.ok(node);
   assert.equal(detail.tags.includes("节奏结构"), true);
@@ -194,6 +195,70 @@ test("rhythm service surfaces latest running thread message with matching agent 
   assert.equal(harness.calls.collected.length, 2);
 });
 
+test("rhythm validation rejects missing sections", async () => {
+  const harness = await createRhythmHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_rhythm_1", turnId: "turn_rhythm_1", status: "submitted" }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_rhythm_1",
+        turnId: "turn_rhythm_1",
+        status: "completed",
+        finalMessage: JSON.stringify({ overview: { summary: "整体节奏有效" } }),
+      }),
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_rhythm_1" });
+  await waitForJob(harness.jobStore, result.processingJobId, "failed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_rhythm_1"), "artifact.json"));
+  assert.equal(artifact.rhythmStructureAnalysis.validation.validatorCode, "rhythm_structure_missing_sections");
+});
+
+test("rhythm validation rejects unknown shot refs", async () => {
+  const output = createRhythmOutput();
+  output.sections[0].shotRefs = ["shot_missing"];
+  const harness = await createRhythmHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_rhythm_1", turnId: "turn_rhythm_1", status: "submitted" }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_rhythm_1",
+        turnId: "turn_rhythm_1",
+        status: "completed",
+        finalMessage: JSON.stringify(output),
+      }),
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_rhythm_1" });
+  await waitForJob(harness.jobStore, result.processingJobId, "failed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_rhythm_1"), "artifact.json"));
+  assert.equal(artifact.rhythmStructureAnalysis.validation.validatorCode, "rhythm_structure_unknown_shot_ref");
+});
+
+test("rhythm validation rejects non-contiguous shot refs", async () => {
+  const output = createRhythmOutput();
+  output.sections[0].shotRefs = ["shot_1", "shot_3"];
+  const harness = await createRhythmHarness({
+    appServer: {
+      startTurnWithInputs: async () => ({ ok: true, threadId: "thread_rhythm_1", turnId: "turn_rhythm_1", status: "submitted" }),
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_rhythm_1",
+        turnId: "turn_rhythm_1",
+        status: "completed",
+        finalMessage: JSON.stringify(output),
+      }),
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_rhythm_1" });
+  await waitForJob(harness.jobStore, result.processingJobId, "failed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_rhythm_1"), "artifact.json"));
+  assert.equal(artifact.rhythmStructureAnalysis.validation.validatorCode, "rhythm_structure_non_contiguous_shot_refs");
+});
+
 async function createRhythmHarness({ appServer = {} } = {}) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-rhythm-agent-"));
   const store = createLocalStore(tempRoot);
@@ -240,33 +305,31 @@ async function createRhythmHarness({ appServer = {} } = {}) {
 function createRhythmOutput() {
   return {
     overview: {
-      rhythmShape: "先压缩再释放",
-      pacingSummary: "开头用短镜头快速建立注意力，中段连续演示形成推进，结尾回落收束。",
-      peakRange: "1.2s-3.8s",
-      turningPoints: ["S002 开始由展示进入连续演示"],
-      transferableRhythmRule: "先用低成本视觉变化抓住注意力，再用连续动作提高信息密度。",
+      summary: "开头压缩信息快速抓眼，中段连续推进，末尾回落收束。",
+      fields: [
+        { label: "节奏形态", value: "先压缩再释放" },
+        { label: "密度变化", value: "开头信息密度偏高，中段动作连续堆叠" },
+      ],
       uncertainties: [],
     },
-    cards: [
+    sections: [
       {
         label: "快速抓眼",
-        rhythmRole: "用开场反差快速收拢注意力",
         shotRefs: ["shot_1"],
-        rhythmPattern: "短时间内给出结果感，信息密度偏高",
-        evidence: ["展示整理前后反差"],
-        attentionEffect: "让观众立刻知道有变化可看",
-        transferableRule: "开场先给可见变化，再展开解释",
+        fields: [
+          { label: "节奏观察", value: "短时间内给出结果感，信息密度偏高" },
+          { label: "结构信号", value: "展示整理前后反差" },
+        ],
         confidence: 0.82,
         needReview: false,
       },
       {
         label: "连续推进",
-        rhythmRole: "通过连续演示把注意力推向峰值再收束",
         shotRefs: ["shot_2", "shot_3"],
-        rhythmPattern: "动作信息堆叠后回到整洁结果",
-        evidence: ["演示收纳盒摆放和分类", "回到整洁台面并提示点击"],
-        attentionEffect: "中段形成观看惯性，结尾给一点回落",
-        transferableRule: "中段用连续证据推进，尾段用结果画面收束",
+        fields: [
+          { label: "节奏观察", value: "动作信息堆叠后回到整洁结果" },
+          { label: "结构信号", value: "演示收纳盒摆放和分类，随后回到整洁台面" },
+        ],
         confidence: 0.79,
         needReview: false,
       },
