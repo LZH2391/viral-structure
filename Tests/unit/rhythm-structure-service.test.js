@@ -206,6 +206,43 @@ test("rhythm service surfaces latest running thread message with matching agent 
   assert.equal(harness.calls.collected.length, 2);
 });
 
+test("rhythm service ignores completed results from a different turn while target turn is running", async () => {
+  const harness = await createRhythmHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_rhythm_1", turnId: "turn_rhythm_target", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        if (harness.calls.collected.length === 1) {
+          return {
+            ok: true,
+            threadId: "thread_rhythm_1",
+            turnId: "turn_rhythm_old",
+            status: "completed",
+            finalMessage: JSON.stringify(createRhythmOutput()),
+          };
+        }
+        return {
+          ok: true,
+          threadId: "thread_rhythm_1",
+          turnId: "turn_rhythm_target",
+          status: "completed",
+          finalMessage: JSON.stringify(createRhythmOutput()),
+        };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_rhythm_1" });
+  await waitForJob(harness.jobStore, result.processingJobId, "processed");
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_rhythm_1"), "artifact.json"));
+
+  assert.equal(harness.calls.collected.length, 2);
+  assert.equal(artifact.rhythmStructureAnalysis.agent.turnId, "turn_rhythm_target");
+});
+
 test("rhythm validation rejects missing sections", async () => {
   const harness = await createRhythmHarness({
     appServer: {

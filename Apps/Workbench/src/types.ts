@@ -27,6 +27,7 @@ export type StaticTraceTypeCompatibility = {
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
   segmentCount?: number | null;
+  sectionCount?: number | null;
   cardCount?: number | null;
   sourceSegmentId: string;
   sourceArtifactId?: string | null;

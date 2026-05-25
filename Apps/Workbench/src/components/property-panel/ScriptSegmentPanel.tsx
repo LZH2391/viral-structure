@@ -33,7 +33,7 @@ export function ScriptSegmentPanel({
     : analysis
       ? failed
         ? "分析失败"
-        : `${segments.length} / ${segments.length} 段`
+        : `${segments.length} 段`
       : "等待分析";
 
   return (
@@ -52,18 +52,6 @@ export function ScriptSegmentPanel({
         <div className="agent-thread-message" aria-live="polite">
           <span>线程消息</span>
           <strong>{activeThreadMessage.text}</strong>
-        </div>
-      ) : null}
-      {analysis ? (
-        <div className="detail-hint">
-          <div>turn：{analysis.agent?.turnId ?? "无"}</div>
-          <div>status：{analysis.status}</div>
-          <div>segmentCount：{segments.length}</div>
-          <div>resultOrigin：{renderScriptResultOrigin(analysis.resultOrigin)}</div>
-          <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
-          <div>repairAttemptCount：{analysis.validation?.repairAttemptCount ?? 0}</div>
-          <div>sourceTurn：{analysis.sourceTurnId ?? "无"}</div>
-          <div>cacheKey：{analysis.cacheKey ? analysis.cacheKey.slice(0, 12) : "无"}</div>
         </div>
       ) : null}
       {failed ? (
@@ -103,7 +91,7 @@ export function ScriptSegmentPanel({
           {historyEntries.slice(-5).reverse().map((entry) => (
             <div key={`${entry.artifactId}_${entry.createdAt}`} className={`agent-history-item ${analysis?.artifactId === entry.artifactId ? "is-current" : ""}`}>
               <strong>{renderScriptResultOrigin(entry.resultOrigin)}</strong>
-              <span>{entry.segmentCount} 段 / source turn {entry.sourceTurnId ? entry.sourceTurnId.slice(-10) : "无"} / cache {entry.cacheKey ? entry.cacheKey.slice(0, 12) : "无"}</span>
+              <span>{entry.segmentCount} 段</span>
               <small>{formatScriptHistoryMeta(entry)}</small>
             </div>
           ))}
@@ -115,10 +103,7 @@ export function ScriptSegmentPanel({
 
 function resolveActiveThreadMessage(job?: AgentRunJob | null) {
   if (!job || job.status !== "processing") return null;
-  if (!job.agentRun?.threadId || !job.agentRun?.turnId) return null;
   const message = job.activeThreadMessage;
   if (!message?.text?.trim()) return null;
-  if (message.threadId && message.threadId !== job.agentRun.threadId) return null;
-  if (message.turnId && message.turnId !== job.agentRun.turnId) return null;
   return message;
 }

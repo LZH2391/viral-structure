@@ -543,7 +543,8 @@ export type RhythmStructureHistoryEntry = {
   artifactId: string;
   status: "processed" | "failed" | string;
   resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
-  cardCount: number;
+  sectionCount: number;
+  cardCount?: number;
   turnId: string | null;
   traceId: string | null;
   sourceTraceId?: string | null;
@@ -574,14 +575,27 @@ export type RhythmStructureArtifact = {
   sourceCreatedAt?: string | null;
   cacheKey?: string | null;
   overview: {
-    rhythmShape: string;
-    pacingSummary: string;
-    peakRange: string;
-    turningPoints: string[];
-    transferableRhythmRule: string;
+    summary: string;
+    fields: Array<{
+      label: string;
+      value: string;
+    }>;
     uncertainties: string[];
   } | null;
-  cards: Array<{
+  sections: Array<{
+    sectionId: string;
+    label: string;
+    shotRefs: string[];
+    fields: Array<{
+      label: string;
+      value: string;
+    }>;
+    confidence: number;
+    needReview: boolean;
+    start: number;
+    end: number;
+  }>;
+  cards?: Array<{
     cardId: string;
     label: string;
     rhythmRole: string;
@@ -597,7 +611,8 @@ export type RhythmStructureArtifact = {
   }>;
   validation?: {
     status: "passed" | "failed" | string;
-    cardCount: number;
+    sectionCount: number;
+    cardCount?: number;
     validatorCode: string | null;
     repairAttemptCount: number;
   } | null;

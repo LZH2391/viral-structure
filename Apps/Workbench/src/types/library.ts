@@ -23,6 +23,7 @@ export type LibraryItemSummary = {
   enableReview?: boolean | null;
   reviewMode?: "reviewed" | "unreviewed" | string | null;
   segmentCount?: number | null;
+  sectionCount?: number | null;
   cardCount?: number | null;
   profileVersion?: string | null;
   promptTemplateId?: string | null;

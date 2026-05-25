@@ -23,7 +23,7 @@ export function CacheDecisionDialog({ item, onReuse, onRefresh, onCancel }: { it
           ) : null}
           {isRhythmCache ? (
             <p>
-              {item.cardCount ?? "?"} 卡 / turn {shortCacheTurnId(item.sourceTurnId)} / 更新时间 {item.sourceCreatedAt ? new Date(item.sourceCreatedAt).toLocaleString("zh-CN", { hour12: false }) : "未知"}
+              {item.sectionCount ?? item.cardCount ?? "?"} 区间 / turn {shortCacheTurnId(item.sourceTurnId)} / 更新时间 {item.sourceCreatedAt ? new Date(item.sourceCreatedAt).toLocaleString("zh-CN", { hour12: false }) : "未知"}
             </p>
           ) : null}
         </div>

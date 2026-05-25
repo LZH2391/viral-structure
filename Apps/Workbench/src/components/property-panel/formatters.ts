@@ -170,14 +170,12 @@ export function formatScriptHistoryMeta(entry: ScriptSegmentHistoryEntry) {
   const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
   const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
   const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";
-  const source = entry.sourceTurnId ? ` / source ${shortTurnId(entry.sourceTurnId)}` : "";
-  return `${time} / turn ${turn}${source}${validator}`;
+  return `${time} / turn ${turn}${validator}`;
 }
 
 export function formatRhythmHistoryMeta(entry: RhythmStructureHistoryEntry) {
   const time = entry.createdAt ? new Date(entry.createdAt).toLocaleString("zh-CN", { hour12: false }) : "未知时间";
   const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
   const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";
-  const source = entry.sourceTurnId ? ` / source ${shortTurnId(entry.sourceTurnId)}` : "";
-  return `${time} / turn ${turn}${source}${validator}`;
+  return `${time} / turn ${turn}${validator}`;
 }

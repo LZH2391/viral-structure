@@ -104,6 +104,7 @@ function normalizeCachePrompt(cachePrompt: ProcessingJob["cachePrompt"]) {
           sourceTraceId: cachePrompt.cachedItem.sourceTraceId ?? null,
           analysisFps: cachePrompt.cachedItem.analysisFps ?? null,
           segmentCount: cachePrompt.cachedItem.segmentCount ?? null,
+          sectionCount: cachePrompt.cachedItem.sectionCount ?? null,
           cardCount: cachePrompt.cachedItem.cardCount ?? null,
           shotCount: cachePrompt.cachedItem.shotCount ?? null,
           boundaryCount: cachePrompt.cachedItem.boundaryCount ?? null,

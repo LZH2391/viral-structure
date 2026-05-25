@@ -76,6 +76,7 @@ async function collectTurnToCompletion({
   maxCollectAttempts,
   onTurnCollect,
 }) {
+  let lastMismatchedTurnId = null;
   for (let attempt = 0; attempt < maxCollectAttempts; attempt += 1) {
     const result = await appServer.collectTurnResult({
       workspaceRoot: rootDir,
@@ -83,6 +84,11 @@ async function collectTurnToCompletion({
       turnId,
       timeoutSeconds: 120,
     });
+    if (!isExpectedTurn(result, turnId)) {
+      lastMismatchedTurnId = result?.turnId ?? null;
+      await waitBeforeRetry(pollIntervalMs);
+      continue;
+    }
     await onTurnCollect?.(result);
     if (result?.status === "completed") return result;
     if (!isNonTerminalTurnStatus(result?.status)) {
@@ -96,6 +102,7 @@ async function collectTurnToCompletion({
   throw codedError("appserver_turn_collect_timeout", "节奏结构 Agent 长时间未返回结果", {
     turnId,
     attemptCount: maxCollectAttempts,
+    lastMismatchedTurnId,
   });
 }
 
@@ -116,5 +123,11 @@ module.exports = {
 
 function isNonTerminalTurnStatus(status) {
   return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress"].includes(String(status ?? "").trim().toLowerCase());
+}
+
+function isExpectedTurn(result, expectedTurnId) {
+  const actual = String(result?.turnId ?? "").trim();
+  const expected = String(expectedTurnId ?? "").trim();
+  return Boolean(actual && expected && actual === expected);
 }
 

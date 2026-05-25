@@ -187,7 +187,7 @@ export function WorkbenchApp() {
       if (!result?.artifact?.rhythmStructureAnalysis) throw new Error("节奏结构分析未返回有效产物");
       rhythmStructureFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "节奏结构完成");
       stageLogger.finishStage(stage, result.artifact.rhythmStructureAnalysis.artifactId, {
-        cardCount: result.artifact.rhythmStructureAnalysis.cards.length,
+        sectionCount: result.artifact.rhythmStructureAnalysis.sections.length,
         validatorCode: result.artifact.rhythmStructureAnalysis.validation?.validatorCode ?? null,
       });
       return result.artifact;
