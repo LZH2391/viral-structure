@@ -239,7 +239,8 @@
 ### `script-segment`
 
 - `manifest` 放 `shots[].shotId/start/end/summary`、`commerceBrief`、必要的字幕等内容输入
-- `visual-manifest` 放镜头联表与系统映射
+- `visual-manifest` 放镜头联表索引：镜头到 `sheetId`、`sheetId` 到格子 `frameId/timestamp/row/col`
+- 联表图片的本地路径、URI 等附件定位信息只留在系统侧 turn 组装上下文，不写入模型可见 `visual-manifest`
 - `metadata` 放目录、时长、画幅等运行信息
 - `lineage` 放样例与上游 artifact 关系
 
