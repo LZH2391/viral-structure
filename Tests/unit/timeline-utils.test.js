@@ -45,3 +45,14 @@ test("timeline conversions never return NaN for invalid duration or width", () =
     assert.equal(timelineLeftToTime(30, metrics), 0);
   }
 });
+
+test("timeline follow scroll advances only when playhead leaves the visible window", () => {
+  const root = path.resolve(__dirname, "../..");
+  const { resolveTimelineFollowScrollLeft } = loadTimelineUtils(root);
+
+  assert.equal(resolveTimelineFollowScrollLeft({ playheadLeft: 500, scrollLeft: 0, viewportWidth: 1000, contentWidth: 3000 }), null);
+  assert.equal(resolveTimelineFollowScrollLeft({ playheadLeft: 1100, scrollLeft: 0, viewportWidth: 1000, contentWidth: 3000 }), 1100);
+  assert.equal(resolveTimelineFollowScrollLeft({ playheadLeft: 200, scrollLeft: 1000, viewportWidth: 1000, contentWidth: 3000 }), 200);
+  assert.equal(resolveTimelineFollowScrollLeft({ playheadLeft: 2800, scrollLeft: 1000, viewportWidth: 1000, contentWidth: 3000 }), 2000);
+  assert.equal(resolveTimelineFollowScrollLeft({ playheadLeft: 1100, scrollLeft: 0, viewportWidth: 3000, contentWidth: 3000 }), null);
+});

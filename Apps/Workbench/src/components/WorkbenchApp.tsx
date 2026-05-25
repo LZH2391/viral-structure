@@ -4,7 +4,7 @@ import type { AudioFeatureMarker, SampleArtifact, WorkbenchState } from "../type
 import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
 import { getSampleArtifact, resolveCacheDecision } from "../api/client";
-import { findAudioFeatureMarker, findCurrentShot, findCurrentStructureCard, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
+import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
 import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -212,13 +212,9 @@ export function WorkbenchApp() {
 
   const handleSelectTimelineTime = useCallback((time: number) => {
     if (videoRef.current) videoRef.current.currentTime = time;
-    const card = findCurrentStructureCard(state.structureCards, time);
-    const shot = findCurrentShot(shotBoundaryAnalysis?.shots, time);
-    lastSegmentIdRef.current = card?.id ?? null;
-    lastShotIdRef.current = shot?.id ?? null;
     setCurrentTime(time);
     dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
-  }, [setCurrentTime, shotBoundaryAnalysis?.shots, state]);
+  }, [setCurrentTime, state]);
 
   const fileLabel = state.isUploadingSample
     ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim()

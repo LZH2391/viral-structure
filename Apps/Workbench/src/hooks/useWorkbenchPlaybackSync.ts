@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import type { ShotBoundaryAnalysisArtifact, StructureCard } from "../types";
 import { findCurrentShot, findCurrentStructureCard } from "../utils/workbenchHelpers";
@@ -17,6 +17,7 @@ export function useWorkbenchPlaybackSync({
   lastShotIdRef: MutableRefObject<string | null>;
 }) {
   const [currentTime, setCurrentTime] = useState(0);
+  const lastPublishedTimeRef = useRef(-1);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -31,7 +32,9 @@ export function useWorkbenchPlaybackSync({
       const shotChanged = nextShotId !== lastShotIdRef.current;
       lastSegmentIdRef.current = nextSegmentId;
       lastShotIdRef.current = nextShotId;
-      if (forceUpdate || segmentChanged || shotChanged) {
+      const timeChanged = Math.abs(time - lastPublishedTimeRef.current) >= 0.2;
+      if (forceUpdate || segmentChanged || shotChanged || timeChanged) {
+        lastPublishedTimeRef.current = time;
         setCurrentTime(time);
       }
     };

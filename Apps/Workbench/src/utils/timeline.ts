@@ -62,6 +62,19 @@ export function timelineLeftToTime(left: number, metrics: Pick<TimelineMetrics, 
   return duration * ratio;
 }
 
+export function resolveTimelineFollowScrollLeft(options: { playheadLeft: number; scrollLeft: number; viewportWidth: number; contentWidth: number }): number | null {
+  const viewportWidth = safePositiveNumber(options.viewportWidth);
+  const contentWidth = safePositiveNumber(options.contentWidth);
+  if (!viewportWidth || !contentWidth || contentWidth <= viewportWidth) return null;
+  const maxScrollLeft = Math.max(0, contentWidth - viewportWidth);
+  const scrollLeft = Math.max(0, Math.min(maxScrollLeft, Number.isFinite(options.scrollLeft) ? options.scrollLeft : 0));
+  const playheadLeft = Math.max(0, Math.min(contentWidth, Number.isFinite(options.playheadLeft) ? options.playheadLeft : 0));
+  if (playheadLeft < scrollLeft || playheadLeft > scrollLeft + viewportWidth) {
+    return Math.max(0, Math.min(maxScrollLeft, playheadLeft));
+  }
+  return null;
+}
+
 function safePositiveNumber(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }

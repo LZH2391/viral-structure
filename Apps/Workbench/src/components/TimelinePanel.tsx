@@ -2,7 +2,7 @@ import { RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type { AudioFeatureAnalysisArtifact, AudioFeatureMarker, AudioSeparationArtifact, MediaDerivative, MediaKind, SampleVideo, SubtitleArtifact, SubtitleDraft } from "../types";
 import { runtimeUrl } from "../api/client";
 import { formatTime } from "../utils/format";
-import { clampVisibleSeconds, createTimelineMetrics, frameLeft, timeToTimelineLeft, visibleFrames } from "../utils/timeline";
+import { clampVisibleSeconds, createTimelineMetrics, frameLeft, resolveTimelineFollowScrollLeft, timeToTimelineLeft, visibleFrames } from "../utils/timeline";
 import { useElementSize } from "../hooks/useElementSize";
 import { useAudioWaveform } from "../hooks/useAudioWaveform";
 import { useTimelinePlayback } from "../hooks/useTimelinePlayback";
@@ -92,6 +92,16 @@ export function TimelinePanel(props: TimelinePanelProps) {
       const playhead = playheadRef.current;
       if (playhead) playhead.style.transform = `translate3d(${left}px, 0, 0)`;
       if (playheadLabelRef.current) playheadLabelRef.current.textContent = formatTime(time);
+      const scrollElement = scrollRef.current;
+      const nextScrollLeft = scrollElement
+        ? resolveTimelineFollowScrollLeft({
+          playheadLeft: left,
+          scrollLeft: scrollElement.scrollLeft,
+          viewportWidth: scrollElement.clientWidth,
+          contentWidth: metrics.contentWidth,
+        })
+        : null;
+      if (nextScrollLeft !== null && scrollElement) scrollElement.scrollLeft = nextScrollLeft;
     },
   });
 
