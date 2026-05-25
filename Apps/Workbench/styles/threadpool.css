@@ -14,7 +14,7 @@
 
 .threadpool-grid {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: var(--threadpool-list-width, 340px) 6px minmax(460px, 1fr);
   min-height: 0;
 }
 
@@ -29,6 +29,14 @@
   overflow: auto;
   padding: 0 12px 12px;
   border-right: 1px solid var(--line);
+}
+
+.threadpool-resizer {
+  cursor: col-resize;
+}
+
+.threadpool-detail {
+  border-left: 1px solid var(--line);
 }
 
 .threadpool-role {
@@ -189,12 +197,15 @@
 
 .threadpool-conversation-panel {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
   min-height: 120px;
+  max-height: 520px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
   padding: 12px;
+  overflow: hidden;
 }
 
 .threadpool-conversation-header {
@@ -217,6 +228,9 @@
 .threadpool-conversation-list {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .threadpool-conversation-turn {

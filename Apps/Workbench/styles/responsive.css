@@ -71,9 +71,33 @@
     grid-template-columns: 1fr;
   }
 
+  .library-grid,
+  .threadpool-grid {
+    grid-template-columns: 1fr;
+  }
+
   .debug-trace-list {
     max-height: 260px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .library-list,
+  .threadpool-list {
+    max-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .library-detail,
+  .debug-detail,
+  .threadpool-detail {
+    border-left: 0;
+  }
+
+  .library-resizer,
+  .debug-resizer,
+  .threadpool-resizer {
+    display: none;
   }
 }

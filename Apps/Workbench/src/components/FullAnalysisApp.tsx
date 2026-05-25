@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
 import type { ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
+import { SplitResizeHandle } from "./SplitResizeHandle";
 import { formatSecondsCompact, shortId } from "../utils/format";
+import { useResizableQuadLayout } from "../hooks/useResizableQuadLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
@@ -25,6 +27,21 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [frameSampleRate, setFrameSampleRate] = useState(10);
   const [refreshMode, setRefreshMode] = useState(false);
   const pollTimerRef = useRef<number | null>(null);
+  const layoutRef = useRef<HTMLElement>(null);
+  const layout = useResizableQuadLayout({
+    containerRef: layoutRef,
+    storageKey: "full-analysis:layout",
+    leftCssVar: "--full-analysis-left-width",
+    topCssVar: "--full-analysis-top-height",
+    defaultLeft: 340,
+    minLeft: 280,
+    maxLeft: 520,
+    minRight: 420,
+    defaultTop: 320,
+    minTop: 260,
+    maxTop: 560,
+    minBottom: 260,
+  });
 
   const orderedStages = useMemo(() => {
     const stages = run?.stages ?? [];
@@ -148,7 +165,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           </div>
         </header>
       )}
-      <main className="full-analysis-main">
+      <main ref={layoutRef} className="full-analysis-main">
         <section className="full-analysis-upload" aria-label="完整分析上传">
           <label className="upload-target" htmlFor="fullAnalysisVideoInput">
             <input
@@ -189,6 +206,14 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
             </label>
           </div>
         </section>
+        <SplitResizeHandle
+          className="workspace-resize-handle full-analysis-col-resizer"
+          label="调整左侧面板宽度"
+          orientation="vertical"
+          onResizeStart={(event) => layout.startResize("column", event)}
+          onReset={() => layout.resetSize("column")}
+          onNudge={(direction) => layout.nudgeSize("column", direction)}
+        />
         <section className="full-analysis-preview" aria-label="视频预览">
           {videoUrl ? (
             <video controls src={videoUrl} />
@@ -196,6 +221,14 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
             <div className="empty-preview">等待视频产物</div>
           )}
         </section>
+        <SplitResizeHandle
+          className="workspace-resize-handle full-analysis-row-resizer"
+          label="调整上下区域高度"
+          orientation="horizontal"
+          onResizeStart={(event) => layout.startResize("row", event)}
+          onReset={() => layout.resetSize("row")}
+          onNudge={(direction) => layout.nudgeSize("row", -direction)}
+        />
         <section className="full-analysis-flow" aria-label="流程状态">
           {orderedStages.map((stage) => (
             <StageStep key={stage.key} stage={stage} job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null} onRerun={handleRerun} disabled={!canRerun(stage, run)} />
@@ -234,7 +267,11 @@ function StageStep({ stage, job, onRerun, disabled }: { stage: WorkflowStageStat
       {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
       {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
       {traceText ? <span className="workflow-step-trace">trace {shortId(traceText)}</span> : null}
-      {activeThreadMessage ? <em className="workflow-step-thread">{activeThreadMessage}</em> : null}
+      {activeThreadMessage ? (
+        <div className="workflow-step-thread-wrap">
+          <em className="workflow-step-thread">{activeThreadMessage}</em>
+        </div>
+      ) : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
       {stage.key !== "upload" && stage.key !== "aggregate" ? (
         <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={() => onRerun(stage.key)}>

@@ -14,7 +14,7 @@
 
 .debug-grid {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: var(--debug-list-width, 320px) 6px minmax(460px, 1fr);
   min-height: 0;
 }
 
@@ -29,6 +29,14 @@
   overflow: auto;
   padding: 0 12px 12px;
   border-right: 1px solid var(--line);
+}
+
+.debug-resizer {
+  cursor: col-resize;
+}
+
+.debug-detail {
+  border-left: 1px solid var(--line);
 }
 
 .debug-detail {

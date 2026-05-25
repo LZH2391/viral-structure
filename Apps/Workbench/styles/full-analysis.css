@@ -9,15 +9,18 @@
 
 .full-analysis-main {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  grid-template-rows: minmax(280px, auto) minmax(320px, 1fr);
+  grid-template-columns: var(--full-analysis-left-width, 340px) 6px minmax(420px, 1fr);
+  grid-template-rows: var(--full-analysis-top-height, 320px) 6px minmax(260px, 1fr);
   grid-template-areas:
-    "upload preview"
-    "flow results";
-  gap: 16px;
+    "upload full-analysis-col-resizer preview"
+    "full-analysis-row-resizer full-analysis-row-resizer full-analysis-row-resizer"
+    "flow flow results";
+  column-gap: 16px;
+  row-gap: 16px;
   padding: 16px;
   min-height: calc(100vh - 64px);
   background: var(--bg);
+  align-items: stretch;
 }
 
 .embedded-view .full-analysis-main {
@@ -71,14 +74,16 @@
 }
 
 .workflow-step {
-  min-height: 118px;
+  min-height: 128px;
+  max-height: 280px;
   display: grid;
-  grid-template-rows: auto auto auto auto 1fr auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
+  overflow: hidden;
 }
 
 .workflow-step-heading {
@@ -112,6 +117,31 @@
 
 .workflow-step-thread {
   color: var(--accent);
+}
+
+.workflow-step-thread-wrap {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.workflow-step-thread-wrap::-webkit-scrollbar {
+  width: 8px;
+}
+
+.workflow-step-thread-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(143, 152, 163, 0.32);
+}
+
+.full-analysis-col-resizer {
+  grid-area: full-analysis-col-resizer;
+  cursor: col-resize;
+}
+
+.full-analysis-row-resizer {
+  grid-area: full-analysis-row-resizer;
+  cursor: row-resize;
 }
 
 .workflow-step-running {
@@ -196,6 +226,11 @@
       "preview"
       "flow"
       "results";
+  }
+
+  .full-analysis-col-resizer,
+  .full-analysis-row-resizer {
+    display: none;
   }
 
   .full-analysis-upload,

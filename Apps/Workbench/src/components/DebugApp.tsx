@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDebugTraceDetail, getDebugTraces } from "../api/client";
 import type { DebugEvent, DebugTraceDetail, DebugTraceSummary } from "../types";
+import { SplitResizeHandle } from "./SplitResizeHandle";
+import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { formatClock, shortId } from "../utils/format";
 
 const SUMMARY_LIMIT = 420;
@@ -13,6 +15,16 @@ export function DebugApp({ embedded = false }: { embedded?: boolean } = {}) {
   const [updatedAt, setUpdatedAt] = useState("等待刷新");
   const [detailVersion, setDetailVersion] = useState(0);
   const detailCacheRef = useRef(new Map<string, DebugTraceDetail>());
+  const layoutRef = useRef<HTMLElement>(null);
+  const layout = useResizableTwoPaneLayout({
+    containerRef: layoutRef,
+    storageKey: "debug:layout",
+    cssVar: "--debug-list-width",
+    defaultLeft: 320,
+    minLeft: 240,
+    maxLeft: 520,
+    minRight: 460,
+  });
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -53,8 +65,16 @@ export function DebugApp({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? "debug-shell embedded-view" : "debug-shell"}>
       {!embedded ? <DebugHeader status={status} count={hiddenCount ? `${visibleTraces.length}/${traces.length} traces` : `${traces.length} traces`} updatedAt={updatedAt} onRefresh={refresh} /> : null}
-      <main className="debug-grid">
+      <main ref={layoutRef} className="debug-grid">
         <TraceList traces={visibleTraces} hiddenCount={hiddenCount} selectedTraceId={selectedTraceId} onSelect={setSelectedTraceId} />
+        <SplitResizeHandle
+          className="workspace-resize-handle debug-resizer"
+          label="调整追踪列表宽度"
+          orientation="vertical"
+          onResizeStart={layout.startResize}
+          onReset={layout.resetSize}
+          onNudge={layout.nudgeSize}
+        />
         <TraceDetail traceId={selectedTraceId} detail={selectedDetail} />
       </main>
     </div>

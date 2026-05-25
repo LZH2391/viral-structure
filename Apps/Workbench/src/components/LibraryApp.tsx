@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteLibraryItemCache, getLibraryItemDetail, getLibraryItems, loadLibraryItem, runtimeUrl } from "../api/client";
 import type { LibraryArtifactNode, LibraryItemDetail, LibraryItemSummary } from "../types";
+import { SplitResizeHandle } from "./SplitResizeHandle";
+import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { formatClock, formatTime, shortId } from "../utils/format";
 
 const DETAIL_LIMIT = 30;
@@ -12,6 +14,16 @@ export function LibraryApp({ embedded = false }: { embedded?: boolean } = {}) {
   const [updatedAt, setUpdatedAt] = useState("等待刷新");
   const [detailVersion, setDetailVersion] = useState(0);
   const detailCacheRef = useRef(new Map<string, LibraryItemDetail>());
+  const layoutRef = useRef<HTMLElement>(null);
+  const layout = useResizableTwoPaneLayout({
+    containerRef: layoutRef,
+    storageKey: "library:layout",
+    cssVar: "--library-list-width",
+    defaultLeft: 340,
+    minLeft: 260,
+    maxLeft: 520,
+    minRight: 420,
+  });
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -48,8 +60,16 @@ export function LibraryApp({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? "library-shell embedded-view" : "library-shell"}>
       {!embedded ? <LibraryHeader items={items} status={status} updatedAt={updatedAt} onRefresh={refresh} /> : null}
-      <main className="library-grid">
+      <main ref={layoutRef} className="library-grid">
         <LibraryList items={items} selectedId={selectedId} onSelect={setSelectedId} />
+        <SplitResizeHandle
+          className="workspace-resize-handle library-resizer"
+          label="调整处理库列表宽度"
+          orientation="vertical"
+          onResizeStart={layout.startResize}
+          onReset={layout.resetSize}
+          onNudge={layout.nudgeSize}
+        />
         <LibraryDetail detail={selectedDetail} onDeleted={refresh} />
       </main>
     </div>

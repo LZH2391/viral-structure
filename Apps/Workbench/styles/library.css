@@ -14,7 +14,7 @@
 
 .library-grid {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: var(--library-list-width, 340px) 6px minmax(420px, 1fr);
   min-height: 0;
 }
 
@@ -29,6 +29,14 @@
   overflow: auto;
   padding: 0 12px 12px;
   border-right: 1px solid var(--line);
+}
+
+.library-resizer {
+  cursor: col-resize;
+}
+
+.library-detail {
+  border-left: 1px solid var(--line);
 }
 
 .library-item {

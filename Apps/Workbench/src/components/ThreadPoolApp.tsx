@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { discardThreadPoolThread, getThreadConversation, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
 import type { ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
+import { SplitResizeHandle } from "./SplitResizeHandle";
+import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { formatThreadContextUsage } from "../utils/threadpoolFormat";
 import { shortId } from "../utils/format";
 
@@ -11,6 +13,16 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   const [detail, setDetail] = useState<ThreadPoolRoleDetail | null>(null);
   const [status, setStatus] = useState("读取 ThreadPool");
   const [updatedAt, setUpdatedAt] = useState("等待刷新");
+  const layoutRef = useRef<HTMLElement>(null);
+  const layout = useResizableTwoPaneLayout({
+    containerRef: layoutRef,
+    storageKey: "threadpool:layout",
+    cssVar: "--threadpool-list-width",
+    defaultLeft: 340,
+    minLeft: 260,
+    maxLeft: 520,
+    minRight: 460,
+  });
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -48,8 +60,16 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   return (
     <div className={embedded ? "threadpool-shell embedded-view" : "threadpool-shell"}>
       {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} onRefresh={refreshDetail} /> : null}
-      <main className="threadpool-grid">
+      <main ref={layoutRef} className="threadpool-grid">
         <RoleList roles={roles} selectedRole={selectedRole} onSelect={setSelectedRole} />
+        <SplitResizeHandle
+          className="workspace-resize-handle threadpool-resizer"
+          label="调整角色列表宽度"
+          orientation="vertical"
+          onResizeStart={layout.startResize}
+          onReset={layout.resetSize}
+          onNudge={layout.nudgeSize}
+        />
         <RoleDetail detail={detail} onChanged={refreshDetail} />
       </main>
     </div>
