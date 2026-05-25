@@ -8,6 +8,7 @@ export type ProcessingJob = {
   status: "pending" | "processing" | "cache_waiting" | "processed" | "failed" | string;
   progress: number;
   traceId: string;
+  finalMessage?: string | null;
   agentRun?: {
     provider?: "codex-appserver" | string;
     role?: string;

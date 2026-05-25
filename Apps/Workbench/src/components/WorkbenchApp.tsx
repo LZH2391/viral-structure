@@ -17,7 +17,6 @@ import { useShotBoundaryFlow } from "../hooks/useShotBoundaryFlow";
 import { useSubtitleDraftFlow } from "../hooks/useSubtitleDraftFlow";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
-import { DebugApp } from "./DebugApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
@@ -50,7 +49,6 @@ export function WorkbenchApp() {
     workspace: true,
     "full-analysis": initialViewFromPath() === "full-analysis",
     library: initialViewFromPath() === "library",
-    debug: initialViewFromPath() === "debug",
     threadpool: initialViewFromPath() === "threadpool",
   }));
   const audioSeekRequestIdRef = useRef(0);
@@ -308,9 +306,6 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>
-          <button className={`tab-button ${activeView === "debug" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("debug", setActiveView)}>
-            运行追踪
-          </button>
           <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
           </button>
@@ -465,11 +460,6 @@ export function WorkbenchApp() {
       {mountedViews.library ? (
         <section className={`view-shell ${activeView === "library" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "library"}>
           <LibraryApp embedded />
-        </section>
-      ) : null}
-      {mountedViews.debug ? (
-        <section className={`view-shell ${activeView === "debug" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "debug"}>
-          <DebugApp embedded />
         </section>
       ) : null}
       {mountedViews.threadpool ? (

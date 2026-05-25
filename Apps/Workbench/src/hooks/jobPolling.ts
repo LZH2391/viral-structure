@@ -59,6 +59,7 @@ function normalizeJobSnapshot(job: ProcessingJob) {
     status: job.status ?? null,
     progress: job.progress ?? null,
     traceId: job.traceId ?? null,
+    finalMessage: job.finalMessage ?? null,
     errorSummary: normalizeErrorSummary(job.errorSummary ?? null),
     activeThreadMessage: normalizeActiveThreadMessage(job.activeThreadMessage ?? null),
     cachePrompt: normalizeCachePrompt(job.cachePrompt ?? null),

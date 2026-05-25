@@ -14,9 +14,8 @@
   grid-template-areas:
     "upload full-analysis-col-resizer preview"
     "full-analysis-row-resizer full-analysis-row-resizer full-analysis-row-resizer"
-    "flow flow results";
-  column-gap: 16px;
-  row-gap: 16px;
+    "flow full-analysis-bottom-resizer results";
+  gap: 16px;
   padding: 16px;
   min-height: calc(100vh - 64px);
   background: var(--bg);
@@ -119,6 +118,10 @@
   color: var(--accent);
 }
 
+.workflow-step-thread.is-final {
+  color: var(--text);
+}
+
 .workflow-step-thread-wrap {
   min-height: 0;
   overflow: auto;
@@ -142,6 +145,11 @@
 .full-analysis-row-resizer {
   grid-area: full-analysis-row-resizer;
   cursor: row-resize;
+}
+
+.full-analysis-bottom-resizer {
+  grid-area: full-analysis-bottom-resizer;
+  cursor: col-resize;
 }
 
 .workflow-step-running {
@@ -229,7 +237,8 @@
   }
 
   .full-analysis-col-resizer,
-  .full-analysis-row-resizer {
+  .full-analysis-row-resizer,
+  .full-analysis-bottom-resizer {
     display: none;
   }
 

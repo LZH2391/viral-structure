@@ -103,9 +103,6 @@ function LibraryHeader({ items, status, updatedAt, onRefresh }: { items: Library
         <button className="tab-button active" type="button">
           处理库
         </button>
-        <button className="tab-button" type="button" onClick={() => window.location.assign("/debug")}>
-          运行追踪
-        </button>
         <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
           ThreadPool
         </button>
@@ -160,9 +157,6 @@ function LibraryDetail({ detail, onDeleted }: { detail: LibraryItemDetail | null
           </button>
           <button id="deleteLibraryCacheBtn" className="ghost-button" type="button" disabled={!detail} onClick={deleteCache}>
             删除缓存
-          </button>
-          <button className="ghost-button" type="button" disabled={!detail?.traceId} onClick={() => window.location.assign("/debug")}>
-            打开运行追踪
           </button>
         </div>
       </div>

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
-import type { ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
+import { getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import type { ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { formatSecondsCompact, shortId } from "../utils/format";
-import { useResizableQuadLayout } from "../hooks/useResizableQuadLayout";
+import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
+type ThreadMessageItem = { kind: "history" | "active" | "final"; text: string };
 
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
@@ -20,6 +21,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [artifact, setArtifact] = useState<SampleArtifact | null>(null);
   const [childJobs, setChildJobs] = useState<Record<string, ProcessingJob | null>>({});
+  const [threadConversations, setThreadConversations] = useState<Record<string, ThreadConversation | null>>({});
   const [activeTab, setActiveTab] = useState<ResultTab>("shot");
   const [statusText, setStatusText] = useState("等待上传");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -28,11 +30,12 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [refreshMode, setRefreshMode] = useState(false);
   const pollTimerRef = useRef<number | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
-  const layout = useResizableQuadLayout({
+  const layout = useResizableGridLayout({
     containerRef: layoutRef,
     storageKey: "full-analysis:layout",
     leftCssVar: "--full-analysis-left-width",
     topCssVar: "--full-analysis-top-height",
+    bottomLeftCssVar: "--full-analysis-bottom-left-width",
     defaultLeft: 340,
     minLeft: 280,
     maxLeft: 520,
@@ -40,7 +43,11 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     defaultTop: 320,
     minTop: 260,
     maxTop: 560,
-    minBottom: 260,
+    minBottomTop: 260,
+    defaultBottomLeft: 340,
+    minBottomLeft: 260,
+    maxBottomLeft: 520,
+    minBottomRight: 420,
   });
 
   const orderedStages = useMemo(() => {
@@ -48,11 +55,23 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
     return [...stages].sort((a, b) => STAGE_ORDER.indexOf(a.key) - STAGE_ORDER.indexOf(b.key));
   }, [run]);
 
-  const runningChildJobIds = useMemo(
+  const childJobIds = useMemo(
     () => orderedStages
-      .filter((stage) => Boolean(stage.childJobId && ["running", "pending"].includes(getStageRuntimeStatus(stage))))
+      .filter((stage) => Boolean(stage.childJobId))
       .map((stage) => stage.childJobId as string),
     [orderedStages],
+  );
+
+  const threadIds = useMemo(
+    () => Array.from(new Set(
+      orderedStages
+        .map((stage) => {
+          const job = stage.childJobId ? childJobs[stage.childJobId] ?? null : null;
+          return job?.activeThreadMessage?.threadId ?? job?.agentRun?.threadId ?? null;
+        })
+        .filter((value): value is string => Boolean(value)),
+    )),
+    [childJobs, orderedStages],
   );
 
   const startPolling = useCallback((workflowRunId: string) => {
@@ -81,11 +100,11 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   }, []);
 
   useEffect(() => {
-    if (!runningChildJobIds.length) return;
+    if (!childJobIds.length) return;
     let cancelled = false;
 
     const syncChildJobs = async () => {
-      const updates = await Promise.all(runningChildJobIds.map(async (jobId) => {
+      const updates = await Promise.all(childJobIds.map(async (jobId) => {
         try {
           return [jobId, await getProcessingJob(jobId)] as const;
         } catch {
@@ -108,7 +127,37 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [runningChildJobIds]);
+  }, [childJobIds]);
+
+  useEffect(() => {
+    if (!threadIds.length) return;
+    let cancelled = false;
+
+    const syncConversations = async () => {
+      const updates = await Promise.all(threadIds.map(async (threadId) => {
+        try {
+          return [threadId, await getThreadConversation(threadId)] as const;
+        } catch {
+          return [threadId, null] as const;
+        }
+      }));
+      if (cancelled) return;
+      setThreadConversations((current) => {
+        const next = { ...current };
+        for (const [threadId, conversation] of updates) next[threadId] = conversation;
+        return next;
+      });
+    };
+
+    void syncConversations();
+    const timer = window.setInterval(() => {
+      void syncConversations();
+    }, 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [threadIds]);
 
   const handleUpload = useCallback(async (file: File) => {
     setIsStarting(true);
@@ -208,11 +257,11 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         </section>
         <SplitResizeHandle
           className="workspace-resize-handle full-analysis-col-resizer"
-          label="调整左侧面板宽度"
+          label="调整上方面板分界"
           orientation="vertical"
-          onResizeStart={(event) => layout.startResize("column", event)}
-          onReset={() => layout.resetSize("column")}
-          onNudge={(direction) => layout.nudgeSize("column", direction)}
+          onResizeStart={(event) => layout.startResize("top-row", event)}
+          onReset={() => layout.resetSize("top-row")}
+          onNudge={(direction) => layout.nudgeSize("top-row", direction)}
         />
         <section className="full-analysis-preview" aria-label="视频预览">
           {videoUrl ? (
@@ -225,15 +274,30 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           className="workspace-resize-handle full-analysis-row-resizer"
           label="调整上下区域高度"
           orientation="horizontal"
-          onResizeStart={(event) => layout.startResize("row", event)}
-          onReset={() => layout.resetSize("row")}
-          onNudge={(direction) => layout.nudgeSize("row", -direction)}
+          onResizeStart={(event) => layout.startResize("column", event)}
+          onReset={() => layout.resetSize("column")}
+          onNudge={(direction) => layout.nudgeSize("column", direction)}
         />
         <section className="full-analysis-flow" aria-label="流程状态">
           {orderedStages.map((stage) => (
-            <StageStep key={stage.key} stage={stage} job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null} onRerun={handleRerun} disabled={!canRerun(stage, run)} />
+            <StageStep
+              key={stage.key}
+              stage={stage}
+              job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
+              conversation={resolveJobConversation(stage.childJobId ? childJobs[stage.childJobId] ?? null : null, threadConversations)}
+              onRerun={handleRerun}
+              disabled={!canRerun(stage, run)}
+            />
           ))}
         </section>
+        <SplitResizeHandle
+          className="workspace-resize-handle full-analysis-bottom-resizer"
+          label="调整下方面板分界"
+          orientation="vertical"
+          onResizeStart={(event) => layout.startResize("bottom-row", event)}
+          onReset={() => layout.resetSize("bottom-row")}
+          onNudge={(direction) => layout.nudgeSize("bottom-row", direction)}
+        />
         <section className="full-analysis-results" aria-label="分析结果">
           <div className="result-tabs">
             <TabButton active={activeTab === "shot"} label="切镜" onClick={() => setActiveTab("shot")} />
@@ -249,13 +313,25 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   );
 }
 
-function StageStep({ stage, job, onRerun, disabled }: { stage: WorkflowStageState; job: ProcessingJob | null; onRerun: (stageKey: string) => void; disabled: boolean }) {
+function StageStep({
+  stage,
+  job,
+  conversation,
+  onRerun,
+  disabled,
+}: {
+  stage: WorkflowStageState;
+  job: ProcessingJob | null;
+  conversation: ThreadConversation | null;
+  onRerun: (stageKey: string) => void;
+  disabled: boolean;
+}) {
   const failed = stage.status === "failed";
   const runtimeStatus = getStageRuntimeStatus(stage);
   const runtimeLabel = resolveRuntimeLabel(stage, job);
   const runtimeStageText = resolveRuntimeStageText(stage, job);
   const runtimeProgress = resolveRuntimeProgress(stage, job);
-  const activeThreadMessage = resolveActiveThreadMessage(job);
+  const threadMessages = resolveThreadMessages(job, conversation);
   const traceText = job?.traceId ?? stage.childTraceId ?? null;
   return (
     <div className={`workflow-step workflow-step-${stage.status}`}>
@@ -267,9 +343,13 @@ function StageStep({ stage, job, onRerun, disabled }: { stage: WorkflowStageStat
       {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
       {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
       {traceText ? <span className="workflow-step-trace">trace {shortId(traceText)}</span> : null}
-      {activeThreadMessage ? (
+      {threadMessages.length ? (
         <div className="workflow-step-thread-wrap">
-          <em className="workflow-step-thread">{activeThreadMessage}</em>
+          {threadMessages.map((message, index) => (
+            <em key={`${message.kind}-${index}-${message.text.slice(0, 24)}`} className={`workflow-step-thread ${message.kind === "final" ? "is-final" : ""}`}>
+              {message.text}
+            </em>
+          ))}
         </div>
       ) : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
@@ -391,6 +471,30 @@ function resolveRuntimeProgress(stage: WorkflowStageState, job: ProcessingJob | 
 function resolveActiveThreadMessage(job: ProcessingJob | null) {
   const text = job?.activeThreadMessage?.text?.trim();
   return text ? text : null;
+}
+
+function resolveJobConversation(job: ProcessingJob | null, conversations: Record<string, ThreadConversation | null>) {
+  const threadId = job?.activeThreadMessage?.threadId ?? job?.agentRun?.threadId ?? null;
+  if (!threadId) return null;
+  return conversations[threadId] ?? null;
+}
+
+function resolveThreadMessages(job: ProcessingJob | null, conversation: ThreadConversation | null) {
+  const finalText = normalizeMessageText(job?.finalMessage ?? null);
+  const activeText = resolveActiveThreadMessage(job);
+  const turns = conversation?.turns ?? [];
+  const items: ThreadMessageItem[] = turns
+    .map((turn) => normalizeMessageText(turn.finalMessage ?? null))
+    .filter((value): value is string => Boolean(value))
+    .map((text) => ({ kind: "history", text }));
+  if (activeText && !items.some((item) => item.text === activeText)) items.push({ kind: "active" as const, text: activeText });
+  if (finalText && !items.some((item) => item.text === finalText)) items.push({ kind: "final" as const, text: finalText });
+  return items.slice(-6);
+}
+
+function normalizeMessageText(value: string | null | undefined) {
+  const text = value?.trim() ?? "";
+  return text || null;
 }
 
 function isRunActive(run: WorkflowRun | null) {

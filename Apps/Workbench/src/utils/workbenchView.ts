@@ -1,10 +1,9 @@
-export type WorkbenchView = "workspace" | "full-analysis" | "library" | "debug" | "threadpool";
+export type WorkbenchView = "workspace" | "full-analysis" | "library" | "threadpool";
 
 export function initialViewFromPath(): WorkbenchView {
   const pathname = window.location.pathname.replace(/\/+$/, "");
   if (pathname === "/full-analysis") return "full-analysis";
   if (pathname === "/library") return "library";
-  if (pathname === "/debug") return "debug";
   if (pathname === "/threadpool") return "threadpool";
   return "workspace";
 }
