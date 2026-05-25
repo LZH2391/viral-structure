@@ -316,8 +316,12 @@ async function runTransformTurn({
       },
     };
   } catch (error) {
-    if (lease?.thread_id) {
-      await threadPool.discardThread({ threadId: lease.thread_id, reason: "shot-boundary-transform-failed" }).catch(() => undefined);
+    if (lease?.lease_id) {
+      await threadPool.releaseLease?.({
+        leaseId: lease.lease_id,
+        ownerId: `${context.traceContext.traceId}:transform`,
+      }).catch(() => undefined);
+    } else if (lease?.thread_id) {
       await threadPool.releaseOwnerLeases?.(`${context.traceContext.traceId}:transform`).catch(() => undefined);
     }
     throw error;

@@ -151,9 +151,6 @@ function createShotBoundaryServiceRuntime({
   async function failActiveAgentJob(job, loadSampleArtifact, reason) {
     const agentRun = job.agentRun;
     if (!agentRun) return;
-    if (agentRun.traceId && typeof threadPool.releaseOwnerLeases === "function") {
-      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
-    }
     if (agentRun.threadId && agentRun.turnId && typeof appServer?.cancelTurn === "function") {
       await appServer.cancelTurn({
         workspaceRoot: rawWorkspaceRoot,
@@ -162,8 +159,10 @@ function createShotBoundaryServiceRuntime({
         timeoutSeconds: 30,
       }).catch(() => undefined);
     }
-    if (agentRun.threadId && typeof threadPool.discardThread === "function") {
-      await threadPool.discardThread({ threadId: agentRun.threadId, reason: `shot-boundary-interrupted-${reason}` }).catch(() => undefined);
+    if (agentRun.leaseId && agentRun.traceId && typeof threadPool.releaseLease === "function") {
+      await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId }).catch(() => undefined);
+    } else if (agentRun.traceId && typeof threadPool.releaseOwnerLeases === "function") {
+      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
     }
     const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
     const context = {

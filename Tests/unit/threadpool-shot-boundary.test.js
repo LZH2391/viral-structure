@@ -517,6 +517,7 @@ test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
     "script-segment-analyzer",
     "rhythm-structure-analyzer",
+    "packaging-structure-analyzer",
     "shot-boundary-transformer",
   ]);
   const proxy = createThreadPoolProxy({ fetchImpl: async () => response({ ok: true }) });
@@ -1300,10 +1301,11 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(artifact.shotBoundaryAnalysis.agent.threadId, "thread_1");
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 0);
   assert.equal(harness.logger.snapshots.length, 1);
-  assert.deepEqual(harness.threadPool.discarded, [
-    { threadId: "review_thread_1", reason: "shot-boundary-transform-failed" },
+  assert.deepEqual(harness.threadPool.discarded, []);
+  assert.deepEqual(harness.threadPool.released, [
+    { leaseId: "review_lease_1", ownerId: `${result.traceId}:transform`, thread_status: "idle" },
   ]);
-  assert.deepEqual(harness.threadPool.ownerReleased, [`${result.traceId}:transform`]);
+  assert.deepEqual(harness.threadPool.ownerReleased, []);
 });
 
 test("shot boundary mojibake reason fails quality gate and writes debug snapshot", async () => {
@@ -1459,6 +1461,7 @@ test("shot boundary startup interrupt fails active inflight without collecting o
     turnId: "turn_restart",
     timeoutSeconds: 30,
   }]);
+  assert.deepEqual(harness.threadPool.released, []);
   assert.deepEqual(harness.threadPool.ownerReleased, ["trace_restart"]);
   assert.deepEqual(harness.startedTurns.filter((item) => item.kind === "transform"), []);
 });

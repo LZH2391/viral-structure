@@ -34,8 +34,13 @@ async function finalizeLease(threadPool, agentRun, options = {}) {
 }
 
 async function cleanupLease(threadPool, lease, ownerId, reason) {
-  if (lease?.thread_id) {
-    await threadPool.discardThread({ threadId: lease.thread_id, reason }).catch(() => undefined);
+  if (lease?.lease_id && ownerId && typeof threadPool.releaseLease === "function") {
+    await threadPool.releaseLease({ leaseId: lease.lease_id, ownerId }).catch(() => undefined);
+    return;
+  }
+  if (lease?.thread_id && ownerId && typeof threadPool.releaseOwnerLeases === "function") {
+    await threadPool.releaseOwnerLeases(ownerId).catch(() => undefined);
+    return;
   }
   if (ownerId && typeof threadPool.releaseOwnerLeases === "function") {
     await threadPool.releaseOwnerLeases(ownerId).catch(() => undefined);
