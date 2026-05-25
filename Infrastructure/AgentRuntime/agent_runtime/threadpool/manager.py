@@ -125,10 +125,21 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
 
     def health_payload(self) -> dict:
         with self._lock:
-            warming_roles = set(self._warming_roles)
+            warming_roles: set[str] = set()
+            replenishing_roles: set[str] = set()
             for role_name, config in self.roles.items():
-                if self._role_is_warming(config):
+                seed = self._find_seed_thread(config.name)
+                if seed is not None and seed.status == "initializing":
                     warming_roles.add(role_name)
+                elif (
+                    not self._recovering
+                    and not self._startup_error
+                    and not self._warmup_errors.get(role_name)
+                    and seed is not None
+                    and seed.status == "idle"
+                    and self._idle_count(role_name) < config.min_idle
+                ):
+                    replenishing_roles.add(role_name)
             return {
                 "ok": True,
                 "service": "thread_pool_service",
@@ -143,7 +154,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
                 "warming_roles": sorted(warming_roles),
-                "replenishing_roles": [],
+                "replenishing_roles": sorted(replenishing_roles),
                 "warmup_errors": dict(self._warmup_errors),
                 "warmup_details": dict(self._warmup_details),
                 "reported_at": _now(),

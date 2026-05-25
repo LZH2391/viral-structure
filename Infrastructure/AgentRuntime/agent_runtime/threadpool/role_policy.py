@@ -24,6 +24,7 @@ def role_can_acquire(
     warmup_error: str | None,
     counts: dict[str, int],
     min_idle: int,
+    seed_ready: bool = False,
 ) -> bool:
     idle = int(counts.get("idle") or 0)
     return bool(
@@ -33,7 +34,7 @@ def role_can_acquire(
         and not warming
         and not startup_error
         and not warmup_error
-        and idle >= int(min_idle)
+        and (idle > 0 or seed_ready)
     )
 
 
@@ -67,13 +68,30 @@ class ThreadPoolRolePolicyMixin:
             role_entry = {}
         counts = dict(role_entry.get("counts") or {})
         seed = self._find_seed_thread(config.name)
-        warming = self._role_is_warming(config)
-        replenishing = False
+        seed_ready = seed is not None and seed.status == "idle"
+        seed_initializing = seed is not None and seed.status == "initializing"
+        idle = int(counts.get("idle") or 0)
+        warming = seed_initializing
+        replenishing = bool(
+            not warming
+            and not self._startup_error
+            and not self._recovering
+            and not self._warmup_errors.get(config.name)
+            and seed_ready
+            and idle < int(config.min_idle)
+        )
         warmup_error = self._warmup_errors.get(config.name)
         warmup_detail = (
             f"waiting for seed initialization: {seed.thread_id}"
             if warming and seed is not None and seed.status == "initializing"
-            else self._warmup_details.get(config.name)
+            else (
+                self._warmup_details.get(config.name)
+                or (
+                    f"replenishing idle threads: {idle}/{config.min_idle}"
+                    if replenishing
+                    else None
+                )
+            )
         )
         can_acquire = role_can_acquire(
             ok=True,
@@ -84,6 +102,7 @@ class ThreadPoolRolePolicyMixin:
             warmup_error=warmup_error,
             counts=counts,
             min_idle=config.min_idle,
+            seed_ready=seed_ready,
         )
         return {
             "ok": True,

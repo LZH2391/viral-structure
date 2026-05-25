@@ -54,11 +54,11 @@ async function fallbackEnsureRoleReady(threadPool, role) {
       detail: buildThreadPoolStatusDetail(status),
     };
   }
-  if (status.startupError || status.warmupError || !status.readyForLeases || !status.canAcquire) {
+  if (status.startupError || status.warmupError || !status.readyForLeases) {
     return {
       ok: false,
       error: "threadpool_acquire_failed",
-      message: String(status.startupError || status.warmupError || (!status.readyForLeases ? "ThreadPool 当前未 ready，请稍后再试" : "ThreadPool 当前不可获取 lease，请稍后再试")).slice(0, 240),
+      message: String(status.startupError || status.warmupError || "ThreadPool 当前未 ready，请稍后再试").slice(0, 240),
       retryable: true,
       detail: buildThreadPoolStatusDetail(status),
     };

@@ -28,6 +28,7 @@ DEFAULT_CODEX_APP_SERVER_COMMAND: tuple[str, ...] = ("codex", "app-server")
 DEFAULT_REVIEWER_SANDBOX_POLICY: dict[str, Any] = {
     "type": "dangerFullAccess",
 }
+TRANSPORT_RECOVERY_ATTEMPTS = 3
 
 
 class AppServerError(RuntimeError):
@@ -118,33 +119,54 @@ class AppServerSessionClient(AppServerTurnResultMixin):
     def start(self) -> None:
         if self._closed:
             raise AppServerConnectionError("client is closed")
-        self._transport.start()
         if self._initialized:
             return
-        try:
-            response = self._request_transport(
-                "initialize",
-                {
-                    "clientInfo": {
-                        "name": self.service_name,
-                        "title": self.service_name,
-                        "version": "0.1.0",
+        last_error: Exception | None = None
+        for attempt_index in range(TRANSPORT_RECOVERY_ATTEMPTS):
+            self._start_transport_with_recovery()
+            try:
+                response = self._request_transport(
+                    "initialize",
+                    {
+                        "clientInfo": {
+                            "name": self.service_name,
+                            "title": self.service_name,
+                            "version": "0.1.0",
+                        },
+                        "capabilities": {
+                            "experimentalApi": True,
+                        },
                     },
-                    "capabilities": {
-                        "experimentalApi": True,
-                    },
-                },
-                timeout_seconds=self.request_timeout_seconds,
-            )
-        except AppServerConnectionError as exc:
-            if self._is_already_initialized_error(exc):
-                self._initialized = True
+                    timeout_seconds=self.request_timeout_seconds,
+                )
+            except AppServerConnectionError as exc:
+                if self._is_already_initialized_error(exc):
+                    self._initialized = True
+                    return
+                last_error = exc
+                if self._closed or attempt_index >= TRANSPORT_RECOVERY_ATTEMPTS - 1:
+                    raise
+                self._reset_transport()
+                continue
+            self._transport.notify("initialized", {})
+            if "userAgent" not in response:
+                raise AppServerConnectionError("initialize response missing userAgent")
+            self._initialized = True
+            return
+        raise AppServerConnectionError(str(last_error or "transport initialize failed")) from last_error
+
+    def _start_transport_with_recovery(self) -> None:
+        last_error: Exception | None = None
+        for attempt_index in range(TRANSPORT_RECOVERY_ATTEMPTS):
+            try:
+                self._transport.start()
                 return
-            raise
-        self._transport.notify("initialized", {})
-        if "userAgent" not in response:
-            raise AppServerConnectionError("initialize response missing userAgent")
-        self._initialized = True
+            except (StdioTransportError, WebSocketTransportError) as exc:
+                last_error = exc
+                if self._closed or attempt_index >= TRANSPORT_RECOVERY_ATTEMPTS - 1:
+                    break
+                self._reset_transport()
+        raise AppServerConnectionError(str(last_error or "transport start failed")) from last_error
 
     def close(self) -> None:
         self._closed = True
@@ -510,19 +532,22 @@ class AppServerSessionClient(AppServerTurnResultMixin):
         )
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        self.start()
-        try:
-            return self._request_transport(method, params, timeout_seconds=self.request_timeout_seconds)
-        except AppServerRequestError:
-            raise
-        except AppServerConnectionError:
-            if self._closed:
-                raise
-            self._reset_transport()
+        last_error: Exception | None = None
+        for attempt_index in range(TRANSPORT_RECOVERY_ATTEMPTS):
             self.start()
-            return self._request_transport(method, params, timeout_seconds=self.request_timeout_seconds)
-        except Exception as exc:
-            raise AppServerConnectionError(str(exc)) from exc
+            try:
+                return self._request_transport(method, params, timeout_seconds=self.request_timeout_seconds)
+            except AppServerRequestError:
+                raise
+            except AppServerConnectionError as exc:
+                last_error = exc
+                if self._closed or attempt_index >= TRANSPORT_RECOVERY_ATTEMPTS - 1:
+                    raise
+                self._reset_transport()
+                continue
+            except Exception as exc:
+                raise AppServerConnectionError(str(exc)) from exc
+        raise AppServerConnectionError(str(last_error or "transport request failed")) from last_error
 
     def _request_transport(self, method: str, params: dict[str, Any], *, timeout_seconds: float) -> dict[str, Any]:
         try:

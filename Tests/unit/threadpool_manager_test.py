@@ -451,9 +451,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertIsNotNone(seed)
             self.assertEqual(seed.status, "idle")
             self.assertFalse(status["warming"])
-            self.assertFalse(status["can_acquire"])
+            self.assertTrue(status["can_acquire"])
 
-    def test_min_idle_replenishment_reports_warming_and_blocks_readiness(self) -> None:
+    def test_min_idle_replenishment_remains_acquirable_when_seed_is_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -501,11 +501,12 @@ class ThreadPoolManagerTests(unittest.TestCase):
             status = manager.get_role_status("shot-boundary-transformer")
             manager.close()
 
-            self.assertIn("shot-boundary-transformer", health["warming_roles"])
-            self.assertEqual(health["replenishing_roles"], [])
-            self.assertTrue(status["warming"])
-            self.assertFalse(status["replenishing"])
-            self.assertFalse(status["can_acquire"])
+            self.assertNotIn("shot-boundary-transformer", health["warming_roles"])
+            self.assertEqual(health["replenishing_roles"], ["shot-boundary-transformer"])
+            self.assertFalse(status["warming"])
+            self.assertTrue(status["replenishing"])
+            self.assertTrue(status["can_acquire"])
+            self.assertIn("idle thread", status["warmup_detail"])
             self.assertEqual(status["counts"]["idle"], 0)
 
     def test_acquire_precreates_spare_idle_before_leasing_last_idle_thread(self) -> None:
@@ -560,7 +561,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertEqual(client.fork_calls, 0)
             self.assertEqual(status["counts"]["leased"], 1)
             self.assertEqual(status["counts"]["idle"], 0)
-            self.assertFalse(status["can_acquire"])
+            self.assertTrue(status["can_acquire"])
 
     def test_discard_on_release_keeps_thread_reusable_during_same_service_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

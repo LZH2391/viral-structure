@@ -364,7 +364,6 @@ function readinessBlockedReason(status) {
   if (status.startupError) return String(status.startupError).slice(0, 240);
   if (status.warmupError) return String(status.warmupError).slice(0, 240);
   if (!status.readyForLeases) return "ThreadPool 当前未 ready，请稍后再试";
-  if (!status.canAcquire) return "ThreadPool 当前不可获取 lease，请稍后再试";
   return null;
 }
 
