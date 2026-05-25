@@ -203,7 +203,7 @@ test("script segment service surfaces latest running thread message and clears i
   assert.equal(harness.calls.collected.length, 2);
 });
 
-test("script segment collect window waits three minutes worth of attempts", { timeout: 30000 }, async () => {
+test("script segment collect window waits six minutes worth of attempts", { timeout: 30000 }, async () => {
   const harness = await createScriptHarness({
     appServer: {
       startTurnWithInputs: async (payload) => {
@@ -221,7 +221,7 @@ test("script segment collect window waits three minutes worth of attempts", { ti
   const job = await waitForJob(harness.jobStore, result.processingJobId, "failed");
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_script_1"), "artifact.json"));
 
-  assert.equal(harness.calls.collected.length, 120);
+  assert.equal(harness.calls.collected.length, 240);
   assert.equal(job.errorSummary.code, "appserver_turn_collect_timeout");
   assert.equal(artifact.scriptSegmentAnalysis.validation.validatorCode, "appserver_turn_collect_timeout");
 });

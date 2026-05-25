@@ -9,7 +9,7 @@ const { createThreadPoolProxy } = require("../threadpool-proxy");
 const { createAppServerBridge } = require("../appserver-bridge");
 
 const DEFAULT_POLL_INTERVAL_MS = 1500;
-const DEFAULT_COLLECT_TIMEOUT_MS = 180000;
+const DEFAULT_COLLECT_TIMEOUT_MS = 360000;
 const DEFAULT_MAX_REPAIR_ATTEMPTS = 1;
 
 function createRoleAnalysisService({
