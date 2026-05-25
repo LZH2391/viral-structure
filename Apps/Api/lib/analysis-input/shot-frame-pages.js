@@ -66,6 +66,7 @@ async function buildShotFrameVisualManifest({
       },
     });
     const normalizedSheets = renderedSheets.map((sheet, pageIndex) => {
+      const attachmentIndex = visualAttachments.length;
       visualAttachments.push({
         sheetId: sheet.sheetId,
         shotId: pageGroup.shot.shotId,
@@ -75,11 +76,15 @@ async function buildShotFrameVisualManifest({
       });
       const entry = {
         sheetId: sheet.sheetId,
+        attachmentIndex,
         shotId: pageGroup.shot.shotId,
         shotNo: pageGroup.shot.shotNo,
         pageIndex,
+        timeRange: {
+          start: pageGroup.shot.start,
+          end: pageGroup.shot.end,
+        },
         cells: sheet.gridItems.map((item) => ({
-          frameId: item.frameId,
           timestamp: item.timestamp,
           row: item.row,
           col: item.col,

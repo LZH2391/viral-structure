@@ -10,8 +10,8 @@
 
 路径：
 - manifestPath: {{manifestPath}}
-- visualManifestPath: {{visualManifestPath}}
 - outputContractPath: {{outputContractPath}}
+- visualManifestPath: {{visualManifestPath}}（localImage 镜头联表索引；需要确认附件顺序、shotId 或格子时间时再参考）
 
 请输出严格 JSON 对象，字段必须符合 outputContract：
 - overview：全局节奏总览。

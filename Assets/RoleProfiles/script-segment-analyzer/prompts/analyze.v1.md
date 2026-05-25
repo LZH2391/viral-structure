@@ -11,7 +11,7 @@
 请先读取以下文件：
 - `manifestPath`: {{manifestPath}}
 - `outputContractPath`: {{outputContractPath}}
-- `visualManifestPath`: {{visualManifestPath}}
+- `visualManifestPath`: {{visualManifestPath}}（localImage 镜头联表索引；需要确认附件顺序、shotId 或格子时间时再参考）
 同时使用随 turn 附带的 `localImage` 理解每个已切镜头内部画面变化；不要重新切镜，不要改变 shot 边界，不要修正上游 shot summary。
 如果系统另有 metadata / lineage 文件，它们仅用于系统追踪，不要在分析或输出中引用。
 返回前自检：JSON 可解析；segments 按时间顺序且完整覆盖所有 shots；切段依据是表达任务变化而非固定段数；shotRefs 只引用输入中的 shotId；label 不是固定枚举；roleInScript 说明具体说服职责而不是空泛“承接表达”；transferableRule 只总结结构规则；不要输出解释性正文、本地路径、完整原文或新内容脚本；只返回 output contract 要求的 JSON object。

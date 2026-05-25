@@ -52,8 +52,11 @@ test("script segment analyze turn uses file paths plus localImage inputs", async
   assert.equal("localImagePath" in inputPackage.visualManifest.sheets[0], false);
   assert.equal("uri" in inputPackage.visualManifest.sheets[0], false);
   assert.equal("displayLabel" in inputPackage.visualManifest.sheets[0].cells[0], false);
+  assert.equal("frameId" in inputPackage.visualManifest.sheets[0].cells[0], false);
   assert.equal("pageCount" in inputPackage.visualManifest.sheets[0], false);
   assert.equal("frameCount" in inputPackage.visualManifest.sheets[0], false);
+  assert.equal(inputPackage.visualManifest.sheets[0].attachmentIndex, 0);
+  assert.equal(typeof inputPackage.visualManifest.sheets[0].timeRange.start, "number");
   assert.equal(Array.isArray(inputPackage.visualManifest.shotSheets), true);
   assert.equal("shots" in inputPackage.visualManifest, false);
   assert.equal("sampleVideoId" in inputPackage.manifest, false);
