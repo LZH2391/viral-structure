@@ -5,6 +5,13 @@
   min-width: 980px;
 }
 
+.threadpool-shell.embedded-view {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
 .threadpool-grid {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);

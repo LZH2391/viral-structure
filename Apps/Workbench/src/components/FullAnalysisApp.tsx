@@ -11,10 +11,9 @@ const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
-  onBack?: () => void;
 };
 
-export function FullAnalysisApp({ embedded = false, onBack }: FullAnalysisAppProps = {}) {
+export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {}) {
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [artifact, setArtifact] = useState<SampleArtifact | null>(null);
   const [activeTab, setActiveTab] = useState<ResultTab>("shot");
@@ -98,23 +97,7 @@ export function FullAnalysisApp({ embedded = false, onBack }: FullAnalysisAppPro
 
   return (
     <div className={embedded ? "full-analysis-shell embedded-view" : "app-shell full-analysis-shell"}>
-      {embedded ? (
-        <div className="embedded-view-header">
-          <div>
-            <div className="section-heading">完整分析</div>
-            <div className="debug-trace-title">{statusText}</div>
-          </div>
-          <div className="run-strip">
-            <span className="run-pill">{countLabel}</span>
-            <span className="trace-label">{traceLabel}</span>
-          </div>
-          <div className="top-actions">
-            <button className="ghost-button" type="button" onClick={onBack}>
-              返回工作台
-            </button>
-          </div>
-        </div>
-      ) : (
+      {embedded ? null : (
         <header className="topbar">
           <div className="project-block">
             <div className="project-name">完整分析</div>

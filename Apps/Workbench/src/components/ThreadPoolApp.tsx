@@ -4,7 +4,7 @@ import type { ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, Thread
 import { formatThreadContextUsage } from "../utils/threadpoolFormat";
 import { shortId } from "../utils/format";
 
-export function ThreadPoolApp({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void } = {}) {
+export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {}) {
   const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
   const [health, setHealth] = useState<ThreadPoolHealth | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -48,7 +48,6 @@ export function ThreadPoolApp({ embedded = false, onBack }: { embedded?: boolean
   return (
     <div className={embedded ? "threadpool-shell embedded-view" : "threadpool-shell"}>
       {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} onRefresh={refreshDetail} /> : null}
-      {embedded ? <EmbeddedHeader status={status} health={health} updatedAt={updatedAt} onBack={onBack} onRefresh={refreshDetail} /> : null}
       <main className="threadpool-grid">
         <RoleList roles={roles} selectedRole={selectedRole} onSelect={setSelectedRole} />
         <RoleDetail detail={detail} onChanged={refreshDetail} />
@@ -76,26 +75,6 @@ function ThreadPoolHeader({ status, health, updatedAt, onRefresh }: { status: st
         </button>
       </div>
     </header>
-  );
-}
-
-function EmbeddedHeader({ status, health, updatedAt, onBack, onRefresh }: { status: string; health: ThreadPoolHealth | null; updatedAt: string; onBack?: () => void; onRefresh: () => Promise<void> }) {
-  return (
-    <div className="embedded-view-header">
-      <div>
-        <div className="section-heading">ThreadPool</div>
-        <div id="threadpoolStatus" className="debug-trace-title">{status}</div>
-      </div>
-      <HealthStrip health={health} updatedAt={updatedAt} />
-      <div className="top-actions">
-        <button className="ghost-button" type="button" onClick={onBack}>
-          返回工作台
-        </button>
-        <button id="refreshThreadPoolBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
-          刷新
-        </button>
-      </div>
-    </div>
   );
 }
 

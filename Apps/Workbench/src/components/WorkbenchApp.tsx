@@ -459,22 +459,22 @@ export function WorkbenchApp() {
       </main>
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
-          <FullAnalysisApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+          <FullAnalysisApp embedded />
         </section>
       ) : null}
       {mountedViews.library ? (
         <section className={`view-shell ${activeView === "library" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "library"}>
-          <LibraryApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+          <LibraryApp embedded />
         </section>
       ) : null}
       {mountedViews.debug ? (
         <section className={`view-shell ${activeView === "debug" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "debug"}>
-          <DebugApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+          <DebugApp embedded />
         </section>
       ) : null}
       {mountedViews.threadpool ? (
         <section className={`view-shell ${activeView === "threadpool" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "threadpool"}>
-          <ThreadPoolApp embedded onBack={() => setWorkbenchView("workspace", setActiveView)} />
+          <ThreadPoolApp embedded />
         </section>
       ) : null}
       {uploadFlow.cachePrompt ? <CacheDecisionDialog item={uploadFlow.cachePrompt.cachedItem} onReuse={uploadFlow.reuseCache} onRefresh={uploadFlow.refreshCache} onCancel={() => uploadFlow.setCachePrompt(null)} /> : null}
