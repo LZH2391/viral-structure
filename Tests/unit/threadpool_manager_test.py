@@ -162,9 +162,11 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.close()
 
             self.assertLess(duration, 0.5)
-            self.assertIn("shot-boundary-transformer", health["warming_roles"])
-            self.assertTrue(status["warming"])
-            self.assertFalse(status["can_acquire"])
+            self.assertNotIn("shot-boundary-transformer", health["warming_roles"])
+            self.assertNotIn("shot-boundary-transformer", health["replenishing_roles"])
+            self.assertFalse(status["warming"])
+            self.assertFalse(status["replenishing"])
+            self.assertTrue(status["can_acquire"])
             self.assertEqual(status["counts"]["idle"], 1)
 
     def test_initializing_seed_reports_warming_without_waiting(self) -> None:
@@ -222,6 +224,124 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertFalse(status["can_acquire"])
             self.assertIn("waiting for seed initialization", status["warmup_detail"])
 
+    def test_initializing_seed_reports_warming_even_when_idle_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = BlockingInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager._schedule_ensure_min_idle = lambda role_name: None
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="initializing",
+                    is_seed=True,
+                    init_turn_id="seed_turn_1",
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(build_idle_thread(manager, "idle_thread_1"))
+            manager._write_catalog()
+
+            health = manager.health_payload()
+            status = manager.get_role_status("shot-boundary-transformer")
+            manager.close()
+
+            self.assertIn("shot-boundary-transformer", health["warming_roles"])
+            self.assertNotIn("shot-boundary-transformer", health["replenishing_roles"])
+            self.assertTrue(status["warming"])
+            self.assertFalse(status["replenishing"])
+            self.assertFalse(status["can_acquire"])
+            self.assertEqual(status["counts"]["idle"], 1)
+
+    def test_seed_fingerprint_change_ignores_old_idle_until_new_seed_forks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = BlockingInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager._schedule_ensure_min_idle = lambda role_name: None
+            config = manager.roles["shot-boundary-transformer"]
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_new",
+                    role="shot-boundary-transformer",
+                    status="initializing",
+                    is_seed=True,
+                    init_turn_id="seed_turn_1",
+                    init_fingerprint=manager._role_init_fingerprint(config),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="idle_thread_old",
+                    role="shot-boundary-transformer",
+                    status="idle",
+                    is_seed=False,
+                    init_fingerprint="old-fingerprint",
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager._write_catalog()
+
+            status = manager.get_role_status("shot-boundary-transformer")
+            manager.close()
+
+            self.assertTrue(status["warming"])
+            self.assertFalse(status["can_acquire"])
+            self.assertEqual(status["counts"]["idle"], 0)
+
     def test_acquire_promotes_completed_initializing_seed_before_lease(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -272,7 +392,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.close()
 
             self.assertEqual(client.wait_calls, 1)
-            self.assertEqual(client.fork_calls, 2)
+            self.assertEqual(client.fork_calls, 1)
             self.assertEqual(lease["thread_id"], "fork_1")
             self.assertIsNotNone(seed)
             self.assertEqual(seed.status, "idle")
@@ -331,9 +451,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertIsNotNone(seed)
             self.assertEqual(seed.status, "idle")
             self.assertFalse(status["warming"])
-            self.assertTrue(status["can_acquire"])
+            self.assertFalse(status["can_acquire"])
 
-    def test_min_idle_replenishment_does_not_report_warming_or_block_acquire(self) -> None:
+    def test_min_idle_replenishment_reports_warming_and_blocks_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -373,7 +493,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                     last_validated_at=fresh_timestamp(),
                 )
             )
-            manager._replenishing_roles.add("shot-boundary-transformer")
+            manager._warming_roles.add("shot-boundary-transformer")
             manager._warmup_details["shot-boundary-transformer"] = "creating idle thread 1/1 from seed seed_thread_1"
             manager._write_catalog()
 
@@ -381,11 +501,11 @@ class ThreadPoolManagerTests(unittest.TestCase):
             status = manager.get_role_status("shot-boundary-transformer")
             manager.close()
 
-            self.assertEqual(health["warming_roles"], [])
-            self.assertIn("shot-boundary-transformer", health["replenishing_roles"])
-            self.assertFalse(status["warming"])
-            self.assertTrue(status["replenishing"])
-            self.assertTrue(status["can_acquire"])
+            self.assertIn("shot-boundary-transformer", health["warming_roles"])
+            self.assertEqual(health["replenishing_roles"], [])
+            self.assertTrue(status["warming"])
+            self.assertFalse(status["replenishing"])
+            self.assertFalse(status["can_acquire"])
             self.assertEqual(status["counts"]["idle"], 0)
 
     def test_acquire_precreates_spare_idle_before_leasing_last_idle_thread(self) -> None:
@@ -437,9 +557,10 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.close()
 
             self.assertEqual(lease["thread_id"], "idle_thread_1")
-            self.assertEqual(client.fork_calls, 1)
+            self.assertEqual(client.fork_calls, 0)
             self.assertEqual(status["counts"]["leased"], 1)
-            self.assertEqual(status["counts"]["idle"], 1)
+            self.assertEqual(status["counts"]["idle"], 0)
+            self.assertFalse(status["can_acquire"])
 
     def test_discard_on_release_keeps_thread_reusable_during_same_service_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

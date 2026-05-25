@@ -24,7 +24,6 @@ def role_can_acquire(
     warmup_error: str | None,
     counts: dict[str, int],
     min_idle: int,
-    seed_ready: bool,
 ) -> bool:
     idle = int(counts.get("idle") or 0)
     return bool(
@@ -34,7 +33,7 @@ def role_can_acquire(
         and not warming
         and not startup_error
         and not warmup_error
-        and (idle > 0 or seed_ready)
+        and idle >= int(min_idle)
     )
 
 
@@ -68,14 +67,12 @@ class ThreadPoolRolePolicyMixin:
             role_entry = {}
         counts = dict(role_entry.get("counts") or {})
         seed = self._find_seed_thread(config.name)
-        replenishing = config.name in self._replenishing_roles or (
-            config.name in self._warming_roles and not (seed is not None and seed.status == "initializing")
-        )
-        warming = seed is not None and seed.status == "initializing"
+        warming = self._role_is_warming(config)
+        replenishing = False
         warmup_error = self._warmup_errors.get(config.name)
         warmup_detail = (
             f"waiting for seed initialization: {seed.thread_id}"
-            if seed is not None and seed.status == "initializing"
+            if warming and seed is not None and seed.status == "initializing"
             else self._warmup_details.get(config.name)
         )
         can_acquire = role_can_acquire(
@@ -87,7 +84,6 @@ class ThreadPoolRolePolicyMixin:
             warmup_error=warmup_error,
             counts=counts,
             min_idle=config.min_idle,
-            seed_ready=seed is not None and seed.status == "idle",
         )
         return {
             "ok": True,
@@ -132,6 +128,10 @@ class ThreadPoolRolePolicyMixin:
             for thread in self.store.list_threads().values()
             if thread.is_seed and thread.status == "initializing"
         }
+
+    def _role_is_warming(self, config: RoleConfig) -> bool:
+        seed = self._find_seed_thread(config.name)
+        return bool(config.name in self._warming_roles or (seed is not None and seed.status == "initializing"))
 
     def _role_has_initializing_seed(self, role_name: str) -> bool:
         seed = self._find_seed_thread(role_name)

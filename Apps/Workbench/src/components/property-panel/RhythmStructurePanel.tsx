@@ -13,9 +13,10 @@ function renderConfidence(value: number | null | undefined) {
 }
 
 function renderEvidencePreview(evidence: string[]) {
-  const first = evidence.find((item) => item.trim());
+  const normalized = Array.isArray(evidence) ? evidence : [];
+  const first = normalized.find((item) => String(item ?? "").trim());
   if (!first) return "无证据";
-  const remaining = evidence.filter((item) => item.trim()).length - 1;
+  const remaining = normalized.filter((item) => String(item ?? "").trim()).length - 1;
   return remaining > 0 ? `${first} +${remaining}` : first;
 }
 
@@ -35,6 +36,8 @@ export function RhythmStructurePanel({
   const running = job?.status === "pending" || job?.status === "processing";
   const cards = analysis?.cards ?? [];
   const historyEntries = analysisHistory ?? [];
+  const turningPoints = Array.isArray(analysis?.overview?.turningPoints) ? analysis.overview.turningPoints : [];
+  const uncertainties = Array.isArray(analysis?.overview?.uncertainties) ? analysis.overview.uncertainties : [];
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = analysis?.reason ?? job?.errorSummary?.message ?? null;
   const debugSnapshotUri = analysis?.debugSnapshotUri ?? job?.errorSummary?.debugSnapshotUri ?? null;
@@ -94,15 +97,15 @@ export function RhythmStructurePanel({
             </div>
             <div>
               <span>转折</span>
-              <strong>{analysis.overview.turningPoints.join("；") || "无"}</strong>
+              <strong>{turningPoints.join("；") || "无"}</strong>
             </div>
             <div>
               <span>迁移</span>
               <strong>{analysis.overview.transferableRhythmRule}</strong>
             </div>
           </div>
-          {analysis.overview.uncertainties.length ? (
-            <div className="rhythm-overview-note">不确定：{analysis.overview.uncertainties.join("；")}</div>
+          {uncertainties.length ? (
+            <div className="rhythm-overview-note">不确定：{uncertainties.join("；")}</div>
           ) : null}
         </div>
       ) : null}
@@ -115,12 +118,15 @@ export function RhythmStructurePanel({
       ) : null}
       {cards.length ? (
         <div className="agent-shot-list rhythm-card-list">
-          {cards.map((card, index) => (
+          {cards.map((card, index) => {
+            const evidence = Array.isArray(card.evidence) ? card.evidence : [];
+            const shotRefs = Array.isArray(card.shotRefs) ? card.shotRefs : [];
+            return (
             <button
               key={card.cardId}
               className="rhythm-card-item"
               type="button"
-              onClick={() => onSelectCard(card.start)}
+              onClick={() => onSelectCard(Number(card.start) || 0)}
             >
               <span className="rhythm-card-index">R{String(index + 1).padStart(3, "0")}</span>
               <span className={`rhythm-card-badge ${card.needReview ? "needs-review" : ""}`}>
@@ -138,11 +144,12 @@ export function RhythmStructurePanel({
                 <b>迁移规则</b>
                 <small>{card.transferableRule}</small>
               </span>
-              <span className="rhythm-card-meta" title={card.evidence.join("；") || undefined}>
-                shots {card.shotRefs.join(", ") || "无"} / 证据：{renderEvidencePreview(card.evidence)}
+              <span className="rhythm-card-meta" title={evidence.join("；") || undefined}>
+                shots {shotRefs.join(", ") || "无"} / 证据：{renderEvidencePreview(evidence)}
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="detail-hint">{failed ? "本次失败产物已记录，但没有有效 cards。" : "还没有节奏结构结果。运行后会在这里展示总览和卡片。"}</div>

@@ -177,13 +177,9 @@ class ThreadPoolSeedPoolMixin:
             if (
                 not normalized_role
                 or normalized_role in self._warming_roles
-                or normalized_role in self._replenishing_roles
             ):
                 return
-            if self._role_has_initializing_seed(normalized_role):
-                self._warming_roles.add(normalized_role)
-            else:
-                self._replenishing_roles.add(normalized_role)
+            self._warming_roles.add(normalized_role)
             self._warmup_details[normalized_role] = "scheduled"
             self._write_catalog()
         worker = threading.Thread(
@@ -213,7 +209,6 @@ class ThreadPoolSeedPoolMixin:
         finally:
             with self._lock:
                 self._warming_roles.discard(role_name)
-                self._replenishing_roles.discard(role_name)
                 self._warmup_details.pop(role_name, None)
                 self._write_catalog()
 
@@ -240,7 +235,7 @@ class ThreadPoolSeedPoolMixin:
 
     def _set_warmup_detail(self, role_name: str, detail: str) -> None:
         with self._lock:
-            if role_name not in self._warming_roles and role_name not in self._replenishing_roles:
+            if role_name not in self._warming_roles:
                 return
             if self._warmup_details.get(role_name) == detail:
                 return
@@ -248,10 +243,14 @@ class ThreadPoolSeedPoolMixin:
             self._write_catalog()
 
     def _idle_count(self, role_name: str) -> int:
+        config = self._require_role(role_name)
         return sum(
             1
             for record in self.store.list_threads().values()
-            if record.role == role_name and record.status == "idle" and not record.is_seed
+            if record.role == role_name
+            and record.status == "idle"
+            and not record.is_seed
+            and self._matches_thread_fingerprint(record, config)
         )
 
     def _find_seed_thread(self, role_name: str, *, records: list[ThreadRecord] | None = None) -> ThreadRecord | None:

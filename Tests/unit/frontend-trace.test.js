@@ -317,8 +317,8 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
   assert.match(threadpoolApp, /getThreadConversation/);
-  assert.doesNotMatch(threadpoolApp, /\(detail\?\.threads \?\? \[\]\)\.filter\(\(thread\) => !thread\.seed\)/);
-  assert.match(threadpoolApp, /thread\.seed \? "seed \/ " : ""/);
+  assert.match(threadpoolApp, /\(detail\?\.threads \?\? \[\]\)\.filter\(\(thread\) => !thread\.seed\)/);
+  assert.doesNotMatch(threadpoolApp, /thread\.seed \? "seed \/ " : ""/);
   assert.match(threadpoolApp, /replenishing/);
   assert.match(threadpoolApp, /查看对话/);
   assert.match(threadpoolApp, /ThreadConversationPanel/);
@@ -387,7 +387,7 @@ test("workbench exposes commerce brief summary and visible content profile input
   assert.match(types, /sellingObject: string;/);
   assert.match(css, /\.commerce-brief-panel/);
   assert.match(roles, /"script-segment-analyzer"/);
-  assert.match(roles, /"script-segment-analyzer"[\s\S]*"min_idle": 1/);
+  assert.match(roles, /"script-segment-analyzer"[\s\S]*"min_idle": 3/);
   assert.doesNotMatch(property, /CommerceBriefPanel/);
 });
 
