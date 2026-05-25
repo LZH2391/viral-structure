@@ -209,11 +209,11 @@ function Test-TcpPort([int]$Port) {
 function Get-ListeningProcessInfo([int]$Port) {
   $connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if (-not $connection) { return $null }
-  $pid = [int]$connection.OwningProcess
-  $process = Get-CimInstance Win32_Process -Filter "ProcessId = $pid" -ErrorAction SilentlyContinue
-  if (-not $process) { return [pscustomobject]@{ ProcessId = $pid; CommandLine = ""; Name = "" } }
+  $owningProcessId = [int]$connection.OwningProcess
+  $process = Get-CimInstance Win32_Process -Filter "ProcessId = $owningProcessId" -ErrorAction SilentlyContinue
+  if (-not $process) { return [pscustomobject]@{ ProcessId = $owningProcessId; CommandLine = ""; Name = "" } }
   return [pscustomobject]@{
-    ProcessId = $pid
+    ProcessId = $owningProcessId
     CommandLine = if ($null -ne $process.CommandLine) { [string]$process.CommandLine } else { "" }
     Name = if ($null -ne $process.Name) { [string]$process.Name } else { "" }
   }
@@ -264,9 +264,9 @@ function Get-ProcessTreeIds([int]$RootPid) {
   $seen = New-Object System.Collections.Generic.HashSet[int]
   $pending.Enqueue($RootPid)
   while ($pending.Count -gt 0) {
-    $pid = $pending.Dequeue()
-    if (-not $seen.Add($pid)) { continue }
-    $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $pid" -ErrorAction SilentlyContinue
+    $currentProcessId = $pending.Dequeue()
+    if (-not $seen.Add($currentProcessId)) { continue }
+    $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $currentProcessId" -ErrorAction SilentlyContinue
     foreach ($child in @($children)) {
       $pending.Enqueue([int]$child.ProcessId)
     }
