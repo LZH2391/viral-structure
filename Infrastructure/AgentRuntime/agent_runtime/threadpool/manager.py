@@ -172,6 +172,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
     def get_role_status(self, role: str) -> dict:
         with self._lock:
             config = self._require_role(role)
+            self._refresh_initializing_seed_for_status(config)
             cached = self._role_status_cache.get(config.name)
             now_monotonic = time.monotonic()
             if (
@@ -185,13 +186,26 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             self._role_status_cache[config.name] = (now_monotonic, deepcopy(payload))
             return payload
 
+    def _refresh_initializing_seed_for_status(self, config: RoleConfig) -> None:
+        seed = self._find_seed_thread(config.name)
+        if seed is None or seed.status != "initializing":
+            return
+        try:
+            self._refresh_seed_thread(config, seed, wait_for_ready=False)
+            self._warmup_errors.pop(config.name, None)
+        except Exception as exc:
+            self._warmup_errors[config.name] = f"{type(exc).__name__}: {exc}"
+        finally:
+            self._role_status_cache.pop(config.name, None)
+            self._write_catalog()
+
     def acquire(self, *, role: str, owner_id: str) -> dict:
         normalized_owner_id = str(owner_id).strip()
         role_name = str(role).strip()
         config = self._acquire_config_for_role(role_name)
         while True:
             try:
-                thread = self._find_or_create_available_thread(config, wait_for_ready=not self.async_warmup)
+                thread = self._find_or_create_available_thread(config, wait_for_ready=True)
             except SeedInitializationPending as exc:
                 with self._lock:
                     self._warmup_errors.pop(config.name, None)

@@ -569,9 +569,16 @@ test("threadpool proxy acquire lease uses dedicated timeout", async () => {
   assert.deepEqual(requests, [{ pathname: "/leases/acquire", method: "POST" }]);
 });
 
+test("threadpool proxy default lease timeout leaves headroom for seed initialization wait", async () => {
+  const proxy = createThreadPoolProxy({ fetchImpl: async () => response({ ok: true }) });
+
+  assert.ok(proxy.leaseAcquireTimeoutMs > 90000);
+});
+
 test("threadpool acquire retries warming until role becomes ready", async () => {
   const { acquireLeaseWithRetry } = require("../../Apps/Api/lib/shot-boundary/threadpool-runner");
   let readinessCalls = 0;
+  let acquireCalls = 0;
   const releasedOwners = [];
   const threadPool = {
     leaseAcquireTimeoutMs: 90000,
@@ -591,7 +598,16 @@ test("threadpool acquire retries warming until role becomes ready", async () => 
         status: { role: "script-segment-analyzer", warming: false, canAcquire: true, readyForLeases: true },
       };
     },
-    acquireLease: async () => ({ ok: true, lease_id: "lease_1", thread_id: "thread_1" }),
+    acquireLease: async () => {
+      acquireCalls += 1;
+      if (acquireCalls < 3) {
+        throw Object.assign(new Error("thread pool role is warming: seed is still initializing"), {
+          code: "threadpool_acquire_failed",
+          request: { requestTimeoutMs: 90000 },
+        });
+      }
+      return { ok: true, lease_id: "lease_1", thread_id: "thread_1" };
+    },
     releaseOwnerLeases: async (ownerId) => {
       releasedOwners.push(ownerId);
       return { ok: true };
@@ -607,6 +623,7 @@ test("threadpool acquire retries warming until role becomes ready", async () => 
 
   assert.equal(result.lease.lease_id, "lease_1");
   assert.equal(readinessCalls, 3);
+  assert.equal(acquireCalls, 3);
   assert.deepEqual(releasedOwners, ["trace_1", "trace_1"]);
   assert.equal(result.attemptCount, 3);
 });

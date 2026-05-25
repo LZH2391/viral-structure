@@ -6,7 +6,7 @@ const THREADPOOL_ROLE_CONFIG_PATH = path.join(WORKSPACE_ROOT, "Infrastructure", 
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
 const DEFAULT_ALLOWED_ROLES = loadAllowedRolesFromConfig();
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
-const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 90000;
+const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 120000;
 
 function createThreadPoolProxy({
   baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL,

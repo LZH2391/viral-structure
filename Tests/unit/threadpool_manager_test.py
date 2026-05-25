@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 import sys
 import tempfile
@@ -13,6 +14,10 @@ sys.path.insert(0, str(ROOT / "Infrastructure" / "AgentRuntime"))
 
 from agent_runtime.threadpool.manager import ThreadPoolManager  # noqa: E402
 from agent_runtime.threadpool.models import ThreadRecord  # noqa: E402
+
+
+def fresh_timestamp() -> str:
+    return datetime.now().astimezone().isoformat()
 
 
 class BlockingInitClient:
@@ -41,6 +46,39 @@ class BlockingInitClient:
 
     def collect_turn_result(self, thread_id: str, turn_id: str):
         return SimpleNamespace(status="running", final_message="")
+
+
+class CompletedInitClient:
+    init_timeout_seconds = 90.0
+
+    def __init__(self) -> None:
+        self.wait_calls = 0
+        self.collect_calls = 0
+        self.fork_calls = 0
+
+    def start(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+    def thread_exists(self, thread_id: str) -> bool:
+        return True
+
+    def validate_thread(self, thread_id: str) -> bool:
+        return True
+
+    def wait_turn_result(self, thread_id: str, turn_id: str, timeout_seconds: float | None = None):
+        self.wait_calls += 1
+        return SimpleNamespace(status="completed", final_message="ready")
+
+    def collect_turn_result(self, thread_id: str, turn_id: str):
+        self.collect_calls += 1
+        return SimpleNamespace(status="completed", final_message="ready")
+
+    def fork_initialized_thread(self, seed_thread_id: str) -> str:
+        self.fork_calls += 1
+        return f"fork_{self.fork_calls}"
 
 
 class ReusableThreadClient:
@@ -96,9 +134,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
                     status="idle",
                     is_seed=False,
                     init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
-                    created_at="2026-05-24T10:00:00+08:00",
-                    updated_at="2026-05-24T10:00:00+08:00",
-                    last_validated_at="2026-05-24T10:00:00+08:00",
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
                 )
             )
             manager._write_catalog()
@@ -157,9 +195,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
                     is_seed=True,
                     init_turn_id="seed_turn_1",
                     init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
-                    created_at="2026-05-24T10:00:00+08:00",
-                    updated_at="2026-05-24T10:00:00+08:00",
-                    last_validated_at="2026-05-24T10:00:00+08:00",
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
                 )
             )
             manager._write_catalog()
@@ -176,7 +214,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
             self.assertFalse(status["can_acquire"])
             self.assertIn("waiting for seed initialization", status["warmup_detail"])
 
-    def test_acquire_does_not_wait_or_lease_when_seed_is_initializing(self) -> None:
+    def test_acquire_promotes_completed_initializing_seed_before_lease(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -194,7 +232,7 @@ class ThreadPoolManagerTests(unittest.TestCase):
                 """,
                 encoding="utf-8",
             )
-            client = BlockingInitClient()
+            client = CompletedInitClient()
             manager = ThreadPoolManager(
                 workspace_root=root,
                 config_path=config_path,
@@ -211,22 +249,80 @@ class ThreadPoolManagerTests(unittest.TestCase):
                     is_seed=True,
                     init_turn_id="seed_turn_1",
                     init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
-                    created_at="2026-05-24T10:00:00+08:00",
-                    updated_at="2026-05-24T10:00:00+08:00",
-                    last_validated_at="2026-05-24T10:00:00+08:00",
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
                 )
             )
             manager._write_catalog()
 
-            started_at = time.monotonic()
-            with self.assertRaisesRegex(RuntimeError, "thread pool role is warming"):
-                manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
-            duration = time.monotonic() - started_at
+            lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
+            seed = manager.store.read_thread("seed_thread_1")
+            fork = manager.store.read_thread("fork_1")
             leases = manager.store.list_leases()
             manager.close()
 
-            self.assertLess(duration, 0.5)
-            self.assertEqual(leases, {})
+            self.assertEqual(client.wait_calls, 1)
+            self.assertEqual(client.fork_calls, 1)
+            self.assertEqual(lease["thread_id"], "fork_1")
+            self.assertIsNotNone(seed)
+            self.assertEqual(seed.status, "idle")
+            self.assertIsNone(seed.init_turn_id)
+            self.assertIsNotNone(fork)
+            self.assertEqual(fork.status, "leased")
+            self.assertEqual(len(leases), 1)
+
+    def test_role_status_promotes_completed_initializing_seed_without_waiting(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = CompletedInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="initializing",
+                    is_seed=True,
+                    init_turn_id="seed_turn_1",
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager._write_catalog()
+
+            status = manager.get_role_status("shot-boundary-transformer")
+            seed = manager.store.read_thread("seed_thread_1")
+            manager.close()
+
+            self.assertEqual(client.collect_calls, 1)
+            self.assertIsNotNone(seed)
+            self.assertEqual(seed.status, "idle")
+            self.assertFalse(status["warming"])
+            self.assertTrue(status["can_acquire"])
 
     def test_min_idle_replenishment_does_not_report_warming_or_block_acquire(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -263,9 +359,9 @@ class ThreadPoolManagerTests(unittest.TestCase):
                     status="idle",
                     is_seed=True,
                     init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
-                    created_at="2026-05-24T10:00:00+08:00",
-                    updated_at="2026-05-24T10:00:00+08:00",
-                    last_validated_at="2026-05-24T10:00:00+08:00",
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
                 )
             )
             manager._replenishing_roles.add("shot-boundary-transformer")
@@ -384,9 +480,9 @@ def build_idle_thread(manager: ThreadPoolManager, thread_id: str, *, lease_count
         is_seed=False,
         lease_count=lease_count,
         init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
-        created_at="2026-05-24T10:00:00+08:00",
-        updated_at="2026-05-24T10:00:00+08:00",
-        last_validated_at="2026-05-24T10:00:00+08:00",
+        created_at=fresh_timestamp(),
+        updated_at=fresh_timestamp(),
+        last_validated_at=fresh_timestamp(),
     )
 
 

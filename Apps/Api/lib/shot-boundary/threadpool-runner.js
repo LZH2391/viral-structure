@@ -112,6 +112,10 @@ function shouldRetryAcquire(error) {
   return ["threadpool_timeout", "threadpool_request_failed", "threadpool_unavailable", "threadpool_acquire_failed", "threadpool_warming"].includes(code);
 }
 
+function shouldAttemptAcquireDuringReadinessFailure(readiness) {
+  return readiness?.error === "threadpool_warming";
+}
+
 function buildAcquireFailurePayload({ attemptCount, readinessDetail, lastRequestError, requestTimeoutMs }) {
   return {
     attemptCount,
@@ -140,7 +144,7 @@ async function acquireLeaseWithRetry(threadPool, {
     const readiness = typeof threadPool.ensureRoleReady === "function"
       ? await threadPool.ensureRoleReady(role)
       : await fallbackEnsureRoleReady(threadPool, role);
-    if (!readiness?.ok) {
+    if (!readiness?.ok && !shouldAttemptAcquireDuringReadinessFailure(readiness)) {
       readinessDetail = readiness?.detail ?? null;
       const failure = threadPoolReadinessError(readiness, codedError);
       failure.debugPayload = {
@@ -161,7 +165,7 @@ async function acquireLeaseWithRetry(threadPool, {
       await waitBeforeRetry(backoffMs[Math.min(attemptIndex, backoffMs.length - 1)] ?? 0);
       continue;
     }
-    readinessDetail = buildThreadPoolStatusDetail(readiness.status);
+    readinessDetail = readiness?.ok ? buildThreadPoolStatusDetail(readiness.status) : readiness?.detail ?? null;
     try {
       const lease = await threadPool.acquireLease({ role, ownerId });
       return {
@@ -213,4 +217,5 @@ module.exports = {
   threadPoolReadinessError,
   normalizeThreadPoolAcquireError,
   acquireLeaseWithRetry,
+  shouldAttemptAcquireDuringReadinessFailure,
 };
