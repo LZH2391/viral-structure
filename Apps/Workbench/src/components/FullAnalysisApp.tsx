@@ -257,11 +257,11 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         </section>
         <SplitResizeHandle
           className="workspace-resize-handle full-analysis-col-resizer"
-          label="调整上方面板分界"
+          label="调整左右分界"
           orientation="vertical"
-          onResizeStart={(event) => layout.startResize("top-row", event)}
-          onReset={() => layout.resetSize("top-row")}
-          onNudge={(direction) => layout.nudgeSize("top-row", direction)}
+          onResizeStart={(event) => layout.startResize("column", event)}
+          onReset={() => layout.resetSize("column")}
+          onNudge={(direction) => layout.nudgeSize("column", direction)}
         />
         <section className="full-analysis-preview" aria-label="视频预览">
           {videoUrl ? (
@@ -274,9 +274,9 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
           className="workspace-resize-handle full-analysis-row-resizer"
           label="调整上下区域高度"
           orientation="horizontal"
-          onResizeStart={(event) => layout.startResize("column", event)}
-          onReset={() => layout.resetSize("column")}
-          onNudge={(direction) => layout.nudgeSize("column", direction)}
+          onResizeStart={(event) => layout.startResize("top-row", event)}
+          onReset={() => layout.resetSize("top-row")}
+          onNudge={(direction) => layout.nudgeSize("top-row", direction)}
         />
         <section className="full-analysis-flow" aria-label="流程状态">
           {orderedStages.map((stage) => (

@@ -88,7 +88,22 @@ function createAppServerBridge({
     return result;
   }
 
-  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread };
+  async function cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds = 30 }) {
+    const payload = {
+      operation: "cancelTurn",
+      pythonRuntimeRoot,
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok) throw appServerError(result, "appserver_turn_cancel_failed");
+    return result;
+  }
+
+  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread, cancelTurn };
 }
 
 function appServerError(result, fallbackCode) {

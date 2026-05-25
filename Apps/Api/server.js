@@ -170,6 +170,10 @@ async function initializeServerRuntime(runtime = {}) {
   const activeStore = runtime.store ?? store;
   const activeShotBoundaryService = runtime.shotBoundaryService ?? shotBoundaryService;
   await activeStore.ensureRuntimeDirs();
+  if (typeof activeShotBoundaryService.interruptActiveAgentRuns === "function") {
+    await activeShotBoundaryService.interruptActiveAgentRuns("server-startup");
+    return;
+  }
   await activeShotBoundaryService.recoverActiveAgentRuns();
 }
 

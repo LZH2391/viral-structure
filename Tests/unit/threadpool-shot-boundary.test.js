@@ -1406,6 +1406,63 @@ test("shot boundary recovery completes active inflight", async () => {
   assert.equal(harness.jobStore.getJob(job.jobId).status, "processed");
 });
 
+test("shot boundary startup interrupt fails active inflight without collecting old turn", async () => {
+  let collectCalls = 0;
+  const harness = await createShotHarness({
+    appServer: {
+      collectTurnResult: async () => {
+        collectCalls += 1;
+        throw new Error("should not collect during startup interrupt");
+      },
+    },
+  });
+  const job = harness.jobStore.createJob({ sampleVideoId: "sample_1", traceId: "trace_restart" });
+  harness.jobStore.updateJob(job.jobId, {
+    status: "processing",
+    stage: STAGES.turnStarted,
+    progress: 80,
+    agentRun: {
+      provider: "codex-appserver",
+      role: "raw_video_analyze",
+      leaseId: null,
+      threadId: "thread_restart",
+      turnId: "turn_restart",
+      traceId: "trace_restart",
+      artifactId: "artifact_restart",
+      parentArtifactId: "artifact_sample",
+      sampleVideoId: "sample_1",
+      analysisFps: 3,
+      contactSheets: [],
+      status: "turn_submitted",
+      inputMode: "raw_video_path_text",
+      rawVideoPathInfo: { resolved: true, basename: "source.mp4" },
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  });
+
+  const interrupted = await harness.service.interruptActiveAgentRuns("server-startup");
+  const failed = harness.jobStore.getJob(job.jobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+
+  assert.equal(interrupted.interruptedAgentRuns, 1);
+  assert.equal(interrupted.interrupted, 0);
+  assert.equal(collectCalls, 0);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.errorSummary.code, "shot_boundary_job_interrupted");
+  assert.equal(failed.errorSummary.retryable, true);
+  assert.equal(failed.errorSummary.stageName, STAGES.turnCollected);
+  assert.equal(artifact.shotBoundaryAnalysis.status, "failed");
+  assert.deepEqual(harness.cancelledTurns, [{
+    workspaceRoot: "C:\\Users\\Administrator\\Documents\\Codex",
+    threadId: "thread_restart",
+    turnId: "turn_restart",
+    timeoutSeconds: 30,
+  }]);
+  assert.deepEqual(harness.threadPool.ownerReleased, ["trace_restart"]);
+  assert.deepEqual(harness.startedTurns.filter((item) => item.kind === "transform"), []);
+});
+
 test("shot boundary fails before raw submit when mp4 path cannot be resolved", async () => {
   const harness = await createShotHarness({
     artifact: createArtifact({ originalVideoUri: "relative/source.mp4", normalizedVideoUri: "relative/source-normalized.mp4" }),
@@ -1697,6 +1754,7 @@ async function createShotHarness({
   const turnKinds = [];
   const startedTurns = [];
   const startedThreads = [];
+  const cancelledTurns = [];
   const service = createShotBoundaryService({
     rootDir,
     store,
@@ -1740,10 +1798,16 @@ async function createShotHarness({
         }
         return result;
       },
+      cancelTurn: async (payload) => {
+        cancelledTurns.push(payload);
+        return appServerImpl.cancelTurn
+          ? await appServerImpl.cancelTurn(payload)
+          : { ok: true, threadId: payload.threadId, turnId: payload.turnId, status: "cancelled" };
+      },
     },
     pollIntervalMs: 60_000,
   });
-  return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service, startedTurns, startedThreads, sampleArtifact };
+  return { rootDir, store, logger, jobStore, threadPool, artifactIndex, service, startedTurns, startedThreads, cancelledTurns, sampleArtifact };
 }
 
 function isTransformTurnPayload(payload) {

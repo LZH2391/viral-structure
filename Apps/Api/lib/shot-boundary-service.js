@@ -117,6 +117,8 @@ function createShotBoundaryService({
     logger,
     jobStore,
     threadPool,
+    appServer,
+    rawWorkspaceRoot,
     sampleStatus: SAMPLE_STATUS,
     stages: STAGES,
     nextStage,
@@ -456,6 +458,14 @@ function createShotBoundaryService({
     });
   }
 
+  async function interruptActiveAgentRuns(reason = "server-startup") {
+    return serviceRuntime.interruptActiveAgentRuns({
+      role: ROLE,
+      loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
+      reason,
+    });
+  }
+
   async function runCacheLookupLocal(context, prepared, contactSheets) {
     return runShotBoundaryCacheLookup({
       context: { ...context, stages: STAGES },
@@ -552,7 +562,7 @@ function createShotBoundaryService({
     return serviceRuntime.markRetryableCollectFailure(context, error);
   }
 
-  return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns };
+  return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns, interruptActiveAgentRuns };
 }
 
 function buildActiveThreadMessage(threadId, turnId, message, status, options = {}) {

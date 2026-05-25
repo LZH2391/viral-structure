@@ -6,6 +6,8 @@ function createShotBoundaryServiceRuntime({
   jobStore,
   threadPool,
   sampleStatus,
+  appServer,
+  rawWorkspaceRoot,
   stages,
   nextStage,
   safeError,
@@ -133,10 +135,64 @@ function createShotBoundaryServiceRuntime({
     return { recovered: jobs.length, interrupted };
   }
 
+  async function interruptActiveAgentRuns({ role, loadSampleArtifact, reason = "server-startup" }) {
+    const activeAgentJobs = typeof jobStore.listActiveAgentRuns === "function" ? jobStore.listActiveAgentRuns({ role }) : [];
+    await Promise.all(activeAgentJobs.map((job) => failActiveAgentJob(job, loadSampleArtifact, reason).catch(() => undefined)));
+    const interrupted = await failInterruptedPreAgentJobs(loadSampleArtifact);
+    return { interruptedAgentRuns: activeAgentJobs.length, interrupted };
+  }
+
   async function failInterruptedPreAgentJobs(loadSampleArtifact) {
     const jobs = typeof jobStore.listJobs === "function" ? jobStore.listJobs().filter(isInterruptedPreAgentJob) : [];
     await Promise.all(jobs.map((job) => failInterruptedPreAgentJob(job, loadSampleArtifact).catch(() => undefined)));
     return jobs.length;
+  }
+
+  async function failActiveAgentJob(job, loadSampleArtifact, reason) {
+    const agentRun = job.agentRun;
+    if (!agentRun) return;
+    if (agentRun.traceId && typeof threadPool.releaseOwnerLeases === "function") {
+      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
+    }
+    if (agentRun.threadId && agentRun.turnId && typeof appServer?.cancelTurn === "function") {
+      await appServer.cancelTurn({
+        workspaceRoot: rawWorkspaceRoot,
+        threadId: agentRun.threadId,
+        turnId: agentRun.turnId,
+        timeoutSeconds: 30,
+      }).catch(() => undefined);
+    }
+    if (agentRun.threadId && typeof threadPool.discardThread === "function") {
+      await threadPool.discardThread({ threadId: agentRun.threadId, reason: `shot-boundary-interrupted-${reason}` }).catch(() => undefined);
+    }
+    const sampleArtifact = await loadSampleArtifact(job.sampleVideoId);
+    const context = {
+      sampleVideoId: job.sampleVideoId,
+      analysisFps: agentRun.analysisFps ?? 10,
+      sampleArtifact,
+      traceContext: {
+        runId: agentRun.traceId ?? job.traceId,
+        traceId: agentRun.traceId ?? job.traceId,
+        stageId: `stage_recover_${Date.now()}`,
+      },
+      artifactId: agentRun.artifactId ?? `artifact_${randomUUID()}`,
+      job,
+      activeStage: {
+        stageName: stages.turnCollected,
+        artifactId: agentRun.artifactId ?? null,
+        parentArtifactId: agentRun.parentArtifactId ?? sampleArtifact?.sampleVideo?.artifactId ?? null,
+        inputSummary: { jobId: job.jobId, previousStage: job.stage, previousProgress: job.progress, threadId: agentRun.threadId ?? null, turnId: agentRun.turnId ?? null },
+        outputSummary: null,
+        startedAt: Date.now(),
+      },
+    };
+    const error = codedError(
+      "shot_boundary_job_interrupted",
+      "切镜任务因服务重启已清理为失败状态，请重新运行",
+      { previousStage: job.stage, previousProgress: job.progress, reason, retryable: true },
+      true,
+    );
+    await markFailed(context, error);
   }
 
   async function failInterruptedPreAgentJob(job, loadSampleArtifact) {
@@ -197,6 +253,7 @@ function createShotBoundaryServiceRuntime({
     updateActiveThreadMessage,
     failAgentRun,
     recoverActiveAgentRuns,
+    interruptActiveAgentRuns,
     markRetryableCollectFailure,
   };
 }

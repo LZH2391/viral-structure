@@ -44,6 +44,8 @@ def main() -> int:
             return collect_turn_result(client, payload)
         if operation == "readThread":
             return read_thread(client, payload)
+        if operation == "cancelTurn":
+            return cancel_turn(client, payload)
         if operation == "runTurnWithInputs":
             return run_turn_with_inputs(client, payload)
         write_json({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"})
@@ -180,6 +182,19 @@ def read_thread(client, payload) -> int:
         {
             "ok": True,
             "thread": thread,
+        }
+    )
+    return 0
+
+
+def cancel_turn(client, payload) -> int:
+    turn = client.cancel_turn(str(payload["threadId"]), str(payload["turnId"]))
+    write_json(
+        {
+            "ok": True,
+            "threadId": str(payload["threadId"]),
+            "turnId": str(payload["turnId"]),
+            "status": turn.get("status"),
         }
     )
     return 0

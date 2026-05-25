@@ -15,7 +15,7 @@
     "upload full-analysis-col-resizer preview"
     "full-analysis-row-resizer full-analysis-row-resizer full-analysis-row-resizer"
     "flow full-analysis-bottom-resizer results";
-  gap: 16px;
+  gap: 8px;
   padding: 16px;
   min-height: calc(100vh - 64px);
   background: var(--bg);
