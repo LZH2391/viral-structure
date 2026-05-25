@@ -219,7 +219,7 @@ function sanitizeRoleStatus(payload) {
     last_owner_id: thread.last_owner_id ?? null,
     latest_input_tokens: nullableNumber(thread.latest_input_tokens),
     threshold_input_tokens: nullableNumber(thread.threshold_input_tokens),
-    seed: false,
+    seed: Boolean(thread.is_seed),
     last_seen_at: thread.last_seen_at ?? null,
   }));
   const leases = (payload.active_leases ?? []).map((lease) => ({

@@ -129,7 +129,7 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
 }
 
 function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
-  const threads = useMemo(() => detail?.threads ?? [], [detail]);
+  const threads = useMemo(() => (detail?.threads ?? []).filter((thread) => !thread.seed), [detail]);
   const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
   const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
   const [conversation, setConversation] = useState<ThreadConversation | null>(null);

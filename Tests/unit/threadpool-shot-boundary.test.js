@@ -467,17 +467,22 @@ test("threadpool role status removes init prompt and keeps safe summary", () => 
     seed_thread_id: "thread_seed",
     can_acquire: true,
     can_init: true,
-    thread_entries: [{ thread_id: "thread_1", thread_status: "idle", lease_id: null, latest_input_tokens: 700, threshold_input_tokens: 1000, last_owner_id: "owner_1" }],
+    thread_entries: [
+      { thread_id: "thread_seed", thread_status: "idle", is_seed: true },
+      { thread_id: "thread_1", thread_status: "idle", lease_id: null, is_seed: false, latest_input_tokens: 700, threshold_input_tokens: 1000, last_owner_id: "owner_1" },
+    ],
     active_leases: [],
   });
   assert.equal(status.config.skill_path, "SKILL.md");
   assert.equal(status.config.profile_path, null);
   assert.equal(status.config.profile_version, null);
   assert.equal("init_prompt" in status, false);
-  assert.equal(status.threads[0].status, "idle");
-  assert.equal(status.threads[0].latest_input_tokens, 700);
-  assert.equal(status.threads[0].threshold_input_tokens, 1000);
-  assert.equal(status.threads[0].last_owner_id, "owner_1");
+  assert.equal(status.threads[0].seed, true);
+  assert.equal(status.threads[1].status, "idle");
+  assert.equal(status.threads[1].seed, false);
+  assert.equal(status.threads[1].latest_input_tokens, 700);
+  assert.equal(status.threads[1].threshold_input_tokens, 1000);
+  assert.equal(status.threads[1].last_owner_id, "owner_1");
   assert.equal(status.canInit, true);
 });
 
