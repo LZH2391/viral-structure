@@ -1,8 +1,8 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [workbenchRoutePlugin(), react()],
   root: "Apps/Workbench",
   publicDir: false,
   build: {
@@ -26,3 +26,21 @@ export default defineConfig({
     },
   },
 });
+
+function workbenchRoutePlugin(): Plugin {
+  return {
+    name: "workbench-route",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const request = req as { url?: string };
+        const pathname = String(request.url ?? "").split("?")[0];
+        if (isWorkbenchRoute(pathname)) request.url = "/index.html";
+        next();
+      });
+    },
+  };
+}
+
+function isWorkbenchRoute(pathname: string) {
+  return ["/full-analysis", "/full-analysis/", "/library", "/library/", "/threadpool", "/threadpool/"].includes(pathname);
+}

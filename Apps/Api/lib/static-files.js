@@ -30,10 +30,13 @@ function resolveWorkbenchPath(workbenchRoot, pathname) {
 
 function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
-  if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "full-analysis.html";
+  if (pathname === "/threadpool" || pathname === "/threadpool/") return "index.html";
+  if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "index.html";
+  if (pathname === "/library" || pathname === "/library/") return "index.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";
-  if (pathname === "/library" || pathname === "/library/") return "library.html";
-  if (pathname === "/threadpool" || pathname === "/threadpool/") return "threadpool.html";
+  if (pathname === "/full-analysis.html") return "full-analysis.html";
+  if (pathname === "/library.html") return "library.html";
+  if (pathname === "/threadpool.html") return "threadpool.html";
   if (/^\/assets\//.test(pathname)) return pathname.slice(1);
   if (/^\/styles\//.test(pathname)) return pathname.slice(1);
   if (/^\/src\//.test(pathname)) return pathname.slice(1);

@@ -6,6 +6,8 @@ import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { formatThreadContextUsage } from "../utils/threadpoolFormat";
 import { shortId } from "../utils/format";
 
+const THREADPOOL_REFRESH_INTERVAL_MS = 2000;
+
 export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {}) {
   const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
   const [health, setHealth] = useState<ThreadPoolHealth | null>(null);
@@ -36,7 +38,22 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   }, []);
 
   useEffect(() => {
-    refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
+    let cancelled = false;
+    const sync = async (showError: boolean) => {
+      try {
+        await refresh();
+      } catch (error) {
+        if (!cancelled && showError) setStatus(error instanceof Error ? error.message : "读取失败");
+      }
+    };
+    void sync(true);
+    const timer = window.setInterval(() => {
+      void sync(false);
+    }, THREADPOOL_REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -44,12 +61,25 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
       setDetail(null);
       return;
     }
-    getThreadPoolRoleStatus(selectedRole)
-      .then((next) => {
+    let cancelled = false;
+    const sync = async (showError: boolean) => {
+      try {
+        const next = await getThreadPoolRoleStatus(selectedRole);
+        if (cancelled) return;
         setDetail(next);
         setStatus(next.ok ? "已同步" : "读取 role 失败");
-      })
-      .catch((error) => setStatus(error instanceof Error ? error.message : "读取 role 失败"));
+      } catch (error) {
+        if (!cancelled && showError) setStatus(error instanceof Error ? error.message : "读取 role 失败");
+      }
+    };
+    void sync(true);
+    const timer = window.setInterval(() => {
+      void sync(false);
+    }, THREADPOOL_REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [selectedRole]);
 
   const refreshDetail = useCallback(async () => {

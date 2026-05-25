@@ -298,6 +298,11 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
   assert.match(vite, /threadpool: "Apps\/Workbench\/threadpool\.html"/);
+  assert.match(vite, /isWorkbenchRoute\(pathname\)/);
+  assert.match(vite, /"\/full-analysis"/);
+  assert.match(vite, /"\/library"/);
+  assert.match(vite, /"\/threadpool"/);
+  assert.match(vite, /request\.url = "\/index\.html"/);
   assert.match(threadpoolHtml, /src="\/src\/threadpool\.tsx"/);
   assert.match(threadpoolEntry, /<ThreadPoolApp \/>/);
   assert.match(app, /setWorkbenchView\("threadpool", setActiveView\)/);
@@ -316,6 +321,8 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /resolveShotBoundaryCacheDecision/);
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
+  assert.match(threadpoolApp, /THREADPOOL_REFRESH_INTERVAL_MS = 2000/);
+  assert.match(threadpoolApp, /window\.setInterval/);
   assert.match(threadpoolApp, /getThreadConversation/);
   assert.match(threadpoolApp, /\(detail\?\.threads \?\? \[\]\)\.filter\(\(thread\) => !thread\.seed\)/);
   assert.doesNotMatch(threadpoolApp, /thread\.seed \? "seed \/ " : ""/);
