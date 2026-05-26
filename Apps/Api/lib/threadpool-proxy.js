@@ -17,6 +17,7 @@ function createThreadPoolProxy({
   requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
   leaseAcquireTimeoutMs = DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS,
   readThreadImpl = null,
+  threadTokenUsagePath = THREAD_TOKEN_USAGE_PATH,
 } = {}) {
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
   const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
@@ -49,7 +50,7 @@ function createThreadPoolProxy({
     if (!isAllowedRole(role)) return disallowedRolePayload(role);
     const payload = await safeRequest("GET", `/roles/${encodeURIComponent(role)}/status`);
     if (!payload.ok) return payload;
-    return sanitizeRoleStatus(await hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache }));
+    return sanitizeRoleStatus(await hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache, threadTokenUsagePath }));
   }
 
   async function acquireLease({ role, ownerId }) {
@@ -184,13 +185,13 @@ function parseAllowedRoles(value) {
   return String(value).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
-async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache }) {
+async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache, threadTokenUsagePath }) {
   const threadEntries = Array.isArray(payload?.thread_entries) ? payload.thread_entries : [];
-  if (!threadEntries.length || typeof readThreadImpl !== "function") return payload;
+  if (!threadEntries.length) return payload;
   const enrichedEntries = await Promise.all(threadEntries.map(async (thread) => {
     const threadId = String(thread?.thread_id ?? "").trim();
     if (!threadId) return thread;
-    const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache });
+    const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath });
     if (usage?.latest && thread?.latest_input_tokens == null) {
       const latest = nullableNumber(usage.latest?.last_token_usage?.input_tokens);
       if (latest != null) {
@@ -198,19 +199,20 @@ async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTo
       }
     }
     if (thread?.latest_input_tokens != null) return thread;
+    if (typeof readThreadImpl !== "function") return thread;
     const nextTokens = await readThreadInputTokensCached({ threadId, readThreadImpl, threadInputTokenCache });
     return nextTokens == null ? thread : { ...thread, latest_input_tokens: nextTokens };
   }));
   return { ...payload, thread_entries: enrichedEntries };
 }
 
-async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache }) {
+async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath }) {
   const now = Date.now();
   const cached = threadTokenUsageCache.get(threadId);
   if (cached && now - cached.time < THREAD_INPUT_TOKEN_CACHE_TTL_MS) return cached.value;
   let value = null;
   try {
-    const payload = await readJsonFileCached(THREAD_TOKEN_USAGE_PATH);
+    const payload = await readJsonFileCached(threadTokenUsagePath);
     const entry = payload?.[threadId];
     if (entry && typeof entry === "object") {
       value = {

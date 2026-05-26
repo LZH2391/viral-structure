@@ -513,6 +513,42 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
   assert.equal(discarded.status, "discarded");
 });
 
+test("threadpool proxy backfills ctx usage from persisted token usage cache", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "threadpool-proxy-"));
+  const tokenUsagePath = path.join(tempRoot, "thread_token_usage.json");
+  await fs.writeFile(tokenUsagePath, JSON.stringify({
+    thread_1: {
+      latest: { last_token_usage: { input_tokens: 888, output_tokens: 12, total_tokens: 900 } },
+      turns: {},
+    },
+  }), "utf8");
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-transformer"],
+    threadTokenUsagePath: tokenUsagePath,
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/health") {
+        return response({ ok: true, roles: ["shot-boundary-transformer"], warming_roles: [] });
+      }
+      if (pathname === "/roles/shot-boundary-transformer/status") {
+        return response({
+          ok: true,
+          role: "shot-boundary-transformer",
+          min_idle: 1,
+          counts: { idle: 1, leased: 0 },
+          can_acquire: true,
+          thread_entries: [{ thread_id: "thread_1", thread_status: "idle", is_seed: false }],
+          active_leases: [],
+        });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const status = await proxy.roleStatus("shot-boundary-transformer");
+  assert.equal(status.threads[0].latest_input_tokens, 888);
+});
+
 test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
     "script-segment-analyzer",
