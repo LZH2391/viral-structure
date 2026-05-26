@@ -3,9 +3,9 @@ import { createInitialState, type WorkbenchAction, workbenchReducer } from "../s
 import type { AudioFeatureMarker, SampleArtifact, WorkbenchState } from "../types";
 import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { getSampleArtifact, resolveCacheDecision } from "../api/client";
+import { getModules, getSampleArtifact, resolveCacheDecision } from "../api/client";
 import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
-import { getAnalysisRole, type AnalysisKind } from "../utils/analysisRoles";
+import { getAnalysisRole, setAnalysisRoleModules, type AnalysisKind } from "../utils/analysisRoles";
 import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -154,6 +154,12 @@ export function WorkbenchApp() {
   useEffect(() => {
     setMountedViews((current) => (current[activeView] ? current : { ...current, [activeView]: true }));
   }, [activeView]);
+
+  useEffect(() => {
+    void getModules()
+      .then(({ modules }) => setAnalysisRoleModules(modules))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => setActiveView(initialViewFromPath());

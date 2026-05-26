@@ -1,5 +1,6 @@
 const { assertExpectedArtifact } = require("./analysis-service-shared");
 const { createRoleAnalysisService } = require("./analysis-runtime-v2/role-service");
+const { createModuleDefinition } = require("./module-definition");
 
 const SHOT_BOUNDARY_DEPENDENCY = {
   key: "shotBoundaryArtifactId",
@@ -9,14 +10,14 @@ const SHOT_BOUNDARY_DEPENDENCY = {
 };
 
 function createShotBoundaryDependentRoleDefinition(config) {
-  return {
-    analysisId: config.analysisId,
-    stageKind: config.stageKind,
+  return createModuleDefinition({
+    moduleId: config.moduleId,
+    moduleKind: config.moduleKind,
     serviceKey: config.serviceKey,
     executorKind: "role-service",
     legacyPathSegment: config.legacyPathSegment,
     cacheKind: config.cacheKind,
-    route: `/api/sample-videos/:sampleVideoId/analyses/${config.analysisId}`,
+    route: `/api/sample-videos/:sampleVideoId/analyses/${config.moduleId}`,
     legacyRoute: `/api/sample-videos/:sampleVideoId/${config.legacyPathSegment}`,
     dependencies: [SHOT_BOUNDARY_DEPENDENCY],
     artifact: {
@@ -24,6 +25,8 @@ function createShotBoundaryDependentRoleDefinition(config) {
       historyKey: config.historyKey,
       type: config.artifactType,
     },
+    getArtifact: config.getArtifact,
+    buildCacheParams: config.buildCacheParams,
     role: config.role,
     stages: config.stages,
     ui: config.ui,
@@ -60,7 +63,7 @@ function createShotBoundaryDependentRoleDefinition(config) {
       }),
       codedError: config.codedError,
     }),
-  };
+  });
 }
 
 function buildShotBoundaryDependentStartOptions({ sampleVideoId, body = {} }) {

@@ -1,6 +1,6 @@
 const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
 const { createScriptSegmentPipelineDescriptor } = require("./pipeline-descriptor");
-const { buildScriptSegmentContentFingerprint } = require("../script-segment-analysis/cache-params");
+const { buildScriptSegmentCacheParams, buildScriptSegmentContentFingerprint } = require("../script-segment-analysis/cache-params");
 const { prepareInput } = require("../script-segment-analysis/input");
 const { buildFailedArtifact } = require("../script-segment-analysis/result-builder");
 const { codedError, safeError, sanitizeDebugPayload, ROLE, SKILL_PATH, STAGES, resolveSkillHash } = require("../script-segment-analysis/shared");
@@ -8,8 +8,8 @@ const { attachScriptSegmentAnalysis } = require("./artifact-writer");
 
 function createScriptSegmentAnalysisDefinition() {
   return createShotBoundaryDependentRoleDefinition({
-    analysisId: "script-segments",
-    stageKind: "scriptSegment",
+    moduleId: "script-segments",
+    moduleKind: "structure-analysis",
     serviceKey: "scriptSegmentService",
     legacyPathSegment: "script-segments",
     cacheKind: "script_segment",
@@ -21,6 +21,7 @@ function createScriptSegmentAnalysisDefinition() {
     stages: STAGES,
     ui: {
       label: "script-segments",
+      stageKind: "scriptSegment",
       displayName: "脚本段落",
       stageId: "script.segment.analyze",
       completeReason: "结构理解完成",
@@ -33,6 +34,16 @@ function createScriptSegmentAnalysisDefinition() {
     createDescriptor: createScriptSegmentPipelineDescriptor,
     prepareInput,
     buildContentFingerprint: buildScriptSegmentContentFingerprint,
+    getArtifact: (artifact) => artifact?.scriptSegmentAnalysis ?? null,
+    buildCacheParams: (artifact) => buildScriptSegmentCacheParams({
+      inputFingerprint: artifact?.scriptSegmentAnalysis?.cacheKey ?? null,
+      sourceShotArtifactId: artifact?.scriptSegmentAnalysis?.sourceShotBoundaryArtifactId ?? null,
+      profileVersion: artifact?.scriptSegmentAnalysis?.agent?.profileVersion ?? null,
+      promptTemplateId: artifact?.scriptSegmentAnalysis?.agent?.promptTemplateId ?? null,
+      promptTemplateVersion: artifact?.scriptSegmentAnalysis?.agent?.promptTemplateVersion ?? null,
+      promptTemplateHash: artifact?.scriptSegmentAnalysis?.agent?.promptTemplateHash ?? null,
+      skillHash: artifact?.scriptSegmentAnalysis?.agent?.skillHash ?? null,
+    }),
     buildFailedArtifact,
     attachAnalysis: attachScriptSegmentAnalysis,
     codedError,

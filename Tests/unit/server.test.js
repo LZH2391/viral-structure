@@ -220,6 +220,30 @@ test("analysis roles endpoint returns public descriptors only", async () => {
   }
 });
 
+test("modules endpoint returns public module descriptors only", async () => {
+  const server = createServer({
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/modules");
+    assert.equal(response.statusCode, 200);
+    const module = response.body.modules.find((entry) => entry.moduleId === "script-segments");
+    assert.equal(module.moduleKind, "structure-analysis");
+    assert.equal(module.artifactKey, "scriptSegmentAnalysis");
+    assert.equal(module.cacheKind, "script_segment");
+    assert.equal(module.executorKind, "role-service");
+    assert.equal(module.skillPath, undefined);
+    assert.equal(module.createService, undefined);
+    assert.equal(module.serviceKey, undefined);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("full analysis workflow routes create, read, and rerun runs", async () => {
   const calls = [];
   const fakeRun = { workflowRunId: "workflow_1", workflowKey: "full-analysis", workflowVersion: "full-analysis.v1", status: "running", traceId: "trace_workflow", runId: "run_workflow", sampleVideoId: "sample_1", currentStageKeys: ["upload"], stages: [] };

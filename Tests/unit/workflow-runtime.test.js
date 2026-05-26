@@ -33,20 +33,26 @@ function createHarness() {
       return { processingJobId: "job_shot", sampleVideoId: "sample_1", traceId: "trace_shot" };
     },
   };
-  const analysisRegistry = {
-    startAnalysis: async ({ analysisId }) => {
-      const jobId = `job_${analysisId}`;
-      const artifact = attachAnalysis(artifacts.get("sample_1"), analysisId);
+  const moduleDefinitions = {
+    "script-segments": { moduleId: "script-segments", ui: { stageKind: "scriptSegment", stageId: "script.segment.analyze", displayName: "脚本" }, artifact: { key: "scriptSegmentAnalysis" } },
+    "rhythm-structure": { moduleId: "rhythm-structure", ui: { stageKind: "rhythmStructure", stageId: "rhythm.structure.analyze", displayName: "节奏" }, artifact: { key: "rhythmStructureAnalysis" } },
+    "packaging-structure": { moduleId: "packaging-structure", ui: { stageKind: "packagingStructure", stageId: "packaging.structure.analyze", displayName: "包装" }, artifact: { key: "packagingStructureAnalysis" } },
+  };
+  const moduleRegistry = {
+    getByModuleId: (moduleId) => moduleDefinitions[moduleId] ?? null,
+    startModule: async ({ moduleId }) => {
+      const jobId = `job_${moduleId}`;
+      const artifact = attachAnalysis(artifacts.get("sample_1"), moduleId);
       artifacts.set("sample_1", artifact);
-      jobs.set(jobId, { jobId, sampleVideoId: "sample_1", status: "processed", stage: `${analysisId}.materialize`, progress: 100, traceId: `trace_${analysisId}` });
-      return { processingJobId: jobId, sampleVideoId: "sample_1", traceId: `trace_${analysisId}` };
+      jobs.set(jobId, { jobId, sampleVideoId: "sample_1", status: "processed", stage: `${moduleId}.materialize`, progress: 100, traceId: `trace_${moduleId}` });
+      return { processingJobId: jobId, sampleVideoId: "sample_1", traceId: `trace_${moduleId}` };
     },
   };
   const workflow = createFullAnalysisWorkflowService({
     workflowRunStore,
     service,
     shotBoundaryService,
-    analysisRegistry,
+    moduleRegistry,
     jobStore,
     logger,
     store: {},

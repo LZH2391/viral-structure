@@ -1,6 +1,6 @@
 const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
 const { createPackagingStructurePipelineDescriptor } = require("./pipeline-descriptor");
-const { buildPackagingStructureContentFingerprint } = require("../packaging-structure-analysis/cache-params");
+const { buildPackagingStructureCacheParams, buildPackagingStructureContentFingerprint } = require("../packaging-structure-analysis/cache-params");
 const { prepareInput } = require("../packaging-structure-analysis/input");
 const { buildFailedArtifact } = require("../packaging-structure-analysis/result-builder");
 const { codedError, safeError, sanitizeDebugPayload, ROLE, SKILL_PATH, STAGES, resolveSkillHash } = require("../packaging-structure-analysis/shared");
@@ -8,8 +8,8 @@ const { attachPackagingStructureAnalysis } = require("./artifact-writer");
 
 function createPackagingStructureAnalysisDefinition() {
   return createShotBoundaryDependentRoleDefinition({
-    analysisId: "packaging-structure",
-    stageKind: "packagingStructure",
+    moduleId: "packaging-structure",
+    moduleKind: "structure-analysis",
     serviceKey: "packagingStructureService",
     legacyPathSegment: "packaging-structure",
     cacheKind: "packaging_structure",
@@ -21,6 +21,7 @@ function createPackagingStructureAnalysisDefinition() {
     stages: STAGES,
     ui: {
       label: "packaging-structure",
+      stageKind: "packagingStructure",
       displayName: "包装结构",
       stageId: "packaging.structure.analyze",
       completeReason: "包装结构完成",
@@ -33,6 +34,16 @@ function createPackagingStructureAnalysisDefinition() {
     createDescriptor: createPackagingStructurePipelineDescriptor,
     prepareInput,
     buildContentFingerprint: buildPackagingStructureContentFingerprint,
+    getArtifact: (artifact) => artifact?.packagingStructureAnalysis ?? null,
+    buildCacheParams: (artifact) => buildPackagingStructureCacheParams({
+      inputFingerprint: artifact?.packagingStructureAnalysis?.cacheKey ?? null,
+      sourceShotArtifactId: artifact?.packagingStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
+      profileVersion: artifact?.packagingStructureAnalysis?.agent?.profileVersion ?? null,
+      promptTemplateId: artifact?.packagingStructureAnalysis?.agent?.promptTemplateId ?? null,
+      promptTemplateVersion: artifact?.packagingStructureAnalysis?.agent?.promptTemplateVersion ?? null,
+      promptTemplateHash: artifact?.packagingStructureAnalysis?.agent?.promptTemplateHash ?? null,
+      skillHash: artifact?.packagingStructureAnalysis?.agent?.skillHash ?? null,
+    }),
     buildFailedArtifact,
     attachAnalysis: attachPackagingStructureAnalysis,
     codedError,

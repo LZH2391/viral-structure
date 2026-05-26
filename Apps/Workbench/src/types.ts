@@ -91,3 +91,36 @@ export type AnalysisRoleSummary = {
   };
   stages: Record<string, string>;
 };
+
+export type ModuleSummary = {
+  moduleId: string;
+  moduleKind: string;
+  executorKind: string;
+  cacheKind: string | null;
+  artifactKey: string | null;
+  artifactType: string | null;
+  route: string;
+  legacyRoute: string | null;
+  dependencies: Array<{
+    key: string;
+    artifactKey: string;
+    requestKey: string;
+    label: string;
+  }>;
+  ui: {
+    label: string;
+    stageKind?: string;
+    displayName?: string;
+    stageId?: string;
+    completeReason?: string;
+    refreshReason?: string;
+    reuseReason?: string;
+    invalidResultMessage?: string;
+    failureMessage?: string;
+    timeoutMessage?: string;
+  } | null;
+  stages: Record<string, string> | null;
+  supportsCacheReuse: boolean;
+  supportsRerun: boolean;
+  artifactPolicy: "required" | "optional" | "none" | string;
+};

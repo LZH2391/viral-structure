@@ -1,6 +1,6 @@
 const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
 const { createRhythmStructurePipelineDescriptor } = require("./pipeline-descriptor");
-const { buildRhythmStructureContentFingerprint } = require("../rhythm-structure-analysis/cache-params");
+const { buildRhythmStructureCacheParams, buildRhythmStructureContentFingerprint } = require("../rhythm-structure-analysis/cache-params");
 const { prepareInput } = require("../rhythm-structure-analysis/input");
 const { buildFailedArtifact } = require("../rhythm-structure-analysis/result-builder");
 const { codedError, safeError, sanitizeDebugPayload, ROLE, SKILL_PATH, STAGES, resolveSkillHash } = require("../rhythm-structure-analysis/shared");
@@ -8,8 +8,8 @@ const { attachRhythmStructureAnalysis } = require("./artifact-writer");
 
 function createRhythmStructureAnalysisDefinition() {
   return createShotBoundaryDependentRoleDefinition({
-    analysisId: "rhythm-structure",
-    stageKind: "rhythmStructure",
+    moduleId: "rhythm-structure",
+    moduleKind: "structure-analysis",
     serviceKey: "rhythmStructureService",
     legacyPathSegment: "rhythm-structure",
     cacheKind: "rhythm_structure",
@@ -21,6 +21,7 @@ function createRhythmStructureAnalysisDefinition() {
     stages: STAGES,
     ui: {
       label: "rhythm-structure",
+      stageKind: "rhythmStructure",
       displayName: "节奏结构",
       stageId: "rhythm.structure.analyze",
       completeReason: "节奏结构完成",
@@ -33,6 +34,16 @@ function createRhythmStructureAnalysisDefinition() {
     createDescriptor: createRhythmStructurePipelineDescriptor,
     prepareInput,
     buildContentFingerprint: buildRhythmStructureContentFingerprint,
+    getArtifact: (artifact) => artifact?.rhythmStructureAnalysis ?? null,
+    buildCacheParams: (artifact) => buildRhythmStructureCacheParams({
+      inputFingerprint: artifact?.rhythmStructureAnalysis?.cacheKey ?? null,
+      sourceShotArtifactId: artifact?.rhythmStructureAnalysis?.sourceShotBoundaryArtifactId ?? null,
+      profileVersion: artifact?.rhythmStructureAnalysis?.agent?.profileVersion ?? null,
+      promptTemplateId: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateId ?? null,
+      promptTemplateVersion: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateVersion ?? null,
+      promptTemplateHash: artifact?.rhythmStructureAnalysis?.agent?.promptTemplateHash ?? null,
+      skillHash: artifact?.rhythmStructureAnalysis?.agent?.skillHash ?? null,
+    }),
     buildFailedArtifact,
     attachAnalysis: attachRhythmStructureAnalysis,
     codedError,

@@ -23,6 +23,7 @@ const { createAppServerBridge } = require("./lib/appserver-bridge");
 const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/analysis-role-registry");
+const { createModuleRegistry } = require("./lib/module-registry");
 const { createFullAnalysisWorkflowService } = require("./lib/full-analysis-workflow-service");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
@@ -42,8 +43,9 @@ const threadPool = createThreadPoolProxy({
 });
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
-const analysisRegistry = createAnalysisRoleRegistry({ store, logger, jobStore, artifactIndex });
-const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, analysisRegistry, jobStore, logger, store, artifactIndex });
+const moduleRegistry = createModuleRegistry({ store, logger, jobStore, artifactIndex });
+const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
+const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
@@ -54,7 +56,7 @@ function createServer(deps = {}) {
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
-  const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({
+  const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
@@ -68,6 +70,7 @@ function createServer(deps = {}) {
       packagingStructureService: deps.packagingStructureService,
     },
   });
+  const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({ moduleRegistry: activeModuleRegistry });
   const handlers = {
     logger: activeLogger,
     store: activeStore,
@@ -79,12 +82,13 @@ function createServer(deps = {}) {
     appServer: deps.appServer ?? appServer,
     shotBoundaryService: activeShotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
+    moduleRegistry: activeModuleRegistry,
     analysisRegistry: activeAnalysisRegistry,
     fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
       workflowRunStore: activeWorkflowRunStore,
       service: activeSampleService,
       shotBoundaryService: activeShotBoundaryService,
-      analysisRegistry: activeAnalysisRegistry,
+      moduleRegistry: activeModuleRegistry,
       jobStore: activeJobStore,
       logger: activeLogger,
       store: activeStore,
@@ -108,6 +112,7 @@ function createServer(deps = {}) {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/modules") return await handleModules(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
@@ -193,6 +198,10 @@ async function handleCapabilities(res, handlers = {}) {
 
 async function handleAnalysisRoles(res, handlers = {}) {
   return sendJson(res, 200, { roles: (handlers.analysisRegistry ?? analysisRegistry).list() });
+}
+
+async function handleModules(res, handlers = {}) {
+  return sendJson(res, 200, { modules: (handlers.moduleRegistry ?? moduleRegistry).list() });
 }
 
 async function handleFullAnalysisRun(req, res, handlers = {}) {
@@ -310,7 +319,7 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   const job = activeJobStore.getJob(jobId);
   if (!job) return notFound(res);
   const cacheKind = job.cachePrompt?.cacheKind ?? null;
-  const analysisResult = await (handlers.analysisRegistry ?? analysisRegistry).resolveAnalysisCacheDecision({ cacheKind, jobId, decision: body.decision });
+  const analysisResult = await (handlers.moduleRegistry ?? moduleRegistry).resolveModuleCacheDecision({ cacheKind, jobId, decision: body.decision });
   const result = analysisResult ?? await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
 }

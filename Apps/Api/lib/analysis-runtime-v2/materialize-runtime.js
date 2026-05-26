@@ -1,3 +1,5 @@
+const { MODULE_ARTIFACTS } = require("../module-artifact-catalog");
+
 function createMaterializeRuntime({ artifactIndex, resolveExistingFileHash, finalOutputStore = null }) {
   async function registerSampleArtifact(context, artifact) {
     await artifactIndex.registerSampleArtifact({
@@ -28,13 +30,13 @@ function createMaterializeRuntime({ artifactIndex, resolveExistingFileHash, fina
 }
 
 function latestAnalysisFromArtifact(artifact, cacheKind) {
-  if (cacheKind === "script_segment") return artifact?.scriptSegmentAnalysis ?? null;
-  if (cacheKind === "rhythm_structure") return artifact?.rhythmStructureAnalysis ?? null;
-  if (cacheKind === "packaging_structure") return artifact?.packagingStructureAnalysis ?? null;
-  return artifact?.scriptSegmentAnalysis
-    ?? artifact?.rhythmStructureAnalysis
-    ?? artifact?.packagingStructureAnalysis
-    ?? null;
+  const module = MODULE_ARTIFACTS.find((entry) => entry.cacheKind === cacheKind);
+  if (module?.getArtifact) return module.getArtifact(artifact);
+  for (const entry of MODULE_ARTIFACTS) {
+    const analysis = entry.getArtifact?.(artifact);
+    if (analysis) return analysis;
+  }
+  return null;
 }
 
 module.exports = {

@@ -1,4 +1,4 @@
-import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -86,6 +86,10 @@ export async function getCapabilities() {
 
 export async function getAnalysisRoles() {
   return readJsonResponse<{ roles: AnalysisRoleSummary[] }>(await fetch(`${API_BASE_URL}/api/analysis-roles`));
+}
+
+export async function getModules() {
+  return readJsonResponse<{ modules: ModuleSummary[] }>(await fetch(`${API_BASE_URL}/api/modules`));
 }
 
 export async function getProcessingJob(jobId: string) {

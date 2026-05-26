@@ -7,20 +7,18 @@ const WORKFLOW_KEY = "full-analysis";
 const WORKFLOW_VERSION = "full-analysis.v1";
 const TERMINAL_JOB_STATUSES = new Set(["processed", "failed"]);
 
-const STAGE_DEFINITIONS = [
+const BASE_STAGE_DEFINITIONS = [
   { key: "upload", stageName: "upload.ingest", label: "上传", artifactKey: "sampleVideo" },
   { key: "shotBoundary", stageName: "shot.boundary", label: "切镜", artifactKey: "shotBoundaryAnalysis" },
-  { key: "scriptSegment", stageName: "script.segment.analyze", label: "脚本", artifactKey: "scriptSegmentAnalysis" },
-  { key: "rhythmStructure", stageName: "rhythm.structure.analyze", label: "节奏", artifactKey: "rhythmStructureAnalysis" },
-  { key: "packagingStructure", stageName: "packaging.structure.analyze", label: "包装", artifactKey: "packagingStructureAnalysis" },
-  { key: "aggregate", stageName: "workflow.aggregate", label: "汇总", artifactKey: null },
 ];
+const AGGREGATE_STAGE_DEFINITION = { key: "aggregate", stageName: "workflow.aggregate", label: "汇总", artifactKey: null };
+const FULL_ANALYSIS_MODULE_IDS = ["script-segments", "rhythm-structure", "packaging-structure"];
 
 function createFullAnalysisWorkflowService({
   workflowRunStore,
   service,
   shotBoundaryService,
-  analysisRegistry,
+  moduleRegistry,
   jobStore,
   logger,
   store,
@@ -29,6 +27,10 @@ function createFullAnalysisWorkflowService({
   pollIntervalMs = 2000,
 }) {
   const timers = new Map();
+  const moduleStageDefinitions = resolveWorkflowModuleStages(moduleRegistry);
+  const stageDefinitions = [...BASE_STAGE_DEFINITIONS, ...moduleStageDefinitions, AGGREGATE_STAGE_DEFINITION];
+  const moduleStageKeys = moduleStageDefinitions.map((stage) => stage.key);
+  const rerunnableStageKeys = new Set(["shotBoundary", ...moduleStageKeys]);
 
   async function start({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
@@ -45,7 +47,7 @@ function createFullAnalysisWorkflowService({
       runId: traceContext.runId,
       sampleVideoId: null,
       currentStageKeys: ["upload"],
-      stages: STAGE_DEFINITIONS.map((definition) => createStageState(definition)),
+      stages: stageDefinitions.map((definition) => createStageState(definition)),
       createdAt: now,
       updatedAt: now,
       completedAt: null,
@@ -83,7 +85,7 @@ function createFullAnalysisWorkflowService({
   async function rerunStage({ workflowRunId, stageKey }) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
-    if (!["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure"].includes(stageKey)) {
+    if (!rerunnableStageKeys.has(stageKey)) {
       const error = new Error("该步骤暂不支持重跑");
       error.statusCode = 400;
       error.code = "workflow_stage_rerun_unsupported";
@@ -183,15 +185,11 @@ function createFullAnalysisWorkflowService({
         enableReview: input.enableReview ?? true,
       });
     }
-    if (["scriptSegment", "rhythmStructure", "packagingStructure"].includes(stageKey)) {
-      const analysisId = {
-        scriptSegment: "script-segments",
-        rhythmStructure: "rhythm-structure",
-        packagingStructure: "packaging-structure",
-      }[stageKey];
+    const moduleStage = findModuleStage(moduleStageDefinitions, stageKey);
+    if (moduleStage) {
       const artifact = await readArtifact(run.sampleVideoId);
-      return analysisRegistry.startAnalysis({
-        analysisId,
+      return moduleRegistry.startModule({
+        moduleId: moduleStage.moduleId,
         sampleVideoId: run.sampleVideoId,
         body: {
           cacheDecision: input.cacheDecision ?? run.cacheDecision ?? "ask",
@@ -269,9 +267,8 @@ function createFullAnalysisWorkflowService({
       });
       return;
     }
-    const analysisKeys = ["scriptSegment", "rhythmStructure", "packagingStructure"];
     if (shot.status === "processed") {
-      const pending = analysisKeys.filter((key) => findStage(run, key).status === "pending");
+      const pending = moduleStageKeys.filter((key) => findStage(run, key).status === "pending");
       await Promise.all(pending.map((key) => startStage(run.workflowRunId, key, { cacheDecision }, {
         runId: run.runId,
         traceId: run.traceId,
@@ -280,7 +277,7 @@ function createFullAnalysisWorkflowService({
     }
     const latest = workflowRunStore.getRun(run.workflowRunId);
     if (!latest) return;
-    const analysesDone = analysisKeys.every((key) => ["processed", "failed"].includes(findStage(latest, key).status));
+    const analysesDone = moduleStageKeys.every((key) => ["processed", "failed"].includes(findStage(latest, key).status));
     const aggregate = findStage(latest, "aggregate");
     if (analysesDone && aggregate.status === "pending") {
       await startStage(latest.workflowRunId, "aggregate", {}, {
@@ -352,7 +349,7 @@ function createFullAnalysisWorkflowService({
       return;
     }
     if (aggregate.status !== "processed") return;
-    const anyFailed = ["scriptSegment", "rhythmStructure", "packagingStructure"].some((key) => findStage(run, key).status === "failed");
+    const anyFailed = moduleStageKeys.some((key) => findStage(run, key).status === "failed");
     const completed = workflowRunStore.updateRun(run.workflowRunId, {
       status: anyFailed ? "partial_failed" : "processed",
       currentStageKeys: [],
@@ -443,7 +440,7 @@ function resetStageForRun(stage) {
 }
 
 function findStage(run, stageKey) {
-  return run?.stages?.find((stage) => stage.key === stageKey) ?? createStageState(STAGE_DEFINITIONS.find((stage) => stage.key === stageKey) ?? { key: stageKey, stageName: stageKey, label: stageKey, artifactKey: null });
+  return run?.stages?.find((stage) => stage.key === stageKey) ?? createStageState({ key: stageKey, stageName: stageKey, label: stageKey, artifactKey: null });
 }
 
 function updateStage(stages, stageKey, update) {
@@ -536,6 +533,25 @@ function publicRun(run) {
 module.exports = {
   WORKFLOW_KEY,
   WORKFLOW_VERSION,
-  STAGE_DEFINITIONS,
+  BASE_STAGE_DEFINITIONS,
+  FULL_ANALYSIS_MODULE_IDS,
   createFullAnalysisWorkflowService,
 };
+
+function resolveWorkflowModuleStages(moduleRegistry) {
+  if (!moduleRegistry || typeof moduleRegistry.getByModuleId !== "function") return [];
+  return FULL_ANALYSIS_MODULE_IDS
+    .map((moduleId) => moduleRegistry.getByModuleId(moduleId))
+    .filter(Boolean)
+    .map((module) => ({
+      key: module.ui?.stageKind ?? module.moduleId,
+      moduleId: module.moduleId,
+      stageName: module.ui?.stageId ?? Object.values(module.stages ?? {})[0] ?? module.moduleId,
+      label: module.ui?.displayName ?? module.ui?.label ?? module.moduleId,
+      artifactKey: module.artifact?.key ?? null,
+    }));
+}
+
+function findModuleStage(moduleStageDefinitions, stageKey) {
+  return moduleStageDefinitions.find((stage) => stage.key === stageKey) ?? null;
+}

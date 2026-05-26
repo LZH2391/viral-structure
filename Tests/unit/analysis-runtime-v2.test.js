@@ -98,9 +98,9 @@ test("frontend and API accept unified analysis dependencies while preserving leg
   const types = read(root, "Apps/Workbench/src/types.ts");
 
   assert.match(server, /startAnalysis/);
-  assert.match(roleDefinition, /\/analyses\/\$\{config\.analysisId\}/);
+  assert.match(roleDefinition, /\/analyses\/\$\{config\.moduleId\}/);
   assert.match(roleDefinition, /dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId/);
-  assert.match(registry, /createScriptSegmentAnalysisDefinition/);
+  assert.match(registry, /createModuleRegistry/);
   assert.doesNotMatch(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
   assert.match(client, /startAnalysisRole/);
   assert.match(client, /\/analyses\/\$\{encodeURIComponent\(analysisId\)\}/);
@@ -135,8 +135,8 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
   });
 
   assert.equal(registry.getByAnalysisId("script-segments").cacheKind, "script_segment");
-  assert.equal(registry.getByLegacyPathSegment("rhythm-structure").analysisId, "rhythm-structure");
-  assert.equal(registry.getByCacheKind("packaging_structure").analysisId, "packaging-structure");
+  assert.equal(registry.getByLegacyPathSegment("rhythm-structure").moduleId, "rhythm-structure");
+  assert.equal(registry.getByCacheKind("packaging_structure").moduleId, "packaging-structure");
   assert.equal(registry.getByAnalysisId("missing"), null);
   const publicEntry = registry.list().find((entry) => entry.analysisId === "packaging-structure");
   assert.equal(publicEntry.artifactKey, "packagingStructureAnalysis");
@@ -166,6 +166,6 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
   assert.equal(await registry.resolveAnalysisCacheDecision({ cacheKind: "shot_boundary", jobId: "job_2", decision: "reuse" }), null);
   assert.throws(
     () => registry.startAnalysis({ analysisId: "missing", sampleVideoId: "sample_1", body: {} }),
-    (error) => error.statusCode === 404 && error.code === "analysis_not_found",
+    (error) => error.statusCode === 404 && error.code === "module_not_found",
   );
 });
