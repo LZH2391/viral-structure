@@ -4,6 +4,7 @@
 /Runtime/ArtifactIndex/*
 /Runtime/DebugSnapshots/*
 /Runtime/Jobs/*
+/Runtime/Projection/*
 /Runtime/Temp/*
 /Artifacts/AnalysisFinalOutputs/*
 /_workspace/
@@ -30,5 +31,6 @@ __pycache__/
 !/Runtime/ArtifactIndex/README.md
 !/Runtime/DebugSnapshots/README.md
 !/Runtime/Jobs/README.md
+!/Runtime/Projection/README.md
 !/Runtime/Temp/README.md
 !/Artifacts/AnalysisFinalOutputs/README.md

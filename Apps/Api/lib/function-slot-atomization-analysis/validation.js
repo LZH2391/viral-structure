@@ -113,6 +113,7 @@ function normalizeAtoms(value, atomType) {
     densityType: normalizeText(atom?.density_type ?? "", 120),
     beatShape: normalizeText(atom?.beat_shape ?? "", 160),
     visualHierarchy: normalizeText(atom?.visual_hierarchy ?? "", 220),
+    visualElements: normalizeStringArray(atom?.visual_elements ?? atom?.visualElements, 16),
     risk: normalizeText(atom?.risk ?? "", 260),
     mustKeep: normalizeStringArray(atom?.must_keep, 12),
     replaceableVariables: normalizeStringArray(atom?.replaceable_variables ?? atom?.replaceable_style, 16),

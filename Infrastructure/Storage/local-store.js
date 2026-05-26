@@ -11,6 +11,7 @@ function createLocalStore(rootDir) {
       fs.mkdir(path.join(runtimeRoot, "ArtifactIndex"), { recursive: true }),
       fs.mkdir(path.join(runtimeRoot, "DebugSnapshots"), { recursive: true }),
       fs.mkdir(path.join(runtimeRoot, "Temp"), { recursive: true }),
+      fs.mkdir(path.join(runtimeRoot, "Projection"), { recursive: true }),
     ]);
   }
 

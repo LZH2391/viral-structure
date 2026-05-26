@@ -27,6 +27,7 @@ const { createModuleRegistry } = require("./lib/modules/registry");
 const { createExecutorRegistry } = require("./lib/executors/registry");
 const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-analysis/service");
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
+const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -45,11 +46,13 @@ const threadPool = createThreadPoolProxy({
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const executorRegistry = createExecutorRegistry({ appServer });
+const functionSlotProjectionService = createFunctionSlotProjectionService({ store });
 const moduleRegistry = createModuleRegistry({
   store,
   logger,
   jobStore,
   artifactIndex,
+  functionSlotProjectionService,
   executorRegistry,
   serviceOverrides: {
     shotBoundaryService,
@@ -66,6 +69,7 @@ function createServer(deps = {}) {
   const activeJobStore = deps.jobStore ?? jobStore;
   const activeWorkflowRunStore = deps.workflowRunStore ?? workflowRunStore;
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
+  const activeFunctionSlotProjectionService = deps.functionSlotProjectionService ?? createFunctionSlotProjectionService({ store: activeStore });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
@@ -77,6 +81,7 @@ function createServer(deps = {}) {
     logger: activeLogger,
     jobStore: activeJobStore,
     artifactIndex: activeArtifactIndex,
+    functionSlotProjectionService: activeFunctionSlotProjectionService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
     executorRegistry: activeExecutorRegistry,
@@ -103,6 +108,7 @@ function createServer(deps = {}) {
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     moduleRegistry: activeModuleRegistry,
     analysisRegistry: activeAnalysisRegistry,
+    functionSlotProjectionService: activeFunctionSlotProjectionService,
     fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
       workflowRunStore: activeWorkflowRunStore,
       service: activeSampleService,
@@ -133,6 +139,8 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/modules") return await handleModules(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
+      if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-projection/rebuild") return await handleFunctionSlotProjectionRebuild(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
@@ -221,6 +229,22 @@ async function handleAnalysisRoles(res, handlers = {}) {
 
 async function handleModules(res, handlers = {}) {
   return sendJson(res, 200, { modules: (handlers.moduleRegistry ?? moduleRegistry).list() });
+}
+
+async function handleFunctionSlotProjectionQuery(res, url, handlers = {}) {
+  const service = handlers.functionSlotProjectionService ?? functionSlotProjectionService;
+  const resource = url.pathname.split("/").at(-1);
+  const filters = Object.fromEntries(url.searchParams.entries());
+  if (resource === "slots") return sendJson(res, 200, { items: await service.querySlots(filters) });
+  if (resource === "atoms") return sendJson(res, 200, { items: await service.queryAtoms(filters) });
+  if (resource === "bindings") return sendJson(res, 200, { items: await service.queryBindings(filters) });
+  if (resource === "rules") return sendJson(res, 200, { items: await service.queryRules(filters) });
+  return notFound(res);
+}
+
+async function handleFunctionSlotProjectionRebuild(res, handlers = {}) {
+  const service = handlers.functionSlotProjectionService ?? functionSlotProjectionService;
+  return sendJson(res, 200, await service.rebuildFromRuntimeArtifacts());
 }
 
 async function handleFullAnalysisRun(req, res, handlers = {}) {

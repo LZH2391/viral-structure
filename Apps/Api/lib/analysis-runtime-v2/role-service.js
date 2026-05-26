@@ -46,6 +46,7 @@ function createRoleAnalysisService({
   buildContextPatch = () => ({}),
   readCacheContextPatch = () => ({}),
   codedError,
+  projectionService = null,
 } = {}) {
   const runtime = createAnalysisRuntimeV2({
     logger,
@@ -61,6 +62,7 @@ function createRoleAnalysisService({
     store,
     resolveExistingFileHash,
     rootDir,
+    projectionService,
   });
   const descriptor = createDescriptor({ store, artifactIndex });
   const pipelineRunner = createAnalysisPipelineRunner({

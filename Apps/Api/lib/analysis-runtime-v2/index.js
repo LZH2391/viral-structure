@@ -35,6 +35,8 @@ function createAnalysisRuntimeV2(options) {
       artifactIndex: options.artifactIndex,
       resolveExistingFileHash: options.resolveExistingFileHash,
       finalOutputStore: options.store ? createAnalysisFinalOutputStore({ store: options.store, rootDir: options.rootDir }) : null,
+      projectionService: options.projectionService ?? null,
+      logger: options.logger ?? null,
     })
     : null;
 

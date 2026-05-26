@@ -74,6 +74,7 @@ function createFunctionSlotAtomizationAnalysisDefinition() {
     startOptionsFromBody: buildFunctionSlotAtomizationStartOptions,
     createService: (options = {}) => createRoleAnalysisService({
       ...options,
+      projectionService: options.functionSlotProjectionService ?? null,
       role: ROLE,
       skillPath: SKILL_PATH,
       stages: STAGES,
