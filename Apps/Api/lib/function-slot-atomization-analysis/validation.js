@@ -102,27 +102,48 @@ function validateFunctionSlotAtomization(parsed) {
 
 function normalizeAtoms(value, atomType) {
   if (!Array.isArray(value)) return [];
-  return value.map((atom, index) => ({
+  return value.map((atom, index) => normalizeAtom(atom, atomType, index)).filter((atom) => atom.id && atom.label && atom.function);
+}
+
+function normalizeAtom(atom, atomType, index) {
+  const common = {
     id: normalizeText(atom?.id, 64) || defaultAtomId(atomType, index),
     slot: normalizeText(atom?.slot, 120),
     label: normalizeText(atom?.label),
     function: normalizeText(atom?.semantic_function ?? atom?.attention_function ?? atom?.packaging_function ?? atom?.function, 320),
-    claimType: normalizeText(atom?.claim_type ?? atom?.proof_type ?? "", 120),
-    proofNeed: normalizeText(atom?.proof_need ?? "", 260),
-    pace: normalizeText(atom?.pace ?? "", 120),
-    densityType: normalizeText(atom?.density_type ?? "", 120),
-    beatShape: normalizeText(atom?.beat_shape ?? "", 160),
-    visualHierarchy: normalizeText(atom?.visual_hierarchy ?? "", 220),
-    visualElements: normalizeStringArray(atom?.visual_elements ?? atom?.visualElements, 16),
-    risk: normalizeText(atom?.risk ?? "", 260),
-    mustKeep: normalizeStringArray(atom?.must_keep, 12),
-    replaceableVariables: normalizeStringArray(atom?.replaceable_variables ?? atom?.replaceable_style, 16),
-    syncPoints: normalizeStringArray(atom?.sync_points, 16),
-    avoidFor: normalizeStringArray(atom?.avoid_for, 12),
     sourceRefs: normalizeSourceRefs(atom?.source_refs ?? atom?.sourceRefs),
     confidence: normalizeConfidence(atom?.confidence, 0.72),
     needReview: Boolean(atom?.need_review ?? atom?.needReview),
-  })).filter((atom) => atom.id && atom.label && atom.function);
+  };
+  if (atomType === "script") {
+    return {
+      ...common,
+      claimType: normalizeText(atom?.claim_type ?? atom?.claimType ?? "", 120),
+      proofNeed: normalizeText(atom?.proof_need ?? atom?.proofNeed ?? "", 260),
+      mustKeep: normalizeStringArray(atom?.must_keep ?? atom?.mustKeep, 12),
+      replaceableVariables: normalizeStringArray(atom?.replaceable_variables ?? atom?.replaceableVariables, 16),
+    };
+  }
+  if (atomType === "rhythm") {
+    return {
+      ...common,
+      pace: normalizeText(atom?.pace ?? "", 120),
+      densityType: normalizeText(atom?.density_type ?? atom?.densityType ?? "", 120),
+      beatShape: normalizeText(atom?.beat_shape ?? atom?.beatShape ?? "", 160),
+      avoidFor: normalizeStringArray(atom?.avoid_for ?? atom?.avoidFor, 12),
+      syncPoints: normalizeStringArray(atom?.sync_points ?? atom?.syncPoints, 16),
+    };
+  }
+  return {
+    ...common,
+    packagingFunction: normalizeText(atom?.packaging_function ?? atom?.packagingFunction ?? atom?.function, 320),
+    proofType: normalizeText(atom?.proof_type ?? atom?.proofType ?? atom?.claim_type ?? atom?.claimType ?? "", 120),
+    visualProofType: normalizeText(atom?.visual_proof_type ?? atom?.visualProofType ?? atom?.proof_type ?? atom?.proofType ?? atom?.claim_type ?? atom?.claimType ?? "", 120),
+    visualHierarchy: normalizeText(atom?.visual_hierarchy ?? atom?.visualHierarchy ?? "", 220),
+    visualElements: normalizeStringArray(atom?.visual_elements ?? atom?.visualElements, 16),
+    replaceableForms: normalizeStringArray(atom?.replaceable_forms ?? atom?.replaceableForms ?? atom?.replaceable_style ?? atom?.replaceableVariables, 16),
+    risk: normalizeText(atom?.risk ?? "", 260),
+  };
 }
 
 function normalizeSlot(slot, index) {

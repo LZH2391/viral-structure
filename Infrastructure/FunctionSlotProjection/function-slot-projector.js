@@ -90,23 +90,38 @@ function pushSlots(rows, analysis, artifactId) {
 }
 
 function pushAtoms(rows, analysis, artifactId) {
-  pushAtomType(rows, analysis.atomInventory?.scriptAtoms, artifactId, "script");
-  pushAtomType(rows, analysis.atomInventory?.rhythmAtoms, artifactId, "rhythm");
-  pushAtomType(rows, analysis.atomInventory?.packagingAtoms, artifactId, "packaging");
+  const atomSlotIndex = buildAtomSlotIndex(analysis);
+  pushAtomType(rows, analysis.atomInventory?.scriptAtoms, artifactId, "script", atomSlotIndex);
+  pushAtomType(rows, analysis.atomInventory?.rhythmAtoms, artifactId, "rhythm", atomSlotIndex);
+  pushAtomType(rows, analysis.atomInventory?.packagingAtoms, artifactId, "packaging", atomSlotIndex);
 }
 
-function pushAtomType(rows, atoms = [], artifactId, atomType) {
+function buildAtomSlotIndex(analysis) {
+  const index = new Map();
+  for (const slot of analysis.slotMap?.slots ?? []) {
+    const slotId = slot.slotId ?? null;
+    const slotType = slot.slotType ?? null;
+    for (const atomId of slot.scriptAtomIds ?? []) index.set(atomId, { slotId, slotType });
+    for (const atomId of slot.rhythmAtomIds ?? []) index.set(atomId, { slotId, slotType });
+    for (const atomId of slot.packagingAtomIds ?? []) index.set(atomId, { slotId, slotType });
+  }
+  return index;
+}
+
+function pushAtomType(rows, atoms = [], artifactId, atomType, atomSlotIndex) {
   for (const atom of atoms ?? []) {
+    const slotRef = atomSlotIndex.get(atom.id) ?? { slotId: null, slotType: atom.slot ?? null };
     rows.atoms.push({
       artifactId,
       atomId: atom.id,
-      slotId: atom.slot ?? null,
+      slotId: slotRef.slotId,
+      slotType: slotRef.slotType,
       atomType,
       label: atom.label ?? null,
       functionText: atom.function ?? null,
       confidence: atom.confidence ?? null,
       needReview: boolToInt(atom.needReview),
-      rawJson: json(atom),
+      rawJson: json(projectedAtomRawJson(atom, atomType, slotRef)),
     });
     if (atomType === "script") {
       rows.scriptAtoms.push({
@@ -131,11 +146,13 @@ function pushAtomType(rows, atoms = [], artifactId, atomType) {
       rows.packagingAtoms.push({
         artifactId,
         atomId: atom.id,
-        proofType: atom.claimType ?? null,
+        proofType: atom.proofType ?? atom.claimType ?? null,
+        packagingFunction: atom.packagingFunction ?? atom.function ?? null,
+        visualProofType: atom.visualProofType ?? atom.proofType ?? atom.claimType ?? null,
         visualHierarchy: atom.visualHierarchy ?? null,
         risk: atom.risk ?? null,
         visualElementsJson: json(atom.visualElements ?? []),
-        replaceableStyleJson: json(atom.replaceableVariables ?? []),
+        replaceableFormsJson: json(atom.replaceableForms ?? atom.replaceableVariables ?? []),
       });
     }
     pushSourceRefs(rows.atomSourceRefs, {
@@ -145,6 +162,48 @@ function pushAtomType(rows, atoms = [], artifactId, atomType) {
       sourceRefs: atom.sourceRefs,
     });
   }
+}
+
+function projectedAtomRawJson(atom, atomType, slotRef) {
+  const common = {
+    id: atom.id,
+    slotId: slotRef.slotId,
+    slotType: slotRef.slotType,
+    label: atom.label ?? null,
+    function: atom.function ?? null,
+    sourceRefs: atom.sourceRefs ?? null,
+    confidence: atom.confidence ?? null,
+    needReview: Boolean(atom.needReview),
+  };
+  if (atomType === "script") {
+    return {
+      ...common,
+      claimType: atom.claimType ?? null,
+      proofNeed: atom.proofNeed ?? null,
+      mustKeep: atom.mustKeep ?? [],
+      replaceableVariables: atom.replaceableVariables ?? [],
+    };
+  }
+  if (atomType === "rhythm") {
+    return {
+      ...common,
+      pace: atom.pace ?? null,
+      densityType: atom.densityType ?? null,
+      beatShape: atom.beatShape ?? null,
+      avoidFor: atom.avoidFor ?? [],
+      syncPoints: atom.syncPoints ?? [],
+    };
+  }
+  return {
+    ...common,
+    packagingFunction: atom.packagingFunction ?? atom.function ?? null,
+    proofType: atom.proofType ?? atom.claimType ?? null,
+    visualProofType: atom.visualProofType ?? atom.proofType ?? atom.claimType ?? null,
+    visualHierarchy: atom.visualHierarchy ?? null,
+    visualElements: atom.visualElements ?? [],
+    replaceableForms: atom.replaceableForms ?? atom.replaceableVariables ?? [],
+    risk: atom.risk ?? null,
+  };
 }
 
 function pushBindings(rows, analysis, artifactId) {

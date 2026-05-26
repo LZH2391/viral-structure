@@ -786,6 +786,9 @@ export type FunctionSlotAtom = {
   label: string;
   function: string;
   claimType?: string;
+  packagingFunction?: string;
+  proofType?: string;
+  visualProofType?: string;
   proofNeed?: string;
   pace?: string;
   densityType?: string;
@@ -794,6 +797,7 @@ export type FunctionSlotAtom = {
   risk?: string;
   mustKeep: string[];
   replaceableVariables: string[];
+  replaceableForms?: string[];
   syncPoints: string[];
   avoidFor: string[];
   sourceRefs: {

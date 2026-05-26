@@ -9,9 +9,10 @@ function createFunctionSlotProjectionStore({ store, dbPath = null } = {}) {
 
   async function ensureSchema() {
     await fs.mkdir(path.dirname(databasePath), { recursive: true });
-    withDb(databasePath, (db) => {
+  withDb(databasePath, (db) => {
       db.exec("PRAGMA foreign_keys = ON");
       db.exec(SCHEMA_SQL);
+      migrateSchema(db);
     });
   }
 
@@ -63,16 +64,15 @@ function createFunctionSlotProjectionStore({ store, dbPath = null } = {}) {
     await ensureSchema();
     return withDb(databasePath, (db) => {
       const { sql, params } = buildQuery({
-        base: `SELECT atom.*, root.sampleVideoId, root.traceId, slot.slotType
+        base: `SELECT atom.*, root.sampleVideoId, root.traceId
           FROM function_atoms atom
-          JOIN function_slot_artifacts root ON root.artifactId = atom.artifactId
-          LEFT JOIN function_slots slot ON slot.artifactId = atom.artifactId AND slot.slotId = atom.slotId`,
+          JOIN function_slot_artifacts root ON root.artifactId = atom.artifactId`,
         filters,
         columns: {
           artifactId: "atom.artifactId",
           sampleVideoId: "root.sampleVideoId",
           atomType: "atom.atomType",
-          slotType: "slot.slotType",
+          slotType: "atom.slotType",
           sourceArtifactId: "src.sourceArtifactId",
         },
         sourceJoin: "LEFT JOIN function_artifact_sources src ON src.artifactId = atom.artifactId",
@@ -311,6 +311,7 @@ CREATE TABLE IF NOT EXISTS function_atoms (
   artifactId TEXT NOT NULL,
   atomId TEXT NOT NULL,
   slotId TEXT,
+  slotType TEXT,
   atomType TEXT,
   label TEXT,
   functionText TEXT,
@@ -342,10 +343,12 @@ CREATE TABLE IF NOT EXISTS function_packaging_atoms (
   artifactId TEXT NOT NULL,
   atomId TEXT NOT NULL,
   proofType TEXT,
+  packagingFunction TEXT,
+  visualProofType TEXT,
   visualHierarchy TEXT,
   risk TEXT,
   visualElementsJson TEXT,
-  replaceableStyleJson TEXT,
+  replaceableFormsJson TEXT,
   PRIMARY KEY (artifactId, atomId)
 );
 CREATE TABLE IF NOT EXISTS function_bindings (
@@ -408,6 +411,20 @@ CREATE INDEX IF NOT EXISTS idx_function_atoms_type ON function_atoms(atomType);
 CREATE INDEX IF NOT EXISTS idx_function_bindings_type ON function_bindings(bindingType);
 CREATE INDEX IF NOT EXISTS idx_function_artifact_sources_source ON function_artifact_sources(sourceArtifactId);
 `;
+
+function migrateSchema(db) {
+  ensureColumn(db, "function_atoms", "slotType", "TEXT");
+  ensureColumn(db, "function_packaging_atoms", "packagingFunction", "TEXT");
+  ensureColumn(db, "function_packaging_atoms", "visualProofType", "TEXT");
+  ensureColumn(db, "function_packaging_atoms", "replaceableFormsJson", "TEXT");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_function_atoms_slot ON function_atoms(slotId)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_function_atoms_slot_type ON function_atoms(slotType)");
+}
+
+function ensureColumn(db, table, column, type) {
+  const exists = db.prepare(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
+  if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
 
 module.exports = {
   createFunctionSlotProjectionStore,

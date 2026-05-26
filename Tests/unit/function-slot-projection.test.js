@@ -31,19 +31,27 @@ test("function slot projection stores slots, split atom subtype fields, bindings
 
   const atoms = await projectionStore.queryAtoms({ atomType: "packaging" });
   assert.equal(atoms.length, 5);
+  assert.equal(atoms[0].slotId, "F001");
+  assert.equal(atoms[0].slotType, "problem_activation");
 
   const db = new DatabaseSync(projectionStore.dbPath);
   try {
     const script = db.prepare("SELECT claimType, proofNeed FROM function_script_atoms WHERE artifactId = ? AND atomId = ?").get("artifact_function_slot", "S001");
     const rhythm = db.prepare("SELECT pace, densityType FROM function_rhythm_atoms WHERE artifactId = ? AND atomId = ?").get("artifact_function_slot", "R001");
-    const packaging = db.prepare("SELECT proofType, visualHierarchy, visualElementsJson FROM function_packaging_atoms WHERE artifactId = ? AND atomId = ?").get("artifact_function_slot", "P001");
+    const atom = db.prepare("SELECT slotId, slotType FROM function_atoms WHERE artifactId = ? AND atomId = ?").get("artifact_function_slot", "S001");
+    const packaging = db.prepare("SELECT proofType, packagingFunction, visualProofType, visualHierarchy, visualElementsJson, replaceableFormsJson FROM function_packaging_atoms WHERE artifactId = ? AND atomId = ?").get("artifact_function_slot", "P001");
     assert.equal(script.claimType, "problem_to_action");
     assert.equal(script.proofNeed, "proof 1");
+    assert.equal(atom.slotId, "F001");
+    assert.equal(atom.slotType, "problem_activation");
     assert.equal(rhythm.pace, "fast_staccato");
     assert.equal(rhythm.densityType, "cut_density");
     assert.equal(packaging.proofType, "direct_visual_problem_and_action_proof");
+    assert.equal(packaging.packagingFunction, "packaging function 1");
+    assert.equal(packaging.visualProofType, "direct_visual_problem_and_action_proof");
     assert.equal(packaging.visualHierarchy, "hierarchy 1");
     assert.deepEqual(JSON.parse(packaging.visualElementsJson), ["circle", "subtitle"]);
+    assert.deepEqual(JSON.parse(packaging.replaceableFormsJson), ["style"]);
   } finally {
     db.close();
   }
@@ -339,7 +347,7 @@ function buildAgentPayload() {
         visual_elements: ["circle", "subtitle"],
         visual_hierarchy: `hierarchy ${index + 1}`,
         proof_type: index === 0 ? "direct_visual_problem_and_action_proof" : "proof_type",
-        replaceable_style: ["style"],
+        replaceable_forms: ["style"],
         risk: `risk ${index + 1}`,
         source_refs: { packaging_block_labels: [`block ${index + 1}`], shot_refs: [`shot_${index + 1}`] },
         confidence: 0.9,

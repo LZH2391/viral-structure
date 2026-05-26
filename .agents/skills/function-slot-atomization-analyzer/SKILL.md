@@ -278,7 +278,8 @@ description: 从脚本段落、节奏结构、包装结构三份 final 分析结
         "visual_elements": ["局部聚焦", "手指指示", "短字幕", "动作提示字"],
         "visual_hierarchy": "问题部位第一，产品动作第二，字幕辅助",
         "proof_type": "direct_visual_problem_proof",
-        "replaceable_style": ["圆形聚焦", "箭头", "框选", "局部裁切"],
+        "visual_proof_type": "direct_problem_area_highlight",
+        "replaceable_forms": ["圆形聚焦", "箭头", "框选", "局部裁切"],
         "risk": "如果字幕或图卡过重，会抢走问题部位第一视线",
         "source_refs": {
           "packaging_block_labels": ["局部圈定加动作示范开场"],
