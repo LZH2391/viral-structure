@@ -16,6 +16,7 @@ test("analysis final output store writes latest final text outside Runtime", asy
       artifactId: "artifact_script",
       parentArtifactId: "artifact_shot",
       type: "script-segment-analysis",
+      agent: { threadId: "thread_script", turnId: "turn_script" },
     },
     finalOutputText: "final script turn output",
     traceId: "trace_script",
@@ -26,8 +27,16 @@ test("analysis final output store writes latest final text outside Runtime", asy
   const manifestPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "manifest.json");
   assert.equal(await fs.readFile(outputPath, "utf8"), "final script turn output\n");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  assert.equal(manifest.schemaVersion, "analysis_final_outputs.v1");
   assert.equal(manifest.outputs["script-segments"].artifactId, "artifact_script");
   assert.equal(manifest.outputs["script-segments"].source, "turn-final-message");
+  assert.equal(manifest.outputs["script-segments"].agentThreadId, "thread_script");
+  assert.equal(manifest.outputs["script-segments"].agentTurnId, "turn_script");
+  assert.match(manifest.outputs["script-segments"].contentHash, /^[a-f0-9]{64}$/);
+  assert.equal(manifest.outputs["script-segments"].byteLength, Buffer.byteLength("final script turn output\n", "utf8"));
+  assert.equal(manifest.history.length, 1);
+  assert.equal(manifest.history[0].action, "write");
+  assert.equal(manifest.history[0].outputKey, "script-segments");
   assert.equal(outputPath.includes(`${path.sep}Runtime${path.sep}`), false);
 });
 
@@ -75,6 +84,9 @@ test("analysis final output store copies source final text for cache reuse", asy
       artifactId: "artifact_cached",
       type: "packaging-structure-analysis",
       sourceSampleVideoId: "sample_source",
+      sourcePackagingStructureArtifactId: "artifact_source",
+      sourceTraceId: "trace_source",
+      sourceTurnId: "turn_source",
     },
     finalOutputText: "",
     traceId: "trace_cached",
@@ -88,6 +100,10 @@ test("analysis final output store copies source final text for cache reuse", asy
   assert.equal(await fs.readFile(outputPath, "utf8"), "source packaging final\n");
   assert.equal(manifest.outputs["packaging-structure"].source, "cache-reuse-final-message");
   assert.equal(manifest.outputs["packaging-structure"].sourceSampleVideoId, "sample_source");
+  assert.equal(manifest.outputs["packaging-structure"].sourceArtifactId, "artifact_source");
+  assert.equal(manifest.outputs["packaging-structure"].sourceTraceId, "trace_source");
+  assert.equal(manifest.outputs["packaging-structure"].sourceTurnId, "turn_source");
+  assert.equal(manifest.history.at(-1).action, "copy_reuse");
 });
 
 test("analysis final output store keeps existing final text when cache reuse has no final message", async () => {
@@ -122,8 +138,12 @@ test("analysis final output store keeps existing final text when cache reuse has
   });
 
   const outputPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "packaging-structure.final.txt");
+  const manifestPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "manifest.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   assert.equal(kept.source, "existing-final-message");
   assert.equal(await fs.readFile(outputPath, "utf8"), "current final\n");
+  assert.equal(manifest.history.at(-1).action, "keep_existing");
+  assert.equal(manifest.history.at(-1).traceId, "trace_cached");
 });
 
 test("analysis final output store removes latest file when cache source final text is missing", async () => {
@@ -143,6 +163,10 @@ test("analysis final output store removes latest file when cache source final te
   });
 
   const outputPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "packaging-structure.final.txt");
+  const manifestPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "manifest.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   assert.equal(removed, null);
   await assert.rejects(() => fs.readFile(outputPath, "utf8"), { code: "ENOENT" });
+  assert.equal(manifest.history.at(-1).action, "skip_missing_source");
+  assert.equal(manifest.history.at(-1).sourceSampleVideoId, "sample_missing");
 });

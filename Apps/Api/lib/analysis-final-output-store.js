@@ -1,4 +1,5 @@
 const fs = require("fs/promises");
+const { createHash, randomUUID } = require("crypto");
 const path = require("path");
 
 const ANALYSIS_OUTPUTS = {
@@ -20,7 +21,15 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
     await fs.mkdir(sampleDir, { recursive: true });
     const text = normalizeFinalText(finalOutputText);
     if (!text) {
-      const existing = await keepExistingFinalOutput({ outputPath, manifestPath, outputKey: config.outputKey });
+      const existing = await keepExistingFinalOutput({
+        manifestPath,
+        outputPath,
+        sampleVideoId,
+        analysis,
+        config,
+        traceId,
+        stageName,
+      });
       if (existing) return existing;
       const reused = await copyReusedFinalOutput({
         sampleVideoId,
@@ -32,25 +41,27 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
         stageName,
       });
       if (reused) return reused;
-      await removeFinalOutput({ manifestPath, outputPath, sampleVideoId, outputKey: config.outputKey });
+      await removeFinalOutput({ manifestPath, outputPath, sampleVideoId, analysis, config, traceId, stageName });
       return null;
     }
     await fs.writeFile(outputPath, text, "utf8");
+    const fileSummary = summarizeText(text);
     const manifest = await readManifest(manifestPath, sampleVideoId);
+    const event = buildManifestEvent({
+      action: "write",
+      source: "turn-final-message",
+      sampleVideoId,
+      analysis,
+      config,
+      traceId,
+      stageName,
+      fileSummary,
+    });
     manifest.outputs = {
       ...manifest.outputs,
-      [config.outputKey]: {
-        outputKey: config.outputKey,
-        fileName: config.fileName,
-        artifactId: analysis?.artifactId ?? null,
-        artifactType: analysis?.type ?? null,
-        parentArtifactId: analysis?.parentArtifactId ?? null,
-        traceId: traceId ?? analysis?.traceId ?? null,
-        stageName: stageName ?? analysis?.stageName ?? null,
-        source: "turn-final-message",
-        updatedAt: new Date().toISOString(),
-      },
+      [config.outputKey]: buildOutputEntry(event),
     };
+    appendHistory(manifest, event);
     await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
     return {
       outputKey: config.outputKey,
@@ -62,12 +73,31 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
   return { outputRoot, writeFinalOutput };
 }
 
-async function keepExistingFinalOutput({ outputPath, manifestPath, outputKey }) {
+async function keepExistingFinalOutput({ manifestPath, outputPath, sampleVideoId, analysis, config, traceId, stageName }) {
   try {
     const text = normalizeFinalText(await fs.readFile(outputPath, "utf8"));
     if (!text) return null;
+    const manifest = await readManifest(manifestPath, sampleVideoId);
+    const event = buildManifestEvent({
+      action: "keep_existing",
+      source: "existing-final-message",
+      sampleVideoId,
+      analysis,
+      config,
+      traceId,
+      stageName,
+      fileSummary: summarizeText(text),
+    });
+    if (!manifest.outputs?.[config.outputKey]) {
+      manifest.outputs = {
+        ...manifest.outputs,
+        [config.outputKey]: buildOutputEntry(event),
+      };
+    }
+    appendHistory(manifest, event);
+    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
     return {
-      outputKey,
+      outputKey: config.outputKey,
       filePath: outputPath,
       manifestPath,
       source: "existing-final-message",
@@ -90,22 +120,27 @@ async function copyReusedFinalOutput({ sampleVideoId, analysis, config, outputPa
   const text = normalizeFinalText(sourceText);
   if (!text) return null;
   await fs.writeFile(outputPath, text, "utf8");
+  const fileSummary = summarizeText(text);
   const manifest = await readManifest(manifestPath, sampleVideoId);
+  const event = buildManifestEvent({
+    action: "copy_reuse",
+    source: "cache-reuse-final-message",
+    sampleVideoId,
+    analysis,
+    config,
+    traceId,
+    stageName,
+    fileSummary,
+    sourceDetails: {
+      sourceSampleVideoId,
+      sourceFileName: config.fileName,
+    },
+  });
   manifest.outputs = {
     ...manifest.outputs,
-    [config.outputKey]: {
-      outputKey: config.outputKey,
-      fileName: config.fileName,
-      artifactId: analysis?.artifactId ?? null,
-      artifactType: analysis?.type ?? null,
-      parentArtifactId: analysis?.parentArtifactId ?? null,
-      traceId: traceId ?? analysis?.traceId ?? null,
-      stageName: stageName ?? analysis?.stageName ?? null,
-      source: "cache-reuse-final-message",
-      sourceSampleVideoId,
-      updatedAt: new Date().toISOString(),
-    },
+    [config.outputKey]: buildOutputEntry(event),
   };
+  appendHistory(manifest, event);
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
   return {
     outputKey: config.outputKey,
@@ -115,25 +150,130 @@ async function copyReusedFinalOutput({ sampleVideoId, analysis, config, outputPa
   };
 }
 
-async function removeFinalOutput({ manifestPath, outputPath, sampleVideoId, outputKey }) {
+async function removeFinalOutput({ manifestPath, outputPath, sampleVideoId, analysis, config, traceId, stageName }) {
   await fs.rm(outputPath, { force: true });
   const manifest = await readManifest(manifestPath, sampleVideoId);
-  if (!manifest.outputs?.[outputKey]) return;
-  const { [outputKey]: _removed, ...outputs } = manifest.outputs;
-  manifest.outputs = outputs;
+  const event = buildManifestEvent({
+    action: manifest.outputs?.[config.outputKey] ? "remove_missing_source" : "skip_missing_source",
+    source: "missing-final-message",
+    sampleVideoId,
+    analysis,
+    config,
+    traceId,
+    stageName,
+    fileSummary: null,
+    sourceDetails: {
+      sourceSampleVideoId: analysis?.sourceSampleVideoId ?? null,
+    },
+  });
+  if (manifest.outputs?.[config.outputKey]) {
+    const { [config.outputKey]: _removed, ...outputs } = manifest.outputs;
+    manifest.outputs = outputs;
+  }
+  appendHistory(manifest, event);
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+}
+
+function buildOutputEntry(event) {
+  return {
+    outputKey: event.outputKey,
+    fileName: event.fileName,
+    artifactId: event.artifactId,
+    artifactType: event.artifactType,
+    parentArtifactId: event.parentArtifactId,
+    traceId: event.traceId,
+    stageName: event.stageName,
+    source: event.source,
+    sourceSampleVideoId: event.sourceSampleVideoId,
+    sourceArtifactId: event.sourceArtifactId,
+    sourceTraceId: event.sourceTraceId,
+    sourceTurnId: event.sourceTurnId,
+    sourceCreatedAt: event.sourceCreatedAt,
+    agentThreadId: event.agentThreadId,
+    agentTurnId: event.agentTurnId,
+    contentHash: event.contentHash,
+    byteLength: event.byteLength,
+    updatedAt: event.createdAt,
+    lastEventId: event.eventId,
+  };
+}
+
+function buildManifestEvent({
+  action,
+  source,
+  sampleVideoId,
+  analysis,
+  config,
+  traceId,
+  stageName,
+  fileSummary,
+  sourceDetails = {},
+}) {
+  return {
+    eventId: `final_output_${randomUUID()}`,
+    action,
+    outputKey: config.outputKey,
+    fileName: config.fileName,
+    sampleVideoId,
+    artifactId: analysis?.artifactId ?? null,
+    artifactType: analysis?.type ?? null,
+    parentArtifactId: analysis?.parentArtifactId ?? null,
+    traceId: traceId ?? analysis?.traceId ?? null,
+    stageName: stageName ?? analysis?.stageName ?? null,
+    source,
+    sourceSampleVideoId: sourceDetails.sourceSampleVideoId ?? analysis?.sourceSampleVideoId ?? null,
+    sourceArtifactId: analysis?.sourceScriptSegmentArtifactId
+      ?? analysis?.sourceRhythmStructureArtifactId
+      ?? analysis?.sourcePackagingStructureArtifactId
+      ?? null,
+    sourceTraceId: analysis?.sourceTraceId ?? null,
+    sourceTurnId: analysis?.sourceTurnId ?? null,
+    sourceCreatedAt: analysis?.sourceCreatedAt ?? null,
+    sourceFileName: sourceDetails.sourceFileName ?? null,
+    agentThreadId: analysis?.agent?.threadId ?? null,
+    agentTurnId: analysis?.agent?.turnId ?? null,
+    contentHash: fileSummary?.contentHash ?? null,
+    byteLength: fileSummary?.byteLength ?? null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function appendHistory(manifest, event) {
+  const history = Array.isArray(manifest.history) ? manifest.history : [];
+  manifest.history = [...history, event].slice(-200);
+}
+
+function summarizeText(text) {
+  const buffer = Buffer.from(text, "utf8");
+  return {
+    contentHash: createHash("sha256").update(buffer).digest("hex"),
+    byteLength: buffer.length,
+  };
+}
+
+function normalizeManifest(parsed, sampleVideoId) {
+  const manifest = parsed && typeof parsed === "object" ? parsed : {};
+  const outputs = manifest.outputs && typeof manifest.outputs === "object" ? manifest.outputs : {};
+  const history = Array.isArray(manifest.history) ? manifest.history : [];
+  return {
+    schemaVersion: manifest.schemaVersion ?? "analysis_final_outputs.v1",
+    sampleVideoId,
+    outputs,
+    history,
+  };
 }
 
 async function readManifest(manifestPath, sampleVideoId) {
   try {
-    const parsed = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-    return {
-      sampleVideoId,
-      outputs: parsed.outputs && typeof parsed.outputs === "object" ? parsed.outputs : {},
-    };
+    const parsed = JSON.parse(stripBom(await fs.readFile(manifestPath, "utf8")));
+    return normalizeManifest(parsed, sampleVideoId);
   } catch {
-    return { sampleVideoId, outputs: {} };
+    return normalizeManifest(null, sampleVideoId);
   }
+}
+
+function stripBom(text) {
+  return String(text ?? "").replace(/^\uFEFF/, "");
 }
 
 function normalizeFinalText(finalOutputText) {
