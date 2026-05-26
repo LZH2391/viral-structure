@@ -13,7 +13,7 @@ test("analysis runtime v2 exposes modular runtime contracts", () => {
   const stage = read(root, "Apps/Api/lib/analysis-runtime-v2/stage-runtime.js");
   const job = read(root, "Apps/Api/lib/analysis-runtime-v2/job-runtime.js");
   const cache = read(root, "Apps/Api/lib/analysis-runtime-v2/cache-runtime.js");
-  const shared = read(root, "Apps/Api/lib/analysis-service-shared.js");
+  const shared = read(root, "Apps/Api/lib/compatibility/analysis-service-shared.js");
 
   assert.match(index, /createAnalysisRuntimeV2/);
   assert.match(index, /createStageRuntime/);
@@ -70,8 +70,8 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   const root = path.resolve(__dirname, "../..");
   const scriptCache = read(root, "Apps/Api/lib/script-segment/cache.js");
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
-  const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
-  const rhythmService = read(root, "Apps/Api/lib/rhythm-structure-service.js");
+  const scriptService = read(root, "Apps/Api/lib/script-segment/service.js");
+  const rhythmService = read(root, "Apps/Api/lib/rhythm-structure/service.js");
   const roleDefinition = read(root, "Apps/Api/lib/compatibility/analysis-role-definition.js");
   const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
 

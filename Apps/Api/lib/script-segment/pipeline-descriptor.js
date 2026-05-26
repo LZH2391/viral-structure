@@ -1,5 +1,5 @@
 const path = require("path");
-const { assertExpectedArtifact } = require("../analysis-service-shared");
+const { assertExpectedArtifact } = require("../compatibility/analysis-service-shared");
 const { buildAgentRun, updateAgentRun } = require("../script-segment-analysis/agent-run");
 const { prepareInput, prepareInputPackage, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("../script-segment-analysis/input");
 const { executeAnalyzeTurn, executeRepairTurn } = require("../script-segment-analysis/runner");

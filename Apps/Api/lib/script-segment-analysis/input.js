@@ -1,6 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
-const { renderTurnTemplate } = require("../role-profile-loader");
+const { renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const {
   planShotFramePages: planSharedShotFramePages,
   frameBelongsToShot: frameBelongsToShotShared,

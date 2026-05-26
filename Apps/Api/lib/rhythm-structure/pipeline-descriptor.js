@@ -1,5 +1,5 @@
 const path = require("path");
-const { assertExpectedArtifact } = require("../analysis-service-shared");
+const { assertExpectedArtifact } = require("../compatibility/analysis-service-shared");
 const { buildAgentRun, updateAgentRun } = require("../rhythm-structure-analysis/agent-run");
 const { prepareInput, prepareInputPackage, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("../rhythm-structure-analysis/input");
 const { executeAnalyzeTurn, executeRepairTurn } = require("../rhythm-structure-analysis/runner");

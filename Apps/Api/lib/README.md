@@ -14,11 +14,11 @@
 - `http/`：HTTP 工具、multipart、静态文件、runtime 文件和 capabilities；根目录旧文件只做兼容 facade。
 - `stores/`：job、workflow run、analysis result、artifact reader 和 sample artifact 读写；根目录旧文件只做兼容 facade。
 - `observability/`：API request debug、debug trace、UI debug event、thread message 摘要；根目录旧文件只做兼容 facade。
-- `compatibility/analysis-role-*`：旧结构分析接口兼容投影，来源是 module registry；根目录旧文件只做兼容 facade。
-- `sample-processing-service.js`：样例上传、媒体处理、基础 artifact 写入。
-- `shot-boundary-service.js`：切镜专用主链路。
+- `compatibility/`：旧结构分析接口和旧 shared API 的兼容投影；根目录旧文件只做兼容 facade。
+- `sample-processing/service.js` / `sample-processing/debug.js`：样例上传、媒体处理、基础 artifact 写入和上传阶段调试校验；根目录旧文件只做兼容 facade。
+- `shot-boundary/service.js`：切镜专用主链路；根目录旧文件只做兼容 facade。
+- `script-segment/service.js` / `rhythm-structure/service.js` / `packaging-structure/service.js`：结构分析 service 入口；根目录旧文件只做兼容 facade。
 - `analysis-runtime-v2/`：分析类 role service 复用的运行时骨架。
-- `sample-processing-debug.js`：样例上传阶段的调试和校验 helper。
 
 ## 模块与分析能力目录
 

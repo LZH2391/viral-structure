@@ -11,7 +11,7 @@ const {
   round,
   roundNormalizedTime,
 } = require("./shared");
-const { renderTurnTemplate } = require("../role-profile-loader");
+const { renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 
 function prepareInput(artifact, analysisFps, { runtimeRoot = null } = {}) {
   const durationSeconds = Number(artifact.metadata?.durationSeconds ?? 0);

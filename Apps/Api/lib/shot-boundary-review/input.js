@@ -1,7 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const defaultContactSheetGenerator = require("../../../../Infrastructure/MediaProcessing/contact-sheet-generator");
-const { renderTurnTemplate } = require("../role-profile-loader");
+const { renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const {
   REVIEW_ROLE,
   RESULT_SHEET_PURPOSE,

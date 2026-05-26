@@ -1,5 +1,5 @@
 const { createModuleDefinition } = require("../modules/definition");
-const { STAGES } = require("../shot-boundary-service");
+const { STAGES } = require("./service");
 const { buildShotBoundaryCacheParams } = require("../shot-boundary-analysis");
 
 function createShotBoundaryModuleDefinition() {

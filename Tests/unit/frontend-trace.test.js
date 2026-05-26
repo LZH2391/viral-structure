@@ -685,9 +685,9 @@ test("appserver collect exposes active thread message without final residue", ()
   const root = path.resolve(__dirname, "../..");
   const client = read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/client.py");
   const bridgePy = read(root, "Apps/Api/lib/gateways/appserver/bridge.py");
-  const shotService = read(root, "Apps/Api/lib/shot-boundary-service.js");
-  const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
-  const shared = read(root, "Apps/Api/lib/analysis-service-shared.js");
+  const shotService = read(root, "Apps/Api/lib/shot-boundary/service.js");
+  const scriptService = read(root, "Apps/Api/lib/script-segment/service.js");
+  const shared = read(root, "Apps/Api/lib/compatibility/analysis-service-shared.js");
 
   assert.match(client, /active_thread_message: str \| None = None/);
   assert.match(client, /_turn_active_thread_messages/);

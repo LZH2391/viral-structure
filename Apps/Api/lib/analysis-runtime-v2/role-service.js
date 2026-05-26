@@ -4,7 +4,7 @@ const { createTraceContext, SAMPLE_STATUS } = require("../../../../Core/Workspac
 const { createTraceIds, nextStage } = require("../../../../Infrastructure/Observability/trace");
 const { createAnalysisRuntimeV2 } = require("./index");
 const { createAnalysisPipelineRunner } = require("./pipeline-runner");
-const { loadRoleProfileByRole } = require("../role-profile-loader");
+const { loadRoleProfileByRole } = require("../gateways/threadpool/role-profile-loader");
 const { createThreadPoolProxy } = require("../gateways/threadpool/proxy");
 const { createAppServerBridge } = require("../gateways/appserver/bridge");
 

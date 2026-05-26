@@ -1,4 +1,4 @@
-const { assertExpectedArtifact } = require("../analysis-service-shared");
+const { assertExpectedArtifact } = require("./analysis-service-shared");
 const { createRoleAnalysisService } = require("../analysis-runtime-v2/role-service");
 const { createModuleDefinition } = require("../modules/definition");
 
