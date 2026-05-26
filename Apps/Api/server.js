@@ -28,6 +28,7 @@ const { createExecutorRegistry } = require("./lib/executors/registry");
 const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-analysis/service");
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
+const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -47,6 +48,7 @@ const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, 
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const executorRegistry = createExecutorRegistry({ appServer });
 const functionSlotProjectionService = createFunctionSlotProjectionService({ store });
+const functionSlotLibraryService = createFunctionSlotLibraryService({ rootDir, store, logger, projectionService: functionSlotProjectionService });
 const moduleRegistry = createModuleRegistry({
   store,
   logger,
@@ -70,6 +72,12 @@ function createServer(deps = {}) {
   const activeWorkflowRunStore = deps.workflowRunStore ?? workflowRunStore;
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
   const activeFunctionSlotProjectionService = deps.functionSlotProjectionService ?? createFunctionSlotProjectionService({ store: activeStore });
+  const activeFunctionSlotLibraryService = deps.functionSlotLibraryService ?? createFunctionSlotLibraryService({
+    rootDir: deps.rootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    projectionService: activeFunctionSlotProjectionService,
+  });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
@@ -109,6 +117,7 @@ function createServer(deps = {}) {
     moduleRegistry: activeModuleRegistry,
     analysisRegistry: activeAnalysisRegistry,
     functionSlotProjectionService: activeFunctionSlotProjectionService,
+    functionSlotLibraryService: activeFunctionSlotLibraryService,
     fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
       workflowRunStore: activeWorkflowRunStore,
       service: activeSampleService,
@@ -142,6 +151,9 @@ function createServer(deps = {}) {
       if (req.method === "GET" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionArtifact(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
+      if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
@@ -152,6 +164,7 @@ function createServer(deps = {}) {
       if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return await handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return await handleArtifact(res, url.pathname.split("/").at(-2), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-projection$/.test(url.pathname)) return await handleFunctionSlotProjectionProjectSample(res, decodeURIComponent(url.pathname.split("/").at(-2)), url, handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-library\/export$/.test(url.pathname)) return await handleFunctionSlotLibraryExport(res, decodeURIComponent(url.pathname.split("/").at(-3)), url, handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return await handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return await handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/analyses\/[^/]+$/.test(url.pathname)) return await handleAnalysis(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
@@ -270,6 +283,40 @@ async function handleFunctionSlotProjectionDelete(res, artifactId, handlers = {}
   const summary = await service.deleteArtifactProjection(artifactId);
   if (!summary) return notFound(res);
   return sendJson(res, 200, { deleted: true, ...summary });
+}
+
+async function handleFunctionSlotLibraryExport(res, sampleVideoId, url, handlers = {}) {
+  const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
+  const requestedMode = url.searchParams.get("mode");
+  const mode = requestedMode ?? "replace";
+  const result = await service.exportSampleArtifact(sampleVideoId, { mode });
+  if (!result) {
+    return sendJson(res, 404, {
+      error: "function_slot_library_source_missing",
+      code: "function_slot_library_source_missing",
+      message: "样例不存在或没有功能槽位原子化 artifact",
+    });
+  }
+  return sendJson(res, 200, result);
+}
+
+async function handleFunctionSlotLibraryList(res, handlers = {}) {
+  const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
+  return sendJson(res, 200, { items: await service.listLibraryItems() });
+}
+
+async function handleFunctionSlotLibraryProject(res, artifactId, handlers = {}) {
+  const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
+  const result = await service.projectLibraryArtifact(artifactId);
+  if (!result) return notFound(res);
+  return sendJson(res, 200, result);
+}
+
+async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {
+  const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
+  const result = await service.deleteLibraryItem(artifactId);
+  if (!result) return notFound(res);
+  return sendJson(res, 200, result);
 }
 
 async function handleFullAnalysisRun(req, res, handlers = {}) {
