@@ -212,6 +212,7 @@ def structured_error(code: str, exc: Exception, payload) -> dict:
         "operation": payload.get("operation") or "runTurnWithInputs",
         "threadId": payload.get("threadId"),
         "turnId": payload.get("turnId"),
+        "transportUrl": payload.get("transportUrl"),
     }
 
 

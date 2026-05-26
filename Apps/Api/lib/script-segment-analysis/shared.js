@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const { createHash } = require("crypto");
+const { summarizeAppServerBridgeDebug } = require("../analysis-runtime-v2/debug-sanitize");
 
 const ROLE = "script-segment-analyzer";
 const SKILL_PATH = "C:/ByteDanceFullStack/.agents/skills/script-segment-analyzer/SKILL.md";
@@ -48,6 +49,7 @@ function sanitizeDebugPayload(error) {
     requestTimeoutMs: details?.requestTimeoutMs ?? details?.lastRequestError?.request?.requestTimeoutMs ?? null,
     readinessDetail: details?.readinessDetail ?? details?.threadPool ?? null,
     lastRequestError: details?.lastRequestError ?? details?.requestError ?? null,
+    bridge: summarizeAppServerBridgeDebug(details),
     outputSummary: details?.outputSummary ?? null,
     validation: details?.validation ?? null,
     repairAttemptCount: details?.repairAttemptCount ?? null,
