@@ -105,7 +105,8 @@ class AppServerClientTests(unittest.TestCase):
                                 "input_tokens": 123,
                                 "output_tokens": 45,
                                 "total_tokens": 168,
-                            }
+                            },
+                            "modelContextWindow": 258400,
                         },
                     },
                 )
@@ -113,11 +114,13 @@ class AppServerClientTests(unittest.TestCase):
 
             persisted = json.loads((workspace_root / "_workspace" / "runtime" / "appserver" / "thread_token_usage.json").read_text(encoding="utf-8"))
             self.assertEqual(persisted["thread_seed"]["latest"]["last_token_usage"]["input_tokens"], 123)
+            self.assertEqual(persisted["thread_seed"]["latest"]["model_context_window"], 258400)
 
             client._clone_thread_token_usage("thread_seed", "thread_fork")
             forked = client._load_thread_token_usage()
             self.assertEqual(forked["thread_fork"]["latest"]["last_token_usage"]["input_tokens"], 123)
             self.assertEqual(forked["thread_fork"]["turns"]["turn_1"]["last_token_usage"]["total_tokens"], 168)
+            self.assertEqual(forked["thread_fork"]["latest"]["model_context_window"], 258400)
 
     def test_read_thread_merges_cached_token_usage_when_include_turns_is_true(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -518,7 +518,7 @@ test("threadpool proxy backfills ctx usage from persisted token usage cache", as
   const tokenUsagePath = path.join(tempRoot, "thread_token_usage.json");
   await fs.writeFile(tokenUsagePath, JSON.stringify({
     thread_1: {
-      latest: { last_token_usage: { input_tokens: 888, output_tokens: 12, total_tokens: 900 } },
+      latest: { last_token_usage: { input_tokens: 888, output_tokens: 12, total_tokens: 900 }, model_context_window: 258400 },
       turns: {},
     },
   }), "utf8");
@@ -547,6 +547,7 @@ test("threadpool proxy backfills ctx usage from persisted token usage cache", as
 
   const status = await proxy.roleStatus("shot-boundary-transformer");
   assert.equal(status.threads[0].latest_input_tokens, 888);
+  assert.equal(status.threads[0].threshold_input_tokens, 206720);
 });
 
 test("threadpool proxy default allowlist follows thread role config", () => {

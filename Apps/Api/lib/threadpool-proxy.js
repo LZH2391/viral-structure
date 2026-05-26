@@ -9,6 +9,7 @@ const DEFAULT_ALLOWED_ROLES = loadAllowedRolesFromConfig();
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 const DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS = 120000;
 const THREAD_INPUT_TOKEN_CACHE_TTL_MS = 5000;
+const THREAD_CONTEXT_THRESHOLD_RATIO = 0.8;
 
 function createThreadPoolProxy({
   baseUrl = process.env.THREADPOOL_BASE_URL || DEFAULT_THREADPOOL_URL,
@@ -192,16 +193,29 @@ async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTo
     const threadId = String(thread?.thread_id ?? "").trim();
     if (!threadId) return thread;
     const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath });
-    if (usage?.latest && thread?.latest_input_tokens == null) {
-      const latest = nullableNumber(usage.latest?.last_token_usage?.input_tokens);
-      if (latest != null) {
-        thread = { ...thread, latest_input_tokens: latest };
+    const usageSummary = extractThreadUsageSummary(usage);
+    if (thread?.latest_input_tokens == null && usageSummary.latestInputTokens != null) {
+      thread = { ...thread, latest_input_tokens: usageSummary.latestInputTokens };
+    }
+    if (thread?.threshold_input_tokens == null && usageSummary.modelContextWindow != null) {
+      const thresholdInputTokens = deriveThreadThresholdInputTokens(usageSummary.modelContextWindow);
+      if (thresholdInputTokens != null) {
+        thread = { ...thread, threshold_input_tokens: thresholdInputTokens };
       }
     }
-    if (thread?.latest_input_tokens != null) return thread;
+    if (thread?.latest_input_tokens != null && thread?.threshold_input_tokens != null) return thread;
     if (typeof readThreadImpl !== "function") return thread;
-    const nextTokens = await readThreadInputTokensCached({ threadId, readThreadImpl, threadInputTokenCache });
-    return nextTokens == null ? thread : { ...thread, latest_input_tokens: nextTokens };
+    const threadSummary = await readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache });
+    if (thread?.latest_input_tokens == null && threadSummary.latestInputTokens != null) {
+      thread = { ...thread, latest_input_tokens: threadSummary.latestInputTokens };
+    }
+    if (thread?.threshold_input_tokens == null && threadSummary.modelContextWindow != null) {
+      const thresholdInputTokens = deriveThreadThresholdInputTokens(threadSummary.modelContextWindow);
+      if (thresholdInputTokens != null) {
+        thread = { ...thread, threshold_input_tokens: thresholdInputTokens };
+      }
+    }
+    return thread;
   }));
   return { ...payload, thread_entries: enrichedEntries };
 }
@@ -246,17 +260,24 @@ function normalizePersistedTokenUsage(payload) {
   if (!payload || typeof payload !== "object") return null;
   const last = payload.last_token_usage ?? payload.lastTokenUsage;
   const normalized = normalizeTokenUsage(last);
-  return normalized ? { last_token_usage: normalized } : null;
+  const total = payload.total_token_usage ?? payload.totalTokenUsage;
+  const normalizedTotal = normalizeTokenUsage(total);
+  const modelContextWindow = nullableNumber(payload.model_context_window ?? payload.modelContextWindow);
+  const result = {};
+  if (normalized) result.last_token_usage = normalized;
+  if (normalizedTotal) result.total_token_usage = normalizedTotal;
+  if (modelContextWindow != null) result.model_context_window = modelContextWindow;
+  return Object.keys(result).length ? result : null;
 }
 
-async function readThreadInputTokensCached({ threadId, readThreadImpl, threadInputTokenCache }) {
+async function readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache }) {
   const now = Date.now();
   const cached = threadInputTokenCache.get(threadId);
   if (cached && now - cached.time < THREAD_INPUT_TOKEN_CACHE_TTL_MS) return cached.value;
   let value = null;
   try {
     const result = await readThreadImpl(threadId);
-    value = extractLatestThreadInputTokens(result?.thread ?? result);
+    value = extractThreadUsageSummary(result?.thread ?? result);
   } catch {
     value = null;
   }
@@ -264,30 +285,54 @@ async function readThreadInputTokensCached({ threadId, readThreadImpl, threadInp
   return value;
 }
 
-function extractLatestThreadInputTokens(thread) {
-  const turns = Array.isArray(thread?.turns) ? thread.turns : [];
+function extractThreadUsageSummary(payload) {
+  const summary = { latestInputTokens: null, modelContextWindow: null };
+  if (!payload || typeof payload !== "object") return summary;
+  const turns = Array.isArray(payload.turns)
+    ? payload.turns
+    : payload.turns && typeof payload.turns === "object"
+      ? Object.values(payload.turns)
+      : [];
   for (let index = turns.length - 1; index >= 0; index -= 1) {
-    const tokens = extractInputTokens(turns[index]);
-    if (tokens != null) return tokens;
-  }
-  return null;
-}
-
-function extractInputTokens(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  for (const key of ["last_token_usage", "lastTokenUsage", "token_usage", "tokenUsage"]) {
-    const usage = payload[key];
-    if (usage && typeof usage === "object") {
-      const value = nullableNumber(usage.input_tokens ?? usage.inputTokens);
-      if (value != null) return value;
+    const turnSummary = extractTurnUsageSummary(turns[index]);
+    if (summary.latestInputTokens == null && turnSummary.latestInputTokens != null) {
+      summary.latestInputTokens = turnSummary.latestInputTokens;
+    }
+    if (summary.modelContextWindow == null && turnSummary.modelContextWindow != null) {
+      summary.modelContextWindow = turnSummary.modelContextWindow;
+    }
+    if (summary.latestInputTokens != null && summary.modelContextWindow != null) {
+      return summary;
     }
   }
-  const values = Array.isArray(payload) ? payload : Object.values(payload);
-  for (const value of values) {
-    const nested = extractInputTokens(value);
-    if (nested != null) return nested;
+  const latestSummary = extractTurnUsageSummary(payload.latest);
+  if (summary.latestInputTokens == null && latestSummary.latestInputTokens != null) {
+    summary.latestInputTokens = latestSummary.latestInputTokens;
   }
-  return null;
+  if (summary.modelContextWindow == null && latestSummary.modelContextWindow != null) {
+    summary.modelContextWindow = latestSummary.modelContextWindow;
+  }
+  return summary;
+}
+
+function extractTurnUsageSummary(turn) {
+  const summary = { latestInputTokens: null, modelContextWindow: null };
+  if (!turn || typeof turn !== "object") return summary;
+  const usage = normalizeTokenUsage(turn.last_token_usage ?? turn.lastTokenUsage ?? turn.token_usage ?? turn.tokenUsage);
+  if (usage?.input_tokens != null) {
+    summary.latestInputTokens = nullableNumber(usage.input_tokens);
+  }
+  const modelContextWindow = nullableNumber(turn.model_context_window ?? turn.modelContextWindow);
+  if (modelContextWindow != null) {
+    summary.modelContextWindow = modelContextWindow;
+  }
+  return summary;
+}
+
+function deriveThreadThresholdInputTokens(modelContextWindow) {
+  const window = nullableNumber(modelContextWindow);
+  if (window == null || window <= 0) return null;
+  return Math.round(window * THREAD_CONTEXT_THRESHOLD_RATIO);
 }
 
 function loadAllowedRolesFromConfig() {
