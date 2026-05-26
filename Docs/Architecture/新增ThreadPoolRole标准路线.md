@@ -47,9 +47,9 @@
 5. `Apps/Api/lib/<domain>-service.js`
 6. `Apps/Api/lib/<domain>-analysis/*`
 7. `Apps/Api/lib/<domain>/analysis-definition.js` 或 `module-definition.js`
-8. `Apps/Api/lib/module-catalog.js`
-9. 如进入完整分析，`Apps/Api/lib/workflows/full-analysis-descriptor.js`
-10. `Apps/Api/lib/threadpool-proxy.js` 与现有 acquire/release 路线
+8. `Apps/Api/lib/modules/catalog.js`
+9. 如进入完整分析，`Apps/Api/lib/workflows/full-analysis/descriptor.js`
+10. `Apps/Api/lib/gateways/threadpool/proxy.js` 与现有 acquire/release 路线
 11. 对应测试文件
 
 如果新增 role 需要新的主链路服务，优先仿照现有：
@@ -188,7 +188,7 @@
 - `startOptionsFromBody`
 - `getArtifact` / `buildCacheParams`
 
-结构分析类 role 优先复用 `createShotBoundaryDependentRoleDefinition`，并在 `module-catalog.js` 注册。`Analysis Role Registry` 只做旧接口投影，不再作为权威注册入口。
+结构分析类 role 优先复用 `createShotBoundaryDependentRoleDefinition`，并在 `modules/catalog.js` 注册。`Analysis Role Registry` 只做旧接口投影，不再作为权威注册入口。
 
 ### 步骤 9：确认 Executor 边界
 
@@ -346,6 +346,10 @@ ThreadPool role 的执行方式应走 `threadpool-role` executor；不要把 Thr
 role profile 加载入口：
 
 - [role-profile-loader.js](C:/ByteDanceFullStack/Apps/Api/lib/role-profile-loader.js)
+
+ThreadPool gateway 入口：
+
+- [proxy.js](C:/ByteDanceFullStack/Apps/Api/lib/gateways/threadpool/proxy.js)
 
 ThreadPool role 注册入口：
 

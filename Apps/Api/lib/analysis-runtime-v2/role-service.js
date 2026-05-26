@@ -5,8 +5,8 @@ const { createTraceIds, nextStage } = require("../../../../Infrastructure/Observ
 const { createAnalysisRuntimeV2 } = require("./index");
 const { createAnalysisPipelineRunner } = require("./pipeline-runner");
 const { loadRoleProfileByRole } = require("../role-profile-loader");
-const { createThreadPoolProxy } = require("../threadpool-proxy");
-const { createAppServerBridge } = require("../appserver-bridge");
+const { createThreadPoolProxy } = require("../gateways/threadpool/proxy");
+const { createAppServerBridge } = require("../gateways/appserver/bridge");
 
 const DEFAULT_POLL_INTERVAL_MS = 1500;
 const DEFAULT_COLLECT_TIMEOUT_MS = 360000;

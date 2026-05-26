@@ -1,4 +1,4 @@
-const { createModuleDefinition } = require("../module-definition");
+const { createModuleDefinition } = require("../modules/definition");
 const { STAGES } = require("../shot-boundary-service");
 const { buildShotBoundaryCacheParams } = require("../shot-boundary-analysis");
 

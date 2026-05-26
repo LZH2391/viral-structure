@@ -405,7 +405,7 @@ test("workbench understand flow triggers script segment analysis", () => {
   const analysisFlow = read(root, "Apps/Workbench/src/hooks/useAnalysisJobFlow.ts");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
   const server = read(root, "Apps/Api/server.js");
-  const registry = read(root, "Apps/Api/lib/analysis-role-registry.js");
+  const registry = read(root, "Apps/Api/lib/compatibility/analysis-role-registry.js");
   const index = read(root, "Infrastructure/ArtifactIndex/artifact-index.js");
 
   assert.match(app, /const handleUnderstand = useCallback\(async \(\) =>/);
@@ -425,8 +425,9 @@ test("workbench understand flow triggers script segment analysis", () => {
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/analyses\/\$\{encodeURIComponent\(analysisId\)\}/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
   assert.match(api, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
-  assert.match(registry, /createScriptSegmentAnalysisDefinition/);
-  assert.match(read(root, "Apps/Api/lib/analysis-role-definition.js"), /expectedShotBoundaryArtifactId: dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(read(root, "Apps/Api/lib/modules/catalog.js"), /createScriptSegmentAnalysisDefinition/);
+  assert.match(registry, /MODULE_DEFINITIONS\.filter\(\(definition\) => definition\.moduleKind === "structure-analysis"\)/);
+  assert.match(read(root, "Apps/Api/lib/compatibility/analysis-role-definition.js"), /expectedShotBoundaryArtifactId: dependencies\.shotBoundaryArtifactId \?\? body\?\.expectedShotBoundaryArtifactId \?\? null/);
   assert.match(server, /\/api\/analysis-roles/);
   assert.match(server, /startLegacyAnalysis/);
   assert.match(server, /script-segments/);
@@ -647,19 +648,23 @@ test("findCurrentShot uses half-open ranges and keeps final boundary inclusive",
 
 test("appserver bridge and startup script use local agent runtime", () => {
   const root = path.resolve(__dirname, "../..");
-  const bridge = read(root, "Apps/Api/lib/appserver-bridge.js");
-  const bridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
+  const bridge = read(root, "Apps/Api/lib/gateways/appserver/bridge.js");
+  const legacyBridge = read(root, "Apps/Api/lib/appserver-bridge.js");
+  const bridgePy = read(root, "Apps/Api/lib/gateways/appserver/bridge.py");
+  const legacyBridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
   const startup = read(root, "start-api-server.ps1");
 
   assert.match(bridge, /DEFAULT_PYTHON_RUNTIME_ROOT/);
   assert.match(bridge, /pythonRuntimeRoot = process\.env\.PYTHON_RUNTIME_ROOT \|\| DEFAULT_PYTHON_RUNTIME_ROOT/);
   assert.match(bridge, /async function readThread/);
+  assert.match(legacyBridge, /gateways\/appserver\/bridge/);
   assert.match(bridgePy, /from agent_runtime\.appserver\.client import AppServerSessionClient/);
   assert.match(bridgePy, /if operation == "readThread"/);
   assert.match(bridgePy, /client\.read_thread\(str\(payload\["threadId"\]\), include_turns=True\)/);
   assert.match(bridgePy, /local_runtime_root/);
   assert.match(bridgePy, /structured_error\("appserver_bridge_failed"/);
   assert.match(bridgePy, /except Exception as exc:/);
+  assert.match(legacyBridgePy, /gateways.*appserver.*bridge\.py/);
   assert.match(startup, /\$env:PYTHON_RUNTIME_ROOT/);
   assert.match(startup, /Join-Path \$env:PYTHON_RUNTIME_ROOT "scripts\\thread_pool_service\.py"/);
   assert.match(startup, /function Test-ThreadPoolReady/);
@@ -679,7 +684,7 @@ test("appserver bridge and startup script use local agent runtime", () => {
 test("appserver collect exposes active thread message without final residue", () => {
   const root = path.resolve(__dirname, "../..");
   const client = read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/client.py");
-  const bridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
+  const bridgePy = read(root, "Apps/Api/lib/gateways/appserver/bridge.py");
   const shotService = read(root, "Apps/Api/lib/shot-boundary-service.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
   const shared = read(root, "Apps/Api/lib/analysis-service-shared.js");

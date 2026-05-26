@@ -1,5 +1,5 @@
 const path = require("path");
-const { writeAnalysisResult } = require("../analysis-result-store");
+const { writeAnalysisResult } = require("../stores/analysis-result-store");
 const { appendScriptSegmentHistory } = require("./history");
 
 async function attachScriptSegmentAnalysis(sampleVideoId, analysis, store, traceMeta = {}) {

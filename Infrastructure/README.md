@@ -11,3 +11,5 @@
 - [ArtifactIndex](ArtifactIndex/README.md)：本地处理库、artifact tree 和 cache 索引。
 - [AgentRuntime](AgentRuntime/README.md)：本地 AppServer / ThreadPool runtime。
 - [ThreadPool](ThreadPool/README.md)：ThreadPool role 配置入口。
+
+配置与策略当前由环境变量、启动脚本和实际 runtime 配置文件承载；不保留空 `Config` 目录。后续若出现可版本化的模型选择策略、阶段开关或实验参数，再建立正式配置目录。

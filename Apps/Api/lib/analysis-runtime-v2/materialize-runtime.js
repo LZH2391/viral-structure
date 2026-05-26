@@ -1,4 +1,4 @@
-const { MODULE_ARTIFACTS } = require("../module-artifact-catalog");
+const { MODULE_ARTIFACTS } = require("../modules/artifact-catalog");
 
 function createMaterializeRuntime({ artifactIndex, resolveExistingFileHash, finalOutputStore = null }) {
   async function registerSampleArtifact(context, artifact) {

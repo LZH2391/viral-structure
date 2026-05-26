@@ -1,4 +1,4 @@
-const { createModuleDefinition } = require("../module-definition");
+const { createModuleDefinition } = require("../modules/definition");
 const { STAGES } = require("../sample-processing-debug");
 
 function createSampleIngestModuleDefinition() {

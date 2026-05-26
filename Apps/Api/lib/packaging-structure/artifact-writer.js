@@ -1,5 +1,5 @@
 ﻿const path = require("path");
-const { writeAnalysisResult } = require("../analysis-result-store");
+const { writeAnalysisResult } = require("../stores/analysis-result-store");
 const { appendPackagingStructureHistory } = require("./history");
 
 async function attachPackagingStructureAnalysis(sampleVideoId, analysis, store, traceMeta = {}) {

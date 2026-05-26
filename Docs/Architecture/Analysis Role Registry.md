@@ -25,10 +25,10 @@
 
 后端核心入口：
 
-- `Apps/Api/lib/analysis-role-registry.js`
-- `Apps/Api/lib/analysis-role-definition.js`
-- `Apps/Api/lib/module-registry.js`
-- `Apps/Api/lib/module-catalog.js`
+- `Apps/Api/lib/compatibility/analysis-role-registry.js`
+- `Apps/Api/lib/compatibility/analysis-role-definition.js`
+- `Apps/Api/lib/modules/registry.js`
+- `Apps/Api/lib/modules/catalog.js`
 - `Apps/Api/lib/script-segment/analysis-definition.js`
 - `Apps/Api/lib/rhythm-structure/analysis-definition.js`
 - `Apps/Api/lib/packaging-structure/analysis-definition.js`
@@ -140,7 +140,7 @@ POST /api/sample-videos/:sampleVideoId/packaging-structure
 1. 确认它是否真的需要独立 role，参考 `新增ThreadPoolRole标准路线.md`。
 2. 新建 `Apps/Api/lib/<domain>/analysis-definition.js`。
 3. 如果依赖切镜结果，优先复用 `createShotBoundaryDependentRoleDefinition`。
-4. 在 `module-catalog.js` 注册 definition；`analysis-role-registry.js` 会从 module registry 自动投影结构分析模块。
+4. 在 `modules/catalog.js` 注册 definition；`analysis-role-registry.js` 会从 module registry 自动投影结构分析模块。
 5. 保留或新增兼容 service wrapper，只导出公共兼容面。
 6. 如前端已有固定 panel，在 `Apps/Workbench/src/utils/analysisRoles.ts` 补 surface 绑定；运行文案优先来自 `/api/modules`。
 7. 如需要前端启动，优先调用 `startAnalysisRole(analysisId, sampleVideoId, options)`。

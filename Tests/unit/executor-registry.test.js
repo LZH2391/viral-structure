@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createExecutorRegistry } = require("../../Apps/Api/lib/executor-registry");
+const { createExecutorRegistry } = require("../../Apps/Api/lib/executors/registry");
 
 test("executor registry resolves built-in executors and rejects missing kinds", async () => {
   const registry = createExecutorRegistry({});

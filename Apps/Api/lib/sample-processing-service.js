@@ -10,7 +10,7 @@ const defaultLibrosaAdapter = require("../../../Infrastructure/MediaProcessing/l
 const defaultAsrClient = require("../../../Infrastructure/ModelGateway/doubao-sauc-client");
 const { createArtifactIndex, hashBuffer } = require("../../../Infrastructure/ArtifactIndex/artifact-index");
 const { planFrameTimestampSampling } = require("../../../Core/Workspace/frame-timestamps");
-const { buildArtifact } = require("./sample-video-artifact");
+const { buildArtifact } = require("./stores/sample-video-artifact");
 const { STAGES, assertUpload, assertDuration, resolveProcessingOptions, buildErrorSummary, buildDebugPayload, fallbackStage, summarizeFile, sourceSummary } = require("./sample-processing-debug");
 
 const FRAME_MAX_COUNT = 6000;

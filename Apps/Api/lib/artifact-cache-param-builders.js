@@ -1,5 +1,5 @@
 const { buildShotBoundaryCacheParams } = require("./shot-boundary-analysis");
-const { MODULE_DEFINITIONS } = require("./module-catalog");
+const { MODULE_DEFINITIONS } = require("./modules/catalog");
 
 function createArtifactCacheParamBuilders() {
   return {

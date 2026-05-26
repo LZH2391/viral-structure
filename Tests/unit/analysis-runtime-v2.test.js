@@ -72,7 +72,7 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment-service.js");
   const rhythmService = read(root, "Apps/Api/lib/rhythm-structure-service.js");
-  const roleDefinition = read(root, "Apps/Api/lib/analysis-role-definition.js");
+  const roleDefinition = read(root, "Apps/Api/lib/compatibility/analysis-role-definition.js");
   const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
 
   assert.match(scriptCache, /buildUnifiedCachePrompt/);
@@ -92,8 +92,8 @@ test("script cache prompts expose unified dependencies while rhythm depends only
 test("frontend and API accept unified analysis dependencies while preserving legacy fields", () => {
   const root = path.resolve(__dirname, "../..");
   const server = read(root, "Apps/Api/server.js");
-  const registry = read(root, "Apps/Api/lib/analysis-role-registry.js");
-  const roleDefinition = read(root, "Apps/Api/lib/analysis-role-definition.js");
+  const registry = read(root, "Apps/Api/lib/compatibility/analysis-role-registry.js");
+  const roleDefinition = read(root, "Apps/Api/lib/compatibility/analysis-role-definition.js");
   const client = read(root, "Apps/Workbench/src/api/client.ts");
   const types = read(root, "Apps/Workbench/src/types.ts");
 

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createWorkflowRunStore } = require("../../Apps/Api/lib/workflow-run-store");
-const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/full-analysis-workflow-service");
+const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/workflows/full-analysis/service");
 
 function createHarness() {
   const jobs = new Map();

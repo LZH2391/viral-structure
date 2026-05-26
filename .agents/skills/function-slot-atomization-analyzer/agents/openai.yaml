@@ -1,0 +1,4 @@
+interface:
+  display_name: "功能槽位原子化分析"
+  short_description: "从脚本节奏包装结果抽象可重组功能槽位与原子关系图谱"
+  default_prompt: "Use $function-slot-atomization-analyzer to extract function slots, atoms, bindings, and recombination rules from script, rhythm, and packaging final outputs."
