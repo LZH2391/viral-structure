@@ -127,7 +127,13 @@ export async function runAnalysisRole(
     const artifact = await getSampleArtifact(started.sampleVideoId).catch(() => null);
     if (artifact) dispatch({ type: "apply-artifact", artifact });
     writeActiveJob?.(null);
-    throw new Error(latest.errorSummary?.message ?? role.failureMessage);
+    const error = new Error(latest.errorSummary?.message ?? role.failureMessage) as Error & {
+      processingJob?: ProcessingJob;
+      sampleArtifact?: import("../types").SampleArtifact | null;
+    };
+    error.processingJob = latest;
+    error.sampleArtifact = artifact;
+    throw error;
   }
   onJobUpdate?.(null);
   writeActiveJob?.(null);
@@ -269,8 +275,11 @@ export async function attachAnalysisJob(
     return artifact;
   }
   if (job.status === "failed") {
+    setJob(job);
+    const artifact = await getSampleArtifact(jobDraft.sampleVideoId).catch(() => null);
+    if (artifact) dispatch({ type: options.artifactAction ?? "apply-artifact", artifact });
     writeActiveJob(null);
-    return null;
+    return artifact;
   }
   return null;
 }

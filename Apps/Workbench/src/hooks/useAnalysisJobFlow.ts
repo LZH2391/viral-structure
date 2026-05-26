@@ -24,36 +24,44 @@ export function useAnalysisJobFlow(options: FlowOptions) {
 
   const attachDraftJob = useCallback(async (draftJob: { processingJobId: string; sampleVideoId: string; traceId: string } | undefined) => {
     if (!draftJob) return;
-    await attachAnalysisJob(
+    const artifact = await attachAnalysisJob(
       draftJob,
       setJob,
       dispatch,
       (nextJob) => writeActiveAnalysisJob(kind, nextJob),
       { artifactAction: "apply-artifact", showCacheWaiting: false },
     );
-  }, [dispatch, kind]);
+    if (artifact) persistWorkbenchArtifact(artifact, draftJob.traceId ?? null);
+  }, [dispatch, kind, persistWorkbenchArtifact]);
 
   const run = useCallback(async (cacheDecision: "ask" | "refresh" = "ask") => {
-    const result = await runAnalysisRole(
-      role.kind,
-      state,
-      dispatch,
-      setJob,
-      (nextJob) => writeActiveAnalysisJob(kind, nextJob),
-      async ({ job: waitingJob, cachedItem }) => {
-        if (!waitingJob.jobId || !waitingJob.sampleVideoId) return;
-        setCachePrompt({
-          jobId: waitingJob.jobId,
-          sampleVideoId: waitingJob.sampleVideoId,
-          cachedItem,
-          token: uploadTokenRef.current,
-        });
-        setSaveStatus(`${role.displayName}命中缓存，等待选择`);
-      },
-      cacheDecision,
-    );
-    return result;
-  }, [dispatch, role, setSaveStatus, state, uploadTokenRef]);
+    try {
+      const result = await runAnalysisRole(
+        role.kind,
+        state,
+        dispatch,
+        setJob,
+        (nextJob) => writeActiveAnalysisJob(kind, nextJob),
+        async ({ job: waitingJob, cachedItem }) => {
+          if (!waitingJob.jobId || !waitingJob.sampleVideoId) return;
+          setCachePrompt({
+            jobId: waitingJob.jobId,
+            sampleVideoId: waitingJob.sampleVideoId,
+            cachedItem,
+            token: uploadTokenRef.current,
+          });
+          setSaveStatus(`${role.displayName}命中缓存，等待选择`);
+        },
+        cacheDecision,
+      );
+      return result;
+    } catch (error) {
+      const artifact = (error as { sampleArtifact?: SampleArtifact | null })?.sampleArtifact;
+      const failedJob = (error as { processingJob?: { traceId?: string | null } })?.processingJob;
+      if (artifact) persistWorkbenchArtifact(artifact, failedJob?.traceId ?? state.processingJob?.traceId ?? null);
+      throw error;
+    }
+  }, [dispatch, kind, persistWorkbenchArtifact, role, setSaveStatus, state, uploadTokenRef]);
 
   const applyCompletedArtifact = useCallback((artifact: SampleArtifact, traceId: string | null, reason: string) => {
     persistWorkbenchArtifact(artifact, traceId);
