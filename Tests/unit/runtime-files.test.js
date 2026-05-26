@@ -1,11 +1,11 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { once } = require("events");
 const { Writable } = require("stream");
-const { parseRangeHeader, sendRuntimeFile } = require("../../Apps/Api/lib/runtime-files");
+const { parseRangeHeader, sendRuntimeFile } = require("../../Apps/Api/lib/http/runtime-files");
 
 test("runtime files support byte ranges for media seeking", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-runtime-range-"));

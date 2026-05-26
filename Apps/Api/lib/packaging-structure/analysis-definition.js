@@ -1,4 +1,4 @@
-const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
+const { createShotBoundaryDependentRoleDefinition } = require("../compatibility/analysis-role-definition");
 const { createPackagingStructurePipelineDescriptor } = require("./pipeline-descriptor");
 const { buildPackagingStructureCacheParams, buildPackagingStructureContentFingerprint } = require("../packaging-structure-analysis/cache-params");
 const { prepareInput } = require("../packaging-structure-analysis/input");

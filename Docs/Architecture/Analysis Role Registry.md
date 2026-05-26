@@ -1,4 +1,4 @@
-# Analysis Role Registry
+﻿# Analysis Role Registry
 
 ## 定位
 
@@ -41,9 +41,9 @@
 
 兼容 service wrapper：
 
-- `Apps/Api/lib/script-segment-service.js`
-- `Apps/Api/lib/rhythm-structure-service.js`
-- `Apps/Api/lib/packaging-structure-service.js`
+- `Apps/Api/lib/script-segment/service.js`
+- `Apps/Api/lib/rhythm-structure/service.js`
+- `Apps/Api/lib/packaging-structure/service.js`
 
 这些 wrapper 只保留兼容导出，不再承载完整 service 配置。
 

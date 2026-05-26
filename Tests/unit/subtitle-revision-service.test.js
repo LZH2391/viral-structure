@@ -1,4 +1,4 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
@@ -6,7 +6,7 @@ const path = require("node:path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
-const { createSubtitleRevisionService, STAGE_NAME, buildSubtitleTextHash } = require("../../Apps/Api/lib/subtitle-revision-service");
+const { createSubtitleRevisionService, STAGE_NAME, buildSubtitleTextHash } = require("../../Apps/Api/lib/sample-processing/subtitle-revision-service");
 
 test("subtitle revision writes new artifact, appends history, and records stage logs", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-subtitle-revision-"));

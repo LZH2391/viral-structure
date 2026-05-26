@@ -1,4 +1,4 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
@@ -649,7 +649,6 @@ test("findCurrentShot uses half-open ranges and keeps final boundary inclusive",
 test("appserver bridge and startup script use local agent runtime", () => {
   const root = path.resolve(__dirname, "../..");
   const bridge = read(root, "Apps/Api/lib/gateways/appserver/bridge.js");
-  const legacyBridge = read(root, "Apps/Api/lib/appserver-bridge.js");
   const bridgePy = read(root, "Apps/Api/lib/gateways/appserver/bridge.py");
   const legacyBridgePy = read(root, "Apps/Api/lib/appserver_bridge.py");
   const startup = read(root, "start-api-server.ps1");
@@ -657,7 +656,6 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(bridge, /DEFAULT_PYTHON_RUNTIME_ROOT/);
   assert.match(bridge, /pythonRuntimeRoot = process\.env\.PYTHON_RUNTIME_ROOT \|\| DEFAULT_PYTHON_RUNTIME_ROOT/);
   assert.match(bridge, /async function readThread/);
-  assert.match(legacyBridge, /gateways\/appserver\/bridge/);
   assert.match(bridgePy, /from agent_runtime\.appserver\.client import AppServerSessionClient/);
   assert.match(bridgePy, /if operation == "readThread"/);
   assert.match(bridgePy, /client\.read_thread\(str\(payload\["threadId"\]\), include_turns=True\)/);

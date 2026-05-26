@@ -1,4 +1,4 @@
-# 新增 ThreadPool Role 标准路线
+﻿# 新增 ThreadPool Role 标准路线
 
 ## 定位
 
@@ -337,15 +337,15 @@ ThreadPool role 的执行方式应走 `threadpool-role` executor；不要把 Thr
 建议优先参考现有两条链路：
 
 - `shot-boundary-transformer`
-  - service: [shot-boundary-service.js](C:/ByteDanceFullStack/Apps/Api/lib/shot-boundary-service.js)
+  - service: [shot-boundary-service.js](C:/ByteDanceFullStack/Apps/Api/lib/shot-boundary/service.js)
   - input: [input.js](C:/ByteDanceFullStack/Apps/Api/lib/shot-boundary-analysis/input.js)
 - `script-segment-analyzer`
-  - service: [script-segment-service.js](C:/ByteDanceFullStack/Apps/Api/lib/script-segment-service.js)
+  - service: [script-segment-service.js](C:/ByteDanceFullStack/Apps/Api/lib/script-segment/service.js)
   - input: [input.js](C:/ByteDanceFullStack/Apps/Api/lib/script-segment-analysis/input.js)
 
 role profile 加载入口：
 
-- [role-profile-loader.js](C:/ByteDanceFullStack/Apps/Api/lib/role-profile-loader.js)
+- [role-profile-loader.js](C:/ByteDanceFullStack/Apps/Api/lib/gateways/threadpool/role-profile-loader.js)
 
 ThreadPool gateway 入口：
 

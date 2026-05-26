@@ -2,7 +2,7 @@ const { createStageRuntime } = require("./stage-runtime");
 const { createJobRuntime } = require("./job-runtime");
 const { createThreadRuntime } = require("./thread-runtime");
 const { createMaterializeRuntime } = require("./materialize-runtime");
-const { createAnalysisFinalOutputStore } = require("../analysis-final-output-store");
+const { createAnalysisFinalOutputStore } = require("../stores/analysis-final-output-store");
 const {
   buildUnifiedCachePrompt,
   buildDependencyRefs,

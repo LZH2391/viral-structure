@@ -1,12 +1,12 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
+const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing/service");
 const { structuredMediaError } = require("../../Infrastructure/MediaProcessing/media-processor");
 const { PROCESSING_ERRORS } = require("../../Core/Workspace/sample-video-contracts");
 

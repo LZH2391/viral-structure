@@ -1,13 +1,13 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
-const { resolveProcessingOptions } = require("../../Apps/Api/lib/sample-processing-debug");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
+const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing/service");
+const { resolveProcessingOptions } = require("../../Apps/Api/lib/sample-processing/debug");
 
 test("upload options normalize optional audio and subtitle flags", () => {
   const options = resolveProcessingOptions({ frameSampleRateFps: "2", enableAudioSeparation: "true", enableSubtitleRecognition: "1", enableAudioFeatureAnalysis: "on" });

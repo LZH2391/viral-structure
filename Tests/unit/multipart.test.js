@@ -1,7 +1,7 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Readable } = require("stream");
-const { parseMultipartUpload } = require("../../Apps/Api/lib/multipart");
+const { parseMultipartUpload } = require("../../Apps/Api/lib/http/multipart");
 
 test("parses upload file and plain fields", async () => {
   const boundary = "----bd-test";

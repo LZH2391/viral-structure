@@ -1,11 +1,11 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
-const { loadCurrentSampleArtifact } = require("../../Apps/Api/lib/artifact-reader");
+const { loadCurrentSampleArtifact } = require("../../Apps/Api/lib/stores/artifact-reader");
 
 test("loadCurrentSampleArtifact hydrates stale sample id from latest same-file artifact", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-reader-"));

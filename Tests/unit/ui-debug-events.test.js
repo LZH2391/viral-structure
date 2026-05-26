@@ -1,10 +1,10 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { ingestUiDebugEvent, normalizeUiEvent } = require("../../Apps/Api/lib/ui-debug-events");
+const { ingestUiDebugEvent, normalizeUiEvent } = require("../../Apps/Api/lib/observability/ui-debug-events");
 
 function createTestStore(runtimeRoot) {
   return {

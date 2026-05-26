@@ -1,18 +1,18 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/appserver-bridge");
-const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary-service");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
+const { DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge } = require("../../Apps/Api/lib/gateways/appserver/bridge");
+const { createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES } = require("../../Apps/Api/lib/shot-boundary/service");
 const { buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint, splitPredecessorCacheParams, resolveSkillHash } = require("../../Apps/Api/lib/shot-boundary-analysis");
-const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/modules/cache-param-builders");
 const { createArtifactIndex } = require("../../Infrastructure/ArtifactIndex/artifact-index");
-const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
-const { summarizeThreadConversation } = require("../../Apps/Api/lib/thread-conversation");
-const { createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES } = require("../../Apps/Api/lib/threadpool-proxy");
+const { loadRoleProfileByRole } = require("../../Apps/Api/lib/gateways/threadpool/role-profile-loader");
+const { summarizeThreadConversation } = require("../../Apps/Api/lib/observability/thread-conversation");
+const { createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES } = require("../../Apps/Api/lib/gateways/threadpool/proxy");
 const { planContactSheets } = require("../../Infrastructure/MediaProcessing/contact-sheet-generator");
 
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {

@@ -1,11 +1,11 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { recordApiRequestFailure } = require("../../Apps/Api/lib/api-request-debug");
+const { recordApiRequestFailure } = require("../../Apps/Api/lib/observability/api-request-debug");
 
 test("records top-level API request failures as request trace", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-api-request-"));

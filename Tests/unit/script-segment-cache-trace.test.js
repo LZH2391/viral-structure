@@ -1,8 +1,8 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { STAGES } = require("../../Apps/Api/lib/script-segment-service");
+const { STAGES } = require("../../Apps/Api/lib/script-segment/service");
 const { expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
 const { createScriptHarness, waitForJob } = require("./script-segment-test-helpers");
 

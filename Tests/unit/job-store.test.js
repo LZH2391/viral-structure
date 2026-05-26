@@ -1,6 +1,6 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
 
 test("processing job flows through statuses", () => {
   const store = createJobStore();

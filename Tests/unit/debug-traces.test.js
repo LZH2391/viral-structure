@@ -1,9 +1,9 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
-const { readDebugTraces, readDebugTraceDetail } = require("../../Apps/Api/lib/debug-traces");
+const { readDebugTraces, readDebugTraceDetail } = require("../../Apps/Api/lib/observability/debug-traces");
 
 test("reads trace jsonl files for the debug page", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-debug-"));

@@ -1,4 +1,4 @@
-const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
+const { createShotBoundaryDependentRoleDefinition } = require("../compatibility/analysis-role-definition");
 const { createScriptSegmentPipelineDescriptor } = require("./pipeline-descriptor");
 const { buildScriptSegmentCacheParams, buildScriptSegmentContentFingerprint } = require("../script-segment-analysis/cache-params");
 const { prepareInput } = require("../script-segment-analysis/input");

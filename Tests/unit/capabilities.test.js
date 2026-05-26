@@ -1,6 +1,6 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
-const { hasDoubaoCredentials, readCapabilities } = require("../../Apps/Api/lib/capabilities");
+const { hasDoubaoCredentials, readCapabilities } = require("../../Apps/Api/lib/http/capabilities");
 
 test("doubao capability requires app id and access token", () => {
   assert.equal(hasDoubaoCredentials({}), false);

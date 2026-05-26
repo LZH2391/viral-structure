@@ -7,17 +7,17 @@
 ## 主要入口
 
 - `server.js`：HTTP 路由入口在上层 `Apps/Api/server.js`，这里的模块被 server 组合使用。
-- `modules/registry.js` / `modules/definition.js` / `modules/catalog.js`：后端权威模块目录和安全投影；根目录同名文件只做兼容 facade。
-- `executors/registry.js`：可复用执行器目录，封装本地 service、ThreadPool role、AppServer turn 等执行方式；根目录 `executor-registry.js` 只做兼容 facade。
-- `workflows/full-analysis/service.js` / `workflows/full-analysis/descriptor.js`：完整分析 workflow 运行时与编排 descriptor；旧路径只做兼容 facade。
-- `gateways/appserver/bridge.js` / `gateways/threadpool/proxy.js`：后端访问 AppServer 与 ThreadPool 的 gateway；根目录旧文件只做兼容 facade。
-- `http/`：HTTP 工具、multipart、静态文件、runtime 文件和 capabilities；根目录旧文件只做兼容 facade。
-- `stores/`：job、workflow run、analysis result、artifact reader 和 sample artifact 读写；根目录旧文件只做兼容 facade。
-- `observability/`：API request debug、debug trace、UI debug event、thread message 摘要；根目录旧文件只做兼容 facade。
-- `compatibility/`：旧结构分析接口和旧 shared API 的兼容投影；根目录旧文件只做兼容 facade。
-- `sample-processing/service.js` / `sample-processing/debug.js`：样例上传、媒体处理、基础 artifact 写入和上传阶段调试校验；根目录旧文件只做兼容 facade。
-- `shot-boundary/service.js`：切镜专用主链路；根目录旧文件只做兼容 facade。
-- `script-segment/service.js` / `rhythm-structure/service.js` / `packaging-structure/service.js`：结构分析 service 入口；根目录旧文件只做兼容 facade。
+- `modules/registry.js` / `modules/definition.js` / `modules/catalog.js`：后端权威模块目录和安全投影。
+- `executors/registry.js`：可复用执行器目录，封装本地 service、ThreadPool role、AppServer turn 等执行方式。
+- `workflows/full-analysis/service.js` / `workflows/full-analysis/descriptor.js`：完整分析 workflow 运行时与编排 descriptor。
+- `gateways/appserver/bridge.js` / `gateways/threadpool/proxy.js`：后端访问 AppServer 与 ThreadPool 的 gateway。
+- `http/`：HTTP 工具、multipart、静态文件、runtime 文件和 capabilities。
+- `stores/`：job、workflow run、analysis result、artifact reader 和 sample artifact 读写。
+- `observability/`：API request debug、debug trace、UI debug event、thread message 摘要。
+- `compatibility/`：旧结构分析接口和旧 shared API 的兼容投影。
+- `sample-processing/service.js` / `sample-processing/debug.js`：样例上传、媒体处理、基础 artifact 写入和上传阶段调试校验。
+- `shot-boundary/service.js`：切镜专用主链路。
+- `script-segment/service.js` / `rhythm-structure/service.js` / `packaging-structure/service.js`：结构分析 service 入口。
 - `analysis-runtime-v2/`：分析类 role service 复用的运行时骨架。
 
 ## 模块与分析能力目录

@@ -1,9 +1,9 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
-const { createAnalysisFinalOutputStore } = require("../../Apps/Api/lib/analysis-final-output-store");
+const { createAnalysisFinalOutputStore } = require("../../Apps/Api/lib/stores/analysis-final-output-store");
 
 test("analysis final output store writes latest final text outside Runtime", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "analysis-final-output-"));

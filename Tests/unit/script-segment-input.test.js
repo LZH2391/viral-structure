@@ -1,15 +1,15 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { prepareInput } = require("../../Apps/Api/lib/script-segment-service");
+const { prepareInput } = require("../../Apps/Api/lib/script-segment/service");
 const {
   prepareInputPackage,
   renderAnalyzeTurnInputs,
   frameBelongsToShot,
 } = require("../../Apps/Api/lib/script-segment-analysis/input");
-const { loadRoleProfileByRole } = require("../../Apps/Api/lib/role-profile-loader");
+const { loadRoleProfileByRole } = require("../../Apps/Api/lib/gateways/threadpool/role-profile-loader");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createArtifact, seedFrameFiles } = require("./script-segment-test-helpers");
 

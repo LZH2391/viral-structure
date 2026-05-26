@@ -1,13 +1,13 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
-const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing-service");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/modules/cache-param-builders");
+const { createSampleProcessingService, STAGES } = require("../../Apps/Api/lib/sample-processing/service");
 const { createArtifactIndex, createCacheKey, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { buildShotBoundaryCacheParams } = require("../../Apps/Api/lib/shot-boundary-analysis");
 

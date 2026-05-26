@@ -1,4 +1,4 @@
-const { createShotBoundaryDependentRoleDefinition } = require("../analysis-role-definition");
+const { createShotBoundaryDependentRoleDefinition } = require("../compatibility/analysis-role-definition");
 const { createRhythmStructurePipelineDescriptor } = require("./pipeline-descriptor");
 const { buildRhythmStructureCacheParams, buildRhythmStructureContentFingerprint } = require("../rhythm-structure-analysis/cache-params");
 const { prepareInput } = require("../rhythm-structure-analysis/input");

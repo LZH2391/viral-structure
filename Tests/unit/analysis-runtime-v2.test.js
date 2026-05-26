@@ -1,4 +1,4 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
 const fs = require("fs");
@@ -114,7 +114,7 @@ test("frontend and API accept unified analysis dependencies while preserving leg
 });
 
 test("analysis role registry maps route ids, legacy paths, and cache kinds", async () => {
-  const { createAnalysisRoleRegistry } = require("../../Apps/Api/lib/analysis-role-registry");
+  const { createAnalysisRoleRegistry } = require("../../Apps/Api/lib/compatibility/analysis-role-registry");
   const calls = [];
   const fakeService = {
     enqueue: async (payload) => {

@@ -1,7 +1,7 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
-const { resolveWorkbenchPath, contentType } = require("../../Apps/Api/lib/static-files");
+const { resolveWorkbenchPath, contentType } = require("../../Apps/Api/lib/http/static-files");
 
 test("serves workbench and debug pages from HTTP routes", () => {
   const root = path.resolve(__dirname, "../../Apps/Workbench");

@@ -1,10 +1,10 @@
-const fs = require("node:fs/promises");
+﻿const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const sharp = require("sharp");
-const { createJobStore } = require("../../Apps/Api/lib/job-store");
-const { createScriptSegmentService } = require("../../Apps/Api/lib/script-segment-service");
-const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/artifact-cache-param-builders");
+const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
+const { createScriptSegmentService } = require("../../Apps/Api/lib/script-segment/service");
+const { createArtifactCacheParamBuilders } = require("../../Apps/Api/lib/modules/cache-param-builders");
 const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/ArtifactIndex/artifact-index");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");

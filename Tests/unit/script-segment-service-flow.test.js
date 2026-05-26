@@ -1,7 +1,7 @@
-const test = require("node:test");
+﻿const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { isNonTerminalTurnStatus } = require("../../Apps/Api/lib/appserver-bridge");
+const { isNonTerminalTurnStatus } = require("../../Apps/Api/lib/gateways/appserver/bridge");
 const { createScriptHarness, waitForJob, waitForJobField } = require("./script-segment-test-helpers");
 
 test("script segment service submits script-segment-analyzer turn through appserver and threadpool", { timeout: 30000 }, async () => {
