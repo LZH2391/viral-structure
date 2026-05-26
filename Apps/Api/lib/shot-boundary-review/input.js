@@ -4,7 +4,6 @@ const defaultContactSheetGenerator = require("../../../../Infrastructure/MediaPr
 const { renderTurnTemplate } = require("../role-profile-loader");
 const {
   REVIEW_ROLE,
-  TRANSFORM_INPUT_SCHEMA_VERSION,
   RESULT_SHEET_PURPOSE,
   RESULT_SHEET_SUBDIR,
   RESULT_SHEET_DIRNAME,
@@ -16,9 +15,8 @@ const {
 
 function buildTransformOutputContract() {
   return {
-    shots: "non-empty array, shot-centric.v2 contract",
-    commerceBrief: "object, keep existing sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
-    "shots[].summary": "string, describe only visible people/objects/actions/scenes in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
+    shots: "non-empty array, time boundary contract; omit shots[].summary until visual summary turn",
+    commerceBrief: "object, describe the commerce context from raw text; keep sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
     "shots[].start": "number, first shot must start at 0",
     "shots[].end": "number, last shot must end at durationSeconds",
     "shots[].endBoundary": "object|null, null only for the last shot",
@@ -28,9 +26,7 @@ function buildTransformOutputContract() {
 
 function buildTransformManifest({ prepared, rawFinalMessage }) {
   const manifest = {
-    schemaVersion: TRANSFORM_INPUT_SCHEMA_VERSION,
     durationSeconds: prepared.durationSeconds,
-    analysisSampling: prepared.analysisSampling ?? null,
     rawAnalyzerResult: {
       textPreview: normalizeText(rawFinalMessage, 800),
     },
@@ -88,37 +84,24 @@ function buildVisualSummaryOutputContract() {
     shots: "array, same order and count as input shots",
     "shots[].shotNo": "string, copy from input shot",
     "shots[].summary": "string, describe only visible people/objects/actions/scenes/product state in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
+    commerceBrief: "object, copy existing commerceBrief unchanged if present; do not infer new commerce fields from images",
   };
 }
 
-function buildVisualSummaryManifest({ shots, resultSheets, prepared }) {
-  const subtitleMap = buildShotSubtitleMap(shots, prepared?.subtitleContext);
+function buildVisualSummaryManifest({ shots, result }) {
   return {
-    schemaVersion: "shot-boundary-visual-summary-input.v1",
     shots: (Array.isArray(shots) ? shots : []).map((shot, index) => ({
       shotNo: shot?.shotNo ?? `S${String(index + 1).padStart(3, "0")}`,
       start: shot?.start ?? null,
       end: shot?.end ?? null,
       currentSummary: normalizeText(shot?.summary, 120),
-      subtitleText: subtitleMap.get(index)?.subtitleText ?? "",
-      subtitleContextText: subtitleMap.get(index)?.subtitleContextText ?? "",
     })),
-    sheets: (Array.isArray(resultSheets) ? resultSheets : [])
-      .filter((sheet) => sheet?.localImagePath)
-      .map((sheet) => ({
-        shotNo: sheet.shotNo ?? null,
-        shotIndex: sheet.shotIndex ?? null,
-        start: sheet.start ?? null,
-        end: sheet.end ?? null,
-        pageIndex: sheet.pageIndex ?? 0,
-        pageCount: sheet.pageCount ?? 1,
-        frameCount: sheet.frameCount ?? 0,
-      })),
+    commerceBrief: result?.commerceBrief ?? null,
   };
 }
 
 function renderVisualSummaryTurnInputs({ result, resultSheets, prepared, roleProfile }) {
-  const manifest = buildVisualSummaryManifest({ shots: result?.shots, resultSheets, prepared });
+  const manifest = buildVisualSummaryManifest({ shots: result?.shots, result });
   const outputContract = buildVisualSummaryOutputContract();
   const prompt = renderTurnTemplate(roleProfile, "visualSummary", {
     manifestJson: JSON.stringify(manifest),

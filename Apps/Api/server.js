@@ -436,7 +436,10 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
       stageName: "threadPool.conversation.read",
       reason: "threadpool_conversation_read_failed",
       inputSummary: { threadId },
-      debugPayload: { message: error instanceof Error ? error.message : "Thread conversation 读取失败" },
+      debugPayload: {
+        message: error instanceof Error ? error.message : "Thread conversation 读取失败",
+        detail: error?.debugPayload ?? null,
+      },
     });
     await activeLogger.writeStageLog({
       traceContext,

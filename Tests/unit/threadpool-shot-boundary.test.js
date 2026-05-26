@@ -835,10 +835,15 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /这是包装上的鳗鱼/);
   assert.match(visualSummaryTurn.payload.inputs[0].text, /script-segment-analyzer/);
   assert.match(visualSummaryTurn.payload.inputs[0].text, /只写视觉画面内容/);
-  assert.match(visualSummaryTurn.payload.inputs[0].text, /subtitleText/);
-  assert.match(visualSummaryTurn.payload.inputs[0].text, /这是包装上的鳗鱼/);
-  assert.match(visualSummaryTurn.payload.inputs[0].text, /手里展示多袋包装/);
+  assert.match(visualSummaryTurn.payload.inputs[0].text, /commerceBrief/);
+  assert.doesNotMatch(visualSummaryTurn.payload.inputs[0].text, /subtitleText/);
+  assert.doesNotMatch(visualSummaryTurn.payload.inputs[0].text, /subtitleContextText/);
+  assert.doesNotMatch(visualSummaryTurn.payload.inputs[0].text, /这是包装上的鳗鱼/);
+  assert.doesNotMatch(visualSummaryTurn.payload.inputs[0].text, /手里展示多袋包装/);
+  assert.doesNotMatch(visualSummaryTurn.payload.inputs[0].text, /"sheets"/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /shots\[\]\.endBoundary\.reason/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /analysisSampling/);
+  assert.doesNotMatch(transformTurn.payload.inputs[0].text, /schemaVersion/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /textLength/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /inputIndex/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /sourceFrameIndex/);

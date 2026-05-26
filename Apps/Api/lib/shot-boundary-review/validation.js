@@ -42,13 +42,29 @@ function summarizeTransformResult(result) {
   };
 }
 
-function validateVisualSummaryResult(message, shots, turn) {
+function validateVisualSummaryResult(message, shots, turn, expectedCommerceBrief = null) {
   const parsed = extractTransformJsonObject(message, turn, {
     code: "shot_boundary_visual_summary_parse_failed",
     message: "视觉摘要结果不是合法 JSON object",
   });
   if (!Array.isArray(parsed?.shots)) {
     throw transformValidationError("shot_boundary_visual_summary_contract_invalid", "视觉摘要结果缺少 shots", parsed, turn);
+  }
+  const expectedBriefValidation = expectedCommerceBrief ? validateCommerceBrief(expectedCommerceBrief) : null;
+  if (expectedBriefValidation?.ok) {
+    if (!Object.prototype.hasOwnProperty.call(parsed ?? {}, "commerceBrief")) {
+      throw transformValidationError("shot_boundary_visual_summary_commerce_missing", "视觉摘要结果缺少 commerceBrief", parsed, turn);
+    }
+    const actualBriefValidation = validateCommerceBrief(parsed.commerceBrief);
+    if (!actualBriefValidation.ok) {
+      throw transformValidationError("shot_boundary_visual_summary_commerce_invalid", "视觉摘要 commerceBrief 不完整", parsed, turn, actualBriefValidation.summary);
+    }
+    if (JSON.stringify(actualBriefValidation.commerceBrief) !== JSON.stringify(expectedBriefValidation.commerceBrief)) {
+      throw transformValidationError("shot_boundary_visual_summary_commerce_changed", "视觉摘要不得改写 commerceBrief", parsed, turn, {
+        expectedCommerceBrief: expectedBriefValidation.summary.commerceBrief,
+        actualCommerceBrief: actualBriefValidation.summary.commerceBrief,
+      });
+    }
   }
   const sourceShots = Array.isArray(shots) ? shots : [];
   if (parsed.shots.length !== sourceShots.length) {

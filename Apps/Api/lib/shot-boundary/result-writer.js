@@ -316,7 +316,7 @@ async function runTransformTurn({
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: visualCollected.turnId, shotCount: result.shots.length },
-        action: () => reviewer.validateVisualSummaryResult(visualCollected.finalMessage, result.shots, visualCollected),
+        action: () => reviewer.validateVisualSummaryResult(visualCollected.finalMessage, result.shots, visualCollected, result.commerceBrief),
         outputSummary: (value) => reviewer.summarizeVisualSummaryResult(value),
       });
       result = reviewer.applyVisualSummaryResult(result, visualSummary);
