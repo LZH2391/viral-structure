@@ -1,0 +1,200 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "痛点激活槽",
+    "slotType": "problem_activation",
+    "viewerStateBefore": "观众尚未进入产品语境，只知道这是护肤演示内容",
+    "viewerStateAfter": "观众看见具体问题区，并理解产品可以直接涂在这些位置",
+    "persuasionTask": "把高关注问题对象推到第一视线，并用直接上脸动作建立处理路径",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "问题区出现",
+      "手指指向",
+      "产品接触皮肤",
+      "动作字样出现"
+    ],
+    "substitutionRules": [
+      "问题对象、指示样式和动作贴纸可替换，但必须保留局部问题识别和上脸动作证明"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "机制可信槽",
+    "slotType": "mechanism_credibility",
+    "viewerStateBefore": "观众已经知道产品涂哪里、怎么涂，但还未理解为什么可信",
+    "viewerStateAfter": "观众获得双层机制和适用范围解释，降低对效果来源的疑问",
+    "persuasionTask": "用机制拆解和适用范围限定，把直觉演示转成有理由相信的产品判断",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "机制关键词",
+      "机制图卡",
+      "持续涂抹动作",
+      "适用位置提示"
+    ],
+    "substitutionRules": [
+      "图卡风格和机制命名可替换，但机制主张必须有视觉化说明并与实拍使用绑定"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": true
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "低门槛步骤槽",
+    "slotType": "low_barrier_operation",
+    "viewerStateBefore": "观众理解了产品逻辑，但可能担心流程复杂或不好执行",
+    "viewerStateAfter": "观众知道等待后冲洗即可，操作负担被压低",
+    "persuasionTask": "补齐最小步骤闭环，把产品从可理解推进到可尝试",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "等待时长",
+      "手势提示",
+      "时钟贴纸",
+      "冲洗动作"
+    ],
+    "substitutionRules": [
+      "等待提示和步骤贴纸可替换，但必须保留时间提示与动作实拍的闭环"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "结果兑现槽",
+    "slotType": "result_confirmation",
+    "viewerStateBefore": "观众刚看到使用步骤完成，正在等待结果是否兑现",
+    "viewerStateAfter": "观众看到洗后局部状态，并把结果理解成日常生活收益",
+    "persuasionTask": "把步骤后的结果回到前面问题关切，并用生活化反馈扩大收益感",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "冲洗后切回脸部",
+      "局部结果近景",
+      "手指结果指向",
+      "生活收益表达"
+    ],
+    "substitutionRules": [
+      "结果展示方式和生活收益场景可替换，但必须回到前面已激活的问题对象或同一观众关切"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "长期信任与选择收束槽",
+    "slotType": "long_term_trust_close",
+    "viewerStateBefore": "观众已经看到即时结果，但仍需要判断是否长期可信、是否值得选择",
+    "viewerStateAfter": "观众获得持续使用证据和极简选择结论，产品成为明确记忆落点",
+    "persuasionTask": "用时间证据和使用痕迹强化长期可信度，再用低压口播和产品近景完成选择收束",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "旧照或打卡证据",
+      "产品归因同框",
+      "空管物证",
+      "一支够用结论",
+      "产品近景落点"
+    ],
+    "substitutionRules": [
+      "长期证据载体可替换为记录、复购、使用痕迹或持续反馈，但不能只保留口播；收尾产品露出可换构图但需保留产品记忆钉"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false
+  }
+]

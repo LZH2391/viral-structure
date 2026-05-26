@@ -1,0 +1,204 @@
+[
+  {
+    "id": "S001",
+    "slot": "problem_activation",
+    "label": "问题区直冲与上脸动作入口",
+    "function": "把鼻头、下巴等高关注问题区转成可直接照做的局部涂抹动作，让观众先理解处理对象和使用方式",
+    "claimType": "problem_to_action",
+    "proofNeed": "需要清晰可见的问题部位、手指定位和产品直接接触皮肤的实拍动作",
+    "pace": "",
+    "densityType": "",
+    "beatShape": "",
+    "visualHierarchy": "",
+    "risk": "",
+    "mustKeep": [
+      "具体问题区",
+      "局部指示",
+      "产品上脸动作"
+    ],
+    "replaceableVariables": [
+      "问题区域",
+      "指示方式",
+      "动作口播表达",
+      "局部包装样式"
+    ],
+    "syncPoints": [],
+    "avoidFor": [],
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "问题区直冲开场"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.92,
+    "needReview": false
+  },
+  {
+    "id": "S002",
+    "slot": "mechanism_credibility",
+    "label": "双层清洁机制解释",
+    "function": "把前面的上脸动作解释成可相信的成分作用和矿泥吸附逻辑，并限定适用位置",
+    "claimType": "mechanism_explain",
+    "proofNeed": "需要机制图卡、持续上脸实拍和适用部位说明共同支撑",
+    "pace": "",
+    "densityType": "",
+    "beatShape": "",
+    "visualHierarchy": "",
+    "risk": "",
+    "mustKeep": [
+      "机制拆解",
+      "适用范围限定",
+      "实拍动作不断线"
+    ],
+    "replaceableVariables": [
+      "机制命名",
+      "成分或原理表达",
+      "图卡样式",
+      "适用部位"
+    ],
+    "syncPoints": [],
+    "avoidFor": [],
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "机理拆解与适用范围限定"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false
+  },
+  {
+    "id": "S003",
+    "slot": "low_barrier_operation",
+    "label": "等待与水洗操作闭环",
+    "function": "补齐最低必要步骤，把产品使用从原理理解推进到简单可执行的完整流程",
+    "claimType": "operation_simplification",
+    "proofNeed": "需要等待时长可视化和冲洗动作实拍证明操作门槛低",
+    "pace": "",
+    "densityType": "",
+    "beatShape": "",
+    "visualHierarchy": "",
+    "risk": "",
+    "mustKeep": [
+      "等待时长",
+      "冲洗动作",
+      "步骤闭环"
+    ],
+    "replaceableVariables": [
+      "等待提示形式",
+      "手势表达",
+      "冲洗场景",
+      "步骤字幕表达"
+    ],
+    "syncPoints": [],
+    "avoidFor": [],
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "低门槛使用闭环"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false
+  },
+  {
+    "id": "S004",
+    "slot": "result_confirmation",
+    "label": "洗后结果与生活收益兑现",
+    "function": "把操作后的皮肤状态展示给观众，并把清洁结果转译成近距离社交也更安心的生活收益",
+    "claimType": "result_to_benefit",
+    "proofNeed": "需要回到前面问题对象或同类观众关切，用洗后近景、指向动作和生活化反馈证明结果",
+    "pace": "",
+    "densityType": "",
+    "beatShape": "",
+    "visualHierarchy": "",
+    "risk": "",
+    "mustKeep": [
+      "洗后局部近景",
+      "结果回看",
+      "生活收益表达"
+    ],
+    "replaceableVariables": [
+      "结果部位",
+      "生活场景收益",
+      "近景展示方式",
+      "辅助动作"
+    ],
+    "syncPoints": [],
+    "avoidFor": [],
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "洗后结果与生活收益"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false
+  },
+  {
+    "id": "S005",
+    "slot": "long_term_trust_close",
+    "label": "长期使用背书与极简选择收束",
+    "function": "用打卡记录和真实消耗痕迹把一次性效果升级为长期可信体验，再收束到一支够用的简化选择",
+    "claimType": "trust_to_choice",
+    "proofNeed": "需要时间证据、使用痕迹、产品同框和稳定口播结论支撑",
+    "pace": "",
+    "densityType": "",
+    "beatShape": "",
+    "visualHierarchy": "",
+    "risk": "",
+    "mustKeep": [
+      "长期使用证据",
+      "真实消耗痕迹",
+      "简化选择结论",
+      "产品记忆落点"
+    ],
+    "replaceableVariables": [
+      "打卡证据形式",
+      "使用痕迹载体",
+      "收束观点",
+      "产品近景构图"
+    ],
+    "syncPoints": [],
+    "avoidFor": [],
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "长期打卡背书与极简收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false
+  }
+]
