@@ -231,7 +231,13 @@ test("modules endpoint returns public module descriptors only", async () => {
   try {
     const response = await makeRequest(server, "GET", "/api/modules");
     assert.equal(response.statusCode, 200);
+    const sample = response.body.modules.find((entry) => entry.moduleId === "sample-ingest");
+    const shot = response.body.modules.find((entry) => entry.moduleId === "shot-boundary");
     const module = response.body.modules.find((entry) => entry.moduleId === "script-segments");
+    assert.equal(sample.moduleKind, "sample-ingest");
+    assert.equal(sample.artifactKey, "sampleVideo");
+    assert.equal(shot.moduleKind, "sample-understanding");
+    assert.equal(shot.artifactKey, "shotBoundaryAnalysis");
     assert.equal(module.moduleKind, "structure-analysis");
     assert.equal(module.artifactKey, "scriptSegmentAnalysis");
     assert.equal(module.cacheKind, "script_segment");

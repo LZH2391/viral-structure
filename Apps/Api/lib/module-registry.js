@@ -1,12 +1,11 @@
 const { createModuleDefinition, toPublicModuleEntry } = require("./module-definition");
 const { MODULE_DEFINITIONS } = require("./module-catalog");
+const { createExecutorRegistry } = require("./executor-registry");
 
 function createModuleRegistry(options = {}) {
   const serviceOverrides = options.serviceOverrides ?? {};
-  const entries = MODULE_DEFINITIONS.map((definition) => {
-    const service = serviceOverrides[definition.serviceKey] ?? createServiceForDefinition(definition, options);
-    return { ...definition, service };
-  });
+  const executorRegistry = options.executorRegistry ?? createExecutorRegistry(options);
+  const entries = MODULE_DEFINITIONS.map((definition) => ({ ...definition, service: serviceOverrides[definition.serviceKey] ?? null }));
   const byModuleId = indexBy(entries, "moduleId");
   const byLegacyPathSegment = indexBy(entries, "legacyPathSegment");
   const byCacheKind = indexBy(entries, "cacheKind");
@@ -20,24 +19,38 @@ function createModuleRegistry(options = {}) {
       const entry = byModuleId.get(moduleId);
       if (!entry) throw notFoundError("module_not_found", "未知模块", { moduleId });
       if (typeof entry.startOptionsFromBody !== "function") throw unsupportedError("module_start_unsupported", "模块不支持启动", { moduleId });
-      return entry.service.enqueue(entry.startOptionsFromBody({ sampleVideoId, body }));
+      return executeServiceModule(executorRegistry, entry, options, "enqueue", [entry.startOptionsFromBody({ sampleVideoId, body })]);
     },
     startLegacyModule: ({ legacyPathSegment, sampleVideoId, body = {} }) => {
       const entry = byLegacyPathSegment.get(legacyPathSegment);
       if (!entry) throw notFoundError("module_not_found", "未知模块", { legacyPathSegment });
       if (typeof entry.startOptionsFromBody !== "function") throw unsupportedError("module_start_unsupported", "模块不支持启动", { legacyPathSegment });
-      return entry.service.enqueue(entry.startOptionsFromBody({ sampleVideoId, body }));
+      return executeServiceModule(executorRegistry, entry, options, "enqueue", [entry.startOptionsFromBody({ sampleVideoId, body })]);
     },
     resolveModuleCacheDecision: ({ cacheKind, jobId, decision }) => {
       const entry = byCacheKind.get(cacheKind);
       if (!entry) return null;
-      return entry.service.resolveCacheDecision({ jobId, decision });
+      return executeServiceModule(executorRegistry, entry, options, "resolveCacheDecision", [{ jobId, decision }]);
     },
   };
 }
 
+async function executeServiceModule(executorRegistry, entry, options, method, args) {
+  const execution = await executorRegistry.execute(entry.executorRef?.kind ?? entry.executorKind, {
+    service: resolveService(entry, options),
+    method,
+    args,
+  }, { moduleId: entry.moduleId });
+  return execution.result;
+}
+
+function resolveService(entry, options) {
+  if (!entry.service) entry.service = createServiceForDefinition(entry, options);
+  return entry.service;
+}
+
 function createServiceForDefinition(definition, options) {
-  if ((definition.executorKind === "role-service" || definition.executorKind === "custom-service") && typeof definition.createService === "function") {
+  if (typeof definition.createService === "function") {
     return definition.createService(options);
   }
   throw new Error(`Unsupported module executor: ${definition.executorKind ?? "unknown"}`);

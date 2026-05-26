@@ -3,6 +3,7 @@ function createModuleDefinition(config) {
     moduleId: config.moduleId,
     moduleKind: config.moduleKind,
     executorKind: config.executorKind,
+    executorRef: config.executorRef ?? { kind: config.executorKind },
     serviceKey: config.serviceKey,
     legacyPathSegment: config.legacyPathSegment ?? null,
     cacheKind: config.cacheKind ?? null,

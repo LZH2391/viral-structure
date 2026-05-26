@@ -1,5 +1,17 @@
 const MODULE_ARTIFACTS = [
   {
+    moduleId: "sample-ingest",
+    cacheKind: "sample",
+    artifactKey: "sampleVideo",
+    getArtifact: (artifact) => artifact?.sampleVideo ?? null,
+  },
+  {
+    moduleId: "shot-boundary",
+    cacheKind: "shot_boundary",
+    artifactKey: "shotBoundaryAnalysis",
+    getArtifact: (artifact) => artifact?.shotBoundaryAnalysis ?? null,
+  },
+  {
     moduleId: "script-segments",
     cacheKind: "script_segment",
     artifactKey: "scriptSegmentAnalysis",

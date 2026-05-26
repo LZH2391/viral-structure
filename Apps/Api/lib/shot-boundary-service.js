@@ -5,6 +5,7 @@ const { createTraceIds, nextStage } = require("../../../Infrastructure/Observabi
 const defaultContactSheetGenerator = require("../../../Infrastructure/MediaProcessing/contact-sheet-generator");
 const { createAppServerBridge } = require("./appserver-bridge");
 const { createThreadPoolProxy } = require("./threadpool-proxy");
+const { createExecutorRegistry } = require("./executor-registry");
 const { loadRoleProfileByRole } = require("./role-profile-loader");
 const { attachAnalysis, loadSampleArtifact } = require("./shot-boundary/artifact-store");
 const { runShotBoundaryCacheLookup, reuseShotBoundaryCachedAnalysis } = require("./shot-boundary/cache-flow");
@@ -107,6 +108,7 @@ function createShotBoundaryService({
   artifactIndex,
   threadPool = createThreadPoolProxy(),
   appServer = createAppServerBridge(),
+  executorRegistry = createExecutorRegistry({ appServer }),
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = VIDEO_SHOT_SKILL_PATH,
   rawAnalysisWorkspaceRoot = DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT,
@@ -262,21 +264,17 @@ function createShotBoundaryService({
         resolved: true,
         basename: path.basename(rawVideoPath),
       };
-      const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
+      const leaseAcquisition = await executorRegistry.execute("appserver-turn", {
+        action: "start-thread",
+        stageName: STAGES.threadAcquired,
+        progress: 60,
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
-        action: () => appServer.startThread({
-          workspaceRoot: rawWorkspaceRoot,
-          timeoutSeconds: 240,
-        }),
-        outputSummary: (result) => ({
-          role: "raw_video_analyze",
-          leaseId: null,
-          threadId: result.threadId,
-          status: result.status,
-        }),
-      });
+        workspaceRoot: rawWorkspaceRoot,
+        timeoutSeconds: 240,
+        role: "raw_video_analyze",
+      }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
       const rawThread = { thread_id: leaseAcquisition.threadId, lease_id: null };
       lease = rawThread;
       const rawTurnInputs = [{
@@ -288,25 +286,22 @@ function createShotBoundaryService({
         ].join("\n"),
         text_elements: [],
       }];
-      const turn = await runStage(context, STAGES.turnStarted, 80, {
+      const turnExecution = await executorRegistry.execute("appserver-turn", {
+        action: "submit-turn",
+        stageName: STAGES.turnStarted,
+        progress: 80,
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: ROLE, threadId: rawThread.thread_id, leaseId: null, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
-        action: () => appServer.startTurnWithInputs({
-          workspaceRoot: rawWorkspaceRoot,
-          threadId: rawThread.thread_id,
-          inputs: rawTurnInputs,
-          skillPath: context.skillPath,
-          timeoutSeconds: 240,
-        }),
-        outputSummary: (result) => ({
-          role: "raw_video_analyze",
-          threadId: result.threadId,
-          turnId: result.turnId,
-          status: result.status,
-          inputMode: "raw_video_path_text",
-        }),
-      });
+        workspaceRoot: rawWorkspaceRoot,
+        threadId: rawThread.thread_id,
+        inputs: rawTurnInputs,
+        skillPath: context.skillPath,
+        timeoutSeconds: 240,
+        role: "raw_video_analyze",
+        inputMode: "raw_video_path_text",
+      }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
+      const turn = turnExecution.result;
       const agentRun = buildAgentRun({ context, lease: rawThread, turn, prepared, contactSheets: [] });
       jobStore.updateJob(context.job.jobId, {
         agentRun,
@@ -349,27 +344,20 @@ function createShotBoundaryService({
             status: SAMPLE_STATUS.processing,
             progress: 88,
           });
-        const turn = await runStage(context, STAGES.turnCollected, 88, {
+        const turnExecution = await executorRegistry.execute("appserver-turn", {
+          action: "collect-turn",
+          stageName: STAGES.turnCollected,
+          progress: 88,
           artifactId: agentRun.artifactId,
           parentArtifactId: agentRun.parentArtifactId,
           inputSummary: { role: ROLE, threadId: agentRun.threadId, turnId: agentRun.turnId, sheetCount: agentRun.contactSheets?.length ?? 0 },
-          action: () => appServer.collectTurnResult({
-            workspaceRoot: rawWorkspaceRoot,
-            threadId: agentRun.threadId,
-            turnId: agentRun.turnId,
-            timeoutSeconds: 60,
-          }),
-          outputSummary: (result) => ({
-            role: "raw_video_analyze",
-            threadId: result.threadId,
-            turnId: result.turnId,
-            status: result.status,
-            profileVersion: null,
-            promptTemplateId: null,
-            promptTemplateVersion: null,
-            promptTemplateHash: null,
-          }),
-        });
+          workspaceRoot: rawWorkspaceRoot,
+          threadId: agentRun.threadId,
+          turnId: agentRun.turnId,
+          timeoutSeconds: 60,
+          role: "raw_video_analyze",
+        }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
+        const turn = turnExecution.result;
         updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, {
           role: "raw_video_analyze",
           fallbackMessage: "正在分析镜头边界",

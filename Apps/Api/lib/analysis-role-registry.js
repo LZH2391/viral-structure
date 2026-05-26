@@ -6,6 +6,7 @@ const ANALYSIS_ROLE_DEFINITIONS = MODULE_DEFINITIONS.filter((definition) => defi
 
 function createAnalysisRoleRegistry(options = {}) {
   const moduleRegistry = options.moduleRegistry ?? createModuleRegistry(options);
+  const analysisCacheKinds = new Set(ANALYSIS_ROLE_DEFINITIONS.map((definition) => definition.cacheKind).filter(Boolean));
 
   return {
     list: () => moduleRegistry.list().filter((entry) => entry.moduleKind === "structure-analysis").map(toPublicEntry),
@@ -14,7 +15,10 @@ function createAnalysisRoleRegistry(options = {}) {
     getByCacheKind: (cacheKind) => moduleRegistry.getByCacheKind(cacheKind),
     startAnalysis: ({ analysisId, sampleVideoId, body = {} }) => moduleRegistry.startModule({ moduleId: analysisId, sampleVideoId, body }),
     startLegacyAnalysis: ({ legacyPathSegment, sampleVideoId, body = {} }) => moduleRegistry.startLegacyModule({ legacyPathSegment, sampleVideoId, body }),
-    resolveAnalysisCacheDecision: ({ cacheKind, jobId, decision }) => moduleRegistry.resolveModuleCacheDecision({ cacheKind, jobId, decision }),
+    resolveAnalysisCacheDecision: ({ cacheKind, jobId, decision }) => {
+      if (!analysisCacheKinds.has(cacheKind)) return null;
+      return moduleRegistry.resolveModuleCacheDecision({ cacheKind, jobId, decision });
+    },
   };
 }
 

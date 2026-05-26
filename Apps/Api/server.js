@@ -24,6 +24,7 @@ const { summarizeThreadConversation } = require("./lib/thread-conversation");
 const { createSubtitleRevisionService } = require("./lib/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/analysis-role-registry");
 const { createModuleRegistry } = require("./lib/module-registry");
+const { createExecutorRegistry } = require("./lib/executor-registry");
 const { createFullAnalysisWorkflowService } = require("./lib/full-analysis-workflow-service");
 const { loadCurrentSampleArtifact } = require("./lib/artifact-reader");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
@@ -43,7 +44,18 @@ const threadPool = createThreadPoolProxy({
 });
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
-const moduleRegistry = createModuleRegistry({ store, logger, jobStore, artifactIndex });
+const executorRegistry = createExecutorRegistry({ appServer });
+const moduleRegistry = createModuleRegistry({
+  store,
+  logger,
+  jobStore,
+  artifactIndex,
+  executorRegistry,
+  serviceOverrides: {
+    shotBoundaryService,
+    sampleProcessingService: service,
+  },
+});
 const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
 const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
@@ -56,6 +68,9 @@ function createServer(deps = {}) {
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
+  const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
+    appServer: deps.appServer ?? appServer,
+  });
   const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
@@ -64,10 +79,13 @@ function createServer(deps = {}) {
     artifactIndex: activeArtifactIndex,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    executorRegistry: activeExecutorRegistry,
     serviceOverrides: {
       scriptSegmentService: deps.scriptSegmentService,
       rhythmStructureService: deps.rhythmStructureService,
       packagingStructureService: deps.packagingStructureService,
+      shotBoundaryService: activeShotBoundaryService,
+      sampleProcessingService: activeSampleService,
     },
   });
   const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({ moduleRegistry: activeModuleRegistry });
@@ -266,7 +284,7 @@ async function handleArtifact(res, sampleVideoId, handlers = {}) {
 
 async function handleShotBoundary(req, res, sampleVideoId, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
-  const result = await (handlers.shotBoundaryService ?? shotBoundaryService).enqueue({ sampleVideoId, analysisFps: body.analysisFps ?? 10, cacheDecision: body.cacheDecision ?? "ask", enableReview: body.enableReview ?? true });
+  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({ moduleId: "shot-boundary", sampleVideoId, body });
   return sendJson(res, 202, result);
 }
 

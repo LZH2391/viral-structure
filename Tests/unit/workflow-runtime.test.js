@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createWorkflowRunStore } = require("../../Apps/Api/lib/workflow-run-store");
-const { createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/full-analysis-workflow-service");
+const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/full-analysis-workflow-service");
 
 function createHarness() {
   const jobs = new Map();
@@ -89,6 +89,15 @@ test("full analysis workflow advances upload, shot, parallel analyses, and aggre
     ["aggregate", "processed"],
   ]);
   assert.ok(stageLogs.some((entry) => entry.stageName === "workflow.aggregate" && entry.event === "stage.end"));
+});
+
+test("full analysis workflow descriptor defines module nodes and parallel analysis group", () => {
+  assert.equal(FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.workflowId, "full-analysis");
+  assert.deepEqual(FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.parallelGroups["structure-analysis"], ["scriptSegment", "rhythmStructure", "packagingStructure"]);
+  assert.deepEqual(
+    FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
+    ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure"],
+  );
 });
 
 function buildArtifact({ shot = false } = {}) {
