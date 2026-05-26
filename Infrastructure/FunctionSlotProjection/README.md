@@ -2,7 +2,7 @@
 
 `FunctionSlotProjection` stores a queryable SQLite projection of `function-slot-atomization-analysis` artifacts.
 
-The artifact JSON remains the source of truth. This projection is derived, rebuildable, and used only for search, filtering, and debugging lookup.
+The artifact JSON remains the source of truth. This projection is derived, deletable per artifact, reprojectable per artifact, and used only for search, filtering, and debugging lookup.
 
 ## Boundaries
 

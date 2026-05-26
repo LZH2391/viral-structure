@@ -1,4 +1,3 @@
-const fs = require("fs/promises");
 const path = require("path");
 const { createFunctionSlotProjectionStore } = require("../../../../Infrastructure/FunctionSlotProjection/function-slot-projection-store");
 
@@ -8,6 +7,28 @@ function createFunctionSlotProjectionService({ store, projectionStore = null } =
   async function projectArtifact(artifact) {
     if (!artifact?.functionSlotAtomizationAnalysis) return null;
     return activeProjectionStore.projectArtifact(artifact);
+  }
+
+  async function projectSampleCurrentArtifact(sampleVideoId, { mode = "replace" } = {}) {
+    const artifact = await store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json")).catch(() => null);
+    if (!artifact?.functionSlotAtomizationAnalysis?.artifactId) return null;
+    const artifactId = artifact.functionSlotAtomizationAnalysis.artifactId;
+    const existing = await activeProjectionStore.getArtifactProjectionSummary(artifactId);
+    if (existing && mode === "skip-existing") {
+      return {
+        projected: false,
+        skipped: true,
+        existedBefore: true,
+        ...existing,
+      };
+    }
+    const summary = await activeProjectionStore.projectArtifact(artifact);
+    return {
+      projected: true,
+      skipped: false,
+      existedBefore: Boolean(existing),
+      ...summary,
+    };
   }
 
   async function querySlots(filters = {}) {
@@ -26,32 +47,24 @@ function createFunctionSlotProjectionService({ store, projectionStore = null } =
     return activeProjectionStore.queryRules(filters);
   }
 
-  async function rebuildFromRuntimeArtifacts() {
-    await activeProjectionStore.clearAll();
-    const artifactsRoot = path.join(store.runtimeRoot, "Artifacts");
-    const sampleDirs = await fs.readdir(artifactsRoot, { withFileTypes: true }).catch(() => []);
-    const summaries = [];
-    for (const entry of sampleDirs) {
-      if (!entry.isDirectory()) continue;
-      const artifactPath = path.join(artifactsRoot, entry.name, "artifact.json");
-      const artifact = await store.readJson(artifactPath).catch(() => null);
-      if (!artifact?.functionSlotAtomizationAnalysis) continue;
-      summaries.push(await activeProjectionStore.projectArtifact(artifact));
-    }
-    return {
-      projectedArtifactCount: summaries.length,
-      summaries,
-    };
+  async function getArtifactProjectionSummary(artifactId) {
+    return activeProjectionStore.getArtifactProjectionSummary(artifactId);
+  }
+
+  async function deleteArtifactProjection(artifactId) {
+    return activeProjectionStore.deleteArtifactProjection(artifactId);
   }
 
   return {
     store: activeProjectionStore,
     projectArtifact,
+    projectSampleCurrentArtifact,
     querySlots,
     queryAtoms,
     queryBindings,
     queryRules,
-    rebuildFromRuntimeArtifacts,
+    getArtifactProjectionSummary,
+    deleteArtifactProjection,
   };
 }
 

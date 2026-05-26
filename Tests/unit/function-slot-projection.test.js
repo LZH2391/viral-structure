@@ -68,8 +68,8 @@ test("function slot projection is idempotent per artifactId and queryable by sou
   assert.equal(rules.length, 6);
 });
 
-test("function slot projection service rebuilds from Runtime artifacts", async () => {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-function-slot-projection-rebuild-"));
+test("function slot projection service projects one sample artifact and can skip existing projection", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-function-slot-projection-sample-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
   const artifact = buildArtifact();
@@ -77,19 +77,33 @@ test("function slot projection service rebuilds from Runtime artifacts", async (
   await store.writeJson(path.join(sampleDir, "artifact.json"), artifact);
   const service = createFunctionSlotProjectionService({ store });
 
-  await service.store.projectArtifact({
-    sampleVideoId: "stale_sample",
-    functionSlotAtomizationAnalysis: {
-      ...artifact.functionSlotAtomizationAnalysis,
-      artifactId: "artifact_stale_projection",
-      sampleVideoId: "stale_sample",
-    },
-  });
-  const result = await service.rebuildFromRuntimeArtifacts();
+  const first = await service.projectSampleCurrentArtifact("sample_projection");
+  const skipped = await service.projectSampleCurrentArtifact("sample_projection", { mode: "skip-existing" });
+  const replaced = await service.projectSampleCurrentArtifact("sample_projection", { mode: "replace" });
 
-  assert.equal(result.projectedArtifactCount, 1);
+  assert.equal(first.projected, true);
+  assert.equal(first.existedBefore, false);
+  assert.equal(skipped.projected, false);
+  assert.equal(skipped.skipped, true);
+  assert.equal(skipped.existedBefore, true);
+  assert.equal(replaced.projected, true);
+  assert.equal(replaced.existedBefore, true);
   assert.equal((await service.querySlots({ sampleVideoId: "sample_projection" })).length, 5);
-  assert.equal((await service.querySlots({ sampleVideoId: "stale_sample" })).length, 0);
+});
+
+test("function slot projection store reports and deletes one artifact projection", async () => {
+  const { projectionStore } = await createTempProjectionStore("bd-function-slot-projection-delete-");
+  const artifact = buildArtifact();
+
+  await projectionStore.projectArtifact(artifact);
+  const summary = await projectionStore.getArtifactProjectionSummary("artifact_function_slot");
+  const deleted = await projectionStore.deleteArtifactProjection("artifact_function_slot");
+
+  assert.equal(summary.slotCount, 5);
+  assert.equal(summary.atomCount, 15);
+  assert.equal(deleted.artifactId, "artifact_function_slot");
+  assert.equal(await projectionStore.getArtifactProjectionSummary("artifact_function_slot"), null);
+  assert.equal((await projectionStore.querySlots({ sampleVideoId: "sample_projection" })).length, 0);
 });
 
 test("materialize runtime records projection success without changing artifact registration", async () => {
@@ -148,7 +162,7 @@ test("materialize runtime isolates projection failure and writes debug snapshot"
   assert.equal(snapshots[0].debugPayload.message, "sqlite write failed");
 });
 
-test("function slot projection API exposes query and rebuild routes", async () => {
+test("function slot projection API exposes query, sample project, artifact summary and delete routes", async () => {
   const calls = [];
   const server = createServer({
     functionSlotProjectionService: {
@@ -159,7 +173,12 @@ test("function slot projection API exposes query and rebuild routes", async () =
       queryAtoms: async () => [],
       queryBindings: async () => [],
       queryRules: async () => [],
-      rebuildFromRuntimeArtifacts: async () => ({ projectedArtifactCount: 1 }),
+      projectSampleCurrentArtifact: async (sampleVideoId, options) => {
+        calls.push({ method: "projectSampleCurrentArtifact", sampleVideoId, options });
+        return { projected: true, existedBefore: false, artifactId: "artifact_function_slot", slotCount: 5 };
+      },
+      getArtifactProjectionSummary: async (artifactId) => ({ artifactId, sampleVideoId: "sample_projection", traceId: "trace_projection", slotCount: 5 }),
+      deleteArtifactProjection: async (artifactId) => ({ artifactId, slotCount: 5 }),
     },
     staticWorkbench: { handle: () => false },
     logger: {
@@ -176,9 +195,19 @@ test("function slot projection API exposes query and rebuild routes", async () =
     assert.equal(slots.body.items[0].traceId, "trace_projection");
     assert.deepEqual(calls[0], { method: "querySlots", filters: { slotType: "problem_activation" } });
 
-    const rebuild = await makeRequest(server, "POST", "/api/function-slot-projection/rebuild");
-    assert.equal(rebuild.statusCode, 200);
-    assert.equal(rebuild.body.projectedArtifactCount, 1);
+    const projected = await makeRequest(server, "POST", "/api/sample-videos/sample_projection/function-slot-projection?mode=skip-existing");
+    assert.equal(projected.statusCode, 200);
+    assert.equal(projected.body.projected, true);
+    assert.deepEqual(calls[1], { method: "projectSampleCurrentArtifact", sampleVideoId: "sample_projection", options: { mode: "skip-existing" } });
+
+    const summary = await makeRequest(server, "GET", "/api/function-slot-projection/artifacts/artifact_function_slot");
+    assert.equal(summary.statusCode, 200);
+    assert.equal(summary.body.exists, true);
+    assert.equal(summary.body.slotCount, 5);
+
+    const deleted = await makeRequest(server, "DELETE", "/api/function-slot-projection/artifacts/artifact_function_slot");
+    assert.equal(deleted.statusCode, 200);
+    assert.equal(deleted.body.deleted, true);
   } finally {
     await closeServer(server);
   }

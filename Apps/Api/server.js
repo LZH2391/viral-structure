@@ -139,8 +139,9 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/modules") return await handleModules(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
+      if (req.method === "GET" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionArtifact(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "DELETE" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
-      if (req.method === "POST" && url.pathname === "/api/function-slot-projection/rebuild") return await handleFunctionSlotProjectionRebuild(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
@@ -150,6 +151,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && /^\/api\/processing-jobs\/[^/]+$/.test(url.pathname)) return handleJob(res, url.pathname.split("/").at(-1), handlers);
       if (req.method === "POST" && /^\/api\/processing-jobs\/[^/]+\/cache-decision$/.test(url.pathname)) return await handleJobCacheDecision(req, res, url.pathname.split("/").at(-2), handlers);
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return await handleArtifact(res, url.pathname.split("/").at(-2), handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-projection$/.test(url.pathname)) return await handleFunctionSlotProjectionProjectSample(res, decodeURIComponent(url.pathname.split("/").at(-2)), url, handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return await handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return await handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/analyses\/[^/]+$/.test(url.pathname)) return await handleAnalysis(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
@@ -242,9 +244,32 @@ async function handleFunctionSlotProjectionQuery(res, url, handlers = {}) {
   return notFound(res);
 }
 
-async function handleFunctionSlotProjectionRebuild(res, handlers = {}) {
+async function handleFunctionSlotProjectionArtifact(res, artifactId, handlers = {}) {
   const service = handlers.functionSlotProjectionService ?? functionSlotProjectionService;
-  return sendJson(res, 200, await service.rebuildFromRuntimeArtifacts());
+  const summary = await service.getArtifactProjectionSummary(artifactId);
+  if (!summary) return notFound(res);
+  return sendJson(res, 200, { exists: true, ...summary });
+}
+
+async function handleFunctionSlotProjectionProjectSample(res, sampleVideoId, url, handlers = {}) {
+  const service = handlers.functionSlotProjectionService ?? functionSlotProjectionService;
+  const mode = url.searchParams.get("mode") === "skip-existing" ? "skip-existing" : "replace";
+  const summary = await service.projectSampleCurrentArtifact(sampleVideoId, { mode });
+  if (!summary) {
+    return sendJson(res, 404, {
+      error: "function_slot_projection_source_missing",
+      code: "function_slot_projection_source_missing",
+      message: "样例不存在或没有功能槽位原子化 artifact",
+    });
+  }
+  return sendJson(res, 200, summary);
+}
+
+async function handleFunctionSlotProjectionDelete(res, artifactId, handlers = {}) {
+  const service = handlers.functionSlotProjectionService ?? functionSlotProjectionService;
+  const summary = await service.deleteArtifactProjection(artifactId);
+  if (!summary) return notFound(res);
+  return sendJson(res, 200, { deleted: true, ...summary });
 }
 
 async function handleFullAnalysisRun(req, res, handlers = {}) {

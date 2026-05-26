@@ -136,18 +136,37 @@ function createFunctionSlotProjectionStore({ store, dbPath = null } = {}) {
     }));
   }
 
-  async function clearAll() {
+  async function getArtifactProjectionSummary(artifactId) {
+    await ensureSchema();
+    return withDb(databasePath, (db) => {
+      const root = db.prepare("SELECT * FROM function_slot_artifacts WHERE artifactId = ?").get(artifactId);
+      if (!root) return null;
+      return {
+        ...root,
+        slotCount: countWhere(db, "function_slots", artifactId),
+        atomCount: countWhere(db, "function_atoms", artifactId),
+        bindingCount: countWhere(db, "function_bindings", artifactId),
+        ruleCount: countWhere(db, "function_rules", artifactId),
+        templateCount: countWhere(db, "function_recomposition_templates", artifactId),
+      };
+    });
+  }
+
+  async function deleteArtifactProjection(artifactId) {
+    const existing = await getArtifactProjectionSummary(artifactId);
+    if (!existing) return null;
     await ensureSchema();
     withDb(databasePath, (db) => {
       db.exec("BEGIN");
       try {
-        for (const table of DELETE_ORDER) db.prepare(`DELETE FROM ${table}`).run();
+        deleteArtifactRows(db, artifactId);
         db.exec("COMMIT");
       } catch (error) {
         db.exec("ROLLBACK");
         throw error;
       }
     });
+    return existing;
   }
 
   return {
@@ -161,7 +180,8 @@ function createFunctionSlotProjectionStore({ store, dbPath = null } = {}) {
     queryBindings,
     queryRules,
     countRows,
-    clearAll,
+    getArtifactProjectionSummary,
+    deleteArtifactProjection,
   };
 }
 
@@ -240,6 +260,10 @@ function rowWithBoolean(row) {
 
 function count(db, table) {
   return db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count;
+}
+
+function countWhere(db, table, artifactId) {
+  return db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE artifactId = ?`).get(artifactId).count;
 }
 
 const DELETE_ORDER = [
