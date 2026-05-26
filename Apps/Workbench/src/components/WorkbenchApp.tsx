@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { createInitialState, type WorkbenchAction, workbenchReducer } from "../state";
-import type { AudioFeatureMarker, SampleArtifact, WorkbenchState } from "../types";
+import type { AudioFeatureMarker, ProcessingJob, SampleArtifact, WorkbenchState } from "../types";
 import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
 import { getModules, getSampleArtifact, resolveCacheDecision } from "../api/client";
@@ -209,7 +209,7 @@ export function WorkbenchApp() {
       });
       return result.artifact;
     } catch (error) {
-      scriptSegmentFlow.setJob(null);
+      scriptSegmentFlow.setJob(resolveFailedProcessingJob(error));
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "脚本段落分析失败",
@@ -238,7 +238,7 @@ export function WorkbenchApp() {
       });
       return result.artifact;
     } catch (error) {
-      rhythmStructureFlow.setJob(null);
+      rhythmStructureFlow.setJob(resolveFailedProcessingJob(error));
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "节奏结构分析失败",
@@ -268,7 +268,7 @@ export function WorkbenchApp() {
       });
       return result.artifact;
     } catch (error) {
-      packagingStructureFlow.setJob(null);
+      packagingStructureFlow.setJob(resolveFailedProcessingJob(error));
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "包装结构分析失败",
@@ -304,7 +304,7 @@ export function WorkbenchApp() {
       });
       return result.artifact;
     } catch (error) {
-      functionSlotAtomizationFlow.setJob(null);
+      functionSlotAtomizationFlow.setJob(resolveFailedProcessingJob(error));
       stageLogger.failStage(stage, error, {
         errorCode: (error as { code?: string })?.code,
         errorMessage: error instanceof Error ? error.message : "功能槽位原子化失败",
@@ -594,3 +594,8 @@ const STAGES = {
   packagingStructureAnalyze: "packaging.structure.analyze",
   functionSlotAtomizationAnalyze: "function.slot.atomization.analyze",
 } as const;
+
+function resolveFailedProcessingJob(error: unknown): ProcessingJob | null {
+  const job = (error as { processingJob?: ProcessingJob | null })?.processingJob ?? null;
+  return job?.status === "failed" ? job : null;
+}
