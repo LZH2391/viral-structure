@@ -1,22 +1,14 @@
-const path = require("path");
-const { writeAnalysisResult } = require("../stores/analysis-result-store");
+const { createAnalysisArtifactAttacher } = require("../analysis-runtime-v2/artifact-writer");
 const { appendFunctionSlotAtomizationHistory } = require("./history");
 
-async function attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta = {}) {
-  const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-  const artifact = await store.readJson(artifactPath);
-  const resultRef = await writeAnalysisResult({ store, sampleVideoId, kind: "function_slot_atomization", analysis });
-  artifact.functionSlotAtomizationAnalysis = analysis;
-  artifact.functionSlotAtomizationAnalysisRef = resultRef;
-  artifact.functionSlotAtomizationAnalysisHistory = appendFunctionSlotAtomizationHistory(artifact.functionSlotAtomizationAnalysisHistory, analysis, {
-    traceId: analysis?.traceId ?? traceMeta.traceId ?? artifact?.trace?.traceId ?? null,
-    sourceTraceId: traceMeta.sourceTraceId ?? artifact?.trace?.traceId ?? null,
-    resultUri: resultRef.uri,
-    sourceArtifactId: analysis?.sourceFunctionSlotAtomizationArtifactId ?? null,
-  });
-  await store.writeJson(artifactPath, artifact);
-  return artifact;
-}
+const attachFunctionSlotAtomizationAnalysis = createAnalysisArtifactAttacher({
+  analysisKey: "functionSlotAtomizationAnalysis",
+  analysisRefKey: "functionSlotAtomizationAnalysisRef",
+  historyKey: "functionSlotAtomizationAnalysisHistory",
+  resultKind: "function_slot_atomization",
+  appendHistory: appendFunctionSlotAtomizationHistory,
+  resolveSourceArtifactId: (analysis) => analysis?.sourceFunctionSlotAtomizationArtifactId ?? null,
+});
 
 module.exports = {
   attachFunctionSlotAtomizationAnalysis,

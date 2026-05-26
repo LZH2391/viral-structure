@@ -70,16 +70,19 @@ test("script cache prompts expose unified dependencies while rhythm depends only
   const root = path.resolve(__dirname, "../..");
   const scriptCache = read(root, "Apps/Api/lib/script-segment/cache.js");
   const rhythmCache = read(root, "Apps/Api/lib/rhythm-structure/cache.js");
+  const sharedShotBoundaryCache = read(root, "Apps/Api/lib/analysis-runtime-v2/shot-boundary-cache.js");
   const scriptService = read(root, "Apps/Api/lib/script-segment/service.js");
   const rhythmService = read(root, "Apps/Api/lib/rhythm-structure/service.js");
   const roleDefinition = read(root, "Apps/Api/lib/compatibility/analysis-role-definition.js");
   const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
 
-  assert.match(scriptCache, /buildUnifiedCachePrompt/);
-  assert.match(scriptCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
-  assert.match(scriptCache, /legacy:\s*\{[\s\S]*expectedShotBoundaryArtifactId/);
-  assert.match(rhythmCache, /buildUnifiedCachePrompt/);
-  assert.match(rhythmCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
+  assert.match(sharedShotBoundaryCache, /buildUnifiedCachePrompt/);
+  assert.match(sharedShotBoundaryCache, /dependencies:\s*\{[\s\S]*shotBoundaryArtifactId/);
+  assert.match(sharedShotBoundaryCache, /legacy:\s*\{[\s\S]*expectedShotBoundaryArtifactId/);
+  assert.match(scriptCache, /createShotBoundaryDependentCacheHandlers/);
+  assert.match(scriptCache, /cacheKind:\s*"script_segment"/);
+  assert.match(rhythmCache, /createShotBoundaryDependentCacheHandlers/);
+  assert.match(rhythmCache, /cacheKind:\s*"rhythm_structure"/);
   assert.doesNotMatch(rhythmCache, /scriptSegmentArtifactId/);
   assert.doesNotMatch(rhythmCache, /expectedScriptSegmentArtifactId/);
   assert.match(roleDefinition, /createRoleAnalysisService/);

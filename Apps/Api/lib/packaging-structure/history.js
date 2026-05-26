@@ -1,27 +1,15 @@
-﻿function appendPackagingStructureHistory(history, analysis, traceMeta) {
-  const entries = Array.isArray(history) ? history : [];
-  const next = {
-    artifactId: analysis?.artifactId ?? null,
-    status: analysis?.status ?? "failed",
-    resultOrigin: analysis?.resultOrigin ?? "new_turn",
-    packagingBlockCount: analysis?.packagingBlocks?.length ?? 0,
-    shotPackagingNoteCount: analysis?.shotPackagingNotes?.length ?? 0,
-    turnId: analysis?.agent?.turnId ?? null,
-    traceId: traceMeta?.traceId ?? null,
-    sourceTraceId: traceMeta?.sourceTraceId ?? null,
-    sourceSampleVideoId: analysis?.sourceSampleVideoId ?? null,
+const { appendAnalysisHistory } = require("../analysis-runtime-v2/analysis-history");
+
+function appendPackagingStructureHistory(history, analysis, traceMeta) {
+  return appendAnalysisHistory(history, analysis, {
+    ...traceMeta,
     sourceArtifactId: traceMeta?.sourceArtifactId ?? analysis?.sourcePackagingStructureArtifactId ?? null,
-    sourceTurnId: analysis?.sourceTurnId ?? null,
-    cacheKey: analysis?.cacheKey ?? null,
-    resultUri: traceMeta?.resultUri ?? null,
-    createdAt: analysis?.createdAt ?? new Date().toISOString(),
-    validatorCode: analysis?.validation?.validatorCode ?? null,
-  };
-  return [...entries, next];
+  }, (item) => ({
+    packagingBlockCount: item?.packagingBlocks?.length ?? 0,
+    shotPackagingNoteCount: item?.shotPackagingNotes?.length ?? 0,
+  }));
 }
 
 module.exports = {
   appendPackagingStructureHistory,
 };
-
-

@@ -13,6 +13,11 @@
 - `thread-runtime.js`：ThreadPool turn 状态、active thread message 更新。
 - `materialize-runtime.js`：cache reuse 或结果写入后同步 artifact index。
 - `cache-runtime.js`：统一 cache prompt、dependency、analysisOptions。
+- `shot-boundary-cache.js`：依赖切镜结果的 role-service 共享 cache lookup、cache prompt 和 cache reuse 流程。
+- `appserver-turn-runner.js`：共享 ThreadPool lease、AppServer turn 启动、轮询收集和 turn 状态判断。
+- `agent-run.js`：共享 Codex AppServer agentRun 元数据构造和完成态更新。
+- `artifact-writer.js`：共享分析产物写入、artifact 挂载和历史追加外壳。
+- `analysis-history.js`：共享历史记录公共字段，role 只补充自己的计数字段和来源字段。
 - `dependency-contract.js`：上游 artifact 依赖校验。
 - `thread-message.js`：运行中的线程消息规范化。
 
