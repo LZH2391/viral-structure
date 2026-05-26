@@ -1,0 +1,243 @@
+{
+  "type": "function-slot-atomization-analysis",
+  "schemaVersion": "function-slot-atomization.v1",
+  "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+  "artifactId": "artifact_example_function_slot_atomization_f001",
+  "parentArtifactIds": [
+    "artifact_a4f2d787-a90d-413f-acb7-0a28c83c1771",
+    "artifact_18c3c888-44b2-4915-b35d-80e91b08ced3",
+    "artifact_c8a3c27b-1860-405e-ad3d-51bc5761cdfe"
+  ],
+  "sourceArtifacts": {
+    "scriptSegmentAnalysis": {
+      "artifactId": "artifact_a4f2d787-a90d-413f-acb7-0a28c83c1771",
+      "traceId": "trace_ec8cf86f-4075-411f-b804-665240e46cbd",
+      "stageName": "script_segment.cache_reuse",
+      "fileName": "script-segments.final.txt"
+    },
+    "rhythmStructureAnalysis": {
+      "artifactId": "artifact_18c3c888-44b2-4915-b35d-80e91b08ced3",
+      "traceId": "trace_865b6b48-6885-4c55-96f4-29b0799a6c88",
+      "stageName": "rhythm_structure.materialize",
+      "fileName": "rhythm-structure.final.txt"
+    },
+    "packagingStructureAnalysis": {
+      "artifactId": "artifact_c8a3c27b-1860-405e-ad3d-51bc5761cdfe",
+      "traceId": "trace_5781dd2b-a0be-41b9-9832-c81af1721d54",
+      "stageName": "packaging_structure.cache_reuse",
+      "fileName": "packaging-structure.final.txt"
+    }
+  },
+  "slotChain": [
+    {
+      "slotId": "F001",
+      "slotOrder": 1,
+      "slotName": "痛点激活槽",
+      "slotType": "problem_activation",
+      "viewerStateBefore": "观众尚未进入产品语境",
+      "viewerStateAfter": "观众看到具体痛点，并理解产品处理对象",
+      "persuasionTask": "把高痛点问题区推到第一视线，并把产品转成可执行动作",
+      "scriptAtomIds": [
+        "S001"
+      ],
+      "rhythmAtomIds": [
+        "R001"
+      ],
+      "packagingAtomIds": [
+        "P001"
+      ],
+      "bindingIds": [
+        "B001",
+        "B002"
+      ],
+      "sourceRefs": {
+        "scriptSegmentLabels": [
+          "问题区直冲开场"
+        ],
+        "rhythmSectionLabels": [
+          "贴脸连击起手"
+        ],
+        "packagingBlockLabels": [
+          "局部圈定加动作示范开场"
+        ],
+        "shotRefs": [
+          "shot_1",
+          "shot_2",
+          "shot_3",
+          "shot_4"
+        ]
+      },
+      "confidence": 0.9,
+      "needReview": false
+    }
+  ],
+  "atoms": {
+    "scriptAtoms": [
+      {
+        "atomId": "S001",
+        "atomType": "script",
+        "slotId": "F001",
+        "atomName": "问题区直冲开场",
+        "atomFunction": "指出高痛点问题区，并把产品转成可执行动作",
+        "claimType": "problem_to_action",
+        "mustKeep": [
+          "具体问题对象",
+          "直接解决动作"
+        ],
+        "replaceableVariables": [
+          "问题区域",
+          "产品动作",
+          "口播表达"
+        ],
+        "avoid": [
+          "品牌故事前置",
+          "复杂机制解释前置"
+        ],
+        "sourceRefs": {
+          "scriptSegmentLabels": [
+            "问题区直冲开场"
+          ],
+          "shotRefs": [
+            "shot_1",
+            "shot_2",
+            "shot_3",
+            "shot_4"
+          ]
+        },
+        "confidence": 0.9
+      }
+    ],
+    "rhythmAtoms": [
+      {
+        "atomId": "R001",
+        "atomType": "rhythm",
+        "slotId": "F001",
+        "atomName": "贴脸连击起手",
+        "atomFunction": "快速敲击注意力",
+        "pace": "fast_staccato",
+        "density": "cut_density",
+        "mustKeep": [
+          "短镜头",
+          "连续指向",
+          "动作迅速落地"
+        ],
+        "avoid": [
+          "长解释",
+          "复杂图卡"
+        ],
+        "sourceRefs": {
+          "rhythmSectionLabels": [
+            "贴脸连击起手"
+          ],
+          "shotRefs": [
+            "shot_1",
+            "shot_2",
+            "shot_3",
+            "shot_4"
+          ]
+        },
+        "confidence": 0.9
+      }
+    ],
+    "packagingAtoms": [
+      {
+        "atomId": "P001",
+        "atomType": "packaging",
+        "slotId": "F001",
+        "atomName": "局部圈定加动作示范",
+        "atomFunction": "把问题对象压到第一视线",
+        "elements": [
+          "局部聚焦",
+          "手指指示",
+          "短字幕",
+          "动作提示字"
+        ],
+        "proofType": "direct_visual_problem_proof",
+        "replaceableVariables": [
+          "圆形聚焦",
+          "箭头",
+          "框选",
+          "局部裁切"
+        ],
+        "sourceRefs": {
+          "packagingBlockLabels": [
+            "局部圈定加动作示范开场"
+          ],
+          "shotRefs": [
+            "shot_1",
+            "shot_2",
+            "shot_3",
+            "shot_4"
+          ]
+        },
+        "confidence": 0.9
+      }
+    ]
+  },
+  "bindings": [
+    {
+      "bindingId": "B001",
+      "bindingType": "sync",
+      "slotIds": [
+        "F001"
+      ],
+      "atomIds": [
+        "S001",
+        "R001",
+        "P001"
+      ],
+      "rule": "问题对象出现、手指指向、产品动作落下要尽量踩在同一注意力拍点",
+      "details": [
+        "问题对象出现时节奏加快",
+        "手指指向时字幕短提示",
+        "产品接触时动作字或音效强调"
+      ],
+      "riskIfBroken": "观众看见动作但没有建立具体痛点对象",
+      "confidence": 0.9
+    },
+    {
+      "bindingId": "B002",
+      "bindingType": "conflict",
+      "slotIds": [
+        "F001"
+      ],
+      "atomIds": [
+        "S001",
+        "R001",
+        "P001"
+      ],
+      "rule": "痛点激活槽不应承载复杂机制解释，也不应让字幕或图卡抢走问题部位的第一视线",
+      "details": [
+        "不能在此处放复杂机制解释",
+        "不能只讲问题不出现动作",
+        "不能让字幕抢走问题部位第一视线"
+      ],
+      "riskIfBroken": "开场从直观痛点变成解释负担，降低进入效率",
+      "confidence": 0.9
+    }
+  ],
+  "recombinationRules": [
+    {
+      "ruleId": "RULE001",
+      "ruleType": "must_keep",
+      "appliesTo": {
+        "slotTypes": [
+          "problem_activation"
+        ]
+      },
+      "rule": "痛点激活槽必须保留具体问题对象和直接解决动作，表面部位、动作载体和包装样式可以替换",
+      "sourceBindingIds": [
+        "B001",
+        "B002"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "traceMeta": {
+    "runId": "run_example_function_slot_atomization",
+    "traceId": "trace_example_function_slot_atomization",
+    "stageId": "stage_example_function_slot_atomization_analyze",
+    "stageName": "function_slot_atomization.analyze",
+    "createdAt": "2026-05-26T00:00:00.000Z"
+  }
+}
