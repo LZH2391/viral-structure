@@ -440,7 +440,7 @@ class AppServerSessionClient(AppServerTurnResultMixin):
             if thread_id and source_thread_id:
                 self._clone_thread_token_usage(source_thread_id, thread_id)
 
-    def _merge_cached_turn_token_usage(self, thread: dict[str, Any]) -> None:
+    def _merge_cached_turn_token_usage(self, thread: dict[str, Any], *, persist: bool = False) -> None:
         thread_id = str(thread.get("id") or "")
         turns = thread.get("turns")
         if not thread_id or not isinstance(turns, list):
@@ -472,7 +472,7 @@ class AppServerSessionClient(AppServerTurnResultMixin):
                 latest_usage = cached_usage
             if latest_usage is not None and cached.get("latest") != latest_usage:
                 changed = True
-            if changed or thread_id not in self._thread_token_usage:
+            if persist and (changed or thread_id not in self._thread_token_usage):
                 self._thread_token_usage[thread_id] = {
                     "turns": cached_by_turn,
                     "latest": deepcopy(latest_usage),

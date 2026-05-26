@@ -119,6 +119,63 @@ class AppServerClientTests(unittest.TestCase):
             self.assertEqual(forked["thread_fork"]["latest"]["last_token_usage"]["input_tokens"], 123)
             self.assertEqual(forked["thread_fork"]["turns"]["turn_1"]["last_token_usage"]["total_tokens"], 168)
 
+    def test_read_thread_merges_cached_token_usage_when_include_turns_is_true(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+            appserver_runtime = workspace_root / "_workspace" / "runtime" / "appserver"
+            appserver_runtime.mkdir(parents=True, exist_ok=True)
+            (appserver_runtime / "thread_token_usage.json").write_text(
+                json.dumps(
+                    {
+                        "thread_seed": {
+                            "turns": {
+                                "turn_1": {
+                                    "last_token_usage": {
+                                        "input_tokens": 222,
+                                        "output_tokens": 33,
+                                        "total_tokens": 255,
+                                    }
+                                }
+                            },
+                            "latest": {
+                                "last_token_usage": {
+                                    "input_tokens": 222,
+                                    "output_tokens": 33,
+                                    "total_tokens": 255,
+                                }
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def _request(self, method: str, params: dict) -> dict:
+                    if method == "thread/read":
+                        return {
+                            "thread": {
+                                "id": "thread_seed",
+                                "turns": [
+                                    {
+                                        "id": "turn_1",
+                                        "last_token_usage": None,
+                                    }
+                                ],
+                            }
+                        }
+                    return super()._request(method, params)
+
+            client = TestClient(workspace_root, transport_mode="ws")
+            client._initialized = True
+
+            thread = client.read_thread("thread_seed", include_turns=True)
+
+            self.assertEqual(thread["turns"][0]["last_token_usage"]["input_tokens"], 222)
+
 
 if __name__ == "__main__":
     unittest.main()
