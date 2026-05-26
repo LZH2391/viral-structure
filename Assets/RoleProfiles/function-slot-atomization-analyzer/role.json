@@ -1,0 +1,19 @@
+{
+  "role": "function-slot-atomization-analyzer",
+  "profileVersion": "2026-05-26.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-atomization-analyzer/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "analyze": {
+      "template": "prompts/analyze.v1.md",
+      "version": "analyze.v1"
+    },
+    "repair": {
+      "template": "prompts/repair.v1.md",
+      "version": "repair.v1"
+    }
+  }
+}

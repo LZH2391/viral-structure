@@ -139,7 +139,7 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cache
   const now = new Date().toISOString();
   const tags = buildTags(artifact);
   const artifactTree = buildArtifactTree(artifact, cacheParamBuilders);
-  const latestAnalysis = artifact.packagingStructureAnalysis ?? artifact.rhythmStructureAnalysis ?? artifact.scriptSegmentAnalysis ?? artifact.shotBoundaryAnalysis ?? null;
+  const latestAnalysis = artifact.functionSlotAtomizationAnalysis ?? artifact.packagingStructureAnalysis ?? artifact.rhythmStructureAnalysis ?? artifact.scriptSegmentAnalysis ?? artifact.shotBoundaryAnalysis ?? null;
   return {
     sampleVideoId: artifact.sampleVideoId,
     workspaceId: artifact.workspaceId,
@@ -151,7 +151,7 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cache
     traceId: traceId ?? artifact.trace?.traceId ?? null,
     sourceTraceId: latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? null,
     sourceTurnId: latestAnalysis?.sourceTurnId ?? latestAnalysis?.agent?.turnId ?? null,
-    sourceArtifactId: latestAnalysis?.sourceScriptSegmentArtifactId ?? latestAnalysis?.sourceRhythmStructureArtifactId ?? latestAnalysis?.sourcePackagingStructureArtifactId ?? latestAnalysis?.artifactId ?? null,
+    sourceArtifactId: latestAnalysis?.sourceFunctionSlotAtomizationArtifactId ?? latestAnalysis?.sourceScriptSegmentArtifactId ?? latestAnalysis?.sourceRhythmStructureArtifactId ?? latestAnalysis?.sourcePackagingStructureArtifactId ?? latestAnalysis?.artifactId ?? null,
     updatedAt: now,
     tags,
     cacheAvailable: true,
@@ -233,6 +233,9 @@ function buildArtifactTree(artifact, cacheParamBuilders = {}) {
   if (artifact.packagingStructureAnalysis) {
     pushAnalysisNode(nodes, artifact.packagingStructureAnalysisRef, artifact.packagingStructureAnalysis, "packaging_structure.materialize", artifact, cacheParamBuilders, `${artifact.packagingStructureAnalysis.packagingBlocks?.length ?? 0} 包装块 / ${artifact.packagingStructureAnalysis.validation?.status ?? "unknown"}`);
   }
+  if (artifact.functionSlotAtomizationAnalysis) {
+    pushAnalysisNode(nodes, artifact.functionSlotAtomizationAnalysisRef, artifact.functionSlotAtomizationAnalysis, "function_slot_atomization.materialize", artifact, cacheParamBuilders, `${artifact.functionSlotAtomizationAnalysis.slotMap?.slots?.length ?? 0} 槽位 / ${artifact.functionSlotAtomizationAnalysis.validation?.status ?? "unknown"}`);
+  }
   return nodes;
 }
 
@@ -303,6 +306,7 @@ function buildTags(artifact) {
     artifact.scriptSegmentAnalysis ? "结构理解" : null,
     artifact.rhythmStructureAnalysis ? "节奏结构" : null,
     artifact.packagingStructureAnalysis ? "包装结构" : null,
+    artifact.functionSlotAtomizationAnalysis ? "功能槽位原子化" : null,
   ].filter(Boolean);
 }
 
@@ -358,6 +362,7 @@ function artifactLabel(type) {
     "script-segment-analysis": "脚本段落",
     "rhythm-structure-analysis": "节奏结构",
     "packaging-structure-analysis": "包装结构",
+    "function-slot-atomization-analysis": "功能槽位原子化",
   };
   return labels[type] ?? type ?? "产物";
 }

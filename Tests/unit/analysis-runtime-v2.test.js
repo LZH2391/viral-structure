@@ -104,9 +104,12 @@ test("frontend and API accept unified analysis dependencies while preserving leg
   assert.doesNotMatch(server, /body\.dependencies\?\.scriptSegmentArtifactId \?\? body\.expectedScriptSegmentArtifactId/);
   assert.match(client, /startAnalysisRole/);
   assert.match(client, /\/analyses\/\$\{encodeURIComponent\(analysisId\)\}/);
-  assert.match(client, /const dependencies = \{ shotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null \}/);
-  assert.doesNotMatch(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
+  assert.match(client, /shotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(client, /scriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
+  assert.match(client, /rhythmStructureArtifactId: options\.expectedRhythmStructureArtifactId \?\? null/);
+  assert.match(client, /packagingStructureArtifactId: options\.expectedPackagingStructureArtifactId \?\? null/);
   assert.match(client, /expectedShotBoundaryArtifactId: options\.expectedShotBoundaryArtifactId \?\? null/);
+  assert.match(client, /expectedScriptSegmentArtifactId: options\.expectedScriptSegmentArtifactId \?\? null/);
   assert.match(types, /dependencies\?: \{/);
   assert.match(types, /analysisOptions\?: Record/);
   assert.match(types, /sourceArtifactId\?: string \| null/);
@@ -164,6 +167,9 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
   await registry.resolveAnalysisCacheDecision({ cacheKind: "packaging_structure", jobId: "job_1", decision: "reuse" });
   assert.deepEqual(calls[1], { type: "cache", payload: { jobId: "job_1", decision: "reuse" } });
   assert.equal(await registry.resolveAnalysisCacheDecision({ cacheKind: "shot_boundary", jobId: "job_2", decision: "reuse" }), null);
+  const atomization = registry.getByAnalysisId("function-slot-atomization");
+  assert.equal(atomization.artifact.key, "functionSlotAtomizationAnalysis");
+  assert.equal(atomization.supportsCacheReuse, false);
   assert.throws(
     () => registry.startAnalysis({ analysisId: "missing", sampleVideoId: "sample_1", body: {} }),
     (error) => error.statusCode === 404 && error.code === "module_not_found",

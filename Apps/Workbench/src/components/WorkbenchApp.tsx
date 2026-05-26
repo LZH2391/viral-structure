@@ -140,6 +140,15 @@ export function WorkbenchApp() {
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
 
+  const functionSlotAtomizationFlow = useAnalysisJobFlow({
+    kind: "functionSlotAtomization",
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
+  });
+
   const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
     videoRef,
     structureCards: state.structureCards,
@@ -178,9 +187,10 @@ export function WorkbenchApp() {
       await scriptSegmentFlow.attachDraftJob(draft?.activeScriptSegmentJob).catch(() => setSaveStatus("恢复脚本段落任务失败"));
       await rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
       await packagingStructureFlow.attachDraftJob(draft?.activePackagingStructureJob).catch(() => setSaveStatus("恢复包装结构任务失败"));
+      await functionSlotAtomizationFlow.attachDraftJob(draft?.activeFunctionSlotAtomizationJob).catch(() => setSaveStatus("恢复原子化任务失败"));
     };
     void restoreJobs();
-  }, [packagingStructureFlow, rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
+  }, [functionSlotAtomizationFlow, packagingStructureFlow, rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
 
   const handleUnderstand = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
@@ -269,6 +279,42 @@ export function WorkbenchApp() {
       throw error;
     }
   }, [packagingStructureFlow, stageLogger, state]);
+
+  const handleFunctionSlotAtomization = useCallback(async () => {
+    const scriptArtifactId = state.sampleArtifact?.scriptSegmentAnalysis?.artifactId ?? null;
+    const rhythmArtifactId = state.sampleArtifact?.rhythmStructureAnalysis?.artifactId ?? null;
+    const packagingArtifactId = state.sampleArtifact?.packagingStructureAnalysis?.artifactId ?? null;
+    if (!state.sampleVideo || !scriptArtifactId || !rhythmArtifactId || !packagingArtifactId) return null;
+    const stage = stageLogger.beginStage(STAGES.functionSlotAtomizationAnalyze, packagingArtifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      sourceScriptSegmentArtifactId: scriptArtifactId,
+      sourceRhythmStructureArtifactId: rhythmArtifactId,
+      sourcePackagingStructureArtifactId: packagingArtifactId,
+    });
+    try {
+      const result = await functionSlotAtomizationFlow.run("refresh");
+      if (!result?.artifact?.functionSlotAtomizationAnalysis) throw new Error("功能槽位原子化未返回有效产物");
+      functionSlotAtomizationFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "功能槽位原子化完成");
+      stageLogger.finishStage(stage, result.artifact.functionSlotAtomizationAnalysis.artifactId, {
+        slotCount: result.artifact.functionSlotAtomizationAnalysis.slotMap.slots.length,
+        scriptAtomCount: result.artifact.functionSlotAtomizationAnalysis.atomInventory.scriptAtoms.length,
+        rhythmAtomCount: result.artifact.functionSlotAtomizationAnalysis.atomInventory.rhythmAtoms.length,
+        packagingAtomCount: result.artifact.functionSlotAtomizationAnalysis.atomInventory.packagingAtoms.length,
+        validatorCode: result.artifact.functionSlotAtomizationAnalysis.validation?.validatorCode ?? null,
+      });
+      return result.artifact;
+    } catch (error) {
+      functionSlotAtomizationFlow.setJob(null);
+      stageLogger.failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "功能槽位原子化失败",
+        errorStage: STAGES.functionSlotAtomizationAnalyze,
+        backendTraceId: functionSlotAtomizationFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "function-slot-atomization-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [functionSlotAtomizationFlow, stageLogger, state]);
 
   const handleSelectAudioFeature = useCallback((marker: AudioFeatureMarker) => {
     dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
@@ -384,6 +430,9 @@ export function WorkbenchApp() {
           packagingStructureAnalysis={state.sampleArtifact?.packagingStructureAnalysis ?? null}
           packagingStructureAnalysisHistory={state.sampleArtifact?.packagingStructureAnalysisHistory ?? null}
           packagingStructureJob={packagingStructureFlow.job}
+          functionSlotAtomizationAnalysis={state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null}
+          functionSlotAtomizationAnalysisHistory={state.sampleArtifact?.functionSlotAtomizationAnalysisHistory ?? null}
+          functionSlotAtomizationJob={functionSlotAtomizationFlow.job}
           agentAnalysisFps={agentAnalysisFps}
           enableShotBoundaryReview={enableShotBoundaryReview}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
@@ -407,6 +456,9 @@ export function WorkbenchApp() {
           }}
           onRunPackagingStructure={() => {
             void handlePackagingStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "包装结构分析失败"));
+          }}
+          onRunFunctionSlotAtomization={() => {
+            void handleFunctionSlotAtomization().catch((error) => setSaveStatus(error instanceof Error ? error.message : "功能槽位原子化失败"));
           }}
           onSelectScriptSegment={handleSelectTimelineTime}
           onSelectRhythmCard={handleSelectTimelineTime}
@@ -478,6 +530,7 @@ export function WorkbenchApp() {
       {scriptSegmentFlow.cachePrompt ? <CacheDecisionDialog item={scriptSegmentFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("scriptSegment", scriptSegmentFlow, setSaveStatus, state)} onCancel={() => scriptSegmentFlow.setCachePrompt(null)} /> : null}
       {rhythmStructureFlow.cachePrompt ? <CacheDecisionDialog item={rhythmStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state)} onCancel={() => rhythmStructureFlow.setCachePrompt(null)} /> : null}
       {packagingStructureFlow.cachePrompt ? <CacheDecisionDialog item={packagingStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state)} onCancel={() => packagingStructureFlow.setCachePrompt(null)} /> : null}
+      {functionSlotAtomizationFlow.cachePrompt ? <CacheDecisionDialog item={functionSlotAtomizationFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("functionSlotAtomization", functionSlotAtomizationFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("functionSlotAtomization", functionSlotAtomizationFlow, setSaveStatus, state)} onCancel={() => functionSlotAtomizationFlow.setCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>
@@ -539,4 +592,5 @@ const STAGES = {
   scriptSegmentAnalyze: "script.segment.analyze",
   rhythmStructureAnalyze: "rhythm.structure.analyze",
   packagingStructureAnalyze: "packaging.structure.analyze",
+  functionSlotAtomizationAnalyze: "function.slot.atomization.analyze",
 } as const;

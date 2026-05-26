@@ -15,6 +15,10 @@
       "profile_path": "Assets/RoleProfiles/packaging-structure-analyzer/role.json",
       "min_idle": 3
     },
+    "function-slot-atomization-analyzer": {
+      "profile_path": "Assets/RoleProfiles/function-slot-atomization-analyzer/role.json",
+      "min_idle": 2
+    },
     "shot-boundary-transformer": {
       "profile_path": "Assets/RoleProfiles/shot-boundary-transformer/role.json",
       "min_idle": 3

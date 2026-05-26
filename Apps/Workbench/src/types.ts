@@ -10,6 +10,8 @@ import type {
   PackagingStructureArtifact,
   PackagingStructureHistoryEntry,
   RhythmStructureArtifact,
+  FunctionSlotAtomizationArtifact,
+  FunctionSlotAtomizationHistoryEntry,
   ScriptSegmentArtifact,
   ScriptSegmentHistoryEntry,
   ShotBoundaryAnalysisHistoryEntry,
@@ -21,6 +23,9 @@ export type StaticTraceTypeCompatibility = {
   dependencies?: {
     shotBoundaryArtifactId?: string | null;
     scriptSegmentArtifactId?: string | null;
+    rhythmStructureArtifactId?: string | null;
+    packagingStructureArtifactId?: string | null;
+    functionSlotAtomizationArtifactId?: string | null;
   } | null;
   analysisOptions?: Record<string, string | number | boolean | null | undefined> | null;
   commerceBrief?: {
@@ -29,7 +34,8 @@ export type StaticTraceTypeCompatibility = {
   shotBoundaryAnalysisHistory?: ShotBoundaryAnalysisHistoryEntry[] | null;
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   packagingStructureAnalysisHistory?: PackagingStructureHistoryEntry[] | null;
-  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | string;
+  functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | "function_slot_atomization" | string;
   segmentCount?: number | null;
   sectionCount?: number | null;
   cardCount?: number | null;
@@ -43,6 +49,7 @@ export type StaticTraceTypeCompatibility = {
   scriptSegmentAnalysis?: ScriptSegmentArtifact | null;
   rhythmStructureAnalysis?: RhythmStructureArtifact | null;
   packagingStructureAnalysis?: PackagingStructureArtifact | null;
+  functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
   activeThreadMessage?: {
     threadId?: string | null;
     turnId?: string | null;

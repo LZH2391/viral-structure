@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type {
   AgentRunJob,
   AudioFeatureAnalysisArtifact,
+  FunctionSlotAtomizationArtifact,
+  FunctionSlotAtomizationHistoryEntry,
   MediaDerivative,
   PackagingStructureArtifact,
   PackagingStructureHistoryEntry,
@@ -21,6 +23,7 @@ import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
 import { PackagingStructurePanel } from "./property-panel/PackagingStructurePanel";
 import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
+import { FunctionSlotAtomizationPanel } from "./property-panel/FunctionSlotAtomizationPanel";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -53,6 +56,9 @@ export type PropertyPanelProps = {
   packagingStructureAnalysis?: PackagingStructureArtifact | null;
   packagingStructureAnalysisHistory?: PackagingStructureHistoryEntry[] | null;
   packagingStructureJob?: AgentRunJob | null;
+  functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
+  functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
+  functionSlotAtomizationJob?: AgentRunJob | null;
   agentAnalysisFps: number;
   enableShotBoundaryReview: boolean;
   onAgentAnalysisFpsChange: (value: number) => void;
@@ -61,6 +67,7 @@ export type PropertyPanelProps = {
   onRunScriptSegment: () => void;
   onRunRhythmStructure: () => void;
   onRunPackagingStructure: () => void;
+  onRunFunctionSlotAtomization: () => void;
   onSelectShot: (time: number) => void;
   onSelectScriptSegment: (time: number) => void;
   onSelectRhythmCard: (time: number) => void;
@@ -69,7 +76,7 @@ export type PropertyPanelProps = {
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
-  const [activeTab, setActiveTab] = useState<"shot" | "script" | "rhythm" | "packaging" | "meta">("shot");
+  const [activeTab, setActiveTab] = useState<"shot" | "script" | "rhythm" | "packaging" | "atomization" | "meta">("shot");
   const tabsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -133,6 +140,15 @@ export function PropertyPanel(props: PropertyPanelProps) {
             包装结构
           </button>
           <button
+            className={`property-tab ${activeTab === "atomization" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "atomization"}
+            onClick={() => setActiveTab("atomization")}
+          >
+            原子化
+          </button>
+          <button
             className={`property-tab ${activeTab === "meta" ? "active" : ""}`}
             type="button"
             role="tab"
@@ -181,6 +197,14 @@ export function PropertyPanel(props: PropertyPanelProps) {
             job={props.packagingStructureJob}
             onRun={props.onRunPackagingStructure}
             onSelectPackagingBlock={props.onSelectPackagingBlock}
+          />
+        ) : activeTab === "atomization" ? (
+          <FunctionSlotAtomizationPanel
+            analysis={props.functionSlotAtomizationAnalysis}
+            analysisHistory={props.functionSlotAtomizationAnalysisHistory}
+            job={props.functionSlotAtomizationJob}
+            hasRequiredInputs={Boolean(props.scriptSegmentAnalysis && props.rhythmStructureAnalysis && props.packagingStructureAnalysis)}
+            onRun={props.onRunFunctionSlotAtomization}
           />
         ) : (
           <MetaInfoPanel

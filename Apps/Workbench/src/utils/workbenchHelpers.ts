@@ -21,6 +21,7 @@ export type AnalysisCacheHandler = (payload: { job: ProcessingJob; cachedItem: L
 export type ScriptSegmentCacheHandler = AnalysisCacheHandler;
 export type RhythmStructureCacheHandler = AnalysisCacheHandler;
 export type PackagingStructureCacheHandler = AnalysisCacheHandler;
+export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
 
@@ -83,9 +84,10 @@ export async function runAnalysisRole(
 ) {
   if (!state.sampleVideo) return null;
   const role = getAnalysisRole(kind);
+  const dependencyOptions = buildAnalysisDependencyOptions(kind, state);
   const started = await startAnalysisRole(role.analysisId, state.sampleVideo.id, {
     cacheDecision,
-    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+    ...dependencyOptions,
   });
   if ("cacheHit" in started && started.cacheHit) {
     await onCacheHit?.({
@@ -163,6 +165,16 @@ export async function runPackagingStructureAnalysis(
   cacheDecision: "ask" | "reuse" | "refresh" = "ask",
 ) {
   return runAnalysisRole("packagingStructure", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, cacheDecision);
+}
+
+export async function runFunctionSlotAtomizationAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
+  onCacheHit?: FunctionSlotAtomizationCacheHandler,
+) {
+  return runAnalysisRole("functionSlotAtomization", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, "refresh");
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {
@@ -261,6 +273,19 @@ export async function attachAnalysisJob(
     return null;
   }
   return null;
+}
+
+function buildAnalysisDependencyOptions(kind: AnalysisKind, state: WorkbenchState) {
+  if (kind === "functionSlotAtomization") {
+    return {
+      expectedScriptSegmentArtifactId: state.sampleArtifact?.scriptSegmentAnalysis?.artifactId ?? null,
+      expectedRhythmStructureArtifactId: state.sampleArtifact?.rhythmStructureAnalysis?.artifactId ?? null,
+      expectedPackagingStructureArtifactId: state.sampleArtifact?.packagingStructureAnalysis?.artifactId ?? null,
+    };
+  }
+  return {
+    expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
+  };
 }
 
 export async function getShotBoundaryGuard() {

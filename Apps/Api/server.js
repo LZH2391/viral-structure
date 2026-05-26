@@ -84,6 +84,7 @@ function createServer(deps = {}) {
       scriptSegmentService: deps.scriptSegmentService,
       rhythmStructureService: deps.rhythmStructureService,
       packagingStructureService: deps.packagingStructureService,
+      functionSlotAtomizationService: deps.functionSlotAtomizationService,
       shotBoundaryService: activeShotBoundaryService,
       sampleProcessingService: activeSampleService,
     },

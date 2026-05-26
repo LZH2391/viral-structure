@@ -19,6 +19,7 @@ export type AnalysisStartResponse =
 export type ScriptSegmentStartResponse = AnalysisStartResponse;
 export type RhythmStructureStartResponse = AnalysisStartResponse;
 export type PackagingStructureStartResponse = AnalysisStartResponse;
+export type FunctionSlotAtomizationStartResponse = AnalysisStartResponse;
 
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
@@ -128,8 +129,23 @@ export async function saveSubtitleRevision(
   );
 }
 
-export async function startAnalysisRole(analysisId: string, sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
-  const dependencies = { shotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null };
+export async function startAnalysisRole(
+  analysisId: string,
+  sampleVideoId: string,
+  options: {
+    cacheDecision?: "ask" | "reuse" | "refresh";
+    expectedShotBoundaryArtifactId?: string | null;
+    expectedScriptSegmentArtifactId?: string | null;
+    expectedRhythmStructureArtifactId?: string | null;
+    expectedPackagingStructureArtifactId?: string | null;
+  } = {},
+) {
+  const dependencies = {
+    shotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
+    scriptSegmentArtifactId: options.expectedScriptSegmentArtifactId ?? null,
+    rhythmStructureArtifactId: options.expectedRhythmStructureArtifactId ?? null,
+    packagingStructureArtifactId: options.expectedPackagingStructureArtifactId ?? null,
+  };
   return readJsonResponse<AnalysisStartResponse>(
     await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/analyses/${encodeURIComponent(analysisId)}`, {
       method: "POST",
@@ -138,6 +154,9 @@ export async function startAnalysisRole(analysisId: string, sampleVideoId: strin
         cacheDecision: options.cacheDecision ?? "ask",
         dependencies,
         expectedShotBoundaryArtifactId: options.expectedShotBoundaryArtifactId ?? null,
+        expectedScriptSegmentArtifactId: options.expectedScriptSegmentArtifactId ?? null,
+        expectedRhythmStructureArtifactId: options.expectedRhythmStructureArtifactId ?? null,
+        expectedPackagingStructureArtifactId: options.expectedPackagingStructureArtifactId ?? null,
       }),
     }),
   );
@@ -153,6 +172,20 @@ export async function startRhythmStructureAnalysis(sampleVideoId: string, option
 
 export async function startPackagingStructureAnalysis(sampleVideoId: string, options: { cacheDecision?: "ask" | "reuse" | "refresh"; expectedShotBoundaryArtifactId?: string | null } = {}) {
   return startAnalysisRole("packaging-structure", sampleVideoId, options);
+}
+
+export async function startFunctionSlotAtomizationAnalysis(
+  sampleVideoId: string,
+  options: {
+    expectedScriptSegmentArtifactId?: string | null;
+    expectedRhythmStructureArtifactId?: string | null;
+    expectedPackagingStructureArtifactId?: string | null;
+  } = {},
+) {
+  return startAnalysisRole("function-slot-atomization", sampleVideoId, {
+    cacheDecision: "refresh",
+    ...options,
+  });
 }
 
 export async function resolveCacheDecision(jobId: string, decision: "reuse" | "refresh") {

@@ -1,15 +1,15 @@
 import { STAGES } from "../state";
 import type { ModuleSummary, SampleArtifact } from "../types";
 
-export type AnalysisKind = "scriptSegment" | "rhythmStructure" | "packagingStructure";
+export type AnalysisKind = "scriptSegment" | "rhythmStructure" | "packagingStructure" | "functionSlotAtomization";
 
 export type AnalysisRoleMetadata = {
   kind: AnalysisKind;
   moduleId: string;
   analysisId: string;
   cacheKind: string;
-  artifactKey: "scriptSegmentAnalysis" | "rhythmStructureAnalysis" | "packagingStructureAnalysis";
-  historyKey: "scriptSegmentAnalysisHistory" | "rhythmStructureAnalysisHistory" | "packagingStructureAnalysisHistory";
+  artifactKey: "scriptSegmentAnalysis" | "rhythmStructureAnalysis" | "packagingStructureAnalysis" | "functionSlotAtomizationAnalysis";
+  historyKey: "scriptSegmentAnalysisHistory" | "rhythmStructureAnalysisHistory" | "packagingStructureAnalysisHistory" | "functionSlotAtomizationAnalysisHistory";
   stageId: string;
   initialStage: string;
   cacheLookupStage: string;
@@ -129,6 +129,39 @@ export const ANALYSIS_ROLES: Record<AnalysisKind, AnalysisRoleMetadata> = {
     getArtifact: (artifact) => artifact.packagingStructureAnalysis,
     getArtifactId: (artifact) => artifact.packagingStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
     getParentArtifactId: (artifact) => artifact.packagingStructureAnalysis?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
+  }),
+  functionSlotAtomization: createAnalysisRoleMetadata({
+    kind: "functionSlotAtomization",
+    fallback: {
+      moduleId: "function-slot-atomization",
+      analysisId: "function-slot-atomization",
+      cacheKind: "function_slot_atomization",
+      artifactKey: "functionSlotAtomizationAnalysis",
+      historyKey: "functionSlotAtomizationAnalysisHistory",
+      stageId: STAGES.functionSlotAtomizationAnalyze,
+      initialStage: "function_slot_atomization.input_prepare",
+      cacheLookupStage: "function_slot_atomization.cache_lookup",
+      displayName: "功能槽位原子化",
+      completeReason: "功能槽位原子化完成",
+      refreshReason: "功能槽位原子化重新生成",
+      reuseReason: "功能槽位原子化复用缓存",
+      invalidResultMessage: "功能槽位原子化未返回有效产物",
+      failureMessage: "功能槽位原子化失败",
+      timeoutMessage: "功能槽位原子化超时",
+      stageLabels: {
+        "function_slot_atomization.input_prepare": "准备原子化输入",
+        "function_slot_atomization.input_package": "生成原子化输入包",
+        "function_slot_atomization.cache_lookup": "检查原子化缓存",
+        "function_slot_atomization.analyze": "分析功能槽位原子",
+        "function_slot_atomization.validate": "校验原子化结果",
+        "function_slot_atomization.repair": "修复原子化结果",
+        "function_slot_atomization.cache_reuse": "复用原子化缓存",
+        "function_slot_atomization.materialize": "写入原子化产物",
+      },
+    },
+    getArtifact: (artifact) => artifact.functionSlotAtomizationAnalysis,
+    getArtifactId: (artifact) => artifact.functionSlotAtomizationAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
+    getParentArtifactId: (artifact) => artifact.functionSlotAtomizationAnalysis?.parentArtifactId ?? artifact.packagingStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
   }),
 };
 
