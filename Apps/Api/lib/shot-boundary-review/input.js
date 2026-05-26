@@ -53,6 +53,36 @@ function renderTransformTurnInputs({ prepared, rawFinalMessage, roleProfile }) {
   };
 }
 
+function renderRepairTurnInputs({ prepared, rawFinalMessage, validationError, priorTurnOutput, repairAttemptCount, roleProfile }) {
+  const manifest = buildTransformManifest({ prepared, rawFinalMessage });
+  const outputContract = buildTransformOutputContract();
+  const priorOutputText = String(priorTurnOutput ?? "").trim();
+  const validation = validationError?.debugPayload?.validation ?? {
+    validatorCode: validationError?.code ?? null,
+    message: validationError?.message ?? null,
+  };
+  const priorOutputSummary = {
+    hasPriorOutput: Boolean(priorOutputText),
+    outputLength: priorOutputText.length,
+    messagePreview: priorOutputText.replace(/\s+/g, " ").slice(0, 200),
+  };
+  const prompt = renderTurnTemplate(roleProfile, "repair", {
+    repairAttemptCount,
+    manifestJson: JSON.stringify(manifest),
+    validationJson: JSON.stringify(validation),
+    priorOutputSummaryJson: JSON.stringify(priorOutputSummary),
+    outputContractJson: JSON.stringify(outputContract),
+  });
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText([{ type: "text", text: prompt.text, text_elements: [] }]),
+    manifest,
+    outputContract,
+    validation,
+    priorOutputSummary,
+  };
+}
+
 function buildVisualSummaryOutputContract() {
   return {
     shots: "array, same order and count as input shots",
@@ -207,6 +237,7 @@ module.exports = {
   buildTransformOutputContract,
   buildTransformManifest,
   renderTransformTurnInputs,
+  renderRepairTurnInputs,
   buildVisualSummaryOutputContract,
   buildVisualSummaryManifest,
   buildShotSubtitleMap,

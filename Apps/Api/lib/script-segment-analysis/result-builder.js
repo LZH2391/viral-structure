@@ -11,7 +11,7 @@ const {
 } = require("./shared");
 
 function buildProcessedAnalysis(message, input, context, agentRun, turn, { repairAttemptCount = 0 } = {}) {
-  const parsed = extractJsonObject(message);
+  const parsed = parseAgentOutput(message, agentRun, turn, repairAttemptCount);
   const validation = validateSegments(parsed, input);
   if (!validation.ok) {
     throw codedError("script_segment_validation_failed", "脚本段落输出未通过校验", {
@@ -51,6 +51,40 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     debugSnapshotUri: null,
     createdAt: new Date().toISOString(),
   };
+}
+
+function parseAgentOutput(message, agentRun, turn, repairAttemptCount) {
+  try {
+    return extractJsonObject(message);
+  } catch (error) {
+    const validatorCode = error?.code ?? "agent_output_parse_failed";
+    throw codedError("script_segment_validation_failed", "脚本段落输出未通过校验", {
+      validation: {
+        validatorCode,
+        code: validatorCode,
+        message: error instanceof Error ? error.message : "脚本段落 Agent 未返回合法 JSON",
+        readableMessage: buildParseReadableMessage(error),
+        path: "$",
+        repairAttemptCount,
+        status: "failed",
+      },
+      outputSummary: summarizeAgentOutput(message, null),
+      turnId: turn?.turnId ?? agentRun?.turnId ?? null,
+      repairAttemptCount,
+    }, false);
+  }
+}
+
+function buildParseReadableMessage(error) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const positionMatch = message.match(/position\s+(\d+)/i);
+  const lineColumnMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+  const location = lineColumnMatch
+    ? `line ${lineColumnMatch[1]}, column ${lineColumnMatch[2]}`
+    : positionMatch
+      ? `position ${positionMatch[1]}`
+      : "$";
+  return `输出不是合法 JSON object，解析失败位置: ${location}`;
 }
 
 function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {

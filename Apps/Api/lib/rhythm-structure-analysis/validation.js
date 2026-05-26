@@ -45,6 +45,12 @@ function validateRhythmStructure(parsed, input) {
         validatorCode: "rhythm_structure_order_invalid",
         sectionCount: rawSections.length,
         failingIndex: index,
+        path: `sections[${index}].shotRefs[0]`,
+        field: "shotRefs",
+        shotRef: normalized.shotRefs[0] ?? null,
+        previousLastOrder,
+        currentFirstOrder: firstOrder,
+        readableMessage: `sections[${index}].shotRefs[0] 的镜头顺序早于上一段结尾: ${normalized.shotRefs[0] ?? "空"}`,
       });
     }
     previousLastOrder = shotMap.get(normalized.shotRefs.at(-1))?.order ?? previousLastOrder;
@@ -67,6 +73,10 @@ function normalizeOverview(overview) {
   if (!summary) {
     return invalidValidation("rhythm_structure_overview_required_field_missing", "overview 缺少必要字段", {
       validatorCode: "rhythm_structure_overview_required_field_missing",
+      path: "overview.summary",
+      field: "summary",
+      missingFields: ["summary"],
+      readableMessage: "overview.summary 缺少或为空",
     });
   }
   return {
@@ -84,35 +94,54 @@ function normalizeSection(section, index, shotMap) {
   const shotRefs = Array.isArray(section?.shotRefs) ? section.shotRefs.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
   const fields = normalizeFieldArray(section?.fields);
 
+  const missingFields = [];
+  if (!label) missingFields.push("label");
+  if (!fields.length) missingFields.push("fields");
   if (!label || !fields.length) {
     return invalidValidation("rhythm_structure_required_field_missing", "section 缺少必要字段", {
       validatorCode: "rhythm_structure_required_field_missing",
       failingIndex: index,
+      path: `sections[${index}]`,
+      missingFields,
+      readableMessage: `sections[${index}] 缺少必要字段: ${missingFields.join(", ")}`,
     });
   }
   if (!shotRefs.length) {
     return invalidValidation("rhythm_structure_missing_shot_refs", "section.shotRefs 不能为空", {
       validatorCode: "rhythm_structure_missing_shot_refs",
       failingIndex: index,
+      path: `sections[${index}].shotRefs`,
+      field: "shotRefs",
+      readableMessage: `sections[${index}].shotRefs 不能为空`,
     });
   }
 
   const uniqueRefs = Array.from(new Set(shotRefs));
   if (uniqueRefs.length !== shotRefs.length) {
+    const duplicateShotRefs = shotRefs.filter((shotRef, refIndex) => shotRefs.indexOf(shotRef) !== refIndex);
     return invalidValidation("rhythm_structure_duplicate_shot_refs", "section.shotRefs 不允许重复引用同一镜头", {
       validatorCode: "rhythm_structure_duplicate_shot_refs",
       failingIndex: index,
+      path: `sections[${index}].shotRefs`,
+      field: "shotRefs",
+      duplicateShotRefs: Array.from(new Set(duplicateShotRefs)),
+      readableMessage: `sections[${index}].shotRefs 重复引用: ${Array.from(new Set(duplicateShotRefs)).join(", ")}`,
     });
   }
 
   const shotOrders = [];
-  for (const shotRef of shotRefs) {
+  for (let refIndex = 0; refIndex < shotRefs.length; refIndex += 1) {
+    const shotRef = shotRefs[refIndex];
     const shot = shotMap.get(shotRef);
     if (!shot) {
       return invalidValidation("rhythm_structure_unknown_shot_ref", "section.shotRefs 引用了不存在的 shotId", {
         validatorCode: "rhythm_structure_unknown_shot_ref",
         failingIndex: index,
+        refIndex,
+        path: `sections[${index}].shotRefs[${refIndex}]`,
+        field: "shotRefs",
         shotRef,
+        readableMessage: `sections[${index}].shotRefs[${refIndex}] 引用了不存在的 shotId: ${shotRef}`,
       });
     }
     shotOrders.push(shot.order);
@@ -122,6 +151,12 @@ function normalizeSection(section, index, shotMap) {
       return invalidValidation("rhythm_structure_non_contiguous_shot_refs", "section.shotRefs 必须引用连续镜头", {
         validatorCode: "rhythm_structure_non_contiguous_shot_refs",
         failingIndex: index,
+        refIndex,
+        path: `sections[${index}].shotRefs[${refIndex}]`,
+        field: "shotRefs",
+        previousShotRef: shotRefs[refIndex - 1],
+        shotRef: shotRefs[refIndex],
+        readableMessage: `sections[${index}].shotRefs 在 ${shotRefs[refIndex - 1]} -> ${shotRefs[refIndex]} 之间不连续`,
       });
     }
   }
@@ -148,7 +183,11 @@ function invalidValidation(code, message, summary) {
     ok: false,
     code,
     message,
-    summary,
+    summary: {
+      message,
+      readableMessage: summary?.readableMessage ?? message,
+      ...summary,
+    },
   };
 }
 

@@ -104,6 +104,14 @@ class ReusableThreadClient:
         return f"fork_{self.fork_calls}"
 
 
+class ExistingButUnusableThreadClient(ReusableThreadClient):
+    def thread_exists(self, thread_id: str) -> bool:
+        return True
+
+    def validate_thread(self, thread_id: str) -> bool:
+        return False
+
+
 class ThreadPoolManagerTests(unittest.TestCase):
     def test_health_and_status_return_while_seed_collect_is_waiting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -651,6 +659,40 @@ class ThreadPoolManagerTests(unittest.TestCase):
             manager.close()
 
             self.assertIsNone(manager.store.read_thread("used_thread_1"))
+
+    def test_recovery_drops_idle_threads_that_exist_but_cannot_be_resumed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": false },
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=ExistingButUnusableThreadClient(),
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager.store.write_thread(build_idle_thread(manager, "stale_idle_thread_1"))
+
+            manager._recover_state()
+            manager.close()
+
+            self.assertIsNone(manager.store.read_thread("stale_idle_thread_1"))
 
 
 def configure_started_manager(manager: ThreadPoolManager) -> None:

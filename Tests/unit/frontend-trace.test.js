@@ -755,6 +755,7 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
+  const draft = read(root, "Apps/Workbench/src/utils/fullAnalysisDraft.ts");
   const hook = read(root, "Apps/Workbench/src/hooks/useResizableGridLayout.ts");
   const css = read(root, "Apps/Workbench/styles/full-analysis.css");
 
@@ -766,8 +767,16 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(app, /className="full-analysis-bottom-row"[\s\S]*layout\.startResize\("bottom-row", event\)/);
   assert.match(app, /checkFullAnalysisUploadCache/);
   assert.match(app, /setUploadCachePrompt/);
+  assert.match(app, /readFullAnalysisDraft/);
+  assert.match(app, /writeFullAnalysisDraft/);
+  assert.match(app, /getLatestFullAnalysisRun/);
+  assert.match(app, /restoredRunRef/);
   assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
+  assert.match(api, /\/api\/workflows\/full-analysis\/latest/);
   assert.match(api, /cache: "no-store"/);
+  assert.match(draft, /FULL_ANALYSIS_DRAFT_STORAGE_KEY = "full-analysis:last-run"/);
+  assert.match(draft, /localStorage\.setItem\(FULL_ANALYSIS_DRAFT_STORAGE_KEY, JSON\.stringify/);
+  assert.match(draft, /localStorage\.getItem\(FULL_ANALYSIS_DRAFT_STORAGE_KEY\)/);
   assert.match(css, /\.full-analysis-main \{[\s\S]*grid-template-rows: var\(--full-analysis-top-height/);
   assert.match(css, /\.full-analysis-shell \{[\s\S]*overflow: auto/);
   assert.match(css, /\.full-analysis-top-row \{[\s\S]*grid-template-columns: var\(--full-analysis-left-width/);

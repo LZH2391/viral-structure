@@ -10,7 +10,7 @@ const {
 } = require("./shared");
 
 function validateTransformResult(message, prepared, turn) {
-  const parsed = extractJsonObject(message);
+  const parsed = extractTransformJsonObject(message, turn);
   if (Object.prototype.hasOwnProperty.call(parsed ?? {}, "decision")) {
     throw transformValidationError("shot_boundary_transform_legacy_review_result", "转换器返回了旧版 reviewer contract", parsed, turn);
   }
@@ -43,7 +43,10 @@ function summarizeTransformResult(result) {
 }
 
 function validateVisualSummaryResult(message, shots, turn) {
-  const parsed = extractJsonObject(message);
+  const parsed = extractTransformJsonObject(message, turn, {
+    code: "shot_boundary_visual_summary_parse_failed",
+    message: "视觉摘要结果不是合法 JSON object",
+  });
   if (!Array.isArray(parsed?.shots)) {
     throw transformValidationError("shot_boundary_visual_summary_contract_invalid", "视觉摘要结果缺少 shots", parsed, turn);
   }
@@ -91,15 +94,67 @@ function summarizeVisualSummaryResult(result) {
 }
 
 function transformValidationError(code, message, parsed, turn, extra = {}) {
+  const validation = normalizeValidationSummary(code, message, extra);
   return codedError(code, message, {
     turnId: turn?.turnId ?? null,
     outputSchemaVersion: TRANSFORM_RESULT_SCHEMA_VERSION,
     outputSummary: summarizeAgentOutput(JSON.stringify(parsed ?? {}), null, null, parsed?.shots),
-    validation: {
-      validatorCode: code,
-      ...extra,
-    },
+    validation,
   }, false);
+}
+
+function extractTransformJsonObject(message, turn, options = {}) {
+  try {
+    return extractJsonObject(message);
+  } catch (error) {
+    const code = options.code ?? "shot_boundary_transform_parse_failed";
+    const summary = {
+      code: error?.code ?? "agent_output_parse_failed",
+      message: error instanceof Error ? error.message : String(error ?? "JSON parse failed"),
+      path: "$",
+      readableMessage: buildParseReadableMessage(error),
+    };
+    throw transformValidationError(code, options.message ?? "转换器结果不是合法 JSON object", null, turn, summary);
+  }
+}
+
+function normalizeValidationSummary(code, message, extra = {}) {
+  const path = extra.path ?? inferValidationPath(extra);
+  const readableMessage = extra.readableMessage ?? buildReadableMessage(message, path, extra);
+  return {
+    message,
+    readableMessage,
+    path,
+    validatorCode: code,
+    ...extra,
+  };
+}
+
+function inferValidationPath(extra = {}) {
+  const failingIndex = Number.isInteger(extra.failingIndex) ? extra.failingIndex : null;
+  const validatorCode = String(extra.validatorCode ?? "");
+  if (validatorCode.includes("commerce_brief")) return "commerceBrief";
+  if (failingIndex !== null) return `shots[${failingIndex}]`;
+  return "$";
+}
+
+function buildReadableMessage(message, path, extra = {}) {
+  const parts = [path ? `${path}: ${message}` : message];
+  if (extra.shotRef) parts.push(`shotRef=${extra.shotRef}`);
+  if (Number.isFinite(extra.timestamp)) parts.push(`timestamp=${extra.timestamp}`);
+  if (Number.isFinite(extra.start)) parts.push(`start=${extra.start}`);
+  if (Number.isFinite(extra.end)) parts.push(`end=${extra.end}`);
+  if (Number.isFinite(extra.durationSeconds)) parts.push(`durationSeconds=${extra.durationSeconds}`);
+  return parts.join("；");
+}
+
+function buildParseReadableMessage(error) {
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  const positionMatch = text.match(/position\s+(\d+)/i);
+  const lineColumnMatch = text.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+  if (lineColumnMatch) return `输出不是合法 JSON object，解析失败位置: line ${lineColumnMatch[1]}, column ${lineColumnMatch[2]}`;
+  if (positionMatch) return `输出不是合法 JSON object，解析失败位置: position ${positionMatch[1]}`;
+  return "输出不是合法 JSON object，解析失败位置: $";
 }
 
 module.exports = {

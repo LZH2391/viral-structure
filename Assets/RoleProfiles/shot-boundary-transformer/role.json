@@ -11,6 +11,10 @@
       "template": "prompts/transform.v1.md",
       "version": "transform.v1"
     },
+    "repair": {
+      "template": "prompts/repair.v1.md",
+      "version": "repair.v1"
+    },
     "visualSummary": {
       "template": "prompts/visual-summary.v1.md",
       "version": "visual-summary.v1"

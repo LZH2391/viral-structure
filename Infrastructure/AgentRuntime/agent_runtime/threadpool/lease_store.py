@@ -32,7 +32,7 @@ class ThreadPoolLeaseStoreMixin:
                     else:
                         self.store.delete_thread(thread.thread_id)
                     continue
-                if self._thread_exists_for_recovery(thread.thread_id):
+                if self._thread_is_usable_for_recovery(thread.thread_id):
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
                     self.store.delete_thread(thread.thread_id)
@@ -44,7 +44,7 @@ class ThreadPoolLeaseStoreMixin:
                 if config is not None and not self._matches_thread_fingerprint(thread, config):
                     self.store.delete_thread(thread.thread_id)
                     continue
-                if self._thread_exists_for_recovery(thread.thread_id):
+                if self._thread_is_usable_for_recovery(thread.thread_id):
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
                     self.store.delete_thread(thread.thread_id)
@@ -60,7 +60,7 @@ class ThreadPoolLeaseStoreMixin:
                 continue
             if self.discard_on_release or thread.retire_on_release:
                 self.store.delete_thread(thread.thread_id)
-            elif self._thread_exists_for_recovery(thread.thread_id):
+            elif self._thread_is_usable_for_recovery(thread.thread_id):
                 self.store.write_thread(
                     thread.model_copy(
                         update={
@@ -81,6 +81,12 @@ class ThreadPoolLeaseStoreMixin:
         if callable(exists):
             return bool(exists(thread_id))
         return bool(self.client.validate_thread(thread_id))
+
+    def _thread_is_usable_for_recovery(self, thread_id: str) -> bool:
+        validate = getattr(self.client, "validate_thread", None)
+        if callable(validate):
+            return bool(validate(thread_id))
+        return self._thread_exists_for_recovery(thread_id)
 
     def _thread_has_been_leased(self, thread: ThreadRecord) -> bool:
         if int(thread.lease_count or 0) > 0 or thread.lease_id:

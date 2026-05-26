@@ -230,6 +230,7 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
         return fakeRun;
       },
       get: (workflowRunId) => workflowRunId === "workflow_1" ? fakeRun : null,
+      getLatest: () => fakeRun,
       rerunStage: async (payload) => {
         calls.push({ type: "rerun", ...payload });
         return { ...fakeRun, currentStageKeys: [payload.stageKey] };
@@ -275,6 +276,10 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
     const read = await makeRequest(server, "GET", "/api/workflows/runs/workflow_1");
     assert.equal(read.statusCode, 200);
     assert.equal(read.body.traceId, "trace_workflow");
+
+    const latest = await makeRequest(server, "GET", "/api/workflows/full-analysis/latest");
+    assert.equal(latest.statusCode, 200);
+    assert.equal(latest.body.workflowRunId, "workflow_1");
 
     const rerun = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/stages/scriptSegment/rerun");
     assert.equal(rerun.statusCode, 202);

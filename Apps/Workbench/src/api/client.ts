@@ -68,6 +68,10 @@ export async function getWorkflowRun(workflowRunId: string) {
   return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`, { cache: "no-store" }));
 }
 
+export async function getLatestFullAnalysisRun() {
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/latest`, { cache: "no-store" }));
+}
+
 export async function rerunWorkflowStage(workflowRunId: string, stageKey: string) {
   return readJsonResponse<WorkflowRun>(
     await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}/stages/${encodeURIComponent(stageKey)}/rerun`, {

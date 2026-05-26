@@ -1570,6 +1570,49 @@ test("shot boundary raw empty final message fails before transform", async () =>
   assert.equal(harness.startedTurns.filter((item) => item.kind === "transform").length, 0);
 });
 
+test("shot boundary transform repairs invalid shot-centric output once", async () => {
+  const harness = await createShotHarness({
+    autoTransformFallback: false,
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) {
+          const turnIndex = harness.startedTurns.filter((item) => item.kind === "transform").length + 1;
+          return { ok: true, threadId: "review_thread_1", turnId: `turn_transform_${turnIndex}`, status: "submitted" };
+        }
+        return { ok: true, threadId: "thread_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        if (turnId === "turn_transform_1") {
+          return { ok: true, threadId, turnId, status: "completed", finalMessage: createInvalidTransformMessage() };
+        }
+        return { ok: true, threadId, turnId, status: "completed", finalMessage: createTransformMessage() };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3, cacheDecision: "refresh" });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const job = harness.jobStore.getJob(result.processingJobId);
+  const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_1"), "artifact.json"));
+  const transformTurns = harness.startedTurns.filter((item) => item.kind === "transform");
+  const repairTurn = transformTurns[1];
+  const repairPrompt = repairTurn.payload.inputs[0].text;
+
+  assert.equal(job.status, "processed");
+  assert.equal(transformTurns.length, 3);
+  assert.equal(artifact.shotBoundaryAnalysis.validation.repairAttemptCount, 1);
+  assert.equal(artifact.shotBoundaryAnalysis.agent.turnId, "turn_transform_2");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "repair");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateVersion, "repair.v1");
+  assert.match(repairPrompt, /校验失败摘要/);
+  assert.match(repairPrompt, /shot_boundary_shot_not_contiguous/);
+  assert.match(repairPrompt, /shots\[1\]/);
+  assert.equal(harness.logger.logs.some((entry) => entry.stageName === STAGES.reviewRepairStarted && entry.event === "stage.end"), true);
+  assert.equal(harness.logger.logs.some((entry) => entry.stageName === STAGES.reviewRepairValidated && entry.event === "stage.end"), true);
+});
+
 test("shot boundary transform legacy reviewer contract stays failed", async () => {
   const harness = await createShotHarness({
     autoTransformFallback: false,
@@ -1905,6 +1948,33 @@ function createTransformMessage() {
       {
         summary: "turn_transform 产品包装特写",
         start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
+    commerceBrief: {
+      sellingObject: "产品样例",
+      proofApproach: "画面展示",
+      promisedOutcome: "快速理解卖点",
+      persuasionTarget: "潜在购买用户",
+      conversionAction: "未观察到明显转化动作",
+      uncertainties: [],
+    },
+  });
+}
+
+function createInvalidTransformMessage() {
+  return JSON.stringify({
+    shots: [
+      {
+        summary: "人物半身面对镜头",
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", needReview: false },
+      },
+      {
+        summary: "产品包装特写",
+        start: 1.4,
         end: 2,
         endBoundary: null,
       },

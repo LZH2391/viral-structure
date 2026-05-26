@@ -44,7 +44,7 @@ async function writeCompletedAnalysis({
     commerceBrief: transform.result.commerceBrief,
   }), prepared, transform.resultSheets, context, { thread_id: transform.run.threadId, lease_id: transform.run.leaseId }, { turnId: transform.run.turnId }, {
     resultOrigin: "transformed_turn",
-    repairAttemptCount: 0,
+    repairAttemptCount: transform.run.repairAttemptCount ?? 0,
     enableReview: context.enableReview !== false,
     inputMode: "raw_video_path_text",
     agentRole: reviewer.role,
@@ -76,6 +76,7 @@ async function writeCompletedAnalysis({
       frameCount: prepared.frames.length,
       sheetCount: transform.resultSheets.length,
       resultOrigin: "transformed_turn",
+      repairAttemptCount: transform.run.repairAttemptCount ?? 0,
     },
     action: async () => {
       await attachAnalysis(context.sampleVideoId, shotAnalysis, {
@@ -202,13 +203,41 @@ async function runTransformTurn({
       incompleteCode: "shot_boundary_transform_turn_incomplete",
       incompleteMessage: "切镜结果转换 Agent 未完成",
     });
-    let result = await runStage(context, stages.reviewValidated, 94, {
-      artifactId: context.artifactId,
-      parentArtifactId: prepared.sourceArtifactId,
-      inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: collected.turnId },
-      action: () => reviewer.validateTransformResult(collected.finalMessage, prepared, collected),
-      outputSummary: (value) => reviewer.summarizeTransformResult(value),
-    });
+    let result;
+    let collectedForResult = collected;
+    let promptForResult = transformTurn;
+    let repairAttemptCount = 0;
+    try {
+      result = await runStage(context, stages.reviewValidated, 94, {
+        artifactId: context.artifactId,
+        parentArtifactId: prepared.sourceArtifactId,
+        inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: collected.turnId },
+        action: () => reviewer.validateTransformResult(collected.finalMessage, prepared, collected),
+        outputSummary: (value) => reviewer.summarizeTransformResult(value),
+      });
+    } catch (error) {
+      if (!canAttemptTransformRepair(error, reviewer)) throw error;
+      repairAttemptCount = 1;
+      const repaired = await runTransformRepairTurn({
+        context,
+        rawTurn: turn,
+        prepared,
+        validationError: error,
+        priorTurnOutput: collected.finalMessage,
+        repairAttemptCount,
+        roleProfile,
+        lease,
+        appServer,
+        rootDir,
+        reviewer,
+        runStage,
+        stages,
+        updateActiveThreadMessage,
+      });
+      result = repaired.result;
+      collectedForResult = repaired.collected;
+      promptForResult = repaired.repairTurn;
+    }
     const resultSheets = await runStage(context, stages.reviewSheetsPrepared, 95, {
       artifactId: context.artifactId,
       parentArtifactId: prepared.sourceArtifactId,
@@ -309,10 +338,11 @@ async function runTransformTurn({
         skillHash: context.reviewSkillHash ?? null,
         threadId: lease.thread_id,
         leaseId: lease.lease_id,
-        turnId: collected.turnId ?? started.turnId ?? null,
-        promptTemplateId: transformTurn.promptTemplateId,
-        promptTemplateVersion: transformTurn.promptTemplateVersion,
-        promptTemplateHash: transformTurn.promptTemplateHash,
+        turnId: collectedForResult.turnId ?? started.turnId ?? null,
+        promptTemplateId: promptForResult.promptTemplateId,
+        promptTemplateVersion: promptForResult.promptTemplateVersion,
+        promptTemplateHash: promptForResult.promptTemplateHash,
+        repairAttemptCount,
       },
     };
   } catch (error) {
@@ -326,6 +356,106 @@ async function runTransformTurn({
     }
     throw error;
   }
+}
+
+async function runTransformRepairTurn({
+  context,
+  rawTurn,
+  prepared,
+  validationError,
+  priorTurnOutput,
+  repairAttemptCount,
+  roleProfile,
+  lease,
+  appServer,
+  rootDir,
+  reviewer,
+  runStage,
+  stages,
+  updateActiveThreadMessage,
+}) {
+  const repairTurn = reviewer.renderRepairTurnInputs({
+    prepared,
+    rawFinalMessage: rawTurn.finalMessage,
+    validationError,
+    priorTurnOutput,
+    repairAttemptCount,
+    roleProfile,
+  });
+  const started = await runStage(context, stages.reviewRepairStarted, 94, {
+    artifactId: context.artifactId,
+    parentArtifactId: prepared.sourceArtifactId,
+    inputSummary: {
+      role: reviewer.role,
+      threadId: lease.thread_id,
+      leaseId: lease.lease_id,
+      rawTurnId: rawTurn.turnId,
+      repairAttemptCount,
+      validatorCode: validationError?.debugPayload?.validation?.validatorCode ?? validationError?.code ?? null,
+    },
+    action: () => appServer.startTurnWithInputs({
+      workspaceRoot: rootDir,
+      threadId: lease.thread_id,
+      inputs: repairTurn.inputs,
+      timeoutSeconds: 240,
+    }),
+    outputSummary: (result) => ({
+      role: reviewer.role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      promptTemplateId: repairTurn.promptTemplateId,
+      promptTemplateVersion: repairTurn.promptTemplateVersion,
+      promptTemplateHash: repairTurn.promptTemplateHash,
+      repairAttemptCount,
+    }),
+  });
+  const collected = await collectTurn({
+    context,
+    stageName: stages.reviewRepairCollected,
+    artifactId: context.artifactId,
+    parentArtifactId: prepared.sourceArtifactId,
+    threadId: lease.thread_id,
+    turnId: started.turnId,
+    appServer,
+    rootDir,
+    runStage,
+    inputSummary: (attempt) => ({ role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, attempt, repairAttemptCount }),
+    outputSummary: (result, attempt) => ({
+      role: reviewer.role,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      attempt,
+      repairAttemptCount,
+      finalMessagePreview: safePreview(result.finalMessage),
+    }),
+    updateActiveThreadMessage,
+    activeMessageOptions: {
+      role: reviewer.role,
+      fallbackMessage: "正在修复切镜转换结果",
+    },
+    maxAttempts: reviewer.reviewCollectMaxAttempts,
+    intervalMs: reviewer.reviewPollIntervalMs,
+    incompleteCode: "shot_boundary_transform_repair_turn_incomplete",
+    incompleteMessage: "切镜结果转换修复 Agent 未完成",
+  });
+  const result = await runStage(context, stages.reviewRepairValidated, 94, {
+    artifactId: context.artifactId,
+    parentArtifactId: prepared.sourceArtifactId,
+    inputSummary: { role: reviewer.role, threadId: lease.thread_id, turnId: collected.turnId, repairAttemptCount },
+    action: () => reviewer.validateTransformResult(collected.finalMessage, prepared, collected),
+    outputSummary: (value) => ({
+      ...reviewer.summarizeTransformResult(value),
+      repairAttemptCount,
+    }),
+  });
+  return { result, collected, repairTurn };
+}
+
+function canAttemptTransformRepair(error, reviewer) {
+  return typeof reviewer?.renderRepairTurnInputs === "function"
+    && /^shot_boundary_transform_/.test(String(error?.code ?? ""));
 }
 
 async function collectTurn({

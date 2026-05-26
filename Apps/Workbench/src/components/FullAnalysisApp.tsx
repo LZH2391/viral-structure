@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { checkFullAnalysisUploadCache, getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
 import type { LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { formatSecondsCompact, shortId } from "../utils/format";
 import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
+import { readFullAnalysisDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
 type ThreadMessageItem = { kind: "history" | "active" | "final"; text: string };
@@ -35,6 +36,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const restoredRunRef = useRef(false);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
     containerRef: layoutRef,
@@ -98,10 +100,12 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       const nextRun = await getWorkflowRun(workflowRunId);
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
+      let nextArtifact: SampleArtifact | null = null;
       if (nextRun.sampleVideoId) {
-        const nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
+        nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
         if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
       }
+      writeFullAnalysisDraft(nextRun, nextArtifact);
       if (TERMINAL_RUN_STATUS.has(nextRun.status) && pollTimerRef.current != null) {
         window.clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
@@ -116,6 +120,36 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   useEffect(() => () => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (restoredRunRef.current) return;
+    restoredRunRef.current = true;
+    const restoreRun = async () => {
+      const draft = readFullAnalysisDraft();
+      if (draft?.sampleArtifact) {
+        setArtifact(draft.sampleArtifact);
+        setStatusText("已恢复最近完整分析结果");
+      }
+      let restoredRun: WorkflowRun | null = null;
+      if (draft?.workflowRunId) {
+        restoredRun = await getWorkflowRun(draft.workflowRunId).catch(() => null);
+      }
+      if (!restoredRun) {
+        restoredRun = await getLatestFullAnalysisRun().catch(() => null);
+      }
+      if (!restoredRun) return;
+      setRun(restoredRun);
+      setStatusText(statusLabel(restoredRun));
+      let restoredArtifact: SampleArtifact | null = null;
+      if (restoredRun.sampleVideoId) {
+        restoredArtifact = await getSampleArtifact(restoredRun.sampleVideoId).catch(() => null);
+        if (restoredArtifact && "sampleVideo" in restoredArtifact) setArtifact(restoredArtifact);
+      }
+      writeFullAnalysisDraft(restoredRun, restoredArtifact ?? draft?.sampleArtifact ?? null);
+      if (!TERMINAL_RUN_STATUS.has(restoredRun.status)) startPolling(restoredRun.workflowRunId);
+    };
+    void restoreRun().catch((error) => setErrorText(error instanceof Error ? error.message : "恢复完整分析失败"));
+  }, [startPolling]);
 
   useEffect(() => {
     if (!childJobIds.length) return;
@@ -193,6 +227,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       });
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
+      writeFullAnalysisDraft(nextRun, null);
       startPolling(nextRun.workflowRunId);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "启动完整分析失败");
@@ -236,11 +271,12 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       const nextRun = await rerunWorkflowStage(run.workflowRunId, stageKey);
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
+      writeFullAnalysisDraft(nextRun, artifact);
       startPolling(nextRun.workflowRunId);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "重跑步骤失败");
     }
-  }, [run, startPolling]);
+  }, [artifact, run, startPolling]);
 
   const resolveWorkflowCache = useCallback(async (prompt: WorkflowCachePrompt, decision: "reuse" | "refresh") => {
     if (!prompt.job.jobId) return;
@@ -254,6 +290,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
         const nextRun = await getWorkflowRun(run.workflowRunId);
         setRun(nextRun);
         setStatusText(statusLabel(nextRun));
+        writeFullAnalysisDraft(nextRun, artifact);
         startPolling(nextRun.workflowRunId);
       }
     } catch (error) {
@@ -261,7 +298,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       setErrorText(message);
       setStatusText(message);
     }
-  }, [run, startPolling]);
+  }, [artifact, run, startPolling]);
 
   const videoUrl = runtimeUrl(artifact?.sampleVideo.normalized.uri);
   const countLabel = `workflow ${run ? shortId(run.workflowRunId) : "未创建"}`;

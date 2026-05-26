@@ -111,6 +111,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
       if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) return await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) return await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
@@ -211,8 +212,23 @@ async function handleFullAnalysisCacheCheck(req, res, handlers = {}) {
   return sendJson(res, 200, cachedItem ? { cacheHit: true, cachedItem } : { cacheHit: false });
 }
 
+async function handleLatestFullAnalysisRun(res, handlers = {}) {
+  const workflow = handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
+  const latest = workflow.getLatest?.() ?? null;
+  if (latest?.workflowRunId && typeof workflow.advance === "function") {
+    await workflow.advance(latest.workflowRunId).catch(() => undefined);
+  }
+  const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
+  if (!run) return notFound(res);
+  return sendJson(res, 200, run);
+}
+
 async function handleWorkflowRun(res, workflowRunId, handlers = {}) {
-  const run = (handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService).get(workflowRunId);
+  const workflow = handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
+  if (typeof workflow.advance === "function") {
+    await workflow.advance(workflowRunId).catch(() => undefined);
+  }
+  const run = workflow.get(workflowRunId);
   if (!run) return notFound(res);
   return sendJson(res, 200, run);
 }

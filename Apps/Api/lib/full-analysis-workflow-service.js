@@ -72,6 +72,14 @@ function createFullAnalysisWorkflowService({
     return run ? publicRun(run) : null;
   }
 
+  function getLatest() {
+    const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
+    const latest = runs
+      .filter((run) => run?.workflowKey === WORKFLOW_KEY)
+      .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
+    return latest ? publicRun(latest) : null;
+  }
+
   async function rerunStage({ workflowRunId, stageKey }) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
@@ -395,7 +403,7 @@ function createFullAnalysisWorkflowService({
     await logWorkflowEvent(traceContext, event, "workflow.run", null, null, null, outputSummary, null, event === "stage.fail" ? run.errorSummary ?? null : null);
   }
 
-  return { start, get, rerunStage, advance };
+  return { start, get, getLatest, rerunStage, advance };
 }
 
 function createStageState(definition) {
@@ -499,6 +507,11 @@ function normalizeError(error, stageKey) {
 
 function hasRunningChildren(run) {
   return Boolean(run?.stages?.some((stage) => stage.childJobId && ["pending", "running"].includes(stage.status)));
+}
+
+function workflowRunTime(run) {
+  const timestamp = Date.parse(run?.updatedAt ?? run?.createdAt ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function publicRun(run) {
