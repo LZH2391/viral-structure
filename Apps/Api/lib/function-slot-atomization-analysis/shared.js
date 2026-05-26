@@ -128,7 +128,7 @@ function sortObject(value) {
 }
 
 function buildOutputContract() {
-  return {
+  const schema = {
     atom_inventory: {
       script_atoms: [{
         id: "S001",
@@ -209,6 +209,51 @@ function buildOutputContract() {
     conflict_checks: [],
     recombination_rules: [],
     recomposition_templates: [],
+  };
+  return {
+    schema,
+    field_roles: {
+      AtomCore: [
+        "atom_inventory.script_atoms[].{slot,label,semantic_function,claim_type,proof_need,dependency_before,dependency_after,must_keep}",
+        "atom_inventory.rhythm_atoms[].{slot,label,attention_function,pace,density_type,beat_shape,best_for_script_functions,avoid_for,sync_points}",
+        "atom_inventory.packaging_atoms[].{slot,label,packaging_function,visual_hierarchy,proof_type,visual_proof_type}",
+        "slot_map.slots[].{slot_order,slot_name,slot_type,viewer_state_before,viewer_state_after,persuasion_task,required_sync_points,substitution_rules}",
+        "binding_graph.bindings[].{type,rule,risk_if_broken}",
+        "conflict_checks[].{reason,rule,fix,applies_to}",
+        "recombination_rules[].{reason,rule,fix,applies_to}",
+        "recomposition_templates[].{template_name,sequence}",
+      ],
+      "AtomCore.Graph": [
+        "slot_map.slots[].{script_atom_ids,rhythm_atom_ids,packaging_atom_ids}",
+        "binding_graph.bindings[].{slot_ids,atom_ids}",
+        "conflict_checks[].{slot_ids,atom_ids}",
+        "recombination_rules[].{slot_ids,atom_ids}",
+      ],
+      SourceTrace: ["*.source_refs"],
+      "Meta.StructuralMeta": [
+        "*.id",
+        "slot_map.slots[].slot_id",
+        "recomposition_templates[].template_id",
+        "conflict_checks[].source_binding_ids",
+        "recombination_rules[].source_binding_ids",
+      ],
+      Meta: ["*.confidence", "*.need_review"],
+      Mixed: [
+        "atom_inventory",
+        "slot_map",
+        "binding_graph",
+        "atom_inventory.script_atoms[].replaceable_variables",
+        "atom_inventory.packaging_atoms[].visual_elements",
+        "atom_inventory.packaging_atoms[].replaceable_forms",
+        "atom_inventory.packaging_atoms[].risk",
+      ],
+    },
+    role_rules: {
+      AtomCore: "generation guidance: write abstract reusable structure; reviewRole will later check concrete sample leakage",
+      SourceTrace: "may contain concrete sample evidence, shot refs, and source segment labels",
+      Meta: "only ids, confidence, review state, or structural bookkeeping",
+      Mixed: "container or unresolved mixed field; keep the original field boundary",
+    },
   };
 }
 

@@ -13,13 +13,19 @@
 - manifestPath: {{manifestPath}}
 - outputContractPath: {{outputContractPath}}
 
-请输出严格 JSON 对象，字段必须符合 outputContract：
+请输出严格 JSON 对象，字段必须符合 outputContract.schema；outputContract.field_roles 和 outputContract.role_rules 只用于约束字段职责，不要输出到最终 JSON：
 - atom_inventory：script_atoms / rhythm_atoms / packaging_atoms。
 - slot_map：slots[]，按视频推进顺序输出。
 - binding_graph：bindings[]，关系类型只能使用 support / require / sync / substitute / conflict / carryover 或清晰等价表达。
 - conflict_checks：冲突检查列表。
 - recombination_rules：重组规则列表。
 - recomposition_templates：可重组模板列表。
+
+字段归属生成约束：
+- AtomCore / AtomCore.Graph 字段必须抽象、可复用，不得写具体样例内容，如具体品类、产品、部位、动作、镜头、包装物或视觉资产名称。
+- SourceTrace 字段可以记录具体样例来源、shot_refs 和上游段落/section/block label。
+- Meta / Meta.StructuralMeta 字段只写 id、置信度、复核状态或结构记账信息。
+- Mixed 字段按 outputContract.schema 保留，但不要把本应抽象的 AtomCore 内容写成具体样例。
 
 安全要求：
 - 不要输出 JSON 外的 Markdown 或解释。

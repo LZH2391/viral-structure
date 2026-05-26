@@ -226,6 +226,21 @@ description: 从脚本段落、节奏结构、包装结构三份 final 分析结
 
 只返回一个 JSON 对象，不要 Markdown，不要解释 JSON 外的内容。
 
+### 字段归属约束
+
+任务输入会提供 `outputContract`。最终 JSON 只输出 `outputContract.schema` 中的业务字段，不要输出 `schema`、`field_roles` 或 `role_rules`。
+
+`field_roles` 是生成时的字段职责提示；抽象质量后续由 reviewRole 审查，不由结构 validator 或 repair 脚本判定。
+
+必须理解并遵守四类字段职责：
+
+- `AtomCore`：重组用的抽象结构核心。这里写功能槽位、原子功能、说服任务、证明需求、节奏作用、包装功能、绑定规则、重组规则和模板顺序。它回答“这个结构以后怎么复用、怎么匹配、怎么重组”。不要把它写成当前样例的具体品类、产品、部位、动作或包装物。
+- `AtomCore.Graph`：AtomCore 内部的结构连接关系。这里写 slot 和 atom、binding、rule 之间的 id 引用，例如 `script_atom_ids`、`slot_ids`、`atom_ids`。它只表达结构图怎么连，不表达样例证据。
+- `SourceTrace`：样例来源和证据追踪。这里可以写具体 `shot_refs`、上游脚本段落 label、节奏 section label、包装 block label，以及用于回看样例的来源线索。它回答“这个抽象从哪里来、可以回到哪里检查”。
+- `Meta`：系统记录和状态。这里写置信度、是否需要复核等运行状态，不写业务语义。
+- `Meta.StructuralMeta`：结构身份信息。这里写 `slot_id`、atom `id`、binding `id`、rule `id`、template `template_id` 和 `source_binding_ids` 等结构记账字段。它用于稳定引用，不承担重组语义。
+- `Mixed`：暂时保留的混合字段或容器。容器如 `atom_inventory`、`slot_map`、`binding_graph` 会同时包含多类字段，所以归 Mixed；部分字段如 `replaceable_variables`、`visual_elements`、`replaceable_forms`、`risk` 目前可能同时带抽象用途和样例表达，先按 schema 保留。Mixed 不是用来兜底污染 AtomCore 的位置。
+
 ```json
 {
   "atom_inventory": {
