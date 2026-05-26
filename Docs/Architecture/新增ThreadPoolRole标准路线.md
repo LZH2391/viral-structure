@@ -14,6 +14,8 @@
 
 本文档适用于当前仓库基于 `thread_roles.json + role profile + API service + ThreadPool runtime` 的接入方式。
 
+注意：新增 ThreadPool role 只是新增执行供给，不等于新增模块。凡是要被 API、workflow 或前端稳定调用的能力，还必须接入 `模块注册体系.md` 中的 module descriptor；需要进入完整分析时，还要接入 workflow descriptor。
+
 ---
 
 ## 1. 先确认是否真的需要新 role
@@ -44,8 +46,11 @@
 4. `Assets/RoleProfiles/<role>/turn templates`
 5. `Apps/Api/lib/<domain>-service.js`
 6. `Apps/Api/lib/<domain>-analysis/*`
-7. `Apps/Api/lib/threadpool-proxy.js` 与现有 acquire/release 路线
-8. 对应测试文件
+7. `Apps/Api/lib/<domain>/analysis-definition.js` 或 `module-definition.js`
+8. `Apps/Api/lib/module-catalog.js`
+9. 如进入完整分析，`Apps/Api/lib/workflows/full-analysis-descriptor.js`
+10. `Apps/Api/lib/threadpool-proxy.js` 与现有 acquire/release 路线
+11. 对应测试文件
 
 如果新增 role 需要新的主链路服务，优先仿照现有：
 
@@ -167,7 +172,47 @@
 - 新结果能追到旧结果
 - cache 只依赖真正影响结果的字段
 
-### 步骤 8：补日志与 DebugSnapshot
+### 步骤 8：接入 Module Descriptor
+
+如果该 role 背后是可独立运行、可追踪、可重跑、可产出核心结果的能力，必须新增 module descriptor：
+
+- `moduleId`
+- `moduleKind`
+- `executorKind`
+- `executorRef`
+- `dependencies`
+- `artifact`
+- `cacheKind`
+- `stages`
+- `ui`
+- `startOptionsFromBody`
+- `getArtifact` / `buildCacheParams`
+
+结构分析类 role 优先复用 `createShotBoundaryDependentRoleDefinition`，并在 `module-catalog.js` 注册。`Analysis Role Registry` 只做旧接口投影，不再作为权威注册入口。
+
+### 步骤 9：确认 Executor 边界
+
+ThreadPool role 的执行方式应走 `threadpool-role` executor；不要把 ThreadPool lease 逻辑当成模块本身。若新增的是 AppServer turn 生命周期、外部 HTTP API 或远程任务队列，优先新增 executor，而不是把生命周期散写进模块 service。
+
+要求：
+
+- executor 只负责执行生命周期和安全摘要。
+- module 负责 cache、artifact、业务校验和 result writer。
+- workflow 只通过 module registry 调模块。
+
+### 步骤 10：接入 Workflow Descriptor（如需要）
+
+如果该能力要进入完整分析或其他 workflow，只修改 workflow descriptor：
+
+- 增加 `node.moduleId`
+- 设置 `after`
+- 如可并行，加入 `parallelGroup`
+- 如可重跑，标记 `rerunnable`
+- 如失败应阻断 workflow，标记 `blocking`
+
+不要在 workflow runtime 里新增模块 ID 常量或专门分支。
+
+### 步骤 11：补日志与 DebugSnapshot
 
 新增 role 必须满足 `Debug追踪规范`：
 
@@ -185,11 +230,12 @@
 - `promptTemplateVersion`
 - `promptTemplateHash`
 
-### 步骤 9：补最小测试闭环
+### 步骤 12：补最小测试闭环
 
 至少覆盖：
 
 - role profile 可加载
+- module descriptor 可列出，并且 `/api/modules` 不暴露内部字段
 - analyze prompt 可渲染
 - 占位符齐全
 - threadPool acquire / release 流程
@@ -198,6 +244,7 @@
 - cache reuse（如有）
 - artifact lineage
 - stage log / debug snapshot 关键断言
+- 如进入 workflow，descriptor 能生成节点并保持 rerun / partial failure 行为
 
 ---
 
@@ -211,6 +258,8 @@
 - 输出能通过结构校验
 - 失败时能生成安全错误摘要和 DebugSnapshot
 - 结果能写入 artifact，并带 `parentArtifactId`
+- 已注册 module descriptor；如面向前端，`/api/modules` 能返回安全投影
+- 如进入完整分析，workflow descriptor 已接入
 - 有最小测试覆盖
 
 缺其中任一项，都不算完整接入。
@@ -251,6 +300,14 @@
 - ThreadPool 残留脏状态
 - 问题难定位
 
+### 6. 只加 role，不加 module descriptor
+
+后果：
+
+- 能力只能被某个 service 私下调用
+- 前端、workflow、cache decision 和 rerun 入口难以统一
+- 后续新增四五个模块时会重新长出平行注册表
+
 ---
 
 ## 6. 推荐 checklist
@@ -264,6 +321,9 @@
 - 模板占位符是否都有代码提供？
 - manifest / metadata / lineage 分层是否清楚？
 - service stage 是否完整？
+- module descriptor 是否已注册？
+- executor 边界是否清楚？
+- 需要进入 workflow 时，workflow descriptor 是否已更新？
 - lease 生命周期是否闭环？
 - artifact / history / cache 是否可追踪？
 - `stage.start / end / fail` 是否齐全？

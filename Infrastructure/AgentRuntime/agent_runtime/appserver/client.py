@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+from copy import deepcopy
 import subprocess
 import threading
 import time
@@ -21,6 +22,7 @@ from .shared_client import close_shared_client, get_shared_client, start_shared_
 from .transport_base import AppServerTransport, TransportEvent
 from .transport_stdio import StdioTransport, StdioTransportError
 from .transport_ws import WebSocketTransport, WebSocketTransportError
+from ..storage import file_lock, read_json, write_json
 from .turn_result import AppServerTurnResultMixin
 
 
@@ -98,7 +100,9 @@ class AppServerSessionClient(AppServerTurnResultMixin):
         self._next_listener_id = 1
         self._reviewer_thread_id: str | None = None
         self._invalid_thread_ids: set[str] = set()
-        self._thread_turn_token_usage: dict[str, dict[str, dict[str, Any]]] = {}
+        self._thread_token_usage_path = (self.workspace_root / "_workspace" / "runtime" / "appserver" / "thread_token_usage.json").resolve()
+        self._thread_token_usage_lock_path = self._thread_token_usage_path.with_suffix(".lock")
+        self._thread_token_usage: dict[str, dict[str, Any]] = self._load_thread_token_usage()
 
     def _build_transport(self) -> AppServerTransport:
         if self.transport_mode == "stdio":
@@ -195,8 +199,7 @@ class AppServerSessionClient(AppServerTurnResultMixin):
             },
         )
         thread = dict(response["thread"])
-        if include_turns:
-            self._merge_cached_turn_token_usage(thread)
+        self._merge_cached_turn_token_usage(thread, persist=include_turns)
         return thread
 
     def resume_thread(self, thread_id: str) -> dict[str, Any]:
@@ -217,10 +220,14 @@ class AppServerSessionClient(AppServerTurnResultMixin):
             },
         )
         thread = dict(response["thread"])
+        source_thread_id = str(thread_id)
+        forked_thread_id = str(thread.get("id") or "")
+        if source_thread_id and forked_thread_id:
+            self._clone_thread_token_usage(source_thread_id, forked_thread_id)
         self._notify_thread_lifecycle(
             ThreadLifecycleEvent(
                 event_type="thread/fork",
-                thread_id=str(thread.get("id") or ""),
+                thread_id=forked_thread_id,
                 source_thread_id=str(thread_id),
             )
         )
@@ -396,6 +403,147 @@ class AppServerSessionClient(AppServerTurnResultMixin):
                 self._thread_lifecycle_listeners.pop(listener_id, None)
 
         return unregister
+
+    def _handle_transport_event(self, event: TransportEvent) -> None:
+        method = str(event.method or "")
+        params = event.params or {}
+        if method == "item/completed":
+            turn_id = str(params.get("turnId") or "")
+            item = params.get("item") or {}
+            if turn_id and isinstance(item, dict) and item.get("type") == "agentMessage":
+                text = item.get("text")
+                if isinstance(text, str) and text.strip():
+                    self._turn_final_messages[turn_id] = text.strip()
+                    self._maybe_notify_turn_completed(turn_id)
+        elif method == "turn/completed":
+            turn = params.get("turn") or {}
+            turn_id = str(turn.get("id") or "")
+            if turn_id:
+                status = str(turn.get("status") or "unknown")
+                self._turn_statuses[turn_id] = status
+                self._turn_errors[turn_id] = turn.get("error")
+                if not is_non_terminal_turn_status(status):
+                    self._turn_completion_events.setdefault(turn_id, threading.Event()).set()
+                self._maybe_notify_turn_completed(turn_id)
+        elif method == "thread/tokenUsage/updated":
+            thread_id = str(params.get("threadId") or "")
+            turn_id = str(params.get("turnId") or "")
+            token_usage = self._normalize_thread_token_usage(params.get("tokenUsage"))
+            if thread_id and turn_id and token_usage is not None:
+                self._upsert_thread_token_usage(thread_id, turn_id, token_usage)
+                self._notify_thread_token_usage(
+                    ThreadTokenUsageEvent(thread_id=thread_id, turn_id=turn_id, token_usage=dict(token_usage))
+                )
+        elif method == "thread/fork":
+            thread_id = str(params.get("threadId") or "")
+            source_thread_id = str(params.get("sourceThreadId") or params.get("source_thread_id") or "")
+            if thread_id and source_thread_id:
+                self._clone_thread_token_usage(source_thread_id, thread_id)
+
+    def _merge_cached_turn_token_usage(self, thread: dict[str, Any]) -> None:
+        thread_id = str(thread.get("id") or "")
+        turns = thread.get("turns")
+        if not thread_id or not isinstance(turns, list):
+            return
+        with self._state_lock:
+            cached = deepcopy(self._thread_token_usage.get(thread_id, {}))
+            cached_by_turn = dict(cached.get("turns") or {})
+            latest_usage = self._normalize_thread_token_usage(
+                thread.get("last_token_usage") or thread.get("lastTokenUsage") or thread.get("tokenUsage")
+            ) or cached.get("latest")
+            changed = False
+            for turn in turns:
+                if not isinstance(turn, dict):
+                    continue
+                turn_id = str(turn.get("id") or "")
+                if not turn_id:
+                    continue
+                existing_usage = self._normalize_turn_last_token_usage(turn)
+                if existing_usage is not None:
+                    if cached_by_turn.get(turn_id) != existing_usage:
+                        cached_by_turn[turn_id] = existing_usage
+                        changed = True
+                    latest_usage = existing_usage
+                    continue
+                cached_usage = cached_by_turn.get(turn_id)
+                if cached_usage is None:
+                    continue
+                turn.update(dict(cached_usage))
+                latest_usage = cached_usage
+            if latest_usage is not None and cached.get("latest") != latest_usage:
+                changed = True
+            if changed or thread_id not in self._thread_token_usage:
+                self._thread_token_usage[thread_id] = {
+                    "turns": cached_by_turn,
+                    "latest": deepcopy(latest_usage),
+                }
+                self._persist_thread_token_usage()
+
+    def _upsert_thread_token_usage(self, thread_id: str, turn_id: str, token_usage: dict[str, Any]) -> None:
+        with self._state_lock:
+            cache = self._thread_token_usage.setdefault(thread_id, {"turns": {}, "latest": None})
+            turns = cache.setdefault("turns", {})
+            if turns.get(turn_id) != token_usage:
+                turns[turn_id] = deepcopy(token_usage)
+            if cache.get("latest") != token_usage:
+                cache["latest"] = deepcopy(token_usage)
+            self._persist_thread_token_usage()
+
+    def _clone_thread_token_usage(self, source_thread_id: str, thread_id: str) -> None:
+        with self._state_lock:
+            source = self._thread_token_usage.get(source_thread_id)
+            if not source:
+                return
+            self._thread_token_usage[thread_id] = {
+                "turns": deepcopy(source.get("turns") or {}),
+                "latest": deepcopy(source.get("latest")),
+            }
+            self._persist_thread_token_usage()
+
+    def _load_thread_token_usage(self) -> dict[str, dict[str, Any]]:
+        try:
+            payload = read_json(self._thread_token_usage_path)
+        except FileNotFoundError:
+            return {}
+        except Exception:
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+        cache: dict[str, dict[str, Any]] = {}
+        for thread_id, entry in payload.items():
+            if not isinstance(entry, dict):
+                continue
+            turns = entry.get("turns")
+            latest = entry.get("latest")
+            if not isinstance(turns, dict):
+                turns = {}
+            normalized_turns: dict[str, dict[str, Any]] = {}
+            for turn_id, usage in turns.items():
+                normalized_usage = self._normalize_persisted_thread_token_usage(usage)
+                if normalized_usage is not None:
+                    normalized_turns[str(turn_id)] = normalized_usage
+            normalized_latest = self._normalize_persisted_thread_token_usage(latest)
+            if normalized_latest is None and normalized_turns:
+                normalized_latest = deepcopy(next(reversed(list(normalized_turns.values()))))
+            if normalized_turns or normalized_latest is not None:
+                cache[str(thread_id)] = {
+                    "turns": normalized_turns,
+                    "latest": normalized_latest,
+                }
+        return cache
+
+    def _persist_thread_token_usage(self) -> None:
+        try:
+            with file_lock(self._thread_token_usage_lock_path):
+                write_json(self._thread_token_usage_path, self._thread_token_usage)
+        except Exception:
+            return
+
+    @staticmethod
+    def _normalize_persisted_thread_token_usage(payload: Any) -> dict[str, Any] | None:
+        if isinstance(payload, dict) and ("last_token_usage" in payload or "total_token_usage" in payload):
+            return deepcopy(payload)
+        return AppServerSessionClient._normalize_thread_token_usage(payload)
 
     def validate_thread(self, thread_id: str) -> bool:
         try:

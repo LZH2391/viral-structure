@@ -3,6 +3,7 @@ const path = require("path");
 
 const WORKSPACE_ROOT = path.resolve(__dirname, "..", "..", "..");
 const THREADPOOL_ROLE_CONFIG_PATH = path.join(WORKSPACE_ROOT, "Infrastructure", "ThreadPool", "thread_roles.json");
+const THREAD_TOKEN_USAGE_PATH = path.join(WORKSPACE_ROOT, "_workspace", "runtime", "appserver", "thread_token_usage.json");
 const DEFAULT_THREADPOOL_URL = "http://127.0.0.1:8877";
 const DEFAULT_ALLOWED_ROLES = loadAllowedRolesFromConfig();
 const DEFAULT_REQUEST_TIMEOUT_MS = 3000;
@@ -20,6 +21,7 @@ function createThreadPoolProxy({
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
   const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
   const threadInputTokenCache = new Map();
+  const threadTokenUsageCache = new Map();
 
   async function health() {
     return sanitizeHealth(await safeRequest("GET", "/health"), allowedRoleSet);
@@ -47,7 +49,7 @@ function createThreadPoolProxy({
     if (!isAllowedRole(role)) return disallowedRolePayload(role);
     const payload = await safeRequest("GET", `/roles/${encodeURIComponent(role)}/status`);
     if (!payload.ok) return payload;
-    return sanitizeRoleStatus(await hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache }));
+    return sanitizeRoleStatus(await hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache }));
   }
 
   async function acquireLease({ role, ownerId }) {
@@ -182,18 +184,67 @@ function parseAllowedRoles(value) {
   return String(value).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
-async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache }) {
+async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache }) {
   const threadEntries = Array.isArray(payload?.thread_entries) ? payload.thread_entries : [];
   if (!threadEntries.length || typeof readThreadImpl !== "function") return payload;
   const enrichedEntries = await Promise.all(threadEntries.map(async (thread) => {
-    const latest = nullableNumber(thread?.latest_input_tokens);
-    if (latest != null) return thread;
     const threadId = String(thread?.thread_id ?? "").trim();
     if (!threadId) return thread;
+    const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache });
+    if (usage?.latest && thread?.latest_input_tokens == null) {
+      const latest = nullableNumber(usage.latest?.last_token_usage?.input_tokens);
+      if (latest != null) {
+        thread = { ...thread, latest_input_tokens: latest };
+      }
+    }
+    if (thread?.latest_input_tokens != null) return thread;
     const nextTokens = await readThreadInputTokensCached({ threadId, readThreadImpl, threadInputTokenCache });
     return nextTokens == null ? thread : { ...thread, latest_input_tokens: nextTokens };
   }));
   return { ...payload, thread_entries: enrichedEntries };
+}
+
+async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache }) {
+  const now = Date.now();
+  const cached = threadTokenUsageCache.get(threadId);
+  if (cached && now - cached.time < THREAD_INPUT_TOKEN_CACHE_TTL_MS) return cached.value;
+  let value = null;
+  try {
+    const payload = await readJsonFileCached(THREAD_TOKEN_USAGE_PATH);
+    const entry = payload?.[threadId];
+    if (entry && typeof entry === "object") {
+      value = {
+        latest: normalizePersistedTokenUsage(entry.latest),
+        turns: normalizePersistedTurnUsageMap(entry.turns),
+      };
+    }
+  } catch {
+    value = null;
+  }
+  threadTokenUsageCache.set(threadId, { time: now, value });
+  return value;
+}
+
+async function readJsonFileCached(filePath) {
+  const raw = await fs.promises.readFile(filePath, "utf8");
+  return parseJson(raw);
+}
+
+function normalizePersistedTurnUsageMap(payload) {
+  if (!payload || typeof payload !== "object") return {};
+  const result = {};
+  for (const [turnId, usage] of Object.entries(payload)) {
+    const normalized = normalizePersistedTokenUsage(usage);
+    if (normalized) result[turnId] = normalized;
+  }
+  return result;
+}
+
+function normalizePersistedTokenUsage(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const last = payload.last_token_usage ?? payload.lastTokenUsage;
+  const normalized = normalizeTokenUsage(last);
+  return normalized ? { last_token_usage: normalized } : null;
 }
 
 async function readThreadInputTokensCached({ threadId, readThreadImpl, threadInputTokenCache }) {
@@ -332,6 +383,22 @@ function summarizeRoleStatus(status) {
     replenishing: status.replenishing,
     skillPath: status.skillPath,
   };
+}
+
+function normalizeTokenUsage(usage) {
+  if (!usage || typeof usage !== "object") return null;
+  const inputTokens = nullableNumber(usage.input_tokens ?? usage.inputTokens);
+  if (inputTokens == null) return null;
+  const result = { input_tokens: inputTokens };
+  const cachedInputTokens = nullableNumber(usage.cached_input_tokens ?? usage.cachedInputTokens);
+  if (cachedInputTokens != null) result.cached_input_tokens = cachedInputTokens;
+  const outputTokens = nullableNumber(usage.output_tokens ?? usage.outputTokens);
+  if (outputTokens != null) result.output_tokens = outputTokens;
+  const reasoningOutputTokens = nullableNumber(usage.reasoning_output_tokens ?? usage.reasoningOutputTokens);
+  if (reasoningOutputTokens != null) result.reasoning_output_tokens = reasoningOutputTokens;
+  const totalTokens = nullableNumber(usage.total_tokens ?? usage.totalTokens);
+  if (totalTokens != null) result.total_tokens = totalTokens;
+  return result;
 }
 
 function normalizeCounts(counts) {
