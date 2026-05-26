@@ -663,7 +663,9 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(startup, /\$env:PYTHON_RUNTIME_ROOT/);
   assert.match(startup, /Join-Path \$env:PYTHON_RUNTIME_ROOT "scripts\\thread_pool_service\.py"/);
   assert.match(startup, /function Test-ThreadPoolReady/);
-  assert.match(startup, /ready_for_leases/);
+  assert.match(startup, /\[bool\]\$payload\.ok/);
+  assert.match(startup, /thread_pool_service/);
+  assert.doesNotMatch(startup, /return \[bool\]\$payload\.ready_for_leases/);
   assert.match(startup, /Resolve-CommandPathOrNull @\("codex\.cmd", "codex\.exe"\)/);
   assert.match(startup, /function Test-DirectStartCommandPath/);
   assert.match(startup, /"\.exe", "\.cmd", "\.bat", "\.com"/);
