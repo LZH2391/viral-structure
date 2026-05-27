@@ -58,6 +58,7 @@ test("analysis final output store writes function slot atomization final text", 
     finalOutputText: "{\"slot_map\":{\"slots\":[]}}",
     traceId: "trace_atomization",
     stageName: "function_slot_atomization.materialize",
+    source: "mapped-from-artifact",
   });
 
   const outputPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "function-slot-atomization.final.txt");
@@ -65,7 +66,7 @@ test("analysis final output store writes function slot atomization final text", 
   assert.equal(await fs.readFile(outputPath, "utf8"), "{\"slot_map\":{\"slots\":[]}}\n");
   const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
   assert.equal(manifest.outputs["function-slot-atomization"].artifactId, "artifact_atomization");
-  assert.equal(manifest.outputs["function-slot-atomization"].source, "turn-final-message");
+  assert.equal(manifest.outputs["function-slot-atomization"].source, "mapped-from-artifact");
   assert.equal(manifest.outputs["function-slot-atomization"].sourceArtifactId, "artifact_script");
   assert.equal(manifest.outputs["function-slot-atomization"].agentThreadId, "thread_atomization");
   assert.equal(manifest.outputs["function-slot-atomization"].agentTurnId, "turn_atomization");

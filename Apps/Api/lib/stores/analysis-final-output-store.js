@@ -13,7 +13,7 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
   const projectRoot = rootDir ?? path.dirname(store.runtimeRoot);
   const outputRoot = path.join(projectRoot, "Artifacts", "AnalysisFinalOutputs");
 
-  async function writeFinalOutput({ sampleVideoId, analysis, finalOutputText, traceId, stageName }) {
+  async function writeFinalOutput({ sampleVideoId, analysis, finalOutputText, traceId, stageName, source = "turn-final-message" }) {
     const config = ANALYSIS_OUTPUTS[analysis?.type];
     if (!config || !sampleVideoId) return null;
     const sampleDir = path.join(outputRoot, sampleVideoId);
@@ -50,7 +50,7 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
     const manifest = await readManifest(manifestPath, sampleVideoId);
     const event = buildManifestEvent({
       action: "write",
-      source: "turn-final-message",
+      source,
       sampleVideoId,
       analysis,
       config,

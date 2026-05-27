@@ -1,0 +1,7 @@
+interface:
+  display_name: "Function Slot Boundary Reviewer"
+  short_description: "Review atomization field boundaries"
+  default_prompt: "Use $function-slot-atomization-boundary-reviewer to review the function-slot atomization final JSON and return decision, reason, and issues with field_paths."
+
+policy:
+  allow_implicit_invocation: true
