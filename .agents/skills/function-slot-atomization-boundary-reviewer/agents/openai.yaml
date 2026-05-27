@@ -1,7 +1,7 @@
 interface:
-  display_name: "Function Slot Boundary Reviewer"
-  short_description: "Review atomization field boundaries"
-  default_prompt: "Use $function-slot-atomization-boundary-reviewer to review the function-slot atomization final JSON and return decision, reason, and issues with field_paths."
+  display_name: "功能槽位边界审查"
+  short_description: "审查原子化字段边界"
+  default_prompt: "使用 $function-slot-atomization-boundary-reviewer 审查功能槽位原子化 final JSON，只返回 decision、reason 和带 field_paths 的 issues。"
 
 policy:
   allow_implicit_invocation: true
