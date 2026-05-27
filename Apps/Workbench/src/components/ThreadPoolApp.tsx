@@ -131,10 +131,12 @@ function ThreadPoolHeader({ status, health, updatedAt, onRefresh }: { status: st
 function HealthStrip({ health, updatedAt }: { health: ThreadPoolHealth | null; updatedAt: string }) {
   const ready = Boolean(health?.ready_for_leases);
   const recovering = Boolean(health?.recovering);
+  const startupError = health?.startup_error;
   return (
     <div className="run-strip">
       <span className={`run-pill ${ready ? "good" : recovering ? "warn" : ""}`}>{ready ? "ready" : recovering ? "recovering" : "offline"}</span>
       <span className="trace-label">{updatedAt}</span>
+      {startupError ? <span className="trace-label">{startupError}</span> : null}
     </div>
   );
 }
@@ -240,6 +242,9 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
             <Detail label="leased" value={String(detail.counts.leased)} />
             <Detail label="recovering" value={String(Boolean(detail.recovering))} />
             <Detail label="ready" value={String(Boolean(detail.readyForLeases))} />
+            <Detail label="startupAlive" value={String(Boolean(detail.startupThreadAlive))} />
+            <Detail label="startupMs" value={detail.startupElapsedMs == null ? "无" : String(detail.startupElapsedMs)} />
+            <Detail label="startupStalled" value={String(Boolean(detail.startupStalled))} />
             <Detail label="canInit" value={String(Boolean(detail.canInit))} />
             <Detail label="warming" value={detail.warming ? detail.warmupDetail ?? "warming" : "no"} />
             <Detail label="replenishing" value={detail.replenishing ? detail.warmupDetail ?? "yes" : "no"} />

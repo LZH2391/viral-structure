@@ -9,6 +9,51 @@ from threadpool_manager_helpers import *  # noqa: F403
 
 
 class ThreadPoolManagerWarmupTests(unittest.TestCase):
+    def test_health_marks_recovery_stalled_when_background_thread_dies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=ReusableThreadClient(),
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            manager._recovering = True
+            manager._ready_for_leases = False
+            manager._startup_error = None
+            manager._startup_started_at = time.monotonic() - 1
+            manager._startup_thread = threading.Thread(target=lambda: None)
+
+            health = manager.health_payload()
+            status = manager.get_role_status("shot-boundary-transformer")
+            manager.close()
+
+            self.assertFalse(health["recovering"])
+            self.assertFalse(health["ready_for_leases"])
+            self.assertTrue(health["startup_stalled"])
+            self.assertFalse(health["startup_thread_alive"])
+            self.assertIn("ThreadPoolStartupStalled", health["startup_error"])
+            self.assertFalse(status["recovering"])
+            self.assertFalse(status["can_acquire"])
+            self.assertIn("ThreadPoolStartupStalled", status["startup_error"])
+
     def test_health_and_status_return_while_seed_collect_is_waiting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

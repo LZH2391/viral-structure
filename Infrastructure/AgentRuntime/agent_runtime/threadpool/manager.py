@@ -21,6 +21,9 @@ def _now() -> str:
     return datetime.now().astimezone().isoformat()
 
 
+STARTUP_RECOVERY_STALE_SECONDS = 120.0
+
+
 class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, ThreadPoolRolePolicyMixin):
     def __init__(
         self,
@@ -61,6 +64,8 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         self._recovering = False
         self._ready_for_leases = False
         self._startup_error: str | None = None
+        self._startup_started_at: float | None = None
+        self._startup_finished_at: float | None = None
         self._startup_thread: threading.Thread | None = None
         self._role_status_cache: dict[str, tuple[float, dict]] = {}
 
@@ -77,6 +82,8 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             self._recovering = True
             self._ready_for_leases = False
             self._startup_error = None
+            self._startup_started_at = time.monotonic()
+            self._startup_finished_at = None
             self._warmup_errors = {}
             self._warmup_details = {}
             self._warming_roles = set()
@@ -111,6 +118,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             self._recovering = False
             self._ready_for_leases = True
             self._startup_error = None
+            self._startup_finished_at = time.monotonic()
             self._write_catalog()
             if self.async_warmup:
                 roles_to_warm = [role_name for role_name in self.roles if self._role_needs_warmup(role_name)]
@@ -125,10 +133,39 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 self._recovering = False
                 self._ready_for_leases = False
                 self._startup_error = f"{type(exc).__name__}: {exc}"
+                self._startup_finished_at = time.monotonic()
                 self._write_catalog()
+
+    def _startup_status_payload(self, *, update_catalog: bool = True) -> dict[str, object]:
+        thread = self._startup_thread
+        alive = bool(thread is not None and thread.is_alive())
+        elapsed_ms: int | None = None
+        if self._startup_started_at is not None:
+            finished_at = self._startup_finished_at if self._startup_finished_at is not None else time.monotonic()
+            elapsed_ms = max(0, int((finished_at - self._startup_started_at) * 1000))
+        stalled = bool(
+            self._recovering
+            and self._startup_error is None
+            and thread is not None
+            and (not alive or (elapsed_ms is not None and elapsed_ms >= int(STARTUP_RECOVERY_STALE_SECONDS * 1000)))
+        )
+        if stalled:
+            self._recovering = False
+            self._ready_for_leases = False
+            reason = "startup thread exited before completing recovery" if not alive else "startup recovery exceeded timeout"
+            self._startup_error = f"ThreadPoolStartupStalled: {reason}"
+            self._startup_finished_at = time.monotonic()
+            if update_catalog:
+                self._write_catalog()
+        return {
+            "startup_thread_alive": alive,
+            "startup_elapsed_ms": elapsed_ms,
+            "startup_stalled": stalled,
+        }
 
     def health_payload(self) -> dict:
         with self._lock:
+            startup_status = self._startup_status_payload()
             warming_roles: set[str] = set()
             replenishing_roles: set[str] = set()
             for role_name, config in self.roles.items():
@@ -157,6 +194,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
+                **startup_status,
                 "warming_roles": sorted(warming_roles),
                 "replenishing_roles": sorted(replenishing_roles),
                 "warmup_errors": dict(self._warmup_errors),
@@ -187,6 +225,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
 
     def get_role_status(self, role: str) -> dict:
         with self._lock:
+            self._startup_status_payload()
             config = self._require_role(role)
             self._refresh_initializing_seed_for_status(config)
             cached = self._role_status_cache.get(config.name)
@@ -484,6 +523,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
+                **self._startup_status_payload(update_catalog=False),
                 "roles": roles_payload,
                 "reported_at": _now(),
             }

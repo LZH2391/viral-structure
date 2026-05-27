@@ -2,6 +2,10 @@ export type ThreadPoolHealth = {
   ok: boolean;
   ready_for_leases?: boolean;
   recovering?: boolean;
+  startup_error?: string | null;
+  startup_thread_alive?: boolean;
+  startup_elapsed_ms?: number | null;
+  startup_stalled?: boolean;
   warming_roles?: string[];
   unavailable?: boolean;
   message?: string;
@@ -44,6 +48,9 @@ export type ThreadPoolRoleDetail = {
   warmupDetail?: string | null;
   warmupError?: string | null;
   startupError?: string | null;
+  startupThreadAlive?: boolean;
+  startupElapsedMs?: number | null;
+  startupStalled?: boolean;
   readyForLeases?: boolean;
   recovering?: boolean;
   threads?: Array<{

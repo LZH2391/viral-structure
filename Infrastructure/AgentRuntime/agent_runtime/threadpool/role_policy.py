@@ -61,6 +61,8 @@ class ThreadPoolRolePolicyMixin:
         return lease
 
     def _role_status_from_catalog(self, config: RoleConfig) -> dict:
+        startup_status_fn = getattr(self, "_startup_status_payload", None)
+        startup_status = startup_status_fn(update_catalog=False) if callable(startup_status_fn) else {}
         catalog = self.store.read_catalog()
         role_entries = catalog.get("roles", {}) if isinstance(catalog.get("roles"), dict) else {}
         role_entry = role_entries.get(config.name) if isinstance(role_entries, dict) else None
@@ -119,6 +121,9 @@ class ThreadPoolRolePolicyMixin:
             "recovering": self._recovering,
             "ready_for_leases": self._ready_for_leases,
             "startup_error": self._startup_error,
+            "startup_thread_alive": bool(startup_status.get("startup_thread_alive")),
+            "startup_elapsed_ms": startup_status.get("startup_elapsed_ms"),
+            "startup_stalled": bool(startup_status.get("startup_stalled")),
             "warming": warming,
             "replenishing": replenishing,
             "warmup_error": warmup_error,
