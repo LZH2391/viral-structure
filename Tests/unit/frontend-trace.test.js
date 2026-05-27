@@ -291,6 +291,8 @@ test("library page exposes local artifact index views", () => {
   assert.match(libraryApp, /处理库/);
   assert.match(libraryApp, /\/function-slot-graph/);
   assert.match(graphApp, /GraphCanvas/);
+  assert.match(graphApp, /\/full-analysis/);
+  assert.match(graphApp, /\/threadpool/);
   assert.match(libraryApp, /loadLibraryItem/);
   assert.match(libraryApp, /libraryArtifactTree/);
 });

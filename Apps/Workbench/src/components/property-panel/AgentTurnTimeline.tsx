@@ -69,9 +69,9 @@ export function AgentTurnTimelinePanel({
             <span>{statusText}</span>
           </div>
           <div className="agent-summary-actions">
-            <button className="ghost-button" type="button" disabled>
+            <span className="agent-status-badge">
               {renderJobStatus(job, running)}
-            </button>
+            </span>
             <button className="primary-button" type="button" disabled={running || runDisabled} onClick={onRun}>
               {runLabel ?? (running ? "运行中" : "运行")}
             </button>

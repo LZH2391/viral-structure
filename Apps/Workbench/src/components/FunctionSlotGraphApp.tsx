@@ -74,11 +74,17 @@ export function FunctionSlotGraphApp() {
           <button className="tab-button" type="button" onClick={() => window.location.assign("/")}>
             工作台
           </button>
+          <button className="tab-button" type="button" onClick={() => window.location.assign("/full-analysis")}>
+            完整分析
+          </button>
           <button className="tab-button" type="button" onClick={() => window.location.assign("/library")}>
             处理库
           </button>
           <button className="tab-button active" type="button">
             结构图谱
+          </button>
+          <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
+            ThreadPool
           </button>
           <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
             刷新
