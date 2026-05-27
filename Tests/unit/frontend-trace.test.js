@@ -39,6 +39,8 @@ test("full analysis sync keeps atomization job independent and labels trace laye
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const full = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const fullStageStep = read(root, "Apps/Workbench/src/components/full-analysis/FullAnalysisStageStep.tsx");
+  const fullState = read(root, "Apps/Workbench/src/components/full-analysis/fullAnalysisState.ts");
   const workflowTypes = read(root, "Apps/Workbench/src/types/workflow.ts");
   const draft = read(root, "Apps/Workbench/src/utils/fullAnalysisDraft.ts");
 
@@ -48,9 +50,9 @@ test("full analysis sync keeps atomization job independent and labels trace laye
   assert.match(app, /functionSlotAtomizationFlow\.setJob\(atomizationJob\)/);
   assert.match(app, /if \(atomizationJob\) writeActiveAnalysisJob\("functionSlotAtomization", toActiveJobDraft\(atomizationJob\)\)/);
   assert.match(full, /workflow trace/);
-  assert.match(full, /child trace/);
+  assert.match(fullStageStep, /child trace/);
   assert.match(full, /operationTokenRef/);
-  assert.match(full, /NON_EXECUTING_RUN_STATUS/);
+  assert.match(fullState, /NON_EXECUTING_RUN_STATUS/);
   assert.match(draft, /activeSampleRevision/);
   assert.match(draft, /activeSampleSource/);
 });
@@ -350,6 +352,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   const root = path.resolve(__dirname, "../..");
   const vite = read(root, "vite.config.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const workspaceView = read(root, "Apps/Workbench/src/components/workbench/WorkbenchWorkspaceView.tsx");
   const shotBoundaryFlow = read(root, "Apps/Workbench/src/hooks/useShotBoundaryFlow.ts");
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
@@ -370,7 +373,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(threadpoolEntry, /<ThreadPoolApp \/>/);
   assert.match(app, /setWorkbenchView\("threadpool", setActiveView\)/);
   assert.match(app, /<ThreadPoolApp embedded/);
-  assert.match(app, /workspace-grid \$\{activeView === "workspace" \? "" : "is-hidden-view"\}/);
+  assert.match(workspaceView, /workspace-grid \$\{active \? "" : "is-hidden-view"\}/);
   assert.doesNotMatch(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
   assert.match(api, /\/api\/threadpool\/roles/);
   assert.match(api, /\/api\/threadpool\/threads\/\$\{encodeURIComponent\(threadId\)\}\/conversation/);
@@ -520,6 +523,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const workspaceView = read(root, "Apps/Workbench/src/components/workbench/WorkbenchWorkspaceView.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
@@ -567,31 +571,31 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.doesNotMatch(rhythmPanel, /sourceTurn：/);
   assert.doesNotMatch(rhythmPanel, /repairAttemptCount：/);
   assert.match(rhythmPanel, /onSelectCard/);
-  assert.match(app, /currentShot=\{currentShot\}/);
-  assert.match(app, /currentShotId=\{currentShotId\}/);
-  assert.match(app, /scriptSegmentAnalysis=\{state\.sampleArtifact\?\.scriptSegmentAnalysis \?\? null\}/);
-  assert.match(app, /scriptSegmentAnalysisHistory=\{state\.sampleArtifact\?\.scriptSegmentAnalysisHistory \?\? null\}/);
-  assert.match(app, /scriptSegmentJob=\{scriptSegmentFlow\.job\}/);
-  assert.match(app, /rhythmStructureJob=\{rhythmStructureFlow\.job\}/);
-  assert.match(app, /packagingStructureAnalysis=\{state\.sampleArtifact\?\.packagingStructureAnalysis \?\? null\}/);
-  assert.match(app, /packagingStructureAnalysisHistory=\{state\.sampleArtifact\?\.packagingStructureAnalysisHistory \?\? null\}/);
-  assert.match(app, /packagingStructureJob=\{packagingStructureFlow\.job\}/);
+  assert.match(workspaceView, /currentShot=\{currentShot\}/);
+  assert.match(workspaceView, /currentShotId=\{currentShotId\}/);
+  assert.match(workspaceView, /scriptSegmentAnalysis=\{state\.sampleArtifact\?\.scriptSegmentAnalysis \?\? null\}/);
+  assert.match(workspaceView, /scriptSegmentAnalysisHistory=\{state\.sampleArtifact\?\.scriptSegmentAnalysisHistory \?\? null\}/);
+  assert.match(workspaceView, /scriptSegmentJob=\{scriptSegmentFlow\.job\}/);
+  assert.match(workspaceView, /rhythmStructureJob=\{rhythmStructureFlow\.job\}/);
+  assert.match(workspaceView, /packagingStructureAnalysis=\{state\.sampleArtifact\?\.packagingStructureAnalysis \?\? null\}/);
+  assert.match(workspaceView, /packagingStructureAnalysisHistory=\{state\.sampleArtifact\?\.packagingStructureAnalysisHistory \?\? null\}/);
+  assert.match(workspaceView, /packagingStructureJob=\{packagingStructureFlow\.job\}/);
   assert.match(app, /scriptSegmentFlow\.cachePrompt/);
   assert.match(app, /rhythmStructureFlow\.cachePrompt/);
   assert.match(app, /packagingStructureFlow\.cachePrompt/);
-  assert.match(app, /onRunScriptSegment=\{/);
-  assert.match(app, /onRunRhythmStructure=\{/);
-  assert.match(app, /onRunPackagingStructure=\{/);
-  assert.match(app, /onSelectScriptSegment=\{/);
-  assert.match(app, /onSelectRhythmCard=\{/);
-  assert.match(app, /onSelectPackagingBlock=\{/);
+  assert.match(workspaceView, /onRunScriptSegment=\{/);
+  assert.match(workspaceView, /onRunRhythmStructure=\{/);
+  assert.match(workspaceView, /onRunPackagingStructure=\{/);
+  assert.match(workspaceView, /onSelectScriptSegment=\{/);
+  assert.match(workspaceView, /onSelectRhythmCard=\{/);
+  assert.match(workspaceView, /onSelectPackagingBlock=\{/);
   assert.match(property, /aria-current=\{currentShotId === shot\.id \? "true" : undefined\}/);
   assert.match(property, /className=\{`agent-shot-item \$\{currentShotId === shot\.id \? "active" : ""\}`\}/);
   assert.match(property, /resolveShotSummary\(currentShot\)/);
   assert.match(property, /formatSecondsCompact\(currentShot\.start\)\} - \{formatSecondsCompact\(currentShot\.end\)/);
   assert.doesNotMatch(property, /resolveShotEndBoundaryReason/);
   assert.match(formatters, /shot\.summary \?\? shot\.reason/);
-  assert.match(app, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
+  assert.match(workspaceView, /shotBoundaryAnalysisHistory=\{state\.sampleArtifact\?\.shotBoundaryAnalysisHistory \?\? null\}/);
   assert.match(property, /historyEntries\.slice\(-5\)\.reverse\(\)\.map/);
   assert.match(property, /className=\{`agent-history-item \$\{analysis\?\.artifactId === entry\.artifactId \? "is-current" : ""\}`\}/);
   assert.match(css, /\.agent-shot-list[\s\S]*max-height: 220px;[\s\S]*overflow: auto;/);
@@ -816,6 +820,7 @@ test("workbench api client safely parses empty and invalid JSON responses", asyn
 test("workbench workspace layout supports persisted splitters", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const workspaceView = read(root, "Apps/Workbench/src/components/workbench/WorkbenchWorkspaceView.tsx");
   const hook = read(root, "Apps/Workbench/src/hooks/useResizableWorkspaceLayout.ts");
   const handle = read(root, "Apps/Workbench/src/components/WorkspaceResizeHandle.tsx");
   const splitHandle = read(root, "Apps/Workbench/src/components/SplitResizeHandle.tsx");
@@ -823,7 +828,7 @@ test("workbench workspace layout supports persisted splitters", () => {
   const responsiveCss = read(root, "Apps/Workbench/styles/responsive.css");
 
   assert.match(app, /useResizableWorkspaceLayout/);
-  assert.match(app, /WorkspaceResizeHandle/);
+  assert.match(workspaceView, /WorkspaceResizeHandle/);
   assert.match(app, /workspaceGridRef/);
   assert.match(hook, /workbench:layout/);
   assert.match(hook, /clampWorkspaceLayout/);
@@ -843,6 +848,7 @@ test("workbench workspace layout supports persisted splitters", () => {
 test("full analysis splitters control top row, row height, and bottom row independently", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const stageStep = read(root, "Apps/Workbench/src/components/full-analysis/FullAnalysisStageStep.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
   const draft = read(root, "Apps/Workbench/src/utils/fullAnalysisDraft.ts");
   const hook = read(root, "Apps/Workbench/src/hooks/useResizableGridLayout.ts");
@@ -865,8 +871,8 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.doesNotMatch(app, /getThreadConversation/);
   assert.doesNotMatch(app, /workflow-step-thread/);
   assert.doesNotMatch(app, /resolveThreadMessages/);
-  assert.match(app, /role=\{onOpenStage \? "button" : undefined\}/);
-  assert.match(app, /event\.stopPropagation\(\);[\s\S]*onRerun\(stage\.key\)/);
+  assert.match(stageStep, /role=\{onOpenStage \? "button" : undefined\}/);
+  assert.match(stageStep, /event\.stopPropagation\(\);[\s\S]*onRerun\(stage\.key\)/);
   assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
   assert.match(api, /\/api\/workflows\/full-analysis\/latest/);
   assert.match(api, /cache: "no-store"/);

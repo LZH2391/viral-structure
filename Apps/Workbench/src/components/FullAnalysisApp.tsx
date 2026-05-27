@@ -3,12 +3,14 @@ import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getProcessingJo
 import type { LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
-import { formatSecondsCompact, shortId } from "../utils/format";
+import { shortId } from "../utils/format";
 import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
-import { stageLabel } from "../utils/workbenchHelpers";
 import { readFullAnalysisDraft, writeFullAnalysisActiveSampleDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
+import { ResultPanel, TabButton, type ResultTab } from "./full-analysis/FullAnalysisResults";
+import { canRerun, StageStep, type FullAnalysisStageTarget } from "./full-analysis/FullAnalysisStageStep";
+import { buildWorkbenchSyncSignature, clampNumber, isRunExecuting, NON_EXECUTING_RUN_STATUS, statusLabel } from "./full-analysis/fullAnalysisState";
+export type { FullAnalysisStageTarget } from "./full-analysis/FullAnalysisStageStep";
 
-type ResultTab = "shot" | "script" | "rhythm" | "packaging" | "atomization";
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
 export type FullAnalysisWorkbenchActiveSample = {
@@ -17,11 +19,8 @@ export type FullAnalysisWorkbenchActiveSample = {
   activeSampleSource: "workbench" | "fullAnalysis" | "library";
 };
 export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null>; activeSampleChanged: boolean };
-export type FullAnalysisStageTarget = WorkflowStageState["key"];
 
 const POLL_INTERVAL_MS = 2000;
-const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
-const NON_EXECUTING_RUN_STATUS = new Set(["processed", "failed", "partial_failed", "cache_waiting"]);
 const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization", "aggregate"];
 const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization"];
 
@@ -442,7 +441,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
                 onRerun={handleRerun}
                 onOpenStage={onOpenWorkbenchStage}
                 onResolveCache={(cacheStage, job, decision) => resolveWorkflowCache({ stage: cacheStage, job, order: CACHE_PROMPT_ORDER.indexOf(cacheStage.key) }, decision)}
-                disabled={!canRerun(stage, run)}
+                disabled={!canRerun(stage, run, isRunExecuting)}
               />
             ))}
           </section>
@@ -499,248 +498,4 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
       ) : null}
     </div>
   );
-}
-
-function StageStep({
-  stage,
-  job,
-  onRerun,
-  onOpenStage,
-  onResolveCache,
-  disabled,
-}: {
-  stage: WorkflowStageState;
-  job: ProcessingJob | null;
-  onRerun: (stageKey: string) => void;
-  onOpenStage?: (stageKey: FullAnalysisStageTarget) => void;
-  onResolveCache: (stage: WorkflowStageState, job: ProcessingJob, decision: "reuse" | "refresh") => void;
-  disabled: boolean;
-}) {
-  const failed = stage.status === "failed";
-  const runtimeStatus = getStageRuntimeStatus(stage);
-  const runtimeLabel = resolveRuntimeLabel(stage, job);
-  const runtimeStageText = resolveRuntimeStageText(stage, job);
-  const runtimeProgress = resolveRuntimeProgress(stage, job);
-  const traceText = job?.traceId ?? stage.childTraceId ?? null;
-  const openStage = () => onOpenStage?.(stage.key);
-  return (
-    <div
-      className={`workflow-step workflow-step-${stage.status} ${onOpenStage ? "is-clickable" : ""}`}
-      role={onOpenStage ? "button" : undefined}
-      tabIndex={onOpenStage ? 0 : undefined}
-      onClick={openStage}
-      onKeyDown={(event) => {
-        if (!onOpenStage || (event.key !== "Enter" && event.key !== " ")) return;
-        event.preventDefault();
-        openStage();
-      }}
-    >
-      <div className="workflow-step-heading">
-        <strong>{stage.label}</strong>
-        <span>{runtimeLabel}</span>
-      </div>
-      <small>{stage.artifactId ? `artifact ${shortId(stage.artifactId)}` : stage.childJobId ? `job ${shortId(stage.childJobId)}` : `attempt ${stage.attemptNo}`}</small>
-      {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
-      {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
-      {traceText ? <span className="workflow-step-trace">child trace {shortId(traceText)}</span> : null}
-      {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
-      {job?.status === "cache_waiting" && job.cachePrompt?.cachedItem ? (
-        <div className="workflow-step-actions">
-          <button className="ghost-button" type="button" onClick={(event) => {
-            event.stopPropagation();
-            onResolveCache(stage, job, "refresh");
-          }}>
-            重新生成
-          </button>
-          <button className="primary-button" type="button" onClick={(event) => {
-            event.stopPropagation();
-            onResolveCache(stage, job, "reuse");
-          }}>
-            复用缓存
-          </button>
-        </div>
-      ) : null}
-      {stage.key !== "upload" && stage.key !== "aggregate" ? (
-        <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={(event) => {
-          event.stopPropagation();
-          onRerun(stage.key);
-        }}>
-          重跑
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button className={`tab-button ${active ? "active" : ""}`} type="button" onClick={onClick}>
-      {label}
-    </button>
-  );
-}
-
-function ResultPanel({ tab, artifact }: { tab: ResultTab; artifact: SampleArtifact | null }) {
-  if (!artifact) return <div className="detail-hint">还没有可展示的结果。</div>;
-  if (tab === "shot") {
-    const shots = artifact.shotBoundaryAnalysis?.shots ?? [];
-    return <ResultList empty="切镜完成后会展示镜头列表。" items={shots.map((shot) => ({
-      id: shot.id,
-      title: shot.shotNo ?? shot.id,
-      time: `${formatSecondsCompact(shot.start)} - ${formatSecondsCompact(shot.end)}`,
-      body: shot.summary ?? shot.reason ?? "无摘要",
-    }))} />;
-  }
-  if (tab === "script") {
-    const segments = artifact.scriptSegmentAnalysis?.segments ?? [];
-    return <ResultList empty="脚本分析完成后会展示段落结构。" items={segments.map((segment) => ({
-      id: segment.segmentId,
-      title: segment.label,
-      time: `${formatSecondsCompact(segment.start)} - ${formatSecondsCompact(segment.end)}`,
-      body: segment.roleInScript,
-    }))} />;
-  }
-  if (tab === "rhythm") {
-    const sections = artifact.rhythmStructureAnalysis?.sections ?? [];
-    return <ResultList empty="节奏分析完成后会展示节奏段落。" items={sections.map((section) => ({
-      id: section.sectionId,
-      title: section.label,
-      time: `${formatSecondsCompact(section.start)} - ${formatSecondsCompact(section.end)}`,
-      body: section.fields.map((field) => `${field.label}: ${field.value}`).join(" / ") || "无字段",
-    }))} />;
-  }
-  if (tab === "atomization") {
-    const slots = artifact.functionSlotAtomizationAnalysis?.slotMap?.slots ?? [];
-    return <ResultList empty="原子化完成后会展示功能槽位。" items={slots.map((slot) => ({
-      id: slot.slotId,
-      title: slot.slotName ?? slot.slotId,
-      time: slot.slotType ?? "slot",
-      body: slot.persuasionTask ?? slot.viewerStateAfter ?? "无摘要",
-    }))} />;
-  }
-  const blocks = artifact.packagingStructureAnalysis?.packagingBlocks ?? [];
-  return <ResultList empty="包装分析完成后会展示包装块。" items={blocks.map((block) => ({
-    id: block.blockId,
-    title: block.label,
-    time: `${formatSecondsCompact(block.start)} - ${formatSecondsCompact(block.end)}`,
-    body: block.packagingFunction,
-  }))} />;
-}
-
-function ResultList({ items, empty }: { items: Array<{ id: string; title: string; time: string; body: string }>; empty: string }) {
-  if (!items.length) return <div className="detail-hint">{empty}</div>;
-  return (
-    <div className="full-analysis-result-list">
-      {items.map((item) => (
-        <article key={item.id} className="full-analysis-result-item">
-          <strong>{item.title}</strong>
-          <span>{item.time}</span>
-          <p>{item.body}</p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function statusLabel(run: WorkflowRun) {
-  if (run.status === "cache_waiting") return "等待缓存选择";
-  if (run.status === "processed") return "完整分析完成";
-  if (run.status === "partial_failed") return "部分步骤失败，已保留可用结果";
-  if (run.status === "failed") return run.errorSummary?.message ?? "完整分析失败";
-  const active = run.currentStageKeys.map((key) => run.stages.find((stage) => stage.key === key)?.label ?? key).join(" / ");
-  return active ? `运行中：${active}` : "运行中";
-}
-
-function stageStatusLabel(stage: WorkflowStageState) {
-  if (stage.status === "processed") return "完成";
-  if (stage.status === "failed") return "失败";
-  if (stage.status === "cache_waiting") return "等待缓存决策";
-  if (stage.status === "running") return "运行中";
-  return "等待";
-}
-
-function getStageRuntimeStatus(stage: WorkflowStageState) {
-  if (stage.status === "running") return "running";
-  if (stage.status === "cache_waiting") return "cache_waiting";
-  if (stage.status === "processed") return "processed";
-  if (stage.status === "failed") return "failed";
-  return "pending";
-}
-
-function resolveRuntimeLabel(stage: WorkflowStageState, job: ProcessingJob | null) {
-  if (job) {
-    if (job.status === "failed") return "失败";
-    if (job.status === "processed") return "完成";
-    if (job.status === "cache_waiting") return "等待缓存决策";
-    if (job.status === "processing") return "运行中";
-    if (job.status === "pending") return "排队中";
-  }
-  return stageStatusLabel(stage);
-}
-
-function resolveRuntimeStageText(stage: WorkflowStageState, job: ProcessingJob | null) {
-  if (job?.stage) return stageLabel(job);
-  if (stage.status === "processed" && stage.outputSummary) return "阶段完成";
-  if (stage.status === "cache_waiting") return "等待缓存选择";
-  return stage.stageName ?? null;
-}
-
-function resolveRuntimeProgress(stage: WorkflowStageState, job: ProcessingJob | null) {
-  if (job && Number.isFinite(job.progress)) return job.progress;
-  if (stage.status === "processed") return 100;
-  return null;
-}
-
-function isRunExecuting(run: WorkflowRun | null) {
-  return Boolean(run && !NON_EXECUTING_RUN_STATUS.has(run.status));
-}
-
-function canRerun(stage: WorkflowStageState, run: WorkflowRun | null) {
-  return Boolean(run?.sampleVideoId && !isRunExecuting(run) && ["processed", "failed"].includes(stage.status));
-}
-
-function clampNumber(value: number, min: number, max: number) {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}
-
-function buildWorkbenchSyncSignature(run: WorkflowRun, artifact: SampleArtifact | null, childJobs: Record<string, ProcessingJob | null>) {
-  return JSON.stringify({
-    runId: run.workflowRunId,
-    runStatus: run.status,
-    runUpdatedAt: run.updatedAt,
-    artifact: artifact ? sampleArtifactSignature(artifact) : null,
-    jobs: Object.fromEntries(Object.entries(childJobs).map(([jobId, job]) => [jobId, job ? jobSignature(job) : null])),
-  });
-}
-
-function sampleArtifactSignature(artifact: SampleArtifact) {
-  return [
-    artifact.sampleVideoId,
-    artifact.sampleVideo.artifactId,
-    artifact.status,
-    artifact.shotBoundaryAnalysis?.artifactId,
-    artifact.scriptSegmentAnalysis?.artifactId,
-    artifact.rhythmStructureAnalysis?.artifactId,
-    artifact.packagingStructureAnalysis?.artifactId,
-    artifact.functionSlotAtomizationAnalysis?.artifactId,
-  ].filter(Boolean).join("|");
-}
-
-function jobSignature(job: ProcessingJob) {
-  return [
-    job.jobId,
-    job.sampleVideoId,
-    job.status,
-    job.stage,
-    job.progress,
-    job.traceId,
-    job.agentRun?.threadId,
-    job.agentRun?.turnId,
-    job.activeThreadMessage?.text,
-    job.agentActivity?.itemCount,
-    job.agentActivity?.effectiveItemCount,
-    job.agentActivity?.latestItemType,
-    job.agentActivity?.latestMessagePreview,
-  ].map((value) => value ?? "").join("|");
 }

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { createInitialState, type WorkbenchAction, workbenchReducer } from "../state";
-import type { AudioFeatureMarker, ProcessingJob, SampleArtifact, WorkbenchState } from "../types";
+import { createInitialState, workbenchReducer } from "../state";
+import type { AudioFeatureMarker, SampleArtifact, WorkbenchState } from "../types";
 import { shortId } from "../utils/format";
-import { clampVisibleSeconds } from "../utils/timeline";
-import { getModules, getSampleArtifact, resolveCacheDecision, saveFunctionSlotAtomizationManualBoundaryEdit } from "../api/client";
-import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
-import { getAnalysisRole, setAnalysisRoleModules, type AnalysisKind } from "../utils/analysisRoles";
+import { getModules, saveFunctionSlotAtomizationManualBoundaryEdit } from "../api/client";
+import { resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
+import { setAnalysisRoleModules } from "../utils/analysisRoles";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveAnalysisJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
@@ -19,14 +18,12 @@ import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
-import { PreviewPanel } from "./PreviewPanel";
 import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
-import { ResourcePanel } from "./ResourcePanel";
 import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
-import { TimelinePanel } from "./TimelinePanel";
-import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
 import type { FullAnalysisStageTarget, FullAnalysisWorkbenchActiveSample, FullAnalysisWorkbenchSync } from "./FullAnalysisApp";
+import { fullAnalysisStageToPropertyTab, refreshAnalysisCache, resolveFailedProcessingJob, reuseAnalysisCache, sampleArtifactSyncSignature, STAGES, toActiveJobDraft } from "./workbench/workbenchAnalysisHelpers";
+import { WorkbenchWorkspaceView } from "./workbench/WorkbenchWorkspaceView";
 
 type AudioSeekRequest = { requestId: number; time: number };
 
@@ -440,159 +437,55 @@ export function WorkbenchApp() {
           </button>
         </div>
       </header>
-      <main ref={workspaceGridRef} className={`workspace-grid ${activeView === "workspace" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "workspace"}>
-        <ResourcePanel
-          fileLabel={fileLabel}
-          isUploading={state.isUploadingSample}
-          frameSampleRate={frameSampleRate}
-          capabilities={uploadFlow.capabilities}
-          enableAudioSeparation={enableAudioSeparation}
-          enableSubtitleRecognition={enableSubtitleRecognition}
-          enableAudioFeatureAnalysis={enableAudioFeatureAnalysis}
-          onFrameSampleRateChange={setFrameSampleRate}
-          onEnableAudioSeparationChange={setEnableAudioSeparation}
-          onEnableSubtitleRecognitionChange={setEnableSubtitleRecognition}
-          onEnableAudioFeatureAnalysisChange={setEnableAudioFeatureAnalysis}
-          onUpload={uploadFlow.handleSampleUpload}
-        />
-        <WorkspaceResizeHandle kind="left-panel" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
-        <PreviewPanel
-          sampleVideo={state.sampleVideo}
-          mediaDerivatives={state.mediaDerivatives}
-          activeMediaKind={state.activeMediaKind}
-          selectedDerivativeId={state.selectedDerivativeId}
-          selectedFrameId={state.selectedFrameId}
-          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
-          audioFeatures={state.audioFeatures}
-          audioSeekRequest={audioSeekRequest}
-          processingText={processingText}
-          traceText={traceText}
-          uiTraceId={state.uiTraceId}
-          backendTraceId={state.processingJob?.traceId ?? null}
-          errorText={state.errorSummary?.message}
-          videoRef={videoRef}
-          audioRef={audioRef}
-          miniCanvasRef={miniCanvasRef}
-          onSelectAudioFeature={handleSelectAudioFeature}
-        />
-        <WorkspaceResizeHandle kind="right-panel" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
-        <PropertyPanel
-          sampleVideo={state.sampleVideo}
-          activeMediaKind={state.activeMediaKind}
-          selectedFrameId={state.selectedFrameId}
-          selectedDerivativeId={state.selectedDerivativeId}
-          selectedSubtitleId={state.selectedSubtitleId}
-          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
-          mediaDerivatives={state.mediaDerivatives}
-          audioFeatures={state.audioFeatures}
-          subtitles={state.subtitles}
-          subtitleDrafts={state.subtitleDrafts}
-          currentCard={currentCard}
-          processingTraceId={state.processingJob?.traceId}
-          processingStatus={state.processingJob?.status}
-          processingStage={state.processingJob?.stage}
-          processingProgress={state.processingJob?.progress}
-          errorMessage={state.errorSummary?.message}
-          shotBoundaryAnalysis={shotBoundaryAnalysis}
-          shotBoundaryAnalysisHistory={state.sampleArtifact?.shotBoundaryAnalysisHistory ?? null}
-          currentShot={currentShot}
-          currentShotId={currentShotId}
-          agentJob={shotBoundaryFlow.agentJob}
-          scriptSegmentAnalysis={state.sampleArtifact?.scriptSegmentAnalysis ?? null}
-          scriptSegmentAnalysisHistory={state.sampleArtifact?.scriptSegmentAnalysisHistory ?? null}
-          scriptSegmentJob={scriptSegmentFlow.job}
-          rhythmStructureAnalysis={state.sampleArtifact?.rhythmStructureAnalysis ?? null}
-          rhythmStructureAnalysisHistory={state.sampleArtifact?.rhythmStructureAnalysisHistory ?? null}
-          rhythmStructureJob={rhythmStructureFlow.job}
-          packagingStructureAnalysis={state.sampleArtifact?.packagingStructureAnalysis ?? null}
-          packagingStructureAnalysisHistory={state.sampleArtifact?.packagingStructureAnalysisHistory ?? null}
-          packagingStructureJob={packagingStructureFlow.job}
-          functionSlotAtomizationAnalysis={state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null}
-          functionSlotAtomizationAnalysisHistory={state.sampleArtifact?.functionSlotAtomizationAnalysisHistory ?? null}
-          functionSlotAtomizationJob={functionSlotAtomizationFlow.job}
-          activeTab={propertyPanelTab}
-          onActiveTabChange={setPropertyPanelTab}
-          agentAnalysisFps={agentAnalysisFps}
-          enableShotBoundaryReview={enableShotBoundaryReview}
-          onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
-          onEnableShotBoundaryReviewChange={setEnableShotBoundaryReview}
-          onRunShotBoundary={() => {
-            subtitleDraftFlow.flushSubtitleDraftsBeforeShotBoundary()
-              .then((ready) => {
-                if (!ready) {
-                  setSaveStatus("字幕保存失败，已阻止切镜分析；请修复后重试");
-                  throw new Error("字幕保存失败，已阻止切镜分析");
-                }
-                return shotBoundaryFlow.run();
-              })
-              .catch((error) => setSaveStatus(error instanceof Error ? error.message : "切镜分析失败"));
-          }}
-          onRunScriptSegment={() => {
-            void handleUnderstand().catch((error) => setSaveStatus(error instanceof Error ? error.message : "脚本段落分析失败"));
-          }}
-          onRunRhythmStructure={() => {
-            void handleRhythmStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "节奏结构分析失败"));
-          }}
-          onRunPackagingStructure={() => {
-            void handlePackagingStructure().catch((error) => setSaveStatus(error instanceof Error ? error.message : "包装结构分析失败"));
-          }}
-          onRunFunctionSlotAtomization={() => {
-            void handleFunctionSlotAtomization().catch((error) => setSaveStatus(error instanceof Error ? error.message : "功能槽位原子化失败"));
-          }}
-          onManualFunctionSlotBoundaryEdit={(editedJsonText) => handleFunctionSlotManualBoundaryEdit(editedJsonText).catch((error) => {
-            setSaveStatus(error instanceof Error ? error.message : "原子化手动修正失败");
-            throw error;
-          })}
-          onSelectScriptSegment={handleSelectTimelineTime}
-          onSelectRhythmCard={handleSelectTimelineTime}
-          onSelectPackagingBlock={handleSelectTimelineTime}
-          onSelectShot={handleSelectTimelineTime}
-          onSubtitleDraftChange={subtitleDraftFlow.handleSubtitleDraftChange}
-        />
-        <WorkspaceResizeHandle kind="timeline" onResizeStart={workspaceLayout.startResize} onReset={workspaceLayout.resetSize} onNudge={workspaceLayout.nudgeSize} />
-        <TimelinePanel
-          sampleVideo={state.sampleVideo}
-          mediaDerivatives={state.mediaDerivatives}
-          activeMediaKind={state.activeMediaKind}
-          selectedDerivativeId={state.selectedDerivativeId}
-          selectedFrameId={state.selectedFrameId}
-          selectedSubtitleId={state.selectedSubtitleId}
-          selectedAudioFeatureMarkerId={state.selectedAudioFeatureMarkerId}
-          audioSeparation={state.audioSeparation}
-          audioFeatures={state.audioFeatures}
-          subtitles={state.subtitles}
-          subtitleDrafts={state.subtitleDrafts}
-          timelineFrameVisible={state.timelineFrameVisible}
-          timelineVisibleSeconds={state.timelineVisibleSeconds}
-          videoRef={videoRef}
-          audioRef={audioRef}
-          miniCanvasRef={miniCanvasRef}
-          uiTraceId={state.uiTraceId}
-          backendTraceId={state.processingJob?.traceId ?? null}
-          onSelectVideo={() => {
-            const video = state.mediaDerivatives.find((entry) => entry.type === "normalized-video" || entry.type === "original-video");
-            dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: video?.artifactId ?? state.sampleVideo?.artifactId ?? null, selectedFrameId: null });
-          }}
-          onSelectAudio={(artifactId) => {
-            const audio = state.mediaDerivatives.find((entry) => entry.artifactId === artifactId) ?? state.mediaDerivatives.find((entry) => entry.type === "audio-track");
-            dispatch({ type: "select-media", activeMediaKind: "audio", selectedDerivativeId: audio?.artifactId ?? state.sampleArtifact?.audio?.artifactId ?? null, selectedFrameId: null });
-          }}
-          onSelectFrame={(frameId) => {
-            const frame = state.sampleVideo?.frameArtifacts.find((item) => item.id === frameId);
-            if (!frame) return;
-            dispatch({ type: "select-media", activeMediaKind: "frame", selectedDerivativeId: frame.artifactId, selectedFrameId: frame.id });
-          }}
-          onSelectSubtitle={(segmentId) => {
-            dispatch({ type: "select-media", activeMediaKind: "subtitle", selectedDerivativeId: state.subtitles?.artifactId ?? null, selectedFrameId: null, selectedSubtitleId: segmentId });
-          }}
-          onSelectAudioFeature={(markerId) => {
-            const marker = findAudioFeatureMarker(state.audioFeatures, markerId);
-            if (marker) handleSelectAudioFeature(marker);
-          }}
-          onFrameVisibleChange={(visible) => dispatch({ type: "set-frame-visible", visible })}
-          onVisibleSecondsChange={(value) => dispatch({ type: "set-visible-seconds", visibleSeconds: clampVisibleSeconds(value) })}
-        />
-      </main>
+      <WorkbenchWorkspaceView
+        state={state}
+        dispatch={dispatch}
+        active={activeView === "workspace"}
+        workspaceGridRef={workspaceGridRef}
+        workspaceLayout={workspaceLayout}
+        uploadFlow={uploadFlow}
+        shotBoundaryFlow={shotBoundaryFlow}
+        subtitleDraftFlow={subtitleDraftFlow}
+        scriptSegmentFlow={scriptSegmentFlow}
+        rhythmStructureFlow={rhythmStructureFlow}
+        packagingStructureFlow={packagingStructureFlow}
+        functionSlotAtomizationFlow={functionSlotAtomizationFlow}
+        fileLabel={fileLabel}
+        processingText={processingText}
+        traceText={traceText}
+        frameSampleRate={frameSampleRate}
+        enableAudioSeparation={enableAudioSeparation}
+        enableSubtitleRecognition={enableSubtitleRecognition}
+        enableAudioFeatureAnalysis={enableAudioFeatureAnalysis}
+        setFrameSampleRate={setFrameSampleRate}
+        setEnableAudioSeparation={setEnableAudioSeparation}
+        setEnableSubtitleRecognition={setEnableSubtitleRecognition}
+        setEnableAudioFeatureAnalysis={setEnableAudioFeatureAnalysis}
+        agentAnalysisFps={agentAnalysisFps}
+        setAgentAnalysisFps={setAgentAnalysisFps}
+        enableShotBoundaryReview={enableShotBoundaryReview}
+        setEnableShotBoundaryReview={setEnableShotBoundaryReview}
+        propertyPanelTab={propertyPanelTab}
+        setPropertyPanelTab={setPropertyPanelTab}
+        shotBoundaryAnalysis={shotBoundaryAnalysis}
+        currentCard={currentCard}
+        currentShot={currentShot}
+        currentShotId={currentShotId}
+        audioSeekRequest={audioSeekRequest}
+        videoRef={videoRef}
+        audioRef={audioRef}
+        miniCanvasRef={miniCanvasRef}
+        minAnalysisFps={MIN_ANALYSIS_FPS}
+        maxAnalysisFps={MAX_ANALYSIS_FPS}
+        setSaveStatus={setSaveStatus}
+        handleSelectAudioFeature={handleSelectAudioFeature}
+        handleSelectTimelineTime={handleSelectTimelineTime}
+        handleUnderstand={handleUnderstand}
+        handleRhythmStructure={handleRhythmStructure}
+        handlePackagingStructure={handlePackagingStructure}
+        handleFunctionSlotAtomization={handleFunctionSlotAtomization}
+        handleFunctionSlotManualBoundaryEdit={handleFunctionSlotManualBoundaryEdit}
+      />
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
           <FullAnalysisApp embedded activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
@@ -621,92 +514,3 @@ export function WorkbenchApp() {
   );
 }
 
-type AnalysisJobFlow = ReturnType<typeof useAnalysisJobFlow>;
-
-async function reuseAnalysisCache(
-  kind: AnalysisKind,
-  flow: AnalysisJobFlow,
-  setSaveStatus: (value: string) => void,
-  state: WorkbenchState,
-  dispatch: (action: WorkbenchAction) => void,
-) {
-  if (!flow.cachePrompt) return;
-  const role = getAnalysisRole(kind);
-  const prompt = flow.cachePrompt;
-  flow.setCachePrompt(null);
-  try {
-    const job = await resolveCacheDecision(prompt.jobId, "reuse");
-    flow.setJob(job);
-    const artifact = await getSampleArtifact(prompt.sampleVideoId);
-    dispatch({ type: "apply-artifact", artifact });
-    flow.applyCompletedArtifact(
-      artifact,
-      job.traceId ?? state.processingJob?.traceId ?? null,
-      role.reuseReason,
-    );
-    flow.setJob(null);
-    setSaveStatus(`${role.displayName}已复用缓存`);
-  } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : `${role.displayName}复用缓存失败`);
-  }
-}
-
-async function refreshAnalysisCache(
-  kind: AnalysisKind,
-  flow: AnalysisJobFlow,
-  setSaveStatus: (value: string) => void,
-  state: WorkbenchState,
-) {
-  if (!state.sampleVideo || !flow.cachePrompt) return;
-  const role = getAnalysisRole(kind);
-  flow.setCachePrompt(null);
-  try {
-    const result = await flow.run("refresh");
-    if (result?.artifact && role.getArtifact(result.artifact)) {
-      flow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, role.refreshReason);
-      setSaveStatus(`${role.displayName}已重新生成`);
-    }
-  } catch (error) {
-    setSaveStatus(error instanceof Error ? error.message : role.failureMessage);
-  }
-}
-
-const STAGES = {
-  scriptSegmentAnalyze: "script.segment.analyze",
-  rhythmStructureAnalyze: "rhythm.structure.analyze",
-  packagingStructureAnalyze: "packaging.structure.analyze",
-  functionSlotAtomizationAnalyze: "function.slot.atomization.analyze",
-} as const;
-
-function resolveFailedProcessingJob(error: unknown): ProcessingJob | null {
-  const job = (error as { processingJob?: ProcessingJob | null })?.processingJob ?? null;
-  if (!job) return null;
-  return job.status === "failed" || job.status === "processing" || job.status === "pending" ? job : null;
-}
-
-function fullAnalysisStageToPropertyTab(stageKey: FullAnalysisStageTarget): PropertyPanelTab {
-  if (stageKey === "scriptSegment") return "script";
-  if (stageKey === "rhythmStructure") return "rhythm";
-  if (stageKey === "packagingStructure") return "packaging";
-  if (stageKey === "functionSlotAtomization") return "atomization";
-  if (stageKey === "aggregate") return "meta";
-  return "shot";
-}
-
-function toActiveJobDraft(job: ProcessingJob | null) {
-  if (!job?.jobId || !job.sampleVideoId || !job.traceId) return null;
-  return { processingJobId: job.jobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId };
-}
-
-function sampleArtifactSyncSignature(artifact: SampleArtifact) {
-  return [
-    artifact.sampleVideoId,
-    artifact.sampleVideo.artifactId,
-    artifact.status,
-    artifact.shotBoundaryAnalysis?.artifactId,
-    artifact.scriptSegmentAnalysis?.artifactId,
-    artifact.rhythmStructureAnalysis?.artifactId,
-    artifact.packagingStructureAnalysis?.artifactId,
-    artifact.functionSlotAtomizationAnalysis?.artifactId,
-  ].filter(Boolean).join("|");
-}
