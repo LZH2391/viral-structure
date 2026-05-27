@@ -1,0 +1,169 @@
+[
+  {
+    "id": "S001",
+    "slot": "problem_activation",
+    "label": "问题对象直冲与执行动作入口",
+    "function": "把高关注问题对象转成可直接照做的初始执行动作，让观众先理解处理对象和基础使用方式",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "问题区直冲开场"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.92,
+    "needReview": false,
+    "claimType": "problem_to_action",
+    "proofNeed": "需要清晰可见的问题对象、定位提示和解决方案直接作用于目标对象的实拍动作",
+    "mustKeep": [
+      "问题对象识别",
+      "定位提示",
+      "初始执行动作"
+    ],
+    "replaceableVariables": [
+      "问题对象",
+      "指示方式",
+      "动作口播表达",
+      "定位包装样式"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "mechanism_credibility",
+    "label": "作用机制与适用范围解释",
+    "function": "把前面的执行动作解释成可相信的作用机制，并限定适用条件或适用范围",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "机理拆解与适用范围限定"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "claimType": "mechanism_explain",
+    "proofNeed": "需要机制说明载体、持续执行实拍和适用范围说明共同支撑",
+    "mustKeep": [
+      "机制拆解",
+      "适用范围限定",
+      "执行实拍不断线"
+    ],
+    "replaceableVariables": [
+      "机制命名",
+      "机制或原理表达",
+      "机制说明载体",
+      "适用范围"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "low_barrier_operation",
+    "label": "等待与完成动作闭环",
+    "function": "补齐最低必要步骤，把解决方案使用从原理理解推进到简单可执行的完整流程",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "低门槛使用闭环"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "operation_simplification",
+    "proofNeed": "需要等待或生效时间可视化，以及完成动作实拍证明操作门槛低",
+    "mustKeep": [
+      "等待或生效时间",
+      "完成动作",
+      "步骤闭环"
+    ],
+    "replaceableVariables": [
+      "等待提示形式",
+      "手势表达",
+      "完成动作场景",
+      "步骤字幕表达"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "result_confirmation",
+    "label": "结果状态与生活收益兑现",
+    "function": "把操作后的结果状态展示给观众，并把功能结果转译成可感知的生活收益",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "洗后结果与生活收益"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "claimType": "result_to_benefit",
+    "proofNeed": "需要回到前面问题对象或同类观众关切，用结果近景、指向动作和生活化反馈证明结果",
+    "mustKeep": [
+      "结果局部近景",
+      "结果回看",
+      "生活收益表达"
+    ],
+    "replaceableVariables": [
+      "结果部位",
+      "生活场景收益",
+      "近景展示方式",
+      "辅助动作"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "long_term_trust_close",
+    "label": "长期使用证据与简化选择收束",
+    "function": "用持续记录和真实使用痕迹把一次性效果升级为长期可信体验，再收束到简化选择判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "长期打卡背书与极简收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "claimType": "trust_to_choice",
+    "proofNeed": "需要时间证据、使用痕迹、解决方案归因和稳定结论支撑",
+    "mustKeep": [
+      "长期使用证据",
+      "真实消耗痕迹",
+      "简化选择结论",
+      "选择记忆落点"
+    ],
+    "replaceableVariables": [
+      "持续证据形式",
+      "使用痕迹载体",
+      "收束观点",
+      "选择落点构图"
+    ]
+  }
+]

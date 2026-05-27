@@ -1,16 +1,16 @@
 {
   "schemaVersion": "function_slot_library.v1",
-  "artifactId": "artifact_a376201c-0a2c-4ab7-8c49-61df82a9c3f6",
+  "artifactId": "artifact_ee6a1aa7-6957-438f-8a8d-6f46a6cea486",
   "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
-  "traceId": "trace_0234b298-abad-470b-afb8-5534992b2e7d",
-  "parentArtifactId": "artifact_c8a3c27b-1860-405e-ad3d-51bc5761cdfe",
+  "traceId": "trace_fcc19b85-5bef-46c0-a2ab-00ac3bd42944",
+  "parentArtifactId": "artifact_a376201c-0a2c-4ab7-8c49-61df82a9c3f6",
   "sourceScriptSegmentArtifactId": "artifact_a4f2d787-a90d-413f-acb7-0a28c83c1771",
   "sourceRhythmStructureArtifactId": "artifact_18c3c888-44b2-4915-b35d-80e91b08ced3",
   "sourcePackagingStructureArtifactId": "artifact_c8a3c27b-1860-405e-ad3d-51bc5761cdfe",
   "sourceShotBoundaryArtifactId": "artifact_0c617959-f827-404b-8ac5-31777cffa3cb",
   "status": "processed",
-  "createdAt": "2026-05-26T11:38:24.660Z",
-  "exportedAt": "2026-05-26T13:07:30.822Z",
+  "createdAt": "2026-05-27T07:09:04.577Z",
+  "exportedAt": "2026-05-27T07:09:04.773Z",
   "counts": {
     "slotCount": 5,
     "scriptAtomCount": 5,
@@ -33,5 +33,5 @@
     "rules": "rules.json",
     "templates": "templates.json"
   },
-  "contentHash": "805b1a78d8bbb7306274edd216848d0609ad332c960aa44ce4784e7e223dd540"
+  "contentHash": "9e5c96b8f52be1b2e91b0bb77d5c99731b4a46a438fbaf931743b43fcb2c029f"
 }

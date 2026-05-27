@@ -1,4 +1,6 @@
 import { PointerEvent, WheelEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
+import type { Simulation, SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
 import { getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
 import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types";
 import { shortId } from "../utils/format";
@@ -22,7 +24,7 @@ export function FunctionSlotGraphApp() {
   const [filters, setFilters] = useState({
     slot: true,
     atom: true,
-    binding: false,
+    binding: true,
   });
 
   const refresh = useCallback(async () => {
@@ -121,6 +123,7 @@ function GraphCanvas({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const nodesRef = useRef<SimNode[]>([]);
   const dragRef = useRef<DragState | null>(null);
+  const simulationRef = useRef<Simulation<SimNode, D3Link> | null>(null);
   const viewportRef = useRef({ x: 0, y: 0, k: 1 });
   const [nodes, setNodes] = useState<SimNode[]>([]);
   const [viewport, setViewport] = useState(viewportRef.current);
@@ -133,38 +136,37 @@ function GraphCanvas({
 
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
-    const nextNodes = visible.nodes.map((node) => {
+    const nextNodes: SimNode[] = visible.nodes.map((node) => {
       const existing = resetToken ? null : previous.get(node.id);
       return {
         ...node,
         x: existing?.x ?? node.x,
         y: existing?.y ?? node.y,
-        anchorX: node.x,
-        anchorY: node.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
+        fx: null,
+        fy: null,
       };
     });
+    const nextLinks: D3Link[] = visible.edges.map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
     nodesRef.current = nextNodes;
+    simulationRef.current?.stop();
+    simulationRef.current = createGraphSimulation(nextNodes, nextLinks)
+      .on("tick", () => {
+        nodesRef.current = nextNodes;
+        setNodes(nextNodes.map((node) => ({ ...node })));
+      });
     setNodes(nextNodes);
-  }, [resetToken, visible.nodes]);
+    return () => {
+      simulationRef.current?.stop();
+      simulationRef.current = null;
+    };
+  }, [resetToken, visible.edges, visible.nodes]);
 
   useEffect(() => {
-    let frame = 0;
-    let cancelled = false;
-    const tick = () => {
-      if (!paused) {
-        nodesRef.current = tickGraph(nodesRef.current, visible.edges, dragRef.current?.kind === "node" ? dragRef.current.nodeId : null);
-        setNodes(nodesRef.current.map((node) => ({ ...node })));
-      }
-      if (!cancelled) frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(frame);
-    };
-  }, [paused, visible.edges]);
+    if (paused) simulationRef.current?.stop();
+    else simulationRef.current?.alphaTarget(0.03).restart();
+  }, [paused]);
 
   const graphPoint = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -203,8 +205,17 @@ function GraphCanvas({
     if (!drag) return;
     if (drag.kind === "node") {
       const point = graphPoint(event.clientX, event.clientY);
-      nodesRef.current = nodesRef.current.map((node) => node.id === drag.nodeId ? { ...node, x: point.x + drag.dx, y: point.y + drag.dy, vx: 0, vy: 0 } : node);
+      const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
+      if (draggedNode) {
+        draggedNode.fx = point.x + drag.dx;
+        draggedNode.fy = point.y + drag.dy;
+        draggedNode.x = draggedNode.fx;
+        draggedNode.y = draggedNode.fy;
+        draggedNode.vx = 0;
+        draggedNode.vy = 0;
+      }
       dragRef.current = { ...drag, moved: true };
+      simulationRef.current?.alphaTarget(0.18).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
       return;
     }
@@ -220,12 +231,15 @@ function GraphCanvas({
   const endPointer = (event: PointerEvent<SVGSVGElement>) => {
     svgRef.current?.releasePointerCapture(event.pointerId);
     const drag = dragRef.current;
-    if (drag?.kind === "node") {
-      nodesRef.current = nodesRef.current.map((node) => (
-        node.id === drag.nodeId
-          ? { ...node, anchorX: node.x, anchorY: node.y }
-          : node
-      ));
+    if (drag?.kind === "node" && drag.moved) {
+      const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
+      if (draggedNode) {
+        draggedNode.fx = null;
+        draggedNode.fy = null;
+        draggedNode.vx = 0;
+        draggedNode.vy = 0;
+      }
+      simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
     }
     dragRef.current = null;
@@ -307,7 +321,7 @@ function GraphCanvas({
 }
 
 function GraphNode({ node, focused, selected, onHover, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; onHover: (id: string | null) => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
-  const radius = node.type === "libraryItem" ? 20 : node.type === "slotInstance" ? 13 : node.type === "slotConcept" ? 11 : node.type === "binding" ? 6 : 7;
+  const radius = nodeRadius(node);
   return (
     <g
       className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""}`}
@@ -323,6 +337,14 @@ function GraphNode({ node, focused, selected, onHover, onStartDrag }: { node: Si
       <title>{node.label}</title>
     </g>
   );
+}
+
+function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
+  if (node.type === "libraryItem") return 20;
+  if (node.type === "slotInstance") return 13;
+  if (node.type === "slotConcept") return 11;
+  if (node.type === "binding") return 6;
+  return 7;
 }
 
 function GraphLegend() {
@@ -397,7 +419,8 @@ function EmptyState({ text }: { text: string }) {
 }
 
 type PositionedNode = FunctionSlotGraphNode & { x: number; y: number; shortLabel: string };
-type SimNode = PositionedNode & { anchorX: number; anchorY: number; vx: number; vy: number };
+type SimNode = PositionedNode & SimulationNodeDatum & { x: number; y: number; vx: number; vy: number; fx: number | null; fy: number | null };
+type D3Link = Omit<FunctionSlotGraphEdge, "source" | "target"> & SimulationLinkDatum<SimNode> & { source: string | SimNode; target: string | SimNode };
 type DragState =
   | { kind: "node"; nodeId: string; dx: number; dy: number; moved: boolean }
   | { kind: "pan"; clientX: number; clientY: number; startX: number; startY: number };
@@ -461,61 +484,19 @@ function buildPositions(graph: FunctionSlotLibraryGraph) {
   return positions;
 }
 
-function tickGraph(nodes: SimNode[], edges: FunctionSlotGraphEdge[], pinnedNodeId: string | null) {
-  if (!nodes.length) return nodes;
-  const next = nodes.map((node) => ({ ...node }));
-  const nextById = new Map(next.map((node) => [node.id, node]));
-  const tick = performance.now() / 1000;
-
-  for (let leftIndex = 0; leftIndex < next.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < next.length; rightIndex += 1) {
-      const left = next[leftIndex];
-      const right = next[rightIndex];
-      const dx = right.x - left.x || 0.01;
-      const dy = right.y - left.y || 0.01;
-      const distanceSq = Math.max(80, dx * dx + dy * dy);
-      const force = repulsionFor(left, right) / distanceSq;
-      const fx = dx * force;
-      const fy = dy * force;
-      left.vx -= fx;
-      left.vy -= fy;
-      right.vx += fx;
-      right.vy += fy;
-    }
-  }
-
-  for (const edge of edges) {
-    const source = nextById.get(edge.source);
-    const target = nextById.get(edge.target);
-    if (!source || !target) continue;
-    const dx = target.x - source.x;
-    const dy = target.y - source.y;
-    const distance = Math.max(1, Math.hypot(dx, dy));
-    const desired = edge.type === "slot_next" ? 155 : edge.type.startsWith("binding_") ? 120 : 145;
-    const force = (distance - desired) * edgeStrength(edge.type);
-    const fx = (dx / distance) * force;
-    const fy = (dy / distance) * force;
-    source.vx += fx;
-    source.vy += fy;
-    target.vx -= fx;
-    target.vy -= fy;
-  }
-
-  for (const node of next) {
-    node.vx += (node.anchorX - node.x) * anchorStrength(node);
-    node.vy += (node.anchorY - node.y) * anchorStrength(node);
-    node.vx += (CENTER.x - node.x) * 0.00032;
-    node.vy += (CENTER.y - node.y) * 0.00032;
-    node.vx += Math.sin(tick * 0.8 + hashNumber(node.id)) * 0.012;
-    node.vy += Math.cos(tick * 0.7 + hashNumber(node.id)) * 0.012;
-    if (node.id === pinnedNodeId) continue;
-    node.vx *= 0.86;
-    node.vy *= 0.86;
-    node.x = clamp(node.x + node.vx, 40, VIEWBOX.width - 70);
-    node.y = clamp(node.y + node.vy, 42, VIEWBOX.height - 50);
-  }
-
-  return next;
+function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
+  return forceSimulation<SimNode>(nodes)
+    .alpha(0.85)
+    .alphaDecay(0.018)
+    .velocityDecay(0.36)
+    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.055))
+    .force("x", forceX(CENTER.x).strength(0.006))
+    .force("y", forceY(CENTER.y).strength(0.006))
+    .force("charge", forceManyBody<SimNode>().strength((node) => (node.type === "libraryItem" ? -120 : node.type === "slotInstance" ? -170 : -90)).distanceMin(30).distanceMax(620))
+    .force("collide", forceCollide<SimNode>().radius((node) => nodeRadius(node) + 30).strength(0.72).iterations(2))
+    .force("link", forceLink<SimNode, D3Link>(links)
+      .id((node) => node.id)
+      .distance((edge) => edgeDistance(edge.type)));
 }
 
 function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraphEdge[]) {
@@ -529,30 +510,12 @@ function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraphEdge[])
   return ids;
 }
 
-function repulsionFor(left: SimNode, right: SimNode) {
-  if (left.type === "libraryItem" || right.type === "libraryItem") return 42;
-  if (left.type === "slotInstance" && right.type === "slotInstance") return 64;
-  return 24;
-}
-
-function anchorStrength(node: SimNode) {
-  if (node.type === "libraryItem") return 0.006;
-  if (node.type === "slotInstance") return 0.0015;
-  if (node.type === "binding") return 0.002;
-  return 0.0008;
-}
-
-function edgeStrength(type: string) {
-  if (type === "slot_next") return 0.0018;
-  if (type === "library_contains_binding") return 0.001;
-  if (type.startsWith("binding_")) return 0.0008;
-  return 0.0014;
-}
-
-function hashNumber(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) hash = (hash * 31 + value.charCodeAt(index)) % 997;
-  return hash / 997 * Math.PI * 2;
+function edgeDistance(type: string) {
+  if (type === "slot_next") return 180;
+  if (type === "library_contains_slot") return 250;
+  if (type === "library_contains_binding") return 175;
+  if (type.startsWith("binding_")) return 145;
+  return 165;
 }
 
 function clamp(value: number, min: number, max: number) {
