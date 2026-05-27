@@ -12,6 +12,11 @@ const { buildFunctionSlotAtomizationContentFingerprint } = require("../function-
 const { runCacheLookup, markCacheWaiting, reuseCachedAnalysis, buildCachePrompt } = require("./cache");
 const { attachFunctionSlotAtomizationAnalysis } = require("./artifact-writer");
 const { ROLE, SKILL_PATH, STAGES, codedError, resolveSkillHash } = require("../function-slot-atomization-analysis/shared");
+const {
+  REVIEW_SKILL_PATH,
+  runFunctionSlotBoundaryReview,
+  resolveBoundaryReviewSkillHash,
+} = require("../function-slot-atomization-boundary-review");
 
 function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
   return {
@@ -25,6 +30,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
       analyzed: 58,
       validated: 78,
       repaired: 88,
+      boundaryReviewed: 90,
       cacheReuse: 92,
       materialized: 96,
     },
@@ -163,12 +169,14 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         slotCount: analysis.slotMap.slots.length,
         threadId: analysis.agent?.threadId ?? null,
         turnId: analysis.agent?.turnId ?? null,
+        boundaryReviewDecision: analysis.boundaryReview?.decision ?? null,
       };
     },
     buildMaterializeOutputSummary(artifact) {
       return {
         slotCount: artifact.functionSlotAtomizationAnalysis?.slotMap?.slots?.length ?? 0,
         functionSlotAtomizationArtifactId: artifact.functionSlotAtomizationAnalysis?.artifactId ?? null,
+        boundaryReviewDecision: artifact.functionSlotAtomizationAnalysis?.boundaryReview?.decision ?? null,
       };
     },
     resolveSampleDir(context) {
@@ -180,6 +188,21 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
     reuseCachedAnalysis,
     async attachAnalysis(sampleVideoId, analysis, traceMeta) {
       return attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta);
+    },
+    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts }) {
+      context.boundaryReviewSkillPath = REVIEW_SKILL_PATH;
+      context.boundaryReviewSkillHash = context.boundaryReviewSkillHash ?? await resolveBoundaryReviewSkillHash();
+      return runFunctionSlotBoundaryReview({
+        context,
+        analysis,
+        runtime,
+        threadPool,
+        appServer,
+        rootDir,
+        store,
+        pollIntervalMs,
+        maxCollectAttempts,
+      });
     },
     async assertMaterializeDependencies(context) {
       const latestArtifact = await store.readJson(path.join(store.sampleDir(context.sampleVideoId), "artifact.json"));

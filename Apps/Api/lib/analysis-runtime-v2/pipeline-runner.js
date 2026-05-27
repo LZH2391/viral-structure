@@ -107,7 +107,7 @@ function createAnalysisPipelineRunner({
         throw descriptor.buildValidationError(analysis, finalTurn);
       }
 
-      return await materialize(context, descriptor, analysis);
+      return await reviewAndMaterialize(context, descriptor, analysis);
     } catch (error) {
       if (descriptor.canAttemptRepair?.(error, context) && context.input) {
         for (let repairAttemptCount = 1; repairAttemptCount <= maxRepairAttempts; repairAttemptCount += 1) {
@@ -166,7 +166,23 @@ function createAnalysisPipelineRunner({
       },
       outputSummary: (result) => descriptor.buildRepairOutputSummary(context, result),
     });
-    return materialize(context, descriptor, repaired.analysis);
+    return reviewAndMaterialize(context, descriptor, repaired.analysis);
+  }
+
+  async function reviewAndMaterialize(context, descriptor, analysis) {
+    const reviewedAnalysis = typeof descriptor.runBoundaryReview === "function"
+      ? await descriptor.runBoundaryReview({
+        context,
+        analysis,
+        runtime,
+        threadPool,
+        appServer,
+        rootDir,
+        pollIntervalMs,
+        maxCollectAttempts,
+      })
+      : analysis;
+    return materialize(context, descriptor, reviewedAnalysis);
   }
 
   async function materialize(context, descriptor, analysis) {

@@ -1,0 +1,15 @@
+{
+  "role": "function-slot-atomization-boundary-reviewer",
+  "profileVersion": "2026-05-27.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-atomization-boundary-reviewer/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "review": {
+      "template": "prompts/review.v1.md",
+      "version": "review.v1"
+    }
+  }
+}

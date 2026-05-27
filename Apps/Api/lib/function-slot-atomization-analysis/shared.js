@@ -11,6 +11,8 @@ const STAGES = {
   analyzed: "function_slot_atomization.analyze",
   validated: "function_slot_atomization.validate",
   repaired: "function_slot_atomization.repair",
+  finalOutputPrepared: "function_slot_atomization.final_output_prepare",
+  boundaryReviewed: "function_slot_atomization.boundary_review",
   cacheReuse: "function_slot_atomization.cache_reuse",
   materialized: "function_slot_atomization.materialize",
 };
