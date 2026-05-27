@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAgentTurnTimeline } from "../../api/client";
-import type { AgentActivitySummary, AgentRunJob, AgentTimelineItem, AgentTurnTimeline } from "../../types";
+import type { AgentActivitySummary, AgentRunJob, AgentTimelineItem, AgentTraceCard, AgentTurnTimeline } from "../../types";
+import { pickDefaultTraceCard, resolveAgentTraceCards } from "./agentTraceCards";
 import { shortTurnId } from "./formatters";
 
 type Props = {
@@ -23,31 +24,43 @@ export function AgentTurnTimelinePanel({
   onRun,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const threadId = job?.agentRun?.threadId ?? job?.agentActivity?.threadId ?? job?.activeThreadMessage?.threadId ?? null;
-  const turnId = job?.agentRun?.turnId ?? job?.agentActivity?.turnId ?? job?.activeThreadMessage?.turnId ?? null;
-  const canTrace = Boolean(threadId && turnId);
-  const activity = timeline?.activity ?? resolveActivity(job);
-  const latestText = activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [timelineByCard, setTimelineByCard] = useState<Record<string, AgentTurnTimeline | null>>({});
+  const [errorByCard, setErrorByCard] = useState<Record<string, string | null>>({});
+  const cards = useMemo(() => resolveAgentTraceCards(job), [job]);
+  const selectedId = useMemo(() => pickDefaultTraceCard(cards, selectedCardId), [cards, selectedCardId]);
+  const selectedCard = cards.find((card) => card.id === selectedId) ?? null;
+  const selectedTimeline = selectedCard ? timelineByCard[selectedCard.id] ?? null : null;
+  const selectedError = selectedCard ? errorByCard[selectedCard.id] ?? null : null;
+  const activeCard = pickActiveCard(cards);
+  const activity = selectedTimeline?.activity ?? selectedCard?.activity ?? activeCard?.activity ?? resolveActivity(job);
+  const latestText = activeCard?.latestMessagePreview ?? activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
   const statusBadge = renderJobStatus(job, running);
+  const canTrace = Boolean(selectedCard?.threadId && selectedCard?.turnId);
+  const summary = useMemo(() => buildTraceSummary(cards, activity, selectedCard), [cards, activity, selectedCard]);
 
   useEffect(() => {
-    if (!expanded || !threadId || !turnId) return;
+    if (!selectedId) return;
+    setSelectedCardId(selectedId);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!expanded || !selectedCard?.threadId || !selectedCard.turnId) return;
     let cancelled = false;
+    const cardId = selectedCard.id;
     const load = async () => {
       try {
-        const next = await getAgentTurnTimeline(threadId, turnId);
+        const next = await getAgentTurnTimeline(selectedCard.threadId as string, selectedCard.turnId as string);
         if (cancelled) return;
-        setTimeline(next);
-        setError(null);
+        setTimelineByCard((current) => ({ ...current, [cardId]: next }));
+        setErrorByCard((current) => ({ ...current, [cardId]: null }));
       } catch (loadError) {
         if (cancelled) return;
-        setError(loadError instanceof Error ? loadError.message : "运行追踪读取失败");
+        setErrorByCard((current) => ({ ...current, [cardId]: loadError instanceof Error ? loadError.message : "运行追踪读取失败" }));
       }
     };
     void load();
-    if (!running) return () => {
+    if (!running || selectedCard.status !== "running") return () => {
       cancelled = true;
     };
     const timer = window.setInterval(() => {
@@ -57,9 +70,7 @@ export function AgentTurnTimelinePanel({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [expanded, running, threadId, turnId]);
-
-  const summary = useMemo(() => buildTraceSummary(activity, turnId), [activity, turnId]);
+  }, [expanded, running, selectedCard?.id, selectedCard?.status, selectedCard?.threadId, selectedCard?.turnId]);
 
   return (
     <div className="agent-trace-shell">
@@ -78,7 +89,7 @@ export function AgentTurnTimelinePanel({
             <button className="primary-button" type="button" disabled={running || runDisabled} onClick={onRun}>
               {runLabel ?? (running ? "运行中" : "运行")}
             </button>
-            <button className="ghost-button" type="button" disabled={!canTrace} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+            <button className="ghost-button" type="button" disabled={!cards.length} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
               追踪
             </button>
           </div>
@@ -96,17 +107,43 @@ export function AgentTurnTimelinePanel({
             <strong>运行追踪</strong>
             <span>{summary}</span>
           </div>
-          {error ? <div className="detail-hint">{error}</div> : null}
-          {timeline?.items?.length ? (
+          {cards.length ? (
+            <div className="agent-trace-card-list" aria-label="Agent turn 列表">
+              {cards.map((card) => (
+                <TraceCardButton
+                  key={card.id}
+                  card={card}
+                  active={card.id === selectedCard?.id}
+                  onSelect={() => setSelectedCardId(card.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {selectedError ? <div className="detail-hint">{selectedError}</div> : null}
+          {selectedTimeline?.items?.length ? (
             <div className="agent-timeline-list">
-              {timeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+              {selectedTimeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
             </div>
           ) : (
-            <div className="detail-hint">{canTrace ? "正在读取运行追踪。" : "当前任务还没有可读取的 turn。"}</div>
+            <div className="detail-hint">{canTrace ? "正在读取运行追踪。" : "当前卡片还没有可读取的 turn。"}</div>
           )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TraceCardButton({ card, active, onSelect }: { card: AgentTraceCard; active: boolean; onSelect: () => void }) {
+  const activity = card.activity;
+  return (
+    <button className={`agent-trace-card ${active ? "active" : ""}`} type="button" aria-pressed={active} onClick={onSelect}>
+      <span className={`agent-trace-state state-${card.status}`}>{renderTraceStatus(card.status)}</span>
+      <strong>{card.label}</strong>
+      <span>{card.role ?? "role 未知"}</span>
+      <small>{formatTraceIds(card)}</small>
+      <small>{formatActivity(activity)}</small>
+      {card.latestMessagePreview ? <em>{card.latestMessagePreview}</em> : null}
+    </button>
   );
 }
 
@@ -129,15 +166,23 @@ function TimelineRow({ item }: { item: AgentTimelineItem }) {
   );
 }
 
+function pickActiveCard(cards: AgentTraceCard[]) {
+  return cards.find((card) => card.status === "running")
+    ?? cards.slice().sort((left, right) => Date.parse(right.updatedAt ?? "") - Date.parse(left.updatedAt ?? ""))[0]
+    ?? null;
+}
+
 function resolveActivity(job?: AgentRunJob | null): AgentActivitySummary | null {
   return job?.agentActivity ?? null;
 }
 
-function buildTraceSummary(activity: AgentActivitySummary | null, turnId?: string | null) {
-  const turn = turnId ? `turn ${shortTurnId(turnId)}` : "turn 无";
+function buildTraceSummary(cards: AgentTraceCard[], activity: AgentActivitySummary | null, selectedCard?: AgentTraceCard | null) {
+  const selected = selectedCard?.turnId ? `turn ${shortTurnId(selectedCard.turnId)}` : "turn 无";
+  const runningCount = cards.filter((card) => card.status === "running").length;
+  const turns = `${cards.filter((card) => card.turnId).length}/${cards.length || 0} turns`;
   const items = activity ? `${activity.effectiveItemCount || activity.itemCount} 个活动` : "0 个活动";
   const tokens = activity?.tokenUsage?.totalTokens != null ? `tokens ${formatNumber(activity.tokenUsage.totalTokens)}` : "tokens 未知";
-  return `${turn} · ${items} · ${tokens}`;
+  return `${turns} · ${runningCount ? `${runningCount} running · ` : ""}${selected} · ${items} · ${tokens}`;
 }
 
 function renderJobStatus(job: AgentRunJob | null | undefined, running: boolean) {
@@ -145,6 +190,17 @@ function renderJobStatus(job: AgentRunJob | null | undefined, running: boolean) 
   if (job?.status === "processed") return "完成";
   if (running) return null;
   return null;
+}
+
+function renderTraceStatus(status: AgentTraceCard["status"]) {
+  const labels: Record<AgentTraceCard["status"], string> = {
+    pending: "待提交",
+    running: "运行中",
+    completed: "完成",
+    failed: "失败",
+    unknown: "未知",
+  };
+  return labels[status] ?? status;
 }
 
 function renderKind(kind: AgentTimelineItem["kind"]) {
@@ -159,6 +215,20 @@ function renderKind(kind: AgentTimelineItem["kind"]) {
     unknown: "unknown",
   };
   return labels[kind] ?? kind;
+}
+
+function formatTraceIds(card: AgentTraceCard) {
+  const thread = card.threadId ? `thread ${shortTurnId(card.threadId)}` : "thread 无";
+  const turn = card.turnId ? `turn ${shortTurnId(card.turnId)}` : "turn 无";
+  return `${thread} / ${turn}`;
+}
+
+function formatActivity(activity: AgentActivitySummary | null) {
+  if (!activity) return "items 0 / tokens 未知";
+  const count = activity.effectiveItemCount || activity.itemCount || 0;
+  const tokens = activity.tokenUsage?.totalTokens != null ? formatNumber(activity.tokenUsage.totalTokens) : "未知";
+  const tool = activity.latestToolName ? ` / ${activity.latestToolName}` : "";
+  return `items ${count} / tokens ${tokens}${tool}`;
 }
 
 function formatTime(value?: string | null) {

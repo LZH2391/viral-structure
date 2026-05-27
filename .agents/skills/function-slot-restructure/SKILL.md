@@ -45,6 +45,30 @@ Accept any of these:
 
 If multiple uploaded file sets exist, infer the latest complete set or ask only when the ambiguity blocks progress.
 
+## Local Project Integration
+
+For the `C:\ByteDanceFullStack` project, treat `Artifacts/FunctionSlotLibrary/` as the real local sample-library corpus. Each child directory is one sample library exported from a traceable `functionSlotAtomizationAnalysis` artifact:
+
+```text
+Artifacts/FunctionSlotLibrary/<artifactId>/
+  manifest.json
+  slots.json
+  atoms.script.json
+  atoms.rhythm.json
+  atoms.packaging.json
+  bindings.json
+  rules.json
+  templates.json
+```
+
+When a script receives the repository root, it should resolve to `Artifacts/FunctionSlotLibrary/` and should not ingest `.agents/skills/function-slot-restructure/references/sample-libraries/` unless the user explicitly asks to inspect the bundled seed example.
+
+The bundled `references/sample-libraries/sample_001/` is only a seed example for explaining schema and workflow. Never merge it into the project's real corpus by default and never treat it as corpus support.
+
+Write generated indexes, retrieval reports, and plan skeletons to an ignored working location such as `Runtime/Temp/FunctionSlotLibrary/`. Do not commit generated indexes or local runtime outputs unless the user explicitly asks for a curated artifact.
+
+Project manifests use `function_slot_library.v1` and must preserve traceability fields such as `artifactId`, `sampleVideoId`, `traceId`, `parentArtifactId`, source artifact ids, `contentHash`, and `counts`. Corpus-level outputs may include repo-relative paths, but should not include local absolute paths, full prompts, DebugSnapshots, video/frame contents, or sensitive material.
+
 ## Workflow Decision Tree
 
 ### Build or update a slot corpus
@@ -56,6 +80,15 @@ If multiple uploaded file sets exist, infer the latest complete set or ask only 
 5. Report coverage gaps and schema issues.
 
 Use `scripts/validate_library_corpus.py` and `scripts/build_slot_index.py` when local JSON files are available.
+
+In this repository, the default deterministic flow is:
+
+```bash
+python .agents/skills/function-slot-restructure/scripts/validate_corpus.py . --out Runtime/Temp/FunctionSlotLibrary/validation.json
+python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --out Runtime/Temp/FunctionSlotLibrary/slot_index.json
+python .agents/skills/function-slot-restructure/scripts/retrieve_candidates.py Runtime/Temp/FunctionSlotLibrary/slot_index.json --query "<target brief>" --slot-types problem_activation,result_confirmation --out Runtime/Temp/FunctionSlotLibrary/retrieval.json
+python .agents/skills/function-slot-restructure/scripts/assemble_plan.py Runtime/Temp/FunctionSlotLibrary/slot_index.json --brief Runtime/Temp/FunctionSlotLibrary/brief.json --out Runtime/Temp/FunctionSlotLibrary/plan.json
+```
 
 ### Recompose from a corpus
 

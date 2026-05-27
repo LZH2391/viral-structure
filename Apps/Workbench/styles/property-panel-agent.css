@@ -157,6 +157,97 @@
   white-space: nowrap;
 }
 
+.agent-trace-card-list {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-trace-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text-soft);
+  padding: 8px;
+  text-align: left;
+}
+
+.agent-trace-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.agent-trace-card.active,
+.agent-trace-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.agent-trace-card strong,
+.agent-trace-card span,
+.agent-trace-card small,
+.agent-trace-card em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-trace-card strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.agent-trace-card > span:not(.agent-trace-state),
+.agent-trace-card small,
+.agent-trace-card em {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-trace-card em {
+  grid-column: 1 / -1;
+  color: var(--text-soft);
+  font-style: normal;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.agent-trace-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.agent-trace-state.state-running {
+  border-color: rgba(242, 169, 59, 0.42);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.agent-trace-state.state-completed {
+  border-color: rgba(35, 195, 107, 0.32);
+  background: rgba(35, 195, 107, 0.12);
+  color: #23c36b;
+}
+
+.agent-trace-state.state-failed {
+  border-color: rgba(255, 92, 92, 0.38);
+  background: rgba(255, 92, 92, 0.12);
+  color: #ff7777;
+}
+
 .agent-timeline-list {
   position: relative;
   display: grid;

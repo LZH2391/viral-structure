@@ -68,10 +68,50 @@ function normalizeJobSnapshot(job: ProcessingJob) {
     progress: job.progress ?? null,
     traceId: job.traceId ?? null,
     finalMessage: job.finalMessage ?? null,
+    agentRun: normalizeAgentRun(job.agentRun ?? null),
+    shotBoundaryTransform: normalizeTraceCard(job.shotBoundaryTransform ?? null),
+    agentTraceCards: Array.isArray(job.agentTraceCards) ? job.agentTraceCards.map(normalizeTraceCard) : null,
     agentActivity: normalizeAgentActivity(job.agentActivity ?? null),
     errorSummary: normalizeErrorSummary(job.errorSummary ?? null),
     activeThreadMessage: normalizeActiveThreadMessage(job.activeThreadMessage ?? null),
     cachePrompt: normalizeCachePrompt(job.cachePrompt ?? null),
+  };
+}
+
+function normalizeAgentRun(agentRun: ProcessingJob["agentRun"]) {
+  if (!agentRun) return null;
+  return {
+    role: agentRun.role ?? null,
+    threadId: agentRun.threadId ?? null,
+    leaseId: agentRun.leaseId ?? null,
+    turnId: agentRun.turnId ?? null,
+    traceId: agentRun.traceId ?? null,
+    artifactId: agentRun.artifactId ?? null,
+    parentArtifactId: agentRun.parentArtifactId ?? null,
+    status: agentRun.status ?? null,
+    startedAt: agentRun.startedAt ?? null,
+    updatedAt: agentRun.updatedAt ?? null,
+  };
+}
+
+function normalizeTraceCard(card: NonNullable<ProcessingJob["agentTraceCards"]>[number] | ProcessingJob["shotBoundaryTransform"]) {
+  if (!card) return null;
+  return {
+    id: card.id ?? null,
+    label: card.label ?? null,
+    role: card.role ?? null,
+    stageName: card.stageName ?? null,
+    status: card.status ?? null,
+    threadId: card.threadId ?? null,
+    turnId: card.turnId ?? null,
+    leaseId: card.leaseId ?? null,
+    traceId: card.traceId ?? null,
+    artifactId: card.artifactId ?? null,
+    parentArtifactId: card.parentArtifactId ?? null,
+    latestMessagePreview: card.latestMessagePreview ?? null,
+    startedAt: card.startedAt ?? null,
+    updatedAt: card.updatedAt ?? null,
+    activity: normalizeAgentActivity(card.activity ?? null),
   };
 }
 

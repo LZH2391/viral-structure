@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from common import display_path, resolve_corpus_root
+
 REQUIRED_FILES = {
     "slots": "slots.json",
     "script_atoms": "atoms.script.json",
@@ -36,6 +38,7 @@ def looks_like_sample_dir(path: Path) -> bool:
 
 
 def find_samples(root: Path) -> List[Path]:
+    root = resolve_corpus_root(root)
     if looks_like_sample_dir(root):
         return [root]
     samples = [p for p in sorted(root.iterdir()) if p.is_dir() and looks_like_sample_dir(p)]
@@ -56,7 +59,7 @@ def ids(items: Any) -> set[str]:
 
 def validate_sample(sample_dir: Path) -> Dict[str, Any]:
     result: Dict[str, Any] = {
-        "samplePath": str(sample_dir),
+        "samplePath": display_path(sample_dir),
         "sampleId": sample_dir.name,
         "ok": True,
         "errors": [],
@@ -85,6 +88,7 @@ def validate_sample(sample_dir: Path) -> Dict[str, Any]:
                 result["warnings"].append(error)
             else:
                 data[key] = loaded
+                result["sampleId"] = str(loaded.get("sampleVideoId") or loaded.get("artifactId") or result["sampleId"])
 
     if result["errors"]:
         result["ok"] = False
@@ -172,10 +176,12 @@ def validate_sample(sample_dir: Path) -> Dict[str, Any]:
         result["errors"].append("templates file must be a list")
 
     for atom in packaging_atoms if isinstance(packaging_atoms, list) else []:
-        if isinstance(atom, dict) and not atom.get("visualElements"):
-            result["warnings"].append(f"packaging atom {atom.get('id', '<unknown>')} has empty visualElements")
-        if isinstance(atom, dict) and not atom.get("replaceableForms"):
-            result["warnings"].append(f"packaging atom {atom.get('id', '<unknown>')} has empty replaceableForms")
+        if not isinstance(atom, dict):
+            continue
+        if not (atom.get("packagingFunction") or atom.get("function")):
+            result["warnings"].append(f"packaging atom {atom.get('id', '<unknown>')} missing packagingFunction")
+        if not (atom.get("visualHierarchy") or atom.get("visualElements")):
+            result["warnings"].append(f"packaging atom {atom.get('id', '<unknown>')} missing visualHierarchy/visualElements")
 
     result["ok"] = not result["errors"]
     return result

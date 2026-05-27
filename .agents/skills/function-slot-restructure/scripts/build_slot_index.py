@@ -8,11 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from common import as_list, by_id, discover_sample_dirs, load_sample, slot_key, text_blob, write_json
+from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, slot_key, text_blob, write_json
 
 
 def build_index(root: Path) -> Dict[str, Any]:
-    sample_dirs = discover_sample_dirs(root)
+    corpus_root = resolve_corpus_root(root)
+    sample_dirs = discover_sample_dirs(corpus_root)
     samples: List[Dict[str, Any]] = []
     slot_variants: List[Dict[str, Any]] = []
     atom_variants: List[Dict[str, Any]] = []
@@ -154,7 +155,7 @@ def build_index(root: Path) -> Dict[str, Any]:
     return {
         "schemaVersion": "short_video_slot_index.v1",
         "createdAt": datetime.now(timezone.utc).isoformat(),
-        "sourceRoot": str(root.resolve()),
+        "sourceRoot": display_path(corpus_root),
         "summary": {
             "sampleCount": len(samples),
             "slotVariantCount": len(slot_variants),

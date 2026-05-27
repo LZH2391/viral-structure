@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+PROJECT_CORPUS_RELATIVE = Path("Artifacts") / "FunctionSlotLibrary"
 
 CANONICAL_FILENAMES = {
     "manifest": "manifest.json",
@@ -28,6 +31,39 @@ GLOB_PATTERNS = {
     "rules": "rules*.json",
     "templates": "templates*.json",
 }
+
+
+def display_path(path: Path, base: Optional[Path] = None) -> str:
+    """Return a repo-relative path when possible, avoiding local absolute paths in indexes."""
+    path = path.resolve()
+    base = (base or Path.cwd()).resolve()
+    try:
+        return path.relative_to(base).as_posix()
+    except ValueError:
+        return os.path.relpath(path, base).replace(os.sep, "/")
+
+
+def looks_like_sample_dir(path: Path) -> bool:
+    return any((path / filename).exists() for filename in CANONICAL_FILENAMES.values())
+
+
+def resolve_corpus_root(root: Path) -> Path:
+    """Resolve a local project root to its real FunctionSlotLibrary corpus.
+
+    The skill bundle also contains seed sample libraries under `.agents/skills`.
+    When callers pass the ByteDanceFullStack repo root, the project corpus must be
+    `Artifacts/FunctionSlotLibrary`, not the skill's reference samples.
+    """
+    root = root.expanduser().resolve()
+    if looks_like_sample_dir(root):
+        return root
+    project_corpus = root / PROJECT_CORPUS_RELATIVE
+    if project_corpus.exists():
+        return project_corpus.resolve()
+    artifacts_corpus = root / "FunctionSlotLibrary"
+    if root.name == "Artifacts" and artifacts_corpus.exists():
+        return artifacts_corpus.resolve()
+    return root
 
 
 def read_json(path: Path) -> Any:
@@ -68,7 +104,7 @@ def find_file(sample_dir: Path, logical_name: str, manifest: Optional[Dict[str, 
 
 def discover_sample_dirs(root: Path) -> List[Path]:
     """Find directories that look like sample-video libraries."""
-    root = root.resolve()
+    root = resolve_corpus_root(root)
     dirs = set()
     for p in root.rglob("manifest*.json"):
         if p.is_file():
@@ -96,11 +132,11 @@ def load_sample(sample_dir: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             paths[logical] = str(p)
     sample_id = manifest.get("sampleVideoId") or manifest.get("artifactId") or sample_dir.name
     metadata = {
-        "sampleDir": str(sample_dir),
+        "sampleDir": display_path(sample_dir),
         "sampleId": str(sample_id),
         "artifactId": manifest.get("artifactId"),
         "schemaVersion": manifest.get("schemaVersion"),
-        "paths": paths,
+        "paths": {key: display_path(Path(value)) for key, value in paths.items()},
     }
     return metadata, files
 

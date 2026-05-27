@@ -4,6 +4,23 @@ Use this reference when the user has many video-derived JSON exports.
 
 ## Expected Directory Forms
 
+Local project form in `C:\ByteDanceFullStack`:
+
+```text
+Artifacts/FunctionSlotLibrary/
+  artifact_<id>/
+    manifest.json
+    slots.json
+    atoms.script.json
+    atoms.rhythm.json
+    atoms.packaging.json
+    bindings.json
+    rules.json
+    templates.json
+```
+
+This is the project's real corpus. If a script is given the repository root, resolve it to `Artifacts/FunctionSlotLibrary/`.
+
 Preferred corpus form:
 
 ```text
@@ -22,6 +39,8 @@ corpus/
 ```
 
 Flat upload form is also acceptable if file names contain sample ids. Normalize into sample folders before indexing when possible.
+
+Do not ingest `references/sample-libraries/sample_001/` into the project corpus by default. It is a bundled seed example for explaining schema and workflow, not corpus support.
 
 ## Minimum Complete Sample
 
@@ -50,6 +69,8 @@ A merged index should contain:
   "coverage": {}
 }
 ```
+
+Indexes and reports generated inside this repository should be written under an ignored working directory such as `Runtime/Temp/FunctionSlotLibrary/`. Use repo-relative paths in outputs and preserve manifest lineage fields (`artifactId`, `sampleVideoId`, `traceId`, `parentArtifactId`, source artifact ids, `contentHash`) so the corpus can be audited without exposing local absolute paths.
 
 Each `slotVariants` record should include:
 

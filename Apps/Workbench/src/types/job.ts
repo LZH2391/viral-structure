@@ -17,10 +17,15 @@ export type ProcessingJob = {
     threadId?: string | null;
     leaseId?: string | null;
     turnId?: string | null;
+    traceId?: string | null;
+    artifactId?: string | null;
+    parentArtifactId?: string | null;
     status?: string;
     startedAt?: string | null;
     updatedAt?: string | null;
   } | null;
+  shotBoundaryTransform?: Partial<AgentTraceCard> | null;
+  agentTraceCards?: AgentTraceCard[] | null;
   activeThreadMessage?: {
     threadId?: string | null;
     turnId?: string | null;
@@ -52,6 +57,24 @@ export type ProcessingJob = {
 };
 
 export type AgentRunJob = ProcessingJob;
+
+export type AgentTraceCard = {
+  id: string;
+  label: string;
+  role: string | null;
+  stageName: string | null;
+  status: "pending" | "running" | "completed" | "failed" | "unknown";
+  threadId: string | null;
+  turnId: string | null;
+  leaseId: string | null;
+  traceId: string | null;
+  artifactId: string | null;
+  parentArtifactId: string | null;
+  activity: AgentActivitySummary | null;
+  latestMessagePreview: string | null;
+  startedAt: string | null;
+  updatedAt: string | null;
+};
 
 export type AgentActivitySummary = {
   threadId: string | null;

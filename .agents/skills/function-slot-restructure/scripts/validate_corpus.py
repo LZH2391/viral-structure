@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
 
-from common import as_list, by_id, discover_sample_dirs, load_sample, write_json
+from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, write_json
 
 REQUIRED_SAMPLE_FILES = [
     "slots",
@@ -115,7 +115,8 @@ def validate_sample(meta: Dict[str, Any], files: Dict[str, Any]) -> Dict[str, An
 
 
 def validate_corpus(root: Path) -> Dict[str, Any]:
-    sample_dirs = discover_sample_dirs(root)
+    corpus_root = resolve_corpus_root(root)
+    sample_dirs = discover_sample_dirs(corpus_root)
     sample_results = []
     slot_type_counter: Counter[str] = Counter()
     chain_counter: Counter[str] = Counter()
@@ -137,6 +138,7 @@ def validate_corpus(root: Path) -> Dict[str, Any]:
     warnings = [w for r in sample_results for w in r["warnings"]]
     return {
         "ok": not errors,
+        "corpusRoot": display_path(corpus_root),
         "sampleCount": len(sample_results),
         "sampleResults": sample_results,
         "errors": errors,

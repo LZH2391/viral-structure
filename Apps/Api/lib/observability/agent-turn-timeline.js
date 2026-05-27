@@ -5,7 +5,7 @@ function summarizeAgentTurnTimeline(thread, turnId) {
   const safeThread = thread && typeof thread === "object" ? thread : {};
   const turn = findTurn(safeThread, turnId);
   if (!turn) return null;
-  const items = Array.isArray(turn.items) ? turn.items : [];
+  const items = collectTurnItems(turn);
   const timeline = [];
   items.forEach((item, index) => {
     const entry = summarizeTurnItem(item, index);
@@ -35,7 +35,7 @@ function summarizeAgentTurnTimeline(thread, turnId) {
 }
 
 function buildAgentActivityFromTurn({ thread, turn, turnId }) {
-  const items = Array.isArray(turn?.items) ? turn.items : [];
+  const items = collectTurnItems(turn);
   const summarized = items.map((item, index) => summarizeTurnItem(item, index)).filter(Boolean);
   const latest = latestMeaningfulItem(summarized);
   const tokenUsage = normalizeTurnTokenUsage(turn);
@@ -75,15 +75,16 @@ function summarizeTurnItem(item, index) {
   if (!item || typeof item !== "object") return null;
   const type = String(item.type ?? item.kind ?? "").trim();
   const normalizedType = type.toLowerCase();
+  const compactType = normalizedType.replace(/[^a-z0-9]/g, "");
   const role = String(item.role ?? item.author ?? "").trim().toLowerCase();
   const createdAt = item.createdAt ?? item.created_at ?? item.updatedAt ?? item.updated_at ?? null;
-  if (["usermessage", "user_message", "inputtext", "text"].includes(normalizedType) || role === "user") {
+  if (["usermessage", "userinput", "inputtext", "text"].includes(compactType) || role === "user") {
     return buildItem({ item, index, kind: "user_input", title: "User input", createdAt, previewLimit: TEXT_PREVIEW_LIMIT });
   }
-  if (["agentmessage", "assistantmessage", "assistant_message", "message"].includes(normalizedType) || ["assistant", "agent", "thread"].includes(role)) {
+  if (["agentmessage", "assistantmessage", "message", "outputtext"].includes(compactType) || ["assistant", "agent", "thread"].includes(role)) {
     return buildItem({ item, index, kind: "agent_message", title: "Agent message", createdAt, previewLimit: LONG_TEXT_PREVIEW_LIMIT });
   }
-  if (normalizedType === "reasoning") {
+  if (["reasoning", "reasoningsummary", "reasoningtext"].includes(compactType)) {
     const text = extractText(item);
     const chars = text ? text.length : nullableNumber(item.characters ?? item.charCount ?? item.length);
     return {
@@ -97,7 +98,7 @@ function summarizeTurnItem(item, index) {
       metadata: chars ? { byteLength: chars } : {},
     };
   }
-  if (["toolcall", "tool_call"].includes(normalizedType)) {
+  if (["toolcall", "functioncall", "localtoolcall", "localshellcall", "shellcall", "commandcall"].includes(compactType)) {
     const toolName = resolveToolName(item);
     return {
       id: item.id ?? `item_${index}`,
@@ -114,7 +115,7 @@ function summarizeTurnItem(item, index) {
       },
     };
   }
-  if (["toolresult", "tool_result"].includes(normalizedType)) {
+  if (["toolresult", "functioncalloutput", "functionoutput", "toolcalloutput", "localtoolresult", "localshellresult", "shellresult", "commandresult"].includes(compactType)) {
     const toolName = resolveToolName(item);
     const text = extractText(item) ?? resolveToolPreview(item);
     return {
@@ -149,6 +150,56 @@ function buildItem({ item, index, kind, title, createdAt, previewLimit }) {
   };
 }
 
+function collectTurnItems(turn) {
+  if (!turn || typeof turn !== "object") return [];
+  const candidates = [
+    turn.input,
+    turn.inputs,
+    turn.items,
+    turn.output_items,
+    turn.outputItems,
+    turn.events,
+    turn.steps,
+    turn.history,
+  ];
+  const result = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    for (const item of flattenItemArray(candidate)) {
+      const key = item && typeof item === "object"
+        ? `${item.id ?? ""}:${item.type ?? item.kind ?? ""}:${safePreview(extractText(item), 80) ?? ""}`
+        : String(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+function flattenItemArray(value) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    if (isWrapperItem(item)) {
+      result.push(...flattenItemArray(item.items));
+      result.push(...flattenItemArray(item.output_items));
+      result.push(...flattenItemArray(item.outputItems));
+      result.push(...flattenItemArray(item.content));
+      continue;
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+function isWrapperItem(item) {
+  const type = String(item.type ?? item.kind ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return ["event", "step", "response", "messagegroup"].includes(type)
+    && (Array.isArray(item.items) || Array.isArray(item.output_items) || Array.isArray(item.outputItems) || Array.isArray(item.content));
+}
+
 function findTurn(thread, turnId) {
   const turns = Array.isArray(thread?.turns) ? thread.turns : [];
   const target = String(turnId ?? "");
@@ -168,7 +219,7 @@ function latestMeaningfulItem(items) {
 function extractText(value) {
   if (typeof value === "string") return value.trim() || null;
   if (!value || typeof value !== "object") return null;
-  for (const key of ["text", "message", "summary", "final_message", "finalMessage", "output", "result"]) {
+  for (const key of ["text", "message", "summary", "final_message", "finalMessage", "output", "result", "arguments", "args"]) {
     const text = stringifyContent(value[key]);
     if (text) return text;
   }
@@ -184,16 +235,17 @@ function stringifyContent(value) {
   if (value && typeof value === "object") {
     if (typeof value.text === "string") return value.text.trim() || null;
     if (typeof value.content === "string") return value.content.trim() || null;
+    if (typeof value.output === "string") return value.output.trim() || null;
   }
   return null;
 }
 
 function resolveToolName(item) {
-  return stringOrNull(item.toolName ?? item.tool_name ?? item.name ?? item.tool ?? item.metadata?.toolName ?? item.metadata?.tool_name);
+  return stringOrNull(item.toolName ?? item.tool_name ?? item.name ?? item.tool ?? item.call?.name ?? item.function?.name ?? item.metadata?.toolName ?? item.metadata?.tool_name);
 }
 
 function resolveToolCommand(item) {
-  return stringOrNull(item.command ?? item.arguments?.command ?? item.args?.command ?? item.metadata?.command);
+  return stringOrNull(item.command ?? item.arguments?.command ?? item.args?.command ?? item.call?.arguments?.command ?? item.function?.arguments?.command ?? item.metadata?.command);
 }
 
 function resolveToolPreview(item) {
@@ -225,11 +277,21 @@ function normalizeTurnActivity(value) {
 
 function normalizeTurnTokenUsage(turn) {
   if (!turn || typeof turn !== "object") return null;
-  return normalizeTokenUsage(turn.last_token_usage ?? turn.lastTokenUsage ?? turn.token_usage ?? turn.tokenUsage);
+  return normalizeTokenUsage(
+    turn.last_token_usage
+      ?? turn.lastTokenUsage
+      ?? turn.token_usage
+      ?? turn.tokenUsage
+      ?? turn.usage
+      ?? turn.metrics?.token_usage
+      ?? turn.metrics?.tokenUsage,
+  );
 }
 
 function normalizeTokenUsage(usage) {
   if (!usage || typeof usage !== "object") return null;
+  const nested = usage.last_token_usage ?? usage.lastTokenUsage ?? usage.last ?? null;
+  if (nested && nested !== usage) return normalizeTokenUsage(nested);
   const result = {
     inputTokens: nullableNumber(usage.inputTokens ?? usage.input_tokens),
     outputTokens: nullableNumber(usage.outputTokens ?? usage.output_tokens),
