@@ -1,11 +1,22 @@
 import type { AgentActivitySummary, AgentRunJob, AgentTraceCard } from "../../types";
 
-type TraceRunLike = Partial<NonNullable<AgentRunJob["agentRun"]>> & Partial<AgentTraceCard>;
+type TraceRunLike = {
+  role?: string | null;
+  status?: string | null;
+  threadId?: string | null;
+  turnId?: string | null;
+  leaseId?: string | null;
+  traceId?: string | null;
+  artifactId?: string | null;
+  parentArtifactId?: string | null;
+  startedAt?: string | null;
+  updatedAt?: string | null;
+};
 
 export function resolveAgentTraceCards(job?: AgentRunJob | null): AgentTraceCard[] {
   if (!job) return [];
   const explicit = Array.isArray(job.agentTraceCards)
-    ? job.agentTraceCards.map((card, index) => normalizeTraceCard(card, index)).filter(Boolean)
+    ? job.agentTraceCards.map((card, index) => normalizeTraceCard(card, index)).filter(isTraceCard)
     : [];
   if (explicit.length) return explicit;
 
@@ -36,6 +47,10 @@ export function resolveAgentTraceCards(job?: AgentRunJob | null): AgentTraceCard
     cards.push(fromActivityOnly(job));
   }
   return dedupeCards(cards);
+}
+
+function isTraceCard(card: AgentTraceCard | null): card is AgentTraceCard {
+  return card !== null;
 }
 
 export function pickDefaultTraceCard(cards: AgentTraceCard[], currentId?: string | null) {

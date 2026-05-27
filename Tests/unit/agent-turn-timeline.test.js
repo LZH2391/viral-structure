@@ -44,3 +44,48 @@ test("agent turn timeline returns null for missing turn", () => {
   const timeline = summarizeAgentTurnTimeline({ id: "thread_1", turns: [] }, "turn_missing");
   assert.equal(timeline, null);
 });
+
+test("agent turn timeline recognizes appserver function call output and nested token usage", () => {
+  const thread = {
+    id: "thread_appserver",
+    turns: [{
+      id: "turn_appserver",
+      status: "running",
+      usage: {
+        last_token_usage: {
+          input_tokens: 222,
+          output_tokens: 33,
+          total_tokens: 255,
+        },
+      },
+      input: [
+        { type: "input_text", text: "分析 raw 切镜结果" },
+      ],
+      outputItems: [
+        {
+          type: "message_group",
+          items: [
+            { id: "m1", type: "output_text", text: "准备读取辅助文件" },
+            { id: "f1", type: "function_call", name: "shell_command", arguments: { command: "Get-Content shots.json" } },
+            { id: "o1", type: "function_call_output", name: "shell_command", output: "Exit code: 0\nOutput:\n[]" },
+          ],
+        },
+      ],
+    }],
+  };
+
+  const timeline = summarizeAgentTurnTimeline(thread, "turn_appserver");
+
+  assert.deepEqual(timeline.items.map((item) => item.kind), [
+    "user_input",
+    "agent_message",
+    "tool_call",
+    "tool_result",
+    "token_usage",
+  ]);
+  assert.equal(timeline.activity.itemCount, 4);
+  assert.equal(timeline.activity.latestItemType, "tool_result");
+  assert.equal(timeline.activity.latestToolName, "shell_command");
+  assert.equal(timeline.activity.tokenUsage.inputTokens, 222);
+  assert.equal(timeline.items.find((item) => item.kind === "tool_call").metadata.commandPreview, "Get-Content shots.json");
+});
