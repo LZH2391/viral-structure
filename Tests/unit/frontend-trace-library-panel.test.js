@@ -324,7 +324,7 @@ test("agent cards show readable activity and timeline traces across agent turns"
   assert.match(jobTypes, /export type AgentTimelineItem = \{/);
   assert.match(jobTypes, /latestMessagePreview: string \| null;/);
   assert.match(types, /agentRun\?: \{/);
-  assert.match(shotPanel, /resolveActiveThreadMessage\(job\)/);
+  assert.match(shotPanel, /AgentTurnTimelinePanel/);
   assert.match(scriptPanel, /AgentTurnTimelinePanel/);
   assert.match(rhythmPanel, /AgentTurnTimelinePanel/);
   assert.match(packagingPanel, /AgentTurnTimelinePanel/);
@@ -332,7 +332,7 @@ test("agent cards show readable activity and timeline traces across agent turns"
   assert.match(timelinePanel, /getAgentTurnTimeline\(threadId, turnId\)/);
   assert.match(timelinePanel, /setInterval\([\s\S]*2000/);
   assert.match(timelinePanel, /latestMessagePreview \?\? job\?\.activeThreadMessage\?\.text/);
-  assert.match(shotPanel, /job\.status !== "processing"/);
+  assert.match(timelinePanel, /if \(running\) return null;/);
   assert.doesNotMatch(scriptPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(rhythmPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(packagingPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
@@ -340,7 +340,7 @@ test("agent cards show readable activity and timeline traces across agent turns"
   assert.doesNotMatch(scriptPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.doesNotMatch(rhythmPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.doesNotMatch(packagingPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
-  assert.match(shotPanel, /className="agent-thread-message"/);
+  assert.doesNotMatch(shotPanel, /className="agent-thread-message"/);
   assert.match(timelinePanel, /className="agent-latest-activity"/);
   assert.match(timelinePanel, /className="agent-turn-timeline"/);
   assert.match(css, /\.agent-thread-message/);

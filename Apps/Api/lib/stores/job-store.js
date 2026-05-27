@@ -15,14 +15,19 @@ function createJobStore({ filePath = null, terminalRetention = DEFAULT_TERMINAL_
   if (migratedLegacy) removeLegacyJobsFile(storage);
 
   function createJob({ sampleVideoId, traceId }) {
-    const job = createProcessingJob({
-      jobId: `job_${randomUUID()}`,
-      sampleVideoId,
-      stage: "uploaded",
-      status: SAMPLE_STATUS.pending,
-      progress: 0,
-      traceId,
-    });
+    const now = new Date().toISOString();
+    const job = {
+      ...createProcessingJob({
+        jobId: `job_${randomUUID()}`,
+        sampleVideoId,
+        stage: "uploaded",
+        status: SAMPLE_STATUS.pending,
+        progress: 0,
+        traceId,
+      }),
+      createdAt: now,
+      updatedAt: now,
+    };
     jobs.set(job.jobId, job);
     persistJobs(storage, jobs);
     return job;
@@ -31,7 +36,11 @@ function createJobStore({ filePath = null, terminalRetention = DEFAULT_TERMINAL_
   function updateJob(jobId, patch) {
     const current = jobs.get(jobId);
     if (!current) return null;
-    const next = { ...current, ...patch };
+    const updatedAt = patch.updatedAt ?? new Date().toISOString();
+    const next = { ...current, ...patch, updatedAt };
+    if (isTerminalJob(next) && !next.completedAt) {
+      next.completedAt = patch.completedAt ?? updatedAt;
+    }
     jobs.set(jobId, next);
     persistJobs(storage, jobs);
     return next;
@@ -45,6 +54,10 @@ function createJobStore({ filePath = null, terminalRetention = DEFAULT_TERMINAL_
     return Array.from(jobs.values());
   }
 
+  function getArchivedJob(jobId) {
+    return readArchivedJob(storage, jobId);
+  }
+
   function listActiveAgentRuns({ role } = {}) {
     return listJobs().filter((job) => {
       const agentRun = job.agentRun;
@@ -54,7 +67,7 @@ function createJobStore({ filePath = null, terminalRetention = DEFAULT_TERMINAL_
     });
   }
 
-  return { createJob, updateJob, getJob, listJobs, listActiveAgentRuns };
+  return { createJob, updateJob, getJob, getArchivedJob, listJobs, listActiveAgentRuns };
 }
 
 function resolveStorage(filePath, terminalRetention) {
@@ -166,6 +179,38 @@ function appendArchivedJobs(archiveDir, archivedJobs) {
   for (const [month, lines] of byMonth.entries()) {
     fs.appendFileSync(path.join(archiveDir, `${month}.jsonl`), `${lines.join("\n")}\n`, "utf8");
   }
+}
+
+function readArchivedJob(storage, jobId) {
+  if (!storage?.archiveDir || !jobId || !fs.existsSync(storage.archiveDir)) return null;
+  let files;
+  try {
+    files = fs.readdirSync(storage.archiveDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".jsonl"))
+      .map((entry) => entry.name)
+      .sort()
+      .reverse();
+  } catch {
+    return null;
+  }
+  for (const file of files) {
+    const filePath = path.join(storage.archiveDir, file);
+    let lines;
+    try {
+      lines = fs.readFileSync(filePath, "utf8").trim().split(/\r?\n/).filter(Boolean);
+    } catch {
+      continue;
+    }
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      try {
+        const job = JSON.parse(lines[index]);
+        if (job?.jobId === jobId) return job;
+      } catch {
+        // Ignore a bad archive row and keep scanning older rows.
+      }
+    }
+  }
+  return null;
 }
 
 function jobSortTime(job) {

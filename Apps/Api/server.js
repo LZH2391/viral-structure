@@ -402,7 +402,8 @@ async function handleWorkflowStageRerun(res, workflowRunId, stageKey, handlers =
 }
 
 function handleJob(res, jobId, handlers = {}) {
-  const job = (handlers.jobStore ?? jobStore).getJob(jobId);
+  const activeJobStore = handlers.jobStore ?? jobStore;
+  const job = activeJobStore.getJob(jobId) ?? activeJobStore.getArchivedJob?.(jobId) ?? null;
   if (!job) return notFound(res);
   return sendJson(res, 200, job);
 }

@@ -196,6 +196,30 @@ test("top-level request catch returns 500 payload with trace metadata", async ()
   }
 });
 
+test("processing job endpoint can read archived terminal jobs", async () => {
+  const server = createServer({
+    jobStore: {
+      getJob: () => null,
+      getArchivedJob: (jobId) => jobId === "job_archived"
+        ? { jobId, sampleVideoId: "sample_1", traceId: "trace_archived", stage: "processed", status: "processed", progress: 100 }
+        : null,
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/processing-jobs/job_archived");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.status, "processed");
+    assert.equal(response.body.traceId, "trace_archived");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("analysis roles endpoint returns public descriptors only", async () => {
   const server = createServer({
     staticWorkbench: { handle: () => false },

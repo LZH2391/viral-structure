@@ -9,10 +9,12 @@ test("processing job flows through statuses", () => {
   const store = createJobStore();
   const job = store.createJob({ sampleVideoId: "sample_1", traceId: "trace_1" });
   assert.equal(job.status, "pending");
+  assert.equal(Number.isFinite(Date.parse(job.createdAt)), true);
   const processing = store.updateJob(job.jobId, { status: "processing", stage: "ffprobe", progress: 40 });
   assert.equal(processing.stage, "ffprobe");
   const processed = store.updateJob(job.jobId, { status: "processed", progress: 100 });
   assert.equal(processed.progress, 100);
+  assert.equal(Number.isFinite(Date.parse(processed.completedAt)), true);
 });
 
 test("job store marks interrupted persisted jobs as failed on restart", () => {
@@ -68,6 +70,7 @@ test("job store keeps active jobs and archives older terminal jobs", () => {
   const archivePath = path.join(dir, "archive", "2026--05--01.jsonl");
   const archived = fs.readFileSync(archivePath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(archived.map((job) => job.jobId), ["job_old_done"]);
+  assert.equal(store.getArchivedJob("job_old_done").status, "processed");
 });
 
 test("job store archives terminal jobs after retention is exceeded by updates", () => {
@@ -86,4 +89,23 @@ test("job store archives terminal jobs after retention is exceeded by updates", 
   assert.deepEqual(active.jobs.map((job) => job.jobId), [second.jobId]);
   const archiveText = fs.readFileSync(path.join(dir, "archive", "2026--05--01.jsonl"), "utf8");
   assert.match(archiveText, new RegExp(first.jobId));
+});
+
+test("job store timestamps completed jobs before terminal retention sorting", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "job-store-terminal-time-"));
+  const filePath = path.join(dir, "active-jobs.json");
+  fs.writeFileSync(filePath, JSON.stringify({
+    jobs: [
+      { jobId: "job_existing_done", sampleVideoId: "sample_old", traceId: "trace_old", stage: "processed", status: "processed", progress: 100, updatedAt: "2020-01-01T00:00:00.000Z" },
+    ],
+  }), "utf8");
+  const store = createJobStore({ filePath, terminalRetention: 1 });
+  const created = store.createJob({ sampleVideoId: "sample_new", traceId: "trace_new" });
+  const completed = store.updateJob(created.jobId, { status: "processed", stage: "processed", progress: 100 });
+
+  assert.equal(store.getJob(created.jobId).status, "processed");
+  assert.equal(store.getJob("job_existing_done"), null);
+  assert.equal(store.getArchivedJob("job_existing_done").traceId, "trace_old");
+  assert.equal(Number.isFinite(Date.parse(completed.updatedAt)), true);
+  assert.equal(Number.isFinite(Date.parse(completed.completedAt)), true);
 });

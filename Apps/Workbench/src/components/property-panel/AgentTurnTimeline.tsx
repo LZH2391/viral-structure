@@ -30,6 +30,7 @@ export function AgentTurnTimelinePanel({
   const canTrace = Boolean(threadId && turnId);
   const activity = timeline?.activity ?? resolveActivity(job);
   const latestText = activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
+  const statusBadge = renderJobStatus(job, running);
 
   useEffect(() => {
     if (!expanded || !threadId || !turnId) return;
@@ -69,9 +70,11 @@ export function AgentTurnTimelinePanel({
             <span>{statusText}</span>
           </div>
           <div className="agent-summary-actions">
-            <span className="agent-status-badge">
-              {renderJobStatus(job, running)}
-            </span>
+            {statusBadge ? (
+              <span className="agent-status-badge">
+                {statusBadge}
+              </span>
+            ) : null}
             <button className="primary-button" type="button" disabled={running || runDisabled} onClick={onRun}>
               {runLabel ?? (running ? "运行中" : "运行")}
             </button>
@@ -140,8 +143,8 @@ function buildTraceSummary(activity: AgentActivitySummary | null, turnId?: strin
 function renderJobStatus(job: AgentRunJob | null | undefined, running: boolean) {
   if (job?.status === "failed") return "失败";
   if (job?.status === "processed") return "完成";
-  if (running) return "运行中";
-  return "待运行";
+  if (running) return null;
+  return null;
 }
 
 function renderKind(kind: AgentTimelineItem["kind"]) {
