@@ -24,7 +24,6 @@ export type PackagingStructureCacheHandler = AnalysisCacheHandler;
 export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
-
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
   buttonLabel: string;
@@ -135,9 +134,12 @@ export async function runAnalysisRole(
     error.sampleArtifact = artifact;
     throw error;
   }
-  onJobUpdate?.(null);
-  writeActiveJob?.(null);
-  throw new Error(role.timeoutMessage);
+  onJobUpdate?.(latest);
+  const error = new Error(buildAnalysisTimeoutMessage(role.timeoutMessage, latest)) as Error & {
+    processingJob?: ProcessingJob;
+  };
+  error.processingJob = latest;
+  throw error;
 }
 
 export async function runScriptSegmentAnalysis(
@@ -295,6 +297,14 @@ function buildAnalysisDependencyOptions(kind: AnalysisKind, state: WorkbenchStat
   return {
     expectedShotBoundaryArtifactId: state.sampleArtifact?.shotBoundaryAnalysis?.artifactId ?? null,
   };
+}
+
+function buildAnalysisTimeoutMessage(baseMessage: string, job: ProcessingJob) {
+  const traceText = job.traceId ? `traceId: ${job.traceId}` : null;
+  const stageText = job.stage ? `stage: ${job.stage}` : null;
+  const progressText = Number.isFinite(job.progress) ? `progress: ${job.progress}%` : null;
+  const details = [stageText, progressText, traceText].filter(Boolean).join(" / ");
+  return details ? `${baseMessage}，任务仍保留在运行面板（${details}）` : `${baseMessage}，任务仍保留在运行面板`;
 }
 
 export async function getShotBoundaryGuard() {

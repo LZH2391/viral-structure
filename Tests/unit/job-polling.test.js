@@ -125,6 +125,33 @@ test("pollProcessingJob stopOnNull clears an interrupted restored job after a pr
   assert.deepEqual(updates.map((job) => job?.status ?? null), ["processing", null]);
 });
 
+test("pollProcessingJob preserves latest long-running analysis snapshot on timeout", async () => {
+  const updates = [];
+  const snapshot = {
+    jobId: "job_atomization",
+    sampleVideoId: "sample_1",
+    traceId: "trace_atomization",
+    stage: "function_slot_atomization.analyze",
+    status: "processing",
+    progress: 58,
+  };
+
+  const result = await pollProcessingJob(
+    async () => snapshot,
+    {
+      maxAttempts: 3,
+      intervalMs: 0,
+      onUpdate: (job) => updates.push(job),
+      preservePreviousOnNull: true,
+    },
+  );
+
+  assert.equal(result.status, "processing");
+  assert.equal(result.stage, "function_slot_atomization.analyze");
+  assert.equal(result.progress, 58);
+  assert.equal(updates.length, 1);
+});
+
 test("isSameProcessingJobSnapshot compares only normalized fields", () => {
   const left = {
     jobId: "job_4",

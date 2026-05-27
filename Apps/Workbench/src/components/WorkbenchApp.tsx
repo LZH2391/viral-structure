@@ -616,5 +616,6 @@ const STAGES = {
 
 function resolveFailedProcessingJob(error: unknown): ProcessingJob | null {
   const job = (error as { processingJob?: ProcessingJob | null })?.processingJob ?? null;
-  return job?.status === "failed" ? job : null;
+  if (!job) return null;
+  return job.status === "failed" || job.status === "processing" || job.status === "pending" ? job : null;
 }
