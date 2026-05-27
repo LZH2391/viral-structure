@@ -10,7 +10,7 @@ const {
   summarizeAgentOutput,
 } = require("./shared");
 
-function buildProcessedAnalysis(message, input, context, agentRun, turn, { repairAttemptCount = 0 } = {}) {
+function buildProcessedAnalysis(message, input, context, agentRun, turn, { repairAttemptCount = 0, boundaryReworkAttemptCount = 0 } = {}) {
   const parsed = parseAgentOutput(message, agentRun, turn, repairAttemptCount);
   const validation = validateFunctionSlotAtomization(parsed);
   if (!validation.ok) {
@@ -31,7 +31,7 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     traceId: context.traceContext?.traceId ?? null,
     type: "function-slot-atomization-analysis",
     status: "processed",
-    resultOrigin: repairAttemptCount > 0 ? "repaired_turn" : "new_turn",
+    resultOrigin: boundaryReworkAttemptCount > 0 ? "boundary_reworked_turn" : repairAttemptCount > 0 ? "repaired_turn" : "new_turn",
     stageName: STAGES.materialized,
     sampleVideoId: input.sampleVideoId,
     sourceScriptSegmentArtifactId: input.sourceScriptSegmentArtifactId,
@@ -50,6 +50,7 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
       status: "passed",
       ...validation.summary,
       repairAttemptCount,
+      boundaryReworkAttemptCount,
     },
     agent: buildAgentArtifact(context, agentRun, turn),
     reason: null,

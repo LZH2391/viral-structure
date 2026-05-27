@@ -1,7 +1,13 @@
 const path = require("path");
 const { assertExpectedArtifact } = require("../compatibility/analysis-service-shared");
 const { buildAgentRun, updateAgentRun } = require("../function-slot-atomization-analysis/agent-run");
-const { prepareInput, prepareInputPackage, renderAnalyzeTurnInputs, renderRepairTurnInputs } = require("../function-slot-atomization-analysis/input");
+const {
+  prepareInput,
+  prepareInputPackage,
+  renderAnalyzeTurnInputs,
+  renderRepairTurnInputs,
+  renderBoundaryReworkTurnInputs,
+} = require("../function-slot-atomization-analysis/input");
 const { executeAnalyzeTurn, executeRepairTurn } = require("../function-slot-atomization-analysis/runner");
 const {
   buildProcessedAnalysis,
@@ -31,6 +37,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
       validated: 78,
       repaired: 88,
       boundaryReviewed: 90,
+      boundaryReworked: 92,
       cacheReuse: 92,
       materialized: 96,
     },
@@ -164,12 +171,35 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         repairAttemptCount: result.repairAttemptCount,
       };
     },
+    buildBoundaryReworkInputSummary(context, boundaryReview, reworkAttemptCount) {
+      return {
+        role: ROLE,
+        threadId: context.agentRun?.threadId ?? null,
+        leaseId: context.agentRun?.leaseId ?? null,
+        reworkAttemptCount,
+        boundaryReviewDecision: boundaryReview?.decision ?? null,
+        boundaryReviewIssueCount: Array.isArray(boundaryReview?.issues) ? boundaryReview.issues.length : 0,
+        boundaryReviewArtifactId: boundaryReview?.artifactId ?? null,
+      };
+    },
+    buildBoundaryReworkOutputSummary(context, result) {
+      return {
+        role: ROLE,
+        threadId: context.agentRun?.threadId ?? null,
+        turnId: result.finalTurn?.turnId ?? null,
+        status: result.analysis.status,
+        slotCount: result.analysis.slotMap.slots.length,
+        reworkAttemptCount: result.reworkAttemptCount,
+      };
+    },
     buildMaterializeInputSummary(analysis) {
       return {
         slotCount: analysis.slotMap.slots.length,
         threadId: analysis.agent?.threadId ?? null,
         turnId: analysis.agent?.turnId ?? null,
         boundaryReviewDecision: analysis.boundaryReview?.decision ?? null,
+        boundaryReviewIssueCount: analysis.boundaryReview?.issues?.length ?? 0,
+        boundaryReworkAttemptCount: analysis.validation?.boundaryReworkAttemptCount ?? 0,
       };
     },
     buildMaterializeOutputSummary(artifact) {
@@ -177,6 +207,8 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         slotCount: artifact.functionSlotAtomizationAnalysis?.slotMap?.slots?.length ?? 0,
         functionSlotAtomizationArtifactId: artifact.functionSlotAtomizationAnalysis?.artifactId ?? null,
         boundaryReviewDecision: artifact.functionSlotAtomizationAnalysis?.boundaryReview?.decision ?? null,
+        boundaryReviewIssueCount: artifact.functionSlotAtomizationAnalysis?.boundaryReview?.issues?.length ?? 0,
+        boundaryReworkAttemptCount: artifact.functionSlotAtomizationAnalysis?.validation?.boundaryReworkAttemptCount ?? 0,
       };
     },
     resolveSampleDir(context) {
@@ -189,7 +221,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
     async attachAnalysis(sampleVideoId, analysis, traceMeta) {
       return attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta);
     },
-    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts }) {
+    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts, reviewAttemptCount }) {
       context.boundaryReviewSkillPath = REVIEW_SKILL_PATH;
       context.boundaryReviewSkillHash = context.boundaryReviewSkillHash ?? await resolveBoundaryReviewSkillHash();
       return runFunctionSlotBoundaryReview({
@@ -202,7 +234,64 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         store,
         pollIntervalMs,
         maxCollectAttempts,
+        reviewAttemptCount,
       });
+    },
+    async runBoundaryRework({ context, analysis, boundaryReview, runtime, appServer, rootDir, pollIntervalMs, maxCollectAttempts, reworkAttemptCount }) {
+      const boundaryReworkTurn = renderBoundaryReworkTurnInputs({
+        inputPackage: context.inputPackage,
+        boundaryReview,
+        priorTurnOutput: context.finalOutputText,
+        reworkAttemptCount,
+        roleProfile: context.roleProfile,
+      });
+      context.promptTemplate = {
+        promptTemplateId: boundaryReworkTurn.promptTemplateId,
+        promptTemplateVersion: boundaryReworkTurn.promptTemplateVersion,
+        promptTemplateHash: boundaryReworkTurn.promptTemplateHash,
+      };
+      const reworked = await runtime.runStage(context, STAGES.boundaryReworked, this.progress.boundaryReworked, {
+        artifactId: context.artifactId,
+        parentArtifactId: analysis.artifactId,
+        inputSummary: this.buildBoundaryReworkInputSummary(context, boundaryReview, reworkAttemptCount),
+        action: async () => {
+          const executed = await executeRepairTurn({
+            agentRun: context.agentRun,
+            turnInputs: boundaryReworkTurn,
+            appServer,
+            rootDir,
+            pollIntervalMs,
+            maxCollectAttempts,
+            onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
+          });
+          const nextAnalysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
+            repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
+            boundaryReworkAttemptCount: reworkAttemptCount,
+          });
+          context.finalOutputText = executed.finalTurn.finalMessage ?? null;
+          context.agentRun = updateAgentRun(context.agentRun, context, executed.finalTurn);
+          runtime.job.resumeProcessing(context.job.jobId, STAGES.boundaryReworked, this.progress.boundaryReworked, {
+            agentRun: context.agentRun,
+            activeThreadMessage: null,
+          });
+          return {
+            analysis: {
+              ...nextAnalysis,
+              boundaryReviewHistory: analysis.boundaryReviewHistory ?? [],
+              boundaryRework: {
+                attemptCount: reworkAttemptCount,
+                sourceBoundaryReviewArtifactId: boundaryReview?.artifactId ?? null,
+                sourceBoundaryReviewDecision: boundaryReview?.decision ?? null,
+                sourceBoundaryReviewIssueCount: boundaryReview?.issues?.length ?? 0,
+              },
+            },
+            finalTurn: executed.finalTurn,
+            reworkAttemptCount,
+          };
+        },
+        outputSummary: (result) => this.buildBoundaryReworkOutputSummary(context, result),
+      });
+      return reworked.analysis;
     },
     async assertMaterializeDependencies(context) {
       const latestArtifact = await store.readJson(path.join(store.sampleDir(context.sampleVideoId), "artifact.json"));

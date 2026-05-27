@@ -1,6 +1,6 @@
 {
   "role": "function-slot-atomization-analyzer",
-  "profileVersion": "2026-05-26.1",
+  "profileVersion": "2026-05-27.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-atomization-analyzer/SKILL.md",
   "init": {
     "template": "init.md",
@@ -14,6 +14,10 @@
     "repair": {
       "template": "prompts/repair.v1.md",
       "version": "repair.v1"
+    },
+    "boundaryRework": {
+      "template": "prompts/boundary-rework.v1.md",
+      "version": "boundary-rework.v1"
     }
   }
 }

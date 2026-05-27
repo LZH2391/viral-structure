@@ -13,6 +13,7 @@ const STAGES = {
   repaired: "function_slot_atomization.repair",
   finalOutputPrepared: "function_slot_atomization.final_output_prepare",
   boundaryReviewed: "function_slot_atomization.boundary_review",
+  boundaryReworked: "function_slot_atomization.boundary_rework",
   cacheReuse: "function_slot_atomization.cache_reuse",
   materialized: "function_slot_atomization.materialize",
 };

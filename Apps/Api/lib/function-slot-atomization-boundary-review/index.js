@@ -24,6 +24,7 @@ async function runFunctionSlotBoundaryReview({
   store,
   pollIntervalMs,
   maxCollectAttempts,
+  reviewAttemptCount = 1,
 }) {
   const reviewArtifactId = `artifact_${randomUUID()}`;
   let lease = null;
@@ -67,6 +68,7 @@ async function runFunctionSlotBoundaryReview({
         functionSlotAtomizationArtifactId: analysis.artifactId,
         finalOutputPath: finalOutput?.filePath ?? null,
         fieldRolesHash: reviewTurn.fieldRolesHash,
+        reviewAttemptCount,
       },
       action: async () => {
         const executed = await executeAnalyzeTurn({
@@ -99,6 +101,7 @@ async function runFunctionSlotBoundaryReview({
           roleProfile: reviewRoleProfile,
           reviewTurn,
           executed,
+          reviewAttemptCount,
         });
       },
       outputSummary: summarizeBoundaryReviewResult,
@@ -124,6 +127,7 @@ function buildBoundaryReviewArtifact({
   roleProfile,
   reviewTurn,
   executed,
+  reviewAttemptCount,
 }) {
   return {
     artifactId: reviewArtifactId,
@@ -137,6 +141,7 @@ function buildBoundaryReviewArtifact({
     sourceFunctionSlotAtomizationArtifactId: analysis.artifactId ?? null,
     sourceFinalOutputPath: finalOutput?.filePath ?? null,
     fieldRolesHash: reviewTurn.fieldRolesHash ?? null,
+    reviewAttemptCount,
     decision: result.decision,
     reason: result.reason,
     issues: result.issues,

@@ -12,6 +12,7 @@ function appendFunctionSlotAtomizationHistory(history, analysis, traceMeta) {
     bindingCount: item?.bindingGraph?.bindings?.length ?? 0,
     boundaryReviewDecision: item?.boundaryReview?.decision ?? null,
     boundaryReviewIssueCount: item?.boundaryReview?.issues?.length ?? 0,
+    boundaryReworkAttemptCount: item?.validation?.boundaryReworkAttemptCount ?? 0,
     sourceScriptSegmentArtifactId: item?.sourceScriptSegmentArtifactId ?? null,
     sourceRhythmStructureArtifactId: item?.sourceRhythmStructureArtifactId ?? null,
     sourcePackagingStructureArtifactId: item?.sourcePackagingStructureArtifactId ?? null,

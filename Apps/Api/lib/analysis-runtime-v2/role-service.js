@@ -24,6 +24,7 @@ function createRoleAnalysisService({
   collectTimeoutMs = DEFAULT_COLLECT_TIMEOUT_MS,
   maxCollectAttempts = Math.ceil(collectTimeoutMs / DEFAULT_POLL_INTERVAL_MS),
   maxRepairAttempts = DEFAULT_MAX_REPAIR_ATTEMPTS,
+  maxBoundaryReworkAttempts = 1,
   role,
   skillPath,
   stages,
@@ -73,6 +74,7 @@ function createRoleAnalysisService({
     pollIntervalMs,
     maxCollectAttempts,
     maxRepairAttempts,
+    maxBoundaryReworkAttempts,
   });
 
   async function enqueue({ sampleVideoId, cacheDecision = "ask", ...options }) {

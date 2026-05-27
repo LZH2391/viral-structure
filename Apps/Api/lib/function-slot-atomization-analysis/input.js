@@ -120,6 +120,35 @@ function renderRepairTurnInputs({ inputPackage, validationError, priorTurnOutput
   };
 }
 
+function renderBoundaryReworkTurnInputs({ inputPackage, boundaryReview, priorTurnOutput, reworkAttemptCount, roleProfile }) {
+  const reviewSummary = {
+    decision: boundaryReview?.decision ?? null,
+    reason: boundaryReview?.reason ?? null,
+    issues: Array.isArray(boundaryReview?.issues) ? boundaryReview.issues.map((issue) => ({
+      issue: issue?.issue ?? null,
+      minimal_fix: issue?.minimal_fix ?? issue?.minimalFix ?? null,
+      field_paths: issue?.field_paths ?? issue?.fieldPaths ?? [],
+    })) : [],
+  };
+  const prompt = renderTurnTemplate(roleProfile, "boundaryRework", {
+    reworkAttemptCount,
+    inputSummaryText: buildInputSummaryText(inputPackage),
+    manifestPath: inputPackage.manifestPath,
+    outputContractPath: inputPackage.outputContractPath,
+    boundaryReviewJson: stableJson(reviewSummary),
+    priorOutputText: String(priorTurnOutput ?? "").trim(),
+  });
+  return {
+    ...prompt,
+    inputs: sanitizeForAppServerText([{ type: "text", text: prompt.text, text_elements: [] }]),
+    manifest: inputPackage.manifest,
+    lineage: inputPackage.lineage,
+    outputContract: inputPackage.outputContract,
+    boundaryReview: reviewSummary,
+    reworkAttemptCount,
+  };
+}
+
 function buildManifest(input) {
   return {
     schemaVersion: INPUT_PACKAGE_SCHEMA_VERSION,
@@ -301,5 +330,6 @@ module.exports = {
   prepareInputPackage,
   renderAnalyzeTurnInputs,
   renderRepairTurnInputs,
+  renderBoundaryReworkTurnInputs,
   buildInputSummaryText,
 };

@@ -6,6 +6,7 @@ function createAnalysisPipelineRunner({
   pollIntervalMs,
   maxCollectAttempts,
   maxRepairAttempts = 1,
+  maxBoundaryReworkAttempts = 1,
 }) {
   async function runAnalysisPipeline(context, descriptor) {
     let lease = null;
@@ -170,19 +171,49 @@ function createAnalysisPipelineRunner({
   }
 
   async function reviewAndMaterialize(context, descriptor, analysis) {
-    const reviewedAnalysis = typeof descriptor.runBoundaryReview === "function"
-      ? await descriptor.runBoundaryReview({
+    if (typeof descriptor.runBoundaryReview !== "function") {
+      return materialize(context, descriptor, analysis);
+    }
+    let currentAnalysis = analysis;
+    for (let reviewAttemptCount = 1; reviewAttemptCount <= maxBoundaryReworkAttempts + 1; reviewAttemptCount += 1) {
+      currentAnalysis = await descriptor.runBoundaryReview({
         context,
-        analysis,
+        analysis: currentAnalysis,
         runtime,
         threadPool,
         appServer,
         rootDir,
         pollIntervalMs,
         maxCollectAttempts,
-      })
-      : analysis;
-    return materialize(context, descriptor, reviewedAnalysis);
+        reviewAttemptCount,
+      });
+      currentAnalysis = appendBoundaryReviewHistory(currentAnalysis);
+      const boundaryReview = currentAnalysis.boundaryReview;
+      if (boundaryReview?.decision !== "rework") break;
+      const reworkAttemptCount = reviewAttemptCount;
+      if (reworkAttemptCount > maxBoundaryReworkAttempts || typeof descriptor.runBoundaryRework !== "function") break;
+      currentAnalysis = await descriptor.runBoundaryRework({
+        context,
+        analysis: currentAnalysis,
+        boundaryReview,
+        runtime,
+        appServer,
+        rootDir,
+        pollIntervalMs,
+        maxCollectAttempts,
+        reworkAttemptCount,
+      });
+    }
+    return materialize(context, descriptor, currentAnalysis);
+  }
+
+  function appendBoundaryReviewHistory(analysis) {
+    if (!analysis?.boundaryReview) return analysis;
+    const history = Array.isArray(analysis.boundaryReviewHistory) ? analysis.boundaryReviewHistory : [];
+    return {
+      ...analysis,
+      boundaryReviewHistory: [...history, analysis.boundaryReview].slice(-4),
+    };
   }
 
   async function materialize(context, descriptor, analysis) {
