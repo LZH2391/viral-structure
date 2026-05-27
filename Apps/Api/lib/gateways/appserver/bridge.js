@@ -89,6 +89,23 @@ function createAppServerBridge({
     return result;
   }
 
+  async function listTurnItems({ workspaceRoot, threadId, turnId, limit = 200, sortDirection = "asc", timeoutSeconds = 60 }) {
+    const payload = {
+      operation: "listTurnItems",
+      pythonRuntimeRoot,
+      workspaceRoot,
+      threadId,
+      turnId,
+      limit,
+      sortDirection,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok) throw appServerError(result, "appserver_turn_items_list_failed");
+    return result;
+  }
+
   async function cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds = 30 }) {
     const payload = {
       operation: "cancelTurn",
@@ -104,7 +121,7 @@ function createAppServerBridge({
     return result;
   }
 
-  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread, cancelTurn };
+  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread, listTurnItems, cancelTurn };
 }
 
 function appServerError(result, fallbackCode) {

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { summarizeAgentTurnTimeline } = require("../../Apps/Api/lib/observability/agent-turn-timeline");
+const { summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../../Apps/Api/lib/observability/agent-turn-timeline");
 
 test("agent turn timeline summarizes key item kinds with safe previews", () => {
   const thread = {
@@ -151,4 +151,34 @@ test("agent turn timeline recognizes appserver v2 thread item kinds", () => {
   assert.equal(timeline.items.find((item) => item.kind === "command_execution").metadata.exitCode, 0);
   assert.equal(timeline.items.find((item) => item.kind === "mcp_tool_call").metadata.toolName, "obsidian.read");
   assert.equal(timeline.items.find((item) => item.kind === "dynamic_tool_call").metadata.toolName, "web.search");
+});
+
+test("agent turn timeline can be built from official turn item list", () => {
+  const timeline = summarizeAgentTurnTimelineFromItems({
+    thread: { id: "thread_items" },
+    turn: {
+      id: "turn_items",
+      status: "running",
+      last_token_usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    },
+    turnId: "turn_items",
+    items: [
+      { id: "u1", type: "userMessage", text: "开始包装分析" },
+      {
+        id: "cmd1",
+        type: "commandExecution",
+        command: "Get-Content manifest.json",
+        status: "completed",
+        aggregatedOutput: "{}",
+        exitCode: 0,
+      },
+    ],
+  });
+
+  assert.equal(timeline.threadId, "thread_items");
+  assert.equal(timeline.turnId, "turn_items");
+  assert.deepEqual(timeline.items.map((item) => item.kind), ["user_input", "command_execution", "token_usage"]);
+  assert.equal(timeline.activity.itemCount, 2);
+  assert.equal(timeline.activity.latestItemType, "command_execution");
+  assert.equal(timeline.activity.tokenUsage.totalTokens, 12);
 });

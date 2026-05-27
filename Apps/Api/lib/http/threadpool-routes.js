@@ -3,7 +3,7 @@ const { createTraceIds } = require("../../../../Infrastructure/Observability/tra
 const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { summarizeThreadConversation } = require("../observability/thread-conversation");
-const { summarizeAgentTurnTimeline } = require("../observability/agent-turn-timeline");
+const { summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
 
 async function handleThreadPoolRead(res, scope, action, handlers = {}) {
   const traceContext = createTraceContext(createTraceIds());
@@ -142,7 +142,18 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       return sendJson(res, 403, allowedThread);
     }
     const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId });
-    const timeline = summarizeAgentTurnTimeline(thread.thread ?? {}, turnId);
+    const threadPayload = thread.thread ?? {};
+    const turn = findTurn(threadPayload, turnId);
+    let timeline = null;
+    let source = "thread/read";
+    if (typeof handlers.appServer.listTurnItems === "function") {
+      const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId, turnId, limit: 500, sortDirection: "asc" });
+      if (Array.isArray(listed?.items) && listed.items.length > 0) {
+        timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
+        source = "thread/turns/items/list";
+      }
+    }
+    timeline = timeline ?? summarizeAgentTurnTimeline(threadPayload, turnId);
     if (!timeline) {
       await activeLogger.writeStageLog({
         traceContext,
@@ -166,6 +177,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
         turnId: timeline.turnId,
         itemCount: timeline.items.length,
         status: timeline.status,
+        source,
       },
       durationMs: Date.now() - startedAt,
     });
@@ -202,6 +214,13 @@ function summarizeThreadPoolRead(scope, result) {
   if (scope === "roles") return { scope, roleCount: result.roles?.length ?? 0, warmingRoles: result.health?.warming_roles ?? [] };
   if (scope === "role-status") return { scope, role: result.role, idle: result.counts?.idle ?? 0, minIdle: result.minIdle ?? 0, leased: result.counts?.leased ?? 0 };
   return { scope, readyForLeases: result.ready_for_leases ?? result.readyForLeases ?? null, recovering: result.recovering ?? null };
+}
+
+function findTurn(thread, turnId) {
+  const turns = Array.isArray(thread?.turns) ? thread.turns : [];
+  const target = String(turnId ?? "");
+  if (!target) return turns.at(-1) ?? null;
+  return turns.find((turn) => String(turn?.id ?? turn?.turnId ?? "") === target) ?? null;
 }
 
 module.exports = {

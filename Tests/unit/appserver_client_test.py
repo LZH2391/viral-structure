@@ -179,6 +179,41 @@ class AppServerClientTests(unittest.TestCase):
 
             self.assertEqual(thread["turns"][0]["last_token_usage"]["input_tokens"], 222)
 
+    def test_list_turn_items_uses_official_turn_items_endpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+            requests: list[tuple[str, dict]] = []
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def _request(self, method: str, params: dict) -> dict:
+                    requests.append((method, dict(params)))
+                    if method == "thread/turns/items/list":
+                        return {
+                            "data": [
+                                {"id": "u1", "type": "userMessage", "text": "开始"},
+                                {"id": "cmd1", "type": "commandExecution", "command": "Get-Content manifest.json"},
+                            ],
+                            "nextCursor": None,
+                            "backwardsCursor": "cursor_1",
+                        }
+                    return super()._request(method, params)
+
+            client = TestClient(workspace_root, transport_mode="ws")
+            client._initialized = True
+
+            result = client.list_turn_items("thread_1", "turn_1", limit=50)
+
+            self.assertEqual(requests[0][0], "thread/turns/items/list")
+            self.assertEqual(requests[0][1]["threadId"], "thread_1")
+            self.assertEqual(requests[0][1]["turnId"], "turn_1")
+            self.assertEqual(requests[0][1]["limit"], 50)
+            self.assertEqual(requests[0][1]["sortDirection"], "asc")
+            self.assertEqual(len(result["data"]), 2)
+            self.assertEqual(result["backwardsCursor"], "cursor_1")
+
     def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_root = Path(tmp)

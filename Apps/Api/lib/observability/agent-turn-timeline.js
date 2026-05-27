@@ -34,6 +34,42 @@ function summarizeAgentTurnTimeline(thread, turnId) {
   };
 }
 
+function summarizeAgentTurnTimelineFromItems({ thread, turn, items, turnId }) {
+  const safeThread = thread && typeof thread === "object" ? thread : {};
+  const safeTurn = turn && typeof turn === "object" ? turn : {};
+  const mergedTurn = {
+    ...safeTurn,
+    id: safeTurn.id ?? safeTurn.turnId ?? turnId,
+    items: Array.isArray(items) ? items : [],
+  };
+  const timeline = [];
+  collectTurnItems(mergedTurn).forEach((item, index) => {
+    const entry = summarizeTurnItem(item, index);
+    if (entry) timeline.push(entry);
+  });
+  const tokenUsage = normalizeTurnTokenUsage(mergedTurn);
+  if (tokenUsage) {
+    timeline.push({
+      id: `${turnId || "turn"}:token_usage`,
+      index: timeline.length,
+      kind: "token_usage",
+      title: "Token usage",
+      status: "completed",
+      textPreview: formatTokenUsage(tokenUsage),
+      createdAt: mergedTurn.updatedAt ?? mergedTurn.updated_at ?? mergedTurn.completedAt ?? mergedTurn.completed_at ?? null,
+      metadata: tokenUsage,
+    });
+  }
+  const activity = buildAgentActivityFromTurn({ thread: safeThread, turn: mergedTurn, turnId });
+  return {
+    threadId: String(safeThread.id ?? safeThread.threadId ?? ""),
+    turnId: String(mergedTurn.id ?? mergedTurn.turnId ?? turnId ?? ""),
+    status: String(mergedTurn.status ?? activity.status ?? "unknown"),
+    activity,
+    items: timeline,
+  };
+}
+
 function buildAgentActivityFromTurn({ thread, turn, turnId }) {
   const items = collectTurnItems(turn);
   const summarized = items.map((item, index) => summarizeTurnItem(item, index)).filter(Boolean);
@@ -440,6 +476,7 @@ function summarizeFileChanges(changes) {
 
 module.exports = {
   summarizeAgentTurnTimeline,
+  summarizeAgentTurnTimelineFromItems,
   buildAgentActivityFromTurn,
   buildAgentActivityFromTurnResult,
 };

@@ -238,6 +238,41 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
             },
         )
 
+    def list_turn_items(
+        self,
+        thread_id: str,
+        turn_id: str,
+        *,
+        limit: int | None = 200,
+        sort_direction: str = "asc",
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "threadId": str(thread_id),
+            "turnId": str(turn_id),
+            "sortDirection": str(sort_direction),
+        }
+        if limit is not None:
+            params["limit"] = int(limit)
+        items: list[Any] = []
+        cursor: str | None = None
+        backwards_cursor: str | None = None
+        while True:
+            if cursor:
+                params["cursor"] = cursor
+            response = self._request("thread/turns/items/list", params)
+            page_items = response.get("data")
+            if isinstance(page_items, list):
+                items.extend(page_items)
+            next_cursor = response.get("nextCursor") or response.get("next_cursor")
+            backwards_cursor = response.get("backwardsCursor") or response.get("backwards_cursor") or backwards_cursor
+            if not next_cursor:
+                return {
+                    "data": items,
+                    "nextCursor": None,
+                    "backwardsCursor": backwards_cursor,
+                }
+            cursor = str(next_cursor)
+
     def start_reviewer_thread(
         self,
         *,

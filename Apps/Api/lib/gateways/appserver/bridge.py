@@ -44,6 +44,8 @@ def main() -> int:
             return collect_turn_result(client, payload)
         if operation == "readThread":
             return read_thread(client, payload)
+        if operation == "listTurnItems":
+            return list_turn_items(client, payload)
         if operation == "cancelTurn":
             return cancel_turn(client, payload)
         if operation == "runTurnWithInputs":
@@ -186,6 +188,26 @@ def read_thread(client, payload) -> int:
         {
             "ok": True,
             "thread": thread,
+        }
+    )
+    return 0
+
+
+def list_turn_items(client, payload) -> int:
+    items = client.list_turn_items(
+        str(payload["threadId"]),
+        str(payload["turnId"]),
+        limit=int(payload.get("limit") or 200),
+        sort_direction=str(payload.get("sortDirection") or "asc"),
+    )
+    write_json(
+        {
+            "ok": True,
+            "threadId": str(payload["threadId"]),
+            "turnId": str(payload["turnId"]),
+            "items": items.get("data") if isinstance(items, dict) else [],
+            "nextCursor": items.get("nextCursor") if isinstance(items, dict) else None,
+            "backwardsCursor": items.get("backwardsCursor") if isinstance(items, dict) else None,
         }
     )
     return 0
