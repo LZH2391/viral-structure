@@ -286,7 +286,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
             "config": {"sandbox_policy": sandbox_policy or DEFAULT_REVIEWER_SANDBOX_POLICY},
             "serviceName": self.service_name,
             "ephemeral": False,
-            "experimentalRawEvents": False,
+            "experimentalRawEvents": True,
             "persistExtendedHistory": True,
         }
         if self.model is not None:

@@ -17,6 +17,19 @@ class ThreadPoolLeaseStoreMixin:
         leases = self.store.list_leases()
         now = datetime.now().astimezone()
         ttl_seconds = self.orphan_ttl_minutes * 60
+        self._recover_active_leases(leases=leases, now=now, ttl_seconds=ttl_seconds)
+        threads = self.store.list_threads()
+        leases = self.store.list_leases()
+        active_lease_by_thread_id = {
+            lease.thread_id: lease
+            for lease in leases.values()
+            if lease.status == "active"
+        }
+        self._recover_leased_threads_without_active_lease(
+            threads=threads,
+            active_lease_by_thread_id=active_lease_by_thread_id,
+        )
+        threads = self.store.list_threads()
         for thread in threads.values():
             config = self.roles.get(thread.role)
             if thread.status == "discarded":
@@ -48,7 +61,13 @@ class ThreadPoolLeaseStoreMixin:
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
                     self.store.delete_thread(thread.thread_id)
+        self._prune_inactive_leases()
+
+    def _recover_active_leases(self, *, leases: dict[str, LeaseRecord], now: datetime, ttl_seconds: int) -> None:
+        changed = False
         for lease in leases.values():
+            if lease.status != "active":
+                continue
             if not self.discard_on_release and not lease.is_orphaned(now=now, ttl_seconds=ttl_seconds):
                 continue
             thread = self.store.read_thread(lease.thread_id)
@@ -56,6 +75,7 @@ class ThreadPoolLeaseStoreMixin:
             self.store.write_lease(
                 lease.model_copy(update={"status": "released", "released_at": released_at, "last_seen_at": released_at})
             )
+            changed = True
             if thread is None:
                 continue
             if self.discard_on_release or thread.retire_on_release:
@@ -74,7 +94,39 @@ class ThreadPoolLeaseStoreMixin:
                 )
             else:
                 self.store.delete_thread(thread.thread_id)
-        self._prune_inactive_leases()
+        if changed:
+            self._write_catalog()
+
+    def _recover_leased_threads_without_active_lease(
+        self,
+        *,
+        threads: dict[str, ThreadRecord],
+        active_lease_by_thread_id: dict[str, LeaseRecord],
+    ) -> None:
+        changed = False
+        for thread in threads.values():
+            if thread.status != "leased" or active_lease_by_thread_id.get(thread.thread_id):
+                continue
+            recovered_at = _now()
+            changed = True
+            if self.discard_on_release or thread.retire_on_release:
+                self.store.delete_thread(thread.thread_id)
+            elif self._thread_is_usable_for_recovery(thread):
+                self.store.write_thread(
+                    thread.model_copy(
+                        update={
+                            "status": "idle",
+                            "lease_id": None,
+                            "retire_on_release": False,
+                            "updated_at": recovered_at,
+                            "last_validated_at": recovered_at,
+                        }
+                    )
+                )
+            else:
+                self.store.delete_thread(thread.thread_id)
+        if changed:
+            self._write_catalog()
 
     def _thread_exists_for_recovery(self, thread: ThreadRecord) -> bool:
         client = self._client_for_thread(thread)

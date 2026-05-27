@@ -214,6 +214,31 @@ class AppServerClientTests(unittest.TestCase):
             self.assertEqual(len(result["data"]), 2)
             self.assertEqual(result["backwardsCursor"], "cursor_1")
 
+    def test_start_reviewer_thread_enables_raw_events_for_timeline_items(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+            requests: list[tuple[str, dict]] = []
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def _request(self, method: str, params: dict) -> dict:
+                    requests.append((method, dict(params)))
+                    if method == "thread/start":
+                        return {"thread": {"id": "thread_1"}}
+                    return super()._request(method, params)
+
+            client = TestClient(workspace_root, transport_mode="ws")
+            client._initialized = True
+
+            thread_id = client.start_reviewer_thread()
+
+            self.assertEqual(thread_id, "thread_1")
+            self.assertEqual(requests[0][0], "thread/start")
+            self.assertEqual(requests[0][1]["experimentalRawEvents"], True)
+            self.assertEqual(requests[0][1]["persistExtendedHistory"], True)
+
     def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_root = Path(tmp)
