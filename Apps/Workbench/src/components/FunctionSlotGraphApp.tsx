@@ -219,6 +219,15 @@ function GraphCanvas({
 
   const endPointer = (event: PointerEvent<SVGSVGElement>) => {
     svgRef.current?.releasePointerCapture(event.pointerId);
+    const drag = dragRef.current;
+    if (drag?.kind === "node") {
+      nodesRef.current = nodesRef.current.map((node) => (
+        node.id === drag.nodeId
+          ? { ...node, anchorX: node.x, anchorY: node.y }
+          : node
+      ));
+      setNodes(nodesRef.current.map((node) => ({ ...node })));
+    }
     dragRef.current = null;
   };
 
@@ -495,8 +504,8 @@ function tickGraph(nodes: SimNode[], edges: FunctionSlotGraphEdge[], pinnedNodeI
   for (const node of next) {
     node.vx += (node.anchorX - node.x) * anchorStrength(node);
     node.vy += (node.anchorY - node.y) * anchorStrength(node);
-    node.vx += (CENTER.x - node.x) * 0.0008;
-    node.vy += (CENTER.y - node.y) * 0.0008;
+    node.vx += (CENTER.x - node.x) * 0.00032;
+    node.vy += (CENTER.y - node.y) * 0.00032;
     node.vx += Math.sin(tick * 0.8 + hashNumber(node.id)) * 0.012;
     node.vy += Math.cos(tick * 0.7 + hashNumber(node.id)) * 0.012;
     if (node.id === pinnedNodeId) continue;
@@ -527,10 +536,10 @@ function repulsionFor(left: SimNode, right: SimNode) {
 }
 
 function anchorStrength(node: SimNode) {
-  if (node.type === "libraryItem") return 0.04;
-  if (node.type === "slotInstance") return 0.018;
-  if (node.type === "binding") return 0.026;
-  return 0.012;
+  if (node.type === "libraryItem") return 0.006;
+  if (node.type === "slotInstance") return 0.0015;
+  if (node.type === "binding") return 0.002;
+  return 0.0008;
 }
 
 function edgeStrength(type: string) {

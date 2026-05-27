@@ -166,7 +166,7 @@
 }
 
 .slot-graph-edge.muted {
-  opacity: 0.16;
+  opacity: 0.38;
 }
 
 .slot-graph-edge.edge-slot_next,
@@ -212,7 +212,7 @@
 }
 
 .slot-graph-node.muted {
-  opacity: 0.22;
+  opacity: 0.52;
 }
 
 .slot-graph-node.node-library circle {
