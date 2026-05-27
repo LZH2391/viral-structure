@@ -97,4 +97,6 @@ test("function slot analyzer renders boundary rework turn with reviewer issues",
   assert.match(turn.text, /boundary reviewer/);
   assert.match(turn.text, /semantic_function/);
   assert.match(turn.text, /上一轮 JSON/);
+  assert.doesNotMatch(turn.text, /manifestPath/);
+  assert.doesNotMatch(turn.text, /outputContractPath/);
 });
