@@ -321,6 +321,22 @@ export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | u
       disabled: false,
     };
   }
+  if (status.seedMissing) {
+    return {
+      state: "warming",
+      buttonLabel: "warming",
+      message: "ThreadPool 正在初始化 seed thread，请稍后再试",
+      disabled: false,
+    };
+  }
+  if (status.replenishing) {
+    return {
+      state: "warming",
+      buttonLabel: "warming",
+      message: "ThreadPool 正在补充 idle thread，请稍后再试",
+      disabled: false,
+    };
+  }
   if (status.startupError) return { state: "blocked", buttonLabel: "不可用", message: status.startupError, disabled: true };
   if (status.warmupError) return { state: "blocked", buttonLabel: "不可用", message: status.warmupError, disabled: true };
   if (!status.readyForLeases) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前未 ready，请稍后再试", disabled: true };

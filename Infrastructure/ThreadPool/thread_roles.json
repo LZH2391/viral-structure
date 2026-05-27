@@ -17,11 +17,11 @@
     },
     "function-slot-atomization-analyzer": {
       "profile_path": "Assets/RoleProfiles/function-slot-atomization-analyzer/role.json",
-      "min_idle": 2
+      "min_idle": 3
     },
     "function-slot-atomization-boundary-reviewer": {
       "profile_path": "Assets/RoleProfiles/function-slot-atomization-boundary-reviewer/role.json",
-      "min_idle": 1
+      "min_idle": 3
     },
     "shot-boundary-transformer": {
       "profile_path": "Assets/RoleProfiles/shot-boundary-transformer/role.json",

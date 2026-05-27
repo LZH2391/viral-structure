@@ -145,16 +145,35 @@ function RoleList({ roles, selectedRole, onSelect }: { roles: ThreadPoolRoleSumm
       <div className="section-heading">Roles</div>
       <div id="threadpoolRoleList" className="compact-list">
         {roles.length ? roles.map((role) => (
-          <button key={role.role} className={`threadpool-role ${selectedRole === role.role ? "active" : ""}`} type="button" onClick={() => onSelect(role.role)}>
-            <strong>{role.role}</strong>
-            <span>{role.idle}/{role.minIdle} idle / {role.leased} leased</span>
-            <b className={role.canAcquire ? "status-good" : role.warming || role.replenishing ? "status-warn" : "status-bad"}>{role.canAcquire ? (role.replenishing ? "replenishing" : "can acquire") : role.warming ? "warming" : "blocked"}</b>
-            <small>seed {shortId(role.seedThreadId ?? "")}</small>
-          </button>
+          <RoleListItem key={role.role} role={role} active={selectedRole === role.role} onSelect={onSelect} />
         )) : <EmptyState text="暂无 role 状态" />}
       </div>
     </aside>
   );
+}
+
+function RoleListItem({ role, active, onSelect }: { role: ThreadPoolRoleSummary; active: boolean; onSelect: (role: string) => void }) {
+  const state = resolveRoleAvailability(role);
+  return (
+    <button className={`threadpool-role ${active ? "active" : ""}`} type="button" onClick={() => onSelect(role.role)}>
+      <strong>{role.role}</strong>
+      <span>{role.idle}/{role.minIdle} idle / {role.leased} leased</span>
+      <b className={state.className}>{state.label}</b>
+      <small>seed {shortId(role.seedThreadId ?? "")}</small>
+    </button>
+  );
+}
+
+function resolveRoleAvailability(role: ThreadPoolRoleSummary) {
+  if (role.canAcquire) {
+    return {
+      className: role.replenishing ? "status-warn" : "status-good",
+      label: role.replenishing ? "replenishing" : "can acquire",
+    };
+  }
+  if (role.warming || role.seedMissing) return { className: "status-warn", label: "warming" };
+  if (role.replenishing) return { className: "status-warn", label: "replenishing" };
+  return { className: "status-bad", label: "blocked" };
 }
 
 function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {

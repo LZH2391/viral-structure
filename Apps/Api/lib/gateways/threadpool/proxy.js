@@ -386,6 +386,22 @@ function sanitizeRoleStatus(payload) {
     thread_status: normalizeThreadStatus(lease.thread_status),
     last_seen_at: lease.last_seen_at ?? null,
   }));
+  const counts = normalizeCounts(payload.counts);
+  const minIdle = Number(payload.min_idle ?? payload.counts?.min_idle ?? 0);
+  const readyForLeases = Boolean(payload.ready_for_leases);
+  const canAcquire = Boolean(payload.can_acquire);
+  const hasStartupError = Boolean(payload.startup_error);
+  const hasWarmupError = Boolean(payload.warmup_error);
+  const seedMissing = Boolean(
+    readyForLeases
+    && !hasStartupError
+    && !hasWarmupError
+    && minIdle > 0
+    && !payload.seed_thread_id
+    && counts.idle < minIdle,
+  );
+  const warming = Boolean(payload.warming) || seedMissing;
+  const replenishing = Boolean(payload.replenishing);
   return {
     ok: true,
     role: payload.role,
@@ -396,19 +412,20 @@ function sanitizeRoleStatus(payload) {
       skill_path: payload.skill_path ? basename(payload.skill_path) : null,
       init_fingerprint: payload.current_init_fingerprint ?? null,
     },
-    counts: normalizeCounts(payload.counts),
-    minIdle: Number(payload.min_idle ?? payload.counts?.min_idle ?? 0),
+    counts,
+    minIdle,
     seedThreadId: payload.seed_thread_id ?? null,
     profilePath: payload.profile_path ?? null,
     profileVersion: payload.profile_version ?? null,
     skillPath: payload.skill_path ?? null,
-    canAcquire: Boolean(payload.can_acquire),
-    canInit: "can_init" in payload ? Boolean(payload.can_init) : Boolean(payload.can_acquire),
-    warming: Boolean(payload.warming),
-    replenishing: Boolean(payload.replenishing),
-    warmupDetail: payload.warmup_detail ?? null,
+    canAcquire,
+    canInit: "can_init" in payload ? Boolean(payload.can_init) : canAcquire,
+    warming,
+    replenishing,
+    seedMissing,
+    warmupDetail: payload.warmup_detail ?? (seedMissing ? "waiting for seed initialization" : null),
     warmupError: payload.warmup_error ?? null,
-    readyForLeases: Boolean(payload.ready_for_leases),
+    readyForLeases,
     recovering: Boolean(payload.recovering),
     startupError: payload.startup_error ?? null,
     threads,
@@ -428,6 +445,7 @@ function summarizeRoleStatus(status) {
     canAcquire: status.canAcquire,
     warming: status.warming,
     replenishing: status.replenishing,
+    seedMissing: status.seedMissing,
     skillPath: status.skillPath,
   };
 }
@@ -487,6 +505,7 @@ function summarizeReadinessDetail(status) {
     readyForLeases: Boolean(status.readyForLeases),
     canAcquire: Boolean(status.canAcquire),
     warming: Boolean(status.warming),
+    seedMissing: Boolean(status.seedMissing),
     warmupDetail: status.warmupDetail ?? null,
     warmupError: status.warmupError ?? null,
     startupError: status.startupError ?? null,

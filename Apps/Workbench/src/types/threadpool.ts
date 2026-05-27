@@ -16,6 +16,7 @@ export type ThreadPoolRoleSummary = {
   canAcquire: boolean;
   warming?: boolean;
   replenishing?: boolean;
+  seedMissing?: boolean;
   skillPath?: string | null;
 };
 
@@ -23,6 +24,7 @@ export type ThreadPoolRoleDetail = {
   ok: boolean;
   role: string;
   config: unknown;
+  minIdle?: number;
   counts: {
     idle: number;
     leased: number;
@@ -37,6 +39,7 @@ export type ThreadPoolRoleDetail = {
   canInit?: boolean;
   warming?: boolean;
   replenishing?: boolean;
+  seedMissing?: boolean;
   warmupDetail?: string | null;
   warmupError?: string | null;
   startupError?: string | null;
