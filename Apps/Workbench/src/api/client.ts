@@ -188,6 +188,23 @@ export async function startFunctionSlotAtomizationAnalysis(
   });
 }
 
+export async function saveFunctionSlotAtomizationManualBoundaryEdit(
+  sampleVideoId: string,
+  payload: {
+    editedJsonText: string;
+    expectedArtifactId?: string | null;
+    sourceBoundaryReviewArtifactId?: string | null;
+  },
+) {
+  return readJsonResponse<{ sampleArtifact: SampleArtifact; traceId: string }>(
+    await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/function-slot-atomization/manual-boundary-edit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export async function resolveCacheDecision(jobId: string, decision: "reuse" | "refresh") {
   return readJsonResponse<ProcessingJob>(
     await fetch(`${API_BASE_URL}/api/processing-jobs/${encodeURIComponent(jobId)}/cache-decision`, {

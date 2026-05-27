@@ -3,7 +3,7 @@ import { createInitialState, type WorkbenchAction, workbenchReducer } from "../s
 import type { AudioFeatureMarker, ProcessingJob, SampleArtifact, WorkbenchState } from "../types";
 import { shortId } from "../utils/format";
 import { clampVisibleSeconds } from "../utils/timeline";
-import { getModules, getSampleArtifact, resolveCacheDecision } from "../api/client";
+import { getModules, getSampleArtifact, resolveCacheDecision, saveFunctionSlotAtomizationManualBoundaryEdit } from "../api/client";
 import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
 import { getAnalysisRole, setAnalysisRoleModules, type AnalysisKind } from "../utils/analysisRoles";
 import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
@@ -316,6 +316,21 @@ export function WorkbenchApp() {
     }
   }, [functionSlotAtomizationFlow, stageLogger, state]);
 
+  const handleFunctionSlotManualBoundaryEdit = useCallback(async (editedJsonText: string) => {
+    const sampleVideoId = state.sampleVideo?.id ?? state.sampleArtifact?.sampleVideoId ?? null;
+    const analysis = state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null;
+    if (!sampleVideoId || !analysis) throw new Error("没有可手动修正的原子化结果");
+    setSaveStatus("提交原子化手动修正");
+    const result = await saveFunctionSlotAtomizationManualBoundaryEdit(sampleVideoId, {
+      editedJsonText,
+      expectedArtifactId: analysis.artifactId,
+      sourceBoundaryReviewArtifactId: analysis.boundaryReview?.artifactId ?? null,
+    });
+    dispatch({ type: "apply-artifact", artifact: result.sampleArtifact });
+    persistWorkbenchArtifact(result.sampleArtifact, result.traceId ?? state.processingJob?.traceId ?? null);
+    setSaveStatus("原子化手动修正已落地");
+  }, [persistWorkbenchArtifact, state.processingJob?.traceId, state.sampleArtifact, state.sampleVideo?.id]);
+
   const handleSelectAudioFeature = useCallback((marker: AudioFeatureMarker) => {
     dispatch({ type: "select-media", activeMediaKind: "audioFeature", selectedDerivativeId: resolveAudioFeatureSourceId(state), selectedFrameId: null, selectedAudioFeatureMarkerId: marker.id });
     audioSeekRequestIdRef.current += 1;
@@ -460,6 +475,10 @@ export function WorkbenchApp() {
           onRunFunctionSlotAtomization={() => {
             void handleFunctionSlotAtomization().catch((error) => setSaveStatus(error instanceof Error ? error.message : "功能槽位原子化失败"));
           }}
+          onManualFunctionSlotBoundaryEdit={(editedJsonText) => handleFunctionSlotManualBoundaryEdit(editedJsonText).catch((error) => {
+            setSaveStatus(error instanceof Error ? error.message : "原子化手动修正失败");
+            throw error;
+          })}
           onSelectScriptSegment={handleSelectTimelineTime}
           onSelectRhythmCard={handleSelectTimelineTime}
           onSelectPackagingBlock={handleSelectTimelineTime}

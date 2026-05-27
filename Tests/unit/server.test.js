@@ -220,6 +220,41 @@ test("analysis roles endpoint returns public descriptors only", async () => {
   }
 });
 
+test("function slot manual boundary edit endpoint forwards sample id and json", async () => {
+  const calls = [];
+  const server = createServer({
+    staticWorkbench: { handle: () => false },
+    functionSlotAtomizationManualEditService: {
+      applyBoundaryManualEdit: async (payload) => {
+        calls.push(payload);
+        return { sampleArtifact: { sampleVideoId: payload.sampleVideoId }, traceId: "trace_manual_edit" };
+      },
+    },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/sample-videos/sample_123/function-slot-atomization/manual-boundary-edit", {
+      editedJsonText: "{\"slot_map\":{\"slots\":[]}}",
+      expectedArtifactId: "artifact_atom",
+      sourceBoundaryReviewArtifactId: "artifact_review",
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.traceId, "trace_manual_edit");
+    assert.deepEqual(calls[0], {
+      sampleVideoId: "sample_123",
+      editedJsonText: "{\"slot_map\":{\"slots\":[]}}",
+      editedJson: null,
+      expectedArtifactId: "artifact_atom",
+      sourceBoundaryReviewArtifactId: "artifact_review",
+    });
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("modules endpoint returns public module descriptors only", async () => {
   const server = createServer({
     staticWorkbench: { handle: () => false },

@@ -89,7 +89,7 @@ export type SampleArtifact = {
 export type ShotBoundaryAnalysisHistoryEntry = {
   artifactId: string;
   status: "processed" | "failed" | string;
-  resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  resultOrigin: "new_turn" | "repaired_turn" | "boundary_reworked_turn" | "manual_boundary_edit" | "cache_reuse" | "failed_validation" | string;
   analysisFps: number | null;
   boundaryCount: number;
   shotCount: number;
@@ -137,7 +137,7 @@ export type ShotBoundaryAnalysisArtifact = {
   agent?: {
     provider: "codex-appserver" | string;
     role: string;
-    skillPath: string;
+    skillPath: string | null;
     skillHash?: string | null;
     threadId: string | null;
     leaseId: string | null;
@@ -534,7 +534,7 @@ export type ScriptSegmentArtifact = {
   agent?: {
     provider: "codex-appserver" | string;
     role: string;
-    skillPath: string;
+    skillPath: string | null;
     skillHash?: string | null;
     threadId: string | null;
     leaseId: string | null;
@@ -765,6 +765,9 @@ export type FunctionSlotAtomizationHistoryEntry = {
   rhythmAtomCount: number;
   packagingAtomCount: number;
   bindingCount: number;
+  boundaryReviewDecision?: string | null;
+  boundaryReviewIssueCount?: number | null;
+  boundaryReworkAttemptCount?: number | null;
   turnId: string | null;
   traceId: string | null;
   sourceTraceId?: string | null;
@@ -815,7 +818,7 @@ export type FunctionSlotAtomizationArtifact = {
   parentArtifactId: string | null;
   type: "function-slot-atomization-analysis";
   status: "processed" | "failed" | string;
-  resultOrigin?: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  resultOrigin?: "new_turn" | "repaired_turn" | "boundary_reworked_turn" | "manual_boundary_edit" | "cache_reuse" | "failed_validation" | string;
   stageName?: string | null;
   sampleVideoId?: string;
   sourceScriptSegmentArtifactId?: string | null;
@@ -880,6 +883,23 @@ export type FunctionSlotAtomizationArtifact = {
     templateName: string;
     sequence: string[];
   }>;
+  boundaryReview?: FunctionSlotBoundaryReview | null;
+  boundaryReviewHistory?: FunctionSlotBoundaryReview[] | null;
+  boundaryRework?: {
+    attemptCount?: number | null;
+    sourceBoundaryReviewArtifactId?: string | null;
+    sourceBoundaryReviewDecision?: string | null;
+    sourceBoundaryReviewIssueCount?: number | null;
+  } | null;
+  manualBoundaryEdit?: {
+    sourceFunctionSlotAtomizationArtifactId?: string | null;
+    sourceBoundaryReviewArtifactId?: string | null;
+    sourceBoundaryReviewDecision?: string | null;
+    sourceBoundaryReviewIssueCount?: number | null;
+    fieldPaths?: string[];
+    contentHash?: string | null;
+    createdAt?: string | null;
+  } | null;
   validation?: {
     status: "passed" | "failed" | string;
     slotCount: number;
@@ -891,6 +911,8 @@ export type FunctionSlotAtomizationArtifact = {
     templateCount: number;
     validatorCode: string | null;
     repairAttemptCount: number;
+    boundaryReworkAttemptCount?: number | null;
+    manualEdit?: boolean | null;
   } | null;
   agent?: {
     provider: "codex-appserver" | string;
@@ -908,6 +930,27 @@ export type FunctionSlotAtomizationArtifact = {
   reason?: string | null;
   debugSnapshotUri?: string | null;
   createdAt: string;
+};
+
+export type FunctionSlotBoundaryReviewIssue = {
+  issue: string;
+  minimalFix?: string;
+  minimal_fix?: string;
+  fieldPaths?: string[];
+  field_paths?: string[];
+};
+
+export type FunctionSlotBoundaryReview = {
+  artifactId?: string | null;
+  parentArtifactId?: string | null;
+  type?: "function-slot-atomization-boundary-review" | string;
+  decision: "pass" | "rework" | "blocked" | string;
+  reason?: string | null;
+  issues?: FunctionSlotBoundaryReviewIssue[];
+  reviewAttemptCount?: number | null;
+  manuallyResolved?: boolean | null;
+  manualResolvedAt?: string | null;
+  createdAt?: string | null;
 };
 
 export type VersionItem = {

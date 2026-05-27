@@ -68,6 +68,7 @@ export type PropertyPanelProps = {
   onRunRhythmStructure: () => void;
   onRunPackagingStructure: () => void;
   onRunFunctionSlotAtomization: () => void;
+  onManualFunctionSlotBoundaryEdit: (editedJsonText: string) => Promise<void>;
   onSelectShot: (time: number) => void;
   onSelectScriptSegment: (time: number) => void;
   onSelectRhythmCard: (time: number) => void;
@@ -205,6 +206,7 @@ export function PropertyPanel(props: PropertyPanelProps) {
             job={props.functionSlotAtomizationJob}
             hasRequiredInputs={Boolean(props.scriptSegmentAnalysis && props.rhythmStructureAnalysis && props.packagingStructureAnalysis)}
             onRun={props.onRunFunctionSlotAtomization}
+            onManualBoundaryEdit={props.onManualFunctionSlotBoundaryEdit}
           />
         ) : (
           <MetaInfoPanel

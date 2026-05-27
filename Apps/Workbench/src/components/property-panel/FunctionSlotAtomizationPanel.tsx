@@ -1,4 +1,5 @@
-import type { AgentRunJob, FunctionSlotAtomizationArtifact, FunctionSlotAtomizationHistoryEntry } from "../../types";
+import { useMemo, useRef, useState } from "react";
+import type { AgentRunJob, FunctionSlotAtomizationArtifact, FunctionSlotAtomizationHistoryEntry, FunctionSlotBoundaryReviewIssue } from "../../types";
 import { shortTurnId } from "./formatters";
 
 export function FunctionSlotAtomizationPanel({
@@ -7,13 +8,16 @@ export function FunctionSlotAtomizationPanel({
   job,
   hasRequiredInputs,
   onRun,
+  onManualBoundaryEdit,
 }: {
   analysis?: FunctionSlotAtomizationArtifact | null;
   analysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
   job?: AgentRunJob | null;
   hasRequiredInputs: boolean;
   onRun: () => void;
+  onManualBoundaryEdit: (editedJsonText: string) => Promise<void>;
 }) {
+  const [manualEditorOpen, setManualEditorOpen] = useState(false);
   const running = job?.status === "pending" || job?.status === "processing";
   const slots = analysis?.slotMap?.slots ?? [];
   const bindings = analysis?.bindingGraph?.bindings ?? [];
@@ -22,6 +26,7 @@ export function FunctionSlotAtomizationPanel({
   const packagingAtomCount = analysis?.atomInventory?.packagingAtoms?.length ?? 0;
   const historyEntries = analysisHistory ?? [];
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
+  const needsManualBoundaryEdit = shouldShowManualBoundaryEdit(analysis);
   const activeThreadMessage = resolveActiveThreadMessage(job);
   const statusText = job
     ? `${job.stage} / ${job.progress}%`
@@ -61,6 +66,18 @@ export function FunctionSlotAtomizationPanel({
           <div>slots：{slots.length} / bindings：{bindings.length}</div>
           <div>atoms：脚本 {scriptAtomCount} / 节奏 {rhythmAtomCount} / 包装 {packagingAtomCount}</div>
           <div>validation：{analysis.validation?.status ?? "未知"}{analysis.validation?.validatorCode ? ` / ${analysis.validation.validatorCode}` : ""}</div>
+          {analysis.boundaryReview ? <div>boundary review：{analysis.boundaryReview.decision}{analysis.boundaryReview.issues?.length ? ` / issues ${analysis.boundaryReview.issues.length}` : ""}</div> : null}
+        </div>
+      ) : null}
+      {needsManualBoundaryEdit ? (
+        <div className="manual-boundary-callout">
+          <div>
+            <strong>需要人工修正字段边界</strong>
+            <span>第二次 boundary review 仍返回 rework，请手动修改指定字段并提交落地。</span>
+          </div>
+          <button className="primary-button" type="button" onClick={() => setManualEditorOpen(true)}>
+            打开修正
+          </button>
         </div>
       ) : null}
       {failed ? (
@@ -128,6 +145,16 @@ export function FunctionSlotAtomizationPanel({
           ))}
         </div>
       ) : null}
+      {manualEditorOpen && analysis ? (
+        <BoundaryManualEditDialog
+          analysis={analysis}
+          onClose={() => setManualEditorOpen(false)}
+          onSubmit={async (editedJsonText) => {
+            await onManualBoundaryEdit(editedJsonText);
+            setManualEditorOpen(false);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -138,10 +165,271 @@ function renderConfidence(value: number | null | undefined) {
 }
 
 function renderOrigin(origin?: string) {
+  if (origin === "manual_boundary_edit") return "manual boundary edit";
+  if (origin === "boundary_reworked_turn") return "boundary reworked turn";
   if (origin === "repaired_turn") return "repaired turn";
   if (origin === "cache_reuse") return "cache reuse";
   if (origin === "failed_validation") return "failed validation";
   return "new turn";
+}
+
+function BoundaryManualEditDialog({
+  analysis,
+  onClose,
+  onSubmit,
+}: {
+  analysis: FunctionSlotAtomizationArtifact;
+  onClose: () => void;
+  onSubmit: (editedJsonText: string) => Promise<void>;
+}) {
+  const initialJson = useMemo(() => stringifyRawAtomization(analysis), [analysis]);
+  const issues = analysis.boundaryReview?.issues ?? [];
+  const [text, setText] = useState(initialJson);
+  const [selectedPath, setSelectedPath] = useState<string | null>(firstIssuePath(issues));
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const jumpToPath = (path: string | null) => {
+    setSelectedPath(path);
+    if (!path) return;
+    window.requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const range = findJsonPathRange(textarea.value, path);
+      textarea.focus();
+      if (!range) return;
+      textarea.setSelectionRange(range.start, range.end);
+      const line = textarea.value.slice(0, range.start).split("\n").length;
+      const lineHeight = 19;
+      textarea.scrollTop = Math.max(0, (line - 4) * lineHeight);
+    });
+  };
+
+  const validateJson = () => {
+    try {
+      const parsed = JSON.parse(text);
+      const hasCore = parsed && typeof parsed === "object"
+        && "atom_inventory" in parsed
+        && "slot_map" in parsed
+        && "binding_graph" in parsed;
+      setStatus(hasCore ? "JSON 结构可提交" : "JSON 可解析，但缺少原子化核心字段");
+      return hasCore;
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "JSON 解析失败");
+      return false;
+    }
+  };
+
+  const submit = async () => {
+    if (!validateJson()) return;
+    setSubmitting(true);
+    setStatus("提交中");
+    try {
+      await onSubmit(text);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "提交失败");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="cache-dialog-backdrop manual-boundary-backdrop" role="presentation">
+      <section className="manual-boundary-dialog" role="dialog" aria-modal="true" aria-labelledby="manualBoundaryTitle">
+        <header className="manual-boundary-header">
+          <div>
+            <h2 id="manualBoundaryTitle">手动修正字段边界</h2>
+            <p>只改 reviewer 指出的字段。提交后会生成新的人工修正版原子化 artifact。</p>
+          </div>
+          <button className="ghost-button" type="button" onClick={onClose} disabled={submitting}>关闭</button>
+        </header>
+        <div className="manual-boundary-body">
+          <aside className="manual-boundary-issues">
+            <strong>需要修正的字段</strong>
+            {issues.length ? issues.map((issue, index) => (
+              <button
+                key={`${issue.issue}_${index}`}
+                className={`manual-boundary-issue ${issuePaths(issue).includes(selectedPath ?? "") ? "active" : ""}`}
+                type="button"
+                onClick={() => jumpToPath(issuePaths(issue)[0] ?? null)}
+              >
+                <span>{issuePaths(issue)[0] ?? `issue ${index + 1}`}</span>
+                <small>{issue.issue}</small>
+                <em>{issue.minimalFix ?? issue.minimal_fix ?? "按 reviewer 建议做最小修复"}</em>
+              </button>
+            )) : <div className="detail-hint">review 没有返回 issues，但当前结论仍是 rework。</div>}
+          </aside>
+          <div className="manual-boundary-editor">
+            <div className="manual-boundary-editor-bar">
+              <span>{selectedPath ? `当前字段：${selectedPath}` : "完整 JSON"}</span>
+              <button className="ghost-button" type="button" onClick={validateJson}>校验 JSON</button>
+            </div>
+            <textarea ref={textareaRef} value={text} spellCheck={false} onChange={(event) => setText(event.currentTarget.value)} />
+            {status ? <div className="detail-hint">{status}</div> : null}
+          </div>
+        </div>
+        <footer className="manual-boundary-actions">
+          <button className="ghost-button" type="button" onClick={() => setText(initialJson)} disabled={submitting}>还原</button>
+          <button className="ghost-button" type="button" onClick={onClose} disabled={submitting}>取消</button>
+          <button className="primary-button" type="button" onClick={submit} disabled={submitting}>{submitting ? "提交中" : "提交并落地"}</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function shouldShowManualBoundaryEdit(analysis?: FunctionSlotAtomizationArtifact | null) {
+  if (!analysis || analysis.status !== "processed") return false;
+  if (analysis.resultOrigin === "manual_boundary_edit") return false;
+  if (analysis.boundaryReview?.manuallyResolved) return false;
+  if (analysis.boundaryReview?.decision !== "rework") return false;
+  const reviewAttemptCount = Number(analysis.boundaryReview.reviewAttemptCount ?? 0);
+  const reworkAttemptCount = Number(analysis.validation?.boundaryReworkAttemptCount ?? 0);
+  const reviewHistory = analysis.boundaryReviewHistory ?? [];
+  return reviewAttemptCount >= 2 || reworkAttemptCount >= 1 || reviewHistory.filter((item) => item.decision === "rework").length >= 2;
+}
+
+function issuePaths(issue: FunctionSlotBoundaryReviewIssue) {
+  return issue.fieldPaths ?? issue.field_paths ?? [];
+}
+
+function firstIssuePath(issues: FunctionSlotBoundaryReviewIssue[]) {
+  return issues.flatMap(issuePaths)[0] ?? null;
+}
+
+function findJsonPathRange(text: string, path: string) {
+  const keys = path.match(/[A-Za-z0-9_$-]+(?=(?:\[\d+\])?\.?)/g) ?? [];
+  const key = keys[keys.length - 1];
+  if (!key) return null;
+  const pattern = new RegExp(`"${escapeRegExp(key)}"\\s*:`);
+  const match = pattern.exec(text);
+  if (!match) return null;
+  return { start: match.index, end: match.index + match[0].length };
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stringifyRawAtomization(analysis: FunctionSlotAtomizationArtifact) {
+  return JSON.stringify(toRawAtomizationJson(analysis), null, 2);
+}
+
+function toRawAtomizationJson(analysis: FunctionSlotAtomizationArtifact) {
+  return {
+    atom_inventory: {
+      script_atoms: analysis.atomInventory.scriptAtoms.map((atom) => toRawAtom(atom, "script")),
+      rhythm_atoms: analysis.atomInventory.rhythmAtoms.map((atom) => toRawAtom(atom, "rhythm")),
+      packaging_atoms: analysis.atomInventory.packagingAtoms.map((atom) => toRawAtom(atom, "packaging")),
+    },
+    slot_map: {
+      slots: analysis.slotMap.slots.map((slot) => ({
+        slot_id: slot.slotId,
+        slot_order: slot.slotOrder,
+        slot_name: slot.slotName,
+        slot_type: slot.slotType,
+        viewer_state_before: slot.viewerStateBefore,
+        viewer_state_after: slot.viewerStateAfter,
+        persuasion_task: slot.persuasionTask,
+        script_atom_ids: slot.scriptAtomIds,
+        rhythm_atom_ids: slot.rhythmAtomIds,
+        packaging_atom_ids: slot.packagingAtomIds,
+        required_sync_points: slot.requiredSyncPoints,
+        substitution_rules: slot.substitutionRules,
+        source_refs: toRawSourceRefs(slot.sourceRefs),
+        confidence: slot.confidence,
+        need_review: slot.needReview,
+      })),
+    },
+    binding_graph: {
+      bindings: analysis.bindingGraph.bindings.map((binding) => ({
+        id: binding.id,
+        type: binding.type,
+        slot_ids: binding.slotIds,
+        atom_ids: binding.atomIds,
+        rule: binding.rule,
+        risk_if_broken: binding.riskIfBroken,
+        confidence: binding.confidence,
+      })),
+    },
+    conflict_checks: analysis.conflictChecks.map((rule) => ({
+      id: rule.id,
+      slot_ids: rule.slotIds,
+      atom_ids: rule.atomIds,
+      reason: rule.reason,
+      fix: rule.fix,
+      applies_to: (rule as { appliesTo?: string[] }).appliesTo ?? [],
+      source_binding_ids: (rule as { sourceBindingIds?: string[] }).sourceBindingIds ?? [],
+    })),
+    recombination_rules: analysis.recombinationRules.map((rule) => ({
+      id: rule.id,
+      slot_ids: (rule as { slotIds?: string[] }).slotIds ?? [],
+      atom_ids: (rule as { atomIds?: string[] }).atomIds ?? [],
+      reason: rule.reason,
+      fix: (rule as { fix?: string }).fix ?? "",
+      applies_to: rule.appliesTo,
+      source_binding_ids: rule.sourceBindingIds,
+    })),
+    recomposition_templates: analysis.recompositionTemplates.map((template) => ({
+      template_id: template.templateId,
+      template_name: template.templateName,
+      sequence: template.sequence,
+    })),
+  };
+}
+
+function toRawAtom(atom: FunctionSlotAtomizationArtifact["atomInventory"]["scriptAtoms"][number], type: "script" | "rhythm" | "packaging") {
+  const base = {
+    id: atom.id,
+    slot: atom.slot,
+    label: atom.label,
+    source_refs: toRawSourceRefs(atom.sourceRefs),
+    confidence: atom.confidence,
+    need_review: atom.needReview,
+  };
+  if (type === "script") {
+    return {
+      ...base,
+      semantic_function: atom.function,
+      claim_type: atom.claimType ?? "",
+      proof_need: atom.proofNeed ?? "",
+      dependency_before: (atom as { dependencyBefore?: string[] }).dependencyBefore ?? [],
+      dependency_after: (atom as { dependencyAfter?: string[] }).dependencyAfter ?? [],
+      must_keep: atom.mustKeep ?? [],
+      replaceable_variables: atom.replaceableVariables ?? [],
+    };
+  }
+  if (type === "rhythm") {
+    return {
+      ...base,
+      attention_function: atom.function,
+      pace: atom.pace ?? "",
+      density_type: atom.densityType ?? "",
+      beat_shape: atom.beatShape ?? "",
+      best_for_script_functions: (atom as { bestForScriptFunctions?: string[] }).bestForScriptFunctions ?? [],
+      avoid_for: atom.avoidFor ?? [],
+      sync_points: atom.syncPoints ?? [],
+    };
+  }
+  return {
+    ...base,
+    packaging_function: atom.packagingFunction ?? atom.function,
+    visual_elements: (atom as { visualElements?: string[] }).visualElements ?? [],
+    visual_hierarchy: atom.visualHierarchy ?? "",
+    proof_type: atom.proofType ?? "",
+    visual_proof_type: atom.visualProofType ?? "",
+    replaceable_forms: atom.replaceableForms ?? [],
+    risk: atom.risk ?? "",
+  };
+}
+
+function toRawSourceRefs(refs: { scriptSegmentLabels?: string[]; rhythmSectionLabels?: string[]; packagingBlockLabels?: string[]; shotRefs: string[] }) {
+  return {
+    script_segment_labels: refs.scriptSegmentLabels ?? [],
+    rhythm_section_labels: refs.rhythmSectionLabels ?? [],
+    packaging_block_labels: refs.packagingBlockLabels ?? [],
+    shot_refs: refs.shotRefs ?? [],
+  };
 }
 
 function formatHistoryMeta(entry: FunctionSlotAtomizationHistoryEntry) {

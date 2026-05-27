@@ -60,7 +60,7 @@ export type StaticTraceTypeCompatibility = {
   agentRun?: {
     provider?: "codex-appserver" | string;
     role?: string;
-    skillPath?: string;
+    skillPath?: string | null;
     skillHash?: string | null;
     threadId?: string | null;
     leaseId?: string | null;

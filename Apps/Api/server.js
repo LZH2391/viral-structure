@@ -29,6 +29,7 @@ const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-anal
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
+const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
@@ -78,6 +79,13 @@ function createServer(deps = {}) {
     logger: activeLogger,
     projectionService: activeFunctionSlotProjectionService,
   });
+  const activeFunctionSlotAtomizationManualEditService = deps.functionSlotAtomizationManualEditService ?? createFunctionSlotAtomizationManualEditService({
+    rootDir: deps.rootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    artifactIndex: activeArtifactIndex,
+    projectionService: activeFunctionSlotProjectionService,
+  });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
@@ -118,6 +126,7 @@ function createServer(deps = {}) {
     analysisRegistry: activeAnalysisRegistry,
     functionSlotProjectionService: activeFunctionSlotProjectionService,
     functionSlotLibraryService: activeFunctionSlotLibraryService,
+    functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
       workflowRunStore: activeWorkflowRunStore,
       service: activeSampleService,
@@ -165,6 +174,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/artifact$/.test(url.pathname)) return await handleArtifact(res, url.pathname.split("/").at(-2), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-projection$/.test(url.pathname)) return await handleFunctionSlotProjectionProjectSample(res, decodeURIComponent(url.pathname.split("/").at(-2)), url, handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-library\/export$/.test(url.pathname)) return await handleFunctionSlotLibraryExport(res, decodeURIComponent(url.pathname.split("/").at(-3)), url, handlers);
+      if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/function-slot-atomization\/manual-boundary-edit$/.test(url.pathname)) return await handleFunctionSlotAtomizationManualBoundaryEdit(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/subtitles\/revisions$/.test(url.pathname)) return await handleSubtitleRevision(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/shot-boundary$/.test(url.pathname)) return await handleShotBoundary(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/sample-videos\/[^/]+\/analyses\/[^/]+$/.test(url.pathname)) return await handleAnalysis(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
@@ -316,6 +326,26 @@ async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {
   const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
   const result = await service.deleteLibraryItem(artifactId);
   if (!result) return notFound(res);
+  return sendJson(res, 200, result);
+}
+
+async function handleFunctionSlotAtomizationManualBoundaryEdit(req, res, sampleVideoId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
+  const service = handlers.functionSlotAtomizationManualEditService;
+  if (!service?.applyBoundaryManualEdit) {
+    return sendJson(res, 503, {
+      error: "function_slot_atomization_manual_edit_unavailable",
+      code: "function_slot_atomization_manual_edit_unavailable",
+      message: "功能槽位原子化手动修正服务不可用",
+    });
+  }
+  const result = await service.applyBoundaryManualEdit({
+    sampleVideoId,
+    editedJsonText: body.editedJsonText ?? body.jsonText ?? null,
+    editedJson: body.editedJson ?? null,
+    expectedArtifactId: body.expectedArtifactId ?? null,
+    sourceBoundaryReviewArtifactId: body.sourceBoundaryReviewArtifactId ?? null,
+  });
   return sendJson(res, 200, result);
 }
 
