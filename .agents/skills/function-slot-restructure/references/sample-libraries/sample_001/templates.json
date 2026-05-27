@@ -1,0 +1,13 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "问题直冲到长期信任的低门槛解决方案演示模板",
+    "sequence": [
+      "problem_activation",
+      "mechanism_credibility",
+      "low_barrier_operation",
+      "result_confirmation",
+      "long_term_trust_close"
+    ]
+  }
+]

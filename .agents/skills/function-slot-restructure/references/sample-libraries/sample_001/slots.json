@@ -1,0 +1,200 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "痛点激活槽",
+    "slotType": "problem_activation",
+    "viewerStateBefore": "观众尚未进入解决方案语境，只知道内容正在展示某类问题处理方式",
+    "viewerStateAfter": "观众看见具体问题对象，并理解解决方案可以直接作用于这些对象",
+    "persuasionTask": "把高关注问题对象推到第一视线，并用直接执行动作建立处理路径",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "问题对象出现",
+      "定位提示出现",
+      "解决方案接触目标对象",
+      "动作字样出现"
+    ],
+    "substitutionRules": [
+      "问题对象、指示样式和动作提示可替换，但必须保留问题识别和直接执行动作证明"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "机制可信槽",
+    "slotType": "mechanism_credibility",
+    "viewerStateBefore": "观众已经知道解决方案作用对象和基础执行方式，但还未理解为什么可信",
+    "viewerStateAfter": "观众获得机制和适用范围解释，降低对效果来源的疑问",
+    "persuasionTask": "用机制拆解和适用范围限定，把直觉演示转成有理由相信的解决方案判断",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "机制关键词",
+      "机制说明载体",
+      "持续执行动作",
+      "适用范围提示"
+    ],
+    "substitutionRules": [
+      "机制说明载体样式和机制命名可替换，但机制主张必须有视觉化说明并与实拍使用绑定"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": true
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "低门槛步骤槽",
+    "slotType": "low_barrier_operation",
+    "viewerStateBefore": "观众理解了解决方案逻辑，但可能担心流程复杂或不好执行",
+    "viewerStateAfter": "观众知道等待或生效后完成关键动作即可，操作负担被压低",
+    "persuasionTask": "补齐最小步骤闭环，把解决方案从可理解推进到可尝试",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "等待或生效时间",
+      "步骤提示动作",
+      "时间可视化锚点",
+      "完成动作"
+    ],
+    "substitutionRules": [
+      "等待提示和步骤提示样式可替换，但必须保留时间提示与动作实拍的闭环"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "结果兑现槽",
+    "slotType": "result_confirmation",
+    "viewerStateBefore": "观众刚看到使用步骤完成，正在等待结果是否兑现",
+    "viewerStateAfter": "观众看到处理后的局部状态，并把结果理解成日常生活收益",
+    "persuasionTask": "把步骤后的结果回到前面问题关切，并用生活化反馈扩大收益感",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "完成动作后切回目标对象",
+      "结果局部近景",
+      "定位提示指向结果区域",
+      "生活收益表达"
+    ],
+    "substitutionRules": [
+      "结果展示方式和生活收益场景可替换，但必须回到前面已激活的问题对象或同一观众关切"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "长期信任与选择收束槽",
+    "slotType": "long_term_trust_close",
+    "viewerStateBefore": "观众已经看到即时结果，但仍需要判断是否长期可信、是否值得选择",
+    "viewerStateAfter": "观众获得持续使用证据和简化选择结论，选择对象成为明确记忆落点",
+    "persuasionTask": "用时间证据和使用痕迹强化长期可信度，再用低压口播和选择对象近景完成选择收束",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "历史记录或持续记录证据",
+      "解决方案归因同框",
+      "使用痕迹物证",
+      "简化选择结论",
+      "选择对象近景落点"
+    ],
+    "substitutionRules": [
+      "长期证据载体可替换为记录、复购、使用痕迹或持续反馈，但不能只保留口播；收尾选择对象露出可换构图但需保留记忆钉"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false
+  }
+]

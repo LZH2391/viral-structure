@@ -1,0 +1,169 @@
+[
+  {
+    "id": "R001",
+    "slot": "problem_activation",
+    "label": "近距连击起手",
+    "function": "用连续短镜头和重复对象切换迅速敲开注意力，让观众先进入具体问题和动作",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "贴脸连击起手"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ]
+    },
+    "confidence": 0.94,
+    "needReview": false,
+    "pace": "fast_staccato",
+    "densityType": "cut_density",
+    "beatShape": "短镜头连续敲点",
+    "avoidFor": [
+      "complex_mechanism",
+      "long_claim",
+      "multi_step_instruction"
+    ],
+    "syncPoints": [
+      "问题对象出现",
+      "定位提示出现",
+      "解决方案接触目标对象",
+      "动作字幕落点"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "mechanism_credibility",
+    "label": "稳推压信息解释段",
+    "function": "放慢切换频率，用连续动作、字幕和机制说明载体并行承载机制信息，稳住观众理解",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "持续推进的解释段"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "steady_dense",
+    "densityType": "explanation_density",
+    "beatShape": "长镜头稳住后叠加说明",
+    "avoidFor": [
+      "instant_result_reveal",
+      "pure_emotional_close"
+    ],
+    "syncPoints": [
+      "机制说明载体出现",
+      "口播机制关键词",
+      "执行动作持续",
+      "适用范围提示"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "low_barrier_operation",
+    "label": "步骤刹车与动作落地",
+    "function": "用等待或生效提示制造短暂停顿，再切到完成动作，帮助观众记住低门槛步骤",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "停顿后兑现的爆点"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "pause_then_action",
+    "densityType": "step_density",
+    "beatShape": "先踩刹车再动作兑现",
+    "avoidFor": [
+      "long_mechanism_explain",
+      "new_claim_stack"
+    ],
+    "syncPoints": [
+      "等待或生效时间提示",
+      "步骤提示动作",
+      "时间可视化锚点",
+      "完成动作开始"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "result_confirmation",
+    "label": "兑现后结果放大",
+    "function": "承接完成动作后的注意力峰值，把观众视线留在结果近景和生活反馈上完成确认",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "停顿后兑现的爆点"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.93,
+    "needReview": false,
+    "pace": "peak_with_tail",
+    "densityType": "result_density",
+    "beatShape": "完成动作释放后近景确认",
+    "avoidFor": [
+      "new_complex_mechanism",
+      "unrelated_trust_claim"
+    ],
+    "syncPoints": [
+      "完成动作后切回目标对象",
+      "定位提示指向结果区域",
+      "结果近景停留",
+      "生活收益字幕"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "long_term_trust_close",
+    "label": "回落证言与平稳收口",
+    "function": "从结果峰值回落到稳定口播和物证展示，把刺激感转换成可信度与最终选择判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "结果后的回落与证言收口"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.92,
+    "needReview": false,
+    "pace": "slow_testimonial",
+    "densityType": "proof_density",
+    "beatShape": "稳态证言中插入物证提点再收束",
+    "avoidFor": [
+      "high_frequency_problem_attack",
+      "complex_step_sequence"
+    ],
+    "syncPoints": [
+      "历史记录同框",
+      "解决方案归因同框",
+      "使用痕迹特写",
+      "选择对象近景收尾"
+    ]
+  }
+]

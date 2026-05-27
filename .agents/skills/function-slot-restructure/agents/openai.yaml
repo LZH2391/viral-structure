@@ -1,0 +1,3 @@
+interface:
+  display_name: "Short Video Slot Library"
+  short_description: "Search and recompose short-video function-slot libraries from many sample videos."

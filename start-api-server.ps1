@@ -87,6 +87,7 @@ function Start-WorkbenchStack {
   Write-Host "Vite dev server target $viteUrl"
   Write-Host "Codex AppServer target $($env:CODEX_APP_SERVER_WS_URL)"
   Write-Host "ThreadPool target $threadPoolHealthUrl"
+  Write-Host "Service logs $script:workbenchLogDir"
   Write-Host "Press Esc or Ctrl+C to stop all managed/reused services for this workspace."
 
   try {
@@ -181,7 +182,6 @@ function Test-DirectStartCommandPath([string]$Path) {
 }
 
 function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$ArgumentList, [string]$WorkingDirectory) {
-  Write-Host "$Name starting..."
   $startOptions = @{
     FilePath = $FilePath
     ArgumentList = $ArgumentList
@@ -189,11 +189,20 @@ function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$Argum
     NoNewWindow = $true
     PassThru = $true
   }
+  $stdoutLogPath = $null
+  $stderrLogPath = $null
   if ($script:workbenchLogDir) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
     $safeName = ($Name.ToLowerInvariant() -replace "[^a-z0-9]+", "-").Trim("-")
-    $startOptions.RedirectStandardOutput = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stdout.log"
-    $startOptions.RedirectStandardError = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stderr.log"
+    $stdoutLogPath = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stdout.log"
+    $stderrLogPath = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stderr.log"
+    $startOptions.RedirectStandardOutput = $stdoutLogPath
+    $startOptions.RedirectStandardError = $stderrLogPath
+  }
+  Write-Host "$Name starting..."
+  if ($stdoutLogPath -and $stderrLogPath) {
+    Write-Host "  stdout $stdoutLogPath"
+    Write-Host "  stderr $stderrLogPath"
   }
   return Start-Process @startOptions
 }
@@ -206,7 +215,8 @@ function Ensure-Service($Spec, $Registry) {
       throw "$($Spec.Name) port $($Spec.Port) is occupied by non-workspace process PID $($existing.ProcessId): $($existing.CommandLine)"
     }
     $stopwatch.Stop()
-    Write-Host "$($Spec.Name) already online in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s, managing existing PID $($existing.ProcessId)."
+    Write-Host "$($Spec.Name) already online, managing existing PID $($existing.ProcessId)."
+    Write-Host "  checked in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s"
     Add-ManagedProcess $Registry $Spec $existing.ProcessId $true
     return
   }
@@ -215,7 +225,8 @@ function Ensure-Service($Spec, $Registry) {
   Add-ManagedProcess $Registry $Spec $process.Id $false
   Wait-ForService $Spec
   $stopwatch.Stop()
-  Write-Host "$($Spec.Name) ready in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s."
+  Write-Host "$($Spec.Name) ready."
+  Write-Host "  startup time $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s"
 }
 
 function Ensure-AppServerWatchdog($Spec, $Registry) {

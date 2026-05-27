@@ -1,0 +1,139 @@
+[
+  {
+    "id": "P001",
+    "slot": "problem_activation",
+    "label": "对象圈定加动作示范",
+    "function": "把问题对象和执行动作压到第一视线，形成极简教程式入口",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "局部圈定加动作示范开场"
+      ],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ]
+    },
+    "confidence": 0.94,
+    "needReview": false,
+    "packagingFunction": "把问题对象和执行动作压到第一视线，形成极简教程式入口",
+    "proofType": "",
+    "visualProofType": "",
+    "visualHierarchy": "问题对象第一，解决方案接触动作第二，字幕只做动作命名",
+    "visualElements": [],
+    "replaceableForms": [],
+    "risk": "如果开场加入过多机制或长字幕，会削弱问题对象和动作的第一视线"
+  },
+  {
+    "id": "P002",
+    "slot": "mechanism_credibility",
+    "label": "实拍绑定机制说明载体",
+    "function": "在不脱离执行实拍的前提下，用机制说明载体把卖点推进到为什么有效",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "边上脸边讲机制的图卡说明"
+      ],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": true,
+    "packagingFunction": "在不脱离执行实拍的前提下，用机制说明载体把卖点推进到为什么有效",
+    "proofType": "",
+    "visualProofType": "",
+    "visualHierarchy": "实拍动作维持真实感，机制说明载体短时抢占解释焦点，字幕托底承接口播",
+    "visualElements": [],
+    "replaceableForms": [],
+    "risk": "机制说明如果没有实拍动作陪伴，会变成空泛科普；说明载体过重则会压掉真实感"
+  },
+  {
+    "id": "P003",
+    "slot": "low_barrier_operation",
+    "label": "时间提示加完成动作演示",
+    "function": "把等待和完成动作包装成容易记住、容易接受的低门槛步骤",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "计时提示加水洗演示"
+      ],
+      "shotRefs": [
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "packagingFunction": "把等待和完成动作包装成容易记住、容易接受的低门槛步骤",
+    "proofType": "",
+    "visualProofType": "",
+    "visualHierarchy": "等待阶段由时间提示和步骤提示主导，完成阶段由场景切换和动作兑现主导，字幕辅助",
+    "visualElements": [],
+    "replaceableForms": [],
+    "risk": "只说步骤不展示动作会增加执行顾虑；只展示完成动作不提示等待或生效时间会丢失操作闭环"
+  },
+  {
+    "id": "P004",
+    "slot": "result_confirmation",
+    "label": "结果近景加生活反馈",
+    "function": "把结果直接端到镜头前，并把功能结果转化成生活收益",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "结果近景加持续使用证据"
+      ],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "packagingFunction": "把结果直接端到镜头前，并把功能结果转化成生活收益",
+    "proofType": "",
+    "visualProofType": "",
+    "visualHierarchy": "结果状态和局部近景第一，生活化动作第二，字幕负责收益转译",
+    "visualElements": [],
+    "replaceableForms": [],
+    "risk": "结果展示必须回到前面问题对象或同一观众关切，否则前后证明链会断"
+  },
+  {
+    "id": "P005",
+    "slot": "long_term_trust_close",
+    "label": "长期物证加选择对象收束",
+    "function": "用持续记录、历史对照、使用痕迹和选择对象近景把即时效果沉淀为可信选择",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "结果近景加持续使用证据",
+        "极简口播收尾加产品近景落点"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.92,
+    "needReview": false,
+    "packagingFunction": "用持续记录、历史对照、使用痕迹和选择对象近景把即时效果沉淀为可信选择",
+    "proofType": "",
+    "visualProofType": "",
+    "visualHierarchy": "长期证据先主导可信度，口播再收束观点，最终选择对象近景成为记忆落点",
+    "visualElements": [],
+    "replaceableForms": [],
+    "risk": "长期背书不能只靠口播，缺少时间证据或使用痕迹会削弱可信度；转化包装过重会破坏低压收束"
+  }
+]
