@@ -96,9 +96,8 @@ const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
 const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
 const REVIEW_COLLECT_MAX_ATTEMPTS = 180;
-const WORKSPACE_ROOT = path.resolve(__dirname, "..", "..", "..");
-const VIDEO_SHOT_SKILL_PATH = path.join(WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
 const DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT = process.env.SHOT_RAW_ANALYSIS_WORKSPACE_ROOT || "C:\\Users\\Administrator\\Documents\\Codex";
+const VIDEO_SHOT_SKILL_PATH = process.env.SHOT_VIDEO_SKILL_PATH || path.join(DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
 
 function createShotBoundaryService({
   rootDir,

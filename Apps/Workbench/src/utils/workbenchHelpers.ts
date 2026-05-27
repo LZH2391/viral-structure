@@ -24,6 +24,7 @@ export type PackagingStructureCacheHandler = AnalysisCacheHandler;
 export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
+const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 2100;
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
   buttonLabel: string;
@@ -47,6 +48,7 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   setAgentJob(latest);
   writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps, enableReview });
   latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
+    maxAttempts: SHOT_BOUNDARY_POLL_MAX_ATTEMPTS,
     onUpdate: setAgentJob,
     preservePreviousOnNull: true,
   }) ?? latest;
@@ -67,9 +69,8 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
     writeActiveAgentJob?.(null);
     throw new Error(latest.errorSummary?.message ?? "切镜分析失败");
   }
-  setAgentJob(null);
-  writeActiveAgentJob?.(null);
-  throw new Error("切镜分析超时");
+  setAgentJob(latest);
+  throw new Error(buildAnalysisTimeoutMessage("切镜分析仍在后台运行", latest));
 }
 
 export async function runAnalysisRole(

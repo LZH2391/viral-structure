@@ -14,6 +14,9 @@ function Start-WorkbenchStack {
   if (-not $env:THREADPOOL_CONFIG_PATH) { $env:THREADPOOL_CONFIG_PATH = Join-Path $repoRoot "Infrastructure\ThreadPool\thread_roles.json" }
   if (-not $env:PYTHON_RUNTIME_ROOT) { $env:PYTHON_RUNTIME_ROOT = Join-Path $repoRoot "Infrastructure\AgentRuntime" }
 
+  $script:workbenchLogDir = Join-Path $repoRoot "Runtime\Logs"
+  New-Item -ItemType Directory -Force -Path $script:workbenchLogDir | Out-Null
+
   $env:CODEX_APP_SERVER_WS_URL = $env:APP_SERVER_URL
   $env:THREADPOOL_BASE_URL = "http://127.0.0.1:$($env:THREADPOOL_PORT)"
 
@@ -94,6 +97,8 @@ function Start-WorkbenchStack {
     Start-Process $viteUrl | Out-Null
 
     $canReadKeys = $true
+    $lastWatchdogCheck = Get-Date
+    $appServerSpec = $serviceSpecs | Where-Object { $_.Kind -eq "appserver" } | Select-Object -First 1
     while ($true) {
       $hasKey = $false
       if ($canReadKeys) {
@@ -106,6 +111,10 @@ function Start-WorkbenchStack {
       if ($hasKey) {
         $key = [Console]::ReadKey($true)
         if ($key.Key -eq [ConsoleKey]::Escape) { break }
+      }
+      if (((Get-Date) - $lastWatchdogCheck).TotalSeconds -ge 2) {
+        Ensure-AppServerWatchdog $appServerSpec $managedProcesses
+        $lastWatchdogCheck = Get-Date
       }
       Start-Sleep -Milliseconds 200
     }
@@ -173,7 +182,20 @@ function Test-DirectStartCommandPath([string]$Path) {
 
 function Start-ManagedProcess([string]$Name, [string]$FilePath, [object[]]$ArgumentList, [string]$WorkingDirectory) {
   Write-Host "$Name starting..."
-  return Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru
+  $startOptions = @{
+    FilePath = $FilePath
+    ArgumentList = $ArgumentList
+    WorkingDirectory = $WorkingDirectory
+    NoNewWindow = $true
+    PassThru = $true
+  }
+  if ($script:workbenchLogDir) {
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"
+    $safeName = ($Name.ToLowerInvariant() -replace "[^a-z0-9]+", "-").Trim("-")
+    $startOptions.RedirectStandardOutput = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stdout.log"
+    $startOptions.RedirectStandardError = Join-Path $script:workbenchLogDir "$safeName-$timestamp.stderr.log"
+  }
+  return Start-Process @startOptions
 }
 
 function Ensure-Service($Spec, $Registry) {
@@ -194,6 +216,17 @@ function Ensure-Service($Spec, $Registry) {
   Wait-ForService $Spec
   $stopwatch.Stop()
   Write-Host "$($Spec.Name) ready in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s."
+}
+
+function Ensure-AppServerWatchdog($Spec, $Registry) {
+  if (-not $Spec) { return }
+  if (& $Spec.Ready) { return }
+  Write-Host "$($Spec.Name) watchdog: $($env:CODEX_APP_SERVER_WS_URL) is not listening; restarting..."
+  try {
+    Ensure-Service $Spec $Registry
+  } catch {
+    Write-Host "$($Spec.Name) watchdog restart failed: $($_.Exception.Message)"
+  }
 }
 
 function Add-ManagedProcess($Registry, $Spec, [int]$ProcessId, [bool]$Reused) {

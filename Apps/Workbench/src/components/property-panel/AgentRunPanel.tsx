@@ -103,7 +103,11 @@ export function AgentRunPanel({
     && jobErrorSummary?.turnSubmitted !== true;
   const jobStatusHint = preAgentLeaseFailure
     ? "ThreadPool 获取 lease 超时，Agent turn 未提交，可重试"
-    : (job?.status === "failed" && jobErrorSummary?.message ? jobErrorSummary.message : null);
+    : (jobErrorSummary?.message
+      ? (job?.status === "processing" && jobErrorSummary.retryable
+        ? `后台连接异常，任务仍在重试：${jobErrorSummary.message}`
+        : jobErrorSummary.message)
+      : null);
   const handleRun = () => {
     if (guard.state === "warming") {
       window.alert(guard.message ?? "ThreadPool 正在 warming，请稍后再试");
