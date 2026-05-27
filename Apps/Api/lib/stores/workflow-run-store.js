@@ -2,7 +2,9 @@ const fs = require("fs");
 const path = require("path");
 
 function createWorkflowRunStore({ filePath = null } = {}) {
-  const runs = new Map(loadRuns(filePath).map((run) => [run.workflowRunId, run]));
+  const { runs: loadedRuns, changed } = loadRuns(filePath);
+  const runs = new Map(loadedRuns.map((run) => [run.workflowRunId, run]));
+  if (changed) persistRuns(filePath, runs);
 
   function createRun(run) {
     runs.set(run.workflowRunId, run);
@@ -32,13 +34,57 @@ function createWorkflowRunStore({ filePath = null } = {}) {
 }
 
 function loadRuns(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return [];
+  if (!filePath || !fs.existsSync(filePath)) return { runs: [], changed: false };
   try {
     const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    return Array.isArray(parsed.runs) ? parsed.runs.filter((run) => run?.workflowRunId) : [];
+    if (!Array.isArray(parsed.runs)) return { runs: [], changed: false };
+    let changed = false;
+    const runs = parsed.runs.filter((run) => run?.workflowRunId).map((run) => {
+      const next = normalizeLoadedRun(run);
+      if (next !== run) changed = true;
+      return next;
+    });
+    return { runs, changed };
   } catch {
-    return [];
+    return { runs: [], changed: false };
   }
+}
+
+function normalizeLoadedRun(run) {
+  if (run.status !== "running") return run;
+  const now = new Date().toISOString();
+  const errorSummary = {
+    code: "workflow_run_interrupted_by_restart",
+    message: "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+    stageName: "workflow.run",
+    retryable: true,
+    debugSnapshotUri: null,
+  };
+  return {
+    ...run,
+    status: "failed",
+    currentStageKeys: [],
+    completedAt: now,
+    errorSummary,
+    stages: Array.isArray(run.stages)
+      ? run.stages.map((stage) => normalizeLoadedStage(stage, now, errorSummary))
+      : run.stages,
+    interruptedAt: now,
+    interruptedReason: "server_restart",
+  };
+}
+
+function normalizeLoadedStage(stage, completedAt, runErrorSummary) {
+  if (!stage || stage.status !== "running") return stage;
+  return {
+    ...stage,
+    status: "failed",
+    completedAt,
+    errorSummary: {
+      ...runErrorSummary,
+      stageName: stage.stageName ?? stage.key ?? runErrorSummary.stageName,
+    },
+  };
 }
 
 function persistRuns(filePath, runs) {

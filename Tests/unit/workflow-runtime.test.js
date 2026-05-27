@@ -1,5 +1,8 @@
 ﻿const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { createWorkflowRunStore } = require("../../Apps/Api/lib/stores/workflow-run-store");
 const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/workflows/full-analysis/service");
 
@@ -98,6 +101,57 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
     FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
     ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure"],
   );
+});
+
+test("workflow run store marks running persisted runs as failed on restart", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-restart-"));
+  const filePath = path.join(dir, "workflow-runs.json");
+  fs.writeFileSync(filePath, JSON.stringify({
+    runs: [
+      {
+        workflowRunId: "workflow_running",
+        workflowKey: "full-analysis",
+        workflowVersion: "full-analysis.v1",
+        status: "running",
+        traceId: "trace_workflow",
+        runId: "run_workflow",
+        sampleVideoId: "sample_1",
+        currentStageKeys: ["scriptSegment"],
+        stages: [
+          { key: "upload", stageName: "sample.ingest", status: "processed" },
+          { key: "scriptSegment", stageName: "script.segment.analyze", status: "running" },
+          { key: "rhythmStructure", stageName: "rhythm.structure.analyze", status: "pending" },
+        ],
+        createdAt: "2026-05-27T00:00:00.000Z",
+        updatedAt: "2026-05-27T00:01:00.000Z",
+      },
+      {
+        workflowRunId: "workflow_processed",
+        workflowKey: "full-analysis",
+        workflowVersion: "full-analysis.v1",
+        status: "processed",
+        traceId: "trace_done",
+        runId: "run_done",
+        currentStageKeys: [],
+        stages: [],
+      },
+    ],
+  }), "utf8");
+
+  const store = createWorkflowRunStore({ filePath });
+  const running = store.getRun("workflow_running");
+  const processed = store.getRun("workflow_processed");
+
+  assert.equal(running.status, "failed");
+  assert.deepEqual(running.currentStageKeys, []);
+  assert.equal(running.errorSummary.code, "workflow_run_interrupted_by_restart");
+  assert.equal(running.errorSummary.retryable, true);
+  assert.equal(running.stages.find((stage) => stage.key === "scriptSegment").status, "failed");
+  assert.equal(running.stages.find((stage) => stage.key === "rhythmStructure").status, "pending");
+  assert.equal(processed.status, "processed");
+
+  const persisted = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  assert.equal(persisted.runs.find((run) => run.workflowRunId === "workflow_running").status, "failed");
 });
 
 function buildArtifact({ shot = false } = {}) {

@@ -4,20 +4,18 @@
       "workflowRunId": "workflow_d59578cd-467c-457a-8ad8-0b15fd9bacf1",
       "workflowKey": "full-analysis",
       "workflowVersion": "full-analysis.v1",
-      "status": "running",
+      "status": "failed",
       "traceId": "trace_2e68b75d-8162-45f2-bd2d-54bf34ae7c9d",
       "runId": "run_ccf6e336-a4de-4496-bea8-528cd861dcee",
       "sampleVideoId": "sample_4e9af5ba-eb6f-4d3c-a97a-906b99206742",
-      "currentStageKeys": [
-        "upload"
-      ],
+      "currentStageKeys": [],
       "stages": [
         {
           "key": "upload",
           "stageName": "upload.ingest",
           "label": "上传",
           "artifactKey": "sampleVideo",
-          "status": "running",
+          "status": "failed",
           "attemptNo": 1,
           "stageId": "stage_0bf50347-2971-420f-93c7-df952f0be209",
           "childJobId": "job_bc369961-15f1-4e80-815d-7d5b85891067",
@@ -27,9 +25,15 @@
           "sampleVideoId": "sample_4e9af5ba-eb6f-4d3c-a97a-906b99206742",
           "inputSummary": null,
           "outputSummary": null,
-          "errorSummary": null,
+          "errorSummary": {
+            "code": "workflow_run_interrupted_by_restart",
+            "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+            "stageName": "upload.ingest",
+            "retryable": true,
+            "debugSnapshotUri": null
+          },
           "startedAt": "2026-05-25T13:09:08.853Z",
-          "completedAt": null
+          "completedAt": "2026-05-27T05:01:59.499Z"
         },
         {
           "key": "shotBoundary",
@@ -129,20 +133,26 @@
       ],
       "createdAt": "2026-05-25T13:09:08.851Z",
       "updatedAt": "2026-05-25T13:09:08.921Z",
-      "completedAt": null,
-      "errorSummary": null
+      "completedAt": "2026-05-27T05:01:59.499Z",
+      "errorSummary": {
+        "code": "workflow_run_interrupted_by_restart",
+        "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+        "stageName": "workflow.run",
+        "retryable": true,
+        "debugSnapshotUri": null
+      },
+      "interruptedAt": "2026-05-27T05:01:59.499Z",
+      "interruptedReason": "server_restart"
     },
     {
       "workflowRunId": "workflow_99cb7456-b382-4f73-a453-05e8536c3f39",
       "workflowKey": "full-analysis",
       "workflowVersion": "full-analysis.v1",
-      "status": "running",
+      "status": "failed",
       "traceId": "trace_6bc44605-fb20-4044-96c8-ba23584fbf4d",
       "runId": "run_a6059300-f0d1-44c2-9e9d-5303e6e6000d",
       "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
-      "currentStageKeys": [
-        "shotBoundary"
-      ],
+      "currentStageKeys": [],
       "stages": [
         {
           "key": "upload",
@@ -172,7 +182,7 @@
           "stageName": "shot.boundary",
           "label": "切镜",
           "artifactKey": "shotBoundaryAnalysis",
-          "status": "running",
+          "status": "failed",
           "attemptNo": 1,
           "stageId": "stage_059837ee-1151-46cc-b247-a36dd776f93c",
           "childJobId": "job_2cd5d8da-6194-408d-9f5a-99f8c81987fa",
@@ -182,9 +192,15 @@
           "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "inputSummary": null,
           "outputSummary": null,
-          "errorSummary": null,
+          "errorSummary": {
+            "code": "workflow_run_interrupted_by_restart",
+            "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+            "stageName": "shot.boundary",
+            "retryable": true,
+            "debugSnapshotUri": null
+          },
           "startedAt": "2026-05-25T13:21:46.769Z",
-          "completedAt": null
+          "completedAt": "2026-05-27T05:01:59.500Z"
         },
         {
           "key": "scriptSegment",
@@ -265,8 +281,16 @@
       ],
       "createdAt": "2026-05-25T13:19:56.173Z",
       "updatedAt": "2026-05-25T13:21:46.811Z",
-      "completedAt": null,
-      "errorSummary": null
+      "completedAt": "2026-05-27T05:01:59.500Z",
+      "errorSummary": {
+        "code": "workflow_run_interrupted_by_restart",
+        "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+        "stageName": "workflow.run",
+        "retryable": true,
+        "debugSnapshotUri": null
+      },
+      "interruptedAt": "2026-05-27T05:01:59.500Z",
+      "interruptedReason": "server_restart"
     },
     {
       "workflowRunId": "workflow_e64d033b-f5cd-4caf-a3db-b747d3c28ab7",
@@ -740,13 +764,11 @@
       "workflowKey": "full-analysis",
       "workflowVersion": "full-analysis.v1",
       "cacheDecision": "ask",
-      "status": "running",
+      "status": "failed",
       "traceId": "trace_1a5779b4-0319-442b-ab68-c2d93c63232c",
       "runId": "run_c70052ef-cf8b-41d0-9ea7-5a015be3cfe1",
       "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
-      "currentStageKeys": [
-        "shotBoundary"
-      ],
+      "currentStageKeys": [],
       "stages": [
         {
           "key": "upload",
@@ -775,7 +797,7 @@
           "stageName": "shot.boundary",
           "label": "切镜",
           "artifactKey": "shotBoundaryAnalysis",
-          "status": "running",
+          "status": "failed",
           "attemptNo": 1,
           "stageId": "stage_bbc9043a-ad37-43ad-a9ad-413cee4897fb",
           "childJobId": "job_5c59e1f9-fbd9-4eb6-860d-55db21bc85da",
@@ -785,9 +807,15 @@
           "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "inputSummary": null,
           "outputSummary": null,
-          "errorSummary": null,
+          "errorSummary": {
+            "code": "workflow_run_interrupted_by_restart",
+            "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+            "stageName": "shot.boundary",
+            "retryable": true,
+            "debugSnapshotUri": null
+          },
           "startedAt": "2026-05-26T02:43:25.481Z",
-          "completedAt": null
+          "completedAt": "2026-05-27T05:01:59.500Z"
         },
         {
           "key": "scriptSegment",
@@ -868,8 +896,16 @@
       ],
       "createdAt": "2026-05-26T02:43:23.392Z",
       "updatedAt": "2026-05-26T02:43:25.525Z",
-      "completedAt": null,
-      "errorSummary": null
+      "completedAt": "2026-05-27T05:01:59.500Z",
+      "errorSummary": {
+        "code": "workflow_run_interrupted_by_restart",
+        "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
+        "stageName": "workflow.run",
+        "retryable": true,
+        "debugSnapshotUri": null
+      },
+      "interruptedAt": "2026-05-27T05:01:59.500Z",
+      "interruptedReason": "server_restart"
     }
   ]
 }
