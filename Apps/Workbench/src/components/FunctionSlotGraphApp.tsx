@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { PointerEvent, WheelEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
 import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types";
 import { shortId } from "../utils/format";
@@ -22,8 +22,7 @@ export function FunctionSlotGraphApp() {
   const [filters, setFilters] = useState({
     slot: true,
     atom: true,
-    binding: true,
-    concept: true,
+    binding: false,
   });
 
   const refresh = useCallback(async () => {
@@ -108,27 +107,189 @@ export function FunctionSlotGraphApp() {
   );
 }
 
-function GraphCanvas({ graph, visible, selectedNodeId, onSelectNode }: { graph: FunctionSlotLibraryGraph; visible: { nodes: PositionedNode[]; edges: FunctionSlotGraphEdge[] }; selectedNodeId: string | null; onSelectNode: (id: string) => void }) {
-  const positions = new Map(visible.nodes.map((node) => [node.id, node]));
+function GraphCanvas({
+  graph,
+  visible,
+  selectedNodeId,
+  onSelectNode,
+}: {
+  graph: FunctionSlotLibraryGraph;
+  visible: { nodes: PositionedNode[]; edges: FunctionSlotGraphEdge[] };
+  selectedNodeId: string | null;
+  onSelectNode: (id: string) => void;
+}) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const nodesRef = useRef<SimNode[]>([]);
+  const dragRef = useRef<DragState | null>(null);
+  const viewportRef = useRef({ x: 0, y: 0, k: 1 });
+  const [nodes, setNodes] = useState<SimNode[]>([]);
+  const [viewport, setViewport] = useState(viewportRef.current);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [resetToken, setResetToken] = useState(0);
+  const positions = new Map(nodes.map((node) => [node.id, node]));
+  const focusNodeId = hoveredNodeId ?? selectedNodeId;
+  const focusedIds = useMemo(() => connectedNodeIds(focusNodeId, visible.edges), [focusNodeId, visible.edges]);
+
+  useEffect(() => {
+    const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
+    const nextNodes = visible.nodes.map((node) => {
+      const existing = resetToken ? null : previous.get(node.id);
+      return {
+        ...node,
+        x: existing?.x ?? node.x,
+        y: existing?.y ?? node.y,
+        anchorX: node.x,
+        anchorY: node.y,
+        vx: existing?.vx ?? 0,
+        vy: existing?.vy ?? 0,
+      };
+    });
+    nodesRef.current = nextNodes;
+    setNodes(nextNodes);
+  }, [resetToken, visible.nodes]);
+
+  useEffect(() => {
+    let frame = 0;
+    let cancelled = false;
+    const tick = () => {
+      if (!paused) {
+        nodesRef.current = tickGraph(nodesRef.current, visible.edges, dragRef.current?.kind === "node" ? dragRef.current.nodeId : null);
+        setNodes(nodesRef.current.map((node) => ({ ...node })));
+      }
+      if (!cancelled) frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [paused, visible.edges]);
+
+  const graphPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    const rawX = ((clientX - rect.left) / rect.width) * VIEWBOX.width;
+    const rawY = ((clientY - rect.top) / rect.height) * VIEWBOX.height;
+    const view = viewportRef.current;
+    return {
+      x: (rawX - view.x) / view.k,
+      y: (rawY - view.y) / view.k,
+    };
+  };
+
+  const startNodeDrag = (event: PointerEvent<SVGGElement>, node: SimNode) => {
+    event.stopPropagation();
+    const point = graphPoint(event.clientX, event.clientY);
+    dragRef.current = { kind: "node", nodeId: node.id, dx: node.x - point.x, dy: node.y - point.y, moved: false };
+    svgRef.current?.setPointerCapture(event.pointerId);
+    onSelectNode(node.id);
+  };
+
+  const startPan = (event: PointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return;
+    dragRef.current = {
+      kind: "pan",
+      clientX: event.clientX,
+      clientY: event.clientY,
+      startX: viewportRef.current.x,
+      startY: viewportRef.current.y,
+    };
+    svgRef.current?.setPointerCapture(event.pointerId);
+  };
+
+  const movePointer = (event: PointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (drag.kind === "node") {
+      const point = graphPoint(event.clientX, event.clientY);
+      nodesRef.current = nodesRef.current.map((node) => node.id === drag.nodeId ? { ...node, x: point.x + drag.dx, y: point.y + drag.dy, vx: 0, vy: 0 } : node);
+      dragRef.current = { ...drag, moved: true };
+      setNodes(nodesRef.current.map((node) => ({ ...node })));
+      return;
+    }
+    const nextViewport = {
+      ...viewportRef.current,
+      x: drag.startX + event.clientX - drag.clientX,
+      y: drag.startY + event.clientY - drag.clientY,
+    };
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+  };
+
+  const endPointer = (event: PointerEvent<SVGSVGElement>) => {
+    svgRef.current?.releasePointerCapture(event.pointerId);
+    dragRef.current = null;
+  };
+
+  const zoom = (event: WheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const rawX = ((event.clientX - rect.left) / rect.width) * VIEWBOX.width;
+    const rawY = ((event.clientY - rect.top) / rect.height) * VIEWBOX.height;
+    const current = viewportRef.current;
+    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 2.8);
+    const worldX = (rawX - current.x) / current.k;
+    const worldY = (rawY - current.y) / current.k;
+    const nextViewport = {
+      k: nextK,
+      x: rawX - worldX * nextK,
+      y: rawY - worldY * nextK,
+    };
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+  };
+
+  const resetView = () => {
+    const nextViewport = { x: 0, y: 0, k: 1 };
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+    setResetToken((value) => value + 1);
+  };
+
   return (
     <div className="slot-graph-canvas">
       <div className="slot-graph-canvas-title">
         <strong>{shortId(graph.artifactId)}</strong>
         <span>{graph.summary.slotCount} slots / {graph.summary.atomCount} atoms / {graph.summary.bindingCount} bindings</span>
       </div>
-      <svg viewBox={`0 0 ${VIEWBOX.width} ${VIEWBOX.height}`} role="img" aria-label="FunctionSlotLibrary 结构图谱">
+      <div className="slot-graph-controls">
+        <button type="button" onClick={resetView}>重置</button>
+        <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "继续" : "暂停"}</button>
+      </div>
+      <GraphLegend />
+      <div className="slot-graph-zoom-chip">{Math.round(viewport.k * 100)}%</div>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${VIEWBOX.width} ${VIEWBOX.height}`}
+        role="img"
+        aria-label="FunctionSlotLibrary 结构图谱"
+        onPointerDown={startPan}
+        onPointerMove={movePointer}
+        onPointerUp={endPointer}
+        onPointerCancel={endPointer}
+        onWheel={zoom}
+      >
         <GraphBackground />
-        <g>
+        <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.k})`}>
           {visible.edges.map((edge) => {
             const source = positions.get(edge.source);
             const target = positions.get(edge.target);
             if (!source || !target) return null;
-            return <line key={edge.id} className={`slot-graph-edge edge-${edge.type}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
+            const focused = focusNodeId ? edge.source === focusNodeId || edge.target === focusNodeId : false;
+            const muted = focusNodeId ? !focused : false;
+            return <line key={edge.id} className={`slot-graph-edge edge-${edge.type} ${focused ? "focused" : ""} ${muted ? "muted" : ""}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
           })}
-        </g>
-        <g>
-          {visible.nodes.map((node) => (
-            <GraphNode key={node.id} node={node} selected={node.id === selectedNodeId} onSelect={onSelectNode} />
+          {nodes.map((node) => (
+            <GraphNode
+              key={node.id}
+              node={node}
+              focused={!focusNodeId || node.id === focusNodeId || focusedIds.has(node.id)}
+              selected={node.id === selectedNodeId}
+              onHover={setHoveredNodeId}
+              onStartDrag={startNodeDrag}
+            />
           ))}
         </g>
       </svg>
@@ -136,13 +297,34 @@ function GraphCanvas({ graph, visible, selectedNodeId, onSelectNode }: { graph: 
   );
 }
 
-function GraphNode({ node, selected, onSelect }: { node: PositionedNode; selected: boolean; onSelect: (id: string) => void }) {
+function GraphNode({ node, focused, selected, onHover, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; onHover: (id: string | null) => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = node.type === "libraryItem" ? 20 : node.type === "slotInstance" ? 13 : node.type === "slotConcept" ? 11 : node.type === "binding" ? 6 : 7;
   return (
-    <g className={`slot-graph-node node-${node.group} ${selected ? "selected" : ""}`} onClick={() => onSelect(node.id)} tabIndex={0} role="button" aria-label={node.label}>
+    <g
+      className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""}`}
+      onPointerDown={(event) => onStartDrag(event, node)}
+      onPointerEnter={() => onHover(node.id)}
+      onPointerLeave={() => onHover(null)}
+      tabIndex={0}
+      role="button"
+      aria-label={node.label}
+    >
       <circle cx={node.x} cy={node.y} r={radius} />
       <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text>
+      <title>{node.label}</title>
     </g>
+  );
+}
+
+function GraphLegend() {
+  return (
+    <div className="slot-graph-legend">
+      <span><i className="legend-library" />Library</span>
+      <span><i className="legend-slot" />Slot</span>
+      <span><i className="legend-script" />Script</span>
+      <span><i className="legend-rhythm" />Rhythm</span>
+      <span><i className="legend-packaging" />Packaging</span>
+    </div>
   );
 }
 
@@ -159,7 +341,7 @@ function GraphBackground() {
   );
 }
 
-function GraphFilters({ filters, onChange }: { filters: { slot: boolean; atom: boolean; binding: boolean; concept: boolean }; onChange: (filters: { slot: boolean; atom: boolean; binding: boolean; concept: boolean }) => void }) {
+function GraphFilters({ filters, onChange }: { filters: { slot: boolean; atom: boolean; binding: boolean }; onChange: (filters: { slot: boolean; atom: boolean; binding: boolean }) => void }) {
   const update = (key: keyof typeof filters) => onChange({ ...filters, [key]: !filters[key] });
   return (
     <section className="slot-graph-card">
@@ -167,7 +349,6 @@ function GraphFilters({ filters, onChange }: { filters: { slot: boolean; atom: b
       <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> SlotInstance</label>
       <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> AtomInstance</label>
       <label><input type="checkbox" checked={filters.binding} onChange={() => update("binding")} /> Binding</label>
-      <label><input type="checkbox" checked={filters.concept} onChange={() => update("concept")} /> SlotConcept</label>
     </section>
   );
 }
@@ -207,15 +388,19 @@ function EmptyState({ text }: { text: string }) {
 }
 
 type PositionedNode = FunctionSlotGraphNode & { x: number; y: number; shortLabel: string };
+type SimNode = PositionedNode & { anchorX: number; anchorY: number; vx: number; vy: number };
+type DragState =
+  | { kind: "node"; nodeId: string; dx: number; dy: number; moved: boolean }
+  | { kind: "pan"; clientX: number; clientY: number; startX: number; startY: number };
 
-function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: { slot: boolean; atom: boolean; binding: boolean; concept: boolean }) {
+function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: { slot: boolean; atom: boolean; binding: boolean }) {
   if (!graph) return { nodes: [], edges: [] };
   const positions = buildPositions(graph);
   const nodes = graph.nodes.filter((node) => {
     if (node.type === "slotInstance") return filters.slot;
     if (node.type === "atomInstance") return filters.atom;
     if (node.type === "binding") return filters.binding;
-    if (node.type === "slotConcept") return filters.concept;
+    if (node.type === "slotConcept") return false;
     return true;
   }).map((node) => ({ ...node, ...positions.get(node.id), shortLabel: shortLabel(node) })).filter((node): node is PositionedNode => Number.isFinite(node.x) && Number.isFinite(node.y));
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -239,10 +424,10 @@ function buildPositions(graph: FunctionSlotLibraryGraph) {
     positions.set(slot.id, { x, y });
     const atoms = graph.nodes.filter((node) => node.type === "atomInstance" && node.data.slotId === slot.data.slotId);
     atoms.forEach((atom, atomIndex) => {
-      const atomAngle = angle + (atomIndex - 1) * 0.28;
+      const atomAngle = angle + (atomIndex - 1) * 0.34;
       positions.set(atom.id, {
-        x: CENTER.x + Math.cos(atomAngle) * 330,
-        y: CENTER.y + Math.sin(atomAngle) * 330,
+        x: CENTER.x + Math.cos(atomAngle) * 300,
+        y: CENTER.y + Math.sin(atomAngle) * 300,
       });
     });
   });
@@ -251,8 +436,8 @@ function buildPositions(graph: FunctionSlotLibraryGraph) {
   bindings.forEach((binding, index) => {
     const angle = -Math.PI / 2 + (index / Math.max(bindings.length, 1)) * Math.PI * 2 + 0.18;
     positions.set(binding.id, {
-      x: CENTER.x + Math.cos(angle) * 125,
-      y: CENTER.y + Math.sin(angle) * 125,
+      x: CENTER.x + Math.cos(angle) * 105,
+      y: CENTER.y + Math.sin(angle) * 105,
     });
   });
 
@@ -265,6 +450,104 @@ function buildPositions(graph: FunctionSlotLibraryGraph) {
     });
   });
   return positions;
+}
+
+function tickGraph(nodes: SimNode[], edges: FunctionSlotGraphEdge[], pinnedNodeId: string | null) {
+  if (!nodes.length) return nodes;
+  const next = nodes.map((node) => ({ ...node }));
+  const nextById = new Map(next.map((node) => [node.id, node]));
+  const tick = performance.now() / 1000;
+
+  for (let leftIndex = 0; leftIndex < next.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < next.length; rightIndex += 1) {
+      const left = next[leftIndex];
+      const right = next[rightIndex];
+      const dx = right.x - left.x || 0.01;
+      const dy = right.y - left.y || 0.01;
+      const distanceSq = Math.max(80, dx * dx + dy * dy);
+      const force = repulsionFor(left, right) / distanceSq;
+      const fx = dx * force;
+      const fy = dy * force;
+      left.vx -= fx;
+      left.vy -= fy;
+      right.vx += fx;
+      right.vy += fy;
+    }
+  }
+
+  for (const edge of edges) {
+    const source = nextById.get(edge.source);
+    const target = nextById.get(edge.target);
+    if (!source || !target) continue;
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const desired = edge.type === "slot_next" ? 155 : edge.type.startsWith("binding_") ? 120 : 145;
+    const force = (distance - desired) * edgeStrength(edge.type);
+    const fx = (dx / distance) * force;
+    const fy = (dy / distance) * force;
+    source.vx += fx;
+    source.vy += fy;
+    target.vx -= fx;
+    target.vy -= fy;
+  }
+
+  for (const node of next) {
+    node.vx += (node.anchorX - node.x) * anchorStrength(node);
+    node.vy += (node.anchorY - node.y) * anchorStrength(node);
+    node.vx += (CENTER.x - node.x) * 0.0008;
+    node.vy += (CENTER.y - node.y) * 0.0008;
+    node.vx += Math.sin(tick * 0.8 + hashNumber(node.id)) * 0.012;
+    node.vy += Math.cos(tick * 0.7 + hashNumber(node.id)) * 0.012;
+    if (node.id === pinnedNodeId) continue;
+    node.vx *= 0.86;
+    node.vy *= 0.86;
+    node.x = clamp(node.x + node.vx, 40, VIEWBOX.width - 70);
+    node.y = clamp(node.y + node.vy, 42, VIEWBOX.height - 50);
+  }
+
+  return next;
+}
+
+function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraphEdge[]) {
+  const ids = new Set<string>();
+  if (!nodeId) return ids;
+  ids.add(nodeId);
+  for (const edge of edges) {
+    if (edge.source === nodeId) ids.add(edge.target);
+    if (edge.target === nodeId) ids.add(edge.source);
+  }
+  return ids;
+}
+
+function repulsionFor(left: SimNode, right: SimNode) {
+  if (left.type === "libraryItem" || right.type === "libraryItem") return 42;
+  if (left.type === "slotInstance" && right.type === "slotInstance") return 64;
+  return 24;
+}
+
+function anchorStrength(node: SimNode) {
+  if (node.type === "libraryItem") return 0.04;
+  if (node.type === "slotInstance") return 0.018;
+  if (node.type === "binding") return 0.026;
+  return 0.012;
+}
+
+function edgeStrength(type: string) {
+  if (type === "slot_next") return 0.0018;
+  if (type === "library_contains_binding") return 0.001;
+  if (type.startsWith("binding_")) return 0.0008;
+  return 0.0014;
+}
+
+function hashNumber(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) hash = (hash * 31 + value.charCodeAt(index)) % 997;
+  return hash / 997 * Math.PI * 2;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function shortLabel(node: FunctionSlotGraphNode) {
