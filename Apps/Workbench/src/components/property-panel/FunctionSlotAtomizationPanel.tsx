@@ -80,6 +80,17 @@ export function FunctionSlotAtomizationPanel({
           </button>
         </div>
       ) : null}
+      {analysis && !needsManualBoundaryEdit ? (
+        <div className="manual-boundary-test-entry">
+          <div>
+            <strong>临时测试入口</strong>
+            <span>仅用于测试手动修正小窗；提交仍按后端正式条件校验，测完删除。</span>
+          </div>
+          <button className="ghost-button" type="button" onClick={() => setManualEditorOpen(true)}>
+            测试小窗
+          </button>
+        </div>
+      ) : null}
       {failed ? (
         <div className="detail-hint">
           <div>功能槽位原子化失败，当前没有可展示槽位链。请重试或打开运行追踪查看原因。</div>

@@ -23,15 +23,14 @@ export async function pollProcessingJob(
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempt > 0) await delay(intervalMs);
     const job = await fetchJob();
-    if (job == null && options.preservePreviousOnNull) {
-      if (options.stopOnNull && !previousJob) return null;
-      continue;
-    }
     if (job == null && options.stopOnNull) {
       if (!isSameProcessingJobSnapshot(previousJob, job)) {
         options.onUpdate?.(job);
       }
       return null;
+    }
+    if (job == null && options.preservePreviousOnNull) {
+      continue;
     }
     if (!isSameProcessingJobSnapshot(previousJob, job)) {
       options.onUpdate?.(job);

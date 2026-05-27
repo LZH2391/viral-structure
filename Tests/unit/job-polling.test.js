@@ -102,6 +102,29 @@ test("pollProcessingJob returns cache_waiting and can stop on null", async () =>
   assert.equal(nullUpdates.length, 0);
 });
 
+test("pollProcessingJob stopOnNull clears an interrupted restored job after a previous snapshot", async () => {
+  let index = 0;
+  const updates = [];
+  const snapshots = [
+    { jobId: "job_interrupted", sampleVideoId: "sample_1", traceId: "trace_1", stage: "function_slot_atomization.analyze", status: "processing", progress: 58 },
+    null,
+    null,
+  ];
+
+  const result = await pollProcessingJob(
+    async () => snapshots[index++] ?? null,
+    {
+      intervalMs: 0,
+      stopOnNull: true,
+      preservePreviousOnNull: true,
+      onUpdate: (job) => updates.push(job),
+    },
+  );
+
+  assert.equal(result, null);
+  assert.deepEqual(updates.map((job) => job?.status ?? null), ["processing", null]);
+});
+
 test("isSameProcessingJobSnapshot compares only normalized fields", () => {
   const left = {
     jobId: "job_4",

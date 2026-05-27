@@ -460,13 +460,15 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "rhythm" \| "packaging" \| "meta">\("shot"\)/);
+  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "meta">\("shot"\)/);
   assert.match(propertyPanel, /role="tablist"/);
   assert.match(propertyPanel, /shot/);
   assert.match(propertyPanel, /script/);
   assert.match(propertyPanel, /节奏结构/);
   assert.match(propertyPanel, /包装结构/);
+  assert.match(propertyPanel, /原子化/);
   assert.match(propertyPanel, /<PackagingStructurePanel/);
+  assert.match(propertyPanel, /<FunctionSlotAtomizationPanel/);
   assert.match(packagingPanel, /strong>packaging-structure</);
   assert.match(packagingPanel, /整体包装/);
   assert.match(packagingPanel, /shotPackagingNotes/);
@@ -538,7 +540,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-script-item/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
   assert.match(types, /scriptSegmentAnalysisHistory\?: ScriptSegmentHistoryEntry\[] \| null;/);
-  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| "packaging_structure" \| string;/);
+  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| "packaging_structure" \| "function_slot_atomization" \| string;/);
   assert.match(types, /segmentCount\?: number \| null;/);
   assert.match(types, /sectionCount\?: number \| null;/);
   assert.match(types, /cardCount\?: number \| null;/);

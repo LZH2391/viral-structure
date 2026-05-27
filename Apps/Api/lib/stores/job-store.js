@@ -4,7 +4,9 @@ const path = require("path");
 const { SAMPLE_STATUS, createProcessingJob } = require("../../../../Core/Workspace/sample-video-contracts");
 
 function createJobStore({ filePath = null } = {}) {
-  const jobs = new Map(loadJobs(filePath).map((job) => [job.jobId, job]));
+  const { jobs: loadedJobs, changed } = loadJobs(filePath);
+  const jobs = new Map(loadedJobs.map((job) => [job.jobId, job]));
+  if (changed) persistJobs(filePath, jobs);
 
   function createJob({ sampleVideoId, traceId }) {
     const job = createProcessingJob({
@@ -50,13 +52,43 @@ function createJobStore({ filePath = null } = {}) {
 }
 
 function loadJobs(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return [];
+  if (!filePath || !fs.existsSync(filePath)) return { jobs: [], changed: false };
   try {
     const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    return Array.isArray(parsed.jobs) ? parsed.jobs.filter((job) => job?.jobId) : [];
+    if (!Array.isArray(parsed.jobs)) return { jobs: [], changed: false };
+    let changed = false;
+    const jobs = parsed.jobs.filter((job) => job?.jobId).map((job) => {
+      const next = normalizeLoadedJob(job);
+      if (next !== job) changed = true;
+      return next;
+    });
+    return { jobs, changed };
   } catch {
-    return [];
+    return { jobs: [], changed: false };
   }
+}
+
+function normalizeLoadedJob(job) {
+  if (isTerminalJob(job) || job.status === SAMPLE_STATUS.cacheWaiting) return job;
+  return {
+    ...job,
+    status: SAMPLE_STATUS.failed,
+    stage: job.stage ?? "interrupted",
+    progress: Number.isFinite(Number(job.progress)) ? Number(job.progress) : 0,
+    errorSummary: {
+      code: "processing_job_interrupted_by_restart",
+      message: "服务重启后，之前未完成的后台任务已中断，请重新运行该分析。",
+      stageName: job.stage ?? null,
+      retryable: true,
+      debugSnapshotUri: null,
+    },
+    interruptedAt: new Date().toISOString(),
+    interruptedReason: "server_restart",
+  };
+}
+
+function isTerminalJob(job) {
+  return job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed;
 }
 
 function persistJobs(filePath, jobs) {

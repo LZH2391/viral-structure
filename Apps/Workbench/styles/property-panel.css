@@ -151,6 +151,34 @@
   line-height: 1.45;
 }
 
+.manual-boundary-test-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 9px 10px;
+}
+
+.manual-boundary-test-entry div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.manual-boundary-test-entry strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.manual-boundary-test-entry span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .manual-boundary-backdrop {
   z-index: 32;
 }
