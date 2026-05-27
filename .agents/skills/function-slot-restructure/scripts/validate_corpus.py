@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
 
-from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, write_json
+from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, resolve_default_output_path, write_json
 
 REQUIRED_SAMPLE_FILES = [
     "slots",
@@ -97,6 +97,8 @@ def validate_sample(meta: Dict[str, Any], files: Dict[str, Any]) -> Dict[str, An
     return {
         "sampleId": meta["sampleId"],
         "sampleDir": meta["sampleDir"],
+        "artifactId": meta.get("artifactId"),
+        "lineage": meta.get("lineage", {}),
         "ok": not errors,
         "errors": errors,
         "warnings": warnings,
@@ -136,6 +138,8 @@ def validate_corpus(root: Path) -> Dict[str, Any]:
 
     errors = [e for r in sample_results for e in r["errors"]]
     warnings = [w for r in sample_results for w in r["warnings"]]
+    if not sample_results:
+        errors.append("no sample libraries found")
     return {
         "ok": not errors,
         "corpusRoot": display_path(corpus_root),
@@ -151,16 +155,24 @@ def validate_corpus(root: Path) -> Dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus_dir", help="Directory containing one or many sample libraries")
-    parser.add_argument("--out", help="Optional path to write validation JSON")
+    parser.add_argument("--out", help="Optional path to write validation JSON. Defaults to Runtime/Temp/FunctionSlotLibrary/validation.json for repo-root input.")
     args = parser.parse_args()
 
     result = validate_corpus(Path(args.corpus_dir))
-    if args.out:
-        write_json(Path(args.out), result)
+    if args.out or _is_repo_root_input(Path(args.corpus_dir)):
+        out_path = Path(args.out) if args.out else resolve_default_output_path(Path(args.corpus_dir), "validation.json")
+        write_json(out_path, result)
+        if not args.out:
+            print(f"wrote {display_path(out_path)}")
     else:
         import json
         print(json.dumps(result, ensure_ascii=False, indent=2))
     raise SystemExit(0 if result["ok"] else 1)
+
+
+def _is_repo_root_input(path: Path) -> bool:
+    root = path.expanduser().resolve()
+    return (root / "Artifacts" / "FunctionSlotLibrary").exists()
 
 
 if __name__ == "__main__":

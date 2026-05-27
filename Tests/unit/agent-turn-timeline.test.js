@@ -89,3 +89,66 @@ test("agent turn timeline recognizes appserver function call output and nested t
   assert.equal(timeline.activity.tokenUsage.inputTokens, 222);
   assert.equal(timeline.items.find((item) => item.kind === "tool_call").metadata.commandPreview, "Get-Content shots.json");
 });
+
+test("agent turn timeline recognizes appserver v2 thread item kinds", () => {
+  const thread = {
+    id: "thread_v2",
+    turns: [{
+      id: "turn_v2",
+      status: "inProgress",
+      items: [
+        { id: "u1", type: "userMessage", content: [{ type: "text", text: "跑一下分析" }] },
+        { id: "p1", type: "plan", text: "1. 读取文件" },
+        { id: "r1", type: "reasoning", summary: ["需要先看 manifest"], content: ["正在判断输入"] },
+        {
+          id: "cmd1",
+          type: "commandExecution",
+          command: "Get-Content manifest.json",
+          status: "completed",
+          aggregatedOutput: "Exit code: 0\n{}",
+          exitCode: 0,
+          durationMs: 300,
+        },
+        {
+          id: "mcp1",
+          type: "mcpToolCall",
+          server: "obsidian",
+          tool: "read",
+          status: "completed",
+          arguments: { path: "note.md" },
+          result: { content: "ok" },
+          durationMs: 40,
+        },
+        {
+          id: "dyn1",
+          type: "dynamicToolCall",
+          namespace: "web",
+          tool: "search",
+          status: "completed",
+          arguments: { q: "codex" },
+          contentItems: [{ type: "inputText", text: "result" }],
+          success: true,
+        },
+        { id: "f1", type: "fileChange", status: "applied", changes: [{ path: "a.js", type: "modify" }] },
+        { id: "w1", type: "webSearch", query: "Codex app-server" },
+      ],
+    }],
+  };
+
+  const timeline = summarizeAgentTurnTimeline(thread, "turn_v2");
+
+  assert.deepEqual(timeline.items.map((item) => item.kind), [
+    "user_input",
+    "plan",
+    "reasoning",
+    "command_execution",
+    "mcp_tool_call",
+    "dynamic_tool_call",
+    "file_change",
+    "web_search",
+  ]);
+  assert.equal(timeline.activity.latestItemType, "web_search");
+  assert.equal(timeline.items.find((item) => item.kind === "command_execution").metadata.exitCode, 0);
+  assert.equal(timeline.items.find((item) => item.kind === "mcp_tool_call").metadata.toolName, "obsidian.read");
+  assert.equal(timeline.items.find((item) => item.kind === "dynamic_tool_call").metadata.toolName, "web.search");
+});

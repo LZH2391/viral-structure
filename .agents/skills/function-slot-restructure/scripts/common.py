@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 PROJECT_CORPUS_RELATIVE = Path("Artifacts") / "FunctionSlotLibrary"
+DEFAULT_RUNTIME_OUTPUT_RELATIVE = Path("Runtime") / "Temp" / "FunctionSlotLibrary"
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+SEED_LIBRARY_ROOT = SKILL_ROOT / "references" / "sample-libraries"
 
 CANONICAL_FILENAMES = {
     "manifest": "manifest.json",
@@ -43,6 +46,14 @@ def display_path(path: Path, base: Optional[Path] = None) -> str:
         return os.path.relpath(path, base).replace(os.sep, "/")
 
 
+def is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def looks_like_sample_dir(path: Path) -> bool:
     return any((path / filename).exists() for filename in CANONICAL_FILENAMES.values())
 
@@ -64,6 +75,17 @@ def resolve_corpus_root(root: Path) -> Path:
     if root.name == "Artifacts" and artifacts_corpus.exists():
         return artifacts_corpus.resolve()
     return root
+
+
+def resolve_default_output_path(root: Path, filename: str) -> Path:
+    """Return the ignored default report location for repo-root invocations."""
+    root = root.expanduser().resolve()
+    project_corpus = root / PROJECT_CORPUS_RELATIVE
+    if project_corpus.exists():
+        return root / DEFAULT_RUNTIME_OUTPUT_RELATIVE / filename
+    if root.name == "Artifacts" and (root / "FunctionSlotLibrary").exists():
+        return root.parent / DEFAULT_RUNTIME_OUTPUT_RELATIVE / filename
+    return root / filename
 
 
 def read_json(path: Path) -> Any:
@@ -113,7 +135,38 @@ def discover_sample_dirs(root: Path) -> List[Path]:
         # Allow a directory with all non-manifest files as a partial sample.
         for p in root.rglob("slots*.json"):
             dirs.add(p.parent)
-    return sorted(dirs)
+    return sorted(p for p in dirs if _is_allowed_sample_dir(p, root))
+
+
+def _is_allowed_sample_dir(sample_dir: Path, search_root: Path) -> bool:
+    """Exclude bundled seed examples unless the caller points at them explicitly."""
+    sample_dir = sample_dir.resolve()
+    search_root = search_root.resolve()
+    if not is_relative_to(sample_dir, SEED_LIBRARY_ROOT):
+        return True
+    return search_root == SEED_LIBRARY_ROOT.resolve() or is_relative_to(search_root, SEED_LIBRARY_ROOT)
+
+
+def manifest_lineage(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep only audit-safe lineage fields from a FunctionSlotLibrary manifest."""
+    fields = [
+        "artifactId",
+        "sampleVideoId",
+        "traceId",
+        "parentArtifactId",
+        "sourceScriptSegmentArtifactId",
+        "sourceRhythmStructureArtifactId",
+        "sourcePackagingStructureArtifactId",
+        "sourceShotBoundaryArtifactId",
+        "status",
+        "createdAt",
+        "exportedAt",
+        "contentHash",
+    ]
+    lineage = {key: manifest.get(key) for key in fields if key in manifest}
+    if "counts" in manifest:
+        lineage["counts"] = manifest.get("counts")
+    return lineage
 
 
 def load_sample(sample_dir: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -136,6 +189,7 @@ def load_sample(sample_dir: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "sampleId": str(sample_id),
         "artifactId": manifest.get("artifactId"),
         "schemaVersion": manifest.get("schemaVersion"),
+        "lineage": manifest_lineage(manifest),
         "paths": {key: display_path(Path(value)) for key, value in paths.items()},
     }
     return metadata, files

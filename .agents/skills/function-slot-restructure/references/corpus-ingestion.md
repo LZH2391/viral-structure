@@ -1,10 +1,10 @@
-# Corpus Ingestion
+# 语料库摄入
 
-Use this reference when the user has many video-derived JSON exports.
+当用户拥有多份视频派生 JSON 导出时，使用本参考。
 
-## Expected Directory Forms
+## 预期目录形态
 
-Local project form in `C:\ByteDanceFullStack`:
+`C:\ByteDanceFullStack` 中的本地项目形态：
 
 ```text
 Artifacts/FunctionSlotLibrary/
@@ -19,9 +19,9 @@ Artifacts/FunctionSlotLibrary/
     templates.json
 ```
 
-This is the project's real corpus. If a script is given the repository root, resolve it to `Artifacts/FunctionSlotLibrary/`.
+这是项目真实 corpus。脚本收到仓库根目录时，应解析到 `Artifacts/FunctionSlotLibrary/`。
 
-Preferred corpus form:
+推荐的通用 corpus 形态：
 
 ```text
 corpus/
@@ -38,24 +38,24 @@ corpus/
     ...
 ```
 
-Flat upload form is also acceptable if file names contain sample ids. Normalize into sample folders before indexing when possible.
+如果文件名中包含 sample id，也可以接受扁平上传形态。可行时，在索引前先规范化为样例目录。
 
-Do not ingest `references/sample-libraries/sample_001/` into the project corpus by default. It is a bundled seed example for explaining schema and workflow, not corpus support.
+不要默认把 `references/sample-libraries/sample_001/` 摄入项目 corpus。它只是用于解释 schema 和工作流的内置种子样例，不代表 corpus 支持度。
 
-## Minimum Complete Sample
+## 最小完整样例
 
-A sample is usable for retrieval when it has:
+一个样例可用于检索，至少需要：
 
 - slots
-- at least one atom type, preferably all three
-- bindings or rules
-- manifest or detectable sample id
+- 至少一种 atom，最好三类 atom 都有
+- bindings 或 rules
+- manifest 或可检测的 sample id
 
-If templates are missing, derive candidate chains from `slotOrder` and `slotType`.
+如果缺少 templates，可根据 `slotOrder` 和 `slotType` 推导候选链路。
 
-## Corpus Index Fields
+## 语料库索引字段
 
-A merged index should contain:
+合并索引应包含：
 
 ```json
 {
@@ -70,11 +70,11 @@ A merged index should contain:
 }
 ```
 
-Indexes and reports generated inside this repository should be written under an ignored working directory such as `Runtime/Temp/FunctionSlotLibrary/`. Use repo-relative paths in outputs and preserve manifest lineage fields (`artifactId`, `sampleVideoId`, `traceId`, `parentArtifactId`, source artifact ids, `contentHash`) so the corpus can be audited without exposing local absolute paths.
+在本仓库内生成的索引和报告应写入被忽略的工作目录，例如 `Runtime/Temp/FunctionSlotLibrary/`。输出中使用仓库相对路径，并保留 manifest 血缘字段（`artifactId`、`sampleVideoId`、`traceId`、`parentArtifactId`、source artifact ids、`contentHash`），使 corpus 可审计且不暴露本地绝对路径。
 
-Each `slotVariants` record should include:
+每条 `slotVariants` 记录应包含：
 
-- `variantId`: stable id such as `sample_001::F001`
+- `variantId`：稳定 ID，例如 `sample_001::F001`
 - `sampleId`
 - `sourceSlotId`
 - `slotType`
@@ -89,45 +89,45 @@ Each `slotVariants` record should include:
 - `substitutionRules`
 - `confidence`
 - `needReview`
-- `searchText` or equivalent normalized text for retrieval
+- `searchText` 或等价的归一化检索文本
 
-## Deduplication
+## 去重
 
-Do not delete near-duplicates immediately. Group them.
+不要立即删除近重复项，应先分组。
 
-Useful duplicate keys:
+有用的重复键：
 
-- same `slotType` + highly similar `persuasionTask`
-- same `claimType` + same `proofNeed`
-- same `pace` + same `beatShape`
-- same `packagingFunction`
+- 相同 `slotType` + 高度相似的 `persuasionTask`
+- 相同 `claimType` + 相同 `proofNeed`
+- 相同 `pace` + 相同 `beatShape`
+- 相同 `packagingFunction`
 
-Keep source diversity because two near-duplicate slots may provide different proof carriers or packaging surfaces.
+保留来源多样性，因为两个近重复槽位可能提供不同证明载体或包装表层。
 
-## Coverage Review
+## 覆盖审查
 
-After indexing, report:
+索引后报告：
 
-- number of samples
-- number of slot variants by slot type
-- atom counts by type
-- templates by sequence
-- missing fields
-- low-confidence or review-needed candidates
-- under-covered slot archetypes
-- over-represented source videos or formats
+- 样例数量
+- 按槽位类型统计的 slot variant 数
+- 按类型统计的 atom 数
+- 按 sequence 统计的 templates
+- 缺失字段
+- 低置信度或需要 review 的候选
+- 覆盖不足的槽位原型
+- 过度集中的源视频或内容格式
 
-## Enrichment Recommendations
+## 补充建议
 
-When data is too thin, enrich with:
+当数据过薄时，可补充：
 
-- category tags
-- platform tags
-- product type
-- duration range
-- proof asset type
-- hook type
-- CTA style
-- production complexity
-- emotional tone
-- performance metadata if available
+- 品类标签
+- 平台标签
+- 产品类型
+- 时长范围
+- 证明资产类型
+- hook 类型
+- CTA 风格
+- 生产复杂度
+- 情绪语气
+- 可用时补充表现数据

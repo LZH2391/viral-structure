@@ -52,9 +52,9 @@ class AppServerTurnResultMixin:
             if str(turn.get("id") or "") != str(turn_id):
                 continue
             token_usage = self._normalize_turn_last_token_usage(turn)
-            items = turn.get("items")
+            items = self._merge_activity_items(turn_id, turn.get("items"))
             item_count = len(items) if isinstance(items, list) else 0
-            effective_count = self._effective_turn_activity_item_count(turn)
+            effective_count = self._effective_turn_activity_item_count({"items": items})
             latest = self._summarize_latest_turn_activity_item(items)
             first_activity_seen = bool(
                 effective_count > 0
@@ -115,14 +115,16 @@ class AppServerTurnResultMixin:
     def _handle_transport_event(self, event: TransportEvent) -> None:
         method = str(event.method or "")
         params = event.params or {}
-        if method == "item/completed":
+        if method in {"item/started", "item/completed"}:
             turn_id = str(params.get("turnId") or "")
             item = params.get("item") or {}
-            if turn_id and isinstance(item, dict) and item.get("type") == "agentMessage":
-                text = item.get("text")
-                if isinstance(text, str) and text.strip():
-                    self._turn_final_messages[turn_id] = text.strip()
-                    self._maybe_notify_turn_completed(turn_id)
+            if turn_id and isinstance(item, dict):
+                self._remember_turn_activity_item(turn_id, item)
+                if method == "item/completed" and item.get("type") == "agentMessage":
+                    text = item.get("text")
+                    if isinstance(text, str) and text.strip():
+                        self._turn_final_messages[turn_id] = text.strip()
+                        self._maybe_notify_turn_completed(turn_id)
         elif method == "turn/completed":
             turn = params.get("turn") or {}
             turn_id = str(turn.get("id") or "")
@@ -201,8 +203,38 @@ class AppServerTurnResultMixin:
                 self._turn_active_thread_messages[turn_id] = active_thread_message
             else:
                 self._turn_active_thread_messages.pop(turn_id, None)
+            self._merge_activity_items(turn_id, turn.get("items"))
             self._maybe_notify_turn_completed(turn_id)
             return
+
+    def _remember_turn_activity_item(self, turn_id: str, item: Mapping[str, Any]) -> None:
+        item_id = str(item.get("id") or "")
+        items = self._turn_activity_items.setdefault(turn_id, [])
+        if item_id:
+            for index, existing in enumerate(items):
+                if str(existing.get("id") or "") == item_id:
+                    merged = dict(existing)
+                    merged.update(dict(item))
+                    items[index] = merged
+                    return
+        items.append(dict(item))
+
+    def _merge_activity_items(self, turn_id: str, persisted_items: Any) -> list[Any]:
+        merged: list[Any] = []
+        seen: set[str] = set()
+        if isinstance(persisted_items, list):
+            for item in persisted_items:
+                if isinstance(item, Mapping):
+                    key = str(item.get("id") or "")
+                    if key:
+                        seen.add(key)
+                    merged.append(item)
+        for item in self._turn_activity_items.get(turn_id, []):
+            key = str(item.get("id") or "")
+            if key and key in seen:
+                continue
+            merged.append(item)
+        return merged
 
     def _merge_cached_turn_token_usage(self, thread: dict[str, Any]) -> None:
         thread_id = str(thread.get("id") or "")
@@ -388,6 +420,21 @@ class AppServerTurnResultMixin:
             merged = "\n".join(parts).strip()
             if merged:
                 return merged
+        output = item.get("aggregatedOutput", item.get("output"))
+        if isinstance(output, str) and output.strip():
+            return output.strip()
+        content_items = item.get("contentItems")
+        if isinstance(content_items, list):
+            parts = []
+            for content_item in content_items:
+                if not isinstance(content_item, Mapping):
+                    continue
+                text = content_item.get("text") or content_item.get("content") or content_item.get("output")
+                if isinstance(text, str) and text.strip():
+                    parts.append(text.strip())
+            merged = "\n".join(parts).strip()
+            if merged:
+                return merged
         return None
 
     @classmethod
@@ -404,7 +451,19 @@ class AppServerTurnResultMixin:
         item_type = str(item.get("type") or "").strip()
         if item_type in {"task_started", "userMessage", "user_message"}:
             return False
-        if item_type in {"agentMessage", "assistantMessage", "toolCall", "toolResult", "reasoning"}:
+        if item_type in {
+            "agentMessage",
+            "assistantMessage",
+            "plan",
+            "reasoning",
+            "commandExecution",
+            "mcpToolCall",
+            "dynamicToolCall",
+            "fileChange",
+            "webSearch",
+            "toolCall",
+            "toolResult",
+        }:
             return True
         text = item.get("text")
         if isinstance(text, str) and text.strip() and item_type not in {"inputText"}:
@@ -429,11 +488,39 @@ class AppServerTurnResultMixin:
             normalized = item_type.replace("_", "").lower()
             if normalized in {"agentmessage", "assistantmessage", "message"}:
                 return {"kind": "agent_message", "preview": cls._safe_preview(cls._extract_text_from_item(item)), "tool_name": None}
+            if normalized == "plan":
+                return {"kind": "plan", "preview": cls._safe_preview(cls._extract_text_from_item(item)) or "Plan", "tool_name": None}
             if normalized == "reasoning":
                 text = cls._extract_text_from_item(item)
                 chars = len(text) if text else cls._safe_int(item.get("characters") or item.get("charCount") or item.get("length"))
                 preview = f"Reasoning {chars} chars" if chars else "Reasoning"
                 return {"kind": "reasoning", "preview": preview, "tool_name": None}
+            if normalized == "commandexecution":
+                command = item.get("command")
+                exit_code = cls._safe_int(item.get("exitCode") or item.get("exit_code"))
+                preview = cls._safe_preview(command) or cls._safe_preview(item.get("aggregatedOutput")) or (
+                    f"exit {exit_code}" if exit_code is not None else "Command execution"
+                )
+                return {"kind": "command_execution", "preview": preview, "tool_name": "shell"}
+            if normalized == "mcptoolcall":
+                tool_name = cls._extract_tool_name(item)
+                preview = cls._safe_preview(item.get("message")) or cls._safe_preview(cls._extract_text_from_item(item)) or (
+                    f"MCP tool: {tool_name}" if tool_name else "MCP tool call"
+                )
+                return {"kind": "mcp_tool_call", "preview": preview, "tool_name": tool_name}
+            if normalized == "dynamictoolcall":
+                tool_name = cls._extract_tool_name(item)
+                preview = cls._safe_preview(cls._extract_text_from_item(item)) or (
+                    f"Dynamic tool: {tool_name}" if tool_name else "Dynamic tool call"
+                )
+                return {"kind": "dynamic_tool_call", "preview": preview, "tool_name": tool_name}
+            if normalized == "filechange":
+                changes = item.get("changes")
+                change_count = len(changes) if isinstance(changes, list) else None
+                preview = f"File changes: {change_count}" if change_count is not None else "File changes"
+                return {"kind": "file_change", "preview": preview, "tool_name": None}
+            if normalized == "websearch":
+                return {"kind": "web_search", "preview": cls._safe_preview(item.get("query")) or "Web search", "tool_name": "web_search"}
             if normalized == "toolcall":
                 tool_name = cls._extract_tool_name(item)
                 command = cls._extract_tool_command(item)
@@ -466,6 +553,13 @@ class AppServerTurnResultMixin:
     @staticmethod
     def _extract_tool_name(item: Mapping[str, Any]) -> str | None:
         metadata = item.get("metadata") if isinstance(item.get("metadata"), Mapping) else {}
+        server = item.get("server")
+        tool = item.get("tool")
+        if server is not None and tool is not None:
+            return f"{server}.{tool}"
+        namespace = item.get("namespace")
+        if namespace is not None and tool is not None:
+            return f"{namespace}.{tool}"
         for key in ("toolName", "tool_name", "name", "tool"):
             value = item.get(key) or metadata.get(key)
             if value is not None and str(value).strip():

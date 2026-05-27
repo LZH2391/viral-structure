@@ -207,7 +207,13 @@ function renderKind(kind: AgentTimelineItem["kind"]) {
   const labels: Record<AgentTimelineItem["kind"], string> = {
     user_input: "user_input",
     agent_message: "agent_message",
+    plan: "plan",
     reasoning: "reasoning",
+    command_execution: "command",
+    mcp_tool_call: "mcp_tool",
+    dynamic_tool_call: "dynamic_tool",
+    file_change: "file_change",
+    web_search: "web_search",
     tool_call: "tool_call",
     tool_result: "tool_result",
     token_usage: "token_usage",

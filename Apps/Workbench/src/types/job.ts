@@ -97,7 +97,21 @@ export type AgentActivitySummary = {
 export type AgentTimelineItem = {
   id: string;
   index: number;
-  kind: "user_input" | "agent_message" | "reasoning" | "tool_call" | "tool_result" | "token_usage" | "turn_status" | "unknown";
+  kind:
+    | "user_input"
+    | "agent_message"
+    | "plan"
+    | "reasoning"
+    | "command_execution"
+    | "mcp_tool_call"
+    | "dynamic_tool_call"
+    | "file_change"
+    | "web_search"
+    | "tool_call"
+    | "tool_result"
+    | "token_usage"
+    | "turn_status"
+    | "unknown";
   title: string;
   status?: "running" | "completed" | "failed" | "unknown";
   textPreview?: string | null;

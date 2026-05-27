@@ -179,6 +179,62 @@ class AppServerClientTests(unittest.TestCase):
 
             self.assertEqual(thread["turns"][0]["last_token_usage"]["input_tokens"], 222)
 
+    def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def read_thread(self, thread_id: str, include_turns: bool = False) -> dict:
+                    return {
+                        "id": thread_id,
+                        "turns": [
+                            {
+                                "id": "turn_1",
+                                "status": "inProgress",
+                                "items": [
+                                    {"id": "u1", "type": "userMessage", "content": [{"type": "text", "text": "开始"}]},
+                                    {"id": "r1", "type": "reasoning", "summary": ["看输入"]},
+                                    {
+                                        "id": "cmd1",
+                                        "type": "commandExecution",
+                                        "command": "Get-Content manifest.json",
+                                        "status": "completed",
+                                        "exitCode": 0,
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+
+            client = TestClient(workspace_root, transport_mode="ws")
+            client._initialized = True
+            client._handle_transport_event(
+                TransportEvent(
+                    method="item/started",
+                    params={
+                        "threadId": "thread_1",
+                        "turnId": "turn_1",
+                        "item": {
+                            "id": "mcp1",
+                            "type": "mcpToolCall",
+                            "server": "obsidian",
+                            "tool": "read",
+                            "status": "running",
+                        },
+                    },
+                )
+            )
+
+            activity = client.inspect_turn_activity("thread_1", "turn_1")
+
+            self.assertEqual(activity.item_count, 4)
+            self.assertEqual(activity.effective_item_count, 3)
+            self.assertEqual(activity.latest_item_type, "mcp_tool_call")
+            self.assertEqual(activity.latest_tool_name, "obsidian.read")
+
 
 if __name__ == "__main__":
     unittest.main()

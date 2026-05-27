@@ -1,82 +1,82 @@
-# Quality checks
+# 质量检查
 
-Use these checks before finalizing a recomposed short-video plan.
+在最终确定重组短视频方案前，使用这些检查。
 
-## Corpus-level checks
+## 语料库级检查
 
-- Does the plan rely on one source sample too heavily?
-- Are single-sample rules marked as weak rather than universal?
-- Are repeated patterns distinguished from assumptions?
-- Are source videos/categories/styles considered when borrowing variants?
-- Are sparse slot types disclosed?
+- 方案是否过度依赖单一源样例？
+- 单样例规则是否被标记为弱规则，而不是普遍真理？
+- 重复模式和推断假设是否被区分开？
+- 借用 variant 时是否考虑了源视频、品类和风格？
+- 稀疏 slot type 是否被披露？
 
-## Chain-level checks
+## 链路级检查
 
-- Does the selected slot chain match the target viewer-state progression?
-- Are optional slots removed intentionally rather than accidentally?
-- Does any reordered chain still preserve cause/effect and proof attribution?
-- Are merged slots still carrying all required proof functions?
-- Are inserted slots justified by target needs?
+- 所选槽位链是否匹配目标观众状态推进？
+- 可选槽位是否被有意删除，而不是遗漏？
+- 调整顺序后是否仍保留因果关系和证明归因？
+- 合并槽位后是否仍携带全部必要证明功能？
+- 插入槽位是否由目标需求支撑？
 
-## Slot-level checks
+## 槽位级检查
 
-For each slot:
+对每个槽位检查：
 
-- Does the script atom make the right type of claim?
-- Does the rhythm atom fit the information load?
-- Does the packaging atom provide the needed proof function?
-- Are required sync points present?
-- Are substitutions functional rather than decorative?
+- script atom 是否提出正确类型的主张？
+- rhythm atom 是否适配信息负载？
+- packaging atom 是否提供所需证明功能？
+- 必要同步点是否存在？
+- 替换是否是功能性替换，而不是装饰性替换？
 
-## Binding checks
+## 绑定检查
 
-### Sync
+### 同步 / Sync
 
-The relevant claim, visual proof, and attention beat should align.
+相关主张、视觉证明和注意力拍点应对齐。
 
-Failure example: the action text appears after the action is already over.
+失败示例：动作已经结束后，动作文字才出现。
 
-### Require
+### 依赖 / Require
 
-A claim should not appear without required proof support.
+主张不应在缺少必要证明支持时出现。
 
-Failure example: saying a mechanism works without diagram, demo evidence, or simple explanation.
+失败示例：说某个机制有效，却没有图解、演示证据或简单解释。
 
-### Carryover
+### 承接 / Carryover
 
-A later slot should pay off an earlier slot's object, concern, or promise.
+后续槽位应兑现前面槽位的对象、关切或承诺。
 
-Failure example: opening with a specific dashboard error, then showing a generic success screen that does not address that error.
+失败示例：开头展示具体 dashboard 错误，后面却展示一个没有回应该错误的泛化成功屏。
 
-### Substitute
+### 替换 / Substitute
 
-Surface style may change, but function must remain.
+表层样式可以改变，但功能必须保留。
 
-Failure example: replacing a result close-up with a pretty product shot, losing result proof.
+失败示例：把结果近景换成好看的产品镜头，导致结果证明丢失。
 
-### Conflict
+### 冲突 / Conflict
 
-Avoid incompatible atom pairings.
+避免不兼容的原子组合。
 
-Failure example: using a fast staccato rhythm for a dense mechanism explanation.
+失败示例：用快速连击节奏承载高密度机制解释。
 
-## Proof-function checklist
+## 证明功能清单
 
-- problem claim: visible problem object, concern, or evidence
-- action claim: visible action path or interface step
-- mechanism claim: understandable reason, diagram, comparison, or process proof
-- operation claim: minimal steps and completion action
-- result claim: result evidence tied to earlier concern
-- benefit claim: life/work scenario translation
-- trust claim: time evidence, repeated proof, usage trace, testimonial, review, or usage log
-- choice close: concrete object, service, CTA, or decision memory point
+- problem claim：可见的问题对象、关切或证据
+- action claim：可见的行动路径或界面步骤
+- mechanism claim：可理解的原因、图解、对比或过程证明
+- operation claim：最少步骤和完成动作
+- result claim：与前置关切绑定的结果证据
+- benefit claim：生活/工作场景翻译
+- trust claim：时间证据、重复证明、使用痕迹、证言、评价或使用日志
+- choice close：具体对象、服务、CTA 或决策记忆点
 
-## Common repair moves
+## 常见修复动作
 
-- Move a dense mechanism out of the hook and into a steady explanation slot.
-- Add a result slot that returns to the opening concern.
-- Add a proof carrier to a claim that is currently only verbal.
-- Replace decorative packaging with proof packaging.
-- Use a slower rhythm for a high-information slot.
-- Merge operation and result only when the action-to-payoff relationship remains visually continuous.
-- Split a long trust close into time proof plus final choice if it feels overloaded.
+- 把高密度机制从 hook 移到稳定解释槽。
+- 增加一个回到开头关切的结果槽。
+- 给只有口头表达的主张增加证明载体。
+- 用证明包装替换装饰包装。
+- 对高信息量槽位使用更慢节奏。
+- 只有在动作到结果的关系仍视觉连续时，才合并 operation 和 result。
+- 如果信任收束过载，把它拆成时间证明和最终选择。

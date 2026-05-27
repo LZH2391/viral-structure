@@ -89,6 +89,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         self._turn_errors: dict[str, Any] = {}
         self._turn_final_messages: dict[str, str] = {}
         self._turn_active_thread_messages: dict[str, str] = {}
+        self._turn_activity_items: dict[str, list[dict[str, Any]]] = {}
         self._turn_completed_listeners: dict[int, Callable[[TurnCompletedEvent], None]] = {}
         self._thread_token_usage_listeners: dict[int, Callable[[ThreadTokenUsageEvent], None]] = {}
         self._thread_lifecycle_listeners: dict[int, Callable[[ThreadLifecycleEvent], None]] = {}
@@ -403,14 +404,16 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
     def _handle_transport_event(self, event: TransportEvent) -> None:
         method = str(event.method or "")
         params = event.params or {}
-        if method == "item/completed":
+        if method in {"item/started", "item/completed"}:
             turn_id = str(params.get("turnId") or "")
             item = params.get("item") or {}
-            if turn_id and isinstance(item, dict) and item.get("type") == "agentMessage":
-                text = item.get("text")
-                if isinstance(text, str) and text.strip():
-                    self._turn_final_messages[turn_id] = text.strip()
-                    self._maybe_notify_turn_completed(turn_id)
+            if turn_id and isinstance(item, dict):
+                self._remember_turn_activity_item(turn_id, item)
+                if method == "item/completed" and item.get("type") == "agentMessage":
+                    text = item.get("text")
+                    if isinstance(text, str) and text.strip():
+                        self._turn_final_messages[turn_id] = text.strip()
+                        self._maybe_notify_turn_completed(turn_id)
         elif method == "turn/completed":
             turn = params.get("turn") or {}
             turn_id = str(turn.get("id") or "")

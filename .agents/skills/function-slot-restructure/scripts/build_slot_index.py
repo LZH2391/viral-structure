@@ -8,7 +8,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, slot_key, text_blob, write_json
+from common import (
+    as_list,
+    by_id,
+    discover_sample_dirs,
+    display_path,
+    load_sample,
+    resolve_corpus_root,
+    resolve_default_output_path,
+    slot_key,
+    text_blob,
+    write_json,
+)
 
 
 def build_index(root: Path) -> Dict[str, Any]:
@@ -40,6 +51,7 @@ def build_index(root: Path) -> Dict[str, Any]:
             "artifactId": meta.get("artifactId"),
             "sampleDir": meta["sampleDir"],
             "schemaVersion": meta.get("schemaVersion"),
+            "lineage": meta.get("lineage", {}),
             "counts": manifest.get("counts", {}),
         })
 
@@ -53,6 +65,7 @@ def build_index(root: Path) -> Dict[str, Any]:
                 atom_variants.append({
                     "variantId": f"{sample_id}::{atom_kind}::{atom_id}",
                     "sampleId": sample_id,
+                    "artifactId": meta.get("artifactId"),
                     "kind": atom_kind,
                     "sourceAtomId": atom_id,
                     "slotType": slot_type,
@@ -86,6 +99,7 @@ def build_index(root: Path) -> Dict[str, Any]:
             slot_variants.append({
                 "variantId": variant_id,
                 "sampleId": sample_id,
+                "artifactId": meta.get("artifactId"),
                 "sourceSlotId": slot_id,
                 "slotType": slot_type,
                 "slotName": slot.get("slotName"),
@@ -108,6 +122,7 @@ def build_index(root: Path) -> Dict[str, Any]:
         for binding in as_list(files.get("bindings")):
             item = dict(binding)
             item["sampleId"] = sample_id
+            item["artifactId"] = meta.get("artifactId")
             item["variantId"] = f"{sample_id}::binding::{binding.get('id')}"
             bindings.append(item)
             if binding.get("rule"):
@@ -119,6 +134,7 @@ def build_index(root: Path) -> Dict[str, Any]:
                 for rule in as_list(rule_doc.get(rule_kind)):
                     item = dict(rule)
                     item["sampleId"] = sample_id
+                    item["artifactId"] = meta.get("artifactId")
                     item["ruleKind"] = rule_kind
                     item["variantId"] = f"{sample_id}::rule::{rule.get('id')}"
                     rules.append(item)
@@ -132,6 +148,7 @@ def build_index(root: Path) -> Dict[str, Any]:
                 chain_counter[chain_key] += 1
             item = dict(template)
             item["sampleId"] = sample_id
+            item["artifactId"] = meta.get("artifactId")
             item["variantId"] = f"{sample_id}::template::{template.get('templateId')}"
             item["chainKey"] = chain_key
             templates.append(item)
@@ -158,6 +175,7 @@ def build_index(root: Path) -> Dict[str, Any]:
         "sourceRoot": display_path(corpus_root),
         "summary": {
             "sampleCount": len(samples),
+            "sourceRoot": display_path(corpus_root),
             "slotVariantCount": len(slot_variants),
             "atomVariantCount": len(atom_variants),
             "bindingCount": len(bindings),
@@ -180,11 +198,12 @@ def build_index(root: Path) -> Dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus_dir", help="Directory containing one or many sample-video libraries")
-    parser.add_argument("--out", default="slot_index.json", help="Output index JSON path")
+    parser.add_argument("--out", help="Output index JSON path. Defaults to Runtime/Temp/FunctionSlotLibrary/slot_index.json for repo-root input.")
     args = parser.parse_args()
     index = build_index(Path(args.corpus_dir))
-    write_json(Path(args.out), index)
-    print(f"wrote {args.out}")
+    out_path = Path(args.out) if args.out else resolve_default_output_path(Path(args.corpus_dir), "slot_index.json")
+    write_json(out_path, index)
+    print(f"wrote {display_path(out_path)}")
 
 
 if __name__ == "__main__":

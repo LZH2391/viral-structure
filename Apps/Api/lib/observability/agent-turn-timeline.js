@@ -84,6 +84,9 @@ function summarizeTurnItem(item, index) {
   if (["agentmessage", "assistantmessage", "message", "outputtext"].includes(compactType) || ["assistant", "agent", "thread"].includes(role)) {
     return buildItem({ item, index, kind: "agent_message", title: "Agent message", createdAt, previewLimit: LONG_TEXT_PREVIEW_LIMIT });
   }
+  if (compactType === "plan") {
+    return buildItem({ item, index, kind: "plan", title: "Plan", createdAt, previewLimit: TEXT_PREVIEW_LIMIT });
+  }
   if (["reasoning", "reasoningsummary", "reasoningtext"].includes(compactType)) {
     const text = extractText(item);
     const chars = text ? text.length : nullableNumber(item.characters ?? item.charCount ?? item.length);
@@ -96,6 +99,86 @@ function summarizeTurnItem(item, index) {
       textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: chars ? { byteLength: chars } : {},
+    };
+  }
+  if (compactType === "commandexecution") {
+    const text = extractText(item) ?? item.aggregatedOutput ?? item.command ?? null;
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "command_execution",
+      title: item.command ? `Command: ${safePreview(item.command, 80)}` : "Command execution",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: {
+        toolName: "shell",
+        commandPreview: safePreview(item.command, TEXT_PREVIEW_LIMIT),
+        exitCode: nullableNumber(item.exitCode ?? item.exit_code),
+        durationMs: nullableNumber(item.durationMs ?? item.duration_ms),
+        byteLength: byteLength(item.aggregatedOutput),
+      },
+    };
+  }
+  if (compactType === "mcptoolcall") {
+    const toolName = [item.server, item.tool].filter(Boolean).join(".") || resolveToolName(item);
+    const text = extractText(item) ?? item.error?.message ?? summarizeJson(item.result) ?? summarizeJson(item.arguments);
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "mcp_tool_call",
+      title: toolName ? `MCP tool: ${toolName}` : "MCP tool call",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: {
+        toolName,
+        durationMs: nullableNumber(item.durationMs ?? item.duration_ms),
+        byteLength: byteLength(text),
+      },
+    };
+  }
+  if (compactType === "dynamictoolcall") {
+    const toolName = [item.namespace, item.tool].filter(Boolean).join(".") || resolveToolName(item);
+    const text = extractText(item) ?? summarizeDynamicToolContent(item.contentItems) ?? summarizeJson(item.arguments);
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "dynamic_tool_call",
+      title: toolName ? `Dynamic tool: ${toolName}` : "Dynamic tool call",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: {
+        toolName,
+        durationMs: nullableNumber(item.durationMs ?? item.duration_ms),
+        byteLength: byteLength(text),
+      },
+    };
+  }
+  if (compactType === "filechange") {
+    const count = Array.isArray(item.changes) ? item.changes.length : 0;
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "file_change",
+      title: count ? `File changes: ${count}` : "File changes",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(summarizeFileChanges(item.changes), TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: count ? { byteLength: count } : {},
+    };
+  }
+  if (compactType === "websearch") {
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "web_search",
+      title: "Web search",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(item.query ?? item.action?.query ?? summarizeJson(item.action), TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: { toolName: "web_search" },
     };
   }
   if (["toolcall", "functioncall", "localtoolcall", "localshellcall", "shellcall", "commandcall"].includes(compactType)) {
@@ -219,7 +302,7 @@ function latestMeaningfulItem(items) {
 function extractText(value) {
   if (typeof value === "string") return value.trim() || null;
   if (!value || typeof value !== "object") return null;
-  for (const key of ["text", "message", "summary", "final_message", "finalMessage", "output", "result", "arguments", "args"]) {
+  for (const key of ["text", "message", "summary", "content", "final_message", "finalMessage", "output", "aggregatedOutput", "result", "arguments", "args"]) {
     const text = stringifyContent(value[key]);
     if (text) return text;
   }
@@ -236,6 +319,7 @@ function stringifyContent(value) {
     if (typeof value.text === "string") return value.text.trim() || null;
     if (typeof value.content === "string") return value.content.trim() || null;
     if (typeof value.output === "string") return value.output.trim() || null;
+    if (typeof value.delta === "string") return value.delta.trim() || null;
   }
   return null;
 }
@@ -255,8 +339,8 @@ function resolveToolPreview(item) {
 function normalizeItemStatus(item) {
   const raw = String(item?.status ?? "").trim().toLowerCase();
   if (["running", "in_progress", "inprogress", "pending"].includes(raw)) return "running";
-  if (["completed", "complete", "success", "succeeded"].includes(raw)) return "completed";
-  if (["failed", "error", "errored"].includes(raw)) return "failed";
+  if (["completed", "complete", "success", "succeeded", "applied"].includes(raw) || item?.success === true) return "completed";
+  if (["failed", "error", "errored", "rejected"].includes(raw) || item?.success === false || item?.error) return "failed";
   return "unknown";
 }
 
@@ -329,6 +413,29 @@ function nullableNumber(value) {
 function byteLength(value) {
   if (!value) return null;
   return Buffer.byteLength(String(value), "utf8");
+}
+
+function summarizeJson(value) {
+  if (value == null) return null;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function summarizeDynamicToolContent(contentItems) {
+  if (!Array.isArray(contentItems)) return null;
+  return contentItems.map((item) => extractText(item)).filter(Boolean).join("\n") || null;
+}
+
+function summarizeFileChanges(changes) {
+  if (!Array.isArray(changes)) return null;
+  return changes.map((change) => {
+    const path = change?.path ?? change?.filePath ?? change?.relativePath ?? change?.uri ?? null;
+    const kind = change?.type ?? change?.kind ?? change?.status ?? null;
+    return [kind, path].filter(Boolean).join(" ");
+  }).filter(Boolean).join("\n") || null;
 }
 
 module.exports = {
