@@ -112,18 +112,21 @@ def start_thread(client, payload) -> int:
 
 def collect_turn_result(client, payload) -> int:
     try:
+        result = client.collect_turn_result(
+            thread_id=str(payload["threadId"]),
+            turn_id=str(payload["turnId"]),
+            return_thread_state=False,
+        )
+        turn_activity = inspect_turn_activity(client, payload)
         write_json(
             {
-                "ok": result_status_is_completed(result := client.collect_turn_result(
-                    thread_id=str(payload["threadId"]),
-                    turn_id=str(payload["turnId"]),
-                    return_thread_state=False,
-                )),
+                "ok": result_status_is_completed(result),
                 "threadId": result.thread_id,
                 "turnId": result.turn_id,
                 "status": result.status,
                 "finalMessage": result.final_message,
                 "activeThreadMessage": result.active_thread_message,
+                "turnActivity": turn_activity,
             }
         )
         return 0
@@ -139,6 +142,7 @@ def collect_turn_result(client, payload) -> int:
                     "status": "running",
                     "finalMessage": "",
                     "activeThreadMessage": message[:1200],
+                    "turnActivity": None,
                     "message": message[:240],
                 }
             )
@@ -185,6 +189,31 @@ def read_thread(client, payload) -> int:
         }
     )
     return 0
+
+
+def inspect_turn_activity(client, payload):
+    try:
+        snapshot = client.inspect_turn_activity(str(payload["threadId"]), str(payload["turnId"]))
+        usage = snapshot.last_token_usage or {}
+        last_usage = usage.get("last_token_usage") or usage.get("lastTokenUsage") or {}
+        return {
+            "threadId": snapshot.thread_id,
+            "turnId": snapshot.turn_id,
+            "status": snapshot.status,
+            "itemCount": snapshot.item_count,
+            "effectiveItemCount": snapshot.effective_item_count,
+            "latestItemType": snapshot.latest_item_type,
+            "latestMessagePreview": snapshot.latest_message_preview,
+            "latestToolName": snapshot.latest_tool_name,
+            "tokenUsage": {
+                "inputTokens": last_usage.get("input_tokens") or last_usage.get("inputTokens"),
+                "outputTokens": last_usage.get("output_tokens") or last_usage.get("outputTokens"),
+                "totalTokens": last_usage.get("total_tokens") or last_usage.get("totalTokens"),
+                "reasoningOutputTokens": last_usage.get("reasoning_output_tokens") or last_usage.get("reasoningOutputTokens"),
+            },
+        }
+    except Exception:
+        return None
 
 
 def cancel_turn(client, payload) -> int:

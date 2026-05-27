@@ -21,6 +21,7 @@ const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { summarizeThreadConversation } = require("./lib/observability/thread-conversation");
+const { summarizeAgentTurnTimeline } = require("./lib/observability/agent-turn-timeline");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
 const { createModuleRegistry } = require("./lib/modules/registry");
@@ -185,6 +186,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/threadpool/config") return await handleThreadPoolRead(res, "config", () => handlers.threadPool.config(), handlers);
       if (req.method === "GET" && url.pathname === "/api/threadpool/roles") return await handleThreadPoolRead(res, "roles", () => handlers.threadPool.roles(), handlers);
       if (req.method === "GET" && /^\/api\/threadpool\/roles\/[^/]+\/status$/.test(url.pathname)) return await handleThreadPoolRead(res, "role-status", () => handlers.threadPool.roleStatus(decodeURIComponent(url.pathname.split("/").at(-2))), handlers);
+      if (req.method === "GET" && /^\/api\/threadpool\/threads\/[^/]+\/turns\/[^/]+\/timeline$/.test(url.pathname)) return await handleThreadTurnTimeline(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && /^\/api\/threadpool\/threads\/[^/]+\/conversation$/.test(url.pathname)) return await handleThreadConversation(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/threadpool\/threads\/[^/]+\/discard$/.test(url.pathname)) return await handleThreadDiscard(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && url.pathname === "/api/threadpool/leases/release-owner") return await handleOwnerLeaseRelease(req, res, handlers);
@@ -576,6 +578,87 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
       durationMs: Date.now() - startedAt,
     });
     return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_conversation_read_failed", message: "Thread conversation 读取失败" });
+  }
+}
+
+async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
+  const traceContext = createTraceContext(createTraceIds());
+  const startedAt = Date.now();
+  const activeLogger = handlers.logger ?? logger;
+  const activeThreadPool = handlers.threadPool ?? threadPool;
+  const activeAppServer = handlers.appServer ?? appServer;
+  await activeLogger.writeStageLog({
+    traceContext,
+    stageName: "threadPool.turnTimeline.read",
+    event: "stage.start",
+    inputSummary: { threadId, turnId },
+  });
+  try {
+    const allowedThread = await activeThreadPool.findAllowedThread(threadId);
+    if (!allowedThread?.ok) {
+      await activeLogger.writeStageLog({
+        traceContext,
+        stageName: "threadPool.turnTimeline.read",
+        event: "stage.end",
+        outputSummary: {
+          threadId,
+          turnId,
+          allowed: false,
+          statusCode: 403,
+          error: allowedThread?.error ?? null,
+        },
+        durationMs: Date.now() - startedAt,
+      });
+      return sendJson(res, 403, allowedThread);
+    }
+    const thread = await activeAppServer.readThread({ workspaceRoot: handlers.rootDir ?? rootDir, threadId });
+    const timeline = summarizeAgentTurnTimeline(thread.thread ?? {}, turnId);
+    if (!timeline) {
+      await activeLogger.writeStageLog({
+        traceContext,
+        stageName: "threadPool.turnTimeline.read",
+        event: "stage.end",
+        outputSummary: { threadId, turnId, found: false },
+        durationMs: Date.now() - startedAt,
+      });
+      return sendJson(res, 404, {
+        error: "thread_turn_not_found",
+        code: "thread_turn_not_found",
+        message: "未找到对应 turn",
+      });
+    }
+    await activeLogger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.turnTimeline.read",
+      event: "stage.end",
+      outputSummary: {
+        threadId: timeline.threadId,
+        turnId: timeline.turnId,
+        itemCount: timeline.items.length,
+        status: timeline.status,
+      },
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, 200, timeline);
+  } catch (error) {
+    const snapshot = await activeLogger.writeDebugSnapshot({
+      traceContext,
+      stageName: "threadPool.turnTimeline.read",
+      reason: "threadpool_turn_timeline_read_failed",
+      inputSummary: { threadId, turnId },
+      debugPayload: {
+        message: error instanceof Error ? error.message : "Thread turn timeline 读取失败",
+        detail: error?.debugPayload ?? null,
+      },
+    });
+    await activeLogger.writeStageLog({
+      traceContext,
+      stageName: "threadPool.turnTimeline.read",
+      event: "stage.fail",
+      errorSummary: { code: "threadpool_turn_timeline_read_failed", message: "Thread turn timeline 读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
+      durationMs: Date.now() - startedAt,
+    });
+    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_turn_timeline_read_failed", message: "Thread turn timeline 读取失败" });
   }
 }
 

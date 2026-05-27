@@ -55,6 +55,9 @@ class TurnActivitySnapshot:
     item_count: int
     effective_item_count: int
     last_token_usage: dict[str, Any] | None = None
+    latest_item_type: str | None = None
+    latest_message_preview: str | None = None
+    latest_tool_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -66,4 +69,3 @@ class ThreadLifecycleEvent:
 
 def is_non_terminal_turn_status(status: str | None) -> bool:
     return str(status or "").strip().lower() in NON_TERMINAL_TURN_STATUSES
-

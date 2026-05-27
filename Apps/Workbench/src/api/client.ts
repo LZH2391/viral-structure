@@ -1,4 +1,4 @@
-import type { AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -243,6 +243,12 @@ export async function discardThreadPoolThread(threadId: string) {
 
 export async function getThreadConversation(threadId: string) {
   return readJsonResponse<ThreadConversation>(await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/conversation`));
+}
+
+export async function getAgentTurnTimeline(threadId: string, turnId: string) {
+  return readJsonResponse<AgentTurnTimeline>(
+    await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/timeline`, { cache: "no-store" }),
+  );
 }
 
 export async function releaseThreadPoolOwnerLeases(ownerId: string) {

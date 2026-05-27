@@ -159,7 +159,7 @@ function appendArchivedJobs(archiveDir, archivedJobs) {
   fs.mkdirSync(archiveDir, { recursive: true });
   const byMonth = new Map();
   for (const job of archivedJobs) {
-    const month = archiveMonth(job);
+    const month = archiveDay(job);
     if (!byMonth.has(month)) byMonth.set(month, []);
     byMonth.get(month).push(JSON.stringify({ ...job, archivedAt: new Date().toISOString() }));
   }
@@ -184,10 +184,10 @@ function jobSortTime(job) {
   return 0;
 }
 
-function archiveMonth(job) {
+function archiveDay(job) {
   const time = jobSortTime(job);
   const date = Number.isFinite(time) && time > 0 ? new Date(time) : new Date();
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${date.getUTCFullYear()}--${String(date.getUTCMonth() + 1).padStart(2, "0")}--${String(date.getUTCDate()).padStart(2, "0")}`;
 }
 
 function removeLegacyJobsFile(storage) {

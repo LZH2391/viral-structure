@@ -59,9 +59,32 @@ function normalizeJobSnapshot(job: ProcessingJob) {
     progress: job.progress ?? null,
     traceId: job.traceId ?? null,
     finalMessage: job.finalMessage ?? null,
+    agentActivity: normalizeAgentActivity(job.agentActivity ?? null),
     errorSummary: normalizeErrorSummary(job.errorSummary ?? null),
     activeThreadMessage: normalizeActiveThreadMessage(job.activeThreadMessage ?? null),
     cachePrompt: normalizeCachePrompt(job.cachePrompt ?? null),
+  };
+}
+
+function normalizeAgentActivity(activity: ProcessingJob["agentActivity"]) {
+  if (!activity) return null;
+  return {
+    threadId: activity.threadId ?? null,
+    turnId: activity.turnId ?? null,
+    status: activity.status ?? null,
+    itemCount: activity.itemCount ?? null,
+    effectiveItemCount: activity.effectiveItemCount ?? null,
+    latestItemType: activity.latestItemType ?? null,
+    latestMessagePreview: activity.latestMessagePreview ?? null,
+    latestToolName: activity.latestToolName ?? null,
+    tokenUsage: activity.tokenUsage
+      ? {
+          inputTokens: activity.tokenUsage.inputTokens ?? null,
+          outputTokens: activity.tokenUsage.outputTokens ?? null,
+          totalTokens: activity.tokenUsage.totalTokens ?? null,
+          reasoningOutputTokens: activity.tokenUsage.reasoningOutputTokens ?? null,
+        }
+      : null,
   };
 }
 

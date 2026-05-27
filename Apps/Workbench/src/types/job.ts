@@ -28,6 +28,7 @@ export type ProcessingJob = {
     text: string;
     createdAt?: string | null;
   } | null;
+  agentActivity?: AgentActivitySummary | null;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {
     cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | string;
@@ -51,3 +52,50 @@ export type ProcessingJob = {
 };
 
 export type AgentRunJob = ProcessingJob;
+
+export type AgentActivitySummary = {
+  threadId: string | null;
+  turnId: string | null;
+  status: string | null;
+  itemCount: number;
+  effectiveItemCount: number;
+  latestItemType: string | null;
+  latestMessagePreview: string | null;
+  latestToolName: string | null;
+  tokenUsage?: {
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    totalTokens?: number | null;
+    reasoningOutputTokens?: number | null;
+  } | null;
+  updatedAt: string;
+};
+
+export type AgentTimelineItem = {
+  id: string;
+  index: number;
+  kind: "user_input" | "agent_message" | "reasoning" | "tool_call" | "tool_result" | "token_usage" | "turn_status" | "unknown";
+  title: string;
+  status?: "running" | "completed" | "failed" | "unknown";
+  textPreview?: string | null;
+  createdAt?: string | null;
+  metadata?: {
+    toolName?: string | null;
+    commandPreview?: string | null;
+    exitCode?: number | null;
+    durationMs?: number | null;
+    byteLength?: number | null;
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    totalTokens?: number | null;
+    reasoningOutputTokens?: number | null;
+  };
+};
+
+export type AgentTurnTimeline = {
+  threadId: string;
+  turnId: string;
+  status: string;
+  activity: AgentActivitySummary;
+  items: AgentTimelineItem[];
+};

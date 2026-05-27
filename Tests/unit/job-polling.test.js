@@ -174,3 +174,37 @@ test("isSameProcessingJobSnapshot compares only normalized fields", () => {
   assert.equal(isSameProcessingJobSnapshot(left, right), true);
   assert.equal(isSameProcessingJobSnapshot(left, changed), false);
 });
+
+test("isSameProcessingJobSnapshot updates when agent activity changes", () => {
+  const left = {
+    jobId: "job_activity",
+    sampleVideoId: "sample_1",
+    traceId: "trace_activity",
+    stage: "function_slot_atomization.analyze",
+    status: "processing",
+    progress: 58,
+    agentActivity: {
+      threadId: "thread_1",
+      turnId: "turn_1",
+      status: "running",
+      itemCount: 2,
+      effectiveItemCount: 1,
+      latestItemType: "agent_message",
+      latestMessagePreview: "开始分析",
+      latestToolName: null,
+      tokenUsage: null,
+      updatedAt: "t1",
+    },
+  };
+  const same = {
+    ...left,
+    agentActivity: { ...left.agentActivity, updatedAt: "t2" },
+  };
+  const changed = {
+    ...left,
+    agentActivity: { ...left.agentActivity, itemCount: 3, latestMessagePreview: "读取工具结果" },
+  };
+
+  assert.equal(isSameProcessingJobSnapshot(left, same), true);
+  assert.equal(isSameProcessingJobSnapshot(left, changed), false);
+});

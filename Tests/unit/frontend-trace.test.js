@@ -469,7 +469,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(propertyPanel, /原子化/);
   assert.match(propertyPanel, /<PackagingStructurePanel/);
   assert.match(propertyPanel, /<FunctionSlotAtomizationPanel/);
-  assert.match(packagingPanel, /strong>packaging-structure</);
+  assert.match(packagingPanel, /agentName="packaging-structure"/);
   assert.match(packagingPanel, /整体包装/);
   assert.match(packagingPanel, /shotPackagingNotes/);
   assert.match(packagingPanel, /packagingBlocks/);
@@ -478,7 +478,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.doesNotMatch(property, /\.shots\.slice\(0, 12\)/);
   assert.match(property, /`\$\{analysis\.shots\.length\} 镜 \/ \$\{analysis\.boundaries\?\.length \?\? 0\} 边界`/);
   assert.match(property, /analysis\.shots\.map\(\(shot\) => \(/);
-  assert.match(scriptPanel, /strong>script-segment</);
+  assert.match(scriptPanel, /agentName="script-segment"/);
   assert.doesNotMatch(scriptPanel, /segmentCount：/);
   assert.doesNotMatch(scriptPanel, /resultOrigin：/);
   assert.doesNotMatch(scriptPanel, /cacheKey：/);
@@ -487,7 +487,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(scriptPanel, /onSelectSegment/);
   assert.match(scriptPanel, /agent-script-meta/);
   assert.match(scriptPanel, /运行脚本段落分析|运行/);
-  assert.match(rhythmPanel, /strong>rhythm-structure</);
+  assert.match(rhythmPanel, /agentName="rhythm-structure"/);
   assert.doesNotMatch(rhythmPanel, /cardCount：/);
   assert.match(rhythmPanel, /sectionCount：/);
   assert.match(rhythmPanel, /rhythm-overview-panel/);
@@ -552,25 +552,32 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /packagingStructureAnalysis\?: PackagingStructureArtifact \| null;/);
 });
 
-test("agent cards show the latest active running thread message across agent turns", () => {
+test("agent cards show readable activity and timeline traces across agent turns", () => {
   const root = path.resolve(__dirname, "../..");
   const types = read(root, "Apps/Workbench/src/types.ts");
+  const jobTypes = read(root, "Apps/Workbench/src/types/job.ts");
   const shotPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
   const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
   const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
+  const atomizationPanel = read(root, "Apps/Workbench/src/components/property-panel/FunctionSlotAtomizationPanel.tsx");
+  const timelinePanel = read(root, "Apps/Workbench/src/components/property-panel/AgentTurnTimeline.tsx");
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
 
   assert.match(types, /activeThreadMessage\?: \{/);
+  assert.match(types, /agentActivity\?: AgentActivitySummary \| null;/);
+  assert.match(jobTypes, /export type AgentTimelineItem = \{/);
+  assert.match(jobTypes, /latestMessagePreview: string \| null;/);
   assert.match(types, /agentRun\?: \{/);
   assert.match(shotPanel, /resolveActiveThreadMessage\(job\)/);
-  assert.match(scriptPanel, /resolveActiveThreadMessage\(job\)/);
-  assert.match(rhythmPanel, /resolveActiveThreadMessage\(job\)/);
-  assert.match(packagingPanel, /resolveActiveThreadMessage\(job\)/);
+  assert.match(scriptPanel, /AgentTurnTimelinePanel/);
+  assert.match(rhythmPanel, /AgentTurnTimelinePanel/);
+  assert.match(packagingPanel, /AgentTurnTimelinePanel/);
+  assert.match(atomizationPanel, /AgentTurnTimelinePanel/);
+  assert.match(timelinePanel, /getAgentTurnTimeline\(threadId, turnId\)/);
+  assert.match(timelinePanel, /setInterval\([\s\S]*2000/);
+  assert.match(timelinePanel, /latestMessagePreview \?\? job\?\.activeThreadMessage\?\.text/);
   assert.match(shotPanel, /job\.status !== "processing"/);
-  assert.match(scriptPanel, /job\.status !== "processing"/);
-  assert.match(rhythmPanel, /job\.status !== "processing"/);
-  assert.match(packagingPanel, /job\.status !== "processing"/);
   assert.doesNotMatch(scriptPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(rhythmPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
   assert.doesNotMatch(packagingPanel, /!job\.agentRun\?\.threadId \|\| !job\.agentRun\?\.turnId/);
@@ -579,10 +586,11 @@ test("agent cards show the latest active running thread message across agent tur
   assert.doesNotMatch(rhythmPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.doesNotMatch(packagingPanel, /message\.turnId && message\.turnId !== job\.agentRun\.turnId/);
   assert.match(shotPanel, /className="agent-thread-message"/);
-  assert.match(scriptPanel, /className="agent-thread-message"/);
-  assert.match(rhythmPanel, /className="agent-thread-message"/);
-  assert.match(packagingPanel, /className="agent-thread-message"/);
+  assert.match(timelinePanel, /className="agent-latest-activity"/);
+  assert.match(timelinePanel, /className="agent-turn-timeline"/);
   assert.match(css, /\.agent-thread-message/);
+  assert.match(css, /\.agent-summary-card/);
+  assert.match(css, /\.agent-timeline-list/);
 });
 
 test("rhythm and packaging structure skills are registered as independent analyzers", () => {
@@ -694,6 +702,9 @@ test("appserver collect exposes active thread message without final residue", ()
   assert.match(client, /_extract_turn_active_thread_message\(turn, status=status\)/);
   assert.match(client, /if not _is_non_terminal_turn_status\(status\):[\s\S]*_turn_active_thread_messages\.pop\(turn_id, None\)/);
   assert.match(bridgePy, /"activeThreadMessage": result\.active_thread_message/);
+  assert.match(bridgePy, /"turnActivity": turn_activity/);
+  assert.match(bridgePy, /def inspect_turn_activity\(client, payload\):/);
+  assert.match(bridgePy, /"latestMessagePreview": snapshot\.latest_message_preview/);
   assert.match(bridgePy, /"activeThreadMessage": message\[:1200\]/);
   assert.match(shotService, /buildActiveThreadMessage\(threadId, turnId, message, status, options = \{\}\)/);
   assert.match(shotService, /String\(message \?\? ""\)\.trim\(\) \|\| String\(options\.fallbackMessage \?\? ""\)\.trim\(\)/);
@@ -702,7 +713,13 @@ test("appserver collect exposes active thread message without final residue", ()
   const runtimeThread = read(root, "Apps/Api/lib/analysis-runtime-v2/thread-runtime.js");
   assert.match(runtimeThread, /buildActiveThreadMessage\(\s*turn\?\.threadId,\s*turn\?\.turnId,\s*turn\?\.activeThreadMessage,\s*turn\?\.status,\s*\)/);
   assert.match(shotService, /if \(normalized \|\| !isPendingTurnStatus\(status\)\)/);
-  assert.match(runtimeThread, /if \(activeThreadMessage \|\| !isPendingTurnStatus\(turn\?\.status\)\)/);
+  assert.match(runtimeThread, /buildAgentActivityFromTurnResult\(turn\)/);
+  assert.match(runtimeThread, /if \(activeThreadMessage \|\| agentActivity \|\| !isPendingTurnStatus\(turn\?\.status\)\)/);
+  const turnResult = read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/turn_result.py");
+  const events = read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/events.py");
+  assert.match(events, /latest_message_preview: str \| None = None/);
+  assert.match(turnResult, /_summarize_latest_turn_activity_item\(items\)/);
+  assert.match(turnResult, /"kind": "tool_result"/);
   assert.match(scriptService, /runtime\.updateActiveThreadMessage\(context, turn\)/);
   assert.match(shotService, /activeThreadMessage: null/);
   assert.match(scriptService, /activeThreadMessage: null/);

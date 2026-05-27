@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { AgentRunJob, FunctionSlotAtomizationArtifact, FunctionSlotAtomizationHistoryEntry, FunctionSlotBoundaryReviewIssue } from "../../types";
+import { AgentTurnTimelinePanel } from "./AgentTurnTimeline";
 import { shortTurnId } from "./formatters";
 
 export function FunctionSlotAtomizationPanel({
@@ -27,7 +28,6 @@ export function FunctionSlotAtomizationPanel({
   const historyEntries = analysisHistory ?? [];
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const needsManualBoundaryEdit = shouldShowManualBoundaryEdit(analysis);
-  const activeThreadMessage = resolveActiveThreadMessage(job);
   const statusText = job
     ? `${job.stage} / ${job.progress}%`
     : analysis
@@ -41,23 +41,16 @@ export function FunctionSlotAtomizationPanel({
   return (
     <section className="property-section agent-run-panel">
       <div className="section-heading">Agent</div>
-      <div className="agent-capability-row">
-        <div>
-          <strong>function-slot-atomization</strong>
-          <span>{statusText}</span>
-        </div>
-        <button className="primary-button" type="button" disabled={running || !hasRequiredInputs} onClick={onRun}>
-          {running ? "运行中" : "运行"}
-        </button>
-      </div>
+      <AgentTurnTimelinePanel
+        agentName="function-slot-atomization"
+        statusText={statusText}
+        job={job}
+        running={running}
+        runDisabled={!hasRequiredInputs}
+        onRun={onRun}
+      />
       {!hasRequiredInputs ? (
         <div className="detail-hint">请先完成脚本段落、节奏结构、包装结构三份分析，再运行原子化。</div>
-      ) : null}
-      {activeThreadMessage ? (
-        <div className="agent-thread-message" aria-live="polite">
-          <span>线程消息</span>
-          <strong>{activeThreadMessage.text}</strong>
-        </div>
       ) : null}
       {analysis ? (
         <div className="detail-hint">
@@ -448,11 +441,4 @@ function formatHistoryMeta(entry: FunctionSlotAtomizationHistoryEntry) {
   const turn = entry.turnId ? shortTurnId(entry.turnId) : "无";
   const validator = entry.validatorCode ? ` / ${entry.validatorCode}` : "";
   return `${time} / turn ${turn}${validator}`;
-}
-
-function resolveActiveThreadMessage(job?: AgentRunJob | null) {
-  if (!job || job.status !== "processing") return null;
-  const message = job.activeThreadMessage;
-  if (!message?.text?.trim()) return null;
-  return message;
 }

@@ -65,7 +65,7 @@ test("job store keeps active jobs and archives older terminal jobs", () => {
   const active = JSON.parse(fs.readFileSync(filePath, "utf8"));
   assert.deepEqual(active.jobs.map((job) => job.jobId).sort(), ["job_active", "job_new_done"]);
 
-  const archivePath = path.join(dir, "archive", "2026-05.jsonl");
+  const archivePath = path.join(dir, "archive", "2026--05--01.jsonl");
   const archived = fs.readFileSync(archivePath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(archived.map((job) => job.jobId), ["job_old_done"]);
 });
@@ -84,6 +84,6 @@ test("job store archives terminal jobs after retention is exceeded by updates", 
   assert.equal(store.getJob(second.jobId).status, "processed");
   const active = JSON.parse(fs.readFileSync(filePath, "utf8"));
   assert.deepEqual(active.jobs.map((job) => job.jobId), [second.jobId]);
-  const archiveText = fs.readFileSync(path.join(dir, "archive", "2026-05.jsonl"), "utf8");
+  const archiveText = fs.readFileSync(path.join(dir, "archive", "2026--05--01.jsonl"), "utf8");
   assert.match(archiveText, new RegExp(first.jobId));
 });

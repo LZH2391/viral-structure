@@ -1,5 +1,6 @@
 import type { AgentRunJob, PackagingField, PackagingStructureArtifact, PackagingStructureHistoryEntry } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
+import { AgentTurnTimelinePanel } from "./AgentTurnTimeline";
 import { formatPackagingHistoryMeta, renderPackagingResultOrigin } from "./formatters";
 
 type PackagingBlock = PackagingStructureArtifact["packagingBlocks"][number];
@@ -49,7 +50,6 @@ export function PackagingStructurePanel({
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = analysis?.reason ?? job?.errorSummary?.message ?? null;
   const debugSnapshotUri = analysis?.debugSnapshotUri ?? job?.errorSummary?.debugSnapshotUri ?? null;
-  const activeThreadMessage = resolveActiveThreadMessage(job);
   const overviewFields = Array.isArray(analysis?.overview?.fields) ? analysis.overview.fields : [];
   const uncertainties = Array.isArray(analysis?.overview?.uncertainties) ? analysis.overview.uncertainties : [];
   const statusText = job
@@ -63,21 +63,7 @@ export function PackagingStructurePanel({
   return (
     <section className="property-section agent-run-panel">
       <div className="section-heading">Agent</div>
-      <div className="agent-capability-row">
-        <div>
-          <strong>packaging-structure</strong>
-          <span>{statusText}</span>
-        </div>
-        <button className="primary-button" type="button" disabled={running} onClick={onRun}>
-          {running ? "运行中" : "运行"}
-        </button>
-      </div>
-      {activeThreadMessage ? (
-        <div className="agent-thread-message" aria-live="polite">
-          <span>线程消息</span>
-          <strong>{activeThreadMessage.text}</strong>
-        </div>
-      ) : null}
+      <AgentTurnTimelinePanel agentName="packaging-structure" statusText={statusText} job={job} running={running} onRun={onRun} />
       {analysis ? (
         <div className="detail-hint">
           <div>turn：{analysis.agent?.turnId ?? "无"}</div>
@@ -193,11 +179,4 @@ function PackagingBlockButton({ block, index, onSelect }: { block: PackagingBloc
       <span className="rhythm-card-meta">shots {block.shotRefs.join(", ") || "无"} / {block.packagingFunction}</span>
     </button>
   );
-}
-
-function resolveActiveThreadMessage(job?: AgentRunJob | null) {
-  if (!job || job.status !== "processing") return null;
-  const message = job.activeThreadMessage;
-  if (!message?.text?.trim()) return null;
-  return message;
 }

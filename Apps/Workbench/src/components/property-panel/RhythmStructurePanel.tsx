@@ -1,5 +1,6 @@
 import type { AgentRunJob, RhythmStructureArtifact, RhythmStructureHistoryEntry } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
+import { AgentTurnTimelinePanel } from "./AgentTurnTimeline";
 import { formatRhythmHistoryMeta, renderRhythmResultOrigin } from "./formatters";
 
 type RhythmSection = RhythmStructureArtifact["sections"][number];
@@ -47,7 +48,6 @@ export function RhythmStructurePanel({
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = analysis?.reason ?? job?.errorSummary?.message ?? null;
   const debugSnapshotUri = analysis?.debugSnapshotUri ?? job?.errorSummary?.debugSnapshotUri ?? null;
-  const activeThreadMessage = resolveActiveThreadMessage(job);
   const statusText = job
     ? `${job.stage} / ${job.progress}%`
     : analysis
@@ -59,21 +59,7 @@ export function RhythmStructurePanel({
   return (
     <section className="property-section agent-run-panel">
       <div className="section-heading">Agent</div>
-      <div className="agent-capability-row">
-        <div>
-          <strong>rhythm-structure</strong>
-          <span>{statusText}</span>
-        </div>
-        <button className="primary-button" type="button" disabled={running} onClick={onRun}>
-          {running ? "运行中" : "运行"}
-        </button>
-      </div>
-      {activeThreadMessage ? (
-        <div className="agent-thread-message" aria-live="polite">
-          <span>线程消息</span>
-          <strong>{activeThreadMessage.text}</strong>
-        </div>
-      ) : null}
+      <AgentTurnTimelinePanel agentName="rhythm-structure" statusText={statusText} job={job} running={running} onRun={onRun} />
       {analysis ? (
         <div className="detail-hint">
           <div>turn：{analysis.agent?.turnId ?? "无"}</div>
@@ -157,11 +143,4 @@ export function RhythmStructurePanel({
       ) : null}
     </section>
   );
-}
-
-function resolveActiveThreadMessage(job?: AgentRunJob | null) {
-  if (!job || job.status !== "processing") return null;
-  const message = job.activeThreadMessage;
-  if (!message?.text?.trim()) return null;
-  return message;
 }

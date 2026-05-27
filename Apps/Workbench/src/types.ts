@@ -16,6 +16,7 @@ import type {
   ScriptSegmentHistoryEntry,
   ShotBoundaryAnalysisHistoryEntry,
 } from "./types/artifact";
+import type { AgentActivitySummary } from "./types/job";
 
 export type StaticTraceTypeCompatibility = {
   saveToken?: number | null;
@@ -57,6 +58,7 @@ export type StaticTraceTypeCompatibility = {
     text: string;
     createdAt?: string | null;
   } | null;
+  agentActivity?: AgentActivitySummary | null;
   agentRun?: {
     provider?: "codex-appserver" | string;
     role?: string;

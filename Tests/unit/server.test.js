@@ -220,6 +220,75 @@ test("analysis roles endpoint returns public descriptors only", async () => {
   }
 });
 
+test("thread turn timeline returns summarized turn items", async () => {
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      findAllowedThread: async () => ({ ok: true, role: "script-segment-analyzer", thread_id: "thread_123" }),
+    },
+    appServer: {
+      readThread: async () => ({
+        thread: {
+          id: "thread_123",
+          turns: [{
+            id: "turn_abc",
+            status: "running",
+            items: [
+              { type: "agentMessage", text: "正在分析脚本结构" },
+              { type: "toolCall", toolName: "shell_command", arguments: { command: "Get-ChildItem" } },
+            ],
+          }],
+        },
+      }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/threadpool/threads/thread_123/turns/turn_abc/timeline");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.threadId, "thread_123");
+    assert.equal(response.body.turnId, "turn_abc");
+    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call"]);
+    assert.equal(response.body.activity.itemCount, 2);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("thread turn timeline returns 404 for missing turn", async () => {
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      findAllowedThread: async () => ({ ok: true, role: "script-segment-analyzer", thread_id: "thread_123" }),
+    },
+    appServer: {
+      readThread: async () => ({ thread: { id: "thread_123", turns: [] } }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/threadpool/threads/thread_123/turns/missing/timeline");
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.body.code, "thread_turn_not_found");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot manual boundary edit endpoint forwards sample id and json", async () => {
   const calls = [];
   const server = createServer({

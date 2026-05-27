@@ -1,5 +1,6 @@
 const { finalizeLease, cleanupLease } = require("../shot-boundary/threadpool-runner");
 const { buildActiveThreadMessage, isPendingTurnStatus } = require("./thread-message");
+const { buildAgentActivityFromTurnResult } = require("../observability/agent-turn-timeline");
 
 function createThreadRuntime({ jobStore }) {
   function updateActiveThreadMessage(context, turn) {
@@ -9,8 +10,12 @@ function createThreadRuntime({ jobStore }) {
       turn?.activeThreadMessage,
       turn?.status,
     );
-    if (activeThreadMessage || !isPendingTurnStatus(turn?.status)) {
-      jobStore.updateJob(context.job.jobId, { activeThreadMessage });
+    const agentActivity = buildAgentActivityFromTurnResult(turn);
+    if (activeThreadMessage || agentActivity || !isPendingTurnStatus(turn?.status)) {
+      jobStore.updateJob(context.job.jobId, {
+        activeThreadMessage,
+        agentActivity,
+      });
     }
     return activeThreadMessage;
   }
