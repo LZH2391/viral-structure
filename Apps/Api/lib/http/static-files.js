@@ -33,9 +33,11 @@ function routeToFile(pathname) {
   if (pathname === "/threadpool" || pathname === "/threadpool/") return "index.html";
   if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "index.html";
   if (pathname === "/library" || pathname === "/library/") return "index.html";
+  if (pathname === "/function-slot-graph" || pathname === "/function-slot-graph/") return "function-slot-graph.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";
   if (pathname === "/full-analysis.html") return "full-analysis.html";
   if (pathname === "/library.html") return "library.html";
+  if (pathname === "/function-slot-graph.html") return "function-slot-graph.html";
   if (pathname === "/threadpool.html") return "threadpool.html";
   if (/^\/assets\//.test(pathname)) return pathname.slice(1);
   if (/^\/styles\//.test(pathname)) return pathname.slice(1);

@@ -1,0 +1,203 @@
+.slot-graph-shell {
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr);
+  height: 100vh;
+  min-width: 1120px;
+}
+
+.slot-graph-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(520px, 1fr) 320px;
+  min-height: 0;
+  background: #111318;
+}
+
+.slot-graph-list,
+.slot-graph-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 0 12px 12px;
+}
+
+.slot-graph-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.slot-graph-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.slot-graph-canvas {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 46% 48%, rgba(124, 92, 255, 0.15), transparent 34%),
+    radial-gradient(circle at 58% 60%, rgba(44, 211, 169, 0.07), transparent 30%),
+    #121318;
+}
+
+.slot-graph-canvas svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.slot-graph-canvas-title {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+}
+
+.slot-graph-canvas-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slot-graph-bg circle {
+  fill: rgba(255, 255, 255, 0.08);
+}
+
+.slot-graph-edge {
+  stroke: rgba(123, 97, 255, 0.5);
+  stroke-width: 1.2;
+}
+
+.slot-graph-edge.edge-slot_next,
+.slot-graph-edge.edge-slot_instance_of_concept {
+  stroke: rgba(80, 212, 176, 0.65);
+  stroke-width: 1.5;
+}
+
+.slot-graph-edge.edge-binding_targets_slot,
+.slot-graph-edge.edge-binding_targets_atom {
+  stroke-dasharray: 5 5;
+  stroke: rgba(181, 140, 255, 0.52);
+}
+
+.slot-graph-node {
+  cursor: pointer;
+}
+
+.slot-graph-node circle {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+  transition: r 0.16s ease, stroke-width 0.16s ease;
+}
+
+.slot-graph-node text {
+  fill: rgba(226, 232, 240, 0.82);
+  font-size: 12px;
+  font-weight: 650;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.slot-graph-node.selected circle,
+.slot-graph-node:hover circle {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.slot-graph-node.node-library circle {
+  fill: #8b5cf6;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.7));
+}
+
+.slot-graph-node.node-slot circle {
+  fill: #56d7b1;
+  filter: drop-shadow(0 0 8px rgba(86, 215, 177, 0.6));
+}
+
+.slot-graph-node.node-slotReview circle {
+  fill: #f2b84b;
+  filter: drop-shadow(0 0 8px rgba(242, 184, 75, 0.6));
+}
+
+.slot-graph-node.node-script circle {
+  fill: #f07070;
+}
+
+.slot-graph-node.node-rhythm circle {
+  fill: #58bfe7;
+}
+
+.slot-graph-node.node-packaging circle {
+  fill: #b58cff;
+}
+
+.slot-graph-node.node-concept circle {
+  fill: #35c98a;
+  stroke-dasharray: 4 3;
+  filter: drop-shadow(0 0 8px rgba(53, 201, 138, 0.55));
+}
+
+.slot-graph-node[class*="node-binding"] circle {
+  fill: #d8c7ff;
+}
+
+.slot-graph-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 12px;
+}
+
+.slot-graph-card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.slot-graph-inspector > strong {
+  color: var(--text);
+}
+
+.slot-graph-inspector > span,
+.slot-graph-inspector > small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slot-graph-detail-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.slot-graph-detail-rows div {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.slot-graph-detail-rows b {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.slot-graph-detail-rows span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+}

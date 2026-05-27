@@ -13,6 +13,9 @@ test("serves workbench and debug pages from HTTP routes", () => {
   assert.equal(resolveWorkbenchPath(root, "/library"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/library/"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/library.html"), path.join(root, "library.html"));
+  assert.equal(resolveWorkbenchPath(root, "/function-slot-graph"), path.join(root, "function-slot-graph.html"));
+  assert.equal(resolveWorkbenchPath(root, "/function-slot-graph/"), path.join(root, "function-slot-graph.html"));
+  assert.equal(resolveWorkbenchPath(root, "/function-slot-graph.html"), path.join(root, "function-slot-graph.html"));
   assert.equal(resolveWorkbenchPath(root, "/threadpool"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/threadpool/"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/threadpool.html"), path.join(root, "threadpool.html"));

@@ -1,4 +1,4 @@
-import type { AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -271,6 +271,16 @@ export async function getDebugTraceDetail(traceId: string) {
 
 export async function getLibraryItems() {
   return readJsonResponse<{ items: LibraryItemSummary[] }>(await fetch(`${API_BASE_URL}/api/library/items`));
+}
+
+export async function getFunctionSlotLibraryItems() {
+  return readJsonResponse<{ items: Array<{ artifactId: string; sampleVideoId?: string | null; traceId?: string | null; counts?: Record<string, number> }> }>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library`),
+  );
+}
+
+export async function getFunctionSlotLibraryGraph(artifactId: string) {
+  return readJsonResponse<FunctionSlotLibraryGraph>(await fetch(`${API_BASE_URL}/api/function-slot-library/${encodeURIComponent(artifactId)}/graph`, { cache: "no-store" }));
 }
 
 export async function getLibraryItemDetail(sampleVideoId: string) {

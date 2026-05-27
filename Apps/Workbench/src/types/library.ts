@@ -62,3 +62,34 @@ export type LibraryItemDetail = LibraryItemSummary & {
     uri?: string | null;
   }>;
 };
+
+export type FunctionSlotGraphNode = {
+  id: string;
+  type: "libraryItem" | "slotInstance" | "atomInstance" | "binding" | "slotConcept" | string;
+  label: string;
+  group: string;
+  data: Record<string, unknown>;
+};
+
+export type FunctionSlotGraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label?: string | null;
+};
+
+export type FunctionSlotLibraryGraph = {
+  schemaVersion: "function_slot_library_graph.v1" | string;
+  artifactId: string;
+  sampleVideoId?: string | null;
+  traceId?: string | null;
+  nodes: FunctionSlotGraphNode[];
+  edges: FunctionSlotGraphEdge[];
+  summary: {
+    slotCount: number;
+    atomCount: number;
+    bindingCount: number;
+    conceptCount: number;
+  };
+};

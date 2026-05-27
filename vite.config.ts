@@ -14,6 +14,7 @@ export default defineConfig({
         fullAnalysis: "Apps/Workbench/full-analysis.html",
         debug: "Apps/Workbench/debug.html",
         library: "Apps/Workbench/library.html",
+        functionSlotGraph: "Apps/Workbench/function-slot-graph.html",
         threadpool: "Apps/Workbench/threadpool.html",
       },
     },
@@ -34,7 +35,8 @@ function workbenchRoutePlugin(): Plugin {
       server.middlewares.use((req, _res, next) => {
         const request = req as { url?: string };
         const pathname = String(request.url ?? "").split("?")[0];
-        if (isWorkbenchRoute(pathname)) request.url = "/index.html";
+        if (pathname === "/function-slot-graph" || pathname === "/function-slot-graph/") request.url = "/function-slot-graph.html";
+        else if (isWorkbenchRoute(pathname)) request.url = "/index.html";
         next();
       });
     },
@@ -42,5 +44,5 @@ function workbenchRoutePlugin(): Plugin {
 }
 
 function isWorkbenchRoute(pathname: string) {
-  return ["/full-analysis", "/full-analysis/", "/library", "/library/", "/threadpool", "/threadpool/"].includes(pathname);
+  return ["/full-analysis", "/full-analysis/", "/library", "/library/", "/function-slot-graph", "/function-slot-graph/", "/threadpool", "/threadpool/"].includes(pathname);
 }

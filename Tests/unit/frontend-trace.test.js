@@ -268,17 +268,28 @@ test("library page exposes local artifact index views", () => {
   const vite = read(root, "vite.config.ts");
   const libraryHtml = read(root, "Apps/Workbench/library.html");
   const libraryEntry = read(root, "Apps/Workbench/src/library.tsx");
+  const graphHtml = read(root, "Apps/Workbench/function-slot-graph.html");
+  const graphEntry = read(root, "Apps/Workbench/src/function-slot-graph.tsx");
+  const graphApp = read(root, "Apps/Workbench/src/components/FunctionSlotGraphApp.tsx");
   const libraryApp = read(root, "Apps/Workbench/src/components/LibraryApp.tsx");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
 
   assert.match(vite, /library: "Apps\/Workbench\/library\.html"/);
+  assert.match(vite, /functionSlotGraph: "Apps\/Workbench\/function-slot-graph\.html"/);
+  assert.match(vite, /"\/function-slot-graph"/);
+  assert.match(vite, /request\.url = "\/function-slot-graph\.html"/);
   assert.match(libraryHtml, /src="\/src\/library\.tsx"/);
+  assert.match(graphHtml, /src="\/src\/function-slot-graph\.tsx"/);
   assert.match(libraryEntry, /<LibraryApp \/>/);
+  assert.match(graphEntry, /<FunctionSlotGraphApp \/>/);
   assert.match(app, /setWorkbenchView\("library", setActiveView\)/);
   assert.match(app, /<LibraryApp embedded/);
   assert.match(api, /\/api\/library\/items/);
+  assert.match(api, /\/api\/function-slot-library\/\$\{encodeURIComponent\(artifactId\)\}\/graph/);
   assert.match(libraryApp, /处理库/);
+  assert.match(libraryApp, /\/function-slot-graph/);
+  assert.match(graphApp, /GraphCanvas/);
   assert.match(libraryApp, /loadLibraryItem/);
   assert.match(libraryApp, /libraryArtifactTree/);
 });

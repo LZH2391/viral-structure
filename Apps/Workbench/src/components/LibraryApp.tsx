@@ -103,6 +103,9 @@ function LibraryHeader({ items, status, updatedAt, onRefresh }: { items: Library
         <button className="tab-button active" type="button">
           处理库
         </button>
+        <button className="tab-button" type="button" onClick={() => window.location.assign("/function-slot-graph")}>
+          结构图谱
+        </button>
         <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
           ThreadPool
         </button>

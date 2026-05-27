@@ -99,6 +99,10 @@ test("function slot library API exposes export, list, project and delete routes"
         calls.push({ method: "projectLibraryArtifact", artifactId });
         return { projected: true, artifactId, sampleVideoId: "sample_library", slotCount: 2 };
       },
+      readLibraryArtifact: async (artifactId) => ({
+        sampleVideoId: "sample_library",
+        functionSlotAtomizationAnalysis: buildArtifact({ artifactId }).functionSlotAtomizationAnalysis,
+      }),
       deleteLibraryItem: async (artifactId) => {
         calls.push({ method: "deleteLibraryItem", artifactId });
         return { deleted: true, manifest: { artifactId, sampleVideoId: "sample_library" } };
@@ -116,12 +120,17 @@ test("function slot library API exposes export, list, project and delete routes"
   try {
     const exported = await makeRequest(server, "POST", "/api/sample-videos/sample_library/function-slot-library/export?mode=skip-existing");
     const listed = await makeRequest(server, "GET", "/api/function-slot-library");
+    const graph = await makeRequest(server, "GET", "/api/function-slot-library/artifact_function_slot/graph");
     const projected = await makeRequest(server, "POST", "/api/function-slot-library/artifact_function_slot/project");
     const deleted = await makeRequest(server, "DELETE", "/api/function-slot-library/artifact_function_slot");
 
     assert.equal(exported.statusCode, 200);
     assert.equal(listed.statusCode, 200);
     assert.equal(listed.body.items[0].traceId, "trace_library");
+    assert.equal(graph.statusCode, 200);
+    assert.equal(graph.body.schemaVersion, "function_slot_library_graph.v1");
+    assert.equal(graph.body.summary.slotCount, 2);
+    assert.ok(graph.body.nodes.some((node) => node.type === "slotInstance" && node.data.stableId === "artifact_function_slot:F1"));
     assert.equal(projected.body.projected, true);
     assert.equal(deleted.body.deleted, true);
     assert.deepEqual(calls, [
@@ -140,6 +149,7 @@ test("function slot library API returns safe 404 payloads for missing source and
       exportSampleArtifact: async () => null,
       listLibraryItems: async () => [],
       projectLibraryArtifact: async () => null,
+      readLibraryArtifact: async () => null,
       deleteLibraryItem: async () => null,
     },
     staticWorkbench: { handle: () => false },
@@ -153,10 +163,12 @@ test("function slot library API returns safe 404 payloads for missing source and
   server.unref();
   try {
     const exported = await makeRequest(server, "POST", "/api/sample-videos/missing/function-slot-library/export");
+    const graph = await makeRequest(server, "GET", "/api/function-slot-library/missing/graph");
     const projected = await makeRequest(server, "POST", "/api/function-slot-library/missing/project");
 
     assert.equal(exported.statusCode, 404);
     assert.equal(exported.body.code, "function_slot_library_source_missing");
+    assert.equal(graph.statusCode, 404);
     assert.equal(projected.statusCode, 404);
   } finally {
     await closeServer(server);
