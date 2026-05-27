@@ -20,8 +20,7 @@ const { readCapabilities } = require("./lib/http/capabilities");
 const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
-const { summarizeThreadConversation } = require("./lib/observability/thread-conversation");
-const { summarizeAgentTurnTimeline } = require("./lib/observability/agent-turn-timeline");
+const { handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
 const { createModuleRegistry } = require("./lib/modules/registry");
@@ -32,8 +31,6 @@ const { createFunctionSlotProjectionService } = require("./lib/function-slot-pro
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
-const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
-const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -480,202 +477,6 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   return sendJson(res, 200, result);
 }
 
-async function handleThreadPoolRead(res, scope, action, handlers = {}) {
-  const traceContext = createTraceContext(createTraceIds());
-  const startedAt = Date.now();
-  const activeLogger = handlers.logger ?? logger;
-  await activeLogger.writeStageLog({
-    traceContext,
-    stageName: "threadPool.status.read",
-    event: "stage.start",
-    inputSummary: { scope },
-  });
-  try {
-    const result = await action();
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.status.read",
-      event: "stage.end",
-      outputSummary: summarizeThreadPoolRead(scope, result),
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, result?.ok === false && result.unavailable ? 503 : 200, result);
-  } catch (error) {
-    const snapshot = await activeLogger.writeDebugSnapshot({
-      traceContext,
-      stageName: "threadPool.status.read",
-      reason: "threadpool_status_read_failed",
-      inputSummary: { scope },
-      debugPayload: { message: error instanceof Error ? error.message : "ThreadPool 读取失败" },
-    });
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.status.read",
-      event: "stage.fail",
-      errorSummary: { code: "threadpool_status_read_failed", message: "ThreadPool 状态读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_status_read_failed", message: "ThreadPool 状态读取失败" });
-  }
-}
-
-async function handleThreadDiscard(req, res, threadId, handlers = {}) {
-  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
-  return handleThreadPoolRead(res, "discard", () => (handlers.threadPool ?? threadPool).discardThread({ threadId, reason: body.reason || "manual-discard" }), handlers);
-}
-
-async function handleThreadConversation(res, threadId, handlers = {}) {
-  const traceContext = createTraceContext(createTraceIds());
-  const startedAt = Date.now();
-  const activeLogger = handlers.logger ?? logger;
-  const activeThreadPool = handlers.threadPool ?? threadPool;
-  const activeAppServer = handlers.appServer ?? appServer;
-  await activeLogger.writeStageLog({
-    traceContext,
-    stageName: "threadPool.conversation.read",
-    event: "stage.start",
-    inputSummary: { threadId },
-  });
-  try {
-    const allowedThread = await activeThreadPool.findAllowedThread(threadId);
-    if (!allowedThread?.ok) {
-      await activeLogger.writeStageLog({
-        traceContext,
-        stageName: "threadPool.conversation.read",
-        event: "stage.end",
-        outputSummary: {
-          threadId,
-          allowed: false,
-          statusCode: 403,
-          error: allowedThread?.error ?? null,
-          message: allowedThread?.message ?? null,
-        },
-        durationMs: Date.now() - startedAt,
-      });
-      return sendJson(res, 403, allowedThread);
-    }
-    const thread = await activeAppServer.readThread({ workspaceRoot: handlers.rootDir ?? rootDir, threadId });
-    const conversation = summarizeThreadConversation(thread.thread ?? {});
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.conversation.read",
-      event: "stage.end",
-      outputSummary: {
-        threadId: conversation.threadId,
-        turnCount: conversation.turns.length,
-        status: conversation.status ?? null,
-      },
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, 200, conversation);
-  } catch (error) {
-    const snapshot = await activeLogger.writeDebugSnapshot({
-      traceContext,
-      stageName: "threadPool.conversation.read",
-      reason: "threadpool_conversation_read_failed",
-      inputSummary: { threadId },
-      debugPayload: {
-        message: error instanceof Error ? error.message : "Thread conversation 读取失败",
-        detail: error?.debugPayload ?? null,
-      },
-    });
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.conversation.read",
-      event: "stage.fail",
-      errorSummary: { code: "threadpool_conversation_read_failed", message: "Thread conversation 读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_conversation_read_failed", message: "Thread conversation 读取失败" });
-  }
-}
-
-async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
-  const traceContext = createTraceContext(createTraceIds());
-  const startedAt = Date.now();
-  const activeLogger = handlers.logger ?? logger;
-  const activeThreadPool = handlers.threadPool ?? threadPool;
-  const activeAppServer = handlers.appServer ?? appServer;
-  await activeLogger.writeStageLog({
-    traceContext,
-    stageName: "threadPool.turnTimeline.read",
-    event: "stage.start",
-    inputSummary: { threadId, turnId },
-  });
-  try {
-    const allowedThread = await activeThreadPool.findAllowedThread(threadId);
-    if (!allowedThread?.ok) {
-      await activeLogger.writeStageLog({
-        traceContext,
-        stageName: "threadPool.turnTimeline.read",
-        event: "stage.end",
-        outputSummary: {
-          threadId,
-          turnId,
-          allowed: false,
-          statusCode: 403,
-          error: allowedThread?.error ?? null,
-        },
-        durationMs: Date.now() - startedAt,
-      });
-      return sendJson(res, 403, allowedThread);
-    }
-    const thread = await activeAppServer.readThread({ workspaceRoot: handlers.rootDir ?? rootDir, threadId });
-    const timeline = summarizeAgentTurnTimeline(thread.thread ?? {}, turnId);
-    if (!timeline) {
-      await activeLogger.writeStageLog({
-        traceContext,
-        stageName: "threadPool.turnTimeline.read",
-        event: "stage.end",
-        outputSummary: { threadId, turnId, found: false },
-        durationMs: Date.now() - startedAt,
-      });
-      return sendJson(res, 404, {
-        error: "thread_turn_not_found",
-        code: "thread_turn_not_found",
-        message: "未找到对应 turn",
-      });
-    }
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.turnTimeline.read",
-      event: "stage.end",
-      outputSummary: {
-        threadId: timeline.threadId,
-        turnId: timeline.turnId,
-        itemCount: timeline.items.length,
-        status: timeline.status,
-      },
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, 200, timeline);
-  } catch (error) {
-    const snapshot = await activeLogger.writeDebugSnapshot({
-      traceContext,
-      stageName: "threadPool.turnTimeline.read",
-      reason: "threadpool_turn_timeline_read_failed",
-      inputSummary: { threadId, turnId },
-      debugPayload: {
-        message: error instanceof Error ? error.message : "Thread turn timeline 读取失败",
-        detail: error?.debugPayload ?? null,
-      },
-    });
-    await activeLogger.writeStageLog({
-      traceContext,
-      stageName: "threadPool.turnTimeline.read",
-      event: "stage.fail",
-      errorSummary: { code: "threadpool_turn_timeline_read_failed", message: "Thread turn timeline 读取失败", retryable: true, debugSnapshotUri: snapshot.uri },
-      durationMs: Date.now() - startedAt,
-    });
-    return sendJson(res, 503, { ok: false, unavailable: true, error: "threadpool_turn_timeline_read_failed", message: "Thread turn timeline 读取失败" });
-  }
-}
-
-async function handleOwnerLeaseRelease(req, res, handlers = {}) {
-  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
-  return handleThreadPoolRead(res, "release-owner", () => (handlers.threadPool ?? threadPool).releaseOwnerLeases(body.ownerId || body.owner_id), handlers);
-}
-
 async function handleLibraryItems(res, handlers = {}) {
   return sendJson(res, 200, { items: await (handlers.artifactIndex ?? artifactIndex).listItems() });
 }
@@ -718,13 +519,6 @@ async function handleDebugTraceDetail(res, traceId, handlers = {}) {
   const trace = await (handlers.readDebugTraceDetailImpl ?? readDebugTraceDetail)(activeStore.runtimeRoot, traceId);
   if (!trace) return notFound(res);
   return sendJson(res, 200, trace);
-}
-
-function summarizeThreadPoolRead(scope, result) {
-  if (!result?.ok) return { scope, unavailable: Boolean(result?.unavailable), error: result?.error ?? null };
-  if (scope === "roles") return { scope, roleCount: result.roles?.length ?? 0, warmingRoles: result.health?.warming_roles ?? [] };
-  if (scope === "role-status") return { scope, role: result.role, idle: result.counts?.idle ?? 0, minIdle: result.minIdle ?? 0, leased: result.counts?.leased ?? 0 };
-  return { scope, readyForLeases: result.ready_for_leases ?? result.readyForLeases ?? null, recovering: result.recovering ?? null };
 }
 
 if (require.main === module) {
