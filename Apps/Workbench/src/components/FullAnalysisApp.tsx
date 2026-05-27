@@ -8,7 +8,7 @@ import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
 import { readFullAnalysisDraft, writeFullAnalysisActiveSampleDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
 
-type ResultTab = "shot" | "script" | "rhythm" | "packaging";
+type ResultTab = "shot" | "script" | "rhythm" | "packaging" | "atomization";
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
 export type FullAnalysisWorkbenchActiveSample = {
@@ -22,8 +22,8 @@ export type FullAnalysisStageTarget = WorkflowStageState["key"];
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
 const NON_EXECUTING_RUN_STATUS = new Set(["processed", "failed", "partial_failed", "cache_waiting"]);
-const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "aggregate"];
-const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure"];
+const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization", "aggregate"];
+const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization"];
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
@@ -41,6 +41,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [frameSampleRate, setFrameSampleRate] = useState(10);
+  const [enableFunctionSlotAtomization, setEnableFunctionSlotAtomization] = useState(true);
   const [refreshMode, setRefreshMode] = useState(false);
   const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
@@ -248,6 +249,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
         enableAudioSeparation: true,
         enableSubtitleRecognition: true,
         enableAudioFeatureAnalysis: true,
+        enableFunctionSlotAtomization,
         cacheDecision,
       });
       if (token !== operationTokenRef.current) return;
@@ -261,7 +263,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     } finally {
       setIsStarting(false);
     }
-  }, [frameSampleRate, startPolling]);
+  }, [enableFunctionSlotAtomization, frameSampleRate, startPolling]);
 
   const handleUpload = useCallback(async (file: File) => {
     const token = operationTokenRef.current + 1;
@@ -395,6 +397,15 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
                 />
                 <span>重新生成</span>
               </label>
+              <label className="option-toggle">
+                <input
+                  type="checkbox"
+                  checked={enableFunctionSlotAtomization}
+                  disabled={isStarting || isRunExecuting(run)}
+                  onChange={(event) => setEnableFunctionSlotAtomization(event.currentTarget.checked)}
+                />
+                <span>原子化</span>
+              </label>
             </div>
           </section>
           <SplitResizeHandle
@@ -449,6 +460,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
               <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} />
               <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} />
               <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} />
+              <TabButton active={activeTab === "atomization"} label="原子化" onClick={() => setActiveTab("atomization")} />
             </div>
             {errorText ? <div className="detail-hint failure-hint">{errorText}</div> : null}
             <ResultPanel tab={activeTab} artifact={artifact} />
@@ -595,6 +607,15 @@ function ResultPanel({ tab, artifact }: { tab: ResultTab; artifact: SampleArtifa
       title: section.label,
       time: `${formatSecondsCompact(section.start)} - ${formatSecondsCompact(section.end)}`,
       body: section.fields.map((field) => `${field.label}: ${field.value}`).join(" / ") || "无字段",
+    }))} />;
+  }
+  if (tab === "atomization") {
+    const slots = artifact.functionSlotAtomizationAnalysis?.slotMap?.slots ?? [];
+    return <ResultList empty="原子化完成后会展示功能槽位。" items={slots.map((slot) => ({
+      id: slot.slotId,
+      title: slot.slotName ?? slot.slotId,
+      time: slot.slotType ?? "slot",
+      body: slot.persuasionTask ?? slot.viewerStateAfter ?? "无摘要",
     }))} />;
   }
   const blocks = artifact.packagingStructureAnalysis?.packagingBlocks ?? [];

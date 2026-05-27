@@ -209,7 +209,8 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
   assert.equal(await registry.resolveAnalysisCacheDecision({ cacheKind: "shot_boundary", jobId: "job_2", decision: "reuse" }), null);
   const atomization = registry.getByAnalysisId("function-slot-atomization");
   assert.equal(atomization.artifact.key, "functionSlotAtomizationAnalysis");
-  assert.equal(atomization.supportsCacheReuse, false);
+  assert.equal(atomization.cacheKind, "function_slot_atomization");
+  assert.equal(atomization.supportsCacheReuse, true);
   assert.throws(
     () => registry.startAnalysis({ analysisId: "missing", sampleVideoId: "sample_1", body: {} }),
     (error) => error.statusCode === 404 && error.code === "module_not_found",

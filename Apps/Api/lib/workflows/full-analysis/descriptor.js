@@ -7,7 +7,8 @@ const FULL_ANALYSIS_WORKFLOW_DESCRIPTOR = {
     { key: "scriptSegment", kind: "module", moduleId: "script-segments", after: ["shotBoundary"], parallelGroup: "structure-analysis", rerunnable: true },
     { key: "rhythmStructure", kind: "module", moduleId: "rhythm-structure", after: ["shotBoundary"], parallelGroup: "structure-analysis", rerunnable: true },
     { key: "packagingStructure", kind: "module", moduleId: "packaging-structure", after: ["shotBoundary"], parallelGroup: "structure-analysis", rerunnable: true },
-    { key: "aggregate", kind: "builtin", stageName: "workflow.aggregate", label: "汇总", artifactKey: "sampleVideo", after: ["structure-analysis"] },
+    { key: "functionSlotAtomization", kind: "module", moduleId: "function-slot-atomization", after: ["structure-analysis"], rerunnable: true, optionalFlag: "enableFunctionSlotAtomization" },
+    { key: "aggregate", kind: "builtin", stageName: "workflow.aggregate", label: "汇总", artifactKey: "sampleVideo", after: ["functionSlotAtomization"] },
   ],
   parallelGroups: {
     "structure-analysis": ["scriptSegment", "rhythmStructure", "packagingStructure"],

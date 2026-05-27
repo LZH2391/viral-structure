@@ -378,15 +378,18 @@ export function WorkbenchApp() {
     const scriptJob = stageJob("scriptSegment");
     const rhythmJob = stageJob("rhythmStructure");
     const packagingJob = stageJob("packagingStructure");
+    const atomizationJob = stageJob("functionSlotAtomization");
     shotBoundaryFlow.setAgentJob(shotJob);
     scriptSegmentFlow.setJob(scriptJob);
     rhythmStructureFlow.setJob(rhythmJob);
     packagingStructureFlow.setJob(packagingJob);
+    functionSlotAtomizationFlow.setJob(atomizationJob);
     writeActiveAgentJob(toActiveJobDraft(shotJob));
     writeActiveAnalysisJob("scriptSegment", toActiveJobDraft(scriptJob));
     writeActiveAnalysisJob("rhythmStructure", toActiveJobDraft(rhythmJob));
     writeActiveAnalysisJob("packagingStructure", toActiveJobDraft(packagingJob));
-  }, [packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow, state.activeSampleRevision]);
+    if (atomizationJob) writeActiveAnalysisJob("functionSlotAtomization", toActiveJobDraft(atomizationJob));
+  }, [functionSlotAtomizationFlow, packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow, state.activeSampleRevision]);
 
   const handleOpenWorkbenchStage = useCallback((stageKey: FullAnalysisStageTarget) => {
     const tab = fullAnalysisStageToPropertyTab(stageKey);

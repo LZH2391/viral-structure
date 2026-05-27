@@ -36,7 +36,7 @@ export async function uploadSampleVideo(file: File, options: { frameSampleRateFp
   return readJsonResponse<UploadSampleResponse>(response);
 }
 
-export async function startFullAnalysisRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+export async function startFullAnalysisRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; enableFunctionSlotAtomization?: boolean; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("workspaceId", WORKSPACE_ID);
@@ -44,6 +44,7 @@ export async function startFullAnalysisRun(file: File, options: { frameSampleRat
   formData.append("enableAudioSeparation", String(options.enableAudioSeparation ?? true));
   formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
   formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
+  formData.append("enableFunctionSlotAtomization", String(options.enableFunctionSlotAtomization ?? true));
   formData.append("cacheDecision", options.cacheDecision ?? "ask");
   const response = await fetch(`${API_BASE_URL}/api/workflows/full-analysis/runs`, {
     method: "POST",

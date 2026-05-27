@@ -39,6 +39,9 @@ function createFullAnalysisWorkflowService({
       workflowKey: WORKFLOW_KEY,
       workflowVersion: WORKFLOW_VERSION,
       cacheDecision,
+      options: {
+        enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
+      },
       status: "running",
       traceId: traceContext.traceId,
       runId: traceContext.runId,
@@ -188,14 +191,20 @@ function createFullAnalysisWorkflowService({
     const moduleStage = findModuleStage(moduleStages, stageKey);
     if (moduleStage) {
       const artifact = await readArtifact(run.sampleVideoId);
+      if (stageKey === "functionSlotAtomization" && run.options?.enableFunctionSlotAtomization === false) {
+        return {
+          terminal: true,
+          sampleVideoId: run.sampleVideoId,
+          artifactId: null,
+          outputSummary: { skipped: true, reason: "disabled" },
+        };
+      }
       return moduleRegistry.startModule({
         moduleId: moduleStage.moduleId,
         sampleVideoId: run.sampleVideoId,
         body: {
           cacheDecision: input.cacheDecision ?? run.cacheDecision ?? "ask",
-          dependencies: {
-            shotBoundaryArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
-          },
+          dependencies: buildModuleDependencies(stageKey, artifact),
         },
       });
     }
@@ -289,11 +298,22 @@ function createFullAnalysisWorkflowService({
     const latest = workflowRunStore.getRun(run.workflowRunId);
     if (!latest) return;
     const analysesDone = structureAnalysisKeys.every((key) => ["processed", "failed"].includes(findStage(latest, key).status));
-    const aggregate = findStage(latest, "aggregate");
-    if (analysesDone && aggregate.status === "pending") {
-      await startStage(latest.workflowRunId, "aggregate", {}, {
+    const atomization = findStage(latest, "functionSlotAtomization");
+    if (analysesDone && atomization.status === "pending") {
+      await startStage(latest.workflowRunId, "functionSlotAtomization", { cacheDecision }, {
         runId: latest.runId,
         traceId: latest.traceId,
+        stageId: `stage_${randomUUID()}`,
+      });
+      return;
+    }
+    const afterAtomization = workflowRunStore.getRun(run.workflowRunId);
+    if (!afterAtomization) return;
+    const aggregate = findStage(afterAtomization, "aggregate");
+    if (["processed", "failed"].includes(findStage(afterAtomization, "functionSlotAtomization").status) && aggregate.status === "pending") {
+      await startStage(latest.workflowRunId, "aggregate", {}, {
+        runId: afterAtomization.runId,
+        traceId: afterAtomization.traceId,
         stageId: `stage_${randomUUID()}`,
       });
     }
@@ -398,7 +418,7 @@ function createFullAnalysisWorkflowService({
       return;
     }
     if (aggregate.status !== "processed") return;
-    const anyFailed = structureAnalysisKeys.some((key) => findStage(run, key).status === "failed");
+    const anyFailed = [...structureAnalysisKeys, "functionSlotAtomization"].some((key) => findStage(run, key).status === "failed");
     const completed = workflowRunStore.updateRun(run.workflowRunId, {
       status: anyFailed ? "partial_failed" : "processed",
       currentStageKeys: [],
@@ -525,6 +545,20 @@ function buildAggregateSummary(artifact) {
     scriptSegmentCount: artifact?.scriptSegmentAnalysis?.segments?.length ?? 0,
     rhythmSectionCount: artifact?.rhythmStructureAnalysis?.sections?.length ?? 0,
     packagingBlockCount: artifact?.packagingStructureAnalysis?.packagingBlocks?.length ?? 0,
+    functionSlotCount: artifact?.functionSlotAtomizationAnalysis?.slotMap?.slots?.length ?? 0,
+  };
+}
+
+function buildModuleDependencies(stageKey, artifact) {
+  if (stageKey === "functionSlotAtomization") {
+    return {
+      scriptSegmentArtifactId: artifact?.scriptSegmentAnalysis?.artifactId ?? null,
+      rhythmStructureArtifactId: artifact?.rhythmStructureAnalysis?.artifactId ?? null,
+      packagingStructureArtifactId: artifact?.packagingStructureAnalysis?.artifactId ?? null,
+    };
+  }
+  return {
+    shotBoundaryArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
   };
 }
 

@@ -45,14 +45,34 @@ test("full analysis sync keeps atomization job independent and labels trace laye
   assert.match(workflowTypes, /"cache_waiting"/);
   assert.match(app, /activeSampleRevision/);
   assert.match(app, /activeSampleSource/);
-  assert.doesNotMatch(app, /functionSlotAtomizationFlow\.setJob\(atomizationJob\)/);
-  assert.doesNotMatch(app, /writeActiveAnalysisJob\("functionSlotAtomization", toActiveJobDraft\(atomizationJob\)\)/);
+  assert.match(app, /functionSlotAtomizationFlow\.setJob\(atomizationJob\)/);
+  assert.match(app, /if \(atomizationJob\) writeActiveAnalysisJob\("functionSlotAtomization", toActiveJobDraft\(atomizationJob\)\)/);
   assert.match(full, /workflow trace/);
   assert.match(full, /child trace/);
   assert.match(full, /operationTokenRef/);
   assert.match(full, /NON_EXECUTING_RUN_STATUS/);
   assert.match(draft, /activeSampleRevision/);
   assert.match(draft, /activeSampleSource/);
+});
+
+test("full analysis includes optional atomization stage and cache surface", () => {
+  const root = path.resolve(__dirname, "../..");
+  const full = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+  const descriptor = read(root, "Apps/Api/lib/workflows/full-analysis/descriptor.js");
+  const atomizationDefinition = read(root, "Apps/Api/lib/function-slot-atomization/analysis-definition.js");
+  const atomizationCache = read(root, "Apps/Api/lib/function-slot-atomization/cache.js");
+
+  assert.match(full, /enableFunctionSlotAtomization/);
+  assert.match(full, /functionSlotAtomization/);
+  assert.match(full, /label="原子化"/);
+  assert.match(api, /enableFunctionSlotAtomization/);
+  assert.match(descriptor, /moduleId: "function-slot-atomization"/);
+  assert.match(descriptor, /optionalFlag: "enableFunctionSlotAtomization"/);
+  assert.match(atomizationDefinition, /cacheKind: "function_slot_atomization"/);
+  assert.match(atomizationDefinition, /supportsCacheReuse: true/);
+  assert.match(atomizationCache, /function_slot_atomization/);
+  assert.match(atomizationCache, /sourceScriptSegmentArtifactId/);
 });
 
 test("analysis cache decision keeps runId separate from traceId", () => {

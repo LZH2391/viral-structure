@@ -36,7 +36,7 @@ function createFunctionSlotAtomizationAnalysisDefinition() {
     serviceKey: "functionSlotAtomizationService",
     executorKind: "role-service",
     legacyPathSegment: "function-slot-atomization",
-    cacheKind: null,
+    cacheKind: "function_slot_atomization",
     route: "/api/sample-videos/:sampleVideoId/analyses/function-slot-atomization",
     legacyRoute: "/api/sample-videos/:sampleVideoId/function-slot-atomization",
     dependencies: DEPENDENCIES,
@@ -88,8 +88,8 @@ function createFunctionSlotAtomizationAnalysisDefinition() {
       prepareInput,
       buildContentFingerprint: buildFunctionSlotAtomizationContentFingerprint,
       resolveSkillHash,
-      cacheKind: null,
-      cacheDecisionInvalidJobMessage: "原子化分析暂不支持缓存选择",
+      cacheKind: "function_slot_atomization",
+      cacheDecisionInvalidJobMessage: "原子化缓存选择无效",
       assertFreshArtifact: ({ artifact, options: contextOptions }) => assertExpectedThreeArtifacts({
         latestArtifact: artifact,
         context: {
@@ -106,10 +106,14 @@ function createFunctionSlotAtomizationAnalysisDefinition() {
         expectedRhythmStructureArtifactId: contextOptions.expectedRhythmStructureArtifactId ?? null,
         expectedPackagingStructureArtifactId: contextOptions.expectedPackagingStructureArtifactId ?? null,
       }),
-      readCacheContextPatch: () => ({}),
+      readCacheContextPatch: (cachePrompt) => ({
+        expectedScriptSegmentArtifactId: cachePrompt?.dependencies?.scriptSegmentArtifactId ?? cachePrompt?.expectedScriptSegmentArtifactId ?? null,
+        expectedRhythmStructureArtifactId: cachePrompt?.dependencies?.rhythmStructureArtifactId ?? cachePrompt?.expectedRhythmStructureArtifactId ?? null,
+        expectedPackagingStructureArtifactId: cachePrompt?.dependencies?.packagingStructureArtifactId ?? cachePrompt?.expectedPackagingStructureArtifactId ?? null,
+      }),
       codedError,
     }),
-    supportsCacheReuse: false,
+    supportsCacheReuse: true,
   });
 }
 
@@ -117,7 +121,7 @@ function buildFunctionSlotAtomizationStartOptions({ sampleVideoId, body = {} }) 
   const dependencies = body?.dependencies && typeof body.dependencies === "object" ? body.dependencies : {};
   return {
     sampleVideoId,
-    cacheDecision: "refresh",
+    cacheDecision: body?.cacheDecision === "reuse" || body?.cacheDecision === "refresh" ? body.cacheDecision : "ask",
     expectedScriptSegmentArtifactId: dependencies.scriptSegmentArtifactId ?? body?.expectedScriptSegmentArtifactId ?? null,
     expectedRhythmStructureArtifactId: dependencies.rhythmStructureArtifactId ?? body?.expectedRhythmStructureArtifactId ?? null,
     expectedPackagingStructureArtifactId: dependencies.packagingStructureArtifactId ?? body?.expectedPackagingStructureArtifactId ?? null,

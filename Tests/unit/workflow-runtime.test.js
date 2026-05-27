@@ -40,6 +40,7 @@ function createHarness() {
     "script-segments": { moduleId: "script-segments", ui: { stageKind: "scriptSegment", stageId: "script.segment.analyze", displayName: "脚本" }, artifact: { key: "scriptSegmentAnalysis" } },
     "rhythm-structure": { moduleId: "rhythm-structure", ui: { stageKind: "rhythmStructure", stageId: "rhythm.structure.analyze", displayName: "节奏" }, artifact: { key: "rhythmStructureAnalysis" } },
     "packaging-structure": { moduleId: "packaging-structure", ui: { stageKind: "packagingStructure", stageId: "packaging.structure.analyze", displayName: "包装" }, artifact: { key: "packagingStructureAnalysis" } },
+    "function-slot-atomization": { moduleId: "function-slot-atomization", ui: { stageKind: "functionSlotAtomization", stageId: "function.slot.atomization.analyze", displayName: "原子化" }, artifact: { key: "functionSlotAtomizationAnalysis" } },
   };
   const moduleRegistry = {
     getByModuleId: (moduleId) => moduleDefinitions[moduleId] ?? null,
@@ -78,6 +79,7 @@ test("full analysis workflow advances upload, shot, parallel analyses, and aggre
   await workflow.advance(started.workflowRunId);
   await workflow.advance(started.workflowRunId);
   await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
 
   const run = workflow.get(started.workflowRunId);
   assert.equal(run.status, "processed");
@@ -89,6 +91,7 @@ test("full analysis workflow advances upload, shot, parallel analyses, and aggre
     ["scriptSegment", "processed"],
     ["rhythmStructure", "processed"],
     ["packagingStructure", "processed"],
+    ["functionSlotAtomization", "processed"],
     ["aggregate", "processed"],
   ]);
   assert.ok(stageLogs.some((entry) => entry.stageName === "workflow.aggregate" && entry.event === "stage.end"));
@@ -99,8 +102,29 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
   assert.deepEqual(FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.parallelGroups["structure-analysis"], ["scriptSegment", "rhythmStructure", "packagingStructure"]);
   assert.deepEqual(
     FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
-    ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure"],
+    ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure", "function-slot-atomization"],
   );
+});
+
+test("full analysis workflow can skip atomization when disabled", async () => {
+  const { workflow } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: { enableFunctionSlotAtomization: "false" },
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+
+  const run = workflow.get(started.workflowRunId);
+  const atomization = run.stages.find((stage) => stage.key === "functionSlotAtomization");
+  assert.equal(run.status, "processed");
+  assert.equal(atomization.status, "processed");
+  assert.equal(atomization.outputSummary.skipped, true);
 });
 
 test("full analysis workflow exposes cache waiting as recoverable run state", async () => {
@@ -216,6 +240,9 @@ function attachAnalysis(artifact, analysisId) {
   }
   if (analysisId === "rhythm-structure") {
     return { ...artifact, rhythmStructureAnalysis: { artifactId: "artifact_rhythm", parentArtifactId: "artifact_shot", type: "rhythm-structure-analysis", sections: [{ sectionId: "rhythm_1", start: 0, end: 10 }] } };
+  }
+  if (analysisId === "function-slot-atomization") {
+    return { ...artifact, functionSlotAtomizationAnalysis: { artifactId: "artifact_atomization", parentArtifactId: "artifact_packaging", type: "function-slot-atomization-analysis", slotMap: { slots: [{ slotId: "slot_1", label: "开场", slotType: "hook" }] } } };
   }
   return { ...artifact, packagingStructureAnalysis: { artifactId: "artifact_packaging", parentArtifactId: "artifact_shot", type: "packaging-structure-analysis", packagingBlocks: [{ blockId: "pack_1", start: 0, end: 10 }] } };
 }
