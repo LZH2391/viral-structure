@@ -4,6 +4,8 @@
 @import url("./styles/resource-panel.css");
 @import url("./styles/preview-panel.css");
 @import url("./styles/property-panel.css");
+@import url("./styles/property-panel-agent.css");
+@import url("./styles/property-panel-rhythm.css");
 @import url("./styles/timeline.css");
 @import url("./styles/timeline-controls.css");
 @import url("./styles/debug.css");

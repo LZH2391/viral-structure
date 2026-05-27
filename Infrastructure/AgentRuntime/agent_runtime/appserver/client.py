@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import atexit
-from copy import deepcopy
-import subprocess
 import threading
-import time
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -18,11 +14,11 @@ from .events import (
     is_non_terminal_turn_status,
 )
 from .prompt import build_review_prompt
-from .shared_client import close_shared_client, get_shared_client, start_shared_client
 from .transport_base import AppServerTransport, TransportEvent
 from .transport_stdio import StdioTransport, StdioTransportError
 from .transport_ws import WebSocketTransport, WebSocketTransportError
-from ..storage import file_lock, read_json, write_json
+from .token_usage import AppServerTokenUsageMixin
+from .tool_handler import AppServerToolHandlerMixin
 from .turn_result import AppServerTurnResultMixin
 
 
@@ -54,7 +50,7 @@ ReviewTurnResult = TurnRunResult
 # if not _is_non_terminal_turn_status(status):
 #     self._turn_active_thread_messages.pop(turn_id, None)
 
-class AppServerSessionClient(AppServerTurnResultMixin):
+class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin, AppServerTurnResultMixin):
     def __init__(
         self,
         workspace_root: str | Path,
@@ -440,111 +436,6 @@ class AppServerSessionClient(AppServerTurnResultMixin):
             if thread_id and source_thread_id:
                 self._clone_thread_token_usage(source_thread_id, thread_id)
 
-    def _merge_cached_turn_token_usage(self, thread: dict[str, Any], *, persist: bool = False) -> None:
-        thread_id = str(thread.get("id") or "")
-        turns = thread.get("turns")
-        if not thread_id or not isinstance(turns, list):
-            return
-        with self._state_lock:
-            cached = deepcopy(self._thread_token_usage.get(thread_id, {}))
-            cached_by_turn = dict(cached.get("turns") or {})
-            latest_usage = self._normalize_thread_token_usage(
-                thread.get("last_token_usage") or thread.get("lastTokenUsage") or thread.get("tokenUsage")
-            ) or cached.get("latest")
-            changed = False
-            for turn in turns:
-                if not isinstance(turn, dict):
-                    continue
-                turn_id = str(turn.get("id") or "")
-                if not turn_id:
-                    continue
-                existing_usage = self._normalize_turn_last_token_usage(turn)
-                if existing_usage is not None:
-                    if cached_by_turn.get(turn_id) != existing_usage:
-                        cached_by_turn[turn_id] = existing_usage
-                        changed = True
-                    latest_usage = existing_usage
-                    continue
-                cached_usage = cached_by_turn.get(turn_id)
-                if cached_usage is None:
-                    continue
-                turn.update(dict(cached_usage))
-                latest_usage = cached_usage
-            if latest_usage is not None and cached.get("latest") != latest_usage:
-                changed = True
-            if persist and (changed or thread_id not in self._thread_token_usage):
-                self._thread_token_usage[thread_id] = {
-                    "turns": cached_by_turn,
-                    "latest": deepcopy(latest_usage),
-                }
-                self._persist_thread_token_usage()
-
-    def _upsert_thread_token_usage(self, thread_id: str, turn_id: str, token_usage: dict[str, Any]) -> None:
-        with self._state_lock:
-            cache = self._thread_token_usage.setdefault(thread_id, {"turns": {}, "latest": None})
-            turns = cache.setdefault("turns", {})
-            if turns.get(turn_id) != token_usage:
-                turns[turn_id] = deepcopy(token_usage)
-            if cache.get("latest") != token_usage:
-                cache["latest"] = deepcopy(token_usage)
-            self._persist_thread_token_usage()
-
-    def _clone_thread_token_usage(self, source_thread_id: str, thread_id: str) -> None:
-        with self._state_lock:
-            source = self._thread_token_usage.get(source_thread_id)
-            if not source:
-                return
-            self._thread_token_usage[thread_id] = {
-                "turns": deepcopy(source.get("turns") or {}),
-                "latest": deepcopy(source.get("latest")),
-            }
-            self._persist_thread_token_usage()
-
-    def _load_thread_token_usage(self) -> dict[str, dict[str, Any]]:
-        try:
-            payload = read_json(self._thread_token_usage_path)
-        except FileNotFoundError:
-            return {}
-        except Exception:
-            return {}
-        if not isinstance(payload, dict):
-            return {}
-        cache: dict[str, dict[str, Any]] = {}
-        for thread_id, entry in payload.items():
-            if not isinstance(entry, dict):
-                continue
-            turns = entry.get("turns")
-            latest = entry.get("latest")
-            if not isinstance(turns, dict):
-                turns = {}
-            normalized_turns: dict[str, dict[str, Any]] = {}
-            for turn_id, usage in turns.items():
-                normalized_usage = self._normalize_persisted_thread_token_usage(usage)
-                if normalized_usage is not None:
-                    normalized_turns[str(turn_id)] = normalized_usage
-            normalized_latest = self._normalize_persisted_thread_token_usage(latest)
-            if normalized_latest is None and normalized_turns:
-                normalized_latest = deepcopy(next(reversed(list(normalized_turns.values()))))
-            if normalized_turns or normalized_latest is not None:
-                cache[str(thread_id)] = {
-                    "turns": normalized_turns,
-                    "latest": normalized_latest,
-                }
-        return cache
-
-    def _persist_thread_token_usage(self) -> None:
-        try:
-            with file_lock(self._thread_token_usage_lock_path):
-                write_json(self._thread_token_usage_path, self._thread_token_usage)
-        except Exception:
-            return
-
-    @staticmethod
-    def _normalize_persisted_thread_token_usage(payload: Any) -> dict[str, Any] | None:
-        if isinstance(payload, dict) and ("last_token_usage" in payload or "total_token_usage" in payload):
-            return deepcopy(payload)
-        return AppServerSessionClient._normalize_thread_token_usage(payload)
-
     def validate_thread(self, thread_id: str) -> bool:
         try:
             self.read_thread(thread_id, include_turns=False)
@@ -703,213 +594,14 @@ class AppServerSessionClient(AppServerTurnResultMixin):
         except (StdioTransportError, WebSocketTransportError) as exc:
             raise AppServerConnectionError(str(exc)) from exc
 
-    def _handle_tool_call_request(self, params: Mapping[str, Any]) -> dict[str, Any]:
-        tool_name = str(params.get("tool") or "")
-        if tool_name == "shell_command":
-            return self._run_shell_command(params.get("arguments"))
-        return {
-            "contentItems": [{"type": "inputText", "text": f"Unsupported tool: {tool_name}"}],
-            "success": False,
-        }
-
-    def _run_shell_command(self, arguments: Any) -> dict[str, Any]:
-        if not isinstance(arguments, Mapping):
-            return self._tool_failure("shell_command arguments must be an object")
-        command = str(arguments.get("command") or "").strip()
-        if not command:
-            return self._tool_failure("shell_command requires a non-empty command")
-        workdir = Path(str(arguments.get("workdir") or self.workspace_root)).resolve()
-        timeout_ms_raw = arguments.get("timeout_ms")
-        timeout_seconds = self.tool_timeout_seconds
-        if timeout_ms_raw is not None:
-            try:
-                timeout_seconds = max(float(timeout_ms_raw) / 1000.0, 0.1)
-            except (TypeError, ValueError):
-                timeout_seconds = self.request_timeout_seconds
-        started_at = time.perf_counter()
-        try:
-            powershell_command = self._build_powershell_tool_command(command)
-            completed = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", powershell_command],
-                cwd=str(workdir),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=timeout_seconds,
-            )
-            duration = time.perf_counter() - started_at
-            output = (completed.stdout or "") + (completed.stderr or "")
-            text = f"Exit code: {completed.returncode}\nWall time: {duration:.1f} seconds\nOutput:\n{output}"
-            return {
-                "contentItems": [{"type": "inputText", "text": text}],
-                "success": completed.returncode == 0,
-            }
-        except subprocess.TimeoutExpired as exc:
-            duration = time.perf_counter() - started_at
-            output = ""
-            if isinstance(exc.stdout, str):
-                output += exc.stdout
-            if isinstance(exc.stderr, str):
-                output += exc.stderr
-            text = f"Exit code: 124\nWall time: {duration:.1f} seconds\nOutput:\n{output}\nCommand timed out."
-            return {
-                "contentItems": [{"type": "inputText", "text": text}],
-                "success": False,
-            }
-        except Exception as exc:  # pragma: no cover - defensive
-            return self._tool_failure(f"{type(exc).__name__}: {exc}")
-
-    @staticmethod
-    def _build_powershell_tool_command(command: str) -> str:
-        return "\n".join(
-            [
-                "$global:LASTEXITCODE = $null",
-                command,
-                "$__codexCommandSuccess = $?",
-                "$__codexNativeExitCode = $global:LASTEXITCODE",
-                "if ($null -ne $__codexNativeExitCode) { exit $__codexNativeExitCode }",
-                "if ($__codexCommandSuccess) { exit 0 }",
-                "exit 1",
-            ]
-        )
-
-    @staticmethod
-    def _tool_failure(message: str) -> dict[str, Any]:
-        return {
-            "contentItems": [{"type": "inputText", "text": message}],
-            "success": False,
-        }
 
 
 AppServerReviewerClient = AppServerSessionClient
 
-
-def start_shared_app_server_client(
-    *,
-    workspace_root: str | Path,
-    transport_mode: str = "ws",
-    transport_url: str | None = None,
-    codex_command: Sequence[str] | None = None,
-    service_name: str = "agent_runtime_app_server",
-    model: str | None = None,
-    base_env: Mapping[str, str] | None = None,
-    request_timeout_seconds: float = 15.0,
-    turn_timeout_seconds: float = 60.0,
-    init_timeout_seconds: float = 45.0,
-    tool_timeout_seconds: float = 15.0,
-) -> AppServerSessionClient:
-    try:
-        return start_shared_client(
-            client_factory=AppServerSessionClient,
-            default_codex_command=DEFAULT_CODEX_APP_SERVER_COMMAND,
-            workspace_root=workspace_root,
-            transport_mode=transport_mode,
-            transport_url=transport_url,
-            codex_command=codex_command,
-            service_name=service_name,
-            model=model,
-            base_env=base_env,
-            request_timeout_seconds=request_timeout_seconds,
-            turn_timeout_seconds=turn_timeout_seconds,
-            init_timeout_seconds=init_timeout_seconds,
-            tool_timeout_seconds=tool_timeout_seconds,
-        )
-    except RuntimeError as exc:
-        raise AppServerConnectionError(str(exc)) from exc
-
-
-def get_shared_app_server_client() -> AppServerSessionClient:
-    try:
-        return get_shared_client()
-    except RuntimeError as exc:
-        raise AppServerConnectionError(str(exc)) from exc
-
-
-def close_shared_app_server_client() -> None:
-    close_shared_client()
-
-
-atexit.register(close_shared_app_server_client)
-
-def collect_turn_result(
-    *,
-    workspace_root: str | Path,
-    thread_id: str,
-    turn_id: str,
-    return_thread_state: bool = False,
-    transport_mode: str = "ws",
-    transport_url: str | None = None,
-    codex_command: Sequence[str] | None = None,
-    service_name: str = "agent_runtime_app_server",
-    model: str | None = None,
-    base_env: Mapping[str, str] | None = None,
-    request_timeout_seconds: float = 15.0,
-    turn_timeout_seconds: float = 60.0,
-    init_timeout_seconds: float = 45.0,
-    tool_timeout_seconds: float = 15.0,
-) -> TurnRunResult:
-    client = AppServerSessionClient(
-        workspace_root=workspace_root,
-        transport_mode=transport_mode,
-        transport_url=transport_url,
-        codex_command=codex_command,
-        service_name=service_name,
-        model=model,
-        base_env=base_env,
-        request_timeout_seconds=request_timeout_seconds,
-        turn_timeout_seconds=turn_timeout_seconds,
-        init_timeout_seconds=init_timeout_seconds,
-        tool_timeout_seconds=tool_timeout_seconds,
-    )
-    client.start()
-    try:
-        return client.collect_turn_result(
-            thread_id=thread_id,
-            turn_id=turn_id,
-            return_thread_state=return_thread_state,
-        )
-    finally:
-        client.close()
-
-
-def wait_turn_result(
-    *,
-    workspace_root: str | Path,
-    thread_id: str,
-    turn_id: str,
-    timeout_seconds: float | None = None,
-    return_thread_state: bool = False,
-    transport_mode: str = "ws",
-    transport_url: str | None = None,
-    codex_command: Sequence[str] | None = None,
-    service_name: str = "agent_runtime_app_server",
-    model: str | None = None,
-    base_env: Mapping[str, str] | None = None,
-    request_timeout_seconds: float = 15.0,
-    turn_timeout_seconds: float = 60.0,
-    init_timeout_seconds: float = 45.0,
-    tool_timeout_seconds: float = 15.0,
-) -> TurnRunResult:
-    client = AppServerSessionClient(
-        workspace_root=workspace_root,
-        transport_mode=transport_mode,
-        transport_url=transport_url,
-        codex_command=codex_command,
-        service_name=service_name,
-        model=model,
-        base_env=base_env,
-        request_timeout_seconds=request_timeout_seconds,
-        turn_timeout_seconds=turn_timeout_seconds,
-        init_timeout_seconds=init_timeout_seconds,
-        tool_timeout_seconds=tool_timeout_seconds,
-    )
-    client.start()
-    try:
-        return client.wait_turn_result(
-            thread_id=thread_id,
-            turn_id=turn_id,
-            timeout_seconds=timeout_seconds,
-            return_thread_state=return_thread_state,
-        )
-    finally:
-        client.close()
+from .shared_session import (
+    close_shared_app_server_client,
+    collect_turn_result,
+    get_shared_app_server_client,
+    start_shared_app_server_client,
+    wait_turn_result,
+)

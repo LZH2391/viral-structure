@@ -48,7 +48,6 @@ const {
   cacheParams,
   legacyCacheParams,
   splitPredecessorCacheParams,
-  codedError,
   evaluateCacheEligibility,
   prepareInput,
   resolveSkillHash,
@@ -56,6 +55,7 @@ const {
   sanitizeDebugPayload,
   contentHash,
 } = require("../shot-boundary-analysis");
+const { codedError } = require("../shot-boundary-analysis/shared");
 const {
   REVIEW_ROLE,
   REVIEW_SKILL_PATH,
