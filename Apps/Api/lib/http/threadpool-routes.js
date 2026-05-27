@@ -24,7 +24,7 @@ async function handleThreadPoolRead(res, scope, action, handlers = {}) {
       outputSummary: summarizeThreadPoolRead(scope, result),
       durationMs: Date.now() - startedAt,
     });
-    return sendJson(res, result?.ok === false && result.unavailable ? 503 : 200, result);
+    return sendJson(res, resolveThreadPoolReadStatus(result), result);
   } catch (error) {
     const snapshot = await activeLogger.writeDebugSnapshot({
       traceContext,
@@ -77,13 +77,15 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
       });
       return sendJson(res, 403, allowedThread);
     }
-    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId });
+    const resolvedThreadId = allowedThread.thread_id;
+    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId });
     const conversation = summarizeThreadConversation(thread.thread ?? {});
     await activeLogger.writeStageLog({
       traceContext,
       stageName: "threadPool.conversation.read",
       event: "stage.end",
       outputSummary: {
+        requestedThreadId: threadId,
         threadId: conversation.threadId,
         turnCount: conversation.turns.length,
         status: conversation.status ?? null,
@@ -141,13 +143,14 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       });
       return sendJson(res, 403, allowedThread);
     }
-    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId });
+    const resolvedThreadId = allowedThread.thread_id;
+    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId });
     const threadPayload = thread.thread ?? {};
     const turn = findTurn(threadPayload, turnId);
     let timeline = null;
     let source = "thread/read";
     if (typeof handlers.appServer.listTurnItems === "function") {
-      const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId, turnId, limit: 500, sortDirection: "asc" });
+      const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
       if (Array.isArray(listed?.items) && listed.items.length > 0) {
         timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
         source = "thread/turns/items/list";
@@ -159,7 +162,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
         traceContext,
         stageName: "threadPool.turnTimeline.read",
         event: "stage.end",
-        outputSummary: { threadId, turnId, found: false },
+        outputSummary: { requestedThreadId: threadId, threadId: resolvedThreadId, turnId, found: false },
         durationMs: Date.now() - startedAt,
       });
       return sendJson(res, 404, {
@@ -173,6 +176,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       stageName: "threadPool.turnTimeline.read",
       event: "stage.end",
       outputSummary: {
+        requestedThreadId: threadId,
         threadId: timeline.threadId,
         turnId: timeline.turnId,
         itemCount: timeline.items.length,
@@ -214,6 +218,13 @@ function summarizeThreadPoolRead(scope, result) {
   if (scope === "roles") return { scope, roleCount: result.roles?.length ?? 0, warmingRoles: result.health?.warming_roles ?? [] };
   if (scope === "role-status") return { scope, role: result.role, idle: result.counts?.idle ?? 0, minIdle: result.minIdle ?? 0, leased: result.counts?.leased ?? 0 };
   return { scope, readyForLeases: result.ready_for_leases ?? result.readyForLeases ?? null, recovering: result.recovering ?? null };
+}
+
+function resolveThreadPoolReadStatus(result) {
+  if (result?.ok !== false) return 200;
+  if (result.unavailable) return 503;
+  if (["threadpool_thread_not_allowed", "threadpool_thread_id_ambiguous", "threadpool_role_not_allowed"].includes(result.error)) return 403;
+  return 200;
 }
 
 function findTurn(thread, turnId) {

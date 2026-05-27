@@ -245,27 +245,116 @@ test("analysis roles endpoint returns public descriptors only", async () => {
 });
 
 test("thread turn timeline returns summarized turn items", async () => {
+  const readThreadIds = [];
+  const listTurnItemsThreadIds = [];
+  const fullThreadId = "019e69b7-cef4-79c0-8fe5-1faf536836c5";
   const server = createServer({
     logger: {
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
     },
     threadPool: {
-      findAllowedThread: async () => ({ ok: true, role: "script-segment-analyzer", thread_id: "thread_123" }),
+      findAllowedThread: async (threadId) => ({
+        ok: true,
+        role: "script-segment-analyzer",
+        thread_id: fullThreadId,
+        requested_thread_id: threadId,
+        resolved_from_short_id: threadId !== fullThreadId,
+      }),
     },
     appServer: {
-      readThread: async () => ({
-        thread: {
-          id: "thread_123",
-          turns: [{
-            id: "turn_abc",
-            status: "running",
-            items: [
-              { type: "agentMessage", text: "正在分析脚本结构" },
-              { type: "toolCall", toolName: "shell_command", arguments: { command: "Get-ChildItem" } },
-            ],
-          }],
-        },
+      readThread: async ({ threadId }) => {
+        readThreadIds.push(threadId);
+        return {
+          thread: {
+            id: fullThreadId,
+            turns: [{
+              id: "turn_abc",
+              status: "running",
+              items: [
+                { type: "agentMessage", text: "正在分析脚本结构" },
+                { type: "toolCall", toolName: "shell_command", arguments: { command: "Get-ChildItem" } },
+              ],
+            }],
+          },
+        };
+      },
+      listTurnItems: async ({ threadId }) => {
+        listTurnItemsThreadIds.push(threadId);
+        return { ok: true, items: [] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/threadpool/threads/af536836c5/turns/turn_abc/timeline");
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(readThreadIds, [fullThreadId]);
+    assert.deepEqual(listTurnItemsThreadIds, [fullThreadId]);
+    assert.equal(response.body.threadId, fullThreadId);
+    assert.equal(response.body.turnId, "turn_abc");
+    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call"]);
+    assert.equal(response.body.activity.itemCount, 2);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("thread conversation reads the resolved full thread id", async () => {
+  const readThreadIds = [];
+  const fullThreadId = "019e69b7-cef4-79c0-8fe5-1faf536836c5";
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      findAllowedThread: async (threadId) => ({
+        ok: true,
+        role: "script-segment-analyzer",
+        thread_id: fullThreadId,
+        requested_thread_id: threadId,
+        resolved_from_short_id: true,
+      }),
+    },
+    appServer: {
+      readThread: async ({ threadId }) => {
+        readThreadIds.push(threadId);
+        return { thread: { id: fullThreadId, status: "idle", turns: [] } };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/threadpool/threads/af536836c5/conversation");
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(readThreadIds, [fullThreadId]);
+    assert.equal(response.body.threadId, fullThreadId);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("thread discard catalog errors return forbidden status", async () => {
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      discardThread: async () => ({
+        ok: false,
+        unavailable: false,
+        error: "threadpool_thread_id_ambiguous",
+        message: "ThreadPool thread 短 id 匹配到多个当前工作区 role，请使用完整 thread id",
       }),
     },
     staticWorkbench: { handle: () => false },
@@ -275,12 +364,9 @@ test("thread turn timeline returns summarized turn items", async () => {
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "GET", "/api/threadpool/threads/thread_123/turns/turn_abc/timeline");
-    assert.equal(response.statusCode, 200);
-    assert.equal(response.body.threadId, "thread_123");
-    assert.equal(response.body.turnId, "turn_abc");
-    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call"]);
-    assert.equal(response.body.activity.itemCount, 2);
+    const response = await makeRequest(server, "POST", "/api/threadpool/threads/af536836c5/discard", {});
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.body.error, "threadpool_thread_id_ambiguous");
   } finally {
     await closeServer(server);
   }

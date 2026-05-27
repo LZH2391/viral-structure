@@ -72,7 +72,7 @@ function createThreadPoolProxy({
   async function discardThread({ threadId, reason }) {
     const association = await findAllowedThread(threadId);
     if (!association.ok) return association;
-    return requestJson("POST", `/threads/${encodeURIComponent(threadId)}/discard`, { reason });
+    return requestJson("POST", `/threads/${encodeURIComponent(association.thread_id)}/discard`, { reason });
   }
 
   async function ensureRoleReady(role) {
@@ -106,11 +106,20 @@ function createThreadPoolProxy({
   }
 
   async function findAllowedThread(threadId) {
-    const target = String(threadId || "");
+    const target = String(threadId || "").trim();
     if (!target) return disallowedThreadPayload(target);
     const statuses = await Promise.all(Array.from(allowedRoleSet).map((role) => roleStatus(role)));
-    const match = statuses.find((status) => status?.ok && (status.threads ?? []).some((thread) => thread.thread_id === target));
-    return match ? { ok: true, role: match.role, thread_id: target } : disallowedThreadPayload(target);
+    const entries = statuses.flatMap((status) => status?.ok
+      ? (status.threads ?? [])
+        .map((thread) => ({ role: status.role, thread_id: String(thread.thread_id ?? "").trim() }))
+        .filter((thread) => thread.thread_id)
+      : []);
+    const exact = entries.find((thread) => thread.thread_id === target);
+    if (exact) return allowedThreadPayload(exact, target);
+    const suffixMatches = entries.filter((thread) => isThreadShortIdMatch(thread.thread_id, target));
+    if (suffixMatches.length === 1) return allowedThreadPayload(suffixMatches[0], target);
+    if (suffixMatches.length > 1) return ambiguousThreadPayload(target, suffixMatches);
+    return disallowedThreadPayload(target);
   }
 
   function isAllowedRole(role) {
@@ -535,6 +544,39 @@ function disallowedThreadPayload(threadId) {
     message: "ThreadPool thread 不属于当前工作区 role",
     thread_id: String(threadId || ""),
   };
+}
+
+function allowedThreadPayload(match, requestedThreadId) {
+  const threadId = String(match.thread_id || "");
+  const requested = String(requestedThreadId || "");
+  return {
+    ok: true,
+    role: match.role,
+    thread_id: threadId,
+    requested_thread_id: requested,
+    resolved_from_short_id: Boolean(requested && requested !== threadId),
+  };
+}
+
+function ambiguousThreadPayload(threadId, matches) {
+  return {
+    ok: false,
+    unavailable: false,
+    error: "threadpool_thread_id_ambiguous",
+    message: "ThreadPool thread 短 id 匹配到多个当前工作区 role，请使用完整 thread id",
+    thread_id: String(threadId || ""),
+    match_count: matches.length,
+    matches: matches.slice(0, 5).map((match) => ({
+      role: match.role,
+      thread_id: match.thread_id,
+    })),
+  };
+}
+
+function isThreadShortIdMatch(threadId, requestedThreadId) {
+  const target = String(requestedThreadId || "").trim();
+  const full = String(threadId || "").trim();
+  return Boolean(target && full && target !== full && full.endsWith(target));
 }
 
 function nullableNumber(value) {

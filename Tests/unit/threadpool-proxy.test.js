@@ -27,6 +27,71 @@ test("threadpool proxy filters roles outside the workspace allowlist", async () 
   assert.equal(discarded.status, "discarded");
 });
 
+test("threadpool proxy resolves short thread ids inside the allowed role catalog", async () => {
+  const requests = [];
+  const fullThreadId = "019e69b7-cef4-79c0-8fe5-1faf536836c5";
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["script-segment-analyzer"],
+    fetchImpl: async (url, options = {}) => {
+      const pathname = new URL(url).pathname;
+      requests.push({ pathname, method: options.method });
+      if (pathname === "/roles/script-segment-analyzer/status") {
+        return response({
+          ok: true,
+          role: "script-segment-analyzer",
+          min_idle: 1,
+          counts: { idle: 1, leased: 0 },
+          can_acquire: true,
+          thread_entries: [{ thread_id: fullThreadId, thread_status: "idle" }],
+          active_leases: [],
+        });
+      }
+      if (pathname === `/threads/${fullThreadId}/discard`) return response({ ok: true, thread_id: fullThreadId, status: "discarded" });
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const allowedThread = await proxy.findAllowedThread("af536836c5");
+  assert.equal(allowedThread.ok, true);
+  assert.equal(allowedThread.thread_id, fullThreadId);
+  assert.equal(allowedThread.requested_thread_id, "af536836c5");
+  assert.equal(allowedThread.resolved_from_short_id, true);
+
+  const discarded = await proxy.discardThread({ threadId: "af536836c5", reason: "test" });
+  assert.equal(discarded.status, "discarded");
+  assert.equal(requests.at(-1).pathname, `/threads/${fullThreadId}/discard`);
+});
+
+test("threadpool proxy rejects ambiguous short thread ids", async () => {
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["script-segment-analyzer"],
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/roles/script-segment-analyzer/status") {
+        return response({
+          ok: true,
+          role: "script-segment-analyzer",
+          min_idle: 1,
+          counts: { idle: 2, leased: 0 },
+          can_acquire: true,
+          thread_entries: [
+            { thread_id: "019e69b7-cef4-79c0-8fe5-1faf536836c5", thread_status: "idle" },
+            { thread_id: "029e69b7-cef4-79c0-8fe5-2faf536836c5", thread_status: "idle" },
+          ],
+          active_leases: [],
+        });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const result = await proxy.findAllowedThread("af536836c5");
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "threadpool_thread_id_ambiguous");
+  assert.equal(result.match_count, 2);
+});
+
 test("threadpool proxy backfills ctx usage from persisted token usage cache", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "threadpool-proxy-"));
   const tokenUsagePath = path.join(tempRoot, "thread_token_usage.json");
