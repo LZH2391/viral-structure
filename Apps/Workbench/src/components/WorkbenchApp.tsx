@@ -425,6 +425,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>
+          <button className="tab-button" type="button" onClick={() => window.location.assign("/function-slot-graph")}>
+            结构图谱
+          </button>
           <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
           </button>

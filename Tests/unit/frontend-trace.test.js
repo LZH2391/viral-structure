@@ -284,6 +284,7 @@ test("library page exposes local artifact index views", () => {
   assert.match(libraryEntry, /<LibraryApp \/>/);
   assert.match(graphEntry, /<FunctionSlotGraphApp \/>/);
   assert.match(app, /setWorkbenchView\("library", setActiveView\)/);
+  assert.match(app, /window\.location\.assign\("\/function-slot-graph"\)/);
   assert.match(app, /<LibraryApp embedded/);
   assert.match(api, /\/api\/library\/items/);
   assert.match(api, /\/api\/function-slot-library\/\$\{encodeURIComponent\(artifactId\)\}\/graph/);
