@@ -221,7 +221,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
     async attachAnalysis(sampleVideoId, analysis, traceMeta) {
       return attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta);
     },
-    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts, reviewAttemptCount }) {
+    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reviewAttemptCount }) {
       context.boundaryReviewSkillPath = REVIEW_SKILL_PATH;
       context.boundaryReviewSkillHash = context.boundaryReviewSkillHash ?? await resolveBoundaryReviewSkillHash();
       return runFunctionSlotBoundaryReview({
@@ -234,10 +234,12 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         store,
         pollIntervalMs,
         maxCollectAttempts,
+        collectIdleTimeoutMs,
+        collectHardTimeoutMs,
         reviewAttemptCount,
       });
     },
-    async runBoundaryRework({ context, analysis, boundaryReview, runtime, appServer, rootDir, pollIntervalMs, maxCollectAttempts, reworkAttemptCount }) {
+    async runBoundaryRework({ context, analysis, boundaryReview, runtime, appServer, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reworkAttemptCount }) {
       const boundaryReworkTurn = renderBoundaryReworkTurnInputs({
         inputPackage: context.inputPackage,
         boundaryReview,
@@ -262,6 +264,8 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
             rootDir,
             pollIntervalMs,
             maxCollectAttempts,
+            collectIdleTimeoutMs,
+            collectHardTimeoutMs,
             onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
           });
           const nextAnalysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {

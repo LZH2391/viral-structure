@@ -5,6 +5,8 @@ function createAnalysisPipelineRunner({
   rootDir,
   pollIntervalMs,
   maxCollectAttempts,
+  collectIdleTimeoutMs,
+  collectHardTimeoutMs,
   maxRepairAttempts = 1,
   maxBoundaryReworkAttempts = 1,
 }) {
@@ -65,6 +67,8 @@ function createAnalysisPipelineRunner({
             rootDir,
             pollIntervalMs,
             maxCollectAttempts,
+            collectIdleTimeoutMs,
+            collectHardTimeoutMs,
             onTurnStarted: ({ lease: startedLease, started }) => {
               lease = startedLease;
               context.agentRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
@@ -152,6 +156,8 @@ function createAnalysisPipelineRunner({
           rootDir,
           pollIntervalMs,
           maxCollectAttempts,
+          collectIdleTimeoutMs,
+          collectHardTimeoutMs,
           onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
         });
         const analysis = descriptor.buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
@@ -185,6 +191,8 @@ function createAnalysisPipelineRunner({
         rootDir,
         pollIntervalMs,
         maxCollectAttempts,
+        collectIdleTimeoutMs,
+        collectHardTimeoutMs,
         reviewAttemptCount,
       });
       currentAnalysis = appendBoundaryReviewHistory(currentAnalysis);
@@ -201,6 +209,8 @@ function createAnalysisPipelineRunner({
         rootDir,
         pollIntervalMs,
         maxCollectAttempts,
+        collectIdleTimeoutMs,
+        collectHardTimeoutMs,
         reworkAttemptCount,
       });
     }

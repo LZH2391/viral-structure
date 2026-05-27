@@ -203,8 +203,9 @@ test("script segment service surfaces latest running thread message and clears i
   assert.equal(harness.calls.collected.length, 2);
 });
 
-test("script segment collect window waits six minutes worth of attempts", { timeout: 30000 }, async () => {
+test("script segment collect window fails after idle timeout without progress", { timeout: 30000 }, async () => {
   const harness = await createScriptHarness({
+    serviceOptions: { collectIdleTimeoutMs: 20, collectHardTimeoutMs: 1000 },
     appServer: {
       startTurnWithInputs: async (payload) => {
         harness.calls.started.push(payload);
@@ -220,10 +221,78 @@ test("script segment collect window waits six minutes worth of attempts", { time
   const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
   const job = await waitForJob(harness.jobStore, result.processingJobId, "failed");
   const artifact = await harness.store.readJson(path.join(harness.store.sampleDir("sample_script_1"), "artifact.json"));
+  const snapshotName = path.basename(job.errorSummary.debugSnapshotUri);
+  const snapshot = await harness.store.readJson(path.join(harness.store.runtimeRoot, "DebugSnapshots", snapshotName));
 
-  assert.equal(harness.calls.collected.length, 240);
+  assert.ok(harness.calls.collected.length >= 2);
   assert.equal(job.errorSummary.code, "appserver_turn_collect_timeout");
   assert.equal(artifact.scriptSegmentAnalysis.validation.validatorCode, "appserver_turn_collect_timeout");
+  assert.equal(snapshot.debugPayload.timeoutReason, "idle_timeout");
+  assert.equal(snapshot.debugPayload.idleTimeoutMs, 20);
+});
+
+test("script segment collect timeout resets when appserver reports progress", { timeout: 30000 }, async () => {
+  const harness = await createScriptHarness({
+    serviceOptions: { collectIdleTimeoutMs: 20, collectHardTimeoutMs: 1000 },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" };
+      },
+      collectTurnResult: async (payload) => {
+        harness.calls.collected.push(payload);
+        if (harness.calls.collected.length <= 3) {
+          return {
+            ok: false,
+            threadId: "thread_script_1",
+            turnId: "turn_script_1",
+            status: "running",
+            finalMessage: "",
+            turnActivity: {
+              itemCount: harness.calls.collected.length,
+              effectiveItemCount: harness.calls.collected.length,
+              latestItemType: "reasoning",
+              latestMessagePreview: `progress ${harness.calls.collected.length}`,
+            },
+          };
+        }
+        return {
+          ok: true,
+          threadId: "thread_script_1",
+          turnId: "turn_script_1",
+          status: "completed",
+          finalMessage: JSON.stringify({
+            segments: [
+              {
+                label: "开场引题",
+                roleInScript: "先抛出结果建立停留理由",
+                shotRefs: ["shot_1"],
+                evidence: ["展示整理前后反差"],
+                transferableRule: "先亮结果再展开解释",
+                confidence: 0.81,
+                needReview: false,
+              },
+              {
+                label: "卖点证明",
+                roleInScript: "用连续镜头解释产品价值",
+                shotRefs: ["shot_2", "shot_3"],
+                evidence: ["演示收纳盒摆放和分类", "回到整洁台面并提示点击"],
+                transferableRule: "中段用连续证据证明核心卖点",
+                confidence: 0.79,
+                needReview: false,
+              },
+            ],
+          }),
+        };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  const job = await waitForJob(harness.jobStore, result.processingJobId, "processed");
+
+  assert.equal(job.status, "processed");
+  assert.equal(harness.calls.collected.length, 4);
 });
 
 test("appserver bridge treats queued submitted and created as non-terminal statuses", () => {

@@ -9,7 +9,8 @@ const { createThreadPoolProxy } = require("../gateways/threadpool/proxy");
 const { createAppServerBridge } = require("../gateways/appserver/bridge");
 
 const DEFAULT_POLL_INTERVAL_MS = 1500;
-const DEFAULT_COLLECT_TIMEOUT_MS = 360000;
+const DEFAULT_COLLECT_IDLE_TIMEOUT_MS = 360000;
+const DEFAULT_COLLECT_HARD_TIMEOUT_MS = 45 * 60 * 1000;
 const DEFAULT_MAX_REPAIR_ATTEMPTS = 1;
 
 function createRoleAnalysisService({
@@ -21,8 +22,10 @@ function createRoleAnalysisService({
   threadPool = createThreadPoolProxy(),
   appServer = createAppServerBridge(),
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
-  collectTimeoutMs = DEFAULT_COLLECT_TIMEOUT_MS,
-  maxCollectAttempts = Math.ceil(collectTimeoutMs / DEFAULT_POLL_INTERVAL_MS),
+  collectTimeoutMs = DEFAULT_COLLECT_IDLE_TIMEOUT_MS,
+  collectIdleTimeoutMs = collectTimeoutMs,
+  collectHardTimeoutMs = DEFAULT_COLLECT_HARD_TIMEOUT_MS,
+  maxCollectAttempts = null,
   maxRepairAttempts = DEFAULT_MAX_REPAIR_ATTEMPTS,
   maxBoundaryReworkAttempts = 1,
   role,
@@ -73,6 +76,8 @@ function createRoleAnalysisService({
     rootDir,
     pollIntervalMs,
     maxCollectAttempts,
+    collectIdleTimeoutMs,
+    collectHardTimeoutMs,
     maxRepairAttempts,
     maxBoundaryReworkAttempts,
   });

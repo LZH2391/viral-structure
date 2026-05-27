@@ -24,6 +24,8 @@ async function runFunctionSlotBoundaryReview({
   store,
   pollIntervalMs,
   maxCollectAttempts,
+  collectIdleTimeoutMs,
+  collectHardTimeoutMs,
   reviewAttemptCount = 1,
 }) {
   const reviewArtifactId = `artifact_${randomUUID()}`;
@@ -79,6 +81,8 @@ async function runFunctionSlotBoundaryReview({
           rootDir,
           pollIntervalMs,
           maxCollectAttempts,
+          collectIdleTimeoutMs,
+          collectHardTimeoutMs,
           onTurnStarted: ({ lease: startedLease }) => {
             lease = startedLease;
           },
