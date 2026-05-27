@@ -6,26 +6,33 @@ import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { formatSecondsCompact, shortId } from "../utils/format";
 import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { stageLabel } from "../utils/workbenchHelpers";
-import { readFullAnalysisDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
+import { readFullAnalysisDraft, writeFullAnalysisActiveSampleDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
-export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null> };
+export type FullAnalysisWorkbenchActiveSample = {
+  artifact: SampleArtifact;
+  activeSampleRevision: number;
+  activeSampleSource: "workbench" | "fullAnalysis" | "library";
+};
+export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null>; activeSampleChanged: boolean };
 export type FullAnalysisStageTarget = WorkflowStageState["key"];
 
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
+const NON_EXECUTING_RUN_STATUS = new Set(["processed", "failed", "partial_failed", "cache_waiting"]);
 const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "aggregate"];
 const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure"];
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
+  activeSample?: FullAnalysisWorkbenchActiveSample | null;
   onWorkbenchSync?: (payload: FullAnalysisWorkbenchSync) => void;
   onOpenWorkbenchStage?: (stageKey: FullAnalysisStageTarget) => void;
 };
 
-export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkbenchStage }: FullAnalysisAppProps = {}) {
+export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkbenchSync, onOpenWorkbenchStage }: FullAnalysisAppProps = {}) {
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [artifact, setArtifact] = useState<SampleArtifact | null>(null);
   const [childJobs, setChildJobs] = useState<Record<string, ProcessingJob | null>>({});
@@ -38,8 +45,11 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
   const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const operationTokenRef = useRef(0);
   const restoredRunRef = useRef(false);
+  const lastActiveSampleRevisionRef = useRef<number | null>(null);
   const lastWorkbenchSyncSignatureRef = useRef<string | null>(null);
+  const lastSyncedSampleVideoIdRef = useRef<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
     containerRef: layoutRef,
@@ -85,19 +95,22 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
       .sort((a, b) => a.order - b.order)[0] ?? null;
   }, [childJobs, dismissedCachePromptJobIds, orderedStages]);
 
-  const startPolling = useCallback((workflowRunId: string) => {
+  const startPolling = useCallback((workflowRunId: string, token = operationTokenRef.current) => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
     const poll = async () => {
+      if (token !== operationTokenRef.current) return;
       const nextRun = await getWorkflowRun(workflowRunId);
+      if (token !== operationTokenRef.current) return;
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
       let nextArtifact: SampleArtifact | null = null;
       if (nextRun.sampleVideoId) {
         nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
+        if (token !== operationTokenRef.current) return;
         if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
       }
       writeFullAnalysisDraft(nextRun, nextArtifact);
-      if (TERMINAL_RUN_STATUS.has(nextRun.status) && pollTimerRef.current != null) {
+      if (NON_EXECUTING_RUN_STATUS.has(nextRun.status) && pollTimerRef.current != null) {
         window.clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
@@ -115,32 +128,71 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
   useEffect(() => {
     if (restoredRunRef.current) return;
     restoredRunRef.current = true;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
     const restoreRun = async () => {
+      if (embedded && activeSample?.artifact) {
+        lastActiveSampleRevisionRef.current = activeSample.activeSampleRevision;
+        lastSyncedSampleVideoIdRef.current = activeSample.artifact.sampleVideoId;
+        setArtifact(activeSample.artifact);
+        setStatusText("已同步工作台当前视频");
+        writeFullAnalysisActiveSampleDraft(activeSample.artifact, {
+          activeSampleRevision: activeSample.activeSampleRevision,
+          activeSampleSource: activeSample.activeSampleSource,
+        });
+        return;
+      }
       const draft = readFullAnalysisDraft();
       if (draft?.sampleArtifact) {
         setArtifact(draft.sampleArtifact);
         setStatusText("已恢复最近完整分析结果");
+        lastActiveSampleRevisionRef.current = draft.activeSampleRevision ?? null;
+        lastSyncedSampleVideoIdRef.current = draft.sampleArtifact.sampleVideoId;
       }
       let restoredRun: WorkflowRun | null = null;
       if (draft?.workflowRunId) {
         restoredRun = await getWorkflowRun(draft.workflowRunId).catch(() => null);
       }
+      if (token !== operationTokenRef.current) return;
       if (!restoredRun) {
         restoredRun = await getLatestFullAnalysisRun().catch(() => null);
       }
+      if (token !== operationTokenRef.current) return;
       if (!restoredRun) return;
       setRun(restoredRun);
       setStatusText(statusLabel(restoredRun));
       let restoredArtifact: SampleArtifact | null = null;
       if (restoredRun.sampleVideoId) {
         restoredArtifact = await getSampleArtifact(restoredRun.sampleVideoId).catch(() => null);
+        if (token !== operationTokenRef.current) return;
         if (restoredArtifact && "sampleVideo" in restoredArtifact) setArtifact(restoredArtifact);
       }
       writeFullAnalysisDraft(restoredRun, restoredArtifact ?? draft?.sampleArtifact ?? null);
-      if (!TERMINAL_RUN_STATUS.has(restoredRun.status)) startPolling(restoredRun.workflowRunId);
+      if (!NON_EXECUTING_RUN_STATUS.has(restoredRun.status)) startPolling(restoredRun.workflowRunId, token);
     };
     void restoreRun().catch((error) => setErrorText(error instanceof Error ? error.message : "恢复完整分析失败"));
-  }, [startPolling]);
+  }, [activeSample, embedded, startPolling]);
+
+  useEffect(() => {
+    if (!embedded || !activeSample?.artifact) return;
+    if (lastActiveSampleRevisionRef.current != null && activeSample.activeSampleRevision <= lastActiveSampleRevisionRef.current) return;
+    lastActiveSampleRevisionRef.current = activeSample.activeSampleRevision;
+    lastSyncedSampleVideoIdRef.current = activeSample.artifact.sampleVideoId;
+    operationTokenRef.current += 1;
+    if (pollTimerRef.current != null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    setArtifact(activeSample.artifact);
+    setRun((current) => current?.sampleVideoId === activeSample.artifact.sampleVideoId ? current : null);
+    setChildJobs({});
+    setStatusText("已同步工作台当前视频");
+    setErrorText(null);
+    writeFullAnalysisActiveSampleDraft(activeSample.artifact, {
+      activeSampleRevision: activeSample.activeSampleRevision,
+      activeSampleSource: activeSample.activeSampleSource,
+    });
+  }, [activeSample, embedded]);
 
   useEffect(() => {
     if (!childJobIds.length) return;
@@ -177,10 +229,14 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
     const signature = buildWorkbenchSyncSignature(run, artifact, childJobs);
     if (signature === lastWorkbenchSyncSignatureRef.current) return;
     lastWorkbenchSyncSignatureRef.current = signature;
-    onWorkbenchSync({ run, artifact, childJobs });
+    const activeSampleChanged = Boolean(artifact?.sampleVideoId && artifact.sampleVideoId !== lastSyncedSampleVideoIdRef.current);
+    if (activeSampleChanged) lastSyncedSampleVideoIdRef.current = artifact?.sampleVideoId ?? null;
+    onWorkbenchSync({ run, artifact, childJobs, activeSampleChanged });
   }, [artifact, childJobs, onWorkbenchSync, run]);
 
   const startFullAnalysis = useCallback(async (file: File, cacheDecision: "ask" | "reuse" | "refresh") => {
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
     setIsStarting(true);
     setErrorText(null);
     setArtifact(null);
@@ -194,10 +250,11 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
         enableAudioFeatureAnalysis: true,
         cacheDecision,
       });
+      if (token !== operationTokenRef.current) return;
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
       writeFullAnalysisDraft(nextRun, null);
-      startPolling(nextRun.workflowRunId);
+      startPolling(nextRun.workflowRunId, token);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "启动完整分析失败");
       setStatusText("启动失败");
@@ -207,6 +264,8 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
   }, [frameSampleRate, startPolling]);
 
   const handleUpload = useCallback(async (file: File) => {
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
     setIsStarting(true);
     setErrorText(null);
     setArtifact(null);
@@ -217,6 +276,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
     try {
       if (!refreshMode) {
         const cache = await checkFullAnalysisUploadCache(file, { frameSampleRateFps: frameSampleRate });
+        if (token !== operationTokenRef.current) return;
         if (cache.cacheHit) {
           setUploadCachePrompt({ file, cachedItem: cache.cachedItem });
           setStatusText("命中同视频缓存，等待选择");
@@ -230,18 +290,22 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
     } finally {
       setIsStarting(false);
     }
+    if (token !== operationTokenRef.current) return;
     await startFullAnalysis(file, refreshMode ? "refresh" : "ask");
   }, [frameSampleRate, refreshMode, startFullAnalysis]);
 
   const handleRerun = useCallback(async (stageKey: string) => {
     if (!run) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
     setErrorText(null);
     try {
       const nextRun = await rerunWorkflowStage(run.workflowRunId, stageKey);
+      if (token !== operationTokenRef.current) return;
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
       writeFullAnalysisDraft(nextRun, artifact);
-      startPolling(nextRun.workflowRunId);
+      startPolling(nextRun.workflowRunId, token);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "重跑步骤失败");
     }
@@ -249,18 +313,22 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
 
   const resolveWorkflowCache = useCallback(async (prompt: WorkflowCachePrompt, decision: "reuse" | "refresh") => {
     if (!prompt.job.jobId) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
     setErrorText(null);
     setDismissedCachePromptJobIds((current) => current.filter((jobId) => jobId !== prompt.job.jobId));
     setStatusText(`${prompt.stage.label}${decision === "reuse" ? "复用缓存" : "重新生成"}`);
     try {
       const nextJob = await resolveCacheDecision(prompt.job.jobId, decision);
+      if (token !== operationTokenRef.current) return;
       setChildJobs((current) => ({ ...current, [prompt.job.jobId as string]: nextJob }));
       if (run) {
         const nextRun = await getWorkflowRun(run.workflowRunId);
+        if (token !== operationTokenRef.current) return;
         setRun(nextRun);
         setStatusText(statusLabel(nextRun));
         writeFullAnalysisDraft(nextRun, artifact);
-        startPolling(nextRun.workflowRunId);
+        startPolling(nextRun.workflowRunId, token);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : `${prompt.stage.label}缓存选择失败`;
@@ -271,7 +339,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
 
   const videoUrl = runtimeUrl(artifact?.sampleVideo.normalized.uri);
   const countLabel = `workflow ${run ? shortId(run.workflowRunId) : "未创建"}`;
-  const traceLabel = `trace ${run ? shortId(run.traceId) : "等待后端返回 trace"}`;
+  const workflowTraceLabel = `workflow trace ${run ? shortId(run.traceId) : "等待后端返回"}`;
 
   return (
     <div className={embedded ? "full-analysis-shell embedded-view" : "app-shell full-analysis-shell"}>
@@ -283,7 +351,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
           </div>
           <div className="run-status-bar">
             <span>{countLabel}</span>
-            <span>{traceLabel}</span>
+            <span>{workflowTraceLabel}</span>
           </div>
         </header>
       )}
@@ -295,7 +363,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
                 id="fullAnalysisVideoInput"
                 type="file"
                 accept="video/*"
-                disabled={isStarting || isRunActive(run)}
+                disabled={isStarting || isRunExecuting(run)}
                 onChange={(event) => {
                   const file = event.currentTarget.files?.[0];
                   if (file) void handleUpload(file);
@@ -314,7 +382,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
                   max="10"
                   step="1"
                   value={frameSampleRate}
-                  disabled={isStarting || isRunActive(run)}
+                  disabled={isStarting || isRunExecuting(run)}
                   onChange={(event) => setFrameSampleRate(clampNumber(Number(event.currentTarget.value || 10), 1, 10))}
                 />
               </label>
@@ -322,7 +390,7 @@ export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkb
                 <input
                   type="checkbox"
                   checked={refreshMode}
-                  disabled={isStarting || isRunActive(run)}
+                  disabled={isStarting || isRunExecuting(run)}
                   onChange={(event) => setRefreshMode(event.currentTarget.checked)}
                 />
                 <span>重新生成</span>
@@ -462,7 +530,7 @@ function StageStep({
       <small>{stage.artifactId ? `artifact ${shortId(stage.artifactId)}` : stage.childJobId ? `job ${shortId(stage.childJobId)}` : `attempt ${stage.attemptNo}`}</small>
       {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
       {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
-      {traceText ? <span className="workflow-step-trace">trace {shortId(traceText)}</span> : null}
+      {traceText ? <span className="workflow-step-trace">child trace {shortId(traceText)}</span> : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
       {job?.status === "cache_waiting" && job.cachePrompt?.cachedItem ? (
         <div className="workflow-step-actions">
@@ -554,6 +622,7 @@ function ResultList({ items, empty }: { items: Array<{ id: string; title: string
 }
 
 function statusLabel(run: WorkflowRun) {
+  if (run.status === "cache_waiting") return "等待缓存选择";
   if (run.status === "processed") return "完整分析完成";
   if (run.status === "partial_failed") return "部分步骤失败，已保留可用结果";
   if (run.status === "failed") return run.errorSummary?.message ?? "完整分析失败";
@@ -564,12 +633,14 @@ function statusLabel(run: WorkflowRun) {
 function stageStatusLabel(stage: WorkflowStageState) {
   if (stage.status === "processed") return "完成";
   if (stage.status === "failed") return "失败";
+  if (stage.status === "cache_waiting") return "等待缓存决策";
   if (stage.status === "running") return "运行中";
   return "等待";
 }
 
 function getStageRuntimeStatus(stage: WorkflowStageState) {
   if (stage.status === "running") return "running";
+  if (stage.status === "cache_waiting") return "cache_waiting";
   if (stage.status === "processed") return "processed";
   if (stage.status === "failed") return "failed";
   return "pending";
@@ -589,6 +660,7 @@ function resolveRuntimeLabel(stage: WorkflowStageState, job: ProcessingJob | nul
 function resolveRuntimeStageText(stage: WorkflowStageState, job: ProcessingJob | null) {
   if (job?.stage) return stageLabel(job);
   if (stage.status === "processed" && stage.outputSummary) return "阶段完成";
+  if (stage.status === "cache_waiting") return "等待缓存选择";
   return stage.stageName ?? null;
 }
 
@@ -598,12 +670,12 @@ function resolveRuntimeProgress(stage: WorkflowStageState, job: ProcessingJob | 
   return null;
 }
 
-function isRunActive(run: WorkflowRun | null) {
-  return Boolean(run && !TERMINAL_RUN_STATUS.has(run.status));
+function isRunExecuting(run: WorkflowRun | null) {
+  return Boolean(run && !NON_EXECUTING_RUN_STATUS.has(run.status));
 }
 
 function canRerun(stage: WorkflowStageState, run: WorkflowRun | null) {
-  return Boolean(run?.sampleVideoId && !isRunActive(run) && ["processed", "failed"].includes(stage.status));
+  return Boolean(run?.sampleVideoId && !isRunExecuting(run) && ["processed", "failed"].includes(stage.status));
 }
 
 function clampNumber(value: number, min: number, max: number) {

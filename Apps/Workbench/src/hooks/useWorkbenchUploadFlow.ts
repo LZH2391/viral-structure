@@ -16,7 +16,7 @@ type UploadFlowOptions = {
   enableAudioSeparation: boolean;
   enableSubtitleRecognition: boolean;
   enableAudioFeatureAnalysis: boolean;
-  persistWorkbenchArtifact: (artifact: SampleArtifact, traceId: string | null) => void;
+  persistWorkbenchArtifact: (artifact: SampleArtifact, traceId: string | null, activeSample?: { revision?: number; source?: WorkbenchState["activeSampleSource"] }) => void;
   setSaveStatus: (value: string) => void;
   beginStage: (stageName: string, parentArtifactId?: string | null, inputSummary?: unknown) => UiStage;
   finishStage: (stage: UiStage, artifactId?: string, outputSummary?: unknown) => void;
@@ -49,12 +49,14 @@ export function useWorkbenchUploadFlow(options: UploadFlowOptions) {
       const sampleVideoId = draft.sampleVideoId ?? draft.sampleArtifact.sampleVideoId;
       getSampleArtifact(sampleVideoId)
         .then((artifact) => {
-          dispatch({ type: "apply-artifact", artifact });
+          dispatch({ type: "apply-artifact", artifact, activeSampleSource: "workbench", bumpActiveSampleRevision: true });
           writeWorkbenchDraft({
             ...draft,
             sampleVideoId: artifact.sampleVideoId,
             artifactId: artifact.sampleVideo.artifactId,
             traceId: artifact.trace?.traceId ?? draft.traceId ?? null,
+            activeSampleRevision: draft.activeSampleRevision ?? 0,
+            activeSampleSource: draft.activeSampleSource ?? "workbench",
             sampleArtifact: artifact,
             selectedFrameId: artifact.frames.some((frame) => frame.frameId === draft.selectedFrameId) ? draft.selectedFrameId : artifact.frames[0]?.frameId ?? null,
             selectedDerivativeId: resolveDraftDerivativeId(artifact, draft.selectedDerivativeId),
@@ -132,7 +134,7 @@ export function useWorkbenchUploadFlow(options: UploadFlowOptions) {
           dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "生成产物完成" });
           const version = addVersion("样例处理完成", stage.stageName, artifact.sampleVideo.artifactId, null);
           dispatch({ type: "add-version", version });
-          persistWorkbenchArtifact(artifact, job.traceId);
+          persistWorkbenchArtifact(artifact, job.traceId, { revision: state.activeSampleRevision + 1, source: "workbench" });
           writeActiveUploadJob(null);
           setSaveStatus("已保存样例处理完成");
           finishStage(stage, artifact.sampleVideo.artifactId, {
@@ -198,17 +200,17 @@ export function useWorkbenchUploadFlow(options: UploadFlowOptions) {
     try {
       const detail = await getLibraryItemDetail(prompt.cachedItem.sampleVideoId);
       if (prompt.token !== uploadTokenRef.current) return;
-      dispatch({ type: "apply-artifact", artifact: detail.artifact });
+      dispatch({ type: "apply-artifact", artifact: detail.artifact, activeSampleSource: "workbench", bumpActiveSampleRevision: true });
       dispatch({ type: "set-upload-state", isUploadingSample: false, uploadStatusText: "已复用缓存", processingJob: null });
       const version = addVersion("复用缓存样例", stage.stageName, detail.artifact.sampleVideo.artifactId, null);
       dispatch({ type: "add-version", version });
-      persistWorkbenchArtifact(detail.artifact, detail.artifact.trace?.traceId ?? null);
+      persistWorkbenchArtifact(detail.artifact, detail.artifact.trace?.traceId ?? null, { revision: state.activeSampleRevision + 1, source: "workbench" });
       setSaveStatus("已复用缓存");
       finishStage(stage, detail.artifact.sampleVideo.artifactId, { cacheHit: true, sampleVideoId: detail.artifact.sampleVideoId });
     } catch (error) {
       failStage(stage, error, { errorMessage: error instanceof Error ? error.message : "复用缓存失败" });
     }
-  }, [beginStage, cachePrompt, dispatch, failStage, finishStage, persistWorkbenchArtifact, setSaveStatus]);
+  }, [beginStage, cachePrompt, dispatch, failStage, finishStage, persistWorkbenchArtifact, setSaveStatus, state.activeSampleRevision]);
 
   const refreshCache = useCallback(() => {
     if (!cachePrompt) return;

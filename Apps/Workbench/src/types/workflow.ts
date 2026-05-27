@@ -1,6 +1,6 @@
 import type { ErrorSummary } from "./debug";
 
-export type WorkflowStageStatus = "pending" | "running" | "processed" | "failed" | string;
+export type WorkflowStageStatus = "pending" | "running" | "cache_waiting" | "processed" | "failed" | string;
 
 export type WorkflowStageState = {
   key: "upload" | "shotBoundary" | "scriptSegment" | "rhythmStructure" | "packagingStructure" | "aggregate" | string;
@@ -25,7 +25,7 @@ export type WorkflowRun = {
   workflowKey: "full-analysis" | string;
   workflowVersion: string;
   cacheDecision?: "ask" | "reuse" | "refresh" | string;
-  status: "running" | "processed" | "failed" | "partial_failed" | string;
+  status: "running" | "cache_waiting" | "processed" | "failed" | "partial_failed" | string;
   traceId: string;
   runId: string;
   sampleVideoId?: string | null;

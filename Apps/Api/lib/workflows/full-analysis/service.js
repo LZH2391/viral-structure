@@ -7,6 +7,7 @@ const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR } = require("./descriptor");
 const WORKFLOW_KEY = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.workflowId;
 const WORKFLOW_VERSION = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.version;
 const TERMINAL_JOB_STATUSES = new Set(["processed", "failed"]);
+const CACHE_WAITING_STATUS = "cache_waiting";
 
 function createFullAnalysisWorkflowService({
   workflowRunStore,
@@ -216,12 +217,23 @@ function createFullAnalysisWorkflowService({
 
   async function advance(workflowRunId) {
     const run = workflowRunStore.getRun(workflowRunId);
-    if (!run || !["running", "partial_failed"].includes(run.status)) return;
+    if (!run || !["running", "partial_failed", CACHE_WAITING_STATUS].includes(run.status)) return;
     let changed = false;
     for (const stage of run.stages) {
-      if (!stage.childJobId || !["running", "pending"].includes(stage.status)) continue;
+      if (!stage.childJobId || !["running", "pending", CACHE_WAITING_STATUS].includes(stage.status)) continue;
       const job = jobStore.getJob(stage.childJobId);
-      if (!job || !TERMINAL_JOB_STATUSES.has(job.status)) continue;
+      if (!job) continue;
+      if (job.status === CACHE_WAITING_STATUS) {
+        markStageCacheWaiting(workflowRunId, stage.key, job);
+        changed = true;
+        continue;
+      }
+      if (stage.status === CACHE_WAITING_STATUS && ["pending", "processing"].includes(job.status)) {
+        markStageRunningFromJob(workflowRunId, stage.key, job);
+        changed = true;
+        continue;
+      }
+      if (!TERMINAL_JOB_STATUSES.has(job.status)) continue;
       const artifact = job.status === "processed" ? await readArtifact(job.sampleVideoId) : null;
       const artifactRef = artifactRefForStage(stage, artifact);
       if (job.status === "processed") {
@@ -287,6 +299,44 @@ function createFullAnalysisWorkflowService({
     }
   }
 
+  function markStageCacheWaiting(workflowRunId, stageKey, job) {
+    workflowRunStore.updateRun(workflowRunId, (current) => ({
+      status: CACHE_WAITING_STATUS,
+      currentStageKeys: unique([...(current.currentStageKeys ?? []).filter((key) => key !== stageKey), stageKey]),
+      stages: updateStage(current.stages, stageKey, (stage) => ({
+        ...stage,
+        status: CACHE_WAITING_STATUS,
+        childJobId: job.jobId ?? stage.childJobId ?? null,
+        childTraceId: job.traceId ?? stage.childTraceId ?? null,
+        sampleVideoId: job.sampleVideoId ?? stage.sampleVideoId ?? current.sampleVideoId ?? null,
+        outputSummary: {
+          ...(stage.outputSummary ?? {}),
+          childJobId: job.jobId ?? null,
+          childTraceId: job.traceId ?? null,
+          cacheKind: job.cachePrompt?.cacheKind ?? null,
+          cacheWaiting: true,
+        },
+      })),
+    }));
+  }
+
+  function markStageRunningFromJob(workflowRunId, stageKey, job) {
+    workflowRunStore.updateRun(workflowRunId, (current) => ({
+      status: "running",
+      currentStageKeys: unique([...(current.currentStageKeys ?? []).filter((key) => key !== stageKey), stageKey]),
+      stages: updateStage(current.stages, stageKey, (stage) => ({
+        ...stage,
+        status: "running",
+        childJobId: job.jobId ?? stage.childJobId ?? null,
+        childTraceId: job.traceId ?? stage.childTraceId ?? null,
+        sampleVideoId: job.sampleVideoId ?? stage.sampleVideoId ?? current.sampleVideoId ?? null,
+        outputSummary: stage.outputSummary?.cacheWaiting
+          ? { ...stage.outputSummary, cacheWaiting: false }
+          : stage.outputSummary,
+      })),
+    }));
+  }
+
   async function markStageProcessed(workflowRunId, stageKey, result, traceContext, startedAt = Date.now()) {
     const outputSummary = result.outputSummary ?? { sampleVideoId: result.sampleVideoId ?? null, artifactId: result.artifactId ?? null };
     workflowRunStore.updateRun(workflowRunId, (current) => ({
@@ -339,7 +389,7 @@ function createFullAnalysisWorkflowService({
   }
 
   async function finalizeIfReady(run) {
-    if (!run || !["running", "partial_failed"].includes(run.status)) return;
+    if (!run || !["running", "partial_failed", CACHE_WAITING_STATUS].includes(run.status)) return;
     const aggregate = findStage(run, "aggregate");
     const blockingFailed = Array.from(blockingStageKeys).some((key) => findStage(run, key).status === "failed");
     if (blockingFailed) {
@@ -496,7 +546,7 @@ function normalizeError(error, stageKey) {
 }
 
 function hasRunningChildren(run) {
-  return Boolean(run?.stages?.some((stage) => stage.childJobId && ["pending", "running"].includes(stage.status)));
+  return Boolean(run?.stages?.some((stage) => stage.childJobId && ["pending", "running", CACHE_WAITING_STATUS].includes(stage.status)));
 }
 
 function workflowRunTime(run) {

@@ -116,7 +116,7 @@ function createRoleAnalysisService({
       cacheDecision: decision,
       artifact,
       traceContext: {
-        runId: job.traceId,
+        runId: job.runId ?? `run_cache_decision_${jobId}`,
         traceId: job.traceId,
         stageId: `stage_cache_decision_${Date.now()}`,
       },

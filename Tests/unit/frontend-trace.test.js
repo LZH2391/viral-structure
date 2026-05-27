@@ -35,6 +35,35 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   assert.match(api, /\/api\/debug\/ui-events/);
 });
 
+test("full analysis sync keeps atomization job independent and labels trace layers", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const full = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+  const workflowTypes = read(root, "Apps/Workbench/src/types/workflow.ts");
+  const draft = read(root, "Apps/Workbench/src/utils/fullAnalysisDraft.ts");
+
+  assert.match(workflowTypes, /"cache_waiting"/);
+  assert.match(app, /activeSampleRevision/);
+  assert.match(app, /activeSampleSource/);
+  assert.doesNotMatch(app, /functionSlotAtomizationFlow\.setJob\(atomizationJob\)/);
+  assert.doesNotMatch(app, /writeActiveAnalysisJob\("functionSlotAtomization", toActiveJobDraft\(atomizationJob\)\)/);
+  assert.match(full, /workflow trace/);
+  assert.match(full, /child trace/);
+  assert.match(full, /operationTokenRef/);
+  assert.match(full, /NON_EXECUTING_RUN_STATUS/);
+  assert.match(draft, /activeSampleRevision/);
+  assert.match(draft, /activeSampleSource/);
+});
+
+test("analysis cache decision keeps runId separate from traceId", () => {
+  const root = path.resolve(__dirname, "../..");
+  const roleService = read(root, "Apps/Api/lib/analysis-runtime-v2/role-service.js");
+
+  assert.doesNotMatch(roleService, /runId: job\.traceId/);
+  assert.match(roleService, /runId: job\.runId \?\? `run_cache_decision_/);
+  assert.match(roleService, /traceId: job\.traceId/);
+});
+
 test("React pages replace legacy runtime scripts", () => {
   const root = path.resolve(__dirname, "../..");
   const index = read(root, "Apps/Workbench/index.html");

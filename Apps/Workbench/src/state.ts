@@ -61,6 +61,8 @@ export function createInitialState(): WorkbenchState {
     isUploadingSample: false,
     uploadStatusText: null,
     sampleArtifact: null,
+    activeSampleRevision: 0,
+    activeSampleSource: "workbench",
     errorSummary: null,
     subtitleDrafts: {},
   };
@@ -69,7 +71,7 @@ export function createInitialState(): WorkbenchState {
 export type WorkbenchAction =
   | { type: "set-upload-state"; isUploadingSample: boolean; uploadStatusText: string | null; processingJob?: ProcessingJob | null; errorSummary?: ErrorSummary | null }
   | { type: "set-processing-job"; processingJob: ProcessingJob | null; uploadStatusText: string | null }
-  | { type: "apply-artifact"; artifact: SampleArtifact }
+  | { type: "apply-artifact"; artifact: SampleArtifact; activeSampleSource?: DraftState["activeSampleSource"]; bumpActiveSampleRevision?: boolean }
   | { type: "sync-subtitle-artifact"; artifact: SampleArtifact }
   | { type: "set-shot-boundary-analysis"; artifact: SampleArtifact }
   | { type: "set-error"; errorSummary: ErrorSummary | null; uploadStatusText: string | null }
@@ -91,6 +93,8 @@ export type DraftState = {
   sampleVideoId?: string;
   artifactId?: string;
   traceId?: string | null;
+  activeSampleRevision?: number;
+  activeSampleSource?: "workbench" | "fullAnalysis" | "library";
   sampleArtifact: SampleArtifact;
   selectedFrameId?: string | null;
   selectedDerivativeId?: string | null;
@@ -117,7 +121,10 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
     case "set-processing-job":
       return { ...state, processingJob: action.processingJob, uploadStatusText: action.uploadStatusText };
     case "apply-artifact":
-      return applySampleArtifact(state, action.artifact);
+      return applySampleArtifact(state, action.artifact, {
+        activeSampleSource: action.activeSampleSource,
+        bumpActiveSampleRevision: action.bumpActiveSampleRevision,
+      });
     case "sync-subtitle-artifact":
       return {
         ...state,
@@ -206,7 +213,10 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
       };
     }
     case "restore-draft": {
-      const restored = applySampleArtifact(state, action.draft.sampleArtifact);
+      const restored = applySampleArtifact(state, action.draft.sampleArtifact, {
+        activeSampleRevision: action.draft.activeSampleRevision,
+        activeSampleSource: action.draft.activeSampleSource,
+      });
       return {
         ...restored,
         processingJob: buildRestoredJob(action.draft),
@@ -222,7 +232,11 @@ export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction)
   }
 }
 
-export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtifact): WorkbenchState {
+export function applySampleArtifact(
+  state: WorkbenchState,
+  artifact: SampleArtifact,
+  options: { activeSampleRevision?: number; activeSampleSource?: DraftState["activeSampleSource"]; bumpActiveSampleRevision?: boolean } = {},
+): WorkbenchState {
   const sampleVideo: SampleVideo = {
     id: artifact.sampleVideoId,
     artifactId: artifact.sampleVideo.artifactId,
@@ -251,6 +265,8 @@ export function applySampleArtifact(state: WorkbenchState, artifact: SampleArtif
   return {
     ...state,
     sampleArtifact: artifact,
+    activeSampleRevision: options.activeSampleRevision ?? (options.bumpActiveSampleRevision ? state.activeSampleRevision + 1 : state.activeSampleRevision),
+    activeSampleSource: options.activeSampleSource ?? state.activeSampleSource,
     errorSummary: null,
     sampleVideo,
     mediaDerivatives: buildDerivatives(artifact),

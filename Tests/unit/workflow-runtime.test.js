@@ -63,7 +63,7 @@ function createHarness() {
     loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
     pollIntervalMs: 60_000,
   });
-  return { workflow, stageLogs };
+  return { workflow, stageLogs, jobs };
 }
 
 test("full analysis workflow advances upload, shot, parallel analyses, and aggregate", async () => {
@@ -101,6 +101,39 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
     FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
     ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure"],
   );
+});
+
+test("full analysis workflow exposes cache waiting as recoverable run state", async () => {
+  const { workflow, jobs } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  jobs.set("job_shot-boundary", {
+    jobId: "job_shot-boundary",
+    sampleVideoId: "sample_1",
+    status: "cache_waiting",
+    stage: "shot.cache_lookup",
+    progress: 55,
+    traceId: "trace_shot",
+    cachePrompt: { cacheKind: "shot_boundary", cachedItem: { sampleVideoId: "sample_1" } },
+  });
+  await workflow.advance(started.workflowRunId);
+
+  const waiting = workflow.get(started.workflowRunId);
+  const shot = waiting.stages.find((stage) => stage.key === "shotBoundary");
+  assert.equal(waiting.status, "cache_waiting");
+  assert.equal(shot.status, "cache_waiting");
+  assert.equal(shot.outputSummary.cacheWaiting, true);
+
+  jobs.set("job_shot-boundary", { ...jobs.get("job_shot-boundary"), status: "processing", progress: 56 });
+  await workflow.advance(started.workflowRunId);
+  const resumed = workflow.get(started.workflowRunId);
+  assert.equal(resumed.status, "running");
+  assert.equal(resumed.stages.find((stage) => stage.key === "shotBoundary").status, "running");
 });
 
 test("workflow run store marks running persisted runs as failed on restart", () => {

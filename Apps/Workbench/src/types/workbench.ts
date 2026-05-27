@@ -51,6 +51,8 @@ export type WorkbenchState = {
   isUploadingSample: boolean;
   uploadStatusText: string | null;
   sampleArtifact: SampleArtifact | null;
+  activeSampleRevision: number;
+  activeSampleSource: "workbench" | "fullAnalysis" | "library";
   errorSummary: ErrorSummary | null;
   subtitleDrafts: Record<string, SubtitleDraft>;
 };

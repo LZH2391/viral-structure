@@ -235,12 +235,15 @@ function resolutionText(item: { width?: number | null; height?: number | null })
 }
 
 function writeWorkbenchDraft(sampleArtifact: LibraryItemDetail["artifact"]) {
+  const current = readExistingWorkbenchDraft();
   localStorage.setItem(
     "workbench:last-sample",
     JSON.stringify({
       sampleVideoId: sampleArtifact.sampleVideoId,
       artifactId: sampleArtifact.sampleVideo.artifactId,
       traceId: sampleArtifact.trace?.traceId ?? null,
+      activeSampleRevision: Number(current?.activeSampleRevision ?? 0) + 1,
+      activeSampleSource: "library",
       sampleArtifact,
       selectedFrameId: sampleArtifact.frames[0]?.frameId ?? null,
       selectedDerivativeId: sampleArtifact.sampleVideo.normalized.artifactId,
@@ -248,4 +251,12 @@ function writeWorkbenchDraft(sampleArtifact: LibraryItemDetail["artifact"]) {
     }),
   );
   window.location.assign("/");
+}
+
+function readExistingWorkbenchDraft() {
+  try {
+    return JSON.parse(localStorage.getItem("workbench:last-sample") ?? "null") as { activeSampleRevision?: number } | null;
+  } catch {
+    return null;
+  }
 }

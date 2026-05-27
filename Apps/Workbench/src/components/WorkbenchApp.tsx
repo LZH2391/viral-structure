@@ -26,7 +26,7 @@ import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
 import { TimelinePanel } from "./TimelinePanel";
 import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
-import type { FullAnalysisStageTarget, FullAnalysisWorkbenchSync } from "./FullAnalysisApp";
+import type { FullAnalysisStageTarget, FullAnalysisWorkbenchActiveSample, FullAnalysisWorkbenchSync } from "./FullAnalysisApp";
 
 type AudioSeekRequest = { requestId: number; time: number };
 
@@ -65,17 +65,19 @@ export function WorkbenchApp() {
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
 
-  const persistWorkbenchArtifact = useCallback((artifact: SampleArtifact, traceId: string | null) => {
+  const persistWorkbenchArtifact = useCallback((artifact: SampleArtifact, traceId: string | null, activeSample?: { revision?: number; source?: WorkbenchState["activeSampleSource"] }) => {
     writeWorkbenchDraft({
       sampleVideoId: artifact.sampleVideoId,
       artifactId: artifact.sampleVideo.artifactId,
       traceId,
+      activeSampleRevision: activeSample?.revision ?? state.activeSampleRevision,
+      activeSampleSource: activeSample?.source ?? state.activeSampleSource,
       sampleArtifact: artifact,
       selectedFrameId: artifact.frames[0]?.frameId ?? null,
       selectedDerivativeId: artifact.sampleVideo.normalized.artifactId,
       versions: state.versions,
     });
-  }, [state.versions]);
+  }, [state.activeSampleRevision, state.activeSampleSource, state.versions]);
 
   const stageLogger = useWorkbenchStageLogger({
     uiTraceId: state.uiTraceId,
@@ -352,8 +354,8 @@ export function WorkbenchApp() {
       const artifactSignature = sampleArtifactSyncSignature(nextArtifact);
       if (artifactSignature !== lastFullAnalysisArtifactSyncRef.current) {
         lastFullAnalysisArtifactSyncRef.current = artifactSignature;
-        dispatch({ type: "apply-artifact", artifact: nextArtifact });
-        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null);
+        dispatch({ type: "apply-artifact", artifact: nextArtifact, activeSampleSource: "fullAnalysis", bumpActiveSampleRevision: payload.activeSampleChanged });
+        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null, payload.activeSampleChanged ? { revision: state.activeSampleRevision + 1, source: "fullAnalysis" } : undefined);
       }
     }
     const stageJob = (stageKey: string) => {
@@ -376,18 +378,15 @@ export function WorkbenchApp() {
     const scriptJob = stageJob("scriptSegment");
     const rhythmJob = stageJob("rhythmStructure");
     const packagingJob = stageJob("packagingStructure");
-    const atomizationJob = stageJob("functionSlotAtomization");
     shotBoundaryFlow.setAgentJob(shotJob);
     scriptSegmentFlow.setJob(scriptJob);
     rhythmStructureFlow.setJob(rhythmJob);
     packagingStructureFlow.setJob(packagingJob);
-    functionSlotAtomizationFlow.setJob(atomizationJob);
     writeActiveAgentJob(toActiveJobDraft(shotJob));
     writeActiveAnalysisJob("scriptSegment", toActiveJobDraft(scriptJob));
     writeActiveAnalysisJob("rhythmStructure", toActiveJobDraft(rhythmJob));
     writeActiveAnalysisJob("packagingStructure", toActiveJobDraft(packagingJob));
-    writeActiveAnalysisJob("functionSlotAtomization", toActiveJobDraft(atomizationJob));
-  }, [functionSlotAtomizationFlow, packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow]);
+  }, [packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow, state.activeSampleRevision]);
 
   const handleOpenWorkbenchStage = useCallback((stageKey: FullAnalysisStageTarget) => {
     const tab = fullAnalysisStageToPropertyTab(stageKey);
@@ -404,6 +403,11 @@ export function WorkbenchApp() {
     : "未加载样例";
 
   const traceText = state.processingJob?.traceId ? `trace ${shortId(state.processingJob.traceId)}` : "等待后端返回 trace";
+  const fullAnalysisActiveSample: FullAnalysisWorkbenchActiveSample | null = state.sampleArtifact ? {
+    artifact: state.sampleArtifact,
+    activeSampleRevision: state.activeSampleRevision,
+    activeSampleSource: state.activeSampleSource,
+  } : null;
 
   return (
     <div className="app-shell">
@@ -588,7 +592,7 @@ export function WorkbenchApp() {
       </main>
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
-          <FullAnalysisApp embedded onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
+          <FullAnalysisApp embedded activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews.library ? (
