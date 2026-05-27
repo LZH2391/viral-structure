@@ -49,6 +49,7 @@ class RoleProfileDocument(BaseModel):
 
     role: str
     profile_version: str = Field(alias="profileVersion")
+    workspace_root: str | None = Field(default=None, alias="workspaceRoot")
     skill_path: str | None = Field(default=None, alias="skillPath")
     init: RoleInitProfile
     turn_templates: dict[str, RoleTurnTemplateProfile] = Field(default_factory=dict, alias="turnTemplates")
@@ -61,9 +62,9 @@ class RoleProfileDocument(BaseModel):
             raise ValueError("field cannot be empty")
         return text
 
-    @field_validator("skill_path", mode="before")
+    @field_validator("workspace_root", "skill_path", mode="before")
     @classmethod
-    def normalize_skill_path(cls, value: str | None) -> str | None:
+    def normalize_optional_path(cls, value: str | None) -> str | None:
         if value is None:
             return None
         text = str(value).strip()
@@ -76,6 +77,7 @@ class LoadedRoleProfile(BaseModel):
     role: str
     profile_path: str
     profile_version: str
+    workspace_root: str | None = None
     skill_path: str | None = None
     init_prompt: str
     init_ready_text: str | None = None
@@ -106,6 +108,7 @@ def load_role_profile(workspace_root: Path, role_name: str, profile_path: str | 
         role=document.role,
         profile_path=str(resolved_profile_path),
         profile_version=document.profile_version,
+        workspace_root=str(_resolve_optional_workspace_root(workspace_root, document.workspace_root)) if document.workspace_root else None,
         skill_path=document.skill_path,
         init_prompt=init_prompt,
         init_ready_text=document.init.ready_text,
@@ -117,6 +120,15 @@ def load_role_profile(workspace_root: Path, role_name: str, profile_path: str | 
 
 def _resolve_profile_path(workspace_root: Path, profile_path: str | Path) -> Path:
     candidate = Path(profile_path)
+    if not candidate.is_absolute():
+        candidate = (workspace_root / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+    return candidate
+
+
+def _resolve_optional_workspace_root(workspace_root: Path, role_workspace_root: str | Path) -> Path:
+    candidate = Path(role_workspace_root)
     if not candidate.is_absolute():
         candidate = (workspace_root / candidate).resolve()
     else:

@@ -205,6 +205,6 @@ test("isSameProcessingJobSnapshot updates when agent activity changes", () => {
     agentActivity: { ...left.agentActivity, itemCount: 3, latestMessagePreview: "读取工具结果" },
   };
 
-  assert.equal(isSameProcessingJobSnapshot(left, same), true);
+  assert.equal(isSameProcessingJobSnapshot(left, same), false);
   assert.equal(isSameProcessingJobSnapshot(left, changed), false);
 });

@@ -27,12 +27,12 @@ class ThreadPoolLeaseStoreMixin:
                     self.store.delete_thread(thread.thread_id)
                     continue
                 if thread.status == "initializing":
-                    if self._thread_exists_for_recovery(thread.thread_id):
+                    if self._thread_exists_for_recovery(thread):
                         self.store.write_thread(thread.model_copy(update={"updated_at": _now()}))
                     else:
                         self.store.delete_thread(thread.thread_id)
                     continue
-                if self._thread_is_usable_for_recovery(thread.thread_id):
+                if self._thread_is_usable_for_recovery(thread):
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
                     self.store.delete_thread(thread.thread_id)
@@ -44,7 +44,7 @@ class ThreadPoolLeaseStoreMixin:
                 if config is not None and not self._matches_thread_fingerprint(thread, config):
                     self.store.delete_thread(thread.thread_id)
                     continue
-                if self._thread_is_usable_for_recovery(thread.thread_id):
+                if self._thread_is_usable_for_recovery(thread):
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
                     self.store.delete_thread(thread.thread_id)
@@ -60,7 +60,7 @@ class ThreadPoolLeaseStoreMixin:
                 continue
             if self.discard_on_release or thread.retire_on_release:
                 self.store.delete_thread(thread.thread_id)
-            elif self._thread_is_usable_for_recovery(thread.thread_id):
+            elif self._thread_is_usable_for_recovery(thread):
                 self.store.write_thread(
                     thread.model_copy(
                         update={
@@ -76,17 +76,19 @@ class ThreadPoolLeaseStoreMixin:
                 self.store.delete_thread(thread.thread_id)
         self._prune_inactive_leases()
 
-    def _thread_exists_for_recovery(self, thread_id: str) -> bool:
-        exists = getattr(self.client, "thread_exists", None)
+    def _thread_exists_for_recovery(self, thread: ThreadRecord) -> bool:
+        client = self._client_for_thread(thread)
+        exists = getattr(client, "thread_exists", None)
         if callable(exists):
-            return bool(exists(thread_id))
-        return bool(self.client.validate_thread(thread_id))
+            return bool(exists(thread.thread_id))
+        return bool(client.validate_thread(thread.thread_id))
 
-    def _thread_is_usable_for_recovery(self, thread_id: str) -> bool:
-        validate = getattr(self.client, "validate_thread", None)
+    def _thread_is_usable_for_recovery(self, thread: ThreadRecord) -> bool:
+        client = self._client_for_thread(thread)
+        validate = getattr(client, "validate_thread", None)
         if callable(validate):
-            return bool(validate(thread_id))
-        return self._thread_exists_for_recovery(thread_id)
+            return bool(validate(thread.thread_id))
+        return self._thread_exists_for_recovery(thread)
 
     def _thread_has_been_leased(self, thread: ThreadRecord) -> bool:
         if int(thread.lease_count or 0) > 0 or thread.lease_id:
@@ -117,7 +119,7 @@ class ThreadPoolLeaseStoreMixin:
         if thread is not None:
             if thread.is_seed:
                 raise ValueError(f"seed thread cannot be leased: {thread.thread_id}")
-            if thread.retire_on_release or not self.client.validate_thread(thread.thread_id):
+            if thread.retire_on_release or not self._client_for_thread(thread).validate_thread(thread.thread_id):
                 self.store.delete_thread(thread.thread_id)
             else:
                 thread = thread.model_copy(

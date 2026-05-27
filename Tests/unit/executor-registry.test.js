@@ -29,7 +29,19 @@ test("appserver-turn executor runs start, submit and collect through traced stag
       },
       collectTurnResult: async (payload) => {
         calls.push({ type: "collectTurn", payload });
-        return { threadId: payload.threadId, turnId: payload.turnId, status: "completed", finalMessage: "done" };
+        return {
+          threadId: payload.threadId,
+          turnId: payload.turnId,
+          status: "completed",
+          finalMessage: "done",
+          turnActivity: {
+            itemCount: 3,
+            effectiveItemCount: 2,
+            latestItemType: "tool_call",
+            latestToolName: "shell_command",
+            latestMessagePreview: "running command",
+          },
+        };
       },
     },
   });
@@ -68,6 +80,8 @@ test("appserver-turn executor runs start, submit and collect through traced stag
 
   assert.equal(collected.status, "completed");
   assert.equal(collected.finalMessage, "done");
+  assert.equal(collected.turnActivity.latestItemType, "tool_call");
+  assert.equal(collected.turnActivity.latestToolName, "shell_command");
   assert.deepEqual(stageLogs.map((entry) => entry.stageName), ["agent.thread_start", "agent.submit", "agent.collect"]);
   assert.deepEqual(calls.map((entry) => entry.type), ["startThread", "startTurn", "collectTurn"]);
 });

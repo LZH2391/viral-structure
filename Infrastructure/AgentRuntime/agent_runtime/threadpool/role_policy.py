@@ -110,6 +110,7 @@ class ThreadPoolRolePolicyMixin:
             "min_idle": config.min_idle,
             "profile_path": config.profile_path,
             "profile_version": config.profile_version,
+            "workspace_root": config.workspace_root,
             "skill_path": config.skill_path,
             "current_init_fingerprint": self._role_init_fingerprint(config),
             "counts": counts,
@@ -133,6 +134,7 @@ class ThreadPoolRolePolicyMixin:
     def _role_init_fingerprint(self, config: RoleConfig) -> str:
         payload = {
             "profile_version": config.profile_version,
+            "workspace_root": config.workspace_root,
             "init_template_hash": config.init_template_hash,
             "init_ready_text": config.init_ready_text,
             "skill_path": config.skill_path,

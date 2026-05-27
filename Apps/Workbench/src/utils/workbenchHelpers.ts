@@ -24,7 +24,10 @@ export type PackagingStructureCacheHandler = AnalysisCacheHandler;
 export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
-const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 2100;
+const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 1800;
+const SHOT_BOUNDARY_IDLE_TIMEOUT_MS = 6 * 60 * 1000;
+const SHOT_BOUNDARY_RAW_ROLE = "shot-boundary-raw-analyzer";
+const SHOT_BOUNDARY_TRANSFORMER_ROLE = "shot-boundary-transformer";
 export type ShotBoundaryGuard = {
   state: "loading" | "ready" | "warming" | "blocked";
   buttonLabel: string;
@@ -49,6 +52,7 @@ export async function runShotBoundaryAnalysis(state: WorkbenchState, analysisFps
   writeActiveAgentJob?.({ processingJobId: started.processingJobId, sampleVideoId: started.sampleVideoId, traceId: started.traceId, analysisFps, enableReview });
   latest = await pollProcessingJob(() => getProcessingJob(started.processingJobId).catch(() => null), {
     maxAttempts: SHOT_BOUNDARY_POLL_MAX_ATTEMPTS,
+    idleTimeoutMs: SHOT_BOUNDARY_IDLE_TIMEOUT_MS,
     onUpdate: setAgentJob,
     preservePreviousOnNull: true,
   }) ?? latest;
@@ -310,7 +314,14 @@ function buildAnalysisTimeoutMessage(baseMessage: string, job: ProcessingJob) {
 
 export async function getShotBoundaryGuard() {
   try {
-    return resolveShotBoundaryGuard(await getThreadPoolRoleStatus("shot-boundary-transformer"));
+    const [rawStatus, transformerStatus] = await Promise.all([
+      getThreadPoolRoleStatus(SHOT_BOUNDARY_RAW_ROLE),
+      getThreadPoolRoleStatus(SHOT_BOUNDARY_TRANSFORMER_ROLE),
+    ]);
+    return resolveShotBoundaryGuard({
+      raw: rawStatus,
+      transformer: transformerStatus,
+    });
   } catch (error) {
     return {
       state: "blocked",
@@ -321,14 +332,25 @@ export async function getShotBoundaryGuard() {
   }
 }
 
-export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | undefined): ShotBoundaryGuard {
+export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | { raw?: ThreadPoolRoleDetail | null; transformer?: ThreadPoolRoleDetail | null } | null | undefined): ShotBoundaryGuard {
+  if (isShotBoundaryGuardPair(status)) {
+    const raw = resolveSingleShotBoundaryGuard(status.raw, "raw role");
+    if (raw.state !== "ready") return raw;
+    const transformer = resolveSingleShotBoundaryGuard(status.transformer, "transformer role");
+    if (transformer.state !== "ready") return transformer;
+    return { state: "ready", buttonLabel: "运行", message: null, disabled: false };
+  }
+  return resolveSingleShotBoundaryGuard(status, "transformer role");
+}
+
+function resolveSingleShotBoundaryGuard(status: ThreadPoolRoleDetail | null | undefined, label: string): ShotBoundaryGuard {
   if (!status) return { state: "loading", buttonLabel: "检查中", message: null, disabled: true };
-  if (!status.ok) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前不可用，请稍后再试", disabled: true };
+  if (!status.ok) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：ThreadPool 当前不可用，请稍后再试`, disabled: true };
   if (status.warming) {
     return {
       state: "warming",
       buttonLabel: "warming",
-      message: "ThreadPool 正在 warming，请稍后再试",
+      message: `${label} 正在 warming，请稍后再试`,
       disabled: false,
     };
   }
@@ -336,7 +358,7 @@ export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | u
     return {
       state: "warming",
       buttonLabel: "warming",
-      message: "ThreadPool 正在初始化 seed thread，请稍后再试",
+      message: `${label} 正在初始化 seed thread，请稍后再试`,
       disabled: false,
     };
   }
@@ -344,15 +366,19 @@ export function resolveShotBoundaryGuard(status: ThreadPoolRoleDetail | null | u
     return {
       state: "warming",
       buttonLabel: "warming",
-      message: "ThreadPool 正在补充 idle thread，请稍后再试",
+      message: `${label} 正在补充 idle thread，请稍后再试`,
       disabled: false,
     };
   }
-  if (status.startupError) return { state: "blocked", buttonLabel: "不可用", message: status.startupError, disabled: true };
-  if (status.warmupError) return { state: "blocked", buttonLabel: "不可用", message: status.warmupError, disabled: true };
-  if (!status.readyForLeases) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前未 ready，请稍后再试", disabled: true };
-  if (!status.canAcquire) return { state: "blocked", buttonLabel: "不可用", message: "ThreadPool 当前不可获取 lease，请稍后再试", disabled: true };
+  if (status.startupError) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：${status.startupError}`, disabled: true };
+  if (status.warmupError) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：${status.warmupError}`, disabled: true };
+  if (!status.readyForLeases) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：ThreadPool 当前未 ready，请稍后再试`, disabled: true };
+  if (!status.canAcquire) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：ThreadPool 当前不可获取 lease，请稍后再试`, disabled: true };
   return { state: "ready", buttonLabel: "运行", message: null, disabled: false };
+}
+
+function isShotBoundaryGuardPair(value: unknown): value is { raw?: ThreadPoolRoleDetail | null; transformer?: ThreadPoolRoleDetail | null } {
+  return Boolean(value && typeof value === "object" && ("raw" in value || "transformer" in value));
 }
 
 export function findCurrentStructureCard(cards: StructureCard[], currentTime: number): StructureCard | null {

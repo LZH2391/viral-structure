@@ -33,7 +33,7 @@ class ThreadPoolSeedPoolMixin:
             if not self._matches_thread_fingerprint(thread, config):
                 self.store.delete_thread(thread.thread_id)
                 continue
-            if self.client.validate_thread(thread.thread_id):
+            if self._client_for_config(config).validate_thread(thread.thread_id):
                 validated = thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()})
                 self.store.write_thread(validated)
                 return validated
@@ -44,7 +44,7 @@ class ThreadPoolSeedPoolMixin:
         seed = self._ensure_seed_thread(config, wait_for_ready=wait_for_ready)
         if seed.status != "idle":
             raise SeedInitializationPending(f"seed for role {config.name} is still initializing")
-        thread_id = self.client.fork_initialized_thread(seed.thread_id)
+        thread_id = self._client_for_config(config).fork_initialized_thread(seed.thread_id)
         now = _now()
         record = ThreadRecord(
             thread_id=thread_id,
@@ -74,9 +74,10 @@ class ThreadPoolSeedPoolMixin:
                 refreshed_seed = self._refresh_seed_thread(config, seed, wait_for_ready=wait_for_ready)
                 if refreshed_seed is not None:
                     return refreshed_seed
-            started = self.client.start_initialized_thread(
+            started = self._client_for_config(config).start_initialized_thread(
                 config.init_prompt,
                 config.skill_path,
+                cwd=config.workspace_root,
             )
             now = _now()
             record = ThreadRecord(
@@ -103,7 +104,7 @@ class ThreadPoolSeedPoolMixin:
             self.store.delete_thread(seed.thread_id)
             return None
         if seed.status != "initializing":
-            if self.client.validate_thread(seed.thread_id):
+            if self._client_for_config(config).validate_thread(seed.thread_id):
                 validated = seed.model_copy(update={"last_validated_at": _now(), "updated_at": _now()})
                 self.store.write_thread(validated)
                 return validated
@@ -114,15 +115,16 @@ class ThreadPoolSeedPoolMixin:
             promoted_seed = seed.model_copy(update={"status": "idle", "updated_at": _now(), "last_validated_at": _now()})
             self.store.write_thread(promoted_seed)
             return promoted_seed
+        client = self._client_for_config(config)
         try:
             result = (
-                self.client.wait_turn_result(
+                client.wait_turn_result(
                     thread_id=seed.thread_id,
                     turn_id=turn_id,
-                    timeout_seconds=self.client.init_timeout_seconds,
+                    timeout_seconds=client.init_timeout_seconds,
                 )
                 if wait_for_ready
-                else self.client.collect_turn_result(thread_id=seed.thread_id, turn_id=turn_id)
+                else client.collect_turn_result(thread_id=seed.thread_id, turn_id=turn_id)
             )
         except Exception:
             if self._seed_initialization_is_stale(seed):
@@ -289,7 +291,9 @@ class ThreadPoolSeedPoolMixin:
         else:
             now = datetime.now().astimezone(created_at.tzinfo)
         age_seconds = (now - created_at).total_seconds()
-        timeout_seconds = float(getattr(self.client, "init_timeout_seconds", 0.0) or 0.0)
+        config = self.roles.get(seed.role)
+        client = self._client_for_config(config) if config is not None else self.client
+        timeout_seconds = float(getattr(client, "init_timeout_seconds", 0.0) or 0.0)
         stale_seconds = max(SEED_INITIALIZATION_STALE_SECONDS, timeout_seconds * 3.0)
         return age_seconds >= stale_seconds
 

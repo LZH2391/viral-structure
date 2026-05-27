@@ -47,6 +47,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             init_timeout_seconds=90.0,
         )
         self._owns_client = client is None
+        self._role_clients: dict[str, AppServerSessionClient] = {}
         self.orphan_ttl_minutes = int(orphan_ttl_minutes)
         self.async_warmup = bool(async_warmup)
         self.roles: dict[str, RoleConfig] = {}
@@ -97,6 +98,9 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
     def close(self) -> None:
         if self._owns_client:
             self.client.close()
+        for role_client in self._role_clients.values():
+            role_client.close()
+        self._role_clients = {}
 
     def _finish_startup(self) -> None:
         self._recover_state()
@@ -388,6 +392,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                     {
                         "profile_path": str(loaded_profile.profile_path),
                         "profile_version": loaded_profile.profile_version,
+                        "workspace_root": loaded_profile.workspace_root,
                         "skill_path": loaded_profile.skill_path,
                         "init_prompt": loaded_profile.init_prompt,
                         "init_ready_text": loaded_profile.init_ready_text,
@@ -483,3 +488,30 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "reported_at": _now(),
             }
         )
+
+    def _client_for_config(self, config: RoleConfig) -> AppServerSessionClient:
+        if not self._owns_client:
+            return self.client
+        workspace_root = Path(config.workspace_root).resolve() if config.workspace_root else self.workspace_root
+        if workspace_root == self.workspace_root:
+            return self.client
+        key = str(workspace_root)
+        role_client = self._role_clients.get(key)
+        if role_client is None:
+            role_client = AppServerSessionClient(
+                workspace_root,
+                transport_mode="ws",
+                transport_url=self.transport_url,
+                request_timeout_seconds=90.0,
+                turn_timeout_seconds=90.0,
+                init_timeout_seconds=90.0,
+            )
+            role_client.start()
+            self._role_clients[key] = role_client
+        return role_client
+
+    def _client_for_thread(self, thread: ThreadRecord) -> AppServerSessionClient:
+        config = self.roles.get(thread.role)
+        if config is None:
+            return self.client
+        return self._client_for_config(config)

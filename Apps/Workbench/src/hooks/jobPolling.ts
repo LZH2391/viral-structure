@@ -4,6 +4,7 @@ export type JobUpdateCallback<TJob> = (job: TJob) => void;
 export type JobPollOptions<TJob> = {
   maxAttempts?: number;
   intervalMs?: number;
+  idleTimeoutMs?: number;
   onUpdate?: JobUpdateCallback<TJob>;
   stopOnNull?: boolean;
   preservePreviousOnNull?: boolean;
@@ -19,6 +20,7 @@ export async function pollProcessingJob(
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   let previousJob = null as ProcessingJob | null;
+  let latestActivityAt = Date.now();
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempt > 0) await delay(intervalMs);
@@ -36,7 +38,14 @@ export async function pollProcessingJob(
       options.onUpdate?.(job);
       previousJob = job;
     }
+    const activityTime = resolveAgentActivityTime(job);
+    if (activityTime != null && activityTime > latestActivityAt) {
+      latestActivityAt = activityTime;
+    }
     if (job && (job.status === "processed" || job.status === "failed" || job.status === "cache_waiting")) {
+      return job;
+    }
+    if (job && options.idleTimeoutMs && Date.now() - latestActivityAt >= options.idleTimeoutMs) {
       return job;
     }
   }
@@ -77,6 +86,7 @@ function normalizeAgentActivity(activity: ProcessingJob["agentActivity"]) {
     latestItemType: activity.latestItemType ?? null,
     latestMessagePreview: activity.latestMessagePreview ?? null,
     latestToolName: activity.latestToolName ?? null,
+    updatedAt: activity.updatedAt ?? null,
     tokenUsage: activity.tokenUsage
       ? {
           inputTokens: activity.tokenUsage.inputTokens ?? null,
@@ -139,6 +149,18 @@ function normalizeCachePrompt(cachePrompt: ProcessingJob["cachePrompt"]) {
         }
       : null,
   };
+}
+
+function resolveAgentActivityTime(job: ProcessingJob | null | undefined) {
+  const candidates = [
+    job?.agentActivity?.updatedAt,
+    job?.activeThreadMessage?.createdAt,
+  ];
+  for (const candidate of candidates) {
+    const time = Date.parse(String(candidate ?? ""));
+    if (Number.isFinite(time)) return time;
+  }
+  return null;
 }
 
 function delay(ms: number) {

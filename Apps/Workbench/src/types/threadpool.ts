@@ -35,6 +35,7 @@ export type ThreadPoolRoleDetail = {
   };
   seedThreadId?: string | null;
   skillPath?: string | null;
+  workspaceRoot?: string | null;
   canAcquire: boolean;
   canInit?: boolean;
   warming?: boolean;

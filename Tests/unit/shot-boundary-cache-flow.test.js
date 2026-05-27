@@ -1,9 +1,7 @@
 const { test, assert, fs, os, path, crypto, createJobStore, DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES, buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint, splitPredecessorCacheParams, resolveSkillHash, createArtifactCacheParamBuilders, createArtifactIndex, loadRoleProfileByRole, summarizeThreadConversation, createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES, planContactSheets, createArtifact, createShotHarness, isTransformTurnPayload, createContactSheets, rootRuntime, escapeRegExp, delay, hashText, response, structuredErrorForTest, createTransformMessage, createInvalidTransformMessage, createShotMessage, createCachedShotAnalysis, createValidCachedShotAnalysis } = require("./threadpool-shot-boundary.helpers");
 
-test("shot boundary raw submit starts standalone thread and sends fixed mp4 path text", async () => {
-  const rawAnalysisWorkspaceRoot = path.join(os.tmpdir(), "codex-raw-workspace");
+test("shot boundary raw submit acquires raw analyzer lease and sends fixed mp4 path text", async () => {
   const harness = await createShotHarness({
-    rawAnalysisWorkspaceRoot,
     artifact: createArtifact({
       subtitleStatus: "processed",
       subtitleSegments: [
@@ -12,9 +10,22 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
       ],
     }),
     appServer: {
-      startThread: async () => ({ ok: true, threadId: "thread_raw_1", status: "created" }),
       startTurnWithInputs: async ({ threadId }) => ({ ok: true, threadId, turnId: "turn_raw_1", status: "submitted" }),
-      collectTurnResult: async () => ({ ok: false, threadId: "thread_raw_1", turnId: "turn_raw_1", status: "running", finalMessage: "" }),
+      collectTurnResult: async () => ({
+        ok: false,
+        threadId: "thread_1",
+        turnId: "turn_raw_1",
+        status: "running",
+        finalMessage: "",
+        turnActivity: {
+          itemCount: 2,
+          effectiveItemCount: 1,
+          latestItemType: "tool_call",
+          latestToolName: "view_image",
+          latestMessagePreview: "读取视频帧",
+          tokenUsage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+        },
+      }),
     },
   });
 
@@ -23,11 +34,10 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
   const job = harness.jobStore.getJob(result.processingJobId);
   const rawTurn = harness.startedTurns.find((item) => item.kind === "shot");
 
-  assert.equal(harness.startedThreads.length, 1);
-  assert.equal(harness.startedThreads[0].workspaceRoot, rawAnalysisWorkspaceRoot);
+  assert.equal(harness.startedThreads.length, 0);
   assert.equal(rawTurn != null, true);
-  assert.equal(rawTurn.payload.threadId, "thread_raw_1");
-  assert.equal(rawTurn.payload.workspaceRoot, rawAnalysisWorkspaceRoot);
+  assert.equal(rawTurn.payload.threadId, "thread_1");
+  assert.equal(rawTurn.payload.workspaceRoot, "C:/Users/Administrator/Documents/Codex");
   assert.equal(rawTurn.payload.inputs.length, 1);
   assert.equal(rawTurn.payload.inputs[0].type, "text");
   assert.match(rawTurn.payload.inputs[0].text, /请使用 Video-shot skill 执行原始视频切镜/);
@@ -35,20 +45,23 @@ test("shot boundary raw submit starts standalone thread and sends fixed mp4 path
   assert.match(rawTurn.payload.inputs[0].text, /不查仓库、不调用其他技能、不看工作区项目实现/);
   assert.match(rawTurn.payload.skillPath, /[\\\/]\.agents[\\\/]skills[\\\/]video-shot[\\\/]SKILL\.md$/);
   assert.equal(job.status, "processing");
-  assert.equal(job.agentRun.threadId, "thread_raw_1");
-  assert.equal(job.agentRun.leaseId, null);
+  assert.equal(job.agentRun.role, "shot-boundary-raw-analyzer");
+  assert.equal(job.agentRun.threadId, "thread_1");
+  assert.equal(job.agentRun.leaseId, "lease_1");
   assert.equal(job.agentRun.turnId, "turn_raw_1");
+  assert.equal(job.agentRun.workspaceRoot, "C:/Users/Administrator/Documents/Codex");
   assert.equal(job.agentRun.inputMode, "raw_video_path_text");
   assert.deepEqual(job.agentRun.rawVideoPathInfo, { resolved: true, basename: "source.mp4" });
+  assert.equal(job.agentActivity.latestItemType, "tool_call");
+  assert.equal(job.agentActivity.latestToolName, "view_image");
+  assert.equal(job.agentActivity.tokenUsage.totalTokens, 120);
   assert.equal(harness.threadPool.released.length, 0);
 });
 
 test("shot boundary transform collect polls running turn and preserves active message", async () => {
   let transformCollectCount = 0;
   const transformMessages = [];
-  const rawAnalysisWorkspaceRoot = path.join(os.tmpdir(), "codex-raw-workspace");
   const harness = await createShotHarness({
-    rawAnalysisWorkspaceRoot,
     appServer: {
       startTurnWithInputs: async (payload) => {
         if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
@@ -87,7 +100,7 @@ test("shot boundary transform collect polls running turn and preserves active me
   const collectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.reviewCollected && entry.event === "stage.end");
   const visualCollectLogs = harness.logger.logs.filter((entry) => entry.stageName === STAGES.visualSummaryCollected && entry.event === "stage.end");
 
-  assert.equal(rawTurn.payload.workspaceRoot, rawAnalysisWorkspaceRoot);
+  assert.equal(rawTurn.payload.workspaceRoot, "C:/Users/Administrator/Documents/Codex");
   assert.equal(transformTurn.payload.workspaceRoot, harness.rootDir);
   assert.equal(transformCollectCount, 4);
   assert.equal(collectLogs.length, 3);
@@ -98,7 +111,7 @@ test("shot boundary transform collect polls running turn and preserves active me
   assert.equal(job.activeThreadMessage, null);
 });
 
-test("shot boundary collect completed writes transformed artifact and releases only transformer lease", async () => {
+test("shot boundary collect completed writes transformed artifact and releases raw and transformer leases", async () => {
   const harness = await createShotHarness({
     artifact: createArtifact({
       subtitleStatus: "processed",
@@ -138,10 +151,10 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.equal(artifact.shotBoundaryAnalysis.agent.promptTemplateId, "transform");
   assert.equal(artifact.shotBoundaryAnalysis.agent.profileVersion, "2026-05-24.2");
   assert.equal(artifact.shotBoundaryAnalysis.agent.inputMode, "raw_video_path_text");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.phase, "raw_video_analyze");
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.phase, "shot-boundary-raw-analyzer");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.threadId, "thread_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.turnId, "turn_raw_1");
-  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.leaseId, null);
+  assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.leaseId, "lease_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.inputMode, "raw_video_path_text");
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 4);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.some((sheet) => sheet.sheetPurpose === "shot_boundary_result_sheet"), true);
@@ -177,8 +190,8 @@ test("shot boundary collect completed writes transformed artifact and releases o
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /inputIndex/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /sourceFrameIndex/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /fileName/);
-  assert.equal(harness.threadPool.released.length, 1);
-  assert.deepEqual(harness.threadPool.released[0], { leaseId: "review_lease_1", ownerId: `${result.traceId}:transform`, thread_status: "idle" });
+  assert.equal(harness.threadPool.released.length, 2);
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [result.traceId, `${result.traceId}:transform`]);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
   assert.deepEqual(harness.threadPool.discarded, []);
 });

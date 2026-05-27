@@ -9,6 +9,59 @@ from threadpool_manager_helpers import *  # noqa: F403
 
 
 class ThreadPoolManagerRecoveryTests(unittest.TestCase):
+    def test_role_profile_workspace_root_is_loaded_into_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            role_workspace = root / "role-workspace"
+            profile_dir = root / "Assets" / "RoleProfiles" / "shot-boundary-raw-analyzer"
+            profile_dir.mkdir(parents=True)
+            role_workspace.mkdir()
+            (profile_dir / "init.md").write_text("ready", encoding="utf-8")
+            (profile_dir / "role.json").write_text(
+                """
+                {
+                  "role": "shot-boundary-raw-analyzer",
+                  "profileVersion": "2026-05-27.test",
+                  "workspaceRoot": "__ROLE_WORKSPACE__",
+                  "skillPath": "C:/Users/Administrator/Documents/Codex/.agents/skills/video-shot/SKILL.md",
+                  "init": {
+                    "template": "init.md",
+                    "readyText": "ready"
+                  },
+                  "turnTemplates": {}
+                }
+                """.replace("__ROLE_WORKSPACE__", str(role_workspace).replace("\\", "/")),
+                encoding="utf-8",
+            )
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": false },
+                  "roles": {
+                    "shot-boundary-raw-analyzer": {
+                      "profile_path": "Assets/RoleProfiles/shot-boundary-raw-analyzer/role.json",
+                      "min_idle": 1
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=ReusableThreadClient(),
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            status = manager.get_role_status("shot-boundary-raw-analyzer")
+            manager.close()
+
+            self.assertEqual(manager.roles["shot-boundary-raw-analyzer"].workspace_root, str(role_workspace.resolve()))
+            self.assertEqual(status["workspace_root"], str(role_workspace.resolve()))
+
     def test_min_idle_replenishment_remains_acquirable_when_seed_is_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

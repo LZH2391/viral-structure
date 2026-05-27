@@ -71,6 +71,7 @@ test("threadpool proxy default allowlist follows thread role config", () => {
     "packaging-structure-analyzer",
     "function-slot-atomization-analyzer",
     "function-slot-atomization-boundary-reviewer",
+    "shot-boundary-raw-analyzer",
     "shot-boundary-transformer",
   ]);
   const proxy = createThreadPoolProxy({ fetchImpl: async () => response({ ok: true }) });

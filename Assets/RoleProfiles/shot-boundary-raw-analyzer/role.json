@@ -1,0 +1,11 @@
+{
+  "role": "shot-boundary-raw-analyzer",
+  "profileVersion": "2026-05-27.1",
+  "workspaceRoot": "C:/Users/Administrator/Documents/Codex",
+  "skillPath": "C:/Users/Administrator/Documents/Codex/.agents/skills/video-shot/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {}
+}

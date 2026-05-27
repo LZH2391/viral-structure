@@ -153,7 +153,7 @@ function createShotBoundaryServiceRuntime({
     if (!agentRun) return;
     if (agentRun.threadId && agentRun.turnId && typeof appServer?.cancelTurn === "function") {
       await appServer.cancelTurn({
-        workspaceRoot: rawWorkspaceRoot,
+        workspaceRoot: agentRun.workspaceRoot ?? rawWorkspaceRoot,
         threadId: agentRun.threadId,
         turnId: agentRun.turnId,
         timeoutSeconds: 30,

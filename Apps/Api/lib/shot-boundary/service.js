@@ -37,6 +37,7 @@ const {
 } = require("./cache");
 const { buildCachePrompt } = require("./cache-prompt");
 const { writeCompletedAnalysis } = require("./result-writer");
+const { buildAgentActivityFromTurnResult } = require("../observability/agent-turn-timeline");
 const {
   ROLE,
   SKILL_PATH,
@@ -96,6 +97,7 @@ const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
 const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
 const REVIEW_COLLECT_MAX_ATTEMPTS = 180;
+const RAW_ANALYZER_ROLE = "shot-boundary-raw-analyzer";
 const DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT = process.env.SHOT_RAW_ANALYSIS_WORKSPACE_ROOT || "C:\\Users\\Administrator\\Documents\\Codex";
 const VIDEO_SHOT_SKILL_PATH = process.env.SHOT_VIDEO_SKILL_PATH || path.join(DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
 
@@ -152,7 +154,7 @@ function createShotBoundaryService({
       artifactId,
       skillPath,
       skillHash: await resolveSkillHash(skillPath),
-      roleProfile: null,
+      roleProfile: await loadRoleProfileByRole(RAW_ANALYZER_ROLE),
       reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: null,
       promptTemplate: null,
@@ -160,6 +162,8 @@ function createShotBoundaryService({
       reviewSkillHash: await resolveSkillHash(REVIEW_SKILL_PATH),
       job,
     };
+    context.skillPath = context.roleProfile?.skillPath ?? context.skillPath;
+    context.skillHash = await resolveSkillHash(context.skillPath);
     context.initFingerprint = buildInitFingerprint(context);
     context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
     runAnalysis(context).catch(() => undefined);
@@ -186,7 +190,7 @@ function createShotBoundaryService({
       artifactId: job.cachePrompt.artifactId ?? `artifact_${randomUUID()}`,
       skillPath: job.cachePrompt.skillPath ?? skillPath,
       skillHash: job.cachePrompt.skillHash ?? await resolveSkillHash(skillPath),
-      roleProfile: null,
+      roleProfile: await loadRoleProfileByRole(RAW_ANALYZER_ROLE),
       reviewRoleProfile: await loadRoleProfileByRole(REVIEW_ROLE),
       initFingerprint: job.cachePrompt.initFingerprint ?? null,
       promptTemplate: {
@@ -197,6 +201,8 @@ function createShotBoundaryService({
       reviewSkillHash: job.cachePrompt.reviewSkillHash ?? await resolveSkillHash(REVIEW_SKILL_PATH),
       job,
     };
+    context.skillPath = context.roleProfile?.skillPath ?? context.skillPath;
+    context.skillHash = await resolveSkillHash(context.skillPath);
     if (!context.promptTemplate.promptTemplateId) {
       context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
     }
@@ -263,18 +269,28 @@ function createShotBoundaryService({
         resolved: true,
         basename: path.basename(rawVideoPath),
       };
-      const leaseAcquisition = await executorRegistry.execute("appserver-turn", {
-        action: "start-thread",
+      const rawWorkspaceRootForRole = context.roleProfile?.workspaceRoot ?? rawWorkspaceRoot;
+      context.rawWorkspaceRoot = rawWorkspaceRootForRole;
+      const leaseAcquisition = await runStage(context, STAGES.threadAcquired, 60, {
         stageName: STAGES.threadAcquired,
-        progress: 60,
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
-        inputSummary: { inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
-        workspaceRoot: rawWorkspaceRoot,
-        timeoutSeconds: 240,
-        role: "raw_video_analyze",
-      }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
-      const rawThread = { thread_id: leaseAcquisition.threadId, lease_id: null };
+        inputSummary: { role: RAW_ANALYZER_ROLE, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
+        action: () => acquireLeaseWithRetry(threadPool, {
+          role: RAW_ANALYZER_ROLE,
+          ownerId: context.traceContext.traceId,
+          maxAttempts: THREADPOOL_ACQUIRE_MAX_ATTEMPTS,
+          backoffMs: THREADPOOL_ACQUIRE_BACKOFF_MS,
+          codedError,
+        }),
+        outputSummary: (result) => ({
+          role: RAW_ANALYZER_ROLE,
+          threadId: result.lease.thread_id,
+          leaseId: result.lease.lease_id,
+          attemptCount: result.attemptCount,
+        }),
+      });
+      const rawThread = leaseAcquisition.lease;
       lease = rawThread;
       const rawTurnInputs = [{
         type: "text",
@@ -291,13 +307,13 @@ function createShotBoundaryService({
         progress: 80,
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
-        inputSummary: { role: ROLE, threadId: rawThread.thread_id, leaseId: null, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
-        workspaceRoot: rawWorkspaceRoot,
+        inputSummary: { role: RAW_ANALYZER_ROLE, threadId: rawThread.thread_id, leaseId: rawThread.lease_id, inputMode: "raw_video_path_text", videoBasename: path.basename(rawVideoPath), durationSeconds: prepared.durationSeconds, pathResolved: true },
+        workspaceRoot: rawWorkspaceRootForRole,
         threadId: rawThread.thread_id,
         inputs: rawTurnInputs,
         skillPath: context.skillPath,
         timeoutSeconds: 240,
-        role: "raw_video_analyze",
+        role: RAW_ANALYZER_ROLE,
         inputMode: "raw_video_path_text",
       }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
       const turn = turnExecution.result;
@@ -327,7 +343,7 @@ function createShotBoundaryService({
       if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
       const sampleArtifact = await loadSampleArtifact(store, agentRun.sampleVideoId);
       const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
-      context.roleProfile = null;
+      context.roleProfile = agentRun.role === RAW_ANALYZER_ROLE ? await loadRoleProfileByRole(RAW_ANALYZER_ROLE) : null;
       context.reviewRoleProfile = await loadRoleProfileByRole(REVIEW_ROLE);
       context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
       context.reviewSkillHash = await resolveSkillHash(REVIEW_SKILL_PATH);
@@ -349,17 +365,16 @@ function createShotBoundaryService({
           progress: 88,
           artifactId: agentRun.artifactId,
           parentArtifactId: agentRun.parentArtifactId,
-          inputSummary: { role: ROLE, threadId: agentRun.threadId, turnId: agentRun.turnId, sheetCount: agentRun.contactSheets?.length ?? 0 },
-          workspaceRoot: rawWorkspaceRoot,
+          inputSummary: { role: agentRun.role ?? ROLE, threadId: agentRun.threadId, leaseId: agentRun.leaseId ?? null, turnId: agentRun.turnId, sheetCount: agentRun.contactSheets?.length ?? 0 },
+          workspaceRoot: context.roleProfile?.workspaceRoot ?? rawWorkspaceRoot,
           threadId: agentRun.threadId,
           turnId: agentRun.turnId,
           timeoutSeconds: 60,
-          role: "raw_video_analyze",
+          role: agentRun.role ?? ROLE,
         }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
         const turn = turnExecution.result;
-        updateActiveThreadMessage(context, turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, {
-          role: "raw_video_analyze",
-          fallbackMessage: "正在分析镜头边界",
+        updateActiveThreadMessage(context, turn, {
+          role: agentRun.role ?? ROLE,
         });
         if (turn.status !== "completed") {
           jobStore.updateJob(job.jobId, {
@@ -380,6 +395,9 @@ function createShotBoundaryService({
               validatorCode: "shot_raw_video_analyze_empty_result",
             },
           }, false);
+        }
+        if (agentRun.leaseId) {
+          await finalizeLease(threadPool, agentRun);
         }
         await writeCompletedAnalysis({
           context,
@@ -417,7 +435,7 @@ function createShotBoundaryService({
             acquireLeaseWithRetry,
           },
           codedError,
-          role: "raw_video_analyze",
+          role: agentRun.role ?? RAW_ANALYZER_ROLE,
           jobStore,
           sampleStatus: SAMPLE_STATUS,
           store,
@@ -443,19 +461,31 @@ function createShotBoundaryService({
   }
 
   async function recoverActiveAgentRuns() {
-    return serviceRuntime.recoverActiveAgentRuns({
+    const modern = await serviceRuntime.recoverActiveAgentRuns({
+      role: RAW_ANALYZER_ROLE,
+      collectAgentRun,
+      loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
+    });
+    const legacy = await serviceRuntime.recoverActiveAgentRuns({
       role: ROLE,
       collectAgentRun,
       loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
     });
+    return { recovered: modern.recovered + legacy.recovered, interrupted: modern.interrupted + legacy.interrupted };
   }
 
   async function interruptActiveAgentRuns(reason = "server-startup") {
-    return serviceRuntime.interruptActiveAgentRuns({
+    const modern = await serviceRuntime.interruptActiveAgentRuns({
+      role: RAW_ANALYZER_ROLE,
+      loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
+      reason,
+    });
+    const legacy = await serviceRuntime.interruptActiveAgentRuns({
       role: ROLE,
       loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
       reason,
     });
+    return { interruptedAgentRuns: modern.interruptedAgentRuns + legacy.interruptedAgentRuns, interrupted: modern.interrupted + legacy.interrupted };
   }
 
   async function runCacheLookupLocal(context, prepared, contactSheets) {
@@ -510,9 +540,9 @@ function createShotBoundaryService({
   function buildAgentRun(args) {
     return buildAgentRunImpl({
       ...args,
-      role: "raw_video_analyze",
-      skillPath: null,
-      roleProfile: null,
+      role: RAW_ANALYZER_ROLE,
+      skillPath: args.context.skillPath,
+      roleProfile: args.context.roleProfile,
       promptTemplate: null,
       initFingerprint: null,
     });
@@ -538,10 +568,15 @@ function createShotBoundaryService({
     return serviceRuntime.markFailed(context, error);
   }
 
-  function updateActiveThreadMessage(context, threadId, turnId, message, status, options = {}) {
-    const normalized = buildActiveThreadMessage(threadId, turnId, message, status, options);
-    if (normalized || !isPendingTurnStatus(status)) {
-      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized });
+  function updateActiveThreadMessage(context, turnOrThreadId, turnIdOrOptions, message, status, options = {}) {
+    const turn = typeof turnOrThreadId === "object" && turnOrThreadId !== null
+      ? turnOrThreadId
+      : { threadId: turnOrThreadId, turnId: turnIdOrOptions, activeThreadMessage: message, status };
+    const resolvedOptions = typeof turnOrThreadId === "object" && turnOrThreadId !== null ? (turnIdOrOptions ?? {}) : options;
+    const normalized = buildActiveThreadMessage(turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, resolvedOptions);
+    const agentActivity = buildAgentActivityFromTurnResult(turn);
+    if (normalized || agentActivity || !isPendingTurnStatus(turn.status)) {
+      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized, agentActivity });
     }
     return normalized;
   }
@@ -577,7 +612,7 @@ function isPendingTurnStatus(status) {
   return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
-module.exports = { ROLE, SKILL_PATH, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
+module.exports = { ROLE, SKILL_PATH, RAW_ANALYZER_ROLE, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
 
 // Static compatibility anchor for repo regex tests after service split:
 // activeThreadMessage: null

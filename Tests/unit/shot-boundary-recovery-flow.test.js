@@ -178,7 +178,7 @@ test("shot boundary success releases lease and thread returns idle", async () =>
     await delay(10);
   }
 
-  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [`${result.traceId}:transform`]);
+  assert.deepEqual(harness.threadPool.released.map((entry) => entry.ownerId), [result.traceId, `${result.traceId}:transform`]);
   assert.deepEqual(harness.threadPool.discarded, []);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
 });

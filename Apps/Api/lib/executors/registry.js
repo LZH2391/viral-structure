@@ -142,6 +142,7 @@ function normalizeTurnResult(result) {
     turnId: result.turnId ?? null,
     finalMessage: result.finalMessage ?? null,
     activeThreadMessage: result.activeThreadMessage ?? null,
+    turnActivity: result.turnActivity ?? null,
     finalMessageSummary: summarizeMessage(result.finalMessage),
     activeThreadMessageSummary: summarizeMessage(result.activeThreadMessage),
     errorSummary: summarizeError(result.errorSummary ?? result.error ?? null),

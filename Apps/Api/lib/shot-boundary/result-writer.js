@@ -57,10 +57,10 @@ async function writeCompletedAnalysis({
     agentSkillPath: reviewer.skillPath,
     agentSkillHash: transform.run.skillHash,
     rawAnalyzer: {
-      phase: "raw_video_analyze",
+      phase: agentRun.role ?? "raw_video_analyze",
       threadId: agentRun.threadId,
       turnId: turn.turnId,
-      leaseId: null,
+      leaseId: agentRun.leaseId ?? null,
       inputMode: "raw_video_path_text",
       rawResultPreview: safePreview(turn.finalMessage),
     },

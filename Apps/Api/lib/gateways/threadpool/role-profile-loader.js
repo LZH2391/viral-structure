@@ -44,6 +44,7 @@ async function loadRoleProfile(profilePath, expectedRole = null) {
     role: raw.role,
     profilePath: resolvedProfilePath,
     profileVersion: raw.profileVersion,
+    workspaceRoot: raw.workspaceRoot ?? null,
     skillPath: raw.skillPath ?? null,
     init: {
       templatePath: initTemplatePath,

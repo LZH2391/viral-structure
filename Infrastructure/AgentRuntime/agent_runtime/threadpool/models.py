@@ -18,6 +18,7 @@ class RoleConfig(BaseModel):
     init_prompt: str | None = None
     profile_path: str | None = None
     profile_version: str | None = None
+    workspace_root: str | None = None
     init_template_path: str | None = None
     init_template_hash: str | None = None
     skill_path: str | None = None
@@ -31,7 +32,7 @@ class RoleConfig(BaseModel):
             raise ValueError("field cannot be empty")
         return text
 
-    @field_validator("init_prompt", "profile_path", "profile_version", "init_template_path", "init_template_hash", "skill_path", "init_ready_text")
+    @field_validator("init_prompt", "profile_path", "profile_version", "workspace_root", "init_template_path", "init_template_hash", "skill_path", "init_ready_text")
     @classmethod
     def normalize_skill_path(cls, value: str | None) -> str | None:
         if value is None:
