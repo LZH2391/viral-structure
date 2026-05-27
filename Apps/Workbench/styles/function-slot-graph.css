@@ -205,10 +205,15 @@
 }
 
 .slot-graph-node.selected circle,
+.slot-graph-node.preview-pinned circle,
 .slot-graph-node:hover circle {
   stroke: #ffffff;
   stroke-width: 2;
   opacity: 1;
+}
+
+.slot-graph-node.preview-pinned circle {
+  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.86));
 }
 
 .slot-graph-node.muted {
@@ -250,6 +255,98 @@
 
 .slot-graph-node[class*="node-binding"] circle {
   fill: #d8c7ff;
+}
+
+.slot-graph-preview-popover {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  width: var(--preview-width, 248px);
+  max-width: var(--preview-width, 248px);
+  border: 1px solid rgba(180, 170, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(20, 22, 30, 0.92);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  padding: 9px;
+  pointer-events: auto;
+  backdrop-filter: blur(12px);
+}
+
+.slot-graph-preview-popover.pinned {
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(22, 24, 32, 0.96);
+}
+
+.slot-graph-preview-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.slot-graph-preview-head strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-preview-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.slot-graph-preview-head button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.slot-graph-preview-head button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.slot-graph-preview-popover video,
+.slot-graph-preview-empty {
+  width: 100%;
+  height: var(--preview-media-height, 140px);
+  border-radius: 6px;
+  background: #0b0d12;
+  object-fit: contain;
+}
+
+.slot-graph-preview-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slot-graph-preview-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slot-graph-preview-meta span,
+.slot-graph-preview-meta small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-preview-meta small {
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .slot-graph-card {

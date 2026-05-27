@@ -1,8 +1,9 @@
-import { PointerEvent, WheelEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PointerEvent, WheelEvent, type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import type { Simulation, SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
-import { getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
-import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types";
+import { getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems, getSampleArtifact, runtimeUrl } from "../api/client";
+import type { SampleArtifact } from "../types/artifact";
+import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
 
 type LibraryGraphSummary = {
@@ -124,15 +125,47 @@ function GraphCanvas({
   const nodesRef = useRef<SimNode[]>([]);
   const dragRef = useRef<DragState | null>(null);
   const simulationRef = useRef<Simulation<SimNode, D3Link> | null>(null);
+  const sampleCacheRef = useRef<Map<string, SampleArtifact | null>>(new Map());
+  const hoverOutTimerRef = useRef<number | null>(null);
+  const hoverSuppressUntilRef = useRef(0);
   const viewportRef = useRef({ x: 0, y: 0, k: 1 });
   const [nodes, setNodes] = useState<SimNode[]>([]);
   const [viewport, setViewport] = useState(viewportRef.current);
+  const [svgSize, setSvgSize] = useState({ width: VIEWBOX.width, height: VIEWBOX.height });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [pinnedPreviewNodeId, setPinnedPreviewNodeId] = useState<string | null>(null);
+  const [sampleArtifacts, setSampleArtifacts] = useState<Record<string, SampleArtifact | null>>({});
   const [paused, setPaused] = useState(false);
   const [resetToken, setResetToken] = useState(0);
   const positions = new Map(nodes.map((node) => [node.id, node]));
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusedIds = useMemo(() => connectedNodeIds(focusNodeId, visible.edges), [focusNodeId, visible.edges]);
+  const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
+  const previewNode = useMemo(() => {
+    const node = previewNodeId ? nodes.find((entry) => entry.id === previewNodeId) ?? null : null;
+    return node?.type === "libraryItem" ? node : null;
+  }, [nodes, previewNodeId]);
+  const previewSampleId = typeof previewNode?.data.sampleVideoId === "string" ? previewNode.data.sampleVideoId : null;
+  const previewSampleArtifact = previewSampleId ? sampleArtifacts[previewSampleId] ?? sampleCacheRef.current.get(previewSampleId) ?? null : null;
+  const previewSize = previewPopoverSize(previewSampleArtifact);
+  const previewPosition = previewNode ? clampPreviewPosition(svgScreenPoint(svgRef.current, previewNode, viewport), svgSize, previewSize) : null;
+  const showHover = (nodeId: string | null) => {
+    if (Date.now() < hoverSuppressUntilRef.current) return;
+    if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+    hoverOutTimerRef.current = null;
+    setHoveredNodeId(nodeId);
+  };
+  const hideHoverSoon = () => {
+    if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+    hoverOutTimerRef.current = window.setTimeout(() => setHoveredNodeId(null), 150);
+  };
+  const closePreview = () => {
+    if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+    hoverOutTimerRef.current = null;
+    hoverSuppressUntilRef.current = Date.now() + 240;
+    setPinnedPreviewNodeId(null);
+    setHoveredNodeId(null);
+  };
 
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
@@ -160,6 +193,7 @@ function GraphCanvas({
     return () => {
       simulationRef.current?.stop();
       simulationRef.current = null;
+      if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
     };
   }, [resetToken, visible.edges, visible.nodes]);
 
@@ -167,6 +201,33 @@ function GraphCanvas({
     if (paused) simulationRef.current?.stop();
     else simulationRef.current?.alphaTarget(0.03).restart();
   }, [paused]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return undefined;
+    const updateSize = () => {
+      const rect = svg.getBoundingClientRect();
+      setSvgSize({ width: rect.width || VIEWBOX.width, height: rect.height || VIEWBOX.height });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!previewSampleId || sampleCacheRef.current.has(previewSampleId)) return;
+    sampleCacheRef.current.set(previewSampleId, null);
+    getSampleArtifact(previewSampleId)
+      .then((artifact) => {
+        sampleCacheRef.current.set(previewSampleId, artifact);
+        setSampleArtifacts((current) => ({ ...current, [previewSampleId]: artifact }));
+      })
+      .catch(() => {
+        sampleCacheRef.current.set(previewSampleId, null);
+        setSampleArtifacts((current) => ({ ...current, [previewSampleId]: null }));
+      });
+  }, [previewSampleId]);
 
   const graphPoint = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -190,6 +251,7 @@ function GraphCanvas({
 
   const startPan = (event: PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return;
+    closePreview();
     dragRef.current = {
       kind: "pan",
       clientX: event.clientX,
@@ -241,6 +303,10 @@ function GraphCanvas({
       }
       simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
+    }
+    if (drag?.kind === "node" && !drag.moved) {
+      const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
+      if (clickedNode?.type === "libraryItem") setPinnedPreviewNodeId(clickedNode.id);
     }
     dragRef.current = null;
   };
@@ -310,24 +376,38 @@ function GraphCanvas({
               node={node}
               focused={!focusNodeId || node.id === focusNodeId || focusedIds.has(node.id)}
               selected={node.id === selectedNodeId}
-              onHover={setHoveredNodeId}
+              pinnedPreview={node.id === pinnedPreviewNodeId}
+              onHover={showHover}
+              onHoverOut={hideHoverSoon}
               onStartDrag={startNodeDrag}
             />
           ))}
         </g>
       </svg>
+      {previewNode && previewPosition ? (
+        <LibraryPreviewPopover
+          node={previewNode}
+          sampleArtifact={previewSampleArtifact}
+          position={previewPosition}
+          size={previewSize}
+          pinned={pinnedPreviewNodeId === previewNode.id}
+          onMouseEnter={() => showHover(previewNode.id)}
+          onMouseLeave={hideHoverSoon}
+          onClose={closePreview}
+        />
+      ) : null}
     </div>
   );
 }
 
-function GraphNode({ node, focused, selected, onHover, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; onHover: (id: string | null) => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
+function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = nodeRadius(node);
   return (
     <g
-      className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""}`}
+      className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""} ${pinnedPreview ? "preview-pinned" : ""}`}
       onPointerDown={(event) => onStartDrag(event, node)}
       onPointerEnter={() => onHover(node.id)}
-      onPointerLeave={() => onHover(null)}
+      onPointerLeave={onHoverOut}
       tabIndex={0}
       role="button"
       aria-label={node.label}
@@ -336,6 +416,53 @@ function GraphNode({ node, focused, selected, onHover, onStartDrag }: { node: Si
       <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text>
       <title>{node.label}</title>
     </g>
+  );
+}
+
+function LibraryPreviewPopover({
+  node,
+  sampleArtifact,
+  position,
+  size,
+  pinned,
+  onMouseEnter,
+  onMouseLeave,
+  onClose,
+}: {
+  node: SimNode;
+  sampleArtifact: SampleArtifact | null;
+  position: { left: number; top: number };
+  size: { width: number; mediaHeight: number; totalHeight: number };
+  pinned: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onClose: () => void;
+}) {
+  const sampleVideoId = typeof node.data.sampleVideoId === "string" ? node.data.sampleVideoId : null;
+  const videoUrl = runtimeUrl(sampleArtifact?.sampleVideo.normalized.uri ?? sampleArtifact?.sampleVideo.original.uri ?? null);
+  const fileName = sampleArtifact?.sampleVideoId ?? sampleVideoId ?? "源视频";
+  return (
+    <div
+      className={`slot-graph-preview-popover ${pinned ? "pinned" : ""}`}
+      style={{ left: position.left, top: position.top, "--preview-width": `${size.width}px`, "--preview-media-height": `${size.mediaHeight}px` } as CSSProperties}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="slot-graph-preview-head">
+        <strong>{shortId(sampleVideoId ?? "")}</strong>
+        <span>{pinned ? "已固定" : "源视频"}</span>
+        {pinned ? <button type="button" aria-label="关闭预览" onClick={onClose}>x</button> : null}
+      </div>
+      {videoUrl ? (
+        <video src={videoUrl} controls playsInline preload="metadata" />
+      ) : (
+        <div className="slot-graph-preview-empty">加载源视频</div>
+      )}
+      <div className="slot-graph-preview-meta">
+        <span title={fileName}>{fileName}</span>
+        <small>artifact {shortId(String(node.data.artifactId ?? ""))}</small>
+      </div>
+    </div>
   );
 }
 
@@ -520,6 +647,49 @@ function edgeDistance(type: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function svgScreenPoint(svg: SVGSVGElement | null, node: SimNode, viewport: { x: number; y: number; k: number }) {
+  if (!svg) return { x: node.x, y: node.y };
+  const rect = svg.getBoundingClientRect();
+  const point = svg.createSVGPoint();
+  point.x = node.x * viewport.k + viewport.x;
+  point.y = node.y * viewport.k + viewport.y;
+  const transformed = point.matrixTransform(svg.getScreenCTM() ?? undefined);
+  return {
+    x: transformed.x - rect.left,
+    y: transformed.y - rect.top,
+  };
+}
+
+function previewPopoverSize(sampleArtifact: SampleArtifact | null) {
+  const metadata = sampleArtifact?.metadata;
+  const width = positiveNumber(metadata?.width) ?? 16;
+  const height = positiveNumber(metadata?.height) ?? 9;
+  const aspectRatio = clamp(width / height, 0.45, 2.1);
+  const popoverWidth = aspectRatio < 0.9 ? 184 : 248;
+  const mediaHeight = clamp(Math.round(popoverWidth / aspectRatio), 118, 322);
+  return {
+    width: popoverWidth,
+    mediaHeight,
+    totalHeight: mediaHeight + 82,
+  };
+}
+
+function positiveNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function clampPreviewPosition(point: { x: number; y: number }, size: { width: number; height: number }, popoverSize: { width: number; totalHeight: number }) {
+  const popoverWidth = popoverSize.width;
+  const popoverHeight = popoverSize.totalHeight;
+  const gap = 8;
+  const left = point.x + gap + popoverWidth > size.width ? point.x - popoverWidth - gap : point.x + gap;
+  const top = point.y - popoverHeight - gap < 0 ? point.y + gap : point.y - popoverHeight - gap;
+  return {
+    left: clamp(left, 12, Math.max(12, size.width - popoverWidth - 12)),
+    top: clamp(top, 12, Math.max(12, size.height - popoverHeight - 12)),
+  };
 }
 
 function shortLabel(node: FunctionSlotGraphNode) {
