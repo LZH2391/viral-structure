@@ -75,6 +75,17 @@ function createThreadPoolProxy({
     return requestJson("POST", `/threads/${encodeURIComponent(association.thread_id)}/discard`, { reason });
   }
 
+  async function forceUpdateSeeds({ reason, roles } = {}) {
+    const requestedRoles = Array.isArray(roles) && roles.length
+      ? roles.map(String).filter((role) => allowedRoleSet.has(role))
+      : Array.from(allowedRoleSet);
+    if (!requestedRoles.length) return disallowedRolePayload("");
+    return requestJson("POST", "/maintenance/force-update-seeds", {
+      reason: reason || "manual-force-update-seeds-from-workbench",
+      roles: requestedRoles,
+    });
+  }
+
   async function ensureRoleReady(role) {
     assertAllowedRole(role);
     const status = await roleStatus(role);
@@ -186,6 +197,7 @@ function createThreadPoolProxy({
     releaseLease,
     releaseOwnerLeases,
     discardThread,
+    forceUpdateSeeds,
     findAllowedThread,
   };
 }

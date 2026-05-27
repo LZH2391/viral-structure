@@ -3,6 +3,7 @@ from .manager import ThreadPoolManager
 from .models import (
     AcquireLeaseRequest,
     DiscardThreadRequest,
+    ForceUpdateSeedsRequest,
     LeaseRecord,
     ReleaseLeaseRequest,
     RoleConfig,
@@ -13,6 +14,7 @@ from .models import (
 __all__ = [
     "AcquireLeaseRequest",
     "DiscardThreadRequest",
+    "ForceUpdateSeedsRequest",
     "LeaseRecord",
     "ReleaseLeaseRequest",
     "RoleConfig",

@@ -62,6 +62,34 @@ test("threadpool proxy resolves short thread ids inside the allowed role catalog
   assert.equal(requests.at(-1).pathname, `/threads/${fullThreadId}/discard`);
 });
 
+test("threadpool proxy forwards force seed update for allowed roles only", async () => {
+  const requests = [];
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["script-segment-analyzer"],
+    fetchImpl: async (url, options = {}) => {
+      const body = options.body ? JSON.parse(options.body) : null;
+      requests.push({ pathname: new URL(url).pathname, method: options.method, body });
+      if (new URL(url).pathname === "/maintenance/force-update-seeds") {
+        return response({ ok: true, roles: body.roles, deleted_count: 2, retiring_count: 1 });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const result = await proxy.forceUpdateSeeds({
+    reason: "test-refresh",
+    roles: ["script-segment-analyzer", "not-allowed"],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.roles, ["script-segment-analyzer"]);
+  assert.deepEqual(requests, [{
+    pathname: "/maintenance/force-update-seeds",
+    method: "POST",
+    body: { reason: "test-refresh", roles: ["script-segment-analyzer"] },
+  }]);
+});
+
 test("threadpool proxy rejects ambiguous short thread ids", async () => {
   const proxy = createThreadPoolProxy({
     allowedRoles: ["script-segment-analyzer"],

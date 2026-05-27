@@ -63,6 +63,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.doesNotMatch(app, /href="http:\/\/127\.0\.0\.1:5177\/threadpool"/);
   assert.match(api, /\/api\/threadpool\/roles/);
   assert.match(api, /\/api\/threadpool\/threads\/\$\{encodeURIComponent\(threadId\)\}\/conversation/);
+  assert.match(api, /\/api\/threadpool\/maintenance\/force-update-seeds/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/shot-boundary/);
   assert.match(api, /\/api\/processing-jobs\/\$\{encodeURIComponent\(jobId\)\}\/cache-decision/);
   assert.match(api, /cacheDecision: options\.cacheDecision \?\? "ask"/);
@@ -73,6 +74,8 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /resolveShotBoundaryCacheDecision/);
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
+  assert.match(threadpoolApp, /forceUpdateThreadPoolSeeds/);
+  assert.match(threadpoolApp, /id="forceUpdateSeedsBtn"/);
   assert.match(threadpoolApp, /THREADPOOL_REFRESH_INTERVAL_MS = 2000/);
   assert.match(threadpoolApp, /window\.setInterval/);
   assert.match(threadpoolApp, /getThreadConversation/);
@@ -84,6 +87,7 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(threadpoolApp, /window\.confirm/);
   assert.match(threadpoolCss, /\.threadpool-conversation-panel/);
   assert.match(threadpoolCss, /\.threadpool-conversation-block summary/);
+  assert.match(threadpoolCss, /\.danger-action/);
   assert.match(property, /AgentRunPanel/);
   assert.match(agentRunPanel, /shot-boundary/);
   assert.match(property, /onRunShotBoundary/);

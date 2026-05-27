@@ -139,7 +139,6 @@ class ThreadPoolRolePolicyMixin:
     def _role_init_fingerprint(self, config: RoleConfig) -> str:
         payload = {
             "profile_version": config.profile_version,
-            "appserver_timeline_raw_events": True,
             "workspace_root": config.workspace_root,
             "init_template_hash": config.init_template_hash,
             "init_ready_text": config.init_ready_text,

@@ -213,10 +213,19 @@ async function handleOwnerLeaseRelease(req, res, handlers = {}) {
   return handleThreadPoolRead(res, "release-owner", () => handlers.threadPool.releaseOwnerLeases(body.ownerId || body.owner_id), handlers);
 }
 
+async function handleForceUpdateSeeds(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
+  return handleThreadPoolRead(res, "force-update-seeds", () => handlers.threadPool.forceUpdateSeeds({
+    reason: body.reason || "manual-force-update-seeds-from-workbench",
+    roles: Array.isArray(body.roles) ? body.roles : undefined,
+  }), handlers);
+}
+
 function summarizeThreadPoolRead(scope, result) {
   if (!result?.ok) return { scope, unavailable: Boolean(result?.unavailable), error: result?.error ?? null };
   if (scope === "roles") return { scope, roleCount: result.roles?.length ?? 0, warmingRoles: result.health?.warming_roles ?? [] };
   if (scope === "role-status") return { scope, role: result.role, idle: result.counts?.idle ?? 0, minIdle: result.minIdle ?? 0, leased: result.counts?.leased ?? 0 };
+  if (scope === "force-update-seeds") return { scope, roleCount: result.roles?.length ?? 0, deletedCount: result.deleted_count ?? 0, retiringCount: result.retiring_count ?? 0 };
   return { scope, readyForLeases: result.ready_for_leases ?? result.readyForLeases ?? null, recovering: result.recovering ?? null };
 }
 
@@ -235,6 +244,7 @@ function findTurn(thread, turnId) {
 }
 
 module.exports = {
+  handleForceUpdateSeeds,
   handleOwnerLeaseRelease,
   handleThreadConversation,
   handleThreadDiscard,

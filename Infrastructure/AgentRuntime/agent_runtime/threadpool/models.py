@@ -132,3 +132,10 @@ class DiscardThreadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = Field(min_length=1)
+
+
+class ForceUpdateSeedsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(default="manual-force-update-seeds", min_length=1)
+    roles: list[str] | None = None

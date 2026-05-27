@@ -392,6 +392,63 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "retire_on_release": False,
             }
 
+    def force_update_seeds(self, *, reason: str, roles: list[str] | None = None) -> dict:
+        target_roles = self._resolve_maintenance_roles(roles)
+        normalized_reason = str(reason or "manual-force-update-seeds").strip() or "manual-force-update-seeds"
+        now = _now()
+        deleted_threads: list[dict[str, str]] = []
+        retiring_threads: list[dict[str, str]] = []
+        with self._lock:
+            for role_name in target_roles:
+                self._require_role(role_name)
+            for thread in sorted(self.store.list_threads().values(), key=lambda item: (item.role, item.created_at, item.thread_id)):
+                if thread.role not in target_roles:
+                    continue
+                if thread.status == "leased":
+                    if thread.is_seed:
+                        raise ValueError(f"seed thread cannot be leased: {thread.thread_id}")
+                    retiring = thread.model_copy(
+                        update={
+                            "retire_on_release": True,
+                            "discard_reason": normalized_reason,
+                            "updated_at": now,
+                        }
+                    )
+                    self.store.write_thread(retiring)
+                    retiring_threads.append({"role": thread.role, "thread_id": thread.thread_id})
+                    continue
+                self.store.delete_thread(thread.thread_id)
+                deleted_threads.append({"role": thread.role, "thread_id": thread.thread_id})
+            for role_name in target_roles:
+                self._role_status_cache.pop(role_name, None)
+            self._write_catalog()
+        for role_name in target_roles:
+            self._schedule_ensure_min_idle(role_name)
+        return {
+            "ok": True,
+            "reason": normalized_reason,
+            "roles": target_roles,
+            "deleted_count": len(deleted_threads),
+            "retiring_count": len(retiring_threads),
+            "deleted_threads": deleted_threads,
+            "retiring_threads": retiring_threads,
+        }
+
+    def _resolve_maintenance_roles(self, roles: list[str] | None) -> list[str]:
+        if roles is None:
+            return sorted(self.roles.keys())
+        normalized = []
+        seen = set()
+        for role in roles:
+            role_name = str(role or "").strip()
+            if not role_name or role_name in seen:
+                continue
+            seen.add(role_name)
+            normalized.append(role_name)
+        if not normalized:
+            raise ValueError("roles cannot be empty")
+        return normalized
+
     def _acquire_config_for_role(self, role_name: str) -> RoleConfig:
         with self._lock:
             self._require_ready_for_leases()

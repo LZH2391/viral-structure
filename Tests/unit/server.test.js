@@ -372,6 +372,38 @@ test("thread discard catalog errors return forbidden status", async () => {
   }
 });
 
+test("threadpool force seed update route forwards maintenance request", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      forceUpdateSeeds: async (payload) => {
+        calls.push(payload);
+        return { ok: true, roles: ["script-segment-analyzer"], deleted_count: 2, retiring_count: 1 };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/threadpool/maintenance/force-update-seeds", {
+      reason: "test-refresh",
+      roles: ["script-segment-analyzer"],
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.deleted_count, 2);
+    assert.deepEqual(calls, [{ reason: "test-refresh", roles: ["script-segment-analyzer"] }]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("thread turn timeline returns 404 for missing turn", async () => {
   const server = createServer({
     logger: {

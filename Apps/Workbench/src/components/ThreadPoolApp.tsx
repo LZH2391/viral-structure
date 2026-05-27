@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { discardThreadPoolThread, getThreadConversation, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
+import { discardThreadPoolThread, forceUpdateThreadPoolSeeds, getThreadConversation, getThreadPoolRoleStatus, getThreadPoolRoles, releaseThreadPoolOwnerLeases } from "../api/client";
 import type { ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
@@ -15,6 +15,7 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   const [detail, setDetail] = useState<ThreadPoolRoleDetail | null>(null);
   const [status, setStatus] = useState("读取 ThreadPool");
   const [updatedAt, setUpdatedAt] = useState("等待刷新");
+  const [updatingSeeds, setUpdatingSeeds] = useState(false);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableTwoPaneLayout({
     containerRef: layoutRef,
@@ -87,9 +88,24 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
     if (selectedRole) setDetail(await getThreadPoolRoleStatus(selectedRole));
   }, [refresh, selectedRole]);
 
+  const forceUpdateSeeds = useCallback(async () => {
+    if (!window.confirm("确认强制更新所有 seed？空闲线程会被重建，运行中的线程会在释放后退休。")) return;
+    setUpdatingSeeds(true);
+    setStatus("正在更新 seed");
+    try {
+      const result = await forceUpdateThreadPoolSeeds();
+      setStatus(`seed 更新已触发：删除 ${result.deleted_count ?? 0}，待退休 ${result.retiring_count ?? 0}`);
+      await refreshDetail();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "seed 更新失败");
+    } finally {
+      setUpdatingSeeds(false);
+    }
+  }, [refreshDetail]);
+
   return (
     <div className={embedded ? "threadpool-shell embedded-view" : "threadpool-shell"}>
-      {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} onRefresh={refreshDetail} /> : null}
+      {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} updatingSeeds={updatingSeeds} onRefresh={refreshDetail} onForceUpdateSeeds={forceUpdateSeeds} /> : null}
       <main ref={layoutRef} className="threadpool-grid">
         <RoleList roles={roles} selectedRole={selectedRole} onSelect={setSelectedRole} />
         <SplitResizeHandle
@@ -106,7 +122,21 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   );
 }
 
-function ThreadPoolHeader({ status, health, updatedAt, onRefresh }: { status: string; health: ThreadPoolHealth | null; updatedAt: string; onRefresh: () => Promise<void> }) {
+function ThreadPoolHeader({
+  status,
+  health,
+  updatedAt,
+  updatingSeeds,
+  onRefresh,
+  onForceUpdateSeeds,
+}: {
+  status: string;
+  health: ThreadPoolHealth | null;
+  updatedAt: string;
+  updatingSeeds: boolean;
+  onRefresh: () => Promise<void>;
+  onForceUpdateSeeds: () => Promise<void>;
+}) {
   return (
     <header className="topbar">
       <div className="project-block">
@@ -120,6 +150,9 @@ function ThreadPoolHeader({ status, health, updatedAt, onRefresh }: { status: st
         <a className="ghost-button action-link" href="/">
           返回工作台
         </a>
+        <button id="forceUpdateSeedsBtn" className="ghost-button danger-action" type="button" disabled={updatingSeeds} onClick={() => onForceUpdateSeeds().catch(() => undefined)}>
+          {updatingSeeds ? "更新中" : "更新 seed"}
+        </button>
         <button id="refreshThreadPoolBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
           刷新
         </button>

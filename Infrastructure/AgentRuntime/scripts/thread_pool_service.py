@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agent_runtime.threadpool import (  # noqa: E402
     AcquireLeaseRequest,
     DiscardThreadRequest,
+    ForceUpdateSeedsRequest,
     ReleaseLeaseRequest,
     TouchLeaseRequest,
     ThreadPoolManager,
@@ -78,6 +79,13 @@ def create_app(
     @app.post("/config")
     def update_config(request: UpdateThreadPoolConfigRequest) -> dict[str, Any]:
         return service_manager.update_config(discard_on_release=request.discard_on_release)
+
+    @app.post("/maintenance/force-update-seeds")
+    def force_update_seeds(request: ForceUpdateSeedsRequest) -> dict[str, Any]:
+        try:
+            return service_manager.force_update_seeds(reason=request.reason, roles=request.roles)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/roles/{role}/status")
     def role_status(role: str) -> dict[str, Any]:

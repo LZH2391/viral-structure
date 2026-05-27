@@ -262,6 +262,16 @@ export async function releaseThreadPoolOwnerLeases(ownerId: string) {
   );
 }
 
+export async function forceUpdateThreadPoolSeeds() {
+  return readJsonResponse<{ ok: boolean; roles: string[]; deleted_count: number; retiring_count: number }>(
+    await fetch(`${API_BASE_URL}/api/threadpool/maintenance/force-update-seeds`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: "manual-force-update-seeds-from-workbench" }),
+    }),
+  );
+}
+
 export async function getDebugTraces() {
   return readJsonResponse<{ traces: DebugTraceSummary[] }>(await fetch(`${API_BASE_URL}/api/debug/traces`));
 }

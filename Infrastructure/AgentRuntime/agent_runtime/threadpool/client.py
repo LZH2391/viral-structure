@@ -49,6 +49,13 @@ class ThreadPoolHttpClient:
             {"reason": reason},
         )
 
+    def force_update_seeds(self, reason: str, roles: list[str] | None = None) -> dict:
+        return self._request_json(
+            "POST",
+            "/maintenance/force-update-seeds",
+            {"reason": reason, "roles": roles},
+        )
+
     def role_status(self, role: str) -> dict:
         return self._request_json("GET", f"/roles/{role}/status")
 
