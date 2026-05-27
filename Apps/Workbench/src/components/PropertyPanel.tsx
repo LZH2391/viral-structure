@@ -25,6 +25,8 @@ import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 import { FunctionSlotAtomizationPanel } from "./property-panel/FunctionSlotAtomizationPanel";
 
+export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "meta";
+
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
   activeMediaKind: string;
@@ -59,6 +61,8 @@ export type PropertyPanelProps = {
   functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
   functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
   functionSlotAtomizationJob?: AgentRunJob | null;
+  activeTab?: PropertyPanelTab;
+  onActiveTabChange?: (tab: PropertyPanelTab) => void;
   agentAnalysisFps: number;
   enableShotBoundaryReview: boolean;
   onAgentAnalysisFpsChange: (value: number) => void;
@@ -77,8 +81,13 @@ export type PropertyPanelProps = {
 };
 
 export function PropertyPanel(props: PropertyPanelProps) {
-  const [activeTab, setActiveTab] = useState<"shot" | "script" | "rhythm" | "packaging" | "atomization" | "meta">("shot");
+  const [internalActiveTab, setInternalActiveTab] = useState<PropertyPanelTab>("shot");
   const tabsRef = useRef<HTMLDivElement | null>(null);
+  const activeTab = props.activeTab ?? internalActiveTab;
+  const setActiveTab = (tab: PropertyPanelTab) => {
+    setInternalActiveTab(tab);
+    props.onActiveTabChange?.(tab);
+  };
 
   useEffect(() => {
     const tabs = tabsRef.current;

@@ -86,13 +86,21 @@
   min-height: 128px;
   max-height: 280px;
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+  align-content: start;
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
   overflow: hidden;
+}
+
+.workflow-step.is-clickable {
+  cursor: pointer;
+}
+
+.workflow-step.is-clickable:hover {
+  border-color: var(--accent);
 }
 
 .workflow-step-heading {
@@ -122,29 +130,6 @@
 .workflow-step-progress,
 .workflow-step-trace {
   color: var(--text-soft);
-}
-
-.workflow-step-thread {
-  color: var(--accent);
-}
-
-.workflow-step-thread.is-final {
-  color: var(--text);
-}
-
-.workflow-step-thread-wrap {
-  min-height: 0;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.workflow-step-thread-wrap::-webkit-scrollbar {
-  width: 8px;
-}
-
-.workflow-step-thread-wrap::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(143, 152, 163, 0.32);
 }
 
 .workflow-step-actions {

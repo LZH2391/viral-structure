@@ -6,7 +6,7 @@ import { clampVisibleSeconds } from "../utils/timeline";
 import { getModules, getSampleArtifact, resolveCacheDecision, saveFunctionSlotAtomizationManualBoundaryEdit } from "../api/client";
 import { findAudioFeatureMarker, resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
 import { getAnalysisRole, setAnalysisRoleModules, type AnalysisKind } from "../utils/analysisRoles";
-import { readWorkbenchDraft, writeWorkbenchDraft } from "../utils/workbenchDraft";
+import { readWorkbenchDraft, writeActiveAgentJob, writeActiveAnalysisJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useAnalysisJobFlow } from "../hooks/useAnalysisJobFlow";
@@ -20,12 +20,13 @@ import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
 import { PreviewPanel } from "./PreviewPanel";
-import { PropertyPanel } from "./PropertyPanel";
+import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
 import { ResourcePanel } from "./ResourcePanel";
 import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
 import { TimelinePanel } from "./TimelinePanel";
 import { WorkspaceResizeHandle } from "./WorkspaceResizeHandle";
+import type { FullAnalysisStageTarget, FullAnalysisWorkbenchSync } from "./FullAnalysisApp";
 
 type AudioSeekRequest = { requestId: number; time: number };
 
@@ -45,6 +46,7 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(DEFAULT_ANALYSIS_FPS);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
+  const [propertyPanelTab, setPropertyPanelTab] = useState<PropertyPanelTab>("shot");
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
     "full-analysis": initialViewFromPath() === "full-analysis",
@@ -59,6 +61,7 @@ export function WorkbenchApp() {
   const lastSegmentIdRef = useRef<string | null>(null);
   const lastShotIdRef = useRef<string | null>(null);
   const restoredAnalysisJobsRef = useRef(false);
+  const lastFullAnalysisArtifactSyncRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
 
@@ -343,6 +346,55 @@ export function WorkbenchApp() {
     dispatch({ type: "select-media", activeMediaKind: "video", selectedDerivativeId: state.sampleVideo?.artifactId ?? state.selectedDerivativeId, selectedFrameId: null });
   }, [setCurrentTime, state]);
 
+  const handleFullAnalysisWorkbenchSync = useCallback((payload: FullAnalysisWorkbenchSync) => {
+    const nextArtifact = payload.artifact;
+    if (nextArtifact?.sampleVideo?.artifactId) {
+      const artifactSignature = sampleArtifactSyncSignature(nextArtifact);
+      if (artifactSignature !== lastFullAnalysisArtifactSyncRef.current) {
+        lastFullAnalysisArtifactSyncRef.current = artifactSignature;
+        dispatch({ type: "apply-artifact", artifact: nextArtifact });
+        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null);
+      }
+    }
+    const stageJob = (stageKey: string) => {
+      const stage = payload.run.stages.find((item) => item.key === stageKey);
+      return stage?.childJobId ? payload.childJobs[stage.childJobId] ?? null : null;
+    };
+    const uploadStage = payload.run.stages.find((stage) => stage.key === "upload");
+    const uploadProcessed = uploadStage?.status === "processed";
+    const shouldSyncUploadState = payload.run.status !== "running" || !uploadProcessed || Boolean(payload.run.errorSummary);
+    if (shouldSyncUploadState) {
+      dispatch({
+        type: "set-upload-state",
+        isUploadingSample: payload.run.status === "running" && !uploadProcessed,
+        uploadStatusText: payload.run.status === "running" ? "完整分析同步中" : null,
+        processingJob: null,
+        errorSummary: payload.run.errorSummary ?? null,
+      });
+    }
+    const shotJob = stageJob("shotBoundary");
+    const scriptJob = stageJob("scriptSegment");
+    const rhythmJob = stageJob("rhythmStructure");
+    const packagingJob = stageJob("packagingStructure");
+    const atomizationJob = stageJob("functionSlotAtomization");
+    shotBoundaryFlow.setAgentJob(shotJob);
+    scriptSegmentFlow.setJob(scriptJob);
+    rhythmStructureFlow.setJob(rhythmJob);
+    packagingStructureFlow.setJob(packagingJob);
+    functionSlotAtomizationFlow.setJob(atomizationJob);
+    writeActiveAgentJob(toActiveJobDraft(shotJob));
+    writeActiveAnalysisJob("scriptSegment", toActiveJobDraft(scriptJob));
+    writeActiveAnalysisJob("rhythmStructure", toActiveJobDraft(rhythmJob));
+    writeActiveAnalysisJob("packagingStructure", toActiveJobDraft(packagingJob));
+    writeActiveAnalysisJob("functionSlotAtomization", toActiveJobDraft(atomizationJob));
+  }, [functionSlotAtomizationFlow, packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow]);
+
+  const handleOpenWorkbenchStage = useCallback((stageKey: FullAnalysisStageTarget) => {
+    const tab = fullAnalysisStageToPropertyTab(stageKey);
+    setPropertyPanelTab(tab);
+    setWorkbenchView("workspace", setActiveView);
+  }, []);
+
   const fileLabel = state.isUploadingSample
     ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim()
     : state.sampleVideo?.fileName ?? "未选择文件";
@@ -448,6 +500,8 @@ export function WorkbenchApp() {
           functionSlotAtomizationAnalysis={state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null}
           functionSlotAtomizationAnalysisHistory={state.sampleArtifact?.functionSlotAtomizationAnalysisHistory ?? null}
           functionSlotAtomizationJob={functionSlotAtomizationFlow.job}
+          activeTab={propertyPanelTab}
+          onActiveTabChange={setPropertyPanelTab}
           agentAnalysisFps={agentAnalysisFps}
           enableShotBoundaryReview={enableShotBoundaryReview}
           onAgentAnalysisFpsChange={(value) => setAgentAnalysisFps(normalizeAnalysisFps(value, MIN_ANALYSIS_FPS, MAX_ANALYSIS_FPS))}
@@ -531,7 +585,7 @@ export function WorkbenchApp() {
       </main>
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
-          <FullAnalysisApp embedded />
+          <FullAnalysisApp embedded onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews.library ? (
@@ -618,4 +672,31 @@ function resolveFailedProcessingJob(error: unknown): ProcessingJob | null {
   const job = (error as { processingJob?: ProcessingJob | null })?.processingJob ?? null;
   if (!job) return null;
   return job.status === "failed" || job.status === "processing" || job.status === "pending" ? job : null;
+}
+
+function fullAnalysisStageToPropertyTab(stageKey: FullAnalysisStageTarget): PropertyPanelTab {
+  if (stageKey === "scriptSegment") return "script";
+  if (stageKey === "rhythmStructure") return "rhythm";
+  if (stageKey === "packagingStructure") return "packaging";
+  if (stageKey === "functionSlotAtomization") return "atomization";
+  if (stageKey === "aggregate") return "meta";
+  return "shot";
+}
+
+function toActiveJobDraft(job: ProcessingJob | null) {
+  if (!job?.jobId || !job.sampleVideoId || !job.traceId) return null;
+  return { processingJobId: job.jobId, sampleVideoId: job.sampleVideoId, traceId: job.traceId };
+}
+
+function sampleArtifactSyncSignature(artifact: SampleArtifact) {
+  return [
+    artifact.sampleVideoId,
+    artifact.sampleVideo.artifactId,
+    artifact.status,
+    artifact.shotBoundaryAnalysis?.artifactId,
+    artifact.scriptSegmentAnalysis?.artifactId,
+    artifact.rhythmStructureAnalysis?.artifactId,
+    artifact.packagingStructureAnalysis?.artifactId,
+    artifact.functionSlotAtomizationAnalysis?.artifactId,
+  ].filter(Boolean).join("|");
 }

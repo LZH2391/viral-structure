@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getProcessingJob, getSampleArtifact, getThreadConversation, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
-import type { LibraryItemSummary, ProcessingJob, SampleArtifact, ThreadConversation, WorkflowRun, WorkflowStageState } from "../types";
+import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import type { LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { formatSecondsCompact, shortId } from "../utils/format";
@@ -9,9 +9,10 @@ import { stageLabel } from "../utils/workbenchHelpers";
 import { readFullAnalysisDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
 
 type ResultTab = "shot" | "script" | "rhythm" | "packaging";
-type ThreadMessageItem = { kind: "history" | "active" | "final"; text: string };
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
+export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null> };
+export type FullAnalysisStageTarget = WorkflowStageState["key"];
 
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_RUN_STATUS = new Set(["processed", "failed", "partial_failed"]);
@@ -20,13 +21,14 @@ const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", 
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
+  onWorkbenchSync?: (payload: FullAnalysisWorkbenchSync) => void;
+  onOpenWorkbenchStage?: (stageKey: FullAnalysisStageTarget) => void;
 };
 
-export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {}) {
+export function FullAnalysisApp({ embedded = false, onWorkbenchSync, onOpenWorkbenchStage }: FullAnalysisAppProps = {}) {
   const [run, setRun] = useState<WorkflowRun | null>(null);
   const [artifact, setArtifact] = useState<SampleArtifact | null>(null);
   const [childJobs, setChildJobs] = useState<Record<string, ProcessingJob | null>>({});
-  const [threadConversations, setThreadConversations] = useState<Record<string, ThreadConversation | null>>({});
   const [activeTab, setActiveTab] = useState<ResultTab>("shot");
   const [statusText, setStatusText] = useState("等待上传");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
   const pollTimerRef = useRef<number | null>(null);
   const restoredRunRef = useRef(false);
+  const lastWorkbenchSyncSignatureRef = useRef<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
     containerRef: layoutRef,
@@ -81,18 +84,6 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
       .filter((item) => !dismissedCachePromptJobIds.includes(item.job.jobId as string))
       .sort((a, b) => a.order - b.order)[0] ?? null;
   }, [childJobs, dismissedCachePromptJobIds, orderedStages]);
-
-  const threadIds = useMemo(
-    () => Array.from(new Set(
-      orderedStages
-        .map((stage) => {
-          const job = stage.childJobId ? childJobs[stage.childJobId] ?? null : null;
-          return job?.activeThreadMessage?.threadId ?? job?.agentRun?.threadId ?? null;
-        })
-        .filter((value): value is string => Boolean(value)),
-    )),
-    [childJobs, orderedStages],
-  );
 
   const startPolling = useCallback((workflowRunId: string) => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
@@ -182,34 +173,12 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
   }, [childJobIds]);
 
   useEffect(() => {
-    if (!threadIds.length) return;
-    let cancelled = false;
-
-    const syncConversations = async () => {
-      const updates = await Promise.all(threadIds.map(async (threadId) => {
-        try {
-          return [threadId, await getThreadConversation(threadId)] as const;
-        } catch {
-          return [threadId, null] as const;
-        }
-      }));
-      if (cancelled) return;
-      setThreadConversations((current) => {
-        const next = { ...current };
-        for (const [threadId, conversation] of updates) next[threadId] = conversation;
-        return next;
-      });
-    };
-
-    void syncConversations();
-    const timer = window.setInterval(() => {
-      void syncConversations();
-    }, 1500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [threadIds]);
+    if (!run || !onWorkbenchSync) return;
+    const signature = buildWorkbenchSyncSignature(run, artifact, childJobs);
+    if (signature === lastWorkbenchSyncSignatureRef.current) return;
+    lastWorkbenchSyncSignatureRef.current = signature;
+    onWorkbenchSync({ run, artifact, childJobs });
+  }, [artifact, childJobs, onWorkbenchSync, run]);
 
   const startFullAnalysis = useCallback(async (file: File, cacheDecision: "ask" | "reuse" | "refresh") => {
     setIsStarting(true);
@@ -391,8 +360,8 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
                 key={stage.key}
                 stage={stage}
                 job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
-                conversation={resolveJobConversation(stage.childJobId ? childJobs[stage.childJobId] ?? null : null, threadConversations)}
                 onRerun={handleRerun}
+                onOpenStage={onOpenWorkbenchStage}
                 onResolveCache={(cacheStage, job, decision) => resolveWorkflowCache({ stage: cacheStage, job, order: CACHE_PROMPT_ORDER.indexOf(cacheStage.key) }, decision)}
                 disabled={!canRerun(stage, run)}
               />
@@ -455,15 +424,15 @@ export function FullAnalysisApp({ embedded = false }: FullAnalysisAppProps = {})
 function StageStep({
   stage,
   job,
-  conversation,
   onRerun,
+  onOpenStage,
   onResolveCache,
   disabled,
 }: {
   stage: WorkflowStageState;
   job: ProcessingJob | null;
-  conversation: ThreadConversation | null;
   onRerun: (stageKey: string) => void;
+  onOpenStage?: (stageKey: FullAnalysisStageTarget) => void;
   onResolveCache: (stage: WorkflowStageState, job: ProcessingJob, decision: "reuse" | "refresh") => void;
   disabled: boolean;
 }) {
@@ -472,10 +441,20 @@ function StageStep({
   const runtimeLabel = resolveRuntimeLabel(stage, job);
   const runtimeStageText = resolveRuntimeStageText(stage, job);
   const runtimeProgress = resolveRuntimeProgress(stage, job);
-  const threadMessages = resolveThreadMessages(job, conversation);
   const traceText = job?.traceId ?? stage.childTraceId ?? null;
+  const openStage = () => onOpenStage?.(stage.key);
   return (
-    <div className={`workflow-step workflow-step-${stage.status}`}>
+    <div
+      className={`workflow-step workflow-step-${stage.status} ${onOpenStage ? "is-clickable" : ""}`}
+      role={onOpenStage ? "button" : undefined}
+      tabIndex={onOpenStage ? 0 : undefined}
+      onClick={openStage}
+      onKeyDown={(event) => {
+        if (!onOpenStage || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        openStage();
+      }}
+    >
       <div className="workflow-step-heading">
         <strong>{stage.label}</strong>
         <span>{runtimeLabel}</span>
@@ -484,28 +463,28 @@ function StageStep({
       {runtimeStageText ? <span className="workflow-step-stage">{runtimeStageText}</span> : null}
       {runtimeProgress != null ? <span className="workflow-step-progress">{runtimeProgress}%</span> : null}
       {traceText ? <span className="workflow-step-trace">trace {shortId(traceText)}</span> : null}
-      {threadMessages.length ? (
-        <div className="workflow-step-thread-wrap">
-          {threadMessages.map((message, index) => (
-            <em key={`${message.kind}-${index}-${message.text.slice(0, 24)}`} className={`workflow-step-thread ${message.kind === "final" ? "is-final" : ""}`}>
-              {message.text}
-            </em>
-          ))}
-        </div>
-      ) : null}
       {stage.errorSummary?.message ? <em>{stage.errorSummary.message}</em> : null}
       {job?.status === "cache_waiting" && job.cachePrompt?.cachedItem ? (
         <div className="workflow-step-actions">
-          <button className="ghost-button" type="button" onClick={() => onResolveCache(stage, job, "refresh")}>
+          <button className="ghost-button" type="button" onClick={(event) => {
+            event.stopPropagation();
+            onResolveCache(stage, job, "refresh");
+          }}>
             重新生成
           </button>
-          <button className="primary-button" type="button" onClick={() => onResolveCache(stage, job, "reuse")}>
+          <button className="primary-button" type="button" onClick={(event) => {
+            event.stopPropagation();
+            onResolveCache(stage, job, "reuse");
+          }}>
             复用缓存
           </button>
         </div>
       ) : null}
       {stage.key !== "upload" && stage.key !== "aggregate" ? (
-        <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={() => onRerun(stage.key)}>
+        <button className={failed ? "primary-button" : "ghost-button"} type="button" disabled={disabled || runtimeStatus === "running"} onClick={(event) => {
+          event.stopPropagation();
+          onRerun(stage.key);
+        }}>
           重跑
         </button>
       ) : null}
@@ -619,35 +598,6 @@ function resolveRuntimeProgress(stage: WorkflowStageState, job: ProcessingJob | 
   return null;
 }
 
-function resolveActiveThreadMessage(job: ProcessingJob | null) {
-  const text = job?.activeThreadMessage?.text?.trim();
-  return text ? text : null;
-}
-
-function resolveJobConversation(job: ProcessingJob | null, conversations: Record<string, ThreadConversation | null>) {
-  const threadId = job?.activeThreadMessage?.threadId ?? job?.agentRun?.threadId ?? null;
-  if (!threadId) return null;
-  return conversations[threadId] ?? null;
-}
-
-function resolveThreadMessages(job: ProcessingJob | null, conversation: ThreadConversation | null) {
-  const finalText = normalizeMessageText(job?.finalMessage ?? null);
-  const activeText = resolveActiveThreadMessage(job);
-  const turns = conversation?.turns ?? [];
-  const items: ThreadMessageItem[] = turns
-    .map((turn) => normalizeMessageText(turn.finalMessage ?? null))
-    .filter((value): value is string => Boolean(value))
-    .map((text) => ({ kind: "history", text }));
-  if (activeText && !items.some((item) => item.text === activeText)) items.push({ kind: "active" as const, text: activeText });
-  if (finalText && !items.some((item) => item.text === finalText)) items.push({ kind: "final" as const, text: finalText });
-  return items.slice(-6);
-}
-
-function normalizeMessageText(value: string | null | undefined) {
-  const text = value?.trim() ?? "";
-  return text || null;
-}
-
 function isRunActive(run: WorkflowRun | null) {
   return Boolean(run && !TERMINAL_RUN_STATUS.has(run.status));
 }
@@ -659,4 +609,45 @@ function canRerun(stage: WorkflowStageState, run: WorkflowRun | null) {
 function clampNumber(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+function buildWorkbenchSyncSignature(run: WorkflowRun, artifact: SampleArtifact | null, childJobs: Record<string, ProcessingJob | null>) {
+  return JSON.stringify({
+    runId: run.workflowRunId,
+    runStatus: run.status,
+    runUpdatedAt: run.updatedAt,
+    artifact: artifact ? sampleArtifactSignature(artifact) : null,
+    jobs: Object.fromEntries(Object.entries(childJobs).map(([jobId, job]) => [jobId, job ? jobSignature(job) : null])),
+  });
+}
+
+function sampleArtifactSignature(artifact: SampleArtifact) {
+  return [
+    artifact.sampleVideoId,
+    artifact.sampleVideo.artifactId,
+    artifact.status,
+    artifact.shotBoundaryAnalysis?.artifactId,
+    artifact.scriptSegmentAnalysis?.artifactId,
+    artifact.rhythmStructureAnalysis?.artifactId,
+    artifact.packagingStructureAnalysis?.artifactId,
+    artifact.functionSlotAtomizationAnalysis?.artifactId,
+  ].filter(Boolean).join("|");
+}
+
+function jobSignature(job: ProcessingJob) {
+  return [
+    job.jobId,
+    job.sampleVideoId,
+    job.status,
+    job.stage,
+    job.progress,
+    job.traceId,
+    job.agentRun?.threadId,
+    job.agentRun?.turnId,
+    job.activeThreadMessage?.text,
+    job.agentActivity?.itemCount,
+    job.agentActivity?.effectiveItemCount,
+    job.agentActivity?.latestItemType,
+    job.agentActivity?.latestMessagePreview,
+  ].map((value) => value ?? "").join("|");
 }

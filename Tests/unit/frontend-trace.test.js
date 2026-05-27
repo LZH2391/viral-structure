@@ -460,7 +460,9 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const css = read(root, "Apps/Workbench/styles/property-panel.css");
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /const \[activeTab, setActiveTab\] = useState<"shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "meta">\("shot"\)/);
+  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "meta"/);
+  assert.match(propertyPanel, /const \[internalActiveTab, setInternalActiveTab\] = useState<PropertyPanelTab>\("shot"\)/);
+  assert.match(propertyPanel, /const activeTab = props\.activeTab \?\? internalActiveTab/);
   assert.match(propertyPanel, /role="tablist"/);
   assert.match(propertyPanel, /shot/);
   assert.match(propertyPanel, /script/);
@@ -795,6 +797,13 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(app, /writeFullAnalysisDraft/);
   assert.match(app, /getLatestFullAnalysisRun/);
   assert.match(app, /restoredRunRef/);
+  assert.match(app, /onWorkbenchSync/);
+  assert.match(app, /onOpenWorkbenchStage/);
+  assert.doesNotMatch(app, /getThreadConversation/);
+  assert.doesNotMatch(app, /workflow-step-thread/);
+  assert.doesNotMatch(app, /resolveThreadMessages/);
+  assert.match(app, /role=\{onOpenStage \? "button" : undefined\}/);
+  assert.match(app, /event\.stopPropagation\(\);[\s\S]*onRerun\(stage\.key\)/);
   assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
   assert.match(api, /\/api\/workflows\/full-analysis\/latest/);
   assert.match(api, /cache: "no-store"/);
@@ -805,6 +814,8 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(css, /\.full-analysis-shell \{[\s\S]*overflow: auto/);
   assert.match(css, /\.full-analysis-top-row \{[\s\S]*grid-template-columns: var\(--full-analysis-left-width/);
   assert.match(css, /\.full-analysis-bottom-row \{[\s\S]*grid-template-columns: var\(--full-analysis-bottom-left-width/);
+  assert.match(css, /\.workflow-step\.is-clickable/);
+  assert.doesNotMatch(css, /\.workflow-step-thread/);
   assert.match(hook, /if \(drag\.kind === "column"\) next\.left = drag\.startLayout\.left \+ event\.clientX - drag\.startX/);
   assert.match(hook, /if \(drag\.kind === "top-row"\) next\.top = drag\.startLayout\.top \+ event\.clientY - drag\.startY/);
   assert.match(hook, /if \(drag\.kind === "bottom-row"\) next\.bottomLeft = drag\.startLayout\.bottomLeft \+ event\.clientX - drag\.startX/);
