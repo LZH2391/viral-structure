@@ -40,6 +40,38 @@ test("analysis final output store writes latest final text outside Runtime", asy
   assert.equal(outputPath.includes(`${path.sep}Runtime${path.sep}`), false);
 });
 
+test("analysis final output store writes function slot atomization final text", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "analysis-final-output-"));
+  const outputStore = createAnalysisFinalOutputStore({ store: { runtimeRoot: path.join(root, "Runtime") } });
+
+  await outputStore.writeFinalOutput({
+    sampleVideoId: "sample_1",
+    analysis: {
+      artifactId: "artifact_atomization",
+      parentArtifactId: "artifact_packaging",
+      type: "function-slot-atomization-analysis",
+      sourceScriptSegmentArtifactId: "artifact_script",
+      sourceRhythmStructureArtifactId: "artifact_rhythm",
+      sourcePackagingStructureArtifactId: "artifact_packaging",
+      agent: { threadId: "thread_atomization", turnId: "turn_atomization" },
+    },
+    finalOutputText: "{\"slot_map\":{\"slots\":[]}}",
+    traceId: "trace_atomization",
+    stageName: "function_slot_atomization.materialize",
+  });
+
+  const outputPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "function-slot-atomization.final.txt");
+  const manifestPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "manifest.json");
+  assert.equal(await fs.readFile(outputPath, "utf8"), "{\"slot_map\":{\"slots\":[]}}\n");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  assert.equal(manifest.outputs["function-slot-atomization"].artifactId, "artifact_atomization");
+  assert.equal(manifest.outputs["function-slot-atomization"].source, "turn-final-message");
+  assert.equal(manifest.outputs["function-slot-atomization"].sourceArtifactId, "artifact_script");
+  assert.equal(manifest.outputs["function-slot-atomization"].agentThreadId, "thread_atomization");
+  assert.equal(manifest.outputs["function-slot-atomization"].agentTurnId, "turn_atomization");
+  assert.equal(manifest.history.at(-1).outputKey, "function-slot-atomization");
+});
+
 test("analysis final output store overwrites fixed latest file", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "analysis-final-output-"));
   const outputStore = createAnalysisFinalOutputStore({ store: { runtimeRoot: path.join(root, "Runtime") } });

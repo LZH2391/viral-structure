@@ -66,6 +66,43 @@ test("materialize runtime writes final output for the current analysis kind", as
   assert.equal(writes[0].stageName, "packaging_structure.materialize");
 });
 
+test("materialize runtime writes function slot atomization final output", async () => {
+  const { createMaterializeRuntime } = require("../../Apps/Api/lib/analysis-runtime-v2/materialize-runtime");
+  const writes = [];
+  const runtime = createMaterializeRuntime({
+    artifactIndex: {
+      registerSampleArtifact: async () => undefined,
+    },
+    resolveExistingFileHash: async () => "file_hash",
+    finalOutputStore: {
+      writeFinalOutput: async (payload) => {
+        writes.push(payload);
+        return payload;
+      },
+    },
+  });
+
+  await runtime.registerSampleArtifact({
+    sampleVideoId: "sample_1",
+    cacheKind: null,
+    finalOutputText: "{\"atom_inventory\":{\"scriptAtoms\":[]}}",
+    traceContext: { traceId: "trace_atomization" },
+    activeStage: { stageName: "function_slot_atomization.materialize" },
+  }, {
+    packagingStructureAnalysis: { artifactId: "artifact_packaging", type: "packaging-structure-analysis" },
+    functionSlotAtomizationAnalysis: {
+      artifactId: "artifact_atomization",
+      parentArtifactId: "artifact_packaging",
+      type: "function-slot-atomization-analysis",
+    },
+  });
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].analysis.artifactId, "artifact_atomization");
+  assert.equal(writes[0].finalOutputText, "{\"atom_inventory\":{\"scriptAtoms\":[]}}");
+  assert.equal(writes[0].stageName, "function_slot_atomization.materialize");
+});
+
 test("script cache prompts expose unified dependencies while rhythm depends only on shots", () => {
   const root = path.resolve(__dirname, "../..");
   const scriptCache = read(root, "Apps/Api/lib/script-segment/cache.js");

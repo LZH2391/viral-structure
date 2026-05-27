@@ -6,6 +6,7 @@ const ANALYSIS_OUTPUTS = {
   "script-segment-analysis": { outputKey: "script-segments", fileName: "script-segments.final.txt" },
   "rhythm-structure-analysis": { outputKey: "rhythm-structure", fileName: "rhythm-structure.final.txt" },
   "packaging-structure-analysis": { outputKey: "packaging-structure", fileName: "packaging-structure.final.txt" },
+  "function-slot-atomization-analysis": { outputKey: "function-slot-atomization", fileName: "function-slot-atomization.final.txt" },
 };
 
 function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {

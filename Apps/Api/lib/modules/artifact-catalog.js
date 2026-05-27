@@ -29,6 +29,12 @@ const MODULE_ARTIFACTS = [
     artifactKey: "packagingStructureAnalysis",
     getArtifact: (artifact) => artifact?.packagingStructureAnalysis ?? null,
   },
+  {
+    moduleId: "function-slot-atomization",
+    cacheKind: null,
+    artifactKey: "functionSlotAtomizationAnalysis",
+    getArtifact: (artifact) => artifact?.functionSlotAtomizationAnalysis ?? null,
+  },
 ];
 
 module.exports = {
