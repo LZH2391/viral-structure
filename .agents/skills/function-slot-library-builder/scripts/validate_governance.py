@@ -30,7 +30,7 @@ NODE_LIST_FIELDS = [
     "rulePatterns",
     "recompositionPolicies",
     "implementationBundles",
-    "chainPatterns",
+    "observedChainPatterns",
 ]
 
 
@@ -147,6 +147,27 @@ def validate_slot_hierarchy(governance: Dict[str, Any], issues: List[Dict[str, A
     subtypes = index_by_id(as_list(governance.get("slotSubtypes")))
 
     for archetype in archetypes.values():
+        if not archetype.get("primaryProofObligationClass"):
+            add_issue(
+                issues,
+                "error",
+                "missing_primary_proof_obligation_class",
+                f"slotArchetype {archetype.get('id')} must declare primaryProofObligationClass",
+            )
+        if not archetype.get("chainDependencyClass"):
+            add_issue(
+                issues,
+                "error",
+                "missing_chain_dependency_class",
+                f"slotArchetype {archetype.get('id')} must declare chainDependencyClass",
+            )
+        if not isinstance(archetype.get("excludes"), list) or not archetype.get("excludes"):
+            add_issue(
+                issues,
+                "error",
+                "missing_archetype_excludes",
+                f"slotArchetype {archetype.get('id')} must declare non-empty excludes",
+            )
         family_id = archetype.get("familyId")
         if not family_id:
             add_issue(issues, "error", "missing_family_id", f"slotArchetype {archetype.get('id')} has no familyId")
@@ -158,6 +179,22 @@ def validate_slot_hierarchy(governance: Dict[str, Any], issues: List[Dict[str, A
         validate_parent_variant_closure(issues, parent=family, child=archetype, parent_label="slotFamily", child_label="slotArchetype")
 
     for subtype in subtypes.values():
+        boundary = subtype.get("subtypeBoundary")
+        if not isinstance(boundary, dict):
+            add_issue(
+                issues,
+                "error",
+                "missing_subtype_boundary",
+                f"slotSubtype {subtype.get('id')} must declare subtypeBoundary",
+            )
+        else:
+            if "primaryProofObligationClass" not in as_set(boundary.get("mustNotChange")):
+                add_issue(
+                    issues,
+                    "error",
+                    "invalid_subtype_boundary",
+                    f"slotSubtype {subtype.get('id')} subtypeBoundary.mustNotChange must include primaryProofObligationClass",
+                )
         archetype_id = subtype.get("archetypeId")
         if not archetype_id:
             add_issue(issues, "error", "missing_archetype_id", f"slotSubtype {subtype.get('id')} has no archetypeId")
@@ -236,6 +273,31 @@ def validate_pattern_references(governance: Dict[str, Any], issues: List[Dict[st
             add_issue(issues, "error", "bundle_source_variant_closure", f"implementationBundle {bundle.get('id')} sourceVariantIds are not covered by its slotSubtypeIds: {describe_missing(missing_sources)}")
 
 
+def validate_observed_chains(governance: Dict[str, Any], issues: List[Dict[str, Any]]) -> None:
+    if as_list(governance.get("chainPatterns")):
+        add_issue(
+            issues,
+            "error",
+            "legacy_chain_patterns",
+            "chainPatterns must stay empty; use observedChainPatterns for observed slot order evidence",
+        )
+    for chain in as_list(governance.get("observedChainPatterns")):
+        if not isinstance(chain.get("sequence"), list) or not chain.get("sequence"):
+            add_issue(
+                issues,
+                "error",
+                "invalid_observed_chain_sequence",
+                f"observedChainPattern {chain.get('id')} must declare non-empty sequence",
+            )
+        if chain.get("notUseAs") != "archetype_merge_basis_or_fixed_template":
+            add_issue(
+                issues,
+                "error",
+                "invalid_observed_chain_usage",
+                f"observedChainPattern {chain.get('id')} must not be usable as archetype merge basis or fixed template",
+            )
+
+
 def validate_support_counts(governance: Dict[str, Any], issues: List[Dict[str, Any]]) -> None:
     for field, item in all_nodes(governance):
         if "sourceVariantIds" not in item:
@@ -308,6 +370,7 @@ def validate_governance(governance: Dict[str, Any], source_index: Optional[Dict[
     validate_slot_hierarchy(governance, issues)
     validate_atom_hierarchy(governance, issues)
     validate_pattern_references(governance, issues)
+    validate_observed_chains(governance, issues)
     validate_support_counts(governance, issues)
     validate_status_fields(governance, issues)
     validate_need_review_map(governance, source_index, issues)

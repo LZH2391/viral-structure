@@ -24,6 +24,20 @@
 
 ## 判定标准
 
+### Slot family
+
+`slotFamily` 只表示同一大阶段或高层说服任务族。family 不作为 archetype 合并依据；同 family 的相邻槽仍必须重新判断 viewer state transition、persuasion task 和 proof obligation。
+
+### Slot archetype
+
+`slotArchetype` 只表示同一槽位任务原型，必须由 `viewerStateBefore/After`、`persuasionTask` 和 `primaryProofObligationClass` 锁定。
+
+`chainDependencyClass` 只描述前后依赖，不参与父类判断。`excludes` 必须明确哪些相邻槽、桥接槽、对比槽、操作槽或子类型不能归入该 archetype。
+
+### Slot subtype
+
+`slotSubtype` 只能表达同一 archetype 下的实现层差异，例如素材、表达、节奏和包装。subtype 不能改变主证明义务，不能改变链路角色，也不能把不同任务重新装回同一个 archetype。
+
 ### 同 subtype
 
 满足：
@@ -71,6 +85,8 @@
 - 不要按文本相似度合并。
 - 不要让 script atom 归并结果决定 rhythm 或 packaging 归并。
 - 不要把 template 当最高规则；template 只是历史链路样本。
+- 不要因为某槽 require / support 后续机制证明，就把该槽归入机制证明 archetype。
+- 不要让 binding、rule 或 observed chain 反向决定 slot archetype。
 
 ## 输出要求
 

@@ -84,12 +84,12 @@
 |---|---|---:|---|---|
 
 ## slotArchetypes
-| archetype | family | status | sourceVariantIds | 判断理由 | 差异点 |
-|---|---|---|---|---|---|
+| archetype | family | primaryProofObligationClass | chainDependencyClass | excludes | status | sourceVariantIds | 判断理由 |
+|---|---|---|---|---|---|---|---|
 
 ## slotSubtypes
-| subtype | archetype | status | sourceSlotTypes | sourceVariantIds | 判断理由 | 误分风险 |
-|---|---|---|---|---|---|---|
+| subtype | archetype | subtypeBoundary | status | sourceSlotTypes | sourceVariantIds | 判断理由 | 误分风险 |
+|---|---|---|---|---|---|---|---|
 
 ## atomArchetypes
 | archetype | layer | status | sourcePatternIds | sourceVariantIds | 判断理由 | 误分风险 |
@@ -117,6 +117,10 @@
 
 ## implementationBundles
 | bundle | bundleType | useAs | notUseAs | sourceVariantIds | 风险 |
+|---|---|---|---|---|---|
+
+## observedChainPatterns
+| chain | sequence | useAs | notUseAs | sourceVariantIds | 风险 |
 |---|---|---|---|---|---|
 
 ## needReviewMap

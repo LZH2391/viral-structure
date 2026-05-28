@@ -118,7 +118,7 @@ Runtime/Temp/FunctionSlotLibrary/semantic-governance.skeleton.json
 - `implementationBundles`
 - `needReviewMap`
 - `unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants`
-- `chainPatterns`
+- `observedChainPatterns`
 - `reviewItems / openQuestions`
 
 它不做 semantic merge，不生成 family/archetype/subtype/pattern/principle/policy 的判断内容。需要写正式治理文件时，必须显式指定：
@@ -181,6 +181,8 @@ python .agents/skills/function-slot-library-builder/scripts/validate_governance.
 - `bindingPrinciples.sourcePatternIds` 必须能找到对应 `bindingPatterns`。
 - `recompositionPolicies.sourceRulePatternIds` 必须能找到对应 `rulePatterns`。
 - `implementationBundles` 引用的 subtype 和 atom pattern 必须存在，且 bundle 的 slot `sourceVariantIds` 必须被其 `slotSubtypeIds` 覆盖。
+- `slotArchetypes.primaryProofObligationClass / chainDependencyClass / excludes` 必须存在。
+- `slotSubtypes.subtypeBoundary` 必须声明只能表达实现差异，不能改变主证明义务或链路角色。
 - `forSlotSubtypeIds` 必须是数组且 ID 存在。
 - `needReviewMap` 必须覆盖全部 `needReview=true` 证据项。
 - 未覆盖的 atom / binding / rule 必须进入对应 `unmapped*Variants`。
@@ -215,7 +217,7 @@ python .agents/skills/function-slot-library-builder/scripts/validate_governance.
 8. `rulePatterns`
 9. `recompositionPolicies`
 10. `implementationBundles`
-11. `chainPatterns`
+11. `observedChainPatterns`
 12. `needReviewMap`
 13. `unmappedAtomVariants`
 14. `unmappedBindingVariants`

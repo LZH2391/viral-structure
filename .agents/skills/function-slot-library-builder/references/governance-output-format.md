@@ -34,6 +34,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "recompositionPolicies": [],
   "implementationBundles": [],
   "chainPatterns": [],
+  "observedChainPatterns": [],
   "needReviewMap": [],
   "unmappedAtomVariants": [],
   "unmappedBindingVariants": [],
@@ -120,6 +121,9 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "status": "reviewed",
   "viewerStateBeforeClass": "...",
   "viewerStateAfterClass": "...",
+  "primaryProofObligationClass": "...",
+  "chainDependencyClass": "...",
+  "excludes": [],
   "commonProofObligation": [],
   "sourceVariantIds": [],
   "support": {},
@@ -141,6 +145,10 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "viewerTransition": "...",
   "proofObligation": [],
   "solutionVisibility": "...",
+  "subtypeBoundary": {
+    "implementationDifferenceScope": ["素材", "表达", "节奏", "包装"],
+    "mustNotChange": ["primaryProofObligationClass", "chainDependencyClass", "slotArchetype task"]
+  },
   "sourceVariantIds": [],
   "support": {},
   "judgementReason": "...",
@@ -257,6 +265,26 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 ```
 
 `recompositionPolicies` 在 builder 中只表示组合安全政策，不表示由 builder 生成重组方案。
+
+## Observed Chain Pattern
+
+```json
+{
+  "id": "OBS_CHAIN_001",
+  "name": "观察链路 001",
+  "status": "candidate",
+  "chainKey": "slot_a > slot_b",
+  "sequence": [],
+  "sourceVariantIds": [],
+  "support": {},
+  "useAs": "observed_order_and_carryover_evidence",
+  "notUseAs": "archetype_merge_basis_or_fixed_template",
+  "judgementReason": "...",
+  "riskIfMisclassified": "..."
+}
+```
+
+`observedChainPatterns` 只记录样例中观察到的槽位顺序、承接、铺垫和回扣。它不能作为 slot archetype 合并依据，也不能被当成固定模板。
 
 ## Implementation Bundle
 

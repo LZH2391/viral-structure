@@ -208,7 +208,15 @@
       ],
       "riskIfMisclassified": "把痛点回补当作普通开场痛点，会破坏结果先行链路的承接要求。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "result_first_need_backfill",
+      "chainDependencyClass": "result_preview_then_need_backfill",
+      "excludes": [
+        "scene_problem_activation",
+        "object_action_problem_activation",
+        "mechanism_explanation",
+        "operation_barrier_reduction"
+      ]
     },
     {
       "id": "ARCH_value_anchor_verification",
@@ -238,7 +246,15 @@
       ],
       "riskIfMisclassified": "如果只保留价格或口播而缺少规格兑现，价值锚点会变成不可验证话术。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "low_barrier_value_claim_with_visible_evidence",
+      "chainDependencyClass": "value_anchor_then_value_verification",
+      "excludes": [
+        "problem_activation",
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction"
+      ]
     },
     {
       "id": "ARCH_problem_activation",
@@ -271,7 +287,15 @@
       ],
       "riskIfMisclassified": "把场景共鸣型和对象直冲型合并，会让后续方案进入时机错位。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "problem_or_need_visibility",
+      "chainDependencyClass": "activation_before_solution_or_proof",
+      "excludes": [
+        "proof_bridge",
+        "contrast_gap_setup",
+        "mechanism_explanation",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_solution_object_entry",
@@ -301,7 +325,15 @@
       ],
       "riskIfMisclassified": "如果并入机制证明，会过早要求完整证据，破坏问题到方案的轻量承接。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "solution_object_identification_and_entry",
+      "chainDependencyClass": "solution_entry_after_problem_activation",
+      "excludes": [
+        "problem_activation",
+        "contrast_gap_setup",
+        "mechanism_explanation",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_mechanism_and_credibility_proof",
@@ -337,7 +369,15 @@
       ],
       "riskIfMisclassified": "把机制证明直接套开头快节奏或结果画面，会导致观众看见卖点但无法建立因果可信。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "mechanism_or_credibility_explanation",
+      "chainDependencyClass": "proof_after_solution_or_gap_definition",
+      "excludes": [
+        "coverage_bridge",
+        "alternative_contrast",
+        "low_barrier_operation",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_quality_sensory_proof",
@@ -368,7 +408,15 @@
       ],
       "riskIfMisclassified": "如果把入口和峰值合并，重组时可能缺少缓冲观察点或把细节证据提前堆叠。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "quality_or_sensory_evidence",
+      "chainDependencyClass": "quality_objection_to_sensory_peak",
+      "excludes": [
+        "mechanism_explanation",
+        "operation_barrier_reduction",
+        "value_anchor",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_result_closure",
@@ -406,7 +454,15 @@
       ],
       "riskIfMisclassified": "如果结果槽没有回扣上游关切，会让结尾成为漂亮画面或泛泛好处。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "activated_concern_result_closure",
+      "chainDependencyClass": "result_closure_after_activation_or_proof",
+      "excludes": [
+        "problem_activation",
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction"
+      ]
     },
     {
       "id": "ARCH_long_term_or_choice_close",
@@ -438,21 +494,29 @@
       ],
       "riskIfMisclassified": "把长期信任误作普通推荐，会缺少时间证据；把推荐记忆误作长期背书，会过度要求素材。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "primaryProofObligationClass": "long_term_trust_or_choice_memory_close",
+      "chainDependencyClass": "final_choice_or_trust_close",
+      "excludes": [
+        "problem_activation",
+        "solution_entry",
+        "mechanism_explanation",
+        "operation_barrier_reduction"
+      ]
     },
     {
       "id": "ARCH_proof_bridge",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "??????",
+      "name": "Proof bridge archetype",
       "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "?????????????????????",
-      "viewerStateAfterClass": "???????????????????",
+      "viewerStateBeforeClass": "viewer has seen initial result but is not ready for mechanism explanation",
+      "viewerStateAfterClass": "viewer accepts coverage or scope cue and is ready for later proof",
       "commonProofObligation": [
-        "????????",
-        "???????????????",
-        "??????????????"
+        "visible coverage or multiple instances",
+        "clear landing point for later proof",
+        "must not replace later mechanism explanation"
       ],
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003"
@@ -464,25 +528,33 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "coverage_bridge ?????????????????????????",
+      "judgementReason": "coverage_bridge performs transition from initial result to later mechanism proof; it does not explain the full mechanism by itself.",
       "differenceNotes": [
-        "?????????????????????"
+        "It can depend on mechanism_trust, but chain dependency is not archetype membership."
       ],
-      "riskIfMisclassified": "???????????????????????"
+      "riskIfMisclassified": "Bridge setup would be mistaken for mechanism proof and make the parent archetype too broad again.",
+      "primaryProofObligationClass": "proof_bridge_to_later_explanation",
+      "chainDependencyClass": "bridge_before_mechanism_or_proof",
+      "excludes": [
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_contrast_gap_setup",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "????????",
+      "name": "Contrast gap setup archetype",
       "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "?????????????????????",
-      "viewerStateAfterClass": "???????????????????",
+      "viewerStateBeforeClass": "viewer believes an alternative or ordinary solution may be enough",
+      "viewerStateAfterClass": "viewer recognizes the alternative gap and is ready for target solution proof",
       "commonProofObligation": [
-        "??????????????",
-        "?????????????",
-        "????????"
+        "alternative solution or failure state must be visible",
+        "gap must be answered by later solution proof",
+        "gap setup must not replace mechanism explanation"
       ],
       "sourceVariantIds": [
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003"
@@ -494,25 +566,33 @@
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
         ]
       },
-      "judgementReason": "alternative_contrast ?????????????????????",
+      "judgementReason": "alternative_contrast establishes the need for differentiated proof; it is not mechanism proof.",
       "differenceNotes": [
-        "????????????????"
+        "It may require/carry over to mechanism_proof, but binding relation does not decide slot archetype."
       ],
-      "riskIfMisclassified": "??????????????????????"
+      "riskIfMisclassified": "Contrast setup would be mistaken for mechanism explanation and downstream proof would be weakened.",
+      "primaryProofObligationClass": "contrast_gap_definition",
+      "chainDependencyClass": "gap_setup_before_solution_or_mechanism_proof",
+      "excludes": [
+        "mechanism_explanation",
+        "solution_object_entry",
+        "operation_barrier_reduction",
+        "result_closure"
+      ]
     },
     {
       "id": "ARCH_operation_barrier_reduction",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "????????",
+      "name": "Operation barrier reduction archetype",
       "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "?????????????????????",
-      "viewerStateAfterClass": "???????????????????",
+      "viewerStateBeforeClass": "viewer understands solution logic but worries about execution cost or complexity",
+      "viewerStateAfterClass": "viewer understands the minimal operation loop and feels less execution friction",
       "commonProofObligation": [
-        "?????????",
-        "?????????",
-        "?????????????"
+        "operation steps or wait process must be visible",
+        "completion action and result attribution must stay continuous",
+        "operation proof must not replace causal mechanism explanation"
       ],
       "sourceVariantIds": [
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
@@ -524,11 +604,19 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
-      "judgementReason": "low_barrier_operation ??????????????????????????",
+      "judgementReason": "low_barrier_operation proves ease of use; it does not explain the full mechanism.",
       "differenceNotes": [
-        "????????????????????"
+        "It usually follows mechanism credibility and connects to result confirmation, but position is not archetype membership."
       ],
-      "riskIfMisclassified": "??????????????????????????????"
+      "riskIfMisclassified": "Step demonstration would be mistaken for mechanism proof and causal explanation would be lost.",
+      "primaryProofObligationClass": "operation_barrier_reduction",
+      "chainDependencyClass": "operation_after_mechanism_before_result",
+      "excludes": [
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "problem_activation",
+        "long_term_trust_close"
+      ]
     }
   ],
   "slotSubtypes": [
@@ -562,7 +650,20 @@
       ],
       "riskIfMisclassified": "误作普通开场展示会遗漏后续痛点回补要求。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_result_backfilled_pain",
@@ -594,7 +695,20 @@
       ],
       "riskIfMisclassified": "会让结果前置结构断成两个不相关信息点。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_low_barrier_value_anchor",
@@ -626,7 +740,20 @@
       ],
       "riskIfMisclassified": "如果直接进入品质证明，价值锚点会不足。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_visible_quantity_value",
@@ -658,7 +785,20 @@
       ],
       "riskIfMisclassified": "容易把价值证据误作视觉堆料。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_scene_problem_activation",
@@ -690,7 +830,20 @@
       ],
       "riskIfMisclassified": "过早露出强商品包装会削弱场景真实感。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_object_action_problem_activation",
@@ -722,7 +875,20 @@
       ],
       "riskIfMisclassified": "如果套用场景共鸣节奏，会削弱对象直冲的教程式入口。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_solution_object_entry",
@@ -754,7 +920,20 @@
       ],
       "riskIfMisclassified": "缺少解决物识别会让后续证明对象不稳定。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_coverage_to_mechanism_bridge",
@@ -786,7 +965,20 @@
       ],
       "riskIfMisclassified": "会变成单纯堆料，无法转入可信解释。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_alternative_gap_contrast",
@@ -818,7 +1010,20 @@
       ],
       "riskIfMisclassified": "孤立贬低替代方案会降低后续差异化可信度。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_structure_reuse_mechanism_trust",
@@ -851,7 +1056,20 @@
       ],
       "riskIfMisclassified": "会让结构可信退化为结果展示。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_causal_mechanism_proof",
@@ -883,7 +1101,20 @@
       ],
       "riskIfMisclassified": "机制证据会被快切和字幕吞掉。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_mechanism_scope_credibility",
@@ -916,7 +1147,20 @@
       ],
       "riskIfMisclassified": "重包装或超快切会压缩理解时间。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_operation_barrier_reduction",
@@ -949,7 +1193,20 @@
       ],
       "riskIfMisclassified": "只保留文字步骤会增加执行顾虑。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_quality_objection_reframe",
@@ -981,7 +1238,20 @@
       ],
       "riskIfMisclassified": "会缺少从价值到品质的缓冲转向。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_sensory_detail_proof_peak",
@@ -1013,7 +1283,20 @@
       ],
       "riskIfMisclassified": "观众看见细节但无法理解为体验证明。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_life_benefit_close",
@@ -1045,7 +1328,20 @@
       ],
       "riskIfMisclassified": "结尾会打断生活利益回落。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_usage_scene_conversion_close",
@@ -1077,7 +1373,20 @@
       ],
       "riskIfMisclassified": "会削弱购买对象记忆。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_usage_result_confirmation",
@@ -1109,7 +1418,20 @@
       ],
       "riskIfMisclassified": "机制证明无法兑现到最初痛点。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_operation_result_confirmation",
@@ -1141,7 +1463,20 @@
       ],
       "riskIfMisclassified": "步骤和结果脱节，功能结果无法归因到刚才动作。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_recommendation_memory_close",
@@ -1174,7 +1509,20 @@
       ],
       "riskIfMisclassified": "新增复杂信息会稀释已完成证明链。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     },
     {
       "id": "SUB_long_term_trust_choice_close",
@@ -1207,7 +1555,20 @@
       ],
       "riskIfMisclassified": "长期背书会退化成空泛夸赞。",
       "reviewStatus": "candidate",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "??",
+          "??",
+          "??",
+          "??"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task"
+        ]
+      }
     }
   ],
   "atomArchetypes": [
@@ -2008,9 +2369,9 @@
       "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "condition": "?????????????????",
-      "requirement": "????????????????????",
-      "riskIfBroken": "???????????????????????",
+      "condition": "Supporting visuals, captions, packaging, or actions strengthen the current claim but are not mandatory proof for that claim.",
+      "requirement": "Supporting evidence must serve the current claim and must not introduce a new proof object or distract attention.",
+      "riskIfBroken": "Supporting evidence becomes noise and weakens the current proof focus.",
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
@@ -2026,11 +2387,12 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "slot_index ????? support ? binding??????????????????????? require?",
+      "judgementReason": "slot_index contains support bindings that are not require bindings but still need alignment with the current claim.",
       "differenceNotes": [
-        "support ???????????????????"
+        "support strengthens the current claim; it is not the same as require."
       ],
-      "riskIfMisclassified": "????????????????????????????"
+      "riskIfMisclassified": "Support evidence may be treated as mandatory proof or dropped entirely during recomposition.",
+      "name": "Supporting evidence alignment"
     }
   ],
   "bindingPrinciples": [
@@ -2541,7 +2903,8 @@
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
-      }
+      },
+      "status": "candidate"
     },
     {
       "id": "REVIEW_002",
@@ -2570,7 +2933,8 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
-      }
+      },
+      "status": "candidate"
     },
     {
       "id": "REVIEW_003",
@@ -2596,7 +2960,8 @@
         "sampleIds": [
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
         ]
-      }
+      },
+      "status": "candidate"
     },
     {
       "id": "REVIEW_004",
@@ -2621,7 +2986,8 @@
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
         ]
-      }
+      },
+      "status": "candidate"
     },
     {
       "id": "REVIEW_005",
@@ -2646,7 +3012,8 @@
         "sampleIds": [
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
-      }
+      },
+      "status": "candidate"
     }
   ],
   "openQuestions": [
@@ -3009,5 +3376,182 @@
   ],
   "chainPatterns": [],
   "reviewStatus": "candidate",
-  "maturityStatus": "candidate"
+  "maturityStatus": "candidate",
+  "observedChainPatterns": [
+    {
+      "id": "OBS_CHAIN_001",
+      "name": "Observed chain 001",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close",
+      "sequence": [
+        "instant_solution_preview",
+        "pain_backfill",
+        "coverage_bridge",
+        "mechanism_trust",
+        "life_benefit_close"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    },
+    {
+      "id": "OBS_CHAIN_002",
+      "name": "Observed chain 002",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close",
+      "sequence": [
+        "instant_solution_preview",
+        "pain_backfill",
+        "mechanism_trust",
+        "life_benefit_close"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    },
+    {
+      "id": "OBS_CHAIN_003",
+      "name": "Observed chain 003",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close",
+      "sequence": [
+        "value_anchor",
+        "quantity_value_confirmation",
+        "quality_trust_build",
+        "sensory_proof_peak",
+        "usage_scene_close"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    },
+    {
+      "id": "OBS_CHAIN_004",
+      "name": "Observed chain 004",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close",
+      "sequence": [
+        "scene_problem_activation",
+        "solution_entry",
+        "alternative_contrast",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    },
+    {
+      "id": "OBS_CHAIN_005",
+      "name": "Observed chain 005",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close",
+      "sequence": [
+        "scene_problem_activation",
+        "alternative_contrast",
+        "solution_entry",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    },
+    {
+      "id": "OBS_CHAIN_006",
+      "name": "Observed chain 006",
+      "status": "candidate",
+      "reviewStatus": "reviewed",
+      "maturityStatus": "candidate",
+      "chainKey": "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close",
+      "sequence": [
+        "problem_activation",
+        "mechanism_credibility",
+        "low_barrier_operation",
+        "result_confirmation",
+        "long_term_trust_close"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
+      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+    }
+  ]
 }
