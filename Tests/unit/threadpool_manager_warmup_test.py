@@ -418,6 +418,79 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             self.assertEqual(leased.discard_reason, "test-refresh")
             self.assertEqual(scheduled_roles, ["shot-boundary-transformer"])
 
+    def test_force_update_seeds_invalidates_inflight_startup_recovery_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "roles": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = BlockingInitClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            scheduled_roles: list[str] = []
+            manager._schedule_ensure_min_idle = lambda role_name: scheduled_roles.append(role_name)
+            manager._recovering = True
+            manager._ready_for_leases = False
+            manager._startup_started_at = time.monotonic()
+            manager._startup_finished_at = None
+            manager._write_catalog()
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(manager.roles["shot-boundary-transformer"]),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(build_idle_thread(manager, "idle_thread_1"))
+
+            recovery_done = threading.Event()
+
+            def run_recovery() -> None:
+                try:
+                    manager._finish_startup()
+                finally:
+                    recovery_done.set()
+
+            recovery_thread = threading.Thread(target=run_recovery)
+            recovery_thread.start()
+            self.assertTrue(client.validate_started.wait(timeout=1.0))
+
+            result = manager.force_update_seeds(reason="test-refresh")
+            client.release_validate.set()
+            recovery_thread.join(timeout=2.0)
+            manager.close()
+
+            self.assertTrue(recovery_done.is_set())
+            self.assertEqual(result["deleted_count"], 2)
+            self.assertIsNone(manager.store.read_thread("seed_thread_1"))
+            self.assertIsNone(manager.store.read_thread("idle_thread_1"))
+            self.assertFalse(manager._recovering)
+            self.assertTrue(manager._ready_for_leases)
+            self.assertEqual(scheduled_roles, ["shot-boundary-transformer"])
+
     def test_role_status_promotes_completed_initializing_seed_without_waiting(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

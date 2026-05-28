@@ -68,6 +68,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         self._startup_finished_at: float | None = None
         self._startup_thread: threading.Thread | None = None
         self._role_status_cache: dict[str, tuple[float, dict]] = {}
+        self._recovery_generation = 0
 
     def start(self, *, background_recover: bool = False) -> None:
         startup_thread: threading.Thread | None = None
@@ -110,11 +111,19 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         self._role_clients = {}
 
     def _finish_startup(self) -> None:
-        self._recover_state()
+        recovery_generation = self._recovery_generation
+        if not self._recover_state(recovery_generation=recovery_generation):
+            return
         if not self.async_warmup:
+            if not self._recovery_generation_is_current(recovery_generation):
+                return
             self._ensure_min_idle_all()
+            if not self._recovery_generation_is_current(recovery_generation):
+                return
         roles_to_warm: list[str] = []
         with self._lock:
+            if not self._recovery_generation_is_current(recovery_generation):
+                return
             self._recovering = False
             self._ready_for_leases = True
             self._startup_error = None
@@ -135,6 +144,18 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 self._startup_error = f"{type(exc).__name__}: {exc}"
                 self._startup_finished_at = time.monotonic()
                 self._write_catalog()
+
+    def _recovery_generation_is_current(self, recovery_generation: int) -> bool:
+        with self._lock:
+            return int(recovery_generation) == int(self._recovery_generation)
+
+    def _invalidate_startup_recovery_for_maintenance(self) -> None:
+        self._recovery_generation += 1
+        if self._recovering:
+            self._recovering = False
+            self._ready_for_leases = True
+            self._startup_error = None
+            self._startup_finished_at = time.monotonic()
 
     def _startup_status_payload(self, *, update_catalog: bool = True) -> dict[str, object]:
         thread = self._startup_thread
@@ -401,6 +422,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         with self._lock:
             for role_name in target_roles:
                 self._require_role(role_name)
+            self._invalidate_startup_recovery_for_maintenance()
             for thread in sorted(self.store.list_threads().values(), key=lambda item: (item.role, item.created_at, item.thread_id)):
                 if thread.role not in target_roles:
                     continue

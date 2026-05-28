@@ -12,12 +12,15 @@ def _now() -> str:
 
 
 class ThreadPoolLeaseStoreMixin:
-    def _recover_state(self) -> None:
+    def _recover_state(self, *, recovery_generation: int | None = None) -> bool:
         threads = self.store.list_threads()
         leases = self.store.list_leases()
         now = datetime.now().astimezone()
         ttl_seconds = self.orphan_ttl_minutes * 60
-        self._recover_active_leases(leases=leases, now=now, ttl_seconds=ttl_seconds)
+        if not self._recovery_generation_is_active(recovery_generation):
+            return False
+        if not self._recover_active_leases(leases=leases, now=now, ttl_seconds=ttl_seconds, recovery_generation=recovery_generation):
+            return False
         threads = self.store.list_threads()
         leases = self.store.list_leases()
         active_lease_by_thread_id = {
@@ -25,53 +28,91 @@ class ThreadPoolLeaseStoreMixin:
             for lease in leases.values()
             if lease.status == "active"
         }
-        self._recover_leased_threads_without_active_lease(
+        if not self._recover_leased_threads_without_active_lease(
             threads=threads,
             active_lease_by_thread_id=active_lease_by_thread_id,
-        )
+            recovery_generation=recovery_generation,
+        ):
+            return False
         threads = self.store.list_threads()
         for thread in threads.values():
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             config = self.roles.get(thread.role)
             if thread.status == "discarded":
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.delete_thread(thread.thread_id)
                 continue
             if thread.is_seed:
                 if config is not None and not self._matches_thread_fingerprint(thread, config):
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.delete_thread(thread.thread_id)
                     continue
                 if thread.status == "initializing":
                     if self._thread_exists_for_recovery(thread):
+                        if not self._recovery_generation_is_active(recovery_generation):
+                            return False
                         self.store.write_thread(thread.model_copy(update={"updated_at": _now()}))
                     else:
+                        if not self._recovery_generation_is_active(recovery_generation):
+                            return False
                         self.store.delete_thread(thread.thread_id)
                     continue
                 if self._thread_is_usable_for_recovery(thread):
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.delete_thread(thread.thread_id)
                 continue
             if thread.status == "idle":
                 if self.discard_on_release and self._thread_has_been_leased(thread):
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.delete_thread(thread.thread_id)
                     continue
                 if config is not None and not self._matches_thread_fingerprint(thread, config):
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.delete_thread(thread.thread_id)
                     continue
                 if self._thread_is_usable_for_recovery(thread):
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.write_thread(thread.model_copy(update={"last_validated_at": _now(), "updated_at": _now()}))
                 else:
+                    if not self._recovery_generation_is_active(recovery_generation):
+                        return False
                     self.store.delete_thread(thread.thread_id)
+        if not self._recovery_generation_is_active(recovery_generation):
+            return False
         self._prune_inactive_leases()
+        return True
 
-    def _recover_active_leases(self, *, leases: dict[str, LeaseRecord], now: datetime, ttl_seconds: int) -> None:
+    def _recover_active_leases(
+        self,
+        *,
+        leases: dict[str, LeaseRecord],
+        now: datetime,
+        ttl_seconds: int,
+        recovery_generation: int | None = None,
+    ) -> bool:
         changed = False
         for lease in leases.values():
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             if lease.status != "active":
                 continue
             if not self.discard_on_release and not lease.is_orphaned(now=now, ttl_seconds=ttl_seconds):
                 continue
             thread = self.store.read_thread(lease.thread_id)
             released_at = _now()
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             self.store.write_lease(
                 lease.model_copy(update={"status": "released", "released_at": released_at, "last_seen_at": released_at})
             )
@@ -79,8 +120,12 @@ class ThreadPoolLeaseStoreMixin:
             if thread is None:
                 continue
             if self.discard_on_release or thread.retire_on_release:
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.delete_thread(thread.thread_id)
             elif self._thread_is_usable_for_recovery(thread):
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.write_thread(
                     thread.model_copy(
                         update={
@@ -93,25 +138,37 @@ class ThreadPoolLeaseStoreMixin:
                     )
                 )
             else:
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.delete_thread(thread.thread_id)
         if changed:
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             self._write_catalog()
+        return True
 
     def _recover_leased_threads_without_active_lease(
         self,
         *,
         threads: dict[str, ThreadRecord],
         active_lease_by_thread_id: dict[str, LeaseRecord],
-    ) -> None:
+        recovery_generation: int | None = None,
+    ) -> bool:
         changed = False
         for thread in threads.values():
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             if thread.status != "leased" or active_lease_by_thread_id.get(thread.thread_id):
                 continue
             recovered_at = _now()
             changed = True
             if self.discard_on_release or thread.retire_on_release:
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.delete_thread(thread.thread_id)
             elif self._thread_is_usable_for_recovery(thread):
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.write_thread(
                     thread.model_copy(
                         update={
@@ -124,9 +181,20 @@ class ThreadPoolLeaseStoreMixin:
                     )
                 )
             else:
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
                 self.store.delete_thread(thread.thread_id)
         if changed:
+            if not self._recovery_generation_is_active(recovery_generation):
+                return False
             self._write_catalog()
+        return True
+
+    def _recovery_generation_is_active(self, recovery_generation: int | None) -> bool:
+        if recovery_generation is None:
+            return True
+        checker = getattr(self, "_recovery_generation_is_current", None)
+        return bool(checker(recovery_generation)) if callable(checker) else True
 
     def _thread_exists_for_recovery(self, thread: ThreadRecord) -> bool:
         client = self._client_for_thread(thread)
