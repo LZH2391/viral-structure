@@ -13,6 +13,16 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
+from governance import (
+    build_governance_maps,
+    candidate_governance_ids,
+    default_governance_path,
+    enrich_candidate,
+    governance_score,
+    governance_status,
+    load_governance,
+)
+
 DEFAULT_CHAIN = [
     "problem_activation",
     "mechanism_credibility",
@@ -59,7 +69,7 @@ def related_types(slot_type: str) -> set[str]:
     return related
 
 
-def score_candidate(candidate: Dict[str, Any], target_slot_type: str, query_tokens: set[str]) -> Dict[str, Any]:
+def score_candidate(candidate: Dict[str, Any], target_slot_type: str, query_tokens: set[str], governance_maps: Dict[str, Any] | None = None, brief: Dict[str, Any] | None = None) -> Dict[str, Any]:
     c_type = str(candidate.get("slotType", ""))
     score = 0.0
     reasons: List[str] = []
@@ -70,6 +80,21 @@ def score_candidate(candidate: Dict[str, Any], target_slot_type: str, query_toke
     elif c_type in related_types(target_slot_type):
         score += 25
         reasons.append("related slotType match")
+
+    if governance_maps and brief:
+        g_ids = candidate_governance_ids(candidate, governance_maps)
+        subtype_ids = set(brief.get("slotSubtypeIds") or [])
+        archetype_ids = set(brief.get("slotArchetypeIds") or [])
+        bundle_ids = set(brief.get("implementationBundleIds") or [])
+        if subtype_ids and subtype_ids & g_ids["slotSubtypeIds"]:
+            score += 30
+            reasons.append("requested slot subtype match")
+        if archetype_ids and archetype_ids & g_ids["slotArchetypeIds"]:
+            score += 20
+            reasons.append("requested slot archetype match")
+        if bundle_ids and bundle_ids & g_ids["implementationBundleIds"]:
+            score += 10
+            reasons.append("requested implementation bundle prior match")
 
     text = str(candidate.get("textSignature") or candidate.get("searchText") or "")
     overlap = tokenize(text) & query_tokens
@@ -93,20 +118,43 @@ def score_candidate(candidate: Dict[str, Any], target_slot_type: str, query_toke
     if candidate.get("packagingAtomDetails"):
         score += 2
 
-    return {"candidate": candidate, "score": round(score, 3), "reasons": reasons}
+    if governance_maps:
+        g_score, g_reasons = governance_score(candidate, brief or {}, governance_maps)
+        if g_reasons:
+            score += g_score
+            reasons.extend(g_reasons)
+
+    enriched = enrich_candidate(candidate, governance_maps or {})
+    return {"candidate": enriched, "score": round(score, 3), "reasons": reasons}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("index", help="slot index JSON")
+    parser.add_argument("--governance", help="semantic-governance.v1.json path")
+    parser.add_argument("--no-governance", action="store_true", help="Disable semantic governance enrichment")
     parser.add_argument("--brief", help="brief JSON file")
+    parser.add_argument("--slot-subtypes", help="comma-separated required slot subtype ids")
+    parser.add_argument("--slot-archetypes", help="comma-separated required slot archetype ids")
+    parser.add_argument("--bundles", help="comma-separated implementation bundle ids used as retrieval priors")
     parser.add_argument("--query", default="", help="plain text query/brief")
     parser.add_argument("--chain", help="comma-separated target slot types")
     parser.add_argument("--top", type=int, default=3)
     args = parser.parse_args()
 
     index = json.loads(Path(args.index).read_text(encoding="utf-8"))
+    governance_path = None if args.no_governance else (Path(args.governance) if args.governance else default_governance_path(Path(args.index)))
+    governance = None if args.no_governance else load_governance(governance_path)
+    governance_maps = build_governance_maps(governance)
     brief = json.loads(Path(args.brief).read_text(encoding="utf-8")) if args.brief else None
+    if brief is None:
+        brief = {}
+    if args.slot_subtypes:
+        brief["slotSubtypeIds"] = [x.strip() for x in args.slot_subtypes.split(",") if x.strip()]
+    if args.slot_archetypes:
+        brief["slotArchetypeIds"] = [x.strip() for x in args.slot_archetypes.split(",") if x.strip()]
+    if args.bundles:
+        brief["implementationBundleIds"] = [x.strip() for x in args.bundles.split(",") if x.strip()]
     target_text = brief_text(brief, args.query)
     query_tokens = tokenize(target_text)
     chain = [x.strip() for x in args.chain.split(",") if x.strip()] if args.chain else DEFAULT_CHAIN
@@ -115,12 +163,13 @@ def main() -> int:
         "strategy": "candidate_retrieval",
         "targetText": target_text,
         "targetChain": chain,
+        "governanceStatus": governance_status(index, governance),
         "results": [],
     }
 
     slots = index.get("slotCandidates") or index.get("slotVariants") or []
     for target_slot_type in chain:
-        scored = [score_candidate(slot, target_slot_type, query_tokens) for slot in slots if isinstance(slot, dict)]
+        scored = [score_candidate(slot, target_slot_type, query_tokens, governance_maps, brief) for slot in slots if isinstance(slot, dict)]
         scored = [item for item in scored if item["score"] > 0]
         scored.sort(key=lambda item: item["score"], reverse=True)
         output["results"].append({

@@ -8,6 +8,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 from common import read_json, text_blob, tokenize, write_json
+from governance import (
+    build_governance_maps,
+    candidate_governance_ids,
+    default_governance_path,
+    enrich_candidate,
+    governance_audit,
+    governance_score,
+    governance_status,
+    load_governance,
+)
 
 
 def load_brief(path: str | None, args: argparse.Namespace) -> Dict[str, Any]:
@@ -22,20 +32,50 @@ def load_brief(path: str | None, args: argparse.Namespace) -> Dict[str, Any]:
         brief["category"] = args.category
     if args.mode:
         brief["mode"] = args.mode
+    if getattr(args, "slot_subtypes", None):
+        brief["slotSubtypeIds"] = [x.strip() for x in args.slot_subtypes.split(",") if x.strip()]
+    if getattr(args, "slot_archetypes", None):
+        brief["slotArchetypeIds"] = [x.strip() for x in args.slot_archetypes.split(",") if x.strip()]
+    if getattr(args, "bundles", None):
+        brief["implementationBundleIds"] = [x.strip() for x in args.bundles.split(",") if x.strip()]
     if args.duration:
         brief["durationSec"] = args.duration
     return brief
 
 
-def candidate_score(candidate: Dict[str, Any], brief: Dict[str, Any]) -> Dict[str, Any]:
+def candidate_score(candidate: Dict[str, Any], brief: Dict[str, Any], governance_maps: Dict[str, Any] | None = None) -> Dict[str, Any]:
     score = 0.0
     reasons: List[str] = []
     requested_slot_types = set(brief.get("slotTypes") or [])
+    requested_subtypes = set(brief.get("slotSubtypeIds") or [])
+    requested_archetypes = set(brief.get("slotArchetypeIds") or [])
+    requested_bundles = set(brief.get("implementationBundleIds") or [])
     if requested_slot_types and candidate.get("slotType") in requested_slot_types:
         score += 5
         reasons.append("requested slot type match")
     elif requested_slot_types:
         score -= 3
+
+    if governance_maps:
+        g_ids = candidate_governance_ids(candidate, governance_maps)
+        if requested_subtypes:
+            if requested_subtypes & g_ids["slotSubtypeIds"]:
+                score += 6
+                reasons.append("requested slot subtype match")
+            else:
+                score -= 4
+        if requested_archetypes:
+            if requested_archetypes & g_ids["slotArchetypeIds"]:
+                score += 4
+                reasons.append("requested slot archetype match")
+            else:
+                score -= 3
+        if requested_bundles:
+            if requested_bundles & g_ids["implementationBundleIds"]:
+                score += 2
+                reasons.append("requested implementation bundle prior match")
+            else:
+                score -= 1
 
     query_text = " ".join(str(brief.get(k, "")) for k in ["query", "category", "goal", "audience", "style", "mode"])
     query_tokens = set(tokenize(query_text))
@@ -77,19 +117,37 @@ def candidate_score(candidate: Dict[str, Any], brief: Dict[str, Any]) -> Dict[st
         score -= min(1.0, 0.25 * len(atom_review_flags))
         reasons.append("some atoms need review")
 
+    if governance_maps:
+        g_score, g_reasons = governance_score(candidate, brief, governance_maps)
+        if g_reasons:
+            score += g_score
+            reasons.extend(g_reasons)
+
     return {"score": round(score, 3), "reasons": reasons}
 
 
-def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int) -> Dict[str, Any]:
+def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int, governance: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    governance_maps = build_governance_maps(governance)
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for candidate in index.get("slotVariants", []):
         scored = dict(candidate)
         scored.pop("searchText", None)
         scored.pop("raw", None)
-        result = candidate_score(candidate, brief)
+        result = candidate_score(candidate, brief, governance_maps)
         scored["score"] = result["score"]
         scored["scoreReasons"] = result["reasons"]
-        if not brief.get("slotTypes") or candidate.get("slotType") in set(brief.get("slotTypes") or []):
+        scored = enrich_candidate(scored, governance_maps)
+        g_ids = candidate_governance_ids(candidate, governance_maps)
+        requested_subtypes = set(brief.get("slotSubtypeIds") or [])
+        requested_archetypes = set(brief.get("slotArchetypeIds") or [])
+        requested_bundles = set(brief.get("implementationBundleIds") or [])
+        governance_filter = (
+            (not requested_subtypes or bool(requested_subtypes & g_ids["slotSubtypeIds"]))
+            and (not requested_archetypes or bool(requested_archetypes & g_ids["slotArchetypeIds"]))
+            and (not requested_bundles or bool(requested_bundles & g_ids["implementationBundleIds"]))
+        )
+        slot_filter = not brief.get("slotTypes") or candidate.get("slotType") in set(brief.get("slotTypes") or [])
+        if slot_filter and governance_filter:
             grouped[str(candidate.get("slotType"))].append(scored)
 
     for slot_type in list(grouped):
@@ -99,20 +157,36 @@ def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int) -> Dict[s
     missing = [s for s in requested if s not in grouped or not grouped[s]]
 
     chain_suggestions = []
+    observed_priors = governance_audit(governance, governance_maps).get("observedChainPriors", [])
+    for prior in observed_priors:
+        chain_suggestions.append({
+            "source": "semantic_governance.observedChainPatterns",
+            "chainId": prior.get("id"),
+            "chainName": prior.get("name"),
+            "sequence": prior.get("sequence"),
+            "chainKey": prior.get("chainKey"),
+            "useAs": prior.get("useAs"),
+            "notUseAs": prior.get("notUseAs"),
+        })
     for template in index.get("templates", []):
         seq = template.get("sequence") or []
         if not brief.get("slotTypes") or all(s in seq for s in brief.get("slotTypes", [])):
             chain_suggestions.append({
+                "source": "evidence_layer.template",
                 "templateId": template.get("templateId"),
                 "templateName": template.get("templateName"),
                 "sequence": seq,
                 "sampleId": template.get("sampleId"),
                 "chainKey": template.get("chainKey"),
+                "useAs": "historical_evidence_only",
+                "notUseAs": "fixed_template",
             })
 
     return {
         "brief": brief,
         "indexSummary": index.get("summary", {}),
+        "governanceStatus": governance_status(index, governance),
+        "governanceAudit": governance_audit(governance, governance_maps),
         "candidateGroups": grouped,
         "missingSlotTypes": missing,
         "chainSuggestions": chain_suggestions[:10],
@@ -122,9 +196,14 @@ def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int) -> Dict[s
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("index_json", help="Index JSON from build_slot_index.py")
+    parser.add_argument("--governance", help="semantic-governance.v1.json path")
+    parser.add_argument("--no-governance", action="store_true", help="Disable semantic governance enrichment")
     parser.add_argument("--brief", help="Brief JSON file")
     parser.add_argument("--query", help="Free-text query or target brief")
     parser.add_argument("--slot-types", help="Comma-separated required slot types")
+    parser.add_argument("--slot-subtypes", help="Comma-separated required slot subtype ids")
+    parser.add_argument("--slot-archetypes", help="Comma-separated required slot archetype ids")
+    parser.add_argument("--bundles", help="Comma-separated implementation bundle ids used as retrieval priors")
     parser.add_argument("--category", help="Target category")
     parser.add_argument("--mode", help="Recomposition mode")
     parser.add_argument("--duration", type=float, help="Target duration in seconds")
@@ -133,8 +212,10 @@ def main() -> None:
     args = parser.parse_args()
 
     index = read_json(Path(args.index_json))
+    governance_path = None if args.no_governance else (Path(args.governance) if args.governance else default_governance_path(Path(args.index_json)))
+    governance = None if args.no_governance else load_governance(governance_path)
     brief = load_brief(args.brief, args)
-    result = retrieve(index, brief, args.limit)
+    result = retrieve(index, brief, args.limit, governance)
     if args.out:
         write_json(Path(args.out), result)
         print(f"wrote {args.out}")

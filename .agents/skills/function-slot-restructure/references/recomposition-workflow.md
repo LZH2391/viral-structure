@@ -4,6 +4,15 @@
 
 Template 可以证明某条链路曾在一个样例中成立，但它不是新链路的生成器。
 
+正式重组默认同时读取：
+
+```text
+Runtime/Temp/FunctionSlotLibrary/slot_index.json
+Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
+```
+
+`slot_index.json` 是证据层，保存真实 variant。`semantic-governance.v1.json` 是治理层，保存经审查的 family / archetype / subtype / pattern / policy。重组时优先用治理层做选择和约束，再回到证据层拿具体来源和可替换实现。
+
 ## 步骤 1：把目标 brief 标准化为约束
 
 检索槽位前，先抽取目标约束。
@@ -118,7 +127,21 @@ choice claim       -> concrete product/service/action memory point
 
 这个图才是真正的重组目标。这里不应出现预设链路名称。
 
-## 步骤 3：用图操作符生成链路假设
+## 步骤 3：读取治理层并校准证据层
+
+在生成链路假设前，读取 `semantic-governance.v1.json`：
+
+- 检查 `schemaVersion / reviewStatus / maturityStatus`。
+- 对比 `sourceSnapshot` 与当前 index 中 artifact 的 `contentHash`。
+- 将 `slotSubtypes.sourceVariantIds` 映射回 `slotVariants`。
+- 将 `atomPatterns / bindingPatterns / rulePatterns` 映射回 atom、binding、rule variants。
+- 读取 `bindingPrinciples / recompositionPolicies` 作为组合安全约束。
+- 读取 `implementationBundles / observedChainPatterns` 作为检索先验，不作为固定模板。
+- 读取 `needReviewMap / reviewItems / unmapped*Variants` 作为风险降级依据。
+
+如果治理层缺失、过期或只有 candidate 结论，可以继续草拟方案，但必须降低置信度并明确说明哪些判断只是证据层推断。
+
+## 步骤 4：用图操作符生成链路假设
 
 通过对需求图应用操作符生成多个链路假设。这一步才是重组发生的地方。
 
@@ -149,6 +172,12 @@ choice claim       -> concrete product/service/action memory point
 - `ladder`：从弱到强堆叠证明，例如 demo -> result -> long-term trace。
 - `bridge`：在错配的来源候选之间创建 adapter 节点。
 
+治理层补充操作：
+
+- `governance_prior`：参考 `implementationBundles` 或 `observedChainPatterns`，但只作为候选排序线索。
+- `subtype_expand`：从目标需求节点展开到可用 `slotSubtype`。
+- `policy_filter`：用 `recompositionPolicies` 去掉明显破坏证明或承接的链路。
+
 ### 链路假设格式
 
 ```json
@@ -165,15 +194,18 @@ choice claim       -> concrete product/service/action memory point
 
 当目标是开放式任务时，生成 2-5 个链路假设。如果 corpus/证明资产支持，至少保留一条保守链路和一条非显而易见链路。
 
-## 步骤 4：针对需求节点检索候选，而不只是按槽位名检索
+## 步骤 5：针对需求节点检索候选，而不只是按槽位名检索
 
 对每个需求节点，按以下维度检索候选：
 
+- slot subtype / archetype 是否匹配观众状态跃迁和证明义务
 - slot role 或兼容 slot type
 - 观众状态跃迁匹配
 - claim type 和 proof need
+- atom pattern 的 claim/proof/rhythm/packaging 功能
 - rhythm need 和 information load
 - packaging proof function
+- binding principle / recomposition policy
 - 必要 sync/carryover 约束
 - 来源可靠性和置信度
 
@@ -181,7 +213,7 @@ choice claim       -> concrete product/service/action memory point
 
 如果没有库候选能满足必需需求，创建 generated gap-fill implementation 并降低置信度。
 
-## 步骤 5：全局选择，而不是逐槽位选择
+## 步骤 6：全局选择，而不是逐槽位选择
 
 不要独立选择每个槽位的 top candidate。要选择作为链路整体成立的组合。
 
@@ -194,6 +226,7 @@ choice claim       -> concrete product/service/action memory point
 - **rhythm coherence / 节奏一致性**：视频有明确注意力曲线
 - **packaging feasibility / 包装可行性**：视觉证明确实能生产
 - **binding compatibility / 绑定兼容性**：sync、require、carryover、substitute 和 conflict rules 通过
+- **governance compatibility / 治理兼容性**：subtype、atom pattern、binding principle、policy 没有冲突
 - **source diversity / 来源多样性**：方案不是单一源样例，除非刻意做忠实变体
 - **novelty with control / 可控新颖性**：方案有足够差异，但仍可解释
 
@@ -204,7 +237,7 @@ choice claim       -> concrete product/service/action memory point
 3. 只组合满足硬边的候选。
 4. 选择全局评分最好，而不是局部候选分最高的方案。
 
-## 步骤 6：组合槽位实现
+## 步骤 7：组合槽位实现
 
 对每个选中的需求节点，判断实现来源：
 
@@ -222,7 +255,15 @@ preserved function: result proof returns to activated problem object
 changed surface: skincare close-up -> dashboard before/after screen
 ```
 
-## 步骤 7：为跨来源或跨品类缺口创建 adapters
+实现组合要同时记录：
+
+- 选中的 `slotSubtypeId / slotArchetypeId`
+- 使用的 script / rhythm / packaging `atomPatternId`
+- 回落到证据层的具体 variant 和 atom id
+- 治理状态：`reviewStatus / maturityStatus`
+- 未命中治理层时的 fallback 原因
+
+## 步骤 8：为跨来源或跨品类缺口创建 adapters
 
 Adapters 不是装饰，而是让混合来源重组保持连贯的桥。
 
@@ -244,7 +285,7 @@ Adapter 类型：
 - `time_adapter`
 - `causal_adapter`
 
-## 步骤 8：设计视频级节奏曲线
+## 步骤 9：设计视频级节奏曲线
 
 只有在需求图和链路假设稳定后，才设计节奏曲线。
 
@@ -262,7 +303,7 @@ low_barrier_operation + result_confirmation = pause -> action -> payoff
 
 检查信息负载：高密度机制、多步骤操作和信任证明通常需要比问题可见性或结果闪现更多时间。
 
-## 步骤 9：按证明功能设计包装
+## 步骤 10：按证明功能设计包装
 
 为每个主张按功能而不是样式分配证明包装。
 
@@ -279,7 +320,7 @@ choice close -> concrete memory point
 
 表层样式可以改变。证明功能不能消失。
 
-## 步骤 10：产出实用方案和审计
+## 步骤 11：产出实用方案和审计
 
 输出可用方案，而不是抽象理论：
 
@@ -287,6 +328,7 @@ choice close -> concrete memory point
 - 槽位需求图
 - 生成的链路假设和选中链路
 - 选中的槽位候选和来源样例
+- 选中的 subtype / archetype / atom pattern / bundle prior
 - 逐槽位 script/rhythm/packaging 实现
 - adapters
 - 分段文案
@@ -295,9 +337,10 @@ choice close -> concrete memory point
 - 节奏时间
 - 所需证明材料
 - binding checks
+- governance checks：principle / policy / needReview / reviewItems
 - 替代版本
 
-## 步骤 11：标记置信度
+## 步骤 12：标记置信度
 
 置信度应反映 corpus 支持度和目标匹配度。
 
@@ -307,13 +350,14 @@ choice close -> concrete memory point
 - 选中链路满足硬边
 - 证明资产存在
 - 选中候选具有兼容 atoms 和 bindings
-- 关键模式由多个样例或强逻辑支持
+- 关键模式由 reviewed 治理项、多个样例或强逻辑支持
 
 中置信度：
 
 - 链路连贯但品类不同
 - 证明资产不完整
 - 需要一两个生成式实现或 adapters
+- 关键治理项仍是 candidate，但边界和风险已说明
 
 低置信度：
 
@@ -321,3 +365,4 @@ choice close -> concrete memory point
 - 缺少证明资产
 - 仍存在主要 binding 或 carryover 风险
 - 最终链路依赖未验证的操作符组合
+- 治理层缺失、过期，或命中大量 `needReview / unmapped` 项

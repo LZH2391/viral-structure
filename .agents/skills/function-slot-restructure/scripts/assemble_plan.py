@@ -12,6 +12,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Set
 
 from common import as_list, read_json, write_json
+from governance import (
+    build_governance_maps,
+    default_governance_path,
+    governance_audit,
+    governance_prior_hypotheses,
+    governance_status,
+    load_governance,
+)
 from retrieve_candidates import retrieve
 
 ROLE_DEFAULTS: Dict[str, Dict[str, str]] = {
@@ -199,7 +207,7 @@ def build_demand_graph(index: Dict[str, Any], brief: Dict[str, Any], explicit_se
     }
 
 
-def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> List[Dict[str, Any]]:
+def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], governance_maps: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     nodes = graph.get("nodes", [])
     by_role = {n["slotRole"]: n for n in nodes}
     causal = [n["demandId"] for role in DEFAULT_CAUSAL_ORDER for n in nodes if n["slotRole"] == role]
@@ -280,6 +288,8 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             ["如果没有匹配槽位，对比节点可能需要在库外生成"],
         )
 
+    if governance_maps:
+        hypotheses.extend(governance_prior_hypotheses(graph, governance_maps))
     return score_hypotheses(hypotheses, graph, brief)
 
 
@@ -318,9 +328,11 @@ def select_chain(hypotheses: List[Dict[str, Any]]) -> Dict[str, Any]:
     return hypotheses[0] if hypotheses else {"chainId": "H00", "sequence": [], "operatorsUsed": [], "reason": "未生成链路假设"}
 
 
-def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: List[str] | None) -> Dict[str, Any]:
+def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: List[str] | None, governance: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    governance_maps = build_governance_maps(governance)
+    g_status = governance_status(index, governance)
     demand_graph = build_demand_graph(index, brief, sequence_override)
-    hypotheses = generate_chain_hypotheses(demand_graph, brief)
+    hypotheses = generate_chain_hypotheses(demand_graph, brief, governance_maps)
     selected_chain = select_chain(hypotheses)
 
     demand_by_id = {n["demandId"]: n for n in demand_graph.get("nodes", [])}
@@ -328,10 +340,10 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
 
     brief_for_retrieval = dict(brief)
     brief_for_retrieval["slotTypes"] = demanded_slot_types
-    candidates = retrieve(index, brief_for_retrieval, limit=3)
+    candidates = retrieve(index, brief_for_retrieval, limit=3, governance=governance)
 
     selected_slots = []
-    warnings: List[str] = []
+    warnings: List[str] = list(g_status.get("warnings") or [])
     for order, demand_id in enumerate(selected_chain.get("sequence", []), 1):
         if demand_id not in demand_by_id:
             selected_slots.append({
@@ -380,6 +392,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "score": candidate.get("score"),
                 "scoreReasons": candidate.get("scoreReasons"),
             },
+            "governance": candidate.get("governance"),
             "demand": demand,
             "viewerStateBefore": candidate.get("viewerStateBefore"),
             "viewerStateAfter": candidate.get("viewerStateAfter"),
@@ -397,6 +410,8 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
 
     return {
         "brief": brief,
+        "governanceStatus": g_status,
+        "governanceAudit": governance_audit(governance, governance_maps),
         "briefConstraints": {
             "viewerStart": brief.get("viewerStart"),
             "viewerEnd": brief.get("viewerEnd"),
@@ -409,25 +424,38 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         "selectedChain": selected_chain,
         "selectedSlots": selected_slots,
         "warnings": warnings,
-        "nextStep": "使用该骨架继续撰写脚本节拍、节奏曲线、包装说明、adapters 和绑定审计。",
+        "nextStep": "使用该骨架继续撰写脚本节拍、节奏曲线、包装说明、adapters，并按 governanceAudit 中的 binding principles / recomposition policies 做校验。",
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("index_json", help="来自 build_slot_index.py 的索引 JSON")
+    parser.add_argument("--governance", help="semantic-governance.v1.json 路径")
+    parser.add_argument("--no-governance", action="store_true", help="禁用治理层读取，仅按证据层生成骨架")
     parser.add_argument("--brief", help="Brief JSON 文件")
     parser.add_argument("--mode", help="兼容旧字段；仅作为 brief 提示，不作为策略选择器")
     parser.add_argument("--sequence", help="逗号分隔的显式 slot type 顺序覆盖")
+    parser.add_argument("--slot-subtypes", help="逗号分隔的目标 slot subtype id，用于检索过滤/加权")
+    parser.add_argument("--slot-archetypes", help="逗号分隔的目标 slot archetype id，用于检索过滤/加权")
+    parser.add_argument("--bundles", help="逗号分隔的 implementation bundle id，仅作为检索先验")
     parser.add_argument("--out", help="输出 JSON 路径")
     args = parser.parse_args()
 
     index = read_json(Path(args.index_json))
+    governance_path = None if args.no_governance else (Path(args.governance) if args.governance else default_governance_path(Path(args.index_json)))
+    governance = None if args.no_governance else load_governance(governance_path)
     brief = read_json(Path(args.brief)) if args.brief else {}
     if args.mode:
         brief["mode"] = args.mode
+    if args.slot_subtypes:
+        brief["slotSubtypeIds"] = [x.strip() for x in args.slot_subtypes.split(",") if x.strip()]
+    if args.slot_archetypes:
+        brief["slotArchetypeIds"] = [x.strip() for x in args.slot_archetypes.split(",") if x.strip()]
+    if args.bundles:
+        brief["implementationBundleIds"] = [x.strip() for x in args.bundles.split(",") if x.strip()]
     sequence = [x.strip() for x in args.sequence.split(",") if x.strip()] if args.sequence else None
-    plan = build_plan(index, brief, sequence)
+    plan = build_plan(index, brief, sequence, governance)
     if args.out:
         write_json(Path(args.out), plan)
         print(f"已写入 {args.out}")
