@@ -22,7 +22,9 @@ slot archetype
 slot subtype
 atom pattern
 binding pattern
+binding principle
 rule pattern
+recomposition policy
 implementation bundle
 ```
 
@@ -51,9 +53,19 @@ implementation bundle
 
 `atom pattern / binding pattern / rule pattern` 也是治理判断，不是字段聚类结果。
 
-## Derived Review Result
+## 治理产物
 
-治理结论是 derived review result，应默认输出到 `Runtime/Temp/FunctionSlotLibrary/`，不覆盖 `Artifacts/FunctionSlotLibrary/*`。
+治理结论是 derived review result，不覆盖 `Artifacts/FunctionSlotLibrary/<artifactId>/*` 的原始样例内容。
+
+正式治理结果保存为：
+
+```text
+Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
+```
+
+这个文件是语义治理索引。它记录 `sourceSnapshot` 和治理结果，不是新的样例库，也不替代原始 variant。
+
+不要把治理状态写入单个样例的 `manifest.json`。语义治理是跨样例关系判断，不是某个 artifact 自身状态。
 
 每条治理结论必须保留：
 
@@ -62,6 +74,8 @@ implementation bundle
 - `judgementReason`
 - `differenceNotes`
 - `riskIfMisclassified`
+
+文件级必须保留 `sourceSnapshot`，记录被治理 corpus 中每个 artifact 的 `artifactId / sampleVideoId / traceId / contentHash / counts`。后续判断治理结果是否过期时，对比当前 FunctionSlotLibrary 的 contentHash 和 `sourceSnapshot`。
 
 如果证据不足，标记为 `candidate` 或放入 `reviewItems`，不要伪装成稳定原型。
 

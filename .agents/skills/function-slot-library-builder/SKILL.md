@@ -25,6 +25,7 @@ description: 构建、校验、索引、审查和语义治理 FunctionSlotLibrar
 - agent 负责治理层：slot family/archetype/subtype、atom pattern、binding pattern、rule pattern。
 - 禁止用字段完全一致、文本相似度、`slotType` 名称相似或 script atom 归并结果自动合并 pattern。
 - 原始 variant 永远是事实来源，治理结论必须保留来源 variant、判断理由、差异点和误分风险。
+- 治理完成后将结果保存到 `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`。
 
 ## 项目语料库
 
@@ -110,6 +111,14 @@ python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --
 
 输出治理结论时，每个 family/archetype/subtype/pattern/policy 都必须带来源、理由、差异和误分风险。
 
+治理结果写入：
+
+```text
+Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
+```
+
+该文件必须记录 `sourceSnapshot` 和治理结果。`sourceSnapshot` 用每个 library artifact 的 `contentHash` 判断治理结果是否过期。
+
 ### 5. atom / binding / rule 治理
 
 读取 `references/atom-binding-rule-governance.md`。
@@ -140,9 +149,11 @@ python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --
 3. `slotSubtypes`
 4. `atomPatterns`
 5. `bindingPatterns`
-6. `rulePatterns`
-7. `reviewItems`
-8. `openQuestions`
+6. `bindingPrinciples`
+7. `rulePatterns`
+8. `recompositionPolicies`
+9. `reviewItems`
+10. `openQuestions`
 
 ## 和重组 skill 的关系
 
@@ -151,9 +162,10 @@ python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --
 ```text
 Runtime/Temp/FunctionSlotLibrary/validation.json
 Runtime/Temp/FunctionSlotLibrary/slot_index.json
+Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
-治理审查可输出到 `Runtime/Temp/FunctionSlotLibrary/`，默认不入库。`function-slot-restructure` 消费证据层和已确认的治理结论，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
+`semantic-governance.v1.json` 是可入库的治理层索引。`function-slot-restructure` 消费证据层和已确认的治理结论，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
 
 ## 参考文档
 

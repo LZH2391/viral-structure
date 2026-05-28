@@ -1,4 +1,4 @@
 interface:
   display_name: "function-slot-library-builder"
   short_description: "Build, audit, and semantically govern FunctionSlotLibrary corpora with archetype review."
-  default_prompt: "Use $function-slot-library-builder to validate and index the FunctionSlotLibrary corpus, then perform agent semantic governance for slot archetypes, atom patterns, binding patterns, and rule policies."
+  default_prompt: "Use $function-slot-library-builder to validate and index the FunctionSlotLibrary corpus, then perform agent semantic governance and save the result to Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json."
