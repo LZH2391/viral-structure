@@ -1,0 +1,247 @@
+[
+  {
+    "id": "P001",
+    "slot": "scene_problem_activation",
+    "label": "低包装生活痛点呈现",
+    "function": "用生活化画面和简洁字幕降低广告感，让问题先显得真实可信",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "宿舍噪音痛点字幕包装"
+      ],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用生活化画面和简洁字幕降低广告感，让问题先显得真实可信",
+    "proofType": "scene_reality_proof",
+    "visualProofType": "lived_scene_problem_visualization",
+    "visualHierarchy": "场景和人物状态优先，字幕辅助解释干扰来源，包装强度保持低位",
+    "visualElements": [
+      "生活场景实拍",
+      "人像状态",
+      "干扰源画面",
+      "下置说明字幕",
+      "少量情绪符号"
+    ],
+    "replaceableForms": [
+      "自拍视频",
+      "场景插入",
+      "环境细节",
+      "短字幕",
+      "轻量符号"
+    ],
+    "risk": "如果过早加入强商品包装，会削弱痛点真实性并让观众跳过共鸣建立"
+  },
+  {
+    "id": "P002",
+    "slot": "solution_entry",
+    "label": "解决物识别锚点",
+    "function": "让解决方案以清晰可记的实物或外观载体进入画面，建立后续证明对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "目标耳塞实物和包装识别"
+      ],
+      "shotRefs": [
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "让解决方案以清晰可记的实物或外观载体进入画面，建立后续证明对象",
+    "proofType": "object_presence_proof",
+    "visualProofType": "solution_object_identification",
+    "visualHierarchy": "解决物和识别载体成为主视觉，人物和字幕承担承接说明",
+    "visualElements": [
+      "手持露出",
+      "外观识别",
+      "配件展示",
+      "短字幕承接"
+    ],
+    "replaceableForms": [
+      "包装露出",
+      "实物开箱",
+      "手持近景",
+      "桌面展示",
+      "收纳载体展示"
+    ],
+    "risk": "如果解决物识别不清，后续机制证明会缺少稳定对象"
+  },
+  {
+    "id": "P003",
+    "slot": "alternative_contrast",
+    "label": "替代方案反面实拍",
+    "function": "用替代方案的可见使用状态和体验字幕，为目标方案制造可信对照基准",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "普通耳塞反面对比包装"
+      ],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "packagingFunction": "用替代方案的可见使用状态和体验字幕，为目标方案制造可信对照基准",
+    "proofType": "contrast_experience_proof",
+    "visualProofType": "negative_reference_demonstration",
+    "visualHierarchy": "替代方案实物和使用状态优先，字幕负责解释失败体验",
+    "visualElements": [
+      "替代物实拍",
+      "开合或展示动作",
+      "使用状态",
+      "体验描述字幕"
+    ],
+    "replaceableForms": [
+      "替代物手持",
+      "替代物佩戴",
+      "失败状态演示",
+      "体验字幕",
+      "对比近景"
+    ],
+    "risk": "如果只贬低替代方案而没有可见对照，会降低后续差异化证明的可信度"
+  },
+  {
+    "id": "P004",
+    "slot": "mechanism_proof",
+    "label": "机制可视化证据堆叠",
+    "function": "把抽象材料、结构和功能关系转成实物细节、图文说明和可观察演示的组合证据",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "目标耳塞实物和包装识别",
+        "技术说明卡证据包装",
+        "慢回弹加速演示包装"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16",
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21",
+        "shot_22",
+        "shot_23",
+        "shot_24"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "packagingFunction": "把抽象材料、结构和功能关系转成实物细节、图文说明和可观察演示的组合证据",
+    "proofType": "mechanism_visual_proof",
+    "visualProofType": "object_detail_diagram_action_chain",
+    "visualHierarchy": "机制证据载体在关键点成为最高信息层，字幕负责连接机制与结果",
+    "visualElements": [
+      "实物细节",
+      "图文化说明",
+      "结构示意",
+      "动态演示",
+      "高密度字幕"
+    ],
+    "replaceableForms": [
+      "说明卡",
+      "局部特写",
+      "分层示意",
+      "加速提示",
+      "手部演示",
+      "包装图文"
+    ],
+    "risk": "如果机制信息全部堆在快切中，观众可能看见信息但无法建立因果关系"
+  },
+  {
+    "id": "P005",
+    "slot": "usage_result_confirmation",
+    "label": "使用状态结果证明",
+    "function": "用真实使用状态承接机制证明，让功能结果被观众感知为可发生的体验",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "佩戴结果和结尾推荐包装"
+      ],
+      "shotRefs": [
+        "shot_25"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "packagingFunction": "用真实使用状态承接机制证明，让功能结果被观众感知为可发生的体验",
+    "proofType": "usage_result_proof",
+    "visualProofType": "in_context_benefit_confirmation",
+    "visualHierarchy": "使用状态和结果感受优先，字幕辅助把结果与前置关切连接",
+    "visualElements": [
+      "使用场景",
+      "使用状态",
+      "结果表情或姿态",
+      "结果说明字幕"
+    ],
+    "replaceableForms": [
+      "场景复现",
+      "佩戴或使用演示",
+      "状态对比",
+      "结果字幕",
+      "人物反应"
+    ],
+    "risk": "如果结果展示没有回到前文关切，证明链会停留在结构层而缺少兑现感"
+  },
+  {
+    "id": "P006",
+    "slot": "choice_close",
+    "label": "推荐记忆锚点包装",
+    "function": "把功能证明转成选择建议，并通过反复识别和结尾极简信息强化记忆",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "佩戴结果和结尾推荐包装"
+      ],
+      "shotRefs": [
+        "shot_26",
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "把功能证明转成选择建议，并通过反复识别和结尾极简信息强化记忆",
+    "proofType": "soft_conversion_memory_proof",
+    "visualProofType": "recommendation_anchor_repetition",
+    "visualHierarchy": "推荐者、识别锚点和结论字幕共同主导，末尾只保留记忆信息",
+    "visualElements": [
+      "人物推荐",
+      "解决物重复露出",
+      "强调色字幕",
+      "结尾大字",
+      "极简收束画面"
+    ],
+    "replaceableForms": [
+      "手持推荐",
+      "贴近展示",
+      "品牌色强调",
+      "黑场大字",
+      "总结字幕"
+    ],
+    "risk": "如果没有前置证明就直接使用推荐包装，容易变成空泛口号；如果结尾信息过多，会削弱记忆落点"
+  }
+]

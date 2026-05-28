@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "function_slot_library.v1",
+  "artifactId": "artifact_b0b301b8-6922-473e-8ef6-0a5f98010697",
+  "sampleVideoId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+  "traceId": "trace_14fa2934-05ca-4135-b9f3-c87d4d3f6ec3",
+  "parentArtifactId": "artifact_610ad8d1-9159-449a-9244-651c796a3b70",
+  "sourceScriptSegmentArtifactId": "artifact_5b4a7726-d15d-4fcb-9569-fe128a7e2d9a",
+  "sourceRhythmStructureArtifactId": "artifact_5d2a9427-d33b-495d-b95f-d6b39f12df1c",
+  "sourcePackagingStructureArtifactId": "artifact_610ad8d1-9159-449a-9244-651c796a3b70",
+  "sourceShotBoundaryArtifactId": "artifact_8e1fcea0-e5de-4498-96cc-2bbfad5c3c88",
+  "status": "processed",
+  "createdAt": "2026-05-28T04:10:38.164Z",
+  "exportedAt": "2026-05-28T06:10:36.903Z",
+  "counts": {
+    "slotCount": 6,
+    "scriptAtomCount": 6,
+    "rhythmAtomCount": 6,
+    "packagingAtomCount": 6,
+    "atomCount": 18,
+    "bindingCount": 9,
+    "conflictRuleCount": 4,
+    "recombinationRuleCount": 6,
+    "ruleCount": 10,
+    "templateCount": 2
+  },
+  "files": {
+    "manifest": "manifest.json",
+    "slots": "slots.json",
+    "scriptAtoms": "atoms.script.json",
+    "rhythmAtoms": "atoms.rhythm.json",
+    "packagingAtoms": "atoms.packaging.json",
+    "bindings": "bindings.json",
+    "rules": "rules.json",
+    "templates": "templates.json"
+  },
+  "contentHash": "2ca0e6b351d455c2d56fc44d825fd72dfef38d1f5191490546b1138a94804f34"
+}

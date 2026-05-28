@@ -1,0 +1,236 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R004",
+        "P004"
+      ],
+      "reason": "机制可信槽承载复杂因果解释，不适合只用连续快切和密集字幕承载",
+      "fix": "在高密度证明中保留清楚的视觉锚点，并把复杂机制拆成多个证据打点",
+      "appliesTo": [
+        "mechanism_proof"
+      ],
+      "sourceBindingIds": [
+        "B009"
+      ]
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F001",
+        "F005"
+      ],
+      "atomIds": [
+        "S001",
+        "S005",
+        "P001",
+        "P005"
+      ],
+      "reason": "结果展示如果不回到开头同一关切，会让问题激活和结果兑现断开",
+      "fix": "把结果画面和字幕改为前置痛点的状态变化，而不是展示无关好处",
+      "appliesTo": [
+        "scene_problem_activation",
+        "usage_result_confirmation"
+      ],
+      "sourceBindingIds": [
+        "B006"
+      ]
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "P006"
+      ],
+      "reason": "选择收束槽缺少强下单元素时，不应被误配为硬转化槽",
+      "fix": "如果目标是直接转化，需要新增受控转化证明；如果目标是记忆收束，则保持简洁推荐",
+      "appliesTo": [
+        "choice_close"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S003",
+        "S004"
+      ],
+      "reason": "替代方案缺陷与后续机制卖点不能错配，否则对比无法支持目标方案",
+      "fix": "删除无后续回应的缺陷，或补足对应机制证明槽中的证据",
+      "appliesTo": [
+        "alternative_contrast",
+        "mechanism_proof"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F001",
+        "F002",
+        "F003",
+        "F004",
+        "F005",
+        "F006"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "S003",
+        "S004",
+        "S005",
+        "S006"
+      ],
+      "reason": "脚本逻辑完整性优先于证明匹配、节奏曲线和包装风格",
+      "fix": "若素材不足，优先减少包装花样，不要删除痛点到结果的关键承接",
+      "appliesTo": [
+        "scene_problem_activation",
+        "solution_entry",
+        "alternative_contrast",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F002",
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S002",
+        "S003",
+        "S004"
+      ],
+      "reason": "对比槽服务的是建立适配门槛，不是固定镜头顺序",
+      "fix": "移动对比槽后，检查解决方案进入和机制证明是否仍能承接同一缺陷",
+      "appliesTo": [
+        "solution_entry",
+        "alternative_contrast",
+        "mechanism_proof"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R004",
+        "P004"
+      ],
+      "reason": "节奏层可以比脚本层更细，但不能让复杂信息失去可理解性",
+      "fix": "对没有视觉锚点的机制主张降速、补图文证据或改为结果层表达",
+      "appliesTo": [
+        "mechanism_proof"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B005",
+        "B009"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [
+        "F001",
+        "F005"
+      ],
+      "atomIds": [
+        "S001",
+        "S005",
+        "P001",
+        "P005"
+      ],
+      "reason": "结果兑现负责闭合说服链，不能只作为漂亮画面或泛泛好处",
+      "fix": "将结果字幕、使用状态或人物反应调整为前置痛点的状态变化",
+      "appliesTo": [
+        "scene_problem_activation",
+        "usage_result_confirmation"
+      ],
+      "sourceBindingIds": [
+        "B006"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "R006",
+        "P006"
+      ],
+      "reason": "结尾承担记忆和选择收束，新增复杂信息会稀释已完成的证明链",
+      "fix": "把未证明的新卖点前移到机制证明槽，结尾只保留推荐判断和记忆锚点",
+      "appliesTo": [
+        "choice_close"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [
+        "F001",
+        "F002",
+        "F003",
+        "F004",
+        "F005",
+        "F006"
+      ],
+      "atomIds": [
+        "P001",
+        "P002",
+        "P003",
+        "P004",
+        "P005",
+        "P006"
+      ],
+      "reason": "全程高包装会削弱真实感和信息层级，低包装又不足以支撑机制证明",
+      "fix": "按槽位重新分配字幕、图文、实物、演示和结尾视觉权重",
+      "appliesTo": [
+        "scene_problem_activation",
+        "solution_entry",
+        "alternative_contrast",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B004",
+        "B007"
+      ]
+    }
+  ]
+}

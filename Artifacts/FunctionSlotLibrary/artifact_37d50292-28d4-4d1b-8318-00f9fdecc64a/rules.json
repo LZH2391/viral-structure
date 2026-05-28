@@ -1,0 +1,171 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R001"
+      ],
+      "reason": "机制便利可信槽承载结构和持续使用理由，不适合直接配快入动作爆点节奏",
+      "fix": "把机制说明放在减速确认节奏中，并配局部结构或操作完成证据",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B009"
+      ]
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002"
+      ],
+      "reason": "结果先行结构必须在后续补回同一核心关切，否则开头结果缺少问题动机",
+      "fix": "痛点回补槽必须展示与开头结果对应的旧状态或生活成本",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B002"
+      ]
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P006"
+      ],
+      "reason": "结果收束槽不适合新增复杂机制、价格福利或新承诺，否则会打断生活利益回落",
+      "fix": "结尾只回收前文核心结果和生活状态；强转化信息需另设独立槽位",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F003"
+      ],
+      "atomIds": [
+        "R003",
+        "P004"
+      ],
+      "reason": "高信息密度桥接槽如果没有清晰的机制落点，容易变成单纯堆料",
+      "fix": "在覆盖感之后立即连接结构或可靠性说明，并降低后续解释节奏",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B004"
+      ]
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "结果先行开头可以成立，但后续必须补回同一核心痛点或同一观众关切，形成结果到需求的反向解释",
+      "fix": "",
+      "appliesTo": [
+        "instant_solution_preview",
+        "pain_backfill"
+      ],
+      "sourceBindingIds": [
+        "B002"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "动态压力证明可以替换为其他强动作或强对比证明，但必须让压力动作、结果状态和字幕结论同步出现",
+      "fix": "",
+      "appliesTo": [
+        "instant_solution_preview",
+        "life_benefit_close"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "痛点回补槽可使用多场景堆叠，也可使用单个强对比场景；不可只描述痛点而缺少可见旧状态或成本证据",
+      "fix": "",
+      "appliesTo": [
+        "pain_backfill"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "覆盖桥接槽允许节奏跨越脚本边界，用高信息密度承接痛点并转入机制，但必须在下一槽位降低节奏并解释结构",
+      "fix": "",
+      "appliesTo": [
+        "coverage_bridge",
+        "mechanism_trust"
+      ],
+      "sourceBindingIds": [
+        "B004"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "结构、低门槛和可持续使用类主张必须配近距离结构证据、操作完成点或重复使用证据，不能只靠结果画面替代",
+      "fix": "",
+      "appliesTo": [
+        "mechanism_trust"
+      ],
+      "sourceBindingIds": [
+        "B005",
+        "B006"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "包装风格可以低图形化，但每个槽位都要保留对应证明功能；字幕只能辅助解释，不能替代关键视觉证据",
+      "fix": "",
+      "appliesTo": [
+        "instant_solution_preview",
+        "pain_backfill",
+        "coverage_bridge",
+        "mechanism_trust",
+        "life_benefit_close"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "RULE007",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "最终收束必须回到前文核心关切或同一结果承诺，并用低负荷画面把功能价值转译为生活状态",
+      "fix": "",
+      "appliesTo": [
+        "life_benefit_close"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    }
+  ]
+}

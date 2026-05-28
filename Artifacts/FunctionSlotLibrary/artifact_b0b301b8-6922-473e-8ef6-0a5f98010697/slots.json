@@ -1,0 +1,247 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "场景痛点激活槽",
+    "slotType": "scene_problem_activation",
+    "viewerStateBefore": "观众尚未进入具体使用语境，对解决方案没有需求感",
+    "viewerStateAfter": "观众识别到目标场景中的高频困扰，并接受后续解决方案出现的必要性",
+    "persuasionTask": "用真实场景和具体干扰源建立问题强度，完成从无关浏览到问题共鸣的转入",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "干扰源画面与问题字幕同步",
+      "受影响状态与矛盾判断同步",
+      "节奏回落与痛点解释同步"
+    ],
+    "substitutionRules": [
+      "目标场景、干扰来源和受影响结果可以替换，但必须保持同一人群关切",
+      "包装可以保持生活化低密度，不宜提前切入强转化元素"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.89,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "解决方案进入槽",
+    "slotType": "solution_entry",
+    "viewerStateBefore": "观众已经接受问题存在，但尚不知道解决对象是什么",
+    "viewerStateAfter": "观众看到可识别的解决方案，并准备听取它为何值得选择",
+    "persuasionTask": "在痛点后快速给出具体解决物，建立后续论证对象但暂不消耗完整卖点",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "解决物首次出现与承接语同步",
+      "识别载体清楚露出与节奏加密同步"
+    ],
+    "substitutionRules": [
+      "解决物露出方式可替换，但必须保证后续证明对象可被稳定识别",
+      "此槽位只需完成方案进入，不宜提前堆叠过多机制信息"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "替代方案反衬槽",
+    "slotType": "alternative_contrast",
+    "viewerStateBefore": "观众知道解决方案类别，但可能认为常见替代方案也能满足需求",
+    "viewerStateAfter": "观众意识到关键场景下存在适配门槛，并需要更有针对性的方案",
+    "persuasionTask": "通过常见替代方案的基础认可和场景缺陷，建立差异化证明的必要性",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "替代方案露出与基础认可同步",
+      "失败体验展示与缺陷字幕同步",
+      "节奏放慢与负面体验感知同步"
+    ],
+    "substitutionRules": [
+      "替代方案和缺陷类型可以替换，但必须和后续机制卖点形成一一承接",
+      "对比包装应以可见状态为主，避免只用抽象贬低"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.89,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "机制可信证明槽",
+    "slotType": "mechanism_proof",
+    "viewerStateBefore": "观众已经知道替代方案在关键场景中不足，等待目标方案给出可信原因",
+    "viewerStateAfter": "观众理解方案通过材料、结构或机制解决前文缺陷，并获得较强可信度",
+    "persuasionTask": "把差异化卖点组织成结构证据链，用实物、图文化说明和演示证明因果关系",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "机制主张与图文证据同步",
+      "动态演示与时间性或过程性卖点同步",
+      "局部细节与对应结果承诺同步",
+      "高密度信息段内保留可理解停顿"
+    ],
+    "substitutionRules": [
+      "具体机制、说明载体和演示动作可以替换，但每个机制主张都需要对应的可见证据",
+      "节奏可以跨越脚本句子边界，用短插入镜头打点，但不能破坏因果理解"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16",
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21",
+        "shot_22",
+        "shot_23",
+        "shot_24"
+      ]
+    },
+    "confidence": 0.89,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "使用结果确认槽",
+    "slotType": "usage_result_confirmation",
+    "viewerStateBefore": "观众理解机制证据，但仍需要看到结果是否回到真实使用情境",
+    "viewerStateAfter": "观众把前文机制与实际结果连接起来，证明链完成兑现",
+    "persuasionTask": "在证明峰值后回到使用状态，确认结果并缓冲信息密度",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "使用状态与结果说明同步",
+      "节奏回落与证明消化同步",
+      "结果对象回扣前文痛点或关切"
+    ],
+    "substitutionRules": [
+      "结果展示形式可以替换，但必须回到前面激活过的同一关切",
+      "此槽位不宜继续新增复杂机制，优先承担兑现和确认"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_25"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false
+  },
+  {
+    "slotId": "F006",
+    "slotOrder": 6,
+    "slotName": "选择收束记忆槽",
+    "slotType": "choice_close",
+    "viewerStateBefore": "观众已经接受问题、对比、机制和结果，需要一个简洁选择判断",
+    "viewerStateAfter": "观众获得推荐结论和记忆锚点，完成从理解到选择倾向的收束",
+    "persuasionTask": "把证明链收束为目标节点下的选择建议，并用重复识别和结尾断句强化记忆",
+    "scriptAtomIds": [
+      "S006"
+    ],
+    "rhythmAtomIds": [
+      "R006"
+    ],
+    "packagingAtomIds": [
+      "P006"
+    ],
+    "requiredSyncPoints": [
+      "推荐判断与识别锚点同步",
+      "重复露出与收束字幕同步",
+      "结尾断句与记忆信息同步"
+    ],
+    "substitutionRules": [
+      "推荐节点和结尾形式可以替换，但必须保留明确选择判断和识别锚点",
+      "若缺少价格或强转化元素，应定位为种草式收束而非直接下单转化"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_26",
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false
+  }
+]

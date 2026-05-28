@@ -1,0 +1,220 @@
+[
+  {
+    "id": "P001",
+    "slot": "instant_solution_preview",
+    "label": "实物入口加即时使用包装",
+    "function": "把抽象产品认知压缩成可见对象、使用位置和基础操作，降低首屏理解门槛",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "首屏产品特写加即时安装"
+      ],
+      "shotRefs": [
+        "shot_1",
+        "shot_2"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "把抽象产品认知压缩成可见对象、使用位置和基础操作，降低首屏理解门槛",
+    "proofType": "direct_usage_entry_proof",
+    "visualProofType": "object_to_usage_context_demo",
+    "visualHierarchy": "使用对象第一，操作关系第二，字幕辅助解释",
+    "visualElements": [
+      "近景实物",
+      "手部操作",
+      "使用位置展示",
+      "短字幕解释"
+    ],
+    "replaceableForms": [
+      "近景开合",
+      "手持展示",
+      "场景安装",
+      "步骤短字幕"
+    ],
+    "risk": "如果首屏只展示结果而缺少使用入口，观众会难以理解结果来源"
+  },
+  {
+    "id": "P002",
+    "slot": "instant_solution_preview",
+    "label": "动态压力证明包装",
+    "function": "用可见压力动作把核心结果包装成可验证的稳定性证明",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "拉扯翻滚证明包装"
+      ],
+      "shotRefs": [
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "用可见压力动作把核心结果包装成可验证的稳定性证明",
+    "proofType": "stress_test_result_proof",
+    "visualProofType": "motion_based_outcome_validation",
+    "visualHierarchy": "压力验证第一，稳定参照第二，字幕点明结果",
+    "visualElements": [
+      "动态压力动作",
+      "强动作幅度",
+      "结果字幕",
+      "验证场景变化"
+    ],
+    "replaceableForms": [
+      "强动作压力测试",
+      "重复动作验证",
+      "多场景稳定性验证",
+      "结果短字幕"
+    ],
+    "risk": "压力动作过强但稳定参照不清楚时，会只剩热闹动作而削弱结果证明"
+  },
+  {
+    "id": "P003",
+    "slot": "pain_backfill",
+    "label": "旧状态生活成本包装",
+    "function": "用未解决状态和整理成本呈现问题必要性，为前置结果补充购买理由",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "旧痛点生活场景包装"
+      ],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用未解决状态和整理成本呈现问题必要性，为前置结果补充购买理由",
+    "proofType": "old_state_problem_proof",
+    "visualProofType": "lifestyle_cost_visualization",
+    "visualHierarchy": "问题状态第一，人物成本第二，字幕解释需求",
+    "visualElements": [
+      "混乱状态",
+      "生活场景",
+      "整理动作",
+      "痛点字幕"
+    ],
+    "replaceableForms": [
+      "使用前状态",
+      "重复困扰场景",
+      "整理或补救动作",
+      "隐性对照"
+    ],
+    "risk": "痛点包装如果持续过久，会拖慢已经建立的结果兴趣"
+  },
+  {
+    "id": "P004",
+    "slot": "coverage_bridge",
+    "label": "覆盖感和使用关系包装",
+    "function": "通过多实例呈现和使用关系演示，把单点结果扩展为可持续、可覆盖的解决感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "结构卖点拆解包装"
+      ],
+      "shotRefs": [
+        "shot_9"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "通过多实例呈现和使用关系演示，把单点结果扩展为可持续、可覆盖的解决感",
+    "proofType": "coverage_reliability_proof",
+    "visualProofType": "multi_instance_usage_bridge",
+    "visualHierarchy": "覆盖数量第一，使用关系第二，功能说明第三",
+    "visualElements": [
+      "多实例呈现",
+      "使用关系演示",
+      "操作补充",
+      "功能字幕"
+    ],
+    "replaceableForms": [
+      "多点铺陈",
+      "数量展示",
+      "场景覆盖展示",
+      "同镜头内转操作"
+    ],
+    "risk": "多实例堆叠容易造成信息拥挤，需要明确转向机制说明的视觉落点"
+  },
+  {
+    "id": "P005",
+    "slot": "mechanism_trust",
+    "label": "结构开合证据包装",
+    "function": "用局部结构和可重复操作证明低门槛、可靠和可持续使用",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "结构卖点拆解包装"
+      ],
+      "shotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "用局部结构和可重复操作证明低门槛、可靠和可持续使用",
+    "proofType": "mechanism_operation_proof",
+    "visualProofType": "closeup_structure_and_step_validation",
+    "visualHierarchy": "结构细节第一，手部动作第二，使用结果第三，字幕补充功能含义",
+    "visualElements": [
+      "局部特写",
+      "开合动作",
+      "固定演示",
+      "连续功能字幕"
+    ],
+    "replaceableForms": [
+      "结构特写",
+      "拆解演示",
+      "单点操作",
+      "完成状态确认"
+    ],
+    "risk": "机制信息如果配过快节奏或过密字幕，会让便利性证明变成难理解的参数堆叠"
+  },
+  {
+    "id": "P006",
+    "slot": "life_benefit_close",
+    "label": "多场景结果收束包装",
+    "function": "用生活化最终状态和轻动作兑现核心关切，完成弱转化前的价值确认",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "多床品结果收束包装"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用生活化最终状态和轻动作兑现核心关切，完成弱转化前的价值确认",
+    "proofType": "final_state_result_proof",
+    "visualProofType": "lifestyle_outcome_confirmation",
+    "visualHierarchy": "生活状态第一，结果参照第二，字幕短句收束",
+    "visualElements": [
+      "最终使用场景",
+      "轻动作",
+      "稳定结果",
+      "收束字幕"
+    ],
+    "replaceableForms": [
+      "多场景结果展示",
+      "低强度动作",
+      "使用后状态",
+      "利益短句"
+    ],
+    "risk": "结尾如果新增复杂卖点或强转化包装，会破坏前文从功能到生活状态的回落"
+  }
+]

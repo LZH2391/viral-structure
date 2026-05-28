@@ -1,0 +1,219 @@
+[
+  {
+    "id": "S001",
+    "slot": "scene_problem_activation",
+    "label": "高频场景痛点激活",
+    "function": "用目标人群熟悉的高干扰场景建立问题必要性，并把观众从无关浏览状态拉入具体使用困境",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "宿舍噪声痛点钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.92,
+    "needReview": false,
+    "claimType": "scene_problem_claim",
+    "proofNeed": "需要可识别的生活场景、干扰来源和受影响状态共同支撑",
+    "mustKeep": [
+      "目标人群场景",
+      "具体干扰来源",
+      "受影响结果",
+      "矛盾判断"
+    ],
+    "replaceableVariables": [
+      "目标人群",
+      "使用场景",
+      "干扰来源",
+      "困扰结果",
+      "口播表达"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "solution_entry",
+    "label": "解决方案具象亮相",
+    "function": "在痛点成立后首次给出可识别的解决物，把观众注意力从问题描述转到可被评估的方案对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "解决物亮相"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "problem_to_solution_entry",
+    "proofNeed": "需要清晰可见的解决物或其识别载体，证明后续论证对象已经出现",
+    "mustKeep": [
+      "痛点承接",
+      "解决物首次识别",
+      "后续解释空间"
+    ],
+    "replaceableVariables": [
+      "解决物类别",
+      "首次露出方式",
+      "承接口播",
+      "识别载体"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "alternative_contrast",
+    "label": "替代方案缺陷反衬",
+    "function": "先承认常见替代方案的基础价值，再指出其在关键使用场景中的失败点，把购买理由升级为适配性判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "普通耳塞反衬"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "claimType": "alternative_gap_claim",
+    "proofNeed": "需要替代方案实物或使用状态，以及失败体验与关键场景的明确关联",
+    "mustKeep": [
+      "替代方案基础认可",
+      "关键场景缺陷",
+      "对比基准",
+      "适配性问题"
+    ],
+    "replaceableVariables": [
+      "替代方案",
+      "缺陷类型",
+      "关键场景",
+      "体验描述",
+      "对比对象"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "mechanism_proof",
+    "label": "结构机制可信证明",
+    "function": "把前一槽位指出的缺陷逐项转译为材料、结构和功能机制，用连续证据链证明方案为什么更适合",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "结构卖点证明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16",
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21",
+        "shot_22",
+        "shot_23",
+        "shot_24"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "mechanism_to_benefit_claim",
+    "proofNeed": "需要实物细节、图文化说明、可观察演示和结果承诺之间形成对应关系",
+    "mustKeep": [
+      "缺陷对应机制",
+      "可视化证据",
+      "结构到结果的因果链",
+      "至少一种动态或图文化证明"
+    ],
+    "replaceableVariables": [
+      "机制卖点",
+      "证明载体",
+      "演示动作",
+      "说明顺序",
+      "结果表达"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "usage_result_confirmation",
+    "label": "使用结果回扣确认",
+    "function": "在机制证明后回到真实使用状态，让观众看到方案已从结构论证落到可感知结果",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "结构卖点证明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_25"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false,
+    "claimType": "benefit_result_claim",
+    "proofNeed": "需要回到前文同一关切或同一使用场景，并呈现使用状态与结果感受的连接",
+    "mustKeep": [
+      "使用状态",
+      "前置关切回扣",
+      "结果感受",
+      "证明密度回落"
+    ],
+    "replaceableVariables": [
+      "使用场景",
+      "结果表现",
+      "人物状态",
+      "字幕表达"
+    ]
+  },
+  {
+    "id": "S006",
+    "slot": "choice_close",
+    "label": "节点化选择收束",
+    "function": "把完成证明的方案收束为目标人群即将面对的选择或清单项，并用识别锚点强化记忆",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "开学必备收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_26",
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "claimType": "recommendation_close_claim",
+    "proofNeed": "需要推荐场景、解决物识别锚点和结尾记忆点支撑转化导向",
+    "mustKeep": [
+      "人群节点",
+      "推荐判断",
+      "识别锚点",
+      "结尾记忆强化"
+    ],
+    "replaceableVariables": [
+      "推荐节点",
+      "收束话术",
+      "识别锚点",
+      "结尾形式"
+    ]
+  }
+]

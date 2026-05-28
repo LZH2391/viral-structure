@@ -33,8 +33,7 @@
       "reason": "结尾如果只保留场景情绪，不回到购买对象，会断开证明与转化的关系",
       "fix": "在最终收口中加入完整状态或购买对象同框",
       "appliesTo": [
-        "usage_scene_close",
-        "soft_conversion"
+        "usage_scene_close"
       ],
       "sourceBindingIds": [
         "B007"

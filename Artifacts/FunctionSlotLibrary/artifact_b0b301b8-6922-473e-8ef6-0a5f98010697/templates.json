@@ -1,0 +1,26 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "场景痛点到机制证明型种草模板",
+    "sequence": [
+      "scene_problem_activation",
+      "solution_entry",
+      "alternative_contrast",
+      "mechanism_proof",
+      "usage_result_confirmation",
+      "choice_close"
+    ]
+  },
+  {
+    "templateId": "T002",
+    "templateName": "先对比后证明的适配性推荐模板",
+    "sequence": [
+      "scene_problem_activation",
+      "alternative_contrast",
+      "solution_entry",
+      "mechanism_proof",
+      "usage_result_confirmation",
+      "choice_close"
+    ]
+  }
+]

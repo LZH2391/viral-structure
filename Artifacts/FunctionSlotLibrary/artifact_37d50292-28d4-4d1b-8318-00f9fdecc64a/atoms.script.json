@@ -1,0 +1,166 @@
+[
+  {
+    "id": "S001",
+    "slot": "instant_solution_preview",
+    "label": "即用结果预览",
+    "function": "先建立对象、使用入口和核心结果，让观众在完整痛点说明前先看到解决后状态",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "小物上床即见效"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "solution_to_visible_outcome",
+    "proofNeed": "需要基础使用动作和动态压力结果同时可见",
+    "mustKeep": [
+      "使用入口",
+      "即时结果",
+      "动态验证"
+    ],
+    "replaceableVariables": [
+      "使用对象",
+      "安装或启用动作",
+      "压力测试方式",
+      "结果表述"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "pain_backfill",
+    "label": "旧状态痛点回补",
+    "function": "在结果被看见后补充原本生活麻烦，把前一槽位的结果转化为可感知的需求理由",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "旧痛点回补"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false,
+    "claimType": "old_state_problem_cost",
+    "proofNeed": "需要旧状态的可见混乱、重复困扰或额外整理成本",
+    "mustKeep": [
+      "旧状态对照",
+      "生活化后果",
+      "问题成本"
+    ],
+    "replaceableVariables": [
+      "旧状态场景",
+      "困扰动作",
+      "成本类型",
+      "痛点表述"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "coverage_bridge",
+    "label": "适用范围桥接",
+    "function": "把单次结果扩展为可持续使用的覆盖感，并从痛点说明转入功能机制说明",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "结构卖点解释"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "coverage_to_reliability",
+    "proofNeed": "需要多点或多实例的可见呈现，并与实际使用位置形成连接",
+    "mustKeep": [
+      "覆盖感",
+      "使用位置连接",
+      "可靠性引出"
+    ],
+    "replaceableVariables": [
+      "数量呈现方式",
+      "使用范围",
+      "承接话术",
+      "场景载体"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "mechanism_trust",
+    "label": "结构便利可信",
+    "function": "用结构和操作细节解释结果为什么可靠，并补足低门槛、可持续使用的信任理由",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "结构卖点解释"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "mechanism_and_reuse_trust",
+    "proofNeed": "需要近距离结构证据、可执行操作证据和重复使用依据",
+    "mustKeep": [
+      "结构证据",
+      "低门槛操作",
+      "持续使用理由"
+    ],
+    "replaceableVariables": [
+      "结构机制",
+      "操作细节",
+      "便利性卖点",
+      "证明载体"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "life_benefit_close",
+    "label": "生活状态利益收束",
+    "function": "回到最终使用状态，把功能结果转化为轻松稳定的生活利益和结尾记忆点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "安稳睡眠收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "functional_result_to_life_benefit",
+    "proofNeed": "需要回到前文核心关切，并用生活化结果画面兑现",
+    "mustKeep": [
+      "结果回收",
+      "生活状态利益",
+      "低解释收尾"
+    ],
+    "replaceableVariables": [
+      "最终生活场景",
+      "结果表达",
+      "人物状态",
+      "场景变化"
+    ]
+  }
+]

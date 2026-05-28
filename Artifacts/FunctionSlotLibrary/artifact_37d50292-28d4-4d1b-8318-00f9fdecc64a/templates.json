@@ -1,0 +1,23 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "结果先行回补痛点型演示",
+    "sequence": [
+      "instant_solution_preview",
+      "pain_backfill",
+      "coverage_bridge",
+      "mechanism_trust",
+      "life_benefit_close"
+    ]
+  },
+  {
+    "templateId": "T002",
+    "templateName": "快证结果再减速解释型",
+    "sequence": [
+      "instant_solution_preview",
+      "pain_backfill",
+      "mechanism_trust",
+      "life_benefit_close"
+    ]
+  }
+]

@@ -1,0 +1,198 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "即时解决预览槽",
+    "slotType": "instant_solution_preview",
+    "viewerStateBefore": "观众尚未理解对象、使用方式和核心价值",
+    "viewerStateAfter": "观众快速看到使用入口，并相信结果有可视化验证",
+    "persuasionTask": "先抛出解决后状态，用最短操作和压力验证建立观看理由",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001",
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "使用对象出现",
+      "操作关系建立",
+      "压力动作触发",
+      "结果字幕落点"
+    ],
+    "substitutionRules": [
+      "只要保留使用入口和动态结果证明，具体对象、动作载体和压力形式可以替换",
+      "首段可先给结果再补痛点，但结果必须在后文被痛点和机制重新解释"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "旧痛点回补槽",
+    "slotType": "pain_backfill",
+    "viewerStateBefore": "观众已经看见结果，但还未充分理解为什么这个结果值得关注",
+    "viewerStateAfter": "观众把结果和日常困扰连接起来，形成需求理由",
+    "persuasionTask": "用旧状态和生活成本回补痛点，让前置结果获得问题背景",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "旧状态出现",
+      "困扰动作出现",
+      "成本后果点明"
+    ],
+    "substitutionRules": [
+      "痛点场景可替换，但必须与开头结果指向同一核心关切",
+      "多场景堆叠可替换为强对比场景，但不能丢失旧状态成本"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": false
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "覆盖可信桥接槽",
+    "slotType": "coverage_bridge",
+    "viewerStateBefore": "观众理解痛点和初步结果，但还需要判断方案是否可靠、是否能覆盖真实使用",
+    "viewerStateAfter": "观众看到方案具有覆盖感，并准备接受结构和便利性解释",
+    "persuasionTask": "把单点演示扩展为覆盖可信感，并承担从痛点到机制说明的转场",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "覆盖感建立",
+      "使用关系回到场景",
+      "机制说明引出"
+    ],
+    "substitutionRules": [
+      "可替换多实例呈现方式，但必须保留从范围感到机制解释的桥接功能",
+      "信息峰值可以跨脚本边界，但必须有清晰的下一槽位解释落点"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "机制便利可信槽",
+    "slotType": "mechanism_trust",
+    "viewerStateBefore": "观众已看到结果和覆盖感，但仍需要理解为什么可靠、是否方便长期使用",
+    "viewerStateAfter": "观众获得结构、操作和持续使用层面的可信理由",
+    "persuasionTask": "用减速操作和结构证据解释功能成立原因，补足低门槛和持续使用信任",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "结构细节出现",
+      "操作步骤完成",
+      "便利性主张落到可见证据"
+    ],
+    "substitutionRules": [
+      "具体机制载体可替换，但结构证据和可执行操作不能省略",
+      "机制说明应放在减速或稳定节奏中，除非信息极短且有清晰图形锚点"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "生活利益收束槽",
+    "slotType": "life_benefit_close",
+    "viewerStateBefore": "观众已理解功能和可信理由，等待最终利益归纳",
+    "viewerStateAfter": "观众把功能价值记为稳定轻松的生活状态",
+    "persuasionTask": "回收核心关切，用生活化最终状态完成结果兑现和情绪回落",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P006"
+    ],
+    "requiredSyncPoints": [
+      "最终状态出现",
+      "前文核心关切回收",
+      "动作强度下降"
+    ],
+    "substitutionRules": [
+      "结尾场景可以替换，但必须回到前文同一核心关切或同一结果承诺",
+      "弱转化收束可以保留生活利益，不强制加入价格或行动提示"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false
+  }
+]

@@ -1,0 +1,212 @@
+[
+  {
+    "id": "R001",
+    "slot": "scene_problem_activation",
+    "label": "短促打断后拉长共鸣",
+    "function": "先用快速场景切换制造干扰感，再用较长讲述让观众进入共鸣和判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "短促噪声开场",
+        "生活困境拉长"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "pace": "fast_to_slow_setup",
+    "densityType": "scene_switch_then_talk_density",
+    "beatShape": "短促打点后进入蓄势铺垫",
+    "avoidFor": [
+      "complex_mechanism",
+      "multi_step_instruction",
+      "dense_claim_stack"
+    ],
+    "syncPoints": [
+      "干扰源出现",
+      "困扰状态说明",
+      "矛盾判断落点"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "solution_entry",
+    "label": "解决物出现加密",
+    "function": "用物件露出和镜头缩短制造从问题到方案的注意力转折",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "产品出现后的第一次加密"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "medium_fast_entry",
+    "densityType": "object_frequency_density",
+    "beatShape": "短转场加识别打点",
+    "avoidFor": [
+      "long_background_explain",
+      "subtle_emotional_build"
+    ],
+    "syncPoints": [
+      "解决物首次出现",
+      "识别载体清楚露出",
+      "问题语境转向方案语境"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "alternative_contrast",
+    "label": "对比打点后体验回落",
+    "function": "先用多物件切换建立对比，再放慢给失败体验留出感知时间",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "产品出现后的第一次加密",
+        "负面体验放慢展开"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "medium_fast_to_slow_contrast",
+    "densityType": "contrast_cut_then_hold_density",
+    "beatShape": "对比打点接体验停顿",
+    "avoidFor": [
+      "positive_result_burst",
+      "dense_parameter_explain"
+    ],
+    "syncPoints": [
+      "替代方案露出",
+      "缺陷体验出现",
+      "对比结论落下"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "mechanism_proof",
+    "label": "插入式证明加速",
+    "function": "在连续解释中插入短镜头、动作演示和信息卡，使抽象机制被分段看见并保持推进感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "短镜头插入式转入",
+        "证明信息堆叠峰值"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16",
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21",
+        "shot_22",
+        "shot_23",
+        "shot_24"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "compressed_explain_with_insert_beats",
+    "densityType": "proof_insert_density",
+    "beatShape": "讲述推进、细节打点、动作加速、图文堆叠",
+    "avoidFor": [
+      "opening_empathy",
+      "simple_recommendation",
+      "unproven_long_claim"
+    ],
+    "syncPoints": [
+      "机制名出现",
+      "实物细节出现",
+      "动态演示峰值",
+      "图文化证据进入"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "usage_result_confirmation",
+    "label": "峰值后结果回落",
+    "function": "从高密度证明回到较安静的使用状态，让观众消化前面证据并感知结果",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "佩戴效果回落"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_25"
+      ]
+    },
+    "confidence": 0.8,
+    "needReview": false,
+    "pace": "slow_result_release",
+    "densityType": "state_hold_density",
+    "beatShape": "证明峰值后单点确认",
+    "avoidFor": [
+      "new_mechanism_stack",
+      "rapid_comparison",
+      "multi_claim_launch"
+    ],
+    "syncPoints": [
+      "使用状态稳定",
+      "结果感受落点",
+      "前文关切回扣"
+    ]
+  },
+  {
+    "id": "R006",
+    "slot": "choice_close",
+    "label": "重复识别与断句收尾",
+    "function": "用中等节奏的重复露出完成推荐收束，再用极简断句形成结尾记忆点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "结论收束与黑场断句"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_26",
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "medium_close_with_hard_stop",
+    "densityType": "recognition_repetition_density",
+    "beatShape": "重复确认后突然截断",
+    "avoidFor": [
+      "new_complex_evidence",
+      "unfinished_problem_setup"
+    ],
+    "syncPoints": [
+      "推荐判断出现",
+      "识别锚点重复",
+      "结尾记忆点落下"
+    ]
+  }
+]

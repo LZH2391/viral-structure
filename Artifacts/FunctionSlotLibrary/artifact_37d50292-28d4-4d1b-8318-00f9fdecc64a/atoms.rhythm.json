@@ -1,0 +1,167 @@
+[
+  {
+    "id": "R001",
+    "slot": "instant_solution_preview",
+    "label": "快入加动作爆点",
+    "function": "用短铺垫快速建立理解，再通过动作放大把结果推到首个注意力峰值",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "快速上手式开场",
+        "动作验证加速"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "fast_to_peak",
+    "densityType": "action_cut_density",
+    "beatShape": "快速上手后连续动作验证",
+    "avoidFor": [
+      "complex_mechanism",
+      "multi_step_explanation",
+      "long_term_claim"
+    ],
+    "syncPoints": [
+      "使用入口出现",
+      "核心动作完成",
+      "压力结果显现"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "pain_backfill",
+    "label": "多场景问题堆叠",
+    "function": "用连续场景更新维持紧凑感，把问题从单一现象累积成日常困扰",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "多场景问题堆叠"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "compact_montage",
+    "densityType": "scene_change_density",
+    "beatShape": "同类问题反复换样",
+    "avoidFor": [
+      "detailed_operation",
+      "precise_mechanism",
+      "single_claim_explanation"
+    ],
+    "syncPoints": [
+      "旧状态出现",
+      "困扰动作出现",
+      "成本后果出现"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "coverage_bridge",
+    "label": "长镜头信息峰值",
+    "function": "用单个高信息密度段落承接痛点并转向产品可信性，形成方向切换点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "夹扣散落的信息峰值"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "pace": "held_dense_peak",
+    "densityType": "internal_event_density",
+    "beatShape": "长停留内连续堆叠",
+    "avoidFor": [
+      "emotional_close",
+      "single_step_instruction",
+      "low_load_result"
+    ],
+    "syncPoints": [
+      "覆盖感建立",
+      "使用关系出现",
+      "机制说明引出"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "mechanism_trust",
+    "label": "操作细节减速",
+    "function": "降低切换速度并延长局部操作停留，让观众有时间理解结构与低门槛使用逻辑",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "操作细节减速"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "slow_confirming",
+    "densityType": "operation_detail_density",
+    "beatShape": "分解操作反复确认",
+    "avoidFor": [
+      "opening_hook",
+      "high_emotion_peak",
+      "rapid_problem_stack"
+    ],
+    "syncPoints": [
+      "结构打开",
+      "结构闭合",
+      "固定结果确认"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "life_benefit_close",
+    "label": "轻动作回落收束",
+    "function": "用低强度动作回收前文验证主题，同时把紧张测试感降为稳定生活状态",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "轻动作收束"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "pace": "soft_release",
+    "densityType": "low_action_continuity",
+    "beatShape": "轻微回升后放松落点",
+    "avoidFor": [
+      "new_mechanism_explanation",
+      "dense_feature_stack",
+      "hard_conversion_push"
+    ],
+    "syncPoints": [
+      "最终状态出现",
+      "核心关切回收",
+      "动作强度回落"
+    ]
+  }
+]
