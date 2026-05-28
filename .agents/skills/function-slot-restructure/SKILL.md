@@ -36,7 +36,7 @@ Runtime/Temp/FunctionSlotLibrary/slot_index.json
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
-如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受低置信度时，才允许只用 `slot_index.json` 降级重组，并必须披露“未使用治理层”。
+如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受约束不足风险时，才允许只用 `slot_index.json` 降级重组，并必须披露“未使用治理层”。
 
 读取治理文件后先检查：
 
@@ -45,7 +45,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - `reviewStatus / maturityStatus`
 - `needReviewMap / reviewItems / unmapped*Variants`
 
-治理文件过期或大量 candidate 时，可以继续输出方案，但必须降级置信度并说明风险。
+治理文件过期时，可以继续输出方案，但必须说明哪些治理映射可能过期。
 
 ## 输入
 
@@ -92,13 +92,12 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - `atomPatternId` 可以同时保留，用于说明复用依据，但不能替代 concrete atom variant。
 - 如果没有 concrete atom variant，必须标记为 `generated_gap_fill` 或 `adapter_generated`，并说明基于哪个 pattern 或需求生成。
 
-## 候选选择规则
+## Evidence 使用规则
 
 不要只选第一个匹配的 `slotType`。比较：
 
 - `persuasionTask` 是否匹配目标观众状态跃迁
 - 治理层 `slotSubtype / slotArchetype` 是否匹配目标需求节点
-- `reviewStatus / maturityStatus` 是否足以支持重组
 - script atom 的 `claimType` 是否匹配目标主张
 - script atom pattern 的 `claimPattern / proofNeedClass / mustKeepClasses` 是否能保留
 - `proofNeed` 是否能被目标素材满足
@@ -108,12 +107,12 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - packaging pattern 的 `proofType / visualHierarchyClass / riskClass` 是否适合目标素材
 - bindings/rules 是否支持当前组合
 - binding principle 和 recomposition policy 是否通过
-- `confidence` 和 `needReview`
-- 是否过度依赖单一源样例
+
+`confidence`、`needReview`、治理项的 `reviewStatus / maturityStatus` 可以作为审阅信息保留，但不参与重组决策。重组只判断 evidence 是否满足目标需求、证明义务和组合约束。
 
 `implementationBundles` 和 `observedChainPatterns` 只能作为检索先验和历史证据，不能当固定 template。Template 也只能证明“曾经这样成立”，不能直接生成新链路。
 
-如果使用 `scripts/assemble_plan.py`，把它的输出视为候选骨架和检索起点；最终组合仍由 agent 按本 skill 的质量检查、binding/rule 校验和 adapter 判断完成。
+如果使用 `scripts/assemble_plan.py`，把它的输出视为 evidence 骨架和检索起点；最终组合仍由 agent 按本 skill 的质量检查、binding/rule 校验和 adapter 判断完成。
 
 ## Adapter 判断
 
@@ -157,7 +156,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 按需读取：
 
 - `references/recomposition-workflow.md`：重组工作流。
-- `references/retrieval-and-selection.md`：候选选择和评分。
+- `references/retrieval-and-selection.md`：evidence 检索和适配检查。
 - `references/quality-checks.md`：重组质量检查。
 - `references/output-formats.md`：输出模板。
 

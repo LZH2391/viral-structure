@@ -30,13 +30,13 @@
 - 选择理由：
 - 未选替代：
 - 治理节点：slotSubtype / slotArchetype / reviewStatus / maturityStatus
-- 脚本角色：
+- 本方案脚本作用说明：
 - script pattern：
 - script concrete atom variant：
-- 节奏角色：
+- 本方案节奏作用说明：
 - rhythm pattern：
 - rhythm concrete atom variant：
-- 包装/证明角色：
+- 本方案包装/证明作用说明：
 - packaging pattern：
 - packaging concrete atom variant：
 - 同步点：
@@ -81,8 +81,8 @@
 # 校验与修复
 
 ## 映射
-| 脚本/分镜部分 | 映射槽位 | subtype/archetype | 治理状态 | 置信度 |
-|---|---|---|---|---:|
+| 脚本/分镜部分 | 映射槽位 | subtype/archetype | 规则状态 | 未满足项 |
+|---|---|---|---|---|
 
 ## 问题
 | 严重度 | 问题 | 被破坏的治理/证据规则 | 修复 |

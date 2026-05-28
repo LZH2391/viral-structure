@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set
 
-from common import read_json, text_blob, tokenize
+from common import read_json
 
 DEFAULT_GOVERNANCE_RELATIVE = (
     Path("Artifacts")
@@ -289,62 +289,6 @@ def enrich_candidate(candidate: Dict[str, Any], maps: Dict[str, Any]) -> Dict[st
         "needReview": variant_id in maps.get("needReviewVariants", set()),
     }
     return enriched
-
-
-def governance_score(candidate: Dict[str, Any], brief: Dict[str, Any], maps: Dict[str, Any]) -> Tuple[float, List[str]]:
-    """Score candidate against semantic governance without replacing agent judgement."""
-    variant_id = str(candidate.get("variantId") or "")
-    related_variant_ids = candidate_governance_variant_ids(candidate)
-    subtypes = maps.get("subtypesByVariant", {}).get(variant_id, [])
-    atom_patterns = _collect_by_ids(maps.get("atomPatternsByVariant", {}), related_variant_ids)
-    binding_patterns = _collect_by_ids(maps.get("bindingPatternsByVariant", {}), related_variant_ids)
-    rule_patterns = _collect_by_ids(maps.get("rulePatternsByVariant", {}), related_variant_ids)
-    bundles = maps.get("bundlesByVariant", {}).get(variant_id, [])
-    if not any([subtypes, atom_patterns, binding_patterns, rule_patterns, bundles]):
-        return 0.0, []
-
-    score = 0.0
-    reasons: List[str] = []
-    brief_tokens = set(tokenize(text_blob(brief)))
-
-    for subtype in subtypes:
-        score += 2.0
-        if subtype.get("reviewStatus") == "reviewed":
-            score += 1.0
-        if subtype.get("maturityStatus") == "stable":
-            score += 1.0
-        subtype_tokens = set(tokenize(text_blob({
-            "name": subtype.get("name"),
-            "viewerTransition": subtype.get("viewerTransition"),
-            "proofObligation": subtype.get("proofObligation"),
-            "sourceSlotTypes": subtype.get("sourceSlotTypes"),
-        })))
-        overlap = sorted(brief_tokens & subtype_tokens)
-        if overlap:
-            score += min(1.5, 0.25 * len(overlap))
-        reasons.append("governed subtype: " + str(subtype.get("id")))
-
-    pattern_layers = {str(p.get("atomLayer")) for p in atom_patterns if p.get("atomLayer")}
-    if pattern_layers:
-        score += 0.4 * len(pattern_layers)
-        reasons.append("governed atom patterns: " + ", ".join(sorted(pattern_layers)))
-    if binding_patterns:
-        score += 0.5
-        reasons.append("governed binding patterns available")
-    if rule_patterns:
-        score += 0.5
-        reasons.append("governed rule patterns available")
-    for bundle in bundles:
-        use_as = str(bundle.get("useAs") or "")
-        if "retrieval_prior" in use_as:
-            score += 0.4
-            reasons.append("implementation bundle prior: " + str(bundle.get("id")))
-
-    if variant_id in maps.get("needReviewVariants", set()):
-        score -= 1.5
-        reasons.append("governance needReview penalty")
-
-    return score, reasons
 
 
 def governance_prior_hypotheses(graph: Dict[str, Any], maps: Dict[str, Any]) -> List[Dict[str, Any]]:

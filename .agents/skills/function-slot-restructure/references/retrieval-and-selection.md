@@ -19,9 +19,13 @@
 
 不要先检索包装样式，再围绕它强行拼槽位。
 
-## 候选评分
+## Evidence 适配检查
 
-可以定性评分，也可以用脚本评分。使用以下层级：
+重组阶段不使用 `confidence`、`needReview`、来源多样性或候选分数做决策。它们可以保留在证据输出中供审阅，但不能决定是否采用。
+
+采用一个 source variant 只看它是否满足目标需求、证明义务、节奏/包装功能和 binding/rule 约束。
+
+按以下层级做适配检查：
 
 ### 1. 功能匹配
 
@@ -78,35 +82,9 @@
 - 结果 -> 前后对比、输出屏、近景、数字变化
 - 信任 -> 记录、重复证明、使用痕迹、证言、评价、收据、使用日志
 
-### 5. 可靠性
+### 5. 证据审阅字段
 
-优先选择：
-
-- 治理层已映射到 `slotSubtype / atomPattern`
-- `reviewStatus: reviewed` 的治理项
-- 更高 `confidence`
-- 无 `needReview`
-- 在多个样例中有重复支持的 subtype/archetype/pattern
-- 被多个样例重复支持的 rule pattern / policy
-- 清楚的 source references
-
-谨慎使用：
-
-- `maturityStatus: candidate`：可用，但要披露样例不足或边界未稳定。
-- `needReviewMap` 命中的 variant：除非没有替代项，否则不要作为主方案。
-- `unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants`：只能作为证据层 fallback，不能说成治理支持。
-
-### 6. 多样性
-
-除非用户要求忠实变体，否则避免完全从一个源样例构建新视频。
-
-可优先混合：
-
-- 来自高支持 subtype/archetype 的槽位链
-- 来自 `implementationBundles` 的常见组合，但仅作为 retrieval prior
-- 来自相近品类的 script atom
-- 来自相似时长/风格的 rhythm atom
-- 来自拥有正确证明资产样例的 packaging atom
+`confidence`、`needReview`、`reviewStatus`、`maturityStatus` 只作为审阅字段保留。重组时不因这些字段加分、扣分或阻断；若 evidence 的证明、承接或规则约束不成立，即使这些字段看起来更好也不能采用。
 
 ## 检索模式
 
@@ -147,7 +125,7 @@
 - 缺失的槽位或原子类型
 - 缺失的治理覆盖：subtype / atom pattern / binding pattern / policy
 - 生成式 fallback 实现
-- 置信度降级
+- 未满足项与需要补齐的证明/素材
 
 ## 槽位混合规则
 

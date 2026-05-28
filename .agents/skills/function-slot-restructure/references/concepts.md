@@ -57,7 +57,7 @@ brief constraints
 -> binding principle / recomposition policy check
 ```
 
-如果治理层缺失，才退回证据层的 `slotType / confidence / needReview`，并降级说明。
+如果治理层缺失，才退回证据层的 `slotType / source variant`，并说明哪些约束无法由治理层校验。
 
 ## 槽位原型
 

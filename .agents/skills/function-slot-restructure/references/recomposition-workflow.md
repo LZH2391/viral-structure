@@ -120,7 +120,7 @@ choice claim       -> concrete product/service/action memory point
     "nodes": [...],
     "edges": [...],
     "mustSatisfy": ["problem result carryover", "proof for every major claim"],
-    "softPreferences": ["source diversity", "low production complexity"]
+    "softPreferences": ["low production complexity"]
   }
 }
 ```
@@ -137,9 +137,9 @@ choice claim       -> concrete product/service/action memory point
 - 将 `atomPatterns / bindingPatterns / rulePatterns` 映射回 atom、binding、rule variants。
 - 读取 `bindingPrinciples / recompositionPolicies` 作为组合安全约束。
 - 读取 `implementationBundles / observedChainPatterns` 作为检索先验，不作为固定模板。
-- 读取 `needReviewMap / reviewItems / unmapped*Variants` 作为风险降级依据。
+- 读取 `needReviewMap / reviewItems / unmapped*Variants` 作为审阅信息和缺口提示。
 
-如果治理层缺失、过期或只有 candidate 结论，可以继续草拟方案，但必须降低置信度并明确说明哪些判断只是证据层推断。
+如果治理层缺失或过期，可以继续草拟方案，但必须明确说明哪些判断只是证据层推断。
 
 ## 步骤 4：用图操作符生成链路假设
 
@@ -207,17 +207,15 @@ choice claim       -> concrete product/service/action memory point
 - packaging proof function
 - binding principle / recomposition policy
 - 必要 sync/carryover 约束
-- 来源可靠性和置信度
-
 标签正确但证明功能错误的候选，应输给标签较弱但功能更匹配的候选。
 
-如果没有库候选能满足必需需求，创建 generated gap-fill implementation 并降低置信度。
+如果没有库 evidence 能满足必需需求，创建 generated gap-fill implementation 并说明缺口。
 
 ## 步骤 6：全局选择，而不是逐槽位选择
 
 不要独立选择每个槽位的 top candidate。要选择作为链路整体成立的组合。
 
-按以下维度给完整方案评分：
+按以下维度检查完整方案：
 
 - **state coverage / 状态覆盖**：每个重要观众状态跃迁都被覆盖
 - **proof satisfaction / 证明满足**：每个主要主张都有可行证明功能
@@ -227,15 +225,14 @@ choice claim       -> concrete product/service/action memory point
 - **packaging feasibility / 包装可行性**：视觉证明确实能生产
 - **binding compatibility / 绑定兼容性**：sync、require、carryover、substitute 和 conflict rules 通过
 - **governance compatibility / 治理兼容性**：subtype、atom pattern、binding principle、policy 没有冲突
-- **source diversity / 来源多样性**：方案不是单一源样例，除非刻意做忠实变体
 - **novelty with control / 可控新颖性**：方案有足够差异，但仍可解释
 
-候选很多时，用 beam-search 思路：
+候选很多时，用约束过滤思路：
 
 1. 保留前几个链路假设。
 2. 对每个需求节点保留前几个候选。
 3. 只组合满足硬边的候选。
-4. 选择全局评分最好，而不是局部候选分最高的方案。
+4. 保留能满足硬边、证明义务和生产约束的方案，而不是局部候选分最高的方案。
 
 ## 步骤 7：组合槽位实现
 
@@ -339,32 +336,14 @@ choice close -> concrete memory point
 - 节奏时间
 - 所需证明材料
 - binding checks
-- governance checks：principle / policy / needReview / reviewItems
+- governance checks：principle / policy / reviewItems / unmapped items
 - 替代版本
 
-## 步骤 12：标记置信度
+## 步骤 12：标记未满足项
 
-置信度应反映 corpus 支持度和目标匹配度。
+最终输出不按置信度分级，而是明确列出：
 
-高置信度：
-
-- 需求图清楚
-- 选中链路满足硬边
-- 证明资产存在
-- 选中候选具有兼容 atoms 和 bindings
-- 关键模式由 reviewed 治理项、多个样例或强逻辑支持
-
-中置信度：
-
-- 链路连贯但品类不同
-- 证明资产不完整
-- 需要一两个生成式实现或 adapters
-- 关键治理项仍是 candidate，但边界和风险已说明
-
-低置信度：
-
-- 主要由稀疏库数据生成
-- 缺少证明资产
-- 仍存在主要 binding 或 carryover 风险
-- 最终链路依赖未验证的操作符组合
-- 治理层缺失、过期，或命中大量 `needReview / unmapped` 项
+- 已满足的目标需求、证明义务和 binding/rule。
+- 需要 adapter 才能成立的连接。
+- 仍未满足的证明、素材、承接或生产缺口。
+- 需要生成式补齐或补拍的部分。

@@ -339,7 +339,6 @@ def build_demand_graph(index: Dict[str, Any], brief: Dict[str, Any], explicit_se
             "结果、收益或信任证明必须闭合上游关切，或显式桥接",
         ],
         "softPreferences": [
-            "来源多样性",
             "证明可行性",
             "节奏连贯性",
             "降低不必要的生产复杂度",
@@ -551,8 +550,6 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "sampleId": candidate.get("sampleId"),
                 "sourceSlotId": candidate.get("sourceSlotId"),
                 "slotName": candidate.get("slotName"),
-                "score": candidate.get("score"),
-                "scoreReasons": candidate.get("scoreReasons"),
             },
             "governance": candidate_governance,
             "demand": demand,

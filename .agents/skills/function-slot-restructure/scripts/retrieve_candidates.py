@@ -14,7 +14,6 @@ from governance import (
     default_governance_path,
     enrich_candidate,
     governance_audit,
-    governance_score,
     governance_status,
     load_governance,
 )
@@ -43,87 +42,44 @@ def load_brief(path: str | None, args: argparse.Namespace) -> Dict[str, Any]:
     return brief
 
 
-def candidate_score(candidate: Dict[str, Any], brief: Dict[str, Any], governance_maps: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    score = 0.0
+def candidate_fit(candidate: Dict[str, Any], brief: Dict[str, Any], governance_maps: Dict[str, Any] | None = None) -> Dict[str, Any]:
     reasons: List[str] = []
     requested_slot_types = set(brief.get("slotTypes") or [])
     requested_subtypes = set(brief.get("slotSubtypeIds") or [])
     requested_archetypes = set(brief.get("slotArchetypeIds") or [])
     requested_bundles = set(brief.get("implementationBundleIds") or [])
-    if requested_slot_types and candidate.get("slotType") in requested_slot_types:
-        score += 5
-        reasons.append("requested slot type match")
-    elif requested_slot_types:
-        score -= 3
+    matched = True
+    if requested_slot_types:
+        matched = candidate.get("slotType") in requested_slot_types
+        if matched:
+            reasons.append("requested slot type match")
 
     if governance_maps:
         g_ids = candidate_governance_ids(candidate, governance_maps)
         if requested_subtypes:
             if requested_subtypes & g_ids["slotSubtypeIds"]:
-                score += 6
                 reasons.append("requested slot subtype match")
             else:
-                score -= 4
+                matched = False
         if requested_archetypes:
             if requested_archetypes & g_ids["slotArchetypeIds"]:
-                score += 4
                 reasons.append("requested slot archetype match")
             else:
-                score -= 3
+                matched = False
         if requested_bundles:
             if requested_bundles & g_ids["implementationBundleIds"]:
-                score += 2
                 reasons.append("requested implementation bundle prior match")
             else:
-                score -= 1
+                matched = False
 
     query_text = " ".join(str(brief.get(k, "")) for k in ["query", "category", "goal", "audience", "style", "mode"])
     query_tokens = set(tokenize(query_text))
     candidate_tokens = set(tokenize(candidate.get("searchText") or text_blob(candidate)))
     matches = sorted(query_tokens & candidate_tokens)
     if matches:
-        bump = min(2.0, 0.2 * len(matches))
-        score += bump
         reasons.append(f"keyword/function overlap: {', '.join(matches[:8])}")
 
-    confidence = candidate.get("confidence")
-    if isinstance(confidence, (int, float)):
-        score += float(confidence) * 1.5
-        reasons.append(f"confidence {confidence}")
-
-    if candidate.get("needReview"):
-        score -= 0.75
-        reasons.append("needs review")
-
-    mode = str(brief.get("mode", "")).lower()
-    slot_type = str(candidate.get("slotType", ""))
-    if "compressed" in mode and slot_type in {"mechanism_credibility", "long_term_trust_close"}:
-        score -= 0.3
-        reasons.append("possibly heavy for compressed mode")
-    if "trust" in mode and "trust" in slot_type:
-        score += 1.0
-        reasons.append("trust mode fit")
-    if "result" in mode and "result" in slot_type:
-        score += 1.0
-        reasons.append("result-first mode fit")
-
-    # Reward candidates whose atoms have no review flags.
-    atom_review_flags = []
-    for field in ["scriptAtoms", "rhythmAtoms", "packagingAtoms"]:
-        for atom in candidate.get(field, []) or []:
-            if atom.get("needReview"):
-                atom_review_flags.append(atom.get("id"))
-    if atom_review_flags:
-        score -= min(1.0, 0.25 * len(atom_review_flags))
-        reasons.append("some atoms need review")
-
-    if governance_maps:
-        g_score, g_reasons = governance_score(candidate, brief, governance_maps)
-        if g_reasons:
-            score += g_score
-            reasons.extend(g_reasons)
-
-    return {"score": round(score, 3), "reasons": reasons}
+    return {"matched": matched, "reasons": reasons}
 
 
 def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int, governance: Dict[str, Any] | None = None) -> Dict[str, Any]:
@@ -133,9 +89,8 @@ def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int, governanc
         scored = dict(candidate)
         scored.pop("searchText", None)
         scored.pop("raw", None)
-        result = candidate_score(candidate, brief, governance_maps)
-        scored["score"] = result["score"]
-        scored["scoreReasons"] = result["reasons"]
+        result = candidate_fit(candidate, brief, governance_maps)
+        scored["fitReasons"] = result["reasons"]
         scored = enrich_candidate(scored, governance_maps)
         g_ids = candidate_governance_ids(candidate, governance_maps)
         requested_subtypes = set(brief.get("slotSubtypeIds") or [])
@@ -147,11 +102,11 @@ def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int, governanc
             and (not requested_bundles or bool(requested_bundles & g_ids["implementationBundleIds"]))
         )
         slot_filter = not brief.get("slotTypes") or candidate.get("slotType") in set(brief.get("slotTypes") or [])
-        if slot_filter and governance_filter:
+        if result["matched"] and slot_filter and governance_filter:
             grouped[str(candidate.get("slotType"))].append(scored)
 
     for slot_type in list(grouped):
-        grouped[slot_type] = sorted(grouped[slot_type], key=lambda x: x["score"], reverse=True)[:limit]
+        grouped[slot_type] = grouped[slot_type][:limit]
 
     requested = brief.get("slotTypes") or sorted(grouped)
     missing = [s for s in requested if s not in grouped or not grouped[s]]
