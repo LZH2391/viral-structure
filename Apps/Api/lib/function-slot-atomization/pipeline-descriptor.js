@@ -15,7 +15,7 @@ const {
   evaluateCacheEligibility,
 } = require("../function-slot-atomization-analysis/result-builder");
 const { buildFunctionSlotAtomizationContentFingerprint } = require("../function-slot-atomization-analysis/cache-params");
-const { runCacheLookup, markCacheWaiting, reuseCachedAnalysis, buildCachePrompt } = require("./cache");
+const { findCachedArtifact, runCacheLookup, reuseCachedAnalysis, buildCachePrompt } = require("./cache");
 const { attachFunctionSlotAtomizationAnalysis } = require("./artifact-writer");
 const { ROLE, SKILL_PATH, STAGES, codedError, resolveSkillHash } = require("../function-slot-atomization-analysis/shared");
 const {
@@ -24,7 +24,7 @@ const {
   resolveBoundaryReviewSkillHash,
 } = require("../function-slot-atomization-boundary-review");
 
-function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
+function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex }) {
   return {
     ROLE,
     SKILL_PATH,
@@ -217,10 +217,48 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
     resolveSampleDir(context) {
       return store.sampleDir(context.sampleVideoId);
     },
-    runCacheLookup,
-    markCacheWaiting,
+    async runCacheLookup({ context, input, runtime }) {
+      return runCacheLookup({
+        context,
+        input,
+        runStage: runtime.runStage,
+        stageName: STAGES.cacheLookup,
+        findCached: () => findCachedArtifact({
+          context,
+          input,
+          artifactIndex,
+          stageName: STAGES.materialized,
+          evaluateCacheEligibility,
+          resolveExistingFileHash: async (sampleVideoId) => (await artifactIndex.getItem(sampleVideoId).catch(() => null))?.fileHash ?? null,
+        }),
+      });
+    },
+    markCacheWaiting({ context, cached, runtime }) {
+      return runtime.job.markCacheWaiting(context, {
+        stageName: STAGES.cacheLookup,
+        progress: 32,
+        cachePrompt: buildCachePrompt(context, cached),
+      });
+    },
     buildCachePrompt,
-    reuseCachedAnalysis,
+    async reuseCachedAnalysis({ context, cachePrompt, runtime }) {
+      return reuseCachedAnalysis({
+        context,
+        cachePrompt,
+        runStage: runtime.runStage,
+        stageName: STAGES.cacheReuse,
+        resolvePrompt: () => require("./cache").resolveCachedPrompt({
+          cachePrompt,
+          artifactIndex,
+          evaluateCacheEligibility,
+          codedError,
+          expectedCacheKey: context.cacheKey ?? null,
+        }),
+        buildCacheReuseAnalysis,
+        attachAnalysis: (sampleVideoId, analysis, traceMeta) => attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta),
+        registerArtifact: async (artifact) => runtime.materialize?.registerSampleArtifact?.(context, artifact),
+      });
+    },
     async attachAnalysis(sampleVideoId, analysis, traceMeta) {
       return attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta);
     },

@@ -65,6 +65,49 @@ test("function slot atomization descriptor exposes an internal boundary review h
   assert.equal(descriptor.progress.boundaryReworked, 92);
 });
 
+test("function slot atomization descriptor adapts cache lookup to analysis runtime", async () => {
+  const calls = [];
+  const descriptor = createFunctionSlotAtomizationPipelineDescriptor({
+    store: {},
+    artifactIndex: {
+      getItem: async () => ({ fileHash: "file_hash_1" }),
+      findCacheEntry: async () => null,
+    },
+  });
+  const context = {
+    sampleVideoId: "sample_1",
+    cacheDecision: "ask",
+    artifactId: "artifact_atomization",
+    cacheKey: "cache_key_1",
+    skillHash: "skill_hash_1",
+    roleProfile: { profileVersion: "profile.v1" },
+    promptTemplate: { promptTemplateId: "analyze", promptTemplateVersion: "prompt.v1", promptTemplateHash: "prompt_hash" },
+  };
+  const input = {
+    parentArtifactId: "artifact_packaging",
+    sourceScriptSegmentArtifactId: "artifact_script",
+    sourceRhythmStructureArtifactId: "artifact_rhythm",
+    sourcePackagingStructureArtifactId: "artifact_packaging",
+  };
+  const runtime = {
+    runStage: async (stageContext, stageName, progress, options) => {
+      calls.push({ stageContext, stageName, progress, inputSummary: options.inputSummary });
+      const result = await options.action();
+      options.outputSummary(result);
+      return result;
+    },
+  };
+
+  const cached = await descriptor.runCacheLookup({ context, input, runtime });
+
+  assert.equal(cached, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].stageContext, context);
+  assert.equal(calls[0].stageName, descriptor.STAGES.cacheLookup);
+  assert.equal(calls[0].progress, descriptor.progress.cacheLookup);
+  assert.equal(calls[0].inputSummary.sourcePackagingStructureArtifactId, "artifact_packaging");
+});
+
 test("function slot analyzer renders boundary rework turn with reviewer issues", async () => {
   const roleProfile = await loadRoleProfileByRole("function-slot-atomization-analyzer");
   const turn = renderBoundaryReworkTurnInputs({
