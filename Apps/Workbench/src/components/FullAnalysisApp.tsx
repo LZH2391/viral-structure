@@ -178,21 +178,27 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     if (lastActiveSampleRevisionRef.current != null && activeSample.activeSampleRevision <= lastActiveSampleRevisionRef.current) return;
     lastActiveSampleRevisionRef.current = activeSample.activeSampleRevision;
     lastSyncedSampleVideoIdRef.current = activeSample.artifact.sampleVideoId;
-    operationTokenRef.current += 1;
-    if (pollTimerRef.current != null) {
-      window.clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
+    const shouldPreserveWorkflow = shouldPreserveActiveWorkflow(run, activeSample);
+    if (!shouldPreserveWorkflow) {
+      operationTokenRef.current += 1;
+      if (pollTimerRef.current != null) {
+        window.clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
     }
     setArtifact(activeSample.artifact);
-    setRun((current) => current?.sampleVideoId === activeSample.artifact.sampleVideoId ? current : null);
-    setChildJobs({});
-    setStatusText("已同步工作台当前视频");
+    setRun((current) => shouldPreserveActiveWorkflow(current, activeSample) ? current : null);
+    if (!shouldPreserveWorkflow) setChildJobs({});
+    setStatusText(shouldPreserveWorkflow && run ? statusLabel(run) : "已同步工作台当前视频");
     setErrorText(null);
     writeFullAnalysisActiveSampleDraft(activeSample.artifact, {
       activeSampleRevision: activeSample.activeSampleRevision,
       activeSampleSource: activeSample.activeSampleSource,
     });
-  }, [activeSample, embedded]);
+    if (shouldPreserveWorkflow && run && !NON_EXECUTING_RUN_STATUS.has(run.status) && pollTimerRef.current == null) {
+      startPolling(run.workflowRunId, operationTokenRef.current);
+    }
+  }, [activeSample, embedded, run, startPolling]);
 
   useEffect(() => {
     if (!childJobIds.length) return;
@@ -498,4 +504,11 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
       ) : null}
     </div>
   );
+}
+
+function shouldPreserveActiveWorkflow(run: WorkflowRun | null, activeSample: FullAnalysisWorkbenchActiveSample) {
+  if (!run) return false;
+  if (activeSample.activeSampleSource === "fullAnalysis") return true;
+  if (run.sampleVideoId && run.sampleVideoId === activeSample.artifact.sampleVideoId) return true;
+  return isRunExecuting(run);
 }

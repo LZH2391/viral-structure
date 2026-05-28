@@ -48,6 +48,20 @@ test("full analysis sync keeps atomization job independent and labels trace laye
   assert.match(draft, /activeSampleSource/);
 });
 
+test("embedded full analysis preserves running workflow during workbench artifact sync", () => {
+  const root = path.resolve(__dirname, "../..");
+  const full = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
+
+  assert.match(full, /function shouldPreserveActiveWorkflow/);
+  assert.match(full, /activeSample\.activeSampleSource === "fullAnalysis"/);
+  assert.match(full, /return isRunExecuting\(run\)/);
+  assert.match(full, /const shouldPreserveWorkflow = shouldPreserveActiveWorkflow\(run, activeSample\)/);
+  assert.match(full, /if \(!shouldPreserveWorkflow\) \{\s*operationTokenRef\.current \+= 1;/);
+  assert.match(full, /setRun\(\(current\) => shouldPreserveActiveWorkflow\(current, activeSample\) \? current : null\)/);
+  assert.match(full, /if \(!shouldPreserveWorkflow\) setChildJobs\(\{\}\)/);
+  assert.match(full, /shouldPreserveWorkflow[\s\S]*startPolling\(run\.workflowRunId, operationTokenRef\.current\)/);
+});
+
 test("full analysis includes optional atomization stage and cache surface", () => {
   const root = path.resolve(__dirname, "../..");
   const full = read(root, "Apps/Workbench/src/components/FullAnalysisApp.tsx");
