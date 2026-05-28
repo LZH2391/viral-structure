@@ -157,6 +157,92 @@ test("threadpool proxy backfills ctx usage from persisted token usage cache", as
   assert.equal(status.threads[0].threshold_input_tokens, 206720);
 });
 
+test("threadpool proxy reads ctx usage from role workspace runtime", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "threadpool-proxy-workspaces-"));
+  const currentWorkspace = path.join(tempRoot, "current");
+  const roleWorkspace = path.join(tempRoot, "role");
+  const currentUsageDir = path.join(currentWorkspace, "_workspace", "runtime", "appserver");
+  const roleUsageDir = path.join(roleWorkspace, "_workspace", "runtime", "appserver");
+  await fs.mkdir(currentUsageDir, { recursive: true });
+  await fs.mkdir(roleUsageDir, { recursive: true });
+  await fs.writeFile(path.join(currentUsageDir, "thread_token_usage.json"), JSON.stringify({}), "utf8");
+  await fs.writeFile(path.join(roleUsageDir, "thread_token_usage.json"), JSON.stringify({
+    thread_cross_workspace: {
+      latest: { last_token_usage: { input_tokens: 4321 }, model_context_window: 10000 },
+      turns: {},
+    },
+  }), "utf8");
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-raw-analyzer"],
+    threadTokenUsagePath: ({ workspaceRoot }) => path.join(workspaceRoot, "_workspace", "runtime", "appserver", "thread_token_usage.json"),
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/roles/shot-boundary-raw-analyzer/status") {
+        return response({
+          ok: true,
+          role: "shot-boundary-raw-analyzer",
+          workspace_root: roleWorkspace,
+          min_idle: 1,
+          counts: { idle: 1, leased: 0 },
+          can_acquire: true,
+          thread_entries: [{ thread_id: "thread_cross_workspace", thread_status: "idle", is_seed: false }],
+          active_leases: [],
+        });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const status = await proxy.roleStatus("shot-boundary-raw-analyzer");
+
+  assert.equal(status.workspaceRoot, roleWorkspace);
+  assert.equal(status.threads[0].latest_input_tokens, 4321);
+  assert.equal(status.threads[0].threshold_input_tokens, 8000);
+});
+
+test("threadpool proxy passes role workspace to readThread fallback", async () => {
+  const calls = [];
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-raw-analyzer"],
+    threadTokenUsagePath: path.join(os.tmpdir(), "missing-thread-token-usage.json"),
+    readThreadImpl: async (threadId, options) => {
+      calls.push({ threadId, options });
+      return {
+        thread: {
+          turns: [
+            { token_usage: { input_tokens: 999 }, model_context_window: 5000 },
+          ],
+        },
+      };
+    },
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/roles/shot-boundary-raw-analyzer/status") {
+        return response({
+          ok: true,
+          role: "shot-boundary-raw-analyzer",
+          workspace_root: "C:\\ExternalWorkspace",
+          min_idle: 1,
+          counts: { idle: 1, leased: 0 },
+          can_acquire: true,
+          thread_entries: [{ thread_id: "thread_raw", thread_status: "idle", is_seed: false }],
+          active_leases: [],
+        });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const status = await proxy.roleStatus("shot-boundary-raw-analyzer");
+
+  assert.equal(status.threads[0].latest_input_tokens, 999);
+  assert.equal(status.threads[0].threshold_input_tokens, 4000);
+  assert.deepEqual(calls, [{
+    threadId: "thread_raw",
+    options: { workspaceRoot: "C:\\ExternalWorkspace", role: "shot-boundary-raw-analyzer" },
+  }]);
+});
+
 test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
     "script-segment-analyzer",

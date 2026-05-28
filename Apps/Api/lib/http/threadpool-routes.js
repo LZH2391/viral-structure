@@ -78,7 +78,8 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
       return sendJson(res, 403, allowedThread);
     }
     const resolvedThreadId = allowedThread.thread_id;
-    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId });
+    const threadWorkspaceRoot = allowedThread.workspace_root ?? handlers.rootDir;
+    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId });
     const conversation = summarizeThreadConversation(thread.thread ?? {});
     await activeLogger.writeStageLog({
       traceContext,
@@ -87,6 +88,7 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
       outputSummary: {
         requestedThreadId: threadId,
         threadId: conversation.threadId,
+        workspaceRoot: threadWorkspaceRoot,
         turnCount: conversation.turns.length,
         status: conversation.status ?? null,
       },
@@ -144,7 +146,8 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       return sendJson(res, 403, allowedThread);
     }
     const resolvedThreadId = allowedThread.thread_id;
-    const thread = await handlers.appServer.readThread({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId });
+    const threadWorkspaceRoot = allowedThread.workspace_root ?? handlers.rootDir;
+    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId });
     const threadPayload = thread.thread ?? {};
     const turn = findTurn(threadPayload, turnId);
     let timeline = null;
@@ -152,7 +155,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
     let itemListFallback = null;
     if (typeof handlers.appServer.listTurnItems === "function") {
       try {
-        const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
+        const listed = await handlers.appServer.listTurnItems({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
         if (Array.isArray(listed?.items) && listed.items.length > 0) {
           timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
           source = "thread/turns/items/list";
@@ -170,7 +173,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
         traceContext,
         stageName: "threadPool.turnTimeline.read",
         event: "stage.end",
-        outputSummary: { requestedThreadId: threadId, threadId: resolvedThreadId, turnId, found: false },
+        outputSummary: { requestedThreadId: threadId, threadId: resolvedThreadId, workspaceRoot: threadWorkspaceRoot, turnId, found: false },
         durationMs: Date.now() - startedAt,
       });
       return sendJson(res, 404, {
@@ -186,6 +189,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       outputSummary: {
         requestedThreadId: threadId,
         threadId: timeline.threadId,
+        workspaceRoot: threadWorkspaceRoot,
         turnId: timeline.turnId,
         itemCount: timeline.items.length,
         status: timeline.status,

@@ -122,7 +122,11 @@ function createThreadPoolProxy({
     const statuses = await Promise.all(Array.from(allowedRoleSet).map((role) => roleStatus(role)));
     const entries = statuses.flatMap((status) => status?.ok
       ? (status.threads ?? [])
-        .map((thread) => ({ role: status.role, thread_id: String(thread.thread_id ?? "").trim() }))
+        .map((thread) => ({
+          role: status.role,
+          thread_id: String(thread.thread_id ?? "").trim(),
+          workspace_root: status.workspaceRoot ?? null,
+        }))
         .filter((thread) => thread.thread_id)
       : []);
     const exact = entries.find((thread) => thread.thread_id === target);
@@ -210,10 +214,13 @@ function parseAllowedRoles(value) {
 async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTokenCache, threadTokenUsageCache, threadTokenUsagePath }) {
   const threadEntries = Array.isArray(payload?.thread_entries) ? payload.thread_entries : [];
   if (!threadEntries.length) return payload;
+  const workspaceRoot = normalizeOptionalText(payload.workspace_root);
+  const role = normalizeOptionalText(payload.role);
+  const resolvedThreadTokenUsagePath = resolveThreadTokenUsagePath(threadTokenUsagePath, workspaceRoot);
   const enrichedEntries = await Promise.all(threadEntries.map(async (thread) => {
     const threadId = String(thread?.thread_id ?? "").trim();
     if (!threadId) return thread;
-    const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath });
+    const usage = await readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath: resolvedThreadTokenUsagePath });
     const usageSummary = extractThreadUsageSummary(usage);
     if (thread?.latest_input_tokens == null && usageSummary.latestInputTokens != null) {
       thread = { ...thread, latest_input_tokens: usageSummary.latestInputTokens };
@@ -226,7 +233,7 @@ async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTo
     }
     if (thread?.latest_input_tokens != null && thread?.threshold_input_tokens != null) return thread;
     if (typeof readThreadImpl !== "function") return thread;
-    const threadSummary = await readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache });
+    const threadSummary = await readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache, workspaceRoot, role });
     if (thread?.latest_input_tokens == null && threadSummary.latestInputTokens != null) {
       thread = { ...thread, latest_input_tokens: threadSummary.latestInputTokens };
     }
@@ -243,7 +250,8 @@ async function hydrateRoleStatusContext(payload, { readThreadImpl, threadInputTo
 
 async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath }) {
   const now = Date.now();
-  const cached = threadTokenUsageCache.get(threadId);
+  const cacheKey = `${threadTokenUsagePath || ""}::${threadId}`;
+  const cached = threadTokenUsageCache.get(cacheKey);
   if (cached && now - cached.time < THREAD_INPUT_TOKEN_CACHE_TTL_MS) return cached.value;
   let value = null;
   try {
@@ -258,23 +266,34 @@ async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache, thr
   } catch {
     value = null;
   }
-  threadTokenUsageCache.set(threadId, { time: now, value });
+  threadTokenUsageCache.set(cacheKey, { time: now, value });
   return value;
 }
 
-async function readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache }) {
+async function readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache, workspaceRoot, role }) {
   const now = Date.now();
-  const cached = threadInputTokenCache.get(threadId);
+  const cacheKey = `${workspaceRoot || ""}::${threadId}`;
+  const cached = threadInputTokenCache.get(cacheKey);
   if (cached && now - cached.time < THREAD_INPUT_TOKEN_CACHE_TTL_MS) return cached.value;
   let value = null;
   try {
-    const result = await readThreadImpl(threadId);
+    const result = await readThreadImpl(threadId, { workspaceRoot, role });
     value = extractThreadUsageSummary(result?.thread ?? result);
   } catch {
     value = null;
   }
-  threadInputTokenCache.set(threadId, { time: now, value });
+  threadInputTokenCache.set(cacheKey, { time: now, value });
   return value;
+}
+
+function resolveThreadTokenUsagePath(threadTokenUsagePath, workspaceRoot) {
+  if (typeof threadTokenUsagePath === "function") {
+    return threadTokenUsagePath({ workspaceRoot: workspaceRoot || WORKSPACE_ROOT });
+  }
+  const configuredPath = normalizeOptionalText(threadTokenUsagePath);
+  if (configuredPath && path.resolve(configuredPath) !== THREAD_TOKEN_USAGE_PATH) return configuredPath;
+  const root = normalizeOptionalText(workspaceRoot) || WORKSPACE_ROOT;
+  return path.join(root, "_workspace", "runtime", "appserver", "thread_token_usage.json");
 }
 
 async function readJsonFileCached(filePath) {
@@ -565,6 +584,7 @@ function allowedThreadPayload(match, requestedThreadId) {
     ok: true,
     role: match.role,
     thread_id: threadId,
+    workspace_root: match.workspace_root ?? null,
     requested_thread_id: requested,
     resolved_from_short_id: Boolean(requested && requested !== threadId),
   };
@@ -594,6 +614,12 @@ function isThreadShortIdMatch(threadId, requestedThreadId) {
 function nullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function normalizeOptionalText(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
 }
 
 function parseJson(text) {

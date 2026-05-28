@@ -42,7 +42,7 @@ const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArt
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const appServer = createAppServerBridge();
 const threadPool = createThreadPoolProxy({
-  readThreadImpl: async (threadId) => appServer.readThread({ workspaceRoot: rootDir, threadId }),
+  readThreadImpl: async (threadId, options = {}) => appServer.readThread({ workspaceRoot: options.workspaceRoot ?? rootDir, threadId }),
 });
 const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
