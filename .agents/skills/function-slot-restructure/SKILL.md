@@ -132,7 +132,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 1. 重组目标与假设
 2. 最终功能槽位链（精确到 `slotSubtype`）
-3. 槽位实现表（atom 精确到 concrete atom variant，包含候选来源、选择理由和未选替代）
+3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms；选择理由放在第 2 节）
 4. Adapter 方案（说明触发理由、解决了什么、如何桥接）
 5. 脚本草案或节拍表
 6. 节奏曲线
