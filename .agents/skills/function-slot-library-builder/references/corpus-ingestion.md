@@ -1,6 +1,6 @@
 # 语料库摄入
 
-用于校验和汇总 `Artifacts/FunctionSlotLibrary/` 下的样例库。
+用于校验和汇总 `Artifacts/FunctionSlotLibrary/` 下的样例库。这里产出的是证据层，不是治理层。
 
 ## 项目目录
 
@@ -57,6 +57,8 @@ Artifacts/FunctionSlotLibrary/
 }
 ```
 
+`slot_index.json` 只是证据索引。它可以统计 `slotTypeSupport`、收集 variant 和保留血缘，但不能作为 family/archetype/subtype 或 pattern 的自动治理结果。
+
 输出中保留 manifest 血缘字段：
 
 - `artifactId`
@@ -83,3 +85,12 @@ Artifacts/FunctionSlotLibrary/
 - 低置信度或 `needReview`
 - 覆盖不足的 slotType
 - 可能重复或相近的 slotType
+
+## 治理前置条件
+
+进行语义治理前，先确认：
+
+- `validation.json` 没有阻断性 errors。
+- `slot_index.json` 能追溯每个 slot、atom、binding、rule 的 `variantId`。
+- 低置信度和 `needReview` 项在治理输出中被标记。
+- 所有治理结论只引用证据层，不覆盖原始样例库。

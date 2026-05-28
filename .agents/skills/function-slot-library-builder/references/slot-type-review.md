@@ -1,6 +1,6 @@
-# slotType 命名审查
+# slotType 与槽位治理审查
 
-用于判断新槽位应复用已有 `slotType`，还是新增更明确的 `slotType`。
+用于判断新槽位应复用已有 `slotType`，新增更明确的 `slotType`，还是挂到同一 family/archetype/subtype。
 
 ## 基本原则
 
@@ -15,6 +15,10 @@
 - script atom 的 `proofNeed`
 - packaging atom 的 `packagingFunction`
 - bindings/rules 中的承接和证明要求
+- rhythm function
+- chain dependency
+
+`slotTypeSupport` 只能回答“同名出现几次”，不能回答“功能是否同类”。功能同类必须由 agent 根据证据层判断。
 
 ## 复用已有 slotType
 
@@ -36,15 +40,31 @@
 - 证明功能不同
 - 与已有类型混用会造成检索误判
 
-## 注意
+## 挂父级而不合并
 
-`slotTypeSupport` 目前是精确名称统计。
+当两个 slot 的高层任务相近，但证明机制不同，不要强行复用同一 `slotType`。应挂到同一 archetype 或 family 下，并保留不同 subtype。
 
-```text
-problem_activation
-scene_problem_activation
-```
+判断：
 
-会被统计成两个不同类型。它只能回答“同名出现几次”，不能回答“功能是否同类”。
+- 同 family：高层说服任务相近。
+- 同 archetype：观众状态迁移和核心任务相近。
+- 不同 subtype：证明义务、方案出现时机、节奏或包装证明方式不同。
 
-功能同类需要相似查询和人工 review。
+例：`problem_activation` 和 `scene_problem_activation` 可以同属需求激活 archetype，但不要合并为同 subtype。
+
+## 禁止项
+
+- 不要按 `slotType` 名称相似自动合并。
+- 不要按字段完全一致自动合并。
+- 不要按文本相似度自动合并。
+- 不要让 script atom 的归并结果决定 slot subtype。
+
+## 输出要求
+
+每个复用、新增或挂父级建议都要写：
+
+- 来源 `variantId`。
+- 支持证据。
+- 差异点。
+- 推荐治理层级。
+- 误分风险。
