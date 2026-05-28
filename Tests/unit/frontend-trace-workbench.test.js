@@ -254,6 +254,21 @@ test("media preview uses ResizeObserver and preserves full aspect ratio metadata
   assert.match(format, /return `\$\{text\}s`/);
 });
 
+test("audio feature display keeps only sfx candidate markers", () => {
+  const root = path.resolve(__dirname, "../..");
+  const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
+  const preview = read(root, "Apps/Workbench/src/components/PreviewPanel.tsx");
+  const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
+  const helpers = read(root, "Apps/Workbench/src/utils/workbenchHelpers.ts");
+
+  for (const source of [timeline, preview, formatters, helpers]) {
+    assert.match(source, /candidate\.kind === "sfx_candidate"/);
+    assert.doesNotMatch(source, /candidate\.kind === "strong_cut_candidate"/);
+    assert.doesNotMatch(source, /`beat_\$\{index\}_\$\{time\}`/);
+    assert.doesNotMatch(source, /`onset_\$\{index\}_\$\{time\}`/);
+  }
+});
+
 test("upload options and optional media tracks are visible in workbench UI", () => {
   const root = path.resolve(__dirname, "../..");
   const resource = read(root, "Apps/Workbench/src/components/ResourcePanel.tsx");

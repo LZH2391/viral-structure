@@ -481,8 +481,17 @@ export function buildSubtitleSaveError(error: unknown, fallbackMessage = "字幕
 export function findAudioFeatureMarker(audioFeatures: WorkbenchState["audioFeatures"], markerId: string): AudioFeatureMarker | null {
   if (!audioFeatures) return null;
   const markers = [
-    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time })),
-    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time })),
+    ...(audioFeatures.audioEventCandidates ?? [])
+      .filter((candidate) => candidate.kind === "sfx_candidate")
+      .map((candidate, index) => ({
+        id: `event_${candidate.kind}_${index}_${candidate.time}`,
+        type: "sfx_candidate" as const,
+        time: candidate.time,
+        rms: candidate.evidence?.rms ?? null,
+        confidence: candidate.confidence ?? null,
+        usableForEdit: candidate.usableForEdit ?? null,
+        evidenceLabels: candidate.evidence?.labels ?? [],
+      })),
   ];
   return markers.find((marker) => marker.id === markerId) ?? null;
 }

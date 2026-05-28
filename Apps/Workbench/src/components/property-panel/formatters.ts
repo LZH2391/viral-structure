@@ -23,13 +23,11 @@ export function nearestRms(audioFeatures: AudioFeatureAnalysisArtifact, time: nu
 export function findAudioFeatureMarker(audioFeatures: AudioFeatureAnalysisArtifact | null | undefined, markerId: string | null): AudioFeatureMarker | null {
   if (!audioFeatures || !markerId) return null;
   const markers = [
-    ...(audioFeatures.beats ?? []).map((time, index) => ({ id: `beat_${index}_${time}`, type: "beat" as const, time, rms: nearestRms(audioFeatures, time) })),
-    ...(audioFeatures.onsets ?? []).map((time, index) => ({ id: `onset_${index}_${time}`, type: "onset" as const, time, rms: nearestRms(audioFeatures, time) })),
     ...(audioFeatures.audioEventCandidates ?? [])
-      .filter((candidate) => candidate.kind === "sfx_candidate" || candidate.kind === "strong_cut_candidate")
+      .filter((candidate) => candidate.kind === "sfx_candidate")
       .map((candidate, index) => ({
         id: `event_${candidate.kind}_${index}_${candidate.time}`,
-        type: candidate.kind as "sfx_candidate" | "strong_cut_candidate",
+        type: "sfx_candidate" as const,
         time: candidate.time,
         rms: candidate.evidence?.rms ?? nearestRms(audioFeatures, candidate.time),
         confidence: candidate.confidence ?? null,
