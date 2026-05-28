@@ -95,7 +95,43 @@ python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --
 
 如果需要按 brief 检索重组候选，那是 `function-slot-restructure` 的职责，不是本 skill 的治理流程。
 
-### 4. 语义治理审查
+### 4. 生成治理骨架
+
+```bash
+python .agents/skills/function-slot-library-builder/scripts/build_governance_skeleton.py .
+```
+
+默认输出到：
+
+```text
+Runtime/Temp/FunctionSlotLibrary/semantic-governance.skeleton.json
+```
+
+这个脚本只生成：
+
+- `sourceSnapshot`
+- `coverage`
+- `slotFamilies / slotArchetypes / slotSubtypes`
+- `atomArchetypes / atomPatterns`
+- `bindingPatterns / bindingPrinciples`
+- `rulePatterns / recompositionPolicies`
+- `implementationBundles`
+- `chainPatterns`
+- `reviewItems / openQuestions`
+
+它不做 semantic merge，不生成 family/archetype/subtype/pattern/principle/policy 的判断内容。需要写正式治理文件时，必须显式指定：
+
+```bash
+python .agents/skills/function-slot-library-builder/scripts/build_governance_skeleton.py . --formal-out --force
+```
+
+如果正式治理文件已经存在，后续通常不重新生成空文件，而是在现有文件上补字段、刷新 `sourceSnapshot / coverage`，并保留已有语义治理内容：
+
+```bash
+python .agents/skills/function-slot-library-builder/scripts/build_governance_skeleton.py . --formal-out --update-existing
+```
+
+### 5. 语义治理审查
 
 读取 `references/governance-layer.md` 和 `references/semantic-governance-protocol.md`，基于 `slot_index.json` 中的真实 variant 做 agent 判断。
 
@@ -119,7 +155,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 该文件必须记录 `sourceSnapshot` 和治理结果。`sourceSnapshot` 用每个 library artifact 的 `contentHash` 判断治理结果是否过期。
 
-### 5. atom / binding / rule 治理
+### 6. atom / binding / rule 治理
 
 读取 `references/atom-binding-rule-governance.md`。
 
