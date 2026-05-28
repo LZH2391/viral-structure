@@ -225,11 +225,12 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "F001 先展示解决后状态和压力验证，F002 再用旧状态和生活成本解释为什么这个结果值得关注，两者形成同一反向需求链。",
+      "judgementReason": "这些 variant 的共同任务是先用可见结果建立观看理由，再要求后续链路回补同一关切；痛点回填属于结果前置链路的闭合义务，不等同于普通问题激活。",
       "differenceNotes": [
-        "F001 是结果钩子，F002 是需求回补；同原型但不可合并为同 subtype。"
+        "instant_solution_preview 只能承担可见结果/使用入口的前置钩子，不能吸收后续痛点、机制或结果收束。",
+        "pain_backfill 只能解释开头结果对应的同一旧状态或生活成本，不能扩展为完整问题激活 archetype。"
       ],
-      "riskIfMisclassified": "把痛点回补当作普通开场痛点，会破坏结果先行链路的承接要求。",
+      "riskIfMisclassified": "如果把结果前置与普通痛点激活混合，重组时会漏掉结果先行后的关切回补，或把结果画面误当成完整证明链。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "result_first_need_backfill",
@@ -244,7 +245,7 @@
     {
       "id": "ARCH_value_anchor_verification",
       "familyId": "FAM_attention_and_need_activation",
-      "name": "低门槛价值锚定与兑现原型",
+      "name": "价值锚定与可见兑现原型",
       "viewerStateBeforeClass": "未识别购买对象",
       "viewerStateAfterClass": "接受低门槛利益并看到数量或规格证据",
       "commonProofObligation": [
@@ -262,11 +263,12 @@
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
         ]
       },
-      "judgementReason": "F001 给出低门槛价值锚点，F002 把价值从口头利益推进为可见份量或规格证据。",
+      "judgementReason": "该 archetype 只覆盖同一购买对象上的价值主张及其可见兑现：F001 建立低门槛利益，F002 用数量、规格或份量证明该利益可感。它不覆盖品质、机制、操作门槛或场景问题。",
       "differenceNotes": [
-        "F001 解决第一眼利益，F002 解决利益是否真实可感。"
+        "value_anchor 是第一眼利益承诺，quantity_value_confirmation 是同一利益的可见兑现；二者是价值链路中的相邻 subtype，不可反向吸收品质证明。",
+        "低门槛只描述价值承诺，不等于 low_barrier_operation 的步骤容易、等待时间或执行门槛降低。"
       ],
-      "riskIfMisclassified": "如果只保留价格或口播而缺少规格兑现，价值锚点会变成不可验证话术。",
+      "riskIfMisclassified": "如果把价值锚定误扩成品质或操作证明，重组会用价格、数量或口播替代真正的品质/步骤/机制证据。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "low_barrier_value_claim_with_visible_evidence",
@@ -301,12 +303,12 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
-      "judgementReason": "两个 variant 都把观众从无关浏览转入问题成立，但 scene_problem_activation 依赖生活场景和干扰源，problem_activation 依赖问题对象和直接动作入口。",
+      "judgementReason": "这些 variant 的共同任务是让观众接受问题或需求成立；scene_problem_activation 通过生活场景和干扰源成立问题，object_action_problem_activation 通过问题对象和接触动作成立问题。二者只在问题激活任务上同 archetype，不能共享方案进入时机或证明载体。",
       "differenceNotes": [
-        "scene_problem_activation 的 solution visibility 延迟，先共鸣后方案。",
-        "problem_activation 的 solution visibility 更早，解决动作在开头直接出现。"
+        "scene_problem_activation 的方案出现延迟，必须保留场景、干扰源和受影响状态，不能提前并入 solution_entry。",
+        "object_action_problem_activation 的解决动作可立即出现，但复杂机制、操作步骤和长期信任必须后移到各自 archetype。"
       ],
-      "riskIfMisclassified": "把场景共鸣型和对象直冲型合并，会让后续方案进入时机错位。",
+      "riskIfMisclassified": "如果把场景共鸣、对象直冲、方案进入和机制证明混成同一原型，重组会出现方案时机错位或痛点证据不足。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "problem_or_need_visibility",
@@ -358,7 +360,7 @@
     {
       "id": "ARCH_mechanism_and_credibility_proof",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "机制/结构可信证明原型",
+      "name": "机制/可信原因证明原型",
       "viewerStateBeforeClass": "已知道方案或差异但尚未相信原因",
       "viewerStateAfterClass": "理解方案为何有效、可靠或可持续",
       "commonProofObligation": [
@@ -380,13 +382,13 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "三个 variant 都承担机制可信，但 proof obligation 不同：结构便利与复用、替代缺陷回应、机制与适用范围解释。",
+      "judgementReason": "这些 variant 的共同任务是解释方案为何有效、可靠或适用；只治理机制、结构、材料、适用范围等可信原因。低门槛操作、替代方案缺陷、持续使用结论和结果收束必须留在各自 archetype 或 subtype 的前后承接中。",
       "differenceNotes": [
-        "mechanism_proof 的证据链更复杂，常与 alternative_contrast 绑定。",
-        "mechanism_credibility 更强调连续实拍和轻量说明载体。",
-        "mechanism_trust 还包含低门槛和持续使用信任。"
+        "mechanism_proof 只在机制证明中回应前置 alternative_contrast 暴露的缺陷，替代缺陷本身仍属于 contrast_gap_setup。",
+        "mechanism_credibility 只证明机制和适用范围可信，不承载后续 low_barrier_operation 的步骤降低任务。",
+        "mechanism_trust 只使用结构、操作可执行性或复用依据作为可信原因；持续使用信任的最终结论必须由 result_closure 或 long_term_or_choice_close 承接。"
       ],
-      "riskIfMisclassified": "把机制证明直接套开头快节奏或结果画面，会导致观众看见卖点但无法建立因果可信。",
+      "riskIfMisclassified": "如果把桥接、低门槛操作、替代缺陷或长期结果吸收入机制证明，重组会用机制解释替代必要的链路铺垫、步骤兑现或收束证据。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "mechanism_or_credibility_explanation",
@@ -420,11 +422,12 @@
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
         ]
       },
-      "judgementReason": "F003 负责从价值感转向品质疑虑，F004 负责以强细节证据完成体验兑现。",
+      "judgementReason": "该 archetype 只处理品质疑虑和感官证据：quality_trust_build 让观众愿意观察品质，sensory_proof_peak 用细节或体验证据完成峰值证明；它不承担价值锚定、机制解释或结果收束。",
       "differenceNotes": [
-        "quality_trust_build 是观察入口，sensory_proof_peak 是证明峰值。"
+        "quality_trust_build 是品质观察入口，不是数量价值兑现。",
+        "sensory_proof_peak 是体验/细节证明峰值，不是机制因果证明或购买收束。"
       ],
-      "riskIfMisclassified": "如果把入口和峰值合并，重组时可能缺少缓冲观察点或把细节证据提前堆叠。",
+      "riskIfMisclassified": "如果把品质/感官证据并入价值或机制原型，重组会用数量、结构或口播替代真实质地和体验证明。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "quality_or_sensory_evidence",
@@ -463,13 +466,12 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "四个 variant 都在闭合前文证明链，但分别落到生活状态、使用场景、真实使用状态和问题对象结果近景。",
+      "judgementReason": "该 archetype 只承担回收前文关切并用结果、场景或反馈完成兑现的收束任务；它依赖上游激活或证明，不生成新的机制、价值或操作主证明。",
       "differenceNotes": [
-        "life_benefit_close 偏生活情绪回落。",
-        "usage_scene_close 还需要重新绑定购买对象。",
-        "usage_result_confirmation/result_confirmation 更强调回扣前置痛点或机制。"
+        "life_benefit_close、usage_scene_close、usage_result_confirmation、operation_result_confirmation 的差异在收束载体不同，但都必须回扣上游同一关切。",
+        "结果收束不能替代机制解释、品质峰值或低门槛操作步骤。"
       ],
-      "riskIfMisclassified": "如果结果槽没有回扣上游关切，会让结尾成为漂亮画面或泛泛好处。",
+      "riskIfMisclassified": "如果把收束槽当成证明槽，重组会跳过必要的因果、品质或步骤证据，只用结果画面硬收尾。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "activated_concern_result_closure",
@@ -504,11 +506,12 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
-      "judgementReason": "二者都从结果后进入最终选择判断，但 long_term_trust_close 需要长期物证，choice_close 主要是推荐与记忆锚点。",
+      "judgementReason": "该 archetype 只承担最终选择、记忆点或长期信任收口；长期证据可以作为选择理由，但不能回流吸收机制证明或操作步骤。",
       "differenceNotes": [
-        "同 family，不建议合并为同 subtype。"
+        "choice_close 偏推荐记忆和识别锚点，long_term_trust_close 偏时间证据和低压选择收束。",
+        "长期信任结论必须建立在前文机制或结果之上，不能替代它们。"
       ],
-      "riskIfMisclassified": "把长期信任误作普通推荐，会缺少时间证据；把推荐记忆误作长期背书，会过度要求素材。",
+      "riskIfMisclassified": "如果把长期收口当成机制证明，重组会缺少前置可信原因，只剩结尾背书。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "primaryProofObligationClass": "long_term_trust_or_choice_memory_close",
@@ -526,12 +529,12 @@
       "name": "Proof bridge archetype",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "viewer has seen initial result but is not ready for mechanism explanation",
-      "viewerStateAfterClass": "viewer accepts coverage or scope cue and is ready for later proof",
+      "viewerStateBeforeClass": "观众已经看到初始结果或范围感，但尚未准备好理解机制原因",
+      "viewerStateAfterClass": "观众接受覆盖、范围或多实例提示，并准备进入后续证明",
       "commonProofObligation": [
-        "visible coverage or multiple instances",
-        "clear landing point for later proof",
-        "must not replace later mechanism explanation"
+        "覆盖范围、多点或多实例提示必须可见",
+        "必须为后续机制解释建立观看理由",
+        "不得替代后续机制说明、操作步骤或结果闭合"
       ],
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003"
@@ -543,11 +546,12 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "coverage_bridge performs transition from initial result to later mechanism proof; it does not explain the full mechanism by itself.",
+      "judgementReason": "该 archetype 只承担从可见覆盖、范围或多实例感知过渡到后续机制解释的桥接任务，本身不是机制证明，也不是最终结果确认。",
       "differenceNotes": [
-        "It can depend on mechanism_trust, but chain dependency is not archetype membership."
+        "coverage_bridge 可以提示后续需要解释结构或原因，但不能替代 mechanism_trust。",
+        "桥接槽的 proof obligation 是范围/覆盖感和下一槽承接，不是因果机制、操作步骤或长期信任。"
       ],
-      "riskIfMisclassified": "Bridge setup would be mistaken for mechanism proof and make the parent archetype too broad again.",
+      "riskIfMisclassified": "如果把桥接吸收入机制证明，重组会少掉从卖点感知到可信解释的过渡，或用多实例画面替代因果证据。",
       "primaryProofObligationClass": "proof_bridge_to_later_explanation",
       "chainDependencyClass": "bridge_before_mechanism_or_proof",
       "excludes": [
@@ -563,12 +567,12 @@
       "name": "Contrast gap setup archetype",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "viewer believes an alternative or ordinary solution may be enough",
-      "viewerStateAfterClass": "viewer recognizes the alternative gap and is ready for target solution proof",
+      "viewerStateBeforeClass": "观众已经看到问题或可选方案，但尚未理解目标方案差异",
+      "viewerStateAfterClass": "观众识别替代方案缺口，并准备接收目标方案证明",
       "commonProofObligation": [
-        "alternative solution or failure state must be visible",
-        "gap must be answered by later solution proof",
-        "gap setup must not replace mechanism explanation"
+        "替代方案或失败状态必须可见",
+        "缺口必须由后续目标方案证明回应",
+        "缺口设置不得替代机制解释、品质证明或结果闭合"
       ],
       "sourceVariantIds": [
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003"
@@ -580,11 +584,12 @@
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
         ]
       },
-      "judgementReason": "alternative_contrast establishes the need for differentiated proof; it is not mechanism proof.",
+      "judgementReason": "alternative_contrast 只建立差异化证明的必要性；它暴露替代方案缺陷，但不是机制证明本身。",
       "differenceNotes": [
-        "It may require/carry over to mechanism_proof, but binding relation does not decide slot archetype."
+        "对比槽可以位于 solution_entry 前后，但位置变化不能改变其缺口设置任务。",
+        "后续 mechanism_proof 必须回应同一缺陷；不能把吐槽、机制原因和结果承诺混成同一 archetype。"
       ],
-      "riskIfMisclassified": "Contrast setup would be mistaken for mechanism explanation and downstream proof would be weakened.",
+      "riskIfMisclassified": "如果把替代缺口吸收入机制证明，重组会把对比吐槽当作可信原因，或让后续机制卖点无法回应前置缺陷。",
       "primaryProofObligationClass": "contrast_gap_definition",
       "chainDependencyClass": "gap_setup_before_solution_or_mechanism_proof",
       "excludes": [
@@ -600,12 +605,12 @@
       "name": "Operation barrier reduction archetype",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "viewerStateBeforeClass": "viewer understands solution logic but worries about execution cost or complexity",
-      "viewerStateAfterClass": "viewer understands the minimal operation loop and feels less execution friction",
+      "viewerStateBeforeClass": "观众已经理解机制或方案，但仍担心执行门槛、等待成本或步骤复杂度",
+      "viewerStateAfterClass": "观众相信方案容易执行，并看到步骤、等待或生效过程可完成",
       "commonProofObligation": [
-        "operation steps or wait process must be visible",
-        "completion action and result attribution must stay continuous",
-        "operation proof must not replace causal mechanism explanation"
+        "操作步骤或等待过程必须可见",
+        "完成动作与结果归因必须保持连续",
+        "操作证明不得替代因果机制解释、长期信任或结果闭合"
       ],
       "sourceVariantIds": [
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
@@ -617,11 +622,12 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
-      "judgementReason": "low_barrier_operation proves ease of use; it does not explain the full mechanism.",
+      "judgementReason": "low_barrier_operation 证明的是可执行门槛降低；它通常承接机制可信并连接结果确认，但前后位置不是 archetype 归属依据。",
       "differenceNotes": [
-        "It usually follows mechanism credibility and connects to result confirmation, but position is not archetype membership."
+        "该 archetype 只处理步骤、等待、生效和完成动作，不解释完整机制原因。",
+        "低门槛操作可以承接 mechanism_credibility，但不能被 mechanism_credibility 吸收，也不能替代 operation_result_confirmation。"
       ],
-      "riskIfMisclassified": "Step demonstration would be mistaken for mechanism proof and causal explanation would be lost.",
+      "riskIfMisclassified": "如果把操作门槛并入机制证明或结果收束，重组会缺少可执行步骤证据，或用步骤画面硬当结果。",
       "primaryProofObligationClass": "operation_barrier_reduction",
       "chainDependencyClass": "operation_after_mechanism_before_result",
       "excludes": [
@@ -658,22 +664,25 @@
       },
       "judgementReason": "该槽位把解决方案和结果先抛出，观看理由来自可视结果而非完整痛点铺陈。",
       "differenceNotes": [
-        "后续必须由 pain_backfill 补回同一关切。"
+        "只能前置可见结果和使用入口；痛点回填、机制解释和结果收束必须由后续槽位完成。"
       ],
-      "riskIfMisclassified": "误作普通开场展示会遗漏后续痛点回补要求。",
+      "riskIfMisclassified": "误作普通展示或完整证明，会遗漏结果先行后必须回补的同一关切。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "素材对象/使用动作选择",
+          "结果状态呈现强度",
+          "开头节奏峰值形态",
+          "结果字幕或视觉锚点样式"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -702,22 +711,25 @@
       },
       "judgementReason": "该槽位不是新开痛点，而是给前置结果补动机。",
       "differenceNotes": [
-        "可用多场景或单强对比，但不能只描述痛点。"
+        "只能回填开头结果对应的旧状态或生活成本；不能扩展为全新的问题激活链。"
       ],
-      "riskIfMisclassified": "会让结果前置结构断成两个不相关信息点。",
+      "riskIfMisclassified": "误吸收普通问题激活会让结果前置链路失去前后同一关切约束。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "旧状态素材",
+          "生活成本表达方式",
+          "回填节奏长短",
+          "同一关切回扣包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -746,22 +758,25 @@
       },
       "judgementReason": "该槽位先解决为什么值得继续看，而不是先证明品质。",
       "differenceNotes": [
-        "需要 quantity_value_confirmation 承接兑现。"
+        "只建立低门槛价值承诺；数量兑现、品质证明和操作门槛降低必须留给后续 subtype。"
       ],
-      "riskIfMisclassified": "如果直接进入品质证明，价值锚点会不足。",
+      "riskIfMisclassified": "误当操作门槛证明会用价格或利益提示替代步骤可执行证据。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "商品主体呈现方式",
+          "低门槛利益表达",
+          "入口节奏强度",
+          "价值提示包装样式"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -790,22 +805,25 @@
       },
       "judgementReason": "该槽位把价值锚点从主张推进为可见证据。",
       "differenceNotes": [
-        "数量密度不能承担复杂品质解释。"
+        "只兑现同一价值锚点的数量/规格/份量证据；不承担品质、机制或感官峰值证明。"
       ],
-      "riskIfMisclassified": "容易把价值证据误作视觉堆料。",
+      "riskIfMisclassified": "误作品质证明会把“多/划算”当成“好/可信”。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "数量/规格/份量证据载体",
+          "同框或连续展示方式",
+          "价值兑现节奏",
+          "规格标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -834,22 +852,25 @@
       },
       "judgementReason": "问题成立依赖场景和干扰源，不依赖开头直接执行动作。",
       "differenceNotes": [
-        "和 problem_activation 同 archetype 不同 subtype。"
+        "和对象直冲型同属问题激活 archetype，但方案出现延迟，必须保留场景与干扰源。"
       ],
-      "riskIfMisclassified": "过早露出强商品包装会削弱场景真实感。",
+      "riskIfMisclassified": "过早露出解决物或机制包装会削弱场景问题成立。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "生活场景素材",
+          "干扰来源表达",
+          "真实感节奏强度",
+          "低包装或环境音呈现"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -878,22 +899,25 @@
       },
       "judgementReason": "该槽位靠问题对象和动作示范抢占第一视线，方案可见性明显早于场景共鸣型。",
       "differenceNotes": [
-        "节奏允许近距连击，但不适合长机制主张。"
+        "问题对象和接触动作可立即出现，但只负责激活，不解释机制或步骤。"
       ],
-      "riskIfMisclassified": "如果套用场景共鸣节奏，会削弱对象直冲的教程式入口。",
+      "riskIfMisclassified": "误作机制证明会把开头动作卖点当成可信原因。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "问题对象选择",
+          "接触动作呈现",
+          "开头快入节奏",
+          "定位提示包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -929,15 +953,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "解决物识别载体",
+          "承接痛点的入口动作",
+          "进入节奏",
+          "对象标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -966,22 +993,25 @@
       },
       "judgementReason": "该槽位是从痛点到机制的高密度过渡，不是独立证明峰值。",
       "differenceNotes": [
-        "可以跨脚本边界，但要保留机制落点。"
+        "只负责从覆盖感过渡到机制解释；不能替代后续结构、材料或因果证明。"
       ],
-      "riskIfMisclassified": "会变成单纯堆料，无法转入可信解释。",
+      "riskIfMisclassified": "误并入机制证明会用多点画面替代真正的可信原因。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "覆盖范围素材",
+          "多点/多实例展示方式",
+          "从快入到解释的过渡节奏",
+          "桥接提示包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1010,22 +1040,25 @@
       },
       "judgementReason": "该槽位建立差异化证明必要性，关系上依赖后续 mechanism_proof。",
       "differenceNotes": [
-        "可移动位置，但必须检查与解决物进入、机制证明是否仍承接同一缺陷。"
+        "只定义替代方案缺口；后续机制证明必须回应该缺口，但缺口本身不是机制。"
       ],
-      "riskIfMisclassified": "孤立贬低替代方案会降低后续差异化可信度。",
+      "riskIfMisclassified": "误并入机制证明会让对比吐槽替代差异化原因。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "替代方案素材",
+          "缺陷呈现方式",
+          "对比节奏位置",
+          "差距标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1055,22 +1088,25 @@
       },
       "judgementReason": "该槽位补足低门槛和可持续使用信任，证明对象包括结构和操作。",
       "differenceNotes": [
-        "不能套用开头动作爆点节奏。"
+        "只用结构、复用或可执行证据解释可信原因；低门槛操作和长期收束必须分别后移。"
       ],
-      "riskIfMisclassified": "会让结构可信退化为结果展示。",
+      "riskIfMisclassified": "误吸收操作或长期信任，会让机制槽承担步骤兑现和结尾背书。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "结构细节素材",
+          "复用/可执行证据呈现",
+          "解释节奏和停顿",
+          "结构证明包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1106,15 +1142,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "机制细节素材",
+          "因果演示方式",
+          "解释节奏密度",
+          "机制图文或指向包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1144,22 +1183,25 @@
       },
       "judgementReason": "该槽位依赖实拍绑定机制说明，不应脱离执行动作做空泛科普。",
       "differenceNotes": [
-        "packaging atom P002 标记 needReview，说明说明载体强度需要人工关注。"
+        "只证明机制与适用范围可信；持续执行实拍是可信原因证据，不是长期收口。"
       ],
-      "riskIfMisclassified": "重包装或超快切会压缩理解时间。",
+      "riskIfMisclassified": "误作长期信任收束会缺少结尾选择和结果回扣。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "机制说明载体",
+          "适用范围素材",
+          "持续执行观察节奏",
+          "范围/可信标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1196,15 +1238,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "操作步骤素材",
+          "等待或生效时间表达",
+          "步骤节奏与停顿",
+          "步骤提示包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1240,15 +1285,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "质地/品质观察素材",
+          "疑虑转向表达",
+          "稳定观察节奏",
+          "品质锚点包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1284,15 +1332,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "感官细节素材",
+          "动作拆解或内部结构呈现",
+          "证明峰值节奏",
+          "细节放大/指向包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1328,15 +1379,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "生活化结果素材",
+          "利益收束表达",
+          "低负荷收尾节奏",
+          "回扣字幕或轻包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1372,15 +1426,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "使用场景素材",
+          "购买对象回收方式",
+          "场景收尾节奏",
+          "对象/场景同框包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1416,15 +1473,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "使用结果素材",
+          "前文关切回扣方式",
+          "结果确认节奏",
+          "反馈或结果标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1460,15 +1520,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "操作后结果素材",
+          "问题对象回看方式",
+          "结果确认节奏",
+          "指向动作/结果包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1505,15 +1568,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "推荐场景素材",
+          "识别锚点表达",
+          "极简结尾节奏",
+          "记忆点包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     },
@@ -1550,15 +1616,18 @@
       "maturityStatus": "candidate",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "时间证据素材",
+          "使用痕迹/记录呈现",
+          "低压选择收尾节奏",
+          "长期信任标注包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task"
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
         ]
       }
     }
@@ -1789,7 +1858,7 @@
       "name": "价值主张可视兑现脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
-      "claimPattern": "先给低门槛利益，再用主体、数量或规格证明价值真实",
+      "claimPattern": "同一购买对象上的价值承诺需要被数量、规格、份量或可见利益兑现。",
       "proofNeedClass": "object_identity_and_quantity_spec",
       "mustKeepClasses": [
         "购买对象主体",
@@ -1809,9 +1878,10 @@
       },
       "judgementReason": "两个 atom 共同形成价值锚定链，但一个是锚点，一个是兑现证据。",
       "differenceNotes": [
-        "不应把数量密度用于品质证明。"
+        "仅适用于 SUB_low_barrier_value_anchor 与 SUB_visible_quantity_value 的价值链路。",
+        "不能用于品质、机制、步骤或长期信任证明；数量密度不是品质证据。"
       ],
-      "riskIfMisclassified": "价格或价值会变成不可验证口播。",
+      "riskIfMisclassified": "如果误用于品质或机制证明，重组会把价格、数量或口播当成可信原因。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -1824,11 +1894,11 @@
       "name": "机制因果证明脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
-      "claimPattern": "通过结构、机制、适用范围或材料关系解释为什么有效",
+      "claimPattern": "机制或可信原因主张必须有结构、材料、动作、因果演示或适用范围证据，并回扣前置关切。",
       "proofNeedClass": "visual_causality_and_scope",
       "mustKeepClasses": [
         "机制或结构证据",
-        "动作演示或实拍陪伴",
+        "因果/适用范围/可执行性说明",
         "和前置关切的对应关系"
       ],
       "sourceVariantIds": [
@@ -1847,9 +1917,11 @@
       },
       "judgementReason": "三者都不能只靠结果画面替代，需要观众理解因果或作用范围。",
       "differenceNotes": [
-        "mechanism_proof 需要回应替代方案缺陷；mechanism_credibility 需要适用范围；mechanism_trust 还含持续使用理由。"
+        "mechanism_proof 回应替代缺陷，但替代缺陷本身不是机制 pattern。",
+        "mechanism_credibility 证明机制与适用范围，不承载低门槛操作步骤。",
+        "mechanism_trust 可使用复用或可执行性作为可信原因，但长期信任结论必须由收束槽承接。"
       ],
-      "riskIfMisclassified": "机制主张会变成卖点堆叠。",
+      "riskIfMisclassified": "如果把桥接、操作或长期收束并入该 pattern，机制主张会变成卖点堆叠或步骤说明。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -1863,7 +1935,7 @@
       "name": "品质细节证明脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
-      "claimPattern": "用近景质地、动作拆解或内部结构回应品质/体验疑虑",
+      "claimPattern": "品质疑虑需要先建立可观察入口，再用细节、质地、动作拆解或内部结构形成感官证明峰值。",
       "proofNeedClass": "observable_quality_detail",
       "mustKeepClasses": [
         "可操作或可观察细节",
@@ -1883,9 +1955,10 @@
       },
       "judgementReason": "两个 atom 都服务品质证明，但一个是疑虑转向，一个是证据峰值。",
       "differenceNotes": [
-        "暂不合并 subtype。"
+        "该 pattern 只覆盖品质/感官证据，不覆盖价值兑现、机制因果或结果收束。",
+        "quality_objection_reframe 与 sensory_detail_proof_peak 仍是不同 subtype，不能因同属品质链路而合并。"
       ],
-      "riskIfMisclassified": "会直接堆细节而缺少观察入口。",
+      "riskIfMisclassified": "如果误用于机制或价值证明，会直接堆细节而缺少对应主张和观察入口。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -1940,7 +2013,7 @@
       "name": "快入激活/峰值节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
-      "rhythmFunction": "快速建立注意力并把动作或结果推到首个高点",
+      "rhythmFunction": "快速建立注意力、问题对象或结果峰值，不承载复杂解释。",
       "paceClass": "fast_to_peak_or_fast_staccato",
       "densityClass": "action_cut_density",
       "syncPointClasses": [
@@ -1962,9 +2035,10 @@
       },
       "judgementReason": "两者都用快节奏打开注意力，但一个服务结果验证，一个服务问题对象动作入口。",
       "differenceNotes": [
-        "不适合复杂机制、多步骤解释或长期背书。"
+        "candidate：仅适用于 SUB_visible_result_first_hook 或 SUB_object_action_problem_activation 的开头/动作抢占。",
+        "不能用于机制解释、操作步骤、品质观察、长期信任或结果回落；这些场景需要慢解释、观察或收束节奏。"
       ],
-      "riskIfMisclassified": "复杂信息会来不及被理解。",
+      "riskIfMisclassified": "复杂机制、步骤或长期证据会来不及被理解，且可能被误当成开头爆点。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -2059,7 +2133,7 @@
       "name": "对象识别与入口包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
-      "proofType": "object_identity_and_entry",
+      "proofType": "对象识别或入口定位证明",
       "visualHierarchyClass": "对象/解决物第一，动作或利益第二，字幕辅助",
       "replaceableFormClasses": [
         "近景实物",
@@ -2083,9 +2157,10 @@
       },
       "judgementReason": "这些包装都负责建立对象识别，不是单纯美化。",
       "differenceNotes": [
-        "有的绑定使用入口，有的绑定购买利益，有的绑定后续机制证明对象。"
+        "candidate：仅适用于购买对象、使用入口或解决物进入的视觉识别。",
+        "不能用于机制、品质、结果或长期信任证明；不同 subtype 的入口锚点不可相互替代。"
       ],
-      "riskIfMisclassified": "重组时可能保留形式但丢失证明对象。",
+      "riskIfMisclassified": "如果误用于机制或结果证明，重组会保留视觉形式但丢失真正证明对象。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -2124,9 +2199,10 @@
       },
       "judgementReason": "三者都是机制证明包装，判断依据是证明功能而非具体字幕或图形样式。",
       "differenceNotes": [
-        "artifact_ee6a1aa7 的 P002 needReview，应关注机制说明载体强度。"
+        "包装必须服务结构、因果、适用范围或可执行性证明。",
+        "artifact_ee6a1aa7 的 P002 needReview 只提示机制说明载体强度需复查，不允许把操作步骤或长期收口并入机制包装。"
       ],
-      "riskIfMisclassified": "会把机制证明替换成纯字幕或无关视觉。",
+      "riskIfMisclassified": "会把机制证明替换成纯字幕、入口标识或结果画面。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "forSlotSubtypeIds": [
@@ -2339,8 +2415,8 @@
       "bindingType": "support",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "condition": "Supporting visuals, captions, packaging, or actions strengthen the current claim but are not mandatory proof for that claim.",
-      "requirement": "Supporting evidence must serve the current claim and must not introduce a new proof object or distract attention.",
+      "condition": "辅助画面、字幕、包装或动作可以增强当前主张，但不是该主张的必需证明。",
+      "requirement": "辅助证据必须服务当前主张，不得引入新的证明对象，也不得分散核心注意力。",
       "riskIfBroken": "Supporting evidence becomes noise and weakens the current proof focus.",
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
@@ -2357,11 +2433,12 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "slot_index contains support bindings that are not require bindings but still need alignment with the current claim.",
+      "judgementReason": "slot_index 中存在 support 型 binding，它们不同于 require 型必需证明，但仍需要和当前 claim 对齐。",
       "differenceNotes": [
-        "support strengthens the current claim; it is not the same as require."
+        "support 只增强当前主张的可信度，不等同于 require 的必需证明关系。",
+        "辅助证据必须对齐当前 slot 的 proof obligation，不能跨槽替代机制、品质或结果闭合。"
       ],
-      "riskIfMisclassified": "Support evidence may be treated as mandatory proof or dropped entirely during recomposition.",
+      "riskIfMisclassified": "如果把 support 当 require，会过度约束重组；如果当可丢弃信息，会削弱当前主张可信度。",
       "name": "Supporting evidence alignment"
     }
   ],
@@ -2484,8 +2561,8 @@
       "id": "RULE_pattern_result_first_requires_backfilled_need",
       "name": "结果前置必须补回需求",
       "ruleType": "carryover_policy",
-      "condition": "链路使用结果先行开头",
-      "requirement": "后续槽位必须补回同一核心痛点或同一观众关切",
+      "condition": "结果或解决方案在问题成立前先出现。",
+      "requirement": "后续必须回填同一对象、旧状态或生活成本，解释开头结果为何值得看。",
       "violation": "开头结果缺少问题动机，像孤立展示",
       "fix": "加入旧状态、生活成本或同一关切的痛点回补",
       "sourceVariantIds": [
@@ -2501,9 +2578,10 @@
       },
       "judgementReason": "该政策专属于结果先行链路，不能自动推广到所有开场。",
       "differenceNotes": [
-        "单样例支持，需后续补结果先行样例。"
+        "只适用于结果先行链路，不适用于普通痛点开场。",
+        "单样例支持，仍保持 candidate，重组时只能作为结果前置场景的安全检查。"
       ],
-      "riskIfMisclassified": "会把普通痛点开场错误要求为结果后补结构。",
+      "riskIfMisclassified": "会把普通痛点开场错误要求为结果后补结构，或让结果先行链路缺少关切回填。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate"
     },
@@ -2607,8 +2685,8 @@
       "id": "RULE_pattern_contrast_defect_must_be_answered",
       "name": "对比缺陷必须被机制回应",
       "ruleType": "contrast_policy",
-      "condition": "链路使用替代方案缺陷或反面使用状态",
-      "requirement": "后续机制证明必须逐项回应该缺陷",
+      "condition": "前文显式展示替代方案缺陷或对比差距。",
+      "requirement": "后续机制、品质或结果证明必须回应同一缺陷，不能只追加无关卖点。",
       "violation": "对比成为孤立吐槽，无法支持目标方案",
       "fix": "删除无后续回应的缺陷，或补足对应机制证明证据",
       "sourceVariantIds": [
@@ -2624,9 +2702,10 @@
       },
       "judgementReason": "该规则和 alternative_contrast -> mechanism_proof 绑定强相关，当前只有单链路支持。",
       "differenceNotes": [
-        "对比槽可移动，但缺陷和机制卖点不可错配。"
+        "只适用于已经建立替代缺陷的链路，不适用于普通问题激活或价值锚定。",
+        "对比槽可移动，但缺陷和后续机制卖点不可错配。"
       ],
-      "riskIfMisclassified": "会误把任意吐槽当作有效差异化证明。",
+      "riskIfMisclassified": "会误把任意吐槽当作有效差异化证明，或把对比缺陷吸收入机制 archetype。",
       "reviewStatus": "candidate",
       "maturityStatus": "candidate"
     },
