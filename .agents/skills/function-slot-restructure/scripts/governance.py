@@ -218,6 +218,18 @@ def candidate_governance_variant_ids(candidate: Dict[str, Any]) -> List[str]:
     return ids
 
 
+def concrete_atom_variant_ids(candidate: Dict[str, Any], field: str, layer: str) -> List[str]:
+    sample_id = candidate.get("sampleId")
+    if not sample_id:
+        return []
+    ids: List[str] = []
+    for atom in candidate.get(field, []) or []:
+        atom_id = atom.get("id") if isinstance(atom, dict) else atom
+        if atom_id:
+            ids.append(f"{sample_id}::{layer}::{atom_id}")
+    return ids
+
+
 def candidate_governance_ids(candidate: Dict[str, Any], maps: Dict[str, Any]) -> Dict[str, Set[str]]:
     variant_id = str(candidate.get("variantId") or "")
     return {

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Set
 from common import as_list, read_json, write_json
 from governance import (
     build_governance_maps,
+    concrete_atom_variant_ids,
     default_governance_path,
     governance_audit,
     governance_prior_hypotheses,
@@ -352,9 +353,16 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "slotType": "generated_or_inserted_bridge",
                 "operation": "generated_gap_fill",
                 "selectedVariant": None,
+                "slotChainGranularity": "slotSubtype",
+                "selectedSlotSubtypeIds": [],
+                "parentSlotArchetypeIds": [],
                 "scriptRole": "生成匹配该插入需求的桥接脚本原子",
                 "rhythmRole": "选择与相邻槽位兼容的节奏适配器",
                 "packagingRole": "保留桥接的证明或转场功能",
+                "scriptConcreteAtomVariants": [],
+                "rhythmConcreteAtomVariants": [],
+                "packagingConcreteAtomVariants": [],
+                "fallback": "generated_gap_fill",
                 "syncPoints": [],
             })
             warnings.append(f"插入/生成的需求没有直接对应的库槽位: {demand_id}")
@@ -371,19 +379,30 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "slotType": slot_type,
                 "operation": "generated_gap_fill",
                 "selectedVariant": None,
+                "slotChainGranularity": "slotSubtype",
+                "selectedSlotSubtypeIds": [],
+                "parentSlotArchetypeIds": [],
                 "demand": demand,
                 "scriptRole": "生成匹配该需求主张/证明功能的脚本原子",
                 "rhythmRole": "选择与信息负载兼容的节奏模式",
                 "packagingRole": "分配该需求所需的证明包装",
+                "scriptConcreteAtomVariants": [],
+                "rhythmConcreteAtomVariants": [],
+                "packagingConcreteAtomVariants": [],
+                "fallback": "generated_gap_fill",
                 "syncPoints": [],
             })
             continue
         candidate = group[0]
+        candidate_governance = candidate.get("governance") or {}
         selected_slots.append({
             "order": order,
             "demandId": demand_id,
             "slotType": slot_type,
             "operation": "retrieve_variant_then_adapt",
+            "slotChainGranularity": "slotSubtype",
+            "selectedSlotSubtypeIds": [x.get("id") for x in candidate_governance.get("slotSubtypes", []) if x.get("id")],
+            "parentSlotArchetypeIds": [x.get("id") for x in candidate_governance.get("slotArchetypes", []) if x.get("id")],
             "selectedVariant": {
                 "variantId": candidate.get("variantId"),
                 "sampleId": candidate.get("sampleId"),
@@ -392,7 +411,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "score": candidate.get("score"),
                 "scoreReasons": candidate.get("scoreReasons"),
             },
-            "governance": candidate.get("governance"),
+            "governance": candidate_governance,
             "demand": demand,
             "viewerStateBefore": candidate.get("viewerStateBefore"),
             "viewerStateAfter": candidate.get("viewerStateAfter"),
@@ -400,6 +419,10 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
             "scriptAtoms": [a.get("id") for a in candidate.get("scriptAtoms", [])],
             "rhythmAtoms": [a.get("id") for a in candidate.get("rhythmAtoms", [])],
             "packagingAtoms": [a.get("id") for a in candidate.get("packagingAtoms", [])],
+            "scriptConcreteAtomVariants": concrete_atom_variant_ids(candidate, "scriptAtoms", "script"),
+            "rhythmConcreteAtomVariants": concrete_atom_variant_ids(candidate, "rhythmAtoms", "rhythm"),
+            "packagingConcreteAtomVariants": concrete_atom_variant_ids(candidate, "packagingAtoms", "packaging"),
+            "fallback": None,
             "syncPoints": candidate.get("requiredSyncPoints", []),
             "proofNotes": [a.get("proofNeed") for a in candidate.get("scriptAtoms", []) if a.get("proofNeed")],
             "packagingNotes": [a.get("packagingFunction") or a.get("function") for a in candidate.get("packagingAtoms", []) if a.get("packagingFunction") or a.get("function")],

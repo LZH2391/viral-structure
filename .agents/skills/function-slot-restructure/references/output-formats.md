@@ -2,6 +2,12 @@
 
 使用以下格式保持重组响应一致。构建库审查、slotType 命名和槽位相似检索输出请使用 `function-slot-library-builder` 的 references。
 
+粒度约定：
+
+- 最终功能槽位链精确到 `slotSubtype`，不在链路层展示 source slot variant。
+- `slotArchetype` 只作为父级解释和审计字段。
+- 逐槽位实现中的 atom 精确到 concrete atom variant；`atomPatternId` 可保留但不能替代具体 atom。
+
 ## A. 重组输出
 
 ```markdown
@@ -29,23 +35,26 @@
 |---|---|---|---|---|---|
 
 ## 5. 选中的槽位链
-| 顺序 | 需求 | subtype/archetype | slot type | 操作 | 来源/支持 | 角色 |
-|---:|---|---|---|---|---|---|
+| 顺序 | 需求 | slotSubtype | parent archetype | slot role | 操作 | 支持/风险 | 角色 |
+|---:|---|---|---|---|---|---|---|
 
 ## 6. 逐槽位方案
 ### Slot 1：[slot type]
 - 治理节点：slotSubtype / slotArchetype / reviewStatus / maturityStatus
 - 脚本角色：
 - script pattern：
+- script concrete atom variant：
 - 节奏角色：
 - rhythm pattern：
+- rhythm concrete atom variant：
 - 包装/证明角色：
 - packaging pattern：
+- packaging concrete atom variant：
 - 同步点：
-- 选中的来源 variants：
-- sourceVariantIds：
+- source slot variant（仅追踪用，不作为链路粒度）：
 - 可替换变量：
 - 治理风险：
+- fallback：无 / generated_gap_fill / adapter_generated
 
 ## 7. 跨样例 adapter
 | adapter | 触发原因 | 保留的证明/承接 | 修复动作 |

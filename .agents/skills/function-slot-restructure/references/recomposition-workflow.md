@@ -257,9 +257,11 @@ changed surface: skincare close-up -> dashboard before/after screen
 
 实现组合要同时记录：
 
-- 选中的 `slotSubtypeId / slotArchetypeId`
+- 最终链路使用的 `slotSubtypeId`，链路层不用继续下钻到 source slot variant
+- 父级解释和审计用的 `slotArchetypeId`
 - 使用的 script / rhythm / packaging `atomPatternId`
-- 回落到证据层的具体 variant 和 atom id
+- 具体落地的 script / rhythm / packaging concrete atom variant
+- source slot variant 只作为追踪来源，不作为最终功能槽位链粒度
 - 治理状态：`reviewStatus / maturityStatus`
 - 未命中治理层时的 fallback 原因
 

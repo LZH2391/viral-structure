@@ -82,6 +82,14 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 8. **输出方案**  
    输出结构方案、脚本节拍、节奏曲线、包装证明方案、风险和可替换候选。
 
+## 输出粒度
+
+- 最终功能槽位链精确到 `slotSubtype`，不用在链路层继续下钻到 source slot variant。
+- `slotArchetype` 只作为父级解释和审计字段，不作为最终链路粒度。
+- 槽位实现表中的 script / rhythm / packaging atom 必须精确到 concrete atom variant，例如 `sampleId::script::S001`、`sampleId::rhythm::R001`、`sampleId::packaging::P001`。
+- `atomPatternId` 可以同时保留，用于说明复用依据，但不能替代 concrete atom variant。
+- 如果没有 concrete atom variant，必须标记为 `generated_gap_fill` 或 `adapter_generated`，并说明基于哪个 pattern 或需求生成。
+
 ## 候选选择规则
 
 不要只选第一个匹配的 `slotType`。比较：
@@ -122,8 +130,8 @@ adapter 只在重组时出现，用来提出桥接要求。
 1. 重组目标与假设
 2. 候选检索逻辑
 3. 治理层使用情况与过期/候选风险
-4. 最终功能槽位链
-5. 槽位实现表
+4. 最终功能槽位链（精确到 `slotSubtype`）
+5. 槽位实现表（atom 精确到 concrete atom variant）
 6. 跨样例 adapter 风险与桥接建议
 7. 脚本草案或节拍表
 8. 节奏曲线
