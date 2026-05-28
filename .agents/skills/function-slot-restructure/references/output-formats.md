@@ -7,6 +7,10 @@
 - 最终功能槽位链精确到 `slotSubtype`，不在链路层展示 source slot variant。
 - `slotArchetype` 只作为父级解释和审计字段。
 - 逐槽位实现中的 atom 精确到 concrete atom variant；`atomPatternId` 可保留但不能替代具体 atom。
+- 必须按模板顺序输出。
+- 候选检索逻辑并入逐槽位方案，不单独成节。
+- Adapter 方案只写实际采用的桥接，并说明触发理由、解决了什么、如何桥接。
+- 剩余风险与修复只写经过 adapter 和校验后仍未解决或需要注意的风险。
 
 ## A. 重组输出
 
@@ -40,6 +44,9 @@
 
 ## 6. 逐槽位方案
 ### Slot 1：[slot type]
+- 候选来源：
+- 选择理由：
+- 未选替代：
 - 治理节点：slotSubtype / slotArchetype / reviewStatus / maturityStatus
 - 脚本角色：
 - script pattern：
@@ -56,9 +63,9 @@
 - 治理风险：
 - fallback：无 / generated_gap_fill / adapter_generated
 
-## 7. 跨样例 adapter
-| adapter | 触发原因 | 保留的证明/承接 | 修复动作 |
-|---|---|---|---|
+## 7. Adapter 方案
+| adapter | 触发理由 | 解决了什么 | 桥接动作 | 保留的证明/承接 |
+|---|---|---|---|---|
 
 ## 8. 脚本草案 / 节拍表
 [可用的分段脚本]
@@ -76,7 +83,7 @@
 | recomposition policy | governance | | | |
 | evidence binding/rule | slot_index | | | |
 
-## 12. 风险与修复
+## 12. 剩余风险与修复
 | 风险 | 来源 | 严重度 | 修复 |
 |---|---|---|---|
 
