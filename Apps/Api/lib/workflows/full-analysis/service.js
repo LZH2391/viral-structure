@@ -10,6 +10,7 @@ const {
   createStageState,
   findModuleStage,
   findStage,
+  hasTerminalRunWithRunningChildren,
   hasRunningChildren,
   normalizeError,
   publicRun,
@@ -126,13 +127,18 @@ function createFullAnalysisWorkflowService({
       throw error;
     }
     const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
+    const resetKeys = unique([stageKey, ...downstreamStageKeys(stageDefinitions, stageKey)]);
     workflowRunStore.updateRun(workflowRunId, (current) => ({
       status: "running",
       currentStageKeys: [stageKey],
-      stages: updateStage(current.stages, stageKey, (stage) => ({
-        ...resetStageForRun(stage),
-        attemptNo: stage.attemptNo + 1,
-      })),
+      stages: current.stages.map((stage) => {
+        if (!resetKeys.includes(stage.key)) return stage;
+        const reset = resetStageForRun(stage);
+        return {
+          ...reset,
+          attemptNo: stage.key === stageKey ? stage.attemptNo + 1 : stage.attemptNo,
+        };
+      }),
       completedAt: null,
       errorSummary: null,
     }));
@@ -252,7 +258,8 @@ function createFullAnalysisWorkflowService({
 
   async function advance(workflowRunId) {
     const run = workflowRunStore.getRun(workflowRunId);
-    if (!run || !["running", "partial_failed", CACHE_WAITING_STATUS].includes(run.status)) return;
+    if (!run) return;
+    if (!["running", "partial_failed", CACHE_WAITING_STATUS].includes(run.status) && !hasTerminalRunWithRunningChildren(run, jobStore, CACHE_WAITING_STATUS)) return;
     let changed = false;
     for (const stage of run.stages) {
       if (!stage.childJobId || !["running", "pending", CACHE_WAITING_STATUS].includes(stage.status)) continue;
@@ -284,6 +291,7 @@ function createFullAnalysisWorkflowService({
             artifactId: artifactRef?.artifactId ?? null,
           },
         }, traceContext, Date.parse(stage.startedAt ?? new Date().toISOString()));
+        resetProcessedDownstreamStages(workflowRunId, stage.key);
       } else {
         await markStageFailed(workflowRunId, stage.key, job.errorSummary ?? new Error("步骤执行失败"), {
           runId: run.runId,
@@ -461,6 +469,38 @@ function createFullAnalysisWorkflowService({
     }, delayMs);
     timer.unref?.();
     timers.set(workflowRunId, timer);
+  }
+
+  function resetProcessedDownstreamStages(workflowRunId, stageKey) {
+    const resetKeys = downstreamStageKeys(stageDefinitions, stageKey);
+    if (!resetKeys.length) return;
+    workflowRunStore.updateRun(workflowRunId, (current) => ({
+      stages: current.stages.map((stage) => resetKeys.includes(stage.key) && stage.status === "processed"
+        ? resetStageForRun(stage)
+        : stage),
+    }));
+  }
+
+  function downstreamStageKeys(stages, stageKey) {
+    const result = [];
+    const pending = [stageKey];
+    while (pending.length) {
+      const currentKey = pending.shift();
+      for (const stage of stages) {
+        if (stage.key === stageKey || result.includes(stage.key)) continue;
+        if (stageDependsOn(stage, currentKey)) {
+          result.push(stage.key);
+          pending.push(stage.key);
+        }
+      }
+    }
+    return result;
+  }
+
+  function stageDependsOn(stage, dependencyKey) {
+    const dependencies = Array.isArray(stage.after) ? stage.after : [];
+    if (dependencies.includes(dependencyKey)) return true;
+    return dependencies.some((dependency) => (workflowDescriptor.parallelGroups[dependency] ?? []).includes(dependencyKey));
   }
 
   async function readArtifact(sampleVideoId) {

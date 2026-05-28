@@ -109,6 +109,15 @@ function hasRunningChildren(run, cacheWaitingStatus) {
   return Boolean(run?.stages?.some((stage) => stage.childJobId && ["pending", "running", cacheWaitingStatus].includes(stage.status)));
 }
 
+function hasTerminalRunWithRunningChildren(run, jobStore, cacheWaitingStatus) {
+  if (!["processed", "failed"].includes(run?.status)) return false;
+  return Boolean(run?.stages?.some((stage) => {
+    if (!stage.childJobId || !["pending", "running", cacheWaitingStatus].includes(stage.status)) return false;
+    const job = jobStore.getJob(stage.childJobId);
+    return Boolean(job && ["processed", "failed", cacheWaitingStatus, "processing", "pending"].includes(job.status));
+  }));
+}
+
 function workflowRunTime(run) {
   const timestamp = Date.parse(run?.updatedAt ?? run?.createdAt ?? "");
   return Number.isFinite(timestamp) ? timestamp : 0;
@@ -175,6 +184,7 @@ module.exports = {
   findModuleStage,
   findStage,
   hasRunningChildren,
+  hasTerminalRunWithRunningChildren,
   normalizeError,
   publicRun,
   resetStageForRun,

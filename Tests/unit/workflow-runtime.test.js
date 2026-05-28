@@ -64,7 +64,7 @@ function createHarness() {
     loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
     pollIntervalMs: 60_000,
   });
-  return { workflow, stageLogs, jobs };
+  return { workflow, stageLogs, jobs, artifacts, workflowRunStore };
 }
 
 test("full analysis workflow advances upload, shot, parallel analyses, and aggregate", async () => {
@@ -127,6 +127,84 @@ test("full analysis workflow can skip atomization when disabled", async () => {
   assert.equal(run.status, "processed");
   assert.equal(atomization.status, "processed");
   assert.equal(atomization.outputSummary.skipped, true);
+});
+
+test("full analysis rerun resets aggregate and recovers completed child stage", async () => {
+  const { workflow, jobs } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+
+  const rerun = await workflow.rerunStage({ workflowRunId: started.workflowRunId, stageKey: "functionSlotAtomization" });
+  assert.equal(rerun.status, "running");
+  assert.equal(rerun.stages.find((stage) => stage.key === "functionSlotAtomization").status, "running");
+  assert.equal(rerun.stages.find((stage) => stage.key === "aggregate").status, "pending");
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  const recovered = workflow.get(started.workflowRunId);
+  const atomization = recovered.stages.find((stage) => stage.key === "functionSlotAtomization");
+  const aggregate = recovered.stages.find((stage) => stage.key === "aggregate");
+  assert.equal(recovered.status, "processed");
+  assert.equal(atomization.status, "processed");
+  assert.equal(atomization.artifactId, "artifact_atomization");
+  assert.equal(aggregate.status, "processed");
+  assert.equal(aggregate.outputSummary.functionSlotCount, 1);
+});
+
+test("full analysis advance repairs processed run with running completed child", async () => {
+  const { workflow, jobs, artifacts, workflowRunStore } = createHarness();
+  artifacts.set("sample_1", attachAnalysis(attachAnalysis(attachAnalysis(attachAnalysis(buildArtifact({ shot: true }), "script-segments"), "rhythm-structure"), "packaging-structure"), "function-slot-atomization"));
+  jobs.set("job_function-slot-atomization", {
+    jobId: "job_function-slot-atomization",
+    sampleVideoId: "sample_1",
+    status: "processed",
+    stage: "function-slot-atomization.materialize",
+    progress: 100,
+    traceId: "trace_function-slot-atomization",
+  });
+  workflowRunStore.createRun({
+    workflowRunId: "workflow_dirty",
+    workflowKey: "full-analysis",
+    workflowVersion: "full-analysis.v1",
+    status: "processed",
+    traceId: "trace_workflow",
+    runId: "run_workflow",
+    sampleVideoId: "sample_1",
+    currentStageKeys: [],
+    stages: [
+      { key: "upload", stageName: "sample.ingest", label: "上传", status: "processed", artifactKey: "sampleVideo", artifactId: "artifact_video", childJobId: "job_upload" },
+      { key: "shotBoundary", stageName: "shot.boundary", label: "切镜", status: "processed", artifactKey: "shotBoundaryAnalysis", artifactId: "artifact_shot", childJobId: "job_shot" },
+      { key: "scriptSegment", stageName: "script.segment.analyze", label: "脚本", status: "processed", artifactKey: "scriptSegmentAnalysis", artifactId: "artifact_script", childJobId: "job_script-segments" },
+      { key: "rhythmStructure", stageName: "rhythm.structure.analyze", label: "节奏", status: "processed", artifactKey: "rhythmStructureAnalysis", artifactId: "artifact_rhythm", childJobId: "job_rhythm-structure" },
+      { key: "packagingStructure", stageName: "packaging.structure.analyze", label: "包装", status: "processed", artifactKey: "packagingStructureAnalysis", artifactId: "artifact_packaging", childJobId: "job_packaging-structure" },
+      { key: "functionSlotAtomization", stageName: "function.slot.atomization.analyze", label: "原子化", status: "running", artifactKey: "functionSlotAtomizationAnalysis", childJobId: "job_function-slot-atomization", childTraceId: "trace_function-slot-atomization", artifactId: null, parentArtifactId: null },
+      { key: "aggregate", stageName: "workflow.aggregate", label: "汇总", status: "processed", artifactKey: "sampleVideo", artifactId: "artifact_video", outputSummary: { functionSlotCount: 0 }, after: ["functionSlotAtomization"] },
+    ],
+    createdAt: "2026-05-28T00:00:00.000Z",
+    updatedAt: "2026-05-28T00:01:00.000Z",
+    completedAt: "2026-05-28T00:01:00.000Z",
+    errorSummary: null,
+  });
+
+  await workflow.advance("workflow_dirty");
+  await workflow.advance("workflow_dirty");
+  const run = workflow.get("workflow_dirty");
+  const atomization = run.stages.find((stage) => stage.key === "functionSlotAtomization");
+  const aggregate = run.stages.find((stage) => stage.key === "aggregate");
+  assert.equal(run.status, "processed");
+  assert.equal(atomization.status, "processed");
+  assert.equal(atomization.artifactId, "artifact_atomization");
+  assert.equal(aggregate.status, "processed");
+  assert.equal(aggregate.outputSummary.functionSlotCount, 1);
 });
 
 test("full analysis workflow exposes cache waiting as recoverable run state", async () => {
