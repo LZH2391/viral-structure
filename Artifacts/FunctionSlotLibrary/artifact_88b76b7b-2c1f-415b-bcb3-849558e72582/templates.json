@@ -1,0 +1,13 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "低门槛价值到感官证明收束型",
+    "sequence": [
+      "value_anchor",
+      "quantity_value_confirmation",
+      "quality_trust_build",
+      "sensory_proof_peak",
+      "usage_scene_close"
+    ]
+  }
+]

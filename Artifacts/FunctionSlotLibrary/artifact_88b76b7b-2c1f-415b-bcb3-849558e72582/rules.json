@@ -1,0 +1,171 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S003",
+        "S004",
+        "R002"
+      ],
+      "reason": "品质解释和感官证明需要观察时间，不适合只用数量密度抬升承载",
+      "fix": "先用缓冲转向建立观察入口，再进入细节证明峰值",
+      "appliesTo": [
+        "quality_trust_build",
+        "sensory_proof_peak"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P005"
+      ],
+      "reason": "结尾如果只保留场景情绪，不回到购买对象，会断开证明与转化的关系",
+      "fix": "在最终收口中加入完整状态或购买对象同框",
+      "appliesTo": [
+        "usage_scene_close",
+        "soft_conversion"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "P001",
+        "P002"
+      ],
+      "reason": "低门槛价值主张如果缺少实物或规格证据，容易变成不可验证的价格话术",
+      "fix": "保留主体识别，并在后续槽位加入数量、规格或份量的可视化证据",
+      "appliesTo": [
+        "value_anchor",
+        "quantity_value_confirmation"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "P001",
+        "P002"
+      ],
+      "reason": "低门槛价值需要先被识别，再被可视化兑现",
+      "fix": "缺少兑现证据时，补入多单位展示、规格同框或可感知份量展示",
+      "appliesTo": [
+        "value_anchor",
+        "quantity_value_confirmation"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B003"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S003",
+        "S004",
+        "R003",
+        "R004",
+        "P003",
+        "P004"
+      ],
+      "reason": "品质信任需要从疑虑转向进入强证据峰值，不能直接堆叠抽象描述",
+      "fix": "把复杂品质解释放在稳定观察点，把核心体验证明放在细节峰值点",
+      "appliesTo": [
+        "quality_trust_build",
+        "sensory_proof_peak"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B005"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F004",
+        "F005"
+      ],
+      "atomIds": [
+        "S004",
+        "S005",
+        "R004",
+        "R005",
+        "P004",
+        "P005"
+      ],
+      "reason": "结果或场景收束必须回到前面已经证明的同一观众关切",
+      "fix": "在场景收尾中加入完整状态、商品识别或购买对象同框",
+      "appliesTo": [
+        "sensory_proof_peak",
+        "usage_scene_close"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [
+        "F001",
+        "F002",
+        "F003",
+        "F004",
+        "F005"
+      ],
+      "atomIds": [
+        "R001",
+        "R002",
+        "R003",
+        "R004",
+        "R005"
+      ],
+      "reason": "该结构的注意力曲线依赖从低密度识别、数量抬升、质量减速、细节峰值到稳定收口的变化",
+      "fix": "按槽位任务调整包装强度和节奏密度，保留峰值与回落",
+      "appliesTo": [
+        "value_anchor",
+        "quantity_value_confirmation",
+        "quality_trust_build",
+        "sensory_proof_peak",
+        "usage_scene_close"
+      ],
+      "sourceBindingIds": [
+        "B002",
+        "B005",
+        "B007"
+      ]
+    }
+  ]
+}

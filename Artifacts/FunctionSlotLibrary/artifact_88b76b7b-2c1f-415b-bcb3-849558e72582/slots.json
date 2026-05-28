@@ -1,0 +1,186 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "价值锚定槽",
+    "slotType": "value_anchor",
+    "viewerStateBefore": "观众尚未识别购买对象，也没有形成继续观看的利益理由",
+    "viewerStateAfter": "观众知道这是一个低门槛利益明确的可购买对象",
+    "persuasionTask": "用清晰主体和低门槛利益建立第一价值锚点",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "主体出现",
+      "利益提示出现",
+      "购买对象可识别"
+    ],
+    "substitutionRules": [
+      "只要保留低门槛利益和购买对象识别，具体价格表达、品类形态和首屏构图可以替换"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "价值兑现槽",
+    "slotType": "quantity_value_confirmation",
+    "viewerStateBefore": "观众已接收到低门槛利益，但仍需要判断利益是否真实可感",
+    "viewerStateAfter": "观众通过数量或规格证据感到价值主张更具体",
+    "persuasionTask": "把价值锚点转成可视化的份量、规格或多单位证据",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "数量证据增加",
+      "规格或价值说明出现",
+      "购买对象重复露出"
+    ],
+    "substitutionRules": [
+      "可替换为任何能让规格、数量或份量被看见的展示方式，但不能只保留文字价格"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": true
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "品质转向槽",
+    "slotType": "quality_trust_build",
+    "viewerStateBefore": "观众认可价值感，但可能担心低门槛商品的品质或体验不足",
+    "viewerStateAfter": "观众的注意力从价格和数量转到产品本身是否可靠",
+    "persuasionTask": "主动承接品质疑虑，并为后续细节证明建立观察入口",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "疑虑回应出现",
+      "近景质地观察开始",
+      "节奏从数量密度回落"
+    ],
+    "substitutionRules": [
+      "疑虑类型和操作载体可替换，但必须从价值叙述切换到品质观察"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "感官证明槽",
+    "slotType": "sensory_proof_peak",
+    "viewerStateBefore": "观众已进入品质判断，但仍需要强证据确认体验主张",
+    "viewerStateAfter": "观众看到足够具体的细节证据，关键顾虑被降低",
+    "persuasionTask": "用动作拆解和细节证明完成品质可信与体验兑现",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "拆解动作完成",
+      "关键细节露出",
+      "体验主张字幕出现"
+    ],
+    "substitutionRules": [
+      "可替换不同细节证明载体，但体验主张必须有可见证据同步支撑"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "场景收束槽",
+    "slotType": "usage_scene_close",
+    "viewerStateBefore": "观众已相信主要体验卖点，但还需要把卖点连接到日常需求和购买记忆",
+    "viewerStateAfter": "观众把体验优势、使用场景和购买对象绑定在一起",
+    "persuasionTask": "用高频使用理由承接证明结果，并以商品识别完成软性转化",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "使用场景出现",
+      "完整状态回归",
+      "购买对象同框收束"
+    ],
+    "substitutionRules": [
+      "场景可以替换，但必须承接前面已证明的体验优势，并回到可购买对象"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false
+  }
+]

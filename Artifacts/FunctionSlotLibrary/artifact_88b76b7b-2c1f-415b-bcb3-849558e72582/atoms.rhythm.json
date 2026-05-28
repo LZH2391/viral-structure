@@ -1,0 +1,156 @@
+[
+  {
+    "id": "R001",
+    "slot": "value_anchor",
+    "label": "慢速定睛入口",
+    "function": "用低变化近景让观众先看清对象和核心利益，降低开场信息负担",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "慢速定睛开场"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "slow_hold",
+    "densityType": "low_visual_density",
+    "beatShape": "稳定注视后给出利益点",
+    "avoidFor": [
+      "multi_step_explanation",
+      "high_emotion_peak"
+    ],
+    "syncPoints": [
+      "主体出现",
+      "价值提示出现",
+      "购买对象识别"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "quantity_value_confirmation",
+    "label": "数量密度抬升",
+    "function": "通过画面元素增加把价值锚点转成可感知的丰富感和满足感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "数量感抬升"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "moderate_density_rise",
+    "densityType": "object_count_density",
+    "beatShape": "从单点注视转为多单位堆叠",
+    "avoidFor": [
+      "delicate_quality_explanation",
+      "complex_mechanism"
+    ],
+    "syncPoints": [
+      "数量增加",
+      "规格露出",
+      "价值字幕承接"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "quality_trust_build",
+    "label": "质感缓冲转向",
+    "function": "把前面的数量密度压下来，给品质疑虑回应留出观察空间",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "整鱼质感过渡"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4"
+      ]
+    },
+    "confidence": 0.78,
+    "needReview": false,
+    "pace": "measured_hold",
+    "densityType": "focused_object_density",
+    "beatShape": "短暂减速后转入证明",
+    "avoidFor": [
+      "price_blast",
+      "rapid_multi_claim"
+    ],
+    "syncPoints": [
+      "疑虑转向",
+      "主体近景稳定",
+      "质地观察开始"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "sensory_proof_peak",
+    "label": "细节证明峰值",
+    "function": "用动作完成和近距离细节堆叠形成主要注意力峰值，让证明点获得最高可信感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "内部细节峰值"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "dense_detail_peak",
+    "densityType": "sensory_detail_density",
+    "beatShape": "动作启动、细节放大、结果延续",
+    "avoidFor": [
+      "long_price_explanation",
+      "abstract_brand_claim"
+    ],
+    "syncPoints": [
+      "拆解动作完成",
+      "内部证据露出",
+      "关键体验主张出现"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "usage_scene_close",
+    "label": "完整同框回落",
+    "function": "从细节峰值回到完整对象和消费理由，形成稳定收口和记忆定格",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "用途带出的收束"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "stable_resolution",
+    "densityType": "recognition_density",
+    "beatShape": "从细节回落到完整展示",
+    "avoidFor": [
+      "new_complex_proof",
+      "late_mechanism_expansion"
+    ],
+    "syncPoints": [
+      "场景理由出现",
+      "购买对象再识别",
+      "最终同框定格"
+    ]
+  }
+]

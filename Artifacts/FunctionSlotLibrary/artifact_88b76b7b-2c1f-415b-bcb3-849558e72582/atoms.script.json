@@ -1,0 +1,161 @@
+[
+  {
+    "id": "S001",
+    "slot": "value_anchor",
+    "label": "低门槛利益锚定",
+    "function": "先给出低决策门槛的价值利益，让观众在尚未评估品质前形成继续观看理由",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "低价多量钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "low_barrier_value_claim",
+    "proofNeed": "需要商品主体清晰可见，并有可感知的价值提示支撑",
+    "mustKeep": [
+      "低门槛利益点",
+      "可识别购买对象",
+      "实物可见证据"
+    ],
+    "replaceableVariables": [
+      "价格表达",
+      "规格表达",
+      "商品主体形态",
+      "利益措辞"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "quantity_value_confirmation",
+    "label": "数量规格兑现",
+    "function": "把前置价值锚点从口头利益推进为可见数量和规格，增强划算感的可信度",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "低价多量钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "visible_quantity_value_claim",
+    "proofNeed": "需要多单位实物或规格同框，证明价值不是纯口播",
+    "mustKeep": [
+      "数量或规格的可视化",
+      "价值锚点的延续",
+      "购买对象的重复识别"
+    ],
+    "replaceableVariables": [
+      "展示单位数量",
+      "规格组合方式",
+      "价格区间表达",
+      "同框展示形式"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "quality_trust_build",
+    "label": "品质疑虑转向",
+    "function": "在价值感之后主动承接低价带来的品质疑虑，把观众注意力从划算转向产品本身是否可靠",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "品质口感证明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false,
+    "claimType": "quality_objection_reframe",
+    "proofNeed": "需要近距离质地观察或可操作证据，支撑并非低质替代的判断",
+    "mustKeep": [
+      "从价值到品质的转向",
+      "疑虑点的明确回应",
+      "可观察的质地证据"
+    ],
+    "replaceableVariables": [
+      "疑虑类型",
+      "质地描述",
+      "近景展示对象",
+      "回应措辞"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "sensory_proof_peak",
+    "label": "内部证据峰值",
+    "function": "用连续可见细节把品质和体验主张推到最可信的位置，消除关键体验顾虑",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "品质口感证明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "claimType": "sensory_evidence_claim",
+    "proofNeed": "需要动作拆解、内部结构或细节特写等高可信实拍证据",
+    "mustKeep": [
+      "可见拆解或细节证据",
+      "体验主张与画面证据对应",
+      "疑虑解除结果"
+    ],
+    "replaceableVariables": [
+      "拆解方式",
+      "细节证明对象",
+      "体验卖点",
+      "字幕解释角度"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "usage_scene_close",
+    "label": "场景化收束",
+    "function": "把已经证明的体验优势落到日常使用理由，并用商品识别完成软性转化收尾",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "食用场景收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "claimType": "usage_scene_conversion_claim",
+    "proofNeed": "需要成品状态和购买对象重新同框，承接前面的体验证据",
+    "mustKeep": [
+      "高频使用场景",
+      "前置体验优势的承接",
+      "购买对象再识别"
+    ],
+    "replaceableVariables": [
+      "使用场景",
+      "情绪评价",
+      "收尾同框方式",
+      "软转化提示"
+    ]
+  }
+]

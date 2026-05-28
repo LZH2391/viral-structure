@@ -1,0 +1,182 @@
+[
+  {
+    "id": "P001",
+    "slot": "value_anchor",
+    "label": "实物价值首屏",
+    "function": "让观众同时识别购买对象和低门槛利益，建立开场价值感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "低价实物开场包装"
+      ],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "让观众同时识别购买对象和低门槛利益，建立开场价值感",
+    "proofType": "direct_value_visibility",
+    "visualProofType": "product_identity_with_value_caption",
+    "visualHierarchy": "商品主体第一，购买识别第二，利益字幕辅助解释",
+    "visualElements": [
+      "商品主体近景",
+      "外包装露出",
+      "底部利益字幕",
+      "实物占屏"
+    ],
+    "replaceableForms": [
+      "主体近景",
+      "包装同框",
+      "规格标签",
+      "价格字幕"
+    ],
+    "risk": "如果利益信息压过商品主体，观众会记住便宜但无法建立购买对象"
+  },
+  {
+    "id": "P002",
+    "slot": "quantity_value_confirmation",
+    "label": "多单位价值具象",
+    "function": "把数量、规格或份量从抽象描述转成可见同框证据",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "低价实物开场包装",
+        "多袋规格价值展示"
+      ],
+      "shotRefs": [
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": true,
+    "packagingFunction": "把数量、规格或份量从抽象描述转成可见同框证据",
+    "proofType": "visible_quantity_proof",
+    "visualProofType": "multi_unit_specification_display",
+    "visualHierarchy": "数量证据第一，规格识别第二，字幕负责解释价值关系",
+    "visualElements": [
+      "多单位实物",
+      "多件包装同框",
+      "手部展示",
+      "规格价格字幕"
+    ],
+    "replaceableForms": [
+      "倒出展示",
+      "并排展示",
+      "堆叠展示",
+      "开箱展示"
+    ],
+    "risk": "如果只展示规格文字而没有多单位证据，低门槛价值会显得像口播承诺"
+  },
+  {
+    "id": "P003",
+    "slot": "quality_trust_build",
+    "label": "质地疑虑回应包装",
+    "function": "用近景操作和克制字幕把品质疑虑转成可观察对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "手部拆解口感证明"
+      ],
+      "shotRefs": [
+        "shot_4"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "用近景操作和克制字幕把品质疑虑转成可观察对象",
+    "proofType": "texture_objection_proof",
+    "visualProofType": "handled_closeup_texture_evidence",
+    "visualHierarchy": "质地观察第一，手部操作第二，购买识别退为背景线索",
+    "visualElements": [
+      "近景主体",
+      "手部触感展示",
+      "底部解释字幕",
+      "背景购买识别"
+    ],
+    "replaceableForms": [
+      "按压展示",
+      "弯折展示",
+      "拉伸展示",
+      "切开展示"
+    ],
+    "risk": "如果此处继续强化数量和价格，会削弱品质转向并延迟疑虑解除"
+  },
+  {
+    "id": "P004",
+    "slot": "sensory_proof_peak",
+    "label": "内部细节证明包装",
+    "function": "把体验主张、用料可信度和顾虑解除集中落到可见细节上",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "手部拆解口感证明"
+      ],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "packagingFunction": "把体验主张、用料可信度和顾虑解除集中落到可见细节上",
+    "proofType": "sensory_detail_proof",
+    "visualProofType": "opened_structure_closeup_evidence",
+    "visualHierarchy": "细节证据第一，动作过程第二，字幕只负责命名证明点",
+    "visualElements": [
+      "手部拆解",
+      "内部结构特写",
+      "极近细节",
+      "短句解释字幕"
+    ],
+    "replaceableForms": [
+      "拆开特写",
+      "截面特写",
+      "纹理特写",
+      "结构展开"
+    ],
+    "risk": "如果细节特写和主张不同步，观众会看到质感但无法理解它证明了什么"
+  },
+  {
+    "id": "P005",
+    "slot": "usage_scene_close",
+    "label": "场景同框记忆包装",
+    "function": "把已证明的体验优势转接到使用场景，并重新绑定购买对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "食用场景与商品记忆收束"
+      ],
+      "shotRefs": [
+        "shot_8",
+        "shot_9"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "把已证明的体验优势转接到使用场景，并重新绑定购买对象",
+    "proofType": "usage_memory_proof",
+    "visualProofType": "usable_state_with_purchase_identity",
+    "visualHierarchy": "可使用状态第一，购买识别第二，场景理由作为字幕收束",
+    "visualElements": [
+      "完整成品展示",
+      "购买包装同框",
+      "场景字幕",
+      "最终定格式构图"
+    ],
+    "replaceableForms": [
+      "成品与包装同框",
+      "使用场景桌面",
+      "手持成品",
+      "最终商品陈列"
+    ],
+    "risk": "如果结尾只讲场景不回到购买对象，前面的证明难以转成商品记忆"
+  }
+]
