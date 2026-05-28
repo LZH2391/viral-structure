@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -27,6 +28,9 @@ DEFAULT_REVIEWER_SANDBOX_POLICY: dict[str, Any] = {
     "type": "dangerFullAccess",
 }
 TRANSPORT_RECOVERY_ATTEMPTS = 3
+THREAD_READ_AFTER_START_RETRY_SECONDS = 30.0
+THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS = 0.2
+THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS = 1.0
 
 
 class AppServerError(RuntimeError):
@@ -198,6 +202,31 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         thread = dict(response["thread"])
         self._merge_cached_turn_token_usage(thread, persist=include_turns)
         return thread
+
+    def _read_thread_after_start(self, thread_id: str) -> dict[str, Any]:
+        deadline = time.monotonic() + THREAD_READ_AFTER_START_RETRY_SECONDS
+        delay_seconds = THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS
+        while True:
+            try:
+                return self.read_thread(thread_id, include_turns=False)
+            except AppServerError as exc:
+                if not self._is_transient_thread_read_after_start_error(exc):
+                    raise
+                remaining_seconds = deadline - time.monotonic()
+                if remaining_seconds <= 0:
+                    raise
+                time.sleep(min(delay_seconds, remaining_seconds))
+                delay_seconds = min(
+                    delay_seconds * 2,
+                    THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS,
+                )
+
+    @staticmethod
+    def _is_transient_thread_read_after_start_error(exc: Exception) -> bool:
+        message = str(exc).strip().lower()
+        if "failed to read thread" not in message:
+            return False
+        return "is empty" in message or "thread-store internal error" in message or "rollout" in message
 
     def resume_thread(self, thread_id: str) -> dict[str, Any]:
         response = self._request(
@@ -557,7 +586,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
                 cwd=cwd,
                 sandbox_policy=sandbox_policy,
             )
-        self.read_thread(thread_id, include_turns=False)
+        self._read_thread_after_start(thread_id)
         return ThreadInitializationStart(thread_id=thread_id, turn_id=turn_id)
 
     def create_initialized_thread(
@@ -587,13 +616,13 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
                     raise AppServerRequestError(
                         f"reviewer initialization turn missing ready text: expected {expected!r}, got {final_message!r}"
                     )
-        self.read_thread(thread_id, include_turns=False)
+        self._read_thread_after_start(thread_id)
         return thread_id
 
     def fork_initialized_thread(self, seed_thread_id: str) -> str:
         thread = self.fork_thread(seed_thread_id)
         forked_thread_id = str(thread["id"])
-        self.read_thread(forked_thread_id, include_turns=False)
+        self._read_thread_after_start(forked_thread_id)
         return forked_thread_id
 
     def ensure_reviewer_ready(self, init_prompt: str, skill_path: str | Path | None) -> str:

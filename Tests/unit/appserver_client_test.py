@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "Infrastructure" / "AgentRuntime"))
 
 from agent_runtime.appserver.client import AppServerSessionClient
+import agent_runtime.appserver.client as appserver_client
 from agent_runtime.appserver.transport_ws import WebSocketTransportError
 from agent_runtime.appserver.transport_base import TransportEvent
 
@@ -245,6 +246,48 @@ class AppServerClientTests(unittest.TestCase):
             self.assertEqual(requests[0][0], "thread/start")
             self.assertEqual(requests[0][1]["experimentalRawEvents"], True)
             self.assertEqual(requests[0][1]["persistExtendedHistory"], True)
+
+    def test_start_initialized_thread_retries_transient_empty_rollout_read(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+            requests: list[tuple[str, dict]] = []
+            original_delay = appserver_client.THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS
+            original_max_delay = appserver_client.THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS
+            appserver_client.THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS = 0.0
+            appserver_client.THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS = 0.0
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def _request(self, method: str, params: dict) -> dict:
+                    requests.append((method, dict(params)))
+                    if method == "thread/start":
+                        return {"thread": {"id": "thread_1"}}
+                    if method == "turn/start":
+                        return {"turn": {"id": "turn_1"}}
+                    if method == "thread/read":
+                        read_count = sum(1 for request_method, _ in requests if request_method == "thread/read")
+                        if read_count == 1:
+                            raise appserver_client.AppServerConnectionError(
+                                "failed to read thread: thread-store internal error: "
+                                "failed to read thread rollout.jsonl: rollout at rollout.jsonl is empty"
+                            )
+                        return {"thread": {"id": params["threadId"]}}
+                    return super()._request(method, params)
+
+            try:
+                client = TestClient(workspace_root, transport_mode="ws")
+                client._initialized = True
+
+                started = client.start_initialized_thread("ready", None)
+            finally:
+                appserver_client.THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS = original_delay
+                appserver_client.THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS = original_max_delay
+
+            self.assertEqual(started.thread_id, "thread_1")
+            self.assertEqual(started.turn_id, "turn_1")
+            self.assertEqual([method for method, _ in requests].count("thread/read"), 2)
 
     def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
