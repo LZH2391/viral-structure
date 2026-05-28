@@ -1,37 +1,37 @@
-# Recomposition workflow
+# 重组工作流
 
-Use this workflow to create a new short-video plan from a multi-video slot library. The key idea is: **do not choose a preset strategy first**. Recomposition is a constrained assembly problem.
+使用多视频槽位库创建新短视频方案时，采用本工作流。核心思想是：**不要先选择预设策略**。重组是一个受约束的组装问题。
 
-A template can be evidence that a chain worked in one sample. It is not the generator of the new chain.
+Template 可以证明某条链路曾在一个样例中成立，但它不是新链路的生成器。
 
-## Step 1: Normalize the target brief into constraints
+## 步骤 1：把目标 brief 标准化为约束
 
-Before retrieving slots, extract the target constraints.
+检索槽位前，先抽取目标约束。
 
-Required fields to infer or ask for only if blocking:
+需要推断的字段；只有缺失会阻塞时才向用户追问：
 
-- **viewer start state**: what the viewer believes or feels before the video begins
-- **viewer end state**: what the viewer should believe, feel, or do after the video
-- **problem object**: the concrete object/scene/symptom/friction to activate
-- **solution action**: what the product/method/person does visibly
-- **desired result**: the payoff that proves the action mattered
-- **choice object**: what the viewer should remember or choose at the end
-- **available proof assets**: demo, screen recording, before/after, numbers, logs, testimonials, long-term records, object traces, comments, receipts, etc.
-- **objections**: why the viewer might doubt, delay, or misunderstand
-- **duration and platform constraints**: time budget, density, creator style, required CTA strength
-- **production constraints**: what can be filmed, shown, overlaid, or claimed
+- **viewer start state / 观众起始状态**：视频开始前，观众相信什么或感受如何
+- **viewer end state / 观众结束状态**：视频结束后，观众应该相信、感受或执行什么
+- **problem object / 问题对象**：需要激活的具体对象、场景、症状或摩擦
+- **solution action / 解决动作**：产品、方法或人物可见地做了什么
+- **desired result / 目标结果**：证明动作有效的回报
+- **choice object / 选择对象**：观众最后应该记住或选择什么
+- **available proof assets / 可用证明资产**：演示、屏幕录制、前后对比、数字、日志、证言、长期记录、物体痕迹、评论、收据等
+- **objections / 异议**：观众为什么可能怀疑、拖延或误解
+- **duration and platform constraints / 时长和平台约束**：时间预算、信息密度、创作者风格、CTA 强度要求
+- **production constraints / 生产约束**：什么能拍、能展示、能叠加、能主张
 
-Output this as a `brief_constraints` object. Do not yet select a chain.
+把这些输出为 `brief_constraints` 对象。此时还不要选择链路。
 
-## Step 2: Build a slot demand graph, not a strategy
+## 步骤 2：构建槽位需求图，而不是选择策略
 
-This is the most important step.
+这是最重要的一步。
 
-The output of Step 2 is a **slot demand graph**: a set of needed viewer-state transitions plus constraints between them. It is not a choice among `result-first`, `trust-first`, `compressed`, or any other preset.
+步骤 2 的输出是 **slot demand graph / 槽位需求图**：一组所需观众状态跃迁，以及它们之间的约束。它不是在 `result-first`、`trust-first`、`compressed` 或任何其他预设之间做选择。
 
-### 2.1 Create claim and proof inventory
+### 2.1 创建主张和证明清单
 
-List every claim the new video must make. For each claim, decide what proof function can support it.
+列出新视频必须提出的每个主张。为每个主张判断可支持它的证明功能。
 
 ```text
 problem claim      -> problem visibility / concern evidence
@@ -44,11 +44,11 @@ trust claim        -> time evidence, usage trace, review, repeated feedback, log
 choice claim       -> concrete product/service/action memory point
 ```
 
-Each claim becomes a potential slot demand only if it is needed for the target viewer-state path. Do not include a slot because it exists in the source sample.
+只有当某个主张是目标观众状态路径所必需时，它才变成潜在槽位需求。不要因为源样例里有某个槽位，就把它放进新方案。
 
-### 2.2 Convert claims into demand nodes
+### 2.2 把主张转成需求节点
 
-Each demand node should contain:
+每个需求节点应包含：
 
 ```json
 {
@@ -67,16 +67,16 @@ Each demand node should contain:
 }
 ```
 
-Examples:
+示例：
 
-- If the target has a visible usage action and a result, create an operation/result demand pair and mark them as causally close.
-- If the target has a novel or non-obvious mechanism, create a mechanism demand and require understanding time or a strong visual anchor.
-- If the target has strong proof but weak visible action, create a trust/proof demand and use it either as a hook fragment or a close, depending on viewer state.
-- If duration is very short, keep the same demand nodes but mark adjacent nodes as mergeable; do not simply switch to a canned compressed chain.
+- 如果目标有可见使用动作和结果，创建 operation/result 需求对，并标记它们在因果上需要靠近。
+- 如果目标有新颖或不明显的机制，创建 mechanism 需求，并要求理解时间或强视觉锚点。
+- 如果目标有强证明但可见动作弱，创建 trust/proof 需求，并根据观众状态把它用作 hook fragment 或 close。
+- 如果时长很短，保留同样的需求节点，但把相邻节点标记为可合并；不要简单切换到套装式压缩链路。
 
-### 2.3 Add graph edges
+### 2.3 添加图边
 
-Add constraint edges between demand nodes:
+在需求节点之间添加约束边：
 
 ```json
 {
@@ -88,21 +88,21 @@ Add constraint edges between demand nodes:
 }
 ```
 
-Core edges to consider:
+需要考虑的核心边：
 
-- `carryover`: opening object/concern must be paid off by result or proof.
-- `causal_precede`: operation must appear before result unless result is intentionally used as a hook and later explained.
-- `proof_payoff`: a claim must have a proof slot or proof packaging.
-- `rhythm_continuity`: a pause/action node should flow into the payoff node if result attribution matters.
-- `requires_bridge`: moving a slot away from its usual neighbor requires an adapter.
-- `conflict`: high-information mechanism cannot be placed inside a fast hook without visual anchoring.
-- `alternative`: two demand nodes solve the same persuasion problem; choose one or merge.
-- `mergeable`: adjacent nodes can be combined if proof functions survive.
-- `hookable`: a proof/result/trust fragment can be moved to the opening.
+- `carryover`：开头对象/关切必须被结果或证明兑现。
+- `causal_precede`：除非结果被有意用作 hook 并在后面解释，否则操作必须出现在结果之前。
+- `proof_payoff`：一个主张必须有证明槽位或证明包装。
+- `rhythm_continuity`：如果结果归因很重要，停顿/动作节点应流向兑现节点。
+- `requires_bridge`：把槽位移离常见邻居时需要 adapter。
+- `conflict`：高信息量机制不能放进快速 hook，除非有视觉锚点。
+- `alternative`：两个需求节点解决同一个说服问题；选择一个或合并。
+- `mergeable`：如果证明功能仍保留，相邻节点可合并。
+- `hookable`：证明/结果/信任片段可以移到开头。
 
-### 2.4 Output of Step 2
+### 2.4 步骤 2 的输出
 
-Step 2 must output something like this before candidate retrieval:
+步骤 2 必须在候选检索前输出类似内容：
 
 ```json
 {
@@ -116,40 +116,40 @@ Step 2 must output something like this before candidate retrieval:
 }
 ```
 
-This graph is the real recomposition target. Preset chain names should not appear here.
+这个图才是真正的重组目标。这里不应出现预设链路名称。
 
-## Step 3: Generate chain hypotheses from graph operators
+## 步骤 3：用图操作符生成链路假设
 
-Generate several chain hypotheses by applying operators to the demand graph. This is where recomposition happens.
+通过对需求图应用操作符生成多个链路假设。这一步才是重组发生的地方。
 
-Do not ask: "Which strategy should I choose?"
+不要问：“我该选择哪个策略？”
 
-Ask:
+要问：
 
-1. Which demand node should open the video given the strongest available hook asset?
-2. Which nodes must stay adjacent for causality or proof attribution?
-3. Which nodes can be merged without losing proof function?
-4. Which nodes can be fragmented and reused as a hook or close?
-5. Which nodes need an adapter if moved away from their source context?
+1. 在最强可用 hook 资产下，哪个需求节点应该打开视频？
+2. 哪些节点为了因果或证明归因必须保持相邻？
+3. 哪些节点可以合并而不丢失证明功能？
+4. 哪些节点可以被切片并作为 hook 或 close 复用？
+5. 哪些节点移离源上下文后需要 adapter？
 
-### Chain-generation operators
+### 链路生成操作符
 
-Use these operators, alone or in combination:
+使用这些操作符，可单独或组合使用：
 
-- `anchor`: choose the opening demand node based on strongest hook asset, not a preset.
-- `move`: reorder a node while preserving hard edges with adapters.
-- `insert`: add a missing demand needed by the target, even if the source template lacks it.
-- `delete`: remove a demand only when its claim is unnecessary or proven elsewhere.
-- `split`: divide an overloaded node into two lighter nodes.
-- `merge`: combine adjacent nodes when proof functions remain visible.
-- `duplicate`: repeat a slot role with different proof angle, e.g. quick result hook and later detailed result proof.
-- `fragment`: use part of a slot as a hook, bridge, or closing memory point.
-- `invert`: show payoff first, then explain source/cause later.
-- `contrast`: add an old-way/new-way or before/after comparison node.
-- `ladder`: stack proof from weak-to-strong, e.g. demo -> result -> long-term trace.
-- `bridge`: create an adapter node between mismatched source candidates.
+- `anchor`：根据最强 hook 资产选择开场需求节点，而不是选择预设。
+- `move`：在用 adapter 保留硬边的前提下重排节点。
+- `insert`：添加目标需要但源 template 缺失的需求。
+- `delete`：只有当该主张不必要或已在其他地方被证明时才删除需求。
+- `split`：把过载节点拆成两个更轻的节点。
+- `merge`：在证明功能仍可见时合并相邻节点。
+- `duplicate`：用不同证明角度重复一个槽位角色，例如快速结果 hook 和后续详细结果证明。
+- `fragment`：把槽位的一部分用作 hook、bridge 或 closing memory point。
+- `invert`：先展示 payoff，再解释来源/原因。
+- `contrast`：添加旧方式/新方式或前后对比节点。
+- `ladder`：从弱到强堆叠证明，例如 demo -> result -> long-term trace。
+- `bridge`：在错配的来源候选之间创建 adapter 节点。
 
-### Chain hypothesis format
+### 链路假设格式
 
 ```json
 {
@@ -163,78 +163,78 @@ Use these operators, alone or in combination:
 }
 ```
 
-Generate 2-5 chain hypotheses when the target is open-ended. Keep at least one conservative chain and one non-obvious chain if the corpus/proof assets support it.
+当目标是开放式任务时，生成 2-5 个链路假设。如果 corpus/证明资产支持，至少保留一条保守链路和一条非显而易见链路。
 
-## Step 4: Retrieve candidates against demand nodes, not just slot names
+## 步骤 4：针对需求节点检索候选，而不只是按槽位名检索
 
-For each demand node, retrieve candidates by:
+对每个需求节点，按以下维度检索候选：
 
-- slot role or compatible slot type
-- viewer-state transition match
-- claim type and proof need
-- rhythm need and information load
+- slot role 或兼容 slot type
+- 观众状态跃迁匹配
+- claim type 和 proof need
+- rhythm need 和 information load
 - packaging proof function
-- required sync/carryover constraints
-- source reliability and confidence
+- 必要 sync/carryover 约束
+- 来源可靠性和置信度
 
-A candidate with the right label but wrong proof function should lose to a candidate with a weaker label but stronger function fit.
+标签正确但证明功能错误的候选，应输给标签较弱但功能更匹配的候选。
 
-If no library candidate satisfies a required demand, create a generated gap-fill implementation and lower confidence.
+如果没有库候选能满足必需需求，创建 generated gap-fill implementation 并降低置信度。
 
-## Step 5: Select globally, not slot-by-slot
+## 步骤 5：全局选择，而不是逐槽位选择
 
-Do not pick the top candidate for each slot independently. Choose the combination that works as a chain.
+不要独立选择每个槽位的 top candidate。要选择作为链路整体成立的组合。
 
-Score the full plan by:
+按以下维度给完整方案评分：
 
-- **state coverage**: every important viewer-state transition is covered
-- **proof satisfaction**: each major claim has a feasible proof function
-- **carryover integrity**: opening object/concern connects to result, trust, or choice
-- **causal clarity**: action, mechanism, and result do not feel disconnected
-- **rhythm coherence**: the video has a purposeful attention curve
-- **packaging feasibility**: visual proof can actually be produced
-- **binding compatibility**: sync, require, carryover, substitute, and conflict rules pass
-- **source diversity**: the plan is not just one source sample unless intentionally faithful
-- **novelty with control**: the plan is different enough to be useful but still explainable
+- **state coverage / 状态覆盖**：每个重要观众状态跃迁都被覆盖
+- **proof satisfaction / 证明满足**：每个主要主张都有可行证明功能
+- **carryover integrity / 承接完整性**：开头对象/关切连接到结果、信任或选择
+- **causal clarity / 因果清晰度**：动作、机制和结果不会显得断裂
+- **rhythm coherence / 节奏一致性**：视频有明确注意力曲线
+- **packaging feasibility / 包装可行性**：视觉证明确实能生产
+- **binding compatibility / 绑定兼容性**：sync、require、carryover、substitute 和 conflict rules 通过
+- **source diversity / 来源多样性**：方案不是单一源样例，除非刻意做忠实变体
+- **novelty with control / 可控新颖性**：方案有足够差异，但仍可解释
 
-When many candidates exist, use a beam-search mindset:
+候选很多时，用 beam-search 思路：
 
-1. Keep the top few chain hypotheses.
-2. For each demand node, keep the top few candidates.
-3. Combine only candidates that satisfy hard edges.
-4. Prefer the plan with the best global score, not the highest local candidate score.
+1. 保留前几个链路假设。
+2. 对每个需求节点保留前几个候选。
+3. 只组合满足硬边的候选。
+4. 选择全局评分最好，而不是局部候选分最高的方案。
 
-## Step 6: Compose slot implementations
+## 步骤 6：组合槽位实现
 
-For each selected demand node, decide the implementation source:
+对每个选中的需求节点，判断实现来源：
 
-- use a full slot candidate
-- keep the slot function but swap script atom
-- keep script but swap rhythm
-- keep script/rhythm but swap packaging
-- use a proof fragment from another slot
-- generate a missing implementation from the demand definition
+- 使用完整 slot candidate
+- 保留槽位功能但替换 script atom
+- 保留 script 但替换 rhythm
+- 保留 script/rhythm 但替换 packaging
+- 使用另一个槽位的 proof fragment
+- 根据 demand definition 生成缺失实现
 
-Always explain what is preserved:
+始终解释保留了什么：
 
 ```text
 preserved function: result proof returns to activated problem object
 changed surface: skincare close-up -> dashboard before/after screen
 ```
 
-## Step 7: Create adapters for cross-source or cross-category gaps
+## 步骤 7：为跨来源或跨品类缺口创建 adapters
 
-Adapters are not decoration; they are the bridge that makes mixed-source recomposition coherent.
+Adapters 不是装饰，而是让混合来源重组保持连贯的桥。
 
-Use adapters when:
+以下情况使用 adapters：
 
-- the problem object and result object differ
-- a claim is borrowed from one category but proof assets come from another
-- rhythm changes abruptly between source candidates
-- packaging style changes but proof function must stay intact
-- a slot is moved before the node that normally explains it
+- 问题对象和结果对象不同
+- 主张借自一个品类，但证明资产来自另一个品类
+- 来源候选之间节奏突变
+- 包装样式变化，但证明功能必须保留
+- 槽位被移到通常解释它的节点之前
 
-Adapter types:
+Adapter 类型：
 
 - `object_adapter`
 - `claim_adapter`
@@ -244,27 +244,27 @@ Adapter types:
 - `time_adapter`
 - `causal_adapter`
 
-## Step 8: Design the video-level rhythm curve
+## 步骤 8：设计视频级节奏曲线
 
-Only design the rhythm curve after the demand graph and chain hypothesis are stable.
+只有在需求图和链路假设稳定后，才设计节奏曲线。
 
-Represent rhythm across slots:
+跨槽位表达节奏：
 
 ```text
 hook spike -> quick clarification -> steady proof -> pause/action -> payoff peak -> trust decay/close
 ```
 
-Rhythm may cross slot boundaries. Represent this explicitly:
+节奏可以跨越槽位边界。明确表示：
 
 ```text
 low_barrier_operation + result_confirmation = pause -> action -> payoff
 ```
 
-Check information load: dense mechanism, multi-step operation, and trust proof usually need more time than problem visibility or result flash.
+检查信息负载：高密度机制、多步骤操作和信任证明通常需要比问题可见性或结果闪现更多时间。
 
-## Step 9: Design packaging by proof function
+## 步骤 9：按证明功能设计包装
 
-For each claim, assign proof packaging based on function before style.
+为每个主张按功能而不是样式分配证明包装。
 
 ```text
 problem claim -> object/concern visibility
@@ -277,47 +277,47 @@ trust claim -> time, repetition, social proof, usage trace
 choice close -> concrete memory point
 ```
 
-Surface style can change. Proof function cannot disappear.
+表层样式可以改变。证明功能不能消失。
 
-## Step 10: Produce the practical plan and audit
+## 步骤 10：产出实用方案和审计
 
-Output a usable plan rather than abstract theory:
+输出可用方案，而不是抽象理论：
 
-- brief constraints
-- slot demand graph
-- generated chain hypotheses and selected chain
-- selected slot candidates and source samples
-- slot-by-slot script/rhythm/packaging implementation
+- brief 约束
+- 槽位需求图
+- 生成的链路假设和选中链路
+- 选中的槽位候选和来源样例
+- 逐槽位 script/rhythm/packaging 实现
 - adapters
-- segment-level copy
-- shot or screen-recording actions
-- overlays and proof packaging
-- rhythm timing
-- proof materials needed
+- 分段文案
+- 镜头或屏幕录制动作
+- 覆盖层和证明包装
+- 节奏时间
+- 所需证明材料
 - binding checks
-- alternate versions
+- 替代版本
 
-## Step 11: Label confidence
+## 步骤 11：标记置信度
 
-Confidence should reflect corpus support and target fit.
+置信度应反映 corpus 支持度和目标匹配度。
 
-High confidence:
+高置信度：
 
-- demand graph is clear
-- chosen chain satisfies hard edges
-- proof assets exist
-- selected candidates have compatible atoms and bindings
-- key patterns are supported by multiple samples or strong logic
+- 需求图清楚
+- 选中链路满足硬边
+- 证明资产存在
+- 选中候选具有兼容 atoms 和 bindings
+- 关键模式由多个样例或强逻辑支持
 
-Medium confidence:
+中置信度：
 
-- chain is coherent but category differs
-- proof assets are partial
-- one or two generated implementations or adapters are needed
+- 链路连贯但品类不同
+- 证明资产不完整
+- 需要一两个生成式实现或 adapters
 
-Low confidence:
+低置信度：
 
-- mostly generated from sparse library data
-- missing proof assets
-- major binding or carryover risks remain
-- final chain depends on an untested operator combination
+- 主要由稀疏库数据生成
+- 缺少证明资产
+- 仍存在主要 binding 或 carryover 风险
+- 最终链路依赖未验证的操作符组合

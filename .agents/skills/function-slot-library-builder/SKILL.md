@@ -125,3 +125,11 @@ Runtime/Temp/FunctionSlotLibrary/retrieval.json
 ```
 
 `function-slot-restructure` 消费这些结果，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
+
+## 参考文档
+
+按需读取：
+
+- `references/corpus-ingestion.md`：FunctionSlotLibrary 摄入、索引字段和覆盖审查。
+- `references/slot-type-review.md`：判断 `slotType` 复用或新增。
+- `references/output-formats.md`：库级审查和槽位相似检索输出格式。

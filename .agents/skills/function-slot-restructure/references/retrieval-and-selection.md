@@ -1,145 +1,145 @@
-# Retrieval and selection
+# 检索与选择
 
-Use this reference when choosing slots and atoms from a multi-video library.
+当需要从多视频库中选择槽位和原子时，使用本参考。
 
-## Selection order
+## 选择顺序
 
-Select in this order:
+按以下顺序选择：
 
-1. **brief constraints**: viewer states, claims, proof assets, objections, duration, and production limits
-2. **slot demand graph**: needed viewer-state transitions and hard/soft edges between them
-3. **chain hypotheses**: generated with operators, not chosen from a strategy menu
-4. **slot variants**: which source examples best satisfy each demand node
-5. **script atoms**: which claim implementation fits the target
-6. **rhythm atoms**: which attention pattern fits the claim and duration
-7. **packaging atoms**: which proof/visual implementation fits available assets
-8. **bindings and rules**: what must be synchronized, carried over, or avoided
+1. **brief constraints / brief 约束**：观众状态、主张、证明资产、异议、时长和生产限制
+2. **slot demand graph / 槽位需求图**：所需观众状态跃迁，以及它们之间的硬边/软边
+3. **chain hypotheses / 链路假设**：用操作符生成，而不是从策略菜单中选择
+4. **slot variants / 槽位变体**：哪些来源样例最能满足每个需求节点
+5. **script atoms / 脚本原子**：哪种主张实现适合目标
+6. **rhythm atoms / 节奏原子**：哪种注意力模式适合主张和时长
+7. **packaging atoms / 包装原子**：哪种证明/视觉实现适合可用资产
+8. **bindings and rules / 绑定和规则**：什么必须同步、承接或避免
 
-Do not retrieve a packaging style first and then force a slot around it.
+不要先检索包装样式，再围绕它强行拼槽位。
 
-## Candidate scoring
+## 候选评分
 
-Score candidates qualitatively or with scripts. Use this hierarchy:
+可以定性评分，也可以用脚本评分。使用以下层级：
 
-### 1. Function fit
+### 1. 功能匹配
 
-Does the candidate slot produce the desired viewer-state transition?
+候选槽位是否产生目标观众状态跃迁？
 
-High fit if:
+高匹配通常满足：
 
-- `viewerStateBefore` and `viewerStateAfter` match the target point in the chain
-- `persuasionTask` matches the target objective
-- the slot's required sync points are feasible
+- `viewerStateBefore` 和 `viewerStateAfter` 匹配链路中的目标位置
+- `persuasionTask` 匹配目标任务
+- 该槽位所需同步点可实现
 
-### 2. Claim and proof fit
+### 2. 主张与证明匹配
 
-Does the candidate have proof needs that the target can satisfy?
+候选的证明需求是否能被目标满足？
 
-Examples:
+示例：
 
-- mechanism claim needs mechanism explanation or visual proof
-- operation claim needs step cue and completion action
-- result claim needs result evidence tied to earlier concern
-- long-term trust claim needs time evidence, usage traces, reviews, logs, or repeated feedback
+- 机制主张需要机制解释或视觉证明
+- 操作主张需要步骤提示和完成动作
+- 结果主张需要与前置关切绑定的结果证据
+- 长期信任主张需要时间证据、使用痕迹、评价、日志或重复反馈
 
-### 3. Rhythm fit
+### 3. 节奏匹配
 
-Does the rhythm support the amount of information?
+节奏是否支撑信息量？
 
-Examples:
+示例：
 
-- fast staccato fits problem activation, not complex mechanism
-- steady dense fits explanation
-- pause-then-action fits step-to-result transitions
-- slow testimonial fits trust close
+- 快速连击适合痛点激活，不适合复杂机制
+- 稳定高密度适合解释
+- 停顿后动作适合步骤到结果的转场
+- 慢速证言适合信任收束
 
-### 4. Packaging fit
+### 4. 包装匹配
 
-Does the packaging function fit the claim and the target production resources?
+包装功能是否匹配主张和目标生产资源？
 
-Choose proof function before visual style.
+先选择证明功能，再选择视觉样式。
 
-Examples:
+示例：
 
-- problem location -> close-up, highlight, cursor circle, crop, comparison frame
-- mechanism -> diagram, overlay, screen annotation, demo cutaway
-- step -> icon, countdown, checklist, gesture, interface pointer
-- result -> before/after, output screen, close-up, number change
-- trust -> record, repeated proof, usage trace, testimonial, review, receipt, usage log
+- 问题定位 -> 近景、高亮、光标圈选、裁切、对比框
+- 机制 -> 图解、覆盖层、屏幕标注、演示剖面
+- 步骤 -> 图标、倒计时、清单、手势、界面指针
+- 结果 -> 前后对比、输出屏、近景、数字变化
+- 信任 -> 记录、重复证明、使用痕迹、证言、评价、收据、使用日志
 
-### 5. Reliability
+### 5. 可靠性
 
-Prefer variants with:
+优先选择：
 
-- higher confidence
-- no `needReview`
-- repeated slot type support across samples
-- rules repeated across multiple samples
-- clear source references
+- 更高 `confidence`
+- 无 `needReview`
+- 在多个样例中有重复支持的 slot type
+- 被多个样例重复支持的 rules
+- 清楚的 source references
 
-### 6. Diversity
+### 6. 多样性
 
-Avoid building a new video entirely from one source sample unless the user asks for a faithful variant.
+除非用户要求忠实变体，否则避免完全从一个源样例构建新视频。
 
-Prefer a mix such as:
+可优先混合：
 
-- slot chain from a high-support template
-- script atom from a close category
-- rhythm atom from a similar duration/style
-- packaging atom from a sample with the right proof assets
+- 来自高支持 template 的槽位链
+- 来自相近品类的 script atom
+- 来自相似时长/风格的 rhythm atom
+- 来自拥有正确证明资产样例的 packaging atom
 
-## Retrieval modes
+## 检索模式
 
-### Exact slot retrieval
+### 精确槽位检索
 
-Use when the user asks for a specific slot type.
+当用户要求特定 slot type 时使用。
 
-Output:
+输出：
 
 - top candidate slot variants
-- their source samples
-- script/rhythm/packaging options
-- proof requirements
-- risks
+- 它们的来源样例
+- script/rhythm/packaging 选项
+- 证明要求
+- 风险
 
-### Demand-graph chain generation
+### 需求图链路生成
 
-Use when the user asks to make a new video.
+当用户要求制作新视频时使用。
 
-Output:
+输出：
 
-- brief constraints
-- slot demand graph
-- generated chain hypotheses and operators used
-- selected chain and why it wins globally
-- slots borrowed from the library
-- slots generated, inserted, fragmented, or adapted because the library lacks direct coverage
+- brief 约束
+- 槽位需求图
+- 生成的链路假设和使用的操作符
+- 选中链路，以及它为什么在全局上胜出
+- 从库中借用的槽位
+- 因库中缺少直接覆盖而生成、插入、切片或适配的槽位
 
-### Gap-aware retrieval
+### 缺口感知检索
 
-Use when the corpus lacks examples.
+当 corpus 缺少样例时使用。
 
-Output:
+输出：
 
-- available library candidates
-- missing slot or atom types
-- generated fallback implementation
-- confidence downgrade
+- 可用的库候选
+- 缺失的槽位或原子类型
+- 生成式 fallback 实现
+- 置信度降级
 
-## Slot mixing rules
+## 槽位混合规则
 
-You may mix script, rhythm, and packaging atoms from different videos if:
+可以混合不同视频的 script、rhythm 和 packaging atoms，前提是：
 
-- they share the same or compatible slot type
-- the script proof need is satisfied by the packaging atom
-- the rhythm does not list the script claim type in `avoidFor`
-- required sync points can be aligned
-- cross-slot carryover remains intact
+- 它们共享相同或兼容的 slot type
+- script 的 proof need 能被 packaging atom 满足
+- rhythm 没有在 `avoidFor` 中排斥该 script claim type
+- 必要同步点可以对齐
+- 跨槽位 carryover 保持完整
 
-Do not mix atoms merely because their labels sound similar.
+不要仅因为标签听起来相似就混合原子。
 
-## Example selection explanation
+## 选择解释示例
 
 ```text
-Selected problem_activation from sample_014 because its viewer-state shift matches the target opening and it has strong object-action sync. Used rhythm from sample_006 because the target is a 12-second video and needs faster entry. Replaced packaging with a screen-recording highlight from sample_021 because the target is SaaS, not skincare. Binding check passes because problem object, cursor highlight, and action click can land on the same beat.
+选择 sample_014 的 problem_activation，因为它的观众状态跃迁匹配目标开场，并且有很强的对象-动作同步。节奏使用 sample_006，因为目标是 12 秒视频，需要更快进入。包装替换为 sample_021 的屏幕录制高亮，因为目标是 SaaS，不是护肤。绑定检查通过，因为问题对象、光标高亮和点击动作可以落在同一拍点。
 ```

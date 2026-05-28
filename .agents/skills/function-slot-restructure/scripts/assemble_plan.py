@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Assemble a recomposition plan skeleton from a slot index and target brief.
+"""根据槽位索引和目标 brief 组装重组方案骨架。
 
-This script intentionally avoids choosing from a fixed strategy menu. It first
-builds a slot-demand graph from the brief, then generates chain hypotheses with
-operators, retrieves candidates for the demanded slot roles, and returns a
-starter plan for human/LLM recomposition.
+本脚本刻意避免从固定策略菜单中选择。它会先从 brief 构建槽位需求图，
+再用操作符生成链路假设，为需求槽位角色检索候选，并返回一个供人工
+或 LLM 继续重组的起始方案。
 """
 from __future__ import annotations
 
@@ -18,35 +17,35 @@ from retrieve_candidates import retrieve
 ROLE_DEFAULTS: Dict[str, Dict[str, str]] = {
     "problem_activation": {
         "claimType": "problem_to_action",
-        "proofFunction": "visible problem object or concern plus direct first action",
+        "proofFunction": "可见的问题对象或关切，以及直接的初始动作",
         "rhythmNeed": "hook",
         "packagingNeed": "object_visibility",
         "informationLoad": "low",
     },
     "mechanism_credibility": {
         "claimType": "mechanism_explain",
-        "proofFunction": "understandable reason, process, comparison, or explanation proof",
+        "proofFunction": "可理解的原因、过程、对比或解释性证明",
         "rhythmNeed": "steady_explain",
         "packagingNeed": "mechanism_visualization",
         "informationLoad": "high",
     },
     "low_barrier_operation": {
         "claimType": "operation_simplification",
-        "proofFunction": "minimal steps plus completion action",
+        "proofFunction": "最少步骤加完成动作",
         "rhythmNeed": "pause_action",
         "packagingNeed": "step_prompt",
         "informationLoad": "medium",
     },
     "result_confirmation": {
         "claimType": "result_to_benefit",
-        "proofFunction": "result evidence tied to earlier concern",
+        "proofFunction": "与前置关切绑定的结果证据",
         "rhythmNeed": "payoff_peak",
         "packagingNeed": "result_proof",
         "informationLoad": "medium",
     },
     "long_term_trust_close": {
         "claimType": "trust_to_choice",
-        "proofFunction": "time evidence, usage trace, repeated feedback, review, log, or equivalent",
+        "proofFunction": "时间证据、使用痕迹、重复反馈、评价、日志或等价证明",
         "rhythmNeed": "proof_close",
         "packagingNeed": "trust_trace_and_choice_memory",
         "informationLoad": "medium",
@@ -93,10 +92,10 @@ def make_demand(slot_type: str, order: int, brief: Dict[str, Any], optionality: 
     return {
         "demandId": f"D{order:02d}",
         "slotRole": slot_type,
-        "targetViewerStateBefore": brief.get("viewerStart") or "viewer has not yet accepted this part of the persuasion path",
-        "targetViewerStateAfter": "viewer accepts the claim/proof function for this demand",
+        "targetViewerStateBefore": brief.get("viewerStart") or "观众尚未接受这段说服路径中的当前部分",
+        "targetViewerStateAfter": "观众接受该需求对应的主张/证明功能",
         "claimType": role.get("claimType", "target_specific_claim"),
-        "proofFunction": role.get("proofFunction", "target-specific proof function required"),
+        "proofFunction": role.get("proofFunction", "需要目标特定的证明功能"),
         "informationLoad": role.get("informationLoad", "medium"),
         "rhythmNeed": role.get("rhythmNeed", "target_specific_rhythm"),
         "packagingNeed": role.get("packagingNeed", "target_specific_packaging"),
@@ -126,7 +125,7 @@ def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequ
         if role not in roles and _supported_or_known(role, available):
             roles.append(role)
 
-    # Start from target obligations, not a source template.
+    # 从目标义务出发，而不是从源模板出发。
     if any(k in text for k in ["pain", "problem", "痛", "问题", "卡点", "困扰", "friction", "mess", "error"]):
         add("problem_activation")
     if any(k in text for k in ["action", "demo", "how", "step", "one click", "一键", "操作", "步骤", "演示", "使用"]):
@@ -185,17 +184,17 @@ def build_demand_graph(index: Dict[str, Any], brief: Dict[str, Any], explicit_se
     return {
         "nodes": nodes,
         "edges": edges,
-        "mustSatisfy": [
-            "every selected node must have a viewer-state transition",
-            "each major claim must have a proof function",
-            "problem/result carryover must pass or be bridged",
-            "operation/result causality must pass or be bridged",
+            "mustSatisfy": [
+            "每个选中节点都必须有观众状态跃迁",
+            "每个主要主张都必须有证明功能",
+            "问题/结果承接必须通过，或被桥接",
+            "操作/结果因果关系必须通过，或被桥接",
         ],
         "softPreferences": [
-            "source diversity",
-            "proof feasibility",
-            "rhythm coherence",
-            "low unnecessary production complexity",
+            "来源多样性",
+            "证明可行性",
+            "节奏连贯性",
+            "降低不必要的生产复杂度",
         ],
     }
 
@@ -226,7 +225,7 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             "risks": risks or [],
         })
 
-    add("H01", causal, ["anchor", "causal_order"], "baseline chain generated from hard viewer-state/proof dependencies")
+    add("H01", causal, ["anchor", "causal_order"], "根据硬性的观众状态/证明依赖生成的基准链路")
 
     result_id = by_role.get("result_confirmation", {}).get("demandId")
     problem_id = by_role.get("problem_activation", {}).get("demandId")
@@ -239,9 +238,9 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             "H02",
             seq,
             ["fragment", "invert", "bridge"],
-            "strong result/output asset can open the video, then the chain explains the source problem and action",
+            "强结果/输出资产可以作为开场，然后链路解释来源问题和动作",
             ["causal_adapter", "object_adapter"],
-            ["result hook must not feel unrelated to the later problem"],
+            ["结果 hook 不能让人感觉和后续问题无关"],
         )
 
     if trust_id and any(k in text for k in ["trust", "review", "testimonial", "long", "proof", "背书", "长期", "评价", "记录"]):
@@ -250,9 +249,9 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             "H03",
             seq,
             ["fragment", "anchor", "proof_ladder"],
-            "durable trust proof can be used as opening evidence, then unpacked through problem/action/result",
+            "耐久信任证明可以作为开场证据，然后通过问题/动作/结果展开",
             ["proof_adapter", "object_adapter"],
-            ["trust proof must point to the same claim being sold"],
+            ["信任证明必须指向正在销售的同一主张"],
         )
 
     if duration_num and duration_num <= 15 and operation_id and result_id:
@@ -260,9 +259,9 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             "H04",
             [d for d in causal],
             ["merge", "delete_optional"],
-            "short duration suggests merging operation and result into one continuous action-payoff unit rather than deleting proof",
+            "时长较短时，应把操作和结果合并为连续的动作-兑现单元，而不是删除证明",
             [],
-            ["merged segment must still show both action and payoff"],
+            ["合并片段仍必须同时展示动作和兑现"],
         )
 
     if any(k in text for k in ["compare", "vs", "old way", "new way", "误区", "错误", "对比", "以前", "现在"]):
@@ -276,9 +275,9 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any]) -> L
             "H05",
             seq,
             ["insert", "contrast", "bridge"],
-            "target brief suggests an old-way/new-way or mistake-correction contrast node",
+            "目标 brief 暗示需要旧方式/新方式或误区纠正的对比节点",
             ["claim_adapter"],
-            ["contrast node may be outside-library generated if no matching slot exists"],
+            ["如果没有匹配槽位，对比节点可能需要在库外生成"],
         )
 
     return score_hypotheses(hypotheses, graph, brief)
@@ -296,7 +295,7 @@ def score_hypotheses(hypotheses: List[Dict[str, Any]], graph: Dict[str, Any], br
         missing = sorted(node_ids - present)
         if missing:
             score -= 3.0 * len(missing)
-            h.setdefault("risks", []).append(f"missing required demands: {', '.join(missing)}")
+            h.setdefault("risks", []).append(f"缺少必需需求: {', '.join(missing)}")
         for e in hard_edges:
             src, dst = e.get("from"), e.get("to")
             if src in present and dst in present:
@@ -304,7 +303,7 @@ def score_hypotheses(hypotheses: List[Dict[str, Any]], graph: Dict[str, Any], br
                     score += 1.5
                 else:
                     score -= 0.5
-                    h.setdefault("requiredAdapters", []).append(f"bridge {src}->{dst}: {e.get('edgeType')}")
+                    h.setdefault("requiredAdapters", []).append(f"桥接 {src}->{dst}: {e.get('edgeType')}")
         if "invert" in h.get("operatorsUsed", []) and any(k in text for k in ["result", "效果", "结果", "before", "after", "output"]):
             score += 1.0
         if "proof_ladder" in h.get("operatorsUsed", []) and any(k in text for k in ["trust", "proof", "背书", "长期", "review"]):
@@ -316,7 +315,7 @@ def score_hypotheses(hypotheses: List[Dict[str, Any]], graph: Dict[str, Any], br
 
 
 def select_chain(hypotheses: List[Dict[str, Any]]) -> Dict[str, Any]:
-    return hypotheses[0] if hypotheses else {"chainId": "H00", "sequence": [], "operatorsUsed": [], "reason": "no hypothesis generated"}
+    return hypotheses[0] if hypotheses else {"chainId": "H00", "sequence": [], "operatorsUsed": [], "reason": "未生成链路假设"}
 
 
 def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: List[str] | None) -> Dict[str, Any]:
@@ -341,19 +340,19 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "slotType": "generated_or_inserted_bridge",
                 "operation": "generated_gap_fill",
                 "selectedVariant": None,
-                "scriptRole": "generate a bridge script atom matching this inserted demand",
-                "rhythmRole": "choose a rhythm adapter compatible with adjacent slots",
-                "packagingRole": "preserve the proof or transition function of the bridge",
+                "scriptRole": "生成匹配该插入需求的桥接脚本原子",
+                "rhythmRole": "选择与相邻槽位兼容的节奏适配器",
+                "packagingRole": "保留桥接的证明或转场功能",
                 "syncPoints": [],
             })
-            warnings.append(f"inserted/generated demand has no direct library slot: {demand_id}")
+            warnings.append(f"插入/生成的需求没有直接对应的库槽位: {demand_id}")
             continue
 
         demand = demand_by_id[demand_id]
         slot_type = demand["slotRole"]
         group = candidates.get("candidateGroups", {}).get(slot_type) or []
         if not group:
-            warnings.append(f"no library candidate found for demand {demand_id} / slot type: {slot_type}; create generated implementation")
+            warnings.append(f"没有为需求 {demand_id} / slot type {slot_type} 找到库候选；需要创建生成式实现")
             selected_slots.append({
                 "order": order,
                 "demandId": demand_id,
@@ -361,9 +360,9 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
                 "operation": "generated_gap_fill",
                 "selectedVariant": None,
                 "demand": demand,
-                "scriptRole": "generate a script atom matching this demand's claim/proof function",
-                "rhythmRole": "select a rhythm pattern compatible with information load",
-                "packagingRole": "assign proof packaging required by the demand",
+                "scriptRole": "生成匹配该需求主张/证明功能的脚本原子",
+                "rhythmRole": "选择与信息负载兼容的节奏模式",
+                "packagingRole": "分配该需求所需的证明包装",
                 "syncPoints": [],
             })
             continue
@@ -394,7 +393,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         })
 
     if selected_chain.get("requiredAdapters"):
-        warnings.append("selected chain requires adapters: " + ", ".join(selected_chain.get("requiredAdapters", [])))
+        warnings.append("选中链路需要 adapters: " + ", ".join(selected_chain.get("requiredAdapters", [])))
 
     return {
         "brief": brief,
@@ -410,17 +409,17 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         "selectedChain": selected_chain,
         "selectedSlots": selected_slots,
         "warnings": warnings,
-        "nextStep": "Use this skeleton to write script beats, rhythm curve, packaging instructions, adapters, and binding audit.",
+        "nextStep": "使用该骨架继续撰写脚本节拍、节奏曲线、包装说明、adapters 和绑定审计。",
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("index_json", help="Index JSON from build_slot_index.py")
-    parser.add_argument("--brief", help="Brief JSON file")
-    parser.add_argument("--mode", help="Legacy field accepted only as a brief hint, not as a strategy selector")
-    parser.add_argument("--sequence", help="Comma-separated explicit slot type sequence override")
-    parser.add_argument("--out", help="Output JSON path")
+    parser.add_argument("index_json", help="来自 build_slot_index.py 的索引 JSON")
+    parser.add_argument("--brief", help="Brief JSON 文件")
+    parser.add_argument("--mode", help="兼容旧字段；仅作为 brief 提示，不作为策略选择器")
+    parser.add_argument("--sequence", help="逗号分隔的显式 slot type 顺序覆盖")
+    parser.add_argument("--out", help="输出 JSON 路径")
     args = parser.parse_args()
 
     index = read_json(Path(args.index_json))
@@ -431,7 +430,7 @@ def main() -> None:
     plan = build_plan(index, brief, sequence)
     if args.out:
         write_json(Path(args.out), plan)
-        print(f"wrote {args.out}")
+        print(f"已写入 {args.out}")
     else:
         import json
         print(json.dumps(plan, ensure_ascii=False, indent=2))

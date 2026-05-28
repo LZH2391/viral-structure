@@ -1,145 +1,71 @@
-# Output formats
+# 输出格式
 
-Use these formats for consistent responses.
+使用以下格式保持重组响应一致。构建库审查、slotType 命名和槽位相似检索输出请使用 `function-slot-library-builder` 的 references。
 
-## A. Corpus audit output
-
-```markdown
-# Corpus Audit
-
-## Scope
-- samples detected:
-- slot variants:
-- canonical slot types:
-- atom variants:
-- templates:
-- rules/bindings:
-
-## Strong areas
-...
-
-## Sparse areas
-...
-
-## Rule strength
-| rule/function | support | confidence | note |
-|---|---:|---:|---|
-
-## Recommended library improvements
-...
-```
-
-## B. Slot retrieval output
+## A. 重组输出
 
 ```markdown
-# Slot Retrieval
+# 重组方案
 
-## Target interpretation
-...
+## 1. 目标理解
+[品类、受众、目标、假设]
 
-## Candidate slots
-| needed slot | selected candidate | source | why selected | risks |
+## 2. 槽位需求图
+| 需求 | 观众状态跃迁 | 主张/证明义务 | 硬边 | 可选性 |
 |---|---|---|---|---|
 
-## Alternate candidates
-...
-
-## Missing or weak coverage
-...
-```
-
-## C. Recomposition output
-
-```markdown
-# Recomposition Plan
-
-## 1. Target interpretation
-[category, audience, goal, assumptions]
-
-## 2. Slot demand graph
-| demand | viewer transition | claim/proof obligation | hard edges | optionality |
+## 3. 生成的链路假设
+| 假设 | 顺序 | 使用的操作符 | 为什么可行 | 风险 |
 |---|---|---|---|---|
 
-## 3. Generated chain hypotheses
-| hypothesis | sequence | operators used | why viable | risks |
-|---|---|---|---|---|
-
-## 4. Selected slot chain
-| order | demand | slot type | operation | source/support | role |
+## 4. 选中的槽位链
+| 顺序 | 需求 | slot type | 操作 | 来源/支持 | 角色 |
 |---:|---|---|---|---|---|
 
-## 5. Slot-by-slot plan
-### Slot 1: [slot type]
-- script role:
-- rhythm role:
-- packaging/proof role:
-- sync points:
-- selected source variants:
-- replacement variables:
+## 5. 逐槽位方案
+### Slot 1：[slot type]
+- 脚本角色：
+- 节奏角色：
+- 包装/证明角色：
+- 同步点：
+- 选中的来源 variants：
+- 可替换变量：
 
-## 6. Script draft / beat sheet
-[usable segment-level script]
+## 6. 脚本草案 / 节拍表
+[可用的分段脚本]
 
-## 7. Rhythm curve
-[fast/steady/pause/peak/close curve]
+## 7. 节奏曲线
+[快/稳/停顿/峰值/收束曲线]
 
-## 8. Packaging plan
-[visual proof and overlay instructions]
+## 8. 包装方案
+[视觉证明和覆盖层说明]
 
-## 9. Binding audit
-| binding | status | note | repair if needed |
+## 9. 绑定审计
+| binding | 状态 | 备注 | 必要修复 |
 |---|---|---|---|
 
-## 10. Variants
-- A:
-- B:
-- C:
+## 10. 变体
+- A：
+- B：
+- C：
 ```
 
-## D. Validation and repair output
+## B. 校验与修复输出
 
 ```markdown
-# Validation and Repair
+# 校验与修复
 
-## Mapping
-| script/storyboard part | mapped slot | confidence |
+## 映射
+| 脚本/分镜部分 | 映射槽位 | 置信度 |
 |---|---|---:|
 
-## Issues
-| severity | issue | broken rule | repair |
+## 问题
+| 严重度 | 问题 | 被破坏的规则 | 修复 |
 |---|---|---|---|
 
-## Repaired chain
+## 修复后的链路
 ...
 
-## Repaired script/plan
-...
-```
-
-## E. Library design output
-
-```markdown
-# Skill / Library Design
-
-## Objective
-...
-
-## Data model
-...
-
-## Workflows
-1. ingestion/indexing
-2. retrieval/selection
-3. recomposition
-4. validation/repair
-5. corpus improvement
-
-## Required scripts
-...
-
-## Required references
-...
-
-## Output contracts
+## 修复后的脚本/方案
 ...
 ```
