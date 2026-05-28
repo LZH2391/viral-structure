@@ -179,7 +179,7 @@ class AppServerClientTests(unittest.TestCase):
 
             self.assertEqual(thread["turns"][0]["last_token_usage"]["input_tokens"], 222)
 
-    def test_list_turn_items_uses_official_turn_items_endpoint(self) -> None:
+    def test_list_turn_items_uses_turns_list_with_full_item_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_root = Path(tmp)
             requests: list[tuple[str, dict]] = []
@@ -190,11 +190,17 @@ class AppServerClientTests(unittest.TestCase):
 
                 def _request(self, method: str, params: dict) -> dict:
                     requests.append((method, dict(params)))
-                    if method == "thread/turns/items/list":
+                    if method == "thread/turns/list":
                         return {
                             "data": [
-                                {"id": "u1", "type": "userMessage", "text": "开始"},
-                                {"id": "cmd1", "type": "commandExecution", "command": "Get-Content manifest.json"},
+                                {
+                                    "id": "turn_1",
+                                    "itemsView": "full",
+                                    "items": [
+                                        {"id": "u1", "type": "userMessage", "text": "开始"},
+                                        {"id": "cmd1", "type": "commandExecution", "command": "Get-Content manifest.json"},
+                                    ],
+                                },
                             ],
                             "nextCursor": None,
                             "backwardsCursor": "cursor_1",
@@ -206,13 +212,14 @@ class AppServerClientTests(unittest.TestCase):
 
             result = client.list_turn_items("thread_1", "turn_1", limit=50)
 
-            self.assertEqual(requests[0][0], "thread/turns/items/list")
+            self.assertEqual(requests[0][0], "thread/turns/list")
             self.assertEqual(requests[0][1]["threadId"], "thread_1")
-            self.assertEqual(requests[0][1]["turnId"], "turn_1")
             self.assertEqual(requests[0][1]["limit"], 50)
             self.assertEqual(requests[0][1]["sortDirection"], "asc")
+            self.assertEqual(requests[0][1]["itemsView"], "full")
             self.assertEqual(len(result["data"]), 2)
-            self.assertEqual(result["backwardsCursor"], "cursor_1")
+            self.assertIsNone(result["backwardsCursor"])
+            self.assertEqual(result["source"], "thread/turns/list")
 
     def test_start_reviewer_thread_enables_raw_events_for_timeline_items(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

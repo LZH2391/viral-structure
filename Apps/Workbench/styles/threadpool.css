@@ -46,6 +46,13 @@
   color: #ffd8df;
 }
 
+.threadpool-maintenance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .threadpool-detail {
   border-left: 1px solid var(--line);
 }

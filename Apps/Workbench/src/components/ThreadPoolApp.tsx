@@ -105,7 +105,7 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
 
   return (
     <div className={embedded ? "threadpool-shell embedded-view" : "threadpool-shell"}>
-      {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} updatingSeeds={updatingSeeds} onRefresh={refreshDetail} onForceUpdateSeeds={forceUpdateSeeds} /> : null}
+      {!embedded ? <ThreadPoolHeader status={status} health={health} updatedAt={updatedAt} onRefresh={refreshDetail} /> : null}
       <main ref={layoutRef} className="threadpool-grid">
         <RoleList roles={roles} selectedRole={selectedRole} onSelect={setSelectedRole} />
         <SplitResizeHandle
@@ -116,7 +116,7 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
           onReset={layout.resetSize}
           onNudge={layout.nudgeSize}
         />
-        <RoleDetail detail={detail} onChanged={refreshDetail} />
+        <RoleDetail detail={detail} updatingSeeds={updatingSeeds} onForceUpdateSeeds={forceUpdateSeeds} onChanged={refreshDetail} />
       </main>
     </div>
   );
@@ -126,16 +126,12 @@ function ThreadPoolHeader({
   status,
   health,
   updatedAt,
-  updatingSeeds,
   onRefresh,
-  onForceUpdateSeeds,
 }: {
   status: string;
   health: ThreadPoolHealth | null;
   updatedAt: string;
-  updatingSeeds: boolean;
   onRefresh: () => Promise<void>;
-  onForceUpdateSeeds: () => Promise<void>;
 }) {
   return (
     <header className="topbar">
@@ -150,9 +146,6 @@ function ThreadPoolHeader({
         <a className="ghost-button action-link" href="/">
           返回工作台
         </a>
-        <button id="forceUpdateSeedsBtn" className="ghost-button danger-action" type="button" disabled={updatingSeeds} onClick={() => onForceUpdateSeeds().catch(() => undefined)}>
-          {updatingSeeds ? "更新中" : "更新 seed"}
-        </button>
         <button id="refreshThreadPoolBtn" className="primary-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
           刷新
         </button>
@@ -211,7 +204,17 @@ function resolveRoleAvailability(role: ThreadPoolRoleSummary) {
   return { className: "status-bad", label: "blocked" };
 }
 
-function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null; onChanged: () => Promise<void> }) {
+function RoleDetail({
+  detail,
+  updatingSeeds,
+  onForceUpdateSeeds,
+  onChanged,
+}: {
+  detail: ThreadPoolRoleDetail | null;
+  updatingSeeds: boolean;
+  onForceUpdateSeeds: () => Promise<void>;
+  onChanged: () => Promise<void>;
+}) {
   const threads = useMemo(() => (detail?.threads ?? []).filter((thread) => !thread.seed), [detail]);
   const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
   const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
@@ -264,6 +267,11 @@ function RoleDetail({ detail, onChanged }: { detail: ThreadPoolRoleDetail | null
         <div>
           <div className="section-heading">Role Detail</div>
           <div className="debug-trace-title">{detail ? detail.role : "未选择 role"}</div>
+        </div>
+        <div className="threadpool-maintenance-actions">
+          <button id="forceUpdateSeedsBtn" className="ghost-button danger-action" type="button" disabled={updatingSeeds} onClick={() => onForceUpdateSeeds().catch(() => undefined)}>
+            {updatingSeeds ? "更新中" : "更新 seed"}
+          </button>
         </div>
       </div>
       {detail ? (

@@ -208,6 +208,8 @@ def list_turn_items(client, payload) -> int:
             "items": items.get("data") if isinstance(items, dict) else [],
             "nextCursor": items.get("nextCursor") if isinstance(items, dict) else None,
             "backwardsCursor": items.get("backwardsCursor") if isinstance(items, dict) else None,
+            "source": items.get("source") if isinstance(items, dict) else None,
+            "itemsView": items.get("itemsView") if isinstance(items, dict) else None,
         }
     )
     return 0

@@ -149,11 +149,19 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
     const turn = findTurn(threadPayload, turnId);
     let timeline = null;
     let source = "thread/read";
+    let itemListFallback = null;
     if (typeof handlers.appServer.listTurnItems === "function") {
-      const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
-      if (Array.isArray(listed?.items) && listed.items.length > 0) {
-        timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
-        source = "thread/turns/items/list";
+      try {
+        const listed = await handlers.appServer.listTurnItems({ workspaceRoot: handlers.rootDir, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
+        if (Array.isArray(listed?.items) && listed.items.length > 0) {
+          timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
+          source = "thread/turns/items/list";
+        }
+      } catch (error) {
+        itemListFallback = {
+          code: error?.code ?? "appserver_turn_items_list_failed",
+          message: safePreview(error instanceof Error ? error.message : "thread turn item list unavailable", 160),
+        };
       }
     }
     timeline = timeline ?? summarizeAgentTurnTimeline(threadPayload, turnId);
@@ -182,6 +190,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
         itemCount: timeline.items.length,
         status: timeline.status,
         source,
+        itemListFallback,
       },
       durationMs: Date.now() - startedAt,
     });
@@ -241,6 +250,12 @@ function findTurn(thread, turnId) {
   const target = String(turnId ?? "");
   if (!target) return turns.at(-1) ?? null;
   return turns.find((turn) => String(turn?.id ?? turn?.turnId ?? "") === target) ?? null;
+}
+
+function safePreview(value, limit = 240) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.length <= limit ? text : `${text.slice(0, limit)}...`;
 }
 
 module.exports = {

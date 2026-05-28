@@ -304,6 +304,59 @@ test("thread turn timeline returns summarized turn items", async () => {
   }
 });
 
+test("thread turn timeline falls back when turn item list is unsupported", async () => {
+  const fullThreadId = "019e69b7-e817-79e0-9ea4-b500c6e9e7f3";
+  const writes = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async (entry) => {
+        writes.push(entry);
+      },
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      findAllowedThread: async () => ({
+        ok: true,
+        role: "function-slot-atomization-analyzer",
+        thread_id: fullThreadId,
+      }),
+    },
+    appServer: {
+      readThread: async () => ({
+        thread: {
+          id: fullThreadId,
+          turns: [{
+            id: "019e6c42-ca7b-7dd3-925f-4bba8eb5ece0",
+            status: "running",
+            items: [{ type: "agentMessage", text: "正在读取运行追踪" }],
+          }],
+        },
+      }),
+      listTurnItems: async () => {
+        throw Object.assign(new Error("thread/turns/items/list is not supported yet"), {
+          code: "appserver_turn_items_list_failed",
+        });
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", `/api/threadpool/threads/${fullThreadId}/turns/019e6c42-ca7b-7dd3-925f-4bba8eb5ece0/timeline`);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.threadId, fullThreadId);
+    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message"]);
+    const endLog = writes.find((entry) => entry.event === "stage.end");
+    assert.equal(endLog.outputSummary.source, "thread/read");
+    assert.equal(endLog.outputSummary.itemListFallback.code, "appserver_turn_items_list_failed");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("thread conversation reads the resolved full thread id", async () => {
   const readThreadIds = [];
   const fullThreadId = "019e69b7-cef4-79c0-8fe5-1faf536836c5";

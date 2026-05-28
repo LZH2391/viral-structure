@@ -246,6 +246,20 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         limit: int | None = 200,
         sort_direction: str = "asc",
     ) -> dict[str, Any]:
+        listed_turn = self._list_turn_with_items(
+            thread_id=str(thread_id),
+            turn_id=str(turn_id),
+            limit=limit,
+            sort_direction=sort_direction,
+        )
+        if listed_turn is not None:
+            return {
+                "data": list(listed_turn.get("items") or []),
+                "nextCursor": None,
+                "backwardsCursor": None,
+                "source": "thread/turns/list",
+                "itemsView": listed_turn.get("itemsView"),
+            }
         params: dict[str, Any] = {
             "threadId": str(thread_id),
             "turnId": str(turn_id),
@@ -270,7 +284,39 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
                     "data": items,
                     "nextCursor": None,
                     "backwardsCursor": backwards_cursor,
+                    "source": "thread/turns/items/list",
                 }
+            cursor = str(next_cursor)
+
+    def _list_turn_with_items(
+        self,
+        *,
+        thread_id: str,
+        turn_id: str,
+        limit: int | None,
+        sort_direction: str,
+    ) -> dict[str, Any] | None:
+        target_turn_id = str(turn_id)
+        params: dict[str, Any] = {
+            "threadId": str(thread_id),
+            "sortDirection": str(sort_direction),
+            "itemsView": "full",
+        }
+        if limit is not None:
+            params["limit"] = int(limit)
+        cursor: str | None = None
+        while True:
+            if cursor:
+                params["cursor"] = cursor
+            response = self._request("thread/turns/list", params)
+            turns = response.get("data")
+            if isinstance(turns, list):
+                for turn in turns:
+                    if isinstance(turn, dict) and str(turn.get("id") or "") == target_turn_id:
+                        return dict(turn)
+            next_cursor = response.get("nextCursor") or response.get("next_cursor")
+            if not next_cursor:
+                return None
             cursor = str(next_cursor)
 
     def start_reviewer_thread(
