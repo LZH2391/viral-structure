@@ -398,6 +398,9 @@ function createShotBoundaryService({
         }
         if (agentRun.leaseId) {
           await finalizeLease(threadPool, agentRun);
+          const releasedAgentRun = markAgentRunLeaseReleased(agentRun);
+          jobStore.updateJob(context.job.jobId, { agentRun: releasedAgentRun });
+          context.job.agentRun = releasedAgentRun;
         }
         await writeCompletedAnalysis({
           context,
@@ -550,6 +553,17 @@ function createShotBoundaryService({
 
   function createRecoveredContext(args) {
     return createRecoveredContextImpl(args);
+  }
+
+  function markAgentRunLeaseReleased(agentRun) {
+    const now = new Date().toISOString();
+    return {
+      ...agentRun,
+      releasedLeaseId: agentRun.leaseId ?? agentRun.releasedLeaseId ?? null,
+      leaseReleasedAt: now,
+      leaseId: null,
+      updatedAt: now,
+    };
   }
 
   function isInterruptedPreAgentJob(job) {

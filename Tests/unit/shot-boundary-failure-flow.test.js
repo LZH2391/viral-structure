@@ -200,6 +200,7 @@ test("shot boundary parse failure writes failed artifact and debug snapshot", as
   assert.equal(harness.logger.snapshots.length, 1);
   assert.deepEqual(harness.threadPool.discarded, []);
   assert.deepEqual(harness.threadPool.released, [
+    { leaseId: "lease_1", ownerId: result.traceId, thread_status: "idle" },
     { leaseId: "review_lease_1", ownerId: `${result.traceId}:transform`, thread_status: "idle" },
   ]);
   assert.deepEqual(harness.threadPool.ownerReleased, []);
