@@ -10,7 +10,7 @@ export type JobPollOptions<TJob> = {
   preservePreviousOnNull?: boolean;
 };
 
-const DEFAULT_MAX_ATTEMPTS = 360;
+const DEFAULT_MAX_ATTEMPTS = 60 * 60;
 const DEFAULT_INTERVAL_MS = 1000;
 
 export async function pollProcessingJob(

@@ -9,8 +9,8 @@ const { createThreadPoolProxy } = require("../gateways/threadpool/proxy");
 const { createAppServerBridge } = require("../gateways/appserver/bridge");
 
 const DEFAULT_POLL_INTERVAL_MS = 1500;
-const DEFAULT_COLLECT_IDLE_TIMEOUT_MS = 360000;
-const DEFAULT_COLLECT_HARD_TIMEOUT_MS = 45 * 60 * 1000;
+const DEFAULT_COLLECT_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const DEFAULT_COLLECT_HARD_TIMEOUT_MS = 60 * 60 * 1000;
 const DEFAULT_MAX_REPAIR_ATTEMPTS = 1;
 
 function createRoleAnalysisService({

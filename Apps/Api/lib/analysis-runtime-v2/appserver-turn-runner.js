@@ -94,8 +94,8 @@ function createAppServerTurnRunner({
     onTurnCollect,
   }) {
     const startedAt = Date.now();
-    const idleTimeoutMs = normalizePositiveMs(collectIdleTimeoutMs, maxCollectAttempts && pollIntervalMs ? maxCollectAttempts * pollIntervalMs : 360_000);
-    const hardTimeoutMs = normalizePositiveMs(collectHardTimeoutMs, 45 * 60 * 1000);
+    const idleTimeoutMs = normalizePositiveMs(collectIdleTimeoutMs, maxCollectAttempts && pollIntervalMs ? maxCollectAttempts * pollIntervalMs : 15 * 60 * 1000);
+    const hardTimeoutMs = normalizePositiveMs(collectHardTimeoutMs, 60 * 60 * 1000);
     let lastProgressAt = startedAt;
     let lastProgressFingerprint = null;
     let lastMismatchedTurnId = null;

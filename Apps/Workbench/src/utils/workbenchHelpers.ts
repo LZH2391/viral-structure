@@ -24,8 +24,8 @@ export type PackagingStructureCacheHandler = AnalysisCacheHandler;
 export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
-const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 1800;
-const SHOT_BOUNDARY_IDLE_TIMEOUT_MS = 6 * 60 * 1000;
+const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 60 * 60;
+const SHOT_BOUNDARY_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const SHOT_BOUNDARY_RAW_ROLE = "shot-boundary-raw-analyzer";
 const SHOT_BOUNDARY_TRANSFORMER_ROLE = "shot-boundary-transformer";
 export type ShotBoundaryGuard = {

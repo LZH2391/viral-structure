@@ -472,7 +472,7 @@ async function collectTurn({
   outputSummary,
   updateActiveThreadMessage,
   activeMessageOptions,
-  maxAttempts = 90,
+  maxAttempts = 1800,
   intervalMs = 2000,
   incompleteCode,
   incompleteMessage,

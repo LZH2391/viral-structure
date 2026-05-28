@@ -297,7 +297,7 @@ function RoleDetail({
           <div className="threadpool-table" id="threadpoolThreadList">
             {threads.length ? threads.map((thread) => {
               const ctx = formatThreadContextUsage(thread.latest_input_tokens, thread.threshold_input_tokens);
-              const suspectedOrphan = thread.status === "leased" && Boolean(thread.last_seen_at) && Date.now() - Date.parse(thread.last_seen_at ?? "") > 30 * 60 * 1000;
+              const suspectedOrphan = thread.status === "leased" && Boolean(thread.last_seen_at) && Date.now() - Date.parse(thread.last_seen_at ?? "") > 60 * 60 * 1000;
               return (
                 <article key={thread.thread_id} className={`threadpool-thread ${suspectedOrphan ? "suspected-orphan" : ""}`}>
                   <div>

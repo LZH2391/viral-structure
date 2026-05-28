@@ -92,11 +92,11 @@ const STAGES = {
   resultWritten: "shot.boundary_merge",
 };
 const POLL_INTERVAL_MS = 2000;
-const ORPHAN_TTL_MS = 30 * 60 * 1000;
+const ORPHAN_TTL_MS = 60 * 60 * 1000;
 const THREADPOOL_ACQUIRE_MAX_ATTEMPTS = 3;
 const THREADPOOL_ACQUIRE_BACKOFF_MS = [500, 1000];
-const SUMMARY_COLLECT_MAX_ATTEMPTS = 90;
-const REVIEW_COLLECT_MAX_ATTEMPTS = 180;
+const SUMMARY_COLLECT_MAX_ATTEMPTS = 60 * 60 * 1000 / POLL_INTERVAL_MS;
+const REVIEW_COLLECT_MAX_ATTEMPTS = 60 * 60 * 1000 / POLL_INTERVAL_MS;
 const RAW_ANALYZER_ROLE = "shot-boundary-raw-analyzer";
 const DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT = process.env.SHOT_RAW_ANALYSIS_WORKSPACE_ROOT || "C:\\Users\\Administrator\\Documents\\Codex";
 const VIDEO_SHOT_SKILL_PATH = process.env.SHOT_VIDEO_SKILL_PATH || path.join(DEFAULT_RAW_ANALYSIS_WORKSPACE_ROOT, ".agents", "skills", "video-shot", "SKILL.md");
