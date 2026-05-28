@@ -120,6 +120,7 @@ function publicRun(run) {
     workflowKey: run.workflowKey,
     workflowVersion: run.workflowVersion,
     cacheDecision: run.cacheDecision ?? "ask",
+    options: run.options ?? {},
     status: run.status,
     traceId: run.traceId,
     runId: run.runId,

@@ -74,6 +74,10 @@ export async function getLatestFullAnalysisRun() {
   return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/latest`, { cache: "no-store" }));
 }
 
+export async function getLatestFullAnalysisRunForSample(sampleVideoId: string) {
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/workflows/full-analysis/latest`, { cache: "no-store" }));
+}
+
 export async function rerunWorkflowStage(workflowRunId: string, stageKey: string) {
   return readJsonResponse<WorkflowRun>(
     await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}/stages/${encodeURIComponent(stageKey)}/rerun`, {

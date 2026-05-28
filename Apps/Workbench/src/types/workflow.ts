@@ -25,6 +25,10 @@ export type WorkflowRun = {
   workflowKey: "full-analysis" | string;
   workflowVersion: string;
   cacheDecision?: "ask" | "reuse" | "refresh" | string;
+  options?: {
+    enableFunctionSlotAtomization?: boolean;
+    [key: string]: unknown;
+  };
   status: "running" | "cache_waiting" | "processed" | "failed" | "partial_failed" | string;
   traceId: string;
   runId: string;

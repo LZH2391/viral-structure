@@ -204,6 +204,7 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(app, /readFullAnalysisDraft/);
   assert.match(app, /writeFullAnalysisDraft/);
   assert.match(app, /getLatestFullAnalysisRun/);
+  assert.match(app, /getLatestFullAnalysisRunForSample/);
   assert.match(app, /restoredRunRef/);
   assert.match(app, /onWorkbenchSync/);
   assert.match(app, /onOpenWorkbenchStage/);
@@ -214,6 +215,7 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(stageStep, /event\.stopPropagation\(\);[\s\S]*onRerun\(stage\.key\)/);
   assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
   assert.match(api, /\/api\/workflows\/full-analysis\/latest/);
+  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/workflows\/full-analysis\/latest/);
   assert.match(api, /cache: "no-store"/);
   assert.match(draft, /FULL_ANALYSIS_DRAFT_STORAGE_KEY = "full-analysis:last-run"/);
   assert.match(draft, /localStorage\.setItem\(FULL_ANALYSIS_DRAFT_STORAGE_KEY, JSON\.stringify/);

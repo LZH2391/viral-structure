@@ -560,6 +560,7 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
       },
       get: (workflowRunId) => workflowRunId === "workflow_1" ? fakeRun : null,
       getLatest: () => fakeRun,
+      getLatestBySampleVideoId: (sampleVideoId) => sampleVideoId === "sample_1" ? fakeRun : null,
       rerunStage: async (payload) => {
         calls.push({ type: "rerun", ...payload });
         return { ...fakeRun, currentStageKeys: [payload.stageKey] };
@@ -609,6 +610,13 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
     const latest = await makeRequest(server, "GET", "/api/workflows/full-analysis/latest");
     assert.equal(latest.statusCode, 200);
     assert.equal(latest.body.workflowRunId, "workflow_1");
+
+    const latestForSample = await makeRequest(server, "GET", "/api/sample-videos/sample_1/workflows/full-analysis/latest");
+    assert.equal(latestForSample.statusCode, 200);
+    assert.equal(latestForSample.body.workflowRunId, "workflow_1");
+
+    const missingForSample = await makeRequest(server, "GET", "/api/sample-videos/sample_missing/workflows/full-analysis/latest");
+    assert.equal(missingForSample.statusCode, 404);
 
     const rerun = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/stages/scriptSegment/rerun");
     assert.equal(rerun.statusCode, 202);

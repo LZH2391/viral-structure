@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
+import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getLatestFullAnalysisRunForSample, getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
 import type { LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
@@ -150,7 +150,18 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
         lastActiveSampleRevisionRef.current = activeSample.activeSampleRevision;
         lastSyncedSampleVideoIdRef.current = activeSample.artifact.sampleVideoId;
         setArtifact(activeSample.artifact);
-        setStatusText("已同步工作台当前视频");
+        const restoredRun = await getLatestFullAnalysisRunForSample(activeSample.artifact.sampleVideoId).catch(() => null);
+        if (token !== operationTokenRef.current) return;
+        if (restoredRun) {
+          setRun(restoredRun);
+          setStatusText(statusLabel(restoredRun));
+          setEnableFunctionSlotAtomization(restoredRun.options?.enableFunctionSlotAtomization !== false);
+          writeFullAnalysisDraft(restoredRun, activeSample.artifact);
+          if (!NON_EXECUTING_RUN_STATUS.has(restoredRun.status)) startPolling(restoredRun.workflowRunId, token);
+        } else {
+          setRun(null);
+          setStatusText("已同步工作台当前视频");
+        }
         writeFullAnalysisActiveSampleDraft(activeSample.artifact, {
           activeSampleRevision: activeSample.activeSampleRevision,
           activeSampleSource: activeSample.activeSampleSource,
@@ -176,6 +187,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
       if (!restoredRun) return;
       setRun(restoredRun);
       setStatusText(statusLabel(restoredRun));
+      setEnableFunctionSlotAtomization(restoredRun.options?.enableFunctionSlotAtomization !== false);
       let restoredArtifact: SampleArtifact | null = null;
       if (restoredRun.sampleVideoId) {
         restoredArtifact = await getSampleArtifact(restoredRun.sampleVideoId).catch(() => null);
@@ -212,7 +224,25 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     });
     if (shouldPreserveWorkflow && run && !NON_EXECUTING_RUN_STATUS.has(run.status) && pollTimerRef.current == null) {
       startPolling(run.workflowRunId, operationTokenRef.current);
+      return;
     }
+    if (shouldPreserveWorkflow) return;
+    const token = operationTokenRef.current;
+    const sampleVideoId = activeSample.artifact.sampleVideoId;
+    const syncRunForSample = async () => {
+      const restoredRun = await getLatestFullAnalysisRunForSample(sampleVideoId).catch(() => null);
+      if (token !== operationTokenRef.current) return;
+      if (!restoredRun) {
+        setStatusText("已同步工作台当前视频");
+        return;
+      }
+      setRun(restoredRun);
+      setStatusText(statusLabel(restoredRun));
+      setEnableFunctionSlotAtomization(restoredRun.options?.enableFunctionSlotAtomization !== false);
+      writeFullAnalysisDraft(restoredRun, activeSample.artifact);
+      if (!NON_EXECUTING_RUN_STATUS.has(restoredRun.status)) startPolling(restoredRun.workflowRunId, token);
+    };
+    void syncRunForSample().catch((error) => setErrorText(error instanceof Error ? error.message : "恢复当前视频完整分析失败"));
   }, [activeSample, embedded, run, startPolling]);
 
   useEffect(() => {
@@ -275,6 +305,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
       if (token !== operationTokenRef.current) return;
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
+      setEnableFunctionSlotAtomization(nextRun.options?.enableFunctionSlotAtomization !== false);
       writeFullAnalysisDraft(nextRun, null);
       startPolling(nextRun.workflowRunId, token);
     } catch (error) {
@@ -326,6 +357,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
       if (token !== operationTokenRef.current) return;
       setRun(nextRun);
       setStatusText(statusLabel(nextRun));
+      setEnableFunctionSlotAtomization(nextRun.options?.enableFunctionSlotAtomization !== false);
       writeFullAnalysisDraft(nextRun, artifact);
       startPolling(nextRun.workflowRunId, token);
     } catch (error) {
@@ -349,6 +381,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
         if (token !== operationTokenRef.current) return;
         setRun(nextRun);
         setStatusText(statusLabel(nextRun));
+        setEnableFunctionSlotAtomization(nextRun.options?.enableFunctionSlotAtomization !== false);
         writeFullAnalysisDraft(nextRun, artifact);
         startPolling(nextRun.workflowRunId, token);
       }

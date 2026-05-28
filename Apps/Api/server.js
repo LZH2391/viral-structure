@@ -166,6 +166,7 @@ function createServer(deps = {}) {
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
+      if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) return await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers);
       if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) return await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) return await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
@@ -378,6 +379,17 @@ async function handleFullAnalysisCacheCheck(req, res, handlers = {}) {
 async function handleLatestFullAnalysisRun(res, handlers = {}) {
   const workflow = handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
   const latest = workflow.getLatest?.() ?? null;
+  if (latest?.workflowRunId && typeof workflow.advance === "function") {
+    await workflow.advance(latest.workflowRunId).catch(() => undefined);
+  }
+  const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
+  if (!run) return notFound(res);
+  return sendJson(res, 200, run);
+}
+
+async function handleLatestFullAnalysisRunForSample(res, sampleVideoId, handlers = {}) {
+  const workflow = handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
+  const latest = workflow.getLatestBySampleVideoId?.(sampleVideoId) ?? null;
   if (latest?.workflowRunId && typeof workflow.advance === "function") {
     await workflow.advance(latest.workflowRunId).catch(() => undefined);
   }

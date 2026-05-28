@@ -84,6 +84,8 @@ test("full analysis workflow advances upload, shot, parallel analyses, and aggre
   const run = workflow.get(started.workflowRunId);
   assert.equal(run.status, "processed");
   assert.equal(workflow.getLatest().workflowRunId, started.workflowRunId);
+  assert.equal(workflow.getLatestBySampleVideoId("sample_1").workflowRunId, started.workflowRunId);
+  assert.equal(workflow.getLatestBySampleVideoId("sample_missing"), null);
   assert.equal(run.sampleVideoId, "sample_1");
   assert.deepEqual(run.stages.map((stage) => [stage.key, stage.status]), [
     ["upload", "processed"],

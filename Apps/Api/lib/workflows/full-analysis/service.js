@@ -99,6 +99,15 @@ function createFullAnalysisWorkflowService({
     return latest ? publicRun(latest) : null;
   }
 
+  function getLatestBySampleVideoId(sampleVideoId) {
+    if (!sampleVideoId) return null;
+    const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
+    const latest = runs
+      .filter((run) => run?.workflowKey === WORKFLOW_KEY && run.sampleVideoId === sampleVideoId)
+      .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
+    return latest ? publicRun(latest) : null;
+  }
+
   async function rerunStage({ workflowRunId, stageKey }) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
@@ -486,7 +495,7 @@ function createFullAnalysisWorkflowService({
     await logWorkflowEvent(traceContext, event, "workflow.run", null, null, null, outputSummary, null, event === "stage.fail" ? run.errorSummary ?? null : null);
   }
 
-  return { start, get, getLatest, rerunStage, advance };
+  return { start, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
 }
 
 module.exports = {

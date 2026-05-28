@@ -915,7 +915,7 @@
       "options": {
         "enableFunctionSlotAtomization": true
       },
-      "status": "partial_failed",
+      "status": "processed",
       "traceId": "trace_cefb192e-25b7-4112-a12d-72af47655243",
       "runId": "run_40c1d004-6cd4-42f6-88e9-103228cb861e",
       "sampleVideoId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
@@ -1088,25 +1088,19 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "failed",
-          "attemptNo": 1,
-          "stageId": "stage_dac63951-78e6-436b-97a8-0c566fb22621",
-          "childJobId": null,
-          "childTraceId": null,
+          "status": "running",
+          "attemptNo": 2,
+          "stageId": "stage_ad18e6c8-1226-4cd3-8493-8501ce90e90f",
+          "childJobId": "job_7f0d2e1f-d888-455b-b853-3e23d30f343c",
+          "childTraceId": "trace_14fa2934-05ca-4135-b9f3-c87d4d3f6ec3",
           "artifactId": null,
           "parentArtifactId": null,
-          "sampleVideoId": null,
+          "sampleVideoId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "inputSummary": null,
           "outputSummary": null,
-          "errorSummary": {
-            "code": "function_slot_atomization_missing_packaging_structure",
-            "message": "请先完成包装结构分析",
-            "stageName": "functionSlotAtomization",
-            "retryable": false,
-            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_dac63951-78e6-436b-97a8-0c566fb22621_94f2e9eaf5.json"
-          },
-          "startedAt": "2026-05-28T03:07:43.156Z",
-          "completedAt": "2026-05-28T03:07:43.400Z"
+          "errorSummary": null,
+          "startedAt": "2026-05-28T04:02:09.244Z",
+          "completedAt": null
         },
         {
           "key": "aggregate",
@@ -1119,31 +1113,32 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "pending",
+          "status": "processed",
           "attemptNo": 1,
-          "stageId": null,
+          "stageId": "stage_c62bf99e-ce8d-4ddf-9d14-9ed63cba9585",
           "childJobId": null,
           "childTraceId": null,
-          "artifactId": null,
+          "artifactId": "artifact_ec1c7e93-9fb9-46c0-8f47-fc94a1afcf4c",
           "parentArtifactId": null,
           "sampleVideoId": null,
           "inputSummary": null,
-          "outputSummary": null,
+          "outputSummary": {
+            "sampleVideoId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+            "shotCount": 29,
+            "scriptSegmentCount": 5,
+            "rhythmSectionCount": 8,
+            "packagingBlockCount": 6,
+            "functionSlotCount": 0
+          },
           "errorSummary": null,
-          "startedAt": null,
-          "completedAt": null
+          "startedAt": "2026-05-28T03:56:19.497Z",
+          "completedAt": "2026-05-28T03:56:20.108Z"
         }
       ],
       "createdAt": "2026-05-28T02:48:31.060Z",
-      "updatedAt": "2026-05-28T03:07:43.400Z",
-      "completedAt": null,
-      "errorSummary": {
-        "code": "function_slot_atomization_missing_packaging_structure",
-        "message": "请先完成包装结构分析",
-        "stageName": "functionSlotAtomization",
-        "retryable": false,
-        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_dac63951-78e6-436b-97a8-0c566fb22621_94f2e9eaf5.json"
-      }
+      "updatedAt": "2026-05-28T04:02:09.568Z",
+      "completedAt": "2026-05-28T04:02:09.568Z",
+      "errorSummary": null
     }
   ]
 }
