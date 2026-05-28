@@ -46,15 +46,16 @@
 
 ## 挂父级而不合并
 
-当两个 slot 的高层任务相近，但证明机制不同，不要强行复用同一 `slotType`。应挂到同一 archetype 或 family 下，并保留不同 subtype。
+当两个 slot 的高层任务相近，但证明义务、方案出现时机、链路角色明显不同，不要强行复用同一 `slotType`。应挂到同一 family 下，并拆成不同 archetype。
 
 判断：
 
 - 同 family：高层说服任务相近。
-- 同 archetype：观众状态迁移和核心任务相近。
-- 不同 subtype：证明义务、方案出现时机、节奏或包装证明方式不同。
+- 同 archetype：观众状态迁移、核心任务、主证明义务和链路角色基本一致。
+- 不同 archetype：证明义务、方案出现时机或链路角色明显不同。
+- 不同 subtype：只变化素材、表达、节奏形态、包装样式或证明载体表层。
 
-例：`problem_activation` 和 `scene_problem_activation` 可以同属需求激活 archetype，但不要合并为同 subtype。
+例：`problem_activation` 和 `scene_problem_activation` 可同属需求激活 family，但通常应拆成不同 archetype。
 
 ## 禁止项
 

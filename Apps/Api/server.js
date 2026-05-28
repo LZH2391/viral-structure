@@ -30,6 +30,7 @@ const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
+const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 
 const rootDir = path.resolve(__dirname, "../..");
@@ -160,6 +161,7 @@ function createServer(deps = {}) {
       if (req.method === "DELETE" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
@@ -330,6 +332,13 @@ async function handleFunctionSlotLibraryGraph(res, artifactId, handlers = {}) {
   const libraryArtifact = await service.readLibraryArtifact(artifactId);
   if (!libraryArtifact) return notFound(res);
   return sendJson(res, 200, buildFunctionSlotLibraryGraph(libraryArtifact));
+}
+
+async function handleFunctionSlotGovernanceGraph(res, handlers = {}) {
+  const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
+  const governance = await service.readSemanticGovernance();
+  if (!governance) return notFound(res);
+  return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance));
 }
 
 async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {

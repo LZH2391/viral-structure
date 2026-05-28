@@ -47,7 +47,6 @@ REQUIRED_LIST_FIELDS = [
     "rulePatterns",
     "recompositionPolicies",
     "implementationBundles",
-    "chainPatterns",
     "observedChainPatterns",
     "needReviewMap",
     "unmappedAtomVariants",
@@ -129,7 +128,8 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
     skeleton = {
         "schemaVersion": "function_slot_semantic_governance.v1",
         "governanceId": f"governance_skeleton_{governance_id}",
-        "status": "candidate",
+        "reviewStatus": "candidate",
+        "maturityStatus": "candidate",
         "outputPath": repo_relative(output_path, root),
         "sourceRoot": "Artifacts/FunctionSlotLibrary",
         "sourceIndex": repo_relative(source_index, root),
@@ -146,7 +146,6 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
         "rulePatterns": [],
         "recompositionPolicies": [],
         "implementationBundles": [],
-        "chainPatterns": [],
         "observedChainPatterns": [],
         "needReviewMap": [],
         "unmappedAtomVariants": [],
@@ -163,7 +162,8 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
 def merge_existing(existing: Dict[str, Any], skeleton: Dict[str, Any]) -> Dict[str, Any]:
     """Add missing skeleton fields while preserving human/agent governance content."""
     merged = dict(existing)
-    for field in ["schemaVersion", "governanceId", "status", "createdAt"]:
+    merged.pop("chainPatterns", None)
+    for field in ["schemaVersion", "governanceId", "reviewStatus", "maturityStatus", "createdAt"]:
         merged.setdefault(field, skeleton[field])
     for field in ["outputPath", "sourceRoot", "sourceIndex", "sourceSnapshot", "coverage"]:
         merged[field] = skeleton[field]

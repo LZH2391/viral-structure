@@ -298,6 +298,10 @@ export async function getFunctionSlotLibraryGraph(artifactId: string) {
   return readJsonResponse<FunctionSlotLibraryGraph>(await fetch(`${API_BASE_URL}/api/function-slot-library/${encodeURIComponent(artifactId)}/graph`, { cache: "no-store" }));
 }
 
+export async function getFunctionSlotGovernanceGraph() {
+  return readJsonResponse<FunctionSlotLibraryGraph>(await fetch(`${API_BASE_URL}/api/function-slot-library/governance/graph`, { cache: "no-store" }));
+}
+
 export async function getLibraryItemDetail(sampleVideoId: string) {
   return readJsonResponse<LibraryItemDetail>(await fetch(`${API_BASE_URL}/api/library/items/${encodeURIComponent(sampleVideoId)}`));
 }

@@ -22,6 +22,17 @@
   padding: 0 12px 12px;
 }
 
+.slot-graph-mode-select {
+  width: 100%;
+  height: 34px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 0 10px;
+}
+
 .slot-graph-panel {
   display: grid;
   align-content: start;
@@ -151,6 +162,18 @@
   background: #b58cff;
 }
 
+.legend-binding {
+  background: #f0d46f;
+}
+
+.legend-rule {
+  background: #7fb0ff;
+}
+
+.legend-unmapped {
+  background: #f28b82;
+}
+
 .slot-graph-bg circle {
   fill: rgba(255, 255, 255, 0.08);
 }
@@ -254,7 +277,33 @@
 }
 
 .slot-graph-node[class*="node-binding"] circle {
-  fill: #d8c7ff;
+  fill: #f0d46f;
+}
+
+.slot-graph-node.node-governance circle {
+  fill: #8b5cf6;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.68));
+}
+
+.slot-graph-node.node-policy circle,
+.slot-graph-node.node-rule circle {
+  fill: #7fb0ff;
+}
+
+.slot-graph-node.node-bundle circle {
+  fill: #f6c86b;
+  stroke-dasharray: 5 3;
+}
+
+.slot-graph-node.node-unmapped circle,
+.slot-graph-node.node-needReview circle {
+  fill: #f28b82;
+  filter: drop-shadow(0 0 8px rgba(242, 139, 130, 0.56));
+}
+
+.slot-graph-node.node-sourceVariant circle {
+  fill: #98a2b3;
+  opacity: 0.62;
 }
 
 .slot-graph-preview-popover {
@@ -364,6 +413,27 @@
   gap: 8px;
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.slot-filter-divider {
+  height: 1px;
+  background: var(--line);
+}
+
+.governance-summary div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.governance-summary b {
+  font-weight: 650;
+}
+
+.governance-summary span {
+  color: var(--text);
 }
 
 .slot-graph-inspector > strong {

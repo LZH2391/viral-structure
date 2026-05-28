@@ -3,8 +3,26 @@ import { shortId } from "../../utils/format";
 import { formatDetailValue, nodeDetailRows } from "./graphUtils";
 import type { GraphFiltersState } from "./types";
 
-export function GraphFilters({ filters, onChange }: { filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
+export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | "governance"; filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
   const update = (key: keyof GraphFiltersState) => onChange({ ...filters, [key]: !filters[key] });
+  if (mode === "governance") {
+    return (
+      <section className="slot-graph-card">
+        <div className="section-heading">治理筛选</div>
+        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slot Governance</label>
+        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom Governance</label>
+        <label><input type="checkbox" checked={filters.binding} onChange={() => update("binding")} /> Binding Governance</label>
+        <label><input type="checkbox" checked={filters.rule} onChange={() => update("rule")} /> Rule / Policy</label>
+        <label><input type="checkbox" checked={filters.bundle} onChange={() => update("bundle")} /> Bundles</label>
+        <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Unmapped</label>
+        <label><input type="checkbox" checked={filters.needReview} onChange={() => update("needReview")} /> Need Review</label>
+        <div className="slot-filter-divider" />
+        <label><input type="checkbox" checked={filters.candidate} onChange={() => update("candidate")} /> candidate</label>
+        <label><input type="checkbox" checked={filters.reviewed} onChange={() => update("reviewed")} /> reviewed</label>
+        <label><input type="checkbox" checked={filters.stable} onChange={() => update("stable")} /> stable</label>
+      </section>
+    );
+  }
   return (
     <section className="slot-graph-card">
       <div className="section-heading">筛选</div>

@@ -80,8 +80,9 @@ export type FunctionSlotGraphEdge = {
 };
 
 export type FunctionSlotLibraryGraph = {
-  schemaVersion: "function_slot_library_graph.v1" | string;
+  schemaVersion: "function_slot_library_graph.v1" | "function_slot_governance_graph.v1" | string;
   artifactId: string;
+  governanceId?: string | null;
   sampleVideoId?: string | null;
   traceId?: string | null;
   nodes: FunctionSlotGraphNode[];
@@ -90,6 +91,13 @@ export type FunctionSlotLibraryGraph = {
     slotCount: number;
     atomCount: number;
     bindingCount: number;
+    ruleCount?: number;
+    sampleCount?: number;
+    needReviewCount?: number;
+    unmappedAtomCount?: number;
+    unmappedBindingCount?: number;
+    unmappedRuleCount?: number;
+    validationOk?: boolean;
     conceptCount: number;
   };
 };

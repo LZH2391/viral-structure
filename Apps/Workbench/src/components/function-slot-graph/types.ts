@@ -5,6 +5,13 @@ export type GraphFiltersState = {
   slot: boolean;
   atom: boolean;
   binding: boolean;
+  rule: boolean;
+  bundle: boolean;
+  unmapped: boolean;
+  needReview: boolean;
+  candidate: boolean;
+  reviewed: boolean;
+  stable: boolean;
 };
 
 export type PositionedNode = FunctionSlotGraphNode & { x: number; y: number; shortLabel: string };

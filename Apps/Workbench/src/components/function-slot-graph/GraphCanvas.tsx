@@ -17,11 +17,13 @@ import {
 import type { D3Link, DragState, SimNode, VisibleGraph } from "./types";
 
 export function GraphCanvas({
+  mode = "structure",
   graph,
   visible,
   selectedNodeId,
   onSelectNode,
 }: {
+  mode?: "structure" | "governance";
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
   selectedNodeId: string | null;
@@ -247,14 +249,14 @@ export function GraphCanvas({
   return (
     <div className="slot-graph-canvas">
       <div className="slot-graph-canvas-title">
-        <strong>{shortId(graph.artifactId)}</strong>
-        <span>{graph.summary.slotCount} slots / {graph.summary.atomCount} atoms / {graph.summary.bindingCount} bindings</span>
+        <strong>{mode === "governance" ? "Semantic Governance" : shortId(graph.artifactId)}</strong>
+        <span>{mode === "governance" ? governanceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
       </div>
       <div className="slot-graph-controls">
         <button type="button" onClick={resetView}>重置</button>
         <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "继续" : "暂停"}</button>
       </div>
-      <GraphLegend />
+      <GraphLegend mode={mode} />
       <div className="slot-graph-zoom-chip">{Math.round(viewport.k * 100)}%</div>
       <svg
         ref={svgRef}
@@ -373,7 +375,18 @@ function LibraryPreviewPopover({
   );
 }
 
-function GraphLegend() {
+function GraphLegend({ mode }: { mode: "structure" | "governance" }) {
+  if (mode === "governance") {
+    return (
+      <div className="slot-graph-legend">
+        <span><i className="legend-slot" />Slot governance</span>
+        <span><i className="legend-script" />Atom pattern</span>
+        <span><i className="legend-binding" />Binding</span>
+        <span><i className="legend-rule" />Rule / Policy</span>
+        <span><i className="legend-unmapped" />Unmapped / Review</span>
+      </div>
+    );
+  }
   return (
     <div className="slot-graph-legend">
       <span><i className="legend-library" />Library</span>
@@ -383,6 +396,10 @@ function GraphLegend() {
       <span><i className="legend-packaging" />Packaging</span>
     </div>
   );
+}
+
+function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
+  return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants / ${graph.summary.needReviewCount ?? 0} needReview`;
 }
 
 function GraphBackground() {

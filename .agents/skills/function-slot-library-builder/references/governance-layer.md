@@ -48,8 +48,8 @@ implementation bundle
 `slot family / archetype / subtype` 是 agent 对多个 variant 的语义归并判断。
 
 - family：高层说服任务族。
-- archetype：可复用的观众状态迁移和核心说服原型。
-- subtype：同一 archetype 下不同证明机制或进入方式。
+- archetype：同一槽位任务原型，必须由观众状态迁移、核心说服任务、主证明义务共同锁定。
+- subtype：同一 archetype 下的实现变体，只能变化素材、表达、节奏、包装，不能改变主证明义务或链路角色。
 
 `atom pattern / binding pattern / rule pattern` 也是治理判断，不是字段聚类结果。
 

@@ -143,6 +143,31 @@ function createFunctionSlotLibraryService({
     });
   }
 
+  async function readSemanticGovernance() {
+    return withStage({
+      logger,
+      stageName: "function_slot_library.governance_read",
+      inputSummary: { path: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json" },
+      action: async () => {
+        const governance = await readJson(path.join(activeLibraryRoot, "_governance", "semantic-governance.v1.json")).catch((error) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        });
+        if (!governance) return null;
+        if (governance.schemaVersion !== "function_slot_semantic_governance.v1") {
+          throwHttpError(400, "function_slot_governance_schema_unsupported", "semantic-governance schemaVersion 不支持");
+        }
+        return governance;
+      },
+      outputSummary: (governance) => governance ? {
+        governanceId: governance.governanceId ?? null,
+        sampleCount: governance.coverage?.sampleCount ?? null,
+        slotVariantCount: governance.coverage?.slotVariantCount ?? null,
+        needReviewCount: governance.coverage?.needReviewCount ?? null,
+      } : { found: false },
+    });
+  }
+
   async function readLibraryArtifact(artifactId) {
     const safeArtifactId = sanitizeArtifactId(artifactId);
     const manifest = await readManifest(safeArtifactId).catch((error) => {
@@ -205,6 +230,7 @@ function createFunctionSlotLibraryService({
     listLibraryItems,
     projectLibraryArtifact,
     deleteLibraryItem,
+    readSemanticGovernance,
     readLibraryArtifact,
   };
 }

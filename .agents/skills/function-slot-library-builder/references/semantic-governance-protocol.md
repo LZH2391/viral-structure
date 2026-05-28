@@ -54,20 +54,22 @@
 
 满足：
 
-- viewer state transition 大方向相近。
-- persuasion task 大方向相近。
-- proof obligation、solution visibility、rhythm function 或 packaging proof function 明显不同。
+- viewer state transition 基本一致。
+- persuasion task 基本一致。
+- primary proof obligation 基本一致。
+- chain dependency 基本一致。
+- 差异主要在素材、品类表达、节奏形态、包装样式或证明载体表层。
 
-例：`problem_activation` 和 `scene_problem_activation` 都在建立需求/问题成立，但前者靠具体问题对象和直接动作，后者靠生活场景、干扰源和共鸣解释。
+例：同一对象问题直冲动作激活 archetype 下，不同 subtype 可以分别使用不同品类对象、镜头节奏、字幕样式或可视化载体，但主证明义务仍必须是可见问题对象加直接解决动作。
 
 ### 同 family，不同 archetype
 
 满足：
 
 - 同属高层说服任务族。
-- 具体观众状态变化、证明机制或链路角色不同。
+- 具体观众状态变化、主证明义务、方案出现时机或链路角色不同。
 
-例：结果前置型开场、痛点回补、价值锚定都可能属于需求/观看理由建立 family，但不应硬合并为同一 archetype。
+例：`problem_activation` 和 `scene_problem_activation` 都可能属于需求/问题激活 family，但如果一个依赖问题对象加直接解决动作，另一个依赖生活场景和干扰源共鸣，通常应拆成不同 archetype。
 
 ### 不同 family
 
