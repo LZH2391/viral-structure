@@ -126,6 +126,9 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
         promptTemplateVersion: result.analysis.agent?.promptTemplateVersion ?? null,
       };
     },
+    buildAgentTraceCard(context, id, options = {}) {
+      return buildFunctionSlotTraceCard(context, id, options);
+    },
     buildValidateInputSummary(analysis, finalTurn) {
       return {
         slotCount: analysis.slotMap.slots.length,
@@ -267,6 +270,14 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
             collectIdleTimeoutMs,
             collectHardTimeoutMs,
             onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
+            onTurnStarted: ({ started }) => {
+              runtime.thread.upsertTraceCard(context, buildFunctionSlotTraceCard(context, `boundary-rework-${reworkAttemptCount}`, {
+                status: "running",
+                run: { ...context.agentRun, turnId: started?.turnId ?? context.agentRun?.turnId ?? null },
+                artifactId: context.artifactId,
+                parentArtifactId: analysis.artifactId,
+              }));
+            },
           });
           const nextAnalysis = buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
             repairAttemptCount: analysis.validation?.repairAttemptCount ?? 0,
@@ -278,6 +289,12 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store }) {
             agentRun: context.agentRun,
             activeThreadMessage: null,
           });
+          runtime.thread.upsertTraceCard(context, buildFunctionSlotTraceCard(context, `boundary-rework-${reworkAttemptCount}`, {
+            status: "completed",
+            run: context.agentRun,
+            artifactId: nextAnalysis.artifactId,
+            parentArtifactId: analysis.artifactId,
+          }));
           return {
             analysis: {
               ...nextAnalysis,
@@ -356,6 +373,41 @@ function assertExpectedArtifactId({ expectedArtifactId, actualArtifactId, expect
     expectedKey,
     actualKey,
   });
+}
+
+function buildFunctionSlotTraceCard(context, id, options = {}) {
+  const run = options.run ?? context.agentRun ?? {};
+  return {
+    id,
+    label: traceCardLabel(id),
+    role: run.role ?? ROLE,
+    stageName: traceCardStageName(id),
+    status: options.status ?? run.status ?? "unknown",
+    threadId: run.threadId ?? null,
+    turnId: run.turnId ?? null,
+    leaseId: run.leaseId ?? null,
+    traceId: run.traceId ?? context.traceContext?.traceId ?? null,
+    artifactId: options.artifactId ?? run.artifactId ?? context.artifactId ?? null,
+    parentArtifactId: options.parentArtifactId ?? run.parentArtifactId ?? null,
+    activity: options.activity ?? null,
+    latestMessagePreview: options.latestMessagePreview ?? null,
+    startedAt: run.startedAt ?? null,
+    updatedAt: run.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+function traceCardLabel(id) {
+  if (id === "analyze") return "Analyze";
+  if (String(id).startsWith("boundary-review")) return "Boundary Review";
+  if (String(id).startsWith("boundary-rework")) return "Boundary Rework";
+  return "Agent turn";
+}
+
+function traceCardStageName(id) {
+  if (id === "analyze") return STAGES.analyzed;
+  if (String(id).startsWith("boundary-review")) return STAGES.boundaryReviewed;
+  if (String(id).startsWith("boundary-rework")) return STAGES.boundaryReworked;
+  return null;
 }
 
 module.exports = {

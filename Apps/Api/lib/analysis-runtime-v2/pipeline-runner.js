@@ -72,6 +72,12 @@ function createAnalysisPipelineRunner({
             onTurnStarted: ({ lease: startedLease, started }) => {
               lease = startedLease;
               context.agentRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
+              upsertDescriptorTraceCard(runtime, context, descriptor, "analyze", {
+                status: "running",
+                run: context.agentRun,
+                artifactId: context.artifactId,
+                parentArtifactId: descriptor.resolveMaterializeParentArtifactId(context, input),
+              });
               runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.analyzed, descriptor.progress.analyzed, {
                 agentRun: context.agentRun,
               });
@@ -91,6 +97,12 @@ function createAnalysisPipelineRunner({
           });
           context.finalOutputText = executed.finalTurn.finalMessage ?? null;
           context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
+          upsertDescriptorTraceCard(runtime, context, descriptor, "analyze", {
+            status: "completed",
+            run: context.agentRun,
+            artifactId: analysis.artifactId,
+            parentArtifactId: analysis.parentArtifactId,
+          });
           return { analysis, finalTurn: executed.finalTurn };
         },
         outputSummary: (result) => descriptor.buildAnalyzeOutputSummary(context, result),
@@ -252,6 +264,11 @@ function createAnalysisPipelineRunner({
   return {
     runAnalysisPipeline,
   };
+}
+
+function upsertDescriptorTraceCard(runtime, context, descriptor, id, options = {}) {
+  if (typeof descriptor.buildAgentTraceCard !== "function") return null;
+  return runtime.thread.upsertTraceCard(context, descriptor.buildAgentTraceCard(context, id, options));
 }
 
 module.exports = {

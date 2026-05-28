@@ -4,6 +4,8 @@ import type { AgentActivitySummary, AgentRunJob, AgentTimelineItem, AgentTraceCa
 import { pickDefaultTraceCard, resolveAgentTraceCards } from "./agentTraceCards";
 import { shortTurnId } from "./formatters";
 
+const SETTLED_TIMELINE_POLL_COUNT = 3;
+
 type Props = {
   agentName: string;
   statusText: string;
@@ -30,8 +32,9 @@ export function AgentTurnTimelinePanel({
   const cards = useMemo(() => resolveAgentTraceCards(job), [job]);
   const selectedId = useMemo(() => pickDefaultTraceCard(cards, selectedCardId), [cards, selectedCardId]);
   const selectedCard = cards.find((card) => card.id === selectedId) ?? null;
-  const selectedTimeline = selectedCard ? timelineByCard[selectedCard.id] ?? null : null;
-  const selectedError = selectedCard ? errorByCard[selectedCard.id] ?? null : null;
+  const selectedCacheKey = selectedCard ? traceCardCacheKey(selectedCard) : null;
+  const selectedTimeline = selectedCacheKey ? timelineByCard[selectedCacheKey] ?? null : null;
+  const selectedError = selectedCacheKey ? errorByCard[selectedCacheKey] ?? null : null;
   const activeCard = pickActiveCard(cards);
   const activity = selectedTimeline?.activity ?? selectedCard?.activity ?? activeCard?.activity ?? resolveActivity(job);
   const latestText = activeCard?.latestMessagePreview ?? activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
@@ -47,23 +50,28 @@ export function AgentTurnTimelinePanel({
   useEffect(() => {
     if (!expanded || !selectedCard?.threadId || !selectedCard.turnId) return;
     let cancelled = false;
-    const cardId = selectedCard.id;
+    const cardKey = traceCardCacheKey(selectedCard);
+    let settlePollsRemaining = SETTLED_TIMELINE_POLL_COUNT;
     const load = async () => {
       try {
         const next = await getAgentTurnTimeline(selectedCard.threadId as string, selectedCard.turnId as string);
         if (cancelled) return;
-        setTimelineByCard((current) => ({ ...current, [cardId]: next }));
-        setErrorByCard((current) => ({ ...current, [cardId]: null }));
+        setTimelineByCard((current) => ({ ...current, [cardKey]: next }));
+        setErrorByCard((current) => ({ ...current, [cardKey]: null }));
       } catch (loadError) {
         if (cancelled) return;
-        setErrorByCard((current) => ({ ...current, [cardId]: loadError instanceof Error ? loadError.message : "运行追踪读取失败" }));
+        setErrorByCard((current) => ({ ...current, [cardKey]: loadError instanceof Error ? loadError.message : "运行追踪读取失败" }));
       }
     };
     void load();
-    if (!running || selectedCard.status !== "running") return () => {
-      cancelled = true;
-    };
     const timer = window.setInterval(() => {
+      if (!running && selectedCard.status !== "running") {
+        if (settlePollsRemaining <= 0) {
+          window.clearInterval(timer);
+          return;
+        }
+        settlePollsRemaining -= 1;
+      }
       void load();
     }, 2000);
     return () => {
@@ -174,6 +182,10 @@ function pickActiveCard(cards: AgentTraceCard[]) {
 
 function resolveActivity(job?: AgentRunJob | null): AgentActivitySummary | null {
   return job?.agentActivity ?? null;
+}
+
+function traceCardCacheKey(card: AgentTraceCard) {
+  return [card.id, card.threadId ?? "", card.turnId ?? ""].join(":");
 }
 
 function buildTraceSummary(cards: AgentTraceCard[], activity: AgentActivitySummary | null, selectedCard?: AgentTraceCard | null) {

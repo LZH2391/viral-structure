@@ -83,8 +83,25 @@ async function runFunctionSlotBoundaryReview({
           maxCollectAttempts,
           collectIdleTimeoutMs,
           collectHardTimeoutMs,
-          onTurnStarted: ({ lease: startedLease }) => {
+          onTurnStarted: ({ lease: startedLease, started }) => {
             lease = startedLease;
+            runtime.thread.upsertTraceCard(context, {
+              id: `boundary-review-${reviewAttemptCount}`,
+              label: "Boundary Review",
+              role: REVIEW_ROLE,
+              stageName: STAGES.boundaryReviewed,
+              status: "running",
+              threadId: startedLease?.thread_id ?? null,
+              turnId: started?.turnId ?? null,
+              leaseId: startedLease?.lease_id ?? null,
+              traceId: context.traceContext?.traceId ?? null,
+              artifactId: reviewArtifactId,
+              parentArtifactId: analysis.artifactId ?? null,
+              activity: null,
+              latestMessagePreview: null,
+              startedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
           },
           onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
         });
@@ -96,7 +113,7 @@ async function runFunctionSlotBoundaryReview({
           traceId: context.traceContext.traceId,
         });
         lease = null;
-        return buildBoundaryReviewArtifact({
+        const reviewArtifact = buildBoundaryReviewArtifact({
           context,
           analysis,
           result,
@@ -107,6 +124,24 @@ async function runFunctionSlotBoundaryReview({
           executed,
           reviewAttemptCount,
         });
+        runtime.thread.upsertTraceCard(context, {
+          id: `boundary-review-${reviewAttemptCount}`,
+          label: "Boundary Review",
+          role: REVIEW_ROLE,
+          stageName: STAGES.boundaryReviewed,
+          status: "completed",
+          threadId: executed.lease?.thread_id ?? null,
+          turnId: executed.finalTurn?.turnId ?? null,
+          leaseId: executed.lease?.lease_id ?? null,
+          traceId: context.traceContext?.traceId ?? null,
+          artifactId: reviewArtifactId,
+          parentArtifactId: analysis.artifactId ?? null,
+          activity: null,
+          latestMessagePreview: result?.decision ?? null,
+          startedAt: null,
+          updatedAt: new Date().toISOString(),
+        });
+        return reviewArtifact;
       },
       outputSummary: summarizeBoundaryReviewResult,
     });

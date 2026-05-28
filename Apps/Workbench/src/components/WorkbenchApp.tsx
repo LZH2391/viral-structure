@@ -351,8 +351,8 @@ export function WorkbenchApp() {
       const artifactSignature = sampleArtifactSyncSignature(nextArtifact);
       if (artifactSignature !== lastFullAnalysisArtifactSyncRef.current) {
         lastFullAnalysisArtifactSyncRef.current = artifactSignature;
-        dispatch({ type: "apply-artifact", artifact: nextArtifact, activeSampleSource: "fullAnalysis", bumpActiveSampleRevision: payload.activeSampleChanged });
-        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null, payload.activeSampleChanged ? { revision: state.activeSampleRevision + 1, source: "fullAnalysis" } : undefined);
+        dispatch({ type: "apply-artifact", artifact: nextArtifact, activeSampleSource: "fullAnalysis", bumpActiveSampleRevision: true });
+        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null, { revision: state.activeSampleRevision + 1, source: "fullAnalysis" });
       }
     }
     const stageJob = (stageKey: string) => {
