@@ -96,7 +96,7 @@
 |---|---|---|---|---|---|---|
 
 ## atomPatterns
-| pattern | layer | parentAtomArchetype | status | forSlotSubtype | sourceVariantIds | 判断理由 |
+| pattern | layer | parentAtomArchetype | status | forSlotSubtypeIds | sourceVariantIds | 判断理由 |
 |---|---|---|---|---|---|---|
 
 ## bindingPatterns
@@ -112,8 +112,20 @@
 |---|---|---|---|---|---|---|
 
 ## recompositionPolicies
-| policy | status | sourceRulePatternIds | policy | 风险 |
-|---|---|---|---|---|
+| policy | status | policyScope | sourceRulePatternIds | policy | 风险 |
+|---|---|---|---|---|---|
+
+## implementationBundles
+| bundle | bundleType | useAs | notUseAs | sourceVariantIds | 风险 |
+|---|---|---|---|---|---|
+
+## needReviewMap
+| variantId | variantKind | affectedNodes | reviewReason |
+|---|---|---|---|
+
+## unmappedVariants
+| type | variantId | reason | suggestedAction |
+|---|---|---|---|
 
 ## reviewItems
 | severity | topic | sourceVariantIds | 问题 | 建议 |

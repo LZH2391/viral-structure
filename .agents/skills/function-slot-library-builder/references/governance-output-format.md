@@ -33,6 +33,11 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "rulePatterns": [],
   "recompositionPolicies": [],
   "implementationBundles": [],
+  "chainPatterns": [],
+  "needReviewMap": [],
+  "unmappedAtomVariants": [],
+  "unmappedBindingVariants": [],
+  "unmappedRuleVariants": [],
   "reviewItems": [],
   "openQuestions": []
 }
@@ -71,6 +76,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "id": "...",
   "name": "...",
   "status": "candidate | reviewed | stable",
+  "reviewStatus": "candidate | reviewed",
+  "maturityStatus": "candidate | stable",
   "sourceVariantIds": [],
   "support": {
     "variantCount": 0,
@@ -84,6 +91,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
 `sourceVariantIds` 必须指向 `slot_index.json` 中的真实 variant。不能只写 slotType 名称。
+
+`status` 暂时保留兼容；语义上以后以 `reviewStatus` 和 `maturityStatus` 为准。当前样例量少时，已审查项也应保持 `maturityStatus: "candidate"`，不要把人审通过误写成稳定原型。
 
 ## Slot Family
 
@@ -166,7 +175,7 @@ Atom archetype 是 atom pattern 的父层，用来表达同一 atom layer 内更
   "id": "SCRIPT_problem_object_to_direct_action",
   "atomLayer": "script",
   "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
-  "forSlotSubtype": "SUB_object_problem_activation",
+  "forSlotSubtypeIds": ["SUB_object_problem_activation"],
   "status": "candidate",
   "claimPattern": "...",
   "proofNeedClass": "...",
@@ -240,11 +249,60 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
   "id": "POLICY_concern_thread_closure",
   "name": "关切线闭合政策",
   "status": "candidate",
+  "policyScope": "composition_safety",
   "sourceRulePatternIds": [],
   "policy": "...",
   "riskIfBroken": "..."
 }
 ```
+
+`recompositionPolicies` 在 builder 中只表示组合安全政策，不表示由 builder 生成重组方案。
+
+## Implementation Bundle
+
+```json
+{
+  "id": "BUNDLE_...",
+  "name": "...",
+  "status": "candidate",
+  "bundleType": "observed_chain_bundle",
+  "useAs": "retrieval_prior_only",
+  "notUseAs": "fixed_template",
+  "slotSubtypeIds": [],
+  "scriptPatternIds": [],
+  "rhythmPatternIds": [],
+  "packagingPatternIds": [],
+  "sourceVariantIds": [],
+  "support": {},
+  "judgementReason": "...",
+  "riskIfMisclassified": "..."
+}
+```
+
+## Need Review Map
+
+```json
+{
+  "variantId": "sample_...::...",
+  "variantKind": "slot | atom | binding | rule",
+  "affectedNodes": [],
+  "reviewReason": "source_variant_marked_needReview"
+}
+```
+
+`needReviewMap` 必须覆盖 `slot_index.json` 中所有 `needReview=true` 的 variant。
+
+## Unmapped Variants
+
+```json
+{
+  "variantId": "sample_...::...",
+  "reason": "single_sample_no_reusable_pattern_yet",
+  "suggestedAction": "keep_as_variant_until_more_support"
+}
+```
+
+未进入 atom / binding / rule pattern 的原始 variant 必须进入对应的 `unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants`，避免静默丢失证据。
 
 ## Review Items
 

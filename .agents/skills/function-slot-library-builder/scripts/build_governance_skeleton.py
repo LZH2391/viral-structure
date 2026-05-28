@@ -48,6 +48,10 @@ REQUIRED_LIST_FIELDS = [
     "recompositionPolicies",
     "implementationBundles",
     "chainPatterns",
+    "needReviewMap",
+    "unmappedAtomVariants",
+    "unmappedBindingVariants",
+    "unmappedRuleVariants",
     "reviewItems",
     "openQuestions",
 ]
@@ -101,6 +105,9 @@ def build_source_snapshot(index: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def build_coverage(index: Dict[str, Any]) -> Dict[str, Any]:
     summary = index.get("summary") or {}
+    need_review_count = 0
+    for field in ["slotVariants", "atomVariants", "bindings", "rules"]:
+        need_review_count += sum(1 for item in index.get(field, []) if item.get("needReview"))
     return {
         "sampleCount": int(summary.get("sampleCount") or 0),
         "slotVariantCount": int(summary.get("slotVariantCount") or 0),
@@ -108,6 +115,7 @@ def build_coverage(index: Dict[str, Any]) -> Dict[str, Any]:
         "bindingCount": int(summary.get("bindingCount") or 0),
         "ruleCount": int(summary.get("ruleCount") or 0),
         "templateCount": int(summary.get("templateCount") or 0),
+        "needReviewCount": need_review_count,
         "slotTypeSupport": summary.get("slotTypeSupport") or {},
         "chainPatternSupport": summary.get("chainPatternSupport") or {},
     }
@@ -138,6 +146,10 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
         "recompositionPolicies": [],
         "implementationBundles": [],
         "chainPatterns": [],
+        "needReviewMap": [],
+        "unmappedAtomVariants": [],
+        "unmappedBindingVariants": [],
+        "unmappedRuleVariants": [],
         "reviewItems": [],
         "openQuestions": [],
     }

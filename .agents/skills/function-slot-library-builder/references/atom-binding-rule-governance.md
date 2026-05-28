@@ -26,6 +26,8 @@ atom archetype
 
 `atomArchetype` 是同一 atom layer 内的高层实现语义，例如脚本层的需求建立、机制/品质证据解释、前置关切闭合，节奏层的信息负载控制，包装层的视觉证明载体。它必须通过 `sourcePatternIds` 连接到 atom pattern，并继续保留 `sourceVariantIds` 作为证据来源。
 
+未进入 atom pattern 的孤例 atom 不要强行 pattern 化，必须进入 `unmappedAtomVariants`，并写明 `reason` 和 `suggestedAction`。
+
 ### script pattern
 
 比较：
@@ -77,6 +79,8 @@ binding 是组合约束，回答“哪些层必须同步、承接、要求、替
 
 不要按 `rule` 文本相似归并。文本只是阅读线索，真正判断看约束关系和风险。
 
+未能归并为 binding pattern 的原始 binding 必须进入 `unmappedBindingVariants`。`support` 型 binding 不要并入 `require`，若有同类辅助证据关系，可以单独形成 candidate support pattern。
+
 ## Rule 治理
 
 rule 是重组政策，不是单条视频经验句。
@@ -96,6 +100,8 @@ condition -> requirement -> violation -> fix
 - 适用的 slot family / archetype / subtype 是否一致。
 
 不要按 `reason` 或 `fix` 文案接近归并。相近文案可能处理不同政策；不同文案也可能是同一政策的不同表达。
+
+未能归并为 rule pattern 的局部规则必须进入 `unmappedRuleVariants`，不要把单样例局部经验直接升格为全局重组政策。
 
 ## Review 输出
 

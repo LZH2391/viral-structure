@@ -116,6 +116,8 @@ Runtime/Temp/FunctionSlotLibrary/semantic-governance.skeleton.json
 - `bindingPatterns / bindingPrinciples`
 - `rulePatterns / recompositionPolicies`
 - `implementationBundles`
+- `needReviewMap`
+- `unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants`
 - `chainPatterns`
 - `reviewItems / openQuestions`
 
@@ -164,6 +166,29 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - rule pattern 看重组政策，不看 `reason` / `fix` 文案接近。
 - 三类 atom 可以形成 implementation bundle，但 bundle 不能替代 atom pattern。
 
+### 7. 校验治理父子闭合
+
+```bash
+python .agents/skills/function-slot-library-builder/scripts/validate_governance.py .
+```
+
+校验项包括：
+
+- `slotFamily.sourceVariantIds` 必须覆盖其 `slotArchetypes.sourceVariantIds`。
+- `slotArchetype.sourceVariantIds` 必须覆盖其 `slotSubtypes.sourceVariantIds`。
+- `atomArchetype.sourcePatternIds` 必须覆盖其子 `atomPatterns`。
+- `atomArchetype.sourceVariantIds` 必须覆盖其子 `atomPatterns.sourceVariantIds`。
+- `bindingPrinciples.sourcePatternIds` 必须能找到对应 `bindingPatterns`。
+- `recompositionPolicies.sourceRulePatternIds` 必须能找到对应 `rulePatterns`。
+- `implementationBundles` 引用的 subtype 和 atom pattern 必须存在，且 bundle 的 slot `sourceVariantIds` 必须被其 `slotSubtypeIds` 覆盖。
+- `forSlotSubtypeIds` 必须是数组且 ID 存在。
+- `needReviewMap` 必须覆盖全部 `needReview=true` 证据项。
+- 未覆盖的 atom / binding / rule 必须进入对应 `unmapped*Variants`。
+- `support.variantCount / sampleCount / sampleIds` 必须与 `sourceVariantIds` 一致。
+- `implementationBundles` 必须声明 `bundleType / useAs / notUseAs`。
+
+该脚本只报告不闭合问题，不自动改治理结论。
+
 ## 输出格式
 
 库级审查输出：
@@ -190,8 +215,13 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 8. `rulePatterns`
 9. `recompositionPolicies`
 10. `implementationBundles`
-11. `reviewItems`
-12. `openQuestions`
+11. `chainPatterns`
+12. `needReviewMap`
+13. `unmappedAtomVariants`
+14. `unmappedBindingVariants`
+15. `unmappedRuleVariants`
+16. `reviewItems`
+17. `openQuestions`
 
 ## 和重组 skill 的关系
 
