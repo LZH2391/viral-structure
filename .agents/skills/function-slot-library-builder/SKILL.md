@@ -22,7 +22,7 @@ description: 构建、校验、索引、审查和语义治理 FunctionSlotLibrar
 ## 硬边界
 
 - 脚本只产出证据层：`validation.json` 和 `slot_index.json`。
-- agent 负责治理层：slot family/archetype/subtype、atom pattern、binding pattern、rule pattern。
+- agent 负责治理层：slot family/archetype/subtype、atom archetype/pattern、binding pattern/principle、rule pattern/recomposition policy。
 - 禁止用字段完全一致、文本相似度、`slotType` 名称相似或 script atom 归并结果自动合并 pattern。
 - 原始 variant 永远是事实来源，治理结论必须保留来源 variant、判断理由、差异点和误分风险。
 - 治理完成后将结果保存到 `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`。
@@ -147,13 +147,15 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 1. `slotFamilies`
 2. `slotArchetypes`
 3. `slotSubtypes`
-4. `atomPatterns`
-5. `bindingPatterns`
-6. `bindingPrinciples`
-7. `rulePatterns`
-8. `recompositionPolicies`
-9. `reviewItems`
-10. `openQuestions`
+4. `atomArchetypes`
+5. `atomPatterns`
+6. `bindingPatterns`
+7. `bindingPrinciples`
+8. `rulePatterns`
+9. `recompositionPolicies`
+10. `implementationBundles`
+11. `reviewItems`
+12. `openQuestions`
 
 ## 和重组 skill 的关系
 

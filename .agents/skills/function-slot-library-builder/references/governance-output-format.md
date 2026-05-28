@@ -26,6 +26,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "slotFamilies": [],
   "slotArchetypes": [],
   "slotSubtypes": [],
+  "atomArchetypes": [],
   "atomPatterns": [],
   "bindingPatterns": [],
   "bindingPrinciples": [],
@@ -139,12 +140,32 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 }
 ```
 
+## Atom Archetype
+
+```json
+{
+  "id": "ATOM_ARCH_script_demand_establishment",
+  "name": "需求与观看理由建立脚本原型",
+  "atomLayer": "script | rhythm | packaging",
+  "status": "candidate | reviewed | stable",
+  "sourcePatternIds": [],
+  "sourceVariantIds": [],
+  "support": {},
+  "judgementReason": "...",
+  "differenceNotes": [],
+  "riskIfMisclassified": "..."
+}
+```
+
+Atom archetype 是 atom pattern 的父层，用来表达同一 atom layer 内更高层的实现语义，例如脚本层的需求建立、证据解释、关切闭合，节奏层的信息负载控制，包装层的视觉证明载体。它不能替代 script / rhythm / packaging 三类 atom pattern，也不能把三类 atom 混成一个 pattern。
+
 ## Atom Pattern
 
 ```json
 {
   "id": "SCRIPT_problem_object_to_direct_action",
   "atomLayer": "script",
+  "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
   "forSlotSubtype": "SUB_object_problem_activation",
   "status": "candidate",
   "claimPattern": "...",

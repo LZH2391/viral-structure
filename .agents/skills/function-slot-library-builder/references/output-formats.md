@@ -91,17 +91,29 @@
 | subtype | archetype | status | sourceSlotTypes | sourceVariantIds | 判断理由 | 误分风险 |
 |---|---|---|---|---|---|---|
 
+## atomArchetypes
+| archetype | layer | status | sourcePatternIds | sourceVariantIds | 判断理由 | 误分风险 |
+|---|---|---|---|---|---|---|
+
 ## atomPatterns
-| pattern | layer | status | forSlotSubtype | sourceVariantIds | 判断理由 |
-|---|---|---|---|---|---|
+| pattern | layer | parentAtomArchetype | status | forSlotSubtype | sourceVariantIds | 判断理由 |
+|---|---|---|---|---|---|---|
 
 ## bindingPatterns
 | pattern | type | status | sourceVariantIds | 关系约束 | 风险 |
 |---|---|---|---|---|---|
 
+## bindingPrinciples
+| principle | status | sourcePatternIds | 判断理由 | 误分风险 |
+|---|---|---|---|---|
+
 ## rulePatterns
 | pattern | type | status | condition | requirement | violation | fix |
 |---|---|---|---|---|---|---|
+
+## recompositionPolicies
+| policy | status | sourceRulePatternIds | policy | 风险 |
+|---|---|---|---|---|
 
 ## reviewItems
 | severity | topic | sourceVariantIds | 问题 | 建议 |

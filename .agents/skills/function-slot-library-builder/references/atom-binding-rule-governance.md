@@ -14,6 +14,18 @@ atom 是 slot 的实现变体，不是独立于 slot 任意混用的素材。
 
 不要把 rhythm 或 packaging pattern 并入 script pattern。三类 atom 可以形成 implementation bundle，但 bundle 只是常见组合，不替代三类 pattern。
 
+atom 的治理层级是：
+
+```text
+atom variant
+↓
+atom pattern
+↓
+atom archetype
+```
+
+`atomArchetype` 是同一 atom layer 内的高层实现语义，例如脚本层的需求建立、机制/品质证据解释、前置关切闭合，节奏层的信息负载控制，包装层的视觉证明载体。它必须通过 `sourcePatternIds` 连接到 atom pattern，并继续保留 `sourceVariantIds` 作为证据来源。
+
 ### script pattern
 
 比较：
