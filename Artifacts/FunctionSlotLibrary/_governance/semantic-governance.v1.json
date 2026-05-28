@@ -1,7 +1,6 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "status": "candidate",
   "outputPath": "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
   "sourceRoot": "Artifacts/FunctionSlotLibrary",
   "sourceIndex": "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
@@ -67,16 +66,43 @@
     "bindingCount": 33,
     "ruleCount": 39,
     "templateCount": 6,
-    "validationOk": true,
     "needReviewCount": 4,
-    "slotTypeSupportNote": "21 个 slotType 均为单样例支持；治理层只做候选归类，不把同名 support 当成稳定语义证明。",
-    "chainPatternSupportNote": "6 条链路模式均为单样例支持，其中 artifact_37d50292 与 artifact_b0b301b8 各存在 2 条 template sequence，说明局部顺序可调整但承接关系必须保留。"
+    "slotTypeSupport": {
+      "instant_solution_preview": 1,
+      "pain_backfill": 1,
+      "coverage_bridge": 1,
+      "mechanism_trust": 1,
+      "life_benefit_close": 1,
+      "value_anchor": 1,
+      "quantity_value_confirmation": 1,
+      "quality_trust_build": 1,
+      "sensory_proof_peak": 1,
+      "usage_scene_close": 1,
+      "scene_problem_activation": 1,
+      "solution_entry": 1,
+      "alternative_contrast": 1,
+      "mechanism_proof": 1,
+      "usage_result_confirmation": 1,
+      "choice_close": 1,
+      "problem_activation": 1,
+      "mechanism_credibility": 1,
+      "low_barrier_operation": 1,
+      "result_confirmation": 1,
+      "long_term_trust_close": 1
+    },
+    "chainPatternSupport": {
+      "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close": 1,
+      "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close": 1,
+      "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close": 1,
+      "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close": 1,
+      "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close": 1,
+      "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close": 1
+    }
   },
   "slotFamilies": [
     {
       "id": "FAM_attention_and_need_activation",
       "name": "观看理由与需求激活类",
-      "status": "reviewed",
       "coreViewerTransition": "未识别对象/无需求感 -> 接受观看理由、问题或价值锚点",
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001",
@@ -109,7 +135,6 @@
     {
       "id": "FAM_solution_and_proof_build",
       "name": "方案进入与证据建立类",
-      "status": "reviewed",
       "coreViewerTransition": "已接受问题/价值 -> 理解解决对象、差异、机制或品质证据",
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
@@ -146,7 +171,6 @@
     {
       "id": "FAM_result_and_choice_closure",
       "name": "结果兑现与选择收束类",
-      "status": "reviewed",
       "coreViewerTransition": "已理解证据 -> 看到结果兑现、生活收益、长期可信或选择判断",
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
@@ -183,7 +207,6 @@
       "id": "ARCH_result_first_need_setup",
       "familyId": "FAM_attention_and_need_activation",
       "name": "结果前置后补需求原型",
-      "status": "candidate",
       "viewerStateBeforeClass": "未理解对象或需求",
       "viewerStateAfterClass": "已看到解决后状态并补回需求理由",
       "commonProofObligation": [
@@ -222,7 +245,6 @@
       "id": "ARCH_value_anchor_verification",
       "familyId": "FAM_attention_and_need_activation",
       "name": "低门槛价值锚定与兑现原型",
-      "status": "candidate",
       "viewerStateBeforeClass": "未识别购买对象",
       "viewerStateAfterClass": "接受低门槛利益并看到数量或规格证据",
       "commonProofObligation": [
@@ -260,7 +282,6 @@
       "id": "ARCH_problem_activation",
       "familyId": "FAM_attention_and_need_activation",
       "name": "痛点/问题激活原型",
-      "status": "reviewed",
       "viewerStateBeforeClass": "未进入具体使用语境",
       "viewerStateAfterClass": "接受问题存在并准备接收解决方案",
       "commonProofObligation": [
@@ -301,7 +322,6 @@
       "id": "ARCH_solution_object_entry",
       "familyId": "FAM_solution_and_proof_build",
       "name": "解决对象进入原型",
-      "status": "candidate",
       "viewerStateBeforeClass": "已接受问题但不知道解决对象",
       "viewerStateAfterClass": "识别解决方案并准备听取证明",
       "commonProofObligation": [
@@ -339,7 +359,6 @@
       "id": "ARCH_mechanism_and_credibility_proof",
       "familyId": "FAM_solution_and_proof_build",
       "name": "机制/结构可信证明原型",
-      "status": "reviewed",
       "viewerStateBeforeClass": "已知道方案或差异但尚未相信原因",
       "viewerStateAfterClass": "理解方案为何有效、可靠或可持续",
       "commonProofObligation": [
@@ -383,7 +402,6 @@
       "id": "ARCH_quality_sensory_proof",
       "familyId": "FAM_solution_and_proof_build",
       "name": "品质疑虑与感官证据原型",
-      "status": "candidate",
       "viewerStateBeforeClass": "认可价值但担心品质或体验不足",
       "viewerStateAfterClass": "通过近景细节、动作拆解或内部证据降低疑虑",
       "commonProofObligation": [
@@ -422,7 +440,6 @@
       "id": "ARCH_result_closure",
       "familyId": "FAM_result_and_choice_closure",
       "name": "结果兑现闭环原型",
-      "status": "reviewed",
       "viewerStateBeforeClass": "已理解机制、步骤或体验证据",
       "viewerStateAfterClass": "看到同一关切被结果兑现",
       "commonProofObligation": [
@@ -468,7 +485,6 @@
       "id": "ARCH_long_term_or_choice_close",
       "familyId": "FAM_result_and_choice_closure",
       "name": "长期信任与选择记忆原型",
-      "status": "candidate",
       "viewerStateBeforeClass": "已看到即时结果但仍需选择理由",
       "viewerStateAfterClass": "获得长期可信或推荐选择判断",
       "commonProofObligation": [
@@ -508,7 +524,6 @@
       "id": "ARCH_proof_bridge",
       "familyId": "FAM_solution_and_proof_build",
       "name": "Proof bridge archetype",
-      "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "viewerStateBeforeClass": "viewer has seen initial result but is not ready for mechanism explanation",
@@ -546,7 +561,6 @@
       "id": "ARCH_contrast_gap_setup",
       "familyId": "FAM_solution_and_proof_build",
       "name": "Contrast gap setup archetype",
-      "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "viewerStateBeforeClass": "viewer believes an alternative or ordinary solution may be enough",
@@ -584,7 +598,6 @@
       "id": "ARCH_operation_barrier_reduction",
       "familyId": "FAM_solution_and_proof_build",
       "name": "Operation barrier reduction archetype",
-      "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "viewerStateBeforeClass": "viewer understands solution logic but worries about execution cost or complexity",
@@ -624,7 +637,6 @@
       "id": "SUB_visible_result_first_hook",
       "archetypeId": "ARCH_result_first_need_setup",
       "name": "可视结果前置钩子",
-      "status": "candidate",
       "sourceSlotTypes": [
         "instant_solution_preview"
       ],
@@ -669,7 +681,6 @@
       "id": "SUB_result_backfilled_pain",
       "archetypeId": "ARCH_result_first_need_setup",
       "name": "结果后补痛点",
-      "status": "candidate",
       "sourceSlotTypes": [
         "pain_backfill"
       ],
@@ -714,7 +725,6 @@
       "id": "SUB_low_barrier_value_anchor",
       "archetypeId": "ARCH_value_anchor_verification",
       "name": "低门槛价值锚点",
-      "status": "candidate",
       "sourceSlotTypes": [
         "value_anchor"
       ],
@@ -759,7 +769,6 @@
       "id": "SUB_visible_quantity_value",
       "archetypeId": "ARCH_value_anchor_verification",
       "name": "数量规格价值兑现",
-      "status": "candidate",
       "sourceSlotTypes": [
         "quantity_value_confirmation"
       ],
@@ -804,7 +813,6 @@
       "id": "SUB_scene_problem_activation",
       "archetypeId": "ARCH_problem_activation",
       "name": "场景共鸣型问题激活",
-      "status": "reviewed",
       "sourceSlotTypes": [
         "scene_problem_activation"
       ],
@@ -849,7 +857,6 @@
       "id": "SUB_object_action_problem_activation",
       "archetypeId": "ARCH_problem_activation",
       "name": "对象直冲动作型问题激活",
-      "status": "reviewed",
       "sourceSlotTypes": [
         "problem_activation"
       ],
@@ -894,7 +901,6 @@
       "id": "SUB_solution_object_entry",
       "archetypeId": "ARCH_solution_object_entry",
       "name": "解决物识别进入",
-      "status": "candidate",
       "sourceSlotTypes": [
         "solution_entry"
       ],
@@ -939,7 +945,6 @@
       "id": "SUB_coverage_to_mechanism_bridge",
       "archetypeId": "ARCH_proof_bridge",
       "name": "覆盖感到机制桥接",
-      "status": "candidate",
       "sourceSlotTypes": [
         "coverage_bridge"
       ],
@@ -984,7 +989,6 @@
       "id": "SUB_alternative_gap_contrast",
       "archetypeId": "ARCH_contrast_gap_setup",
       "name": "替代方案缺口对比",
-      "status": "candidate",
       "sourceSlotTypes": [
         "alternative_contrast"
       ],
@@ -1029,7 +1033,6 @@
       "id": "SUB_structure_reuse_mechanism_trust",
       "archetypeId": "ARCH_mechanism_and_credibility_proof",
       "name": "结构复用可信证明",
-      "status": "candidate",
       "sourceSlotTypes": [
         "mechanism_trust"
       ],
@@ -1075,7 +1078,6 @@
       "id": "SUB_causal_mechanism_proof",
       "archetypeId": "ARCH_mechanism_and_credibility_proof",
       "name": "差异化因果机制证明",
-      "status": "candidate",
       "sourceSlotTypes": [
         "mechanism_proof"
       ],
@@ -1120,7 +1122,6 @@
       "id": "SUB_mechanism_scope_credibility",
       "archetypeId": "ARCH_mechanism_and_credibility_proof",
       "name": "机制与适用范围可信",
-      "status": "candidate",
       "sourceSlotTypes": [
         "mechanism_credibility"
       ],
@@ -1166,7 +1167,6 @@
       "id": "SUB_operation_barrier_reduction",
       "archetypeId": "ARCH_operation_barrier_reduction",
       "name": "低门槛操作闭环",
-      "status": "candidate",
       "sourceSlotTypes": [
         "low_barrier_operation"
       ],
@@ -1212,7 +1212,6 @@
       "id": "SUB_quality_objection_reframe",
       "archetypeId": "ARCH_quality_sensory_proof",
       "name": "品质疑虑转向",
-      "status": "candidate",
       "sourceSlotTypes": [
         "quality_trust_build"
       ],
@@ -1257,7 +1256,6 @@
       "id": "SUB_sensory_detail_proof_peak",
       "archetypeId": "ARCH_quality_sensory_proof",
       "name": "感官细节证明峰值",
-      "status": "candidate",
       "sourceSlotTypes": [
         "sensory_proof_peak"
       ],
@@ -1302,7 +1300,6 @@
       "id": "SUB_life_benefit_close",
       "archetypeId": "ARCH_result_closure",
       "name": "生活状态利益收束",
-      "status": "candidate",
       "sourceSlotTypes": [
         "life_benefit_close"
       ],
@@ -1347,7 +1344,6 @@
       "id": "SUB_usage_scene_conversion_close",
       "archetypeId": "ARCH_result_closure",
       "name": "使用场景与购买对象收束",
-      "status": "candidate",
       "sourceSlotTypes": [
         "usage_scene_close"
       ],
@@ -1392,7 +1388,6 @@
       "id": "SUB_usage_result_confirmation",
       "archetypeId": "ARCH_result_closure",
       "name": "使用结果回扣确认",
-      "status": "candidate",
       "sourceSlotTypes": [
         "usage_result_confirmation"
       ],
@@ -1437,7 +1432,6 @@
       "id": "SUB_operation_result_confirmation",
       "archetypeId": "ARCH_result_closure",
       "name": "操作后结果确认",
-      "status": "candidate",
       "sourceSlotTypes": [
         "result_confirmation"
       ],
@@ -1482,7 +1476,6 @@
       "id": "SUB_recommendation_memory_close",
       "archetypeId": "ARCH_long_term_or_choice_close",
       "name": "推荐记忆收束",
-      "status": "candidate",
       "sourceSlotTypes": [
         "choice_close"
       ],
@@ -1528,7 +1521,6 @@
       "id": "SUB_long_term_trust_choice_close",
       "archetypeId": "ARCH_long_term_or_choice_close",
       "name": "长期物证信任收束",
-      "status": "candidate",
       "sourceSlotTypes": [
         "long_term_trust_close"
       ],
@@ -1576,7 +1568,6 @@
       "id": "ATOM_ARCH_script_demand_establishment",
       "name": "需求与观看理由建立脚本原型",
       "atomLayer": "script",
-      "status": "reviewed",
       "sourcePatternIds": [
         "SCRIPT_pattern_problem_to_need",
         "SCRIPT_pattern_value_to_visible_evidence"
@@ -1611,7 +1602,6 @@
       "id": "ATOM_ARCH_script_evidence_explanation",
       "name": "机制与品质证据解释脚本原型",
       "atomLayer": "script",
-      "status": "candidate",
       "sourcePatternIds": [
         "SCRIPT_pattern_mechanism_requires_visual_causality",
         "SCRIPT_pattern_quality_detail_proof"
@@ -1646,7 +1636,6 @@
       "id": "ATOM_ARCH_script_concern_closure",
       "name": "前置关切闭合脚本原型",
       "atomLayer": "script",
-      "status": "reviewed",
       "sourcePatternIds": [
         "SCRIPT_pattern_result_closure_to_prior_concern"
       ],
@@ -1678,7 +1667,6 @@
       "id": "ATOM_ARCH_rhythm_attention_load_control",
       "name": "注意力与信息负载控制节奏原型",
       "atomLayer": "rhythm",
-      "status": "candidate",
       "sourcePatternIds": [
         "RHYTHM_pattern_fast_activation_or_peak",
         "RHYTHM_pattern_slow_explanation_or_observation",
@@ -1718,7 +1706,6 @@
       "id": "ATOM_ARCH_packaging_visual_proof_carrier",
       "name": "视觉证明载体包装原型",
       "atomLayer": "packaging",
-      "status": "reviewed",
       "sourcePatternIds": [
         "PACK_pattern_visual_identity_and_entry",
         "PACK_pattern_mechanism_visual_proof",
@@ -1763,7 +1750,6 @@
       "name": "可见问题建立需求脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
-      "status": "reviewed",
       "claimPattern": "通过场景、对象或旧状态证明问题存在并需要解决",
       "proofNeedClass": "visible_problem_or_cost",
       "mustKeepClasses": [
@@ -1803,7 +1789,6 @@
       "name": "价值主张可视兑现脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
-      "status": "candidate",
       "claimPattern": "先给低门槛利益，再用主体、数量或规格证明价值真实",
       "proofNeedClass": "object_identity_and_quantity_spec",
       "mustKeepClasses": [
@@ -1839,7 +1824,6 @@
       "name": "机制因果证明脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
-      "status": "reviewed",
       "claimPattern": "通过结构、机制、适用范围或材料关系解释为什么有效",
       "proofNeedClass": "visual_causality_and_scope",
       "mustKeepClasses": [
@@ -1879,7 +1863,6 @@
       "name": "品质细节证明脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
-      "status": "candidate",
       "claimPattern": "用近景质地、动作拆解或内部结构回应品质/体验疑虑",
       "proofNeedClass": "observable_quality_detail",
       "mustKeepClasses": [
@@ -1915,7 +1898,6 @@
       "name": "结果回扣前置关切脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
-      "status": "reviewed",
       "claimPattern": "把已证明功能回到前文关切、使用场景或生活收益",
       "proofNeedClass": "same_concern_result_evidence",
       "mustKeepClasses": [
@@ -1958,7 +1940,6 @@
       "name": "快入激活/峰值节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
-      "status": "candidate",
       "rhythmFunction": "快速建立注意力并把动作或结果推到首个高点",
       "paceClass": "fast_to_peak_or_fast_staccato",
       "densityClass": "action_cut_density",
@@ -1996,7 +1977,6 @@
       "name": "减速解释/观察节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
-      "status": "reviewed",
       "rhythmFunction": "为机制、结构或品质观察留出理解时间",
       "paceClass": "slow_confirming|steady_dense|measured_hold",
       "densityClass": "operation_or_explanation_density",
@@ -2037,7 +2017,6 @@
       "name": "结果兑现与回落收束节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
-      "status": "reviewed",
       "rhythmFunction": "从证明峰值转向结果确认、生活收益或选择信任",
       "paceClass": "soft_release|stable_scene_hold|peak_with_tail|slow_testimonial",
       "densityClass": "low_action_or_result_density",
@@ -2080,7 +2059,6 @@
       "name": "对象识别与入口包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
-      "status": "candidate",
       "proofType": "object_identity_and_entry",
       "visualHierarchyClass": "对象/解决物第一，动作或利益第二，字幕辅助",
       "replaceableFormClasses": [
@@ -2121,7 +2099,6 @@
       "name": "机制可视证明包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
-      "status": "reviewed",
       "proofType": "mechanism_visualization",
       "visualHierarchyClass": "结构/机制证据抢占解释焦点，实拍或字幕托底",
       "replaceableFormClasses": [
@@ -2163,7 +2140,6 @@
       "name": "结果证据与收束包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
-      "status": "reviewed",
       "proofType": "result_or_benefit_closure",
       "visualHierarchyClass": "结果状态第一，生活动作或购买对象第二，字幕短句收束",
       "replaceableFormClasses": [
@@ -2209,7 +2185,6 @@
       "id": "BIND_pattern_attention_sync",
       "name": "同一注意力拍点同步",
       "bindingType": "sync",
-      "status": "reviewed",
       "condition": "开场、动作、证明峰值或结果兑现需要在观众注意力高点成立",
       "requirement": "script claim、rhythm beat 和 packaging proof 必须在同一理解链路或注意力点同步",
       "riskIfBroken": "观众看到动作或细节，但无法把它理解成对应主张的证据",
@@ -2239,7 +2214,6 @@
       "id": "BIND_pattern_concern_carryover",
       "name": "同一关切跨槽承接",
       "bindingType": "carryover",
-      "status": "reviewed",
       "condition": "一个槽位激活了结果、痛点、价值或体验优势，后续槽位需要继续使用同一关切",
       "requirement": "后续证明或收束必须回扣同一对象、痛点、利益或体验优势",
       "riskIfBroken": "前后信息变成孤立片段，证明链或转化链断裂",
@@ -2271,7 +2245,6 @@
       "id": "BIND_pattern_proof_requirement",
       "name": "主张必须配可见证明",
       "bindingType": "require",
-      "status": "reviewed",
       "condition": "主张涉及品质、机制、结构、步骤、长期信任或替代缺陷",
       "requirement": "必须配对应的视觉证据、动作证据、物证或时间证据",
       "riskIfBroken": "主张退化成口播或字幕，可信度下降",
@@ -2303,7 +2276,6 @@
       "id": "BIND_pattern_function_preserving_substitution",
       "name": "保功能替换",
       "bindingType": "substitute",
-      "status": "reviewed",
       "condition": "跨品类或跨素材重组需要替换包装、场景、解决物或说明载体",
       "requirement": "允许替换表面形式，但必须保留槽位任务、证明匹配和前后承接",
       "riskIfBroken": "重组结果像原片但不再能说服",
@@ -2335,7 +2307,6 @@
       "id": "BIND_pattern_complex_claim_pace_conflict",
       "name": "复杂主张与超快节奏冲突",
       "bindingType": "conflict",
-      "status": "reviewed",
       "condition": "机制、品质细节或多步骤解释被套用开头快入/数量密度节奏",
       "requirement": "降速、增加视觉锚点、拆成证据打点或改为结果层表达",
       "riskIfBroken": "信息来不及理解，证明被看成噪音或堆叠",
@@ -2366,7 +2337,6 @@
     {
       "id": "BIND_pattern_supporting_evidence_alignment",
       "bindingType": "support",
-      "status": "candidate",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "condition": "Supporting visuals, captions, packaging, or actions strengthen the current claim but are not mandatory proof for that claim.",
@@ -2399,7 +2369,6 @@
     {
       "id": "PRINCIPLE_same_concern_closure",
       "name": "激活关切必须闭合原则",
-      "status": "reviewed",
       "sourcePatternIds": [
         "BIND_pattern_concern_carryover",
         "BIND_pattern_proof_requirement"
@@ -2407,12 +2376,35 @@
       "judgementReason": "所有链路中，前面激活的问题、结果、价值或体验优势都必须在后续证明或收尾中被同一对象闭合。",
       "riskIfMisclassified": "会产出看似完整但前后不相干的重组结构。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B005"
+      ],
+      "support": {
+        "variantCount": 8,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "differenceNotes": [
+        "该原则来自 carryover 与 require 关系共同指向的关切闭合约束，不来自文本相似。",
+        "与单条 binding pattern 不同，它描述跨槽组合时必须保留同一关切线的父级约束。"
+      ]
     },
     {
       "id": "PRINCIPLE_proof_function_over_surface_form",
       "name": "证明功能优先于表面形式原则",
-      "status": "reviewed",
       "sourcePatternIds": [
         "BIND_pattern_function_preserving_substitution",
         "BIND_pattern_proof_requirement",
@@ -2421,12 +2413,39 @@
       "judgementReason": "四个样例均允许换包装载体，但不允许删除槽位证明功能。",
       "riskIfMisclassified": "会把模板风格迁移误当作语义结构迁移。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B008",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007"
+      ],
+      "support": {
+        "variantCount": 12,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "differenceNotes": [
+        "该原则覆盖替换、证明要求和辅助证据对齐三类关系约束。",
+        "它按证明功能治理，不按字幕、贴纸、箭头等表面包装样式治理。"
+      ]
     },
     {
       "id": "PRINCIPLE_information_load_matches_rhythm",
       "name": "信息负载匹配节奏原则",
-      "status": "reviewed",
       "sourcePatternIds": [
         "BIND_pattern_attention_sync",
         "BIND_pattern_complex_claim_pace_conflict"
@@ -2434,7 +2453,30 @@
       "judgementReason": "复杂解释需要减速或视觉锚点，快入节奏适合动作、结果或问题对象抢占。",
       "riskIfMisclassified": "复杂主张会被节奏吞掉。",
       "reviewStatus": "reviewed",
-      "maturityStatus": "candidate"
+      "maturityStatus": "candidate",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B008",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B009",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B007"
+      ],
+      "support": {
+        "variantCount": 7,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "differenceNotes": [
+        "该原则由注意力同步和复杂主张节奏冲突共同支撑。",
+        "它约束信息负载和节奏功能匹配，不把快慢本身当作治理 pattern。"
+      ]
     }
   ],
   "rulePatterns": [
@@ -2442,7 +2484,6 @@
       "id": "RULE_pattern_result_first_requires_backfilled_need",
       "name": "结果前置必须补回需求",
       "ruleType": "carryover_policy",
-      "status": "candidate",
       "condition": "链路使用结果先行开头",
       "requirement": "后续槽位必须补回同一核心痛点或同一观众关切",
       "violation": "开头结果缺少问题动机，像孤立展示",
@@ -2470,7 +2511,6 @@
       "id": "RULE_pattern_visual_evidence_required_for_abstract_claim",
       "name": "抽象主张必须有可见证据",
       "ruleType": "proof_policy",
-      "status": "reviewed",
       "condition": "主张涉及机制、品质、长期信任、低门槛价值或操作步骤",
       "requirement": "配对应的视觉证据、动作证据、规格证据、时间证据或使用痕迹",
       "violation": "主张停留在口播、字幕或泛化评价",
@@ -2503,7 +2543,6 @@
       "id": "RULE_pattern_complex_explanation_requires_slow_or_anchored_rhythm",
       "name": "复杂解释需要降速或视觉锚点",
       "ruleType": "rhythm_policy",
-      "status": "reviewed",
       "condition": "槽位承载机制、品质细节、复杂因果或多步骤解释",
       "requirement": "使用减速、停顿、稳定观察点、图文锚点或拆分证据打点",
       "violation": "全程快切、数量密度或重包装压缩理解时间",
@@ -2536,7 +2575,6 @@
       "id": "RULE_pattern_result_must_close_prior_concern",
       "name": "结果必须闭合前置关切",
       "ruleType": "closure_policy",
-      "status": "reviewed",
       "condition": "链路进入结果展示、生活收益或场景收尾",
       "requirement": "结果画面、字幕或使用状态回到前文同一痛点、体验优势、购买对象或观众关切",
       "violation": "展示漂亮画面、泛化状态或无关好处",
@@ -2569,7 +2607,6 @@
       "id": "RULE_pattern_contrast_defect_must_be_answered",
       "name": "对比缺陷必须被机制回应",
       "ruleType": "contrast_policy",
-      "status": "candidate",
       "condition": "链路使用替代方案缺陷或反面使用状态",
       "requirement": "后续机制证明必须逐项回应该缺陷",
       "violation": "对比成为孤立吐槽，无法支持目标方案",
@@ -2597,7 +2634,6 @@
       "id": "RULE_pattern_function_first_packaging_recomposition",
       "name": "包装重组优先保留证明功能",
       "ruleType": "packaging_policy",
-      "status": "reviewed",
       "condition": "重组时替换包装样式、场景、图文、字幕、实物或演示",
       "requirement": "先保留每个槽位的证明功能和视觉层级，再替换具体形式",
       "violation": "只保留表面风格，证明链路失效",
@@ -2629,7 +2665,6 @@
     {
       "id": "POLICY_same_concern_thread_closure",
       "name": "关切线闭合政策",
-      "status": "reviewed",
       "sourceRulePatternIds": [
         "RULE_pattern_result_first_requires_backfilled_need",
         "RULE_pattern_result_must_close_prior_concern"
@@ -2638,12 +2673,35 @@
       "riskIfBroken": "链路会变成若干无关卖点拼接。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "policyScope": "composition_safety"
+      "policyScope": "composition_safety",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE001"
+      ],
+      "support": {
+        "variantCount": 6,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该政策由结果前置补需求与结果闭合前置关切两类 rule pattern 支撑，约束重组链必须保留同一关切线。",
+      "differenceNotes": [
+        "该政策面向跨槽链路安全，不生成具体重组方案。",
+        "与 observed chain 不同，它只约束关切线必须闭合，不固定槽位顺序。"
+      ],
+      "riskIfMisclassified": "如果误分，会把历史样例顺序误用成固定模板，或让开头关切在结尾失去闭合。"
     },
     {
       "id": "POLICY_claim_proof_match",
       "name": "主张证据匹配政策",
-      "status": "reviewed",
       "sourceRulePatternIds": [
         "RULE_pattern_visual_evidence_required_for_abstract_claim",
         "RULE_pattern_contrast_defect_must_be_answered"
@@ -2652,12 +2710,35 @@
       "riskIfBroken": "可信度会下降，下游检索候选也会误配。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "policyScope": "composition_safety"
+      "policyScope": "composition_safety",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE002"
+      ],
+      "support": {
+        "variantCount": 6,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该政策由抽象主张需要视觉证据、对比缺陷必须被回应两类 rule pattern 支撑，约束主张类型与证据类型匹配。",
+      "differenceNotes": [
+        "该政策按主张和证据的关系治理，不按 reason 或 fix 文案相似归并。",
+        "机制、品质、规格、步骤、长期信任证据不能被情绪评价或结果画面随意替代。"
+      ],
+      "riskIfMisclassified": "如果误分，会用不同证明任务的证据互相替代，导致可信度和候选检索都失准。"
     },
     {
       "id": "POLICY_rhythm_load_fit",
       "name": "节奏信息负载匹配政策",
-      "status": "reviewed",
       "sourceRulePatternIds": [
         "RULE_pattern_complex_explanation_requires_slow_or_anchored_rhythm"
       ],
@@ -2665,12 +2746,33 @@
       "riskIfBroken": "用户看到信息但无法理解证明关系。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "policyScope": "composition_safety"
+      "policyScope": "composition_safety",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该政策由复杂解释必须减速或锚定的 rule pattern 支撑，约束节奏服务理解而不是只追求快进。",
+      "differenceNotes": [
+        "该政策按 rhythm function 与信息负载治理，不把快慢作为唯一分类依据。",
+        "复杂解释需要理解时间或视觉锚点，快入节奏更适合问题、动作或结果抢占。"
+      ],
+      "riskIfMisclassified": "如果误分，会把复杂解释压进不合适的快节奏，用户看到信息但无法理解证明关系。"
     },
     {
       "id": "POLICY_packaging_function_preservation",
       "name": "包装功能保真政策",
-      "status": "reviewed",
       "sourceRulePatternIds": [
         "RULE_pattern_function_first_packaging_recomposition"
       ],
@@ -2678,14 +2780,33 @@
       "riskIfBroken": "重组只像样例，不再能完成对应说服任务。",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
-      "policyScope": "composition_safety"
+      "policyScope": "composition_safety",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该政策由包装重组必须优先保留证明功能的 rule pattern 支撑，约束替换时按 proof function 迁移。",
+      "differenceNotes": [
+        "该政策按 packaging proof function 治理，不按具体包装样式迁移。",
+        "可替换的是载体形式，不能替换掉定位对象、解释机制、验证结果或建立信任等证明功能。"
+      ],
+      "riskIfMisclassified": "如果误分，会只迁移视觉风格而丢失证明功能，使重组结果像样例但不再完成原说服任务。"
     }
   ],
   "implementationBundles": [
     {
       "id": "BUNDLE_result_first_reverse_need",
       "name": "结果前置反向补需求组合",
-      "status": "candidate",
       "slotSubtypeIds": [
         "SUB_visible_result_first_hook",
         "SUB_result_backfilled_pain",
@@ -2728,12 +2849,15 @@
       },
       "bundleType": "observed_chain_bundle",
       "useAs": "retrieval_prior_only",
-      "notUseAs": "fixed_template"
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "与普通问题激活链不同，该组合先展示可见结果，再回填痛点和机制信任。",
+        "只可作为检索先验，不能要求重组时固定保留完整顺序。"
+      ]
     },
     {
       "id": "BUNDLE_value_quality_scene_close",
       "name": "低门槛价值到品质峰值组合",
-      "status": "candidate",
       "slotSubtypeIds": [
         "SUB_low_barrier_value_anchor",
         "SUB_visible_quantity_value",
@@ -2774,12 +2898,15 @@
       },
       "bundleType": "observed_chain_bundle",
       "useAs": "retrieval_prior_only",
-      "notUseAs": "fixed_template"
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合以低门槛价值锚定开场，随后用数量、品质细节和使用场景逐步补足信任。",
+        "价值证明、品质证明和场景收束分别依赖不同 slot subtype 与 atom pattern，不能合并成单一价值证明 pattern。"
+      ]
     },
     {
       "id": "BUNDLE_problem_contrast_mechanism_choice",
       "name": "场景痛点到对比机制选择组合",
-      "status": "candidate",
       "slotSubtypeIds": [
         "SUB_scene_problem_activation",
         "SUB_solution_object_entry",
@@ -2823,12 +2950,15 @@
       },
       "bundleType": "observed_chain_bundle",
       "useAs": "retrieval_prior_only",
-      "notUseAs": "fixed_template"
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合把场景痛点、替代方案差距、机制证明和选择收束串成同一样例链。",
+        "替代方案对比只是链路中的承接证据，不能反向决定机制证明 archetype。"
+      ]
     },
     {
       "id": "BUNDLE_object_action_mechanism_operation_long_trust",
       "name": "对象动作到机制步骤长期信任组合",
-      "status": "candidate",
       "slotSubtypeIds": [
         "SUB_object_action_problem_activation",
         "SUB_mechanism_scope_credibility",
@@ -2870,7 +3000,11 @@
       },
       "bundleType": "observed_chain_bundle",
       "useAs": "retrieval_prior_only",
-      "notUseAs": "fixed_template"
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合先用对象动作激活问题，再进入机制可信、低门槛操作、结果确认和长期信任。",
+        "机制说明与操作门槛降低是相邻但不同的证明任务，不能互相替代。"
+      ]
     }
   ],
   "reviewItems": [
@@ -2903,8 +3037,7 @@
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
-      },
-      "status": "candidate"
+      }
     },
     {
       "id": "REVIEW_002",
@@ -2933,8 +3066,7 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
-      },
-      "status": "candidate"
+      }
     },
     {
       "id": "REVIEW_003",
@@ -2960,8 +3092,7 @@
         "sampleIds": [
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
         ]
-      },
-      "status": "candidate"
+      }
     },
     {
       "id": "REVIEW_004",
@@ -2986,8 +3117,7 @@
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
         ]
-      },
-      "status": "candidate"
+      }
     },
     {
       "id": "REVIEW_005",
@@ -3012,8 +3142,7 @@
         "sampleIds": [
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
-      },
-      "status": "candidate"
+      }
     }
   ],
   "openQuestions": [
@@ -3374,14 +3503,12 @@
       "suggestedAction": "keep_for_local_audit_only"
     }
   ],
-  "chainPatterns": [],
   "reviewStatus": "candidate",
   "maturityStatus": "candidate",
   "observedChainPatterns": [
     {
       "id": "OBS_CHAIN_001",
-      "name": "Observed chain 001",
-      "status": "candidate",
+      "name": "观察链路 001",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close",
@@ -3404,13 +3531,16 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到完整五段顺序：结果预览、痛点回填、覆盖桥接、机制信任、生活收益收束。",
+        "同一样例还存在少一段覆盖桥接的 T002，说明该顺序不是固定模板。"
+      ]
     },
     {
       "id": "OBS_CHAIN_002",
-      "name": "Observed chain 002",
-      "status": "candidate",
+      "name": "观察链路 002",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close",
@@ -3432,13 +3562,16 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到四段顺序：结果预览、痛点回填、机制信任、生活收益收束。",
+        "与 OBS_CHAIN_001 的差异在覆盖桥接是否显式出现，只能作为链路变体证据。"
+      ]
     },
     {
       "id": "OBS_CHAIN_003",
-      "name": "Observed chain 003",
-      "status": "candidate",
+      "name": "观察链路 003",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close",
@@ -3461,13 +3594,16 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到价值锚点、数量价值确认、品质信任、感官峰值、使用场景收束的顺序。",
+        "该链路体现价值到品质的递进，但不能把价值槽和品质槽合并为同一 archetype。"
+      ]
     },
     {
       "id": "OBS_CHAIN_004",
-      "name": "Observed chain 004",
-      "status": "candidate",
+      "name": "观察链路 004",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close",
@@ -3491,13 +3627,16 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到场景问题、方案进入、替代对比、机制证明、使用结果、选择收束的顺序。",
+        "替代对比位于方案进入之后，是该样例的一种顺序安排。"
+      ]
     },
     {
       "id": "OBS_CHAIN_005",
-      "name": "Observed chain 005",
-      "status": "candidate",
+      "name": "观察链路 005",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close",
@@ -3521,13 +3660,16 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到场景问题、替代对比、方案进入、机制证明、使用结果、选择收束的顺序。",
+        "与 OBS_CHAIN_004 的差异在替代对比和方案进入的先后，说明 template 只能记录历史链路样本。"
+      ]
     },
     {
       "id": "OBS_CHAIN_006",
-      "name": "Observed chain 006",
-      "status": "candidate",
+      "name": "观察链路 006",
       "reviewStatus": "reviewed",
       "maturityStatus": "candidate",
       "chainKey": "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close",
@@ -3550,8 +3692,12 @@
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "This chain records observed slot order and carryover evidence only; it is not a basis for slot archetype merging.",
-      "riskIfMisclassified": "Treating observed chain as archetype evidence would absorb adjacent slots into the same archetype again."
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到问题激活、机制可信、低门槛操作、结果确认、长期信任收束的顺序。",
+        "该链路需要保留机制与操作的承接关系，但不能作为 slot subtype 合并依据。"
+      ]
     }
   ]
 }
