@@ -34,22 +34,35 @@
 ...
 ```
 
-## 槽位相似检索
+## 证据入口审查
 
 ```markdown
-# 槽位相似检索
+# slot_index 证据入口审查
 
-## 查询目标
-...
+## 来源
+- sourceIndex：
+- schemaVersion：
+- createdAt：
 
-## 候选槽位
-| 候选 | 来源 | 相似原因 | 差异 | 建议 |
-|---|---|---|---|---|
+## 证据覆盖
+| 类型 | 数量 | 备注 |
+|---|---:|---|
+| samples |  |  |
+| slotVariants |  |  |
+| atomVariants |  |  |
+| bindings |  |  |
+| rules |  |  |
+| templates |  |  |
 
-## slotType 建议
-- 复用：
-- 新增：
-- 需要 review：
+## 优先治理入口
+| topic | sourceVariantIds | 为什么需要 agent 审查 |
+|---|---|---|
+
+## 禁止自动归并提醒
+- 不按字段一致归并。
+- 不按文本相似归并。
+- 不按 slotType 名称归并。
+- 不让 script atom 归并结果带动 rhythm / packaging 归并。
 ```
 
 ## 语义治理审查

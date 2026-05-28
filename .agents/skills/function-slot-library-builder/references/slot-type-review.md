@@ -1,6 +1,6 @@
 # slotType 与槽位治理审查
 
-用于判断新槽位应复用已有 `slotType`，新增更明确的 `slotType`，还是挂到同一 family/archetype/subtype。
+用于基于 `slot_index.json` 审查 `slotType` 与 family/archetype/subtype 的关系。
 
 ## 基本原则
 
@@ -20,7 +20,7 @@
 
 `slotTypeSupport` 只能回答“同名出现几次”，不能回答“功能是否同类”。功能同类必须由 agent 根据证据层判断。
 
-## 复用已有 slotType
+## 同一 subtype 时可复用 slotType
 
 满足以下情况时优先复用：
 
@@ -30,7 +30,9 @@
 - 包装功能相近
 - 差异主要是品类对象、表达方式或素材载体
 
-## 新增 slotType
+复用不是脚本决策，必须由 agent 写明 `sourceVariantIds`、判断理由和误分风险。
+
+## 不同 subtype 时新增或保留 slotType
 
 满足以下情况时可以新增：
 
@@ -39,6 +41,8 @@
 - 在链路中的角色不同
 - 证明功能不同
 - 与已有类型混用会造成检索误判
+
+已有 `slotType` 如果已经表达了不同 subtype，也可以保留，不必为了统一命名强行合并。
 
 ## 挂父级而不合并
 
@@ -61,7 +65,7 @@
 
 ## 输出要求
 
-每个复用、新增或挂父级建议都要写：
+每个保留、复用、新增或挂父级建议都要写：
 
 - 来源 `variantId`。
 - 支持证据。

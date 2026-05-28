@@ -12,8 +12,8 @@ description: 构建、校验、索引、审查和语义治理 FunctionSlotLibrar
 - 校验 `Artifacts/FunctionSlotLibrary/`
 - 构建证据层索引
 - 统计 `slotType`、atom、binding、rule、template 覆盖
-- 查询相似槽位
-- 辅助判断 `slotType` 是否复用、新增、挂到同一 family/archetype/subtype
+- 读取 `slot_index.json` 作为语义治理证据入口
+- 审查 `slotType` 与 family/archetype/subtype 的关系
 - 由 agent 审查 slot / atom / binding / rule 的语义治理边界
 - 输出缺字段、弱规则、治理结论、reviewItems 和下一步补样建议
 
@@ -75,22 +75,24 @@ python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --
 
 索引用于后续审查和重组，是证据层，不是治理结果。生成物在 `Runtime/Temp/FunctionSlotLibrary/`，默认不入库。
 
-### 3. 查询相似槽位
+### 3. 读取 slot_index 证据入口
 
-```bash
-python .agents/skills/function-slot-restructure/scripts/retrieve_candidates.py Runtime/Temp/FunctionSlotLibrary/slot_index.json --query "<查询目标>" --slot-types "<slotType>"
-```
+语义治理直接读取 `Runtime/Temp/FunctionSlotLibrary/slot_index.json`。不要用 `retrieve_candidates.py` 或任何字段相似脚本生成治理候选。
 
-判断相似时不要只看同名 `slotType`，还要看：
+审查时从 `slot_index.json` 读取：
 
+- `slotVariants`
+- `atomVariants`
+- `bindings`
+- `rules`
+- `templates`
 - `viewerStateBefore`
 - `viewerStateAfter`
 - `persuasionTask`
-- script atom 的 `claimType` / `proofNeed`
-- packaging atom 的 `packagingFunction`
-- `confidence` / `needReview`
+- script / rhythm / packaging atom 详情
+- binding / rule / template 的承接关系
 
-相似查询只用于找阅读入口，不能作为自动归并依据。
+如果需要按 brief 检索重组候选，那是 `function-slot-restructure` 的职责，不是本 skill 的治理流程。
 
 ### 4. 语义治理审查
 
@@ -127,8 +129,8 @@ python .agents/skills/function-slot-restructure/scripts/retrieve_candidates.py R
 4. `slotTypeSupport`
 5. `chainPatternSupport`
 6. 弱字段和缺字段
-7. 可能重复或相近的 `slotType`
-8. 建议复用/新增的命名
+7. 需要 agent 语义治理的 `slotType` / atom / binding / rule
+8. 建议优先审查的 family/archetype/subtype 关系
 9. 下一批样例补充建议
 
 治理审查输出：
@@ -142,16 +144,6 @@ python .agents/skills/function-slot-restructure/scripts/retrieve_candidates.py R
 7. `reviewItems`
 8. `openQuestions`
 
-槽位相似检索输出：
-
-1. 查询目标
-2. 候选槽位
-3. 来源 `artifactId` / `sampleVideoId`
-4. 相似原因
-5. 差异点
-6. 是否建议复用同一 `slotType`
-7. 是否需要人工 review
-
 ## 和重组 skill 的关系
 
 本 skill 产出：
@@ -159,7 +151,6 @@ python .agents/skills/function-slot-restructure/scripts/retrieve_candidates.py R
 ```text
 Runtime/Temp/FunctionSlotLibrary/validation.json
 Runtime/Temp/FunctionSlotLibrary/slot_index.json
-Runtime/Temp/FunctionSlotLibrary/retrieval.json
 ```
 
 治理审查可输出到 `Runtime/Temp/FunctionSlotLibrary/`，默认不入库。`function-slot-restructure` 消费证据层和已确认的治理结论，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
@@ -174,4 +165,4 @@ Runtime/Temp/FunctionSlotLibrary/retrieval.json
 - `references/atom-binding-rule-governance.md`：atom、binding、rule pattern 的治理规则。
 - `references/governance-output-format.md`：治理结论 JSON 输出格式。
 - `references/slot-type-review.md`：判断 `slotType` 是否复用、新增或挂父级。
-- `references/output-formats.md`：库级审查、相似检索和治理审查输出格式。
+- `references/output-formats.md`：库级审查和治理审查输出格式。
