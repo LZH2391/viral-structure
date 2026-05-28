@@ -111,7 +111,7 @@ choice claim       -> concrete product/service/action memory point
 
 ### 2.4 步骤 2 的输出
 
-步骤 2 必须在候选检索前输出类似内容：
+步骤 2 必须在 evidence 检索前输出类似内容：
 
 ```json
 {
@@ -131,7 +131,7 @@ choice claim       -> concrete product/service/action memory point
 
 在生成链路假设前，读取 `semantic-governance.v1.json`：
 
-- 检查 `schemaVersion / reviewStatus / maturityStatus`。
+- 检查 `schemaVersion`。
 - 对比 `sourceSnapshot` 与当前 index 中 artifact 的 `contentHash`。
 - 将 `slotSubtypes.sourceVariantIds` 映射回 `slotVariants`。
 - 将 `atomPatterns / bindingPatterns / rulePatterns` 映射回 atom、binding、rule variants。
@@ -170,11 +170,11 @@ choice claim       -> concrete product/service/action memory point
 - `invert`：先展示 payoff，再解释来源/原因。
 - `contrast`：添加旧方式/新方式或前后对比节点。
 - `ladder`：从弱到强堆叠证明，例如 demo -> result -> long-term trace。
-- `bridge`：在错配的来源候选之间创建 adapter 节点。
+- `bridge`：在错配的来源实现之间创建 adapter 节点。
 
 治理层补充操作：
 
-- `governance_prior`：参考 `implementationBundles` 或 `observedChainPatterns`，但只作为候选排序线索。
+- `governance_prior`：参考 `implementationBundles` 或 `observedChainPatterns`，但只作为 evidence 查找线索。
 - `subtype_expand`：从目标需求节点展开到可用 `slotSubtype`。
 - `policy_filter`：用 `recompositionPolicies` 去掉明显破坏证明或承接的链路。
 
@@ -194,9 +194,9 @@ choice claim       -> concrete product/service/action memory point
 
 当目标是开放式任务时，生成 2-5 个链路假设。如果 corpus/证明资产支持，至少保留一条保守链路和一条非显而易见链路。
 
-## 步骤 5：针对需求节点检索候选，而不只是按槽位名检索
+## 步骤 5：针对需求节点定位 source variants，而不只是按槽位名检索
 
-对每个需求节点，按以下维度检索候选：
+对每个需求节点，按以下维度定位可用 evidence：
 
 - slot subtype / archetype 是否匹配观众状态跃迁和证明义务
 - slot role 或兼容 slot type
@@ -207,13 +207,13 @@ choice claim       -> concrete product/service/action memory point
 - packaging proof function
 - binding principle / recomposition policy
 - 必要 sync/carryover 约束
-标签正确但证明功能错误的候选，应输给标签较弱但功能更匹配的候选。
+标签正确但证明功能错误的 source variant 不能采用；标签较弱但功能匹配的 source variant 可以进入后续校验。
 
 如果没有库 evidence 能满足必需需求，创建 generated gap-fill implementation 并说明缺口。
 
 ## 步骤 6：全局选择，而不是逐槽位选择
 
-不要独立选择每个槽位的 top candidate。要选择作为链路整体成立的组合。
+不要独立选择每个槽位的 top variant。要选择作为链路整体成立的组合。
 
 按以下维度检查完整方案：
 
@@ -227,18 +227,18 @@ choice claim       -> concrete product/service/action memory point
 - **governance compatibility / 治理兼容性**：subtype、atom pattern、binding principle、policy 没有冲突
 - **novelty with control / 可控新颖性**：方案有足够差异，但仍可解释
 
-候选很多时，用约束过滤思路：
+可用 evidence 很多时，用约束过滤思路：
 
 1. 保留前几个链路假设。
-2. 对每个需求节点保留前几个候选。
-3. 只组合满足硬边的候选。
-4. 保留能满足硬边、证明义务和生产约束的方案，而不是局部候选分最高的方案。
+2. 对每个需求节点保留能满足证明义务的 source variants。
+3. 只组合满足硬边的 source variants。
+4. 保留能满足硬边、证明义务和生产约束的方案，不使用局部排序分作为决策依据。
 
 ## 步骤 7：组合槽位实现
 
 对每个选中的需求节点，判断实现来源：
 
-- 使用完整 slot candidate
+- 使用完整 source slot variant
 - 保留槽位功能但替换 script atom
 - 保留 script 但替换 rhythm
 - 保留 script/rhythm 但替换 packaging
@@ -259,7 +259,6 @@ changed surface: skincare close-up -> dashboard before/after screen
 - 使用的 script / rhythm / packaging `atomPatternId`
 - 具体落地的 script / rhythm / packaging concrete atom variant
 - source slot variant 只作为追踪来源，不作为最终功能槽位链粒度
-- 治理状态：`reviewStatus / maturityStatus`
 - 未命中治理层时的 fallback 原因
 
 ## 步骤 8：为跨来源或跨品类缺口创建 adapters
@@ -270,7 +269,7 @@ Adapters 不是装饰，而是让混合来源重组保持连贯的桥。
 
 - 问题对象和结果对象不同
 - 主张借自一个品类，但证明资产来自另一个品类
-- 来源候选之间节奏突变
+- 来源实现之间节奏突变
 - 包装样式变化，但证明功能必须保留
 - 槽位被移到通常解释它的节点之前
 
@@ -326,7 +325,7 @@ choice close -> concrete memory point
 - brief 约束
 - 槽位需求图
 - 生成的链路假设和选中链路
-- 选中的槽位候选和来源样例
+- 使用的 source variants 和来源样例
 - 选中的 subtype / archetype / atom pattern / bundle prior
 - 逐槽位 script/rhythm/packaging 实现
 - adapters
@@ -341,7 +340,7 @@ choice close -> concrete memory point
 
 ## 步骤 12：标记未满足项
 
-最终输出不按置信度分级，而是明确列出：
+最终输出不做高/中/低分级，而是明确列出：
 
 - 已满足的目标需求、证明义务和 binding/rule。
 - 需要 adapter 才能成立的连接。

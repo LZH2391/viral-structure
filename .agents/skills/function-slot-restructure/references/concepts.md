@@ -8,7 +8,7 @@
 
 - **sample library / 样例库**：从一条视频中抽取的数据。
 - **corpus library / 语料库**：多份样例库共同检索。
-- **slot candidate / 槽位候选**：来自某条样例视频的一个功能槽位。
+- **source slot variant / 来源槽位变体**：来自某条样例视频的一个功能槽位事实。
 - **slot family / 槽位任务族**：治理层里的高层说服任务族。
 - **slot archetype / 槽位原型**：治理层里由观众状态迁移、核心说服任务、主证明义务锁定的可复用角色。
 - **slot subtype / 槽位子型**：同一 archetype 下的实现差异，不能改变主证明义务或链路角色。
@@ -17,7 +17,7 @@
 - **implementation bundle / 实现组合**：治理层里观察到的常见组合，只能作为检索先验。
 - **template / 模板**：证据层中的样例顺序，只能证明某条链路曾成立。
 
-某个样例的 template、observed chain 或 implementation bundle 可以启发链路，但语料库重组应比较多个候选，并在有价值时混合不同来源。它们都不能直接当固定模板。
+某个样例的 template、observed chain 或 implementation bundle 可以启发链路，但语料库重组应检查 source variants 是否满足目标证明链和组合约束。它们都不能直接当固定模板。
 
 ## 槽位 vs 原子 vs 模板
 
@@ -32,12 +32,12 @@
 
 ## 重组单位
 
-主要重组单位不是脚本段落，而是一个被选中的槽位候选及其兼容实现。
+主要重组单位不是脚本段落，而是目标需求节点与可用 source variant / atom 实现的映射。
 
 ```text
 slot demand
   -> governed slot subtype / archetype
-  -> slot candidate
+  -> source slot variant
   -> script implementation
   -> rhythm implementation
   -> packaging/proof implementation
@@ -61,7 +61,7 @@ brief constraints
 
 ## 槽位原型
 
-语料库应为每种原型积累多个候选，例如：
+语料库应为每种原型积累多个 source variants，例如：
 
 - problem activation / 痛点激活
 - contradiction hook / 反差钩子
@@ -89,4 +89,4 @@ brief constraints
 
 ## 库级目标
 
-目标不是保存某一条视频的结构，而是根据新目标 brief，从 corpus 中选择最合适的槽位候选，同时保留证明逻辑和注意力逻辑。
+目标不是保存某一条视频的结构，而是根据新目标 brief，从 corpus 中定位能满足需求的 source variants，同时保留证明逻辑和注意力逻辑。

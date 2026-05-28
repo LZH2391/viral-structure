@@ -10,12 +10,12 @@ description: 基于 FunctionSlotLibrary 证据索引和语义治理 JSON 进行�
 这个 skill 只负责**重组**：
 
 - 解析目标 brief
-- 从已有证据索引和已确认治理结论中选择槽位候选
+- 从已有证据索引和已确认治理结论中定位可用 source variants
 - 组成功能槽位链
 - 为每个槽位选择或改写 script / rhythm / packaging pattern 与 atoms
 - 检查 binding patterns / principles 和 rule patterns / recomposition policies
 - 判断跨样例组合是否需要 adapter
-- 输出新短视频结构方案、风险和替代候选
+- 输出新短视频结构方案、风险和必要的替代实现
 
 不要在这里做构建库工作。以下任务交给 `function-slot-library-builder`：
 
@@ -36,13 +36,12 @@ Runtime/Temp/FunctionSlotLibrary/slot_index.json
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
-如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受约束不足风险时，才允许只用 `slot_index.json` 降级重组，并必须披露“未使用治理层”。
+如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受约束不足风险时，才允许只用 `slot_index.json` 重组，并必须披露“未使用治理层”。
 
 读取治理文件后先检查：
 
 - `schemaVersion` 是否为 `function_slot_semantic_governance.v1`
 - `sourceSnapshot` 是否与当前 index/corpus 的 artifact `contentHash` 对齐
-- `reviewStatus / maturityStatus`
 - `needReviewMap / reviewItems / unmapped*Variants`
 
 治理文件过期时，可以继续输出方案，但必须说明哪些治理映射可能过期。
@@ -56,7 +55,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - 目标 brief：品类、受众、痛点、转化目标、平台、时长、语气、证明资产、生产约束
 - 指定槽位链或指定 `slotType`
 - 指定 `slotSubtypeId / slotArchetypeId / implementationBundleId`
-- 候选脚本、分镜或镜头计划，用于校验和修复
+- 待校验的脚本、分镜或镜头计划，用于校验和修复
 
 ## 重组流程
 
@@ -69,8 +68,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 3. **读取治理层并校准证据层**  
    将 `semantic-governance.v1.json` 中的 `slotSubtypes / slotArchetypes / atomPatterns / bindingPatterns / recompositionPolicies / implementationBundles` 映射回 `slot_index.json` 的真实 variants。治理层是选择依据，证据层是来源事实。
 
-4. **检索候选槽位**  
-   优先按需求节点匹配 `slotSubtype / slotArchetype`，再落到 `slotType / variant`。候选不足时，标记为库覆盖不足，不要伪装成已有支持。
+4. **定位 source variants**  
+   优先按需求节点匹配 `slotSubtype / slotArchetype`，再落到 `slotType / variant`。可用 evidence 不足时，标记为库覆盖不足，不要伪装成已有支持。
 
 5. **选择实现组合**  
    为每个槽位选择 script / rhythm / packaging pattern 和具体 atoms。可以混合来源，但必须说明为什么兼容，并说明保留了哪些 proof obligation / chain dependency。
@@ -82,7 +81,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
    跨样例组合时检查对象、主张、证明、节奏、包装是否断裂。adapter 是本次重组的桥接建议，不写回 FunctionSlotLibrary。
 
 8. **输出方案**  
-   输出结构方案、脚本节拍、节奏曲线、包装证明方案、风险和可替换候选。
+   输出结构方案、脚本节拍、节奏曲线、包装证明方案、风险和必要替代实现。
 
 ## 输出粒度
 
@@ -124,7 +123,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 - **rhythm adapter**：相邻槽位节奏是否明显断裂
 - **packaging adapter**：包装表层改变后，证明功能是否仍在
 
-如果 adapter 无法保留证明或承接关系，不要使用该候选组合。
+如果 adapter 无法保留证明或承接关系，不要使用该组合。
 
 ## 输出格式
 
@@ -132,16 +131,16 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 1. 重组目标与假设
 2. 最终功能槽位链（精确到 `slotSubtype`）
-3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms；选择理由放在第 2 节）
+3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms；每个 atom 必须写“原标签 → 本方案落地”，选择理由放在第 2 节）
 4. Adapter 方案（说明触发理由、解决了什么、如何桥接）
 5. 脚本草案或节拍表
 6. 节奏曲线
 7. 包装与证明方案
 8. binding principle / rule policy 校验
 9. 剩余风险与修复
-10. 可替换候选
+10. 必要替代实现
 
-必须按以上顺序输出。候选检索逻辑不单独成节，合并到每个槽位的实现表中。Adapter 方案只写本方案实际采用的桥接，不写泛泛风险；剩余风险与修复只写 adapter 和其他校验后仍未解决或需要注意的风险。
+必须按以上顺序输出。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地。Adapter 方案只写本方案实际采用的桥接，不写泛泛风险；剩余风险与修复只写 adapter 和其他校验后仍未解决或需要注意的风险。
 
 校验修复输出：
 

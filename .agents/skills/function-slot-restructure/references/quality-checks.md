@@ -24,7 +24,7 @@
 - pattern 的 `forSlotSubtypeIds` 是否覆盖当前 subtype？
 - `implementationBundles` 是否只作为 retrieval prior，而不是固定 template？
 - `observedChainPatterns` 是否只作为历史顺序/承接证据？
-- candidate 治理项是否被明确标注为候选，而不是当成稳定规则？
+- 治理项是否被当作审阅信息，而不是当成重组评分或阻断条件？
 
 ## 链路级检查
 
@@ -105,5 +105,5 @@
 - 对高信息量槽位使用更慢节奏。
 - 只有在动作到结果的关系仍视觉连续时，才合并 operation 和 result。
 - 如果信任收束过载，把它拆成时间证明和最终选择。
-- 如果选中 variant 没有治理覆盖，换成同需求下有 subtype/pattern 支持的候选，或显式降级为 fallback。
+- 如果使用的 variant 没有治理覆盖，必须说明哪些校验只能退回证据层完成。
 - 如果 bundle 暗示完整链路但目标 brief 不需要其中某槽，删除该槽并检查 policy，而不是保留整套模板。

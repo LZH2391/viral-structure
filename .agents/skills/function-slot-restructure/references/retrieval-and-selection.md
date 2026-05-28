@@ -29,7 +29,7 @@
 
 ### 1. 功能匹配
 
-候选 subtype/archetype 和槽位 variant 是否产生目标观众状态跃迁？
+source subtype/archetype 和槽位 variant 是否产生目标观众状态跃迁？
 
 高匹配通常满足：
 
@@ -41,7 +41,7 @@
 
 ### 2. 主张与证明匹配
 
-候选的证明需求是否能被目标满足？
+source variant 的证明需求是否能被目标满足？
 
 示例：
 
@@ -95,7 +95,7 @@
 输出：
 
 - 匹配到的治理节点
-- top candidate slot variants
+- 可用 source slot variants
 - 它们的来源样例
 - script/rhythm/packaging 选项
 - 证明要求
@@ -121,7 +121,7 @@
 
 输出：
 
-- 可用的库候选
+- 可用的库 evidence
 - 缺失的槽位或原子类型
 - 缺失的治理覆盖：subtype / atom pattern / binding pattern / policy
 - 生成式 fallback 实现
@@ -150,5 +150,5 @@
 治理层版本：
 
 ```text
-选择 SUB_object_action_problem_activation 下的 sample_014 variant，因为它的主证明义务是“可见问题对象 + 直接动作入口”，匹配目标开场。script 使用 SCRIPT_pattern_problem_to_need，packaging 使用 PACK_pattern_visual_identity_and_entry；rhythm 从同 subtype 的快节奏 pattern 借用。implementationBundle 只作为候选排序先验，不固定整条链路。
+使用 SUB_object_action_problem_activation 下的 sample_014 variant，因为它的主证明义务是“可见问题对象 + 直接动作入口”，匹配目标开场。script 使用 SCRIPT_pattern_problem_to_need，packaging 使用 PACK_pattern_visual_identity_and_entry；rhythm 从同 subtype 的快节奏 pattern 借用。implementationBundle 只作为 evidence 查找线索，不固定整条链路。
 ```
