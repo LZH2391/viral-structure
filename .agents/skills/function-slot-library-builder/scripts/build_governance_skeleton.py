@@ -9,18 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-RESTRUCTURE_SCRIPTS = SCRIPT_DIR.parents[1] / "function-slot-restructure" / "scripts"
-if str(RESTRUCTURE_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(RESTRUCTURE_SCRIPTS))
-
-from common import write_json  # noqa: E402
+from common import write_json
 
 
 DEFAULT_SOURCE_INDEX = Path("Runtime") / "Temp" / "FunctionSlotLibrary" / "slot_index.json"

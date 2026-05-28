@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
-from common import as_list, read_json, write_json
+from common import as_list, normalize_text, read_json, text_blob, tokenize, write_json
 from governance import (
     build_governance_maps,
     concrete_atom_variant_ids,
@@ -23,50 +23,52 @@ from governance import (
 )
 from retrieve_candidates import retrieve
 
-ROLE_DEFAULTS: Dict[str, Dict[str, str]] = {
-    "problem_activation": {
-        "claimType": "problem_to_action",
-        "proofFunction": "可见的问题对象或关切，以及直接的初始动作",
-        "rhythmNeed": "hook",
-        "packagingNeed": "object_visibility",
+ROLE_FUNCTION_HINTS = [
+    {
+        "functionClass": "problem_or_need",
+        "keywords": ["problem", "pain", "concern", "friction", "error", "旧状态", "痛点", "问题", "困扰", "卡点", "需求"],
+        "claimType": "problem_or_need_claim",
+        "proofFunction": "让目标问题、旧状态、成本或需求变得可见",
+        "rhythmNeed": "attention_activation",
+        "packagingNeed": "object_or_concern_visibility",
         "informationLoad": "low",
     },
-    "mechanism_credibility": {
-        "claimType": "mechanism_explain",
-        "proofFunction": "可理解的原因、过程、对比或解释性证明",
-        "rhythmNeed": "steady_explain",
-        "packagingNeed": "mechanism_visualization",
+    {
+        "functionClass": "solution_or_action",
+        "keywords": ["solution", "entry", "action", "operation", "step", "demo", "use", "解决", "入口", "动作", "操作", "步骤", "演示"],
+        "claimType": "solution_or_action_claim",
+        "proofFunction": "展示解决对象、动作路径或可执行步骤",
+        "rhythmNeed": "action_continuity",
+        "packagingNeed": "step_or_action_proof",
+        "informationLoad": "medium",
+    },
+    {
+        "functionClass": "mechanism_or_explanation",
+        "keywords": ["mechanism", "why", "explain", "credibility", "proof", "compare", "原因", "机制", "原理", "解释", "可信", "对比"],
+        "claimType": "mechanism_or_evidence_claim",
+        "proofFunction": "用机制、对比、结构、过程或解释证明主张成立",
+        "rhythmNeed": "steady_explanation",
+        "packagingNeed": "evidence_visualization",
         "informationLoad": "high",
     },
-    "low_barrier_operation": {
-        "claimType": "operation_simplification",
-        "proofFunction": "最少步骤加完成动作",
-        "rhythmNeed": "pause_action",
-        "packagingNeed": "step_prompt",
+    {
+        "functionClass": "result_or_payoff",
+        "keywords": ["result", "payoff", "benefit", "output", "close", "效果", "结果", "产出", "变化", "收益", "收束"],
+        "claimType": "result_or_benefit_claim",
+        "proofFunction": "用结果、变化、收益或场景反馈闭合前文关切",
+        "rhythmNeed": "payoff_or_closure",
+        "packagingNeed": "result_or_benefit_proof",
         "informationLoad": "medium",
     },
-    "result_confirmation": {
-        "claimType": "result_to_benefit",
-        "proofFunction": "与前置关切绑定的结果证据",
-        "rhythmNeed": "payoff_peak",
-        "packagingNeed": "result_proof",
+    {
+        "functionClass": "trust_or_choice",
+        "keywords": ["trust", "review", "testimonial", "long", "repeat", "choice", "信任", "背书", "长期", "记录", "评价", "选择"],
+        "claimType": "trust_or_choice_claim",
+        "proofFunction": "提供长期、重复、社会证明或最终选择记忆点",
+        "rhythmNeed": "trust_close",
+        "packagingNeed": "trust_trace_or_choice_memory",
         "informationLoad": "medium",
     },
-    "long_term_trust_close": {
-        "claimType": "trust_to_choice",
-        "proofFunction": "时间证据、使用痕迹、重复反馈、评价、日志或等价证明",
-        "rhythmNeed": "proof_close",
-        "packagingNeed": "trust_trace_and_choice_memory",
-        "informationLoad": "medium",
-    },
-}
-
-DEFAULT_CAUSAL_ORDER = [
-    "problem_activation",
-    "mechanism_credibility",
-    "low_barrier_operation",
-    "result_confirmation",
-    "long_term_trust_close",
 ]
 
 
@@ -93,16 +95,81 @@ def _available_slot_types(index: Dict[str, Any]) -> Set[str]:
 
 
 def _supported_or_known(slot_type: str, available: Set[str]) -> bool:
-    return not available or slot_type in available or slot_type in ROLE_DEFAULTS
+    return not available or slot_type in available
 
 
-def make_demand(slot_type: str, order: int, brief: Dict[str, Any], optionality: str = "required") -> Dict[str, Any]:
-    role = ROLE_DEFAULTS.get(slot_type, {})
+def slot_evidence_blob(index: Dict[str, Any], slot_type: str) -> str:
+    parts: List[Any] = []
+    for item in index.get("canonicalSlots", []) or []:
+        if item.get("slotType") == slot_type:
+            parts.append(item)
+    for item in index.get("slotVariants", []) or []:
+        if item.get("slotType") == slot_type:
+            parts.append({
+                "slotName": item.get("slotName"),
+                "viewerStateBefore": item.get("viewerStateBefore"),
+                "viewerStateAfter": item.get("viewerStateAfter"),
+                "persuasionTask": item.get("persuasionTask"),
+                "scriptAtoms": item.get("scriptAtoms"),
+                "rhythmAtoms": item.get("rhythmAtoms"),
+                "packagingAtoms": item.get("packagingAtoms"),
+            })
+    return text_blob(parts)
+
+
+def slot_support_count(index: Dict[str, Any], slot_type: str) -> int:
+    for item in index.get("canonicalSlots", []) or []:
+        if item.get("slotType") == slot_type:
+            return int((item.get("support") or {}).get("variantCount") or 0)
+    return sum(1 for item in index.get("slotVariants", []) or [] if item.get("slotType") == slot_type)
+
+
+def role_profile(index: Dict[str, Any], slot_type: str) -> Dict[str, str]:
+    slot_type_text = normalize_text(slot_type)
+    blob = normalize_text(f"{slot_type} {slot_evidence_blob(index, slot_type)}")
+    profile = {
+        "functionClass": "target_specific",
+        "claimType": "target_specific_claim",
+        "proofFunction": "需要目标特定的证明功能",
+        "rhythmNeed": "target_specific_rhythm",
+        "packagingNeed": "target_specific_packaging",
+        "informationLoad": "medium",
+    }
+    best_hint = None
+    best_hits = 0
+    for hint in ROLE_FUNCTION_HINTS:
+        slot_name_hits = sum(1 for keyword in hint["keywords"] if keyword in slot_type_text)
+        evidence_hits = sum(1 for keyword in hint["keywords"] if keyword in blob)
+        hits = slot_name_hits * 3 + evidence_hits
+        if hits > best_hits:
+            best_hint = hint
+            best_hits = hits
+    if best_hint:
+        profile.update({key: str(value) for key, value in best_hint.items() if key != "keywords"})
+
+    proof_notes: List[str] = []
+    for variant in index.get("slotVariants", []) or []:
+        if variant.get("slotType") != slot_type:
+            continue
+        for atom in as_list(variant.get("scriptAtoms")):
+            if isinstance(atom, dict) and atom.get("proofNeed"):
+                proof_notes.append(str(atom.get("proofNeed")))
+        for atom in as_list(variant.get("packagingAtoms")):
+            if isinstance(atom, dict) and (atom.get("packagingFunction") or atom.get("function")):
+                proof_notes.append(str(atom.get("packagingFunction") or atom.get("function")))
+    if proof_notes:
+        profile["proofFunction"] = proof_notes[0]
+    return profile
+
+
+def make_demand(index: Dict[str, Any], slot_type: str, order: int, brief: Dict[str, Any], optionality: str = "required") -> Dict[str, Any]:
+    role = role_profile(index, slot_type)
     return {
         "demandId": f"D{order:02d}",
         "slotRole": slot_type,
         "targetViewerStateBefore": brief.get("viewerStart") or "观众尚未接受这段说服路径中的当前部分",
         "targetViewerStateAfter": "观众接受该需求对应的主张/证明功能",
+        "functionClass": role.get("functionClass", "target_specific"),
         "claimType": role.get("claimType", "target_specific_claim"),
         "proofFunction": role.get("proofFunction", "需要目标特定的证明功能"),
         "informationLoad": role.get("informationLoad", "medium"),
@@ -114,13 +181,72 @@ def make_demand(slot_type: str, order: int, brief: Dict[str, Any], optionality: 
     }
 
 
+def score_slot_role(index: Dict[str, Any], brief_tokens: Set[str], slot_type: str) -> float:
+    blob = normalize_text(f"{slot_type} {slot_evidence_blob(index, slot_type)}")
+    slot_tokens = set(tokenize(blob))
+    score = float(len(brief_tokens & slot_tokens))
+    for hint in ROLE_FUNCTION_HINTS:
+        brief_hits = sum(1 for keyword in hint["keywords"] if keyword in brief_tokens or keyword in _text_tokens_as_text(brief_tokens))
+        slot_hits = sum(1 for keyword in hint["keywords"] if keyword in blob)
+        if brief_hits and slot_hits:
+            score += min(3.0, 0.75 * min(brief_hits, slot_hits))
+    score += min(2.0, 0.25 * slot_support_count(index, slot_type))
+    return score
+
+
+def _text_tokens_as_text(tokens: Set[str]) -> str:
+    return " ".join(sorted(tokens))
+
+
+def desired_function_classes(brief: Dict[str, Any]) -> List[str]:
+    text = _text(brief)
+    classes: List[str] = []
+
+    def add(function_class: str) -> None:
+        if function_class not in classes:
+            classes.append(function_class)
+
+    if brief.get("pain") or brief.get("problem") or any(k in text for k in ["pain", "problem", "痛", "问题", "卡点", "困扰", "friction", "mess", "error", "旧状态", "耗时", "异常", "手工"]):
+        add("problem_or_need")
+    if any(k in text for k in ["action", "demo", "how", "step", "one click", "一键", "操作", "步骤", "演示", "使用", "屏幕录制"]):
+        add("solution_or_action")
+    if brief.get("result") or any(k in text for k in ["result", "output", "payoff", "before", "after", "结果", "效果", "产出", "变化", "前后"]):
+        add("result_or_payoff")
+    if any(k in text for k in ["why", "mechanism", "explain", "technical", "原理", "机制", "为什么", "逻辑"]):
+        add("mechanism_or_explanation")
+    if any(k in text for k in ["trust", "review", "testimonial", "long", "repeat", "信任", "背书", "长期", "复购", "记录", "评价"]):
+        add("trust_or_choice")
+    return classes
+
+
+def evidence_order(index: Dict[str, Any], roles: List[str]) -> List[str]:
+    position_sum: Dict[str, float] = {role: 0.0 for role in roles}
+    position_count: Dict[str, int] = {role: 0 for role in roles}
+    for variant in index.get("slotVariants", []) or []:
+        role = str(variant.get("slotType") or "")
+        if role not in position_sum:
+            continue
+        order = variant.get("slotOrder")
+        if isinstance(order, (int, float)):
+            position_sum[role] += float(order)
+            position_count[role] += 1
+
+    input_order = {role: i for i, role in enumerate(roles)}
+
+    def sort_key(role: str) -> tuple[float, int]:
+        if position_count[role]:
+            return (position_sum[role] / position_count[role], input_order[role])
+        return (999.0, input_order[role])
+
+    return sorted(roles, key=sort_key)
+
+
 def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequence: List[str] | None) -> List[str]:
     if explicit_sequence:
         return explicit_sequence
     if brief.get("slotTypes"):
         return [str(x) for x in as_list(brief.get("slotTypes"))]
 
-    text = _text(brief)
     available = _available_slot_types(index)
     duration = brief.get("durationSec") or brief.get("duration") or 0
     try:
@@ -128,76 +254,89 @@ def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequ
     except (TypeError, ValueError):
         duration_num = 0
 
+    brief_tokens = set(tokenize(_text(brief)))
+    scored = [
+        (slot_type, score_slot_role(index, brief_tokens, slot_type))
+        for slot_type in available
+    ]
+    scored = sorted(scored, key=lambda item: (item[1], slot_support_count(index, item[0])), reverse=True)
     roles: List[str] = []
+    for function_class in desired_function_classes(brief):
+        class_candidates = [
+            (slot_type, score)
+            for slot_type, score in scored
+            if role_profile(index, slot_type).get("functionClass") == function_class
+        ]
+        if class_candidates:
+            roles.append(class_candidates[0][0])
 
-    def add(role: str) -> None:
-        if role not in roles and _supported_or_known(role, available):
-            roles.append(role)
+    positive_roles = [slot_type for slot_type, score in scored if score > 0 and slot_type not in roles]
+    if positive_roles:
+        target_count = 3 if duration_num and duration_num <= 15 else 5
+        roles.extend(positive_roles[: max(0, target_count - len(roles))])
+        return evidence_order(index, roles[:target_count])
 
-    # 从目标义务出发，而不是从源模板出发。
-    if any(k in text for k in ["pain", "problem", "痛", "问题", "卡点", "困扰", "friction", "mess", "error"]):
-        add("problem_activation")
-    if any(k in text for k in ["action", "demo", "how", "step", "one click", "一键", "操作", "步骤", "演示", "使用"]):
-        add("low_barrier_operation")
-    if any(k in text for k in ["result", "output", "payoff", "before", "after", "结果", "效果", "产出", "变化"]):
-        add("result_confirmation")
-    if any(k in text for k in ["why", "mechanism", "explain", "technical", "原理", "机制", "为什么", "可信", "逻辑"]):
-        add("mechanism_credibility")
-    if any(k in text for k in ["trust", "review", "testimonial", "proof", "long", "repeat", "信任", "背书", "长期", "复购", "记录", "评价"]):
-        add("long_term_trust_close")
-
-    # Defaults are obligations, not strategies: a demonstrable persuasion path usually needs these.
-    if not roles:
-        for role in ["problem_activation", "low_barrier_operation", "result_confirmation"]:
-            add(role)
-    if "problem_activation" not in roles:
-        add("problem_activation")
-    if "result_confirmation" not in roles:
-        add("result_confirmation")
-    if "low_barrier_operation" not in roles and duration_num > 8:
-        add("low_barrier_operation")
-    if "mechanism_credibility" not in roles and duration_num >= 18 and "mechanism_credibility" in available:
-        add("mechanism_credibility")
-    if "long_term_trust_close" not in roles and duration_num >= 20 and "long_term_trust_close" in available:
-        add("long_term_trust_close")
-
-    order_index = {r: i for i, r in enumerate(DEFAULT_CAUSAL_ORDER)}
-    return sorted(roles, key=lambda r: order_index.get(r, 99))
+    fallback_roles = [
+        str(item.get("slotType"))
+        for item in sorted(
+            index.get("canonicalSlots", []) or [],
+            key=lambda item: (item.get("support") or {}).get("variantCount") or 0,
+            reverse=True,
+        )
+        if item.get("slotType")
+    ]
+    target_count = 3 if duration_num and duration_num <= 15 else 5
+    return evidence_order(index, fallback_roles[:target_count])
 
 
 def build_demand_graph(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequence: List[str] | None) -> Dict[str, Any]:
     roles = infer_slot_roles(index, brief, explicit_sequence)
-    nodes = [make_demand(role, i, brief) for i, role in enumerate(roles, 1)]
-    by_role = {n["slotRole"]: n for n in nodes}
+    nodes = [make_demand(index, role, i, brief) for i, role in enumerate(roles, 1)]
     edges: List[Dict[str, Any]] = []
 
-    def edge(src_role: str, dst_role: str, edge_type: str, constraint: str, hardness: str = "hard") -> None:
-        if src_role in by_role and dst_role in by_role:
+    for left, right in zip(nodes, nodes[1:]):
+        edges.append({
+            "from": left["demandId"],
+            "to": right["demandId"],
+            "edgeType": "sequence_continuity",
+            "constraint": "后一个需求必须承接前一个需求的对象、主张或证明线索",
+            "hardness": "hard",
+        })
+        if right.get("functionClass") == "result_or_payoff":
             edges.append({
-                "from": by_role[src_role]["demandId"],
-                "to": by_role[dst_role]["demandId"],
-                "edgeType": edge_type,
-                "constraint": constraint,
-                "hardness": hardness,
+                "from": left["demandId"],
+                "to": right["demandId"],
+                "edgeType": "proof_payoff",
+                "constraint": "结果或收益槽必须回收上游关切、动作或证明",
+                "hardness": "hard",
+            })
+        if left.get("functionClass") == "solution_or_action" and right.get("functionClass") == "result_or_payoff":
+            edges.append({
+                "from": left["demandId"],
+                "to": right["demandId"],
+                "edgeType": "mergeable",
+                "constraint": "动作和结果可合并，但必须保留动作到兑现的可见连续性",
+                "hardness": "soft",
             })
 
-    edge("problem_activation", "result_confirmation", "carryover", "result proof must return to the activated problem object or concern")
-    edge("low_barrier_operation", "result_confirmation", "causal_precede", "operation/action should cause or explain the result payoff")
-    edge("mechanism_credibility", "low_barrier_operation", "proof_payoff", "mechanism should clarify why the operation/action matters", "soft")
-    edge("mechanism_credibility", "result_confirmation", "proof_payoff", "mechanism claim should make the result more believable", "soft")
-    edge("result_confirmation", "long_term_trust_close", "proof_ladder", "result can be strengthened by durable trust evidence", "soft")
-    edge("low_barrier_operation", "result_confirmation", "mergeable", "operation and result may merge if action-to-payoff remains visually continuous", "soft")
-    edge("result_confirmation", "problem_activation", "hookable", "result can be fragmented as a hook if a bridge explains the source concern", "soft")
-    edge("long_term_trust_close", "problem_activation", "hookable", "trust proof can be fragmented as hook if it points to the relevant problem", "soft")
+    for node in nodes:
+        if node.get("functionClass") in {"result_or_payoff", "trust_or_choice"} and nodes:
+            edges.append({
+                "from": node["demandId"],
+                "to": nodes[0]["demandId"],
+                "edgeType": "hookable",
+                "constraint": "强证明片段可以前置为 hook，但必须桥接回原始关切",
+                "hardness": "soft",
+            })
 
     return {
         "nodes": nodes,
         "edges": edges,
-            "mustSatisfy": [
+        "mustSatisfy": [
             "每个选中节点都必须有观众状态跃迁",
             "每个主要主张都必须有证明功能",
-            "问题/结果承接必须通过，或被桥接",
-            "操作/结果因果关系必须通过，或被桥接",
+            "相邻需求之间必须保留对象、主张或证明承接",
+            "结果、收益或信任证明必须闭合上游关切，或显式桥接",
         ],
         "softPreferences": [
             "来源多样性",
@@ -210,10 +349,7 @@ def build_demand_graph(index: Dict[str, Any], brief: Dict[str, Any], explicit_se
 
 def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], governance_maps: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     nodes = graph.get("nodes", [])
-    by_role = {n["slotRole"]: n for n in nodes}
-    causal = [n["demandId"] for role in DEFAULT_CAUSAL_ORDER for n in nodes if n["slotRole"] == role]
-    if not causal:
-        causal = [n["demandId"] for n in nodes]
+    causal = [n["demandId"] for n in nodes]
 
     text = _text(brief)
     duration = brief.get("durationSec") or brief.get("duration") or 0
@@ -236,10 +372,10 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], gove
 
     add("H01", causal, ["anchor", "causal_order"], "根据硬性的观众状态/证明依赖生成的基准链路")
 
-    result_id = by_role.get("result_confirmation", {}).get("demandId")
-    problem_id = by_role.get("problem_activation", {}).get("demandId")
-    operation_id = by_role.get("low_barrier_operation", {}).get("demandId")
-    trust_id = by_role.get("long_term_trust_close", {}).get("demandId")
+    result_id = first_demand_id(nodes, "result_or_payoff")
+    problem_id = first_demand_id(nodes, "problem_or_need")
+    operation_id = first_demand_id(nodes, "solution_or_action")
+    trust_id = first_demand_id(nodes, "trust_or_choice")
 
     if result_id and any(k in text for k in ["result", "before", "after", "效果", "结果", "对比", "output", "payoff"]):
         seq = [result_id] + [d for d in causal if d != result_id]
@@ -292,6 +428,13 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], gove
     if governance_maps:
         hypotheses.extend(governance_prior_hypotheses(graph, governance_maps))
     return score_hypotheses(hypotheses, graph, brief)
+
+
+def first_demand_id(nodes: List[Dict[str, Any]], function_class: str) -> str | None:
+    for node in nodes:
+        if node.get("functionClass") == function_class:
+            return str(node.get("demandId"))
+    return None
 
 
 def score_hypotheses(hypotheses: List[Dict[str, Any]], graph: Dict[str, Any], brief: Dict[str, Any]) -> List[Dict[str, Any]]:

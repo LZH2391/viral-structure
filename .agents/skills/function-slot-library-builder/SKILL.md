@@ -56,7 +56,7 @@ Artifacts/FunctionSlotLibrary/<artifactId>/
 ### 1. 校验语料库
 
 ```bash
-python .agents/skills/function-slot-restructure/scripts/validate_corpus.py . --out Runtime/Temp/FunctionSlotLibrary/validation.json
+python .agents/skills/function-slot-library-builder/scripts/validate_corpus.py . --out Runtime/Temp/FunctionSlotLibrary/validation.json
 ```
 
 检查：
@@ -71,7 +71,7 @@ python .agents/skills/function-slot-restructure/scripts/validate_corpus.py . --o
 ### 2. 构建索引
 
 ```bash
-python .agents/skills/function-slot-restructure/scripts/build_slot_index.py . --out Runtime/Temp/FunctionSlotLibrary/slot_index.json
+python .agents/skills/function-slot-library-builder/scripts/build_slot_index.py . --out Runtime/Temp/FunctionSlotLibrary/slot_index.json
 ```
 
 索引用于后续审查和重组，是证据层，不是治理结果。生成物在 `Runtime/Temp/FunctionSlotLibrary/`，默认不入库。
