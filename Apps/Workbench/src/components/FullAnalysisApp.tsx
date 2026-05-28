@@ -23,6 +23,15 @@ export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArti
 const POLL_INTERVAL_MS = 2000;
 const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization", "aggregate"];
 const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization"];
+const DEFAULT_STAGES: WorkflowStageState[] = [
+  buildDefaultStage("upload", "上传"),
+  buildDefaultStage("shotBoundary", "切镜"),
+  buildDefaultStage("scriptSegment", "脚本段落"),
+  buildDefaultStage("rhythmStructure", "节奏结构"),
+  buildDefaultStage("packagingStructure", "包装结构"),
+  buildDefaultStage("functionSlotAtomization", "功能槽位原子化"),
+  buildDefaultStage("aggregate", "汇总"),
+];
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
@@ -72,9 +81,15 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
   });
 
   const orderedStages = useMemo(() => {
-    const stages = run?.stages ?? [];
-    return [...stages].sort((a, b) => STAGE_ORDER.indexOf(a.key) - STAGE_ORDER.indexOf(b.key));
-  }, [run]);
+    const stages = run?.stages?.length ? run.stages : DEFAULT_STAGES;
+    return [...stages]
+      .filter((stage) => enableFunctionSlotAtomization || stage.key !== "functionSlotAtomization")
+      .sort((a, b) => STAGE_ORDER.indexOf(a.key) - STAGE_ORDER.indexOf(b.key));
+  }, [enableFunctionSlotAtomization, run]);
+
+  useEffect(() => {
+    if (!enableFunctionSlotAtomization && activeTab === "atomization") setActiveTab("shot");
+  }, [activeTab, enableFunctionSlotAtomization]);
 
   const childJobIds = useMemo(
     () => orderedStages
@@ -465,7 +480,9 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
               <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} />
               <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} />
               <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} />
-              <TabButton active={activeTab === "atomization"} label="原子化" onClick={() => setActiveTab("atomization")} />
+              {enableFunctionSlotAtomization ? (
+                <TabButton active={activeTab === "atomization"} label="原子化" onClick={() => setActiveTab("atomization")} />
+              ) : null}
             </div>
             {errorText ? <div className="detail-hint failure-hint">{errorText}</div> : null}
             <ResultPanel tab={activeTab} artifact={artifact} />
@@ -511,4 +528,24 @@ function shouldPreserveActiveWorkflow(run: WorkflowRun | null, activeSample: Ful
   if (activeSample.activeSampleSource === "fullAnalysis") return true;
   if (run.sampleVideoId && run.sampleVideoId === activeSample.artifact.sampleVideoId) return true;
   return isRunExecuting(run);
+}
+
+function buildDefaultStage(key: WorkflowStageState["key"], label: string): WorkflowStageState {
+  return {
+    key,
+    stageName: key,
+    label,
+    status: "pending",
+    attemptNo: 1,
+    stageId: null,
+    childJobId: null,
+    childTraceId: null,
+    artifactId: null,
+    parentArtifactId: null,
+    sampleVideoId: null,
+    outputSummary: null,
+    errorSummary: null,
+    startedAt: null,
+    completedAt: null,
+  };
 }

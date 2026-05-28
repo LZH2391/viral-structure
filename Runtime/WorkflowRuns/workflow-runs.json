@@ -1051,25 +1051,30 @@
           ],
           "parallelGroup": "structure-analysis",
           "blocking": false,
-          "status": "failed",
+          "status": "processed",
           "attemptNo": 1,
           "stageId": "stage_7bdcd6a1-9536-4374-a57a-428c6cf5797b",
           "childJobId": "job_ae5f647e-37cc-4f6a-a9c2-9634158b18a0",
           "childTraceId": "trace_dd27dfba-f877-46b6-aae0-5ea200266e81",
-          "artifactId": null,
-          "parentArtifactId": null,
+          "artifactId": "artifact_610ad8d1-9159-449a-9244-651c796a3b70",
+          "parentArtifactId": "artifact_8e1fcea0-e5de-4498-96cc-2bbfad5c3c88",
           "sampleVideoId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "inputSummary": null,
-          "outputSummary": null,
-          "errorSummary": {
-            "code": "appserver_turn_collect_timeout",
-            "message": "包装结构 Agent 长时间未返回结果",
-            "stageName": "packagingStructure",
-            "retryable": true,
-            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_7bdcd6a1-9536-4374-a57a-428c6cf5797b_80069aa84f.json"
+          "outputSummary": {
+            "childJobId": "job_ae5f647e-37cc-4f6a-a9c2-9634158b18a0",
+            "childTraceId": "trace_dd27dfba-f877-46b6-aae0-5ea200266e81",
+            "artifactId": "artifact_610ad8d1-9159-449a-9244-651c796a3b70",
+            "parentArtifactId": "artifact_8e1fcea0-e5de-4498-96cc-2bbfad5c3c88",
+            "recovered": true,
+            "recoveredFromArtifactId": "artifact_668791a1-50ce-4b86-b9d1-3b9a01e45f03",
+            "resultOrigin": "recovered_turn",
+            "validationStatus": "passed",
+            "shotPackagingNoteCount": 29,
+            "packagingBlockCount": 6
           },
+          "errorSummary": null,
           "startedAt": "2026-05-28T02:58:49.877Z",
-          "completedAt": "2026-05-28T03:07:43.154Z"
+          "completedAt": "2026-05-28T03:50:05.752Z"
         },
         {
           "key": "functionSlotAtomization",

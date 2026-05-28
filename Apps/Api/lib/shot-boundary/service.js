@@ -375,6 +375,7 @@ function createShotBoundaryService({
         const turn = turnExecution.result;
         updateActiveThreadMessage(context, turn, {
           role: agentRun.role ?? ROLE,
+          fallbackMessage: "正在分析镜头边界",
         });
         if (turn.status !== "completed") {
           jobStore.updateJob(job.jobId, {
