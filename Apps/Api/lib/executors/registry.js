@@ -1,3 +1,5 @@
+const { createExternalApiExecutor } = require("./external-api");
+
 function createExecutorRegistry(options = {}) {
   const executors = new Map();
   register(executors, createLocalServiceExecutor());
@@ -5,7 +7,7 @@ function createExecutorRegistry(options = {}) {
   executors.set("role-service", executors.get("threadpool-role"));
   executors.set("custom-service", executors.get("local-service"));
   register(executors, createAppServerTurnExecutor(options));
-  register(executors, createUnsupportedExecutor("external-api"));
+  register(executors, createExternalApiExecutor());
   register(executors, createUnsupportedExecutor("remote-job"));
 
   return {

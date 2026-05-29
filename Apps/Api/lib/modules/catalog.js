@@ -4,6 +4,7 @@ const { createScriptSegmentAnalysisDefinition } = require("../script-segment/ana
 const { createRhythmStructureAnalysisDefinition } = require("../rhythm-structure/analysis-definition");
 const { createPackagingStructureAnalysisDefinition } = require("../packaging-structure/analysis-definition");
 const { createFunctionSlotAtomizationAnalysisDefinition } = require("../function-slot-atomization/analysis-definition");
+const { createImageGenerationModuleDefinition } = require("../image-generation/module-definition");
 
 const MODULE_DEFINITIONS = [
   createSampleIngestModuleDefinition(),
@@ -12,6 +13,7 @@ const MODULE_DEFINITIONS = [
   createRhythmStructureAnalysisDefinition(),
   createPackagingStructureAnalysisDefinition(),
   createFunctionSlotAtomizationAnalysisDefinition(),
+  createImageGenerationModuleDefinition(),
 ];
 
 module.exports = {
