@@ -300,7 +300,7 @@ function Test-ThreadPoolReady() {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "$($env:THREADPOOL_BASE_URL)/health" -TimeoutSec 1
     if ([int]$response.StatusCode -lt 200 -or [int]$response.StatusCode -ge 500) { return $false }
     $payload = $response.Content | ConvertFrom-Json
-    return [bool]$payload.ok -and [string]$payload.service -eq "thread_pool_service" -and [bool]$payload.ready_for_leases
+    return [bool]$payload.ok -and [string]$payload.service -eq "thread_pool_service"
   } catch {
     return $false
   }

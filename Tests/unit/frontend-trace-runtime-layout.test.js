@@ -89,7 +89,7 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(startup, /function Test-ThreadPoolReady/);
   assert.match(startup, /\[bool\]\$payload\.ok/);
   assert.match(startup, /thread_pool_service/);
-  assert.match(startup, /\[bool\]\$payload\.ready_for_leases/);
+  assert.doesNotMatch(startup, /return \[bool\]\$payload\.ok[\s\S]*ready_for_leases/);
   assert.match(startup, /Stop-ExistingWorkbenchControllers \$repoRoot/);
   assert.match(startup, /function Stop-ExistingWorkbenchControllers/);
   assert.match(startup, /Previous Workbench stack controller/);
