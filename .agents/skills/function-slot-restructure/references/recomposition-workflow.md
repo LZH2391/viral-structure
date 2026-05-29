@@ -27,7 +27,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - **choice object / 选择对象**：观众最后应该记住或选择什么
 - **available proof assets / 可用证明资产**：演示、屏幕录制、前后对比、数字、日志、证言、长期记录、物体痕迹、评论、收据等
 - **objections / 异议**：观众为什么可能怀疑、拖延或误解
-- **platform and production constraints / 平台和生产约束**：平台限制、信息密度、创作者风格、CTA 强度要求。Brief 不接收预计时长目标；预计时长只在 Shot 台词写好后由脚本回填。
+- **platform and production constraints / 平台和生产约束**：平台限制、信息密度、创作者风格、CTA 强度要求。Brief 不接收预计时长目标；Shot 表里的预计时长统一填占位，不在重组流程中估算。
 - **production constraints / 生产约束**：什么能拍、能展示、能叠加、能主张
 
 把这些输出为 `brief_constraints` 对象。此时还不要选择链路。
@@ -341,17 +341,17 @@ Shot 不能单独设计，不能引入与前面脚本段落、节奏曲线、包
 
 不要在重组阶段提前设计时间码、时间轴位置或段落时长分配；只写顺序、承载关系、节奏状态和同步关系。Brief 不接收预计时长目标，不能把时长目标转成槽位数量、shot 数量、合并策略或具体时间安排。
 
-预计时长不由 agent 手写。Shot 设计阶段每个 shot 的 `预计时长` 只能写 `待脚本填充`；Shot 表完成且台词已经写好后，在同一轮用 `台词/字幕（若有）` 列运行 `scripts/estimate_dialogue_duration.py` 统一回填，最终表里的 `预计时长` 必须来自脚本输出。预计时长只服务分镜可执行性和台词长度风险检查，不能反向决定槽位链、shot 数量、脚本段落、节奏区间或包装方案。具体规则以 `references/output-formats.md` 为准。
+预计时长不由 agent 手写，也不在重组流程中直接运行估算脚本。Shot 设计阶段和最终 markdown 中，每个 shot 的 `预计时长` 都统一填写 `待后置估算`。预计时长只作为后续制作或单独估算步骤的占位，不能反向决定槽位链、shot 数量、脚本段落、节奏区间或包装方案。具体规则以 `references/output-formats.md` 为准。
 
-台词已经写好后，可以使用 `scripts/estimate_dialogue_duration.py` 按默认 `6 字/秒` 做后置估算。该估算只用于检查台词长度风险，不反向决定槽位链、shot 数量、分镜结构或包装设计。
-
-总时长预估发生在 Shot 设计和脚本回填之后：汇总第 8 节每个 shot 的预计时长。若明显不适合平台或生产限制，只在剩余风险与修复中提出压缩、删减、合并或改写建议；不要回头把时长当作结构生成器。
+若台词长度明显不适合平台或生产限制，只在剩余风险与修复中提出压缩、删减、合并或改写建议；不要回头把时长当作结构生成器。
 
 设计时按新视频重新编号，例如 `new_shot_01`、`new_shot_02`。每个 shot 或 shot group 至少要对齐槽位、脚本段落、节奏区间、包装块、分镜画面、台词/字幕、预计时长、包装说明、同步点和证明功能；字段和 GPT-image-2 生图/包装覆盖层写法以 `references/output-formats.md` 为准。
 
 如果当前任务只要求结构方案、不要求详细分镜，可以用 shot group，但仍要保留脚本、节奏、包装和证明功能的对齐关系。
 
 Shot 设计完成后，再进入 binding / rule policy 校验；同步、承接、证明和冲突检查都应能回到具体 shot 或 shot group。
+
+最终重组方案必须保存为 markdown 文件。默认输出到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`；如果没有可用 slug 或 runId，用本地时间生成目录名，例如 `restructure-YYYYMMDD-HHMMSS`。聊天回复只需要给出保存路径和关键摘要，不要让完整方案只停留在对话里。
 
 ## 步骤 12：产出实用方案和审计
 

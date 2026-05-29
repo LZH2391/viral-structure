@@ -81,7 +81,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
    跨样例组合时检查对象、主张、证明、节奏、包装是否断裂。adapter 是本次重组的桥接建议，不写回 FunctionSlotLibrary。
 
 8. **输出方案**  
-   输出结构方案、脚本段落方案、节奏曲线、包装证明方案、Shot 设计、风险和必要替代实现。
+   输出结构方案、脚本段落方案、节奏曲线、包装证明方案、Shot 设计、风险和必要替代实现，并保存为 markdown 文件。
 
 ## 输出粒度
 
@@ -141,7 +141,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 10. 剩余风险与修复
 11. 必要替代实现
 
-必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装；第 8 节 Shot 设计必须依赖第 5、6、7 节，并按 `references/output-formats.md` 的字段和规则输出。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位；第 9 节再进行 binding / rule policy 校验。详细字段、Shot 预计时长回填、GPT-image-2 生图提示和包装覆盖层写法，以 `references/output-formats.md` 为准；brief 不接收预计时长目标。
+必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装；第 8 节 Shot 设计必须依赖第 5、6、7 节，并按 `references/output-formats.md` 的字段和规则输出。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位；第 9 节再进行 binding / rule policy 校验。详细字段、Shot 预计时长占位、GPT-image-2 生图提示和包装覆盖层写法，以 `references/output-formats.md` 为准；brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`，聊天回复只给路径和摘要。
 
 校验修复输出：
 

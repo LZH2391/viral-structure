@@ -7,6 +7,7 @@
 /Runtime/Projection/*
 /Runtime/Temp/*
 /Artifacts/AnalysisFinalOutputs/*
+/Artifacts/FunctionSlotRestructure/*
 /_workspace/
 /MP4/
 /PlanMD/
@@ -35,3 +36,4 @@ __pycache__/
 !/Runtime/Projection/README.md
 !/Runtime/Temp/README.md
 !/Artifacts/AnalysisFinalOutputs/README.md
+!/Artifacts/FunctionSlotRestructure/README.md
