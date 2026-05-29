@@ -33,6 +33,42 @@ export type FunctionSlotWorkflowPlaceholderResponse = {
   message: string;
 };
 
+export type AgentChatSessionResponse = {
+  ok: boolean;
+  source: "direct" | "threadpool-role";
+  status: string;
+  threadId: string | null;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  role?: string | null;
+  ownerId?: string | null;
+  leaseId?: string | null;
+  parentThreadId?: string | null;
+  workspaceRoot?: string | null;
+  skillPath?: string | null;
+  error?: string;
+  message?: string;
+  retryable?: boolean;
+};
+
+export type AgentChatTurnResponse = {
+  ok: boolean;
+  source?: "direct" | "threadpool-role" | string;
+  role?: string | null;
+  leaseId?: string | null;
+  parentThreadId?: string | null;
+  workspaceRoot?: string | null;
+  threadId: string;
+  turnId: string;
+  status: string;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  finalMessage?: string | null;
+  activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
+};
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -265,6 +301,61 @@ export async function getThreadConversation(threadId: string) {
 export async function getAgentTurnTimeline(threadId: string, turnId: string) {
   return readJsonResponse<AgentTurnTimeline>(
     await fetch(`${API_BASE_URL}/api/threadpool/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/timeline`, { cache: "no-store" }),
+  );
+}
+
+export async function startAgentChatThread(payload: { source?: "direct" | "threadpool-role"; role?: string | null } = {}) {
+  return readJsonResponse<AgentChatSessionResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function sendAgentChatMessage(
+  threadId: string,
+  payload: {
+    message: string;
+    source?: "direct" | "threadpool-role";
+    role?: string | null;
+    leaseId?: string | null;
+    parentThreadId?: string | null;
+    workspaceRoot?: string | null;
+    skillPath?: string | null;
+  },
+) {
+  return readJsonResponse<AgentChatTurnResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function collectAgentChatTurn(threadId: string, turnId: string, workspaceRoot?: string | null) {
+  const query = workspaceRoot ? `?workspaceRoot=${encodeURIComponent(workspaceRoot)}` : "";
+  return readJsonResponse<AgentChatTurnResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}${query}`, { cache: "no-store" }),
+  );
+}
+
+export async function getAgentChatTurnTimeline(threadId: string, turnId: string, workspaceRoot?: string | null) {
+  const query = workspaceRoot ? `?workspaceRoot=${encodeURIComponent(workspaceRoot)}` : "";
+  return readJsonResponse<AgentTurnTimeline>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/timeline${query}`, { cache: "no-store" }),
+  );
+}
+
+export async function releaseAgentChatLease(leaseId: string, ownerId?: string | null) {
+  return readJsonResponse<{ ok: boolean; leaseId: string; ownerId: string; status: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threadpool/leases/release`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ leaseId, ownerId }),
+    }),
   );
 }
 

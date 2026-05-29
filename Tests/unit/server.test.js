@@ -196,6 +196,160 @@ test("top-level request catch returns 500 payload with trace metadata", async ()
   }
 });
 
+test("agent chat starts direct appserver thread", async () => {
+  const stageLogs = [];
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async (entry) => {
+        stageLogs.push(entry);
+        return entry;
+      },
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startThread: async (payload) => {
+        calls.push(payload);
+        return { ok: true, threadId: "thread_direct", status: "created" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads", { source: "direct" });
+    assert.equal(response.statusCode, 201);
+    assert.equal(response.body.threadId, "thread_direct");
+    assert.equal(response.body.source, "direct");
+    assert.equal(response.body.status, "created");
+    assert.match(response.body.traceId, /^trace_/);
+    assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
+    assert.equal(stageLogs[0].stageName, "agentChat.thread.start");
+    assert.equal(calls[0].workspaceRoot.endsWith("ByteDanceFullStack"), true);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat starts ThreadPool role fork session through lease", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => {
+        calls.push({ type: "ready", role });
+        return { ok: true, status: { workspaceRoot: "C:/workspace", skillPath: "skill/path", seedThreadId: "thread_seed" } };
+      },
+      acquireLease: async (payload) => {
+        calls.push({ type: "lease", payload });
+        return { ok: true, lease_id: "lease_1", thread_id: "thread_fork", status: "leased" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads", { source: "threadpool-role", role: "script-segment-analyzer" });
+    assert.equal(response.statusCode, 201);
+    assert.equal(response.body.source, "threadpool-role");
+    assert.equal(response.body.role, "script-segment-analyzer");
+    assert.equal(response.body.threadId, "thread_fork");
+    assert.equal(response.body.parentThreadId, "thread_seed");
+    assert.equal(response.body.leaseId, "lease_1");
+    assert.equal(response.body.workspaceRoot, "C:/workspace");
+    assert.equal(response.body.skillPath, "skill/path");
+    assert.equal(calls[0].type, "ready");
+    assert.equal(calls[1].payload.role, "script-segment-analyzer");
+    assert.match(calls[1].payload.ownerId, /^workbench-agent-chat-run_/);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat submits message, collects answer, and reads timeline", async () => {
+  const turnInputs = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        turnInputs.push(payload);
+        return { ok: true, threadId: payload.threadId, turnId: "turn_1", status: "submitted" };
+      },
+      collectTurnResult: async () => ({
+        ok: true,
+        threadId: "thread_fork",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: "正常回答",
+      }),
+      readThread: async () => ({
+        thread: {
+          id: "thread_fork",
+          turns: [{
+            id: "turn_1",
+            status: "completed",
+            items: [
+              { type: "userMessage", text: "你好" },
+              { type: "agentMessage", text: "正常回答" },
+            ],
+          }],
+        },
+      }),
+      listTurnItems: async () => ({
+        ok: true,
+        items: [
+          { type: "userMessage", text: "你好" },
+          { type: "agentMessage", text: "正常回答" },
+        ],
+      }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const submitted = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_fork/turns", {
+      message: "你好",
+      source: "threadpool-role",
+      role: "script-segment-analyzer",
+      leaseId: "lease_1",
+      workspaceRoot: "C:/workspace",
+      skillPath: "skill/path",
+    });
+    assert.equal(submitted.statusCode, 202);
+    assert.equal(submitted.body.turnId, "turn_1");
+    assert.deepEqual(turnInputs[0].inputs, [{ type: "text", text: "你好", text_elements: [] }]);
+    assert.equal(turnInputs[0].workspaceRoot, "C:/workspace");
+    assert.equal(turnInputs[0].skillPath, "skill/path");
+
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_fork/turns/turn_1?workspaceRoot=C%3A%2Fworkspace");
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.status, "completed");
+    assert.equal(collected.body.finalMessage, "正常回答");
+
+    const timeline = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_fork/turns/turn_1/timeline?workspaceRoot=C%3A%2Fworkspace");
+    assert.equal(timeline.statusCode, 200);
+    assert.equal(timeline.body.threadId, "thread_fork");
+    assert.deepEqual(timeline.body.items.map((item) => item.kind), ["user_input", "agent_message"]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("processing job endpoint can read archived terminal jobs", async () => {
   const server = createServer({
     jobStore: {

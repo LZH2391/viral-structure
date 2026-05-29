@@ -348,3 +348,33 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(propertyCss, /\.shot-commerce-brief/);
   assert.match(propertyCss, /grid-template-columns: 44px minmax\(0, 1fr\)/);
 });
+
+test("agent chat page is routed through appserver with ThreadPool fork timeline", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
+  const api = read(root, "Apps/Workbench/src/api/client.ts");
+  const chat = read(root, "Apps/Workbench/src/components/AgentChatApp.tsx");
+  const css = read(root, "Apps/Workbench/styles/agent-chat.css");
+  const styles = read(root, "Apps/Workbench/styles.css");
+
+  assert.match(view, /"agent-chat"/);
+  assert.match(view, /pathname === "\/agent-chat"/);
+  assert.match(app, /AgentChatApp/);
+  assert.match(app, /setWorkbenchView\("agent-chat", setActiveView\)/);
+  assert.match(app, /Agent 对话/);
+  assert.match(api, /\/api\/agent-chat\/threads/);
+  assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns/);
+  assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns\/\$\{encodeURIComponent\(turnId\)\}\/timeline/);
+  assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
+  assert.match(chat, /ThreadPool Role Fork/);
+  assert.match(chat, /startAgentChatThread/);
+  assert.match(chat, /sendAgentChatMessage/);
+  assert.match(chat, /collectAgentChatTurn/);
+  assert.match(chat, /getAgentChatTurnTimeline/);
+  assert.match(chat, /releaseAgentChatLease/);
+  assert.match(chat, /agent-chat-timeline/);
+  assert.match(css, /\.agent-chat-layout/);
+  assert.match(css, /grid-template-columns: minmax\(480px, 1fr\) 360px/);
+  assert.match(styles, /agent-chat\.css/);
+});

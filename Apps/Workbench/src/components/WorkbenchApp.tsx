@@ -16,6 +16,7 @@ import { useShotBoundaryFlow } from "../hooks/useShotBoundaryFlow";
 import { useSubtitleDraftFlow } from "../hooks/useSubtitleDraftFlow";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
+import { AgentChatApp } from "./AgentChatApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
 import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
@@ -49,6 +50,7 @@ export function WorkbenchApp() {
     "full-analysis": initialViewFromPath() === "full-analysis",
     library: initialViewFromPath() === "library",
     threadpool: initialViewFromPath() === "threadpool",
+    "agent-chat": initialViewFromPath() === "agent-chat",
   }));
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -435,6 +437,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
           </button>
+          <button className={`tab-button ${activeView === "agent-chat" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("agent-chat", setActiveView)}>
+            Agent 对话
+          </button>
         </div>
       </header>
       <WorkbenchWorkspaceView
@@ -499,6 +504,11 @@ export function WorkbenchApp() {
       {mountedViews.threadpool ? (
         <section className={`view-shell ${activeView === "threadpool" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "threadpool"}>
           <ThreadPoolApp embedded />
+        </section>
+      ) : null}
+      {mountedViews["agent-chat"] ? (
+        <section className={`view-shell ${activeView === "agent-chat" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "agent-chat"}>
+          <AgentChatApp embedded />
         </section>
       ) : null}
       {uploadFlow.cachePrompt ? <CacheDecisionDialog item={uploadFlow.cachePrompt.cachedItem} onReuse={uploadFlow.reuseCache} onRefresh={uploadFlow.refreshCache} onCancel={() => uploadFlow.setCachePrompt(null)} /> : null}
