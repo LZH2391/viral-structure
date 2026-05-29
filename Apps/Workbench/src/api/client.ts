@@ -49,6 +49,7 @@ export type AgentChatSessionResponse = {
   skillPath?: string | null;
   conversationId?: string | null;
   conversationStatus?: "active" | "archived" | string | null;
+  conversationRevision?: number | null;
   error?: string;
   message?: string;
   retryable?: boolean;
@@ -68,6 +69,7 @@ export type AgentChatTurnResponse = {
   traceId: string;
   runId: string;
   stageId: string;
+  conversationRevision?: number | null;
   finalMessage?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
 };
@@ -323,7 +325,7 @@ export async function getAgentTurnTimeline(threadId: string, turnId: string) {
   );
 }
 
-export async function startAgentChatThread(payload: { source?: "direct" | "threadpool-role"; role?: string | null; conversationId?: string | null; sampleVideoId?: string | null } = {}) {
+export async function startAgentChatThread(payload: { source?: "direct" | "threadpool-role"; role?: string | null; conversationId?: string | null; sampleVideoId?: string | null; expectedRevision?: number | null } = {}) {
   return readJsonResponse<AgentChatSessionResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads`, {
       method: "POST",
@@ -342,6 +344,7 @@ export async function sendAgentChatMessage(
     leaseId?: string | null;
     parentThreadId?: string | null;
     conversationId?: string | null;
+    expectedRevision?: number | null;
     workspaceRoot?: string | null;
     skillPath?: string | null;
   },
@@ -386,22 +389,22 @@ export async function resumeAgentChatConversation(conversationId: string) {
   );
 }
 
-export async function archiveAgentChatConversation(conversationId: string) {
+export async function archiveAgentChatConversation(conversationId: string, expectedRevision?: number | null) {
   return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; traceId: string; runId: string; stageId: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/archive`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ expectedRevision: expectedRevision ?? null }),
     }),
   );
 }
 
-export async function recordAgentChatSystemMessage(conversationId: string, message: string) {
+export async function recordAgentChatSystemMessage(conversationId: string, message: string, expectedRevision?: number | null) {
   return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; traceId: string; runId: string; stageId: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/system-messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, expectedRevision: expectedRevision ?? null }),
     }),
   );
 }

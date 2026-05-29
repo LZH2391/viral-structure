@@ -284,6 +284,7 @@ test("agent chat persists restructure conversations and archives them manually",
     createOrUpdateFromSession: async (session) => {
       const conversation = {
         conversationId: "conversation_restructure",
+        revision: 1,
         source: session.source,
         role: session.role,
         status: "active",
@@ -303,6 +304,7 @@ test("agent chat persists restructure conversations and archives them manually",
     },
     recordUserTurn: async ({ conversationId, turnId, text }) => {
       const conversation = conversations.get(conversationId);
+      conversation.revision += 1;
       conversation.latestTurnId = turnId;
       conversation.messages.push({ id: `user-${turnId}`, role: "user", text, status: "completed" });
       conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text: "生成中", status: "running" });
@@ -310,20 +312,46 @@ test("agent chat persists restructure conversations and archives them manually",
     },
     recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
       const conversation = conversations.get(conversationId);
+      conversation.revision += 1;
       const message = conversation.messages.find((item) => item.id === `assistant-${turnId}`);
       Object.assign(message, { text, status: status === "completed" ? "completed" : "running" });
       return conversation;
     },
-    archive: async (conversationId) => {
+    archive: async (conversationId, { expectedRevision } = {}) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
+      if (expectedRevision != null && expectedRevision !== conversation.revision) {
+        const error = new Error("会话已在其他窗口更新，请刷新后重试");
+        error.statusCode = 409;
+        error.code = "agent_chat_conversation_revision_conflict";
+        throw error;
+      }
+      conversation.revision += 1;
       conversation.status = "archived";
       return conversation;
     },
-    recordSystemMessage: async ({ conversationId, text }) => {
+    recordSystemMessage: async ({ conversationId, text, expectedRevision }) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
+      if (expectedRevision != null && expectedRevision !== conversation.revision) {
+        const error = new Error("会话已在其他窗口更新，请刷新后重试");
+        error.statusCode = 409;
+        error.code = "agent_chat_conversation_revision_conflict";
+        throw error;
+      }
+      conversation.revision += 1;
       conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
+      return conversation;
+    },
+    assertActive: async (conversationId, { expectedRevision } = {}) => {
+      const conversation = conversations.get(conversationId);
+      if (!conversation) return null;
+      if (expectedRevision != null && expectedRevision !== conversation.revision) {
+        const error = new Error("会话已在其他窗口更新，请刷新后重试");
+        error.statusCode = 409;
+        error.code = "agent_chat_conversation_revision_conflict";
+        throw error;
+      }
       return conversation;
     },
     markRebindRequired: async (conversationId, errorSummary) => {
@@ -362,14 +390,17 @@ test("agent chat persists restructure conversations and archives them manually",
     const started = await makeRequest(server, "POST", "/api/agent-chat/threads", { source: "threadpool-role", role: "function-slot-restructure" });
     assert.equal(started.statusCode, 201);
     assert.equal(started.body.conversationId, "conversation_restructure");
+    assert.equal(started.body.conversationRevision, 1);
 
     const submitted = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_restructure/turns", {
       source: "threadpool-role",
       role: "function-slot-restructure",
       conversationId: "conversation_restructure",
+      expectedRevision: 1,
       message: "生成方案",
     });
     assert.equal(submitted.statusCode, 202);
+    assert.equal(submitted.body.conversationRevision, 2);
 
     const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
     assert.equal(collected.statusCode, 200);
@@ -383,11 +414,11 @@ test("agent chat persists restructure conversations and archives them manually",
     assert.equal(resumed.statusCode, 200);
     assert.equal(resumed.body.refreshed.threadId, "thread_restructure");
 
-    const systemMessage = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/system-messages", { message: "确认完成" });
+    const systemMessage = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/system-messages", { message: "确认完成", expectedRevision: 3 });
     assert.equal(systemMessage.statusCode, 200);
     assert.equal(systemMessage.body.conversation.messages[systemMessage.body.conversation.messages.length - 1].text, "确认完成");
 
-    const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", {});
+    const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", { expectedRevision: 4 });
     assert.equal(archived.statusCode, 200);
     assert.equal(archived.body.conversation.status, "archived");
     assert.deepEqual(discardedThreads, [{ threadId: "thread_restructure", reason: "agent-chat-conversation-archived" }]);
@@ -437,6 +468,118 @@ test("agent chat resume marks restructure conversation for rebind when thread is
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.conversation.needsRebind, true);
     assert.equal(response.body.refreshError.code, "appserver_thread_read_failed");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat rejects stale restructure conversation send before starting appserver turn", async () => {
+  const turnInputs = [];
+  const conversation = {
+    conversationId: "conversation_stale",
+    revision: 7,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_stale",
+    messages: [],
+  };
+  const staleError = () => {
+    const error = new Error("会话已在其他窗口更新，请刷新后重试");
+    error.statusCode = 409;
+    error.code = "agent_chat_conversation_revision_conflict";
+    throw error;
+  };
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    agentConversationStore: {
+      assertActive: async (_conversationId, { expectedRevision } = {}) => {
+        if (expectedRevision !== conversation.revision) staleError();
+        return conversation;
+      },
+      recordUserTurn: async () => {
+        throw new Error("should not record stale turn");
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        turnInputs.push(payload);
+        return { threadId: "thread_stale", turnId: "turn_stale", status: "submitted" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_stale/turns", {
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      conversationId: "conversation_stale",
+      expectedRevision: 6,
+      message: "旧窗口发送",
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "agent_chat_conversation_revision_conflict");
+    assert.deepEqual(turnInputs, []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat rejects stale restructure archive without discarding thread", async () => {
+  const discardedThreads = [];
+  const conversation = {
+    conversationId: "conversation_archive_stale",
+    revision: 3,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_archive_stale",
+    messages: [],
+  };
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    agentConversationStore: {
+      archive: async (_conversationId, { expectedRevision } = {}) => {
+        if (expectedRevision !== conversation.revision) {
+          const error = new Error("会话已在其他窗口更新，请刷新后重试");
+          error.statusCode = 409;
+          error.code = "agent_chat_conversation_revision_conflict";
+          throw error;
+        }
+        conversation.status = "archived";
+        conversation.revision += 1;
+        return conversation;
+      },
+    },
+    threadPool: {
+      discardThread: async ({ threadId }) => {
+        discardedThreads.push(threadId);
+        return { ok: true, thread_id: threadId, status: "deleted" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_archive_stale/archive", {
+      expectedRevision: 2,
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "agent_chat_conversation_revision_conflict");
+    assert.deepEqual(discardedThreads, []);
   } finally {
     await closeServer(server);
   }

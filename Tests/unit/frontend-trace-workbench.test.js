@@ -392,7 +392,10 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /handleResumeConversation/);
   assert.match(chat, /handleArchiveConversation/);
   assert.match(chat, /activeConversationNeedsRebind/);
+  assert.match(chat, /activeConversationRevision/);
   assert.match(chat, /ensureSession\(activeConversationNeedsRebind\)/);
+  assert.match(chat, /expectedRevision: activeConversationRevision/);
+  assert.match(chat, /isConversationConflictError/);
   assert.match(chat, /recordAgentChatSystemMessage/);
   assert.match(chat, /messagesFromConversation/);
   assert.match(chat, /function-slot-restructure/);

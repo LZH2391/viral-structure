@@ -22,7 +22,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     return state.conversations.find((conversation) => conversation.conversationId === conversationId) ?? null;
   }
 
-  async function createOrUpdateFromSession(session, { conversationId = null, sampleVideoId = null } = {}) {
+  async function createOrUpdateFromSession(session, { conversationId = null, sampleVideoId = null, expectedRevision = null } = {}) {
     const now = new Date().toISOString();
     return mutate((state) => {
       let conversation = conversationId
@@ -35,6 +35,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
           source: session.source ?? "threadpool-role",
           role: session.role ?? null,
           status: "active",
+          revision: 1,
           title: buildTitle(session.role, now),
           threadId: session.threadId ?? null,
           parentThreadId: session.parentThreadId ?? null,
@@ -57,6 +58,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
         };
         state.conversations.unshift(conversation);
       } else {
+        assertActiveConversation(conversation);
+        assertExpectedRevision(conversation, expectedRevision);
         Object.assign(conversation, {
           status: "active",
           threadId: session.threadId ?? conversation.threadId ?? null,
@@ -75,6 +78,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
           updatedAt: now,
           archivedAt: null,
         });
+        bumpRevision(conversation);
       }
       return conversation;
     });
@@ -126,13 +130,14 @@ function createAgentConversationStore({ store, filePath } = {}) {
         createdAt: now,
         updatedAt: now,
       });
-    });
+    }, { skipArchived: true });
   }
 
-  async function recordSystemMessage({ conversationId, text, traceId = null, runId = null, stageId = null }) {
+  async function recordSystemMessage({ conversationId, text, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
       conversation.traceId = traceId ?? conversation.traceId ?? null;
       conversation.runId = runId ?? conversation.runId ?? null;
       conversation.stageId = stageId ?? conversation.stageId ?? null;
@@ -156,19 +161,32 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function archive(conversationId) {
+  async function archive(conversationId, { expectedRevision = null } = {}) {
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
       conversation.status = "archived";
       conversation.archivedAt = now;
-    });
+    }, { allowArchived: true });
   }
 
-  async function mutateConversation(conversationId, updater) {
+  async function assertActive(conversationId, { expectedRevision = null } = {}) {
+    const conversation = await get(conversationId);
+    if (!conversation) return null;
+    assertActiveConversation(conversation);
+    assertExpectedRevision(conversation, expectedRevision);
+    return conversation;
+  }
+
+  async function mutateConversation(conversationId, updater, { allowArchived = false, skipArchived = false } = {}) {
     return mutate((state) => {
       const conversation = state.conversations.find((item) => item.conversationId === conversationId);
       if (!conversation) return null;
-      updater(conversation);
+      if (conversation.status === "archived" && skipArchived) return null;
+      if (!allowArchived) assertActiveConversation(conversation);
+      const result = updater(conversation);
+      if (result?.changed === false) return conversation;
+      bumpRevision(conversation);
       conversation.updatedAt = new Date().toISOString();
       return conversation;
     });
@@ -207,6 +225,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordSystemMessage,
     markRebindRequired,
     archive,
+    assertActive,
   };
 }
 
@@ -227,11 +246,56 @@ function normalizeConversation(value) {
     conversationId,
     role: value.role ? String(value.role) : null,
     status: value.status === "archived" ? "archived" : "active",
+    revision: normalizeRevision(value.revision),
     needsRebind: Boolean(value.needsRebind),
     rebindCount: Number.isFinite(Number(value.rebindCount)) ? Number(value.rebindCount) : 0,
     lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
   };
+}
+
+function normalizeRevision(value) {
+  const revision = Number(value);
+  return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : 1;
+}
+
+function bumpRevision(conversation) {
+  conversation.revision = normalizeRevision(conversation.revision) + 1;
+}
+
+function assertActiveConversation(conversation) {
+  if (conversation?.status !== "archived") return;
+  throw createConversationConflictError(
+    "agent_chat_conversation_archived",
+    "会话已归档，不能继续操作",
+    conversation,
+  );
+}
+
+function assertExpectedRevision(conversation, expectedRevision) {
+  if (expectedRevision == null || expectedRevision === "") return;
+  const expected = Number(expectedRevision);
+  if (!Number.isFinite(expected)) return;
+  const current = normalizeRevision(conversation?.revision);
+  if (Math.floor(expected) === current) return;
+  throw createConversationConflictError(
+    "agent_chat_conversation_revision_conflict",
+    "会话已在其他窗口更新，请刷新后重试",
+    conversation,
+  );
+}
+
+function createConversationConflictError(code, message, conversation) {
+  const error = new Error(message);
+  error.statusCode = 409;
+  error.code = code;
+  error.retryable = false;
+  error.debugPayload = {
+    conversationId: conversation?.conversationId ?? null,
+    status: conversation?.status ?? null,
+    revision: conversation?.revision ?? null,
+  };
+  return error;
 }
 
 function normalizeMessage(value) {

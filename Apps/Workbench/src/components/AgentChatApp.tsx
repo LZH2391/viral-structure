@@ -22,6 +22,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [session, setSession] = useState<AgentChatSessionResponse | null>(null);
   const [conversations, setConversations] = useState<AgentChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationRevision, setActiveConversationRevision] = useState<number | null>(null);
   const [activeConversationNeedsRebind, setActiveConversationNeedsRebind] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -61,9 +62,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   const refreshConversations = useCallback(async () => {
     const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
-    setConversations(payload.conversations ?? []);
-    return payload.conversations ?? [];
-  }, []);
+    const items = payload.conversations ?? [];
+    setConversations(items);
+    if (activeConversationId) {
+      const active = items.find((conversation) => conversation.conversationId === activeConversationId);
+      if (active) setActiveConversationRevision(normalizeConversationRevision(active.revision));
+    }
+    return items;
+  }, [activeConversationId]);
 
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
@@ -75,9 +81,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     leaseId: session?.leaseId ?? null,
     parentThreadId: session?.parentThreadId ?? null,
     conversationId: session?.conversationId ?? activeConversationId ?? null,
+    expectedRevision: activeConversationRevision,
     workspaceRoot: session?.workspaceRoot ?? null,
     skillPath: session?.skillPath ?? null,
-  }), [activeConversationId, mode, selectedRole, session]);
+  }), [activeConversationId, activeConversationRevision, mode, selectedRole, session]);
   const canConfirmRestructure = session?.source === "threadpool-role"
     && session.role === "function-slot-restructure"
     && Boolean(session.threadId)
@@ -87,6 +94,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
+    setActiveConversationRevision(normalizeConversationRevision(conversation.revision));
     setActiveConversationNeedsRebind(Boolean(conversation.needsRebind));
     setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
     if (conversation.role) setSelectedRole(conversation.role);
@@ -106,6 +114,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       skillPath: conversation.skillPath ?? null,
       conversationId: conversation.conversationId,
       conversationStatus: conversation.status,
+      conversationRevision: normalizeConversationRevision(conversation.revision),
     });
     const refreshedTurns = refreshed?.turns ?? [];
     setCurrentTurnId(conversation.latestTurnId ?? refreshedTurns[refreshedTurns.length - 1]?.turnId ?? null);
@@ -134,11 +143,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       source: mode,
       role: mode === "threadpool-role" ? selectedRole : null,
       conversationId: activeConversationId,
+      expectedRevision: activeConversationRevision,
     });
     if (!nextSession.ok || !nextSession.threadId) throw new Error(nextSession.message || "Agent 会话创建失败");
     setSession(nextSession);
     if (nextSession.conversationId) {
       setActiveConversationId(nextSession.conversationId);
+      setActiveConversationRevision(nextSession.conversationRevision ?? activeConversationRevision);
       setActiveConversationNeedsRebind(false);
       void refreshConversations().catch(() => undefined);
     }
@@ -195,21 +206,24 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
         parentThreadId: activeSession.parentThreadId ?? sessionMeta.parentThreadId,
         conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
+        expectedRevision: activeConversationRevision,
         workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
         skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
       });
+      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
       setStatusText("Agent 回复中");
       schedulePoll(activeSession, submitted.turnId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "发送失败";
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新选择或恢复后再发送" : error instanceof Error ? error.message : "发送失败";
       setErrorText(message);
       setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
+      if (isConversationConflictError(error)) void refreshConversations().catch(() => undefined);
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationNeedsRebind, busy, draft, ensureSession, schedulePoll, sessionMeta]);
+  }, [activeConversationNeedsRebind, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
 
   const handleResumeConversation = useCallback(async (conversationId: string) => {
     setStatusText("恢复重组会话");
@@ -230,7 +244,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!activeConversationId) return;
     setStatusText("归档重组会话");
     try {
-      await archiveAgentChatConversation(activeConversationId);
+      await archiveAgentChatConversation(activeConversationId, activeConversationRevision);
       const items = await refreshConversations();
       const next = items[0] ?? null;
       setActiveConversationId(next?.conversationId ?? null);
@@ -242,11 +256,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
       setStatusText("已归档");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "归档失败";
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请刷新后再归档" : error instanceof Error ? error.message : "归档失败";
       setErrorText(message);
+      if (isConversationConflictError(error)) void refreshConversations().catch(() => undefined);
       setStatusText("归档失败");
     }
-  }, [activeConversationId, refreshConversations]);
+  }, [activeConversationId, activeConversationRevision, refreshConversations]);
 
   const startNewConversation = useCallback(() => {
     setSession(null);
@@ -254,6 +269,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setCurrentTurnId(null);
     setTimeline(null);
     setActiveConversationId(null);
+    setActiveConversationRevision(null);
     setActiveConversationNeedsRebind(false);
     setMode("threadpool-role");
     setSelectedRole((current) => current || "function-slot-restructure");
@@ -275,6 +291,16 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setErrorText(null);
     setStatusText("确认方案并触发展示转换/故事板准备");
     try {
+      let confirmationRevision = activeConversationRevision;
+      if (session.conversationId) {
+        const gate = await recordAgentChatSystemMessage(
+          session.conversationId,
+          "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep。",
+          activeConversationRevision,
+        );
+        confirmationRevision = normalizeConversationRevision(gate.conversation.revision);
+        setActiveConversationRevision(confirmationRevision);
+      }
       const payload = {
         sampleVideoId: "function-slot-workflow",
         restructureArtifactId: currentTurnId,
@@ -291,18 +317,24 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         status: "completed",
       }]);
       if (session.conversationId) {
-        await recordAgentChatSystemMessage(session.conversationId, `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`).catch(() => undefined);
+        const logged = await recordAgentChatSystemMessage(
+          session.conversationId,
+          `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`,
+          confirmationRevision,
+        );
+        setActiveConversationRevision(normalizeConversationRevision(logged.conversation.revision));
         void refreshConversations().catch(() => undefined);
       }
       setStatusText("已触发展示转换/故事板准备");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "确认方案失败";
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新恢复后再确认" : error instanceof Error ? error.message : "确认方案失败";
       setErrorText(message);
+      if (isConversationConflictError(error)) void refreshConversations().catch(() => undefined);
       setStatusText("确认失败");
     } finally {
       setConfirming(false);
     }
-  }, [canConfirmRestructure, currentTurnId, refreshConversations, session]);
+  }, [activeConversationRevision, canConfirmRestructure, currentTurnId, refreshConversations, session]);
 
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
@@ -484,4 +516,15 @@ function messagesFromThreadConversation(conversation: ThreadConversation): ChatM
 
 function uniqueId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeConversationRevision(value: unknown) {
+  const revision = Number(value);
+  return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+function isConversationConflictError(error: unknown) {
+  const apiError = error as { statusCode?: unknown; code?: unknown } | null;
+  if (!apiError || typeof apiError !== "object") return false;
+  return apiError.statusCode === 409 || String(apiError.code ?? "").includes("conversation_revision_conflict") || String(apiError.code ?? "").includes("conversation_archived");
 }

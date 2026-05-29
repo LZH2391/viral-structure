@@ -7,6 +7,7 @@ const { summarizeThreadConversation } = require("../observability/thread-convers
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
+const conversationLocks = new Map();
 
 async function handleAgentChatThreadStart(req, res, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
@@ -17,11 +18,27 @@ async function handleAgentChatThreadStart(req, res, handlers = {}) {
       source,
       role: body.role ?? null,
       mode: body.mode ?? null,
+      conversationId: normalizeText(body.conversationId),
+      expectedRevision: normalizeRevision(body.expectedRevision),
     },
     action: async ({ traceContext }) => {
       if (source === "threadpool-role") {
-        const session = await startThreadPoolRoleSession({ body, handlers, traceContext });
-        return persistRestructureSession(session, body, handlers);
+        const conversationId = normalizeText(body.conversationId);
+        return withConversationLock(conversationId, async () => {
+          if (conversationId) {
+            const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, {
+              expectedRevision: normalizeRevision(body.expectedRevision),
+            });
+            if (!conversation) {
+              const error = new Error("未找到 Agent 会话");
+              error.statusCode = 404;
+              error.code = "agent_chat_conversation_not_found";
+              throw error;
+            }
+          }
+          const session = await startThreadPoolRoleSession({ body, handlers, traceContext });
+          return persistRestructureSession(session, body, handlers);
+        });
       }
       const result = await handlers.appServer.startThread({
         workspaceRoot: handlers.rootDir,
@@ -67,42 +84,58 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
       source: body.source ?? null,
       role: body.role ?? null,
       leaseId: body.leaseId ?? null,
+      conversationId: normalizeText(body.conversationId),
+      expectedRevision: normalizeRevision(body.expectedRevision),
       messageChars: message.length,
       messagePreview: safePreview(message, 80),
     },
     action: async ({ traceContext }) => {
-      const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
-      const result = await handlers.appServer.startTurnWithInputs({
-        workspaceRoot,
-        threadId,
-        inputs: buildTextInputs(message),
-        skillPath: normalizeText(body.skillPath),
-        timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+      const conversationId = normalizeText(body.conversationId);
+      return withConversationLock(conversationId, async () => {
+        const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
+        const expectedRevision = normalizeRevision(body.expectedRevision);
+        if (conversationId) {
+          const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision });
+          if (!conversation) {
+            const error = new Error("未找到 Agent 会话");
+            error.statusCode = 404;
+            error.code = "agent_chat_conversation_not_found";
+            throw error;
+          }
+        }
+        const result = await handlers.appServer.startTurnWithInputs({
+          workspaceRoot,
+          threadId,
+          inputs: buildTextInputs(message),
+          skillPath: normalizeText(body.skillPath),
+          timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+        });
+        const payload = {
+          ok: true,
+          source: body.source ?? "direct",
+          role: body.role ?? null,
+          leaseId: body.leaseId ?? null,
+          parentThreadId: body.parentThreadId ?? null,
+          conversationId,
+          workspaceRoot,
+          threadId: result.threadId ?? threadId,
+          turnId: result.turnId ?? result.turn?.id ?? null,
+          status: result.status ?? "submitted",
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        };
+        const conversation = await handlers.agentConversationStore?.recordUserTurn?.({
+          conversationId: payload.conversationId,
+          turnId: payload.turnId,
+          text: message,
+          traceId: payload.traceId,
+          runId: payload.runId,
+          stageId: payload.stageId,
+        });
+        if (conversation?.revision) payload.conversationRevision = conversation.revision;
+        return payload;
       });
-      const payload = {
-        ok: true,
-        source: body.source ?? "direct",
-        role: body.role ?? null,
-        leaseId: body.leaseId ?? null,
-        parentThreadId: body.parentThreadId ?? null,
-        conversationId: normalizeText(body.conversationId),
-        workspaceRoot,
-        threadId: result.threadId ?? threadId,
-        turnId: result.turnId ?? result.turn?.id ?? null,
-        status: result.status ?? "submitted",
-        traceId: traceContext.traceId,
-        runId: traceContext.runId,
-        stageId: traceContext.stageId,
-      };
-      await handlers.agentConversationStore?.recordUserTurn?.({
-        conversationId: payload.conversationId,
-        turnId: payload.turnId,
-        text: message,
-        traceId: payload.traceId,
-        runId: payload.runId,
-        stageId: payload.stageId,
-      });
-      return payload;
     },
     summarizeOutput: (result) => ({
       source: result.source,
@@ -209,9 +242,8 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
             code: error?.code ?? "agent_chat_conversation_thread_unavailable",
             message: safePreview(error instanceof Error ? error.message : "会话线程暂不可读", 160),
           };
-          await handlers.agentConversationStore.markRebindRequired(conversationId, refreshError);
-          conversation.needsRebind = true;
-          conversation.lastResumeError = refreshError;
+          const marked = await handlers.agentConversationStore.markRebindRequired(conversationId, refreshError);
+          if (marked) Object.assign(conversation, marked);
         }
       }
       return {
@@ -248,13 +280,15 @@ async function handleAgentChatConversationSystemMessage(req, res, conversationId
     stageName: "agentChat.conversation.systemMessage",
     inputSummary: { conversationId, messageChars: text.length, messagePreview: safePreview(text, 80) },
     action: async ({ traceContext }) => {
-      const conversation = await handlers.agentConversationStore.recordSystemMessage({
-        conversationId,
-        text,
-        traceId: traceContext.traceId,
-        runId: traceContext.runId,
-        stageId: traceContext.stageId,
-      });
+      const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.recordSystemMessage({
+          conversationId,
+          text,
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          expectedRevision: normalizeRevision(body.expectedRevision),
+        }),
+      );
       if (!conversation) {
         const error = new Error("未找到 Agent 会话");
         error.statusCode = 404;
@@ -275,12 +309,15 @@ async function handleAgentChatConversationSystemMessage(req, res, conversationId
 }
 
 async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {
-  await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
   return runAgentChatStage(res, handlers, {
     stageName: "agentChat.conversation.archive",
-    inputSummary: { conversationId },
+    inputSummary: { conversationId, expectedRevision: normalizeRevision(body.expectedRevision) },
     action: async ({ traceContext }) => {
-      const conversation = await handlers.agentConversationStore.archive(conversationId);
+      const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.archive(conversationId, {
+          expectedRevision: normalizeRevision(body.expectedRevision),
+        }),
+      );
       if (!conversation) {
         const error = new Error("未找到 Agent 会话");
         error.statusCode = 404;
@@ -444,11 +481,13 @@ async function persistRestructureSession(session, body, handlers) {
   const conversation = await handlers.agentConversationStore?.createOrUpdateFromSession?.(session, {
     conversationId: normalizeText(body.conversationId),
     sampleVideoId: normalizeText(body.sampleVideoId),
+    expectedRevision: normalizeRevision(body.expectedRevision),
   });
   return {
     ...session,
     conversationId: conversation?.conversationId ?? null,
     conversationStatus: conversation?.status ?? null,
+    conversationRevision: conversation?.revision ?? null,
   };
 }
 
@@ -523,6 +562,12 @@ function normalizeText(value) {
   return text || null;
 }
 
+function normalizeRevision(value) {
+  if (value == null || value === "") return null;
+  const revision = Number(value);
+  return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
 function normalizeActiveMessage(value) {
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && "text" in value) return String(value.text ?? "");
@@ -559,6 +604,24 @@ function summarizeDebugPayload(value) {
     stdout: safePreview(value.stdout, 500),
     structured: value.structured ? safePreview(JSON.stringify(value.structured), 500) : null,
   };
+}
+
+async function withConversationLock(conversationId, action) {
+  if (!conversationId) return action();
+  const key = String(conversationId);
+  const previous = conversationLocks.get(key) ?? Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+  conversationLocks.set(key, previous.then(() => current, () => current));
+  await previous.catch(() => undefined);
+  try {
+    return await action();
+  } finally {
+    release();
+    if (conversationLocks.get(key) === current) conversationLocks.delete(key);
+  }
 }
 
 module.exports = {

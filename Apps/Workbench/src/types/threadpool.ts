@@ -113,6 +113,7 @@ export type AgentChatMessageSnapshot = {
 export type AgentChatConversation = {
   conversationId: string;
   schemaVersion?: string;
+  revision?: number;
   source: "threadpool-role" | "direct" | string;
   role?: string | null;
   status: "active" | "archived" | string;
