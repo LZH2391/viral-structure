@@ -52,7 +52,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 - `Runtime/Temp/FunctionSlotLibrary/slot_index.json`
 - `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`
-- 目标 brief：品类、受众、痛点、转化目标、平台、时长、语气、证明资产、生产约束
+- 目标 brief：品类、受众、痛点、转化目标、平台、语气、证明资产、生产约束
 - 指定槽位链或指定 `slotType`
 - 指定 `slotSubtypeId / slotArchetypeId / implementationBundleId`
 - 待校验的脚本、分镜或镜头计划，用于校验和修复
@@ -60,7 +60,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ## 重组流程
 
 1. **标准化 brief**  
-   明确目标产品/品类、受众、痛点、结果、证明资产、时长、平台和限制。
+   明确目标产品/品类、受众、痛点、结果、证明资产、平台和限制。
 
 2. **规划槽位链**  
    根据观众状态路径和当前语料库证据决定需要哪些 `slotType` / `slotSubtype`。不要默认套用某条样例的完整 template，也不要把固定五槽链当默认链路。
@@ -100,7 +100,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - script atom 的 `claimType` 是否匹配目标主张
 - script atom pattern 的 `claimPattern / proofNeedClass / mustKeepClasses` 是否能保留
 - `proofNeed` 是否能被目标素材满足
-- rhythm atom 是否适合信息密度和时长
+- rhythm atom 是否适合信息密度和主张复杂度
 - rhythm pattern 是否排斥当前 claim 或信息密度
 - packaging atom 的 `packagingFunction` 是否服务证明
 - packaging pattern 的 `proofType / visualHierarchyClass / riskClass` 是否适合目标素材
@@ -141,7 +141,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 10. 剩余风险与修复
 11. 必要替代实现
 
-必须按以上顺序输出，但第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地。Adapter 方案只写本方案实际采用的桥接，不写泛泛风险；第 5 节不要使用“脚本节拍”作为结构单位。第 8 节 Shot 设计必须依赖第 5、6、7 节，把脚本段落、节奏区间、包装块和证明功能对齐成具体分镜画面、台词（若有）和包装说明；不得单独设计 shot，也不得与前面的脚本、节奏、包装发生偏离。第 9 节再进行 binding / rule policy 校验。剩余风险与修复只写 adapter 和其他校验后仍未解决或需要注意的风险。
+必须按以上顺序输出，但第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地。Adapter 方案只写本方案实际采用的桥接，不写泛泛风险；第 5 节不要使用“脚本节拍”作为结构单位。第 8 节 Shot 设计必须依赖第 5、6、7 节，把脚本段落、节奏区间、包装块和证明功能对齐成具体分镜画面、台词（若有）和包装说明；不得单独设计 shot，也不得与前面的脚本、节奏、包装发生偏离。重组输出不得提前设计任何具体时间：不要写秒数、shot 时长、段落时长、时间码、时间轴位置或时长分配；只能写顺序、承载关系、节奏状态和同步关系。第 9 节再进行 binding / rule policy 校验。剩余风险与修复只写 adapter 和其他校验后仍未解决或需要注意的风险。
 
 校验修复输出：
 

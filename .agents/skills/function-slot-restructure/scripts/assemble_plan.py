@@ -248,12 +248,6 @@ def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequ
         return [str(x) for x in as_list(brief.get("slotTypes"))]
 
     available = _available_slot_types(index)
-    duration = brief.get("durationSec") or brief.get("duration") or 0
-    try:
-        duration_num = float(duration)
-    except (TypeError, ValueError):
-        duration_num = 0
-
     brief_tokens = set(tokenize(_text(brief)))
     scored = [
         (slot_type, score_slot_role(index, brief_tokens, slot_type))
@@ -272,7 +266,7 @@ def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequ
 
     positive_roles = [slot_type for slot_type, score in scored if score > 0 and slot_type not in roles]
     if positive_roles:
-        target_count = 3 if duration_num and duration_num <= 15 else 5
+        target_count = 5
         roles.extend(positive_roles[: max(0, target_count - len(roles))])
         return evidence_order(index, roles[:target_count])
 
@@ -285,7 +279,7 @@ def infer_slot_roles(index: Dict[str, Any], brief: Dict[str, Any], explicit_sequ
         )
         if item.get("slotType")
     ]
-    target_count = 3 if duration_num and duration_num <= 15 else 5
+    target_count = 5
     return evidence_order(index, fallback_roles[:target_count])
 
 
@@ -351,12 +345,6 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], gove
     causal = [n["demandId"] for n in nodes]
 
     text = _text(brief)
-    duration = brief.get("durationSec") or brief.get("duration") or 0
-    try:
-        duration_num = float(duration)
-    except (TypeError, ValueError):
-        duration_num = 0
-
     hypotheses: List[Dict[str, Any]] = []
 
     def add(chain_id: str, sequence: List[str], operators: List[str], reason: str, required_adapters: List[str] | None = None, risks: List[str] | None = None) -> None:
@@ -396,16 +384,6 @@ def generate_chain_hypotheses(graph: Dict[str, Any], brief: Dict[str, Any], gove
             "耐久信任证明可以作为开场证据，然后通过问题/动作/结果展开",
             ["proof_adapter", "object_adapter"],
             ["信任证明必须指向正在销售的同一主张"],
-        )
-
-    if duration_num and duration_num <= 15 and operation_id and result_id:
-        add(
-            "H04",
-            [d for d in causal],
-            ["merge", "delete_optional"],
-            "时长较短时，应把操作和结果合并为连续的动作-兑现单元，而不是删除证明",
-            [],
-            ["合并片段仍必须同时展示动作和兑现"],
         )
 
     if any(k in text for k in ["compare", "vs", "old way", "new way", "误区", "错误", "对比", "以前", "现在"]):
@@ -461,8 +439,6 @@ def score_hypotheses(hypotheses: List[Dict[str, Any]], graph: Dict[str, Any], br
             score += 1.0
         if "proof_ladder" in h.get("operatorsUsed", []) and any(k in text for k in ["trust", "proof", "背书", "长期", "review"]):
             score += 1.0
-        if "merge" in h.get("operatorsUsed", []) and (brief.get("durationSec") or brief.get("duration")):
-            score += 0.5
         h["score"] = round(score, 3)
     return sorted(hypotheses, key=lambda x: x.get("score", 0), reverse=True)
 
@@ -578,7 +554,6 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         "briefConstraints": {
             "viewerStart": brief.get("viewerStart"),
             "viewerEnd": brief.get("viewerEnd"),
-            "durationSec": brief.get("durationSec") or brief.get("duration"),
             "proofAssets": brief.get("proofAssets"),
             "objections": brief.get("objections"),
         },

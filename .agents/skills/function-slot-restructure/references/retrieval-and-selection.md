@@ -6,14 +6,14 @@
 
 按以下顺序选择：
 
-1. **brief constraints / brief 约束**：观众状态、主张、证明资产、异议、时长和生产限制
+1. **brief constraints / brief 约束**：观众状态、主张、证明资产、异议、平台和生产限制
 2. **slot demand graph / 槽位需求图**：所需观众状态跃迁，以及它们之间的硬边/软边
 3. **chain hypotheses / 链路假设**：用操作符生成，而不是从策略菜单中选择
 4. **semantic governance / 语义治理层**：哪些 subtype/archetype/pattern/policy 已被审查
 5. **slot subtypes and archetypes / 槽位子型和原型**：哪个治理节点最能满足需求节点
 6. **slot variants / 槽位变体**：哪些来源样例能落地该治理节点
 7. **script atom patterns and atoms / 脚本模式和原子**：哪种主张实现适合目标
-8. **rhythm atom patterns and atoms / 节奏模式和原子**：哪种注意力模式适合主张和时长
+8. **rhythm atom patterns and atoms / 节奏模式和原子**：哪种注意力模式适合主张复杂度和信息密度
 9. **packaging atom patterns and atoms / 包装模式和原子**：哪种证明/视觉实现适合可用资产
 10. **binding principles, policies, bindings and rules / 绑定原则、政策、绑定和规则**：什么必须同步、承接或避免
 
@@ -144,7 +144,7 @@ source variant 的证明需求是否能被目标满足？
 ## 选择解释示例
 
 ```text
-选择 sample_014 的 problem_activation，因为它的观众状态跃迁匹配目标开场，并且有很强的对象-动作同步。节奏使用 sample_006，因为目标是 12 秒视频，需要更快进入。包装替换为 sample_021 的屏幕录制高亮，因为目标是 SaaS，不是护肤。绑定检查通过，因为问题对象、光标高亮和点击动作可以落在同一拍点。
+选择 sample_014 的 problem_activation，因为它的观众状态跃迁匹配目标开场，并且有很强的对象-动作同步。节奏使用 sample_006，因为目标需要低铺垫快速进入。包装替换为 sample_021 的屏幕录制高亮，因为目标是 SaaS，不是护肤。绑定检查通过，因为问题对象、光标高亮和点击动作可以落在同一拍点。
 ```
 
 治理层版本：

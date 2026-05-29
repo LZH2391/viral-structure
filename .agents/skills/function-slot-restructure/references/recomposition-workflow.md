@@ -27,7 +27,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - **choice object / 选择对象**：观众最后应该记住或选择什么
 - **available proof assets / 可用证明资产**：演示、屏幕录制、前后对比、数字、日志、证言、长期记录、物体痕迹、评论、收据等
 - **objections / 异议**：观众为什么可能怀疑、拖延或误解
-- **duration and platform constraints / 时长和平台约束**：时间预算、信息密度、创作者风格、CTA 强度要求
+- **platform and production constraints / 平台和生产约束**：平台限制、信息密度、创作者风格、CTA 强度要求。若 brief 提供目标时长，只作为用户限制记录，不在重组阶段拆成秒数、时间码、shot 时长或段落时长。
 - **production constraints / 生产约束**：什么能拍、能展示、能叠加、能主张
 
 把这些输出为 `brief_constraints` 对象。此时还不要选择链路。
@@ -81,7 +81,7 @@ choice claim       -> concrete product/service/action memory point
 - 如果目标有可见使用动作和结果，创建 operation/result 需求对，并标记它们在因果上需要靠近。
 - 如果目标有新颖或不明显的机制，创建 mechanism 需求，并要求理解时间或强视觉锚点。
 - 如果目标有强证明但可见动作弱，创建 trust/proof 需求，并根据观众状态把它用作 hook fragment 或 close。
-- 如果时长很短，保留同样的需求节点，但把相邻节点标记为可合并；不要简单切换到套装式压缩链路。
+- 如果 brief 要求极短表达，只能标记“需要压缩信息密度或合并相邻需求”的风险/约束；不要提前设计具体秒数、时间码、shot 时长或段落时长。
 
 ### 2.3 添加图边
 
@@ -328,7 +328,7 @@ choice close -> concrete memory point
 
 ## 步骤 11：shot 设计
 
-Shot 是新视频的时间和画面承载单位，用来把脚本段落、节奏区间、包装块对齐到同一条时间轴，并进一步形成具体分镜画面、台词（若有）和包装说明。Shot 不是功能槽位，不是 atom，也不是来源样例 `shotRefs` 的复用。
+Shot 是新视频的顺序画面承载单位，用来把脚本段落、节奏区间、包装块对齐到同一条结构顺序中，并进一步形成具体分镜画面、台词（若有）和包装说明。Shot 不是功能槽位，不是 atom，也不是来源样例 `shotRefs` 的复用。
 
 Shot 设计必须发生在以下内容都明确之后：
 
@@ -338,6 +338,8 @@ Shot 设计必须发生在以下内容都明确之后：
 4. 脚本段落、节奏区间、包装证明方案已经分别形成。
 
 Shot 不能单独设计，不能引入与前面脚本段落、节奏曲线、包装证明方案不一致的新主张、新节奏或新包装功能。如果 shot 设计发现前面的 5、6、7 节无法落地，应回到对应节修正，而不是在 shot 里偷偷补一个新结构。
+
+不要在重组阶段提前设计任何具体时间。Shot 设计不能写秒数、时间码、shot 时长、段落时长、起止时间或按秒分配；只写顺序、承载关系、节奏状态和同步关系。目标 brief 里的时长只能作为用户限制记录和风险提示，不转成槽位数量、shot 数量、合并策略或具体时间安排。
 
 设计时按新视频重新编号，例如 `new_shot_01`、`new_shot_02`。每个 shot 或 shot group 至少要说明：
 
