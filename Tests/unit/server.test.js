@@ -403,9 +403,9 @@ test("agent chat persists restructure conversations and archives them manually",
       }
       return conversation;
     },
-    markRebindRequired: async (conversationId, errorSummary) => {
+    invalidate: async (conversationId, errorSummary) => {
       const conversation = conversations.get(conversationId);
-      conversation.needsRebind = true;
+      conversation.invalidated = true;
       conversation.lastResumeError = errorSummary;
       return conversation;
     },
@@ -486,9 +486,9 @@ test("agent chat persists restructure conversations and archives them manually",
   }
 });
 
-test("agent chat resume marks restructure conversation for rebind when thread is unavailable", async () => {
+test("agent chat resume invalidates restructure conversation when thread is unavailable", async () => {
   const conversation = {
-    conversationId: "conversation_rebind",
+    conversationId: "conversation_invalidated",
     source: "threadpool-role",
     role: "function-slot-restructure",
     status: "active",
@@ -503,8 +503,8 @@ test("agent chat resume marks restructure conversation for rebind when thread is
     },
     agentConversationStore: {
       get: async () => conversation,
-      markRebindRequired: async (_conversationId, errorSummary) => {
-        conversation.needsRebind = true;
+      invalidate: async (_conversationId, errorSummary) => {
+        conversation.invalidated = true;
         conversation.lastResumeError = errorSummary;
         return conversation;
       },
@@ -523,9 +523,9 @@ test("agent chat resume marks restructure conversation for rebind when thread is
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_rebind/resume", {});
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_invalidated/resume", {});
     assert.equal(response.statusCode, 200);
-    assert.equal(response.body.conversation.needsRebind, true);
+    assert.equal(response.body.conversation.invalidated, true);
     assert.equal(response.body.refreshError.code, "appserver_thread_read_failed");
   } finally {
     await closeServer(server);

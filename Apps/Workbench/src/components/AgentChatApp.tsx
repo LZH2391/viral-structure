@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
@@ -23,7 +23,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [conversations, setConversations] = useState<AgentChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeConversationRevision, setActiveConversationRevision] = useState<number | null>(null);
-  const [activeConversationNeedsRebind, setActiveConversationNeedsRebind] = useState(false);
+  const [activeConversationInvalidated, setActiveConversationInvalidated] = useState(false);
   const [activeConversationConfirmedPlan, setActiveConversationConfirmedPlan] = useState<AgentChatConversation["confirmedPlan"]>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -69,7 +69,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       const active = items.find((conversation) => conversation.conversationId === activeConversationId);
       if (active) {
         setActiveConversationRevision(normalizeConversationRevision(active.revision));
-        setActiveConversationNeedsRebind(Boolean(active.invalidated || active.needsRebind));
+        setActiveConversationInvalidated(Boolean(active.invalidated));
         setActiveConversationConfirmedPlan(active.confirmedPlan ?? null);
       }
     }
@@ -94,7 +94,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && session.role === "function-slot-restructure"
     && Boolean(session.threadId)
     && Boolean(currentTurnId)
-    && !activeConversationNeedsRebind
+    && !activeConversationInvalidated
     && activeConversationConfirmedPlan?.turnId !== currentTurnId
     && !busy
     && !confirming;
@@ -102,7 +102,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
     setActiveConversationRevision(normalizeConversationRevision(conversation.revision));
-    setActiveConversationNeedsRebind(Boolean(conversation.invalidated || conversation.needsRebind));
+    setActiveConversationInvalidated(Boolean(conversation.invalidated));
     setActiveConversationConfirmedPlan(conversation.confirmedPlan ?? null);
     setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
     if (conversation.role) setSelectedRole(conversation.role);
@@ -158,7 +158,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (nextSession.conversationId) {
       setActiveConversationId(nextSession.conversationId);
       setActiveConversationRevision(nextSession.conversationRevision ?? activeConversationRevision);
-      setActiveConversationNeedsRebind(false);
+      setActiveConversationInvalidated(false);
       void refreshConversations().catch(() => undefined);
     }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
@@ -200,7 +200,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || busy) return;
-    if (activeConversationNeedsRebind) {
+    if (activeConversationInvalidated) {
       const message = "thread 已不可读，此会话已失效，请归档后新建会话";
       setErrorText(message);
       setStatusText("会话已失效");
@@ -237,7 +237,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationNeedsRebind, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
+  }, [activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
 
   const handleResumeConversation = useCallback(async (conversationId: string) => {
     setStatusText("恢复重组会话");
@@ -284,7 +284,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setTimeline(null);
     setActiveConversationId(null);
     setActiveConversationRevision(null);
-    setActiveConversationNeedsRebind(false);
+    setActiveConversationInvalidated(false);
     setActiveConversationConfirmedPlan(null);
     setMode("threadpool-role");
     setSelectedRole((current) => current || "function-slot-restructure");
@@ -442,7 +442,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           <div className="agent-chat-conversation-bar">
             <span>{activeConversationId ? `当前会话 ${shortId(activeConversationId)}` : "新会话"}</span>
             {session?.role ? <span>role {session.role}</span> : null}
-            {activeConversationNeedsRebind ? <span className="agent-chat-state-badge danger">thread 失效</span> : null}
+            {activeConversationInvalidated ? <span className="agent-chat-state-badge danger">thread 失效</span> : null}
             {activeConversationConfirmedPlan ? <span className="agent-chat-state-badge success">方案已确认</span> : null}
           </div>
           <div className="agent-chat-messages">
@@ -459,7 +459,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               value={draft}
               rows={3}
               placeholder="输入要发给 Agent 的消息"
-              disabled={busy || activeConversationNeedsRebind}
+              disabled={busy || activeConversationInvalidated}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.ctrlKey) return;
@@ -467,7 +467,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 void handleSend();
               }}
             />
-            <button className="primary-button" type="submit" disabled={busy || activeConversationNeedsRebind || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
+            <button className="primary-button" type="submit" disabled={busy || activeConversationInvalidated || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
               发送
             </button>
           </form>
@@ -568,3 +568,4 @@ function isConversationConflictError(error: unknown) {
   if (!apiError || typeof apiError !== "object") return false;
   return apiError.statusCode === 409 || String(apiError.code ?? "").includes("conversation_revision_conflict") || String(apiError.code ?? "").includes("conversation_archived");
 }
+

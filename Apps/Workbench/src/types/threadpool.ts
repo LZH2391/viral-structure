@@ -132,10 +132,8 @@ export type AgentChatConversation = {
   createdAt?: string | null;
   updatedAt?: string | null;
   archivedAt?: string | null;
-  needsRebind?: boolean;
   invalidated?: boolean;
   invalidatedAt?: string | null;
-  rebindCount?: number;
   lastResumeError?: {
     code?: string | null;
     message?: string | null;

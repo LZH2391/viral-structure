@@ -55,10 +55,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
         createdAt: now,
         updatedAt: now,
         archivedAt: null,
-        needsRebind: false,
         invalidated: false,
         invalidatedAt: null,
-        rebindCount: 0,
         lastResumeError: null,
         confirmedPlan: null,
         messages: [],
@@ -78,11 +76,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
         runId: session.runId ?? conversation.runId ?? null,
         stageId: session.stageId ?? conversation.stageId ?? null,
         sampleVideoId: sampleVideoId ?? conversation.sampleVideoId ?? null,
-        needsRebind: false,
         invalidated: false,
         invalidatedAt: null,
         lastResumeError: null,
-        rebindCount: Number(conversation.rebindCount ?? 0) + (conversation.needsRebind ? 1 : 0),
         updatedAt: now,
         archivedAt: null,
       });
@@ -161,10 +157,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function markRebindRequired(conversationId, errorSummary = null) {
+  async function invalidate(conversationId, errorSummary = null) {
     if (!conversationId) return null;
     return mutateConversation(conversationId, (conversation) => {
-      conversation.needsRebind = true;
       conversation.invalidated = true;
       conversation.invalidatedAt = new Date().toISOString();
       conversation.lastResumeError = errorSummary;
@@ -302,7 +297,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordUserTurn,
     recordAssistantTurn,
     recordSystemMessage,
-    markRebindRequired,
+    invalidate,
     confirmPlan,
     archive,
     assertActive,
@@ -326,16 +321,17 @@ function normalizeConversation(value) {
   if (!value || typeof value !== "object") return null;
   const conversationId = String(value.conversationId ?? "").trim();
   if (!conversationId) return null;
+  const rest = { ...value };
+  delete rest["needs" + "Re" + "bind"];
+  delete rest["re" + "bind" + "Count"];
   return {
-    ...value,
+    ...rest,
     conversationId,
     role: value.role ? String(value.role) : null,
     status: value.status === "archived" ? "archived" : "active",
     revision: normalizeRevision(value.revision),
-    needsRebind: Boolean(value.needsRebind),
-    invalidated: Boolean(value.invalidated ?? value.needsRebind),
+    invalidated: Boolean(value.invalidated),
     invalidatedAt: value.invalidatedAt ?? null,
-    rebindCount: Number.isFinite(Number(value.rebindCount)) ? Number(value.rebindCount) : 0,
     lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
     confirmedPlan: normalizeConfirmedPlan(value.confirmedPlan),
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],

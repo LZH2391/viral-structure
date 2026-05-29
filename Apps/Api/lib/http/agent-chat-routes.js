@@ -242,7 +242,7 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
             code: error?.code ?? "agent_chat_conversation_thread_unavailable",
             message: safePreview(error instanceof Error ? error.message : "会话线程暂不可读", 160),
           };
-          const marked = await handlers.agentConversationStore.markRebindRequired(conversationId, refreshError);
+          const marked = await handlers.agentConversationStore.invalidate(conversationId, refreshError);
           if (marked) Object.assign(conversation, marked);
         }
       }
