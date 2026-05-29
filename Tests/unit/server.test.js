@@ -275,6 +275,105 @@ test("agent chat starts ThreadPool role fork session through lease", async () =>
   }
 });
 
+test("agent chat persists restructure conversations and archives them manually", async () => {
+  const conversations = new Map();
+  const store = {
+    list: async ({ role, status }) => Array.from(conversations.values()).filter((item) => item.role === role && item.status === status),
+    get: async (conversationId) => conversations.get(conversationId) ?? null,
+    createOrUpdateFromSession: async (session) => {
+      const conversation = {
+        conversationId: "conversation_restructure",
+        source: session.source,
+        role: session.role,
+        status: "active",
+        threadId: session.threadId,
+        parentThreadId: session.parentThreadId,
+        leaseId: session.leaseId,
+        ownerId: session.ownerId,
+        workspaceRoot: session.workspaceRoot,
+        skillPath: session.skillPath,
+        latestTurnId: null,
+        messages: [],
+        title: "重组方案",
+        updatedAt: "2026-05-29T00:00:00.000Z",
+      };
+      conversations.set(conversation.conversationId, conversation);
+      return conversation;
+    },
+    recordUserTurn: async ({ conversationId, turnId, text }) => {
+      const conversation = conversations.get(conversationId);
+      conversation.latestTurnId = turnId;
+      conversation.messages.push({ id: `user-${turnId}`, role: "user", text, status: "completed" });
+      conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text: "生成中", status: "running" });
+      return conversation;
+    },
+    recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
+      const conversation = conversations.get(conversationId);
+      const message = conversation.messages.find((item) => item.id === `assistant-${turnId}`);
+      Object.assign(message, { text, status: status === "completed" ? "completed" : "running" });
+      return conversation;
+    },
+    archive: async (conversationId) => {
+      const conversation = conversations.get(conversationId);
+      if (!conversation) return null;
+      conversation.status = "archived";
+      return conversation;
+    },
+  };
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async () => ({ ok: true, status: { seedThreadId: "seed_1", workspaceRoot: "C:\\Workspace", skillPath: "skill.md" } }),
+      acquireLease: async () => ({ ok: true, status: "leased", thread_id: "thread_restructure", parent_thread_id: "seed_1", lease_id: "lease_1" }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => ({ threadId: "thread_restructure", turnId: "turn_1", status: "submitted" }),
+      collectTurnResult: async () => ({ threadId: "thread_restructure", turnId: "turn_1", status: "completed", finalMessage: "方案正文" }),
+      readThread: async () => ({ thread: { id: "thread_restructure", status: "idle", turns: [{ id: "turn_1", status: "completed", finalMessage: "方案正文" }] } }),
+    },
+    agentConversationStore: store,
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const started = await makeRequest(server, "POST", "/api/agent-chat/threads", { source: "threadpool-role", role: "function-slot-restructure" });
+    assert.equal(started.statusCode, 201);
+    assert.equal(started.body.conversationId, "conversation_restructure");
+
+    const submitted = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_restructure/turns", {
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      conversationId: "conversation_restructure",
+      message: "生成方案",
+    });
+    assert.equal(submitted.statusCode, 202);
+
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
+    assert.equal(collected.statusCode, 200);
+
+    const listed = await makeRequest(server, "GET", "/api/agent-chat/conversations?role=function-slot-restructure&status=active");
+    assert.equal(listed.statusCode, 200);
+    const listedMessages = listed.body.conversations[0].messages;
+    assert.equal(listedMessages[listedMessages.length - 1].text, "方案正文");
+
+    const resumed = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/resume", {});
+    assert.equal(resumed.statusCode, 200);
+    assert.equal(resumed.body.refreshed.threadId, "thread_restructure");
+
+    const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", {});
+    assert.equal(archived.statusCode, 200);
+    assert.equal(archived.body.conversation.status, "archived");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat submits message, collects answer, and reads timeline", async () => {
   const turnInputs = [];
   const server = createServer({

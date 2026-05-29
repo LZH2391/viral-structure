@@ -80,6 +80,11 @@ export type ThreadConversationTurn = {
   status: string;
   createdAt?: string | null;
   inputSummary?: string | null;
+  threadMessages?: Array<{
+    role?: string | null;
+    text: string;
+    createdAt?: string | null;
+  }>;
   finalMessage?: string | null;
   tokenUsage?: {
     inputTokens?: number | null;
@@ -93,4 +98,38 @@ export type ThreadConversation = {
   title?: string | null;
   status?: string | null;
   turns: ThreadConversationTurn[];
+};
+
+export type AgentChatMessageSnapshot = {
+  id: string;
+  turnId?: string | null;
+  role: "user" | "assistant" | "system";
+  text: string;
+  status?: "running" | "completed" | "failed";
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type AgentChatConversation = {
+  conversationId: string;
+  schemaVersion?: string;
+  source: "threadpool-role" | "direct" | string;
+  role?: string | null;
+  status: "active" | "archived" | string;
+  title?: string | null;
+  threadId?: string | null;
+  parentThreadId?: string | null;
+  leaseId?: string | null;
+  ownerId?: string | null;
+  workspaceRoot?: string | null;
+  skillPath?: string | null;
+  sampleVideoId?: string | null;
+  latestTurnId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  archivedAt?: string | null;
+  messages?: AgentChatMessageSnapshot[];
 };

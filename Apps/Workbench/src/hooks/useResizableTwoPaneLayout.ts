@@ -20,6 +20,8 @@ type UseResizableTwoPaneLayoutOptions = {
   minLeft: number;
   maxLeft: number;
   minRight: number;
+  minRightRatio?: number;
+  maxRightRatio?: number;
 };
 
 export function useResizableTwoPaneLayout({
@@ -30,6 +32,8 @@ export function useResizableTwoPaneLayout({
   minLeft,
   maxLeft,
   minRight,
+  minRightRatio,
+  maxRightRatio,
 }: UseResizableTwoPaneLayoutOptions) {
   const layoutRef = useRef<TwoPaneLayout>({ left: defaultLeft });
   const dragRef = useRef<DragState | null>(null);
@@ -42,13 +46,17 @@ export function useResizableTwoPaneLayout({
 
   const clampLayout = useCallback((layout: TwoPaneLayout) => {
     const containerWidth = containerRef.current?.getBoundingClientRect().width ?? 0;
+    const availableWidth = Math.max(0, containerWidth - SPLITTER_SIZE);
+    const ratioMinLeft = maxRightRatio && availableWidth > 0 ? availableWidth * (1 - maxRightRatio) : minLeft;
+    const ratioMaxLeft = minRightRatio && availableWidth > 0 ? availableWidth * (1 - minRightRatio) : maxLeft;
+    const leftMin = Math.max(minLeft, ratioMinLeft);
     const widthMax = containerWidth > 0
-      ? Math.min(maxLeft, Math.max(minLeft, containerWidth - SPLITTER_SIZE - minRight))
+      ? Math.min(maxLeft, ratioMaxLeft, Math.max(leftMin, containerWidth - SPLITTER_SIZE - minRight))
       : maxLeft;
     return {
-      left: clamp(layout.left, minLeft, widthMax),
+      left: clamp(layout.left, leftMin, widthMax),
     };
-  }, [containerRef, maxLeft, minLeft, minRight]);
+  }, [containerRef, maxLeft, maxRightRatio, minLeft, minRight, minRightRatio]);
 
   const applyLayout = useCallback((next: TwoPaneLayout) => {
     const clamped = clampLayout(next);

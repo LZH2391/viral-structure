@@ -3,6 +3,7 @@ const { createTraceIds } = require("../../../../Infrastructure/Observability/tra
 const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
+const { summarizeThreadConversation } = require("../observability/thread-conversation");
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
@@ -19,7 +20,8 @@ async function handleAgentChatThreadStart(req, res, handlers = {}) {
     },
     action: async ({ traceContext }) => {
       if (source === "threadpool-role") {
-        return startThreadPoolRoleSession({ body, handlers, traceContext });
+        const session = await startThreadPoolRoleSession({ body, handlers, traceContext });
+        return persistRestructureSession(session, body, handlers);
       }
       const result = await handlers.appServer.startThread({
         workspaceRoot: handlers.rootDir,
@@ -77,12 +79,13 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
         skillPath: normalizeText(body.skillPath),
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
-      return {
+      const payload = {
         ok: true,
         source: body.source ?? "direct",
         role: body.role ?? null,
         leaseId: body.leaseId ?? null,
         parentThreadId: body.parentThreadId ?? null,
+        conversationId: normalizeText(body.conversationId),
         workspaceRoot,
         threadId: result.threadId ?? threadId,
         turnId: result.turnId ?? result.turn?.id ?? null,
@@ -91,6 +94,15 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
         runId: traceContext.runId,
         stageId: traceContext.stageId,
       };
+      await handlers.agentConversationStore?.recordUserTurn?.({
+        conversationId: payload.conversationId,
+        turnId: payload.turnId,
+        text: message,
+        traceId: payload.traceId,
+        runId: payload.runId,
+        stageId: payload.stageId,
+      });
+      return payload;
     },
     summarizeOutput: (result) => ({
       source: result.source,
@@ -116,7 +128,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
       const activity = buildAgentActivityFromTurnResult(result);
-      return {
+      const payload = {
         ok: true,
         threadId: result.threadId ?? threadId,
         turnId: result.turnId ?? turnId,
@@ -128,6 +140,18 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         runId: traceContext.runId,
         stageId: traceContext.stageId,
       };
+      const conversationId = normalizeText(url?.searchParams?.get("conversationId"));
+      const activeText = normalizeActiveMessage(payload.activeThreadMessage);
+      await handlers.agentConversationStore?.recordAssistantTurn?.({
+        conversationId,
+        turnId: payload.turnId,
+        text: payload.finalMessage || activeText || (isTerminalStatus(payload.status) ? "" : "生成中"),
+        status: payload.status,
+        traceId: payload.traceId,
+        runId: payload.runId,
+        stageId: payload.stageId,
+      });
+      return payload;
     },
     summarizeOutput: (result) => ({
       threadId: result.threadId,
@@ -136,6 +160,99 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       finalMessageChars: result.finalMessage ? String(result.finalMessage).length : 0,
       activityStatus: result.activity?.status ?? null,
     }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatConversationList(res, handlers = {}, url = null) {
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.conversation.list",
+    inputSummary: {
+      role: url?.searchParams?.get("role") ?? null,
+      status: url?.searchParams?.get("status") ?? "active",
+    },
+    action: async ({ traceContext }) => ({
+      ok: true,
+      conversations: await handlers.agentConversationStore.list({
+        role: normalizeText(url?.searchParams?.get("role")),
+        status: normalizeText(url?.searchParams?.get("status")) || "active",
+      }),
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }),
+    summarizeOutput: (result) => ({ count: result.conversations.length }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatConversationResume(res, conversationId, handlers = {}) {
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.conversation.resume",
+    inputSummary: { conversationId },
+    action: async ({ traceContext }) => {
+      const conversation = await handlers.agentConversationStore.get(conversationId);
+      if (!conversation || conversation.status === "archived") {
+        const error = new Error("未找到 active Agent 会话");
+        error.statusCode = 404;
+        error.code = "agent_chat_conversation_not_found";
+        throw error;
+      }
+      let refreshed = null;
+      let refreshError = null;
+      if (conversation.threadId) {
+        try {
+          const thread = await handlers.appServer.readThread({ workspaceRoot: conversation.workspaceRoot || handlers.rootDir, threadId: conversation.threadId });
+          refreshed = summarizeThreadConversation(thread.thread ?? {});
+        } catch (error) {
+          refreshError = {
+            code: error?.code ?? "agent_chat_conversation_thread_unavailable",
+            message: safePreview(error instanceof Error ? error.message : "会话线程暂不可读", 160),
+          };
+        }
+      }
+      return {
+        ok: true,
+        conversation,
+        refreshed,
+        refreshError,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
+    summarizeOutput: (result) => ({
+      conversationId,
+      threadId: result.conversation.threadId,
+      refreshed: Boolean(result.refreshed),
+      refreshError: result.refreshError,
+    }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {
+  await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.conversation.archive",
+    inputSummary: { conversationId },
+    action: async ({ traceContext }) => {
+      const conversation = await handlers.agentConversationStore.archive(conversationId);
+      if (!conversation) {
+        const error = new Error("未找到 Agent 会话");
+        error.statusCode = 404;
+        error.code = "agent_chat_conversation_not_found";
+        throw error;
+      }
+      return {
+        ok: true,
+        conversation,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
+    summarizeOutput: (result) => ({ conversationId: result.conversation.conversationId, status: result.conversation.status }),
     successStatus: 200,
   });
 }
@@ -267,6 +384,19 @@ async function startThreadPoolRoleSession({ body, handlers, traceContext }) {
   };
 }
 
+async function persistRestructureSession(session, body, handlers) {
+  if (session?.role !== "function-slot-restructure" || session?.ok === false) return session;
+  const conversation = await handlers.agentConversationStore?.createOrUpdateFromSession?.(session, {
+    conversationId: normalizeText(body.conversationId),
+    sampleVideoId: normalizeText(body.sampleVideoId),
+  });
+  return {
+    ...session,
+    conversationId: conversation?.conversationId ?? null,
+    conversationStatus: conversation?.status ?? null,
+  };
+}
+
 async function runAgentChatStage(res, handlers, { stageName, inputSummary, action, summarizeOutput, successStatus }) {
   const traceContext = createTraceContext(createTraceIds());
   const startedAt = Date.now();
@@ -338,6 +468,16 @@ function normalizeText(value) {
   return text || null;
 }
 
+function normalizeActiveMessage(value) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "text" in value) return String(value.text ?? "");
+  return "";
+}
+
+function isTerminalStatus(status) {
+  return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
+}
+
 function buildTextInputs(message) {
   return [{ type: "text", text: message, text_elements: [] }];
 }
@@ -367,6 +507,9 @@ function summarizeDebugPayload(value) {
 }
 
 module.exports = {
+  handleAgentChatConversationArchive,
+  handleAgentChatConversationList,
+  handleAgentChatConversationResume,
   handleAgentChatLeaseRelease,
   handleAgentChatThreadStart,
   handleAgentChatTurnCollect,

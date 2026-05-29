@@ -1,4 +1,4 @@
-import type { AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -47,6 +47,8 @@ export type AgentChatSessionResponse = {
   parentThreadId?: string | null;
   workspaceRoot?: string | null;
   skillPath?: string | null;
+  conversationId?: string | null;
+  conversationStatus?: "active" | "archived" | string | null;
   error?: string;
   message?: string;
   retryable?: boolean;
@@ -58,6 +60,7 @@ export type AgentChatTurnResponse = {
   role?: string | null;
   leaseId?: string | null;
   parentThreadId?: string | null;
+  conversationId?: string | null;
   workspaceRoot?: string | null;
   threadId: string;
   turnId: string;
@@ -320,7 +323,7 @@ export async function getAgentTurnTimeline(threadId: string, turnId: string) {
   );
 }
 
-export async function startAgentChatThread(payload: { source?: "direct" | "threadpool-role"; role?: string | null } = {}) {
+export async function startAgentChatThread(payload: { source?: "direct" | "threadpool-role"; role?: string | null; conversationId?: string | null; sampleVideoId?: string | null } = {}) {
   return readJsonResponse<AgentChatSessionResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads`, {
       method: "POST",
@@ -338,6 +341,7 @@ export async function sendAgentChatMessage(
     role?: string | null;
     leaseId?: string | null;
     parentThreadId?: string | null;
+    conversationId?: string | null;
     workspaceRoot?: string | null;
     skillPath?: string | null;
   },
@@ -351,17 +355,44 @@ export async function sendAgentChatMessage(
   );
 }
 
-export async function collectAgentChatTurn(threadId: string, turnId: string, workspaceRoot?: string | null) {
-  const query = workspaceRoot ? `?workspaceRoot=${encodeURIComponent(workspaceRoot)}` : "";
+export async function collectAgentChatTurn(threadId: string, turnId: string, workspaceRoot?: string | null, conversationId?: string | null) {
+  const query = buildQuery({ workspaceRoot, conversationId });
   return readJsonResponse<AgentChatTurnResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}${query}`, { cache: "no-store" }),
   );
 }
 
 export async function getAgentChatTurnTimeline(threadId: string, turnId: string, workspaceRoot?: string | null) {
-  const query = workspaceRoot ? `?workspaceRoot=${encodeURIComponent(workspaceRoot)}` : "";
+  const query = buildQuery({ workspaceRoot });
   return readJsonResponse<AgentTurnTimeline>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/timeline${query}`, { cache: "no-store" }),
+  );
+}
+
+export async function listAgentChatConversations(payload: { role?: string | null; status?: "active" | "archived" | string | null } = {}) {
+  const query = buildQuery({ role: payload.role, status: payload.status ?? "active" });
+  return readJsonResponse<{ ok: boolean; conversations: AgentChatConversation[]; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations${query}`, { cache: "no-store" }),
+  );
+}
+
+export async function resumeAgentChatConversation(conversationId: string) {
+  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; refreshed?: ThreadConversation | null; refreshError?: { code?: string; message?: string | null } | null; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/resume`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }),
+  );
+}
+
+export async function archiveAgentChatConversation(conversationId: string) {
+  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/archive`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }),
   );
 }
 
@@ -562,4 +593,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function toNullableString(value: unknown): string | null {
   if (value == null) return null;
   return String(value);
+}
+
+function buildQuery(params: Record<string, string | number | boolean | null | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === "") continue;
+    query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `?${text}` : "";
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
-import type { AgentTurnTimeline, ThreadPoolRoleSummary } from "../types";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { shortId } from "../utils/format";
 import { SplitResizeHandle } from "./SplitResizeHandle";
@@ -20,6 +20,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
   const [session, setSession] = useState<AgentChatSessionResponse | null>(null);
+  const [conversations, setConversations] = useState<AgentChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
@@ -38,6 +40,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     minLeft: 420,
     maxLeft: 1120,
     minRight: 320,
+    minRightRatio: 0.1,
+    maxRightRatio: 0.4,
   });
 
   useEffect(() => {
@@ -50,6 +54,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       .catch(() => undefined);
   }, []);
 
+  const refreshConversations = useCallback(async () => {
+    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
+    setConversations(payload.conversations ?? []);
+    return payload.conversations ?? [];
+  }, []);
+
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
   }, []);
@@ -59,9 +69,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     role: session?.role ?? (mode === "threadpool-role" ? selectedRole : null),
     leaseId: session?.leaseId ?? null,
     parentThreadId: session?.parentThreadId ?? null,
+    conversationId: session?.conversationId ?? activeConversationId ?? null,
     workspaceRoot: session?.workspaceRoot ?? null,
     skillPath: session?.skillPath ?? null,
-  }), [mode, selectedRole, session]);
+  }), [activeConversationId, mode, selectedRole, session]);
   const canConfirmRestructure = session?.source === "threadpool-role"
     && session.role === "function-slot-restructure"
     && Boolean(session.threadId)
@@ -69,25 +80,71 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && !busy
     && !confirming;
 
+  const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
+    setActiveConversationId(conversation.conversationId);
+    setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
+    if (conversation.role) setSelectedRole(conversation.role);
+    setSession({
+      ok: true,
+      source: conversation.source === "threadpool-role" ? "threadpool-role" : "direct",
+      status: "resumed",
+      threadId: conversation.threadId ?? null,
+      traceId: conversation.traceId ?? "",
+      runId: conversation.runId ?? "",
+      stageId: conversation.stageId ?? "",
+      role: conversation.role ?? null,
+      ownerId: conversation.ownerId ?? null,
+      leaseId: conversation.leaseId ?? null,
+      parentThreadId: conversation.parentThreadId ?? null,
+      workspaceRoot: conversation.workspaceRoot ?? null,
+      skillPath: conversation.skillPath ?? null,
+      conversationId: conversation.conversationId,
+      conversationStatus: conversation.status,
+    });
+    const refreshedTurns = refreshed?.turns ?? [];
+    setCurrentTurnId(conversation.latestTurnId ?? refreshedTurns[refreshedTurns.length - 1]?.turnId ?? null);
+    setTimeline(null);
+    const refreshedMessages = refreshed ? messagesFromThreadConversation(refreshed) : [];
+    setMessages(refreshedMessages.length ? refreshedMessages : messagesFromConversation(conversation));
+  }, []);
+
+  useEffect(() => {
+    void refreshConversations()
+      .then((items) => {
+        if (!items.length) return;
+        const first = items[0];
+        setActiveConversationId((current) => current || first.conversationId);
+        if (!session && !messages.length) void handleResumeConversation(first.conversationId);
+      })
+      .catch(() => undefined);
+  // handleResumeConversation intentionally runs from the latest closure after it is declared.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshConversations]);
+
   const ensureSession = useCallback(async () => {
     if (session?.threadId) return session;
     setStatusText(mode === "threadpool-role" ? "Fork ThreadPool role" : "创建 app-server thread");
     const nextSession = await startAgentChatThread({
       source: mode,
       role: mode === "threadpool-role" ? selectedRole : null,
+      conversationId: activeConversationId,
     });
     if (!nextSession.ok || !nextSession.threadId) throw new Error(nextSession.message || "Agent 会话创建失败");
     setSession(nextSession);
+    if (nextSession.conversationId) {
+      setActiveConversationId(nextSession.conversationId);
+      void refreshConversations().catch(() => undefined);
+    }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
     return nextSession;
-  }, [mode, selectedRole, session]);
+  }, [activeConversationId, mode, refreshConversations, selectedRole, session]);
 
   const schedulePoll = useCallback((activeSession: AgentChatSessionResponse, turnId: string) => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
     const poll = async () => {
       try {
         const [turn, nextTimeline] = await Promise.all([
-          collectAgentChatTurn(activeSession.threadId as string, turnId, activeSession.workspaceRoot),
+          collectAgentChatTurn(activeSession.threadId as string, turnId, activeSession.workspaceRoot, activeSession.conversationId ?? activeConversationId),
           getAgentChatTurnTimeline(activeSession.threadId as string, turnId, activeSession.workspaceRoot).catch(() => null),
         ]);
         if (nextTimeline) setTimeline(nextTimeline);
@@ -99,6 +156,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         setStatusText(`turn ${turn.status}`);
         if (isTerminalStatus(turn.status)) {
           setBusy(false);
+          void refreshConversations().catch(() => undefined);
           return;
         }
         pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
@@ -111,7 +169,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
     };
     pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
-  }, []);
+  }, [activeConversationId, refreshConversations]);
 
   const handleSend = useCallback(async () => {
     const text = draft.trim();
@@ -129,6 +187,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         role: activeSession.role ?? sessionMeta.role,
         leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
         parentThreadId: activeSession.parentThreadId ?? sessionMeta.parentThreadId,
+        conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
         workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
         skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
       });
@@ -144,6 +203,54 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setStatusText("发送失败");
     }
   }, [busy, draft, ensureSession, schedulePoll, sessionMeta]);
+
+  const handleResumeConversation = useCallback(async (conversationId: string) => {
+    setStatusText("恢复重组会话");
+    setErrorText(null);
+    try {
+      const payload = await resumeAgentChatConversation(conversationId);
+      applyConversation(payload.conversation, payload.refreshed);
+      if (payload.refreshError?.message) setStatusText(`已恢复快照，线程暂不可读：${payload.refreshError.message}`);
+      else setStatusText("已恢复重组会话");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "恢复会话失败";
+      setErrorText(message);
+      setStatusText("恢复失败");
+    }
+  }, []);
+
+  const handleArchiveConversation = useCallback(async () => {
+    if (!activeConversationId) return;
+    setStatusText("归档重组会话");
+    try {
+      await archiveAgentChatConversation(activeConversationId);
+      const items = await refreshConversations();
+      const next = items[0] ?? null;
+      setActiveConversationId(next?.conversationId ?? null);
+      if (next) {
+        const payload = await resumeAgentChatConversation(next.conversationId);
+        applyConversation(payload.conversation, payload.refreshed);
+      } else {
+        startNewConversation();
+      }
+      setStatusText("已归档");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "归档失败";
+      setErrorText(message);
+      setStatusText("归档失败");
+    }
+  }, [activeConversationId, refreshConversations]);
+
+  const startNewConversation = useCallback(() => {
+    setSession(null);
+    setMessages([]);
+    setCurrentTurnId(null);
+    setTimeline(null);
+    setActiveConversationId(null);
+    setMode("threadpool-role");
+    setSelectedRole((current) => current || "function-slot-restructure");
+    setStatusText("新重组会话");
+  }, []);
 
   const handleRelease = useCallback(async () => {
     if (!session?.leaseId) return;
@@ -212,6 +319,26 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" onClick={handleRelease}>释放</button> : null}
             </div>
           </header>
+          <div className="agent-chat-conversation-bar">
+            <span>重组会话</span>
+            <select
+              value={activeConversationId ?? ""}
+              onChange={(event) => {
+                const id = event.target.value || null;
+                setActiveConversationId(id);
+                if (id) void handleResumeConversation(id);
+              }}
+            >
+              <option value="">新会话</option>
+              {conversations.map((conversation) => (
+                <option key={conversation.conversationId} value={conversation.conversationId}>
+                  {conversation.title || shortId(conversation.threadId ?? conversation.conversationId)}
+                </option>
+              ))}
+            </select>
+            <button className="ghost-button agent-chat-action" type="button" onClick={startNewConversation}>新建</button>
+            <button className="ghost-button agent-chat-action" type="button" disabled={!activeConversationId} onClick={() => void handleArchiveConversation()}>归档</button>
+          </div>
           <div className="agent-chat-meta">
             <span>thread {shortId(session?.threadId ?? "未连接")}</span>
             <span>turn {shortId(currentTurnId ?? "等待")}</span>
@@ -291,6 +418,40 @@ function normalizeActiveMessage(value: unknown) {
 
 function isTerminalStatus(status: string | null | undefined) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
+}
+
+function messagesFromConversation(conversation: AgentChatConversation): ChatMessage[] {
+  return (conversation.messages ?? []).map((message) => ({
+    id: message.id,
+    role: message.role,
+    text: message.text,
+    status: message.status ?? "completed",
+  }));
+}
+
+function messagesFromThreadConversation(conversation: ThreadConversation): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  for (const turn of conversation.turns ?? []) {
+    if (turn.inputSummary) {
+      messages.push({
+        id: `user-${turn.turnId}`,
+        role: "user",
+        text: turn.inputSummary,
+        status: "completed",
+      });
+    }
+    const threadMessages = turn.threadMessages ?? [];
+    const assistantText = turn.finalMessage || threadMessages[threadMessages.length - 1]?.text || null;
+    if (assistantText) {
+      messages.push({
+        id: `assistant-${turn.turnId}`,
+        role: "assistant",
+        text: assistantText,
+        status: isTerminalStatus(turn.status) ? "completed" : "running",
+      });
+    }
+  }
+  return messages;
 }
 
 function uniqueId(prefix: string) {

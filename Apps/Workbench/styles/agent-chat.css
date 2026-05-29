@@ -56,6 +56,32 @@
   gap: 8px;
 }
 
+.agent-chat-conversation-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.agent-chat-conversation-bar span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-chat-conversation-bar select {
+  min-width: 180px;
+  max-width: 360px;
+  height: 32px;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color-scheme: dark;
+}
+
 .agent-chat-action {
   height: 34px;
   white-space: nowrap;
