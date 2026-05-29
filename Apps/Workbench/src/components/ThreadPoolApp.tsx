@@ -199,6 +199,7 @@ function resolveRoleAvailability(role: ThreadPoolRoleSummary) {
       label: role.replenishing ? "replenishing" : "can acquire",
     };
   }
+  if (role.recovering || role.readyForLeases === false) return { className: "status-warn", label: role.recovering ? "recovering" : "warming" };
   if (role.warming || role.seedMissing) return { className: "status-warn", label: "warming" };
   if (role.replenishing) return { className: "status-warn", label: "replenishing" };
   return { className: "status-bad", label: "blocked" };
@@ -219,12 +220,14 @@ function RoleDetail({
   const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
   const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
   const [conversation, setConversation] = useState<ThreadConversation | null>(null);
-  const maintenanceBlocked = Boolean(detail?.warming) || detail?.readyForLeases === false;
-  const maintenanceBlockedTitle = detail?.warming
-    ? "ThreadPool 正在 warming，维护操作暂不可用"
+  const maintenanceBlocked = Boolean(detail?.warming) || Boolean(detail?.recovering) || detail?.readyForLeases === false;
+  const maintenanceBlockedTitle = detail?.recovering
+    ? "ThreadPool 正在恢复，维护操作暂不可用"
+    : detail?.warming
+      ? "ThreadPool 正在 warming，维护操作暂不可用"
     : detail?.readyForLeases === false
-      ? "ThreadPool 当前未 ready，维护操作暂不可用"
-      : undefined;
+        ? "ThreadPool 当前未 ready，维护操作暂不可用"
+        : undefined;
 
   useEffect(() => {
     if (!conversationThreadId) {

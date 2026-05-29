@@ -4,6 +4,7 @@ function buildThreadPoolStatusDetail(status) {
       role: status.role,
       readyForLeases: Boolean(status.readyForLeases),
       canAcquire: Boolean(status.canAcquire),
+      recovering: Boolean(status.recovering),
       warming: Boolean(status.warming),
       warmupDetail: status.warmupDetail ?? null,
       warmupError: status.warmupError ?? null,
@@ -52,11 +53,20 @@ async function fallbackEnsureRoleReady(threadPool, role) {
       detail: buildThreadPoolStatusDetail(status),
     };
   }
-  if (status.startupError || status.warmupError || !status.readyForLeases) {
+  if (status.recovering || !status.readyForLeases) {
+    return {
+      ok: false,
+      error: "threadpool_warming",
+      message: status.recovering ? "ThreadPool 正在恢复，请稍后再试" : "ThreadPool 正在 warming，请稍后再试",
+      retryable: true,
+      detail: buildThreadPoolStatusDetail(status),
+    };
+  }
+  if (status.startupError || status.warmupError) {
     return {
       ok: false,
       error: "threadpool_acquire_failed",
-      message: String(status.startupError || status.warmupError || "ThreadPool 当前未 ready，请稍后再试").slice(0, 240),
+      message: String(status.startupError || status.warmupError).slice(0, 240),
       retryable: true,
       detail: buildThreadPoolStatusDetail(status),
     };

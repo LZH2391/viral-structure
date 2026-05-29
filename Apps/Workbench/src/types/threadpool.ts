@@ -18,6 +18,8 @@ export type ThreadPoolRoleSummary = {
   leased: number;
   seedThreadId?: string | null;
   canAcquire: boolean;
+  readyForLeases?: boolean;
+  recovering?: boolean;
   warming?: boolean;
   replenishing?: boolean;
   seedMissing?: boolean;

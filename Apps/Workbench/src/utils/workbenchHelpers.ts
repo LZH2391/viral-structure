@@ -372,7 +372,14 @@ function resolveSingleShotBoundaryGuard(status: ThreadPoolRoleDetail | null | un
   }
   if (status.startupError) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：${status.startupError}`, disabled: true };
   if (status.warmupError) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：${status.warmupError}`, disabled: true };
-  if (!status.readyForLeases) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：ThreadPool 当前未 ready，请稍后再试`, disabled: true };
+  if (status.recovering || !status.readyForLeases) {
+    return {
+      state: "warming",
+      buttonLabel: status.recovering ? "recovering" : "warming",
+      message: status.recovering ? `${label} 正在恢复，请稍后再试` : `${label} 正在 warming，请稍后再试`,
+      disabled: false,
+    };
+  }
   if (!status.canAcquire) return { state: "blocked", buttonLabel: "不可用", message: `${label} 不可用：ThreadPool 当前不可获取 lease，请稍后再试`, disabled: true };
   return { state: "ready", buttonLabel: "运行", message: null, disabled: false };
 }

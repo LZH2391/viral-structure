@@ -113,6 +113,17 @@ function createThreadPoolProxy({
         detail: summarizeReadinessDetail(status),
       };
     }
+    if (status.recovering || !status.readyForLeases) {
+      return {
+        ok: false,
+        unavailable: false,
+        error: "threadpool_warming",
+        message: status.recovering ? "ThreadPool 正在恢复，请稍后再试" : "ThreadPool 正在 warming，请稍后再试",
+        role: status.role,
+        retryable: true,
+        detail: summarizeReadinessDetail(status),
+      };
+    }
     return { ok: true, role: status.role, status };
   }
 
@@ -488,6 +499,8 @@ function summarizeRoleStatus(status) {
     leased: status.counts.leased,
     seedThreadId: status.seedThreadId,
     canAcquire: status.canAcquire,
+    readyForLeases: status.readyForLeases,
+    recovering: status.recovering,
     warming: status.warming,
     replenishing: status.replenishing,
     seedMissing: status.seedMissing,
@@ -540,7 +553,6 @@ function unavailablePayload(error) {
 function readinessBlockedReason(status) {
   if (status.startupError) return String(status.startupError).slice(0, 240);
   if (status.warmupError) return String(status.warmupError).slice(0, 240);
-  if (!status.readyForLeases) return "ThreadPool 当前未 ready，请稍后再试";
   return null;
 }
 
@@ -549,6 +561,7 @@ function summarizeReadinessDetail(status) {
     role: status.role,
     readyForLeases: Boolean(status.readyForLeases),
     canAcquire: Boolean(status.canAcquire),
+    recovering: Boolean(status.recovering),
     warming: Boolean(status.warming),
     seedMissing: Boolean(status.seedMissing),
     warmupDetail: status.warmupDetail ?? null,
