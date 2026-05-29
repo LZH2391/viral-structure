@@ -37,6 +37,7 @@ function createImageGenerationModuleDefinition() {
       sampleVideoId,
       prompt: body.prompt,
       storyboardPromptFile: body.storyboardPromptFile,
+      referenceImagePath: body.referenceImagePath,
       storyboard: body.storyboard,
       groupId: body.groupId,
       selectedShots: Array.isArray(body.selectedShots) ? body.selectedShots : [],

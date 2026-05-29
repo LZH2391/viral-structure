@@ -218,11 +218,14 @@ def replace_table_rows(section_body: str, table: dict[str, Any], rows: list[dict
 def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str | None], group_size: int, source_path: Path) -> str:
     ratio = aspect.get("ratio") or "未明确"
     orientation = aspect.get("orientation") or "未明确"
+    reference_image_path = layout_reference_image_path(aspect)
     lines = [
         "# Shot Storyboard Prompts",
         "",
         f"来源：`{source_path}`",
         f"画幅：{ratio} {orientation}".strip(),
+        f"referenceImagePath: {reference_image_path}" if reference_image_path else "referenceImagePath: 未明确",
+        "参考图说明：参考此四格布局图在对应位置绘制四个镜头；不要生成红线、image1/image2/image3/image4 标签、参考图文字或占位线。",
         "",
     ]
     for group_index, start in enumerate(range(0, len(rows), group_size), 1):
@@ -231,6 +234,8 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
             f"## Storyboard Group {group_index:02d}",
             "",
             f"以故事板呈现以下镜头，比例为{ratio}，{orientation}。",
+            f"referenceImagePath: {reference_image_path}" if reference_image_path else "referenceImagePath: 未明确",
+            "参考图说明：只参考四格位置安排；最终画面不要出现红线、image1/image2/image3/image4 标签或任何参考图文字。",
             "",
         ])
         for row in group_rows:
@@ -244,6 +249,17 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
                 "",
             ])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def layout_reference_image_path(aspect: dict[str, str | None]) -> str | None:
+    assets_dir = Path(__file__).resolve().parents[1] / "assets"
+    ratio = aspect.get("ratio")
+    orientation = aspect.get("orientation")
+    if ratio == "9:16" or orientation == "竖屏":
+        return str((assets_dir / "storyboard-layout-9x16-4grid.png").resolve())
+    if ratio == "16:9" or orientation == "横屏":
+        return str((assets_dir / "storyboard-layout-16x9-4grid.png").resolve())
+    return None
 
 
 def pad_storyboard_group(rows: list[dict[str, str]], group_size: int, start_index: int) -> list[dict[str, str]]:

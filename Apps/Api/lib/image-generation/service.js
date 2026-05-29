@@ -66,12 +66,14 @@ function createImageGenerationService({
         provider: activeProvider.providerName ?? "pptoken",
         promptChars: prepared.prompt.length,
         groupId: options.groupId ?? null,
+        referenceImage: safeBasename(options.referenceImagePath),
       },
       action: () => activeExecutorRegistry.execute("external-api", {
         providerName: activeProvider.providerName ?? "pptoken",
         provider: activeProvider,
         request: {
           prompt: prepared.prompt,
+          referenceImagePath: options.referenceImagePath,
           size: options.size,
           quality: options.quality,
           background: options.background,
@@ -86,6 +88,7 @@ function createImageGenerationService({
         responseBytes: execution.result?.meta?.responseBytes ?? null,
         durationMs: execution.result?.meta?.durationMs ?? null,
         model: execution.result?.meta?.model ?? null,
+        requestMode: execution.result?.meta?.requestMode ?? null,
       }),
     });
     const images = await runStage(context, STAGES.assetWritten, 80, {
@@ -173,6 +176,7 @@ function createImageGenerationService({
       mode: "storyboard-prompt-file",
       sourceFile: safeBasename(options.storyboardPromptFile),
       aspect: storyboard.aspect,
+      referenceImage: safeBasename(storyboard.referenceImagePath ?? options.referenceImagePath),
       concurrency: storyboardConcurrency,
       timeoutSeconds,
       timeoutBudgetSeconds: Math.ceil(storyboard.groups.length / storyboardConcurrency) * timeoutSeconds,
@@ -183,6 +187,7 @@ function createImageGenerationService({
         status: "pending",
         shotCount: group.shots.length,
         promptChars: group.prompt.length,
+        referenceImage: safeBasename(referenceImageForGroup(group, storyboard, options)),
         imageUris: [],
         errorSummary: null,
       })),
@@ -234,6 +239,7 @@ function createImageGenerationService({
   }
 
   async function runStoryboardGroup(context, options, group, index) {
+    const referenceImagePath = referenceImageForGroup(group, null, options);
     markStoryboardGroup(context, group.groupId, {
       status: "requesting",
       startedAt: new Date().toISOString(),
@@ -250,12 +256,14 @@ function createImageGenerationService({
           promptChars: group.prompt.length,
           shotCount: group.shots.length,
           timeoutSeconds: options.timeoutSeconds ?? 300,
+          referenceImage: safeBasename(referenceImagePath),
         },
         action: () => activeExecutorRegistry.execute("external-api", {
           providerName: activeProvider.providerName ?? "pptoken",
           provider: activeProvider,
           request: {
             prompt: group.prompt,
+            referenceImagePath,
             size: options.size,
             quality: options.quality,
             background: options.background,
@@ -271,6 +279,7 @@ function createImageGenerationService({
           responseBytes: execution.result?.meta?.responseBytes ?? null,
           durationMs: execution.result?.meta?.durationMs ?? null,
           model: execution.result?.meta?.model ?? null,
+          requestMode: execution.result?.meta?.requestMode ?? null,
         }),
       });
       markStoryboardGroup(context, group.groupId, {
@@ -476,6 +485,7 @@ function buildArtifact({ context, options, providerResult, images, promptSummary
     selectedShots: Array.isArray(options.selectedShots) ? options.selectedShots : [],
     promptSummary,
     providerMeta: providerResult.result?.meta ?? null,
+    referenceImage: safeBasename(options.referenceImagePath),
     images: images.map((image) => ({
       index: image.index,
       uri: image.uri,
@@ -513,6 +523,7 @@ function buildStoryboardArtifact({ context, options, storyboard, groupResults, i
       title: group.title,
       shots: group.shots,
       promptChars: group.prompt.length,
+      referenceImage: safeBasename(group.referenceImagePath ?? storyboard.referenceImagePath ?? options.referenceImagePath),
       providerMeta: providerResult.result?.meta ?? null,
       images: groupImages.map((image) => ({
         index: image.index,
@@ -535,10 +546,15 @@ function safeBasename(filePath) {
   return String(filePath).split(/[\\/]/).pop() || null;
 }
 
+function referenceImageForGroup(group, storyboard, options) {
+  return group?.referenceImagePath ?? storyboard?.referenceImagePath ?? options?.referenceImagePath ?? null;
+}
+
 function normalizeConcurrency(value, groupCount) {
-  const parsed = Number(value ?? 2);
-  if (!Number.isFinite(parsed) || parsed <= 0) return Math.min(2, Math.max(1, groupCount));
-  return Math.max(1, Math.min(Math.floor(parsed), Math.max(1, groupCount)));
+  const maxConcurrency = 10;
+  const parsed = Number(value ?? maxConcurrency);
+  if (!Number.isFinite(parsed) || parsed <= 0) return Math.min(maxConcurrency, Math.max(1, groupCount));
+  return Math.max(1, Math.min(Math.floor(parsed), maxConcurrency, Math.max(1, groupCount)));
 }
 
 async function runWithConcurrency(items, concurrency, worker) {

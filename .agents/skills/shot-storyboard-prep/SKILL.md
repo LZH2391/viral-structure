@@ -15,6 +15,7 @@ description: 从 function-slot-restructure 的 restructure.final.md 中提取第
 - 生成一个额外故事板 Markdown，默认每 4 个 shot 一组。
 - 每个 shot 只提取 `imagePrompt = 分镜画面` 与 `overlayPackaging = 包装说明`；预计时长只回填原文 Shot 表，不写入故事板 Markdown。
 - 最后一组不足 4 镜头时，补纯白占位镜头，保证每组仍是 4 格故事板；占位镜头不回写原文。
+- 故事板 Markdown 必须写入四格参考布局图路径：横屏用 `assets/storyboard-layout-16x9-4grid.png`，竖屏用 `assets/storyboard-layout-9x16-4grid.png`；提示模型只参考四格位置，不要生成红线、`image1-4` 标签或参考图文字。
 - 需要生图时，把生成的 `shot-storyboard-prompts.md` 作为 `image-generation` 模块的 `storyboardPromptFile` 输入；不要再手动拆组调用 PPAPI。
 
 ## 使用脚本
@@ -41,6 +42,14 @@ python .agents/skills/shot-storyboard-prep/scripts/build_image_generation_payloa
 
 该脚本只输出 JSON，不发起生图。
 
+如需直接运行故事板生图：
+
+```powershell
+node .agents/skills/shot-storyboard-prep/scripts/run_image_generation_storyboard.js --storyboard-prompt-file <shot-storyboard-prompts.md> --sample-video-id <sampleVideoId> --parent-artifact-id <artifactId>
+```
+
+默认每组最多 10 并发，单组超时 `450s`。脚本会等待 job 完成并输出 artifact/images 摘要。
+
 ## 接入 image-generation
 
 `image-generation` 已支持直接读取故事板 prompt 文件。模块调用体使用：
@@ -49,7 +58,8 @@ python .agents/skills/shot-storyboard-prep/scripts/build_image_generation_payloa
 {
   "sampleVideoId": "sample_1",
   "storyboardPromptFile": "C:/.../shot-storyboard-prompts.md",
-  "parentArtifactId": "artifact_parent"
+  "parentArtifactId": "artifact_parent",
+  "timeoutSeconds": 450
 }
 ```
 
@@ -61,7 +71,8 @@ await moduleRegistry.startModule({
   sampleVideoId,
   body: {
     storyboardPromptFile,
-    parentArtifactId
+    parentArtifactId,
+    timeoutSeconds: 450
   }
 });
 ```
@@ -76,6 +87,7 @@ await moduleRegistry.startModule({
   - `- imagePrompt: ...`
   - `- overlayPackaging: ...`
 - 每组固定 4 个镜头；如果原始 shot 数不能整除 4，最后一组用 `storyboard_blank_pad_XX` 补齐，`imagePrompt` 写纯白空白画面，`overlayPackaging` 写无。
+- 每组写 `referenceImagePath`，供 `image-generation` 走 `/images/edits` 上传参考图。
 - 画幅从原文中提取；优先识别 `9:16`、`16:9`、`竖屏`、`横屏`、`竖版`、`横版`。找不到时写 `未明确`，不要猜。
 - 生图底图和包装覆盖层要分开保存；不要额外发明 `combinedStoryboardPrompt` 字段。
 
