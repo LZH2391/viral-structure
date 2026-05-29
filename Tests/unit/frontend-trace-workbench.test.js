@@ -373,6 +373,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns\/\$\{encodeURIComponent\(turnId\)\}\/timeline/);
   assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
   assert.match(chat, /ThreadPool Role Fork/);
+  assert.match(chat, /useResizableTwoPaneLayout/);
+  assert.match(chat, /agent-chat:layout/);
+  assert.match(chat, /SplitResizeHandle/);
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);
   assert.match(chat, /canConfirmRestructure/);
@@ -388,6 +391,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /event\.preventDefault\(\)/);
   assert.match(chat, /agent-chat-timeline/);
   assert.match(css, /\.agent-chat-layout/);
-  assert.match(css, /grid-template-columns: minmax\(480px, 1fr\) 360px/);
+  assert.match(css, /--agent-chat-main-width/);
+  assert.match(css, /grid-template-columns: minmax\(420px, var\(--agent-chat-main-width, 720px\)\) 6px minmax\(320px, 1fr\)/);
+  assert.match(css, /\.agent-chat-resizer/);
+  assert.match(css, /\.agent-chat-timeline \{[\s\S]*height: 100%/);
   assert.match(styles, /agent-chat\.css/);
 });

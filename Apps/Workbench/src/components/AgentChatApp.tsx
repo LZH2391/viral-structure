@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentTurnTimeline, ThreadPoolRoleSummary } from "../types";
+import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
 import { shortId } from "../utils/format";
+import { SplitResizeHandle } from "./SplitResizeHandle";
 
 type ChatMode = "direct" | "threadpool-role";
 type ChatMessage = {
@@ -26,7 +28,17 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const layout = useResizableTwoPaneLayout({
+    containerRef: layoutRef,
+    storageKey: "agent-chat:layout",
+    cssVar: "--agent-chat-main-width",
+    defaultLeft: 720,
+    minLeft: 420,
+    maxLeft: 1120,
+    minRight: 320,
+  });
 
   useEffect(() => {
     void getThreadPoolRoles()
@@ -175,7 +187,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
-      <main className="agent-chat-layout">
+      <main ref={layoutRef} className="agent-chat-layout">
         <section className="agent-chat-main" aria-label="Agent 对话">
           <header className="agent-chat-toolbar">
             <div>
@@ -193,11 +205,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 </select>
               ) : null}
               {session?.role === "function-slot-restructure" ? (
-                <button type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
+                <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
                   {confirming ? "确认中" : "确认此方案"}
                 </button>
               ) : null}
-              {session?.leaseId ? <button type="button" onClick={handleRelease}>释放</button> : null}
+              {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" onClick={handleRelease}>释放</button> : null}
             </div>
           </header>
           <div className="agent-chat-meta">
@@ -233,6 +245,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             </button>
           </form>
         </section>
+        <SplitResizeHandle
+          className="workspace-resize-handle agent-chat-resizer"
+          label="调整 Agent 对话和 Timeline 宽度"
+          orientation="vertical"
+          onResizeStart={layout.startResize}
+          onReset={layout.resetSize}
+          onNudge={layout.nudgeSize}
+        />
         <aside className="agent-chat-timeline" aria-label="Agent timeline">
           <div className="section-heading">Timeline</div>
           <TimelineView timeline={timeline} />
