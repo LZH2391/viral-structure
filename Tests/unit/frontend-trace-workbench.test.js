@@ -272,9 +272,10 @@ test("audio feature display keeps only sfx candidate markers", () => {
 test("upload options and optional media tracks are visible in workbench UI", () => {
   const root = path.resolve(__dirname, "../..");
   const resource = read(root, "Apps/Workbench/src/components/ResourcePanel.tsx");
+  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
+  const workflowCards = read(root, "Apps/Workbench/src/components/FunctionSlotWorkflowCards.tsx");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const timeline = read(root, "Apps/Workbench/src/components/TimelinePanel.tsx");
-  const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const agentRunPanel = read(root, "Apps/Workbench/src/components/property-panel/AgentRunPanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const propertyCss = readPropertyPanelCss(root);
@@ -293,6 +294,20 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(api, /enableAudioFeatureAnalysis/);
   assert.match(resource, /enableAudioSeparationInput/);
   assert.match(resource, /enableAudioFeatureAnalysisInput/);
+  assert.doesNotMatch(resource, /FunctionSlotWorkflowCards/);
+  assert.match(property, /FunctionSlotWorkflowCards/);
+  assert.match(property, /semanticGovernance/);
+  assert.match(property, /storyboardPrep/);
+  assert.match(property, /语义治理/);
+  assert.match(property, /结构重组/);
+  assert.match(workflowCards, /agent-summary-card/);
+  assert.match(workflowCards, /agent-status-badge/);
+  assert.match(workflowCards, /agent-latest-activity/);
+  assert.match(workflowCards, /语义治理/);
+  assert.match(workflowCards, /结构重组/);
+  assert.match(workflowCards, /Shot Storyboard Prep/);
+  assert.match(workflowCards, /startFunctionSlotWorkflowPlaceholder/);
+  assert.match(api, /\/api\/function-slot-workflow\/\$\{encodeURIComponent\(workflowKey\)\}\/run/);
   assert.match(resource, /DOUBAO_Api_App_Key/);
   assert.match(timeline, /id="subtitleTrack"/);
   assert.match(timeline, /audioSeparation/);

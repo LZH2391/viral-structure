@@ -165,6 +165,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "POST" && /^\/api\/function-slot-workflow\/[^/]+\/run$/.test(url.pathname)) return await handleFunctionSlotWorkflowPlaceholder(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
@@ -346,6 +347,31 @@ async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {
   const result = await service.deleteLibraryItem(artifactId);
   if (!result) return notFound(res);
   return sendJson(res, 200, result);
+}
+
+async function handleFunctionSlotWorkflowPlaceholder(req, res, workflowKey, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const moduleId = resolveFunctionSlotWorkflowModuleId(workflowKey);
+  if (!moduleId) {
+    return sendJson(res, 404, {
+      error: "function_slot_workflow_placeholder_not_found",
+      code: "function_slot_workflow_placeholder_not_found",
+      message: "未知功能槽位工作流占位入口",
+    });
+  }
+  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({
+    moduleId,
+    sampleVideoId: body.sampleVideoId ?? "function-slot-workflow",
+    body,
+  });
+  return sendJson(res, 202, result);
+}
+
+function resolveFunctionSlotWorkflowModuleId(workflowKey) {
+  if (workflowKey === "semantic-governance") return "function-slot-semantic-governance";
+  if (workflowKey === "restructure") return "function-slot-restructure";
+  if (workflowKey === "shot-storyboard-prep") return "shot-storyboard-prep";
+  return null;
 }
 
 async function handleFunctionSlotAtomizationManualBoundaryEdit(req, res, sampleVideoId, handlers = {}) {

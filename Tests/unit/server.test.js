@@ -533,6 +533,9 @@ test("modules endpoint returns public module descriptors only", async () => {
     const sample = response.body.modules.find((entry) => entry.moduleId === "sample-ingest");
     const shot = response.body.modules.find((entry) => entry.moduleId === "shot-boundary");
     const module = response.body.modules.find((entry) => entry.moduleId === "script-segments");
+    const governance = response.body.modules.find((entry) => entry.moduleId === "function-slot-semantic-governance");
+    const restructure = response.body.modules.find((entry) => entry.moduleId === "function-slot-restructure");
+    const storyboardPrep = response.body.modules.find((entry) => entry.moduleId === "shot-storyboard-prep");
     assert.equal(sample.moduleKind, "sample-ingest");
     assert.equal(sample.artifactKey, "sampleVideo");
     assert.equal(shot.moduleKind, "sample-understanding");
@@ -541,9 +544,61 @@ test("modules endpoint returns public module descriptors only", async () => {
     assert.equal(module.artifactKey, "scriptSegmentAnalysis");
     assert.equal(module.cacheKind, "script_segment");
     assert.equal(module.executorKind, "role-service");
+    assert.equal(governance.moduleKind, "function-slot-workflow");
+    assert.equal(governance.artifactType, "function-slot-semantic-governance-placeholder");
+    assert.equal(governance.ui.placeholder, true);
+    assert.equal(restructure.artifactType, "function-slot-restructure-placeholder");
+    assert.equal(storyboardPrep.artifactType, "shot-storyboard-prep-placeholder");
     assert.equal(module.skillPath, undefined);
     assert.equal(module.createService, undefined);
     assert.equal(module.serviceKey, undefined);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("function slot workflow placeholder route returns traceable job", async () => {
+  const calls = [];
+  const server = createServer({
+    moduleRegistry: {
+      startModule: async (payload) => {
+        calls.push(payload);
+        return {
+          processingJobId: "job_placeholder",
+          sampleVideoId: payload.sampleVideoId,
+          traceId: "trace_placeholder",
+          runId: "run_placeholder",
+          stageId: "stage_placeholder",
+          artifactId: "artifact_placeholder",
+          parentArtifactId: payload.body.parentArtifactId ?? null,
+          status: "placeholder",
+          message: "占位任务完成",
+        };
+      },
+      list: () => [],
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/restructure/run", {
+      sampleVideoId: "sample_1",
+      parentArtifactId: "artifact_parent",
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.status, "placeholder");
+    assert.equal(response.body.traceId, "trace_placeholder");
+    assert.deepEqual(calls, [{
+      moduleId: "function-slot-restructure",
+      sampleVideoId: "sample_1",
+      body: {
+        sampleVideoId: "sample_1",
+        parentArtifactId: "artifact_parent",
+      },
+    }]);
   } finally {
     await closeServer(server);
   }

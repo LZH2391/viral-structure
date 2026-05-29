@@ -1,0 +1,15 @@
+{
+  "role": "shot-storyboard-prep",
+  "profileVersion": "2026-05-29.placeholder.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-storyboard-prep/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "prepareStoryboard": {
+      "template": "prompts/prepare-storyboard.placeholder.v1.md",
+      "version": "prepare-storyboard.placeholder.v1"
+    }
+  }
+}

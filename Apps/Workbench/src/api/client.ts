@@ -21,6 +21,18 @@ export type RhythmStructureStartResponse = AnalysisStartResponse;
 export type PackagingStructureStartResponse = AnalysisStartResponse;
 export type FunctionSlotAtomizationStartResponse = AnalysisStartResponse;
 
+export type FunctionSlotWorkflowPlaceholderResponse = {
+  processingJobId: string;
+  sampleVideoId: string;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  status: "placeholder";
+  message: string;
+};
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -300,6 +312,19 @@ export async function getFunctionSlotLibraryGraph(artifactId: string) {
 
 export async function getFunctionSlotGovernanceGraph() {
   return readJsonResponse<FunctionSlotLibraryGraph>(await fetch(`${API_BASE_URL}/api/function-slot-library/governance/graph`, { cache: "no-store" }));
+}
+
+export async function startFunctionSlotWorkflowPlaceholder(
+  workflowKey: "semantic-governance" | "restructure" | "shot-storyboard-prep",
+  payload: { sampleVideoId?: string | null; parentArtifactId?: string | null } = {},
+) {
+  return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-workflow/${encodeURIComponent(workflowKey)}/run`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export async function getLibraryItemDetail(sampleVideoId: string) {

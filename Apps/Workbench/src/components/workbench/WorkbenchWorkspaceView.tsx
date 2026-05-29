@@ -225,6 +225,7 @@ export function WorkbenchWorkspaceView({
           setSaveStatus(error instanceof Error ? error.message : "原子化手动修正失败");
           throw error;
         })}
+        onFunctionSlotWorkflowStatus={setSaveStatus}
         onSelectScriptSegment={handleSelectTimelineTime}
         onSelectRhythmCard={handleSelectTimelineTime}
         onSelectPackagingBlock={handleSelectTimelineTime}

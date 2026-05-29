@@ -5,6 +5,11 @@ const { createRhythmStructureAnalysisDefinition } = require("../rhythm-structure
 const { createPackagingStructureAnalysisDefinition } = require("../packaging-structure/analysis-definition");
 const { createFunctionSlotAtomizationAnalysisDefinition } = require("../function-slot-atomization/analysis-definition");
 const { createImageGenerationModuleDefinition } = require("../image-generation/module-definition");
+const {
+  createFunctionSlotSemanticGovernanceModuleDefinition,
+  createFunctionSlotRestructureModuleDefinition,
+  createShotStoryboardPrepModuleDefinition,
+} = require("../function-slot-workflow/module-definitions");
 
 const MODULE_DEFINITIONS = [
   createSampleIngestModuleDefinition(),
@@ -13,6 +18,9 @@ const MODULE_DEFINITIONS = [
   createRhythmStructureAnalysisDefinition(),
   createPackagingStructureAnalysisDefinition(),
   createFunctionSlotAtomizationAnalysisDefinition(),
+  createFunctionSlotSemanticGovernanceModuleDefinition(),
+  createFunctionSlotRestructureModuleDefinition(),
+  createShotStoryboardPrepModuleDefinition(),
   createImageGenerationModuleDefinition(),
 ];
 

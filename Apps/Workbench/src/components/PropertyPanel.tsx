@@ -24,8 +24,9 @@ import { PackagingStructurePanel } from "./property-panel/PackagingStructurePane
 import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 import { FunctionSlotAtomizationPanel } from "./property-panel/FunctionSlotAtomizationPanel";
+import { FunctionSlotWorkflowCards } from "./FunctionSlotWorkflowCards";
 
-export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "meta";
+export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "semanticGovernance" | "restructure" | "storyboardPrep" | "meta";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -73,6 +74,7 @@ export type PropertyPanelProps = {
   onRunPackagingStructure: () => void;
   onRunFunctionSlotAtomization: () => void;
   onManualFunctionSlotBoundaryEdit: (editedJsonText: string) => Promise<void>;
+  onFunctionSlotWorkflowStatus?: (message: string) => void;
   onSelectShot: (time: number) => void;
   onSelectScriptSegment: (time: number) => void;
   onSelectRhythmCard: (time: number) => void;
@@ -159,6 +161,33 @@ export function PropertyPanel(props: PropertyPanelProps) {
             原子化
           </button>
           <button
+            className={`property-tab ${activeTab === "semanticGovernance" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "semanticGovernance"}
+            onClick={() => setActiveTab("semanticGovernance")}
+          >
+            语义治理
+          </button>
+          <button
+            className={`property-tab ${activeTab === "restructure" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "restructure"}
+            onClick={() => setActiveTab("restructure")}
+          >
+            结构重组
+          </button>
+          <button
+            className={`property-tab ${activeTab === "storyboardPrep" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "storyboardPrep"}
+            onClick={() => setActiveTab("storyboardPrep")}
+          >
+            故事板
+          </button>
+          <button
             className={`property-tab ${activeTab === "meta" ? "active" : ""}`}
             type="button"
             role="tab"
@@ -216,6 +245,27 @@ export function PropertyPanel(props: PropertyPanelProps) {
             hasRequiredInputs={Boolean(props.scriptSegmentAnalysis && props.rhythmStructureAnalysis && props.packagingStructureAnalysis)}
             onRun={props.onRunFunctionSlotAtomization}
             onManualBoundaryEdit={props.onManualFunctionSlotBoundaryEdit}
+          />
+        ) : activeTab === "semanticGovernance" ? (
+          <FunctionSlotWorkflowCards
+            workflowKey="semantic-governance"
+            sampleVideoId={props.sampleVideo?.id ?? null}
+            parentArtifactId={props.functionSlotAtomizationAnalysis?.artifactId ?? props.sampleVideo?.artifactId ?? null}
+            onStatusChange={props.onFunctionSlotWorkflowStatus}
+          />
+        ) : activeTab === "restructure" ? (
+          <FunctionSlotWorkflowCards
+            workflowKey="restructure"
+            sampleVideoId={props.sampleVideo?.id ?? null}
+            parentArtifactId={props.functionSlotAtomizationAnalysis?.artifactId ?? props.sampleVideo?.artifactId ?? null}
+            onStatusChange={props.onFunctionSlotWorkflowStatus}
+          />
+        ) : activeTab === "storyboardPrep" ? (
+          <FunctionSlotWorkflowCards
+            workflowKey="shot-storyboard-prep"
+            sampleVideoId={props.sampleVideo?.id ?? null}
+            parentArtifactId={props.functionSlotAtomizationAnalysis?.artifactId ?? props.sampleVideo?.artifactId ?? null}
+            onStatusChange={props.onFunctionSlotWorkflowStatus}
           />
         ) : (
           <MetaInfoPanel
