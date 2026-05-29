@@ -35,6 +35,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const creatingDraftConversationRef = useRef(false);
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: "agent-chat:layout",
@@ -135,7 +136,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     void refreshConversations()
       .then((items) => {
-        if (!items.length) return;
+        if (!items.length || creatingDraftConversationRef.current) return;
         const first = items[0];
         setActiveConversationId((current) => current || first.conversationId);
         if (!session && !messages.length) void handleResumeConversation(first.conversationId);
@@ -157,6 +158,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!nextSession.ok || !nextSession.threadId) throw new Error(nextSession.message || "Agent 会话创建失败");
     setSession(nextSession);
     if (nextSession.conversationId) {
+      creatingDraftConversationRef.current = false;
       setActiveConversationId(nextSession.conversationId);
       setActiveConversationRevision(nextSession.conversationRevision ?? activeConversationRevision);
       setActiveConversationInvalidated(false);
@@ -241,6 +243,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, [activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
 
   const handleResumeConversation = useCallback(async (conversationId: string) => {
+    creatingDraftConversationRef.current = false;
     setStatusText("恢复重组会话");
     setErrorText(null);
     try {
@@ -253,7 +256,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setErrorText(message);
       setStatusText("恢复失败");
     }
-  }, []);
+  }, [applyConversation]);
 
   const handleArchiveConversation = useCallback(async () => {
     if (!activeConversationId) return;
@@ -279,14 +282,21 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, [activeConversationId, activeConversationRevision, refreshConversations]);
 
   const startNewConversation = useCallback(() => {
+    creatingDraftConversationRef.current = true;
+    if (pollTimerRef.current) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
     setSession(null);
     setMessages([]);
+    setDraft("");
     setCurrentTurnId(null);
     setTimeline(null);
     setActiveConversationId(null);
     setActiveConversationRevision(null);
     setActiveConversationInvalidated(false);
     setActiveConversationConfirmedPlan(null);
+    setErrorText(null);
     setMode("threadpool-role");
     setSelectedRole((current) => current || "function-slot-restructure");
     setStatusText("新重组会话");
