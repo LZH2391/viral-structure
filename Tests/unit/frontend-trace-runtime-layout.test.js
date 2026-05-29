@@ -28,6 +28,7 @@ test("rhythm and packaging structure skills are registered as independent analyz
   assert.match(roles, /packaging-structure-analyzer/);
   assert.match(roles, /function-slot-library-builder/);
   assert.match(roles, /function-slot-restructure/);
+  assert.match(roles, /function-slot-restructure-display-transformer/);
   assert.match(roles, /shot-storyboard-prep/);
   assert.match(server, /rhythm-structure/);
   assert.match(server, /packaging-structure/);

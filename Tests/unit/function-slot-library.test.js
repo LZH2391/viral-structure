@@ -221,6 +221,47 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
   }
 });
 
+test("restructure display transform auto-run requires confirmed restructure source", async () => {
+  const calls = [];
+  const server = createServer({
+    moduleRegistry: {
+      startModule: async (payload) => {
+        calls.push(payload);
+        return { processingJobId: "job_display", sampleVideoId: payload.sampleVideoId, traceId: "trace_display", status: "placeholder" };
+      },
+      list: () => [],
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const missing = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", { sampleVideoId: "sample_1" });
+    assert.equal(missing.statusCode, 400);
+    assert.equal(missing.body.code, "restructure_display_transform_restructure_required");
+
+    const response = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
+      sampleVideoId: "sample_1",
+      restructureArtifactId: "artifact_restructure",
+    });
+    assert.equal(response.statusCode, 202);
+    assert.deepEqual(calls[0], {
+      moduleId: "function-slot-restructure-display-transformer",
+      sampleVideoId: "sample_1",
+      body: {
+        sampleVideoId: "sample_1",
+        restructureArtifactId: "artifact_restructure",
+        parentArtifactId: "artifact_restructure",
+        trigger: "restructure-confirmed",
+        autoRun: true,
+      },
+    });
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot library API exposes semantic governance graph route", async () => {
   const server = createServer({
     functionSlotLibraryService: {

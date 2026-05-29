@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+import { autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentTurnTimeline, ThreadPoolRoleSummary } from "../types";
 import { shortId } from "../utils/format";
 
@@ -146,20 +146,24 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
     setConfirming(true);
     setErrorText(null);
-    setStatusText("确认方案并触发故事板准备");
+    setStatusText("确认方案并触发展示转换/故事板准备");
     try {
-      const result = await autoRunShotStoryboardPrep({
+      const payload = {
         sampleVideoId: "function-slot-workflow",
         restructureArtifactId: currentTurnId,
         parentArtifactId: currentTurnId,
-      });
+      };
+      const [displayResult, storyboardResult] = await Promise.all([
+        autoRunRestructureDisplayTransform(payload),
+        autoRunShotStoryboardPrep(payload),
+      ]);
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
-        text: `已确认当前方案，已触发 Shot Storyboard Prep：trace ${shortId(result.traceId)} / artifact ${shortId(result.artifactId)}`,
+        text: `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`,
         status: "completed",
       }]);
-      setStatusText("已触发故事板准备");
+      setStatusText("已触发展示转换/故事板准备");
     } catch (error) {
       const message = error instanceof Error ? error.message : "确认方案失败";
       setErrorText(message);

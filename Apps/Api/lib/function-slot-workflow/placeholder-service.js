@@ -46,6 +46,20 @@ const MODULES = {
       targetArtifact: "Artifacts/FunctionSlotRestructure/<runId>/shot-storyboard-prompts.md",
     },
   },
+  "function-slot-restructure-display-transformer": {
+    moduleId: "function-slot-restructure-display-transformer",
+    stageName: "function.slot.restructure_display_transform.placeholder",
+    artifactType: "function-slot-restructure-display-placeholder",
+    artifactDir: "function-slot-restructure-display",
+    displayName: "结构展示转换",
+    role: "function-slot-restructure-display-transformer",
+    skillName: "function-slot-restructure-display-transformer",
+    placeholderPrompt: "占位：后续从 restructure.final.md 提取第 1、2、3、5、6、7 节并转换为前端展示 JSON。",
+    outputSummary: {
+      status: "placeholder",
+      targetArtifact: "Artifacts/FunctionSlotRestructure/<runId>/restructure.display.json",
+    },
+  },
 };
 
 function createFunctionSlotWorkflowPlaceholderService({ store, logger, jobStore, now = () => new Date().toISOString() } = {}) {

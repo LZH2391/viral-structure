@@ -441,8 +441,18 @@ export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: strin
   );
 }
 
+export async function autoRunRestructureDisplayTransform(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null } = {}) {
+  return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-workflow/restructure-display-transform/auto-run`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export async function startFunctionSlotWorkflowPlaceholder(
-  workflowKey: "semantic-governance" | "restructure" | "shot-storyboard-prep",
+  workflowKey: "semantic-governance" | "restructure" | "restructure-display-transform" | "shot-storyboard-prep",
   payload: { sampleVideoId?: string | null; parentArtifactId?: string | null } = {},
 ) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(

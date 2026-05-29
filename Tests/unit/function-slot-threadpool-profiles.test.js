@@ -17,6 +17,11 @@ const ROLES = [
     chatOnly: true,
   },
   {
+    role: "function-slot-restructure-display-transformer",
+    templateId: "transform",
+    skill: "function-slot-restructure-display-transformer",
+  },
+  {
     role: "shot-storyboard-prep",
     templateId: "prepareStoryboard",
     skill: "shot-storyboard-prep",
@@ -49,6 +54,10 @@ test("function slot placeholder role profiles load init and task prompts", async
     if (item.role === "shot-storyboard-prep") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
+    } else if (item.role === "function-slot-restructure-display-transformer") {
+      assert.match(rendered.text, /后处理任务/);
+      assert.match(rendered.text, /restructure\.final\.md/);
+      assert.match(rendered.text, /第 1、2、3、5、6、7 节/);
     } else {
       assert.match(rendered.text, /ThreadPool 占位任务/);
       assert.match(rendered.text, /占位语义/);

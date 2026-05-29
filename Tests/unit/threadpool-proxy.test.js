@@ -252,6 +252,7 @@ test("threadpool proxy default allowlist follows thread role config", () => {
     "function-slot-atomization-boundary-reviewer",
     "function-slot-library-builder",
     "function-slot-restructure",
+    "function-slot-restructure-display-transformer",
     "shot-storyboard-prep",
     "shot-boundary-raw-analyzer",
     "shot-boundary-transformer",

@@ -7,6 +7,7 @@ const { createFunctionSlotAtomizationAnalysisDefinition } = require("../function
 const { createImageGenerationModuleDefinition } = require("../image-generation/module-definition");
 const {
   createFunctionSlotSemanticGovernanceModuleDefinition,
+  createFunctionSlotRestructureDisplayTransformModuleDefinition,
   createFunctionSlotRestructureModuleDefinition,
   createShotStoryboardPrepModuleDefinition,
 } = require("../function-slot-workflow/module-definitions");
@@ -20,6 +21,7 @@ const MODULE_DEFINITIONS = [
   createFunctionSlotAtomizationAnalysisDefinition(),
   createFunctionSlotSemanticGovernanceModuleDefinition(),
   createFunctionSlotRestructureModuleDefinition(),
+  createFunctionSlotRestructureDisplayTransformModuleDefinition(),
   createShotStoryboardPrepModuleDefinition(),
   createImageGenerationModuleDefinition(),
 ];

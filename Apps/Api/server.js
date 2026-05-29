@@ -176,6 +176,7 @@ function createServer(deps = {}) {
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-workflow\/[^/]+\/run$/.test(url.pathname)) return await handleFunctionSlotWorkflowPlaceholder(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-workflow/restructure-display-transform/auto-run") return await handleRestructureDisplayTransformAutoRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/function-slot-workflow/storyboard-prep/auto-run") return await handleStoryboardPrepAutoRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threads") return await handleAgentChatThreadStart(req, res, handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns$/.test(url.pathname)) return await handleAgentChatTurnSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -378,6 +379,30 @@ async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
   return sendJson(res, 202, result);
 }
 
+async function handleRestructureDisplayTransformAutoRun(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const sampleVideoId = body.sampleVideoId ?? "function-slot-workflow";
+  const parentArtifactId = body.parentArtifactId ?? body.restructureArtifactId ?? null;
+  if (!body.restructureFinalPath && !parentArtifactId) {
+    return sendJson(res, 400, {
+      error: "restructure_display_transform_restructure_required",
+      code: "restructure_display_transform_restructure_required",
+      message: "需要 restructureFinalPath 或 restructureArtifactId",
+    });
+  }
+  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({
+    moduleId: "function-slot-restructure-display-transformer",
+    sampleVideoId,
+    body: {
+      ...body,
+      parentArtifactId,
+      trigger: "restructure-confirmed",
+      autoRun: true,
+    },
+  });
+  return sendJson(res, 202, result);
+}
+
 async function handleFunctionSlotLibraryProject(res, artifactId, handlers = {}) {
   const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
   const result = await service.projectLibraryArtifact(artifactId);
@@ -427,6 +452,7 @@ async function handleFunctionSlotWorkflowPlaceholder(req, res, workflowKey, hand
 function resolveFunctionSlotWorkflowModuleId(workflowKey) {
   if (workflowKey === "semantic-governance") return "function-slot-semantic-governance";
   if (workflowKey === "restructure") return "function-slot-restructure";
+  if (workflowKey === "restructure-display-transform") return "function-slot-restructure-display-transformer";
   if (workflowKey === "shot-storyboard-prep") return "shot-storyboard-prep";
   return null;
 }

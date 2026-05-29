@@ -25,6 +25,14 @@ function createShotStoryboardPrepModuleDefinition() {
   });
 }
 
+function createFunctionSlotRestructureDisplayTransformModuleDefinition() {
+  return createPlaceholderModuleDefinition(MODULES["function-slot-restructure-display-transformer"], {
+    route: "/api/function-slot-workflow/restructure-display-transform/run",
+    stageKind: "functionSlotRestructureDisplayTransform",
+    stageId: MODULES["function-slot-restructure-display-transformer"].stageName,
+  });
+}
+
 function createPlaceholderModuleDefinition(definition, ui) {
   return createModuleDefinition({
     moduleId: definition.moduleId,
@@ -71,6 +79,7 @@ function createPlaceholderModuleDefinition(definition, ui) {
 
 module.exports = {
   createFunctionSlotSemanticGovernanceModuleDefinition,
+  createFunctionSlotRestructureDisplayTransformModuleDefinition,
   createFunctionSlotRestructureModuleDefinition,
   createShotStoryboardPrepModuleDefinition,
 };

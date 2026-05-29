@@ -311,6 +311,7 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(workflowCards, /autoRunShotStoryboardPrep/);
   assert.match(api, /\/api\/function-slot-library\/builder\/refresh/);
   assert.match(api, /\/api\/function-slot-workflow\/storyboard-prep\/auto-run/);
+  assert.match(api, /\/api\/function-slot-workflow\/restructure-display-transform\/auto-run/);
   assert.match(api, /\/api\/function-slot-workflow\/\$\{encodeURIComponent\(workflowKey\)\}\/run/);
   assert.match(resource, /DOUBAO_Api_App_Key/);
   assert.match(timeline, /id="subtitleTrack"/);
@@ -375,7 +376,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);
   assert.match(chat, /canConfirmRestructure/);
+  assert.match(chat, /autoRunRestructureDisplayTransform/);
   assert.match(chat, /autoRunShotStoryboardPrep/);
+  assert.match(chat, /结构展示转换/);
   assert.match(chat, /startAgentChatThread/);
   assert.match(chat, /sendAgentChatMessage/);
   assert.match(chat, /collectAgentChatTurn/);

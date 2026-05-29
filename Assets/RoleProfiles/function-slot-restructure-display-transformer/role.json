@@ -1,0 +1,15 @@
+{
+  "role": "function-slot-restructure-display-transformer",
+  "profileVersion": "2026-05-29.placeholder.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-restructure-display-transformer/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "transform": {
+      "template": "prompts/transform.placeholder.v1.md",
+      "version": "transform.placeholder.v1"
+    }
+  }
+}
