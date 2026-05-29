@@ -402,6 +402,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /activeConversationConfirmedPlan/);
   assert.match(chat, /agent-chat-state-badge/);
   assert.match(chat, /messagesFromConversation/);
+  assert.match(chat, /persistedMessages\.length \? persistedMessages : refreshedMessages/);
+  assert.match(chat, /isAgentChatBootstrapTurn/);
+  assert.match(chat, /初始化阶段阅读/);
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);
   assert.match(chat, /canConfirmRestructure/);
@@ -416,6 +419,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /event\.key !== "Enter" \|\| event\.ctrlKey/);
   assert.match(chat, /event\.preventDefault\(\)/);
   assert.match(chat, /agent-chat-timeline/);
+  assert.match(chat, /agent-chat-timeline-list/);
+  assert.doesNotMatch(chat, /className="agent-timeline-list"/);
   assert.match(css, /\.agent-chat-layout/);
   assert.match(css, /--agent-chat-list-width/);
   assert.match(css, /--agent-chat-timeline-width/);
@@ -423,6 +428,7 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(css, /\.agent-chat-conversations/);
   assert.match(css, /\.agent-chat-resizer/);
   assert.match(css, /\.agent-chat-session-meta/);
-  assert.match(css, /\.agent-chat-timeline \{[\s\S]*height: 100%/);
+  assert.match(css, /\.agent-chat-timeline \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*height: 100%/);
+  assert.match(css, /\.agent-chat-timeline-list \{[\s\S]*min-height: 0;[\s\S]*overflow: auto/);
   assert.match(styles, /agent-chat\.css/);
 });

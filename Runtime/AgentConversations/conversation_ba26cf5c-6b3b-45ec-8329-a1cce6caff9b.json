@@ -1,0 +1,47 @@
+{
+  "conversationId": "conversation_ba26cf5c-6b3b-45ec-8329-a1cce6caff9b",
+  "schemaVersion": "agent_chat_conversation.v1",
+  "source": "threadpool-role",
+  "role": "function-slot-restructure",
+  "status": "active",
+  "revision": 8,
+  "title": "function-slot-restructure 2026-05-29 16:00:23",
+  "threadId": "019e73c9-8ba5-7d13-be9a-697a8a790fce",
+  "parentThreadId": "019e73c9-3d3a-7673-8fcb-0b5d4ea6d305",
+  "leaseId": "330b7844-7515-40e4-b12a-79e7f0af4275",
+  "ownerId": "workbench-agent-chat-run_a6766ffe-f5fe-4f47-b2b6-18f16b14b5dd",
+  "workspaceRoot": "C:\\ByteDanceFullStack",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-restructure/SKILL.md",
+  "sampleVideoId": null,
+  "latestTurnId": "019e7477-1d79-70a3-8867-800f2ec9e87e",
+  "traceId": "trace_49f8fd91-007d-4bd8-98dc-5907aa7fb8a6",
+  "runId": "run_f7da8d73-33be-4672-9885-ed43c31169c3",
+  "stageId": "stage_d275f706-099d-4196-b00d-b77195b0b76f",
+  "createdAt": "2026-05-29T16:00:23.612Z",
+  "updatedAt": "2026-05-29T16:00:38.964Z",
+  "archivedAt": null,
+  "invalidated": false,
+  "invalidatedAt": null,
+  "lastResumeError": null,
+  "confirmedPlan": null,
+  "messages": [
+    {
+      "id": "user-019e7477-1d79-70a3-8867-800f2ec9e87e",
+      "turnId": "019e7477-1d79-70a3-8867-800f2ec9e87e",
+      "role": "user",
+      "text": "testMessage",
+      "status": "completed",
+      "createdAt": "2026-05-29T16:00:23.971Z",
+      "updatedAt": "2026-05-29T16:00:23.971Z"
+    },
+    {
+      "id": "assistant-019e7477-1d79-70a3-8867-800f2ec9e87e",
+      "turnId": "019e7477-1d79-70a3-8867-800f2ec9e87e",
+      "role": "assistant",
+      "text": "已就绪",
+      "status": "completed",
+      "createdAt": "2026-05-29T16:00:23.971Z",
+      "updatedAt": "2026-05-29T16:00:38.963Z"
+    }
+  ]
+}

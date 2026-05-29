@@ -125,10 +125,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       conversationRevision: normalizeConversationRevision(conversation.revision),
     });
     const refreshedTurns = refreshed?.turns ?? [];
-    setCurrentTurnId(conversation.latestTurnId ?? refreshedTurns[refreshedTurns.length - 1]?.turnId ?? null);
+    setCurrentTurnId(conversation.latestTurnId ?? latestVisibleTurnId(refreshedTurns));
     setTimeline(null);
+    const persistedMessages = messagesFromConversation(conversation);
     const refreshedMessages = refreshed ? messagesFromThreadConversation(refreshed) : [];
-    setMessages(refreshedMessages.length ? refreshedMessages : messagesFromConversation(conversation));
+    setMessages(persistedMessages.length ? persistedMessages : refreshedMessages);
   }, []);
 
   useEffect(() => {
@@ -492,7 +493,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 function TimelineView({ timeline }: { timeline: AgentTurnTimeline | null }) {
   if (!timeline) return <div className="empty-state"><strong>等待 turn</strong><span>发送后会显示模型、工具和消息追踪</span></div>;
   return (
-    <div className="agent-timeline-list">
+    <div className="agent-chat-timeline-list">
       <div className="agent-chat-timeline-summary">
         <b>{timeline.status}</b>
         <span>{timeline.items.length} items</span>
@@ -532,6 +533,7 @@ function messagesFromConversation(conversation: AgentChatConversation): ChatMess
 function messagesFromThreadConversation(conversation: ThreadConversation): ChatMessage[] {
   const messages: ChatMessage[] = [];
   for (const turn of conversation.turns ?? []) {
+    if (isAgentChatBootstrapTurn(turn)) continue;
     if (turn.inputSummary) {
       messages.push({
         id: `user-${turn.turnId}`,
@@ -552,6 +554,24 @@ function messagesFromThreadConversation(conversation: ThreadConversation): ChatM
     }
   }
   return messages;
+}
+
+function latestVisibleTurnId(turns: ThreadConversation["turns"] = []) {
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const turn = turns[index];
+    if (!isAgentChatBootstrapTurn(turn)) return turn.turnId ?? null;
+  }
+  return null;
+}
+
+function isAgentChatBootstrapTurn(turn: NonNullable<ThreadConversation["turns"]>[number]) {
+  const inputText = String(turn.inputSummary ?? "").trim();
+  const finalText = String(turn.finalMessage ?? "").trim();
+  return Boolean(
+    inputText.includes("初始化阶段阅读")
+    || inputText.includes("你是功能槽位结构重组对话 Agent")
+    || (finalText === "已就绪" && inputText.includes("Agent"))
+  );
 }
 
 function uniqueId(prefix: string) {
