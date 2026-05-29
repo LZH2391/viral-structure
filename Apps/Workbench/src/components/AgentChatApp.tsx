@@ -173,7 +173,18 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           </div>
           {errorText ? <div className="agent-chat-error">{errorText}</div> : null}
           <form className="agent-chat-composer" onSubmit={(event) => { event.preventDefault(); void handleSend(); }}>
-            <textarea value={draft} rows={3} placeholder="输入要发给 Agent 的消息" disabled={busy} onChange={(event) => setDraft(event.target.value)} />
+            <textarea
+              value={draft}
+              rows={3}
+              placeholder="输入要发给 Agent 的消息"
+              disabled={busy}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.ctrlKey) return;
+                event.preventDefault();
+                void handleSend();
+              }}
+            />
             <button className="primary-button" type="submit" disabled={busy || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
               发送
             </button>

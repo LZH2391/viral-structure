@@ -373,6 +373,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /collectAgentChatTurn/);
   assert.match(chat, /getAgentChatTurnTimeline/);
   assert.match(chat, /releaseAgentChatLease/);
+  assert.match(chat, /event\.key !== "Enter" \|\| event\.ctrlKey/);
+  assert.match(chat, /event\.preventDefault\(\)/);
   assert.match(chat, /agent-chat-timeline/);
   assert.match(css, /\.agent-chat-layout/);
   assert.match(css, /grid-template-columns: minmax\(480px, 1fr\) 360px/);
