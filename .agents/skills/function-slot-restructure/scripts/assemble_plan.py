@@ -21,7 +21,7 @@ from governance import (
     governance_status,
     load_governance,
 )
-from retrieve_candidates import retrieve
+from retrieve_candidates import retrieve, strip_brief_duration_fields
 
 ROLE_FUNCTION_HINTS = [
     {
@@ -547,23 +547,13 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
     if selected_chain.get("requiredAdapters"):
         warnings.append("选中链路需要 adapters: " + ", ".join(selected_chain.get("requiredAdapters", [])))
 
-    target_duration = brief.get("targetDurationSec") or brief.get("targetDuration")
-    if target_duration is not None:
-        try:
-            target_duration_num = float(target_duration)
-            if target_duration_num <= 0 or target_duration_num % 15 != 0:
-                warnings.append("targetDurationSec 是粗略目标，建议按 15 秒步长填写；当前值只作为大致预估参考")
-        except (TypeError, ValueError):
-            warnings.append("targetDurationSec 不是数字，将只保留为 brief 备注，不做时长预估")
-
     return {
-        "brief": brief,
+        "brief": strip_brief_duration_fields(brief),
         "governanceStatus": g_status,
         "governanceAudit": governance_audit(governance, governance_maps),
         "briefConstraints": {
             "viewerStart": brief.get("viewerStart"),
             "viewerEnd": brief.get("viewerEnd"),
-            "targetDurationSec": target_duration,
             "proofAssets": brief.get("proofAssets"),
             "objections": brief.get("objections"),
         },
@@ -593,7 +583,7 @@ def main() -> None:
     index = read_json(Path(args.index_json))
     governance_path = None if args.no_governance else (Path(args.governance) if args.governance else default_governance_path(Path(args.index_json)))
     governance = None if args.no_governance else load_governance(governance_path)
-    brief = read_json(Path(args.brief)) if args.brief else {}
+    brief = strip_brief_duration_fields(read_json(Path(args.brief)) if args.brief else {})
     if args.mode:
         brief["mode"] = args.mode
     if args.slot_subtypes:
