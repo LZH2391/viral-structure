@@ -78,6 +78,9 @@ function buildGroupPrompt(group, aspect) {
   const orientation = aspect.orientation ?? "未明确";
   const lines = [
     `以故事板呈现以下镜头，比例为${ratio}，${orientation}。每组固定四格，按顺序排列。`,
+    "本组四个镜头作为独立故事板生成；人物、产品、场景在本组内保持大致一致即可。",
+    "这是短视频分镜示例帧，不是广告海报、电商主图或最终包装成片；画面应像真实拍摄截图/样张，低设计感、自然光、轻量标注。",
+    "overlayPackaging 是画面上的包装覆盖层/分镜标注参考，可轻量呈现；不要把整张图设计成宣传海报。",
   ];
   if (group.referenceImagePath) {
     lines.push("参考上传的四格布局图，把四个镜头分别画在 image1、image2、image3、image4 对应区域；最终成图必须去掉红线、image 标签、参考图文字和占位线。");

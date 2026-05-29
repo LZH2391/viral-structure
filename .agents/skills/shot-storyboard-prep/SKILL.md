@@ -16,6 +16,8 @@ description: 从 function-slot-restructure 的 restructure.final.md 中提取第
 - 每个 shot 只提取 `imagePrompt = 分镜画面` 与 `overlayPackaging = 包装说明`；预计时长只回填原文 Shot 表，不写入故事板 Markdown。
 - 最后一组不足 4 镜头时，补纯白占位镜头，保证每组仍是 4 格故事板；占位镜头不回写原文。
 - 故事板 Markdown 必须写入四格参考布局图路径：横屏用 `assets/storyboard-layout-16x9-4grid.png`，竖屏用 `assets/storyboard-layout-9x16-4grid.png`；提示模型只参考四格位置，不要生成红线、`image1-4` 标签或参考图文字。
+- 每组故事板必须作为独立四镜生成；人物、产品、场景在本组内保持大致一致即可，不新增跨组连续性字段。
+- 每组必须声明这是短视频分镜示例帧，不是广告海报、电商主图或最终包装成片；`overlayPackaging` 只作为包装覆盖层/分镜标注参考，不要让模型把整张图做成宣传图。
 - 需要生图时，把生成的 `shot-storyboard-prompts.md` 作为 `image-generation` 模块的 `storyboardPromptFile` 输入；不要再手动拆组调用 PPAPI。
 
 ## 使用脚本
