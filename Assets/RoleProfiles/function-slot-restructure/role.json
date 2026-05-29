@@ -5,11 +5,5 @@
   "init": {
     "template": "init.md",
     "readyText": "已就绪"
-  },
-  "turnTemplates": {
-    "restructure": {
-      "template": "prompts/restructure.placeholder.v1.md",
-      "version": "restructure.placeholder.v1"
-    }
   }
 }

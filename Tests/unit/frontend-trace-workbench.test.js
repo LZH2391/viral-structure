@@ -373,6 +373,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
   assert.match(chat, /ThreadPool Role Fork/);
   assert.match(chat, /function-slot-restructure/);
+  assert.match(chat, /确认此方案/);
+  assert.match(chat, /canConfirmRestructure/);
+  assert.match(chat, /autoRunShotStoryboardPrep/);
   assert.match(chat, /startAgentChatThread/);
   assert.match(chat, /sendAgentChatMessage/);
   assert.match(chat, /collectAgentChatTurn/);

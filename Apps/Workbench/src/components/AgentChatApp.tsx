@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+import { autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, releaseAgentChatLease, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentTurnTimeline, ThreadPoolRoleSummary } from "../types";
 import { shortId } from "../utils/format";
 
@@ -24,6 +24,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
   const [statusText, setStatusText] = useState("等待连接");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const pollTimerRef = useRef<number | null>(null);
 
@@ -49,6 +50,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     workspaceRoot: session?.workspaceRoot ?? null,
     skillPath: session?.skillPath ?? null,
   }), [mode, selectedRole, session]);
+  const canConfirmRestructure = session?.source === "threadpool-role"
+    && session.role === "function-slot-restructure"
+    && Boolean(session.threadId)
+    && Boolean(currentTurnId)
+    && !busy
+    && !confirming;
 
   const ensureSession = useCallback(async () => {
     if (session?.threadId) return session;
@@ -135,6 +142,33 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setStatusText("lease 已释放");
   }, [session]);
 
+  const handleConfirmRestructure = useCallback(async () => {
+    if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
+    setConfirming(true);
+    setErrorText(null);
+    setStatusText("确认方案并触发故事板准备");
+    try {
+      const result = await autoRunShotStoryboardPrep({
+        sampleVideoId: "function-slot-workflow",
+        restructureArtifactId: currentTurnId,
+        parentArtifactId: currentTurnId,
+      });
+      setMessages((current) => [...current, {
+        id: uniqueId("system"),
+        role: "system",
+        text: `已确认当前方案，已触发 Shot Storyboard Prep：trace ${shortId(result.traceId)} / artifact ${shortId(result.artifactId)}`,
+        status: "completed",
+      }]);
+      setStatusText("已触发故事板准备");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "确认方案失败";
+      setErrorText(message);
+      setStatusText("确认失败");
+    } finally {
+      setConfirming(false);
+    }
+  }, [canConfirmRestructure, currentTurnId, session?.threadId]);
+
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
       <main className="agent-chat-layout">
@@ -153,6 +187,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 <select value={selectedRole} disabled={busy || Boolean(session)} onChange={(event) => setSelectedRole(event.target.value)}>
                   {roles.map((role) => <option key={role.role} value={role.role}>{role.role}</option>)}
                 </select>
+              ) : null}
+              {session?.role === "function-slot-restructure" ? (
+                <button type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
+                  {confirming ? "确认中" : "确认此方案"}
+                </button>
               ) : null}
               {session?.leaseId ? <button type="button" onClick={handleRelease}>释放</button> : null}
             </div>

@@ -13,8 +13,8 @@ const ROLES = [
   },
   {
     role: "function-slot-restructure",
-    templateId: "restructure",
     skill: "function-slot-restructure",
+    chatOnly: true,
   },
   {
     role: "shot-storyboard-prep",
@@ -36,15 +36,17 @@ test("function slot placeholder roles are registered for ThreadPool", () => {
 test("function slot placeholder role profiles load init and task prompts", async () => {
   for (const item of ROLES) {
     const profile = await loadRoleProfileByRole(item.role);
-    const rendered = renderTurnTemplate(profile, item.templateId, {});
 
     assert.equal(profile.role, item.role);
     assert.equal(profile.skillPath?.split(/[\\/]/).slice(-2).join("/"), `${item.skill}/SKILL.md`);
     assert.match(profile.init.templateBody, /已就绪/);
-    if (item.role === "function-slot-restructure") {
-      assert.match(rendered.text, /结构重组的对话任务/);
-      assert.match(rendered.text, /slot_index\.json/);
-    } else if (item.role === "shot-storyboard-prep") {
+    if (item.chatOnly) {
+      assert.equal(profile.turnTemplates?.restructure, undefined);
+      continue;
+    }
+
+    const rendered = renderTurnTemplate(profile, item.templateId, {});
+    if (item.role === "shot-storyboard-prep") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
     } else {
