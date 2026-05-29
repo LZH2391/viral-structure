@@ -31,6 +31,8 @@ def load_brief(path: str | None, args: argparse.Namespace) -> Dict[str, Any]:
         brief["category"] = args.category
     if args.mode:
         brief["mode"] = args.mode
+    if getattr(args, "target_duration_sec", None):
+        brief["targetDurationSec"] = args.target_duration_sec
     if getattr(args, "slot_subtypes", None):
         brief["slotSubtypeIds"] = [x.strip() for x in args.slot_subtypes.split(",") if x.strip()]
     if getattr(args, "slot_archetypes", None):
@@ -159,6 +161,7 @@ def main() -> None:
     parser.add_argument("--bundles", help="Comma-separated implementation bundle ids used as retrieval priors")
     parser.add_argument("--category", help="Target category")
     parser.add_argument("--mode", help="Recomposition mode")
+    parser.add_argument("--target-duration-sec", type=int, help="Target duration for later validation. Must use 15s steps.")
     parser.add_argument("--limit", type=int, default=3, help="Candidates per slot type")
     parser.add_argument("--out", help="Output JSON path")
     args = parser.parse_args()
