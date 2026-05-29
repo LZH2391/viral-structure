@@ -188,6 +188,26 @@
   font-size: 12px;
 }
 
+.agent-chat-state-badge {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-soft);
+}
+
+.agent-chat-state-badge.success {
+  border-color: rgba(90, 202, 222, 0.45);
+  background: rgba(90, 202, 222, 0.12);
+  color: var(--text);
+}
+
+.agent-chat-state-badge.danger {
+  border-color: rgba(255, 107, 107, 0.5);
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--text);
+}
+
 .agent-chat-conversation-bar select {
   min-width: 180px;
   max-width: 360px;

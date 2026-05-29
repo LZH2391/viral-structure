@@ -1,10 +1,41 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { once } = require("node:events");
+const fsPromises = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 const { server: defaultServer, createServer } = require("../../Apps/Api/server");
+const { createAgentConversationStore } = require("../../Apps/Api/lib/agent-chat/conversation-store");
 
 test.after(() => {
   if (defaultServer.listening) defaultServer.close();
+});
+
+test("agent conversation store writes one json file per conversation", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-conversation-store-"));
+  try {
+    const store = createAgentConversationStore({ filePath: tempRoot });
+    await store.createOrUpdateFromSession({
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      threadId: "thread_a",
+    });
+    await store.createOrUpdateFromSession({
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      threadId: "thread_b",
+    });
+
+    const files = (await fsPromises.readdir(tempRoot)).filter((name) => name.endsWith(".json")).sort();
+    assert.equal(files.length, 2);
+    assert.equal(files.includes("conversations.json"), false);
+
+    const listed = await store.list({ role: "function-slot-restructure", status: "active" });
+    assert.equal(listed.length, 2);
+    assert.deepEqual(new Set(listed.map((conversation) => conversation.threadId)), new Set(["thread_a", "thread_b"]));
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 function makeRequest(server, method, requestPath, body) {
@@ -343,6 +374,24 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
       return conversation;
     },
+    confirmPlan: async ({ conversationId, turnId, displayArtifact, storyboardArtifact, expectedRevision }) => {
+      const conversation = conversations.get(conversationId);
+      if (!conversation) return null;
+      if (expectedRevision != null && expectedRevision !== conversation.revision) {
+        const error = new Error("会话已在其他窗口更新，请刷新后重试");
+        error.statusCode = 409;
+        error.code = "agent_chat_conversation_revision_conflict";
+        throw error;
+      }
+      conversation.revision += 1;
+      conversation.confirmedPlan = {
+        status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
+        turnId,
+        displayArtifact,
+        storyboardArtifact,
+      };
+      return conversation;
+    },
     assertActive: async (conversationId, { expectedRevision } = {}) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
@@ -418,7 +467,17 @@ test("agent chat persists restructure conversations and archives them manually",
     assert.equal(systemMessage.statusCode, 200);
     assert.equal(systemMessage.body.conversation.messages[systemMessage.body.conversation.messages.length - 1].text, "确认完成");
 
-    const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", { expectedRevision: 4 });
+    const confirmed = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/confirm", {
+      turnId: "turn_1",
+      expectedRevision: 4,
+      displayArtifact: { artifactId: "artifact_display", traceId: "trace_display", status: "placeholder" },
+      storyboardArtifact: { artifactId: "artifact_storyboard", traceId: "trace_storyboard", status: "placeholder" },
+    });
+    assert.equal(confirmed.statusCode, 200);
+    assert.equal(confirmed.body.conversation.confirmedPlan.status, "completed");
+    assert.equal(confirmed.body.conversation.confirmedPlan.displayArtifact.artifactId, "artifact_display");
+
+    const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", { expectedRevision: 5 });
     assert.equal(archived.statusCode, 200);
     assert.equal(archived.body.conversation.status, "archived");
     assert.deepEqual(discardedThreads, [{ threadId: "thread_restructure", reason: "agent-chat-conversation-archived" }]);

@@ -133,10 +133,32 @@ export type AgentChatConversation = {
   updatedAt?: string | null;
   archivedAt?: string | null;
   needsRebind?: boolean;
+  invalidated?: boolean;
+  invalidatedAt?: string | null;
   rebindCount?: number;
   lastResumeError?: {
     code?: string | null;
     message?: string | null;
   } | null;
+  confirmedPlan?: {
+    status?: "confirmed" | "completed" | string;
+    turnId?: string | null;
+    confirmedAt?: string | null;
+    updatedAt?: string | null;
+    note?: string | null;
+    displayArtifact?: AgentChatArtifactRef | null;
+    storyboardArtifact?: AgentChatArtifactRef | null;
+    traceId?: string | null;
+    runId?: string | null;
+    stageId?: string | null;
+  } | null;
   messages?: AgentChatMessageSnapshot[];
+};
+
+export type AgentChatArtifactRef = {
+  artifactId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  status?: string | null;
 };

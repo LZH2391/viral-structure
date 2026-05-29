@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, recordAgentChatSystemMessage, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -24,6 +24,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeConversationRevision, setActiveConversationRevision] = useState<number | null>(null);
   const [activeConversationNeedsRebind, setActiveConversationNeedsRebind] = useState(false);
+  const [activeConversationConfirmedPlan, setActiveConversationConfirmedPlan] = useState<AgentChatConversation["confirmedPlan"]>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
@@ -66,7 +67,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setConversations(items);
     if (activeConversationId) {
       const active = items.find((conversation) => conversation.conversationId === activeConversationId);
-      if (active) setActiveConversationRevision(normalizeConversationRevision(active.revision));
+      if (active) {
+        setActiveConversationRevision(normalizeConversationRevision(active.revision));
+        setActiveConversationNeedsRebind(Boolean(active.invalidated || active.needsRebind));
+        setActiveConversationConfirmedPlan(active.confirmedPlan ?? null);
+      }
     }
     return items;
   }, [activeConversationId]);
@@ -89,13 +94,16 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && session.role === "function-slot-restructure"
     && Boolean(session.threadId)
     && Boolean(currentTurnId)
+    && !activeConversationNeedsRebind
+    && activeConversationConfirmedPlan?.turnId !== currentTurnId
     && !busy
     && !confirming;
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
     setActiveConversationRevision(normalizeConversationRevision(conversation.revision));
-    setActiveConversationNeedsRebind(Boolean(conversation.needsRebind));
+    setActiveConversationNeedsRebind(Boolean(conversation.invalidated || conversation.needsRebind));
+    setActiveConversationConfirmedPlan(conversation.confirmedPlan ?? null);
     setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
     if (conversation.role) setSelectedRole(conversation.role);
     setSession({
@@ -155,7 +163,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
     return nextSession;
-  }, [activeConversationId, mode, refreshConversations, selectedRole, session]);
+  }, [activeConversationId, activeConversationRevision, mode, refreshConversations, selectedRole, session]);
 
   const schedulePoll = useCallback((activeSession: AgentChatSessionResponse, turnId: string) => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
@@ -192,12 +200,18 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || busy) return;
+    if (activeConversationNeedsRebind) {
+      const message = "thread 已不可读，此会话已失效，请归档后新建会话";
+      setErrorText(message);
+      setStatusText("会话已失效");
+      return;
+    }
     setBusy(true);
     setErrorText(null);
     setDraft("");
     setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text, status: "completed" }]);
     try {
-      const activeSession = await ensureSession(activeConversationNeedsRebind);
+      const activeSession = await ensureSession(false);
       const submitted = await sendAgentChatMessage(activeSession.threadId as string, {
         message: text,
         ...sessionMeta,
@@ -231,7 +245,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     try {
       const payload = await resumeAgentChatConversation(conversationId);
       applyConversation(payload.conversation, payload.refreshed);
-      if (payload.refreshError?.message) setStatusText(`已恢复快照，下次发送会重新绑定：${payload.refreshError.message}`);
+      if (payload.refreshError?.message) setStatusText(`thread 已不可读，此会话已失效：${payload.refreshError.message}`);
       else setStatusText("已恢复重组会话");
     } catch (error) {
       const message = error instanceof Error ? error.message : "恢复会话失败";
@@ -271,6 +285,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setActiveConversationId(null);
     setActiveConversationRevision(null);
     setActiveConversationNeedsRebind(false);
+    setActiveConversationConfirmedPlan(null);
     setMode("threadpool-role");
     setSelectedRole((current) => current || "function-slot-restructure");
     setStatusText("新重组会话");
@@ -293,13 +308,17 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     try {
       let confirmationRevision = activeConversationRevision;
       if (session.conversationId) {
-        const gate = await recordAgentChatSystemMessage(
+        const gate = await confirmAgentChatConversation(
           session.conversationId,
-          "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep。",
-          activeConversationRevision,
+          {
+            turnId: currentTurnId,
+            note: "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep。",
+            expectedRevision: activeConversationRevision,
+          },
         );
         confirmationRevision = normalizeConversationRevision(gate.conversation.revision);
         setActiveConversationRevision(confirmationRevision);
+        setActiveConversationConfirmedPlan(gate.conversation.confirmedPlan ?? null);
       }
       const payload = {
         sampleVideoId: "function-slot-workflow",
@@ -317,12 +336,30 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         status: "completed",
       }]);
       if (session.conversationId) {
-        const logged = await recordAgentChatSystemMessage(
+        const logged = await confirmAgentChatConversation(
           session.conversationId,
-          `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`,
-          confirmationRevision,
+          {
+            turnId: currentTurnId,
+            note: "已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep。",
+            displayArtifact: {
+              artifactId: displayResult.artifactId,
+              traceId: displayResult.traceId,
+              runId: displayResult.runId,
+              stageId: displayResult.stageId,
+              status: displayResult.status,
+            },
+            storyboardArtifact: {
+              artifactId: storyboardResult.artifactId,
+              traceId: storyboardResult.traceId,
+              runId: storyboardResult.runId,
+              stageId: storyboardResult.stageId,
+              status: storyboardResult.status,
+            },
+            expectedRevision: confirmationRevision,
+          },
         );
         setActiveConversationRevision(normalizeConversationRevision(logged.conversation.revision));
+        setActiveConversationConfirmedPlan(logged.conversation.confirmedPlan ?? null);
         void refreshConversations().catch(() => undefined);
       }
       setStatusText("已触发展示转换/故事板准备");
@@ -383,6 +420,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 <span>thread {shortId(session?.threadId ?? "未连接")}</span>
                 <span>turn {shortId(currentTurnId ?? "等待")}</span>
                 <span>trace {shortId(session?.traceId ?? "等待")}</span>
+                <span>rev {activeConversationRevision ?? "-"}</span>
               </div>
               <select value={mode} disabled={busy || Boolean(session)} onChange={(event) => setMode(event.target.value as ChatMode)}>
                 <option value="direct">普通对话</option>
@@ -395,7 +433,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               ) : null}
               {session?.role === "function-slot-restructure" ? (
                 <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
-                  {confirming ? "确认中" : "确认此方案"}
+                  {activeConversationConfirmedPlan?.turnId === currentTurnId ? "已确认" : confirming ? "确认中" : "确认此方案"}
                 </button>
               ) : null}
               {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" onClick={handleRelease}>释放</button> : null}
@@ -404,6 +442,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           <div className="agent-chat-conversation-bar">
             <span>{activeConversationId ? `当前会话 ${shortId(activeConversationId)}` : "新会话"}</span>
             {session?.role ? <span>role {session.role}</span> : null}
+            {activeConversationNeedsRebind ? <span className="agent-chat-state-badge danger">thread 失效</span> : null}
+            {activeConversationConfirmedPlan ? <span className="agent-chat-state-badge success">方案已确认</span> : null}
           </div>
           <div className="agent-chat-messages">
             {messages.length ? messages.map((message) => (
@@ -419,7 +459,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               value={draft}
               rows={3}
               placeholder="输入要发给 Agent 的消息"
-              disabled={busy}
+              disabled={busy || activeConversationNeedsRebind}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.ctrlKey) return;
@@ -427,7 +467,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 void handleSend();
               }}
             />
-            <button className="primary-button" type="submit" disabled={busy || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
+            <button className="primary-button" type="submit" disabled={busy || activeConversationNeedsRebind || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
               发送
             </button>
           </form>

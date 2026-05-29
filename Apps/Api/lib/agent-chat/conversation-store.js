@@ -5,83 +5,91 @@ const { randomUUID } = require("crypto");
 const SCHEMA_VERSION = "agent_chat_conversations.v1";
 const TEXT_LIMIT = 12000;
 
+function resolveConversationsDirectory({ store, filePath }) {
+  if (!filePath) return path.join(store.runtimeRoot, "AgentConversations");
+  const basename = path.basename(filePath);
+  return basename.endsWith(".json") ? path.dirname(filePath) : filePath;
+}
+
 function createAgentConversationStore({ store, filePath } = {}) {
   if (!store?.runtimeRoot && !filePath) throw new Error("store or filePath is required for agent conversation store");
-  const resolvedFilePath = filePath ?? path.join(store.runtimeRoot, "AgentConversations", "conversations.json");
+  const conversationsDirectory = resolveConversationsDirectory({ store, filePath });
+  const legacyFilePath = path.join(conversationsDirectory, "conversations.json");
 
   async function list({ role, status = "active" } = {}) {
-    const state = await readState();
-    return state.conversations
+    const conversations = await readAllConversations();
+    return conversations
       .filter((conversation) => !role || conversation.role === role)
       .filter((conversation) => !status || conversation.status === status)
       .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")));
   }
 
   async function get(conversationId) {
-    const state = await readState();
-    return state.conversations.find((conversation) => conversation.conversationId === conversationId) ?? null;
+    if (!conversationId) return null;
+    return readConversation(conversationId);
   }
 
   async function createOrUpdateFromSession(session, { conversationId = null, sampleVideoId = null, expectedRevision = null } = {}) {
     const now = new Date().toISOString();
-    return mutate((state) => {
-      let conversation = conversationId
-        ? state.conversations.find((item) => item.conversationId === conversationId)
-        : null;
-      if (!conversation) {
-        conversation = {
-          conversationId: conversationId || `conversation_${randomUUID()}`,
-          schemaVersion: "agent_chat_conversation.v1",
-          source: session.source ?? "threadpool-role",
-          role: session.role ?? null,
-          status: "active",
-          revision: 1,
-          title: buildTitle(session.role, now),
-          threadId: session.threadId ?? null,
-          parentThreadId: session.parentThreadId ?? null,
-          leaseId: session.leaseId ?? null,
-          ownerId: session.ownerId ?? null,
-          workspaceRoot: session.workspaceRoot ?? null,
-          skillPath: session.skillPath ?? null,
-          sampleVideoId,
-          latestTurnId: null,
-          traceId: session.traceId ?? null,
-          runId: session.runId ?? null,
-          stageId: session.stageId ?? null,
-          createdAt: now,
-          updatedAt: now,
-          archivedAt: null,
-          needsRebind: false,
-          rebindCount: 0,
-          lastResumeError: null,
-          messages: [],
-        };
-        state.conversations.unshift(conversation);
-      } else {
-        assertActiveConversation(conversation);
-        assertExpectedRevision(conversation, expectedRevision);
-        Object.assign(conversation, {
-          status: "active",
-          threadId: session.threadId ?? conversation.threadId ?? null,
-          parentThreadId: session.parentThreadId ?? conversation.parentThreadId ?? null,
-          leaseId: session.leaseId ?? conversation.leaseId ?? null,
-          ownerId: session.ownerId ?? conversation.ownerId ?? null,
-          workspaceRoot: session.workspaceRoot ?? conversation.workspaceRoot ?? null,
-          skillPath: session.skillPath ?? conversation.skillPath ?? null,
-          traceId: session.traceId ?? conversation.traceId ?? null,
-          runId: session.runId ?? conversation.runId ?? null,
-          stageId: session.stageId ?? conversation.stageId ?? null,
-          sampleVideoId: sampleVideoId ?? conversation.sampleVideoId ?? null,
-          needsRebind: false,
-          lastResumeError: null,
-          rebindCount: Number(conversation.rebindCount ?? 0) + (conversation.needsRebind ? 1 : 0),
-          updatedAt: now,
-          archivedAt: null,
-        });
-        bumpRevision(conversation);
-      }
-      return conversation;
-    });
+    let conversation = conversationId ? await readConversation(conversationId) : null;
+    if (!conversation) {
+      conversation = {
+        conversationId: conversationId || `conversation_${randomUUID()}`,
+        schemaVersion: "agent_chat_conversation.v1",
+        source: session.source ?? "threadpool-role",
+        role: session.role ?? null,
+        status: "active",
+        revision: 1,
+        title: buildTitle(session.role, now),
+        threadId: session.threadId ?? null,
+        parentThreadId: session.parentThreadId ?? null,
+        leaseId: session.leaseId ?? null,
+        ownerId: session.ownerId ?? null,
+        workspaceRoot: session.workspaceRoot ?? null,
+        skillPath: session.skillPath ?? null,
+        sampleVideoId,
+        latestTurnId: null,
+        traceId: session.traceId ?? null,
+        runId: session.runId ?? null,
+        stageId: session.stageId ?? null,
+        createdAt: now,
+        updatedAt: now,
+        archivedAt: null,
+        needsRebind: false,
+        invalidated: false,
+        invalidatedAt: null,
+        rebindCount: 0,
+        lastResumeError: null,
+        confirmedPlan: null,
+        messages: [],
+      };
+    } else {
+      assertActiveConversation(conversation);
+      assertExpectedRevision(conversation, expectedRevision);
+      Object.assign(conversation, {
+        status: "active",
+        threadId: session.threadId ?? conversation.threadId ?? null,
+        parentThreadId: session.parentThreadId ?? conversation.parentThreadId ?? null,
+        leaseId: session.leaseId ?? conversation.leaseId ?? null,
+        ownerId: session.ownerId ?? conversation.ownerId ?? null,
+        workspaceRoot: session.workspaceRoot ?? conversation.workspaceRoot ?? null,
+        skillPath: session.skillPath ?? conversation.skillPath ?? null,
+        traceId: session.traceId ?? conversation.traceId ?? null,
+        runId: session.runId ?? conversation.runId ?? null,
+        stageId: session.stageId ?? conversation.stageId ?? null,
+        sampleVideoId: sampleVideoId ?? conversation.sampleVideoId ?? null,
+        needsRebind: false,
+        invalidated: false,
+        invalidatedAt: null,
+        lastResumeError: null,
+        rebindCount: Number(conversation.rebindCount ?? 0) + (conversation.needsRebind ? 1 : 0),
+        updatedAt: now,
+        archivedAt: null,
+      });
+      bumpRevision(conversation);
+    }
+    await writeConversation(conversation);
+    return conversation;
   }
 
   async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null }) {
@@ -157,7 +165,32 @@ function createAgentConversationStore({ store, filePath } = {}) {
     if (!conversationId) return null;
     return mutateConversation(conversationId, (conversation) => {
       conversation.needsRebind = true;
+      conversation.invalidated = true;
+      conversation.invalidatedAt = new Date().toISOString();
       conversation.lastResumeError = errorSummary;
+    });
+  }
+
+  async function confirmPlan({ conversationId, turnId = null, note = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      conversation.confirmedPlan = {
+        status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
+        turnId: turnId ?? conversation.latestTurnId ?? null,
+        confirmedAt: conversation.confirmedPlan?.confirmedAt ?? now,
+        updatedAt: now,
+        note: limitText(note),
+        displayArtifact: normalizeArtifactRef(displayArtifact),
+        storyboardArtifact: normalizeArtifactRef(storyboardArtifact),
+        traceId: traceId ?? null,
+        runId: runId ?? null,
+        stageId: stageId ?? null,
+      };
     });
   }
 
@@ -179,44 +212,90 @@ function createAgentConversationStore({ store, filePath } = {}) {
   }
 
   async function mutateConversation(conversationId, updater, { allowArchived = false, skipArchived = false } = {}) {
-    return mutate((state) => {
-      const conversation = state.conversations.find((item) => item.conversationId === conversationId);
-      if (!conversation) return null;
-      if (conversation.status === "archived" && skipArchived) return null;
-      if (!allowArchived) assertActiveConversation(conversation);
-      const result = updater(conversation);
-      if (result?.changed === false) return conversation;
+    const conversation = await readConversation(conversationId);
+    if (!conversation) return null;
+    if (conversation.status === "archived" && skipArchived) return null;
+    if (!allowArchived) assertActiveConversation(conversation);
+    const result = updater(conversation);
+    if (result?.changed !== false) {
       bumpRevision(conversation);
       conversation.updatedAt = new Date().toISOString();
-      return conversation;
-    });
+    }
+    await writeConversation(conversation);
+    return conversation;
   }
 
-  async function mutate(updater) {
-    const state = await readState();
-    const result = updater(state);
-    await writeState(state);
-    return result;
+  async function readAllConversations() {
+    const byId = new Map();
+    for (const conversation of await readConversationFiles()) {
+      byId.set(conversation.conversationId, conversation);
+    }
+    for (const conversation of await readLegacyConversations()) {
+      if (!byId.has(conversation.conversationId)) byId.set(conversation.conversationId, conversation);
+    }
+    return Array.from(byId.values());
   }
 
-  async function readState() {
+  async function readConversation(conversationId) {
     try {
-      const content = await fs.readFile(resolvedFilePath, "utf8");
-      const parsed = JSON.parse(content);
-      return normalizeState(parsed);
+      const content = await fs.readFile(conversationFilePath(conversationId), "utf8");
+      return normalizeConversation(JSON.parse(content));
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
-      return { schemaVersion: SCHEMA_VERSION, conversations: [] };
+    }
+    return (await readLegacyConversations()).find((conversation) => conversation.conversationId === conversationId) ?? null;
+  }
+
+  async function readConversationFiles() {
+    let entries = [];
+    try {
+      entries = await fs.readdir(conversationsDirectory, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      return [];
+    }
+    const conversations = [];
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".json") || entry.name === "conversations.json") continue;
+      try {
+        const content = await fs.readFile(path.join(conversationsDirectory, entry.name), "utf8");
+        const conversation = normalizeConversation(JSON.parse(content));
+        if (conversation) conversations.push(conversation);
+      } catch {
+        // Ignore unreadable per-conversation files so one bad file does not hide the rest.
+      }
+    }
+    return conversations;
+  }
+
+  async function readLegacyConversations() {
+    try {
+      const content = await fs.readFile(legacyFilePath, "utf8");
+      const parsed = JSON.parse(content);
+      return normalizeState(parsed).conversations;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      return [];
     }
   }
 
-  async function writeState(state) {
-    await fs.mkdir(path.dirname(resolvedFilePath), { recursive: true });
-    await fs.writeFile(resolvedFilePath, JSON.stringify(normalizeState(state), null, 2), "utf8");
+  async function writeConversation(conversation) {
+    const normalized = normalizeConversation(conversation);
+    if (!normalized) return;
+    await fs.mkdir(conversationsDirectory, { recursive: true });
+    const targetPath = conversationFilePath(normalized.conversationId);
+    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tempPath, JSON.stringify(normalized, null, 2), "utf8");
+    await fs.rename(tempPath, targetPath);
+  }
+
+  function conversationFilePath(conversationId) {
+    return path.join(conversationsDirectory, `${safeConversationFileName(conversationId)}.json`);
   }
 
   return {
-    filePath: resolvedFilePath,
+    filePath: conversationsDirectory,
+    directory: conversationsDirectory,
     list,
     get,
     createOrUpdateFromSession,
@@ -224,6 +303,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordAssistantTurn,
     recordSystemMessage,
     markRebindRequired,
+    confirmPlan,
     archive,
     assertActive,
   };
@@ -237,6 +317,11 @@ function normalizeState(value) {
   };
 }
 
+function safeConversationFileName(value) {
+  const text = String(value ?? "").trim();
+  return text.replace(/[^a-zA-Z0-9_.-]/g, "_") || `conversation_${randomUUID()}`;
+}
+
 function normalizeConversation(value) {
   if (!value || typeof value !== "object") return null;
   const conversationId = String(value.conversationId ?? "").trim();
@@ -248,9 +333,39 @@ function normalizeConversation(value) {
     status: value.status === "archived" ? "archived" : "active",
     revision: normalizeRevision(value.revision),
     needsRebind: Boolean(value.needsRebind),
+    invalidated: Boolean(value.invalidated ?? value.needsRebind),
+    invalidatedAt: value.invalidatedAt ?? null,
     rebindCount: Number.isFinite(Number(value.rebindCount)) ? Number(value.rebindCount) : 0,
     lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
+    confirmedPlan: normalizeConfirmedPlan(value.confirmedPlan),
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
+  };
+}
+
+function normalizeConfirmedPlan(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    status: ["confirmed", "completed"].includes(value.status) ? value.status : "confirmed",
+    turnId: value.turnId ? String(value.turnId) : null,
+    confirmedAt: value.confirmedAt ?? null,
+    updatedAt: value.updatedAt ?? null,
+    note: limitText(value.note),
+    displayArtifact: normalizeArtifactRef(value.displayArtifact),
+    storyboardArtifact: normalizeArtifactRef(value.storyboardArtifact),
+    traceId: value.traceId ? String(value.traceId) : null,
+    runId: value.runId ? String(value.runId) : null,
+    stageId: value.stageId ? String(value.stageId) : null,
+  };
+}
+
+function normalizeArtifactRef(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    artifactId: value.artifactId ? String(value.artifactId) : null,
+    traceId: value.traceId ? String(value.traceId) : null,
+    runId: value.runId ? String(value.runId) : null,
+    stageId: value.stageId ? String(value.stageId) : null,
+    status: value.status ? String(value.status) : null,
   };
 }
 

@@ -374,6 +374,7 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/conversations/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/resume/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/archive/);
+  assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/confirm/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/system-messages/);
   assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
   assert.match(chat, /ThreadPool Role Fork/);
@@ -393,10 +394,13 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /handleArchiveConversation/);
   assert.match(chat, /activeConversationNeedsRebind/);
   assert.match(chat, /activeConversationRevision/);
-  assert.match(chat, /ensureSession\(activeConversationNeedsRebind\)/);
+  assert.match(chat, /ensureSession\(false\)/);
+  assert.match(chat, /thread 已不可读，此会话已失效/);
   assert.match(chat, /expectedRevision: activeConversationRevision/);
   assert.match(chat, /isConversationConflictError/);
-  assert.match(chat, /recordAgentChatSystemMessage/);
+  assert.match(chat, /confirmAgentChatConversation/);
+  assert.match(chat, /activeConversationConfirmedPlan/);
+  assert.match(chat, /agent-chat-state-badge/);
   assert.match(chat, /messagesFromConversation/);
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);

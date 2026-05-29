@@ -1,4 +1,4 @@
-import type { AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -405,6 +405,25 @@ export async function recordAgentChatSystemMessage(conversationId: string, messa
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message, expectedRevision: expectedRevision ?? null }),
+    }),
+  );
+}
+
+export async function confirmAgentChatConversation(
+  conversationId: string,
+  payload: {
+    turnId?: string | null;
+    note?: string | null;
+    displayArtifact?: AgentChatArtifactRef | null;
+    storyboardArtifact?: AgentChatArtifactRef | null;
+    expectedRevision?: number | null;
+  } = {},
+) {
+  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/confirm`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
     }),
   );
 }

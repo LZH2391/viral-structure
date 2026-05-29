@@ -308,6 +308,53 @@ async function handleAgentChatConversationSystemMessage(req, res, conversationId
   });
 }
 
+async function handleAgentChatConversationConfirm(req, res, conversationId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.conversation.confirm",
+    inputSummary: {
+      conversationId,
+      turnId: normalizeText(body.turnId),
+      expectedRevision: normalizeRevision(body.expectedRevision),
+      displayArtifactId: normalizeText(body.displayArtifact?.artifactId),
+      storyboardArtifactId: normalizeText(body.storyboardArtifact?.artifactId),
+    },
+    action: async ({ traceContext }) => {
+      const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.confirmPlan({
+          conversationId,
+          turnId: normalizeText(body.turnId),
+          note: normalizeText(body.note),
+          displayArtifact: normalizeArtifactRef(body.displayArtifact),
+          storyboardArtifact: normalizeArtifactRef(body.storyboardArtifact),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          expectedRevision: normalizeRevision(body.expectedRevision),
+        }),
+      );
+      if (!conversation) {
+        const error = new Error("未找到 Agent 会话");
+        error.statusCode = 404;
+        error.code = "agent_chat_conversation_not_found";
+        throw error;
+      }
+      return {
+        ok: true,
+        conversation,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
+    summarizeOutput: (result) => ({
+      conversationId: result.conversation.conversationId,
+      confirmedStatus: result.conversation.confirmedPlan?.status ?? null,
+      revision: result.conversation.revision ?? null,
+    }),
+    successStatus: 200,
+  });
+}
+
 async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
   return runAgentChatStage(res, handlers, {
@@ -562,6 +609,17 @@ function normalizeText(value) {
   return text || null;
 }
 
+function normalizeArtifactRef(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    artifactId: normalizeText(value.artifactId),
+    traceId: normalizeText(value.traceId),
+    runId: normalizeText(value.runId),
+    stageId: normalizeText(value.stageId),
+    status: normalizeText(value.status),
+  };
+}
+
 function normalizeRevision(value) {
   if (value == null || value === "") return null;
   const revision = Number(value);
@@ -626,6 +684,7 @@ async function withConversationLock(conversationId, action) {
 
 module.exports = {
   handleAgentChatConversationArchive,
+  handleAgentChatConversationConfirm,
   handleAgentChatConversationList,
   handleAgentChatConversationResume,
   handleAgentChatConversationSystemMessage,
