@@ -111,6 +111,9 @@ export function FunctionSlotGraphApp() {
           <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
             ThreadPool
           </button>
+          <button className="tab-button" type="button" onClick={() => window.location.assign("/agent-chat")}>
+            Agent 对话
+          </button>
           <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
             刷新
           </button>

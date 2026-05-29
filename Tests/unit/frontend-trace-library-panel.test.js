@@ -30,6 +30,8 @@ test("library page exposes local artifact index views", () => {
   assert.match(graphApp, /GraphCanvas/);
   assert.match(graphApp, /\/full-analysis/);
   assert.match(graphApp, /\/threadpool/);
+  assert.match(graphApp, /\/agent-chat/);
+  assert.match(graphApp, /Agent 对话/);
   assert.match(libraryApp, /loadLibraryItem/);
   assert.match(libraryApp, /libraryArtifactTree/);
 });
@@ -217,7 +219,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const css = readPropertyPanelCss(root);
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "meta"/);
+  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "semanticGovernance" \| "restructure" \| "storyboardPrep" \| "meta"/);
   assert.match(propertyPanel, /const \[internalActiveTab, setInternalActiveTab\] = useState<PropertyPanelTab>\("shot"\)/);
   assert.match(propertyPanel, /const activeTab = props\.activeTab \?\? internalActiveTab/);
   assert.match(propertyPanel, /role="tablist"/);
