@@ -30,6 +30,7 @@ const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-anal
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
+const { createFunctionSlotLibraryBuilderService } = require("./lib/function-slot-library/builder-service");
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
 const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
@@ -80,6 +81,12 @@ function createServer(deps = {}) {
     logger: activeLogger,
     projectionService: activeFunctionSlotProjectionService,
   });
+  const activeFunctionSlotLibraryBuilderService = deps.functionSlotLibraryBuilderService ?? createFunctionSlotLibraryBuilderService({
+    rootDir: deps.rootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    libraryService: activeFunctionSlotLibraryService,
+  });
   const activeFunctionSlotAtomizationManualEditService = deps.functionSlotAtomizationManualEditService ?? createFunctionSlotAtomizationManualEditService({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
@@ -127,6 +134,7 @@ function createServer(deps = {}) {
     analysisRegistry: activeAnalysisRegistry,
     functionSlotProjectionService: activeFunctionSlotProjectionService,
     functionSlotLibraryService: activeFunctionSlotLibraryService,
+    functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
       workflowRunStore: activeWorkflowRunStore,
@@ -163,10 +171,12 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-library/builder/refresh") return await handleFunctionSlotLibraryBuilderRefresh(req, res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-workflow\/[^/]+\/run$/.test(url.pathname)) return await handleFunctionSlotWorkflowPlaceholder(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-workflow/storyboard-prep/auto-run") return await handleStoryboardPrepAutoRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threads") return await handleAgentChatThreadStart(req, res, handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns$/.test(url.pathname)) return await handleAgentChatTurnSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+$/.test(url.pathname)) return await handleAgentChatTurnCollect(res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers, url);
@@ -325,6 +335,47 @@ async function handleFunctionSlotLibraryExport(res, sampleVideoId, url, handlers
 async function handleFunctionSlotLibraryList(res, handlers = {}) {
   const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
   return sendJson(res, 200, { items: await service.listLibraryItems() });
+}
+
+async function handleFunctionSlotLibraryBuilderRefresh(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const service = handlers.functionSlotLibraryBuilderService;
+  if (!service?.refresh) {
+    return sendJson(res, 503, {
+      error: "function_slot_library_builder_unavailable",
+      code: "function_slot_library_builder_unavailable",
+      message: "FunctionSlotLibrary builder 服务不可用",
+    });
+  }
+  const result = await service.refresh({
+    mode: body.mode === "replace" ? "replace" : "skip-existing",
+    updateGovernance: body.updateGovernance !== false,
+  });
+  return sendJson(res, 200, result);
+}
+
+async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const sampleVideoId = body.sampleVideoId ?? "function-slot-workflow";
+  const parentArtifactId = body.parentArtifactId ?? body.restructureArtifactId ?? null;
+  if (!body.restructureFinalPath && !parentArtifactId) {
+    return sendJson(res, 400, {
+      error: "storyboard_prep_restructure_required",
+      code: "storyboard_prep_restructure_required",
+      message: "需要 restructureFinalPath 或 restructureArtifactId",
+    });
+  }
+  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({
+    moduleId: "shot-storyboard-prep",
+    sampleVideoId,
+    body: {
+      ...body,
+      parentArtifactId,
+      trigger: "restructure-confirmed",
+      autoRun: true,
+    },
+  });
+  return sendJson(res, 202, result);
 }
 
 async function handleFunctionSlotLibraryProject(res, artifactId, handlers = {}) {

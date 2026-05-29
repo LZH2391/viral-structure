@@ -46,6 +46,19 @@
       }
     },
     {
+      "artifactId": "artifact_caf4498c-156c-49c4-b336-5576e97d1b17",
+      "sampleVideoId": "sample_a05498b1-db46-4a1d-ad1f-e5eabd36fb39",
+      "traceId": "trace_bac127ee-299f-4452-bcf9-d925c3c581fc",
+      "contentHash": "64677b16fc3d93458071205a1c9f7a63f6fd369af8d40253bba263385bd1ddef",
+      "counts": {
+        "slotCount": 0,
+        "atomCount": 0,
+        "bindingCount": 0,
+        "ruleCount": 0,
+        "templateCount": 0
+      }
+    },
+    {
       "artifactId": "artifact_ee6a1aa7-6957-438f-8a8d-6f46a6cea486",
       "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
       "traceId": "trace_fcc19b85-5bef-46c0-a2ab-00ac3bd42944",
@@ -60,7 +73,7 @@
     }
   ],
   "coverage": {
-    "sampleCount": 4,
+    "sampleCount": 5,
     "slotVariantCount": 21,
     "atomVariantCount": 64,
     "bindingCount": 33,

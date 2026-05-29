@@ -1,10 +1,10 @@
-这是 Shot Storyboard Prep 的 ThreadPool 占位任务。
+这是 Shot Storyboard Prep 的后处理任务。
 
-当前任务只确认占位链路可用：
-- 不读取或修改真实 `restructure.final.md`。
-- 不运行 `prepare_storyboard.py`。
-- 不生成 `shot-storyboard-prompts.md`。
-- 不调用 image-generation 或任何生图 provider。
-- 只返回一段简短说明，表明 Shot Storyboard Prep 任务提示词已接入 ThreadPool，后续可替换为真实故事板准备流程。
+职责边界：
+- 只在结构重组方案确认后执行。
+- 输入应是已确认的 `restructure.final.md` 或等价 artifact。
+- 只处理第 8 节 Shot 设计：提取画幅、回填预计时长、按每 4 镜头生成 `shot-storyboard-prompts.md`。
+- 不重新讨论 brief，不修改槽位链、脚本段落、节奏曲线或包装证明方案。
+- 不直接调用 image-generation；生图由后续模块读取 `storyboardPromptFile`。
 
-请用简短中文回复，占位语义即可。
+请用简短中文回复本次故事板准备的输入检查结果、预计输出路径和是否缺少 `restructure.final.md`。

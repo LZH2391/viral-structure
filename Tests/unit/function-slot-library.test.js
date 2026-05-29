@@ -144,6 +144,83 @@ test("function slot library API exposes export, list, project and delete routes"
   }
 });
 
+test("function slot library builder refresh route returns index and governance outputs", async () => {
+  const calls = [];
+  const server = createServer({
+    functionSlotLibraryBuilderService: {
+      refresh: async (payload) => {
+        calls.push(payload);
+        return {
+          ok: true,
+          traceId: "trace_builder",
+          runId: "run_builder",
+          stageId: "stage_builder",
+          exported: { sampleCount: 2, exportedCount: 1, skippedCount: 1, items: [] },
+          validation: { exitCode: 0, path: "Runtime/Temp/FunctionSlotLibrary/validation.json" },
+          slotIndex: { path: "Runtime/Temp/FunctionSlotLibrary/slot_index.json" },
+          governance: { path: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json" },
+        };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeJsonRequest(server, "POST", "/api/function-slot-library/builder/refresh", { mode: "replace", updateGovernance: true });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.traceId, "trace_builder");
+    assert.equal(response.body.exported.exportedCount, 1);
+    assert.equal(response.body.slotIndex.path, "Runtime/Temp/FunctionSlotLibrary/slot_index.json");
+    assert.deepEqual(calls, [{ mode: "replace", updateGovernance: true }]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("storyboard prep auto-run requires confirmed restructure source", async () => {
+  const calls = [];
+  const server = createServer({
+    moduleRegistry: {
+      startModule: async (payload) => {
+        calls.push(payload);
+        return { processingJobId: "job_storyboard", sampleVideoId: payload.sampleVideoId, traceId: "trace_storyboard", status: "placeholder" };
+      },
+      list: () => [],
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const missing = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", { sampleVideoId: "sample_1" });
+    assert.equal(missing.statusCode, 400);
+    assert.equal(missing.body.code, "storyboard_prep_restructure_required");
+
+    const response = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
+      sampleVideoId: "sample_1",
+      restructureArtifactId: "artifact_restructure",
+    });
+    assert.equal(response.statusCode, 202);
+    assert.deepEqual(calls[0], {
+      moduleId: "shot-storyboard-prep",
+      sampleVideoId: "sample_1",
+      body: {
+        sampleVideoId: "sample_1",
+        restructureArtifactId: "artifact_restructure",
+        parentArtifactId: "artifact_restructure",
+        trigger: "restructure-confirmed",
+        autoRun: true,
+      },
+    });
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot library API exposes semantic governance graph route", async () => {
   const server = createServer({
     functionSlotLibraryService: {
@@ -436,6 +513,37 @@ function makeRequest(server, method, requestPath) {
       });
     });
     request.on("error", reject);
+    request.end();
+  });
+}
+
+function makeJsonRequest(server, method, requestPath, body) {
+  return new Promise((resolve, reject) => {
+    const address = server.address();
+    const request = require("node:http").request({
+      agent: false,
+      method,
+      host: "127.0.0.1",
+      port: address.port,
+      path: requestPath,
+      headers: {
+        connection: "close",
+        "content-type": "application/json",
+      },
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        response.destroy();
+        resolve({
+          statusCode: response.statusCode,
+          body: text ? JSON.parse(text) : null,
+        });
+      });
+    });
+    request.on("error", reject);
+    request.write(JSON.stringify(body));
     request.end();
   });
 }

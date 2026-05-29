@@ -32,7 +32,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       .then((payload) => {
         const nextRoles = payload.roles ?? [];
         setRoles(nextRoles);
-        setSelectedRole((current) => current || nextRoles[0]?.role || "");
+        setSelectedRole((current) => current || nextRoles.find((role) => role.role === "function-slot-restructure")?.role || nextRoles[0]?.role || "");
       })
       .catch(() => undefined);
   }, []);

@@ -303,10 +303,14 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(workflowCards, /agent-summary-card/);
   assert.match(workflowCards, /agent-status-badge/);
   assert.match(workflowCards, /agent-latest-activity/);
-  assert.match(workflowCards, /语义治理/);
+  assert.match(workflowCards, /结构库刷新/);
   assert.match(workflowCards, /结构重组/);
   assert.match(workflowCards, /Shot Storyboard Prep/);
   assert.match(workflowCards, /startFunctionSlotWorkflowPlaceholder/);
+  assert.match(workflowCards, /refreshFunctionSlotLibraryBuilder/);
+  assert.match(workflowCards, /autoRunShotStoryboardPrep/);
+  assert.match(api, /\/api\/function-slot-library\/builder\/refresh/);
+  assert.match(api, /\/api\/function-slot-workflow\/storyboard-prep\/auto-run/);
   assert.match(api, /\/api\/function-slot-workflow\/\$\{encodeURIComponent\(workflowKey\)\}\/run/);
   assert.match(resource, /DOUBAO_Api_App_Key/);
   assert.match(timeline, /id="subtitleTrack"/);
@@ -368,6 +372,7 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns\/\$\{encodeURIComponent\(turnId\)\}\/timeline/);
   assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
   assert.match(chat, /ThreadPool Role Fork/);
+  assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /startAgentChatThread/);
   assert.match(chat, /sendAgentChatMessage/);
   assert.match(chat, /collectAgentChatTurn/);

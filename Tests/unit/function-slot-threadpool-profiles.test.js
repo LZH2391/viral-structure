@@ -41,8 +41,16 @@ test("function slot placeholder role profiles load init and task prompts", async
     assert.equal(profile.role, item.role);
     assert.equal(profile.skillPath?.split(/[\\/]/).slice(-2).join("/"), `${item.skill}/SKILL.md`);
     assert.match(profile.init.templateBody, /已就绪/);
-    assert.match(rendered.text, /ThreadPool 占位任务/);
-    assert.match(rendered.text, /占位语义/);
+    if (item.role === "function-slot-restructure") {
+      assert.match(rendered.text, /结构重组的对话任务/);
+      assert.match(rendered.text, /slot_index\.json/);
+    } else if (item.role === "shot-storyboard-prep") {
+      assert.match(rendered.text, /后处理任务/);
+      assert.match(rendered.text, /restructure\.final\.md/);
+    } else {
+      assert.match(rendered.text, /ThreadPool 占位任务/);
+      assert.match(rendered.text, /占位语义/);
+    }
     assert.equal(rendered.promptTemplateVersion.endsWith(".placeholder.v1"), true);
   }
 });

@@ -69,6 +69,22 @@ export type AgentChatTurnResponse = {
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
 };
 
+export type FunctionSlotLibraryBuilderRefreshResponse = {
+  ok: boolean;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  exported: {
+    sampleCount: number;
+    exportedCount: number;
+    skippedCount: number;
+    items: Array<{ sampleVideoId: string; artifactId: string | null; exported: boolean; skipped: boolean; itemPath: string | null }>;
+  };
+  validation: { exitCode: number; path: string; stdout?: string | null; stderr?: string | null };
+  slotIndex: { path: string; stdout?: string | null };
+  governance: { path: string; stdout?: string | null } | null;
+};
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -403,6 +419,26 @@ export async function getFunctionSlotLibraryGraph(artifactId: string) {
 
 export async function getFunctionSlotGovernanceGraph() {
   return readJsonResponse<FunctionSlotLibraryGraph>(await fetch(`${API_BASE_URL}/api/function-slot-library/governance/graph`, { cache: "no-store" }));
+}
+
+export async function refreshFunctionSlotLibraryBuilder(payload: { mode?: "skip-existing" | "replace"; updateGovernance?: boolean } = {}) {
+  return readJsonResponse<FunctionSlotLibraryBuilderRefreshResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library/builder/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null } = {}) {
+  return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
 export async function startFunctionSlotWorkflowPlaceholder(
