@@ -89,7 +89,14 @@ test("appserver bridge and startup script use local agent runtime", () => {
   assert.match(startup, /function Test-ThreadPoolReady/);
   assert.match(startup, /\[bool\]\$payload\.ok/);
   assert.match(startup, /thread_pool_service/);
-  assert.doesNotMatch(startup, /return \[bool\]\$payload\.ready_for_leases/);
+  assert.match(startup, /\[bool\]\$payload\.ready_for_leases/);
+  assert.match(startup, /Stop-ExistingWorkbenchControllers \$repoRoot/);
+  assert.match(startup, /function Stop-ExistingWorkbenchControllers/);
+  assert.match(startup, /Previous Workbench stack controller/);
+  assert.match(startup, /existing workspace PID/);
+  assert.match(startup, /function Stop-WorkspaceServiceProcess/);
+  assert.match(startup, /function Wait-ForPortFree/);
+  assert.doesNotMatch(startup, /already online/);
   assert.match(startup, /Resolve-CommandPathOrNull @\("codex\.cmd", "codex\.exe"\)/);
   assert.match(startup, /function Test-DirectStartCommandPath/);
   assert.match(startup, /"\.exe", "\.cmd", "\.bat", "\.com"/);

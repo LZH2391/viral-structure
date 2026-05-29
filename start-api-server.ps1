@@ -20,6 +20,8 @@ function Start-WorkbenchStack {
   $env:CODEX_APP_SERVER_WS_URL = $env:APP_SERVER_URL
   $env:THREADPOOL_BASE_URL = "http://127.0.0.1:$($env:THREADPOOL_PORT)"
 
+  Stop-ExistingWorkbenchControllers $repoRoot
+
   $apiPort = [int]$env:PORT
   $vitePort = [int]$env:VITE_PORT
   $threadPoolPort = [int]$env:THREADPOOL_PORT
@@ -88,7 +90,7 @@ function Start-WorkbenchStack {
   Write-Host "Codex AppServer target $($env:CODEX_APP_SERVER_WS_URL)"
   Write-Host "ThreadPool target $threadPoolHealthUrl"
   Write-Host "Service logs $script:workbenchLogDir"
-  Write-Host "Press Esc or Ctrl+C to stop all managed/reused services for this workspace."
+  Write-Host "Press Esc or Ctrl+C to stop all managed services for this workspace."
 
   try {
     foreach ($spec in $serviceSpecs) {
@@ -214,11 +216,8 @@ function Ensure-Service($Spec, $Registry) {
     if (-not (Test-ServiceMatch $Spec $existing)) {
       throw "$($Spec.Name) port $($Spec.Port) is occupied by non-workspace process PID $($existing.ProcessId): $($existing.CommandLine)"
     }
-    $stopwatch.Stop()
-    Write-Host "$($Spec.Name) already online, managing existing PID $($existing.ProcessId)."
-    Write-Host "  checked in $([math]::Round($stopwatch.Elapsed.TotalSeconds, 2))s"
-    Add-ManagedProcess $Registry $Spec $existing.ProcessId $true
-    return
+    Write-Host "$($Spec.Name) existing workspace PID $($existing.ProcessId) found; restarting fresh..."
+    Stop-WorkspaceServiceProcess $Spec $existing.ProcessId
   }
 
   $process = & $Spec.Start
@@ -237,6 +236,26 @@ function Ensure-AppServerWatchdog($Spec, $Registry) {
     Ensure-Service $Spec $Registry
   } catch {
     Write-Host "$($Spec.Name) watchdog restart failed: $($_.Exception.Message)"
+  }
+}
+
+function Stop-ExistingWorkbenchControllers([string]$RepoRoot) {
+  $startupScript = Join-Path $RepoRoot "start-api-server.ps1"
+  $controllers = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+    [int]$_.ProcessId -ne [int]$PID -and
+    [string]$_.CommandLine -match "start-api-server\.ps1" -and
+    (Test-CommandLinePathMatch ([string]$_.CommandLine) @($script:scriptPath, $startupScript))
+  }
+
+  foreach ($controller in @($controllers)) {
+    Write-Host "Stopping previous Workbench stack controller PID $($controller.ProcessId)..."
+    Stop-ManagedProcessTree ([pscustomobject]@{
+      Name = "Previous Workbench stack controller"
+      Kind = "controller"
+      Port = 0
+      ProcessId = [int]$controller.ProcessId
+      Reused = $false
+    })
   }
 }
 
@@ -281,7 +300,7 @@ function Test-ThreadPoolReady() {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "$($env:THREADPOOL_BASE_URL)/health" -TimeoutSec 1
     if ([int]$response.StatusCode -lt 200 -or [int]$response.StatusCode -ge 500) { return $false }
     $payload = $response.Content | ConvertFrom-Json
-    return [bool]$payload.ok -and [string]$payload.service -eq "thread_pool_service"
+    return [bool]$payload.ok -and [string]$payload.service -eq "thread_pool_service" -and [bool]$payload.ready_for_leases
   } catch {
     return $false
   }
@@ -352,6 +371,26 @@ function Stop-ManagedServices($Registry) {
       Stop-ManagedProcessTree $entry
     }
   }
+}
+
+function Stop-WorkspaceServiceProcess($Spec, [int]$ProcessId) {
+  $entry = [pscustomobject]@{
+    Name = $Spec.Name
+    Kind = $Spec.Kind
+    Port = $Spec.Port
+    ProcessId = $ProcessId
+    Reused = $false
+  }
+  Stop-ManagedProcessTree $entry
+  Wait-ForPortFree $Spec.Port
+}
+
+function Wait-ForPortFree([int]$Port) {
+  for ($index = 0; $index -lt 40; $index += 1) {
+    if (-not (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)) { return }
+    Start-Sleep -Milliseconds 250
+  }
+  throw "port $Port did not become free after stopping existing workspace service."
 }
 
 function Stop-ManagedProcessTree($Entry) {
