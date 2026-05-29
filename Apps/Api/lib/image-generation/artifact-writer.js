@@ -10,6 +10,7 @@ async function writeGeneratedImages({
   sampleVideoId,
   artifactId,
   groupId,
+  filenamePrefix = "image",
   providerResult,
 }) {
   const items = extractImageItems(providerResult?.payload ?? providerResult);
@@ -19,7 +20,7 @@ async function writeGeneratedImages({
   const images = [];
   for (let index = 0; index < items.length; index += 1) {
     const { buffer, sourceUrl } = await decodeImageItem(items[index]);
-    const filename = outputFilename(groupId, index + 1, items.length);
+    const filename = outputFilename(groupId, index + 1, items.length, filenamePrefix);
     const filePath = path.join(outputDir, filename);
     await fs.writeFile(filePath, buffer);
     images.push({
@@ -107,10 +108,11 @@ function downloadBinary(url) {
   });
 }
 
-function outputFilename(groupId, index, total) {
+function outputFilename(groupId, index, total, filenamePrefix = "image") {
   const safeGroup = safeFilename(String(groupId ?? "default"));
+  const safePrefix = safeFilename(String(filenamePrefix || "image"));
   const suffix = total > 1 ? `__${index}` : "";
-  return `image_${safeGroup}${suffix}.png`;
+  return `${safePrefix}_${safeGroup}${suffix}.png`;
 }
 
 function safeFilename(value) {

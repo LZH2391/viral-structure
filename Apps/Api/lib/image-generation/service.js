@@ -3,6 +3,7 @@ const { SAMPLE_STATUS } = require("../../../../Core/Workspace/sample-video-contr
 const { createExecutorRegistry } = require("../executors/registry");
 const { buildImagePrompt } = require("./prompt-builder");
 const { createPPAPIProvider } = require("./ppapi-provider");
+const { parseStoryboardPromptFile } = require("./storyboard-prompt-parser");
 const { writeGeneratedImages, writeImageGenerationArtifact } = require("./artifact-writer");
 const { STAGES, safeError, sanitizeDebugPayload } = require("./debug");
 
@@ -41,6 +42,11 @@ function createImageGenerationService({
   async function runImageGeneration(context, options) {
     await store.ensureRuntimeDirs?.();
     await store.ensureSampleDirs?.(context.sampleVideoId);
+    if (options.storyboardPromptFile) return runStoryboardFileGeneration(context, options);
+    return runDirectImageGeneration(context, options);
+  }
+
+  async function runDirectImageGeneration(context, options) {
     const prepared = await runStage(context, STAGES.promptPrepared, 15, {
       artifactId: context.artifactId,
       parentArtifactId: context.parentArtifactId,
@@ -94,6 +100,7 @@ function createImageGenerationService({
         sampleVideoId: context.sampleVideoId,
         artifactId: context.artifactId,
         groupId: options.groupId,
+        filenamePrefix: "image",
         providerResult: providerResult.result,
       }),
       outputSummary: (writtenImages) => ({
@@ -134,6 +141,128 @@ function createImageGenerationService({
       imageGenerationArtifact: artifact,
       outputSummary: {
         artifactId: artifact.artifactId,
+        imageCount: artifact.images.length,
+        uri: artifact.uri,
+      },
+    });
+    return artifact;
+  }
+
+  async function runStoryboardFileGeneration(context, options) {
+    const storyboard = await runStage(context, STAGES.promptPrepared, 15, {
+      artifactId: context.artifactId,
+      parentArtifactId: context.parentArtifactId,
+      inputSummary: {
+        mode: "storyboard-prompt-file",
+        sourceFile: safeBasename(options.storyboardPromptFile),
+      },
+      action: () => parseStoryboardPromptFile(options.storyboardPromptFile),
+      outputSummary: (result) => ({
+        mode: "storyboard-prompt-file",
+        aspectRatio: result.aspect.ratio,
+        orientation: result.aspect.orientation,
+        groupCount: result.groups.length,
+        shotCount: result.groups.reduce((sum, group) => sum + group.shots.length, 0),
+      }),
+    });
+
+    const groupResults = [];
+    for (let index = 0; index < storyboard.groups.length; index += 1) {
+      const group = storyboard.groups[index];
+      const providerResult = await runStage(context, STAGES.providerRequested, 35 + Math.min(35, index * 5), {
+        artifactId: context.artifactId,
+        parentArtifactId: context.parentArtifactId,
+        inputSummary: {
+          provider: activeProvider.providerName ?? "pptoken",
+          mode: "storyboard-group",
+          groupId: group.groupId,
+          promptChars: group.prompt.length,
+          shotCount: group.shots.length,
+        },
+        action: () => activeExecutorRegistry.execute("external-api", {
+          providerName: activeProvider.providerName ?? "pptoken",
+          provider: activeProvider,
+          request: {
+            prompt: group.prompt,
+            size: options.size,
+            quality: options.quality,
+            background: options.background,
+            outputFormat: options.outputFormat,
+            n: options.n,
+          },
+          timeoutSeconds: options.timeoutSeconds ?? 300,
+        }, { traceContext: context.traceContext }),
+        outputSummary: (execution) => ({
+          provider: execution.provider,
+          groupId: group.groupId,
+          imageCount: execution.result?.meta?.imageCount ?? null,
+          responseBytes: execution.result?.meta?.responseBytes ?? null,
+          durationMs: execution.result?.meta?.durationMs ?? null,
+          model: execution.result?.meta?.model ?? null,
+        }),
+      });
+      const images = await runStage(context, STAGES.assetWritten, 70 + Math.min(20, index * 3), {
+        artifactId: context.artifactId,
+        parentArtifactId: context.parentArtifactId,
+        inputSummary: {
+          provider: providerResult.provider,
+          groupId: group.groupId,
+          imageCount: providerResult.result?.meta?.imageCount ?? null,
+        },
+        action: () => writeGeneratedImages({
+          store,
+          sampleVideoId: context.sampleVideoId,
+          artifactId: context.artifactId,
+          groupId: group.groupId,
+          filenamePrefix: "storyboard",
+          providerResult: providerResult.result,
+        }),
+        outputSummary: (writtenImages) => ({
+          groupId: group.groupId,
+          imageCount: writtenImages.length,
+          totalBytes: writtenImages.reduce((sum, image) => sum + image.bytes, 0),
+          uris: writtenImages.map((image) => image.uri),
+        }),
+      });
+      groupResults.push({ group, providerResult, images });
+    }
+
+    const allImages = groupResults.flatMap((item) => item.images);
+    const artifact = await runStage(context, STAGES.artifactAttached, 95, {
+      artifactId: context.artifactId,
+      parentArtifactId: context.parentArtifactId,
+      inputSummary: {
+        mode: "storyboard-prompt-file",
+        groupCount: groupResults.length,
+        imageCount: allImages.length,
+      },
+      action: () => writeImageGenerationArtifact({
+        store,
+        sampleVideoId: context.sampleVideoId,
+        artifact: buildStoryboardArtifact({
+          context,
+          options,
+          storyboard,
+          groupResults,
+          images: allImages,
+        }),
+      }),
+      outputSummary: (savedArtifact) => ({
+        artifactId: savedArtifact.artifactId,
+        artifactType: savedArtifact.artifactType,
+        groupCount: savedArtifact.storyboardGroups.length,
+        imageCount: savedArtifact.images.length,
+        uri: savedArtifact.uri,
+      }),
+    });
+    jobStore.updateJob(context.job.jobId, {
+      stage: STAGES.artifactAttached,
+      status: SAMPLE_STATUS.processed,
+      progress: 100,
+      imageGenerationArtifact: artifact,
+      outputSummary: {
+        artifactId: artifact.artifactId,
+        groupCount: artifact.storyboardGroups.length,
         imageCount: artifact.images.length,
         uri: artifact.uri,
       },
@@ -248,6 +377,54 @@ function buildArtifact({ context, options, providerResult, images, promptSummary
       sourceUrl: image.sourceUrl,
     })),
   };
+}
+
+function buildStoryboardArtifact({ context, options, storyboard, groupResults, images }) {
+  return {
+    artifactId: context.artifactId,
+    parentArtifactId: context.parentArtifactId,
+    artifactType: "image-generation",
+    type: "image-generation",
+    stageName: STAGES.artifactAttached,
+    sampleVideoId: context.sampleVideoId,
+    traceId: context.traceContext.traceId,
+    createdAt: new Date().toISOString(),
+    mode: "storyboard-prompt-file",
+    sourceFile: storyboard.sourceFile,
+    provider: groupResults[0]?.providerResult?.provider ?? "pptoken",
+    model: groupResults[0]?.providerResult?.result?.meta?.model ?? "gpt-image-2",
+    aspect: storyboard.aspect,
+    promptSummary: {
+      mode: "storyboard-prompt-file",
+      sourceFile: safeBasename(options.storyboardPromptFile),
+      groupCount: storyboard.groups.length,
+      shotCount: storyboard.groups.reduce((sum, group) => sum + group.shots.length, 0),
+    },
+    storyboardGroups: groupResults.map(({ group, providerResult, images: groupImages }) => ({
+      groupId: group.groupId,
+      title: group.title,
+      shots: group.shots,
+      promptChars: group.prompt.length,
+      providerMeta: providerResult.result?.meta ?? null,
+      images: groupImages.map((image) => ({
+        index: image.index,
+        uri: image.uri,
+        bytes: image.bytes,
+        sourceUrl: image.sourceUrl,
+      })),
+    })),
+    images: images.map((image) => ({
+      index: image.index,
+      uri: image.uri,
+      bytes: image.bytes,
+      sourceUrl: image.sourceUrl,
+    })),
+  };
+}
+
+function safeBasename(filePath) {
+  if (!filePath) return null;
+  return String(filePath).split(/[\\/]/).pop() || null;
 }
 
 module.exports = {

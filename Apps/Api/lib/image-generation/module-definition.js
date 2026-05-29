@@ -36,6 +36,7 @@ function createImageGenerationModuleDefinition() {
     startOptionsFromBody: ({ sampleVideoId, body = {} }) => ({
       sampleVideoId,
       prompt: body.prompt,
+      storyboardPromptFile: body.storyboardPromptFile,
       storyboard: body.storyboard,
       groupId: body.groupId,
       selectedShots: Array.isArray(body.selectedShots) ? body.selectedShots : [],

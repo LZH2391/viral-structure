@@ -8,6 +8,7 @@ const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
 const { createImageGenerationService } = require("../../Apps/Api/lib/image-generation/service");
 const { createPPAPIProvider, classifyHTTPError, normalizePPAPIResponse } = require("../../Apps/Api/lib/image-generation/ppapi-provider");
 const { createImageGenerationModuleDefinition } = require("../../Apps/Api/lib/image-generation/module-definition");
+const { parseStoryboardPromptMarkdown } = require("../../Apps/Api/lib/image-generation/storyboard-prompt-parser");
 
 test("ppapi provider builds requests and normalizes image responses", async () => {
   const provider = createPPAPIProvider({
@@ -91,6 +92,103 @@ test("image-generation service writes images, artifact json, and stage logs", as
   ]);
 });
 
+test("storyboard prompt parser extracts aspect, groups, shots and group prompts", () => {
+  const parsed = parseStoryboardPromptMarkdown(`# Shot Storyboard Prompts
+
+画幅：9:16 竖屏
+
+## Storyboard Group 01
+
+以故事板呈现以下镜头，比例为9:16，竖屏。
+
+### new_shot_01
+- imagePrompt: 真实浴室半脸对比
+- overlayPackaging: 左右对比线
+
+### storyboard_blank_pad_02
+- imagePrompt: 纯白空白画面
+- overlayPackaging: 无
+`);
+
+  assert.equal(parsed.aspect.ratio, "9:16");
+  assert.equal(parsed.aspect.orientation, "竖屏");
+  assert.equal(parsed.groups.length, 1);
+  assert.equal(parsed.groups[0].groupId, "storyboard-group-01");
+  assert.equal(parsed.groups[0].shots.length, 2);
+  assert.match(parsed.groups[0].prompt, /每组固定四格/);
+  assert.match(parsed.groups[0].prompt, /镜头 new_shot_01：真实浴室半脸对比/);
+  assert.match(parsed.groups[0].prompt, /包装覆盖层：左右对比线/);
+});
+
+test("image-generation service generates storyboard prompt file groups", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-image-generation-storyboard-"));
+  const store = createLocalStore(root);
+  await store.ensureRuntimeDirs();
+  const jobStore = createJobStore();
+  const logger = {
+    writeStageLog: async (entry) => entry,
+    writeDebugSnapshot: async (entry) => ({ ...entry, uri: "/runtime/DebugSnapshots/test.json" }),
+  };
+  const calls = [];
+  const provider = {
+    providerName: "pptoken",
+    request: async (request) => {
+      calls.push(request);
+      return {
+        payload: { data: [{ b64_json: Buffer.from(`storyboard-${calls.length}`).toString("base64") }] },
+        meta: { imageCount: 1, responseBytes: 42, durationMs: 7, model: "gpt-image-2" },
+      };
+    },
+  };
+  const promptFile = path.join(root, "shot-storyboard-prompts.md");
+  await fs.writeFile(promptFile, `# Shot Storyboard Prompts
+
+画幅：9:16 竖屏
+
+## Storyboard Group 01
+
+以故事板呈现以下镜头，比例为9:16，竖屏。
+
+### new_shot_01
+- imagePrompt: 第一镜画面
+- overlayPackaging: 第一镜包装
+
+### new_shot_02
+- imagePrompt: 第二镜画面
+- overlayPackaging: 第二镜包装
+
+## Storyboard Group 02
+
+以故事板呈现以下镜头，比例为9:16，竖屏。
+
+### new_shot_05
+- imagePrompt: 第五镜画面
+- overlayPackaging: 第五镜包装
+`, "utf8");
+  const service = createImageGenerationService({ store, logger, jobStore, provider });
+
+  const started = await service.enqueue({
+    sampleVideoId: "sample_storyboard_1",
+    storyboardPromptFile: promptFile,
+    parentArtifactId: "artifact_parent",
+  });
+  const job = await waitForJob(jobStore, started.processingJobId, "processed");
+
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].prompt, /第一镜画面/);
+  assert.match(calls[0].prompt, /包装覆盖层：第一镜包装/);
+  assert.match(calls[1].prompt, /第五镜画面/);
+  assert.equal(job.imageGenerationArtifact.mode, "storyboard-prompt-file");
+  assert.equal(job.imageGenerationArtifact.aspect.ratio, "9:16");
+  assert.equal(job.imageGenerationArtifact.storyboardGroups.length, 2);
+  assert.equal(job.imageGenerationArtifact.storyboardGroups[0].images[0].uri.endsWith("storyboard_storyboard-group-01.png"), true);
+  assert.equal(job.imageGenerationArtifact.storyboardGroups[1].images[0].uri.endsWith("storyboard_storyboard-group-02.png"), true);
+  const firstImagePath = path.join(root, "Runtime", "Artifacts", "sample_storyboard_1", "image-generation", started.artifactId, "storyboard_storyboard-group-01.png");
+  const secondImagePath = path.join(root, "Runtime", "Artifacts", "sample_storyboard_1", "image-generation", started.artifactId, "storyboard_storyboard-group-02.png");
+  assert.equal(await fs.readFile(firstImagePath, "utf8"), "storyboard-1");
+  assert.equal(await fs.readFile(secondImagePath, "utf8"), "storyboard-2");
+});
+
 test("image-generation module definition exposes start options", () => {
   const definition = createImageGenerationModuleDefinition();
   const options = definition.startOptionsFromBody({
@@ -102,6 +200,7 @@ test("image-generation module definition exposes start options", () => {
   assert.equal(definition.executorKind, "local-service");
   assert.equal(options.sampleVideoId, "sample_1");
   assert.equal(options.prompt, "hello");
+  assert.equal(options.storyboardPromptFile, undefined);
   assert.deepEqual(options.selectedShots, [1]);
 });
 
