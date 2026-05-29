@@ -86,7 +86,7 @@ Shot 设计时需要把三条并行视图对齐到同一个新视频顺序结构
 保存路径：`Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`
 
 ## 1. 重组目标与假设
-[品类、受众、目标、假设]
+[品类、受众、目标、假设、横/竖屏]
 
 ## 2. 最终功能槽位链
 | 顺序 | 需求 | slotSubtype | parent archetype | 链路功能 | 本方案用法 | 选择理由 |

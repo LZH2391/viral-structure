@@ -13,7 +13,8 @@ description: 从 function-slot-restructure 的 restructure.final.md 中提取第
 - 读取第 8 节 Shot 表。
 - 用 `function-slot-restructure/scripts/estimate_dialogue_duration.py --shot-json` 根据台词回填原文 `预计时长` 列。
 - 生成一个额外故事板 Markdown，默认每 4 个 shot 一组。
-- 每个 shot 同时保留 `imagePrompt = 分镜画面` 与 `overlayPackaging = 包装说明`，并提供合并后的 `combinedStoryboardPrompt`。
+- 每个 shot 只提取 `imagePrompt = 分镜画面` 与 `overlayPackaging = 包装说明`；预计时长只回填原文 Shot 表，不写入故事板 Markdown。
+- 最后一组不足 4 镜头时，补纯白占位镜头，保证每组仍是 4 格故事板；占位镜头不回写原文。
 
 ## 使用脚本
 
@@ -38,10 +39,9 @@ python .agents/skills/shot-storyboard-prep/scripts/prepare_storyboard.py --input
   - `## Storyboard Group 01`
   - `- imagePrompt: ...`
   - `- overlayPackaging: ...`
-  - `- durationEstimate: ...`
-  - `- combinedStoryboardPrompt: ...`
+- 每组固定 4 个镜头；如果原始 shot 数不能整除 4，最后一组用 `storyboard_blank_pad_XX` 补齐，`imagePrompt` 写纯白空白画面，`overlayPackaging` 写无。
 - 画幅从原文中提取；优先识别 `9:16`、`16:9`、`竖屏`、`横屏`、`竖版`、`横版`。找不到时写 `未明确`，不要猜。
-- 生图底图和包装覆盖层要分开保存；合并字段只给故事板检查/批量 prompt 使用。
+- 生图底图和包装覆盖层要分开保存；不要额外发明 `combinedStoryboardPrompt` 字段。
 
 ## 验证
 

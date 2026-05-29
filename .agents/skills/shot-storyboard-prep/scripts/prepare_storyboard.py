@@ -226,7 +226,7 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
         "",
     ]
     for group_index, start in enumerate(range(0, len(rows), group_size), 1):
-        group_rows = rows[start : start + group_size]
+        group_rows = pad_storyboard_group(rows[start : start + group_size], group_size, start)
         lines.extend([
             f"## Storyboard Group {group_index:02d}",
             "",
@@ -237,17 +237,25 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
             shot = row.get("shot", "")
             image_prompt = row.get("分镜画面", "")
             overlay = row.get("包装说明", "")
-            duration = row.get("预计时长", "")
-            combined = f"{image_prompt}；后期包装覆盖层：{overlay}" if overlay else image_prompt
             lines.extend([
                 f"### {shot}",
                 f"- imagePrompt: {image_prompt}",
                 f"- overlayPackaging: {overlay}",
-                f"- durationEstimate: {duration}",
-                f"- combinedStoryboardPrompt: {combined}",
                 "",
             ])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def pad_storyboard_group(rows: list[dict[str, str]], group_size: int, start_index: int) -> list[dict[str, str]]:
+    padded = list(rows)
+    while padded and len(padded) < group_size:
+        pad_number = start_index + len(padded) + 1
+        padded.append({
+            "shot": f"storyboard_blank_pad_{pad_number:02d}",
+            "分镜画面": "纯白空白画面，用于故事板占位保持四格比例；没有人物、产品、文字、图标或包装元素",
+            "包装说明": "无",
+        })
+    return padded
 
 
 if __name__ == "__main__":
