@@ -31,6 +31,7 @@ function createImageGenerationService({
       sampleVideoId,
       traceContext: { runId: traceId, traceId, stageId: `stage_${randomUUID()}` },
       job,
+      jobStore,
       artifactId,
       parentArtifactId,
       activeStage: null,
@@ -166,66 +167,28 @@ function createImageGenerationService({
       }),
     });
 
-    const groupResults = [];
-    for (let index = 0; index < storyboard.groups.length; index += 1) {
-      const group = storyboard.groups[index];
-      const providerResult = await runStage(context, STAGES.providerRequested, 35 + Math.min(35, index * 5), {
-        artifactId: context.artifactId,
-        parentArtifactId: context.parentArtifactId,
-        inputSummary: {
-          provider: activeProvider.providerName ?? "pptoken",
-          mode: "storyboard-group",
-          groupId: group.groupId,
-          promptChars: group.prompt.length,
-          shotCount: group.shots.length,
-        },
-        action: () => activeExecutorRegistry.execute("external-api", {
-          providerName: activeProvider.providerName ?? "pptoken",
-          provider: activeProvider,
-          request: {
-            prompt: group.prompt,
-            size: options.size,
-            quality: options.quality,
-            background: options.background,
-            outputFormat: options.outputFormat,
-            n: options.n,
-          },
-          timeoutSeconds: options.timeoutSeconds ?? 300,
-        }, { traceContext: context.traceContext }),
-        outputSummary: (execution) => ({
-          provider: execution.provider,
-          groupId: group.groupId,
-          imageCount: execution.result?.meta?.imageCount ?? null,
-          responseBytes: execution.result?.meta?.responseBytes ?? null,
-          durationMs: execution.result?.meta?.durationMs ?? null,
-          model: execution.result?.meta?.model ?? null,
-        }),
-      });
-      const images = await runStage(context, STAGES.assetWritten, 70 + Math.min(20, index * 3), {
-        artifactId: context.artifactId,
-        parentArtifactId: context.parentArtifactId,
-        inputSummary: {
-          provider: providerResult.provider,
-          groupId: group.groupId,
-          imageCount: providerResult.result?.meta?.imageCount ?? null,
-        },
-        action: () => writeGeneratedImages({
-          store,
-          sampleVideoId: context.sampleVideoId,
-          artifactId: context.artifactId,
-          groupId: group.groupId,
-          filenamePrefix: "storyboard",
-          providerResult: providerResult.result,
-        }),
-        outputSummary: (writtenImages) => ({
-          groupId: group.groupId,
-          imageCount: writtenImages.length,
-          totalBytes: writtenImages.reduce((sum, image) => sum + image.bytes, 0),
-          uris: writtenImages.map((image) => image.uri),
-        }),
-      });
-      groupResults.push({ group, providerResult, images });
-    }
+    const storyboardConcurrency = normalizeConcurrency(options.storyboardConcurrency, storyboard.groups.length);
+    const timeoutSeconds = Number(options.timeoutSeconds ?? 300);
+    updateStoryboardRunState(context, {
+      mode: "storyboard-prompt-file",
+      sourceFile: safeBasename(options.storyboardPromptFile),
+      aspect: storyboard.aspect,
+      concurrency: storyboardConcurrency,
+      timeoutSeconds,
+      timeoutBudgetSeconds: Math.ceil(storyboard.groups.length / storyboardConcurrency) * timeoutSeconds,
+      startedAt: new Date().toISOString(),
+      groups: storyboard.groups.map((group) => ({
+        groupId: group.groupId,
+        title: group.title,
+        status: "pending",
+        shotCount: group.shots.length,
+        promptChars: group.prompt.length,
+        imageUris: [],
+        errorSummary: null,
+      })),
+    });
+
+    const groupResults = await runWithConcurrency(storyboard.groups, storyboardConcurrency, (group, index) => runStoryboardGroup(context, options, group, index));
 
     const allImages = groupResults.flatMap((item) => item.images);
     const artifact = await runStage(context, STAGES.artifactAttached, 95, {
@@ -270,6 +233,98 @@ function createImageGenerationService({
     return artifact;
   }
 
+  async function runStoryboardGroup(context, options, group, index) {
+    markStoryboardGroup(context, group.groupId, {
+      status: "requesting",
+      startedAt: new Date().toISOString(),
+      progress: "provider_request",
+    });
+    try {
+      const providerResult = await runIsolatedStage(context, STAGES.providerRequested, {
+        artifactId: context.artifactId,
+        parentArtifactId: context.parentArtifactId,
+        inputSummary: {
+          provider: activeProvider.providerName ?? "pptoken",
+          mode: "storyboard-group",
+          groupId: group.groupId,
+          promptChars: group.prompt.length,
+          shotCount: group.shots.length,
+          timeoutSeconds: options.timeoutSeconds ?? 300,
+        },
+        action: () => activeExecutorRegistry.execute("external-api", {
+          providerName: activeProvider.providerName ?? "pptoken",
+          provider: activeProvider,
+          request: {
+            prompt: group.prompt,
+            size: options.size,
+            quality: options.quality,
+            background: options.background,
+            outputFormat: options.outputFormat,
+            n: options.n,
+          },
+          timeoutSeconds: options.timeoutSeconds ?? 300,
+        }, { traceContext: context.traceContext }),
+        outputSummary: (execution) => ({
+          provider: execution.provider,
+          groupId: group.groupId,
+          imageCount: execution.result?.meta?.imageCount ?? null,
+          responseBytes: execution.result?.meta?.responseBytes ?? null,
+          durationMs: execution.result?.meta?.durationMs ?? null,
+          model: execution.result?.meta?.model ?? null,
+        }),
+      });
+      markStoryboardGroup(context, group.groupId, {
+        status: "response_received",
+        progress: "asset_write",
+        providerMeta: providerResult.result?.meta ?? null,
+      });
+      const images = await runIsolatedStage(context, STAGES.assetWritten, {
+        artifactId: context.artifactId,
+        parentArtifactId: context.parentArtifactId,
+        inputSummary: {
+          provider: providerResult.provider,
+          groupId: group.groupId,
+          imageCount: providerResult.result?.meta?.imageCount ?? null,
+        },
+        action: () => writeGeneratedImages({
+          store,
+          sampleVideoId: context.sampleVideoId,
+          artifactId: context.artifactId,
+          groupId: group.groupId,
+          filenamePrefix: "storyboard",
+          providerResult: providerResult.result,
+        }),
+        outputSummary: (writtenImages) => ({
+          groupId: group.groupId,
+          imageCount: writtenImages.length,
+          totalBytes: writtenImages.reduce((sum, image) => sum + image.bytes, 0),
+          uris: writtenImages.map((image) => image.uri),
+        }),
+      });
+      markStoryboardGroup(context, group.groupId, {
+        status: "completed",
+        progress: "completed",
+        completedAt: new Date().toISOString(),
+        imageUris: images.map((image) => image.uri),
+      });
+      updateStoryboardProgress(context);
+      return { group, providerResult, images, index };
+    } catch (error) {
+      markStoryboardGroup(context, group.groupId, {
+        status: "failed",
+        progress: "failed",
+        completedAt: new Date().toISOString(),
+        errorSummary: {
+          code: error?.code ?? "image_generation_group_failed",
+          message: error?.safeSummary ?? error?.message ?? "故事板分组生图失败",
+          retryable: typeof error?.retryable === "boolean" ? error.retryable : null,
+        },
+      });
+      updateStoryboardProgress(context);
+      throw error;
+    }
+  }
+
   async function runStage(context, stageName, progress, options) {
     context.traceContext = { ...context.traceContext, stageId: `stage_${randomUUID()}` };
     const startedAt = Date.now();
@@ -304,6 +359,57 @@ function createImageGenerationService({
     });
     context.activeStage = null;
     return result;
+  }
+
+  async function runIsolatedStage(context, stageName, options) {
+    const traceContext = { ...context.traceContext, stageId: `stage_${randomUUID()}` };
+    const startedAt = Date.now();
+    await logger.writeStageLog({
+      traceContext,
+      stageName,
+      event: "stage.start",
+      artifactId: options.artifactId ?? null,
+      parentArtifactId: options.parentArtifactId ?? null,
+      inputSummary: options.inputSummary ?? null,
+    });
+    try {
+      const result = await options.action();
+      const outputSummary = options.outputSummary ? options.outputSummary(result) : null;
+      await logger.writeStageLog({
+        traceContext,
+        stageName,
+        event: "stage.end",
+        artifactId: options.artifactId ?? null,
+        parentArtifactId: options.parentArtifactId ?? null,
+        outputSummary,
+        durationMs: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error) {
+      const snapshot = await logger.writeDebugSnapshot({
+        traceContext,
+        stageName,
+        artifactId: options.artifactId ?? null,
+        parentArtifactId: options.parentArtifactId ?? null,
+        reason: error?.code ?? "image_generation_group_stage_failed",
+        inputSummary: options.inputSummary ?? null,
+        outputSummary: null,
+        debugPayload: sanitizeDebugPayload(error),
+      });
+      await logger.writeStageLog({
+        traceContext,
+        stageName,
+        event: "stage.fail",
+        artifactId: options.artifactId ?? null,
+        parentArtifactId: options.parentArtifactId ?? null,
+        durationMs: Date.now() - startedAt,
+        errorSummary: {
+          ...safeError(error, stageName),
+          debugSnapshotUri: snapshot.uri,
+        },
+      });
+      throw error;
+    }
   }
 
   async function markFailed(context, error) {
@@ -380,6 +486,7 @@ function buildArtifact({ context, options, providerResult, images, promptSummary
 }
 
 function buildStoryboardArtifact({ context, options, storyboard, groupResults, images }) {
+  const orderedGroupResults = [...groupResults].sort((left, right) => left.index - right.index);
   return {
     artifactId: context.artifactId,
     parentArtifactId: context.parentArtifactId,
@@ -400,7 +507,8 @@ function buildStoryboardArtifact({ context, options, storyboard, groupResults, i
       groupCount: storyboard.groups.length,
       shotCount: storyboard.groups.reduce((sum, group) => sum + group.shots.length, 0),
     },
-    storyboardGroups: groupResults.map(({ group, providerResult, images: groupImages }) => ({
+    storyboardRun: context.job.imageGenerationRun ?? null,
+    storyboardGroups: orderedGroupResults.map(({ group, providerResult, images: groupImages }) => ({
       groupId: group.groupId,
       title: group.title,
       shots: group.shots,
@@ -425,6 +533,71 @@ function buildStoryboardArtifact({ context, options, storyboard, groupResults, i
 function safeBasename(filePath) {
   if (!filePath) return null;
   return String(filePath).split(/[\\/]/).pop() || null;
+}
+
+function normalizeConcurrency(value, groupCount) {
+  const parsed = Number(value ?? 2);
+  if (!Number.isFinite(parsed) || parsed <= 0) return Math.min(2, Math.max(1, groupCount));
+  return Math.max(1, Math.min(Math.floor(parsed), Math.max(1, groupCount)));
+}
+
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, runWorker));
+  return results;
+}
+
+function updateStoryboardRunState(context, patch) {
+  const current = context.job.imageGenerationRun ?? {};
+  const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+  context.job = context.jobStore.updateJob(context.job.jobId, {
+    imageGenerationRun: next,
+    outputSummary: storyboardRunSummary(next),
+  }) ?? { ...context.job, imageGenerationRun: next };
+}
+
+function markStoryboardGroup(context, groupId, patch) {
+  const currentRun = context.job.imageGenerationRun ?? {};
+  const groups = Array.isArray(currentRun.groups) ? currentRun.groups : [];
+  updateStoryboardRunState(context, {
+    groups: groups.map((group) => group.groupId === groupId ? { ...group, ...patch, updatedAt: new Date().toISOString() } : group),
+  });
+}
+
+function updateStoryboardProgress(context) {
+  const run = context.job.imageGenerationRun ?? {};
+  const groups = Array.isArray(run.groups) ? run.groups : [];
+  const completed = groups.filter((group) => group.status === "completed").length;
+  const failed = groups.filter((group) => group.status === "failed").length;
+  const total = groups.length || 1;
+  const progress = Math.min(94, 20 + Math.round(((completed + failed) / total) * 65));
+  context.job = context.jobStore.updateJob(context.job.jobId, {
+    status: SAMPLE_STATUS.processing,
+    progress,
+    outputSummary: storyboardRunSummary(run),
+  }) ?? context.job;
+}
+
+function storyboardRunSummary(run) {
+  const groups = Array.isArray(run.groups) ? run.groups : [];
+  return {
+    mode: run.mode ?? "storyboard-prompt-file",
+    groupCount: groups.length,
+    completedGroups: groups.filter((group) => group.status === "completed").length,
+    failedGroups: groups.filter((group) => group.status === "failed").length,
+    concurrency: run.concurrency ?? null,
+    timeoutSeconds: run.timeoutSeconds ?? null,
+    timeoutBudgetSeconds: run.timeoutBudgetSeconds ?? null,
+  };
 }
 
 module.exports = {

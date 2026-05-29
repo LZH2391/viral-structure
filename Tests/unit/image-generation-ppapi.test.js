@@ -171,6 +171,8 @@ test("image-generation service generates storyboard prompt file groups", async (
     sampleVideoId: "sample_storyboard_1",
     storyboardPromptFile: promptFile,
     parentArtifactId: "artifact_parent",
+    storyboardConcurrency: 1,
+    timeoutSeconds: 12,
   });
   const job = await waitForJob(jobStore, started.processingJobId, "processed");
 
@@ -180,6 +182,10 @@ test("image-generation service generates storyboard prompt file groups", async (
   assert.match(calls[1].prompt, /第五镜画面/);
   assert.equal(job.imageGenerationArtifact.mode, "storyboard-prompt-file");
   assert.equal(job.imageGenerationArtifact.aspect.ratio, "9:16");
+  assert.equal(job.imageGenerationArtifact.storyboardRun.concurrency, 1);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.timeoutSeconds, 12);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.timeoutBudgetSeconds, 24);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.groups.every((group) => group.status === "completed"), true);
   assert.equal(job.imageGenerationArtifact.storyboardGroups.length, 2);
   assert.equal(job.imageGenerationArtifact.storyboardGroups[0].images[0].uri.endsWith("storyboard_storyboard-group-01.png"), true);
   assert.equal(job.imageGenerationArtifact.storyboardGroups[1].images[0].uri.endsWith("storyboard_storyboard-group-02.png"), true);
@@ -193,14 +199,15 @@ test("image-generation module definition exposes start options", () => {
   const definition = createImageGenerationModuleDefinition();
   const options = definition.startOptionsFromBody({
     sampleVideoId: "sample_1",
-    body: { prompt: "hello", groupId: "001", selectedShots: [1], parentArtifactId: "artifact_parent" },
+    body: { prompt: "hello", storyboardPromptFile: "C:/storyboard.md", groupId: "001", selectedShots: [1], parentArtifactId: "artifact_parent", storyboardConcurrency: 3 },
   });
 
   assert.equal(definition.moduleId, "image-generation");
   assert.equal(definition.executorKind, "local-service");
   assert.equal(options.sampleVideoId, "sample_1");
   assert.equal(options.prompt, "hello");
-  assert.equal(options.storyboardPromptFile, undefined);
+  assert.equal(options.storyboardPromptFile, "C:/storyboard.md");
+  assert.equal(options.storyboardConcurrency, 3);
   assert.deepEqual(options.selectedShots, [1]);
 });
 
