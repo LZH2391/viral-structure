@@ -396,6 +396,16 @@ export async function archiveAgentChatConversation(conversationId: string) {
   );
 }
 
+export async function recordAgentChatSystemMessage(conversationId: string, message: string) {
+  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/system-messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message }),
+    }),
+  );
+}
+
 export async function releaseAgentChatLease(leaseId: string, ownerId?: string | null) {
   return readJsonResponse<{ ok: boolean; leaseId: string; ownerId: string; status: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threadpool/leases/release`, {

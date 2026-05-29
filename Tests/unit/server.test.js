@@ -277,6 +277,7 @@ test("agent chat starts ThreadPool role fork session through lease", async () =>
 
 test("agent chat persists restructure conversations and archives them manually", async () => {
   const conversations = new Map();
+  const discardedThreads = [];
   const store = {
     list: async ({ role, status }) => Array.from(conversations.values()).filter((item) => item.role === role && item.status === status),
     get: async (conversationId) => conversations.get(conversationId) ?? null,
@@ -319,6 +320,18 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.status = "archived";
       return conversation;
     },
+    recordSystemMessage: async ({ conversationId, text }) => {
+      const conversation = conversations.get(conversationId);
+      if (!conversation) return null;
+      conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
+      return conversation;
+    },
+    markRebindRequired: async (conversationId, errorSummary) => {
+      const conversation = conversations.get(conversationId);
+      conversation.needsRebind = true;
+      conversation.lastResumeError = errorSummary;
+      return conversation;
+    },
   };
   const server = createServer({
     logger: {
@@ -328,6 +341,10 @@ test("agent chat persists restructure conversations and archives them manually",
     threadPool: {
       ensureRoleReady: async () => ({ ok: true, status: { seedThreadId: "seed_1", workspaceRoot: "C:\\Workspace", skillPath: "skill.md" } }),
       acquireLease: async () => ({ ok: true, status: "leased", thread_id: "thread_restructure", parent_thread_id: "seed_1", lease_id: "lease_1" }),
+      discardThread: async ({ threadId, reason }) => {
+        discardedThreads.push({ threadId, reason });
+        return { ok: true, thread_id: threadId, status: "deleted" };
+      },
     },
     appServer: {
       startTurnWithInputs: async () => ({ threadId: "thread_restructure", turnId: "turn_1", status: "submitted" }),
@@ -366,9 +383,60 @@ test("agent chat persists restructure conversations and archives them manually",
     assert.equal(resumed.statusCode, 200);
     assert.equal(resumed.body.refreshed.threadId, "thread_restructure");
 
+    const systemMessage = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/system-messages", { message: "确认完成" });
+    assert.equal(systemMessage.statusCode, 200);
+    assert.equal(systemMessage.body.conversation.messages[systemMessage.body.conversation.messages.length - 1].text, "确认完成");
+
     const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", {});
     assert.equal(archived.statusCode, 200);
     assert.equal(archived.body.conversation.status, "archived");
+    assert.deepEqual(discardedThreads, [{ threadId: "thread_restructure", reason: "agent-chat-conversation-archived" }]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat resume marks restructure conversation for rebind when thread is unavailable", async () => {
+  const conversation = {
+    conversationId: "conversation_rebind",
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_missing",
+    workspaceRoot: "C:\\Workspace",
+    messages: [{ id: "user-turn_1", role: "user", text: "旧消息", status: "completed" }],
+  };
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    agentConversationStore: {
+      get: async () => conversation,
+      markRebindRequired: async (_conversationId, errorSummary) => {
+        conversation.needsRebind = true;
+        conversation.lastResumeError = errorSummary;
+        return conversation;
+      },
+    },
+    appServer: {
+      readThread: async () => {
+        const error = new Error("thread gone");
+        error.code = "appserver_thread_read_failed";
+        throw error;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_rebind/resume", {});
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.conversation.needsRebind, true);
+    assert.equal(response.body.refreshError.code, "appserver_thread_read_failed");
   } finally {
     await closeServer(server);
   }

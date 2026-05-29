@@ -209,6 +209,9 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
             code: error?.code ?? "agent_chat_conversation_thread_unavailable",
             message: safePreview(error instanceof Error ? error.message : "会话线程暂不可读", 160),
           };
+          await handlers.agentConversationStore.markRebindRequired(conversationId, refreshError);
+          conversation.needsRebind = true;
+          conversation.lastResumeError = refreshError;
         }
       }
       return {
@@ -231,13 +234,27 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
   });
 }
 
-async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {
-  await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+async function handleAgentChatConversationSystemMessage(req, res, conversationId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const text = normalizeMessage(body.message ?? body.text);
+  if (!text) {
+    return sendJson(res, 400, {
+      error: "agent_chat_system_message_required",
+      code: "agent_chat_system_message_required",
+      message: "系统消息不能为空",
+    });
+  }
   return runAgentChatStage(res, handlers, {
-    stageName: "agentChat.conversation.archive",
-    inputSummary: { conversationId },
+    stageName: "agentChat.conversation.systemMessage",
+    inputSummary: { conversationId, messageChars: text.length, messagePreview: safePreview(text, 80) },
     action: async ({ traceContext }) => {
-      const conversation = await handlers.agentConversationStore.archive(conversationId);
+      const conversation = await handlers.agentConversationStore.recordSystemMessage({
+        conversationId,
+        text,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      });
       if (!conversation) {
         const error = new Error("未找到 Agent 会话");
         error.statusCode = 404;
@@ -252,7 +269,45 @@ async function handleAgentChatConversationArchive(req, res, conversationId, hand
         stageId: traceContext.stageId,
       };
     },
-    summarizeOutput: (result) => ({ conversationId: result.conversation.conversationId, status: result.conversation.status }),
+    summarizeOutput: (result) => ({ conversationId: result.conversation.conversationId, messageCount: result.conversation.messages?.length ?? 0 }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {
+  await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.conversation.archive",
+    inputSummary: { conversationId },
+    action: async ({ traceContext }) => {
+      const conversation = await handlers.agentConversationStore.archive(conversationId);
+      if (!conversation) {
+        const error = new Error("未找到 Agent 会话");
+        error.statusCode = 404;
+        error.code = "agent_chat_conversation_not_found";
+        throw error;
+      }
+      let threadDiscard = null;
+      if (conversation.role === "function-slot-restructure" && conversation.threadId && typeof handlers.threadPool?.discardThread === "function") {
+        threadDiscard = await handlers.threadPool.discardThread({
+          threadId: conversation.threadId,
+          reason: "agent-chat-conversation-archived",
+        }).catch((error) => ({
+          ok: false,
+          error: error?.code ?? "threadpool_discard_failed",
+          message: safePreview(error instanceof Error ? error.message : "ThreadPool discard failed", 160),
+        }));
+      }
+      return {
+        ok: true,
+        conversation,
+        threadDiscard,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
+    summarizeOutput: (result) => ({ conversationId: result.conversation.conversationId, status: result.conversation.status, threadDiscard: result.threadDiscard }),
     successStatus: 200,
   });
 }
@@ -510,6 +565,7 @@ module.exports = {
   handleAgentChatConversationArchive,
   handleAgentChatConversationList,
   handleAgentChatConversationResume,
+  handleAgentChatConversationSystemMessage,
   handleAgentChatLeaseRelease,
   handleAgentChatThreadStart,
   handleAgentChatTurnCollect,

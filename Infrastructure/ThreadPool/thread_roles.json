@@ -29,7 +29,8 @@
     },
     "function-slot-restructure": {
       "profile_path": "Assets/RoleProfiles/function-slot-restructure/role.json",
-      "min_idle": 3
+      "min_idle": 3,
+      "discard_on_release": false
     },
     "function-slot-restructure-display-transformer": {
       "profile_path": "Assets/RoleProfiles/function-slot-restructure-display-transformer/role.json",

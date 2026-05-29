@@ -50,6 +50,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
           createdAt: now,
           updatedAt: now,
           archivedAt: null,
+          needsRebind: false,
+          rebindCount: 0,
+          lastResumeError: null,
           messages: [],
         };
         state.conversations.unshift(conversation);
@@ -66,6 +69,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
           runId: session.runId ?? conversation.runId ?? null,
           stageId: session.stageId ?? conversation.stageId ?? null,
           sampleVideoId: sampleVideoId ?? conversation.sampleVideoId ?? null,
+          needsRebind: false,
+          lastResumeError: null,
+          rebindCount: Number(conversation.rebindCount ?? 0) + (conversation.needsRebind ? 1 : 0),
           updatedAt: now,
           archivedAt: null,
         });
@@ -123,6 +129,33 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
+  async function recordSystemMessage({ conversationId, text, traceId = null, runId = null, stageId = null }) {
+    if (!conversationId) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      upsertMessage(conversation, {
+        id: `system-${now}-${randomUUID()}`,
+        turnId: conversation.latestTurnId ?? null,
+        role: "system",
+        text: limitText(text),
+        status: "completed",
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+  }
+
+  async function markRebindRequired(conversationId, errorSummary = null) {
+    if (!conversationId) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      conversation.needsRebind = true;
+      conversation.lastResumeError = errorSummary;
+    });
+  }
+
   async function archive(conversationId) {
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -171,6 +204,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
     createOrUpdateFromSession,
     recordUserTurn,
     recordAssistantTurn,
+    recordSystemMessage,
+    markRebindRequired,
     archive,
   };
 }
@@ -192,6 +227,9 @@ function normalizeConversation(value) {
     conversationId,
     role: value.role ? String(value.role) : null,
     status: value.status === "archived" ? "archived" : "active",
+    needsRebind: Boolean(value.needsRebind),
+    rebindCount: Number.isFinite(Number(value.rebindCount)) ? Number(value.rebindCount) : 0,
+    lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
   };
 }

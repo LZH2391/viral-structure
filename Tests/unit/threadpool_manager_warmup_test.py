@@ -418,6 +418,87 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             self.assertEqual(leased.discard_reason, "test-refresh")
             self.assertEqual(scheduled_roles, ["shot-boundary-transformer"])
 
+    def test_force_update_seeds_keeps_used_restructure_threads_when_release_persistent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": true },
+                  "roles": {
+                    "function-slot-restructure": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready",
+                      "discard_on_release": false
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=ReusableThreadClient(),
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            scheduled_roles: list[str] = []
+            manager._schedule_ensure_min_idle = lambda role_name: scheduled_roles.append(role_name)
+            config = manager.roles["function-slot-restructure"]
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="function-slot-restructure",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(config),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="restructure_used_thread_1",
+                    role="function-slot-restructure",
+                    status="idle",
+                    is_seed=False,
+                    lease_count=1,
+                    init_fingerprint=manager._role_init_fingerprint(config),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="restructure_unused_thread_1",
+                    role="function-slot-restructure",
+                    status="idle",
+                    is_seed=False,
+                    init_fingerprint=manager._role_init_fingerprint(config),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+
+            result = manager.force_update_seeds(reason="test-refresh", roles=["function-slot-restructure"])
+            used = manager.store.read_thread("restructure_used_thread_1")
+            manager.close()
+
+            self.assertEqual(result["deleted_count"], 2)
+            self.assertEqual(result["retiring_count"], 0)
+            self.assertIsNotNone(used)
+            self.assertEqual(used.status, "idle")
+            self.assertIsNone(manager.store.read_thread("seed_thread_1"))
+            self.assertIsNone(manager.store.read_thread("restructure_unused_thread_1"))
+            self.assertEqual(scheduled_roles, ["function-slot-restructure"])
+
     def test_force_update_seeds_invalidates_inflight_startup_recovery_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

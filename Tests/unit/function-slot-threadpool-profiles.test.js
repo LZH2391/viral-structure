@@ -36,6 +36,7 @@ test("function slot placeholder roles are registered for ThreadPool", () => {
     assert.equal(config.roles[item.role].min_idle, 3);
     assert.ok(DEFAULT_ALLOWED_ROLES.includes(item.role), `${item.role} should be allowed by ThreadPool proxy`);
   }
+  assert.equal(config.roles["function-slot-restructure"].discard_on_release, false);
 });
 
 test("function slot placeholder role profiles load init and task prompts", async () => {

@@ -21,7 +21,7 @@ const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
-const { handleAgentChatConversationArchive, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatLeaseRelease, handleAgentChatThreadStart, handleAgentChatTurnCollect, handleAgentChatTurnSubmit, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
+const { handleAgentChatConversationArchive, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatThreadStart, handleAgentChatTurnCollect, handleAgentChatTurnSubmit, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
@@ -186,6 +186,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/agent-chat/conversations") return await handleAgentChatConversationList(res, handlers, url);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/resume$/.test(url.pathname)) return await handleAgentChatConversationResume(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/archive$/.test(url.pathname)) return await handleAgentChatConversationArchive(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/system-messages$/.test(url.pathname)) return await handleAgentChatConversationSystemMessage(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns$/.test(url.pathname)) return await handleAgentChatTurnSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+$/.test(url.pathname)) return await handleAgentChatTurnCollect(res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers, url);
       if (req.method === "GET" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+\/timeline$/.test(url.pathname)) return await handleAgentChatTurnTimeline(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers, url);

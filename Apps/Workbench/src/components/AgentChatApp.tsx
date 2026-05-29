@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, recordAgentChatSystemMessage, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
-import { useResizableTwoPaneLayout } from "../hooks/useResizableTwoPaneLayout";
+import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 
@@ -22,6 +22,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [session, setSession] = useState<AgentChatSessionResponse | null>(null);
   const [conversations, setConversations] = useState<AgentChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationNeedsRebind, setActiveConversationNeedsRebind] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
@@ -32,16 +33,20 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
-  const layout = useResizableTwoPaneLayout({
+  const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: "agent-chat:layout",
-    cssVar: "--agent-chat-main-width",
-    defaultLeft: 720,
-    minLeft: 420,
-    maxLeft: 1120,
+    leftCssVar: "--agent-chat-list-width",
+    rightCssVar: "--agent-chat-timeline-width",
+    defaultLeft: 260,
+    defaultRight: 420,
+    minLeft: 180,
+    maxLeft: 360,
+    minCenter: 520,
     minRight: 320,
-    minRightRatio: 0.1,
-    maxRightRatio: 0.4,
+    maxRight: Number.POSITIVE_INFINITY,
+    leftRatio: { min: 0.1, max: 0.22 },
+    rightRatio: { min: 0.1, max: 0.4 },
   });
 
   useEffect(() => {
@@ -82,6 +87,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
+    setActiveConversationNeedsRebind(Boolean(conversation.needsRebind));
     setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
     if (conversation.role) setSelectedRole(conversation.role);
     setSession({
@@ -121,8 +127,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshConversations]);
 
-  const ensureSession = useCallback(async () => {
-    if (session?.threadId) return session;
+  const ensureSession = useCallback(async (forceNew = false) => {
+    if (!forceNew && session?.threadId) return session;
     setStatusText(mode === "threadpool-role" ? "Fork ThreadPool role" : "创建 app-server thread");
     const nextSession = await startAgentChatThread({
       source: mode,
@@ -133,6 +139,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setSession(nextSession);
     if (nextSession.conversationId) {
       setActiveConversationId(nextSession.conversationId);
+      setActiveConversationNeedsRebind(false);
       void refreshConversations().catch(() => undefined);
     }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
@@ -179,7 +186,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setDraft("");
     setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text, status: "completed" }]);
     try {
-      const activeSession = await ensureSession();
+      const activeSession = await ensureSession(activeConversationNeedsRebind);
       const submitted = await sendAgentChatMessage(activeSession.threadId as string, {
         message: text,
         ...sessionMeta,
@@ -202,7 +209,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [busy, draft, ensureSession, schedulePoll, sessionMeta]);
+  }, [activeConversationNeedsRebind, busy, draft, ensureSession, schedulePoll, sessionMeta]);
 
   const handleResumeConversation = useCallback(async (conversationId: string) => {
     setStatusText("恢复重组会话");
@@ -210,7 +217,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     try {
       const payload = await resumeAgentChatConversation(conversationId);
       applyConversation(payload.conversation, payload.refreshed);
-      if (payload.refreshError?.message) setStatusText(`已恢复快照，线程暂不可读：${payload.refreshError.message}`);
+      if (payload.refreshError?.message) setStatusText(`已恢复快照，下次发送会重新绑定：${payload.refreshError.message}`);
       else setStatusText("已恢复重组会话");
     } catch (error) {
       const message = error instanceof Error ? error.message : "恢复会话失败";
@@ -247,6 +254,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setCurrentTurnId(null);
     setTimeline(null);
     setActiveConversationId(null);
+    setActiveConversationNeedsRebind(false);
     setMode("threadpool-role");
     setSelectedRole((current) => current || "function-slot-restructure");
     setStatusText("新重组会话");
@@ -282,6 +290,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         text: `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`,
         status: "completed",
       }]);
+      if (session.conversationId) {
+        await recordAgentChatSystemMessage(session.conversationId, `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`).catch(() => undefined);
+        void refreshConversations().catch(() => undefined);
+      }
       setStatusText("已触发展示转换/故事板准备");
     } catch (error) {
       const message = error instanceof Error ? error.message : "确认方案失败";
@@ -290,18 +302,56 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     } finally {
       setConfirming(false);
     }
-  }, [canConfirmRestructure, currentTurnId, session?.threadId]);
+  }, [canConfirmRestructure, currentTurnId, refreshConversations, session]);
 
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
       <main ref={layoutRef} className="agent-chat-layout">
+        <aside className="agent-chat-conversations" aria-label="重组会话列表">
+          <div className="agent-chat-conversation-head">
+            <div>
+              <div className="section-heading">重组会话</div>
+              <small>{conversations.length} active</small>
+            </div>
+            <button className="primary-button agent-chat-action" type="button" onClick={startNewConversation}>新建</button>
+          </div>
+          <div className="agent-chat-conversation-list">
+            {conversations.length ? conversations.map((conversation) => (
+              <button
+                key={conversation.conversationId}
+                className={`agent-chat-conversation-item ${conversation.conversationId === activeConversationId ? "active" : ""}`}
+                type="button"
+                onClick={() => void handleResumeConversation(conversation.conversationId)}
+              >
+                <strong>{conversation.title || shortId(conversation.threadId ?? conversation.conversationId)}</strong>
+                <span>{shortId(conversation.threadId ?? "未绑定")} · {conversation.latestTurnId ? shortId(conversation.latestTurnId) : "无 turn"}</span>
+              </button>
+            )) : <div className="empty-state"><strong>暂无会话</strong><span>发送消息后会自动保存</span></div>}
+          </div>
+          <button className="ghost-button agent-chat-archive-button" type="button" disabled={!activeConversationId} onClick={() => void handleArchiveConversation()}>
+            归档当前会话
+          </button>
+        </aside>
+        <SplitResizeHandle
+          className="workspace-resize-handle agent-chat-resizer agent-chat-left-resizer"
+          label="调整重组会话列表宽度"
+          orientation="vertical"
+          onResizeStart={(event) => layout.startResize("left", event)}
+          onReset={() => layout.resetSize("left")}
+          onNudge={(direction) => layout.nudgeSize("left", direction)}
+        />
         <section className="agent-chat-main" aria-label="Agent 对话">
           <header className="agent-chat-toolbar">
-            <div>
+            <div className="agent-chat-title">
               <div className="section-heading">Agent 对话</div>
               <small>{statusText}</small>
             </div>
             <div className="agent-chat-controls">
+              <div className="agent-chat-session-meta" aria-label="当前会话状态">
+                <span>thread {shortId(session?.threadId ?? "未连接")}</span>
+                <span>turn {shortId(currentTurnId ?? "等待")}</span>
+                <span>trace {shortId(session?.traceId ?? "等待")}</span>
+              </div>
               <select value={mode} disabled={busy || Boolean(session)} onChange={(event) => setMode(event.target.value as ChatMode)}>
                 <option value="direct">普通对话</option>
                 <option value="threadpool-role">ThreadPool Role Fork</option>
@@ -320,29 +370,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             </div>
           </header>
           <div className="agent-chat-conversation-bar">
-            <span>重组会话</span>
-            <select
-              value={activeConversationId ?? ""}
-              onChange={(event) => {
-                const id = event.target.value || null;
-                setActiveConversationId(id);
-                if (id) void handleResumeConversation(id);
-              }}
-            >
-              <option value="">新会话</option>
-              {conversations.map((conversation) => (
-                <option key={conversation.conversationId} value={conversation.conversationId}>
-                  {conversation.title || shortId(conversation.threadId ?? conversation.conversationId)}
-                </option>
-              ))}
-            </select>
-            <button className="ghost-button agent-chat-action" type="button" onClick={startNewConversation}>新建</button>
-            <button className="ghost-button agent-chat-action" type="button" disabled={!activeConversationId} onClick={() => void handleArchiveConversation()}>归档</button>
-          </div>
-          <div className="agent-chat-meta">
-            <span>thread {shortId(session?.threadId ?? "未连接")}</span>
-            <span>turn {shortId(currentTurnId ?? "等待")}</span>
-            <span>trace {shortId(session?.traceId ?? "等待")}</span>
+            <span>{activeConversationId ? `当前会话 ${shortId(activeConversationId)}` : "新会话"}</span>
             {session?.role ? <span>role {session.role}</span> : null}
           </div>
           <div className="agent-chat-messages">
@@ -373,12 +401,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           </form>
         </section>
         <SplitResizeHandle
-          className="workspace-resize-handle agent-chat-resizer"
-          label="调整 Agent 对话和 Timeline 宽度"
+          className="workspace-resize-handle agent-chat-resizer agent-chat-right-resizer"
+          label="调整 Timeline 宽度"
           orientation="vertical"
-          onResizeStart={layout.startResize}
-          onReset={layout.resetSize}
-          onNudge={layout.nudgeSize}
+          onResizeStart={(event) => layout.startResize("right", event)}
+          onReset={() => layout.resetSize("right")}
+          onNudge={(direction) => layout.nudgeSize("right", direction)}
         />
         <aside className="agent-chat-timeline" aria-label="Agent timeline">
           <div className="section-heading">Timeline</div>

@@ -131,5 +131,11 @@ export type AgentChatConversation = {
   createdAt?: string | null;
   updatedAt?: string | null;
   archivedAt?: string | null;
+  needsRebind?: boolean;
+  rebindCount?: number;
+  lastResumeError?: {
+    code?: string | null;
+    message?: string | null;
+  } | null;
   messages?: AgentChatMessageSnapshot[];
 };

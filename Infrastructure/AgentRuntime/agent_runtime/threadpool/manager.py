@@ -426,6 +426,8 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             for thread in sorted(self.store.list_threads().values(), key=lambda item: (item.role, item.created_at, item.thread_id)):
                 if thread.role not in target_roles:
                     continue
+                if self._thread_is_release_persistent(thread) and self._thread_has_been_leased(thread):
+                    continue
                 if thread.status == "leased":
                     if thread.is_seed:
                         raise ValueError(f"seed thread cannot be leased: {thread.thread_id}")
@@ -475,6 +477,15 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         with self._lock:
             self._require_ready_for_leases()
             return deepcopy(self._require_role(role_name))
+
+    def _discard_on_release_for_role(self, role_name: str) -> bool:
+        config = self.roles.get(str(role_name or "").strip())
+        if config is not None and config.discard_on_release is not None:
+            return bool(config.discard_on_release)
+        return bool(self.discard_on_release)
+
+    def _thread_is_release_persistent(self, thread: ThreadRecord) -> bool:
+        return not self._discard_on_release_for_role(thread.role)
 
     def _load_config(self) -> dict:
         raw = read_json(self.config_path)
@@ -583,6 +594,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
             ]
             roles_payload[role_name] = {
                 "counts": counts,
+                "discard_on_release": self._discard_on_release_for_role(role_name),
                 "seed_thread_id": seed_thread.thread_id if seed_thread is not None else None,
                 "seed_init_fingerprint": seed_thread.init_fingerprint if seed_thread is not None else None,
                 "active_lease_ids": [lease.lease_id for lease in role_leases],

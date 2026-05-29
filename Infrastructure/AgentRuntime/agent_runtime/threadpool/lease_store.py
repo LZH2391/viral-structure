@@ -70,7 +70,7 @@ class ThreadPoolLeaseStoreMixin:
                     self.store.delete_thread(thread.thread_id)
                 continue
             if thread.status == "idle":
-                if self.discard_on_release and self._thread_has_been_leased(thread):
+                if self._discard_on_release_for_role(thread.role) and self._thread_has_been_leased(thread):
                     if not self._recovery_generation_is_active(recovery_generation):
                         return False
                     self.store.delete_thread(thread.thread_id)
@@ -107,7 +107,8 @@ class ThreadPoolLeaseStoreMixin:
                 return False
             if lease.status != "active":
                 continue
-            if not self.discard_on_release and not lease.is_orphaned(now=now, ttl_seconds=ttl_seconds):
+            discard_on_release = self._discard_on_release_for_role(lease.role)
+            if not discard_on_release and not lease.is_orphaned(now=now, ttl_seconds=ttl_seconds):
                 continue
             thread = self.store.read_thread(lease.thread_id)
             released_at = _now()
@@ -119,7 +120,7 @@ class ThreadPoolLeaseStoreMixin:
             changed = True
             if thread is None:
                 continue
-            if self.discard_on_release or thread.retire_on_release:
+            if discard_on_release or thread.retire_on_release:
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
                 self.store.delete_thread(thread.thread_id)
@@ -162,7 +163,7 @@ class ThreadPoolLeaseStoreMixin:
                 continue
             recovered_at = _now()
             changed = True
-            if self.discard_on_release or thread.retire_on_release:
+            if self._discard_on_release_for_role(thread.role) or thread.retire_on_release:
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
                 self.store.delete_thread(thread.thread_id)

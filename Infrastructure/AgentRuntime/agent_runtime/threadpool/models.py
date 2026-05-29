@@ -23,6 +23,7 @@ class RoleConfig(BaseModel):
     init_template_hash: str | None = None
     skill_path: str | None = None
     init_ready_text: str | None = None
+    discard_on_release: bool | None = None
 
     @field_validator("name")
     @classmethod
