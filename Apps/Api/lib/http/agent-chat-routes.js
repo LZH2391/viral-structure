@@ -144,6 +144,68 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
   });
 }
 
+async function handleAgentChatThreadCompact(req, res, threadId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.context.compact",
+    inputSummary: {
+      threadId,
+      conversationId: normalizeText(body.conversationId),
+      workspaceRoot: normalizeText(body.workspaceRoot),
+      contextUsage: summarizeCompactUsage(body.contextUsage),
+    },
+    action: async ({ traceContext }) => {
+      if (typeof handlers.appServer?.compactThread !== "function") {
+        const error = new Error("AppServer compact 能力不可用");
+        error.statusCode = 503;
+        error.code = "appserver_thread_compact_unavailable";
+        throw error;
+      }
+      const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
+      const result = await handlers.appServer.compactThread({
+        workspaceRoot,
+        threadId,
+        timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+      });
+      const conversationId = normalizeText(body.conversationId);
+      let conversation = null;
+      if (conversationId) {
+        conversation = await handlers.agentConversationStore?.recordSystemMessage?.({
+          conversationId,
+          text: "上下文已自动压缩",
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          expectedRevision: normalizeRevision(body.expectedRevision),
+        });
+        if (!conversation) {
+          const error = new Error("未找到 Agent 会话");
+          error.statusCode = 404;
+          error.code = "agent_chat_conversation_not_found";
+          throw error;
+        }
+      }
+      return {
+        ok: true,
+        threadId: result.threadId ?? threadId,
+        status: result.status ?? "started",
+        compactStatus: result.status ?? "started",
+        conversationRevision: conversation?.revision ?? null,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
+    summarizeOutput: (result) => ({
+      threadId: result.threadId,
+      status: result.status,
+      compactStatus: result.compactStatus,
+      conversationRevision: result.conversationRevision ?? null,
+    }),
+    successStatus: 200,
+  });
+}
+
 async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, url = null) {
   return runAgentChatStage(res, handlers, {
     stageName: "agentChat.turn.collect",
@@ -658,6 +720,18 @@ function buildTextInputs(message) {
   return [{ type: "text", text: message, text_elements: [] }];
 }
 
+function summarizeCompactUsage(value) {
+  const usage = value && typeof value === "object" ? value : null;
+  if (!usage) return null;
+  return {
+    inputTokens: nullableNumber(usage.inputTokens),
+    modelContextWindow: nullableNumber(usage.modelContextWindow),
+    contextThresholdTokens: nullableNumber(usage.contextThresholdTokens),
+    contextUsageRatio: nullableNumber(usage.contextUsageRatio),
+    contextUsageState: normalizeText(usage.contextUsageState),
+  };
+}
+
 function findTurn(thread, turnId) {
   const turns = Array.isArray(thread?.turns) ? thread.turns : [];
   const target = String(turnId ?? "");
@@ -668,6 +742,11 @@ function safePreview(value, limit = 240) {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (!text) return null;
   return text.length <= limit ? text : `${text.slice(0, limit)}...`;
+}
+
+function nullableNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function summarizeDebugPayload(value) {
@@ -707,6 +786,7 @@ module.exports = {
   handleAgentChatConversationResume,
   handleAgentChatConversationSystemMessage,
   handleAgentChatLeaseRelease,
+  handleAgentChatThreadCompact,
   handleAgentChatThreadStart,
   handleAgentChatTurnCollect,
   handleAgentChatTurnSubmit,

@@ -1,13 +1,25 @@
 const path = require("path");
 
 async function parseMultipartUpload(req, contentType) {
+  const parsed = await parseMultipartForm(req, contentType);
+  if (!parsed.files.length) throw new Error("missing upload file");
+  return { file: parsed.files[0], fields: parsed.fields };
+}
+
+async function parseMultipartUploads(req, contentType) {
+  const parsed = await parseMultipartForm(req, contentType);
+  if (!parsed.files.length) throw new Error("missing upload file");
+  return parsed;
+}
+
+async function parseMultipartForm(req, contentType) {
   const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || "");
   if (!boundaryMatch) throw new Error("missing multipart boundary");
   const boundary = `--${boundaryMatch[1] || boundaryMatch[2]}`;
   const buffer = await readRequestBuffer(req);
   const parts = buffer.toString("binary").split(boundary);
   const fields = {};
-  let file = null;
+  const files = [];
   for (const part of parts) {
     const headerEnd = part.indexOf("\r\n\r\n");
     if (headerEnd < 0) continue;
@@ -22,16 +34,16 @@ async function parseMultipartUpload(req, contentType) {
     const mimeType = parseHeaderValue(header, "Content-Type") || "application/octet-stream";
     let content = Buffer.from(part.slice(headerEnd + 4), "binary");
     if (content.slice(-2).toString("binary") === "\r\n") content = content.slice(0, -2);
-    file = {
+    files.push({
+      fieldName,
       filename,
       mimeType,
       extension: path.extname(filename),
       size: content.length,
       buffer: content,
-    };
+    });
   }
-  if (!file) throw new Error("missing upload file");
-  return { file, fields };
+  return { files, fields };
 }
 
 function readRequestBuffer(req) {
@@ -84,4 +96,4 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-module.exports = { parseMultipartUpload };
+module.exports = { parseMultipartUpload, parseMultipartUploads };

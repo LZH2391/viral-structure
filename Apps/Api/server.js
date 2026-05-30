@@ -5,7 +5,7 @@ const { createLocalStore } = require("../../Infrastructure/Storage/local-store")
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
 const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../Infrastructure/Observability/trace");
-const { parseMultipartUpload } = require("./lib/http/multipart");
+const { parseMultipartUpload, parseMultipartUploads } = require("./lib/http/multipart");
 const { createJobStore } = require("./lib/stores/job-store");
 const { createWorkflowRunStore } = require("./lib/stores/workflow-run-store");
 const { createSampleProcessingService } = require("./lib/sample-processing/service");
@@ -23,13 +23,14 @@ const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
-const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatThreadStart, handleAgentChatTurnCollect, handleAgentChatTurnSubmit, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
+const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatTurnCollect, handleAgentChatTurnSubmit, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
 const { createModuleRegistry } = require("./lib/modules/registry");
 const { createExecutorRegistry } = require("./lib/executors/registry");
 const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-analysis/service");
+const { createFullAnalysisBatchQueue } = require("./lib/workflows/full-analysis/batch-queue");
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
@@ -70,6 +71,7 @@ const moduleRegistry = createModuleRegistry({
 });
 const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
 const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
+const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: fullAnalysisWorkflowService, runtimeRoot: store.runtimeRoot, logger });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
@@ -124,6 +126,22 @@ function createServer(deps = {}) {
     },
   });
   const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({ moduleRegistry: activeModuleRegistry });
+  const activeFullAnalysisWorkflowService = deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
+    workflowRunStore: activeWorkflowRunStore,
+    service: activeSampleService,
+    shotBoundaryService: activeShotBoundaryService,
+    moduleRegistry: activeModuleRegistry,
+    jobStore: activeJobStore,
+    logger: activeLogger,
+    store: activeStore,
+    artifactIndex: activeArtifactIndex,
+    loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
+  });
+  const activeFullAnalysisBatchQueue = deps.fullAnalysisBatchQueue ?? createFullAnalysisBatchQueue({
+    workflowService: activeFullAnalysisWorkflowService,
+    runtimeRoot: activeStore.runtimeRoot,
+    logger: activeLogger,
+  });
   const handlers = {
     logger: activeLogger,
     store: activeStore,
@@ -142,17 +160,8 @@ function createServer(deps = {}) {
     functionSlotLibraryService: activeFunctionSlotLibraryService,
     functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
-    fullAnalysisWorkflowService: deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
-      workflowRunStore: activeWorkflowRunStore,
-      service: activeSampleService,
-      shotBoundaryService: activeShotBoundaryService,
-      moduleRegistry: activeModuleRegistry,
-      jobStore: activeJobStore,
-      logger: activeLogger,
-      store: activeStore,
-      artifactIndex: activeArtifactIndex,
-      loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
-    }),
+    fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
+    fullAnalysisBatchQueue: activeFullAnalysisBatchQueue,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: deps.rootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,
@@ -190,11 +199,14 @@ function createServer(deps = {}) {
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/archive$/.test(url.pathname)) return await handleAgentChatConversationArchive(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/confirm$/.test(url.pathname)) return await handleAgentChatConversationConfirm(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/system-messages$/.test(url.pathname)) return await handleAgentChatConversationSystemMessage(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/compact$/.test(url.pathname)) return await handleAgentChatThreadCompact(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns$/.test(url.pathname)) return await handleAgentChatTurnSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+$/.test(url.pathname)) return await handleAgentChatTurnCollect(res, decodeURIComponent(url.pathname.split("/").at(-3)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers, url);
       if (req.method === "GET" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+\/timeline$/.test(url.pathname)) return await handleAgentChatTurnTimeline(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers, url);
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threadpool/leases/release") return await handleAgentChatLeaseRelease(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/batch-runs") return await handleFullAnalysisBatchRun(req, res, handlers);
+      if (req.method === "GET" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+$/.test(url.pathname)) return await handleFullAnalysisBatchRead(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) return await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers);
@@ -663,6 +675,25 @@ async function handleFullAnalysisRun(req, res, handlers = {}) {
     fields,
   });
   return sendJson(res, 202, result);
+}
+
+async function handleFullAnalysisBatchRun(req, res, handlers = {}) {
+  const { files, fields } = await parseMultipartUploads(req, req.headers["content-type"]);
+  const queue = handlers.fullAnalysisBatchQueue ?? fullAnalysisBatchQueue;
+  const result = queue.createBatch({
+    workspaceId: fields.workspaceId || "default-workspace",
+    files,
+    fields,
+  });
+  return sendJson(res, 202, result);
+}
+
+async function handleFullAnalysisBatchRead(res, batchRunId, handlers = {}) {
+  const queue = handlers.fullAnalysisBatchQueue ?? fullAnalysisBatchQueue;
+  await queue.advance?.(batchRunId).catch(() => undefined);
+  const batch = queue.getBatch(batchRunId);
+  if (!batch) return notFound(res);
+  return sendJson(res, 200, batch);
 }
 
 async function handleFullAnalysisCacheCheck(req, res, handlers = {}) {

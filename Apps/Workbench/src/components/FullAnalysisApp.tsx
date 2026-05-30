@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { checkFullAnalysisUploadCache, getLatestFullAnalysisRun, getLatestFullAnalysisRunForSample, getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisRun } from "../api/client";
-import type { LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
+import { checkFullAnalysisUploadCache, getFullAnalysisBatchRun, getLatestFullAnalysisRun, getLatestFullAnalysisRunForSample, getProcessingJob, getSampleArtifact, getWorkflowRun, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisBatchRun, startFullAnalysisRun } from "../api/client";
+import type { FullAnalysisBatchItem, FullAnalysisBatchRun, LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { shortId } from "../utils/format";
@@ -50,16 +50,21 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [frameSampleRate, setFrameSampleRate] = useState(10);
+  const [maxConcurrentRuns, setMaxConcurrentRuns] = useState(2);
   const [enableFunctionSlotAtomization, setEnableFunctionSlotAtomization] = useState(true);
   const [refreshMode, setRefreshMode] = useState(false);
   const [dismissedCachePromptJobIds, setDismissedCachePromptJobIds] = useState<string[]>([]);
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
+  const [batchRun, setBatchRun] = useState<FullAnalysisBatchRun | null>(null);
+  const [selectedBatchItemId, setSelectedBatchItemId] = useState<string | null>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const batchPollTimerRef = useRef<number | null>(null);
   const operationTokenRef = useRef(0);
   const restoredRunRef = useRef(false);
   const lastActiveSampleRevisionRef = useRef<number | null>(null);
   const lastWorkbenchSyncSignatureRef = useRef<string | null>(null);
   const lastSyncedSampleVideoIdRef = useRef<string | null>(null);
+  const selectedBatchItemIdRef = useRef<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableGridLayout({
     containerRef: layoutRef,
@@ -147,6 +152,7 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
 
   useEffect(() => () => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
+    if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -299,7 +305,9 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     operationTokenRef.current = token;
     setIsStarting(true);
     setErrorText(null);
-    setArtifact(null);
+      setArtifact(null);
+      setBatchRun(null);
+      setSelectedBatchItemId(null);
     setDismissedCachePromptJobIds([]);
     setStatusText("创建完整分析任务");
     try {
@@ -325,7 +333,84 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     }
   }, [enableFunctionSlotAtomization, frameSampleRate, startPolling]);
 
-  const handleUpload = useCallback(async (file: File) => {
+  const startBatchPolling = useCallback((batchRunId: string, token = operationTokenRef.current) => {
+    if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
+    const poll = async () => {
+      if (token !== operationTokenRef.current) return;
+      const nextBatch = await getFullAnalysisBatchRun(batchRunId);
+      if (token !== operationTokenRef.current) return;
+      setBatchRun(nextBatch);
+      const selected = nextBatch.items.find((item) => item.queueItemId === selectedBatchItemIdRef.current) ?? nextBatch.items.find((item) => item.workflowRunId) ?? null;
+      if (selected && selected.queueItemId !== selectedBatchItemIdRef.current) {
+        selectedBatchItemIdRef.current = selected.queueItemId;
+        setSelectedBatchItemId(selected.queueItemId);
+      }
+      if (selected?.workflowRunId) {
+        const nextRun = await getWorkflowRun(selected.workflowRunId).catch(() => null);
+        if (token !== operationTokenRef.current) return;
+        if (nextRun) {
+          setRun(nextRun);
+          setStatusText(statusLabel(nextRun));
+          if (nextRun.sampleVideoId) {
+            const nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
+            if (token !== operationTokenRef.current) return;
+            if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
+          }
+        }
+      }
+      if (isBatchTerminal(nextBatch) && batchPollTimerRef.current != null) {
+        window.clearInterval(batchPollTimerRef.current);
+        batchPollTimerRef.current = null;
+      }
+    };
+    void poll().catch((error) => setErrorText(error instanceof Error ? error.message : "查询批量完整分析状态失败"));
+    batchPollTimerRef.current = window.setInterval(() => {
+      void poll().catch((error) => setErrorText(error instanceof Error ? error.message : "查询批量完整分析状态失败"));
+    }, POLL_INTERVAL_MS);
+  }, []);
+
+  const startFullAnalysisBatch = useCallback(async (files: File[]) => {
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    setIsStarting(true);
+    setErrorText(null);
+    setArtifact(null);
+    setRun(null);
+    setUploadCachePrompt(null);
+    setDismissedCachePromptJobIds([]);
+    setStatusText("创建批量完整分析任务");
+    try {
+      const nextBatch = await startFullAnalysisBatchRun(files, {
+        frameSampleRateFps: frameSampleRate,
+        enableAudioSeparation: true,
+        enableSubtitleRecognition: true,
+        enableAudioFeatureAnalysis: true,
+        enableFunctionSlotAtomization,
+        cacheDecision: refreshMode ? "refresh" : "ask",
+        maxConcurrentRuns,
+      });
+      if (token !== operationTokenRef.current) return;
+      setBatchRun(nextBatch);
+      selectedBatchItemIdRef.current = nextBatch.items[0]?.queueItemId ?? null;
+      setSelectedBatchItemId(nextBatch.items[0]?.queueItemId ?? null);
+      setStatusText(`批量完整分析：${batchStatusLabel(nextBatch.status)}`);
+      startBatchPolling(nextBatch.batchRunId, token);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "启动批量完整分析失败");
+      setStatusText("批量启动失败");
+    } finally {
+      setIsStarting(false);
+    }
+  }, [enableFunctionSlotAtomization, frameSampleRate, maxConcurrentRuns, refreshMode, startBatchPolling]);
+
+  const handleUpload = useCallback(async (files: FileList | File[]) => {
+    const fileList = Array.from(files);
+    if (fileList.length > 1) {
+      await startFullAnalysisBatch(fileList);
+      return;
+    }
+    const file = fileList[0];
+    if (!file) return;
     const token = operationTokenRef.current + 1;
     operationTokenRef.current = token;
     setIsStarting(true);
@@ -354,7 +439,25 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
     }
     if (token !== operationTokenRef.current) return;
     await startFullAnalysis(file, refreshMode ? "refresh" : "ask");
-  }, [frameSampleRate, refreshMode, startFullAnalysis]);
+  }, [frameSampleRate, refreshMode, startFullAnalysis, startFullAnalysisBatch]);
+
+  const handleSelectBatchItem = useCallback(async (item: FullAnalysisBatchItem) => {
+    selectedBatchItemIdRef.current = item.queueItemId;
+    setSelectedBatchItemId(item.queueItemId);
+    if (!item.workflowRunId) {
+      setRun(null);
+      setArtifact(null);
+      setStatusText(`${item.filename} ${batchStatusLabel(item.status)}`);
+      return;
+    }
+    const nextRun = await getWorkflowRun(item.workflowRunId);
+    setRun(nextRun);
+    setStatusText(statusLabel(nextRun));
+    if (nextRun.sampleVideoId) {
+      const nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
+      if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
+    }
+  }, []);
 
   const handleRerun = useCallback(async (stageKey: string) => {
     if (!run) return;
@@ -427,10 +530,11 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
                 id="fullAnalysisVideoInput"
                 type="file"
                 accept="video/*"
+                multiple
                 disabled={isStarting || isRunExecuting(run)}
                 onChange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  if (file) void handleUpload(file);
+                  const files = event.currentTarget.files;
+                  if (files?.length) void handleUpload(files);
                   event.currentTarget.value = "";
                 }}
               />
@@ -448,6 +552,18 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
                   value={frameSampleRate}
                   disabled={isStarting || isRunExecuting(run)}
                   onChange={(event) => setFrameSampleRate(clampNumber(Number(event.currentTarget.value || 10), 1, 10))}
+                />
+              </label>
+              <label className="sampling-control">
+                <span>并发视频数</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="12"
+                  step="1"
+                  value={maxConcurrentRuns}
+                  disabled={isStarting || isRunExecuting(run)}
+                  onChange={(event) => setMaxConcurrentRuns(clampNumber(Number(event.currentTarget.value || 2), 1, 12))}
                 />
               </label>
               <label className="option-toggle">
@@ -496,6 +612,9 @@ export function FullAnalysisApp({ embedded = false, activeSample = null, onWorkb
         />
         <div className="full-analysis-bottom-row">
           <section className="full-analysis-flow" aria-label="流程状态">
+            {batchRun ? (
+              <BatchQueuePanel batch={batchRun} selectedItemId={selectedBatchItemId} onSelect={handleSelectBatchItem} />
+            ) : null}
             {orderedStages.map((stage) => (
               <StageStep
                 key={stage.key}
@@ -590,6 +709,47 @@ function sampleArtifactContainsStageArtifact(artifact: SampleArtifact, stageKey:
   if (stageKey === "functionSlotAtomization") return artifact.functionSlotAtomizationAnalysis?.artifactId === artifactId;
   if (stageKey === "aggregate") return true;
   return true;
+}
+
+function BatchQueuePanel({ batch, selectedItemId, onSelect }: { batch: FullAnalysisBatchRun; selectedItemId: string | null; onSelect: (item: FullAnalysisBatchItem) => void }) {
+  return (
+    <div className="full-analysis-batch-panel">
+      <div className="batch-panel-heading">
+        <strong>批量队列</strong>
+        <span>{batchStatusLabel(batch.status)} · 并发 {batch.maxConcurrentRuns}</span>
+      </div>
+      <div className="batch-item-list">
+        {batch.items.map((item) => (
+          <button
+            key={item.queueItemId}
+            className={`batch-item ${selectedItemId === item.queueItemId ? "is-selected" : ""}`}
+            type="button"
+            onClick={() => onSelect(item)}
+          >
+            <span className="batch-item-title">{item.filename}</span>
+            <span>{batchStatusLabel(item.status)}{item.position > 0 ? ` · 第 ${item.position} 位` : ""}</span>
+            <span>{item.currentStageLabel ?? (item.workflowRunId ? `workflow ${shortId(item.workflowRunId)}` : "等待启动")}</span>
+            {item.errorSummary?.message ? <em>{item.errorSummary.message}</em> : null}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function batchStatusLabel(status: string) {
+  if (status === "queued") return "排队中";
+  if (status === "running") return "分析中";
+  if (status === "cache_waiting") return "等待缓存选择";
+  if (status === "processed") return "完成";
+  if (status === "partial_failed") return "部分失败";
+  if (status === "failed") return "失败";
+  if (status === "canceled") return "已取消";
+  return status || "等待";
+}
+
+function isBatchTerminal(batch: FullAnalysisBatchRun) {
+  return batch.items.every((item) => ["processed", "partial_failed", "failed", "canceled"].includes(item.status));
 }
 
 function buildDefaultStage(key: WorkflowStageState["key"], label: string): WorkflowStageState {

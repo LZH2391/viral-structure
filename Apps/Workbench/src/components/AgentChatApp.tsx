@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
+﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -32,11 +32,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
   const [statusText, setStatusText] = useState("等待连接");
   const [busy, setBusy] = useState(false);
+  const [compacting, setCompacting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
   const creatingDraftConversationRef = useRef(false);
+  const compactedUsageKeysRef = useRef<Set<string>>(new Set());
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: "agent-chat:layout",
@@ -121,6 +123,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && activeConversationConfirmedPlan?.turnId !== currentTurnId
     && !busy
     && !confirming;
+  const contextUsage = timeline?.activity?.tokenUsage ?? null;
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
@@ -167,6 +170,19 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   // handleResumeConversation intentionally runs from the latest closure after it is declared.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshConversations]);
+
+  useEffect(() => {
+    if (!session?.threadId || !currentTurnId) return;
+    let cancelled = false;
+    getAgentChatTurnTimeline(session.threadId, currentTurnId, session.workspaceRoot)
+      .then((nextTimeline) => {
+        if (!cancelled) setTimeline(nextTimeline);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTurnId, session?.threadId, session?.workspaceRoot]);
 
   const ensureSession = useCallback(async (forceNew = false) => {
     if (!forceNew && session?.threadId) return session;
@@ -220,6 +236,28 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
   }, [activeConversationId, refreshConversations]);
 
+  const maybeCompactBeforeSend = useCallback(async (activeSession: AgentChatSessionResponse) => {
+    const usage = contextUsage;
+    if (!activeSession.threadId || usage?.contextUsageState !== "danger") return null;
+    const usageKey = buildContextUsageKey(activeSession.threadId, usage);
+    if (compactedUsageKeysRef.current.has(usageKey)) return null;
+    setCompacting(true);
+    setStatusText("正在压缩上下文...");
+    try {
+      const result = await compactAgentChatThread(activeSession.threadId, {
+        conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
+        expectedRevision: activeConversationRevision,
+        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+        contextUsage: usage,
+      });
+      compactedUsageKeysRef.current.add(usageKey);
+      setStatusText("上下文已自动压缩");
+      return result;
+    } finally {
+      setCompacting(false);
+    }
+  }, [activeConversationRevision, contextUsage, sessionMeta.conversationId, sessionMeta.workspaceRoot]);
+
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || busy) return;
@@ -235,6 +273,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text, status: "completed" }]);
     try {
       const activeSession = await ensureSession(false);
+      const compacted = await maybeCompactBeforeSend(activeSession);
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
+      if (compactRevision) setActiveConversationRevision(compactRevision);
+      if (compacted) {
+        setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: "上下文已自动压缩", status: "completed" }]);
+      }
+      const revisionForSend = compactRevision ?? activeConversationRevision;
       const sendWithRevision = (expectedRevision: number | null) => sendAgentChatMessage(activeSession.threadId as string, {
           message: text,
           ...sessionMeta,
@@ -249,7 +294,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         });
       let submitted: Awaited<ReturnType<typeof sendAgentChatMessage>>;
       try {
-        submitted = await sendWithRevision(activeConversationRevision);
+        submitted = await sendWithRevision(revisionForSend);
       } catch (error) {
         if (!isConversationConflictError(error)) throw error;
         const synced = await syncActiveConversationForRetry(activeSession.conversationId ?? activeConversationId);
@@ -269,7 +314,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
+  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, maybeCompactBeforeSend, refreshConversations, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
 
   const startNewConversation = useCallback(() => {
     creatingDraftConversationRef.current = true;
@@ -282,6 +327,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setDraft("");
     setCurrentTurnId(null);
     setTimeline(null);
+    compactedUsageKeysRef.current.clear();
     setActiveConversationId(null);
     setActiveConversationRevision(null);
     setActiveConversationInvalidated(false);
@@ -313,6 +359,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         return;
       }
       applyConversation(payload.conversation, payload.refreshed);
+      compactedUsageKeysRef.current.clear();
       if (payload.refreshError?.message) setStatusText(`thread 已不可读，此会话已失效：${payload.refreshError.message}`);
       else setStatusText("已恢复重组会话");
     } catch (error) {
@@ -516,6 +563,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 <span>turn {shortId(currentTurnId ?? "等待")}</span>
                 <span>trace {shortId(session?.traceId ?? "等待")}</span>
                 <span>rev {activeConversationRevision ?? "-"}</span>
+                <ContextUsageIndicator usage={contextUsage} />
               </div>
               <select value={mode} disabled={busy || Boolean(session)} onChange={(event) => setMode(event.target.value as ChatMode)}>
                 <option value="direct">普通对话</option>
@@ -563,7 +611,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               }}
             />
             <button className="primary-button" type="submit" disabled={busy || activeConversationInvalidated || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
-              发送
+              {compacting ? "正在压缩上下文..." : "发送"}
             </button>
           </form>
         </section>
@@ -603,6 +651,34 @@ function TimelineView({ timeline }: { timeline: AgentTurnTimeline | null }) {
       ))}
     </div>
   );
+}
+
+function ContextUsageIndicator({ usage }: { usage: AgentTurnTimeline["activity"]["tokenUsage"] | null }) {
+  const ratio = typeof usage?.contextUsageRatio === "number" && Number.isFinite(usage.contextUsageRatio)
+    ? Math.max(0, Math.min(1, usage.contextUsageRatio))
+    : null;
+  const percent = ratio == null ? "--" : String(Math.round(ratio * 100));
+  const progress = ratio == null ? 0 : Math.round(ratio * 100);
+  const state = usage?.contextUsageState ?? "unknown";
+  return (
+    <span
+      className={`agent-chat-context-usage ${state}`}
+      title={formatContextUsageTitle(usage)}
+      style={{ "--context-progress": `${progress}%` } as CSSProperties}
+    >
+      <b>{percent}% used</b>
+      <i aria-hidden="true" />
+    </span>
+  );
+}
+
+function formatContextUsageTitle(usage: AgentTurnTimeline["activity"]["tokenUsage"] | null) {
+  if (!usage || usage.contextUsageState === "unknown") return "上下文使用未知";
+  return [
+    usage.inputTokens != null ? `input ${usage.inputTokens}` : null,
+    usage.modelContextWindow != null ? `window ${usage.modelContextWindow}` : null,
+    usage.contextThresholdTokens != null ? `threshold ${usage.contextThresholdTokens}` : null,
+  ].filter(Boolean).join(" / ") || "上下文使用未知";
 }
 
 function normalizeActiveMessage(value: unknown) {
@@ -675,6 +751,15 @@ function uniqueId(prefix: string) {
 function normalizeConversationRevision(value: unknown) {
   const revision = Number(value);
   return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+function buildContextUsageKey(threadId: string, usage: NonNullable<AgentTurnTimeline["activity"]["tokenUsage"]>) {
+  return [
+    threadId,
+    usage.inputTokens ?? "input_unknown",
+    usage.modelContextWindow ?? "window_unknown",
+    usage.contextThresholdTokens ?? "threshold_unknown",
+  ].join(":");
 }
 
 function isConversationConflictError(error: unknown) {

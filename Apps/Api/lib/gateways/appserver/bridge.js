@@ -121,7 +121,21 @@ function createAppServerBridge({
     return result;
   }
 
-  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread, listTurnItems, cancelTurn };
+  async function compactThread({ workspaceRoot, threadId, timeoutSeconds = 60 }) {
+    const payload = {
+      operation: "compactThread",
+      pythonRuntimeRoot,
+      workspaceRoot,
+      threadId,
+      timeoutSeconds,
+      transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
+    };
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    if (!result?.ok) throw appServerError(result, "appserver_thread_compact_failed");
+    return result;
+  }
+
+  return { pythonRuntimeRoot, runTurnWithInputs, startThread, startTurnWithInputs, collectTurnResult, readThread, listTurnItems, cancelTurn, compactThread };
 }
 
 function appServerError(result, fallbackCode) {

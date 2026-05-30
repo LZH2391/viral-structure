@@ -111,6 +111,50 @@ function makeMultipartRequest(server, { path: requestPath, fields = {}, file }) 
   });
 }
 
+function makeMultipartFilesRequest(server, { path: requestPath, fields = {}, files = [] }) {
+  const boundary = `----test-${Date.now().toString(36)}`;
+  const chunks = [];
+  for (const [name, value] of Object.entries(fields)) {
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`, "utf8"));
+  }
+  for (const file of files) {
+    chunks.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${file.name}"\r\nContent-Type: ${file.type}\r\n\r\n`, "utf8"));
+    chunks.push(Buffer.from(file.content, "utf8"));
+    chunks.push(Buffer.from("\r\n", "utf8"));
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`, "utf8"));
+  const body = Buffer.concat(chunks);
+  return new Promise((resolve, reject) => {
+    const address = server.address();
+    const request = require("node:http").request({
+      agent: false,
+      method: "POST",
+      host: "127.0.0.1",
+      port: address.port,
+      path: requestPath,
+      headers: {
+        connection: "close",
+        "content-type": `multipart/form-data; boundary=${boundary}`,
+        "content-length": body.length,
+      },
+    }, (response) => {
+      const responseChunks = [];
+      response.on("data", (chunk) => responseChunks.push(chunk));
+      response.on("end", () => {
+        const text = Buffer.concat(responseChunks).toString("utf8");
+        response.destroy();
+        resolve({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          body: text ? JSON.parse(text) : null,
+        });
+      });
+    });
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
 function closeServer(server) {
   return new Promise((resolve, reject) => {
     server.closeIdleConnections?.();
@@ -1328,6 +1372,146 @@ test("full analysis cache check reports existing upload cache without starting w
     assert.equal(calls.length, 1);
   } finally {
     server.close();
+  }
+});
+
+test("agent chat compact route calls appserver and records a system message", async () => {
+  const stageLogs = [];
+  const systemMessages = [];
+  const compactCalls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async (entry) => {
+        stageLogs.push(entry);
+      },
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    agentConversationStore: {
+      recordSystemMessage: async (payload) => {
+        systemMessages.push(payload);
+        return { conversationId: payload.conversationId, revision: 8 };
+      },
+    },
+    appServer: {
+      compactThread: async (payload) => {
+        compactCalls.push(payload);
+        return { ok: true, threadId: payload.threadId, status: "started" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_compact/compact", {
+      conversationId: "conversation_compact",
+      expectedRevision: 7,
+      workspaceRoot: "C:/workspace",
+      contextUsage: { inputTokens: 820, modelContextWindow: 1000, contextThresholdTokens: 800, contextUsageRatio: 0.82, contextUsageState: "danger" },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.threadId, "thread_compact");
+    assert.equal(response.body.conversationRevision, 8);
+    assert.equal(compactCalls[0].workspaceRoot, "C:/workspace");
+    assert.equal(compactCalls[0].threadId, "thread_compact");
+    assert.equal(systemMessages[0].text, "上下文已自动压缩");
+    assert.equal(stageLogs[0].stageName, "agentChat.context.compact");
+    assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
+    assert.equal(stageLogs[0].inputSummary.contextUsage.contextUsageState, "danger");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat compact route writes failure stage and snapshot", async () => {
+  const stageLogs = [];
+  const snapshots = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async (entry) => {
+        stageLogs.push(entry);
+      },
+      writeDebugSnapshot: async (entry) => {
+        snapshots.push(entry);
+        return { uri: "/runtime/debug-snapshots/compact-failed.json" };
+      },
+    },
+    appServer: {
+      compactThread: async () => {
+        const error = new Error("compact failed");
+        error.code = "appserver_thread_compact_failed";
+        throw error;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_compact/compact", {});
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.code, "appserver_thread_compact_failed");
+    assert.equal(response.body.debugSnapshotUri, "/runtime/debug-snapshots/compact-failed.json");
+    assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.fail"]);
+    assert.equal(snapshots[0].stageName, "agentChat.context.compact");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("full analysis batch routes create and read batch queue", async () => {
+  const calls = [];
+  const fakeBatch = {
+    batchRunId: "batch_1",
+    workflowKey: "full-analysis",
+    status: "queued",
+    workspaceId: "default-workspace",
+    maxConcurrentRuns: 2,
+    createdAt: "2026-05-30T00:00:00.000Z",
+    updatedAt: "2026-05-30T00:00:00.000Z",
+    completedAt: null,
+    items: [],
+  };
+  const server = createServer({
+    fullAnalysisBatchQueue: {
+      createBatch: ({ files, fields }) => {
+        calls.push({ type: "create", fileNames: files.map((file) => file.filename), maxConcurrentRuns: fields.maxConcurrentRuns });
+        return fakeBatch;
+      },
+      advance: async (batchRunId) => calls.push({ type: "advance", batchRunId }),
+      getBatch: (batchRunId) => batchRunId === "batch_1" ? fakeBatch : null,
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const created = await makeMultipartFilesRequest(server, {
+      path: "/api/workflows/full-analysis/batch-runs",
+      fields: { workspaceId: "default-workspace", maxConcurrentRuns: "2" },
+      files: [
+        { name: "a.mp4", type: "video/mp4", content: "a" },
+        { name: "b.mp4", type: "video/mp4", content: "b" },
+      ],
+    });
+    assert.equal(created.statusCode, 202);
+    assert.equal(created.body.batchRunId, "batch_1");
+
+    const read = await makeRequest(server, "GET", "/api/workflows/full-analysis/batch-runs/batch_1");
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.batchRunId, "batch_1");
+    assert.deepEqual(calls, [
+      { type: "create", fileNames: ["a.mp4", "b.mp4"], maxConcurrentRuns: "2" },
+      { type: "advance", batchRunId: "batch_1" },
+    ]);
+  } finally {
+    await closeServer(server);
   }
 });
 

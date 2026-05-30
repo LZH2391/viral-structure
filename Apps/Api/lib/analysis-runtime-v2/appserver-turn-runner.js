@@ -1,5 +1,7 @@
 const { acquireLeaseWithRetry } = require("../shot-boundary/threadpool-runner");
 
+const DEFAULT_MAX_INPUT_TOKEN_RATIO = 0.8;
+
 function createAppServerTurnRunner({
   role,
   codedError,
@@ -51,7 +53,10 @@ function createAppServerTurnRunner({
 
   async function executeRepairTurn({
     agentRun,
+    context,
+    input,
     turnInputs,
+    threadPool,
     appServer,
     rootDir,
     pollIntervalMs,
@@ -60,7 +65,22 @@ function createAppServerTurnRunner({
     collectHardTimeoutMs,
     onTurnStarted,
     onTurnCollect,
+    onLeaseReplaced,
   }) {
+    agentRun = await ensureReusableAgentRun({
+      agentRun,
+      context,
+      input,
+      threadPool,
+      appServer,
+      rootDir,
+      turnInputs,
+      onLeaseReplaced,
+      pollIntervalMs,
+      maxCollectAttempts,
+      collectIdleTimeoutMs,
+      collectHardTimeoutMs,
+    });
     const started = await appServer.startTurnWithInputs({
       workspaceRoot: rootDir,
       threadId: agentRun.threadId,
@@ -79,7 +99,7 @@ function createAppServerTurnRunner({
       collectHardTimeoutMs,
       onTurnCollect,
     });
-    return { started, finalTurn };
+    return { started, finalTurn, agentRun };
   }
 
   async function collectTurnToCompletion({
@@ -175,6 +195,73 @@ function createAppServerTurnRunner({
     executeRepairTurn,
     collectTurnToCompletion,
   };
+}
+
+async function ensureReusableAgentRun({
+  agentRun,
+  context,
+  input,
+  threadPool,
+  appServer,
+  rootDir,
+  turnInputs,
+  onLeaseReplaced,
+}) {
+  if (!agentRun?.threadId || !agentRun?.leaseId || !threadPool) return agentRun;
+  const decision = shouldRetireThreadForContext(agentRun.lastTokenUsage ?? agentRun.tokenUsage ?? null);
+  if (!decision.retire) return agentRun;
+  await threadPool.releaseLease?.({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId }).catch(() => undefined);
+  const leaseAcquisition = await acquireLeaseWithRetry(threadPool, {
+    role: agentRun.role,
+    ownerId: agentRun.traceId,
+    codedError: context?.codedError ?? ((code, message, payload) => {
+      const error = new Error(message);
+      error.code = code;
+      error.debugPayload = payload;
+      return error;
+    }),
+  });
+  const nextAgentRun = {
+    ...agentRun,
+    leaseId: leaseAcquisition.lease.lease_id,
+    threadId: leaseAcquisition.lease.thread_id,
+    turnId: null,
+    contextReplacedAt: new Date().toISOString(),
+    contextReplaceReason: decision.reason,
+  };
+  await onLeaseReplaced?.({ previousAgentRun: agentRun, agentRun: nextAgentRun, decision, lease: leaseAcquisition.lease, input, turnInputs, appServer, rootDir });
+  return nextAgentRun;
+}
+
+function shouldRetireThreadForContext(tokenUsage, maxInputTokenRatio = DEFAULT_MAX_INPUT_TOKEN_RATIO) {
+  const normalized = normalizeTokenUsage(tokenUsage);
+  const inputTokens = normalized?.inputTokens;
+  const modelContextWindow = normalized?.modelContextWindow;
+  if (!Number.isFinite(inputTokens) || !Number.isFinite(modelContextWindow) || modelContextWindow <= 0) {
+    return { retire: true, reason: "thread_context_usage_missing", inputTokens: inputTokens ?? null, modelContextWindow: modelContextWindow ?? null, ratio: null };
+  }
+  const ratio = inputTokens / modelContextWindow;
+  return {
+    retire: ratio >= maxInputTokenRatio,
+    reason: ratio >= maxInputTokenRatio ? "thread_context_threshold_exceeded" : null,
+    inputTokens,
+    modelContextWindow,
+    ratio,
+  };
+}
+
+function normalizeTokenUsage(tokenUsage) {
+  if (!tokenUsage || typeof tokenUsage !== "object") return null;
+  const last = tokenUsage.last_token_usage ?? tokenUsage.lastTokenUsage ?? tokenUsage.token_usage ?? tokenUsage.tokenUsage ?? tokenUsage;
+  return {
+    inputTokens: nullableNumber(last.input_tokens ?? last.inputTokens),
+    modelContextWindow: nullableNumber(tokenUsage.model_context_window ?? tokenUsage.modelContextWindow ?? last.model_context_window ?? last.modelContextWindow),
+  };
+}
+
+function nullableNumber(value) {
+  const next = Number(value);
+  return Number.isFinite(next) ? next : null;
 }
 
 function buildCollectTimeoutPayload({
@@ -284,4 +371,5 @@ module.exports = {
   createAppServerTurnRunner,
   isExpectedTurn,
   isNonTerminalTurnStatus,
+  shouldRetireThreadForContext,
 };

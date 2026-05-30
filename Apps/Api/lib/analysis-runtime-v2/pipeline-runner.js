@@ -97,6 +97,7 @@ function createAnalysisPipelineRunner({
           });
           context.finalOutputText = executed.finalTurn.finalMessage ?? null;
           context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
+          context.agentRun.lastTokenUsage = extractTurnTokenUsage(executed.finalTurn);
           upsertDescriptorTraceCard(runtime, context, descriptor, "analyze", {
             status: "completed",
             run: context.agentRun,
@@ -163,7 +164,10 @@ function createAnalysisPipelineRunner({
       action: async () => {
         const executed = await descriptor.executeRepairTurn({
           agentRun: context.agentRun,
+          context,
+          input: context.input,
           turnInputs: repairTurn,
+          threadPool,
           appServer,
           rootDir,
           pollIntervalMs,
@@ -171,12 +175,34 @@ function createAnalysisPipelineRunner({
           collectIdleTimeoutMs,
           collectHardTimeoutMs,
           onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
+          onLeaseReplaced: ({ agentRun, decision }) => {
+            context.agentRun = agentRun;
+            runtime.thread.upsertTraceCard(context, descriptor.buildAgentTraceCard?.(context, "thread-context", {
+              status: "completed",
+              run: agentRun,
+              artifactId: context.artifactId,
+              parentArtifactId: descriptor.resolveMaterializeParentArtifactId(context, context.input),
+              activity: { reason: decision.reason, inputTokens: decision.inputTokens, modelContextWindow: decision.modelContextWindow, ratio: decision.ratio },
+            }));
+            runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.repaired, descriptor.progress.repaired, {
+              agentRun,
+              threadContextPolicy: {
+                event: decision.reason,
+                maxInputTokenRatio: 0.8,
+                inputTokens: decision.inputTokens,
+                modelContextWindow: decision.modelContextWindow,
+                ratio: decision.ratio,
+              },
+            });
+          },
         });
+        if (executed.agentRun) context.agentRun = executed.agentRun;
         const analysis = descriptor.buildProcessedAnalysis(executed.finalTurn.finalMessage, context.input, context, context.agentRun, executed.finalTurn, {
           repairAttemptCount,
         });
         context.finalOutputText = executed.finalTurn.finalMessage ?? null;
         context.agentRun = descriptor.updateAgentRun(context.agentRun, context, executed.finalTurn);
+        context.agentRun.lastTokenUsage = extractTurnTokenUsage(executed.finalTurn);
         runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.repaired, descriptor.progress.repaired, {
           agentRun: context.agentRun,
           activeThreadMessage: null,
@@ -263,6 +289,28 @@ function createAnalysisPipelineRunner({
 
   return {
     runAnalysisPipeline,
+  };
+}
+
+function extractTurnTokenUsage(turn) {
+  if (!turn || typeof turn !== "object") return null;
+  const activityUsage = turn.turnActivity?.tokenUsage ?? null;
+  const directUsage = turn.last_token_usage ?? turn.lastTokenUsage ?? turn.token_usage ?? turn.tokenUsage ?? null;
+  const modelContextWindow = turn.model_context_window ?? turn.modelContextWindow ?? turn.turnActivity?.modelContextWindow ?? null;
+  if (!activityUsage && !directUsage && modelContextWindow == null) return null;
+  return {
+    ...(activityUsage ? { last_token_usage: normalizeUsage(activityUsage) } : {}),
+    ...(directUsage ? { last_token_usage: normalizeUsage(directUsage) } : {}),
+    ...(modelContextWindow != null ? { model_context_window: Number(modelContextWindow) } : {}),
+  };
+}
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== "object") return {};
+  return {
+    input_tokens: Number(usage.input_tokens ?? usage.inputTokens ?? 0),
+    output_tokens: Number(usage.output_tokens ?? usage.outputTokens ?? 0),
+    total_tokens: Number(usage.total_tokens ?? usage.totalTokens ?? 0),
   };
 }
 

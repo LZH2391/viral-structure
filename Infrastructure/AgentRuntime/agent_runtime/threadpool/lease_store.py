@@ -240,7 +240,11 @@ class ThreadPoolLeaseStoreMixin:
         if thread is not None:
             if thread.is_seed:
                 raise ValueError(f"seed thread cannot be leased: {thread.thread_id}")
-            if thread.retire_on_release or not self._client_for_thread(thread).validate_thread(thread.thread_id):
+            if (
+                self._discard_on_release_for_role(thread.role)
+                or thread.retire_on_release
+                or not self._client_for_thread(thread).validate_thread(thread.thread_id)
+            ):
                 self.store.delete_thread(thread.thread_id)
             else:
                 thread = thread.model_copy(

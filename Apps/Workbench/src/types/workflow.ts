@@ -40,3 +40,40 @@ export type WorkflowRun = {
   completedAt?: string | null;
   errorSummary?: ErrorSummary | null;
 };
+
+export type FullAnalysisBatchItemStatus = "queued" | "running" | "cache_waiting" | "processed" | "partial_failed" | "failed" | "canceled" | string;
+
+export type FullAnalysisBatchItem = {
+  queueItemId: string;
+  batchRunId: string;
+  workflowRunId?: string | null;
+  sampleVideoId?: string | null;
+  filename: string;
+  mimeType?: string | null;
+  size?: number | null;
+  status: FullAnalysisBatchItemStatus;
+  position: number;
+  currentStageKeys: string[];
+  currentStageLabel?: string | null;
+  errorSummary?: ErrorSummary | null;
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  updatedAt: string;
+};
+
+export type FullAnalysisBatchRun = {
+  batchRunId: string;
+  workflowKey: "full-analysis" | string;
+  status: FullAnalysisBatchItemStatus;
+  workspaceId: string;
+  maxConcurrentRuns: number;
+  options?: {
+    enableFunctionSlotAtomization?: boolean;
+    [key: string]: unknown;
+  };
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  items: FullAnalysisBatchItem[];
+};

@@ -48,6 +48,8 @@ def main() -> int:
             return list_turn_items(client, payload)
         if operation == "cancelTurn":
             return cancel_turn(client, payload)
+        if operation == "compactThread":
+            return compact_thread(client, payload)
         if operation == "runTurnWithInputs":
             return run_turn_with_inputs(client, payload)
         write_json({"ok": False, "error": "unknown_operation", "message": f"Unknown operation: {operation}"})
@@ -234,6 +236,7 @@ def inspect_turn_activity(client, payload):
                 "outputTokens": last_usage.get("output_tokens") or last_usage.get("outputTokens"),
                 "totalTokens": last_usage.get("total_tokens") or last_usage.get("totalTokens"),
                 "reasoningOutputTokens": last_usage.get("reasoning_output_tokens") or last_usage.get("reasoningOutputTokens"),
+                "modelContextWindow": usage.get("model_context_window") or usage.get("modelContextWindow"),
             },
         }
     except Exception:
@@ -248,6 +251,18 @@ def cancel_turn(client, payload) -> int:
             "threadId": str(payload["threadId"]),
             "turnId": str(payload["turnId"]),
             "status": turn.get("status"),
+        }
+    )
+    return 0
+
+
+def compact_thread(client, payload) -> int:
+    result = client.compact_thread(str(payload["threadId"]))
+    write_json(
+        {
+            "ok": True,
+            "threadId": str(payload["threadId"]),
+            "status": result.get("status") or result.get("turn", {}).get("status") or "started",
         }
     )
     return 0

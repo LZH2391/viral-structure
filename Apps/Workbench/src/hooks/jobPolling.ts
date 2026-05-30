@@ -133,6 +133,10 @@ function normalizeAgentActivity(activity: ProcessingJob["agentActivity"]) {
           outputTokens: activity.tokenUsage.outputTokens ?? null,
           totalTokens: activity.tokenUsage.totalTokens ?? null,
           reasoningOutputTokens: activity.tokenUsage.reasoningOutputTokens ?? null,
+          modelContextWindow: activity.tokenUsage.modelContextWindow ?? null,
+          contextThresholdTokens: activity.tokenUsage.contextThresholdTokens ?? null,
+          contextUsageRatio: activity.tokenUsage.contextUsageRatio ?? null,
+          contextUsageState: activity.tokenUsage.contextUsageState ?? "unknown",
         }
       : null,
   };

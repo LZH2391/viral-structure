@@ -35,9 +35,31 @@ test("agent turn timeline summarizes key item kinds with safe previews", () => {
   assert.equal(timeline.activity.itemCount, 6);
   assert.equal(timeline.activity.latestItemType, "unknown");
   assert.equal(timeline.activity.tokenUsage.totalTokens, 120);
+  assert.equal(timeline.activity.tokenUsage.contextUsageState, "unknown");
   assert.ok(timeline.items.find((item) => item.kind === "reasoning").textPreview.length <= 243);
   assert.equal(timeline.items.find((item) => item.kind === "tool_call").metadata.toolName, "shell_command");
   assert.equal(timeline.items.find((item) => item.kind === "tool_result").metadata.exitCode, 0);
+});
+
+test("agent turn timeline enriches context usage from model context window", () => {
+  const thread = {
+    id: "thread_context",
+    turns: [{
+      id: "turn_context",
+      status: "completed",
+      last_token_usage: { input_tokens: 820, output_tokens: 30, total_tokens: 850 },
+      model_context_window: 1000,
+      items: [{ type: "agentMessage", text: "done" }],
+    }],
+  };
+
+  const timeline = summarizeAgentTurnTimeline(thread, "turn_context");
+
+  assert.equal(timeline.activity.tokenUsage.modelContextWindow, 1000);
+  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, 800);
+  assert.equal(timeline.activity.tokenUsage.contextUsageRatio, 0.82);
+  assert.equal(timeline.activity.tokenUsage.contextUsageState, "danger");
+  assert.equal(timeline.items.find((item) => item.kind === "token_usage").metadata.contextUsageState, "danger");
 });
 
 test("agent turn timeline returns null for missing turn", () => {

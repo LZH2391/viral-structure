@@ -173,7 +173,7 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             self.assertEqual(status["counts"]["idle"], 0)
             self.assertTrue(status["can_acquire"])
 
-    def test_discard_on_release_keeps_thread_reusable_during_same_service_lifetime(self) -> None:
+    def test_discard_on_release_deletes_thread_during_same_service_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -222,11 +222,9 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             second_lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_2")
             manager.close()
 
-            self.assertEqual(first_release["thread_status"], "idle")
-            self.assertIsNotNone(released_thread)
-            self.assertEqual(released_thread.status, "idle")
-            self.assertEqual(released_thread.lease_count, 1)
-            self.assertEqual(second_lease["thread_id"], "idle_thread_1")
+            self.assertEqual(first_release["thread_status"], "deleted")
+            self.assertIsNone(released_thread)
+            self.assertNotEqual(second_lease["thread_id"], "idle_thread_1")
 
     def test_discard_on_release_drops_used_idle_threads_during_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

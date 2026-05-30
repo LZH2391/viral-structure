@@ -90,6 +90,10 @@ export type AgentActivitySummary = {
     outputTokens?: number | null;
     totalTokens?: number | null;
     reasoningOutputTokens?: number | null;
+    modelContextWindow?: number | null;
+    contextThresholdTokens?: number | null;
+    contextUsageRatio?: number | null;
+    contextUsageState?: "normal" | "warning" | "danger" | "unknown";
   } | null;
   updatedAt: string;
 };
@@ -126,6 +130,10 @@ export type AgentTimelineItem = {
     outputTokens?: number | null;
     totalTokens?: number | null;
     reasoningOutputTokens?: number | null;
+    modelContextWindow?: number | null;
+    contextThresholdTokens?: number | null;
+    contextUsageRatio?: number | null;
+    contextUsageState?: "normal" | "warning" | "danger" | "unknown";
   };
 };
 

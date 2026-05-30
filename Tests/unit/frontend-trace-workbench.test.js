@@ -370,6 +370,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(app, /Agent 对话/);
   assert.match(api, /\/api\/agent-chat\/threads/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns/);
+  assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/compact/);
+  assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.js"), /compactThread/);
+  assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.py"), /client\.compact_thread/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns\/\$\{encodeURIComponent\(turnId\)\}\/timeline/);
   assert.match(api, /\/api\/agent-chat\/conversations/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/resume/);
@@ -424,6 +427,11 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /结构展示转换/);
   assert.match(chat, /startAgentChatThread/);
   assert.match(chat, /sendAgentChatMessage/);
+  assert.match(chat, /compactAgentChatThread/);
+  assert.match(chat, /agent-chat-context-usage/);
+  assert.match(chat, /% used/);
+  assert.match(chat, /正在压缩上下文/);
+  assert.match(chat, /buildContextUsageKey/);
   assert.match(chat, /collectAgentChatTurn/);
   assert.match(chat, /getAgentChatTurnTimeline/);
   assert.match(chat, /releaseAgentChatLease/);
@@ -446,6 +454,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(css, /\.agent-chat-conversations/);
   assert.match(css, /\.agent-chat-resizer/);
   assert.match(css, /\.agent-chat-session-meta/);
+  assert.match(css, /\.agent-chat-context-usage/);
+  assert.match(css, /conic-gradient/);
+  assert.match(css, /--context-progress/);
   assert.match(css, /\.agent-chat-timeline \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*height: 100%/);
   assert.match(css, /\.agent-chat-timeline-list \{[\s\S]*min-height: 0;[\s\S]*overflow: auto/);
   assert.match(styles, /agent-chat\.css/);

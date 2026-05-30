@@ -171,6 +171,51 @@
   background: var(--panel-2);
 }
 
+.agent-chat-session-meta .agent-chat-context-usage {
+  --context-progress: 0%;
+  --context-ring: rgba(212, 218, 226, 0.72);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 104px;
+  height: 30px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+.agent-chat-context-usage b {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.agent-chat-context-usage i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--panel-2) 52%, transparent 54%),
+    conic-gradient(var(--context-ring) var(--context-progress), rgba(212, 218, 226, 0.24) 0);
+}
+
+.agent-chat-context-usage.warning {
+  --context-ring: rgba(255, 196, 87, 0.86);
+  color: var(--text-soft);
+}
+
+.agent-chat-context-usage.danger {
+  --context-ring: rgba(255, 107, 107, 0.9);
+  color: var(--text);
+}
+
+.agent-chat-context-usage.unknown {
+  --context-ring: rgba(148, 163, 184, 0.38);
+  color: var(--muted);
+}
+
 .agent-chat-conversation-bar {
   display: flex;
   align-items: center;

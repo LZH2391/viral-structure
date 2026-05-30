@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -80,6 +80,17 @@ export type AgentChatTurnResponse = {
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
 };
 
+export type AgentChatCompactResponse = {
+  ok: boolean;
+  threadId: string;
+  status: string;
+  compactStatus?: string | null;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  conversationRevision?: number | null;
+};
+
 export type FunctionSlotLibraryBuilderRefreshResponse = {
   ok: boolean;
   traceId: string;
@@ -126,6 +137,28 @@ export async function startFullAnalysisRun(file: File, options: { frameSampleRat
     body: formData,
   });
   return readJsonResponse<WorkflowRun>(response);
+}
+
+export async function startFullAnalysisBatchRun(files: File[], options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; enableFunctionSlotAtomization?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; maxConcurrentRuns?: number } = {}) {
+  const formData = new FormData();
+  for (const file of files) formData.append("files", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("enableAudioSeparation", String(options.enableAudioSeparation ?? true));
+  formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
+  formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
+  formData.append("enableFunctionSlotAtomization", String(options.enableFunctionSlotAtomization ?? true));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  formData.append("maxConcurrentRuns", String(options.maxConcurrentRuns ?? 2));
+  const response = await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<FullAnalysisBatchRun>(response);
+}
+
+export async function getFullAnalysisBatchRun(batchRunId: string) {
+  return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}`, { cache: "no-store" }));
 }
 
 export async function checkFullAnalysisUploadCache(file: File, options: { frameSampleRateFps?: number; cacheDecision?: "ask" | "refresh" } = {}) {
@@ -357,6 +390,24 @@ export async function sendAgentChatMessage(
 ) {
   return readJsonResponse<AgentChatTurnResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function compactAgentChatThread(
+  threadId: string,
+  payload: {
+    conversationId?: string | null;
+    expectedRevision?: number | null;
+    workspaceRoot?: string | null;
+    contextUsage?: Record<string, unknown> | null;
+  } = {},
+) {
+  return readJsonResponse<AgentChatCompactResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/compact`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),

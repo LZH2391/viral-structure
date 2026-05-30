@@ -1,5 +1,7 @@
 const TEXT_PREVIEW_LIMIT = 240;
 const LONG_TEXT_PREVIEW_LIMIT = 600;
+const CONTEXT_THRESHOLD_RATIO = 0.8;
+const CONTEXT_WARNING_RATIO = 0.65;
 
 function summarizeAgentTurnTimeline(thread, turnId) {
   const safeThread = thread && typeof thread === "object" ? thread : {};
@@ -397,28 +399,60 @@ function normalizeTurnActivity(value) {
 
 function normalizeTurnTokenUsage(turn) {
   if (!turn || typeof turn !== "object") return null;
-  return normalizeTokenUsage(
-    turn.last_token_usage
+  const usage = turn.last_token_usage
       ?? turn.lastTokenUsage
       ?? turn.token_usage
       ?? turn.tokenUsage
       ?? turn.usage
       ?? turn.metrics?.token_usage
-      ?? turn.metrics?.tokenUsage,
-  );
+      ?? turn.metrics?.tokenUsage;
+  return normalizeTokenUsage(usage, turn.model_context_window ?? turn.modelContextWindow);
 }
 
-function normalizeTokenUsage(usage) {
+function normalizeTokenUsage(usage, fallbackModelContextWindow = null) {
   if (!usage || typeof usage !== "object") return null;
   const nested = usage.last_token_usage ?? usage.lastTokenUsage ?? usage.last ?? null;
-  if (nested && nested !== usage) return normalizeTokenUsage(nested);
+  if (nested && nested !== usage) return normalizeTokenUsage(nested, usage.model_context_window ?? usage.modelContextWindow ?? fallbackModelContextWindow);
+  const modelContextWindow = nullableNumber(usage.modelContextWindow ?? usage.model_context_window ?? fallbackModelContextWindow);
   const result = {
     inputTokens: nullableNumber(usage.inputTokens ?? usage.input_tokens),
     outputTokens: nullableNumber(usage.outputTokens ?? usage.output_tokens),
     totalTokens: nullableNumber(usage.totalTokens ?? usage.total_tokens),
     reasoningOutputTokens: nullableNumber(usage.reasoningOutputTokens ?? usage.reasoning_output_tokens),
   };
-  return Object.values(result).some((value) => value != null) ? result : null;
+  const hasTokenUsage = Object.values(result).some((value) => value != null);
+  if (!hasTokenUsage && modelContextWindow == null) return null;
+  return enrichContextUsage(result, modelContextWindow);
+}
+
+function summarizeThreadContextUsage(thread) {
+  const turns = Array.isArray(thread?.turns) ? thread.turns : [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const usage = normalizeTurnTokenUsage(turns[index]);
+    if (usage) return usage;
+  }
+  return normalizeTokenUsage(thread?.latest ?? thread?.tokenUsage ?? thread?.usage ?? null);
+}
+
+function enrichContextUsage(usage, modelContextWindow) {
+  const contextWindow = nullableNumber(modelContextWindow);
+  const inputTokens = nullableNumber(usage.inputTokens);
+  const threshold = contextWindow != null && contextWindow > 0 ? Math.round(contextWindow * CONTEXT_THRESHOLD_RATIO) : null;
+  const ratio = inputTokens != null && contextWindow != null && contextWindow > 0 ? inputTokens / contextWindow : null;
+  return {
+    ...usage,
+    modelContextWindow: contextWindow,
+    contextThresholdTokens: threshold,
+    contextUsageRatio: ratio,
+    contextUsageState: resolveContextUsageState({ inputTokens, threshold, ratio }),
+  };
+}
+
+function resolveContextUsageState({ inputTokens, threshold, ratio }) {
+  if (inputTokens == null || threshold == null || ratio == null) return "unknown";
+  if (inputTokens >= threshold) return "danger";
+  if (ratio >= CONTEXT_WARNING_RATIO) return "warning";
+  return "normal";
 }
 
 function formatTokenUsage(usage) {
@@ -479,4 +513,6 @@ module.exports = {
   summarizeAgentTurnTimelineFromItems,
   buildAgentActivityFromTurn,
   buildAgentActivityFromTurnResult,
+  summarizeThreadContextUsage,
+  normalizeTokenUsage,
 };
