@@ -11,6 +11,7 @@ import {
   createGraphSimulation,
   nodeRadius,
   previewPopoverSize,
+  reverseTracePath,
   svgScreenPoint,
   VIEWBOX,
 } from "./graphUtils";
@@ -50,7 +51,9 @@ export function GraphCanvas({
   const fixedLayout = layoutMode === "columns";
   const positions = new Map(nodes.map((node) => [node.id, node]));
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
-  const focusedIds = useMemo(() => connectedNodeIds(focusNodeId, visible.edges), [focusNodeId, visible.edges]);
+  const focusedPath = useMemo(() => mode === "planTrace" ? reverseTracePath(focusNodeId, visible.edges) : { nodes: connectedNodeIds(focusNodeId, visible.edges), edges: new Set<string>() }, [focusNodeId, mode, visible.edges]);
+  const focusedIds = focusedPath.nodes;
+  const focusedEdgeIds = focusedPath.edges;
   const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
   const previewNode = useMemo(() => {
     const node = previewNodeId ? nodes.find((entry) => entry.id === previewNodeId) ?? null : null;
@@ -279,7 +282,7 @@ export function GraphCanvas({
             const source = positions.get(edge.source);
             const target = positions.get(edge.target);
             if (!source || !target) return null;
-            const focused = focusNodeId ? edge.source === focusNodeId || edge.target === focusNodeId : false;
+            const focused = focusNodeId ? (mode === "planTrace" ? focusedEdgeIds.has(edge.id) : edge.source === focusNodeId || edge.target === focusNodeId) : false;
             const muted = focusNodeId ? !focused : false;
             return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
           })}

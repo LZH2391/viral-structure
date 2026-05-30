@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v5";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v6";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -218,11 +218,11 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       edges,
       summary: {
         planCount: nodes.filter((node) => node.type === "confirmedPlan").length,
-        slotCount: nodes.filter((node) => node.type === "tracedSlot").length,
+        slotCount: nodes.filter((node) => node.type === "slotSubtype").length,
         atomCount: nodes.filter((node) => node.type === "atomPattern").length,
         bindingCount: 0,
         ruleCount: 0,
-        conceptCount: nodes.filter((node) => node.type === "sourceExample" || node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype").length,
+        conceptCount: nodes.filter((node) => node.type === "sourceVariant" || node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype" || node.type === "atomArchetype").length,
         scriptSegmentCount: 0,
         rhythmSectionCount: 0,
         packagingBlockCount: 0,
@@ -258,40 +258,13 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       const slotId = firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id);
       const archetypeId = firstText(slot.slotArchetype, slot.slotArchetypeId, slot.archetypeId, sourceIndex.get(`${slotId}::archetypeId`));
       const familyId = firstText(sourceIndex.get(`${slotId}::familyId`), sourceIndex.get(`${archetypeId}::familyId`));
-      const node = traceId(plan.planId, "slot", slotId ?? stableLabel(slot));
-      pushGraphNode(nodes, {
-        id: node,
-        type: "tracedSlot",
-        label: firstText(slot.name, slot.label, slotId, "slot"),
-        group: "slot",
-        data: {
-          planId: plan.planId,
-          color,
-          governanceNodeId: slotId ? `slotSubtype:${sanitizeGraphId(slotId)}` : null,
-          familyGovernanceNodeId: familyId ? `slotFamily:${sanitizeGraphId(familyId)}` : null,
-          archetypeGovernanceNodeId: archetypeId ? `slotArchetype:${sanitizeGraphId(archetypeId)}` : null,
-          slotHierarchy: {
-            family: familyId,
-            archetype: archetypeId,
-            subtype: slotId,
-          },
-          evidence: stripReviewFields(slot),
-        },
-      });
-      pushGraphEdge(edges, plan.planId, planRootId, node, "plan_uses_slot", "uses slot");
-      pushSlotGovernanceHierarchy(nodes, edges, plan.planId, node, { familyId, archetypeId, subtypeId: slotId, sourceIndex });
+      const slotNode = pushSlotGovernanceHierarchy(nodes, edges, plan.planId, planRootId, { familyId, archetypeId, subtypeId: slotId, sourceIndex, slotEvidence: slot, color });
       const explicitSourceVariantIds = uniqueStrings(atomSourceRows[slotIndex]?.slotVariantIds ?? []);
-      const fallbackSourceVariantIds = uniqueStrings([
-        ...asArray(sourceIndex.get(slotId)),
-        ...asArray(sourceIndex.get(archetypeId)),
-      ]);
-      const sourceVariantIds = explicitSourceVariantIds.length ? explicitSourceVariantIds : fallbackSourceVariantIds;
-      for (const variantId of sourceVariantIds) {
-        pushSourceVariantTrace(nodes, edges, plan.planId, node, variantId, aliasMap);
+      for (const variantId of explicitSourceVariantIds) {
+        pushSourceVariantTrace(nodes, edges, plan.planId, slotNode, variantId, aliasMap, sourceIndex);
       }
       for (const atomVariantId of uniqueStrings(atomSourceRows[slotIndex]?.atomVariantIds ?? [])) {
-        const atomNode = pushAtomTrace(nodes, edges, plan.planId, node, atomVariantId, aliasMap, sourceIndex);
-        if (atomNode) pushSourceVariantTrace(nodes, edges, plan.planId, atomNode, atomVariantId, aliasMap);
+        pushAtomTrace(nodes, edges, plan.planId, slotNode, atomVariantId, aliasMap, sourceIndex);
       }
     }
   }
@@ -385,24 +358,31 @@ function pushGraphEdge(edges, planId, source, target, type, label = null) {
 function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex) {
   const parsed = parseVariantId(atomVariantId);
   if (!parsed.sampleId || !parsed.variantKey) return null;
-  const layerNodeId = traceId(planId, "atomLayer", parsed.variantKind);
   const atomPatternIds = uniqueStrings(sourceIndex.get(atomVariantId) ?? []);
-  pushGraphNode(nodes, {
-    id: layerNodeId,
-    type: "atomLayer",
-    label: layerDisplayName(parsed.variantKind),
-    group: atomGroup(parsed.variantKey),
-    data: {
-      planId,
-      layer: parsed.variantKind,
-    },
-  });
-  pushGraphEdge(edges, planId, slotNodeId, layerNodeId, "slot_uses_atom_layer", parsed.variantKind ?? "atom layer");
   if (!atomPatternIds.length) {
-    pushSourceVariantTrace(nodes, edges, planId, layerNodeId, atomVariantId, aliasMap);
-    return layerNodeId;
+    pushSourceVariantTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex);
+    return null;
   }
   for (const patternId of atomPatternIds) {
+    const patternItem = sourceIndex.get(`${patternId}::item`) ?? {};
+    const atomArchetypeId = firstText(patternItem.parentAtomArchetype);
+    const parentNodeId = atomArchetypeId ? traceId(planId, "atomArchetype", atomArchetypeId) : slotNodeId;
+    if (atomArchetypeId) {
+      pushGraphNode(nodes, {
+        id: parentNodeId,
+        type: "atomArchetype",
+        label: governanceName(sourceIndex, atomArchetypeId, atomArchetypeId),
+        group: atomGroup(parsed.variantKey),
+        data: {
+          planId,
+          governanceId: atomArchetypeId,
+          governanceNodeId: `atomArchetype:${sanitizeGraphId(atomArchetypeId)}`,
+          layer: parsed.variantKind,
+          sourceVariantIds: sourceIndex.get(atomArchetypeId) ?? [],
+        },
+      });
+      pushGraphEdge(edges, planId, slotNodeId, parentNodeId, "subtype_to_atom_archetype", parsed.variantKind ?? "atom archetype");
+    }
     const patternNodeId = traceId(planId, "atomPattern", patternId);
     pushGraphNode(nodes, {
       id: patternNodeId,
@@ -412,25 +392,27 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
       data: {
         planId,
         governanceId: patternId,
+        governanceNodeId: `atomPattern:${sanitizeGraphId(patternId)}`,
         layer: parsed.variantKind,
-        sourceVariantIds: sourceIndex.get(patternId) ?? [],
+        sourceVariantIds: [atomVariantId],
       },
     });
-    pushGraphEdge(edges, planId, layerNodeId, patternNodeId, "atom_layer_to_pattern", "pattern");
-    pushSourceVariantTrace(nodes, edges, planId, patternNodeId, atomVariantId, aliasMap);
+    pushGraphEdge(edges, planId, parentNodeId, patternNodeId, atomArchetypeId ? "atom_archetype_to_pattern" : "subtype_to_atom_pattern", "pattern");
+    pushSourceVariantTrace(nodes, edges, planId, patternNodeId, atomVariantId, aliasMap, sourceIndex);
   }
-  return layerNodeId;
+  return null;
 }
 
-function pushSlotGovernanceHierarchy(nodes, edges, planId, slotNodeId, { familyId, archetypeId, subtypeId, sourceIndex }) {
-  const firstSemanticNode = familyId ? traceId(planId, "slotFamily", familyId) : archetypeId ? traceId(planId, "slotArchetype", archetypeId) : subtypeId ? traceId(planId, "slotSubtype", subtypeId) : null;
+function pushSlotGovernanceHierarchy(nodes, edges, planId, planRootId, { familyId, archetypeId, subtypeId, sourceIndex, slotEvidence, color }) {
+  const firstSemanticNode = familyId ? traceId(planId, "slotFamily", familyId) : archetypeId ? traceId(planId, "slotArchetype", archetypeId) : subtypeId ? traceId(planId, "slotSubtype", subtypeId) : planRootId;
+  const subtypeNode = subtypeId ? traceId(planId, "slotSubtype", subtypeId) : firstSemanticNode;
   if (familyId) {
     pushGraphNode(nodes, {
       id: traceId(planId, "slotFamily", familyId),
       type: "slotFamily",
       label: governanceName(sourceIndex, familyId, familyId),
       group: "slot",
-      data: governanceNodeData(sourceIndex, planId, familyId, "family"),
+      data: { ...governanceNodeData(sourceIndex, planId, familyId, "family"), color },
     });
   }
   if (archetypeId) {
@@ -439,7 +421,7 @@ function pushSlotGovernanceHierarchy(nodes, edges, planId, slotNodeId, { familyI
       type: "slotArchetype",
       label: governanceName(sourceIndex, archetypeId, archetypeId),
       group: "slot",
-      data: governanceNodeData(sourceIndex, planId, archetypeId, "archetype"),
+      data: { ...governanceNodeData(sourceIndex, planId, archetypeId, "archetype"), color },
     });
   }
   if (subtypeId) {
@@ -448,19 +430,26 @@ function pushSlotGovernanceHierarchy(nodes, edges, planId, slotNodeId, { familyI
       type: "slotSubtype",
       label: governanceName(sourceIndex, subtypeId, subtypeId),
       group: "slot",
-      data: governanceNodeData(sourceIndex, planId, subtypeId, "subtype"),
+      data: {
+        ...governanceNodeData(sourceIndex, planId, subtypeId, "subtype"),
+        color,
+        usedSlotEvidence: stripReviewFields(slotEvidence),
+      },
     });
   }
-  if (firstSemanticNode) pushGraphEdge(edges, planId, slotNodeId, firstSemanticNode, "slot_traced_to_semantic", "semantic");
+  if (firstSemanticNode && firstSemanticNode !== planRootId) pushGraphEdge(edges, planId, planRootId, firstSemanticNode, "plan_uses_slot_family", "uses slot family");
   if (familyId && archetypeId) pushGraphEdge(edges, planId, traceId(planId, "slotFamily", familyId), traceId(planId, "slotArchetype", archetypeId), "slot_family_to_archetype", "archetype");
   if (archetypeId && subtypeId) pushGraphEdge(edges, planId, traceId(planId, "slotArchetype", archetypeId), traceId(planId, "slotSubtype", subtypeId), "slot_archetype_to_subtype", "subtype");
+  return subtypeNode;
 }
 
 function governanceNodeData(sourceIndex, planId, governanceId, semanticLevel) {
   const item = sourceIndex.get(`${governanceId}::item`) ?? {};
+  const governanceType = semanticLevel === "family" ? "slotFamily" : semanticLevel === "archetype" ? "slotArchetype" : semanticLevel === "subtype" ? "slotSubtype" : semanticLevel;
   return {
     planId,
     governanceId,
+    governanceNodeId: `${governanceType}:${sanitizeGraphId(governanceId)}`,
     semanticLevel,
     name: governanceName(sourceIndex, governanceId, governanceId),
     sourceVariantIds: sourceIndex.get(governanceId) ?? [],
@@ -497,31 +486,32 @@ function pushLegacyAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, al
   return atomNodeId;
 }
 
-function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasMap) {
+function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasMap, sourceIndex) {
   const parsed = parseVariantId(variantId);
   if (!parsed.sampleId) return;
-  const sampleLabel = aliasForSample(aliasMap, parsed.sampleId) ?? shortSampleLabel(parsed.sampleId);
-  const sampleNodeId = traceId(planId, "sample", parsed.sampleId);
+  const variantMeta = sourceIndex.get(`${variantId}::sourceVariant`) ?? {};
+  const sourceLabel = firstText(variantMeta.label);
+  const shortVariant = variantDisplayLabel(aliasMap, variantId);
+  const nodeId = traceId(planId, "sourceVariant", variantId);
   upsertGraphNode(nodes, {
-    id: sampleNodeId,
-    type: "sourceExample",
-    label: sampleLabel,
-    group: "sourceExample",
+    id: nodeId,
+    type: "sourceVariant",
+    label: sourceLabel ? `${shortVariant} · ${sourceLabel}` : shortVariant,
+    group: "sourceVariant",
     data: {
       planId,
+      variantId,
+      label: sourceLabel ?? shortVariant,
+      labelMissing: !sourceLabel,
       sampleVideoId: parsed.sampleId,
       sampleId: parsed.sampleId,
       sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
-      sourceVariantIds: [variantId],
+      kind: firstText(variantMeta.kind, parsed.variantKind),
+      sourceId: firstText(variantMeta.sourceId, parsed.variantKey),
+      layer: parsed.variantKind === "slot" ? null : parsed.variantKind,
     },
-  }, (existing) => ({
-    ...existing,
-    data: {
-      ...existing.data,
-      sourceVariantIds: uniqueStrings([...(asArray(existing.data?.sourceVariantIds)), variantId]),
-    },
-  }));
-  pushGraphEdge(edges, planId, ownerId, sampleNodeId, "traced_to_source_sample", parsed.variantKind ? `${parsed.variantKind} source` : "source sample");
+  }, (existing) => existing);
+  pushGraphEdge(edges, planId, ownerId, nodeId, "traced_to_source_variant", parsed.variantKind ? `${parsed.variantKind} source` : "source variant");
 }
 
 function emptyTraceGraph() {
@@ -588,6 +578,12 @@ function firstText(...values) {
 function buildGovernanceSourceIndex(governance) {
   const index = new Map();
   if (!governance || typeof governance !== "object") return index;
+  for (const variant of asArray(governance.sourceVariants)) {
+    const variantId = firstText(variant.variantId);
+    if (!variantId) continue;
+    index.set(`${variantId}::sourceVariant`, variant);
+    index.set(`${variantId}::label`, firstText(variant.label, variantId));
+  }
   for (const collectionName of ["slotFamilies", "slotArchetypes", "slotSubtypes", "atomArchetypes", "atomPatterns", "bindingPrinciples", "bindingPatterns", "rulePatterns", "recompositionPolicies", "implementationBundles", "templates"]) {
     for (const item of asArray(governance[collectionName])) {
       const id = firstText(item.id, item.governanceId, item.patternId);
@@ -613,6 +609,11 @@ function buildGovernanceSourceIndex(governance) {
     const familyId = archetypeId ? index.get(`${archetypeId}::familyId`) : null;
     if (subtypeId && archetypeId) index.set(`${subtypeId}::archetypeId`, archetypeId);
     if (subtypeId && familyId) index.set(`${subtypeId}::familyId`, familyId);
+  }
+  for (const pattern of asArray(governance.atomPatterns)) {
+    const patternId = firstText(pattern.id, pattern.governanceId);
+    const archetypeId = firstText(pattern.parentAtomArchetype);
+    if (patternId && archetypeId) index.set(`${patternId}::atomArchetypeId`, archetypeId);
   }
   return index;
 }

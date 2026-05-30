@@ -62,6 +62,27 @@ export function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraph
   return ids;
 }
 
+export function reverseTracePath(nodeId: string | null, edges: FunctionSlotGraphEdge[]) {
+  const nodes = new Set<string>();
+  const edgeIds = new Set<string>();
+  if (!nodeId) return { nodes, edges: edgeIds };
+  nodes.add(nodeId);
+  let frontier = new Set<string>([nodeId]);
+  while (frontier.size) {
+    const next = new Set<string>();
+    for (const edge of edges) {
+      if (!frontier.has(edge.target)) continue;
+      edgeIds.add(edge.id);
+      if (!nodes.has(edge.source)) {
+        nodes.add(edge.source);
+        next.add(edge.source);
+      }
+    }
+    frontier = next;
+  }
+  return { nodes, edges: edgeIds };
+}
+
 export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "governanceRoot") return 22;
   if (node.type === "slotFamily") return 24;
@@ -290,8 +311,8 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "confirmedPlan") return true;
   if (node.type === "tracedSlot") return filters.slot;
   if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") return filters.slot;
-  if (node.type === "atomLayer" || node.type === "atomPattern") return filters.atom;
-  if (node.type === "sourceExample" || node.type === "sourceVariant") return false;
+  if (node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern" || node.type === "sourceVariant") return filters.atom;
+  if (node.type === "sourceExample") return false;
   return true;
 }
 

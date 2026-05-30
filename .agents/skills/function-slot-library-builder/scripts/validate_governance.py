@@ -105,6 +105,7 @@ def evidence_sets(source_index: Optional[Dict[str, Any]]) -> Dict[str, Set[str]]
     if not source_index:
         return {}
     return {
+        "slot": {str(item.get("variantId")) for item in source_index.get("slotVariants", [])},
         "atom": {str(item.get("variantId")) for item in source_index.get("atomVariants", [])},
         "binding": {str(item.get("variantId")) for item in source_index.get("bindings", [])},
         "rule": {str(item.get("variantId")) for item in source_index.get("rules", [])},
@@ -115,6 +116,40 @@ def evidence_sets(source_index: Optional[Dict[str, Any]]) -> Dict[str, Set[str]]
             if item.get("needReview")
         },
     }
+
+
+def validate_source_variants(governance: Dict[str, Any], source_index: Optional[Dict[str, Any]], issues: List[Dict[str, Any]]) -> None:
+    source_variants = as_list(governance.get("sourceVariants"))
+    seen: Set[str] = set()
+    duplicates: Set[str] = set()
+    for item in source_variants:
+        if not isinstance(item, dict):
+            add_issue(issues, "error", "invalid_source_variant_item", "sourceVariants items must be objects")
+            continue
+        variant_id = item.get("variantId")
+        if not variant_id:
+            add_issue(issues, "error", "missing_source_variant_id", "sourceVariants item missing variantId")
+            continue
+        variant_text = str(variant_id)
+        if variant_text in seen:
+            duplicates.add(variant_text)
+        seen.add(variant_text)
+        if not item.get("label"):
+            add_issue(issues, "error", "missing_source_variant_label", f"sourceVariant {variant_text} missing label")
+    if duplicates:
+        add_issue(issues, "error", "duplicate_source_variant_id", f"sourceVariants duplicate variantId: {describe_missing(duplicates)}")
+    if not source_index:
+        return
+    evidence = evidence_sets(source_index)
+    known = set().union(evidence.get("slot", set()), evidence.get("atom", set()), evidence.get("binding", set()), evidence.get("rule", set()))
+    referenced = {
+        str(variant_id)
+        for _, item in all_nodes(governance)
+        for variant_id in as_list(item.get("sourceVariantIds"))
+    }
+    missing = (referenced & known) - seen
+    if missing:
+        add_issue(issues, "error", "source_variant_label_index_missing", f"sourceVariantIds missing from sourceVariants label index: {describe_missing(missing)}")
 
 
 def validate_parent_variant_closure(
@@ -343,6 +378,7 @@ def validate_unmapped_coverage(governance: Dict[str, Any], source_index: Optiona
 
 def validate_governance(governance: Dict[str, Any], source_index: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     issues: List[Dict[str, Any]] = []
+    validate_source_variants(governance, source_index, issues)
     validate_slot_hierarchy(governance, issues)
     validate_atom_hierarchy(governance, issues)
     validate_pattern_references(governance, issues)

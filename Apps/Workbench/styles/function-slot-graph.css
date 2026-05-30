@@ -227,12 +227,14 @@
   stroke-width: 1.5;
 }
 
-.slot-graph-edge.edge-plan_uses_slot {
+.slot-graph-edge.edge-plan_uses_slot,
+.slot-graph-edge.edge-plan_uses_slot_family {
   stroke: rgba(244, 246, 255, 0.78);
   stroke-width: 2.6;
 }
 
-.slot-graph-edge.edge-slot_traced_to_semantic {
+.slot-graph-edge.edge-slot_traced_to_semantic,
+.slot-graph-edge.edge-subtype_to_atom_archetype {
   stroke: rgba(240, 211, 109, 0.7);
   stroke-width: 2.3;
 }
@@ -370,6 +372,14 @@
   filter: drop-shadow(0 0 10px rgba(105, 223, 196, 0.42));
 }
 
+.slot-graph-node.node-type-atomArchetype > circle:not(.slot-graph-plan-ring) {
+  stroke-width: 2.2;
+}
+
+.slot-graph-node.node-type-atomArchetype text {
+  font-size: 13px;
+}
+
 .slot-graph-node.node-slotReview > circle:not(.slot-graph-plan-ring) {
   fill: #f2b84b;
   filter: drop-shadow(0 0 8px rgba(242, 184, 75, 0.6));
@@ -446,8 +456,16 @@
 }
 
 .slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
-  fill: #98a2b3;
-  opacity: 0.62;
+  fill: #111827;
+  stroke: rgba(196, 203, 237, 0.82);
+  stroke-dasharray: 5 4;
+  stroke-width: 1.8;
+  opacity: 0.9;
+}
+
+.slot-graph-node.node-sourceVariant text {
+  fill: rgba(234, 239, 255, 0.86);
+  font-size: 12px;
 }
 
 .slot-graph-node.node-plan > circle:not(.slot-graph-plan-ring) {

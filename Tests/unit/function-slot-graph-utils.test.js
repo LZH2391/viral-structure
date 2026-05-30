@@ -31,8 +31,8 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("confirmed plan trace graph hides source examples and variants", () => {
-  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+test("confirmed plan trace graph shows used source variants but hides source examples", () => {
+  const { buildVisibleGraph, reverseTracePath } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = {
     slot: true,
     atom: true,
@@ -63,9 +63,14 @@ test("confirmed plan trace graph hides source examples and variants", () => {
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
   assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("方案槽位")));
   assert.equal(visible.nodes.some((node) => node.type === "sourceExample"), false);
-  assert.equal(visible.nodes.some((node) => node.type === "sourceVariant"), false);
+  assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
   assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_sample"), false);
-  assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_variant"), false);
+  assert.ok(visible.edges.some((edge) => edge.type === "traced_to_source_variant"));
+  const path = reverseTracePath("plan_a:variant:sample_1:F001", visible.edges);
+  assert.ok(path.nodes.has("plan_a:plan"));
+  assert.ok(path.nodes.has("plan_a:slot:unmapped"));
+  assert.ok(path.edges.has("edge:slot"));
+  assert.ok(path.edges.has("edge:variant"));
 });
 
 function loadTsModule(relativePath) {

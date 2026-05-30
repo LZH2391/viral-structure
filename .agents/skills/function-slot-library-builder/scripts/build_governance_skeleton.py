@@ -31,6 +31,7 @@ FORMAL_OUTPUT = (
     / "semantic-governance.v1.json"
 )
 REQUIRED_LIST_FIELDS = [
+    "sourceVariants",
     "slotFamilies",
     "slotArchetypes",
     "slotSubtypes",
@@ -110,6 +111,85 @@ def build_coverage(index: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def first_text(*values: Any) -> str | None:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def variant_source_id(variant_id: str) -> str | None:
+    parts = str(variant_id or "").split("::")
+    if len(parts) >= 3:
+        return parts[-1]
+    if len(parts) == 2:
+        return parts[1]
+    return None
+
+
+def build_source_variants(index: Dict[str, Any]) -> List[Dict[str, Any]]:
+    variants: Dict[str, Dict[str, Any]] = {}
+    for slot in index.get("slotVariants", []):
+        variant_id = first_text(slot.get("variantId"))
+        if not variant_id:
+            continue
+        variants[variant_id] = {
+            "variantId": variant_id,
+            "sampleId": first_text(slot.get("sampleId")),
+            "kind": "slot",
+            "sourceId": first_text(slot.get("sourceSlotId"), variant_source_id(variant_id)),
+            "label": first_text(slot.get("slotName"), slot.get("slotType"), slot.get("sourceSlotId"), variant_id),
+        }
+    for atom in index.get("atomVariants", []):
+        variant_id = first_text(atom.get("variantId"))
+        if not variant_id:
+            continue
+        variants[variant_id] = {
+            "variantId": variant_id,
+            "sampleId": first_text(atom.get("sampleId")),
+            "kind": first_text(atom.get("kind"), "atom"),
+            "sourceId": first_text(atom.get("sourceAtomId"), variant_source_id(variant_id)),
+            "label": first_text(atom.get("label"), atom.get("function"), atom.get("sourceAtomId"), variant_id),
+        }
+    for binding in index.get("bindings", []):
+        variant_id = first_text(binding.get("variantId"))
+        if not variant_id:
+            continue
+        variants[variant_id] = {
+            "variantId": variant_id,
+            "sampleId": first_text(binding.get("sampleId")),
+            "kind": "binding",
+            "sourceId": first_text(binding.get("id"), variant_source_id(variant_id)),
+            "label": first_text(binding.get("type"), binding.get("rule"), binding.get("id"), variant_id),
+        }
+    for rule in index.get("rules", []):
+        variant_id = first_text(rule.get("variantId"))
+        if not variant_id:
+            continue
+        variants[variant_id] = {
+            "variantId": variant_id,
+            "sampleId": first_text(rule.get("sampleId")),
+            "kind": "rule",
+            "sourceId": first_text(rule.get("id"), variant_source_id(variant_id)),
+            "label": first_text(rule.get("reason"), rule.get("ruleKind"), rule.get("id"), variant_id),
+        }
+    for template in index.get("templates", []):
+        variant_id = first_text(template.get("variantId"))
+        if not variant_id:
+            continue
+        variants[variant_id] = {
+            "variantId": variant_id,
+            "sampleId": first_text(template.get("sampleId")),
+            "kind": "template",
+            "sourceId": first_text(template.get("templateId"), variant_source_id(variant_id)),
+            "label": first_text(template.get("name"), template.get("chainKey"), template.get("templateId"), variant_id),
+        }
+    return [variants[key] for key in sorted(variants)]
+
+
 def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[str, Any]:
     index = read_json_file(source_index)
     now = datetime.now(timezone.utc).isoformat()
@@ -123,6 +203,7 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
         "createdAt": now,
         "sourceSnapshot": build_source_snapshot(index),
         "coverage": build_coverage(index),
+        "sourceVariants": build_source_variants(index),
         "slotFamilies": [],
         "slotArchetypes": [],
         "slotSubtypes": [],
@@ -153,7 +234,7 @@ def merge_existing(existing: Dict[str, Any], skeleton: Dict[str, Any]) -> Dict[s
         merged.pop(field, None)
     for field in ["schemaVersion", "governanceId", "createdAt"]:
         merged.setdefault(field, skeleton[field])
-    for field in ["outputPath", "sourceRoot", "sourceIndex", "sourceSnapshot", "coverage"]:
+    for field in ["outputPath", "sourceRoot", "sourceIndex", "sourceSnapshot", "coverage", "sourceVariants"]:
         merged[field] = skeleton[field]
     for field in REQUIRED_LIST_FIELDS:
         if not isinstance(merged.get(field), list):

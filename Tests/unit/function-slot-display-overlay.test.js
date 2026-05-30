@@ -178,11 +178,44 @@ test("display overlay traces confirmed plan slots to source samples and variants
       name: "场景问题激活",
       sourceVariantIds: ["sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"],
     }],
+    atomArchetypes: [{
+      id: "ATOM_ARCH_script_demand_establishment",
+      name: "需求建立脚本原型",
+      atomLayer: "script",
+      sourcePatternIds: ["SCRIPT_pattern_problem_to_need"],
+      sourceVariantIds: [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+        "sample_other::script::S009",
+      ],
+    }],
     atomPatterns: [{
       id: "SCRIPT_pattern_problem_to_need",
       name: "可见问题建立需求脚本模式",
       atomLayer: "script",
-      sourceVariantIds: ["sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001"],
+      parentAtomArchetype: "ATOM_ARCH_script_demand_establishment",
+      sourceVariantIds: [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+        "sample_other::script::S009",
+      ],
+    }],
+    sourceVariants: [{
+      variantId: "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001",
+      sampleId: "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      kind: "slot",
+      sourceId: "F001",
+      label: "牙渍问题槽位",
+    }, {
+      variantId: "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+      sampleId: "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      kind: "script",
+      sourceId: "S001",
+      label: "问题对象直冲与执行动作入口",
+    }, {
+      variantId: "sample_other::script::S009",
+      sampleId: "sample_other",
+      kind: "script",
+      sourceId: "S009",
+      label: "未使用脚本",
     }],
   }, null, 2), "utf8");
   const service = createRestructureDisplayOverlayService({
@@ -214,13 +247,20 @@ test("display overlay traces confirmed plan slots to source samples and variants
 
   const traceGraph = await service.readConfirmedPlanTraceGraph();
 
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceExample" && node.data.sampleId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceExample"), false);
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001" && String(node.label).includes("牙渍问题槽位")));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001" && String(node.label).includes("问题对象直冲与执行动作入口")));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_other::script::S009"), false);
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotFamily" && node.label === "观看理由类"));
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotArchetype" && node.label === "问题激活原型"));
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotSubtype" && node.label === "场景问题激活"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "atomLayer" && node.label === "脚本层"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "atomLayer"), false);
+  assert.ok(traceGraph.nodes.some((node) => node.type === "atomArchetype" && node.label === "需求建立脚本原型"));
   assert.ok(traceGraph.nodes.some((node) => node.type === "atomPattern" && node.label === "可见问题建立需求脚本模式"));
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "plan_uses_slot_family"));
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "subtype_to_atom_archetype"));
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "atom_archetype_to_pattern"));
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "traced_to_source_variant"));
   assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
 });
 
