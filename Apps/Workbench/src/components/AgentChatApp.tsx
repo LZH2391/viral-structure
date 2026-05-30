@@ -152,8 +152,6 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     const nextSession = await startAgentChatThread({
       source: mode,
       role: mode === "threadpool-role" ? selectedRole : null,
-      conversationId: activeConversationId,
-      expectedRevision: activeConversationRevision,
     });
     if (!nextSession.ok || !nextSession.threadId) throw new Error(nextSession.message || "Agent 会话创建失败");
     setSession(nextSession);
@@ -166,7 +164,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
     return nextSession;
-  }, [activeConversationId, activeConversationRevision, mode, refreshConversations, selectedRole, session]);
+  }, [activeConversationRevision, mode, refreshConversations, selectedRole, session]);
 
   const schedulePoll = useCallback((activeSession: AgentChatSessionResponse, turnId: string) => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
@@ -248,6 +246,20 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setErrorText(null);
     try {
       const payload = await resumeAgentChatConversation(conversationId);
+      if (payload.deleted) {
+        const items = await refreshConversations();
+        const next = items.find((item) => item.conversationId !== conversationId) ?? null;
+        if (next) {
+          const nextPayload = await resumeAgentChatConversation(next.conversationId);
+          if (nextPayload.deleted) startNewConversation();
+          else applyConversation(nextPayload.conversation, nextPayload.refreshed);
+        } else {
+          startNewConversation();
+        }
+        setStatusText("thread 已不存在，会话已删除");
+        setErrorText(payload.refreshError?.message ?? "thread 已不存在，会话已删除");
+        return;
+      }
       applyConversation(payload.conversation, payload.refreshed);
       if (payload.refreshError?.message) setStatusText(`thread 已不可读，此会话已失效：${payload.refreshError.message}`);
       else setStatusText("已恢复重组会话");
@@ -256,7 +268,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setErrorText(message);
       setStatusText("恢复失败");
     }
-  }, [applyConversation]);
+  }, [applyConversation, refreshConversations, startNewConversation]);
 
   const handleArchiveConversation = useCallback(async () => {
     if (!activeConversationId) return;
@@ -305,11 +317,29 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const handleRelease = useCallback(async () => {
     if (!session?.leaseId) return;
     setStatusText("释放 lease");
-    await releaseAgentChatLease(session.leaseId, session.ownerId).catch((error) => {
+    try {
+      await releaseAgentChatLease(session.leaseId, session.ownerId, session.conversationId);
+      if (pollTimerRef.current) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      const releasedConversationId = session.conversationId ?? activeConversationId;
+      const items = await refreshConversations();
+      const next = items.find((item) => item.conversationId !== releasedConversationId) ?? null;
+      if (next) {
+        const payload = await resumeAgentChatConversation(next.conversationId);
+        if (payload.deleted) startNewConversation();
+        else applyConversation(payload.conversation, payload.refreshed);
+      } else {
+        startNewConversation();
+      }
+      setErrorText(null);
+      setStatusText("lease 已释放，会话已删除");
+    } catch (error) {
       setErrorText(error instanceof Error ? error.message : "释放 lease 失败");
-    });
-    setStatusText("lease 已释放");
-  }, [session]);
+      setStatusText("释放失败");
+    }
+  }, [activeConversationId, applyConversation, refreshConversations, session, startNewConversation]);
 
   const handleConfirmRestructure = useCallback(async () => {
     if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
@@ -447,7 +477,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                   {activeConversationConfirmedPlan?.turnId === currentTurnId ? "已确认" : confirming ? "确认中" : "确认此方案"}
                 </button>
               ) : null}
-              {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" onClick={handleRelease}>释放</button> : null}
+              {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" disabled={busy} onClick={handleRelease}>释放</button> : null}
             </div>
           </header>
           <div className="agent-chat-conversation-bar">

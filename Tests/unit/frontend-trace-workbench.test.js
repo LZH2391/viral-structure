@@ -420,6 +420,11 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /collectAgentChatTurn/);
   assert.match(chat, /getAgentChatTurnTimeline/);
   assert.match(chat, /releaseAgentChatLease/);
+  assert.doesNotMatch(chat, /conversationId: activeConversationId/);
+  assert.doesNotMatch(chat, /expectedRevision: activeConversationRevision,[\s\S]*\}\);[\s\S]*startAgentChatThread/);
+  assert.match(chat, /payload\.deleted/);
+  assert.match(chat, /lease 已释放，会话已删除/);
+  assert.match(chat, /disabled=\{busy\} onClick=\{handleRelease\}/);
   assert.match(chat, /event\.key !== "Enter" \|\| event\.ctrlKey/);
   assert.match(chat, /event\.preventDefault\(\)/);
   assert.match(chat, /agent-chat-timeline/);

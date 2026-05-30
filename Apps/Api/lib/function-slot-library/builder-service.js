@@ -95,13 +95,22 @@ function createFunctionSlotLibraryBuilderService({
     for (const sampleVideoId of sampleIds) {
       const artifact = await store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json")).catch(() => null);
       if (!artifact?.functionSlotAtomizationAnalysis?.artifactId) continue;
-      const result = await libraryService.exportSampleArtifact(sampleVideoId, { mode });
+      const result = await libraryService.exportSampleArtifact(sampleVideoId, { mode }).catch((error) => {
+        if (error?.code !== "function_slot_library_unpublishable_atomization") throw error;
+        return {
+          exported: false,
+          skipped: true,
+          reason: error.code,
+          manifest: artifact.functionSlotAtomizationAnalysis,
+        };
+      });
       if (result) {
         results.push({
           sampleVideoId,
           artifactId: result.manifest?.artifactId ?? null,
           exported: Boolean(result.exported),
           skipped: Boolean(result.skipped),
+          reason: result.reason ?? null,
           itemPath: result.itemPath ?? null,
         });
       }

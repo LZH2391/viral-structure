@@ -26,15 +26,11 @@ async function handleAgentChatThreadStart(req, res, handlers = {}) {
         const conversationId = normalizeText(body.conversationId);
         return withConversationLock(conversationId, async () => {
           if (conversationId) {
-            const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, {
-              expectedRevision: normalizeRevision(body.expectedRevision),
-            });
-            if (!conversation) {
-              const error = new Error("未找到 Agent 会话");
-              error.statusCode = 404;
-              error.code = "agent_chat_conversation_not_found";
-              throw error;
-            }
+            const error = new Error("ThreadPool 会话和 thread 一一对应，不能给已有会话重新绑定新 thread");
+            error.statusCode = 409;
+            error.code = "agent_chat_thread_rebind_forbidden";
+            error.retryable = false;
+            throw error;
           }
           const session = await startThreadPoolRoleSession({ body, handlers, traceContext });
           return persistRestructureSession(session, body, handlers);
@@ -233,6 +229,7 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
       }
       let refreshed = null;
       let refreshError = null;
+      let deleted = false;
       if (conversation.threadId) {
         try {
           const thread = await handlers.appServer.readThread({ workspaceRoot: conversation.workspaceRoot || handlers.rootDir, threadId: conversation.threadId });
@@ -242,8 +239,8 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
             code: error?.code ?? "agent_chat_conversation_thread_unavailable",
             message: safePreview(error instanceof Error ? error.message : "会话线程暂不可读", 160),
           };
-          const marked = await handlers.agentConversationStore.invalidate(conversationId, refreshError);
-          if (marked) Object.assign(conversation, marked);
+          await handlers.agentConversationStore.remove(conversationId);
+          deleted = true;
         }
       }
       return {
@@ -251,6 +248,7 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
         conversation,
         refreshed,
         refreshError,
+        deleted,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
         stageId: traceContext.stageId,
@@ -464,18 +462,27 @@ async function handleAgentChatLeaseRelease(req, res, handlers = {}) {
         error.code = "agent_chat_lease_id_required";
         throw error;
       }
-      const result = await handlers.threadPool.releaseLease({ leaseId, ownerId });
+      let result;
+      try {
+        result = await handlers.threadPool.releaseLease({ leaseId, ownerId });
+      } catch (error) {
+        if (!isUnknownActiveLeaseError(error)) throw error;
+        result = { ok: true, status: "already_released" };
+      }
+      const conversationId = normalizeText(body.conversationId ?? body.conversation_id);
+      const deletedConversation = conversationId ? await handlers.agentConversationStore?.remove?.(conversationId) : null;
       return {
         ok: result.ok !== false,
         leaseId,
         ownerId,
         status: result.status ?? "released",
+        conversationDeleted: Boolean(deletedConversation),
         traceId: traceContext.traceId,
         runId: traceContext.runId,
         stageId: traceContext.stageId,
       };
     },
-    summarizeOutput: (result) => ({ leaseId: result.leaseId, ownerId: result.ownerId, status: result.status }),
+    summarizeOutput: (result) => ({ leaseId: result.leaseId, ownerId: result.ownerId, status: result.status, conversationDeleted: result.conversationDeleted }),
     successStatus: 200,
   });
 }
@@ -634,6 +641,17 @@ function normalizeActiveMessage(value) {
 
 function isTerminalStatus(status) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
+}
+
+function isUnknownActiveLeaseError(error) {
+  const values = [
+    error?.code,
+    error?.message,
+    error?.payload?.detail,
+    error?.payload?.message,
+    error?.payload?.error,
+  ];
+  return values.some((value) => String(value ?? "").includes("unknown active lease"));
 }
 
 function buildTextInputs(message) {

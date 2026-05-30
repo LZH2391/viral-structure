@@ -67,6 +67,49 @@ test("function slot library lists manifests in stable order", async () => {
   assert.deepEqual(items.map((item) => item.artifactId), ["artifact_new", "artifact_old"]);
 });
 
+test("function slot library rejects failed or empty atomization exports", async () => {
+  const { store, service } = await createTempLibraryService();
+  await writeRuntimeArtifact(store, buildArtifact({ status: "failed", emptyAtomization: true }));
+
+  await assert.rejects(
+    service.exportSampleArtifact("sample_library", { mode: "replace" }),
+    (error) => {
+      assert.equal(error.code, "function_slot_library_unpublishable_atomization");
+      assert.equal(error.statusCode, 400);
+      return true;
+    },
+  );
+});
+
+test("function slot library hides existing failed or empty items from lists and graphs", async () => {
+  const { libraryRoot, service } = await createTempLibraryService();
+  const itemDir = path.join(libraryRoot, "artifact_empty");
+  await fs.mkdir(itemDir, { recursive: true });
+  await fs.writeFile(path.join(itemDir, FILES.manifest), `${JSON.stringify({
+    schemaVersion: SCHEMA_VERSION,
+    artifactId: "artifact_empty",
+    sampleVideoId: "sample_empty",
+    traceId: "trace_empty",
+    status: "failed",
+    counts: { slotCount: 0, atomCount: 0 },
+  }, null, 2)}\n`, "utf8");
+  await Promise.all([
+    fs.writeFile(path.join(itemDir, FILES.slots), "[]\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.scriptAtoms), "[]\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.rhythmAtoms), "[]\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.packagingAtoms), "[]\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.bindings), "[]\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.rules), "{\"conflictChecks\":[],\"recombinationRules\":[]}\n", "utf8"),
+    fs.writeFile(path.join(itemDir, FILES.templates), "[]\n", "utf8"),
+  ]);
+
+  const items = await service.listLibraryItems();
+  const artifact = await service.readLibraryArtifact("artifact_empty");
+
+  assert.deepEqual(items, []);
+  assert.equal(artifact, null);
+});
+
 test("function slot library projects one item into projection without deleting library item", async () => {
   const { store, service, projectionService, libraryRoot } = await createTempLibraryService();
   await writeRuntimeArtifact(store, buildArtifact());
@@ -410,8 +453,8 @@ async function writeRuntimeArtifact(store, artifact) {
   await store.writeJson(path.join(sampleDir, "artifact.json"), artifact);
 }
 
-function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace_library", createdAt = "2026-05-26T00:00:00.000Z", extraSlot = false } = {}) {
-  const slotTypes = extraSlot ? ["problem_activation", "result_confirmation", "trust_close"] : ["problem_activation", "result_confirmation"];
+function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace_library", createdAt = "2026-05-26T00:00:00.000Z", extraSlot = false, status = "processed", emptyAtomization = false } = {}) {
+  const slotTypes = emptyAtomization ? [] : extraSlot ? ["problem_activation", "result_confirmation", "trust_close"] : ["problem_activation", "result_confirmation"];
   return {
     sampleVideoId: "sample_library",
     trace: { traceId: "trace_sample" },
@@ -420,7 +463,7 @@ function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace
       parentArtifactId: "artifact_packaging",
       traceId,
       type: "function-slot-atomization-analysis",
-      status: "processed",
+      status,
       stageName: "function_slot_atomization.materialize",
       sampleVideoId: "sample_library",
       sourceScriptSegmentArtifactId: "artifact_script",

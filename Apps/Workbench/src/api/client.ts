@@ -380,7 +380,7 @@ export async function listAgentChatConversations(payload: { role?: string | null
 }
 
 export async function resumeAgentChatConversation(conversationId: string) {
-  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; refreshed?: ThreadConversation | null; refreshError?: { code?: string; message?: string | null } | null; traceId: string; runId: string; stageId: string }>(
+  return readJsonResponse<{ ok: boolean; conversation: AgentChatConversation; refreshed?: ThreadConversation | null; refreshError?: { code?: string; message?: string | null } | null; deleted?: boolean; traceId: string; runId: string; stageId: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/resume`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -428,12 +428,12 @@ export async function confirmAgentChatConversation(
   );
 }
 
-export async function releaseAgentChatLease(leaseId: string, ownerId?: string | null) {
-  return readJsonResponse<{ ok: boolean; leaseId: string; ownerId: string; status: string }>(
+export async function releaseAgentChatLease(leaseId: string, ownerId?: string | null, conversationId?: string | null) {
+  return readJsonResponse<{ ok: boolean; leaseId: string; ownerId: string; status: string; conversationDeleted?: boolean }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threadpool/leases/release`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ leaseId, ownerId }),
+      body: JSON.stringify({ leaseId, ownerId, conversationId }),
     }),
   );
 }

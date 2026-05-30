@@ -88,6 +88,14 @@ function createAgentConversationStore({ store, filePath } = {}) {
     return conversation;
   }
 
+  async function remove(conversationId) {
+    if (!conversationId) return null;
+    const conversation = await readConversation(conversationId);
+    if (!conversation) return null;
+    await fs.rm(conversationFilePath(conversationId), { force: true });
+    return conversation;
+  }
+
   async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
@@ -300,6 +308,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     invalidate,
     confirmPlan,
     archive,
+    remove,
     assertActive,
   };
 }

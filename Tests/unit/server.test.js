@@ -306,6 +306,41 @@ test("agent chat starts ThreadPool role fork session through lease", async () =>
   }
 });
 
+test("agent chat lease release is idempotent for missing active leases", async () => {
+  const stageLogs = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async (entry) => {
+        stageLogs.push(entry);
+      },
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      releaseLease: async () => {
+        throw new Error("unknown active lease: lease_missing");
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threadpool/leases/release", {
+      leaseId: "lease_missing",
+      ownerId: "owner_1",
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.ok, true);
+    assert.equal(response.body.status, "already_released");
+    assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
+    assert.equal(stageLogs[1].outputSummary.status, "already_released");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat persists restructure conversations and archives them manually", async () => {
   const conversations = new Map();
   const discardedThreads = [];

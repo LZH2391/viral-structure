@@ -44,7 +44,7 @@ function createFunctionSlotLibraryService({
         const artifactId = sanitizeArtifactId(analysis.artifactId);
         const itemDir = libraryItemDir(artifactId);
         const existingManifest = await readManifest(artifactId).catch(() => null);
-        if (existingManifest && mode === "skip-existing") {
+        if (existingManifest && mode === "skip-existing" && isPublishableLibraryManifest(existingManifest)) {
           return {
             exported: false,
             skipped: true,
@@ -55,6 +55,8 @@ function createFunctionSlotLibraryService({
         }
 
         const payload = buildLibraryPayload({ artifact: sourceArtifact, analysis, exportedAt: now() });
+        assertPublishableLibraryManifest(payload.manifest);
+
         await fs.rm(itemDir, { recursive: true, force: true });
         await fs.mkdir(itemDir, { recursive: true });
         await writeJson(path.join(itemDir, FILES.slots), payload.slots);
@@ -92,7 +94,7 @@ function createFunctionSlotLibraryService({
         for (const entry of entries) {
           if (!entry.isDirectory()) continue;
           const manifest = await readManifest(entry.name).catch(() => null);
-          if (manifest?.schemaVersion === SCHEMA_VERSION) manifests.push(manifest);
+          if (manifest?.schemaVersion === SCHEMA_VERSION && isPublishableLibraryManifest(manifest)) manifests.push(manifest);
         }
         return manifests.sort(compareManifests);
       },
@@ -176,6 +178,7 @@ function createFunctionSlotLibraryService({
     });
     if (!manifest) return null;
     if (manifest.schemaVersion !== SCHEMA_VERSION) throwHttpError(400, "function_slot_library_schema_unsupported", "FunctionSlotLibrary schemaVersion 不支持");
+    if (!isPublishableLibraryManifest(manifest)) return null;
     const dir = libraryItemDir(safeArtifactId);
     const [slots, scriptAtoms, rhythmAtoms, packagingAtoms, bindings, rules, templates] = await Promise.all([
       readJson(path.join(dir, FILES.slots)),
@@ -353,6 +356,25 @@ function compareManifests(left, right) {
   const byExportedAt = String(right.exportedAt ?? "").localeCompare(String(left.exportedAt ?? ""));
   if (byExportedAt !== 0) return byExportedAt;
   return String(left.artifactId ?? "").localeCompare(String(right.artifactId ?? ""));
+}
+
+function assertPublishableLibraryManifest(manifest) {
+  if (isPublishableLibraryManifest(manifest)) return;
+  throwHttpError(
+    400,
+    "function_slot_library_unpublishable_atomization",
+    "功能槽位原子化结果未完成或为空，不能导入 FunctionSlotLibrary",
+  );
+}
+
+function isPublishableLibraryManifest(manifest) {
+  if (!manifest || manifest.status === "failed") return false;
+  const counts = manifest.counts ?? {};
+  return positiveCount(counts.slotCount) && positiveCount(counts.atomCount);
+}
+
+function positiveCount(value) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
 }
 
 function sanitizeArtifactId(artifactId) {
