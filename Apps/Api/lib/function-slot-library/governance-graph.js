@@ -90,20 +90,25 @@ function buildFunctionSlotGovernanceGraph(governance) {
   pushUnmapped(nodes, edges, rootId, governance.unmappedRuleVariants ?? [], "rule");
 
   for (const item of governance.needReviewMap ?? []) {
-    const id = `needReview:${item.variantId}`;
+    const variantId = normalizeGraphText(item.variantId);
+    if (!variantId) continue;
+    const affectedNodes = normalizeTextArray(item.affectedNodes);
+    const id = `needReview:${variantId}`;
     pushNode(nodes, {
       id,
       type: "needReviewItem",
-      label: item.variantId ?? "needReview",
+      label: variantId,
       group: "needReview",
       data: {
         ...item,
+        variantId,
+        affectedNodes,
         reviewStatus: "needReview",
         maturityStatus: "needReview",
       },
     });
     pushEdge(edges, rootId, id, "governance_contains_need_review", "needReview");
-    for (const affectedNode of item.affectedNodes ?? []) {
+    for (const affectedNode of affectedNodes) {
       const target = resolveGovernanceNodeId(nodes, affectedNode);
       if (target) pushEdge(edges, id, target, "need_review_affects", "affects");
     }
@@ -133,13 +138,18 @@ function buildFunctionSlotGovernanceGraph(governance) {
 }
 
 function pushGovernanceNode(nodes, type, group, item) {
+  const itemId = normalizeGraphText(item.id);
+  if (!itemId) return;
   pushNode(nodes, {
-    id: nodeId(type, item.id),
+    id: nodeId(type, itemId),
     type,
-    label: item.name ?? item.id,
+    label: normalizeGraphText(item.name) ?? itemId,
     group: hasNeedReview(item) ? "needReview" : group,
     data: {
       ...item,
+      id: itemId,
+      name: normalizeGraphText(item.name) ?? null,
+      sourceVariantIds: normalizeTextArray(item.sourceVariantIds),
       reviewStatus: item.reviewStatus ?? item.status ?? null,
       maturityStatus: item.maturityStatus ?? null,
     },
@@ -150,14 +160,16 @@ function pushSourceVariantEdges(nodes, edges) {
   const sourceVariantOwners = nodes.filter((node) => Array.isArray(node.data?.sourceVariantIds));
   for (const owner of sourceVariantOwners) {
     for (const variantId of owner.data.sourceVariantIds) {
-      const id = graphId("sourceVariant", variantId);
+      const normalizedVariantId = normalizeGraphText(variantId);
+      if (!normalizedVariantId) continue;
+      const id = graphId("sourceVariant", normalizedVariantId);
       pushNode(nodes, {
         id,
         type: "sourceVariant",
-        label: String(variantId),
+        label: normalizedVariantId,
         group: "sourceVariant",
         data: {
-          variantId,
+          variantId: normalizedVariantId,
           reviewStatus: "evidence",
           maturityStatus: "evidence",
         },
@@ -169,14 +181,17 @@ function pushSourceVariantEdges(nodes, edges) {
 
 function pushUnmapped(nodes, edges, rootId, variants, variantKind) {
   for (const variant of variants) {
-    const id = `unmapped:${variantKind}:${variant.variantId}`;
+    const variantId = normalizeGraphText(variant.variantId);
+    if (!variantId) continue;
+    const id = `unmapped:${variantKind}:${variantId}`;
     pushNode(nodes, {
       id,
       type: "unmappedVariant",
-      label: variant.variantId ?? `unmapped ${variantKind}`,
+      label: variantId,
       group: "unmapped",
       data: {
         ...variant,
+        variantId,
         variantKind,
         reviewStatus: "unmapped",
         maturityStatus: "unmapped",
@@ -198,7 +213,9 @@ function groupForAtomLayer(layer) {
 }
 
 function resolveGovernanceNodeId(nodes, rawId) {
-  return nodes.find((node) => String(node.data?.id ?? "") === rawId || node.id.endsWith(`:${rawId}`))?.id ?? null;
+  const normalized = normalizeGraphText(rawId);
+  if (!normalized) return null;
+  return nodes.find((node) => String(node.data?.id ?? "") === normalized || node.id.endsWith(`:${normalized}`))?.id ?? null;
 }
 
 function pushNode(nodes, node) {
@@ -222,7 +239,18 @@ function nodeId(type, id) {
 }
 
 function graphId(...parts) {
-  return parts.map((part) => String(part).replace(/[^A-Za-z0-9_.:-]/g, "_")).join(":");
+  return parts.map((part) => String(normalizeGraphText(part) ?? "").replace(/[^A-Za-z0-9_.:-]/g, "_")).join(":");
+}
+
+function normalizeGraphText(value) {
+  if (value && typeof value === "object" && !Array.isArray(value) && "value" in value) return normalizeGraphText(value.value);
+  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  return text || null;
+}
+
+function normalizeTextArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeGraphText).filter(Boolean);
 }
 
 module.exports = {

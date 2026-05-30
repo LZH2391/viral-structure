@@ -343,6 +343,7 @@ function applyGovernanceOverlay(graph: FunctionSlotLibraryGraph, overlay: Govern
       };
       continue;
     }
+    if (projected.type !== "confirmedPlan") continue;
     const node: FunctionSlotGraphNode = {
       id: projected.id,
       type: projected.type,

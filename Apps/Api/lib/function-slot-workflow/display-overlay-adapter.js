@@ -110,6 +110,7 @@ function normalizeKey(key) {
 }
 
 function stripMarkdownTicks(value) {
+  if (value && typeof value === "object" && !Array.isArray(value) && "value" in value) return stripMarkdownTicks(value.value);
   if (value == null) return value;
   if (typeof value !== "string") return value;
   return value.trim().replace(/^`+|`+$/g, "").trim();
@@ -117,6 +118,10 @@ function stripMarkdownTicks(value) {
 
 function firstText(...values) {
   for (const value of values) {
+    if (value && typeof value === "object" && !Array.isArray(value) && "value" in value) {
+      const nested = firstText(value.value);
+      if (nested) return nested;
+    }
     const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
     if (text) return text;
   }

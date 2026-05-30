@@ -363,6 +363,36 @@ test("function slot governance graph builder maps relationships and review gaps"
   assert.ok(graph.edges.some((edge) => edge.type === "need_review_affects"));
 });
 
+test("function slot governance graph builder normalizes value-object ids and labels", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    slotFamilies: [{
+      id: { value: "FAM_value_object" },
+      name: { value: "对象值 family" },
+      status: "reviewed",
+      sourceVariantIds: [{ value: "sample_value::F001" }],
+    }],
+    slotArchetypes: [],
+    slotSubtypes: [],
+    atomArchetypes: [],
+    atomPatterns: [],
+    bindingPrinciples: [],
+    bindingPatterns: [],
+    recompositionPolicies: [],
+    rulePatterns: [],
+    implementationBundles: [],
+    needReviewMap: [{ variantId: { value: "sample_value::F001" }, affectedNodes: [{ value: "FAM_value_object" }] }],
+    unmappedAtomVariants: [{ variantId: { value: "sample_value::A001" }, reason: "single_sample" }],
+    unmappedBindingVariants: [],
+    unmappedRuleVariants: [],
+  });
+
+  assert.ok(graph.nodes.some((node) => node.id === "slotFamily:FAM_value_object" && node.label === "对象值 family"));
+  assert.ok(graph.nodes.some((node) => node.type === "sourceVariant" && node.label === "sample_value::F001"));
+  assert.ok(graph.nodes.some((node) => node.type === "unmappedVariant" && node.label === "sample_value::A001"));
+  assert.equal(graph.nodes.some((node) => JSON.stringify(node).includes("{\"value\"")), false);
+});
+
 test("function slot library API returns safe 404 payloads for missing source and item", async () => {
   const server = createServer({
     functionSlotLibraryService: {
