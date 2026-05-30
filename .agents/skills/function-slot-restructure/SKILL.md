@@ -83,11 +83,33 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 8. **输出方案**  
    输出结构方案、脚本段落方案、节奏曲线、包装证明方案、Shot 设计、风险和必要替代实现，并保存为 markdown 文件。
 
+## 台词与字幕原则
+
+重组方案里的台词/字幕是面向拍摄和剪辑的可执行文案，不是结构说明的复述。写台词前先明确本 shot 的观众动作：看见问题、理解依据、感到安心、确认质感、记住选择对象。台词只服务这个动作，不解释 slot、atom、proof obligation 或 adapter。
+
+- 台词必须像真人短视频口播，优先短句、口语、可一口读完；默认每个 shot 只放 1 个意思。
+- 不把第 5 节“本方案表达”直接改写成口播。第 5 节是语义任务，第 8 节台词要重新压成自然说法。
+- 不在台词里写结构词或审计词，例如“机制主张”“证明载体”“适用范围说明”“替换入口”“长期可信”“购买记忆”。这些只属于方案说明、包装说明或校验备注。
+- 写完 Shot 设计后必须通读台词：凡是读起来像表格说明、品牌 brief、审计报告或“正确但没人会这么说”的句子，都要重写。
+
+## 包装与字幕默认层
+
+重组方案默认短视频成片会有字幕层。字幕不是“有一行字”即可，也不是台词字段的重复；字幕是包装证明的一部分，必须说明它服务什么功能、长什么样、放在哪里、什么时候出现。
+
+- 第 7 节“包装与证明方案”必须为每个包装块写明字幕层规格；如果某个包装块明确不使用字幕，必须写“无字幕”并说明原因。
+- 第 8 节每个 shot 的 `包装说明` 必须写可执行覆盖层规格，至少包含：字幕/标签/标题条/图卡/圈选/箭头的层级、位置、样式、强调规则、出现时机和服务功能。
+- 字幕样式要写到可交给剪辑执行的粒度，例如：底部主字幕、白字黑描边、半透明深色底条、关键词黄色高亮、证据标签右上角小胶囊、对象旁小箭头标签。不要只写“短字幕”“轻量字幕”“极简 CTA”。
+- 特殊字或重点词如果需要强调，必须写强调范围和样式，例如“核心问题词用黄色描边强调”，“关键证据词用绿色胶囊标签”，“关键数据或状态词用框选高亮”。如果不需要特殊强调，写“无特殊字强调”。
+- 字幕层必须说明目的：动作命名、视线引导、证据标注、主张钉子、风险提示、场景归类或 CTA。不能只为了好看添加。
+- 字幕不得遮挡证明主体。涉及关键动作、结果状态、证据画面、主体表情、产品或界面细节时，必须写避让位置或安全区。
+- 治理库中的 packaging pattern 提供证明功能、视觉层级和可替换形式；最终视觉规格由重组方案根据 brief、平台和画面内容落地。不要期待治理库自动给出每条字幕的字号、描边和强调字。
+
 ## 输出粒度
 
 - 最终功能槽位链精确到 `slotSubtype`，不用在链路层继续下钻到 source slot variant。
 - `slotArchetype` 只作为父级解释和审计字段，不作为最终链路粒度。
-- 槽位实现表中的 script / rhythm / packaging atom 必须精确到 concrete atom variant，例如 `sampleId::script::S001`、`sampleId::rhythm::R001`、`sampleId::packaging::P001`。
+- 槽位实现表中的 script / rhythm / packaging atom 必须能追溯到 concrete atom variant，例如 `sampleId::script::S001`、`sampleId::rhythm::R001`、`sampleId::packaging::P001`。
+- Atoms 落地表允许且鼓励使用短码映射降低阅读负担，例如先声明 `A=sampleId`，再在表内写 `A::script::S001`；短码映射必须在第 3 节首次出现时声明，并能还原到完整 `sampleId::kind::id`。
 - `atomPatternId` 可以同时保留，用于说明复用依据，但不能替代 concrete atom variant。
 - 如果没有 concrete atom variant，必须标记为 `generated_gap_fill` 或 `adapter_generated`，并说明基于哪个 pattern 或需求生成。
 
@@ -131,7 +153,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 1. 重组目标与假设
 2. 最终功能槽位链（精确到 `slotSubtype`）
-3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms；每个 atom 必须写“原标签 → 本方案落地”，选择理由放在第 2 节）
+3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms，允许且鼓励使用已声明短码；每个 atom 必须写“原标签 → 本方案落地”，选择理由放在第 2 节）
 4. Adapter 方案（说明触发理由、解决了什么、如何桥接）
 5. 脚本段落方案
 6. 节奏曲线
@@ -141,7 +163,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 10. 剩余风险与修复
 11. 必要替代实现
 
-必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装；第 8 节 Shot 设计必须依赖第 5、6、7 节，并按 `references/output-formats.md` 的字段和规则输出。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位；第 9 节再进行 binding / rule policy 校验。详细字段、Shot 预计时长占位、GPT-image-2 生图提示和包装覆盖层写法，以 `references/output-formats.md` 为准；brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`，聊天回复只给路径和摘要。
+必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装；第 8 节 Shot 设计必须依赖第 5、6、7 节，并按 `references/output-formats.md` 的字段和规则输出。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 7、8 节必须按“包装与字幕默认层”写清字幕/标签/覆盖层规格；第 8 节台词必须按“台词与字幕原则”重新转写为可口播短句。第 9 节再进行 binding / rule policy 校验，并同时完成台词质量、字幕包装质量自检。详细字段、Shot 预计时长占位、GPT-image-2 生图提示、台词/字幕写法和包装覆盖层写法，以 `references/output-formats.md` 为准；brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`，聊天回复只给路径和摘要。
 
 校验修复输出：
 
