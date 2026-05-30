@@ -18,6 +18,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     restructureFinalPath,
     sourceTurnId,
     parentArtifactId,
+    confirmationId,
     traceContext,
   } = {}) {
     const startedAt = Date.now();
@@ -25,6 +26,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     const inputSummary = {
       sourceTurnId: sourceTurnId ?? null,
       parentArtifactId: parentArtifactId ?? null,
+      confirmationId: confirmationId ?? null,
       restructureFinalPath: safeRelativePath(restructureFinalPath),
       finalMessageChars: finalMessage ? String(finalMessage).length : 0,
     };
@@ -47,6 +49,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
         sourceTurnId,
         artifactId,
         parentArtifactId,
+        confirmationId,
         traceContext,
       });
       const index = await upsertDisplayIndex(displayArtifact);
@@ -54,6 +57,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       const outputSummary = {
         artifactId,
         planId,
+        confirmationId: confirmationId ?? null,
         displayJsonPath: safeRelativePath(displayArtifact.displayJsonPath),
         indexPath: INDEX_RELATIVE_PATH.replaceAll(path.sep, "/"),
         overlayPath: OVERLAY_RELATIVE_PATH.replaceAll(path.sep, "/"),
@@ -125,13 +129,14 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     return emptyOverlay();
   }
 
-  async function writeDisplayJson({ displayJson, planId, restructureFinalPath, sourceTurnId, artifactId, parentArtifactId, traceContext }) {
+  async function writeDisplayJson({ displayJson, planId, restructureFinalPath, sourceTurnId, artifactId, parentArtifactId, confirmationId, traceContext }) {
     const displayJsonPath = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", planId, "restructure.display.json");
     const enriched = {
       schemaVersion: displayJson.schemaVersion ?? "restructure_display.v1",
       planId,
       artifactId,
       parentArtifactId: parentArtifactId ?? null,
+      confirmationId: confirmationId ?? null,
       sourceTurnId: sourceTurnId ?? null,
       sourceRestructurePath: normalizeRelativePath(restructureFinalPath),
       runId: traceContext.runId,
@@ -146,6 +151,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       planId,
       artifactId,
       parentArtifactId: parentArtifactId ?? null,
+      confirmationId: confirmationId ?? null,
       sourceTurnId: sourceTurnId ?? null,
       sourceRestructurePath: normalizeRelativePath(restructureFinalPath),
       displayJsonPath,
@@ -164,6 +170,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       planId: entry.planId,
       artifactId: entry.artifactId,
       parentArtifactId: entry.parentArtifactId,
+      confirmationId: entry.confirmationId ?? null,
       sourceTurnId: entry.sourceTurnId,
       sourceRestructurePath: entry.sourceRestructurePath,
       displayJsonPath: path.relative(rootDir, entry.displayJsonPath).replaceAll(path.sep, "/"),
@@ -197,6 +204,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       const projection = projectDisplayToOverlay({ plan, display: stored.display, color });
       overlays.push({
         planId: plan.planId,
+        confirmationId: plan.confirmationId ?? null,
         color,
         sourceRestructurePath: plan.sourceRestructurePath ?? null,
         displayJsonPath: plan.displayJsonPath,

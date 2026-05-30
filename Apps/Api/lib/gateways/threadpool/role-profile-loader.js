@@ -40,6 +40,7 @@ async function loadRoleProfile(profilePath, expectedRole = null) {
       templateHash: sha256(templateBody),
     };
   }
+  applyTurnTemplateAliases(turnTemplates);
   const loaded = {
     role: raw.role,
     profilePath: resolvedProfilePath,
@@ -56,6 +57,15 @@ async function loadRoleProfile(profilePath, expectedRole = null) {
   };
   profileCache.set(cacheKey, loaded);
   return loaded;
+}
+
+function applyTurnTemplateAliases(turnTemplates) {
+  if (turnTemplates.repair && !turnTemplates.repairTurn) {
+    turnTemplates.repairTurn = { ...turnTemplates.repair, templateId: "repairTurn" };
+  }
+  if (turnTemplates.repairTurn && !turnTemplates.repair) {
+    turnTemplates.repair = { ...turnTemplates.repairTurn, templateId: "repair" };
+  }
 }
 
 function renderTurnTemplate(roleProfile, templateId, values) {
@@ -86,5 +96,6 @@ module.exports = {
   loadRoleProfileByRole,
   loadRoleProfile,
   renderTurnTemplate,
+  applyTurnTemplateAliases,
   sha256,
 };

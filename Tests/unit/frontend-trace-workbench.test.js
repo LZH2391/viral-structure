@@ -419,10 +419,14 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /初始化阶段阅读/);
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);
+  assert.match(chat, /重新确认/);
   assert.match(chat, /canConfirmRestructure/);
+  assert.doesNotMatch(chat, /activeConversationConfirmedPlan\?\.turnId !== currentTurnId/);
   assert.doesNotMatch(chat, /DEFAULT_RESTRUCTURE_FINAL_PATH/);
   assert.match(chat, /resolveCurrentRestructureFinalPath/);
   assert.match(chat, /normalizeRestructureFinalPath/);
+  assert.match(chat, /buildConfirmationId/);
+  assert.match(chat, /confirmationId/);
   assert.match(chat, /sourceRestructurePath/);
   assert.match(chat, /restructureFinalPath: sourceRestructurePath/);
   assert.match(chat, /autoRunRestructureDisplayTransform/);

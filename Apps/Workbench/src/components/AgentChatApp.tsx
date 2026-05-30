@@ -121,7 +121,6 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && Boolean(session.threadId)
     && Boolean(currentTurnId)
     && !activeConversationInvalidated
-    && activeConversationConfirmedPlan?.turnId !== currentTurnId
     && !busy
     && !confirming;
   const contextUsage = timeline?.activity?.tokenUsage ?? null;
@@ -456,11 +455,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         confirmedPlan: activeConversationConfirmedPlan,
       });
       if (!sourceRestructurePath) throw new Error("未找到当前方案的 restructure.final.md 路径，请先让 Agent 生成并落盘重组方案。");
+      const confirmationId = buildConfirmationId(currentTurnId);
       let confirmationRevision = activeConversationRevision;
       if (session.conversationId) {
         const gate = await confirmWithRevision(
           {
             turnId: currentTurnId,
+            confirmationId,
             sourceRestructurePath,
             note: "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep 生图。",
           },
@@ -475,6 +476,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         restructureFinalPath: sourceRestructurePath,
         restructureArtifactId: currentTurnId,
         parentArtifactId: currentTurnId,
+        confirmationId,
         runImageGeneration: true,
       };
       const [displayResult, storyboardResult] = await Promise.all([
@@ -491,13 +493,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
-        text: `已确认当前方案，已提交两个真实 turn：展示 ${shortId(displayResult.threadId)} / ${shortId(displayResult.turnId)} / trace ${shortId(displayResult.traceId)}；故事板准备与生图 ${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
+        text: `已确认当前方案，确认版本 ${shortId(confirmationId)}，已提交两个真实 turn：展示 ${shortId(displayResult.threadId)} / ${shortId(displayResult.turnId)} / trace ${shortId(displayResult.traceId)}；故事板准备与生图 ${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
         status: "completed",
       }]);
       if (session.conversationId) {
         const logged = await confirmWithRevision(
           {
             turnId: currentTurnId,
+            confirmationId,
             sourceRestructurePath,
             note: "已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep 生图。",
             displayArtifact: {
@@ -593,7 +596,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               ) : null}
               {session?.role === "function-slot-restructure" ? (
                 <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
-                  {activeConversationConfirmedPlan?.turnId === currentTurnId ? "已确认" : confirming ? "确认中" : "确认此方案"}
+                  {confirming ? "确认中" : activeConversationConfirmedPlan?.turnId === currentTurnId ? "重新确认" : "确认此方案"}
                 </button>
               ) : null}
               {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" disabled={busy} onClick={handleRelease}>释放</button> : null}
@@ -765,6 +768,11 @@ function uniqueId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function buildConfirmationId(turnId: string | null) {
+  const suffix = String(turnId ?? "turn").replace(/[^A-Za-z0-9_.-]+/g, "").slice(-8) || "turn";
+  return `confirm_${suffix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function resolveCurrentRestructureFinalPath({
   messages,
   currentTurnId,
@@ -794,7 +802,7 @@ function normalizeConversationRevision(value: unknown) {
 
 async function collectAutoDisplayTransformTurn(
   result: { threadId?: string | null; turnId?: string | null; workspaceRoot?: string | null; parentArtifactId?: string | null },
-  payload: { restructureFinalPath?: string | null; parentArtifactId?: string | null },
+  payload: { restructureFinalPath?: string | null; parentArtifactId?: string | null; confirmationId?: string | null },
 ) {
   if (!result.threadId || !result.turnId) return null;
   for (let attempt = 0; attempt < AUTO_TURN_MAX_POLLS; attempt += 1) {
@@ -802,6 +810,7 @@ async function collectAutoDisplayTransformTurn(
       role: "function-slot-restructure-display-transformer",
       restructureFinalPath: payload.restructureFinalPath,
       parentArtifactId: payload.parentArtifactId ?? result.parentArtifactId,
+      confirmationId: payload.confirmationId,
     });
     if (isTerminalStatus(latest.status)) return latest.materializedDisplay ?? null;
     await delay(POLL_INTERVAL_MS);

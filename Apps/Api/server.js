@@ -438,6 +438,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
     parentArtifactId,
     restructureArtifactId: normalizeOptionalText(body.restructureArtifactId),
     restructureFinalPath: normalizeOptionalText(body.restructureFinalPath),
+    confirmationId: normalizeOptionalText(body.confirmationId),
     trigger: "restructure-confirmed",
   };
   await handlers.logger.writeStageLog({
@@ -472,6 +473,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
       stageId: traceContext.stageId,
       artifactId,
       parentArtifactId,
+      confirmationId: normalizeOptionalText(body.confirmationId),
       status: started.status ?? "submitted",
       role,
       threadId: started.threadId ?? threadId,
@@ -512,6 +514,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
           turnId: result.turnId,
           leaseId: result.leaseId,
           ownerId,
+          confirmationId: result.confirmationId,
           status: "turn_submitted",
           startedAt: new Date().toISOString(),
         },
@@ -564,6 +567,7 @@ function buildFunctionSlotAutoRunInputs({ role, body }) {
     restructureFinalPath: body.restructureFinalPath ?? null,
     restructureArtifactId: body.restructureArtifactId ?? null,
     parentArtifactId: body.parentArtifactId ?? null,
+    confirmationId: body.confirmationId ?? null,
     sampleVideoId: body.sampleVideoId ?? null,
     ...(role === "shot-storyboard-prep" ? { runImageGeneration: body.runImageGeneration !== false } : {}),
   };

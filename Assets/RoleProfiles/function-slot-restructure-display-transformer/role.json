@@ -10,6 +10,10 @@
     "transform": {
       "template": "prompts/transform.placeholder.v1.md",
       "version": "transform.placeholder.v1"
+    },
+    "repairTurn": {
+      "template": "prompts/repair-turn.v1.md",
+      "version": "repair-turn.v1"
     }
   }
 }

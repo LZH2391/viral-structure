@@ -60,6 +60,31 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
       assert.match(rendered.text, /第 1、2、3、5、6、7 节/);
+      const repairValues = {
+        repairAttemptCount: 1,
+        restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md",
+        restructureArtifactId: "turn_1",
+        parentArtifactId: "parent_1",
+        sourceTurnId: "display_turn_1",
+        stageName: "function.slot.restructure_display.materialize",
+        errorCode: "display_json_schema_invalid",
+        errorMessage: "展示转换 JSON 校验失败",
+        debugSnapshotUri: "/runtime/DebugSnapshots/snapshot.json",
+        validationErrorsJson: JSON.stringify(["missing targetAssumption", "missing slotChain"]),
+        materializeInputJson: JSON.stringify({ finalMessageChars: 14509 }),
+        priorOutputSummaryJson: JSON.stringify({ hasPriorOutput: true, outputLength: 14509 }),
+        priorOutputPreview: "{\"schemaVersion\":\"function_slot_restructure_display.v1\"}",
+      };
+      const repairTurn = renderTurnTemplate(profile, "repairTurn", repairValues);
+      const repairAlias = renderTurnTemplate(profile, "repair", repairValues);
+      assert.match(repairTurn.text, /repairTurn/);
+      assert.match(repairTurn.text, /展示转换 JSON 校验失败/);
+      assert.match(repairTurn.text, /display_json_schema_invalid/);
+      assert.match(repairTurn.text, /missing targetAssumption/);
+      assert.match(repairTurn.text, /snapshot\.json/);
+      assert.match(repairTurn.text, /spray-pump-floral-water/);
+      assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v1");
+      assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v1");
     } else {
       assert.match(rendered.text, /ThreadPool 占位任务/);
       assert.match(rendered.text, /占位语义/);

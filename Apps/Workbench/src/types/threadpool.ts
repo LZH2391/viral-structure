@@ -143,6 +143,7 @@ export type AgentChatConversation = {
   confirmedPlan?: {
     status?: "confirmed" | "completed" | string;
     turnId?: string | null;
+    confirmationId?: string | null;
     confirmedAt?: string | null;
     updatedAt?: string | null;
     note?: string | null;

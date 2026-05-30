@@ -58,6 +58,48 @@ test("display overlay materializes display json, index, and multi-plan overlay",
   assert.ok(logs.some((entry) => entry.event === "stage.end"));
 });
 
+test("display overlay rematerializes the same plan by replacing the prior confirmation", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-reconfirm-"));
+  const logger = {
+    writeStageLog: async () => undefined,
+    writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+  };
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger,
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+  const traceContext = { runId: "run_1", traceId: "trace_1", stageId: "stage_1" };
+  const restructureFinalPath = "Artifacts/FunctionSlotRestructure/plan-a/restructure.final.md";
+  const first = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(validDisplayJson("SUB_old_toothpaste")),
+    restructureFinalPath,
+    sourceTurnId: "turn_old",
+    parentArtifactId: "parent_old",
+    confirmationId: "confirm_old",
+    traceContext,
+  });
+  const second = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(validDisplayJson("SUB_new_floral_water")),
+    restructureFinalPath,
+    sourceTurnId: "turn_new",
+    parentArtifactId: "parent_new",
+    confirmationId: "confirm_new",
+    traceContext,
+  });
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(first.planId, second.planId);
+  const overlay = await service.readOverlays();
+  assert.equal(overlay.summary.planCount, 1);
+  assert.equal(overlay.plans[0].confirmationId, "confirm_new");
+  assert.ok(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_new_floral_water"));
+  assert.equal(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_old_toothpaste"), false);
+  const stored = JSON.parse(await fs.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "plan-a", "restructure.display.json"), "utf8"));
+  assert.equal(stored.confirmationId, "confirm_new");
+  assert.equal(stored.sourceTurnId, "turn_new");
+});
+
 test("display overlay materializes display transformer section schema", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-sections-"));
   const logger = {

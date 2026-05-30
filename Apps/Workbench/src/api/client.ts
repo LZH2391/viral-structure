@@ -421,9 +421,9 @@ export async function collectAgentChatTurn(
   turnId: string,
   workspaceRoot?: string | null,
   conversationId?: string | null,
-  extra: { role?: string | null; restructureFinalPath?: string | null; parentArtifactId?: string | null } = {},
+  extra: { role?: string | null; restructureFinalPath?: string | null; parentArtifactId?: string | null; confirmationId?: string | null } = {},
 ) {
-  const query = buildQuery({ workspaceRoot, conversationId, role: extra.role, restructureFinalPath: extra.restructureFinalPath, parentArtifactId: extra.parentArtifactId });
+  const query = buildQuery({ workspaceRoot, conversationId, role: extra.role, restructureFinalPath: extra.restructureFinalPath, parentArtifactId: extra.parentArtifactId, confirmationId: extra.confirmationId });
   return readJsonResponse<AgentChatTurnResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}${query}`, { cache: "no-store" }),
   );
@@ -478,6 +478,7 @@ export async function confirmAgentChatConversation(
   payload: {
     turnId?: string | null;
     note?: string | null;
+    confirmationId?: string | null;
     sourceRestructurePath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
@@ -559,7 +560,7 @@ export async function refreshFunctionSlotLibraryBuilder(payload: { mode?: "skip-
   );
 }
 
-export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; runImageGeneration?: boolean } = {}) {
+export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; runImageGeneration?: boolean } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
       method: "POST",
@@ -569,7 +570,7 @@ export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: strin
   );
 }
 
-export async function autoRunRestructureDisplayTransform(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null } = {}) {
+export async function autoRunRestructureDisplayTransform(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/restructure-display-transform/auto-run`, {
       method: "POST",

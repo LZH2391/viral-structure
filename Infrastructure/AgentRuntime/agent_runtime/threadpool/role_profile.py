@@ -104,6 +104,7 @@ def load_role_profile(workspace_root: Path, role_name: str, profile_path: str | 
         resolved_template_path = (base_dir / template_profile.template).resolve()
         if not resolved_template_path.exists() or not resolved_template_path.is_file():
             raise ValueError(f"role turn template missing: {template_name} -> {resolved_template_path}")
+    _apply_turn_template_aliases(document.turn_templates)
     return LoadedRoleProfile(
         role=document.role,
         profile_path=str(resolved_profile_path),
@@ -116,6 +117,13 @@ def load_role_profile(workspace_root: Path, role_name: str, profile_path: str | 
         init_template_hash=_sha256_text(init_prompt),
         turn_templates=document.turn_templates,
     )
+
+
+def _apply_turn_template_aliases(turn_templates: dict[str, RoleTurnTemplateProfile]) -> None:
+    if "repair" in turn_templates and "repairTurn" not in turn_templates:
+        turn_templates["repairTurn"] = turn_templates["repair"]
+    if "repairTurn" in turn_templates and "repair" not in turn_templates:
+        turn_templates["repair"] = turn_templates["repairTurn"]
 
 
 def _resolve_profile_path(workspace_root: Path, profile_path: str | Path) -> Path:

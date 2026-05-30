@@ -7,6 +7,7 @@ import unittest
 
 from threadpool_manager_helpers import *  # noqa: F403
 from agent_runtime.threadpool.models import LeaseRecord  # noqa: E402
+from agent_runtime.threadpool.role_profile import load_role_profile  # noqa: E402
 
 
 class ThreadPoolManagerRecoveryTests(unittest.TestCase):
@@ -62,6 +63,39 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
 
             self.assertEqual(manager.roles["shot-boundary-raw-analyzer"].workspace_root, str(role_workspace.resolve()))
             self.assertEqual(status["workspace_root"], str(role_workspace.resolve()))
+
+    def test_role_profile_exposes_repair_turn_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_dir = root / "Assets" / "RoleProfiles" / "repair-role"
+            profile_dir.mkdir(parents=True)
+            (profile_dir / "init.md").write_text("ready", encoding="utf-8")
+            (profile_dir / "repair.md").write_text("repair", encoding="utf-8")
+            (profile_dir / "role.json").write_text(
+                """
+                {
+                  "role": "repair-role",
+                  "profileVersion": "2026-05-30.test",
+                  "init": {
+                    "template": "init.md",
+                    "readyText": "ready"
+                  },
+                  "turnTemplates": {
+                    "repair": {
+                      "template": "repair.md",
+                      "version": "repair.v1"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            profile = load_role_profile(root, "repair-role", "Assets/RoleProfiles/repair-role/role.json")
+
+            self.assertIn("repair", profile.turn_templates)
+            self.assertIn("repairTurn", profile.turn_templates)
+            self.assertEqual(profile.turn_templates["repairTurn"].version, "repair.v1")
 
     def test_min_idle_replenishment_remains_acquirable_when_seed_is_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

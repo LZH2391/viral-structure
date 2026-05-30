@@ -504,7 +504,7 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
       return conversation;
     },
-    confirmPlan: async ({ conversationId, turnId, displayArtifact, storyboardArtifact, expectedRevision }) => {
+    confirmPlan: async ({ conversationId, turnId, confirmationId, displayArtifact, storyboardArtifact, expectedRevision }) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
       if (expectedRevision != null && expectedRevision !== conversation.revision) {
@@ -517,6 +517,7 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.confirmedPlan = {
         status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
         turnId,
+        confirmationId,
         displayArtifact,
         storyboardArtifact,
       };
@@ -598,12 +599,14 @@ test("agent chat persists restructure conversations and archives them manually",
 
     const confirmed = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/confirm", {
       turnId: "turn_1",
+      confirmationId: "confirm_turn_1_second",
       expectedRevision: 4,
       displayArtifact: { artifactId: "artifact_display", traceId: "trace_display", status: "placeholder" },
       storyboardArtifact: { artifactId: "artifact_storyboard", traceId: "trace_storyboard", status: "placeholder" },
     });
     assert.equal(confirmed.statusCode, 200);
     assert.equal(confirmed.body.conversation.confirmedPlan.status, "completed");
+    assert.equal(confirmed.body.conversation.confirmedPlan.confirmationId, "confirm_turn_1_second");
     assert.equal(confirmed.body.conversation.confirmedPlan.displayArtifact.artifactId, "artifact_display");
 
     const archived = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/archive", { expectedRevision: 5 });

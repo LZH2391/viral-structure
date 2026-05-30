@@ -273,6 +273,7 @@ async function maybeMaterializeRestructureDisplay({ payload, handlers, traceCont
     restructureFinalPath: normalizeText(url?.searchParams?.get("restructureFinalPath")),
     sourceTurnId: payload.turnId,
     parentArtifactId: normalizeText(url?.searchParams?.get("parentArtifactId")),
+    confirmationId: normalizeText(url?.searchParams?.get("confirmationId")),
     traceContext,
   });
 }
@@ -397,6 +398,7 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
     inputSummary: {
       conversationId,
       turnId: normalizeText(body.turnId),
+      confirmationId: normalizeText(body.confirmationId),
       expectedRevision: normalizeRevision(body.expectedRevision),
       sourceRestructurePath: normalizeText(body.sourceRestructurePath),
       displayArtifactId: normalizeText(body.displayArtifact?.artifactId),
@@ -406,6 +408,7 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
       const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.confirmPlan({
           conversationId,
           turnId: normalizeText(body.turnId),
+          confirmationId: normalizeText(body.confirmationId),
           note: normalizeText(body.note),
           sourceRestructurePath: normalizeText(body.sourceRestructurePath),
           displayArtifact: normalizeArtifactRef(body.displayArtifact),

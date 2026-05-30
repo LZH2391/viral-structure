@@ -174,7 +174,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function confirmPlan({ conversationId, turnId = null, note = null, sourceRestructurePath = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -185,6 +185,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
       conversation.confirmedPlan = {
         status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
         turnId: turnId ?? conversation.latestTurnId ?? null,
+        confirmationId: normalizeIdText(confirmationId),
         confirmedAt: conversation.confirmedPlan?.confirmedAt ?? now,
         updatedAt: now,
         note: limitText(note),
@@ -353,6 +354,7 @@ function normalizeConfirmedPlan(value) {
   return {
     status: ["confirmed", "completed"].includes(value.status) ? value.status : "confirmed",
     turnId: value.turnId ? String(value.turnId) : null,
+    confirmationId: normalizeIdText(value.confirmationId),
     confirmedAt: value.confirmedAt ?? null,
     updatedAt: value.updatedAt ?? null,
     note: limitText(value.note),
@@ -379,6 +381,11 @@ function normalizeArtifactRef(value) {
 function normalizePathText(value) {
   const text = typeof value === "string" ? value.trim() : "";
   return text ? text.replaceAll("\\", "/") : null;
+}
+
+function normalizeIdText(value) {
+  const text = String(value ?? "").trim();
+  return text ? text.replace(/[^A-Za-z0-9_.:-]+/g, "_") : null;
 }
 
 function normalizeRevision(value) {
