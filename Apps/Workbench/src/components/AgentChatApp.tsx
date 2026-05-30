@@ -15,6 +15,7 @@ type ChatMessage = {
 
 const POLL_INTERVAL_MS = 1800;
 const DEFAULT_RESTRUCTURE_FINAL_PATH = "Artifacts/FunctionSlotRestructure/whitening-toothpaste/restructure.final.md";
+const AUTO_TURN_MAX_POLLS = 80;
 
 export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [mode, setMode] = useState<ChatMode>("direct");
@@ -473,6 +474,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         autoRunRestructureDisplayTransform(payload),
         autoRunShotStoryboardPrep(payload),
       ]);
+      if (displayResult.threadId && displayResult.turnId) {
+        void collectAutoDisplayTransformTurn(displayResult, payload)
+          .then((materialized) => {
+            if (materialized?.ok) window.dispatchEvent(new CustomEvent("function-slot-plan-overlay-updated"));
+          })
+          .catch(() => undefined);
+      }
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
@@ -752,6 +760,27 @@ function uniqueId(prefix: string) {
 function normalizeConversationRevision(value: unknown) {
   const revision = Number(value);
   return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+async function collectAutoDisplayTransformTurn(
+  result: { threadId?: string | null; turnId?: string | null; workspaceRoot?: string | null; parentArtifactId?: string | null },
+  payload: { restructureFinalPath?: string | null; parentArtifactId?: string | null },
+) {
+  if (!result.threadId || !result.turnId) return null;
+  for (let attempt = 0; attempt < AUTO_TURN_MAX_POLLS; attempt += 1) {
+    const latest = await collectAgentChatTurn(result.threadId, result.turnId, result.workspaceRoot, null, {
+      role: "function-slot-restructure-display-transformer",
+      restructureFinalPath: payload.restructureFinalPath,
+      parentArtifactId: payload.parentArtifactId ?? result.parentArtifactId,
+    });
+    if (isTerminalStatus(latest.status)) return latest.materializedDisplay ?? null;
+    await delay(POLL_INTERVAL_MS);
+  }
+  return null;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function buildContextUsageKey(threadId: string, usage: NonNullable<AgentTurnTimeline["activity"]["tokenUsage"]>) {

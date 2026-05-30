@@ -231,6 +231,13 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         runId: traceContext.runId,
         stageId: traceContext.stageId,
       };
+      const materializedDisplay = await maybeMaterializeRestructureDisplay({
+        payload,
+        handlers,
+        traceContext,
+        url,
+      });
+      if (materializedDisplay) payload.materializedDisplay = materializedDisplay;
       const conversationId = normalizeText(url?.searchParams?.get("conversationId"));
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);
       await handlers.agentConversationStore?.recordAssistantTurn?.({
@@ -252,6 +259,21 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       activityStatus: result.activity?.status ?? null,
     }),
     successStatus: 200,
+  });
+}
+
+async function maybeMaterializeRestructureDisplay({ payload, handlers, traceContext, url }) {
+  if (payload.status !== "completed") return null;
+  if (!payload.finalMessage) return null;
+  if (normalizeText(url?.searchParams?.get("role")) !== "function-slot-restructure-display-transformer") return null;
+  const service = handlers.restructureDisplayOverlayService;
+  if (!service?.materializeFromTurn) return null;
+  return service.materializeFromTurn({
+    finalMessage: payload.finalMessage,
+    restructureFinalPath: normalizeText(url?.searchParams?.get("restructureFinalPath")),
+    sourceTurnId: payload.turnId,
+    parentArtifactId: normalizeText(url?.searchParams?.get("parentArtifactId")),
+    traceContext,
   });
 }
 

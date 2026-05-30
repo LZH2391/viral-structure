@@ -1,23 +1,24 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import type { SampleArtifact } from "../../types/artifact";
-import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
+import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph, GovernancePlanOverlay } from "../../types/library";
 import type { D3Link, GraphFiltersState, PositionedNode, SimNode, VisibleGraph } from "./types";
 
 export const VIEWBOX = { width: 1280, height: 820 };
 export const CENTER = { x: 600, y: 410 };
 
-export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null): VisibleGraph {
+export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, overlay: GovernancePlanOverlay | null = null): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
-  const positions = graph.schemaVersion === "function_slot_governance_graph.v1" ? buildGovernancePositions(graph) : buildPositions(graph);
-  const visibleIds = graph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(graph, filters, focusNodeId) : null;
-  const nodes = graph.nodes
+  const projectedGraph = graph.schemaVersion === "function_slot_governance_graph.v1" ? applyGovernanceOverlay(graph, overlay) : graph;
+  const positions = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? buildGovernancePositions(projectedGraph) : buildPositions(projectedGraph);
+  const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
+  const nodes = projectedGraph.nodes
     .filter((node) => {
       if (visibleIds && !visibleIds.has(node.id)) return false;
       if (node.type === "slotInstance") return filters.slot;
       if (node.type === "atomInstance") return filters.atom;
       if (node.type === "binding") return filters.binding;
       if (node.type === "slotConcept") return false;
-      if (graph.schemaVersion === "function_slot_governance_graph.v1") return governanceFilterMatch(node, filters);
+      if (projectedGraph.schemaVersion === "function_slot_governance_graph.v1") return governanceFilterMatch(node, filters);
       return true;
     })
     .map((node) => ({ ...node, ...positions.get(node.id), shortLabel: shortLabel(node) }))
@@ -25,7 +26,7 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
   const nodeIds = new Set(nodes.map((node) => node.id));
   return {
     nodes,
-    edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)),
+    edges: projectedGraph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)),
   };
 }
 
@@ -66,6 +67,8 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
   if (node.type === "unmappedVariant" || node.type === "needReviewItem") return 8;
   if (node.type === "sourceVariant") return 5;
+  if (node.type === "confirmedPlan") return 11;
+  if (node.type.startsWith("projected")) return 8;
   if (node.type === "libraryItem") return 20;
   if (node.type === "slotInstance") return 13;
   if (node.type === "slotConcept") return 11;
@@ -121,6 +124,7 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   if (node.type === "unmappedVariant") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]];
   if (node.type === "needReviewItem") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["affectedNodes", data.affectedNodes], ["reviewReason", data.reviewReason]];
   if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["reviewStatus", data.reviewStatus], ["maturityStatus", data.maturityStatus], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
+  if (node.type === "confirmedPlan" || node.type.startsWith("projected")) return [["planId", data.planId], ["governanceNodeId", data.governanceNodeId], ["usedByPlans", data.usedByPlans], ["evidence", data.evidence]];
   if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)], ["needReview", data.needReview]];
   if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)], ["needReview", data.needReview]];
   if (node.type === "binding") return [["bindingId", data.bindingId], ["type", data.bindingType], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
@@ -185,6 +189,7 @@ function visibleGovernanceNodeIds(graph: FunctionSlotLibraryGraph, filters: Grap
     if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") ids.add(node.id);
     if (filters.needReview && node.type === "needReviewItem") ids.add(node.id);
     if (filters.unmapped && node.type === "unmappedVariant") ids.add(node.id);
+    if (node.type === "confirmedPlan" || node.type.startsWith("projected")) ids.add(node.id);
   }
 
   const focus = focusNodeId ? graph.nodes.find((node) => node.id === focusNodeId) : null;
@@ -217,6 +222,7 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
   if (node.group === "needReview" || node.type === "needReviewItem") return filters.needReview;
   if (node.type === "unmappedVariant") return filters.unmapped;
   if (node.type === "sourceVariant") return true;
+  if (node.type === "confirmedPlan" || node.type.startsWith("projected")) return true;
   if (node.type === "governanceRoot") return true;
   if (node.type.startsWith("slot")) return filters.slot;
   if (node.type.startsWith("atom")) return filters.atom;
@@ -248,6 +254,8 @@ function buildGovernancePositions(graph: FunctionSlotLibraryGraph) {
   placeColumn(positions, graph.nodes.filter((node) => node.type === "implementationBundle"), 1060, 170, 84);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1180, 90, 34);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "unmappedVariant" || node.type === "needReviewItem"), 1180, 610, 28);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "confirmedPlan"), 165, 145, 42);
+  placeColumn(positions, graph.nodes.filter((node) => node.type.startsWith("projected")), 1120, CENTER.y, 32);
   return positions;
 }
 
@@ -304,6 +312,8 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "sourceVariant") return shortSourceVariant(String(node.data.variantId ?? node.label));
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
   if (node.type === "needReviewItem") return "needReview";
+  if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
+  if (node.type.startsWith("projected")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
   if (node.type === "libraryItem") return "LibraryItem";
   if (node.type === "slotInstance") return `${node.data.slotId ?? ""} ${node.label}`.slice(0, 18);
@@ -311,6 +321,69 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);
   if (node.type === "slotConcept") return "SlotConcept";
   return node.label;
+}
+
+function applyGovernanceOverlay(graph: FunctionSlotLibraryGraph, overlay: GovernancePlanOverlay | null): FunctionSlotLibraryGraph {
+  if (!overlay?.plans?.length) return graph;
+  const nodes = graph.nodes.map((node) => ({ ...node, data: { ...node.data } }));
+  const edges = [...graph.edges];
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  for (const projected of overlay.projectedNodes ?? []) {
+    const targetId = projected.governanceNodeId ?? null;
+    if (targetId && byId.has(targetId)) {
+      const target = byId.get(targetId) as FunctionSlotGraphNode;
+      const usedByPlans = Array.isArray(target.data.usedByPlans) ? [...target.data.usedByPlans as string[]] : [];
+      if (!usedByPlans.includes(projected.planId)) usedByPlans.push(projected.planId);
+      target.data = {
+        ...target.data,
+        usedByPlans,
+        overlayUsageCount: usedByPlans.length,
+        overlayColors: colorList(overlay, usedByPlans),
+      };
+      continue;
+    }
+    const node: FunctionSlotGraphNode = {
+      id: projected.id,
+      type: projected.type,
+      label: projected.label,
+      group: projected.type === "confirmedPlan" ? "plan" : "projected",
+      data: {
+        planId: projected.planId,
+        color: projected.color,
+        governanceNodeId: projected.governanceNodeId ?? null,
+        evidence: projected.evidence ?? null,
+        usedByPlans: [projected.planId],
+        overlayUsageCount: 1,
+        overlayColors: [projected.color],
+      },
+    };
+    nodes.push(node);
+    byId.set(node.id, node);
+  }
+  for (const edge of overlay.projectedEdges ?? []) {
+    const source = resolveOverlayEndpoint(edge.source, overlay, byId);
+    const target = resolveOverlayEndpoint(edge.target, overlay, byId);
+    if (!source || !target || source === target) continue;
+    edges.push({
+      id: edge.id,
+      source,
+      target,
+      type: `overlay_${edge.type}`,
+      label: edge.planId,
+    });
+  }
+  return { ...graph, nodes, edges };
+}
+
+function resolveOverlayEndpoint(id: string, overlay: GovernancePlanOverlay, byId: Map<string, FunctionSlotGraphNode>) {
+  if (byId.has(id)) return id;
+  const projected = overlay.projectedNodes.find((node) => node.id === id);
+  if (projected?.governanceNodeId && byId.has(projected.governanceNodeId)) return projected.governanceNodeId;
+  return null;
+}
+
+function colorList(overlay: GovernancePlanOverlay, planIds: string[]) {
+  return planIds.map((planId) => overlay.plans.find((plan) => plan.planId === planId)?.color).filter((color): color is string => Boolean(color));
 }
 
 function shortSourceVariant(value: string) {

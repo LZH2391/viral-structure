@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
-import type { FunctionSlotLibraryGraph } from "../types/library";
+import { getFunctionSlotGovernanceGraph, getFunctionSlotGovernancePlanOverlays, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
+import type { FunctionSlotLibraryGraph, GovernancePlanOverlay } from "../types/library";
 import { shortId } from "../utils/format";
 import { GraphCanvas } from "./function-slot-graph/GraphCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
@@ -37,6 +37,8 @@ export function FunctionSlotGraphApp() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取结构图谱");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [planOverlay, setPlanOverlay] = useState<GovernancePlanOverlay | null>(null);
+  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -72,7 +74,15 @@ export function FunctionSlotGraphApp() {
     if (mode !== "governance") return;
     setStatus("读取语义治理图");
     setGraph(null);
-    getFunctionSlotGovernanceGraph()
+    Promise.all([
+      getFunctionSlotGovernanceGraph(),
+      getFunctionSlotGovernancePlanOverlays().catch(() => null),
+    ])
+      .then(([nextGraph, overlay]) => {
+        setPlanOverlay(overlay);
+        setSelectedPlanIds((current) => reconcileSelectedPlans(current, overlay));
+        return nextGraph;
+      })
       .then((nextGraph) => {
         setGraph(nextGraph);
         setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "slotFamily")?.id ?? nextGraph.nodes[0]?.id ?? null);
@@ -81,7 +91,23 @@ export function FunctionSlotGraphApp() {
       .catch((error) => setStatus(error instanceof Error ? error.message : "读取语义治理图失败"));
   }, [mode]);
 
-  const visible = useMemo(() => buildVisibleGraph(graph, filters, selectedNodeId), [filters, graph, selectedNodeId]);
+  useEffect(() => {
+    if (mode !== "governance") return undefined;
+    const refreshOverlay = () => {
+      getFunctionSlotGovernancePlanOverlays()
+        .then((overlay) => {
+          setPlanOverlay(overlay);
+          setSelectedPlanIds((current) => reconcileSelectedPlans(current, overlay));
+          setStatus("方案投影已同步");
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener("function-slot-plan-overlay-updated", refreshOverlay);
+    return () => window.removeEventListener("function-slot-plan-overlay-updated", refreshOverlay);
+  }, [mode]);
+
+  const activeOverlay = useMemo(() => filterOverlay(planOverlay, selectedPlanIds), [planOverlay, selectedPlanIds]);
+  const visible = useMemo(() => buildVisibleGraph(graph, filters, selectedNodeId, activeOverlay), [activeOverlay, filters, graph, selectedNodeId]);
   const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? graph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [graph, selectedNodeId, visible.nodes]);
 
   return (
@@ -146,6 +172,7 @@ export function FunctionSlotGraphApp() {
         </section>
         <aside className="slot-graph-panel">
           <GraphFilters mode={mode} filters={filters} onChange={setFilters} />
+          {mode === "governance" ? <PlanOverlayPanel overlay={planOverlay} selectedPlanIds={selectedPlanIds} onChange={setSelectedPlanIds} /> : null}
           <NodeInspector node={selectedNode} graph={graph} />
         </aside>
       </main>
@@ -170,4 +197,43 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
       <div><b>validation</b><span>{summary?.validationOk ? "ok" : "unknown"}</span></div>
     </section>
   );
+}
+
+function PlanOverlayPanel({ overlay, selectedPlanIds, onChange }: { overlay: GovernancePlanOverlay | null; selectedPlanIds: string[]; onChange: (ids: string[]) => void }) {
+  const plans = overlay?.plans ?? [];
+  const toggle = (planId: string) => {
+    onChange(selectedPlanIds.includes(planId) ? selectedPlanIds.filter((id) => id !== planId) : [...selectedPlanIds, planId]);
+  };
+  return (
+    <section className="slot-graph-card">
+      <div className="section-heading">方案投影</div>
+      <div className="detail-hint">{overlay?.summary.planCount ?? 0} plans / {overlay?.summary.sharedNodeCount ?? 0} shared</div>
+      {plans.length ? plans.map((plan) => (
+        <label key={plan.planId} className="plan-overlay-option">
+          <input type="checkbox" checked={selectedPlanIds.includes(plan.planId)} onChange={() => toggle(plan.planId)} />
+          <i style={{ background: plan.color }} />
+          <span title={plan.displayJsonPath ?? plan.planId}>{plan.planId}</span>
+        </label>
+      )) : <EmptyState text="暂无确认方案投影" />}
+    </section>
+  );
+}
+
+function reconcileSelectedPlans(current: string[], overlay: GovernancePlanOverlay | null) {
+  const plans = overlay?.plans ?? [];
+  const ids = plans.map((plan) => plan.planId);
+  const kept = current.filter((id) => ids.includes(id));
+  return kept.length ? kept : ids;
+}
+
+function filterOverlay(overlay: GovernancePlanOverlay | null, selectedPlanIds: string[]) {
+  if (!overlay) return null;
+  const selected = new Set(selectedPlanIds);
+  return {
+    ...overlay,
+    plans: overlay.plans.filter((plan) => selected.has(plan.planId)),
+    projectedNodes: overlay.projectedNodes.filter((node) => selected.has(node.planId)),
+    projectedEdges: overlay.projectedEdges.filter((edge) => selected.has(edge.planId)),
+    reviewFlags: overlay.reviewFlags.filter((flag) => selected.has(flag.planId)),
+  };
 }

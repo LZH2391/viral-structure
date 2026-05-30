@@ -311,6 +311,8 @@ export function GraphCanvas({
 
 function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = nodeRadius(node);
+  const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
+  const overlayUsageCount = Number(node.data.overlayUsageCount ?? overlayColors.length);
   return (
     <g
       className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""} ${pinnedPreview ? "preview-pinned" : ""}`}
@@ -322,6 +324,12 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
       aria-label={node.label}
     >
       <circle cx={node.x} cy={node.y} r={radius} />
+      {overlayColors.length ? (
+        <g className="slot-graph-plan-badge">
+          <circle cx={node.x + radius - 1} cy={node.y - radius + 1} r={7} style={{ fill: overlayColors[0] }} />
+          <text x={node.x + radius - 1} y={node.y - radius + 4}>{overlayUsageCount > 1 ? overlayUsageCount : ""}</text>
+        </g>
+      ) : null}
       <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text>
       <title>{node.label}</title>
     </g>

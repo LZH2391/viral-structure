@@ -306,6 +306,30 @@
   opacity: 0.62;
 }
 
+.slot-graph-node.node-plan circle {
+  fill: #111827;
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-dasharray: 3 2;
+}
+
+.slot-graph-node.node-projected circle {
+  fill: #4b5563;
+  stroke: rgba(255, 255, 255, 0.62);
+}
+
+.slot-graph-plan-badge circle {
+  opacity: 1;
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 1;
+}
+
+.slot-graph-plan-badge text {
+  fill: #111827;
+  font-size: 8px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
 .slot-graph-preview-popover {
   position: absolute;
   z-index: 3;
@@ -413,6 +437,21 @@
   gap: 8px;
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.plan-overlay-option i {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.16);
+}
+
+.plan-overlay-option span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-filter-divider {

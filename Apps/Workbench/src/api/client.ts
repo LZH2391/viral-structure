@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, GovernancePlanOverlay, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -78,6 +78,7 @@ export type AgentChatTurnResponse = {
   conversationRevision?: number | null;
   finalMessage?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
+  materializedDisplay?: { ok: boolean; planId?: string | null; displayJsonPath?: string | null; overlayPath?: string | null; error?: string | null; message?: string | null } | null;
 };
 
 export type AgentChatCompactResponse = {
@@ -415,8 +416,14 @@ export async function compactAgentChatThread(
   );
 }
 
-export async function collectAgentChatTurn(threadId: string, turnId: string, workspaceRoot?: string | null, conversationId?: string | null) {
-  const query = buildQuery({ workspaceRoot, conversationId });
+export async function collectAgentChatTurn(
+  threadId: string,
+  turnId: string,
+  workspaceRoot?: string | null,
+  conversationId?: string | null,
+  extra: { role?: string | null; restructureFinalPath?: string | null; parentArtifactId?: string | null } = {},
+) {
+  const query = buildQuery({ workspaceRoot, conversationId, role: extra.role, restructureFinalPath: extra.restructureFinalPath, parentArtifactId: extra.parentArtifactId });
   return readJsonResponse<AgentChatTurnResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}${query}`, { cache: "no-store" }),
   );
@@ -568,6 +575,12 @@ export async function autoRunRestructureDisplayTransform(payload: { sampleVideoI
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  );
+}
+
+export async function getFunctionSlotGovernancePlanOverlays() {
+  return readJsonResponse<GovernancePlanOverlay>(
+    await fetch(`${API_BASE_URL}/api/function-slot-governance/plan-overlays`, { cache: "no-store" }),
   );
 }
 

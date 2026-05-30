@@ -38,6 +38,7 @@ const { createFunctionSlotLibraryBuilderService } = require("./lib/function-slot
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
 const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
+const { createRestructureDisplayOverlayService } = require("./lib/function-slot-workflow/display-overlay-service");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -101,6 +102,10 @@ function createServer(deps = {}) {
     artifactIndex: activeArtifactIndex,
     projectionService: activeFunctionSlotProjectionService,
   });
+  const activeRestructureDisplayOverlayService = deps.restructureDisplayOverlayService ?? createRestructureDisplayOverlayService({
+    rootDir: deps.rootDir ?? rootDir,
+    logger: activeLogger,
+  });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
@@ -160,6 +165,7 @@ function createServer(deps = {}) {
     functionSlotLibraryService: activeFunctionSlotLibraryService,
     functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
+    restructureDisplayOverlayService: activeRestructureDisplayOverlayService,
     fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
     fullAnalysisBatchQueue: activeFullAnalysisBatchQueue,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
@@ -186,6 +192,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") return await handleFunctionSlotGovernancePlanOverlays(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/builder/refresh") return await handleFunctionSlotLibraryBuilderRefresh(req, res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -613,6 +620,18 @@ async function handleFunctionSlotGovernanceGraph(res, handlers = {}) {
   const governance = await service.readSemanticGovernance();
   if (!governance) return notFound(res);
   return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance));
+}
+
+async function handleFunctionSlotGovernancePlanOverlays(res, handlers = {}) {
+  const overlayService = handlers.restructureDisplayOverlayService;
+  if (!overlayService?.readOverlays) {
+    return sendJson(res, 503, {
+      error: "governance_plan_overlay_unavailable",
+      code: "governance_plan_overlay_unavailable",
+      message: "治理图方案投影服务不可用",
+    });
+  }
+  return sendJson(res, 200, await overlayService.readOverlays());
 }
 
 async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {
