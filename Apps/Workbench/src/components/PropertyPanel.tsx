@@ -26,7 +26,7 @@ import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 import { FunctionSlotAtomizationPanel } from "./property-panel/FunctionSlotAtomizationPanel";
 import { FunctionSlotWorkflowCards } from "./FunctionSlotWorkflowCards";
 
-export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "semanticGovernance" | "restructure" | "storyboardPrep" | "meta";
+export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "semanticGovernance" | "storyboardPrep" | "meta";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -170,15 +170,6 @@ export function PropertyPanel(props: PropertyPanelProps) {
             语义治理
           </button>
           <button
-            className={`property-tab ${activeTab === "restructure" ? "active" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "restructure"}
-            onClick={() => setActiveTab("restructure")}
-          >
-            结构重组
-          </button>
-          <button
             className={`property-tab ${activeTab === "storyboardPrep" ? "active" : ""}`}
             type="button"
             role="tab"
@@ -249,13 +240,6 @@ export function PropertyPanel(props: PropertyPanelProps) {
         ) : activeTab === "semanticGovernance" ? (
           <FunctionSlotWorkflowCards
             workflowKey="semantic-governance"
-            sampleVideoId={props.sampleVideo?.id ?? null}
-            parentArtifactId={props.functionSlotAtomizationAnalysis?.artifactId ?? props.sampleVideo?.artifactId ?? null}
-            onStatusChange={props.onFunctionSlotWorkflowStatus}
-          />
-        ) : activeTab === "restructure" ? (
-          <FunctionSlotWorkflowCards
-            workflowKey="restructure"
             sampleVideoId={props.sampleVideo?.id ?? null}
             parentArtifactId={props.functionSlotAtomizationAnalysis?.artifactId ?? props.sampleVideo?.artifactId ?? null}
             onStatusChange={props.onFunctionSlotWorkflowStatus}

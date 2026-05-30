@@ -27,7 +27,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - **choice object / 选择对象**：观众最后应该记住或选择什么
 - **available proof assets / 可用证明资产**：演示、屏幕录制、前后对比、数字、日志、证言、长期记录、物体痕迹、评论、收据等
 - **objections / 异议**：观众为什么可能怀疑、拖延或误解
-- **platform and production constraints / 平台和生产约束**：平台限制、信息密度、创作者风格、CTA 强度要求。Brief 不接收预计时长目标；Shot 表里的预计时长统一填占位，不在重组流程中估算。
+- **platform and production constraints / 平台和生产约束**：平台限制、信息密度、创作者风格、CTA 强度要求。Brief 不接收预计时长目标；后续 Shot 表里的预计时长统一填占位，不在重组流程中估算。
 - **production constraints / 生产约束**：什么能拍、能展示、能叠加、能主张
 
 把这些输出为 `brief_constraints` 对象。此时还不要选择链路。
@@ -326,34 +326,13 @@ choice close -> concrete memory point
 
 表层样式可以改变。证明功能不能消失。
 
-## 步骤 11：shot 设计
+## 步骤 11：Shot 设计后置
 
-Shot 是新视频的顺序画面承载单位，用来把脚本段落、节奏区间、包装块对齐到同一条结构顺序中，并进一步形成具体分镜画面、台词（若有）和包装说明。Shot 不是功能槽位，不是 atom，也不是来源样例 `shotRefs` 的复用。
+第一轮重组不展开具体 Shot 设计，也不在 `restructure.final.md` 中保留 Shot 占位章节。用户认可结构方案后，下一轮使用 `function-slot-shot-design` 读取 `restructure.final.md`，把第 5、6、7 节对齐成具体 shot 表、分镜画面、包装说明、台词/字幕和预计时长占位，并另存 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md`。
 
-Shot 设计必须发生在以下内容都明确之后：
+如果第 5、6、7 节之间存在边界不一致、证明落点不清、字幕层规格不足或同步风险，只在第 7、8、9 节说明后续 Shot 设计必须处理的点；不要在本轮偷偷补逐 shot 方案。
 
-1. 槽位链和 `slotSubtype` 已确定。
-2. 每个槽位使用的 concrete script / rhythm / packaging atoms 已确定。
-3. adapters 已说明跨来源或跨品类桥接方式。
-4. 脚本段落、节奏区间、包装证明方案已经分别形成。
-
-Shot 不能单独设计，不能引入与前面脚本段落、节奏曲线、包装证明方案不一致的新主张、新节奏或新包装功能。如果 shot 设计发现前面的 5、6、7 节无法落地，应回到对应节修正，而不是在 shot 里偷偷补一个新结构。
-
-台词/字幕生成遵循 `SKILL.md` 的“台词与字幕原则”。第 5 节负责语义任务，第 8 节负责把语义任务转成可执行口播或字幕；不合格时回到第 8 节重写，不能只在第 10 节写“后续可压缩”。
-
-不要在重组阶段提前设计时间码、时间轴位置或段落时长分配；只写顺序、承载关系、节奏状态和同步关系。Brief 不接收预计时长目标，不能把时长目标转成槽位数量、shot 数量、合并策略或具体时间安排。
-
-预计时长不由 agent 手写，也不在重组流程中直接运行估算脚本。Shot 设计阶段和最终 markdown 中，每个 shot 的 `预计时长` 都统一填写 `待后置估算`。预计时长只作为后续制作或单独估算步骤的占位，不能反向决定槽位链、shot 数量、脚本段落、节奏区间或包装方案。具体规则以 `references/output-formats.md` 为准。
-
-若台词长度明显不适合平台或生产限制，先在第 8 节内改短、改顺、改口语；只有当结构本身导致信息过载时，才在剩余风险与修复中提出压缩、删减、合并或改写建议。不要回头把时长当作结构生成器。
-
-设计时按新视频重新编号，例如 `new_shot_01`、`new_shot_02`。每个 shot 或 shot group 至少要对齐槽位、脚本段落、节奏区间、包装块、分镜画面、台词/字幕、预计时长、包装说明、同步点和证明功能；字段和 GPT-image-2 生图/包装覆盖层写法以 `references/output-formats.md` 为准。
-
-如果当前任务只要求结构方案、不要求详细分镜，可以用 shot group，但仍要保留脚本、节奏、包装和证明功能的对齐关系。
-
-Shot 设计完成后，再进入 binding / rule policy 校验；同步、承接、证明和冲突检查都应能回到具体 shot 或 shot group。
-
-最终重组方案必须保存为 markdown 文件。默认输出到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`；如果没有可用 slug 或 runId，用本地时间生成目录名，例如 `restructure-YYYYMMDD-HHMMSS`。聊天回复只需要给出保存路径和关键摘要，不要让完整方案只停留在对话里。
+最终重组方案必须保存为 markdown 文件。默认输出到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`；如果没有可用 slug 或 runId，用本地时间生成目录名，例如 `restructure-YYYYMMDD-HHMMSS`。聊天回复格式以 `SKILL.md` 的“方案完成后的聊天回复”为唯一准则。
 
 ## 步骤 12：产出实用方案和审计
 
@@ -369,7 +348,7 @@ Shot 设计完成后，再进入 binding / rule policy 校验；同步、承接�
 - 脚本段落方案
 - 节奏曲线
 - 包装与证明方案
-- shot 设计
+- Shot 设计后置为独立产物
 - 所需证明材料
 - binding checks
 - governance checks：principle / policy / reviewItems / unmapped items

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-SHOT_SECTION_RE = re.compile(r"(^## 8\.\s+Shot 设计\s*\n)(.*?)(?=^## \d+\.|\Z)", re.M | re.S)
+SHOT_SECTION_RE = re.compile(r"(^##\s+\d+\.\s+Shot 设计\s*\n)(.*?)(?=^## \d+\.|\Z)", re.M | re.S)
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 DEFAULT_GROUP_SIZE = 4
 DEFAULT_CHARS_PER_SECOND = 6.0
@@ -19,8 +19,8 @@ DEFAULT_CHARS_PER_SECOND = 6.0
 
 def main() -> None:
     configure_stdio()
-    parser = argparse.ArgumentParser(description="Prepare storyboard prompts from restructure.final.md")
-    parser.add_argument("--input", required=True, help="Path to restructure.final.md")
+    parser = argparse.ArgumentParser(description="Prepare storyboard prompts from shot-design.final.md")
+    parser.add_argument("--input", required=True, help="Path to shot-design.final.md")
     parser.add_argument("--output", help="Output storyboard prompt markdown path")
     parser.add_argument("--group-size", type=int, default=DEFAULT_GROUP_SIZE)
     parser.add_argument("--chars-per-second", type=float, default=DEFAULT_CHARS_PER_SECOND)
@@ -84,7 +84,7 @@ def detect_aspect(text: str) -> dict[str, str | None]:
 def extract_shot_section(text: str) -> dict[str, Any]:
     match = SHOT_SECTION_RE.search(text)
     if not match:
-        raise ValueError("Cannot find '## 8. Shot 设计' section")
+        raise ValueError("Cannot find '## <n>. Shot 设计' section")
     return {
         "body": match.group(2),
         "body_start": match.start(2),

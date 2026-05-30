@@ -562,7 +562,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         "selectedChain": selected_chain,
         "selectedSlots": selected_slots,
         "warnings": warnings,
-        "nextStep": "使用该骨架继续撰写脚本段落方案、节奏曲线、包装证明方案、adapters 和 Shot 设计，并按 governanceAudit 中的 binding principles / recomposition policies 做校验。",
+        "nextStep": "使用该骨架继续撰写脚本段落方案、节奏曲线、包装证明方案和 adapters，并按 governanceAudit 中的 binding principles / recomposition policies 做校验；具体 Shot 设计在用户认可结构方案后交给 function-slot-shot-design 完成。",
     }
 
 

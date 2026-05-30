@@ -2,7 +2,7 @@ import { useState } from "react";
 import { autoRunShotStoryboardPrep, refreshFunctionSlotLibraryBuilder, startFunctionSlotWorkflowPlaceholder, type FunctionSlotLibraryBuilderRefreshResponse, type FunctionSlotWorkflowPlaceholderResponse } from "../api/client";
 import { shortId } from "../utils/format";
 
-type WorkflowKey = "semantic-governance" | "restructure" | "shot-storyboard-prep";
+type WorkflowKey = "semantic-governance" | "shot-storyboard-prep";
 
 type FunctionSlotWorkflowCardsProps = {
   workflowKey?: WorkflowKey;
@@ -30,12 +30,6 @@ const CARDS: Array<{
     description: "脚本入库：刷新 validation、slot_index 和 semantic-governance 骨架。",
   },
   {
-    key: "restructure",
-    title: "结构重组",
-    agentName: "function-slot-restructure",
-    description: "占位入口：后续提交 brief 并生成重组方案。",
-  },
-  {
     key: "shot-storyboard-prep",
     title: "Shot Storyboard Prep",
     agentName: "shot-storyboard-prep",
@@ -46,7 +40,6 @@ const CARDS: Array<{
 export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentArtifactId, onStatusChange }: FunctionSlotWorkflowCardsProps) {
   const [cardStates, setCardStates] = useState<Record<WorkflowKey, CardState>>(() => ({
     "semantic-governance": emptyState(),
-    restructure: emptyState(),
     "shot-storyboard-prep": emptyState(),
   }));
   const visibleCards = workflowKey ? CARDS.filter((card) => card.key === workflowKey) : CARDS;
