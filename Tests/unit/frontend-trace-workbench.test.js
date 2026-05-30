@@ -454,6 +454,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /agent-chat-timeline/);
   assert.match(chat, /agent-chat-timeline-list/);
   assert.doesNotMatch(chat, /className="agent-timeline-list"/);
+  const graphUtils = read(root, "Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  assert.match(graphUtils, /node\.type === "sourceVariant"\) return false/);
+  assert.doesNotMatch(graphUtils, /if \(node\.type === "sourceVariant"\) return true/);
   assert.match(css, /\.agent-chat-layout/);
   assert.match(css, /--agent-chat-list-width/);
   assert.match(css, /--agent-chat-timeline-width/);

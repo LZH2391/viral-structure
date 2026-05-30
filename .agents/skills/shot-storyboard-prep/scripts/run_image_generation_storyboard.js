@@ -40,6 +40,7 @@ async function main() {
     storyboardPromptFile: path.resolve(args.storyboardPromptFile),
     parentArtifactId: args.parentArtifactId ?? null,
     storyboardConcurrency,
+    storyboardRetryAttempts: numberArg(args.retryAttempts, 2),
     timeoutSeconds,
   });
 
@@ -117,7 +118,7 @@ function summarizeJob({ started, job, timedOut, waitSeconds }) {
 }
 
 function usageError(message) {
-  const error = new Error(`${message}\nUsage: node run_image_generation_storyboard.js --storyboard-prompt-file <file> --sample-video-id <id> [--parent-artifact-id <id>] [--concurrency 10] [--timeout-seconds 450]`);
+  const error = new Error(`${message}\nUsage: node run_image_generation_storyboard.js --storyboard-prompt-file <file> --sample-video-id <id> [--parent-artifact-id <id>] [--concurrency 10] [--retry-attempts 2] [--timeout-seconds 450]`);
   error.code = "usage_error";
   return error;
 }

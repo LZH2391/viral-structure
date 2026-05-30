@@ -14,6 +14,7 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
   const nodes = projectedGraph.nodes
     .filter((node) => {
       if (visibleIds && !visibleIds.has(node.id)) return false;
+      if (node.type === "sourceVariant") return false;
       if (node.type === "slotInstance") return filters.slot;
       if (node.type === "atomInstance") return filters.atom;
       if (node.type === "binding") return filters.binding;
@@ -221,7 +222,7 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
   if (!statusFilterMatch(node, filters)) return false;
   if (node.group === "needReview" || node.type === "needReviewItem") return filters.needReview;
   if (node.type === "unmappedVariant") return filters.unmapped;
-  if (node.type === "sourceVariant") return true;
+  if (node.type === "sourceVariant") return false;
   if (node.type === "confirmedPlan" || node.type.startsWith("projected")) return true;
   if (node.type === "governanceRoot") return true;
   if (node.type.startsWith("slot")) return filters.slot;

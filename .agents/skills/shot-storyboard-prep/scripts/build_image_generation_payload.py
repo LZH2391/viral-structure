@@ -16,6 +16,7 @@ def main() -> None:
     parser.add_argument("--size")
     parser.add_argument("--quality")
     parser.add_argument("--timeout-seconds", type=float, default=450)
+    parser.add_argument("--storyboard-retry-attempts", type=int, default=2)
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
 
@@ -31,6 +32,7 @@ def main() -> None:
     if args.quality:
         payload["quality"] = args.quality
     payload["timeoutSeconds"] = args.timeout_seconds
+    payload["storyboardRetryAttempts"] = args.storyboard_retry_attempts
 
     print(json.dumps(payload, ensure_ascii=False, indent=2 if args.pretty else None))
 

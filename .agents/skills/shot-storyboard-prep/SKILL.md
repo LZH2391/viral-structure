@@ -81,7 +81,7 @@ await moduleRegistry.startModule({
 });
 ```
 
-`image-generation` 会按 `Storyboard Group` 分组，每组调用一次 provider；输出图片和 artifact 写入 `Runtime/Artifacts/<sampleVideoId>/image-generation/<artifactId>/`。
+`image-generation` 会按 `Storyboard Group` 分组，每组调用一次 provider；若部分组出现 `retryable: true` 的失败，模块会只重试失败组，不重跑已成功组。输出图片和 artifact 写入 `Runtime/Artifacts/<sampleVideoId>/image-generation/<artifactId>/`。
 
 ## 输出规则
 

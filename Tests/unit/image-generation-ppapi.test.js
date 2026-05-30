@@ -239,11 +239,77 @@ referenceImagePath: ${referenceImagePath}
   assert.equal(await fs.readFile(secondImagePath, "utf8"), "storyboard-2");
 });
 
+test("image-generation service retries only failed retryable storyboard groups", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-image-generation-storyboard-retry-"));
+  const store = createLocalStore(root);
+  await store.ensureRuntimeDirs();
+  const jobStore = createJobStore();
+  const stageLogs = [];
+  const logger = {
+    writeStageLog: async (entry) => {
+      stageLogs.push(entry);
+      return entry;
+    },
+    writeDebugSnapshot: async (entry) => ({ ...entry, uri: `/runtime/DebugSnapshots/${entry.inputSummary?.groupId ?? "group"}.json` }),
+  };
+  const calls = [];
+  const provider = {
+    providerName: "pptoken",
+    request: async (request) => {
+      const groupId = /第\s*2\s*组画面/.test(request.prompt)
+        ? "storyboard-group-02"
+        : /第\s*3\s*组画面/.test(request.prompt)
+          ? "storyboard-group-03"
+          : "storyboard-group-01";
+      const attempt = calls.filter((call) => call.groupId === groupId).length + 1;
+      calls.push({ groupId, attempt });
+      if (groupId === "storyboard-group-02" && attempt === 1) {
+        const error = new Error("PPAPI 服务暂时失败");
+        error.code = "server_error";
+        error.retryable = true;
+        throw error;
+      }
+      return {
+        payload: { data: [{ b64_json: Buffer.from(`${groupId}-attempt-${attempt}`).toString("base64") }] },
+        meta: { imageCount: 1, responseBytes: 42, durationMs: 7, model: "gpt-image-2" },
+      };
+    },
+  };
+  const promptFile = path.join(root, "retry-groups.md");
+  await fs.writeFile(promptFile, buildStoryboardPromptMarkdown(3), "utf8");
+  const service = createImageGenerationService({ store, logger, jobStore, provider });
+
+  const started = await service.enqueue({
+    sampleVideoId: "sample_storyboard_retry",
+    storyboardPromptFile: promptFile,
+    storyboardConcurrency: 1,
+    storyboardRetryAttempts: 2,
+    timeoutSeconds: 5,
+  });
+  const job = await waitForJob(jobStore, started.processingJobId, "processed");
+
+  assert.deepEqual(calls.map((call) => `${call.groupId}:${call.attempt}`), [
+    "storyboard-group-01:1",
+    "storyboard-group-02:1",
+    "storyboard-group-03:1",
+    "storyboard-group-02:2",
+  ]);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.retryMaxAttempts, 2);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.retryAttemptCount, 1);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.groups.find((group) => group.groupId === "storyboard-group-02").attempt, 2);
+  assert.equal(job.imageGenerationArtifact.storyboardRun.groups.every((group) => group.status === "completed"), true);
+  assert.equal(job.imageGenerationArtifact.storyboardGroups.length, 3);
+  assert.equal(job.imageGenerationArtifact.storyboardGroups[1].images[0].uri.endsWith("storyboard_storyboard-group-02.png"), true);
+  assert.ok(stageLogs.some((entry) => entry.event === "stage.fail" && entry.inputSummary?.groupId === "storyboard-group-02" && entry.errorSummary?.retryable === true));
+  const retryImagePath = path.join(root, "Runtime", "Artifacts", "sample_storyboard_retry", "image-generation", started.artifactId, "storyboard_storyboard-group-02.png");
+  assert.equal(await fs.readFile(retryImagePath, "utf8"), "storyboard-group-02-attempt-2");
+});
+
 test("image-generation module definition exposes start options", () => {
   const definition = createImageGenerationModuleDefinition();
   const options = definition.startOptionsFromBody({
     sampleVideoId: "sample_1",
-    body: { prompt: "hello", storyboardPromptFile: "C:/storyboard.md", referenceImagePath: "C:/layout.png", groupId: "001", selectedShots: [1], parentArtifactId: "artifact_parent", storyboardConcurrency: 3 },
+    body: { prompt: "hello", storyboardPromptFile: "C:/storyboard.md", referenceImagePath: "C:/layout.png", groupId: "001", selectedShots: [1], parentArtifactId: "artifact_parent", storyboardConcurrency: 3, storyboardRetryAttempts: 2 },
   });
 
   assert.equal(definition.moduleId, "image-generation");
@@ -253,6 +319,7 @@ test("image-generation module definition exposes start options", () => {
   assert.equal(options.storyboardPromptFile, "C:/storyboard.md");
   assert.equal(options.referenceImagePath, "C:/layout.png");
   assert.equal(options.storyboardConcurrency, 3);
+  assert.equal(options.storyboardRetryAttempts, 2);
   assert.deepEqual(options.selectedShots, [1]);
 });
 

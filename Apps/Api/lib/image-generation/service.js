@@ -172,6 +172,7 @@ function createImageGenerationService({
 
     const storyboardConcurrency = normalizeConcurrency(options.storyboardConcurrency, storyboard.groups.length);
     const timeoutSeconds = Number(options.timeoutSeconds ?? 300);
+    const retryMaxAttempts = normalizeRetryAttempts(options.storyboardRetryAttempts);
     updateStoryboardRunState(context, {
       mode: "storyboard-prompt-file",
       sourceFile: safeBasename(options.storyboardPromptFile),
@@ -180,6 +181,8 @@ function createImageGenerationService({
       concurrency: storyboardConcurrency,
       timeoutSeconds,
       timeoutBudgetSeconds: Math.ceil(storyboard.groups.length / storyboardConcurrency) * timeoutSeconds,
+      retryMaxAttempts,
+      retryAttemptCount: 0,
       startedAt: new Date().toISOString(),
       groups: storyboard.groups.map((group) => ({
         groupId: group.groupId,
@@ -193,7 +196,7 @@ function createImageGenerationService({
       })),
     });
 
-    const groupResults = await runWithConcurrency(storyboard.groups, storyboardConcurrency, (group, index) => runStoryboardGroup(context, options, group, index));
+    const groupResults = await runStoryboardGroupsWithRetries(context, options, storyboard.groups, storyboardConcurrency, retryMaxAttempts);
 
     const allImages = groupResults.flatMap((item) => item.images);
     const artifact = await runStage(context, STAGES.artifactAttached, 95, {
@@ -238,10 +241,38 @@ function createImageGenerationService({
     return artifact;
   }
 
-  async function runStoryboardGroup(context, options, group, index) {
+  async function runStoryboardGroupsWithRetries(context, options, groups, concurrency, retryMaxAttempts) {
+    const groupResults = new Array(groups.length);
+    let pending = groups.map((group, index) => ({ group, index }));
+    for (let attempt = 1; pending.length && attempt <= retryMaxAttempts; attempt += 1) {
+      if (attempt > 1) {
+        updateStoryboardRunState(context, {
+          retryAttemptCount: attempt - 1,
+          retryingGroups: pending.map((item) => item.group.groupId),
+        });
+      }
+      const attemptResults = await runWithConcurrency(pending, concurrency, (item) => runStoryboardGroup(context, options, item.group, item.index, attempt));
+      const retryableFailures = [];
+      for (const result of attemptResults) {
+        if (result.ok) {
+          groupResults[result.index] = result.value;
+        } else if (result.retryable && attempt < retryMaxAttempts) {
+          retryableFailures.push({ group: result.group, index: result.index });
+        } else {
+          throw result.error;
+        }
+      }
+      pending = retryableFailures;
+    }
+    updateStoryboardRunState(context, { retryingGroups: [] });
+    return groupResults;
+  }
+
+  async function runStoryboardGroup(context, options, group, index, attempt = 1) {
     const referenceImagePath = referenceImageForGroup(group, null, options);
     markStoryboardGroup(context, group.groupId, {
       status: "requesting",
+      attempt,
       startedAt: new Date().toISOString(),
       progress: "provider_request",
     });
@@ -253,6 +284,7 @@ function createImageGenerationService({
           provider: activeProvider.providerName ?? "pptoken",
           mode: "storyboard-group",
           groupId: group.groupId,
+          attempt,
           promptChars: group.prompt.length,
           shotCount: group.shots.length,
           timeoutSeconds: options.timeoutSeconds ?? 300,
@@ -275,6 +307,7 @@ function createImageGenerationService({
         outputSummary: (execution) => ({
           provider: execution.provider,
           groupId: group.groupId,
+          attempt,
           imageCount: execution.result?.meta?.imageCount ?? null,
           responseBytes: execution.result?.meta?.responseBytes ?? null,
           durationMs: execution.result?.meta?.durationMs ?? null,
@@ -313,24 +346,28 @@ function createImageGenerationService({
       markStoryboardGroup(context, group.groupId, {
         status: "completed",
         progress: "completed",
+        attempt,
         completedAt: new Date().toISOString(),
         imageUris: images.map((image) => image.uri),
+        errorSummary: null,
       });
       updateStoryboardProgress(context);
-      return { group, providerResult, images, index };
+      return { ok: true, value: { group, providerResult, images, index }, group, index };
     } catch (error) {
+      const retryable = typeof error?.retryable === "boolean" ? error.retryable : false;
       markStoryboardGroup(context, group.groupId, {
         status: "failed",
         progress: "failed",
+        attempt,
         completedAt: new Date().toISOString(),
         errorSummary: {
           code: error?.code ?? "image_generation_group_failed",
           message: error?.safeSummary ?? error?.message ?? "故事板分组生图失败",
-          retryable: typeof error?.retryable === "boolean" ? error.retryable : null,
+          retryable,
         },
       });
       updateStoryboardProgress(context);
-      throw error;
+      return { ok: false, error, retryable, group, index };
     }
   }
 
@@ -411,6 +448,8 @@ function createImageGenerationService({
         event: "stage.fail",
         artifactId: options.artifactId ?? null,
         parentArtifactId: options.parentArtifactId ?? null,
+        inputSummary: options.inputSummary ?? null,
+        outputSummary: null,
         durationMs: Date.now() - startedAt,
         errorSummary: {
           ...safeError(error, stageName),
@@ -557,6 +596,12 @@ function normalizeConcurrency(value, groupCount) {
   return Math.max(1, Math.min(Math.floor(parsed), maxConcurrency, Math.max(1, groupCount)));
 }
 
+function normalizeRetryAttempts(value) {
+  const parsed = Number(value ?? 2);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.max(1, Math.min(Math.floor(parsed), 5));
+}
+
 async function runWithConcurrency(items, concurrency, worker) {
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -613,6 +658,9 @@ function storyboardRunSummary(run) {
     concurrency: run.concurrency ?? null,
     timeoutSeconds: run.timeoutSeconds ?? null,
     timeoutBudgetSeconds: run.timeoutBudgetSeconds ?? null,
+    retryMaxAttempts: run.retryMaxAttempts ?? null,
+    retryAttemptCount: run.retryAttemptCount ?? 0,
+    retryingGroups: Array.isArray(run.retryingGroups) ? run.retryingGroups : [],
   };
 }
 

@@ -49,6 +49,7 @@ function createImageGenerationModuleDefinition() {
       n: body.n,
       timeoutSeconds: body.timeoutSeconds,
       storyboardConcurrency: body.storyboardConcurrency,
+      storyboardRetryAttempts: body.storyboardRetryAttempts,
     }),
     createService: (options = {}) => {
       if (options.imageGenerationService) return options.imageGenerationService;
