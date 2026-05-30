@@ -14,6 +14,8 @@ export type GraphFiltersState = {
   stable: boolean;
 };
 
+export type GovernanceLayoutMode = "columns" | "force";
+
 export type PositionedNode = FunctionSlotGraphNode & { x: number; y: number; shortLabel: string };
 
 export type SimNode = PositionedNode & SimulationNodeDatum & {

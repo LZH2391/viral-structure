@@ -5,7 +5,7 @@ import { shortId } from "../utils/format";
 import { GraphCanvas } from "./function-slot-graph/GraphCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
 import { buildVisibleGraph } from "./function-slot-graph/graphUtils";
-import type { GraphFiltersState } from "./function-slot-graph/types";
+import type { GovernanceLayoutMode, GraphFiltersState } from "./function-slot-graph/types";
 
 type LibraryGraphSummary = {
   artifactId: string;
@@ -39,6 +39,7 @@ export function FunctionSlotGraphApp() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [planOverlay, setPlanOverlay] = useState<GovernancePlanOverlay | null>(null);
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
+  const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("columns");
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -107,7 +108,7 @@ export function FunctionSlotGraphApp() {
   }, [mode]);
 
   const activeOverlay = useMemo(() => filterOverlay(planOverlay, selectedPlanIds), [planOverlay, selectedPlanIds]);
-  const visible = useMemo(() => buildVisibleGraph(graph, filters, selectedNodeId, activeOverlay), [activeOverlay, filters, graph, selectedNodeId]);
+  const visible = useMemo(() => buildVisibleGraph(graph, filters, selectedNodeId, activeOverlay, governanceLayoutMode), [activeOverlay, filters, governanceLayoutMode, graph, selectedNodeId]);
   const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? graph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [graph, selectedNodeId, visible.nodes]);
 
   return (
@@ -152,6 +153,15 @@ export function FunctionSlotGraphApp() {
             <option value="structure">样例结构图</option>
             <option value="governance">语义治理图</option>
           </select>
+          {mode === "governance" ? (
+            <>
+              <div className="section-heading">布局模式</div>
+              <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setGovernanceLayoutMode(event.target.value as GovernanceLayoutMode)}>
+                <option value="columns">等距列排版</option>
+                <option value="force">星图散点</option>
+              </select>
+            </>
+          ) : null}
           <div className="section-heading">图谱来源</div>
           {mode === "governance" ? (
             <GovernanceSummary graph={graph} />
@@ -168,7 +178,7 @@ export function FunctionSlotGraphApp() {
           )}
         </aside>
         <section className="slot-graph-stage">
-          {graph ? <GraphCanvas mode={mode} graph={graph} visible={visible} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : "选择左侧素材查看图谱"} />}
+          {graph ? <GraphCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={graph} visible={visible} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
           <GraphFilters mode={mode} filters={filters} onChange={setFilters} />

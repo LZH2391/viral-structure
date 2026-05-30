@@ -1,15 +1,17 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import type { SampleArtifact } from "../../types/artifact";
 import type { FunctionSlotGraphEdge, FunctionSlotGraphNode, FunctionSlotLibraryGraph, GovernancePlanOverlay } from "../../types/library";
-import type { D3Link, GraphFiltersState, PositionedNode, SimNode, VisibleGraph } from "./types";
+import type { D3Link, GovernanceLayoutMode, GraphFiltersState, PositionedNode, SimNode, VisibleGraph } from "./types";
 
 export const VIEWBOX = { width: 1280, height: 820 };
 export const CENTER = { x: 600, y: 410 };
 
-export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, overlay: GovernancePlanOverlay | null = null): VisibleGraph {
+export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, overlay: GovernancePlanOverlay | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
   const projectedGraph = graph.schemaVersion === "function_slot_governance_graph.v1" ? applyGovernanceOverlay(graph, overlay) : graph;
-  const positions = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? buildGovernancePositions(projectedGraph) : buildPositions(projectedGraph);
+  const positions = projectedGraph.schemaVersion === "function_slot_governance_graph.v1"
+    ? buildGovernancePositions(projectedGraph, governanceLayoutMode)
+    : buildPositions(projectedGraph);
   const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
   const nodes = projectedGraph.nodes
     .filter((node) => {
@@ -243,7 +245,8 @@ function statusFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersSta
   return true;
 }
 
-function buildGovernancePositions(graph: FunctionSlotLibraryGraph) {
+function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: GovernanceLayoutMode) {
+  if (layoutMode === "force") return buildGovernanceForcePositions(graph);
   const positions = new Map<string, { x: number; y: number }>();
   const root = graph.nodes.find((node) => node.type === "governanceRoot");
   if (root) positions.set(root.id, { x: 150, y: CENTER.y });
@@ -258,6 +261,32 @@ function buildGovernancePositions(graph: FunctionSlotLibraryGraph) {
   placeColumn(positions, graph.nodes.filter((node) => node.type === "confirmedPlan"), 165, 145, 42);
   placeColumn(positions, graph.nodes.filter((node) => node.type.startsWith("projected")), 1120, CENTER.y, 32);
   return positions;
+}
+
+function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
+  const positions = new Map<string, { x: number; y: number }>();
+  const root = graph.nodes.find((node) => node.type === "governanceRoot");
+  if (root) positions.set(root.id, CENTER);
+  const nodes = graph.nodes.filter((node) => node.id !== root?.id);
+  nodes.forEach((node, index) => {
+    const seed = hashText(node.id);
+    const radius = 95 + (seed % 360);
+    const angle = ((seed % 6283) / 1000) + index * 0.23;
+    positions.set(node.id, {
+      x: clamp(CENTER.x + Math.cos(angle) * radius, 70, VIEWBOX.width - 70),
+      y: clamp(CENTER.y + Math.sin(angle) * radius * 0.72, 60, VIEWBOX.height - 60),
+    });
+  });
+  return positions;
+}
+
+function hashText(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
 }
 
 function placeColumn(positions: Map<string, { x: number; y: number }>, nodes: FunctionSlotGraphNode[], x: number, centerY = CENTER.y, spacing = 54) {
