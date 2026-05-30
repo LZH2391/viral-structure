@@ -146,6 +146,7 @@ export type AgentChatConversation = {
     confirmedAt?: string | null;
     updatedAt?: string | null;
     note?: string | null;
+    sourceRestructurePath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
     traceId?: string | null;

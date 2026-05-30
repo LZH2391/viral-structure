@@ -58,6 +58,32 @@ test("display overlay materializes display json, index, and multi-plan overlay",
   assert.ok(logs.some((entry) => entry.event === "stage.end"));
 });
 
+test("display overlay materializes display transformer section schema", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-sections-"));
+  const logger = {
+    writeStageLog: async () => undefined,
+    writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+  };
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger,
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+  const result = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(sectionDisplayJson()),
+    restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md",
+    sourceTurnId: "turn_sections",
+    parentArtifactId: "parent_sections",
+    traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.planId, "spray-pump-floral-water");
+  const overlay = await service.readOverlays();
+  assert.equal(overlay.summary.planCount, 1);
+  assert.equal(overlay.plans[0].sourceRestructurePath, "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md");
+  assert.ok(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_spray_pump_entry"));
+});
+
 function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {
   return {
     targetAssumption: { title: "test" },
@@ -66,6 +92,42 @@ function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {
     scriptSegments: [{ id: "P1", slotSubtype, title: "脚本段落" }],
     rhythmCurve: [{ id: "R1", slotSubtype, title: "节奏" }],
     packagingProof: [{ id: "PK1", slotSubtype, title: "包装" }],
+  };
+}
+
+function sectionDisplayJson() {
+  return {
+    schemaVersion: "function_slot_restructure_display.v1",
+    source: {
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md",
+      restructureArtifactId: "turn_sections",
+    },
+    sections: {
+      goalAndAssumptions: {
+        title: "1. 重组目标与假设",
+        items: [{ type: "paragraph", text: "品类：喷泵花露水卖货短视频。" }],
+      },
+      finalSlotChain: {
+        title: "2. 最终功能槽位链",
+        items: [{
+          type: "table",
+          columns: ["顺序", "需求", "slotSubtype", "parent archetype"],
+          rows: [{ "顺序": "1", "需求": "喷泵亮相", "slotSubtype": "`SUB_spray_pump_entry`", "parent archetype": "`ARCH_solution_entry`" }],
+        }],
+      },
+      atomLandingTable: {
+        title: "3. Atoms 落地表",
+        items: [{
+          type: "table",
+          columns: ["slotSubtype", "atom"],
+          rows: [{ "slotSubtype": "`SUB_spray_pump_entry`", "atom": "`ATOM_spray_demo`" }],
+        }],
+      },
+      scriptSegments: { title: "5. 脚本段落方案", items: [{ type: "paragraph", text: "喷泵出场。" }] },
+      rhythmCurve: { title: "6. 节奏曲线", items: [{ type: "paragraph", text: "快速进入。" }] },
+      packagingProof: { title: "7. 包装与证明方案", items: [{ type: "paragraph", text: "喷雾证明。" }] },
+    },
+    missingSections: [],
   };
 }
 

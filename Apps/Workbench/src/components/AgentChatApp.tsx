@@ -3,6 +3,7 @@ import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoR
 import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
+import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../utils/restructurePath";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 
 type ChatMode = "direct" | "threadpool-role";
@@ -14,7 +15,6 @@ type ChatMessage = {
 };
 
 const POLL_INTERVAL_MS = 1800;
-const DEFAULT_RESTRUCTURE_FINAL_PATH = "Artifacts/FunctionSlotRestructure/whitening-toothpaste/restructure.final.md";
 const AUTO_TURN_MAX_POLLS = 80;
 
 export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
@@ -450,11 +450,18 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           });
         }
       };
+      const sourceRestructurePath = resolveCurrentRestructureFinalPath({
+        messages,
+        currentTurnId,
+        confirmedPlan: activeConversationConfirmedPlan,
+      });
+      if (!sourceRestructurePath) throw new Error("未找到当前方案的 restructure.final.md 路径，请先让 Agent 生成并落盘重组方案。");
       let confirmationRevision = activeConversationRevision;
       if (session.conversationId) {
         const gate = await confirmWithRevision(
           {
             turnId: currentTurnId,
+            sourceRestructurePath,
             note: "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep 生图。",
           },
           activeConversationRevision,
@@ -465,7 +472,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
       const payload = {
         sampleVideoId: "function-slot-workflow",
-        restructureFinalPath: DEFAULT_RESTRUCTURE_FINAL_PATH,
+        restructureFinalPath: sourceRestructurePath,
         restructureArtifactId: currentTurnId,
         parentArtifactId: currentTurnId,
         runImageGeneration: true,
@@ -491,6 +498,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         const logged = await confirmWithRevision(
           {
             turnId: currentTurnId,
+            sourceRestructurePath,
             note: "已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep 生图。",
             displayArtifact: {
               artifactId: displayResult.artifactId,
@@ -522,7 +530,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     } finally {
       setConfirming(false);
     }
-  }, [activeConversationId, activeConversationRevision, canConfirmRestructure, currentTurnId, refreshConversations, session, syncActiveConversationForRetry]);
+  }, [activeConversationConfirmedPlan, activeConversationId, activeConversationRevision, canConfirmRestructure, currentTurnId, messages, refreshConversations, session, syncActiveConversationForRetry]);
 
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
@@ -755,6 +763,28 @@ function isAgentChatBootstrapTurn(turn: NonNullable<ThreadConversation["turns"]>
 
 function uniqueId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function resolveCurrentRestructureFinalPath({
+  messages,
+  currentTurnId,
+  confirmedPlan,
+}: {
+  messages: ChatMessage[];
+  currentTurnId: string | null;
+  confirmedPlan: AgentChatConversation["confirmedPlan"];
+}) {
+  const reversed = [...messages].reverse();
+  const currentAssistantPath = normalizeRestructureFinalPath(extractRestructureFinalPath(
+    reversed.find((message) => message.id === `assistant-${currentTurnId}`)?.text,
+  ));
+  if (currentAssistantPath) return currentAssistantPath;
+  for (const message of reversed) {
+    if (message.role !== "assistant") continue;
+    const path = normalizeRestructureFinalPath(extractRestructureFinalPath(message.text));
+    if (path) return path;
+  }
+  return normalizeRestructureFinalPath(confirmedPlan?.sourceRestructurePath);
 }
 
 function normalizeConversationRevision(value: unknown) {

@@ -478,6 +478,7 @@ export async function confirmAgentChatConversation(
   payload: {
     turnId?: string | null;
     note?: string | null;
+    sourceRestructurePath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
     expectedRevision?: number | null;

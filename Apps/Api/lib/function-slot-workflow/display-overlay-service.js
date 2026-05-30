@@ -1,6 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const { randomUUID } = require("crypto");
+const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
@@ -36,7 +37,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       inputSummary,
     });
     try {
-      const displayJson = parseDisplayTransformerFinalMessage(finalMessage);
+      const displayJson = normalizeDisplayForOverlay(parseDisplayTransformerFinalMessage(finalMessage));
       validateRestructureDisplayJson(displayJson);
       const planId = inferPlanId({ restructureFinalPath, displayJson });
       const displayArtifact = await writeDisplayJson({
