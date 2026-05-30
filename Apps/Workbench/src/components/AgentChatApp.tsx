@@ -240,6 +240,27 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
   }, [activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
 
+  const startNewConversation = useCallback(() => {
+    creatingDraftConversationRef.current = true;
+    if (pollTimerRef.current) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    setSession(null);
+    setMessages([]);
+    setDraft("");
+    setCurrentTurnId(null);
+    setTimeline(null);
+    setActiveConversationId(null);
+    setActiveConversationRevision(null);
+    setActiveConversationInvalidated(false);
+    setActiveConversationConfirmedPlan(null);
+    setErrorText(null);
+    setMode("threadpool-role");
+    setSelectedRole((current) => current || "function-slot-restructure");
+    setStatusText("新重组会话");
+  }, []);
+
   const handleResumeConversation = useCallback(async (conversationId: string) => {
     creatingDraftConversationRef.current = false;
     setStatusText("恢复重组会话");
@@ -292,27 +313,6 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setStatusText("归档失败");
     }
   }, [activeConversationId, activeConversationRevision, refreshConversations]);
-
-  const startNewConversation = useCallback(() => {
-    creatingDraftConversationRef.current = true;
-    if (pollTimerRef.current) {
-      window.clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    setSession(null);
-    setMessages([]);
-    setDraft("");
-    setCurrentTurnId(null);
-    setTimeline(null);
-    setActiveConversationId(null);
-    setActiveConversationRevision(null);
-    setActiveConversationInvalidated(false);
-    setActiveConversationConfirmedPlan(null);
-    setErrorText(null);
-    setMode("threadpool-role");
-    setSelectedRole((current) => current || "function-slot-restructure");
-    setStatusText("新重组会话");
-  }, []);
 
   const handleRelease = useCallback(async () => {
     if (!session?.leaseId) return;

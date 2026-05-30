@@ -308,6 +308,7 @@ test("agent chat starts ThreadPool role fork session through lease", async () =>
 
 test("agent chat lease release is idempotent for missing active leases", async () => {
   const stageLogs = [];
+  const removed = [];
   const server = createServer({
     logger: {
       writeStageLog: async (entry) => {
@@ -320,6 +321,12 @@ test("agent chat lease release is idempotent for missing active leases", async (
         throw new Error("unknown active lease: lease_missing");
       },
     },
+    agentConversationStore: {
+      remove: async (conversationId) => {
+        removed.push(conversationId);
+        return { conversationId };
+      },
+    },
     staticWorkbench: { handle: () => false },
   });
 
@@ -330,12 +337,56 @@ test("agent chat lease release is idempotent for missing active leases", async (
     const response = await makeRequest(server, "POST", "/api/agent-chat/threadpool/leases/release", {
       leaseId: "lease_missing",
       ownerId: "owner_1",
+      conversationId: "conversation_missing",
     });
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.ok, true);
     assert.equal(response.body.status, "already_released");
+    assert.equal(response.body.conversationDeleted, true);
+    assert.deepEqual(removed, ["conversation_missing"]);
     assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
     assert.equal(stageLogs[1].outputSummary.status, "already_released");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat rejects rebinding an existing conversation to a new ThreadPool fork", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    agentConversationStore: {
+      assertActive: async () => ({ conversationId: "conversation_existing", status: "active", role: "function-slot-restructure" }),
+    },
+    threadPool: {
+      ensureRoleReady: async () => {
+        calls.push("ready");
+        return { ok: true, status: { seedThreadId: "seed_1" } };
+      },
+      acquireLease: async () => {
+        calls.push("lease");
+        return { ok: true, lease_id: "lease_new", thread_id: "thread_new" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads", {
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      conversationId: "conversation_existing",
+      expectedRevision: 1,
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "agent_chat_thread_rebind_forbidden");
+    assert.deepEqual(calls, []);
   } finally {
     await closeServer(server);
   }
@@ -438,11 +489,10 @@ test("agent chat persists restructure conversations and archives them manually",
       }
       return conversation;
     },
-    invalidate: async (conversationId, errorSummary) => {
+    remove: async (conversationId) => {
       const conversation = conversations.get(conversationId);
-      conversation.invalidated = true;
-      conversation.lastResumeError = errorSummary;
-      return conversation;
+      conversations.delete(conversationId);
+      return conversation ?? null;
     },
   };
   const server = createServer({
@@ -521,9 +571,9 @@ test("agent chat persists restructure conversations and archives them manually",
   }
 });
 
-test("agent chat resume invalidates restructure conversation when thread is unavailable", async () => {
+test("agent chat resume deletes restructure conversation when thread is unavailable", async () => {
   const conversation = {
-    conversationId: "conversation_invalidated",
+    conversationId: "conversation_deleted",
     source: "threadpool-role",
     role: "function-slot-restructure",
     status: "active",
@@ -531,6 +581,7 @@ test("agent chat resume invalidates restructure conversation when thread is unav
     workspaceRoot: "C:\\Workspace",
     messages: [{ id: "user-turn_1", role: "user", text: "旧消息", status: "completed" }],
   };
+  const removed = [];
   const server = createServer({
     logger: {
       writeStageLog: async () => undefined,
@@ -538,9 +589,8 @@ test("agent chat resume invalidates restructure conversation when thread is unav
     },
     agentConversationStore: {
       get: async () => conversation,
-      invalidate: async (_conversationId, errorSummary) => {
-        conversation.invalidated = true;
-        conversation.lastResumeError = errorSummary;
+      remove: async (conversationId) => {
+        removed.push(conversationId);
         return conversation;
       },
     },
@@ -558,10 +608,11 @@ test("agent chat resume invalidates restructure conversation when thread is unav
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_invalidated/resume", {});
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_deleted/resume", {});
     assert.equal(response.statusCode, 200);
-    assert.equal(response.body.conversation.invalidated, true);
+    assert.equal(response.body.deleted, true);
     assert.equal(response.body.refreshError.code, "appserver_thread_read_failed");
+    assert.deepEqual(removed, ["conversation_deleted"]);
   } finally {
     await closeServer(server);
   }
