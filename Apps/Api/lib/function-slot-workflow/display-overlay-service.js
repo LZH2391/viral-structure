@@ -126,6 +126,8 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     const traceGraphPath = path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH);
     const traceGraph = await readJsonIfExists(traceGraphPath);
     if (traceGraph) return traceGraph;
+    const index = await readJsonIfExists(path.join(rootDir, INDEX_RELATIVE_PATH));
+    if (index?.plans?.length) return buildAndWriteTraceGraph(index);
     return emptyTraceGraph();
   }
 

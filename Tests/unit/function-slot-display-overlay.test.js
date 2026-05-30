@@ -129,6 +129,35 @@ test("display overlay materializes display transformer section schema", async ()
   assert.ok(traceGraph.nodes.some((node) => node.data.governanceNodeId === "slotSubtype:SUB_spray_pump_entry"));
 });
 
+test("display overlay lazily rebuilds trace graph from existing confirmed plan index", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-lazy-trace-"));
+  const logger = {
+    writeStageLog: async () => undefined,
+    writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+  };
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger,
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+  const result = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(validDisplayJson("SUB_existing_plan")),
+    restructureFinalPath: "Artifacts/FunctionSlotRestructure/existing-plan/restructure.final.md",
+    sourceTurnId: "turn_existing",
+    parentArtifactId: "parent_existing",
+    traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+  });
+  assert.equal(result.ok, true);
+  await fs.rm(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json"));
+
+  const rebuilt = await service.readConfirmedPlanTraceGraph();
+
+  assert.equal(rebuilt.schemaVersion, "confirmed_plan_trace_graph.v1");
+  assert.equal(rebuilt.summary.planCount, 1);
+  assert.ok(rebuilt.nodes.some((node) => node.type === "confirmedPlan" && node.data.planId === "existing-plan"));
+  assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json")));
+});
+
 function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {
   return {
     targetAssumption: { title: "test" },

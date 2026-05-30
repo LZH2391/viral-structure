@@ -12,7 +12,9 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
     ? buildGovernancePositions(graph, governanceLayoutMode)
     : graph.schemaVersion === "confirmed_plan_trace_graph.v1"
       ? buildPlanTracePositions(graph)
-      : buildPositions(graph);
+      : governanceLayoutMode === "columns"
+        ? buildLibraryColumnPositions(graph)
+        : buildPositions(graph);
   const visibleIds = graph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(graph, filters, focusNodeId) : null;
   const nodes = graph.nodes
     .filter((node) => {
@@ -186,6 +188,56 @@ function buildPositions(graph: FunctionSlotLibraryGraph) {
     });
   });
   return positions;
+}
+
+function buildLibraryColumnPositions(graph: FunctionSlotLibraryGraph) {
+  const positions = new Map<string, { x: number; y: number }>();
+  const root = graph.nodes.find((node) => node.type === "libraryItem");
+  if (root) positions.set(root.id, { x: 135, y: CENTER.y });
+
+  const slots = graph.nodes
+    .filter((node) => node.type === "slotInstance")
+    .sort((left, right) => Number(left.data.slotOrder ?? 0) - Number(right.data.slotOrder ?? 0));
+  placeColumn(positions, slots, 330, CENTER.y, 72);
+
+  placeSlotAtomColumn(positions, graph, slots, "script", 560);
+  placeSlotAtomColumn(positions, graph, slots, "rhythm", 760);
+  placeSlotAtomColumn(positions, graph, slots, "packaging", 960);
+
+  const bindings = graph.nodes
+    .filter((node) => node.type === "binding")
+    .sort((left, right) => String(left.data.bindingId ?? left.label).localeCompare(String(right.data.bindingId ?? right.label)));
+  placeColumn(positions, bindings, 1130, CENTER.y, 42);
+
+  return positions;
+}
+
+function placeSlotAtomColumn(
+  positions: Map<string, { x: number; y: number }>,
+  graph: FunctionSlotLibraryGraph,
+  slots: FunctionSlotGraphNode[],
+  atomType: string,
+  x: number,
+) {
+  const slotY = new Map(slots.map((slot) => [String(slot.data.slotId ?? ""), positions.get(slot.id)?.y ?? CENTER.y]));
+  const atoms = graph.nodes
+    .filter((node) => node.type === "atomInstance" && node.data.atomType === atomType)
+    .sort((left, right) => {
+      const leftSlotY = slotY.get(String(left.data.slotId ?? "")) ?? CENTER.y;
+      const rightSlotY = slotY.get(String(right.data.slotId ?? "")) ?? CENTER.y;
+      return leftSlotY - rightSlotY || String(left.data.atomId ?? left.label).localeCompare(String(right.data.atomId ?? right.label));
+    });
+  const bySlot = new Map<string, FunctionSlotGraphNode[]>();
+  for (const atom of atoms) {
+    const slotId = String(atom.data.slotId ?? "");
+    bySlot.set(slotId, [...(bySlot.get(slotId) ?? []), atom]);
+  }
+  for (const [slotId, slotAtoms] of bySlot) {
+    const centerY = slotY.get(slotId) ?? CENTER.y;
+    const spacing = 24;
+    const startY = centerY - ((slotAtoms.length - 1) * spacing) / 2;
+    slotAtoms.forEach((atom, index) => positions.set(atom.id, { x, y: clamp(startY + index * spacing, 55, VIEWBOX.height - 55) }));
+  }
 }
 
 function visibleGovernanceNodeIds(graph: FunctionSlotLibraryGraph, filters: GraphFiltersState, focusNodeId: string | null) {
