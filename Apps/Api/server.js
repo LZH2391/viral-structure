@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
+const { createTraceContext } = require("../../Core/Workspace/sample-video-contracts");
+const { createTraceIds } = require("../../Infrastructure/Observability/trace");
 const { parseMultipartUpload } = require("./lib/http/multipart");
 const { createJobStore } = require("./lib/stores/job-store");
 const { createWorkflowRunStore } = require("./lib/stores/workflow-run-store");
@@ -375,15 +377,13 @@ async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
       message: "需要 restructureFinalPath 或 restructureArtifactId",
     });
   }
-  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({
-    moduleId: "shot-storyboard-prep",
+  const result = await startFunctionSlotAutoRunTurn({
+    handlers,
+    role: "shot-storyboard-prep",
+    stageName: "function.slot.shot_storyboard_prep.auto_run",
     sampleVideoId,
-    body: {
-      ...body,
-      parentArtifactId,
-      trigger: "restructure-confirmed",
-      autoRun: true,
-    },
+    parentArtifactId,
+    body,
   });
   return sendJson(res, 202, result);
 }
@@ -399,17 +399,186 @@ async function handleRestructureDisplayTransformAutoRun(req, res, handlers = {})
       message: "需要 restructureFinalPath 或 restructureArtifactId",
     });
   }
-  const result = await (handlers.moduleRegistry ?? moduleRegistry).startModule({
-    moduleId: "function-slot-restructure-display-transformer",
+  const result = await startFunctionSlotAutoRunTurn({
+    handlers,
+    role: "function-slot-restructure-display-transformer",
+    stageName: "function.slot.restructure_display_transform.auto_run",
     sampleVideoId,
-    body: {
-      ...body,
-      parentArtifactId,
-      trigger: "restructure-confirmed",
-      autoRun: true,
-    },
+    parentArtifactId,
+    body,
   });
   return sendJson(res, 202, result);
+}
+
+async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {
+  const traceContext = createTraceContext(createTraceIds());
+  const startedAt = Date.now();
+  const inputSummary = {
+    role,
+    sampleVideoId,
+    parentArtifactId,
+    restructureArtifactId: normalizeOptionalText(body.restructureArtifactId),
+    restructureFinalPath: normalizeOptionalText(body.restructureFinalPath),
+    trigger: "restructure-confirmed",
+  };
+  await handlers.logger.writeStageLog({
+    traceContext,
+    stageName,
+    event: "stage.start",
+    parentArtifactId,
+    inputSummary,
+  });
+  try {
+    const readiness = await handlers.threadPool.ensureRoleReady(role);
+    if (!readiness?.ok) throw codedWorkflowError(readiness?.error ?? "threadpool_role_unavailable", readiness?.message ?? "ThreadPool role 暂不可用", readiness);
+    const ownerId = `${role}:${traceContext.traceId}`;
+    const lease = await handlers.threadPool.acquireLease({ role, ownerId });
+    const threadId = lease.thread_id ?? lease.threadId ?? null;
+    if (!threadId) throw codedWorkflowError("threadpool_lease_missing_thread", "ThreadPool lease 未返回 threadId", { leaseStatus: lease.status ?? null });
+    const workspaceRoot = readiness.status?.workspaceRoot ?? handlers.rootDir;
+    const skillPath = readiness.status?.skillPath ?? null;
+    const started = await handlers.appServer.startTurnWithInputs({
+      workspaceRoot,
+      threadId,
+      skillPath,
+      inputs: buildFunctionSlotAutoRunInputs({ role, body: { ...body, sampleVideoId, parentArtifactId } }),
+      timeoutSeconds: 240,
+    });
+    const artifactId = started.turnId ?? started.turn?.id ?? null;
+    const result = {
+      ok: true,
+      sampleVideoId,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId,
+      parentArtifactId,
+      status: started.status ?? "submitted",
+      role,
+      threadId: started.threadId ?? threadId,
+      turnId: artifactId,
+      leaseId: lease.lease_id ?? lease.leaseId ?? null,
+      ownerId,
+      workspaceRoot,
+      message: `${role} 已提交真实 ThreadPool turn。`,
+    };
+    await handlers.logger.writeStageLog({
+      traceContext,
+      stageName,
+      event: "stage.end",
+      artifactId,
+      parentArtifactId,
+      outputSummary: {
+        role,
+        status: result.status,
+        threadId: result.threadId,
+        turnId: result.turnId,
+        leaseId: result.leaseId,
+      },
+      durationMs: Date.now() - startedAt,
+    });
+    const job = handlers.jobStore?.createJob?.({ sampleVideoId, traceId: traceContext.traceId });
+    if (job?.jobId) {
+      handlers.jobStore.updateJob(job.jobId, {
+        stage: stageName,
+        status: "processing",
+        progress: 15,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+        artifactId,
+        parentArtifactId,
+        agentRun: {
+          role,
+          threadId: result.threadId,
+          turnId: result.turnId,
+          leaseId: result.leaseId,
+          ownerId,
+          status: "turn_submitted",
+          startedAt: new Date().toISOString(),
+        },
+      });
+      result.processingJobId = job.jobId;
+    }
+    return result;
+  } catch (error) {
+    const safeError = {
+      code: error?.code ?? "function_slot_auto_run_failed",
+      message: safePreview(error instanceof Error ? error.message : "自动触发失败", 240),
+      stageName,
+      retryable: error?.statusCode ? error.statusCode >= 500 : true,
+      debugSnapshotUri: null,
+    };
+    const snapshot = await handlers.logger.writeDebugSnapshot({
+      traceContext,
+      stageName,
+      parentArtifactId,
+      reason: safeError.code,
+      inputSummary,
+      debugPayload: {
+        code: safeError.code,
+        message: safeError.message,
+        detail: summarizeErrorDebugPayload(error?.debugPayload ?? error?.payload ?? null),
+      },
+    });
+    safeError.debugSnapshotUri = snapshot.uri;
+    await handlers.logger.writeStageLog({
+      traceContext,
+      stageName,
+      event: "stage.fail",
+      parentArtifactId,
+      errorSummary: safeError,
+      durationMs: Date.now() - startedAt,
+    });
+    error.code = safeError.code;
+    error.statusCode = error.statusCode ?? 503;
+    error.debugSnapshotUri = snapshot.uri;
+    throw error;
+  }
+}
+
+function buildFunctionSlotAutoRunInputs({ role, body }) {
+  const title = role === "shot-storyboard-prep"
+    ? "请基于已确认的重组方案执行 Shot Storyboard Prep。"
+    : "请基于已确认的重组方案执行展示结构转换。";
+  const payload = {
+    trigger: "restructure-confirmed",
+    restructureFinalPath: body.restructureFinalPath ?? null,
+    restructureArtifactId: body.restructureArtifactId ?? null,
+    parentArtifactId: body.parentArtifactId ?? null,
+    sampleVideoId: body.sampleVideoId ?? null,
+  };
+  return [{
+    type: "text",
+    text: `${title}\n\n输入摘要：\n${JSON.stringify(payload, null, 2)}`,
+    text_elements: [],
+  }];
+}
+
+function codedWorkflowError(code, message, debugPayload = null) {
+  const error = new Error(message);
+  error.code = code;
+  error.debugPayload = debugPayload;
+  return error;
+}
+
+function normalizeOptionalText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function safePreview(value, limit = 240) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.length <= limit ? text : `${text.slice(0, limit)}...`;
+}
+
+function summarizeErrorDebugPayload(value) {
+  if (!value) return null;
+  try {
+    return safePreview(JSON.stringify(value), 500);
+  } catch {
+    return safePreview(value, 500);
+  }
 }
 
 async function handleFunctionSlotLibraryProject(res, artifactId, handlers = {}) {

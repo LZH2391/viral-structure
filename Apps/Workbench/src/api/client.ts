@@ -22,15 +22,21 @@ export type PackagingStructureStartResponse = AnalysisStartResponse;
 export type FunctionSlotAtomizationStartResponse = AnalysisStartResponse;
 
 export type FunctionSlotWorkflowPlaceholderResponse = {
-  processingJobId: string;
+  processingJobId?: string;
   sampleVideoId: string;
   traceId: string;
   runId: string;
   stageId: string;
-  artifactId: string;
+  artifactId: string | null;
   parentArtifactId: string | null;
-  status: "placeholder";
+  status: "placeholder" | "submitted" | "running" | string;
   message: string;
+  role?: string | null;
+  threadId?: string | null;
+  turnId?: string | null;
+  leaseId?: string | null;
+  ownerId?: string | null;
+  workspaceRoot?: string | null;
 };
 
 export type AgentChatSessionResponse = {

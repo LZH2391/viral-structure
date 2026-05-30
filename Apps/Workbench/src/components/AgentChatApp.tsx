@@ -78,6 +78,27 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     return items;
   }, [activeConversationId]);
 
+  const syncActiveConversationForRetry = useCallback(async (conversationId = activeConversationId) => {
+    if (!conversationId) return null;
+    setStatusText("会话已更新，自动同步中");
+    const payload = await resumeAgentChatConversation(conversationId);
+    if (payload.deleted) {
+      setActiveConversationInvalidated(true);
+      throw new Error(payload.refreshError?.message ?? "thread 已不可读，此会话已失效");
+    }
+    const revision = normalizeConversationRevision(payload.conversation.revision);
+    setActiveConversationRevision(revision);
+    setActiveConversationInvalidated(Boolean(payload.conversation.invalidated));
+    setActiveConversationConfirmedPlan(payload.conversation.confirmedPlan ?? null);
+    setSession((current) => current?.conversationId === conversationId ? {
+      ...current,
+      conversationRevision: revision,
+      conversationStatus: payload.conversation.status,
+    } : current);
+    setConversations((current) => current.map((item) => item.conversationId === conversationId ? payload.conversation : item));
+    return payload.conversation;
+  }, [activeConversationId]);
+
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
   }, []);
@@ -214,18 +235,27 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text, status: "completed" }]);
     try {
       const activeSession = await ensureSession(false);
-      const submitted = await sendAgentChatMessage(activeSession.threadId as string, {
-        message: text,
-        ...sessionMeta,
-        source: activeSession.source,
-        role: activeSession.role ?? sessionMeta.role,
-        leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
-        parentThreadId: activeSession.parentThreadId ?? sessionMeta.parentThreadId,
-        conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
-        expectedRevision: activeConversationRevision,
-        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
-        skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
-      });
+      const sendWithRevision = (expectedRevision: number | null) => sendAgentChatMessage(activeSession.threadId as string, {
+          message: text,
+          ...sessionMeta,
+          source: activeSession.source,
+          role: activeSession.role ?? sessionMeta.role,
+          leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
+          parentThreadId: activeSession.parentThreadId ?? sessionMeta.parentThreadId,
+          conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
+          expectedRevision,
+          workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+          skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
+        });
+      let submitted: Awaited<ReturnType<typeof sendAgentChatMessage>>;
+      try {
+        submitted = await sendWithRevision(activeConversationRevision);
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const synced = await syncActiveConversationForRetry(activeSession.conversationId ?? activeConversationId);
+        setStatusText("会话已同步，重试发送");
+        submitted = await sendWithRevision(normalizeConversationRevision(synced?.revision));
+      }
       if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
@@ -239,7 +269,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta]);
+  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, refreshConversations, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
 
   const startNewConversation = useCallback(() => {
     creatingDraftConversationRef.current = true;
@@ -296,7 +326,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!activeConversationId) return;
     setStatusText("归档重组会话");
     try {
-      await archiveAgentChatConversation(activeConversationId, activeConversationRevision);
+      try {
+        await archiveAgentChatConversation(activeConversationId, activeConversationRevision);
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const synced = await syncActiveConversationForRetry(activeConversationId);
+        setStatusText("会话已同步，重试归档");
+        await archiveAgentChatConversation(activeConversationId, normalizeConversationRevision(synced?.revision));
+      }
       const items = await refreshConversations();
       const next = items[0] ?? null;
       setActiveConversationId(next?.conversationId ?? null);
@@ -313,7 +350,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       if (isConversationConflictError(error)) void refreshConversations().catch(() => undefined);
       setStatusText("归档失败");
     }
-  }, [activeConversationId, activeConversationRevision, refreshConversations]);
+  }, [activeConversationId, activeConversationRevision, applyConversation, refreshConversations, startNewConversation, syncActiveConversationForRetry]);
 
   const handleRelease = useCallback(async () => {
     if (!session?.leaseId) return;
@@ -348,19 +385,35 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setErrorText(null);
     setStatusText("确认方案并触发展示转换/故事板准备");
     try {
+      const confirmWithRevision = async (
+        payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
+        expectedRevision: number | null,
+      ) => {
+        if (!session.conversationId) return null;
+        try {
+          return await confirmAgentChatConversation(session.conversationId, { ...payload, expectedRevision });
+        } catch (error) {
+          if (!isConversationConflictError(error)) throw error;
+          const synced = await syncActiveConversationForRetry(session.conversationId);
+          setStatusText("会话已同步，重试确认");
+          return await confirmAgentChatConversation(session.conversationId, {
+            ...payload,
+            expectedRevision: normalizeConversationRevision(synced?.revision),
+          });
+        }
+      };
       let confirmationRevision = activeConversationRevision;
       if (session.conversationId) {
-        const gate = await confirmAgentChatConversation(
-          session.conversationId,
+        const gate = await confirmWithRevision(
           {
             turnId: currentTurnId,
             note: "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep。",
-            expectedRevision: activeConversationRevision,
           },
+          activeConversationRevision,
         );
-        confirmationRevision = normalizeConversationRevision(gate.conversation.revision);
+        confirmationRevision = normalizeConversationRevision(gate?.conversation.revision);
         setActiveConversationRevision(confirmationRevision);
-        setActiveConversationConfirmedPlan(gate.conversation.confirmedPlan ?? null);
+        setActiveConversationConfirmedPlan(gate?.conversation.confirmedPlan ?? null);
       }
       const payload = {
         sampleVideoId: "function-slot-workflow",
@@ -375,12 +428,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
-        text: `已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep：展示 trace ${shortId(displayResult.traceId)} / artifact ${shortId(displayResult.artifactId)}；故事板 trace ${shortId(storyboardResult.traceId)} / artifact ${shortId(storyboardResult.artifactId)}`,
+        text: `已确认当前方案，已提交两个真实 turn：展示 ${shortId(displayResult.threadId)} / ${shortId(displayResult.turnId)} / trace ${shortId(displayResult.traceId)}；故事板 ${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
         status: "completed",
       }]);
       if (session.conversationId) {
-        const logged = await confirmAgentChatConversation(
-          session.conversationId,
+        const logged = await confirmWithRevision(
           {
             turnId: currentTurnId,
             note: "已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep。",
@@ -398,11 +450,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               stageId: storyboardResult.stageId,
               status: storyboardResult.status,
             },
-            expectedRevision: confirmationRevision,
           },
+          confirmationRevision,
         );
-        setActiveConversationRevision(normalizeConversationRevision(logged.conversation.revision));
-        setActiveConversationConfirmedPlan(logged.conversation.confirmedPlan ?? null);
+        setActiveConversationRevision(normalizeConversationRevision(logged?.conversation.revision));
+        setActiveConversationConfirmedPlan(logged?.conversation.confirmedPlan ?? null);
         void refreshConversations().catch(() => undefined);
       }
       setStatusText("已触发展示转换/故事板准备");
@@ -414,7 +466,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     } finally {
       setConfirming(false);
     }
-  }, [activeConversationRevision, canConfirmRestructure, currentTurnId, refreshConversations, session]);
+  }, [activeConversationId, activeConversationRevision, canConfirmRestructure, currentTurnId, refreshConversations, session, syncActiveConversationForRetry]);
 
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
