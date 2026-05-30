@@ -19,9 +19,9 @@ type GraphMode = "structure" | "governance" | "planTrace";
 const DEFAULT_FILTERS: GraphFiltersState = {
   slot: true,
   atom: true,
-  binding: true,
-  rule: true,
-  bundle: true,
+  binding: false,
+  rule: false,
+  bundle: false,
   unmapped: false,
 };
 
@@ -48,10 +48,6 @@ export function FunctionSlotGraphApp() {
   useEffect(() => {
     refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
   }, [refresh]);
-
-  useEffect(() => {
-    if (mode === "planTrace") setFilters((current) => ({ ...current, unmapped: true }));
-  }, [mode]);
 
   useEffect(() => {
     if (mode !== "structure") return;

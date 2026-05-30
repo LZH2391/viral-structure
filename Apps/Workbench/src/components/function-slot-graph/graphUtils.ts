@@ -39,13 +39,19 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
 export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
   return forceSimulation<SimNode>(nodes)
     .alpha(0.85)
-    .alphaDecay(0.018)
-    .velocityDecay(0.36)
-    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.055))
-    .force("x", forceX(CENTER.x).strength(0.006))
-    .force("y", forceY(CENTER.y).strength(0.006))
-    .force("charge", forceManyBody<SimNode>().strength((node) => (node.type === "libraryItem" ? -120 : node.type === "slotInstance" ? -170 : -90)).distanceMin(30).distanceMax(620))
-    .force("collide", forceCollide<SimNode>().radius((node) => nodeRadius(node) + 30).strength(0.72).iterations(2))
+    .alphaDecay(0.014)
+    .velocityDecay(0.34)
+    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.04))
+    .force("x", forceX(CENTER.x).strength(0.004))
+    .force("y", forceY(CENTER.y).strength(0.004))
+    .force("charge", forceManyBody<SimNode>().strength((node) => {
+      if (node.type === "confirmedPlan") return -420;
+      if (node.type === "sourceVariant") return -210;
+      if (node.type === "libraryItem" || node.type === "slotInstance") return -190;
+      if (node.type === "slotFamily" || node.type === "slotSubtype") return -170;
+      return -135;
+    }).distanceMin(36).distanceMax(780))
+    .force("collide", forceCollide<SimNode>().radius((node) => nodeRadius(node) + (node.type === "sourceVariant" ? 46 : 38)).strength(0.88).iterations(3))
     .force("link", forceLink<SimNode, D3Link>(links)
       .id((node) => node.id)
       .distance((edge) => edgeDistance(edge.type)));
@@ -151,6 +157,7 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   const data = node.data ?? {};
   if (node.type === "unmappedVariant") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]];
   if (node.type === "sourceExample") return [["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
+  if (node.type === "sourceVariant") return [["variantId", data.variantId], ["label", data.label], ["sampleId", data.sampleId], ["kind", data.kind], ["sourceId", data.sourceId], ["labelMissing", data.labelMissing]];
   if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
   if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
   if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
@@ -267,6 +274,10 @@ function visibleGovernanceNodeIds(graph: FunctionSlotLibraryGraph, filters: Grap
 
   for (const node of graph.nodes) {
     if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") ids.add(node.id);
+    if (filters.atom && (node.type === "atomArchetype" || node.type === "atomPattern")) ids.add(node.id);
+    if (filters.binding && (node.type === "bindingPrinciple" || node.type === "bindingPattern")) ids.add(node.id);
+    if (filters.rule && (node.type === "rulePattern" || node.type === "recompositionPolicy")) ids.add(node.id);
+    if (filters.bundle && node.type === "implementationBundle") ids.add(node.id);
     if (filters.unmapped && node.type === "unmappedVariant") ids.add(node.id);
   }
 
@@ -423,6 +434,7 @@ function supportValue(support: unknown, key: "variantCount" | "sampleCount") {
 function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "governanceRoot") return "Governance";
   if (node.type === "sourceExample") return String(node.label ?? node.id).slice(0, 18);
+  if (node.type === "sourceVariant") return sourceVariantLabel(node);
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
   if (node.type === "atomLayer") return String(node.label ?? node.id).slice(0, 18);
@@ -434,6 +446,11 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);
   if (node.type === "slotConcept") return "SlotConcept";
   return node.label;
+}
+
+function sourceVariantLabel(node: FunctionSlotGraphNode) {
+  const label = typeof node.data.label === "string" && node.data.label.trim() ? node.data.label.trim() : String(node.label ?? node.id);
+  return label.length > 18 ? `${label.slice(0, 18)}...` : label;
 }
 
 function shortSourceVariant(value: string) {

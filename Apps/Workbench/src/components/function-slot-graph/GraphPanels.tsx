@@ -10,8 +10,7 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
       <section className="slot-graph-card">
         <div className="section-heading">溯源筛选</div>
         <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slot hierarchy</label>
-        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom patterns</label>
-        <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Source samples</label>
+        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom / source variants</label>
       </section>
     );
   }
