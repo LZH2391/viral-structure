@@ -14,6 +14,7 @@ type ChatMessage = {
 };
 
 const POLL_INTERVAL_MS = 1800;
+const DEFAULT_RESTRUCTURE_FINAL_PATH = "Artifacts/FunctionSlotRestructure/whitening-toothpaste/restructure.final.md";
 
 export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [mode, setMode] = useState<ChatMode>("direct");
@@ -363,6 +364,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
       const payload = {
         sampleVideoId: "function-slot-workflow",
+        restructureFinalPath: DEFAULT_RESTRUCTURE_FINAL_PATH,
         restructureArtifactId: currentTurnId,
         parentArtifactId: currentTurnId,
       };

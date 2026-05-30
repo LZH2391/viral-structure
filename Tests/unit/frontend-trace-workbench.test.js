@@ -412,6 +412,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /function-slot-restructure/);
   assert.match(chat, /确认此方案/);
   assert.match(chat, /canConfirmRestructure/);
+  assert.match(chat, /DEFAULT_RESTRUCTURE_FINAL_PATH = "Artifacts\/FunctionSlotRestructure\/whitening-toothpaste\/restructure\.final\.md"/);
+  assert.match(chat, /restructureFinalPath: DEFAULT_RESTRUCTURE_FINAL_PATH/);
   assert.match(chat, /autoRunRestructureDisplayTransform/);
   assert.match(chat, /autoRunShotStoryboardPrep/);
   assert.match(chat, /结构展示转换/);

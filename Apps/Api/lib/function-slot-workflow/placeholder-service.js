@@ -43,7 +43,7 @@ const MODULES = {
     placeholderPrompt: "占位：后续从 restructure.final.md 提取 Shot 设计并生成故事板 prompt。",
     outputSummary: {
       status: "placeholder",
-      targetArtifact: "Artifacts/FunctionSlotRestructure/<runId>/shot-storyboard-prompts.md",
+      targetArtifact: "Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-storyboard-prompts.md",
     },
   },
   "function-slot-restructure-display-transformer": {
@@ -57,7 +57,7 @@ const MODULES = {
     placeholderPrompt: "占位：后续从 restructure.final.md 提取第 1、2、3、5、6、7 节并转换为前端展示 JSON。",
     outputSummary: {
       status: "placeholder",
-      targetArtifact: "Artifacts/FunctionSlotRestructure/<runId>/restructure.display.json",
+      targetArtifact: "Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.display.json",
     },
   },
 };

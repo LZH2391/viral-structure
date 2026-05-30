@@ -51,7 +51,7 @@ description: 基于已确认的 function-slot-restructure 结构方案生成独�
    每个 shot 的 `预计时长` 统一写 `待后置估算`。不要手写秒数、时间码、起止时间、段落时长或心算后的估计值。
 
 8. **落独立文件**  
-   若输入来自 `restructure.final.md`，在对应 run 目录下或独立目录写入 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md`。不要修改上游 `restructure.final.md`。
+   若输入来自 `restructure.final.md`，在同一个重组目录下写入 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。不要修改上游 `restructure.final.md`，也不要再新建 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>`。
 
 ## 台词与字幕原则
 
@@ -78,7 +78,7 @@ Shot 里的台词/字幕是面向拍摄和剪辑的可执行文案，不是结�
 输出独立 Markdown 文件，默认路径：
 
 ```text
-Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md
+Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 ```
 
 文件结构：
@@ -137,7 +137,7 @@ Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md
 完成后只给可点击文件路径和一句摘要；不带验证结果、不带建议 git 提交、不列本轮相关文件。
 
 ```markdown
-已生成 Shot 设计：[shot-design.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md)
+已生成 Shot 设计：[shot-design.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md)
 
 摘要：一句话说明 Shot 设计如何承接结构方案。
 ```

@@ -142,7 +142,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 9. 剩余风险与修复
 10. 必要替代实现
 
-必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 7 节必须写清包装证明和字幕层规格。第 8 节进行 binding / rule policy 校验，但不做 shot 级同步校验。brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`。Shot 设计不写入该文件，后续由 `function-slot-shot-design` 读取本文件并另存 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>/shot-design.final.md`。
+必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 7 节必须写清包装证明和字幕层规格。第 8 节进行 binding / rule policy 校验，但不做 shot 级同步校验。brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`。Shot 设计不写入该文件，后续由 `function-slot-shot-design` 读取本文件并另存到同一目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
 
 ## 方案完成后的聊天回复
 
