@@ -14,9 +14,6 @@ function buildFunctionSlotGovernanceGraph(governance) {
     data: {
       governanceId,
       schemaVersion: governance.schemaVersion ?? null,
-      status: governance.status ?? null,
-      reviewStatus: governance.reviewStatus ?? governance.status ?? null,
-      maturityStatus: governance.maturityStatus ?? null,
       createdAt: governance.createdAt ?? null,
       support: {
         variantCount: governance.coverage?.slotVariantCount ?? null,
@@ -89,31 +86,6 @@ function buildFunctionSlotGovernanceGraph(governance) {
   pushUnmapped(nodes, edges, rootId, governance.unmappedBindingVariants ?? [], "binding");
   pushUnmapped(nodes, edges, rootId, governance.unmappedRuleVariants ?? [], "rule");
 
-  for (const item of governance.needReviewMap ?? []) {
-    const variantId = normalizeGraphText(item.variantId);
-    if (!variantId) continue;
-    const affectedNodes = normalizeTextArray(item.affectedNodes);
-    const id = `needReview:${variantId}`;
-    pushNode(nodes, {
-      id,
-      type: "needReviewItem",
-      label: variantId,
-      group: "needReview",
-      data: {
-        ...item,
-        variantId,
-        affectedNodes,
-        reviewStatus: "needReview",
-        maturityStatus: "needReview",
-      },
-    });
-    pushEdge(edges, rootId, id, "governance_contains_need_review", "needReview");
-    for (const affectedNode of affectedNodes) {
-      const target = resolveGovernanceNodeId(nodes, affectedNode);
-      if (target) pushEdge(edges, id, target, "need_review_affects", "affects");
-    }
-  }
-
   return {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: governanceId,
@@ -127,7 +99,6 @@ function buildFunctionSlotGovernanceGraph(governance) {
       bindingCount: governance.coverage?.bindingCount ?? 0,
       ruleCount: governance.coverage?.ruleCount ?? 0,
       sampleCount: governance.coverage?.sampleCount ?? 0,
-      needReviewCount: governance.coverage?.needReviewCount ?? (governance.needReviewMap ?? []).length,
       unmappedAtomCount: (governance.unmappedAtomVariants ?? []).length,
       unmappedBindingCount: (governance.unmappedBindingVariants ?? []).length,
       unmappedRuleCount: (governance.unmappedRuleVariants ?? []).length,
@@ -144,14 +115,12 @@ function pushGovernanceNode(nodes, type, group, item) {
     id: nodeId(type, itemId),
     type,
     label: normalizeGraphText(item.name) ?? itemId,
-    group: hasNeedReview(item) ? "needReview" : group,
+    group,
     data: {
-      ...item,
+      ...stripGovernanceStatusFields(item),
       id: itemId,
       name: normalizeGraphText(item.name) ?? null,
       sourceVariantIds: normalizeTextArray(item.sourceVariantIds),
-      reviewStatus: item.reviewStatus ?? item.status ?? null,
-      maturityStatus: item.maturityStatus ?? null,
     },
   });
 }
@@ -170,8 +139,6 @@ function pushSourceVariantEdges(nodes, edges) {
         group: "sourceVariant",
         data: {
           variantId: normalizedVariantId,
-          reviewStatus: "evidence",
-          maturityStatus: "evidence",
         },
       });
       pushEdge(edges, owner.id, id, "pattern_to_source_variant", "evidence");
@@ -190,19 +157,13 @@ function pushUnmapped(nodes, edges, rootId, variants, variantKind) {
       label: variantId,
       group: "unmapped",
       data: {
-        ...variant,
+        ...stripGovernanceStatusFields(variant),
         variantId,
         variantKind,
-        reviewStatus: "unmapped",
-        maturityStatus: "unmapped",
       },
     });
     pushEdge(edges, rootId, id, "governance_contains_unmapped", "unmapped");
   }
-}
-
-function hasNeedReview(item) {
-  return item?.needReview === true || item?.reviewStatus === "needReview" || item?.maturityStatus === "needReview";
 }
 
 function groupForAtomLayer(layer) {
@@ -210,12 +171,6 @@ function groupForAtomLayer(layer) {
   if (layer === "rhythm") return "rhythm";
   if (layer === "packaging") return "packaging";
   return "atom";
-}
-
-function resolveGovernanceNodeId(nodes, rawId) {
-  const normalized = normalizeGraphText(rawId);
-  if (!normalized) return null;
-  return nodes.find((node) => String(node.data?.id ?? "") === normalized || node.id.endsWith(`:${normalized}`))?.id ?? null;
 }
 
 function pushNode(nodes, node) {
@@ -251,6 +206,12 @@ function normalizeGraphText(value) {
 function normalizeTextArray(value) {
   if (!Array.isArray(value)) return [];
   return value.map(normalizeGraphText).filter(Boolean);
+}
+
+function stripGovernanceStatusFields(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const { status, reviewStatus, maturityStatus, needReview, ...rest } = value;
+  return rest;
 }
 
 module.exports = {

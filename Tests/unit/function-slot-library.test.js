@@ -345,7 +345,8 @@ test("function slot library API exposes semantic governance graph route", async 
     assert.equal(graph.statusCode, 200);
     assert.equal(graph.body.schemaVersion, "function_slot_governance_graph.v1");
     assert.equal(graph.body.summary.sampleCount, 4);
-    assert.ok(graph.body.nodes.some((node) => node.type === "slotFamily" && node.data.reviewStatus === "reviewed"));
+    assert.ok(graph.body.nodes.some((node) => node.type === "slotFamily"));
+    assert.equal(graph.body.nodes.some((node) => hasGovernanceStatusFields(node.data)), false);
     assert.ok(graph.body.nodes.some((node) => node.type === "unmappedVariant" && node.data.reason === "single_sample"));
     assert.ok(graph.body.edges.some((edge) => edge.type === "archetype_to_subtype"));
   } finally {
@@ -385,14 +386,15 @@ test("function slot API exposes confirmed plan trace graph route", async () => {
   }
 });
 
-test("function slot governance graph builder maps relationships and review gaps", () => {
+test("function slot governance graph builder maps relationships and evidence gaps", () => {
   const graph = buildFunctionSlotGovernanceGraph(buildGovernance());
 
-  assert.equal(graph.summary.needReviewCount, 1);
   assert.ok(graph.nodes.some((node) => node.type === "implementationBundle"));
   assert.ok(graph.nodes.some((node) => node.type === "sourceVariant"));
+  assert.equal(graph.nodes.some((node) => node.type === "needReviewItem"), false);
+  assert.equal(graph.nodes.some((node) => hasGovernanceStatusFields(node.data)), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(graph.summary, "needReviewCount"), false);
   assert.ok(graph.edges.some((edge) => edge.type === "bundle_to_atom_pattern"));
-  assert.ok(graph.edges.some((edge) => edge.type === "need_review_affects"));
 });
 
 test("function slot governance graph builder normalizes value-object ids and labels", () => {
@@ -401,7 +403,6 @@ test("function slot governance graph builder normalizes value-object ids and lab
     slotFamilies: [{
       id: { value: "FAM_value_object" },
       name: { value: "对象值 family" },
-      status: "reviewed",
       sourceVariantIds: [{ value: "sample_value::F001" }],
     }],
     slotArchetypes: [],
@@ -413,7 +414,6 @@ test("function slot governance graph builder normalizes value-object ids and lab
     recompositionPolicies: [],
     rulePatterns: [],
     implementationBundles: [],
-    needReviewMap: [{ variantId: { value: "sample_value::F001" }, affectedNodes: [{ value: "FAM_value_object" }] }],
     unmappedAtomVariants: [{ variantId: { value: "sample_value::A001" }, reason: "single_sample" }],
     unmappedBindingVariants: [],
     unmappedRuleVariants: [],
@@ -597,7 +597,6 @@ function buildGovernance() {
   return {
     schemaVersion: "function_slot_semantic_governance.v1",
     governanceId: "governance_test",
-    status: "candidate",
     coverage: {
       sampleCount: 4,
       slotVariantCount: 21,
@@ -605,23 +604,30 @@ function buildGovernance() {
       bindingCount: 33,
       ruleCount: 39,
       validationOk: true,
-      needReviewCount: 1,
     },
-    slotFamilies: [{ id: "FAM_attention", name: "attention", status: "reviewed", reviewStatus: "reviewed", maturityStatus: "candidate", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
-    slotArchetypes: [{ id: "ARCH_hook", familyId: "FAM_attention", name: "hook", status: "candidate", reviewStatus: "candidate", maturityStatus: "candidate", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
-    slotSubtypes: [{ id: "SUB_visible_hook", archetypeId: "ARCH_hook", name: "visible hook", status: "candidate", reviewStatus: "candidate", maturityStatus: "candidate", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
-    atomArchetypes: [{ id: "ATOM_ARCH_script", name: "script", atomLayer: "script", status: "reviewed", reviewStatus: "reviewed", maturityStatus: "candidate" }],
-    atomPatterns: [{ id: "SCRIPT_pattern_hook", name: "script hook", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", status: "reviewed", reviewStatus: "reviewed", maturityStatus: "candidate", forSlotSubtypeIds: ["SUB_visible_hook"], sourceVariantIds: ["sample_a::script::S001"], support: { variantCount: 1, sampleCount: 1 } }],
-    bindingPrinciples: [{ id: "PRINCIPLE_close", name: "close", status: "reviewed", sourcePatternIds: ["BIND_pattern_close"], reviewStatus: "reviewed", maturityStatus: "candidate" }],
-    bindingPatterns: [{ id: "BIND_pattern_close", name: "binding close", status: "reviewed", reviewStatus: "reviewed", maturityStatus: "candidate" }],
-    recompositionPolicies: [{ id: "POLICY_close", name: "policy close", status: "reviewed", sourceRulePatternIds: ["RULE_pattern_close"], reviewStatus: "reviewed", maturityStatus: "candidate" }],
-    rulePatterns: [{ id: "RULE_pattern_close", name: "rule close", status: "reviewed", reviewStatus: "reviewed", maturityStatus: "candidate" }],
-    implementationBundles: [{ id: "BUNDLE_hook", name: "bundle hook", status: "candidate", slotSubtypeIds: ["SUB_visible_hook"], scriptPatternIds: ["SCRIPT_pattern_hook"], rhythmPatternIds: [], packagingPatternIds: [], sourceVariantIds: ["sample_a::F001"], reviewStatus: "candidate", maturityStatus: "candidate" }],
-    needReviewMap: [{ variantId: "sample_a::F001", variantKind: "slot", affectedNodes: ["SUB_visible_hook"], reviewReason: "source_variant_marked_needReview" }],
+    slotFamilies: [{ id: "FAM_attention", name: "attention", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
+    slotArchetypes: [{ id: "ARCH_hook", familyId: "FAM_attention", name: "hook", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
+    slotSubtypes: [{ id: "SUB_visible_hook", archetypeId: "ARCH_hook", name: "visible hook", sourceVariantIds: ["sample_a::F001"], support: { variantCount: 1, sampleCount: 1 } }],
+    atomArchetypes: [{ id: "ATOM_ARCH_script", name: "script", atomLayer: "script" }],
+    atomPatterns: [{ id: "SCRIPT_pattern_hook", name: "script hook", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_visible_hook"], sourceVariantIds: ["sample_a::script::S001"], support: { variantCount: 1, sampleCount: 1 } }],
+    bindingPrinciples: [{ id: "PRINCIPLE_close", name: "close", sourcePatternIds: ["BIND_pattern_close"] }],
+    bindingPatterns: [{ id: "BIND_pattern_close", name: "binding close" }],
+    recompositionPolicies: [{ id: "POLICY_close", name: "policy close", sourceRulePatternIds: ["RULE_pattern_close"] }],
+    rulePatterns: [{ id: "RULE_pattern_close", name: "rule close" }],
+    implementationBundles: [{ id: "BUNDLE_hook", name: "bundle hook", slotSubtypeIds: ["SUB_visible_hook"], scriptPatternIds: ["SCRIPT_pattern_hook"], rhythmPatternIds: [], packagingPatternIds: [], sourceVariantIds: ["sample_a::F001"] }],
     unmappedAtomVariants: [{ variantId: "sample_a::script::S002", reason: "single_sample", suggestedAction: "keep" }],
     unmappedBindingVariants: [],
     unmappedRuleVariants: [],
   };
+}
+
+function hasGovernanceStatusFields(data) {
+  return Boolean(data && (
+    Object.prototype.hasOwnProperty.call(data, "status")
+    || Object.prototype.hasOwnProperty.call(data, "reviewStatus")
+    || Object.prototype.hasOwnProperty.call(data, "maturityStatus")
+    || Object.prototype.hasOwnProperty.call(data, "needReview")
+  ));
 }
 
 function buildAtom(prefix, slot, index) {

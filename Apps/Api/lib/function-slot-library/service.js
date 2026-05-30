@@ -161,13 +161,12 @@ function createFunctionSlotLibraryService({
         }
         return governance;
       },
-      outputSummary: (governance) => governance ? {
-        governanceId: governance.governanceId ?? null,
-        sampleCount: governance.coverage?.sampleCount ?? null,
-        slotVariantCount: governance.coverage?.slotVariantCount ?? null,
-        needReviewCount: governance.coverage?.needReviewCount ?? null,
-      } : { found: false },
-    });
+        outputSummary: (governance) => governance ? {
+          governanceId: governance.governanceId ?? null,
+          sampleCount: governance.coverage?.sampleCount ?? null,
+          slotVariantCount: governance.coverage?.slotVariantCount ?? null,
+        } : { found: false },
+      });
   }
 
   async function readLibraryArtifact(artifactId) {

@@ -80,52 +80,48 @@
 - templates：
 
 ## slotFamilies
-| family | reviewStatus | maturityStatus | support | 判断理由 | 风险 |
-|---|---|---|---:|---|---|
+| family | support | sourceVariantIds | 判断理由 | 风险 |
+|---|---:|---|---|---|
 
 ## slotArchetypes
-| archetype | family | primaryProofObligationClass | chainDependencyClass | excludes | reviewStatus | maturityStatus | sourceVariantIds | 判断理由 |
-|---|---|---|---|---|---|---|---|---|
+| archetype | family | primaryProofObligationClass | chainDependencyClass | excludes | sourceVariantIds | 判断理由 |
+|---|---|---|---|---|---|---|
 
 ## slotSubtypes
-| subtype | archetype | subtypeBoundary | reviewStatus | maturityStatus | sourceSlotTypes | sourceVariantIds | 判断理由 | 误分风险 |
-|---|---|---|---|---|---|---|---|---|
+| subtype | archetype | subtypeBoundary | sourceSlotTypes | sourceVariantIds | 判断理由 | 误分风险 |
+|---|---|---|---|---|---|---|
 
 ## atomArchetypes
-| archetype | layer | reviewStatus | maturityStatus | sourcePatternIds | sourceVariantIds | 判断理由 | 误分风险 |
-|---|---|---|---|---|---|---|---|
-
-## atomPatterns
-| pattern | layer | parentAtomArchetype | reviewStatus | maturityStatus | forSlotSubtypeIds | sourceVariantIds | 判断理由 |
-|---|---|---|---|---|---|---|---|
-
-## bindingPatterns
-| pattern | type | reviewStatus | maturityStatus | sourceVariantIds | 关系约束 | 风险 |
-|---|---|---|---|---|---|---|
-
-## bindingPrinciples
-| principle | reviewStatus | maturityStatus | sourcePatternIds | 判断理由 | 误分风险 |
+| archetype | layer | sourcePatternIds | sourceVariantIds | 判断理由 | 误分风险 |
 |---|---|---|---|---|---|
 
+## atomPatterns
+| pattern | layer | parentAtomArchetype | forSlotSubtypeIds | sourceVariantIds | 判断理由 |
+|---|---|---|---|---|---|
+
+## bindingPatterns
+| pattern | type | sourceVariantIds | 关系约束 | 风险 |
+|---|---|---|---|---|
+
+## bindingPrinciples
+| principle | sourcePatternIds | 判断理由 | 误分风险 |
+|---|---|---|---|
+
 ## rulePatterns
-| pattern | type | reviewStatus | maturityStatus | condition | requirement | violation | fix |
-|---|---|---|---|---|---|---|---|
+| pattern | type | condition | requirement | violation | fix |
+|---|---|---|---|---|---|
 
 ## recompositionPolicies
-| policy | reviewStatus | maturityStatus | policyScope | sourceRulePatternIds | policy | 风险 |
-|---|---|---|---|---|---|---|
+| policy | policyScope | sourceRulePatternIds | policy | 风险 |
+|---|---|---|---|---|
 
 ## implementationBundles
-| bundle | reviewStatus | maturityStatus | bundleType | useAs | notUseAs | sourceVariantIds | 风险 |
-|---|---|---|---|---|---|---|---|
+| bundle | bundleType | useAs | notUseAs | sourceVariantIds | 风险 |
+|---|---|---|---|---|---|
 
 ## observedChainPatterns
-| chain | reviewStatus | maturityStatus | sequence | useAs | notUseAs | sourceVariantIds | 风险 |
-|---|---|---|---|---|---|---|---|
-
-## needReviewMap
-| variantId | variantKind | affectedNodes | reviewReason |
-|---|---|---|---|
+| chain | sequence | useAs | notUseAs | sourceVariantIds | 风险 |
+|---|---|---|---|---|---|
 
 ## unmappedVariants
 | type | variantId | reason | suggestedAction |

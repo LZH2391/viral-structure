@@ -42,7 +42,6 @@ REQUIRED_LIST_FIELDS = [
     "recompositionPolicies",
     "implementationBundles",
     "observedChainPatterns",
-    "needReviewMap",
     "unmappedAtomVariants",
     "unmappedBindingVariants",
     "unmappedRuleVariants",
@@ -99,9 +98,6 @@ def build_source_snapshot(index: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def build_coverage(index: Dict[str, Any]) -> Dict[str, Any]:
     summary = index.get("summary") or {}
-    need_review_count = 0
-    for field in ["slotVariants", "atomVariants", "bindings", "rules"]:
-        need_review_count += sum(1 for item in index.get(field, []) if item.get("needReview"))
     return {
         "sampleCount": int(summary.get("sampleCount") or 0),
         "slotVariantCount": int(summary.get("slotVariantCount") or 0),
@@ -109,7 +105,6 @@ def build_coverage(index: Dict[str, Any]) -> Dict[str, Any]:
         "bindingCount": int(summary.get("bindingCount") or 0),
         "ruleCount": int(summary.get("ruleCount") or 0),
         "templateCount": int(summary.get("templateCount") or 0),
-        "needReviewCount": need_review_count,
         "slotTypeSupport": summary.get("slotTypeSupport") or {},
         "chainPatternSupport": summary.get("chainPatternSupport") or {},
     }
@@ -122,8 +117,6 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
     skeleton = {
         "schemaVersion": "function_slot_semantic_governance.v1",
         "governanceId": f"governance_skeleton_{governance_id}",
-        "reviewStatus": "candidate",
-        "maturityStatus": "candidate",
         "outputPath": repo_relative(output_path, root),
         "sourceRoot": "Artifacts/FunctionSlotLibrary",
         "sourceIndex": repo_relative(source_index, root),
@@ -141,7 +134,6 @@ def build_skeleton(root: Path, source_index: Path, output_path: Path) -> Dict[st
         "recompositionPolicies": [],
         "implementationBundles": [],
         "observedChainPatterns": [],
-        "needReviewMap": [],
         "unmappedAtomVariants": [],
         "unmappedBindingVariants": [],
         "unmappedRuleVariants": [],
@@ -157,14 +149,30 @@ def merge_existing(existing: Dict[str, Any], skeleton: Dict[str, Any]) -> Dict[s
     """Add missing skeleton fields while preserving human/agent governance content."""
     merged = dict(existing)
     merged.pop("chainPatterns", None)
-    for field in ["schemaVersion", "governanceId", "reviewStatus", "maturityStatus", "createdAt"]:
+    for field in ["status", "reviewStatus", "maturityStatus", "needReviewMap"]:
+        merged.pop(field, None)
+    for field in ["schemaVersion", "governanceId", "createdAt"]:
         merged.setdefault(field, skeleton[field])
     for field in ["outputPath", "sourceRoot", "sourceIndex", "sourceSnapshot", "coverage"]:
         merged[field] = skeleton[field]
     for field in REQUIRED_LIST_FIELDS:
         if not isinstance(merged.get(field), list):
             merged[field] = []
+        else:
+            merged[field] = strip_status_fields(merged[field])
     return merged
+
+
+def strip_status_fields(value: Any) -> Any:
+    if isinstance(value, list):
+        return [strip_status_fields(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: strip_status_fields(item)
+            for key, item in value.items()
+            if key not in {"status", "reviewStatus", "maturityStatus", "needReview"}
+        }
+    return value
 
 
 def parse_args() -> argparse.Namespace:

@@ -8,10 +8,6 @@ export type GraphFiltersState = {
   rule: boolean;
   bundle: boolean;
   unmapped: boolean;
-  needReview: boolean;
-  candidate: boolean;
-  reviewed: boolean;
-  stable: boolean;
 };
 
 export type GovernanceLayoutMode = "columns" | "force";

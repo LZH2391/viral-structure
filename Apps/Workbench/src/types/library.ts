@@ -94,7 +94,6 @@ export type FunctionSlotLibraryGraph = {
     ruleCount?: number;
     planCount?: number;
     sampleCount?: number;
-    needReviewCount?: number;
     unmappedAtomCount?: number;
     unmappedBindingCount?: number;
     unmappedRuleCount?: number;

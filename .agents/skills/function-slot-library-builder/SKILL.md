@@ -116,7 +116,6 @@ Runtime/Temp/FunctionSlotLibrary/semantic-governance.skeleton.json
 - `bindingPatterns / bindingPrinciples`
 - `rulePatterns / recompositionPolicies`
 - `implementationBundles`
-- `needReviewMap`
 - `unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants`
 - `observedChainPatterns`
 - `reviewItems / openQuestions`
@@ -184,7 +183,6 @@ python .agents/skills/function-slot-library-builder/scripts/validate_governance.
 - `slotArchetypes.primaryProofObligationClass / chainDependencyClass / excludes` 必须存在。
 - `slotSubtypes.subtypeBoundary` 必须声明只能表达实现差异，不能改变主证明义务或链路角色。
 - `forSlotSubtypeIds` 必须是数组且 ID 存在。
-- `needReviewMap` 必须覆盖全部 `needReview=true` 证据项。
 - 未覆盖的 atom / binding / rule 必须进入对应 `unmapped*Variants`。
 - `support.variantCount / sampleCount / sampleIds` 必须与 `sourceVariantIds` 一致。
 - `implementationBundles` 必须声明 `bundleType / useAs / notUseAs`。
@@ -218,12 +216,11 @@ python .agents/skills/function-slot-library-builder/scripts/validate_governance.
 9. `recompositionPolicies`
 10. `implementationBundles`
 11. `observedChainPatterns`
-12. `needReviewMap`
-13. `unmappedAtomVariants`
-14. `unmappedBindingVariants`
-15. `unmappedRuleVariants`
-16. `reviewItems`
-17. `openQuestions`
+12. `unmappedAtomVariants`
+13. `unmappedBindingVariants`
+14. `unmappedRuleVariants`
+15. `reviewItems`
+16. `openQuestions`
 
 ## 和重组 skill 的关系
 

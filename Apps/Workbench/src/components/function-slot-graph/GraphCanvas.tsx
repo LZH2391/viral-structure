@@ -390,24 +390,24 @@ function LibraryPreviewPopover({
 function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" }) {
   if (mode === "governance") {
     return (
-      <div className="slot-graph-legend">
-        <span><i className="legend-slot" />Slot governance</span>
-        <span><i className="legend-script" />Atom pattern</span>
-        <span><i className="legend-binding" />Binding</span>
-        <span><i className="legend-rule" />Rule / Policy</span>
-        <span><i className="legend-unmapped" />Unmapped / Review</span>
-      </div>
+        <div className="slot-graph-legend">
+          <span><i className="legend-slot" />Slot governance</span>
+          <span><i className="legend-script" />Atom pattern</span>
+          <span><i className="legend-binding" />Binding</span>
+          <span><i className="legend-rule" />Rule / Policy</span>
+          <span><i className="legend-unmapped" />Unmapped evidence</span>
+        </div>
     );
   }
   if (mode === "planTrace") {
     return (
       <div className="slot-graph-legend">
         <span><i className="legend-library" />Confirmed plan</span>
-        <span><i className="legend-slot" />Slot / section</span>
-        <span><i className="legend-script" />Script / atom</span>
-        <span><i className="legend-rhythm" />Rhythm</span>
-        <span><i className="legend-packaging" />Packaging</span>
-        <span><i className="legend-unmapped" />Source ref</span>
+        <span><i className="legend-slot" />Slot hierarchy</span>
+        <span><i className="legend-script" />Script layer / pattern</span>
+        <span><i className="legend-rhythm" />Rhythm layer / pattern</span>
+        <span><i className="legend-packaging" />Packaging layer / pattern</span>
+        <span><i className="legend-unmapped" />Source sample / variant</span>
       </div>
     );
   }
@@ -423,7 +423,7 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
 }
 
 function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
-  return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants / ${graph.summary.needReviewCount ?? 0} needReview`;
+  return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants`;
 }
 
 function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {

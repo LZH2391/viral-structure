@@ -9,11 +9,9 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
     return (
       <section className="slot-graph-card">
         <div className="section-heading">溯源筛选</div>
-        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slots / Scripts</label>
-        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atoms</label>
-        <label><input type="checkbox" checked={filters.rule} onChange={() => update("rule")} /> Rhythm</label>
-        <label><input type="checkbox" checked={filters.bundle} onChange={() => update("bundle")} /> Packaging</label>
-        <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Source refs</label>
+        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slot hierarchy</label>
+        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom patterns</label>
+        <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Source samples</label>
       </section>
     );
   }
@@ -27,11 +25,6 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
         <label><input type="checkbox" checked={filters.rule} onChange={() => update("rule")} /> Rule / Policy</label>
         <label><input type="checkbox" checked={filters.bundle} onChange={() => update("bundle")} /> Bundles</label>
         <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Unmapped</label>
-        <label><input type="checkbox" checked={filters.needReview} onChange={() => update("needReview")} /> Need Review</label>
-        <div className="slot-filter-divider" />
-        <label><input type="checkbox" checked={filters.candidate} onChange={() => update("candidate")} /> candidate</label>
-        <label><input type="checkbox" checked={filters.reviewed} onChange={() => update("reviewed")} /> reviewed</label>
-        <label><input type="checkbox" checked={filters.stable} onChange={() => update("stable")} /> stable</label>
       </section>
     );
   }

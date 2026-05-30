@@ -54,7 +54,7 @@ test("display overlay materializes display json, index, and multi-plan trace gra
   const traceGraph = await service.readConfirmedPlanTraceGraph();
   assert.equal(traceGraph.schemaVersion, "confirmed_plan_trace_graph.v1");
   assert.equal(traceGraph.summary.planCount, 2);
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceReference" && node.data.governanceNodeId === "slotSubtype:SUB_scene_problem_activation"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceReference"), false);
   assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "plan-a", "restructure.display.json")));
   assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json")));
   assert.ok(logs.some((entry) => entry.event === "stage.end"));
@@ -127,6 +127,7 @@ test("display overlay materializes display transformer section schema", async ()
   assert.equal(traceGraph.summary.planCount, 1);
   assert.ok(traceGraph.nodes.some((node) => node.data.sourceRestructurePath === "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md"));
   assert.ok(traceGraph.nodes.some((node) => node.data.governanceNodeId === "slotSubtype:SUB_spray_pump_entry"));
+  assert.equal(traceGraph.nodes.some((node) => node.label === "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.display.json"), false);
 });
 
 test("display overlay lazily rebuilds trace graph from existing confirmed plan index", async () => {
@@ -156,6 +157,71 @@ test("display overlay lazily rebuilds trace graph from existing confirmed plan i
   assert.equal(rebuilt.summary.planCount, 1);
   assert.ok(rebuilt.nodes.some((node) => node.type === "confirmedPlan" && node.data.planId === "existing-plan"));
   assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json")));
+});
+
+test("display overlay traces confirmed plan slots to source samples and variants", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-source-trace-"));
+  await fs.mkdir(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance"), { recursive: true });
+  await fs.writeFile(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), JSON.stringify({
+    slotFamilies: [{
+      id: "FAM_attention",
+      name: "观看理由类",
+    }],
+    slotArchetypes: [{
+      id: "ARCH_problem_activation",
+      familyId: "FAM_attention",
+      name: "问题激活原型",
+    }],
+    slotSubtypes: [{
+      id: "SUB_scene_problem_activation",
+      archetypeId: "ARCH_problem_activation",
+      name: "场景问题激活",
+      sourceVariantIds: ["sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"],
+    }],
+    atomPatterns: [{
+      id: "SCRIPT_pattern_problem_to_need",
+      name: "可见问题建立需求脚本模式",
+      atomLayer: "script",
+      sourceVariantIds: ["sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001"],
+    }],
+  }, null, 2), "utf8");
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+    },
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+  const displayJson = {
+    ...validDisplayJson("SUB_scene_problem_activation"),
+    atoms: [
+      { id: "source aliases", name: "来源短码：`A=sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7`。" },
+      {
+        value: "A::F001",
+        scriptAtom: "A::script::S001`：问题对象直冲与执行动作入口",
+      },
+    ],
+  };
+  const result = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(displayJson),
+    restructureFinalPath: "Artifacts/FunctionSlotRestructure/plan-source/restructure.final.md",
+    sourceTurnId: "turn_source",
+    parentArtifactId: "parent_source",
+    traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+  });
+  assert.equal(result.ok, true);
+
+  const traceGraph = await service.readConfirmedPlanTraceGraph();
+
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceExample" && node.data.sampleId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "slotFamily" && node.label === "观看理由类"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "slotArchetype" && node.label === "问题激活原型"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "slotSubtype" && node.label === "场景问题激活"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "atomLayer" && node.label === "脚本层"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "atomPattern" && node.label === "可见问题建立需求脚本模式"));
+  assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
 });
 
 function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {

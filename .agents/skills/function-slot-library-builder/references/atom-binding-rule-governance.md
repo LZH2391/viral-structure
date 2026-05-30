@@ -79,7 +79,7 @@ binding 是组合约束，回答“哪些层必须同步、承接、要求、替
 
 不要按 `rule` 文本相似归并。文本只是阅读线索，真正判断看约束关系和风险。
 
-未能归并为 binding pattern 的原始 binding 必须进入 `unmappedBindingVariants`。`support` 型 binding 不要并入 `require`，若有同类辅助证据关系，可以单独形成 candidate support pattern。
+未能归并为 binding pattern 的原始 binding 必须进入 `unmappedBindingVariants`。`support` 型 binding 不要并入 `require`，若有同类辅助证据关系，可以单独形成 support pattern proposal。
 
 ## Rule 治理
 

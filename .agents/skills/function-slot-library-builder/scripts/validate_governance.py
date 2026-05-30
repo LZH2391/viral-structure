@@ -314,30 +314,6 @@ def validate_support_counts(governance: Dict[str, Any], issues: List[Dict[str, A
             add_issue(issues, "error", "support_sample_ids_mismatch", f"{field} {item.get('id')} support.sampleIds does not match sourceVariantIds")
 
 
-def validate_status_fields(governance: Dict[str, Any], issues: List[Dict[str, Any]]) -> None:
-    for field, item in all_nodes(governance):
-        if not item.get("reviewStatus"):
-            add_issue(issues, "error", "missing_review_status", f"{field} {item.get('id')} has no reviewStatus")
-        if not item.get("maturityStatus"):
-            add_issue(issues, "error", "missing_maturity_status", f"{field} {item.get('id')} has no maturityStatus")
-
-
-def validate_need_review_map(governance: Dict[str, Any], source_index: Optional[Dict[str, Any]], issues: List[Dict[str, Any]]) -> None:
-    if not source_index:
-        return
-    expected = evidence_sets(source_index)["needReview"]
-    actual = {str(item.get("variantId")) for item in as_list(governance.get("needReviewMap"))}
-    missing = expected - actual
-    extra = actual - expected
-    if missing:
-        add_issue(issues, "error", "need_review_map_missing", f"needReviewMap missing variants: {describe_missing(missing)}")
-    if extra:
-        add_issue(issues, "error", "need_review_map_extra", f"needReviewMap contains non-needReview variants: {describe_missing(extra)}")
-    coverage = governance.get("coverage") or {}
-    if coverage.get("needReviewCount") != len(expected):
-        add_issue(issues, "error", "need_review_count_mismatch", f"coverage.needReviewCount={coverage.get('needReviewCount')} expected {len(expected)}")
-
-
 def validate_unmapped_coverage(governance: Dict[str, Any], source_index: Optional[Dict[str, Any]], issues: List[Dict[str, Any]]) -> None:
     if not source_index:
         return
@@ -372,8 +348,6 @@ def validate_governance(governance: Dict[str, Any], source_index: Optional[Dict[
     validate_pattern_references(governance, issues)
     validate_observed_chains(governance, issues)
     validate_support_counts(governance, issues)
-    validate_status_fields(governance, issues)
-    validate_need_review_map(governance, source_index, issues)
     validate_unmapped_coverage(governance, source_index, issues)
     return issues
 

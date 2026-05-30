@@ -16,8 +16,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 {
   "schemaVersion": "function_slot_semantic_governance.v1",
   "governanceId": "governance_...",
-  "reviewStatus": "candidate | reviewed",
-  "maturityStatus": "candidate | stable",
   "outputPath": "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
   "sourceRoot": "Artifacts/FunctionSlotLibrary",
   "sourceIndex": "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
@@ -35,7 +33,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "recompositionPolicies": [],
   "implementationBundles": [],
   "observedChainPatterns": [],
-  "needReviewMap": [],
   "unmappedAtomVariants": [],
   "unmappedBindingVariants": [],
   "unmappedRuleVariants": [],
@@ -76,8 +73,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 {
   "id": "...",
   "name": "...",
-  "reviewStatus": "candidate | reviewed",
-  "maturityStatus": "candidate | stable",
   "sourceVariantIds": [],
   "support": {
     "variantCount": 0,
@@ -92,7 +87,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 `sourceVariantIds` 必须指向 `slot_index.json` 中的真实 variant。不能只写 slotType 名称。
 
-`status` 只作为 legacy 可选字段兼容旧治理文件；新示例和新产物以 `reviewStatus` 和 `maturityStatus` 为准。当前样例量少时，已审查项也应保持 `maturityStatus: "candidate"`，不要把人审通过误写成稳定原型。
+新治理产物不写 `status / reviewStatus / maturityStatus / needReviewMap`。证据不足、边界不清或需要人工讨论的问题放入 `reviewItems / openQuestions`；不要把审核状态或成熟度状态塞回治理节点。
 
 ## Slot Family
 
@@ -100,8 +95,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 {
   "id": "FAM_demand_activation",
   "name": "需求激活类",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "coreViewerTransition": "no_need_or_context -> problem_or_need_accepted",
   "sourceVariantIds": [],
   "support": {},
@@ -118,8 +111,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "id": "ARCH_object_problem_action_activation",
   "familyId": "FAM_demand_activation",
   "name": "对象问题直冲动作激活原型",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "viewerStateBeforeClass": "...",
   "viewerStateAfterClass": "...",
   "primaryProofObligationClass": "visible_problem_object_plus_direct_solution_action",
@@ -145,8 +136,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "id": "SUB_object_problem_activation",
   "archetypeId": "ARCH_object_problem_action_activation",
   "name": "对象直冲型痛点激活",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "sourceSlotTypes": [],
   "viewerTransition": "...",
   "proofObligation": [],
@@ -170,8 +159,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "id": "ATOM_ARCH_script_demand_establishment",
   "name": "需求与观看理由建立脚本原型",
   "atomLayer": "script | rhythm | packaging",
-  "reviewStatus": "candidate | reviewed",
-  "maturityStatus": "candidate | stable",
   "sourcePatternIds": [],
   "sourceVariantIds": [],
   "support": {},
@@ -191,8 +178,6 @@ Atom archetype 是 atom pattern 的父层，用来表达同一 atom layer 内更
   "atomLayer": "script",
   "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
   "forSlotSubtypeIds": ["SUB_object_problem_activation"],
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "claimPattern": "...",
   "proofNeedClass": "...",
   "mustKeepClasses": [],
@@ -214,8 +199,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "BIND_activation_to_result_carryover",
   "bindingType": "carryover",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "condition": "...",
   "requirement": "...",
   "riskIfBroken": "...",
@@ -233,8 +216,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "PRINCIPLE_activated_concern_closure",
   "name": "激活关切必须闭合原则",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "sourcePatternIds": [],
   "judgementReason": "...",
   "riskIfMisclassified": "..."
@@ -247,8 +228,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "RULE_activated_concern_must_be_resolved",
   "ruleType": "carryover_policy",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "condition": "...",
   "requirement": "...",
   "violation": "...",
@@ -267,8 +246,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "POLICY_concern_thread_closure",
   "name": "关切线闭合政策",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "policyScope": "composition_safety",
   "sourceRulePatternIds": [],
   "policy": "...",
@@ -284,8 +261,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "OBS_CHAIN_001",
   "name": "观察链路 001",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "chainKey": "slot_a > slot_b",
   "sequence": [],
   "sourceVariantIds": [],
@@ -305,8 +280,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
 {
   "id": "BUNDLE_...",
   "name": "...",
-  "reviewStatus": "reviewed",
-  "maturityStatus": "candidate",
   "bundleType": "observed_chain_bundle",
   "useAs": "retrieval_prior_only",
   "notUseAs": "fixed_template",
@@ -320,19 +293,6 @@ For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormCl
   "riskIfMisclassified": "..."
 }
 ```
-
-## Need Review Map
-
-```json
-{
-  "variantId": "sample_...::...",
-  "variantKind": "slot | atom | binding | rule",
-  "affectedNodes": [],
-  "reviewReason": "source_variant_marked_needReview"
-}
-```
-
-`needReviewMap` 必须覆盖 `slot_index.json` 中所有 `needReview=true` 的 variant。
 
 ## Unmapped Variants
 

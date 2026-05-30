@@ -6,6 +6,8 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v5";
+const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
 
@@ -125,8 +127,8 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
   async function readConfirmedPlanTraceGraph() {
     const traceGraphPath = path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH);
     const traceGraph = await readJsonIfExists(traceGraphPath);
-    if (traceGraph) return traceGraph;
     const index = await readJsonIfExists(path.join(rootDir, INDEX_RELATIVE_PATH));
+    if (traceGraph?.projectionVersion === TRACE_GRAPH_PROJECTION_VERSION) return traceGraph;
     if (index?.plans?.length) return buildAndWriteTraceGraph(index);
     return emptyTraceGraph();
   }
@@ -194,16 +196,19 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     const nodes = [];
     const edges = [];
     const plans = Array.isArray(index.plans) ? index.plans : [];
+    const governance = await readJsonIfExists(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
+    const sourceIndex = buildGovernanceSourceIndex(governance);
     for (let indexPosition = 0; indexPosition < plans.length; indexPosition += 1) {
       const plan = plans[indexPosition];
       const fullDisplayPath = path.resolve(rootDir, plan.displayJsonPath);
       const stored = await readJsonIfExists(fullDisplayPath);
       if (!stored?.display) continue;
       const color = PLAN_COLORS[indexPosition % PLAN_COLORS.length];
-      projectDisplayToTraceGraph({ nodes, edges, plan, display: stored.display, color });
+      projectDisplayToTraceGraph({ nodes, edges, plan, display: stored.display, color, sourceIndex });
     }
     const graph = {
       schemaVersion: "confirmed_plan_trace_graph.v1",
+      projectionVersion: TRACE_GRAPH_PROJECTION_VERSION,
       artifactId: "confirmed-plan-trace",
       governanceId: null,
       sampleVideoId: null,
@@ -214,21 +219,23 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
       summary: {
         planCount: nodes.filter((node) => node.type === "confirmedPlan").length,
         slotCount: nodes.filter((node) => node.type === "tracedSlot").length,
-        atomCount: nodes.filter((node) => node.type === "tracedAtom").length,
+        atomCount: nodes.filter((node) => node.type === "atomPattern").length,
         bindingCount: 0,
         ruleCount: 0,
-        conceptCount: nodes.filter((node) => node.type === "sourceReference").length,
-        scriptSegmentCount: nodes.filter((node) => node.type === "tracedScript").length,
-        rhythmSectionCount: nodes.filter((node) => node.type === "tracedRhythm").length,
-        packagingBlockCount: nodes.filter((node) => node.type === "tracedPackaging").length,
+        conceptCount: nodes.filter((node) => node.type === "sourceExample" || node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype").length,
+        scriptSegmentCount: 0,
+        rhythmSectionCount: 0,
+        packagingBlockCount: 0,
       },
     };
     await writeJson(path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH), graph);
     return graph;
   }
 
-  function projectDisplayToTraceGraph({ nodes, edges, plan, display, color }) {
+  function projectDisplayToTraceGraph({ nodes, edges, plan, display, color, sourceIndex }) {
     const planRootId = traceId(plan.planId, "plan");
+    const aliasMap = extractSourceAliasMap(display);
+    const atomSourceRows = extractAtomSourceRows(display, aliasMap);
     pushGraphNode(nodes, {
       id: planRootId,
       type: "confirmedPlan",
@@ -245,12 +252,12 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
         evidence: pickPlanSummary(display),
       },
     });
-    pushSourceReference(nodes, edges, plan.planId, planRootId, "restructure", plan.sourceRestructurePath, "source_restructure_path", { path: plan.sourceRestructurePath ?? null });
-    pushSourceReference(nodes, edges, plan.planId, planRootId, "display", plan.displayJsonPath, "source_display_json", { path: plan.displayJsonPath ?? null });
 
-    for (const slot of asArray(display.slotChain)) {
+    for (let slotIndex = 0; slotIndex < asArray(display.slotChain).length; slotIndex += 1) {
+      const slot = asArray(display.slotChain)[slotIndex];
       const slotId = firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id);
-      const archetypeId = firstText(slot.slotArchetype, slot.slotArchetypeId, slot.archetypeId);
+      const archetypeId = firstText(slot.slotArchetype, slot.slotArchetypeId, slot.archetypeId, sourceIndex.get(`${slotId}::archetypeId`));
+      const familyId = firstText(sourceIndex.get(`${slotId}::familyId`), sourceIndex.get(`${archetypeId}::familyId`));
       const node = traceId(plan.planId, "slot", slotId ?? stableLabel(slot));
       pushGraphNode(nodes, {
         id: node,
@@ -261,59 +268,31 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
           planId: plan.planId,
           color,
           governanceNodeId: slotId ? `slotSubtype:${sanitizeGraphId(slotId)}` : null,
+          familyGovernanceNodeId: familyId ? `slotFamily:${sanitizeGraphId(familyId)}` : null,
           archetypeGovernanceNodeId: archetypeId ? `slotArchetype:${sanitizeGraphId(archetypeId)}` : null,
+          slotHierarchy: {
+            family: familyId,
+            archetype: archetypeId,
+            subtype: slotId,
+          },
           evidence: stripReviewFields(slot),
         },
       });
       pushGraphEdge(edges, plan.planId, planRootId, node, "plan_uses_slot", "uses slot");
-      pushSourceReference(nodes, edges, plan.planId, node, "governance", slotId ? `slotSubtype:${slotId}` : null, "traced_to_governance_ref", { governanceNodeId: slotId ? `slotSubtype:${sanitizeGraphId(slotId)}` : null });
-      pushSourceReference(nodes, edges, plan.planId, node, "governance", archetypeId ? `slotArchetype:${archetypeId}` : null, "traced_to_governance_ref", { governanceNodeId: archetypeId ? `slotArchetype:${sanitizeGraphId(archetypeId)}` : null });
-    }
-    projectSections({ nodes, edges, plan, display, color, key: "scriptSegments", type: "tracedScript", group: "script", edgeType: "slot_to_script" });
-    projectSections({ nodes, edges, plan, display, color, key: "rhythmCurve", type: "tracedRhythm", group: "rhythm", edgeType: "slot_to_rhythm" });
-    projectSections({ nodes, edges, plan, display, color, key: "packagingProof", type: "tracedPackaging", group: "packaging", edgeType: "slot_to_packaging" });
-    for (const atom of asArray(display.atoms)) {
-      const atomId = firstText(atom.atomId, atom.id, atom.patternId);
-      const atomLayer = firstText(atom.atomLayer, atom.layer, atom.type);
-      const node = traceId(plan.planId, "atom", atomId ?? stableLabel(atom));
-      pushGraphNode(nodes, {
-        id: node,
-        type: "tracedAtom",
-        label: firstText(atom.name, atom.label, atomId, "atom"),
-        group: groupForAtomLayer(atomLayer),
-        data: {
-          planId: plan.planId,
-          color,
-          governanceNodeId: atomId ? `atomPattern:${sanitizeGraphId(atomId)}` : null,
-          evidence: stripReviewFields(atom),
-        },
-      });
-      const slotRef = firstText(atom.slotSubtype, atom.slotSubtypeId, atom.slotId);
-      if (slotRef) pushGraphEdge(edges, plan.planId, traceId(plan.planId, "slot", slotRef), node, `slot_to_${atomLayer || "atom"}`, atomLayer || "atom");
-      else pushGraphEdge(edges, plan.planId, planRootId, node, "plan_uses_atom", "uses atom");
-      pushSourceReference(nodes, edges, plan.planId, node, "governance", atomId ? `atomPattern:${atomId}` : null, "traced_to_governance_ref", { governanceNodeId: atomId ? `atomPattern:${sanitizeGraphId(atomId)}` : null });
-    }
-  }
-
-  function projectSections({ nodes, edges, plan, display, color, key, type, group, edgeType }) {
-    for (const section of asArray(display[key])) {
-      const sectionId = firstText(section.id, section.segmentId, section.sectionId, section.blockId, section.name, section.title);
-      const node = traceId(plan.planId, key, sectionId ?? stableLabel(section));
-      pushGraphNode(nodes, {
-        id: node,
-        type,
-        label: firstText(section.name, section.title, section.label, sectionId, key),
-        group,
-        data: {
-          planId: plan.planId,
-          color,
-          governanceNodeId: null,
-          evidence: stripReviewFields(section),
-        },
-      });
-      const slotRef = firstText(section.slotSubtype, section.slotSubtypeId, section.slotId);
-      if (slotRef) pushGraphEdge(edges, plan.planId, traceId(plan.planId, "slot", slotRef), node, edgeType, edgeType);
-      else pushGraphEdge(edges, plan.planId, traceId(plan.planId, "plan"), node, `plan_to_${key}`, key);
+      pushSlotGovernanceHierarchy(nodes, edges, plan.planId, node, { familyId, archetypeId, subtypeId: slotId, sourceIndex });
+      const explicitSourceVariantIds = uniqueStrings(atomSourceRows[slotIndex]?.slotVariantIds ?? []);
+      const fallbackSourceVariantIds = uniqueStrings([
+        ...asArray(sourceIndex.get(slotId)),
+        ...asArray(sourceIndex.get(archetypeId)),
+      ]);
+      const sourceVariantIds = explicitSourceVariantIds.length ? explicitSourceVariantIds : fallbackSourceVariantIds;
+      for (const variantId of sourceVariantIds) {
+        pushSourceVariantTrace(nodes, edges, plan.planId, node, variantId, aliasMap);
+      }
+      for (const atomVariantId of uniqueStrings(atomSourceRows[slotIndex]?.atomVariantIds ?? [])) {
+        const atomNode = pushAtomTrace(nodes, edges, plan.planId, node, atomVariantId, aliasMap, sourceIndex);
+        if (atomNode) pushSourceVariantTrace(nodes, edges, plan.planId, atomNode, atomVariantId, aliasMap);
+      }
     }
   }
 
@@ -383,6 +362,15 @@ function pushGraphNode(nodes, node) {
   nodes.push(node);
 }
 
+function upsertGraphNode(nodes, node, merge) {
+  const index = nodes.findIndex((existing) => existing.id === node.id);
+  if (index < 0) {
+    nodes.push(node);
+    return;
+  }
+  nodes[index] = merge(nodes[index]);
+}
+
 function pushGraphEdge(edges, planId, source, target, type, label = null) {
   if (!source || !target || source === target) return;
   edges.push({
@@ -394,27 +382,152 @@ function pushGraphEdge(edges, planId, source, target, type, label = null) {
   });
 }
 
-function pushSourceReference(nodes, edges, planId, ownerId, sourceKind, label, edgeType, data = {}) {
-  const sourceLabel = firstText(label);
-  if (!sourceLabel) return;
-  const nodeId = traceId(planId, "source", sourceKind, sourceLabel);
+function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex) {
+  const parsed = parseVariantId(atomVariantId);
+  if (!parsed.sampleId || !parsed.variantKey) return null;
+  const layerNodeId = traceId(planId, "atomLayer", parsed.variantKind);
+  const atomPatternIds = uniqueStrings(sourceIndex.get(atomVariantId) ?? []);
   pushGraphNode(nodes, {
-    id: nodeId,
-    type: "sourceReference",
-    label: sourceLabel,
-    group: "sourceVariant",
+    id: layerNodeId,
+    type: "atomLayer",
+    label: layerDisplayName(parsed.variantKind),
+    group: atomGroup(parsed.variantKey),
     data: {
       planId,
-      sourceKind,
-      ...data,
+      layer: parsed.variantKind,
     },
   });
-  pushGraphEdge(edges, planId, ownerId, nodeId, edgeType, sourceKind);
+  pushGraphEdge(edges, planId, slotNodeId, layerNodeId, "slot_uses_atom_layer", parsed.variantKind ?? "atom layer");
+  if (!atomPatternIds.length) {
+    pushSourceVariantTrace(nodes, edges, planId, layerNodeId, atomVariantId, aliasMap);
+    return layerNodeId;
+  }
+  for (const patternId of atomPatternIds) {
+    const patternNodeId = traceId(planId, "atomPattern", patternId);
+    pushGraphNode(nodes, {
+      id: patternNodeId,
+      type: "atomPattern",
+      label: governanceName(sourceIndex, patternId, patternId),
+      group: atomGroup(parsed.variantKey),
+      data: {
+        planId,
+        governanceId: patternId,
+        layer: parsed.variantKind,
+        sourceVariantIds: sourceIndex.get(patternId) ?? [],
+      },
+    });
+    pushGraphEdge(edges, planId, layerNodeId, patternNodeId, "atom_layer_to_pattern", "pattern");
+    pushSourceVariantTrace(nodes, edges, planId, patternNodeId, atomVariantId, aliasMap);
+  }
+  return layerNodeId;
+}
+
+function pushSlotGovernanceHierarchy(nodes, edges, planId, slotNodeId, { familyId, archetypeId, subtypeId, sourceIndex }) {
+  const firstSemanticNode = familyId ? traceId(planId, "slotFamily", familyId) : archetypeId ? traceId(planId, "slotArchetype", archetypeId) : subtypeId ? traceId(planId, "slotSubtype", subtypeId) : null;
+  if (familyId) {
+    pushGraphNode(nodes, {
+      id: traceId(planId, "slotFamily", familyId),
+      type: "slotFamily",
+      label: governanceName(sourceIndex, familyId, familyId),
+      group: "slot",
+      data: governanceNodeData(sourceIndex, planId, familyId, "family"),
+    });
+  }
+  if (archetypeId) {
+    pushGraphNode(nodes, {
+      id: traceId(planId, "slotArchetype", archetypeId),
+      type: "slotArchetype",
+      label: governanceName(sourceIndex, archetypeId, archetypeId),
+      group: "slot",
+      data: governanceNodeData(sourceIndex, planId, archetypeId, "archetype"),
+    });
+  }
+  if (subtypeId) {
+    pushGraphNode(nodes, {
+      id: traceId(planId, "slotSubtype", subtypeId),
+      type: "slotSubtype",
+      label: governanceName(sourceIndex, subtypeId, subtypeId),
+      group: "slot",
+      data: governanceNodeData(sourceIndex, planId, subtypeId, "subtype"),
+    });
+  }
+  if (firstSemanticNode) pushGraphEdge(edges, planId, slotNodeId, firstSemanticNode, "slot_traced_to_semantic", "semantic");
+  if (familyId && archetypeId) pushGraphEdge(edges, planId, traceId(planId, "slotFamily", familyId), traceId(planId, "slotArchetype", archetypeId), "slot_family_to_archetype", "archetype");
+  if (archetypeId && subtypeId) pushGraphEdge(edges, planId, traceId(planId, "slotArchetype", archetypeId), traceId(planId, "slotSubtype", subtypeId), "slot_archetype_to_subtype", "subtype");
+}
+
+function governanceNodeData(sourceIndex, planId, governanceId, semanticLevel) {
+  const item = sourceIndex.get(`${governanceId}::item`) ?? {};
+  return {
+    planId,
+    governanceId,
+    semanticLevel,
+    name: governanceName(sourceIndex, governanceId, governanceId),
+    sourceVariantIds: sourceIndex.get(governanceId) ?? [],
+    familyId: firstText(item.familyId),
+    archetypeId: firstText(item.archetypeId),
+  };
+}
+
+function pushLegacyAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex) {
+  const parsed = parseVariantId(atomVariantId);
+  if (!parsed.sampleId || !parsed.variantKey) return null;
+  const atomNodeId = traceId(planId, "atom", atomVariantId);
+  const atomPatternIds = uniqueStrings(sourceIndex.get(atomVariantId) ?? []);
+  pushGraphNode(nodes, {
+    id: atomNodeId,
+    type: "tracedAtom",
+    label: variantDisplayLabel(aliasMap, atomVariantId),
+    group: atomGroup(parsed.variantKey),
+    data: {
+      planId,
+      sampleId: parsed.sampleId,
+      sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
+      variantId: atomVariantId,
+      layer: parsed.variantKind,
+      patternIds: atomPatternIds,
+      atomHierarchy: {
+        variant: atomVariantId,
+        patterns: atomPatternIds,
+      },
+      governanceNodeId: atomPatternIds[0] ? `atomPattern:${sanitizeGraphId(atomPatternIds[0])}` : null,
+    },
+  });
+  pushGraphEdge(edges, planId, slotNodeId, atomNodeId, "slot_uses_atom", parsed.variantKind ?? "atom");
+  return atomNodeId;
+}
+
+function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasMap) {
+  const parsed = parseVariantId(variantId);
+  if (!parsed.sampleId) return;
+  const sampleLabel = aliasForSample(aliasMap, parsed.sampleId) ?? shortSampleLabel(parsed.sampleId);
+  const sampleNodeId = traceId(planId, "sample", parsed.sampleId);
+  upsertGraphNode(nodes, {
+    id: sampleNodeId,
+    type: "sourceExample",
+    label: sampleLabel,
+    group: "sourceExample",
+    data: {
+      planId,
+      sampleVideoId: parsed.sampleId,
+      sampleId: parsed.sampleId,
+      sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
+      sourceVariantIds: [variantId],
+    },
+  }, (existing) => ({
+    ...existing,
+    data: {
+      ...existing.data,
+      sourceVariantIds: uniqueStrings([...(asArray(existing.data?.sourceVariantIds)), variantId]),
+    },
+  }));
+  pushGraphEdge(edges, planId, ownerId, sampleNodeId, "traced_to_source_sample", parsed.variantKind ? `${parsed.variantKind} source` : "source sample");
 }
 
 function emptyTraceGraph() {
   return {
     schemaVersion: "confirmed_plan_trace_graph.v1",
+    projectionVersion: TRACE_GRAPH_PROJECTION_VERSION,
     artifactId: "confirmed-plan-trace",
     governanceId: null,
     sampleVideoId: null,
@@ -472,6 +585,124 @@ function firstText(...values) {
   return null;
 }
 
+function buildGovernanceSourceIndex(governance) {
+  const index = new Map();
+  if (!governance || typeof governance !== "object") return index;
+  for (const collectionName of ["slotFamilies", "slotArchetypes", "slotSubtypes", "atomArchetypes", "atomPatterns", "bindingPrinciples", "bindingPatterns", "rulePatterns", "recompositionPolicies", "implementationBundles", "templates"]) {
+    for (const item of asArray(governance[collectionName])) {
+      const id = firstText(item.id, item.governanceId, item.patternId);
+      if (!id) continue;
+      index.set(`${id}::item`, item);
+      index.set(`${id}::name`, firstText(item.name, item.label, id));
+      const variants = normalizeTextArray(item.sourceVariantIds);
+      if (variants.length) index.set(id, variants);
+      for (const variantId of variants) {
+        const current = asArray(index.get(variantId));
+        if (!current.includes(id)) index.set(variantId, [...current, id]);
+      }
+    }
+  }
+  for (const archetype of asArray(governance.slotArchetypes)) {
+    const archetypeId = firstText(archetype.id, archetype.governanceId);
+    const familyId = firstText(archetype.familyId);
+    if (archetypeId && familyId) index.set(`${archetypeId}::familyId`, familyId);
+  }
+  for (const subtype of asArray(governance.slotSubtypes)) {
+    const subtypeId = firstText(subtype.id, subtype.governanceId);
+    const archetypeId = firstText(subtype.archetypeId);
+    const familyId = archetypeId ? index.get(`${archetypeId}::familyId`) : null;
+    if (subtypeId && archetypeId) index.set(`${subtypeId}::archetypeId`, archetypeId);
+    if (subtypeId && familyId) index.set(`${subtypeId}::familyId`, familyId);
+  }
+  return index;
+}
+
+function governanceName(sourceIndex, governanceId, fallback) {
+  return firstText(sourceIndex.get(`${governanceId}::name`), fallback);
+}
+
+function layerDisplayName(layer) {
+  if (layer === "script") return "脚本层";
+  if (layer === "rhythm") return "节奏层";
+  if (layer === "packaging") return "包装层";
+  return firstText(layer, "Atom Layer");
+}
+
+function extractSourceAliasMap(display) {
+  const map = new Map();
+  const text = JSON.stringify(display ?? {});
+  const regex = /([A-Z])\s*=\s*(sample_[A-Za-z0-9-]+)/g;
+  for (const match of text.matchAll(regex)) map.set(match[1], match[2]);
+  return map;
+}
+
+function extractAtomSourceRows(display, aliasMap) {
+  const rows = [];
+  for (const atom of asArray(display?.atoms)) {
+    const direct = firstText(atom.value, atom.atomId, atom.id);
+    if (!direct || !/^[A-Z]::F\d+/i.test(direct)) continue;
+    const slotVariantIds = [expandAliasVariant(direct, aliasMap)].filter(Boolean);
+    const atomVariantIds = [];
+    for (const value of Object.values(atom)) {
+      const text = firstText(value);
+      if (!text) continue;
+      for (const match of text.matchAll(/([A-Z])::(script|rhythm|packaging)::([A-Za-z0-9_-]+)/g)) {
+        const sampleId = aliasMap.get(match[1]);
+        if (sampleId) atomVariantIds.push(`${sampleId}::${match[2]}::${match[3]}`);
+      }
+    }
+    rows.push({ slotVariantIds, atomVariantIds });
+  }
+  return rows;
+}
+
+function expandAliasVariant(value, aliasMap) {
+  const match = String(value ?? "").trim().match(/^([A-Z])::(.+)$/);
+  if (!match) return null;
+  const sampleId = aliasMap.get(match[1]);
+  return sampleId ? `${sampleId}::${match[2]}` : null;
+}
+
+function parseVariantId(variantId) {
+  const parts = String(variantId ?? "").split("::");
+  return {
+    sampleId: parts[0]?.startsWith("sample_") ? parts[0] : null,
+    variantKind: parts.length > 2 ? parts[1] : "slot",
+    variantKey: parts.slice(1).join("::"),
+  };
+}
+
+function aliasForSample(aliasMap, sampleId) {
+  for (const [alias, id] of aliasMap.entries()) {
+    if (id === sampleId) return alias;
+  }
+  return null;
+}
+
+function shortSampleLabel(sampleId) {
+  return String(sampleId ?? "").replace(/^sample_/, "sample ").slice(0, 18);
+}
+
+function variantDisplayLabel(aliasMap, variantId) {
+  const parsed = parseVariantId(variantId);
+  const alias = parsed.sampleId ? aliasForSample(aliasMap, parsed.sampleId) : null;
+  return alias && parsed.variantKey ? `${alias}::${parsed.variantKey}` : String(variantId ?? "");
+}
+
+function normalizeTextArray(value) {
+  return asArray(value).map((item) => firstText(item)).filter(Boolean);
+}
+
+function uniqueStrings(values) {
+  return Array.from(new Set(asArray(values).map((value) => firstText(value)).filter(Boolean)));
+}
+
+function atomGroup(variantKey) {
+  if (String(variantKey).startsWith("rhythm::")) return "rhythm";
+  if (String(variantKey).startsWith("packaging::")) return "packaging";
+  return "script";
+}
+
 function stableLabel(value) {
   try {
     return JSON.stringify(value).slice(0, 48);
@@ -490,13 +721,6 @@ function sanitizeGraphId(value) {
 
 function traceId(...parts) {
   return parts.map((part) => sanitizeGraphId(part)).join(":");
-}
-
-function groupForAtomLayer(layer) {
-  if (layer === "script") return "script";
-  if (layer === "rhythm") return "rhythm";
-  if (layer === "packaging") return "packaging";
-  return "script";
 }
 
 function stripReviewFields(value) {

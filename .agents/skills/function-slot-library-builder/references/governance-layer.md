@@ -77,12 +77,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 文件级必须保留 `sourceSnapshot`，记录被治理 corpus 中每个 artifact 的 `artifactId / sampleVideoId / traceId / contentHash / counts`。后续判断治理结果是否过期时，对比当前 FunctionSlotLibrary 的 contentHash 和 `sourceSnapshot`。
 
-如果证据不足，标记为 `candidate` 或放入 `reviewItems`，不要伪装成稳定原型。
+如果证据不足、边界不清或需要人工讨论，放入 `reviewItems / openQuestions`，不要伪装成可复用原型。
 
-## 状态
+## 状态字段
 
-- `candidate`：agent 认为可能成立，但样例或边界不足。
-- `reviewed`：agent 已完成明确判断，可供重组参考。
-- `stable`：多个样例支持且边界清楚，或已有人工确认可作为长期规则。
-
-不要因为字段相同自动升级状态。
+语义治理产物不写 `status / reviewStatus / maturityStatus`。治理图只表达结构语义关系、来源覆盖和未归类来源覆盖。

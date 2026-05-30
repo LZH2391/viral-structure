@@ -13,17 +13,13 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
     rule: true,
     bundle: true,
     unmapped: true,
-    needReview: true,
-    candidate: true,
-    reviewed: true,
-    stable: true,
   };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance_test",
     nodes: [
       { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
-      { id: "slotSubtype:SUB_mapped", type: "slotSubtype", label: "已映射槽位", group: "slot", data: { id: "SUB_mapped", reviewStatus: "reviewed" } },
+      { id: "slotSubtype:SUB_mapped", type: "slotSubtype", label: "已映射槽位", group: "slot", data: { id: "SUB_mapped" } },
     ],
     edges: [{ id: "edge:root:slot", source: "governance:test", target: "slotSubtype:SUB_mapped", type: "governance_contains_subtype" }],
     summary: { slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
@@ -44,22 +40,20 @@ test("confirmed plan trace graph keeps unmapped plan parts visible", () => {
     rule: true,
     bundle: true,
     unmapped: true,
-    needReview: true,
-    candidate: true,
-    reviewed: true,
-    stable: true,
   };
   const graph = {
     schemaVersion: "confirmed_plan_trace_graph.v1",
     artifactId: "confirmed-plan-trace",
     nodes: [
       { id: "plan_a:plan", type: "confirmedPlan", label: "plan_a", group: "plan", data: { planId: "plan_a" } },
-      { id: "plan_a:slot:unmapped", type: "tracedSlot", label: "{\"value\":\"应该显示\"}", group: "slot", data: { planId: "plan_a", governanceNodeId: null } },
-      { id: "plan_a:source:display:path", type: "sourceReference", label: "Artifacts/FunctionSlotRestructure/plan-a/restructure.display.json", group: "sourceVariant", data: { planId: "plan_a", sourceKind: "display" } },
+      { id: "plan_a:slot:unmapped", type: "tracedSlot", label: "方案槽位", group: "slot", data: { planId: "plan_a", governanceNodeId: null } },
+      { id: "plan_a:sample:sample_1", type: "sourceExample", label: "A", group: "sourceExample", data: { planId: "plan_a", sampleId: "sample_1" } },
+      { id: "plan_a:variant:sample_1:F001", type: "sourceVariant", label: "A::F001", group: "sourceVariant", data: { planId: "plan_a", sampleId: "sample_1", variantId: "sample_1::F001" } },
     ],
     edges: [
       { id: "edge:slot", source: "plan_a:plan", target: "plan_a:slot:unmapped", type: "plan_uses_slot" },
-      { id: "edge:source", source: "plan_a:plan", target: "plan_a:source:display:path", type: "source_display_json" },
+      { id: "edge:source", source: "plan_a:slot:unmapped", target: "plan_a:sample:sample_1", type: "traced_to_source_sample" },
+      { id: "edge:variant", source: "plan_a:slot:unmapped", target: "plan_a:variant:sample_1:F001", type: "traced_to_source_variant" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
   };
@@ -67,8 +61,9 @@ test("confirmed plan trace graph keeps unmapped plan parts visible", () => {
   const visible = buildVisibleGraph(graph, filters);
 
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
-  assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("应该显示")));
-  assert.ok(visible.nodes.some((node) => node.type === "sourceReference"));
+  assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("方案槽位")));
+  assert.ok(visible.nodes.some((node) => node.type === "sourceExample"));
+  assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
 });
 
 function loadTsModule(relativePath) {

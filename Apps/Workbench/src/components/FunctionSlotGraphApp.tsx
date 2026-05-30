@@ -23,10 +23,6 @@ const DEFAULT_FILTERS: GraphFiltersState = {
   rule: true,
   bundle: true,
   unmapped: false,
-  needReview: true,
-  candidate: true,
-  reviewed: true,
-  stable: true,
 };
 
 export function FunctionSlotGraphApp() {
@@ -38,7 +34,7 @@ export function FunctionSlotGraphApp() {
   const [status, setStatus] = useState("读取结构图谱");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("columns");
+  const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("force");
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -207,7 +203,6 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
       <div><b>atom variants</b><span>{summary?.atomCount ?? 0}</span></div>
       <div><b>bindings</b><span>{summary?.bindingCount ?? 0}</span></div>
       <div><b>rules</b><span>{summary?.ruleCount ?? 0}</span></div>
-      <div><b>needReview</b><span>{summary?.needReviewCount ?? 0}</span></div>
       <div><b>unmapped atoms</b><span>{summary?.unmappedAtomCount ?? 0}</span></div>
       <div><b>unmapped bindings</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
       <div><b>unmapped rules</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>

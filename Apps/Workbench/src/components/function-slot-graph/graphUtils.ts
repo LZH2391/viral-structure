@@ -19,7 +19,6 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
   const nodes = graph.nodes
     .filter((node) => {
       if (visibleIds && !visibleIds.has(node.id)) return false;
-      if (node.type === "sourceVariant") return false;
       if (node.type === "slotInstance") return filters.slot;
       if (node.type === "atomInstance") return filters.atom;
       if (node.type === "binding") return filters.binding;
@@ -68,13 +67,13 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "slotFamily") return 18;
   if (node.type === "slotArchetype") return 15;
   if (node.type === "slotSubtype") return 12;
+  if (node.type === "atomLayer") return 12;
   if (node.type === "atomArchetype") return 14;
   if (node.type === "atomPattern") return 10;
   if (node.type === "bindingPrinciple" || node.type === "recompositionPolicy") return 13;
   if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
-  if (node.type === "unmappedVariant" || node.type === "needReviewItem") return 8;
-  if (node.type === "sourceVariant") return 5;
-  if (node.type === "sourceReference") return 6;
+  if (node.type === "unmappedVariant") return 8;
+  if (node.type === "sourceExample") return 9;
   if (node.type === "confirmedPlan") return 11;
   if (node.type.startsWith("traced")) return 8;
   if (node.type === "libraryItem") return 20;
@@ -130,13 +129,13 @@ export function clampPreviewPosition(point: { x: number; y: number }, size: { wi
 export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unknown]> {
   const data = node.data ?? {};
   if (node.type === "unmappedVariant") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]];
-  if (node.type === "needReviewItem") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["affectedNodes", data.affectedNodes], ["reviewReason", data.reviewReason]];
-  if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["reviewStatus", data.reviewStatus], ["maturityStatus", data.maturityStatus], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
+  if (node.type === "sourceExample") return [["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
+  if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
   if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
-  if (node.type.startsWith("traced")) return [["planId", data.planId], ["governanceNodeId", data.governanceNodeId], ["archetypeGovernanceNodeId", data.archetypeGovernanceNodeId], ["evidence", data.evidence]];
-  if (node.type === "sourceReference") return [["planId", data.planId], ["sourceKind", data.sourceKind], ["governanceNodeId", data.governanceNodeId], ["path", data.path]];
-  if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)], ["needReview", data.needReview]];
-  if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)], ["needReview", data.needReview]];
+  if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
+  if (node.type === "atomLayer") return [["planId", data.planId], ["layer", data.layer]];
+  if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)]];
+  if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)]];
   if (node.type === "binding") return [["bindingId", data.bindingId], ["type", data.bindingType], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
   return Object.entries(data).slice(0, 8);
 }
@@ -247,7 +246,6 @@ function visibleGovernanceNodeIds(graph: FunctionSlotLibraryGraph, filters: Grap
 
   for (const node of graph.nodes) {
     if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") ids.add(node.id);
-    if (filters.needReview && node.type === "needReviewItem") ids.add(node.id);
     if (filters.unmapped && node.type === "unmappedVariant") ids.add(node.id);
   }
 
@@ -277,8 +275,6 @@ function connectedGovernanceIds(graph: FunctionSlotLibraryGraph, nodeId: string,
 }
 
 function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
-  if (!statusFilterMatch(node, filters)) return false;
-  if (node.group === "needReview" || node.type === "needReviewItem") return filters.needReview;
   if (node.type === "unmappedVariant") return filters.unmapped;
   if (node.type === "sourceVariant") return false;
   if (node.type === "governanceRoot") return true;
@@ -290,24 +286,12 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
   return true;
 }
 
-function statusFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
-  const status = String(node.data?.reviewStatus ?? node.data?.maturityStatus ?? node.data?.status ?? "");
-  if (status === "candidate") return filters.candidate;
-  if (status === "reviewed") return filters.reviewed;
-  if (status === "stable") return filters.stable;
-  if (status === "needReview") return filters.needReview;
-  if (status === "unmapped") return filters.unmapped;
-  return true;
-}
-
 function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
   if (node.type === "confirmedPlan") return true;
   if (node.type === "tracedSlot") return filters.slot;
-  if (node.type === "tracedAtom") return filters.atom;
-  if (node.type === "tracedScript") return filters.slot;
-  if (node.type === "tracedRhythm") return filters.rule;
-  if (node.type === "tracedPackaging") return filters.bundle;
-  if (node.type === "sourceReference") return filters.unmapped;
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") return filters.slot;
+  if (node.type === "atomLayer" || node.type === "atomPattern") return filters.atom;
+  if (node.type === "sourceExample") return filters.unmapped;
   return true;
 }
 
@@ -323,19 +307,21 @@ function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: G
   placeColumn(positions, graph.nodes.filter((node) => node.type === "atomPattern" || node.type === "bindingPattern" || node.type === "rulePattern"), 1050);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "implementationBundle"), 1060, 170, 84);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1180, 90, 34);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "unmappedVariant" || node.type === "needReviewItem"), 1180, 610, 28);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "unmappedVariant"), 1180, 610, 28);
   return positions;
 }
 
 function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
   const positions = new Map<string, { x: number; y: number }>();
   placeColumn(positions, graph.nodes.filter((node) => node.type === "confirmedPlan"), 150);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedSlot"), 360, CENTER.y, 46);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedScript"), 580, 205, 38);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedAtom"), 715, CENTER.y, 34);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedRhythm"), 900, 295, 38);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedPackaging"), 900, 545, 38);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceReference"), 1120, CENTER.y, 30);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedSlot"), 305, CENTER.y, 46);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotFamily"), 455, CENTER.y, 46);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotArchetype"), 605, CENTER.y, 46);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotSubtype"), 755, CENTER.y, 46);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomLayer"), 450, 650, 36);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomPattern"), 670, 650, 32);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceExample"), 920, CENTER.y, 54);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1100, CENTER.y, 34);
   return positions;
 }
 
@@ -415,11 +401,10 @@ function supportValue(support: unknown, key: "variantCount" | "sampleCount") {
 
 function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "governanceRoot") return "Governance";
-  if (node.type === "sourceVariant") return shortSourceVariant(String(node.data.variantId ?? node.label));
-  if (node.type === "sourceReference") return shortSourceVariant(String(node.label ?? node.id));
+  if (node.type === "sourceExample") return String(node.label ?? node.id).slice(0, 18);
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
-  if (node.type === "needReviewItem") return "needReview";
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
+  if (node.type === "atomLayer") return String(node.label ?? node.id).slice(0, 18);
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
   if (node.type === "libraryItem") return "LibraryItem";
