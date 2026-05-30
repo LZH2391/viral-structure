@@ -550,7 +550,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
 
 function buildFunctionSlotAutoRunInputs({ role, body }) {
   const title = role === "shot-storyboard-prep"
-    ? "请基于已确认的重组方案执行 Shot Storyboard Prep。"
+    ? "请基于已确认的重组方案执行 Shot Storyboard Prep，并在生成 prompt 后继续触发 image-generation 故事板生图。"
     : "请基于已确认的重组方案执行展示结构转换。";
   const payload = {
     trigger: "restructure-confirmed",
@@ -558,6 +558,7 @@ function buildFunctionSlotAutoRunInputs({ role, body }) {
     restructureArtifactId: body.restructureArtifactId ?? null,
     parentArtifactId: body.parentArtifactId ?? null,
     sampleVideoId: body.sampleVideoId ?? null,
+    ...(role === "shot-storyboard-prep" ? { runImageGeneration: body.runImageGeneration !== false } : {}),
   };
   return [{
     type: "text",

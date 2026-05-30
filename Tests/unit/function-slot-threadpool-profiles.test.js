@@ -55,6 +55,7 @@ test("function slot placeholder role profiles load init and task prompts", async
     if (item.role === "shot-storyboard-prep") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
+      assert.match(rendered.text, /image-generation/);
     } else if (item.role === "function-slot-restructure-display-transformer") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);

@@ -4,6 +4,7 @@
 /Runtime/ArtifactIndex/*
 /Runtime/DebugSnapshots/*
 /Runtime/Jobs/*
+/Runtime/AgentConversations/*.json
 /Runtime/WorkflowRuns/full-analysis-queue.json
 /Runtime/WorkflowRuns/full-analysis-batch-uploads/*
 /Runtime/Projection/*

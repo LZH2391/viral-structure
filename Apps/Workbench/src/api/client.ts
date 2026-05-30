@@ -551,7 +551,7 @@ export async function refreshFunctionSlotLibraryBuilder(payload: { mode?: "skip-
   );
 }
 
-export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null } = {}) {
+export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; runImageGeneration?: boolean } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
       method: "POST",

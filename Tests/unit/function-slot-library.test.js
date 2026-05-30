@@ -267,6 +267,8 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
     assert.equal(calls[1].threadId, "thread_storyboard");
     assert.equal(calls[1].skillPath, "skill.md");
     assert.match(calls[1].inputs[0].text, /Shot Storyboard Prep/);
+    assert.match(calls[1].inputs[0].text, /image-generation/);
+    assert.match(calls[1].inputs[0].text, /"runImageGeneration": true/);
     assert.match(calls[1].inputs[0].text, /artifact_restructure/);
   } finally {
     await closeServer(server);

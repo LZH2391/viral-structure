@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-SHOT_SECTION_RE = re.compile(r"(^##\s+\d+\.\s+Shot 设计\s*\n)(.*?)(?=^## \d+\.|\Z)", re.M | re.S)
+SHOT_SECTION_RE = re.compile(r"(^##\s+(?:\d+\.\s+)?Shot 设计\s*\n)(.*?)(?=^##\s+|\Z)", re.M | re.S)
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 DEFAULT_GROUP_SIZE = 4
 DEFAULT_CHARS_PER_SECOND = 6.0
@@ -84,7 +84,7 @@ def detect_aspect(text: str) -> dict[str, str | None]:
 def extract_shot_section(text: str) -> dict[str, Any]:
     match = SHOT_SECTION_RE.search(text)
     if not match:
-        raise ValueError("Cannot find '## <n>. Shot 设计' section")
+        raise ValueError("Cannot find '## Shot 设计' section")
     return {
         "body": match.group(2),
         "body_start": match.start(2),
