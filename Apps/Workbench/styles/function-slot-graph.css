@@ -434,9 +434,19 @@
   fill: #f0d46f;
 }
 
-.slot-graph-node.node-governance > circle:not(.slot-graph-plan-ring) {
-  fill: #8b5cf6;
-  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.68));
+.slot-graph-node.node-governance > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-type-governanceRoot > circle:not(.slot-graph-plan-ring) {
+  fill: #05070c;
+  stroke: rgba(244, 246, 255, 0.96);
+  stroke-dasharray: none;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 18px rgba(187, 174, 255, 0.5));
+}
+
+.slot-graph-node.node-type-governanceRoot text {
+  fill: #f7f8ff;
+  font-size: 15px;
+  stroke-width: 5px;
 }
 
 .slot-graph-node.node-policy > circle:not(.slot-graph-plan-ring),

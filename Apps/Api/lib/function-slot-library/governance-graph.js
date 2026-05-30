@@ -80,7 +80,7 @@ function buildFunctionSlotGovernanceGraph(governance) {
     }
   }
 
-  pushSourceVariantEdges(nodes, edges);
+  pushSourceVariantEdges(nodes, edges, governance.sourceVariants ?? []);
 
   pushUnmapped(nodes, edges, rootId, governance.unmappedAtomVariants ?? [], "atom");
   pushUnmapped(nodes, edges, rootId, governance.unmappedBindingVariants ?? [], "binding");
@@ -125,25 +125,49 @@ function pushGovernanceNode(nodes, type, group, item) {
   });
 }
 
-function pushSourceVariantEdges(nodes, edges) {
+function pushSourceVariantEdges(nodes, edges, sourceVariants) {
+  const variantLabels = buildSourceVariantLabelMap(sourceVariants);
   const sourceVariantOwners = nodes.filter((node) => Array.isArray(node.data?.sourceVariantIds));
   for (const owner of sourceVariantOwners) {
     for (const variantId of owner.data.sourceVariantIds) {
       const normalizedVariantId = normalizeGraphText(variantId);
       if (!normalizedVariantId) continue;
+      const sourceVariant = variantLabels.get(normalizedVariantId);
       const id = graphId("sourceVariant", normalizedVariantId);
       pushNode(nodes, {
         id,
         type: "sourceVariant",
-        label: normalizedVariantId,
+        label: sourceVariant?.label ?? normalizedVariantId,
         group: "sourceVariant",
         data: {
           variantId: normalizedVariantId,
+          label: sourceVariant?.label ?? null,
+          sampleId: sourceVariant?.sampleId ?? null,
+          kind: sourceVariant?.kind ?? null,
+          sourceId: sourceVariant?.sourceId ?? null,
+          labelMissing: !sourceVariant?.label,
         },
       });
       pushEdge(edges, owner.id, id, "pattern_to_source_variant", "evidence");
     }
   }
+}
+
+function buildSourceVariantLabelMap(sourceVariants) {
+  const labels = new Map();
+  if (!Array.isArray(sourceVariants)) return labels;
+  for (const variant of sourceVariants) {
+    const variantId = normalizeGraphText(variant?.variantId);
+    if (!variantId || labels.has(variantId)) continue;
+    const label = normalizeGraphText(variant.label);
+    labels.set(variantId, {
+      label,
+      sampleId: normalizeGraphText(variant.sampleId),
+      kind: normalizeGraphText(variant.kind),
+      sourceId: normalizeGraphText(variant.sourceId),
+    });
+  }
+  return labels;
 }
 
 function pushUnmapped(nodes, edges, rootId, variants, variantKind) {

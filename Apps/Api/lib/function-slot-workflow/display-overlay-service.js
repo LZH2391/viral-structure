@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v6";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v7";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -124,7 +124,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     }
   }
 
-  async function readConfirmedPlanTraceGraph() {
+async function readConfirmedPlanTraceGraph() {
     const traceGraphPath = path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH);
     const traceGraph = await readJsonIfExists(traceGraphPath);
     const index = await readJsonIfExists(path.join(rootDir, INDEX_RELATIVE_PATH));
@@ -235,7 +235,7 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
   function projectDisplayToTraceGraph({ nodes, edges, plan, display, color, sourceIndex }) {
     const planRootId = traceId(plan.planId, "plan");
     const aliasMap = extractSourceAliasMap(display);
-    const atomSourceRows = extractAtomSourceRows(display, aliasMap);
+    const atomSourceRows = extractAtomSourceRows(display, aliasMap, sourceIndex);
     pushGraphNode(nodes, {
       id: planRootId,
       type: "confirmedPlan",
@@ -496,11 +496,12 @@ function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasM
   upsertGraphNode(nodes, {
     id: nodeId,
     type: "sourceVariant",
-    label: sourceLabel ? `${shortVariant} · ${sourceLabel}` : shortVariant,
+    label: sourceLabel ?? shortVariant,
     group: "sourceVariant",
     data: {
       planId,
       variantId,
+      shortVariant,
       label: sourceLabel ?? shortVariant,
       labelMissing: !sourceLabel,
       sampleVideoId: parsed.sampleId,
@@ -637,7 +638,7 @@ function extractSourceAliasMap(display) {
   return map;
 }
 
-function extractAtomSourceRows(display, aliasMap) {
+function extractAtomSourceRows(display, aliasMap, sourceIndex = new Map()) {
   const rows = [];
   for (const atom of asArray(display?.atoms)) {
     const direct = firstText(atom.value, atom.atomId, atom.id);
@@ -649,12 +650,17 @@ function extractAtomSourceRows(display, aliasMap) {
       if (!text) continue;
       for (const match of text.matchAll(/([A-Z])::(script|rhythm|packaging)::([A-Za-z0-9_-]+)/g)) {
         const sampleId = aliasMap.get(match[1]);
-        if (sampleId) atomVariantIds.push(`${sampleId}::${match[2]}::${match[3]}`);
+        const variantId = sampleId ? `${sampleId}::${match[2]}::${match[3]}` : null;
+        if (variantId && isKnownSourceVariant(variantId, sourceIndex)) atomVariantIds.push(variantId);
       }
     }
     rows.push({ slotVariantIds, atomVariantIds });
   }
   return rows;
+}
+
+function isKnownSourceVariant(variantId, sourceIndex) {
+  return Boolean(sourceIndex.get(`${variantId}::sourceVariant`) || asArray(sourceIndex.get(variantId)).length);
 }
 
 function expandAliasVariant(value, aliasMap) {

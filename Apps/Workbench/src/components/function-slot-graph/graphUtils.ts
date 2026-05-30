@@ -38,20 +38,29 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
 
 export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
   return forceSimulation<SimNode>(nodes)
-    .alpha(0.85)
-    .alphaDecay(0.014)
-    .velocityDecay(0.34)
-    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.04))
-    .force("x", forceX(CENTER.x).strength(0.004))
-    .force("y", forceY(CENTER.y).strength(0.004))
+    .alpha(0.95)
+    .alphaDecay(0.012)
+    .velocityDecay(0.32)
+    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.026))
+    .force("x", forceX(CENTER.x).strength(0.0028))
+    .force("y", forceY(CENTER.y).strength(0.0028))
     .force("charge", forceManyBody<SimNode>().strength((node) => {
-      if (node.type === "confirmedPlan") return -420;
-      if (node.type === "sourceVariant") return -210;
-      if (node.type === "libraryItem" || node.type === "slotInstance") return -190;
-      if (node.type === "slotFamily" || node.type === "slotSubtype") return -170;
-      return -135;
-    }).distanceMin(36).distanceMax(780))
-    .force("collide", forceCollide<SimNode>().radius((node) => nodeRadius(node) + (node.type === "sourceVariant" ? 46 : 38)).strength(0.88).iterations(3))
+      if (node.type === "confirmedPlan" || node.type === "governanceRoot") return -680;
+      if (node.type === "slotFamily") return -360;
+      if (node.type === "slotSubtype") return -310;
+      if (node.type === "slotArchetype" || node.type === "atomArchetype") return -260;
+      if (node.type === "sourceVariant") return -300;
+      if (node.type === "atomPattern") return -230;
+      if (node.type === "libraryItem" || node.type === "slotInstance") return -220;
+      if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "unmappedVariant") return -190;
+      return -170;
+    }).distanceMin(44).distanceMax(980))
+    .force("collide", forceCollide<SimNode>().radius((node) => {
+      if (node.type === "confirmedPlan" || node.type === "governanceRoot") return nodeRadius(node) + 70;
+      if (node.type === "sourceVariant") return nodeRadius(node) + 62;
+      if (node.type === "slotFamily" || node.type === "slotSubtype") return nodeRadius(node) + 54;
+      return nodeRadius(node) + 44;
+    }).strength(0.96).iterations(4))
     .force("link", forceLink<SimNode, D3Link>(links)
       .id((node) => node.id)
       .distance((edge) => edgeDistance(edge.type)));
@@ -90,7 +99,7 @@ export function reverseTracePath(nodeId: string | null, edges: FunctionSlotGraph
 }
 
 export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
-  if (node.type === "governanceRoot") return 22;
+  if (node.type === "governanceRoot") return 30;
   if (node.type === "slotFamily") return 24;
   if (node.type === "slotArchetype") return 18;
   if (node.type === "slotSubtype") return 22;
@@ -389,15 +398,17 @@ function placeColumn(positions: Map<string, { x: number; y: number }>, nodes: Fu
 }
 
 function edgeDistance(type: string) {
-  if (type.includes("source_variant")) return 100;
-  if (type.includes("bundle")) return 130;
-  if (type.includes("pattern")) return 120;
-  if (type.includes("archetype")) return 155;
+  if (type.includes("source_variant")) return 210;
+  if (type === "plan_uses_slot_family") return 250;
+  if (type === "subtype_to_atom_archetype") return 230;
+  if (type.includes("bundle")) return 190;
+  if (type.includes("pattern")) return 180;
+  if (type.includes("archetype")) return 210;
   if (type === "slot_next") return 180;
-  if (type === "library_contains_slot") return 250;
-  if (type === "library_contains_binding") return 175;
-  if (type.startsWith("binding_")) return 145;
-  return 165;
+  if (type === "library_contains_slot") return 280;
+  if (type === "library_contains_binding") return 220;
+  if (type.startsWith("binding_")) return 190;
+  return 210;
 }
 
 function positiveNumber(value: unknown) {

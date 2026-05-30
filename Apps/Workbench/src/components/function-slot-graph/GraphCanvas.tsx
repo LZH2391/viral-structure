@@ -330,7 +330,7 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
       role="button"
       aria-label={node.label}
     >
-      {node.type === "confirmedPlan" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
+      {node.type === "confirmedPlan" || node.type === "governanceRoot" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
       <circle cx={node.x} cy={node.y} r={radius} />
       {overlayColors.length ? (
         <g className="slot-graph-plan-badge">

@@ -414,13 +414,14 @@ test("function slot governance graph builder normalizes value-object ids and lab
     recompositionPolicies: [],
     rulePatterns: [],
     implementationBundles: [],
+    sourceVariants: [{ variantId: "sample_value::F001", sampleId: "sample_value", kind: "slot", sourceId: "F001", label: "对象值来源槽" }],
     unmappedAtomVariants: [{ variantId: { value: "sample_value::A001" }, reason: "single_sample" }],
     unmappedBindingVariants: [],
     unmappedRuleVariants: [],
   });
 
   assert.ok(graph.nodes.some((node) => node.id === "slotFamily:FAM_value_object" && node.label === "对象值 family"));
-  assert.ok(graph.nodes.some((node) => node.type === "sourceVariant" && node.label === "sample_value::F001"));
+  assert.ok(graph.nodes.some((node) => node.type === "sourceVariant" && node.label === "对象值来源槽"));
   assert.ok(graph.nodes.some((node) => node.type === "unmappedVariant" && node.label === "sample_value::A001"));
   assert.equal(graph.nodes.some((node) => JSON.stringify(node).includes("{\"value\"")), false);
 });
@@ -615,6 +616,10 @@ function buildGovernance() {
     recompositionPolicies: [{ id: "POLICY_close", name: "policy close", sourceRulePatternIds: ["RULE_pattern_close"] }],
     rulePatterns: [{ id: "RULE_pattern_close", name: "rule close" }],
     implementationBundles: [{ id: "BUNDLE_hook", name: "bundle hook", slotSubtypeIds: ["SUB_visible_hook"], scriptPatternIds: ["SCRIPT_pattern_hook"], rhythmPatternIds: [], packagingPatternIds: [], sourceVariantIds: ["sample_a::F001"] }],
+    sourceVariants: [
+      { variantId: "sample_a::F001", sampleId: "sample_a", kind: "slot", sourceId: "F001", label: "attention source" },
+      { variantId: "sample_a::script::S001", sampleId: "sample_a", kind: "script", sourceId: "S001", label: "script hook source" },
+    ],
     unmappedAtomVariants: [{ variantId: "sample_a::script::S002", reason: "single_sample", suggestedAction: "keep" }],
     unmappedBindingVariants: [],
     unmappedRuleVariants: [],

@@ -248,9 +248,10 @@ test("display overlay traces confirmed plan slots to source samples and variants
   const traceGraph = await service.readConfirmedPlanTraceGraph();
 
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceExample"), false);
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001" && String(node.label).includes("牙渍问题槽位")));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001" && String(node.label).includes("问题对象直冲与执行动作入口")));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001" && node.label === "牙渍问题槽位"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001" && node.label === "问题对象直冲与执行动作入口"));
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_other::script::S009"), false);
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && String(node.label).includes("::")), false);
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotFamily" && node.label === "观看理由类"));
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotArchetype" && node.label === "问题激活原型"));
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotSubtype" && node.label === "场景问题激活"));
