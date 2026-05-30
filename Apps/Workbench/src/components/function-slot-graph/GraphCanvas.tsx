@@ -90,6 +90,8 @@ export function GraphCanvas({
         ...node,
         x: existing?.x ?? node.x,
         y: existing?.y ?? node.y,
+        layoutX: node.layoutX ?? node.x,
+        layoutY: node.layoutY ?? node.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
         fx: fixedLayout ? node.x : null,

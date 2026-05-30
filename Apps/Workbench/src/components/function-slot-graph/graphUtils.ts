@@ -27,8 +27,18 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
       if (graph.schemaVersion === "confirmed_plan_trace_graph.v1") return planTraceFilterMatch(node, filters);
       return true;
     })
-    .map((node) => ({ ...node, ...positions.get(node.id), shortLabel: shortLabel(node) }))
-    .filter((node): node is PositionedNode => Number.isFinite(node.x) && Number.isFinite(node.y));
+    .filter((node) => positions.has(node.id))
+    .map((node) => {
+      const position = positions.get(node.id) ?? CENTER;
+      return {
+        ...node,
+        x: position.x,
+        y: position.y,
+        layoutX: position.x,
+        layoutY: position.y,
+        shortLabel: shortLabel(node),
+      };
+    });
   const nodeIds = new Set(nodes.map((node) => node.id));
   return {
     nodes,
@@ -41,9 +51,9 @@ export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
     .alpha(0.95)
     .alphaDecay(0.012)
     .velocityDecay(0.32)
-    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.026))
-    .force("x", forceX(CENTER.x).strength(0.0028))
-    .force("y", forceY(CENTER.y).strength(0.0028))
+    .force("center", forceCenter(CENTER.x, CENTER.y).strength(0.012))
+    .force("x", forceX<SimNode>((node) => node.layoutX ?? CENTER.x).strength((node) => layoutAnchorStrength(node)))
+    .force("y", forceY<SimNode>((node) => node.layoutY ?? CENTER.y).strength((node) => layoutAnchorStrength(node)))
     .force("charge", forceManyBody<SimNode>().strength((node) => {
       if (node.type === "confirmedPlan" || node.type === "governanceRoot") return -680;
       if (node.type === "slotFamily") return -360;
@@ -353,34 +363,143 @@ function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: G
 }
 
 function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
-  const positions = new Map<string, { x: number; y: number }>();
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "confirmedPlan"), 150);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "tracedSlot"), 305, CENTER.y, 46);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotFamily"), 455, CENTER.y, 46);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotArchetype"), 605, CENTER.y, 46);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotSubtype"), 755, CENTER.y, 46);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomLayer"), 450, 650, 36);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomPattern"), 670, 650, 32);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceExample"), 920, CENTER.y, 54);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1100, CENTER.y, 34);
-  return positions;
+  return buildLayeredRadialPositions(graph, {
+    rootTypes: ["confirmedPlan"],
+    center: CENTER,
+    yScale: 0.74,
+    levels: [
+      { types: ["tracedSlot"], radius: 110 },
+      { types: ["slotFamily"], radius: 150 },
+      { types: ["slotArchetype"], radius: 225 },
+      { types: ["slotSubtype"], radius: 300 },
+      { types: ["atomArchetype"], radius: 385 },
+      { types: ["atomPattern"], radius: 470 },
+      { types: ["sourceVariant"], radius: 570 },
+      { types: ["sourceExample"], radius: 650 },
+    ],
+  });
 }
 
 function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
-  const positions = new Map<string, { x: number; y: number }>();
-  const root = graph.nodes.find((node) => node.type === "governanceRoot");
-  if (root) positions.set(root.id, CENTER);
-  const nodes = graph.nodes.filter((node) => node.id !== root?.id);
-  nodes.forEach((node, index) => {
-    const seed = hashText(node.id);
-    const radius = 95 + (seed % 360);
-    const angle = ((seed % 6283) / 1000) + index * 0.23;
-    positions.set(node.id, {
-      x: clamp(CENTER.x + Math.cos(angle) * radius, 70, VIEWBOX.width - 70),
-      y: clamp(CENTER.y + Math.sin(angle) * radius * 0.72, 60, VIEWBOX.height - 60),
-    });
+  return buildLayeredRadialPositions(graph, {
+    rootTypes: ["governanceRoot"],
+    center: CENTER,
+    yScale: 0.74,
+    levels: [
+      { types: ["slotFamily"], radius: 135 },
+      { types: ["slotArchetype"], radius: 210 },
+      { types: ["slotSubtype"], radius: 290 },
+      { types: ["atomArchetype", "bindingPrinciple", "recompositionPolicy"], radius: 380 },
+      { types: ["atomPattern", "bindingPattern", "rulePattern", "implementationBundle"], radius: 480 },
+      { types: ["sourceVariant", "unmappedVariant"], radius: 590 },
+    ],
   });
+}
+
+function buildLayeredRadialPositions(
+  graph: FunctionSlotLibraryGraph,
+  options: {
+    rootTypes: string[];
+    center: { x: number; y: number };
+    yScale: number;
+    levels: Array<{ types: string[]; radius: number }>;
+  },
+) {
+  const positions = new Map<string, { x: number; y: number }>();
+  const angles = new Map<string, number>();
+  const levelByType = new Map<string, number>();
+  options.levels.forEach((level, index) => level.types.forEach((type) => levelByType.set(type, index + 1)));
+  for (const type of options.rootTypes) levelByType.set(type, 0);
+
+  const roots = graph.nodes.filter((node) => options.rootTypes.includes(node.type));
+  roots.forEach((node, index) => {
+    const angle = roots.length <= 1 ? -Math.PI / 2 : -Math.PI / 2 + (index / roots.length) * Math.PI * 2;
+    angles.set(node.id, angle);
+    positions.set(node.id, options.center);
+  });
+
+  const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  const nodeTypeById = new Map(graph.nodes.map((node) => [node.id, node.type]));
+  for (const edge of graph.edges) {
+    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
+  }
+
+  for (const level of options.levels) {
+    const nodes = graph.nodes
+      .filter((node) => level.types.includes(node.type))
+      .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
+    const grouped = groupByParent(nodes, incoming, angles, levelByType, nodeTypeById);
+    const parentEntries = [...grouped.entries()].sort(([leftParent], [rightParent]) => {
+      const leftAngle = leftParent === "__root__" ? -Math.PI / 2 : angles.get(leftParent) ?? 0;
+      const rightAngle = rightParent === "__root__" ? -Math.PI / 2 : angles.get(rightParent) ?? 0;
+      return leftAngle - rightAngle;
+    });
+
+    let fallbackIndex = 0;
+    for (const [parentId, children] of parentEntries) {
+      const parentAngle = parentId === "__root__"
+        ? null
+        : angles.get(parentId) ?? null;
+      children.forEach((node, childIndex) => {
+        const angle = parentAngle === null
+          ? -Math.PI / 2 + ((fallbackIndex + childIndex) / Math.max(nodes.length, 1)) * Math.PI * 2
+          : parentAngle + siblingAngleOffset(childIndex, children.length, level.radius);
+        angles.set(node.id, angle);
+        positions.set(node.id, radialPoint(options.center, angle, level.radius, options.yScale));
+      });
+      if (parentAngle === null) fallbackIndex += children.length;
+    }
+  }
+
+  graph.nodes.forEach((node) => {
+    if (positions.has(node.id)) return;
+    const seed = hashText(node.id);
+    const angle = (seed % 6283) / 1000;
+    positions.set(node.id, radialPoint(options.center, angle, 640, options.yScale));
+  });
+
   return positions;
+}
+
+function groupByParent(
+  nodes: FunctionSlotGraphNode[],
+  incoming: Map<string, FunctionSlotGraphEdge[]>,
+  angles: Map<string, number>,
+  levelByType: Map<string, number>,
+  nodeTypeById: Map<string, string>,
+) {
+  const grouped = new Map<string, FunctionSlotGraphNode[]>();
+  for (const node of nodes) {
+    const nodeLevel = levelByType.get(node.type) ?? Number.POSITIVE_INFINITY;
+    const parent = (incoming.get(node.id) ?? [])
+      .map((edge) => edge.source)
+      .filter((sourceId) => angles.has(sourceId))
+      .sort((left, right) => (levelByType.get(nodeTypeById.get(right) ?? "") ?? -1) - (levelByType.get(nodeTypeById.get(left) ?? "") ?? -1))
+      .find((sourceId) => (levelByType.get(nodeTypeById.get(sourceId) ?? "") ?? -1) < nodeLevel);
+    const key = parent ?? "__root__";
+    grouped.set(key, [...(grouped.get(key) ?? []), node]);
+  }
+  return grouped;
+}
+
+function siblingAngleOffset(index: number, count: number, radius: number) {
+  if (count <= 1) return 0;
+  const maxStep = radius > 500 ? 0.26 : radius > 360 ? 0.22 : 0.18;
+  const step = Math.min(maxStep, Math.PI * 1.6 / Math.max(count, 1));
+  return (index - (count - 1) / 2) * step;
+}
+
+function radialPoint(center: { x: number; y: number }, angle: number, radius: number, yScale: number) {
+  return {
+    x: clamp(center.x + Math.cos(angle) * radius, 70, VIEWBOX.width - 70),
+    y: clamp(center.y + Math.sin(angle) * radius * yScale, 60, VIEWBOX.height - 60),
+  };
+}
+
+function radialSortKey(node: FunctionSlotGraphNode) {
+  const order = Number(node.data?.slotOrder ?? node.data?.order ?? Number.NaN);
+  const orderKey = Number.isFinite(order) ? String(order).padStart(4, "0") : "9999";
+  return `${orderKey}:${node.type}:${String(node.label ?? node.id)}`;
 }
 
 function hashText(value: string) {
@@ -409,6 +528,14 @@ function edgeDistance(type: string) {
   if (type === "library_contains_binding") return 220;
   if (type.startsWith("binding_")) return 190;
   return 210;
+}
+
+function layoutAnchorStrength(node: SimNode) {
+  if (node.type === "confirmedPlan" || node.type === "governanceRoot") return 0.22;
+  if (node.type === "sourceVariant" || node.type === "unmappedVariant") return 0.1;
+  if (node.type === "atomPattern" || node.type === "atomArchetype") return 0.09;
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") return 0.12;
+  return 0.065;
 }
 
 function positiveNumber(value: unknown) {

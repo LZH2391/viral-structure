@@ -73,6 +73,54 @@ test("confirmed plan trace graph shows used source variants but hides source exa
   assert.ok(path.edges.has("edge:variant"));
 });
 
+test("confirmed plan trace positions grow outward by provenance depth", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = {
+    slot: true,
+    atom: true,
+    binding: true,
+    rule: true,
+    bundle: true,
+    unmapped: true,
+  };
+  const graph = {
+    schemaVersion: "confirmed_plan_trace_graph.v1",
+    artifactId: "confirmed-plan-trace",
+    nodes: [
+      { id: "plan:root", type: "confirmedPlan", label: "plan", group: "plan", data: {} },
+      { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
+      { id: "archetype:a1", type: "slotArchetype", label: "archetype", group: "slot", data: {} },
+      { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
+      { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom archetype", group: "script", data: {} },
+      { id: "atomPattern:ap1", type: "atomPattern", label: "atom pattern", group: "script", data: {} },
+      { id: "variant:v1", type: "sourceVariant", label: "source label", group: "sourceVariant", data: { label: "source label" } },
+    ],
+    edges: [
+      { id: "e1", source: "plan:root", target: "family:f1", type: "plan_uses_slot_family" },
+      { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
+      { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
+      { id: "e4", source: "subtype:s1", target: "atomArchetype:aa1", type: "subtype_to_atom_archetype" },
+      { id: "e5", source: "atomArchetype:aa1", target: "atomPattern:ap1", type: "atom_archetype_to_pattern" },
+      { id: "e6", source: "atomPattern:ap1", target: "variant:v1", type: "traced_to_source_variant" },
+    ],
+    summary: { planCount: 1, slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 5 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters);
+  const byId = new Map(visible.nodes.map((node) => [node.id, node]));
+  const root = byId.get("plan:root");
+  const distance = (id) => {
+    const node = byId.get(id);
+    return Math.hypot(node.x - root.x, node.y - root.y);
+  };
+
+  assert.ok(distance("family:f1") < distance("archetype:a1"));
+  assert.ok(distance("archetype:a1") < distance("subtype:s1"));
+  assert.ok(distance("subtype:s1") < distance("atomArchetype:aa1"));
+  assert.ok(distance("atomArchetype:aa1") < distance("atomPattern:ap1"));
+  assert.ok(distance("atomPattern:ap1") < distance("variant:v1"));
+});
+
 function loadTsModule(relativePath) {
   const sourcePath = path.join(process.cwd(), relativePath);
   const source = fs.readFileSync(sourcePath, "utf8");
