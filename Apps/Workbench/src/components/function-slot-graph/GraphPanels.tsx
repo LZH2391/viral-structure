@@ -3,8 +3,20 @@ import { shortId } from "../../utils/format";
 import { formatDetailValue, nodeDetailRows } from "./graphUtils";
 import type { GraphFiltersState } from "./types";
 
-export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | "governance"; filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
+export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | "governance" | "planTrace"; filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
   const update = (key: keyof GraphFiltersState) => onChange({ ...filters, [key]: !filters[key] });
+  if (mode === "planTrace") {
+    return (
+      <section className="slot-graph-card">
+        <div className="section-heading">溯源筛选</div>
+        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slots / Scripts</label>
+        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atoms</label>
+        <label><input type="checkbox" checked={filters.rule} onChange={() => update("rule")} /> Rhythm</label>
+        <label><input type="checkbox" checked={filters.bundle} onChange={() => update("bundle")} /> Packaging</label>
+        <label><input type="checkbox" checked={filters.unmapped} onChange={() => update("unmapped")} /> Source refs</label>
+      </section>
+    );
+  }
   if (mode === "governance") {
     return (
       <section className="slot-graph-card">

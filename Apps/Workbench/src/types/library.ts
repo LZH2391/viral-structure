@@ -92,6 +92,7 @@ export type FunctionSlotLibraryGraph = {
     atomCount: number;
     bindingCount: number;
     ruleCount?: number;
+    planCount?: number;
     sampleCount?: number;
     needReviewCount?: number;
     unmappedAtomCount?: number;
@@ -99,50 +100,5 @@ export type FunctionSlotLibraryGraph = {
     unmappedRuleCount?: number;
     validationOk?: boolean;
     conceptCount: number;
-  };
-};
-
-export type GovernancePlanOverlay = {
-  schemaVersion: "governance_plan_overlays.v1" | string;
-  baseGraphId: string;
-  updatedAt?: string | null;
-  plans: Array<{
-    planId: string;
-    color: string;
-    sourceRestructurePath?: string | null;
-    displayJsonPath?: string | null;
-    updatedAt?: string | null;
-    nodeCount?: number;
-    edgeCount?: number;
-  }>;
-  projectedNodes: Array<{
-    id: string;
-    planId: string;
-    type: string;
-    label: string;
-    color: string;
-    governanceNodeId?: string | null;
-    evidence?: Record<string, unknown> | null;
-  }>;
-  projectedEdges: Array<{
-    id: string;
-    planId: string;
-    source: string;
-    target: string;
-    type: string;
-  }>;
-  sharedUsage: Record<string, string[]>;
-  reviewFlags: Array<{
-    planId: string;
-    nodeId?: string | null;
-    reason?: string | null;
-    evidence?: Record<string, unknown> | null;
-  }>;
-  summary: {
-    planCount: number;
-    projectedNodeCount: number;
-    projectedEdgeCount: number;
-    sharedNodeCount: number;
-    reviewFlagCount: number;
   };
 };

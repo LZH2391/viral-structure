@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getFunctionSlotGovernanceGraph, getFunctionSlotGovernancePlanOverlays, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
-import type { FunctionSlotLibraryGraph, GovernancePlanOverlay } from "../types/library";
+import { getFunctionSlotConfirmedPlanTraceGraph, getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
+import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
 import { GraphCanvas } from "./function-slot-graph/GraphCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
@@ -14,7 +14,7 @@ type LibraryGraphSummary = {
   counts?: Record<string, number>;
 };
 
-type GraphMode = "structure" | "governance";
+type GraphMode = "structure" | "governance" | "planTrace";
 
 const DEFAULT_FILTERS: GraphFiltersState = {
   slot: true,
@@ -37,7 +37,6 @@ export function FunctionSlotGraphApp() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取结构图谱");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [planOverlay, setPlanOverlay] = useState<GovernancePlanOverlay | null>(null);
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("columns");
 
@@ -53,6 +52,10 @@ export function FunctionSlotGraphApp() {
   useEffect(() => {
     refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
   }, [refresh]);
+
+  useEffect(() => {
+    if (mode === "planTrace") setFilters((current) => ({ ...current, unmapped: true }));
+  }, [mode]);
 
   useEffect(() => {
     if (mode !== "structure") return;
@@ -75,15 +78,7 @@ export function FunctionSlotGraphApp() {
     if (mode !== "governance") return;
     setStatus("读取语义治理图");
     setGraph(null);
-    Promise.all([
-      getFunctionSlotGovernanceGraph(),
-      getFunctionSlotGovernancePlanOverlays().catch(() => null),
-    ])
-      .then(([nextGraph, overlay]) => {
-        setPlanOverlay(overlay);
-        setSelectedPlanIds((current) => reconcileSelectedPlans(current, overlay));
-        return nextGraph;
-      })
+    getFunctionSlotGovernanceGraph()
       .then((nextGraph) => {
         setGraph(nextGraph);
         setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "slotFamily")?.id ?? nextGraph.nodes[0]?.id ?? null);
@@ -93,23 +88,37 @@ export function FunctionSlotGraphApp() {
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "governance") return undefined;
-    const refreshOverlay = () => {
-      getFunctionSlotGovernancePlanOverlays()
-        .then((overlay) => {
-          setPlanOverlay(overlay);
-          setSelectedPlanIds((current) => reconcileSelectedPlans(current, overlay));
-          setStatus("方案投影已同步");
+    if (mode !== "planTrace") return;
+    setStatus("读取确定方案溯源");
+    setGraph(null);
+    getFunctionSlotConfirmedPlanTraceGraph()
+      .then((nextGraph) => {
+        setGraph(nextGraph);
+        setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
+        setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "confirmedPlan")?.id ?? nextGraph.nodes[0]?.id ?? null);
+        setStatus("已同步");
+      })
+      .catch((error) => setStatus(error instanceof Error ? error.message : "读取确定方案溯源失败"));
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "planTrace") return undefined;
+    const refreshTraceGraph = () => {
+      getFunctionSlotConfirmedPlanTraceGraph()
+        .then((nextGraph) => {
+          setGraph(nextGraph);
+          setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
+          setStatus("确定方案溯源已同步");
         })
         .catch(() => undefined);
     };
-    window.addEventListener("function-slot-plan-overlay-updated", refreshOverlay);
-    return () => window.removeEventListener("function-slot-plan-overlay-updated", refreshOverlay);
+    window.addEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
+    return () => window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
   }, [mode]);
 
-  const activeOverlay = useMemo(() => filterOverlay(planOverlay, selectedPlanIds), [planOverlay, selectedPlanIds]);
-  const visible = useMemo(() => buildVisibleGraph(graph, filters, selectedNodeId, activeOverlay, governanceLayoutMode), [activeOverlay, filters, governanceLayoutMode, graph, selectedNodeId]);
-  const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? graph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [graph, selectedNodeId, visible.nodes]);
+  const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(graph, selectedPlanIds) : graph, [graph, mode, selectedPlanIds]);
+  const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, selectedNodeId, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode, selectedNodeId]);
+  const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [activeGraph, selectedNodeId, visible.nodes]);
 
   return (
     <div className="slot-graph-shell">
@@ -120,7 +129,7 @@ export function FunctionSlotGraphApp() {
         </div>
         <div className="run-strip">
           <span className="run-pill">{items.length} library items</span>
-          <span className="trace-label">{mode === "governance" ? "SemanticGovernance" : "FunctionSlotLibrary"}</span>
+          <span className="trace-label">{mode === "governance" ? "SemanticGovernance" : mode === "planTrace" ? "ConfirmedPlanTrace" : "FunctionSlotLibrary"}</span>
         </div>
         <div className="top-actions">
           <button className="tab-button" type="button" onClick={() => window.location.assign("/")}>
@@ -152,19 +161,18 @@ export function FunctionSlotGraphApp() {
           <select className="slot-graph-mode-select" value={mode} onChange={(event) => setMode(event.target.value as GraphMode)}>
             <option value="structure">样例结构图</option>
             <option value="governance">语义治理图</option>
+            <option value="planTrace">确定方案溯源</option>
           </select>
-          {mode === "governance" ? (
-            <>
-              <div className="section-heading">布局模式</div>
-              <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setGovernanceLayoutMode(event.target.value as GovernanceLayoutMode)}>
-                <option value="columns">等距列排版</option>
-                <option value="force">星图散点</option>
-              </select>
-            </>
-          ) : null}
+          <div className="section-heading">布局模式</div>
+          <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setGovernanceLayoutMode(event.target.value as GovernanceLayoutMode)}>
+            <option value="columns">等距列排版</option>
+            <option value="force">星图散点</option>
+          </select>
           <div className="section-heading">图谱来源</div>
           {mode === "governance" ? (
             <GovernanceSummary graph={graph} />
+          ) : mode === "planTrace" ? (
+            <PlanTracePanel graph={graph} selectedPlanIds={selectedPlanIds} onChange={setSelectedPlanIds} />
           ) : (
             <div className="compact-list">
               {items.length ? items.map((item) => (
@@ -178,12 +186,11 @@ export function FunctionSlotGraphApp() {
           )}
         </aside>
         <section className="slot-graph-stage">
-          {graph ? <GraphCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={graph} visible={visible} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : "选择左侧素材查看图谱"} />}
+          {activeGraph ? <GraphCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
           <GraphFilters mode={mode} filters={filters} onChange={setFilters} />
-          {mode === "governance" ? <PlanOverlayPanel overlay={planOverlay} selectedPlanIds={selectedPlanIds} onChange={setSelectedPlanIds} /> : null}
-          <NodeInspector node={selectedNode} graph={graph} />
+          <NodeInspector node={selectedNode} graph={activeGraph} />
         </aside>
       </main>
     </div>
@@ -209,41 +216,47 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
   );
 }
 
-function PlanOverlayPanel({ overlay, selectedPlanIds, onChange }: { overlay: GovernancePlanOverlay | null; selectedPlanIds: string[]; onChange: (ids: string[]) => void }) {
-  const plans = overlay?.plans ?? [];
+function PlanTracePanel({ graph, selectedPlanIds, onChange }: { graph: FunctionSlotLibraryGraph | null; selectedPlanIds: string[]; onChange: (ids: string[]) => void }) {
+  const plans = getTracePlans(graph);
   const toggle = (planId: string) => {
     onChange(selectedPlanIds.includes(planId) ? selectedPlanIds.filter((id) => id !== planId) : [...selectedPlanIds, planId]);
   };
   return (
     <section className="slot-graph-card">
-      <div className="section-heading">方案投影</div>
-      <div className="detail-hint">{overlay?.summary.planCount ?? 0} plans / {overlay?.summary.sharedNodeCount ?? 0} shared</div>
+      <div className="section-heading">确认方案</div>
+      <div className="detail-hint">{graph?.summary.planCount ?? 0} plans / {graph?.nodes.length ?? 0} nodes</div>
       {plans.length ? plans.map((plan) => (
         <label key={plan.planId} className="plan-overlay-option">
           <input type="checkbox" checked={selectedPlanIds.includes(plan.planId)} onChange={() => toggle(plan.planId)} />
           <i style={{ background: plan.color }} />
           <span title={plan.displayJsonPath ?? plan.planId}>{plan.planId}</span>
         </label>
-      )) : <EmptyState text="暂无确认方案投影" />}
+      )) : <EmptyState text="暂无确认方案溯源" />}
     </section>
   );
 }
 
-function reconcileSelectedPlans(current: string[], overlay: GovernancePlanOverlay | null) {
-  const plans = overlay?.plans ?? [];
+function reconcileSelectedPlans(current: string[], graph: FunctionSlotLibraryGraph | null) {
+  const plans = getTracePlans(graph);
   const ids = plans.map((plan) => plan.planId);
   const kept = current.filter((id) => ids.includes(id));
   return kept.length ? kept : ids;
 }
 
-function filterOverlay(overlay: GovernancePlanOverlay | null, selectedPlanIds: string[]) {
-  if (!overlay) return null;
+function filterPlanTraceGraph(graph: FunctionSlotLibraryGraph | null, selectedPlanIds: string[]) {
+  if (!graph || graph.schemaVersion !== "confirmed_plan_trace_graph.v1") return graph;
   const selected = new Set(selectedPlanIds);
-  return {
-    ...overlay,
-    plans: overlay.plans.filter((plan) => selected.has(plan.planId)),
-    projectedNodes: overlay.projectedNodes.filter((node) => selected.has(node.planId)),
-    projectedEdges: overlay.projectedEdges.filter((edge) => selected.has(edge.planId)),
-    reviewFlags: overlay.reviewFlags.filter((flag) => selected.has(flag.planId)),
-  };
+  const nodes = graph.nodes.filter((node) => selected.has(String(node.data?.planId ?? "")));
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  return { ...graph, nodes, edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) };
+}
+
+function getTracePlans(graph: FunctionSlotLibraryGraph | null) {
+  return (graph?.nodes ?? [])
+    .filter((node): node is FunctionSlotGraphNode & { data: { planId: string; color?: string; displayJsonPath?: string | null } } => node.type === "confirmedPlan" && typeof node.data?.planId === "string")
+    .map((node) => ({
+      planId: node.data.planId,
+      color: typeof node.data.color === "string" ? node.data.color : "#6ea8fe",
+      displayJsonPath: typeof node.data.displayJsonPath === "string" ? node.data.displayJsonPath : null,
+    }));
 }

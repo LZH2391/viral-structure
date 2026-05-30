@@ -192,7 +192,8 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
-      if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") return await handleFunctionSlotGovernancePlanOverlays(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/graph") return await handleConfirmedPlanTraceGraph(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") return await handleFunctionSlotGovernancePlanOverlays(res);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/builder/refresh") return await handleFunctionSlotLibraryBuilderRefresh(req, res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -626,16 +627,24 @@ async function handleFunctionSlotGovernanceGraph(res, handlers = {}) {
   return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance));
 }
 
-async function handleFunctionSlotGovernancePlanOverlays(res, handlers = {}) {
-  const overlayService = handlers.restructureDisplayOverlayService;
-  if (!overlayService?.readOverlays) {
+async function handleConfirmedPlanTraceGraph(res, handlers = {}) {
+  const traceService = handlers.restructureDisplayOverlayService;
+  if (!traceService?.readConfirmedPlanTraceGraph) {
     return sendJson(res, 503, {
-      error: "governance_plan_overlay_unavailable",
-      code: "governance_plan_overlay_unavailable",
-      message: "治理图方案投影服务不可用",
+      error: "confirmed_plan_trace_unavailable",
+      code: "confirmed_plan_trace_unavailable",
+      message: "确定方案溯源图服务不可用",
     });
   }
-  return sendJson(res, 200, await overlayService.readOverlays());
+  return sendJson(res, 200, await traceService.readConfirmedPlanTraceGraph());
+}
+
+async function handleFunctionSlotGovernancePlanOverlays(res) {
+  return sendJson(res, 410, {
+    error: "governance_plan_overlay_removed",
+    code: "governance_plan_overlay_removed",
+    message: "治理图方案投影已解耦，请使用 /api/function-slot-restructure/confirmed-plan-trace/graph",
+  });
 }
 
 async function handleFunctionSlotLibraryDelete(res, artifactId, handlers = {}) {

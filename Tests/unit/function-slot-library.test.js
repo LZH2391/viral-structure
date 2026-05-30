@@ -353,6 +353,38 @@ test("function slot library API exposes semantic governance graph route", async 
   }
 });
 
+test("function slot API exposes confirmed plan trace graph route", async () => {
+  const server = createServer({
+    restructureDisplayOverlayService: {
+      readConfirmedPlanTraceGraph: async () => ({
+        schemaVersion: "confirmed_plan_trace_graph.v1",
+        artifactId: "confirmed-plan-trace",
+        nodes: [{ id: "plan_a:plan", type: "confirmedPlan", label: "plan_a", group: "plan", data: { planId: "plan_a" } }],
+        edges: [],
+        summary: { planCount: 1, slotCount: 0, atomCount: 0, bindingCount: 0, conceptCount: 0 },
+      }),
+    },
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/snapshot.json" }),
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const graph = await makeRequest(server, "GET", "/api/function-slot-restructure/confirmed-plan-trace/graph");
+
+    assert.equal(graph.statusCode, 200);
+    assert.equal(graph.body.schemaVersion, "confirmed_plan_trace_graph.v1");
+    assert.equal(graph.body.summary.planCount, 1);
+    assert.ok(graph.body.nodes.some((node) => node.type === "confirmedPlan"));
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot governance graph builder maps relationships and review gaps", () => {
   const graph = buildFunctionSlotGovernanceGraph(buildGovernance());
 

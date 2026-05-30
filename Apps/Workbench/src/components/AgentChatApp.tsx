@@ -486,7 +486,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       if (displayResult.threadId && displayResult.turnId) {
         void collectAutoDisplayTransformTurn(displayResult, payload)
           .then((materialized) => {
-            if (materialized?.ok) window.dispatchEvent(new CustomEvent("function-slot-plan-overlay-updated"));
+            if (materialized?.ok) window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
           })
           .catch(() => undefined);
       }

@@ -14,18 +14,20 @@ import {
   svgScreenPoint,
   VIEWBOX,
 } from "./graphUtils";
-import type { D3Link, DragState, SimNode, VisibleGraph } from "./types";
+import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } from "./types";
 
 export function GraphCanvas({
   mode = "structure",
   graph,
   visible,
+  layoutMode = "force",
   selectedNodeId,
   onSelectNode,
 }: {
-  mode?: "structure" | "governance";
+  mode?: "structure" | "governance" | "planTrace";
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
+  layoutMode?: GovernanceLayoutMode;
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
 }) {
@@ -45,6 +47,7 @@ export function GraphCanvas({
   const [sampleArtifacts, setSampleArtifacts] = useState<Record<string, SampleArtifact | null>>({});
   const [paused, setPaused] = useState(false);
   const [resetToken, setResetToken] = useState(0);
+  const fixedLayout = layoutMode === "columns";
   const positions = new Map(nodes.map((node) => [node.id, node]));
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusedIds = useMemo(() => connectedNodeIds(focusNodeId, visible.edges), [focusNodeId, visible.edges]);
@@ -79,15 +82,15 @@ export function GraphCanvas({
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
-      const existing = resetToken ? null : previous.get(node.id);
+      const existing = resetToken || fixedLayout ? null : previous.get(node.id);
       return {
         ...node,
         x: existing?.x ?? node.x,
         y: existing?.y ?? node.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        fx: null,
-        fy: null,
+        fx: fixedLayout ? node.x : null,
+        fy: fixedLayout ? node.y : null,
       };
     });
     const nextLinks: D3Link[] = visible.edges.map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
@@ -98,18 +101,19 @@ export function GraphCanvas({
         nodesRef.current = nextNodes;
         setNodes(nextNodes.map((node) => ({ ...node })));
       });
+    if (fixedLayout) simulationRef.current.stop();
     setNodes(nextNodes);
     return () => {
       simulationRef.current?.stop();
       simulationRef.current = null;
       if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
     };
-  }, [resetToken, visible.edges, visible.nodes]);
+  }, [fixedLayout, resetToken, visible.edges, visible.nodes]);
 
   useEffect(() => {
-    if (paused) simulationRef.current?.stop();
+    if (fixedLayout || paused) simulationRef.current?.stop();
     else simulationRef.current?.alphaTarget(0.03).restart();
-  }, [paused]);
+  }, [fixedLayout, paused]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -186,7 +190,7 @@ export function GraphCanvas({
         draggedNode.vy = 0;
       }
       dragRef.current = { ...drag, moved: true };
-      simulationRef.current?.alphaTarget(0.18).restart();
+      if (!fixedLayout) simulationRef.current?.alphaTarget(0.18).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
       return;
     }
@@ -205,12 +209,12 @@ export function GraphCanvas({
     if (drag?.kind === "node" && drag.moved) {
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (draggedNode) {
-        draggedNode.fx = null;
-        draggedNode.fy = null;
+        draggedNode.fx = fixedLayout ? draggedNode.x : null;
+        draggedNode.fy = fixedLayout ? draggedNode.y : null;
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
-      simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
+      if (!fixedLayout) simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
     }
     if (drag?.kind === "node" && !drag.moved) {
@@ -249,8 +253,8 @@ export function GraphCanvas({
   return (
     <div className="slot-graph-canvas">
       <div className="slot-graph-canvas-title">
-        <strong>{mode === "governance" ? "Semantic Governance" : shortId(graph.artifactId)}</strong>
-        <span>{mode === "governance" ? governanceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
+        <strong>{mode === "governance" ? "Semantic Governance" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
+        <span>{mode === "governance" ? governanceSummaryText(graph) : mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
       </div>
       <div className="slot-graph-controls">
         <button type="button" onClick={resetView}>重置</button>
@@ -383,7 +387,7 @@ function LibraryPreviewPopover({
   );
 }
 
-function GraphLegend({ mode }: { mode: "structure" | "governance" }) {
+function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" }) {
   if (mode === "governance") {
     return (
       <div className="slot-graph-legend">
@@ -392,6 +396,18 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" }) {
         <span><i className="legend-binding" />Binding</span>
         <span><i className="legend-rule" />Rule / Policy</span>
         <span><i className="legend-unmapped" />Unmapped / Review</span>
+      </div>
+    );
+  }
+  if (mode === "planTrace") {
+    return (
+      <div className="slot-graph-legend">
+        <span><i className="legend-library" />Confirmed plan</span>
+        <span><i className="legend-slot" />Slot / section</span>
+        <span><i className="legend-script" />Script / atom</span>
+        <span><i className="legend-rhythm" />Rhythm</span>
+        <span><i className="legend-packaging" />Packaging</span>
+        <span><i className="legend-unmapped" />Source ref</span>
       </div>
     );
   }
@@ -408,6 +424,10 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" }) {
 
 function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
   return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants / ${graph.summary.needReviewCount ?? 0} needReview`;
+}
+
+function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {
+  return `${graph.summary.planCount ?? 0} plans / ${graph.summary.slotCount ?? 0} slots / ${graph.summary.atomCount ?? 0} atoms`;
 }
 
 function GraphBackground() {

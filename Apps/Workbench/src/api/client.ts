@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, GovernancePlanOverlay, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -78,7 +78,7 @@ export type AgentChatTurnResponse = {
   conversationRevision?: number | null;
   finalMessage?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
-  materializedDisplay?: { ok: boolean; planId?: string | null; displayJsonPath?: string | null; overlayPath?: string | null; error?: string | null; message?: string | null } | null;
+  materializedDisplay?: { ok: boolean; planId?: string | null; displayJsonPath?: string | null; traceGraphPath?: string | null; error?: string | null; message?: string | null } | null;
 };
 
 export type AgentChatCompactResponse = {
@@ -580,9 +580,9 @@ export async function autoRunRestructureDisplayTransform(payload: { sampleVideoI
   );
 }
 
-export async function getFunctionSlotGovernancePlanOverlays() {
-  return readJsonResponse<GovernancePlanOverlay>(
-    await fetch(`${API_BASE_URL}/api/function-slot-governance/plan-overlays`, { cache: "no-store" }),
+export async function getFunctionSlotConfirmedPlanTraceGraph() {
+  return readJsonResponse<FunctionSlotLibraryGraph>(
+    await fetch(`${API_BASE_URL}/api/function-slot-restructure/confirmed-plan-trace/graph`, { cache: "no-store" }),
   );
 }
 

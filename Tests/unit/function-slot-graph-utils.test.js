@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const ts = require("typescript");
 
-test("governance overlay hides unmapped projected fallback nodes", () => {
+test("governance graph no longer merges confirmed plan projection overlays", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = {
     slot: true,
@@ -28,30 +28,47 @@ test("governance overlay hides unmapped projected fallback nodes", () => {
     edges: [{ id: "edge:root:slot", source: "governance:test", target: "slotSubtype:SUB_mapped", type: "governance_contains_subtype" }],
     summary: { slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
   };
-  const overlay = {
-    schemaVersion: "governance_plan_overlays.v1",
-    baseGraphId: "semantic-governance.v1",
-    plans: [{ planId: "plan_a", color: "#6ea8fe" }],
-    projectedNodes: [
-      { id: "plan_a:plan", planId: "plan_a", type: "confirmedPlan", label: "plan_a", color: "#6ea8fe", governanceNodeId: null },
-      { id: "plan_a:slot:SUB_mapped", planId: "plan_a", type: "projectedSlot", label: "已映射", color: "#6ea8fe", governanceNodeId: "slotSubtype:SUB_mapped" },
-      { id: "plan_a:slot:unmapped", planId: "plan_a", type: "projectedSlot", label: "{\"value\":\"不该显示\"}", color: "#6ea8fe", governanceNodeId: null },
+  const visible = buildVisibleGraph(graph, filters);
+
+  assert.equal(visible.nodes.some((node) => node.type === "confirmedPlan"), false);
+  assert.equal(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped" && node.data.overlayUsageCount === 1), false);
+  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
+});
+
+test("confirmed plan trace graph keeps unmapped plan parts visible", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = {
+    slot: true,
+    atom: true,
+    binding: true,
+    rule: true,
+    bundle: true,
+    unmapped: true,
+    needReview: true,
+    candidate: true,
+    reviewed: true,
+    stable: true,
+  };
+  const graph = {
+    schemaVersion: "confirmed_plan_trace_graph.v1",
+    artifactId: "confirmed-plan-trace",
+    nodes: [
+      { id: "plan_a:plan", type: "confirmedPlan", label: "plan_a", group: "plan", data: { planId: "plan_a" } },
+      { id: "plan_a:slot:unmapped", type: "tracedSlot", label: "{\"value\":\"应该显示\"}", group: "slot", data: { planId: "plan_a", governanceNodeId: null } },
+      { id: "plan_a:source:display:path", type: "sourceReference", label: "Artifacts/FunctionSlotRestructure/plan-a/restructure.display.json", group: "sourceVariant", data: { planId: "plan_a", sourceKind: "display" } },
     ],
-    projectedEdges: [
-      { id: "plan_a:edge:mapped", planId: "plan_a", source: "plan_a:plan", target: "plan_a:slot:SUB_mapped", type: "plan_uses_slot" },
-      { id: "plan_a:edge:unmapped", planId: "plan_a", source: "plan_a:plan", target: "plan_a:slot:unmapped", type: "plan_uses_slot" },
+    edges: [
+      { id: "edge:slot", source: "plan_a:plan", target: "plan_a:slot:unmapped", type: "plan_uses_slot" },
+      { id: "edge:source", source: "plan_a:plan", target: "plan_a:source:display:path", type: "source_display_json" },
     ],
-    sharedUsage: {},
-    reviewFlags: [],
-    summary: { planCount: 1, projectedNodeCount: 3, projectedEdgeCount: 2, sharedNodeCount: 0, reviewFlagCount: 0 },
+    summary: { planCount: 1, slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
   };
 
-  const visible = buildVisibleGraph(graph, filters, null, overlay);
+  const visible = buildVisibleGraph(graph, filters);
 
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
-  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped" && node.data.overlayUsageCount === 1));
-  assert.equal(visible.nodes.some((node) => node.type === "projectedSlot"), false);
-  assert.equal(visible.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
+  assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("应该显示")));
+  assert.ok(visible.nodes.some((node) => node.type === "sourceReference"));
 });
 
 function loadTsModule(relativePath) {

@@ -22,7 +22,7 @@ test("display overlay validation rejects missing required arrays", () => {
   );
 });
 
-test("display overlay materializes display json, index, and multi-plan overlay", async () => {
+test("display overlay materializes display json, index, and multi-plan trace graph", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-"));
   const logs = [];
   const logger = {
@@ -51,10 +51,12 @@ test("display overlay materializes display json, index, and multi-plan overlay",
   });
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
-  const overlay = await service.readOverlays();
-  assert.equal(overlay.summary.planCount, 2);
-  assert.deepEqual(overlay.sharedUsage["slotSubtype:SUB_scene_problem_activation"].sort(), ["plan-a", "plan-b"]);
+  const traceGraph = await service.readConfirmedPlanTraceGraph();
+  assert.equal(traceGraph.schemaVersion, "confirmed_plan_trace_graph.v1");
+  assert.equal(traceGraph.summary.planCount, 2);
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceReference" && node.data.governanceNodeId === "slotSubtype:SUB_scene_problem_activation"));
   assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "plan-a", "restructure.display.json")));
+  assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json")));
   assert.ok(logs.some((entry) => entry.event === "stage.end"));
 });
 
@@ -90,11 +92,12 @@ test("display overlay rematerializes the same plan by replacing the prior confir
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
   assert.equal(first.planId, second.planId);
-  const overlay = await service.readOverlays();
-  assert.equal(overlay.summary.planCount, 1);
-  assert.equal(overlay.plans[0].confirmationId, "confirm_new");
-  assert.ok(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_new_floral_water"));
-  assert.equal(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_old_toothpaste"), false);
+  const traceGraph = await service.readConfirmedPlanTraceGraph();
+  assert.equal(traceGraph.summary.planCount, 1);
+  const planNode = traceGraph.nodes.find((node) => node.type === "confirmedPlan");
+  assert.equal(planNode.data.confirmationId, "confirm_new");
+  assert.ok(traceGraph.nodes.some((node) => node.data.governanceNodeId === "slotSubtype:SUB_new_floral_water"));
+  assert.equal(traceGraph.nodes.some((node) => node.data.governanceNodeId === "slotSubtype:SUB_old_toothpaste"), false);
   const stored = JSON.parse(await fs.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "plan-a", "restructure.display.json"), "utf8"));
   assert.equal(stored.confirmationId, "confirm_new");
   assert.equal(stored.sourceTurnId, "turn_new");
@@ -120,10 +123,10 @@ test("display overlay materializes display transformer section schema", async ()
   });
   assert.equal(result.ok, true);
   assert.equal(result.planId, "spray-pump-floral-water");
-  const overlay = await service.readOverlays();
-  assert.equal(overlay.summary.planCount, 1);
-  assert.equal(overlay.plans[0].sourceRestructurePath, "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md");
-  assert.ok(overlay.projectedNodes.some((node) => node.governanceNodeId === "slotSubtype:SUB_spray_pump_entry"));
+  const traceGraph = await service.readConfirmedPlanTraceGraph();
+  assert.equal(traceGraph.summary.planCount, 1);
+  assert.ok(traceGraph.nodes.some((node) => node.data.sourceRestructurePath === "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md"));
+  assert.ok(traceGraph.nodes.some((node) => node.data.governanceNodeId === "slotSubtype:SUB_spray_pump_entry"));
 });
 
 function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {
