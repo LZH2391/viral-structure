@@ -14,7 +14,6 @@ from governance import (
     default_governance_path,
     enrich_candidate,
     governance_audit,
-    governance_status,
     load_governance,
 )
 
@@ -145,7 +144,6 @@ def retrieve(index: Dict[str, Any], brief: Dict[str, Any], limit: int, governanc
     return {
         "brief": brief,
         "indexSummary": index.get("summary", {}),
-        "governanceStatus": governance_status(index, governance),
         "governanceAudit": governance_audit(governance, governance_maps),
         "candidateGroups": grouped,
         "missingSlotTypes": missing,

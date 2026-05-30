@@ -38,14 +38,6 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受约束不足风险时，才允许只用 `slot_index.json` 重组，并必须披露“未使用治理层”。
 
-读取治理文件后先检查：
-
-- `schemaVersion` 是否为 `function_slot_semantic_governance.v1`
-- `sourceSnapshot` 是否与当前 index/corpus 的 artifact `contentHash` 对齐
-- `needReviewMap / reviewItems / unmapped*Variants`
-
-治理文件过期时，可以继续输出方案，但必须说明哪些治理映射可能过期。
-
 ## 输入
 
 可接受：

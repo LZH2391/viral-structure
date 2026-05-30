@@ -18,7 +18,6 @@ from governance import (
     default_governance_path,
     governance_audit,
     governance_prior_hypotheses,
-    governance_status,
     load_governance,
 )
 from retrieve_candidates import retrieve, strip_brief_duration_fields
@@ -449,7 +448,6 @@ def select_chain(hypotheses: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: List[str] | None, governance: Dict[str, Any] | None = None) -> Dict[str, Any]:
     governance_maps = build_governance_maps(governance)
-    g_status = governance_status(index, governance)
     demand_graph = build_demand_graph(index, brief, sequence_override)
     hypotheses = generate_chain_hypotheses(demand_graph, brief, governance_maps)
     selected_chain = select_chain(hypotheses)
@@ -462,7 +460,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
     candidates = retrieve(index, brief_for_retrieval, limit=3, governance=governance)
 
     selected_slots = []
-    warnings: List[str] = list(g_status.get("warnings") or [])
+    warnings: List[str] = []
     for order, demand_id in enumerate(selected_chain.get("sequence", []), 1):
         if demand_id not in demand_by_id:
             selected_slots.append({
@@ -549,7 +547,6 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
 
     return {
         "brief": strip_brief_duration_fields(brief),
-        "governanceStatus": g_status,
         "governanceAudit": governance_audit(governance, governance_maps),
         "briefConstraints": {
             "viewerStart": brief.get("viewerStart"),

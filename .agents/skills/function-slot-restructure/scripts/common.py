@@ -174,7 +174,6 @@ def manifest_lineage(manifest: Dict[str, Any]) -> Dict[str, Any]:
         "status",
         "createdAt",
         "exportedAt",
-        "contentHash",
     ]
     lineage = {key: manifest.get(key) for key in fields if key in manifest}
     if "counts" in manifest:
@@ -201,7 +200,6 @@ def load_sample(sample_dir: Path) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "sampleDir": display_path(sample_dir),
         "sampleId": str(sample_id),
         "artifactId": manifest.get("artifactId"),
-        "schemaVersion": manifest.get("schemaVersion"),
         "lineage": manifest_lineage(manifest),
         "paths": {key: display_path(Path(value)) for key, value in paths.items()},
     }

@@ -51,60 +51,6 @@ def _ids(items: Iterable[Dict[str, Any]], field: str) -> Set[str]:
     return out
 
 
-def governance_status(index: Dict[str, Any], governance: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Return audit-safe status for evidence/governance alignment."""
-    if not governance:
-        return {
-            "available": False,
-            "path": None,
-            "schemaVersion": None,
-            "reviewStatus": None,
-            "maturityStatus": None,
-            "sourceSnapshotMatchesIndex": None,
-            "warnings": ["semantic governance not loaded; falling back to evidence-layer ranking"],
-        }
-
-    index_samples = index.get("samples") or []
-    index_hashes = {
-        str(s.get("artifactId")): (s.get("lineage") or {}).get("contentHash")
-        for s in index_samples
-        if s.get("artifactId")
-    }
-    snapshot_hashes = {
-        str(s.get("artifactId")): s.get("contentHash")
-        for s in governance.get("sourceSnapshot") or []
-        if s.get("artifactId")
-    }
-
-    warnings: List[str] = []
-    matches: Optional[bool]
-    if not index_hashes or not snapshot_hashes:
-        matches = None
-        warnings.append("cannot compare governance sourceSnapshot with index samples")
-    else:
-        missing = sorted(set(index_hashes) - set(snapshot_hashes))
-        changed = sorted(
-            artifact_id
-            for artifact_id, content_hash in index_hashes.items()
-            if artifact_id in snapshot_hashes and snapshot_hashes[artifact_id] != content_hash
-        )
-        matches = not missing and not changed
-        if missing:
-            warnings.append("governance sourceSnapshot missing artifacts: " + ", ".join(missing))
-        if changed:
-            warnings.append("governance sourceSnapshot contentHash differs: " + ", ".join(changed))
-
-    return {
-        "available": True,
-        "path": governance.get("_path") or governance.get("outputPath"),
-        "schemaVersion": governance.get("schemaVersion"),
-        "reviewStatus": governance.get("reviewStatus"),
-        "maturityStatus": governance.get("maturityStatus"),
-        "sourceSnapshotMatchesIndex": matches,
-        "warnings": warnings,
-    }
-
-
 def build_governance_maps(governance: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Precompute relationships from governance JSON to evidence variants."""
     maps: Dict[str, Any] = {
@@ -115,7 +61,6 @@ def build_governance_maps(governance: Optional[Dict[str, Any]]) -> Dict[str, Any
         "bindingPatternsByVariant": {},
         "rulePatternsByVariant": {},
         "bundlesByVariant": {},
-        "needReviewVariants": set(),
         "items": {},
     }
     if not governance:
@@ -173,11 +118,6 @@ def build_governance_maps(governance: Optional[Dict[str, Any]]) -> Dict[str, Any
         for variant_id in bundle.get("sourceVariantIds") or []:
             maps["bundlesByVariant"].setdefault(str(variant_id), []).append(bundle)
 
-    maps["needReviewVariants"] = {
-        str(x.get("variantId"))
-        for x in governance.get("needReviewMap") or []
-        if x.get("variantId")
-    }
     return maps
 
 
@@ -286,7 +226,6 @@ def enrich_candidate(candidate: Dict[str, Any], maps: Dict[str, Any]) -> Dict[st
             _item_summary(x, ["bundleType", "useAs", "notUseAs", "slotSubtypeIds", "scriptPatternIds", "rhythmPatternIds", "packagingPatternIds"])
             for x in maps.get("bundlesByVariant", {}).get(variant_id, [])
         ],
-        "needReview": variant_id in maps.get("needReviewVariants", set()),
     }
     return enriched
 

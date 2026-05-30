@@ -2,18 +2,6 @@
 
 在最终确定重组短视频方案前，使用这些检查。
 
-## 语料库级检查
-
-- 是否读取并披露了 `semantic-governance.v1.json` 的状态？
-- `sourceSnapshot` 是否与当前 index/corpus 的 contentHash 对齐？
-- 是否区分了治理层结论和证据层事实？
-- 方案是否过度依赖单一源样例？
-- 单样例规则是否被标记为弱规则，而不是普遍真理？
-- 重复模式和推断假设是否被区分开？
-- 借用 variant 时是否考虑了源视频、品类和风格？
-- 稀疏 slot type 是否被披露？
-- `needReviewMap / reviewItems / unmapped*Variants` 是否被纳入风险说明？
-
 ## 治理层检查
 
 - 选中的槽位是否有匹配的 `slotSubtype / slotArchetype`？

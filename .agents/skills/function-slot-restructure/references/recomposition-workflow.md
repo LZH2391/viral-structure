@@ -131,15 +131,10 @@ choice claim       -> concrete product/service/action memory point
 
 在生成链路假设前，读取 `semantic-governance.v1.json`：
 
-- 检查 `schemaVersion`。
-- 对比 `sourceSnapshot` 与当前 index 中 artifact 的 `contentHash`。
 - 将 `slotSubtypes.sourceVariantIds` 映射回 `slotVariants`。
 - 将 `atomPatterns / bindingPatterns / rulePatterns` 映射回 atom、binding、rule variants。
 - 读取 `bindingPrinciples / recompositionPolicies` 作为组合安全约束。
 - 读取 `implementationBundles / observedChainPatterns` 作为检索先验，不作为固定模板。
-- 读取 `needReviewMap / reviewItems / unmapped*Variants` 作为审阅信息和缺口提示。
-
-如果治理层缺失或过期，可以继续草拟方案，但必须明确说明哪些判断只是证据层推断。
 
 ## 步骤 4：用图操作符生成链路假设
 
@@ -351,7 +346,7 @@ choice close -> concrete memory point
 - Shot 设计后置为独立产物
 - 所需证明材料
 - binding checks
-- governance checks：principle / policy / reviewItems / unmapped items
+- governance checks：principle / policy
 - 替代版本
 
 ## 步骤 13：标记未满足项

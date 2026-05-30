@@ -18,7 +18,6 @@ from governance import (
     candidate_governance_ids,
     default_governance_path,
     enrich_candidate,
-    governance_status,
     load_governance,
 )
 
@@ -136,7 +135,6 @@ def main() -> int:
         "strategy": "evidence_variant_listing",
         "targetText": target_text,
         "targetChain": chain,
-        "governanceStatus": governance_status(index, governance),
         "results": [],
     }
 
