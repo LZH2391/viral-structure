@@ -23,6 +23,12 @@ const DEFAULT_FILTERS: GraphFiltersState = {
   rule: false,
   bundle: false,
   unmapped: false,
+  slotFamily: true,
+  slotArchetype: true,
+  slotSubtype: true,
+  atomLayer: true,
+  atomPattern: true,
+  sourceVariant: true,
 };
 
 export function FunctionSlotGraphApp() {

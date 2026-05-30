@@ -8,6 +8,7 @@ import {
   clamp,
   clampPreviewPosition,
   connectedNodeIds,
+  constrainNodeToLayoutSector,
   createGraphSimulation,
   nodeRadius,
   previewPopoverSize,
@@ -86,16 +87,22 @@ export function GraphCanvas({
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
       const existing = resetToken || fixedLayout ? null : previous.get(node.id);
+      const pinnedRoot = node.type === "confirmedPlan" || node.type === "governanceRoot";
       return {
         ...node,
         x: existing?.x ?? node.x,
         y: existing?.y ?? node.y,
         layoutX: node.layoutX ?? node.x,
         layoutY: node.layoutY ?? node.y,
+        layoutAngleMin: node.layoutAngleMin,
+        layoutAngleMax: node.layoutAngleMax,
+        layoutRadiusMin: node.layoutRadiusMin,
+        layoutRadiusMax: node.layoutRadiusMax,
+        layoutYScale: node.layoutYScale,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        fx: fixedLayout ? node.x : null,
-        fy: fixedLayout ? node.y : null,
+        fx: fixedLayout || pinnedRoot ? node.x : null,
+        fy: fixedLayout || pinnedRoot ? node.y : null,
       };
     });
     const nextLinks: D3Link[] = visible.edges.map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
@@ -103,6 +110,7 @@ export function GraphCanvas({
     simulationRef.current?.stop();
     simulationRef.current = createGraphSimulation(nextNodes, nextLinks)
       .on("tick", () => {
+        nextNodes.forEach(constrainNodeToLayoutSector);
         nodesRef.current = nextNodes;
         setNodes(nextNodes.map((node) => ({ ...node })));
       });
@@ -477,9 +485,9 @@ function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {
 }
 
 function GraphBackground() {
-  const dots = Array.from({ length: 70 }, (_, index) => ({
-    x: 50 + ((index * 157) % 1160),
-    y: 38 + ((index * 89) % 742),
+  const dots = Array.from({ length: 110 }, (_, index) => ({
+    x: 50 + ((index * 157) % (VIEWBOX.width - 100)),
+    y: 38 + ((index * 89) % (VIEWBOX.height - 76)),
     r: 2 + (index % 4),
   }));
   return (

@@ -8,11 +8,28 @@ export type GraphFiltersState = {
   rule: boolean;
   bundle: boolean;
   unmapped: boolean;
+  slotFamily: boolean;
+  slotArchetype: boolean;
+  slotSubtype: boolean;
+  atomLayer: boolean;
+  atomPattern: boolean;
+  sourceVariant: boolean;
 };
 
 export type GovernanceLayoutMode = "columns" | "force";
 
-export type PositionedNode = FunctionSlotGraphNode & { x: number; y: number; layoutX?: number; layoutY?: number; shortLabel: string };
+export type PositionedNode = FunctionSlotGraphNode & {
+  x: number;
+  y: number;
+  layoutX?: number;
+  layoutY?: number;
+  layoutAngleMin?: number;
+  layoutAngleMax?: number;
+  layoutRadiusMin?: number;
+  layoutRadiusMax?: number;
+  layoutYScale?: number;
+  shortLabel: string;
+};
 
 export type SimNode = PositionedNode & SimulationNodeDatum & {
   x: number;

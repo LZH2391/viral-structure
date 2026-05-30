@@ -9,8 +9,12 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
     return (
       <section className="slot-graph-card">
         <div className="section-heading">溯源筛选</div>
-        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slot hierarchy</label>
-        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom / source variants</label>
+        <label><input type="checkbox" checked={filters.slotFamily} onChange={() => update("slotFamily")} /> Family</label>
+        <label><input type="checkbox" checked={filters.slotArchetype} onChange={() => update("slotArchetype")} /> Archetype</label>
+        <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> Subtype</label>
+        <label><input type="checkbox" checked={filters.atomLayer} onChange={() => update("atomLayer")} /> Layer</label>
+        <label><input type="checkbox" checked={filters.atomPattern} onChange={() => update("atomPattern")} /> Pattern</label>
+        <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariant</label>
       </section>
     );
   }
@@ -18,8 +22,12 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
     return (
       <section className="slot-graph-card">
         <div className="section-heading">治理筛选</div>
-        <label><input type="checkbox" checked={filters.slot} onChange={() => update("slot")} /> Slot Governance</label>
-        <label><input type="checkbox" checked={filters.atom} onChange={() => update("atom")} /> Atom Governance</label>
+        <label><input type="checkbox" checked={filters.slotFamily} onChange={() => update("slotFamily")} /> Family</label>
+        <label><input type="checkbox" checked={filters.slotArchetype} onChange={() => update("slotArchetype")} /> Archetype</label>
+        <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> Subtype</label>
+        <label><input type="checkbox" checked={filters.atomLayer} onChange={() => update("atomLayer")} /> Layer</label>
+        <label><input type="checkbox" checked={filters.atomPattern} onChange={() => update("atomPattern")} /> Pattern</label>
+        <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariant</label>
         <label><input type="checkbox" checked={filters.binding} onChange={() => update("binding")} /> Binding Governance</label>
         <label><input type="checkbox" checked={filters.rule} onChange={() => update("rule")} /> Rule / Policy</label>
         <label><input type="checkbox" checked={filters.bundle} onChange={() => update("bundle")} /> Bundles</label>

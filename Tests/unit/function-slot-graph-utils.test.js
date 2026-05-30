@@ -121,6 +121,45 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
   assert.ok(distance("atomPattern:ap1") < distance("variant:v1"));
 });
 
+test("governance radial layout keeps root centered and keeps first layer inside its sector", () => {
+  const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = {
+    slot: true,
+    atom: true,
+    binding: false,
+    rule: false,
+    bundle: false,
+    unmapped: false,
+  };
+  const families = ["f1", "f2", "f3", "f4"].map((id) => ({ id: `family:${id}`, type: "slotFamily", label: id, group: "slot", data: {} }));
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance-test",
+    nodes: [
+      { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      ...families,
+    ],
+    edges: families.map((family, index) => ({ id: `edge:${index}`, source: "governance:root", target: family.id, type: "governance_contains_family" })),
+    summary: { slotCount: 4, atomCount: 0, bindingCount: 0, conceptCount: 4 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters, null, "force");
+  const root = visible.nodes.find((node) => node.id === "governance:root");
+  const familyNodes = visible.nodes.filter((node) => node.type === "slotFamily");
+
+  assert.equal(root.x, CENTER.x);
+  assert.equal(root.y, CENTER.y);
+  assert.equal(familyNodes.length, 4);
+  assert.ok(familyNodes.every((node) => node.layoutAngleMin < -2.5));
+  assert.ok(familyNodes.every((node) => node.layoutAngleMax < -1));
+  assert.ok(familyNodes.every((node) => node.layoutRadiusMin < distanceFromRoot(node, root)));
+  assert.ok(familyNodes.every((node) => node.layoutRadiusMax > distanceFromRoot(node, root)));
+});
+
+function distanceFromRoot(node, root) {
+  return Math.hypot(node.x - root.x, (node.y - root.y) / (node.layoutYScale ?? 1));
+}
+
 function loadTsModule(relativePath) {
   const sourcePath = path.join(process.cwd(), relativePath);
   const source = fs.readFileSync(sourcePath, "utf8");
@@ -138,7 +177,7 @@ function loadTsModule(relativePath) {
       return {
         forceCenter: () => ({ strength: () => ({}) }),
         forceCollide: () => ({ radius: () => ({ strength: () => ({ iterations: () => ({}) }) }) }),
-        forceLink: () => ({ id: () => ({ distance: () => ({}) }) }),
+        forceLink: () => ({ id: () => ({ distance: () => ({ strength: () => ({}) }) }) }),
         forceManyBody: () => ({ strength: () => ({ distanceMin: () => ({ distanceMax: () => ({}) }) }) }),
         forceSimulation: () => ({ alpha: () => ({ alphaDecay: () => ({ velocityDecay: () => ({ force: () => ({ force: () => ({ force: () => ({ force: () => ({ force: () => ({}) }) }) }) }) }) }) }) }),
         forceX: () => ({ strength: () => ({}) }),
