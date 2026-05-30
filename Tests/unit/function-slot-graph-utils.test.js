@@ -31,7 +31,7 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("confirmed plan trace graph keeps unmapped plan parts visible", () => {
+test("confirmed plan trace graph hides source examples and variants", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = {
     slot: true,
@@ -62,8 +62,10 @@ test("confirmed plan trace graph keeps unmapped plan parts visible", () => {
 
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
   assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("方案槽位")));
-  assert.ok(visible.nodes.some((node) => node.type === "sourceExample"));
-  assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
+  assert.equal(visible.nodes.some((node) => node.type === "sourceExample"), false);
+  assert.equal(visible.nodes.some((node) => node.type === "sourceVariant"), false);
+  assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_sample"), false);
+  assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_variant"), false);
 });
 
 function loadTsModule(relativePath) {

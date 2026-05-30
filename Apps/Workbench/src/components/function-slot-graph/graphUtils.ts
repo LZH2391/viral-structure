@@ -64,18 +64,18 @@ export function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraph
 
 export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "governanceRoot") return 22;
-  if (node.type === "slotFamily") return 18;
-  if (node.type === "slotArchetype") return 15;
-  if (node.type === "slotSubtype") return 12;
-  if (node.type === "atomLayer") return 12;
+  if (node.type === "slotFamily") return 24;
+  if (node.type === "slotArchetype") return 18;
+  if (node.type === "slotSubtype") return 22;
+  if (node.type === "atomLayer") return 18;
   if (node.type === "atomArchetype") return 14;
-  if (node.type === "atomPattern") return 10;
+  if (node.type === "atomPattern") return 12;
   if (node.type === "bindingPrinciple" || node.type === "recompositionPolicy") return 13;
   if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
   if (node.type === "unmappedVariant") return 8;
   if (node.type === "sourceExample") return 9;
-  if (node.type === "confirmedPlan") return 11;
-  if (node.type.startsWith("traced")) return 8;
+  if (node.type === "confirmedPlan") return 30;
+  if (node.type.startsWith("traced")) return 13;
   if (node.type === "libraryItem") return 20;
   if (node.type === "slotInstance") return 13;
   if (node.type === "slotConcept") return 11;
@@ -291,7 +291,7 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "tracedSlot") return filters.slot;
   if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") return filters.slot;
   if (node.type === "atomLayer" || node.type === "atomPattern") return filters.atom;
-  if (node.type === "sourceExample") return filters.unmapped;
+  if (node.type === "sourceExample" || node.type === "sourceVariant") return false;
   return true;
 }
 

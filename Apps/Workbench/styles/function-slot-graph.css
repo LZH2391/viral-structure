@@ -146,8 +146,28 @@
   background: #8b5cf6;
 }
 
+.legend-plan {
+  background: #05070c;
+  border: 1px solid rgba(244, 246, 255, 0.96);
+}
+
 .legend-slot {
   background: #56d7b1;
+}
+
+.legend-family {
+  background: #3f8f75;
+  border: 1px solid #60d6a4;
+}
+
+.legend-archetype {
+  background: #426c9f;
+  border: 1px solid #7fb7ff;
+}
+
+.legend-subtype {
+  background: #9b8132;
+  border: 1px solid #f0d36d;
 }
 
 .legend-script {
@@ -179,29 +199,82 @@
 }
 
 .slot-graph-edge {
-  stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 0.8;
+  stroke: rgba(151, 163, 185, 0.22);
+  stroke-width: 1.1;
+  stroke-linecap: round;
 }
 
 .slot-graph-edge.focused {
-  stroke: rgba(180, 170, 255, 0.7);
-  stroke-width: 1.5;
+  stroke: rgba(196, 187, 255, 0.94);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 7px rgba(187, 174, 255, 0.42));
 }
 
 .slot-graph-edge.muted {
-  opacity: 0.38;
+  opacity: 0.32;
 }
 
 .slot-graph-edge.edge-slot_next,
 .slot-graph-edge.edge-slot_instance_of_concept {
-  stroke: rgba(80, 212, 176, 0.32);
-  stroke-width: 1.1;
+  stroke: rgba(96, 214, 164, 0.58);
+  stroke-width: 1.8;
 }
 
 .slot-graph-edge.edge-binding_targets_slot,
 .slot-graph-edge.edge-binding_targets_atom {
-  stroke-dasharray: 5 5;
-  stroke: rgba(181, 140, 255, 0.28);
+  stroke-dasharray: 7 7;
+  stroke: rgba(214, 192, 102, 0.46);
+  stroke-width: 1.5;
+}
+
+.slot-graph-edge.edge-plan_uses_slot {
+  stroke: rgba(244, 246, 255, 0.78);
+  stroke-width: 2.6;
+}
+
+.slot-graph-edge.edge-slot_traced_to_semantic {
+  stroke: rgba(240, 211, 109, 0.7);
+  stroke-width: 2.3;
+}
+
+.slot-graph-edge.edge-governance_contains_family,
+.slot-graph-edge.edge-slot_family_to_archetype,
+.slot-graph-edge.edge-family_to_archetype {
+  stroke: rgba(127, 183, 255, 0.72);
+  stroke-width: 2.2;
+}
+
+.slot-graph-edge.edge-slot_archetype_to_subtype,
+.slot-graph-edge.edge-archetype_to_subtype {
+  stroke: rgba(240, 211, 109, 0.78);
+  stroke-width: 2.3;
+}
+
+.slot-graph-edge.edge-subtype_to_atom_pattern,
+.slot-graph-edge.edge-slot_uses_atom_layer,
+.slot-graph-edge.edge-atom_layer_to_pattern,
+.slot-graph-edge.edge-atom_archetype_to_pattern {
+  stroke-width: 1.9;
+}
+
+.slot-graph-edge.edge-layer-script {
+  stroke: rgba(228, 129, 130, 0.62);
+}
+
+.slot-graph-edge.edge-layer-rhythm {
+  stroke: rgba(105, 197, 232, 0.62);
+}
+
+.slot-graph-edge.edge-layer-packaging {
+  stroke: rgba(169, 140, 255, 0.62);
+}
+
+.slot-graph-edge.edge-pattern_to_source_variant,
+.slot-graph-edge.edge-traced_to_source_sample,
+.slot-graph-edge.edge-traced_to_source_variant {
+  stroke: rgba(196, 203, 237, 0.42);
+  stroke-width: 1.55;
+  stroke-dasharray: 7 7;
 }
 
 .slot-graph-node {
@@ -212,7 +285,7 @@
   cursor: grabbing;
 }
 
-.slot-graph-node circle {
+.slot-graph-node > circle:not(.slot-graph-plan-ring) {
   stroke: rgba(255, 255, 255, 0.5);
   stroke-width: 1;
   opacity: 0.78;
@@ -221,21 +294,25 @@
 
 .slot-graph-node text {
   fill: rgba(226, 232, 240, 0.82);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 760;
+  paint-order: stroke fill;
+  stroke: rgba(8, 11, 17, 0.92);
+  stroke-linejoin: round;
+  stroke-width: 4px;
   text-anchor: middle;
   pointer-events: none;
 }
 
-.slot-graph-node.selected circle,
-.slot-graph-node.preview-pinned circle,
-.slot-graph-node:hover circle {
+.slot-graph-node.selected > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.preview-pinned > circle:not(.slot-graph-plan-ring),
+.slot-graph-node:hover > circle:not(.slot-graph-plan-ring) {
   stroke: #ffffff;
   stroke-width: 2;
   opacity: 1;
 }
 
-.slot-graph-node.preview-pinned circle {
+.slot-graph-node.preview-pinned > circle:not(.slot-graph-plan-ring) {
   filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.86));
 }
 
@@ -243,76 +320,159 @@
   opacity: 0.52;
 }
 
-.slot-graph-node.node-library circle {
+.slot-graph-node.node-library > circle:not(.slot-graph-plan-ring) {
   fill: #8b5cf6;
   filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.7));
 }
 
-.slot-graph-node.node-slot circle {
+.slot-graph-node.node-slot > circle:not(.slot-graph-plan-ring) {
   fill: #56d7b1;
   filter: drop-shadow(0 0 8px rgba(86, 215, 177, 0.6));
 }
 
-.slot-graph-node.node-slotReview circle {
+.slot-graph-node.node-type-slotFamily > circle:not(.slot-graph-plan-ring) {
+  fill: #3f8f75;
+  stroke: #60d6a4;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 11px rgba(96, 214, 164, 0.5));
+}
+
+.slot-graph-node.node-type-slotFamily text {
+  fill: #a7f2d1;
+}
+
+.slot-graph-node.node-type-slotArchetype > circle:not(.slot-graph-plan-ring) {
+  fill: #426c9f;
+  stroke: #7fb7ff;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 10px rgba(127, 183, 255, 0.46));
+}
+
+.slot-graph-node.node-type-slotArchetype text {
+  fill: #c4ddff;
+}
+
+.slot-graph-node.node-type-slotSubtype > circle:not(.slot-graph-plan-ring) {
+  fill: #9b8132;
+  stroke: #f0d36d;
+  stroke-width: 2.3;
+  filter: drop-shadow(0 0 11px rgba(240, 211, 109, 0.46));
+}
+
+.slot-graph-node.node-type-slotSubtype text {
+  fill: #ffe58f;
+}
+
+.slot-graph-node.node-type-tracedSlot > circle:not(.slot-graph-plan-ring) {
+  fill: #69dfc4;
+  stroke: rgba(223, 249, 242, 0.92);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 10px rgba(105, 223, 196, 0.42));
+}
+
+.slot-graph-node.node-slotReview > circle:not(.slot-graph-plan-ring) {
   fill: #f2b84b;
   filter: drop-shadow(0 0 8px rgba(242, 184, 75, 0.6));
 }
 
-.slot-graph-node.node-script circle {
+.slot-graph-node.node-script > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-layer-script > circle:not(.slot-graph-plan-ring) {
   fill: #f07070;
+  stroke: #e48182;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(228, 129, 130, 0.42));
 }
 
-.slot-graph-node.node-rhythm circle {
+.slot-graph-node.node-script text,
+.slot-graph-node.node-layer-script text {
+  fill: #ffc3c2;
+}
+
+.slot-graph-node.node-rhythm > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-layer-rhythm > circle:not(.slot-graph-plan-ring) {
   fill: #58bfe7;
+  stroke: #69c5e8;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(105, 197, 232, 0.4));
 }
 
-.slot-graph-node.node-packaging circle {
+.slot-graph-node.node-rhythm text,
+.slot-graph-node.node-layer-rhythm text {
+  fill: #bdeaff;
+}
+
+.slot-graph-node.node-packaging > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-layer-packaging > circle:not(.slot-graph-plan-ring) {
   fill: #b58cff;
+  stroke: #a98cff;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(169, 140, 255, 0.42));
 }
 
-.slot-graph-node.node-concept circle {
+.slot-graph-node.node-packaging text,
+.slot-graph-node.node-layer-packaging text {
+  fill: #d8ccff;
+}
+
+.slot-graph-node.node-concept > circle:not(.slot-graph-plan-ring) {
   fill: #35c98a;
   stroke-dasharray: 4 3;
   filter: drop-shadow(0 0 8px rgba(53, 201, 138, 0.55));
 }
 
-.slot-graph-node[class*="node-binding"] circle {
+.slot-graph-node[class*="node-binding"] > circle:not(.slot-graph-plan-ring) {
   fill: #f0d46f;
 }
 
-.slot-graph-node.node-governance circle {
+.slot-graph-node.node-governance > circle:not(.slot-graph-plan-ring) {
   fill: #8b5cf6;
   filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.68));
 }
 
-.slot-graph-node.node-policy circle,
-.slot-graph-node.node-rule circle {
+.slot-graph-node.node-policy > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-rule > circle:not(.slot-graph-plan-ring) {
   fill: #7fb0ff;
 }
 
-.slot-graph-node.node-bundle circle {
+.slot-graph-node.node-bundle > circle:not(.slot-graph-plan-ring) {
   fill: #f6c86b;
   stroke-dasharray: 5 3;
 }
 
-.slot-graph-node.node-unmapped circle,
-.slot-graph-node.node-needReview circle {
+.slot-graph-node.node-unmapped > circle:not(.slot-graph-plan-ring),
+.slot-graph-node.node-needReview > circle:not(.slot-graph-plan-ring) {
   fill: #f28b82;
   filter: drop-shadow(0 0 8px rgba(242, 139, 130, 0.56));
 }
 
-.slot-graph-node.node-sourceVariant circle {
+.slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
   fill: #98a2b3;
   opacity: 0.62;
 }
 
-.slot-graph-node.node-plan circle {
-  fill: #111827;
-  stroke: rgba(255, 255, 255, 0.82);
-  stroke-dasharray: 3 2;
+.slot-graph-node.node-plan > circle:not(.slot-graph-plan-ring) {
+  fill: #05070c;
+  stroke: rgba(244, 246, 255, 0.96);
+  stroke-dasharray: none;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 18px rgba(187, 174, 255, 0.5));
 }
 
-.slot-graph-node.node-projected circle {
+.slot-graph-node.node-plan text {
+  fill: #f7f8ff;
+  font-size: 15px;
+  stroke-width: 5px;
+}
+
+.slot-graph-node .slot-graph-plan-ring {
+  fill: none;
+  stroke: rgba(187, 174, 255, 0.76);
+  stroke-dasharray: 6 7;
+  stroke-width: 2;
+  opacity: 0.9;
+}
+
+.slot-graph-node.node-projected > circle:not(.slot-graph-plan-ring) {
   fill: #4b5563;
   stroke: rgba(255, 255, 255, 0.62);
 }

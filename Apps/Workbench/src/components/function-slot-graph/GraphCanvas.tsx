@@ -281,7 +281,7 @@ export function GraphCanvas({
             if (!source || !target) return null;
             const focused = focusNodeId ? edge.source === focusNodeId || edge.target === focusNodeId : false;
             const muted = focusNodeId ? !focused : false;
-            return <line key={edge.id} className={`slot-graph-edge edge-${edge.type} ${focused ? "focused" : ""} ${muted ? "muted" : ""}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
+            return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
           })}
           {nodes.map((node) => (
             <GraphNode
@@ -319,7 +319,7 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
   const overlayUsageCount = Number(node.data.overlayUsageCount ?? overlayColors.length);
   return (
     <g
-      className={`slot-graph-node node-${node.group} ${focused ? "" : "muted"} ${selected ? "selected" : ""} ${pinnedPreview ? "preview-pinned" : ""}`}
+      className={nodeClassName(node, focused, selected, pinnedPreview)}
       onPointerDown={(event) => onStartDrag(event, node)}
       onPointerEnter={() => onHover(node.id)}
       onPointerLeave={onHoverOut}
@@ -327,6 +327,7 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
       role="button"
       aria-label={node.label}
     >
+      {node.type === "confirmedPlan" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
       <circle cx={node.x} cy={node.y} r={radius} />
       {overlayColors.length ? (
         <g className="slot-graph-plan-badge">
@@ -338,6 +339,45 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
       <title>{node.label}</title>
     </g>
   );
+}
+
+function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {
+  return [
+    "slot-graph-node",
+    `node-${cssToken(node.group)}`,
+    `node-type-${cssToken(node.type)}`,
+    nodeLayerClass(node),
+    focused ? "" : "muted",
+    selected ? "selected" : "",
+    pinnedPreview ? "preview-pinned" : "",
+  ].filter(Boolean).join(" ");
+}
+
+function edgeClassName(type: string, source: SimNode, target: SimNode, focused: boolean, muted: boolean) {
+  return [
+    "slot-graph-edge",
+    `edge-${cssToken(type)}`,
+    edgeLayerClass(source, target),
+    focused ? "focused" : "",
+    muted ? "muted" : "",
+  ].filter(Boolean).join(" ");
+}
+
+function nodeLayerClass(node: SimNode) {
+  const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
+  if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
+  return "";
+}
+
+function edgeLayerClass(source: SimNode, target: SimNode) {
+  const layer = [source, target]
+    .map((node) => typeof node.data.layer === "string" ? node.data.layer : node.group)
+    .find((value) => value === "script" || value === "rhythm" || value === "packaging");
+  return layer ? `edge-layer-${layer}` : "";
+}
+
+function cssToken(value: unknown) {
+  return String(value ?? "").replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
 function LibraryPreviewPopover({
@@ -402,12 +442,13 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
   if (mode === "planTrace") {
     return (
       <div className="slot-graph-legend">
-        <span><i className="legend-library" />Confirmed plan</span>
-        <span><i className="legend-slot" />Slot hierarchy</span>
+        <span><i className="legend-plan" />Confirmed plan</span>
+        <span><i className="legend-family" />Family</span>
+        <span><i className="legend-archetype" />Archetype</span>
+        <span><i className="legend-subtype" />Subtype</span>
         <span><i className="legend-script" />Script layer / pattern</span>
         <span><i className="legend-rhythm" />Rhythm layer / pattern</span>
         <span><i className="legend-packaging" />Packaging layer / pattern</span>
-        <span><i className="legend-unmapped" />Source sample / variant</span>
       </div>
     );
   }
