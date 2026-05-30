@@ -10,7 +10,7 @@ function buildFunctionSlotLibraryGraph(libraryArtifact) {
   pushNode(nodes, {
     id: rootId,
     type: "libraryItem",
-    label: "LibraryItem",
+    label: "SourceSample",
     group: "library",
     data: {
       artifactId,

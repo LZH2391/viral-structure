@@ -18,14 +18,14 @@ type LayoutPosition = {
 
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
-  const projectedGraph = graph.schemaVersion === "function_slot_governance_graph.v1" || graph.schemaVersion === "confirmed_plan_trace_graph.v1"
+  const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1"
     ? withAtomLayerProjection(graph)
     : graph;
   let positions: Map<string, LayoutPosition>;
   if (projectedGraph.schemaVersion === "function_slot_governance_graph.v1") {
     positions = buildGovernancePositions(projectedGraph, governanceLayoutMode);
   } else if (projectedGraph.schemaVersion === "confirmed_plan_trace_graph.v1") {
-    positions = buildPlanTracePositions(projectedGraph);
+    positions = governanceLayoutMode === "columns" ? buildPlanTraceColumnPositions(projectedGraph) : buildPlanTracePositions(projectedGraph);
   } else {
     positions = governanceLayoutMode === "columns" ? buildLibraryColumnPositions(projectedGraph) : buildPositions(projectedGraph);
   }
@@ -87,6 +87,7 @@ function layerDisplayName(layer: unknown) {
 }
 
 function withAtomLayerProjection(graph: FunctionSlotLibraryGraph): FunctionSlotLibraryGraph {
+  if (graph.nodes.some((node) => node.type === "atomLayer")) return graph;
   const nodes = [...graph.nodes];
   const edges: FunctionSlotGraphEdge[] = [];
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -299,6 +300,7 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
   if (node.type === "unmappedVariant") return 8;
   if (node.type === "sourceExample") return 9;
+  if (node.type === "sourceSample") return 14;
   if (node.type === "confirmedPlan") return 30;
   if (node.type.startsWith("traced")) return 13;
   if (node.type === "libraryItem") return 20;
@@ -356,6 +358,7 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   if (node.type === "unmappedVariant") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]];
   if (node.type === "sourceExample") return [["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
   if (node.type === "sourceVariant") return [["variantId", data.variantId], ["label", data.label], ["sampleId", data.sampleId], ["kind", data.kind], ["sourceId", data.sourceId], ["labelMissing", data.labelMissing]];
+  if (node.type === "sourceSample") return [["sampleVideoId", data.sampleVideoId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
   if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
   if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
   if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
@@ -506,6 +509,7 @@ function connectedGovernanceIds(graph: FunctionSlotLibraryGraph, nodeId: string,
 function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
   if (node.type === "unmappedVariant") return filters.unmapped;
   if (node.type === "sourceVariant") return filters.sourceVariant;
+  if (node.type === "sourceSample") return filters.sourceVariant;
   if (node.type === "governanceRoot") return true;
   if (node.type === "slotFamily") return filters.slotFamily;
   if (node.type === "slotArchetype") return filters.slotArchetype;
@@ -529,6 +533,7 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "atomArchetype") return filters.atomLayer;
   if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type === "sourceVariant") return filters.sourceVariant;
+  if (node.type === "sourceSample") return filters.sourceVariant;
   if (node.type === "sourceExample") return false;
   return true;
 }
@@ -559,12 +564,70 @@ function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
       { types: ["slotFamily"], radius: 270 },
       { types: ["slotArchetype"], radius: 420 },
       { types: ["slotSubtype"], radius: 600 },
-      { types: ["atomArchetype"], radius: 820 },
+      { types: ["atomLayer"], radius: 820 },
       { types: ["atomPattern"], radius: 1080 },
       { types: ["sourceVariant"], radius: 1380 },
-      { types: ["sourceExample"], radius: 1720 },
+      { types: ["sourceSample"], radius: 1720 },
     ],
   });
+}
+
+function buildPlanTraceColumnPositions(graph: FunctionSlotLibraryGraph): Map<string, LayoutPosition> {
+  const positions = new Map<string, LayoutPosition>();
+  const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  const nodeTypeById = new Map(graph.nodes.map((node) => [node.id, node.type]));
+  const levelByType = new Map<string, number>();
+  PLAN_TRACE_COLUMN_LEVELS.forEach((level, index) => level.types.forEach((type) => levelByType.set(type, index)));
+  for (const edge of graph.edges) incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
+
+  PLAN_TRACE_COLUMN_LEVELS.forEach((level, levelIndex) => {
+    const nodes = graph.nodes
+      .filter((node) => level.types.includes(node.type))
+      .sort((left, right) => planTraceColumnSort(left, right, positions, incoming, levelByType, nodeTypeById));
+    const x = 180 + levelIndex * 520;
+    placeColumn(positions, nodes, x, CENTER.y, level.spacing);
+  });
+  return positions;
+}
+
+const PLAN_TRACE_COLUMN_LEVELS = [
+  { types: ["confirmedPlan"], spacing: 220 },
+  { types: ["slotFamily"], spacing: 190 },
+  { types: ["slotArchetype"], spacing: 170 },
+  { types: ["slotSubtype"], spacing: 150 },
+  { types: ["atomLayer"], spacing: 132 },
+  { types: ["atomPattern"], spacing: 96 },
+  { types: ["sourceVariant"], spacing: 58 },
+  { types: ["sourceSample"], spacing: 58 },
+];
+
+function planTraceColumnSort(
+  left: FunctionSlotGraphNode,
+  right: FunctionSlotGraphNode,
+  positions: Map<string, LayoutPosition>,
+  incoming: Map<string, FunctionSlotGraphEdge[]>,
+  levelByType: Map<string, number>,
+  nodeTypeById: Map<string, string>,
+) {
+  const leftParentY = parentColumnY(left, positions, incoming, levelByType, nodeTypeById);
+  const rightParentY = parentColumnY(right, positions, incoming, levelByType, nodeTypeById);
+  return leftParentY - rightParentY || radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN");
+}
+
+function parentColumnY(
+  node: FunctionSlotGraphNode,
+  positions: Map<string, LayoutPosition>,
+  incoming: Map<string, FunctionSlotGraphEdge[]>,
+  levelByType: Map<string, number>,
+  nodeTypeById: Map<string, string>,
+) {
+  const nodeLevel = levelByType.get(node.type) ?? Number.POSITIVE_INFINITY;
+  const parent = (incoming.get(node.id) ?? [])
+    .map((edge) => edge.source)
+    .filter((sourceId) => positions.has(sourceId))
+    .sort((left, right) => (levelByType.get(nodeTypeById.get(right) ?? "") ?? -1) - (levelByType.get(nodeTypeById.get(left) ?? "") ?? -1))
+    .find((sourceId) => (levelByType.get(nodeTypeById.get(sourceId) ?? "") ?? -1) < nodeLevel);
+  return parent ? positions.get(parent)?.y ?? CENTER.y : CENTER.y;
 }
 
 function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
@@ -576,11 +639,11 @@ function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
       { types: ["slotFamily"], radius: 150 },
       { types: ["slotArchetype"], radius: 270 },
       { types: ["slotSubtype"], radius: 420 },
-      { types: ["atomArchetype"], radius: 600 },
+      { types: ["atomLayer"], radius: 600 },
       { types: ["atomPattern"], radius: 820 },
-      { types: ["bindingPrinciple", "recompositionPolicy"], radius: 1080 },
-      { types: ["bindingPattern", "rulePattern", "implementationBundle"], radius: 1380 },
-      { types: ["sourceVariant", "unmappedVariant"], radius: 1720 },
+      { types: ["sourceVariant"], radius: 1080 },
+      { types: ["sourceSample"], radius: 1380 },
+      { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], radius: 1720 },
     ],
   });
 }
@@ -997,6 +1060,7 @@ function edgeStrength(type: string) {
 function layoutAnchorStrength(node: SimNode) {
   if (node.type === "confirmedPlan" || node.type === "governanceRoot") return 0.32;
   if (node.type === "sourceVariant" || node.type === "unmappedVariant") return 0.24;
+  if (node.type === "sourceSample") return 0.24;
   if (node.type === "atomPattern" || node.type === "atomArchetype") return 0.21;
   if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype") return 0.23;
   return 0.14;
@@ -1026,6 +1090,7 @@ function isGovernanceNode(node: FunctionSlotGraphNode) {
     "recompositionPolicy",
     "implementationBundle",
     "sourceVariant",
+    "sourceSample",
   ].includes(node.type);
 }
 
@@ -1037,12 +1102,13 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "governanceRoot") return "Governance";
   if (node.type === "sourceExample") return String(node.label ?? node.id).slice(0, 18);
   if (node.type === "sourceVariant") return sourceVariantLabel(node);
+  if (node.type === "sourceSample") return String(node.label ?? node.data.sampleVideoId ?? "SourceSample").slice(0, 18);
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
   if (node.type === "atomLayer") return String(node.label ?? node.id).slice(0, 18);
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
-  if (node.type === "libraryItem") return "LibraryItem";
+  if (node.type === "libraryItem") return "SourceSample";
   if (node.type === "slotInstance") return `${node.data.slotId ?? ""} ${node.label}`.slice(0, 18);
   if (node.type === "atomInstance") return String(node.data.atomId ?? node.label);
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);

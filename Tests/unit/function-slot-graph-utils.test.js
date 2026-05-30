@@ -4,16 +4,26 @@ const fs = require("fs");
 const path = require("path");
 const ts = require("typescript");
 
-test("governance graph no longer merges confirmed plan projection overlays", () => {
-  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = {
+function allFilters() {
+  return {
     slot: true,
     atom: true,
     binding: true,
     rule: true,
     bundle: true,
     unmapped: true,
+    slotFamily: true,
+    slotArchetype: true,
+    slotSubtype: true,
+    atomLayer: true,
+    atomPattern: true,
+    sourceVariant: true,
   };
+}
+
+test("governance graph no longer merges confirmed plan projection overlays", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = allFilters();
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance_test",
@@ -31,29 +41,24 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("confirmed plan trace graph shows used source variants but hides source examples", () => {
+test("confirmed plan trace graph shows used source variants and source samples but hides source examples", () => {
   const { buildVisibleGraph, reverseTracePath } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = {
-    slot: true,
-    atom: true,
-    binding: true,
-    rule: true,
-    bundle: true,
-    unmapped: true,
-  };
+  const filters = allFilters();
   const graph = {
     schemaVersion: "confirmed_plan_trace_graph.v1",
     artifactId: "confirmed-plan-trace",
     nodes: [
       { id: "plan_a:plan", type: "confirmedPlan", label: "plan_a", group: "plan", data: { planId: "plan_a" } },
-      { id: "plan_a:slot:unmapped", type: "tracedSlot", label: "方案槽位", group: "slot", data: { planId: "plan_a", governanceNodeId: null } },
+      { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
       { id: "plan_a:sample:sample_1", type: "sourceExample", label: "A", group: "sourceExample", data: { planId: "plan_a", sampleId: "sample_1" } },
       { id: "plan_a:variant:sample_1:F001", type: "sourceVariant", label: "A::F001", group: "sourceVariant", data: { planId: "plan_a", sampleId: "sample_1", variantId: "sample_1::F001" } },
+      { id: "plan_a:sourceSample:sample_1", type: "sourceSample", label: "sample_1", group: "sourceSample", data: { planId: "plan_a", sampleVideoId: "sample_1" } },
     ],
     edges: [
-      { id: "edge:slot", source: "plan_a:plan", target: "plan_a:slot:unmapped", type: "plan_uses_slot" },
-      { id: "edge:source", source: "plan_a:slot:unmapped", target: "plan_a:sample:sample_1", type: "traced_to_source_sample" },
-      { id: "edge:variant", source: "plan_a:slot:unmapped", target: "plan_a:variant:sample_1:F001", type: "traced_to_source_variant" },
+      { id: "edge:family", source: "plan_a:plan", target: "family:f1", type: "plan_uses_slot_family" },
+      { id: "edge:source", source: "family:f1", target: "plan_a:sample:sample_1", type: "traced_to_source_sample" },
+      { id: "edge:variant", source: "family:f1", target: "plan_a:variant:sample_1:F001", type: "traced_to_source_variant" },
+      { id: "edge:sample", source: "plan_a:variant:sample_1:F001", target: "plan_a:sourceSample:sample_1", type: "source_variant_to_sample" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
   };
@@ -61,28 +66,21 @@ test("confirmed plan trace graph shows used source variants but hides source exa
   const visible = buildVisibleGraph(graph, filters);
 
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
-  assert.ok(visible.nodes.some((node) => node.type === "tracedSlot" && String(node.label).includes("方案槽位")));
   assert.equal(visible.nodes.some((node) => node.type === "sourceExample"), false);
   assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
+  assert.ok(visible.nodes.some((node) => node.type === "sourceSample"));
   assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_sample"), false);
   assert.ok(visible.edges.some((edge) => edge.type === "traced_to_source_variant"));
   const path = reverseTracePath("plan_a:variant:sample_1:F001", visible.edges);
   assert.ok(path.nodes.has("plan_a:plan"));
-  assert.ok(path.nodes.has("plan_a:slot:unmapped"));
-  assert.ok(path.edges.has("edge:slot"));
+  assert.ok(path.nodes.has("family:f1"));
+  assert.ok(path.edges.has("edge:family"));
   assert.ok(path.edges.has("edge:variant"));
 });
 
 test("confirmed plan trace positions grow outward by provenance depth", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = {
-    slot: true,
-    atom: true,
-    binding: true,
-    rule: true,
-    bundle: true,
-    unmapped: true,
-  };
+  const filters = allFilters();
   const graph = {
     schemaVersion: "confirmed_plan_trace_graph.v1",
     artifactId: "confirmed-plan-trace",
@@ -91,17 +89,19 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
       { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
       { id: "archetype:a1", type: "slotArchetype", label: "archetype", group: "slot", data: {} },
       { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
-      { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom archetype", group: "script", data: {} },
+      { id: "atomLayer:l1", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
       { id: "atomPattern:ap1", type: "atomPattern", label: "atom pattern", group: "script", data: {} },
       { id: "variant:v1", type: "sourceVariant", label: "source label", group: "sourceVariant", data: { label: "source label" } },
+      { id: "sample:s1", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_1" } },
     ],
     edges: [
       { id: "e1", source: "plan:root", target: "family:f1", type: "plan_uses_slot_family" },
       { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
       { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
-      { id: "e4", source: "subtype:s1", target: "atomArchetype:aa1", type: "subtype_to_atom_archetype" },
-      { id: "e5", source: "atomArchetype:aa1", target: "atomPattern:ap1", type: "atom_archetype_to_pattern" },
+      { id: "e4", source: "subtype:s1", target: "atomLayer:l1", type: "subtype_to_atom_layer" },
+      { id: "e5", source: "atomLayer:l1", target: "atomPattern:ap1", type: "atom_layer_to_pattern" },
       { id: "e6", source: "atomPattern:ap1", target: "variant:v1", type: "traced_to_source_variant" },
+      { id: "e7", source: "variant:v1", target: "sample:s1", type: "source_variant_to_sample" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 5 },
   };
@@ -116,21 +116,15 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
 
   assert.ok(distance("family:f1") < distance("archetype:a1"));
   assert.ok(distance("archetype:a1") < distance("subtype:s1"));
-  assert.ok(distance("subtype:s1") < distance("atomArchetype:aa1"));
-  assert.ok(distance("atomArchetype:aa1") < distance("atomPattern:ap1"));
+  assert.ok(distance("subtype:s1") < distance("atomLayer:l1"));
+  assert.ok(distance("atomLayer:l1") < distance("atomPattern:ap1"));
   assert.ok(distance("atomPattern:ap1") < distance("variant:v1"));
+  assert.ok(distance("variant:v1") < distance("sample:s1"));
 });
 
 test("governance radial layout keeps root centered and keeps first layer inside its sector", () => {
   const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = {
-    slot: true,
-    atom: true,
-    binding: false,
-    rule: false,
-    bundle: false,
-    unmapped: false,
-  };
+  const filters = { ...allFilters(), binding: false, rule: false, bundle: false, unmapped: false };
   const families = ["f1", "f2", "f3", "f4"].map((id) => ({ id: `family:${id}`, type: "slotFamily", label: id, group: "slot", data: {} }));
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
@@ -150,8 +144,6 @@ test("governance radial layout keeps root centered and keeps first layer inside 
   assert.equal(root.x, CENTER.x);
   assert.equal(root.y, CENTER.y);
   assert.equal(familyNodes.length, 4);
-  assert.ok(familyNodes.every((node) => node.layoutAngleMin < -2.5));
-  assert.ok(familyNodes.every((node) => node.layoutAngleMax < -1));
   assert.ok(familyNodes.every((node) => node.layoutRadiusMin < distanceFromRoot(node, root)));
   assert.ok(familyNodes.every((node) => node.layoutRadiusMax > distanceFromRoot(node, root)));
 });

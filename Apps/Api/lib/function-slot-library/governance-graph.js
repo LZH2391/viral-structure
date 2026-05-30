@@ -37,21 +37,20 @@ function buildFunctionSlotGovernanceGraph(governance) {
 
   for (const archetype of governance.atomArchetypes ?? []) {
     pushGovernanceNode(nodes, "atomArchetype", groupForAtomLayer(archetype.atomLayer), archetype);
-    pushEdge(edges, rootId, nodeId("atomArchetype", archetype.id), "governance_contains_atom_archetype", "atom");
   }
   for (const pattern of governance.atomPatterns ?? []) {
     pushGovernanceNode(nodes, "atomPattern", groupForAtomLayer(pattern.atomLayer), pattern);
-    if (pattern.parentAtomArchetype) pushEdge(edges, nodeId("atomArchetype", pattern.parentAtomArchetype), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
     for (const subtypeId of pattern.forSlotSubtypeIds ?? []) {
-      pushEdge(edges, nodeId("slotSubtype", subtypeId), nodeId("atomPattern", pattern.id), "subtype_to_atom_pattern", "atom pattern");
+      const layerId = pushAtomLayerNode(nodes, subtypeId, pattern.atomLayer);
+      pushEdge(edges, nodeId("slotSubtype", subtypeId), layerId, "subtype_to_atom_layer", groupForAtomLayer(pattern.atomLayer));
+      pushEdge(edges, layerId, nodeId("atomPattern", pattern.id), "atom_layer_to_pattern", "pattern");
     }
   }
 
   for (const principle of governance.bindingPrinciples ?? []) {
     pushGovernanceNode(nodes, "bindingPrinciple", "binding", principle);
-    pushEdge(edges, rootId, nodeId("bindingPrinciple", principle.id), "governance_contains_binding_principle", "binding");
     for (const patternId of principle.sourcePatternIds ?? []) {
-      pushEdge(edges, nodeId("bindingPrinciple", principle.id), nodeId("bindingPattern", patternId), "principle_to_binding_pattern", "pattern");
+      pushEdge(edges, nodeId("bindingPrinciple", principle.id), nodeId("atomPattern", patternId), "binding_principle_to_pattern", "binding");
     }
   }
   for (const pattern of governance.bindingPatterns ?? []) {
@@ -60,7 +59,6 @@ function buildFunctionSlotGovernanceGraph(governance) {
 
   for (const policy of governance.recompositionPolicies ?? []) {
     pushGovernanceNode(nodes, "recompositionPolicy", "policy", policy);
-    pushEdge(edges, rootId, nodeId("recompositionPolicy", policy.id), "governance_contains_policy", "policy");
     for (const ruleId of policy.sourceRulePatternIds ?? []) {
       pushEdge(edges, nodeId("recompositionPolicy", policy.id), nodeId("rulePattern", ruleId), "policy_to_rule_pattern", "rule");
     }
@@ -125,9 +123,26 @@ function pushGovernanceNode(nodes, type, group, item) {
   });
 }
 
+function pushAtomLayerNode(nodes, subtypeId, layer) {
+  const normalizedSubtypeId = normalizeGraphText(subtypeId);
+  const atomLayer = groupForAtomLayer(layer);
+  const id = nodeId("atomLayer", `${normalizedSubtypeId}:${atomLayer}`);
+  pushNode(nodes, {
+    id,
+    type: "atomLayer",
+    label: layerDisplayName(atomLayer),
+    group: atomLayer,
+    data: {
+      subtypeId: normalizedSubtypeId,
+      layer: atomLayer,
+    },
+  });
+  return id;
+}
+
 function pushSourceVariantEdges(nodes, edges, sourceVariants) {
   const variantLabels = buildSourceVariantLabelMap(sourceVariants);
-  const sourceVariantOwners = nodes.filter((node) => Array.isArray(node.data?.sourceVariantIds));
+  const sourceVariantOwners = nodes.filter((node) => node.type === "atomPattern" && Array.isArray(node.data?.sourceVariantIds));
   for (const owner of sourceVariantOwners) {
     for (const variantId of owner.data.sourceVariantIds) {
       const normalizedVariantId = normalizeGraphText(variantId);
@@ -149,6 +164,21 @@ function pushSourceVariantEdges(nodes, edges, sourceVariants) {
         },
       });
       pushEdge(edges, owner.id, id, "pattern_to_source_variant", "evidence");
+      if (sourceVariant?.sampleId) {
+        const sampleId = sourceVariant.sampleId;
+        const sampleNodeId = graphId("sourceSample", sampleId);
+        pushNode(nodes, {
+          id: sampleNodeId,
+          type: "sourceSample",
+          label: sampleId,
+          group: "sourceSample",
+          data: {
+            sampleVideoId: sampleId,
+            sampleId,
+          },
+        });
+        pushEdge(edges, id, sampleNodeId, "source_variant_to_sample", "sample");
+      }
     }
   }
 }
@@ -195,6 +225,13 @@ function groupForAtomLayer(layer) {
   if (layer === "rhythm") return "rhythm";
   if (layer === "packaging") return "packaging";
   return "atom";
+}
+
+function layerDisplayName(layer) {
+  if (layer === "script") return "脚本层";
+  if (layer === "rhythm") return "节奏层";
+  if (layer === "packaging") return "包装层";
+  return "Atom Layer";
 }
 
 function pushNode(nodes, node) {

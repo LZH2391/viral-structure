@@ -58,7 +58,7 @@ export function GraphCanvas({
   const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
   const previewNode = useMemo(() => {
     const node = previewNodeId ? nodes.find((entry) => entry.id === previewNodeId) ?? null : null;
-    return node?.type === "libraryItem" ? node : null;
+    return node?.type === "libraryItem" || node?.type === "sourceSample" ? node : null;
   }, [nodes, previewNodeId]);
   const previewSampleId = typeof previewNode?.data.sampleVideoId === "string" ? previewNode.data.sampleVideoId : null;
   const previewSampleArtifact = previewSampleId ? sampleArtifacts[previewSampleId] ?? sampleCacheRef.current.get(previewSampleId) ?? null : null;
@@ -232,7 +232,7 @@ export function GraphCanvas({
     }
     if (drag?.kind === "node" && !drag.moved) {
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
-      if (clickedNode?.type === "libraryItem") setPinnedPreviewNodeId(clickedNode.id);
+      if (clickedNode?.type === "libraryItem" || clickedNode?.type === "sourceSample") setPinnedPreviewNodeId(clickedNode.id);
     }
     dragRef.current = null;
   };
@@ -466,8 +466,8 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
     );
   }
   return (
-    <div className="slot-graph-legend">
-      <span><i className="legend-library" />Library</span>
+      <div className="slot-graph-legend">
+      <span><i className="legend-library" />SourceSample</span>
       <span><i className="legend-slot" />Slot</span>
       <span><i className="legend-script" />Script</span>
       <span><i className="legend-rhythm" />Rhythm</span>

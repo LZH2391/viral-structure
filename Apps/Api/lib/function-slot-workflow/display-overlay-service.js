@@ -365,24 +365,20 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
   }
   for (const patternId of atomPatternIds) {
     const patternItem = sourceIndex.get(`${patternId}::item`) ?? {};
-    const atomArchetypeId = firstText(patternItem.parentAtomArchetype);
-    const parentNodeId = atomArchetypeId ? traceId(planId, "atomArchetype", atomArchetypeId) : slotNodeId;
-    if (atomArchetypeId) {
-      pushGraphNode(nodes, {
-        id: parentNodeId,
-        type: "atomArchetype",
-        label: governanceName(sourceIndex, atomArchetypeId, atomArchetypeId),
-        group: atomGroup(parsed.variantKey),
-        data: {
-          planId,
-          governanceId: atomArchetypeId,
-          governanceNodeId: `atomArchetype:${sanitizeGraphId(atomArchetypeId)}`,
-          layer: parsed.variantKind,
-          sourceVariantIds: sourceIndex.get(atomArchetypeId) ?? [],
-        },
-      });
-      pushGraphEdge(edges, planId, slotNodeId, parentNodeId, "subtype_to_atom_archetype", parsed.variantKind ?? "atom archetype");
-    }
+    const layer = firstText(patternItem.atomLayer, parsed.variantKind, "script");
+    const layerNodeId = traceId(planId, "atomLayer", slotNodeId, layer);
+    pushGraphNode(nodes, {
+      id: layerNodeId,
+      type: "atomLayer",
+      label: layerDisplayName(layer),
+      group: atomGroup(`${layer}::`),
+      data: {
+        planId,
+        layer,
+        slotNodeId,
+      },
+    });
+    pushGraphEdge(edges, planId, slotNodeId, layerNodeId, "subtype_to_atom_layer", layerDisplayName(layer));
     const patternNodeId = traceId(planId, "atomPattern", patternId);
     pushGraphNode(nodes, {
       id: patternNodeId,
@@ -397,7 +393,7 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
         sourceVariantIds: [atomVariantId],
       },
     });
-    pushGraphEdge(edges, planId, parentNodeId, patternNodeId, atomArchetypeId ? "atom_archetype_to_pattern" : "subtype_to_atom_pattern", "pattern");
+    pushGraphEdge(edges, planId, layerNodeId, patternNodeId, "atom_layer_to_pattern", "pattern");
     pushSourceVariantTrace(nodes, edges, planId, patternNodeId, atomVariantId, aliasMap, sourceIndex);
   }
   return null;
@@ -513,6 +509,20 @@ function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasM
     },
   }, (existing) => existing);
   pushGraphEdge(edges, planId, ownerId, nodeId, "traced_to_source_variant", parsed.variantKind ? `${parsed.variantKind} source` : "source variant");
+  const sampleNodeId = traceId(planId, "sourceSample", parsed.sampleId);
+  upsertGraphNode(nodes, {
+    id: sampleNodeId,
+    type: "sourceSample",
+    label: aliasForSample(aliasMap, parsed.sampleId) ? `${aliasForSample(aliasMap, parsed.sampleId)} ${shortSampleLabel(parsed.sampleId)}` : shortSampleLabel(parsed.sampleId),
+    group: "sourceSample",
+    data: {
+      planId,
+      sampleVideoId: parsed.sampleId,
+      sampleId: parsed.sampleId,
+      sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
+    },
+  }, (existing) => existing);
+  pushGraphEdge(edges, planId, nodeId, sampleNodeId, "source_variant_to_sample", "sample");
 }
 
 function emptyTraceGraph() {

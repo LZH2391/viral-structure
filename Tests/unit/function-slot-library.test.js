@@ -403,18 +403,17 @@ test("function slot governance graph builder normalizes value-object ids and lab
     slotFamilies: [{
       id: { value: "FAM_value_object" },
       name: { value: "对象值 family" },
-      sourceVariantIds: [{ value: "sample_value::F001" }],
     }],
-    slotArchetypes: [],
-    slotSubtypes: [],
+    slotArchetypes: [{ id: "ARCH_value_object", familyId: "FAM_value_object", name: "对象值 archetype" }],
+    slotSubtypes: [{ id: "SUB_value_object", archetypeId: "ARCH_value_object", name: "对象值 subtype" }],
     atomArchetypes: [],
-    atomPatterns: [],
+    atomPatterns: [{ id: "SCRIPT_value_object", name: "对象值 pattern", atomLayer: "script", forSlotSubtypeIds: ["SUB_value_object"], sourceVariantIds: [{ value: "sample_value::script::S001" }] }],
     bindingPrinciples: [],
     bindingPatterns: [],
     recompositionPolicies: [],
     rulePatterns: [],
     implementationBundles: [],
-    sourceVariants: [{ variantId: "sample_value::F001", sampleId: "sample_value", kind: "slot", sourceId: "F001", label: "对象值来源槽" }],
+    sourceVariants: [{ variantId: "sample_value::script::S001", sampleId: "sample_value", kind: "script", sourceId: "S001", label: "对象值来源槽" }],
     unmappedAtomVariants: [{ variantId: { value: "sample_value::A001" }, reason: "single_sample" }],
     unmappedBindingVariants: [],
     unmappedRuleVariants: [],
@@ -422,6 +421,7 @@ test("function slot governance graph builder normalizes value-object ids and lab
 
   assert.ok(graph.nodes.some((node) => node.id === "slotFamily:FAM_value_object" && node.label === "对象值 family"));
   assert.ok(graph.nodes.some((node) => node.type === "sourceVariant" && node.label === "对象值来源槽"));
+  assert.ok(graph.nodes.some((node) => node.type === "sourceSample" && node.data.sampleVideoId === "sample_value"));
   assert.ok(graph.nodes.some((node) => node.type === "unmappedVariant" && node.label === "sample_value::A001"));
   assert.equal(graph.nodes.some((node) => JSON.stringify(node).includes("{\"value\"")), false);
 });
