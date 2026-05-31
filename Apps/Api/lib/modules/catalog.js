@@ -4,6 +4,7 @@ const { createScriptSegmentAnalysisDefinition } = require("../script-segment/ana
 const { createRhythmStructureAnalysisDefinition } = require("../rhythm-structure/analysis-definition");
 const { createPackagingStructureAnalysisDefinition } = require("../packaging-structure/analysis-definition");
 const { createFunctionSlotAtomizationAnalysisDefinition } = require("../function-slot-atomization/analysis-definition");
+const { createUserMaterialTaggerAnalysisDefinition } = require("../user-material-tagger/analysis-definition");
 const { createImageGenerationModuleDefinition } = require("../image-generation/module-definition");
 const {
   createFunctionSlotSemanticGovernanceModuleDefinition,
@@ -19,6 +20,7 @@ const MODULE_DEFINITIONS = [
   createRhythmStructureAnalysisDefinition(),
   createPackagingStructureAnalysisDefinition(),
   createFunctionSlotAtomizationAnalysisDefinition(),
+  createUserMaterialTaggerAnalysisDefinition(),
   createFunctionSlotSemanticGovernanceModuleDefinition(),
   createFunctionSlotRestructureModuleDefinition(),
   createFunctionSlotRestructureDisplayTransformModuleDefinition(),

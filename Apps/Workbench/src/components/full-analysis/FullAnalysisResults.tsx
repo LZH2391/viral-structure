@@ -1,7 +1,7 @@
 import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 
-export type ResultTab = "shot" | "script" | "rhythm" | "packaging" | "atomization";
+export type ResultTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "material";
 
 export function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
@@ -47,6 +47,15 @@ export function ResultPanel({ tab, artifact }: { tab: ResultTab; artifact: Sampl
       title: slot.slotName ?? slot.slotId,
       time: slot.slotType ?? "slot",
       body: slot.persuasionTask ?? slot.viewerStateAfter ?? "无摘要",
+    }))} />;
+  }
+  if (tab === "material") {
+    const cards = artifact.userMaterialPack?.shotCards ?? [];
+    return <ResultList empty="素材识别完成后会展示素材卡。" items={cards.map((card) => ({
+      id: card.shotRef,
+      title: `${card.shotNo ?? card.shotRef} · ${card.shotClass}`,
+      time: card.timeRange ? `${formatSecondsCompact(card.timeRange.start)} - ${formatSecondsCompact(card.timeRange.end)}` : card.materialTags.slice(0, 3).join(" / "),
+      body: card.visualSummary || card.constraints.join(" / ") || "无摘要",
     }))} />;
   }
   const blocks = artifact.packagingStructureAnalysis?.packagingBlocks ?? [];

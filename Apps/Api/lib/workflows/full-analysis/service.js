@@ -318,51 +318,38 @@ function createWorkflowService({
   }
 
   async function maybeStartNext(run) {
-    const upload = findStage(run, "upload");
-    const shot = findStage(run, "shotBoundary");
-    const cacheDecision = run.cacheDecision ?? "ask";
-    if (upload.status === "processed" && shot.status === "pending") {
-      await startStage(run.workflowRunId, "shotBoundary", { cacheDecision }, {
-        runId: run.runId,
-        traceId: run.traceId,
-        stageId: `stage_${randomUUID()}`,
-      });
-      return;
+    let latest = run;
+    let started = true;
+    while (started) {
+      started = false;
+      for (const stage of latest.stages) {
+        if (stage.status !== "pending" || !stageDependenciesReady(latest, stage)) continue;
+        const input = stage.key === "aggregate" ? {} : { cacheDecision: latest.cacheDecision ?? "ask" };
+        await startStage(latest.workflowRunId, stage.key, input, {
+          runId: latest.runId,
+          traceId: latest.traceId,
+          stageId: `stage_${randomUUID()}`,
+        });
+        latest = workflowRunStore.getRun(latest.workflowRunId);
+        started = true;
+        if (stage.parallelGroup) continue;
+        break;
+      }
     }
-    if (shot.status === "processed" && structureAnalysisKeys.length) {
-      const pending = structureAnalysisKeys.filter((key) => findStage(run, key).status === "pending");
-      await Promise.all(pending.map((key) => startStage(run.workflowRunId, key, { cacheDecision }, {
-        runId: run.runId,
-        traceId: run.traceId,
-        stageId: `stage_${randomUUID()}`,
-      })));
+  }
+
+  function stageDependenciesReady(run, stage) {
+    const dependencies = Array.isArray(stage.after) ? stage.after : [];
+    if (!dependencies.length) return false;
+    return dependencies.every((dependency) => dependencyReady(run, dependency));
+  }
+
+  function dependencyReady(run, dependency) {
+    const group = workflowDescriptor.parallelGroups[dependency];
+    if (Array.isArray(group)) {
+      return group.every((stageKey) => ["processed", "failed"].includes(findStage(run, stageKey).status));
     }
-    const latest = workflowRunStore.getRun(run.workflowRunId);
-    if (!latest) return;
-    const hasAtomizationStage = hasStage(latest, "functionSlotAtomization");
-    const analysesDone = structureAnalysisKeys.every((key) => ["processed", "failed"].includes(findStage(latest, key).status));
-    const atomization = hasAtomizationStage ? findStage(latest, "functionSlotAtomization") : null;
-    if (hasAtomizationStage && analysesDone && atomization.status === "pending") {
-      await startStage(latest.workflowRunId, "functionSlotAtomization", { cacheDecision }, {
-        runId: latest.runId,
-        traceId: latest.traceId,
-        stageId: `stage_${randomUUID()}`,
-      });
-      return;
-    }
-    const afterAtomization = workflowRunStore.getRun(run.workflowRunId);
-    if (!afterAtomization) return;
-    const aggregate = findStage(afterAtomization, "aggregate");
-    const dependencyReadyForAggregate = hasAtomizationStage
-      ? ["processed", "failed"].includes(findStage(afterAtomization, "functionSlotAtomization").status)
-      : findStage(afterAtomization, "shotBoundary").status === "processed";
-    if (dependencyReadyForAggregate && aggregate.status === "pending") {
-      await startStage(afterAtomization.workflowRunId, "aggregate", {}, {
-        runId: afterAtomization.runId,
-        traceId: afterAtomization.traceId,
-        stageId: `stage_${randomUUID()}`,
-      });
-    }
+    return findStage(run, dependency).status === "processed";
   }
 
   function markStageCacheWaiting(workflowRunId, stageKey, job) {

@@ -72,6 +72,8 @@ function buildAggregateSummary(artifact) {
     rhythmSectionCount: artifact?.rhythmStructureAnalysis?.sections?.length ?? 0,
     packagingBlockCount: artifact?.packagingStructureAnalysis?.packagingBlocks?.length ?? 0,
     functionSlotCount: artifact?.functionSlotAtomizationAnalysis?.slotMap?.slots?.length ?? 0,
+    userMaterialShotCardCount: artifact?.userMaterialPack?.shotCards?.length ?? 0,
+    userMaterialGroupCount: artifact?.userMaterialPack?.materialGroups?.length ?? 0,
   };
 }
 
@@ -81,6 +83,11 @@ function buildModuleDependencies(stageKey, artifact) {
       scriptSegmentArtifactId: artifact?.scriptSegmentAnalysis?.artifactId ?? null,
       rhythmStructureArtifactId: artifact?.rhythmStructureAnalysis?.artifactId ?? null,
       packagingStructureArtifactId: artifact?.packagingStructureAnalysis?.artifactId ?? null,
+    };
+  }
+  if (stageKey === "userMaterialTagger") {
+    return {
+      shotBoundaryArtifactId: artifact?.shotBoundaryAnalysis?.artifactId ?? null,
     };
   }
   return {

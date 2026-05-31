@@ -4,7 +4,8 @@ const MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR = {
   nodes: [
     { key: "upload", kind: "module", moduleId: "sample-ingest", blocking: true },
     { key: "shotBoundary", kind: "module", moduleId: "shot-boundary", after: ["upload"], rerunnable: true, blocking: true },
-    { key: "aggregate", kind: "builtin", stageName: "workflow.aggregate", label: "汇总", artifactKey: "sampleVideo", after: ["shotBoundary"] },
+    { key: "userMaterialTagger", kind: "module", moduleId: "user-material-tagger", after: ["shotBoundary"], rerunnable: true, blocking: true },
+    { key: "aggregate", kind: "builtin", stageName: "workflow.aggregate", label: "汇总", artifactKey: "sampleVideo", after: ["userMaterialTagger"] },
   ],
   parallelGroups: {},
   aggregate: "aggregate",

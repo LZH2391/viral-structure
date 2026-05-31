@@ -199,7 +199,7 @@ test("workbench removes create input view entry", () => {
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
 
-  assert.match(view, /"workspace" \| "full-analysis" \| "library" \| "threadpool"/);
+  assert.match(view, /"workspace" \| "full-analysis" \| "material-recognition" \| "library" \| "threadpool"/);
   assert.doesNotMatch(view, /\/create/);
   assert.doesNotMatch(app, /创作输入/);
   assert.doesNotMatch(app, /CreateInputApp/);
@@ -219,7 +219,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const css = readPropertyPanelCss(root);
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "semanticGovernance" \| "restructure" \| "storyboardPrep" \| "meta"/);
+  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "semanticGovernance" \| "storyboardPrep" \| "meta"/);
   assert.match(propertyPanel, /const \[internalActiveTab, setInternalActiveTab\] = useState<PropertyPanelTab>\("shot"\)/);
   assert.match(propertyPanel, /const activeTab = props\.activeTab \?\? internalActiveTab/);
   assert.match(propertyPanel, /role="tablist"/);

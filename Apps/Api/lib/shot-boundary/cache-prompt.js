@@ -2,6 +2,7 @@ function buildCachePrompt(context, cached) {
   const item = buildCachedItem(context, cached);
   const roleProfile = resolveRoleProfile(context);
   return {
+    cacheKind: "shot_boundary",
     cachedItem: item,
     sourceSampleVideoId: cached.cache.sampleVideoId,
     sourceArtifactId: cached.analysis?.artifactId ?? null,

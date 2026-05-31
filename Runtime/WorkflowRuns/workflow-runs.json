@@ -1588,7 +1588,110 @@
         }
       ],
       "createdAt": "2026-05-31T05:42:40.501Z",
-      "updatedAt": "2026-05-31T05:53:45.503Z",
+      "updatedAt": "2026-05-31T06:03:10.876Z",
+      "completedAt": null,
+      "errorSummary": null
+    },
+    {
+      "workflowRunId": "workflow_c5563940-1c33-4324-adab-7513a5cfe55a",
+      "workflowKey": "material-recognition",
+      "workflowVersion": "material-recognition.v1",
+      "cacheDecision": "ask",
+      "options": {},
+      "status": "cache_waiting",
+      "traceId": "trace_bd72eaba-6a62-416b-b746-77957a4b09d8",
+      "runId": "run_c236a819-c7a0-48dc-9172-9762741c7041",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "currentStageKeys": [
+        "shotBoundary"
+      ],
+      "stages": [
+        {
+          "key": "upload",
+          "kind": "module",
+          "moduleId": "sample-ingest",
+          "stageName": "upload.ingest",
+          "label": "上传",
+          "artifactKey": "sampleVideo",
+          "after": [],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_c59c231a-c59f-4292-9115-6137c54e63ea",
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": {
+            "cacheHit": true,
+            "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-31T05:54:20.416Z",
+          "completedAt": "2026-05-31T05:54:20.490Z"
+        },
+        {
+          "key": "shotBoundary",
+          "kind": "module",
+          "moduleId": "shot-boundary",
+          "stageName": "shot.boundary",
+          "label": "切镜",
+          "artifactKey": "shotBoundaryAnalysis",
+          "after": [
+            "upload"
+          ],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "cache_waiting",
+          "attemptNo": 1,
+          "stageId": "stage_ede1ae59-baa5-4595-bb90-27f44c7baca7",
+          "childJobId": "job_5672322d-a5bf-4c6f-bb36-ed3ae614eb9d",
+          "childTraceId": "trace_6fdcd1bb-d4db-4293-be3b-47e7a1346754",
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_5672322d-a5bf-4c6f-bb36-ed3ae614eb9d",
+            "childTraceId": "trace_6fdcd1bb-d4db-4293-be3b-47e7a1346754",
+            "cacheKind": null,
+            "cacheWaiting": true
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-31T05:54:20.497Z",
+          "completedAt": null
+        },
+        {
+          "key": "aggregate",
+          "kind": "builtin",
+          "stageName": "workflow.aggregate",
+          "label": "汇总",
+          "artifactKey": "sampleVideo",
+          "after": [
+            "shotBoundary"
+          ],
+          "parallelGroup": null,
+          "blocking": false,
+          "status": "pending",
+          "attemptNo": 1,
+          "stageId": null,
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": null,
+          "startedAt": null,
+          "completedAt": null
+        }
+      ],
+      "createdAt": "2026-05-31T05:54:20.412Z",
+      "updatedAt": "2026-05-31T06:03:10.711Z",
       "completedAt": null,
       "errorSummary": null
     }

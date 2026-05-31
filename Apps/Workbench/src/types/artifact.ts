@@ -124,6 +124,9 @@ export type SampleArtifact = {
   functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
   functionSlotAtomizationAnalysisRef?: AnalysisResultRef | null;
   functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
+  userMaterialPack?: UserMaterialPackArtifact | null;
+  userMaterialPackRef?: AnalysisResultRef | null;
+  userMaterialPackHistory?: UserMaterialPackHistoryEntry[] | null;
   metadata: {
     durationSeconds: number;
     durationSource?: string | null;
@@ -133,6 +136,96 @@ export type SampleArtifact = {
     bitrate?: number | null;
     hasAudio?: boolean | null;
   };
+};
+
+export type UserMaterialPackHistoryEntry = {
+  artifactId: string;
+  status: "processed" | "failed" | string;
+  resultOrigin: "new_turn" | "repaired_turn" | "cache_reuse" | "failed_validation" | string;
+  shotCardCount: number;
+  materialGroupCount: number;
+  proofCoverageCount: number;
+  turnId: string | null;
+  traceId: string | null;
+  sourceTraceId?: string | null;
+  sourceSampleVideoId?: string | null;
+  sourceArtifactId?: string | null;
+  sourceTurnId?: string | null;
+  cacheKey?: string | null;
+  resultUri?: string | null;
+  createdAt: string;
+  validatorCode?: string | null;
+};
+
+export type UserMaterialPackArtifact = {
+  artifactId: string;
+  parentArtifactId: string | null;
+  traceId?: string | null;
+  type: "user-material-pack";
+  schemaVersion: "user-material-pack.stable" | string;
+  status: "processed" | "failed" | string;
+  sampleVideoId?: string | null;
+  sourceShotBoundaryArtifactId?: string | null;
+  shotCards: Array<{
+    shotRef: string;
+    shotNo?: string | null;
+    shotClass: string;
+    shotFunctions: string[];
+    visualSummary: string;
+    spokenOrSubtitleSummary?: string | null;
+    materialTags: string[];
+    constraints: string[];
+    confidence: number;
+    needReview: boolean;
+    timeRange?: { start: number; end: number } | null;
+  }>;
+  materialGroups: Array<{
+    groupId: string;
+    groupType: string;
+    shotRefs: string[];
+    groupSummary: string;
+    constraints: string[];
+  }>;
+  proofCoverage: Array<{
+    proofNeedClass: string;
+    coverage: string;
+    candidateShots: string[];
+    candidateGroups: string[];
+    reason: string;
+    safeUsage: string;
+    gapAdvice: string;
+  }>;
+  sequenceRecommendations: {
+    openingCandidates: Array<UserMaterialSequenceCandidate>;
+    middleCandidates: Array<UserMaterialSequenceCandidate>;
+    endingCandidates: Array<UserMaterialSequenceCandidate>;
+  };
+  restructureInputSummary?: {
+    strongMaterialAreas: string[];
+    weakMaterialAreas: string[];
+    missingMaterialAreas: string[];
+    recommendedUse: string[];
+    doNotUseFor: string[];
+    needsRestructureAttention: string[];
+  } | null;
+  validation?: {
+    status: "passed" | "failed" | string;
+    shotCardCount: number;
+    materialGroupCount: number;
+    proofCoverageCount: number;
+    validatorCode: string | null;
+    repairAttemptCount: number;
+  } | null;
+  createdAt: string;
+};
+
+export type UserMaterialSequenceCandidate = {
+  shotRef: string;
+  fit: "strong" | "medium" | "weak" | string;
+  recommendedPosition: "opening" | "middle" | "ending" | string;
+  reason: string;
+  requiredSupport: string[];
+  doNotUseAs: string[];
 };
 
 export type SampleFrame = {

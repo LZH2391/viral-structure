@@ -9,6 +9,8 @@ test("serves workbench and debug pages from HTTP routes", () => {
   assert.equal(resolveWorkbenchPath(root, "/full-analysis"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/full-analysis/"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/full-analysis.html"), path.join(root, "full-analysis.html"));
+  assert.equal(resolveWorkbenchPath(root, "/material-recognition"), path.join(root, "index.html"));
+  assert.equal(resolveWorkbenchPath(root, "/material-recognition/"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/debug"), path.join(root, "debug.html"));
   assert.equal(resolveWorkbenchPath(root, "/library"), path.join(root, "index.html"));
   assert.equal(resolveWorkbenchPath(root, "/library/"), path.join(root, "index.html"));

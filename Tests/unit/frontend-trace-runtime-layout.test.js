@@ -225,12 +225,15 @@ test("full analysis splitters control top row, row height, and bottom row indepe
   assert.match(stageStep, /role=\{onOpenStage \? "button" : undefined\}/);
   assert.match(stageStep, /event\.stopPropagation\(\);[\s\S]*onRerun\(stage\.key\)/);
   assert.match(api, /\/api\/workflows\/full-analysis\/cache-check/);
+  assert.match(api, /\/api\/workflows\/material-recognition\/cache-check/);
   assert.match(api, /\/api\/workflows\/full-analysis\/latest/);
+  assert.match(api, /\/api\/workflows\/material-recognition\/latest/);
   assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/workflows\/full-analysis\/latest/);
+  assert.match(api, /\/api\/sample-videos\/\$\{encodeURIComponent\(sampleVideoId\)\}\/workflows\/material-recognition\/latest/);
   assert.match(api, /cache: "no-store"/);
   assert.match(draft, /FULL_ANALYSIS_DRAFT_STORAGE_KEY = "full-analysis:last-run"/);
-  assert.match(draft, /localStorage\.setItem\(FULL_ANALYSIS_DRAFT_STORAGE_KEY, JSON\.stringify/);
-  assert.match(draft, /localStorage\.getItem\(FULL_ANALYSIS_DRAFT_STORAGE_KEY\)/);
+  assert.match(draft, /localStorage\.setItem\(storageKey, JSON\.stringify/);
+  assert.match(draft, /localStorage\.getItem\(storageKey\)/);
   assert.match(css, /\.full-analysis-main \{[\s\S]*grid-template-rows: var\(--full-analysis-top-height/);
   assert.match(css, /\.full-analysis-shell \{[\s\S]*overflow: auto/);
   assert.match(css, /\.full-analysis-top-row \{[\s\S]*grid-template-columns: var\(--full-analysis-left-width/);

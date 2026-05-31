@@ -903,10 +903,16 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   const activeJobStore = handlers.jobStore ?? jobStore;
   const job = activeJobStore.getJob(jobId);
   if (!job) return notFound(res);
-  const cacheKind = job.cachePrompt?.cacheKind ?? null;
+  const cacheKind = job.cachePrompt?.cacheKind ?? inferCacheKindFromJob(job);
   const analysisResult = await (handlers.moduleRegistry ?? moduleRegistry).resolveModuleCacheDecision({ cacheKind, jobId, decision: body.decision });
   const result = analysisResult ?? await (handlers.shotBoundaryService ?? shotBoundaryService).resolveCacheDecision({ jobId, decision: body.decision });
   return sendJson(res, 200, result);
+}
+
+function inferCacheKindFromJob(job) {
+  const stage = String(job?.stage ?? "");
+  if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
+  return null;
 }
 
 async function handleLibraryItems(res, handlers = {}) {

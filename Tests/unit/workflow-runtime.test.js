@@ -42,6 +42,7 @@ function createHarness() {
     "rhythm-structure": { moduleId: "rhythm-structure", ui: { stageKind: "rhythmStructure", stageId: "rhythm.structure.analyze", displayName: "节奏" }, artifact: { key: "rhythmStructureAnalysis" } },
     "packaging-structure": { moduleId: "packaging-structure", ui: { stageKind: "packagingStructure", stageId: "packaging.structure.analyze", displayName: "包装" }, artifact: { key: "packagingStructureAnalysis" } },
     "function-slot-atomization": { moduleId: "function-slot-atomization", ui: { stageKind: "functionSlotAtomization", stageId: "function.slot.atomization.analyze", displayName: "原子化" }, artifact: { key: "functionSlotAtomizationAnalysis" } },
+    "user-material-tagger": { moduleId: "user-material-tagger", ui: { stageKind: "userMaterialTagger", stageId: "user.material.tagger.analyze", displayName: "素材识别" }, artifact: { key: "userMaterialPack" } },
   };
   const moduleRegistry = {
     getByModuleId: (moduleId) => moduleDefinitions[moduleId] ?? null,
@@ -109,7 +110,7 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
   );
 });
 
-test("material recognition workflow only runs upload, shot boundary, and aggregate", async () => {
+test("material recognition workflow runs upload, shot boundary, material tagging, and aggregate", async () => {
   const { workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, artifacts } = createHarness();
   const workflow = createMaterialRecognitionWorkflowService({
     workflowRunStore,
@@ -132,6 +133,7 @@ test("material recognition workflow only runs upload, shot boundary, and aggrega
   await workflow.advance(started.workflowRunId);
   await workflow.advance(started.workflowRunId);
   await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
 
   const run = workflow.get(started.workflowRunId);
   assert.equal(MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR.workflowId, "material-recognition");
@@ -139,10 +141,12 @@ test("material recognition workflow only runs upload, shot boundary, and aggrega
   assert.deepEqual(run.stages.map((stage) => [stage.key, stage.status]), [
     ["upload", "processed"],
     ["shotBoundary", "processed"],
+    ["userMaterialTagger", "processed"],
     ["aggregate", "processed"],
   ]);
   assert.equal(run.workflowKey, "material-recognition");
   assert.equal(run.stages.find((stage) => stage.key === "aggregate").outputSummary.shotCount, 1);
+  assert.equal(run.stages.find((stage) => stage.key === "aggregate").outputSummary.userMaterialShotCardCount, 1);
 });
 
 test("material recognition workflow continues after upload cache reuse", async () => {
@@ -409,6 +413,9 @@ function attachAnalysis(artifact, analysisId) {
   }
   if (analysisId === "function-slot-atomization") {
     return { ...artifact, functionSlotAtomizationAnalysis: { artifactId: "artifact_atomization", parentArtifactId: "artifact_packaging", type: "function-slot-atomization-analysis", slotMap: { slots: [{ slotId: "slot_1", label: "开场", slotType: "hook" }] } } };
+  }
+  if (analysisId === "user-material-tagger") {
+    return { ...artifact, userMaterialPack: { artifactId: "artifact_material", parentArtifactId: "artifact_shot", type: "user-material-pack", shotCards: [{ shotId: "shot_1", shotNo: "S1", shotClass: "product_closeup", timeRange: { start: 0, end: 10 }, visualSummary: "商品近景", constraints: [] }], materialGroups: [] } };
   }
   return { ...artifact, packagingStructureAnalysis: { artifactId: "artifact_packaging", parentArtifactId: "artifact_shot", type: "packaging-structure-analysis", packagingBlocks: [{ blockId: "pack_1", start: 0, end: 10 }] } };
 }

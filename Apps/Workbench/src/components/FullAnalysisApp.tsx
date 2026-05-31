@@ -23,7 +23,7 @@ export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArti
 const POLL_INTERVAL_MS = 2000;
 const TERMINAL_SETTLE_POLL_COUNT = 5;
 const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization", "aggregate"];
-const MATERIAL_STAGE_ORDER = ["upload", "shotBoundary", "aggregate"];
+const MATERIAL_STAGE_ORDER = ["upload", "shotBoundary", "userMaterialTagger", "aggregate"];
 const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization"];
 const DEFAULT_STAGES: WorkflowStageState[] = [
   buildDefaultStage("upload", "上传"),
@@ -37,6 +37,7 @@ const DEFAULT_STAGES: WorkflowStageState[] = [
 const MATERIAL_DEFAULT_STAGES: WorkflowStageState[] = [
   buildDefaultStage("upload", "上传"),
   buildDefaultStage("shotBoundary", "切镜"),
+  buildDefaultStage("userMaterialTagger", "素材识别"),
   buildDefaultStage("aggregate", "汇总"),
 ];
 
@@ -110,6 +111,10 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
   useEffect(() => {
     if (!enableFunctionSlotAtomization && activeTab === "atomization") setActiveTab("shot");
   }, [activeTab, enableFunctionSlotAtomization]);
+
+  useEffect(() => {
+    if (isMaterialMode && activeTab !== "shot" && activeTab !== "material") setActiveTab("shot");
+  }, [activeTab, isMaterialMode]);
 
   const childJobIds = useMemo(
     () => orderedStages
@@ -660,6 +665,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
           <section className="full-analysis-results" aria-label="分析结果">
             <div className="result-tabs">
               <TabButton active={activeTab === "shot"} label="切镜" onClick={() => setActiveTab("shot")} />
+              {isMaterialMode ? <TabButton active={activeTab === "material"} label="素材" onClick={() => setActiveTab("material")} /> : null}
               {!isMaterialMode ? <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} /> : null}
               {!isMaterialMode ? <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} /> : null}
               {!isMaterialMode ? <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} /> : null}
@@ -730,6 +736,7 @@ function sampleArtifactContainsStageArtifact(artifact: SampleArtifact, stageKey:
   if (stageKey === "rhythmStructure") return artifact.rhythmStructureAnalysis?.artifactId === artifactId;
   if (stageKey === "packagingStructure") return artifact.packagingStructureAnalysis?.artifactId === artifactId;
   if (stageKey === "functionSlotAtomization") return artifact.functionSlotAtomizationAnalysis?.artifactId === artifactId;
+  if (stageKey === "userMaterialTagger") return artifact.userMaterialPack?.artifactId === artifactId;
   if (stageKey === "aggregate") return true;
   return true;
 }

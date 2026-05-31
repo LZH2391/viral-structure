@@ -1344,6 +1344,71 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
   }
 });
 
+test("material recognition workflow routes create, read, and rerun runs", async () => {
+  const calls = [];
+  const fakeRun = { workflowRunId: "workflow_material_1", workflowKey: "material-recognition", workflowVersion: "material-recognition.v1", status: "running", traceId: "trace_material", runId: "run_material", sampleVideoId: "sample_material", currentStageKeys: ["upload"], stages: [] };
+  const runStore = {
+    getRun: (workflowRunId) => workflowRunId === "workflow_material_1" ? fakeRun : null,
+  };
+  const server = createServer({
+    workflowRunStore: runStore,
+    materialRecognitionWorkflowService: {
+      start: async (payload) => {
+        calls.push({ type: "start", workspaceId: payload.workspaceId, fileName: payload.file.filename });
+        return fakeRun;
+      },
+      get: (workflowRunId) => workflowRunId === "workflow_material_1" ? fakeRun : null,
+      getLatest: () => fakeRun,
+      getLatestBySampleVideoId: (sampleVideoId) => sampleVideoId === "sample_material" ? fakeRun : null,
+      rerunStage: async (payload) => {
+        calls.push({ type: "rerun", ...payload });
+        return { ...fakeRun, currentStageKeys: [payload.stageKey] };
+      },
+    },
+    fullAnalysisWorkflowService: {
+      get: () => null,
+      rerunStage: async () => {
+        throw new Error("should route material-recognition rerun to material service");
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const created = await makeMultipartRequest(server, {
+      path: "/api/workflows/material-recognition/runs",
+      fields: { workspaceId: "default-workspace" },
+      file: { name: "material.mp4", type: "video/mp4", content: "video" },
+    });
+    assert.equal(created.statusCode, 202);
+    assert.equal(created.body.workflowRunId, "workflow_material_1");
+
+    const latest = await makeRequest(server, "GET", "/api/workflows/material-recognition/latest");
+    assert.equal(latest.statusCode, 200);
+    assert.equal(latest.body.workflowKey, "material-recognition");
+
+    const latestForSample = await makeRequest(server, "GET", "/api/sample-videos/sample_material/workflows/material-recognition/latest");
+    assert.equal(latestForSample.statusCode, 200);
+    assert.equal(latestForSample.body.workflowRunId, "workflow_material_1");
+
+    const read = await makeRequest(server, "GET", "/api/workflows/runs/workflow_material_1");
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.traceId, "trace_material");
+
+    const rerun = await makeRequest(server, "POST", "/api/workflows/runs/workflow_material_1/stages/userMaterialTagger/rerun");
+    assert.equal(rerun.statusCode, 202);
+    assert.deepEqual(calls, [
+      { type: "start", workspaceId: "default-workspace", fileName: "material.mp4" },
+      { type: "rerun", workflowRunId: "workflow_material_1", stageKey: "userMaterialTagger" },
+    ]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("full analysis cache check reports existing upload cache without starting workflow", async () => {
   const cachedItem = { sampleVideoId: "sample_cached", filename: "cached.mp4", tags: [], cacheAvailable: true };
   const calls = [];
@@ -1605,6 +1670,41 @@ test("cache-decision dispatches packaging structure jobs", async () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.stage, "packaging_structure.cache_reuse");
     assert.deepEqual(calls[0], { jobId: "job_packaging", decision: "reuse" });
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("cache-decision infers legacy shot boundary cache jobs", async () => {
+  const calls = [];
+  const server = createServer({
+    jobStore: {
+      getJob: () => ({
+        jobId: "job_shot",
+        status: "cache_waiting",
+        stage: "shot.cache_lookup",
+        cachePrompt: {
+          cachedItem: { tags: ["切镜"] },
+        },
+      }),
+    },
+    shotBoundaryService: {
+      resolveCacheDecision: async (payload) => {
+        calls.push(payload);
+        return { jobId: payload.jobId, status: "processed", sampleVideoId: "sample_1", stage: "processed", progress: 100, traceId: "trace_shot" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/processing-jobs/job_shot/cache-decision", { decision: "reuse" });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.stage, "processed");
+    assert.deepEqual(calls[0], { jobId: "job_shot", decision: "reuse" });
   } finally {
     await closeServer(server);
   }
