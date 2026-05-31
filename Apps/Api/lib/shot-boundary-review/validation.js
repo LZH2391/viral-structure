@@ -14,22 +14,18 @@ function validateTransformResult(message, prepared, turn) {
   if (Object.prototype.hasOwnProperty.call(parsed ?? {}, "decision")) {
     throw transformValidationError("shot_boundary_transform_legacy_review_result", "转换器返回了旧版 reviewer contract", parsed, turn);
   }
-  if (!Array.isArray(parsed?.shots) || !Object.prototype.hasOwnProperty.call(parsed ?? {}, "commerceBrief")) {
-    throw transformValidationError("shot_boundary_transform_contract_invalid", "转换器结果缺少 shots 或 commerceBrief", parsed, turn);
+  if (!Array.isArray(parsed?.shots)) {
+    throw transformValidationError("shot_boundary_transform_contract_invalid", "转换器结果缺少 shots", parsed, turn);
   }
   const shotValidation = validateShotCentricShots(parsed.shots, prepared.durationSeconds);
   if (!shotValidation.ok) {
     throw transformValidationError("shot_boundary_transform_shots_invalid", shotValidation.message, parsed, turn, shotValidation.summary);
   }
-  const commerceValidation = validateCommerceBrief(parsed.commerceBrief);
-  if (!commerceValidation.ok) {
-    throw transformValidationError("shot_boundary_transform_commerce_invalid", commerceValidation.message, parsed, turn, commerceValidation.summary);
-  }
   return {
     schemaVersion: TRANSFORM_RESULT_SCHEMA_VERSION,
     shots: shotValidation.shots,
     boundaries: shotValidation.boundaries,
-    commerceBrief: commerceValidation.commerceBrief,
+    commerceBrief: null,
   };
 }
 
@@ -38,11 +34,11 @@ function summarizeTransformResult(result) {
     schemaVersion: result?.schemaVersion ?? TRANSFORM_RESULT_SCHEMA_VERSION,
     shotCount: Array.isArray(result?.shots) ? result.shots.length : 0,
     boundaryCount: Array.isArray(result?.boundaries) ? result.boundaries.length : 0,
-    hasSellingObject: Boolean(result?.commerceBrief?.sellingObject),
+    hasCommerceBrief: Boolean(result?.commerceBrief),
   };
 }
 
-function validateVisualSummaryResult(message, shots, turn, expectedCommerceBrief = null) {
+function validateVisualSummaryResult(message, shots, turn) {
   const parsed = extractTransformJsonObject(message, turn, {
     code: "shot_boundary_visual_summary_parse_failed",
     message: "视觉摘要结果不是合法 JSON object",
@@ -50,21 +46,12 @@ function validateVisualSummaryResult(message, shots, turn, expectedCommerceBrief
   if (!Array.isArray(parsed?.shots)) {
     throw transformValidationError("shot_boundary_visual_summary_contract_invalid", "视觉摘要结果缺少 shots", parsed, turn);
   }
-  const expectedBriefValidation = expectedCommerceBrief ? validateCommerceBrief(expectedCommerceBrief) : null;
-  if (expectedBriefValidation?.ok) {
-    if (!Object.prototype.hasOwnProperty.call(parsed ?? {}, "commerceBrief")) {
-      throw transformValidationError("shot_boundary_visual_summary_commerce_missing", "视觉摘要结果缺少 commerceBrief", parsed, turn);
-    }
-    const actualBriefValidation = validateCommerceBrief(parsed.commerceBrief);
-    if (!actualBriefValidation.ok) {
-      throw transformValidationError("shot_boundary_visual_summary_commerce_invalid", "视觉摘要 commerceBrief 不完整", parsed, turn, actualBriefValidation.summary);
-    }
-    if (JSON.stringify(actualBriefValidation.commerceBrief) !== JSON.stringify(expectedBriefValidation.commerceBrief)) {
-      throw transformValidationError("shot_boundary_visual_summary_commerce_changed", "视觉摘要不得改写 commerceBrief", parsed, turn, {
-        expectedCommerceBrief: expectedBriefValidation.summary.commerceBrief,
-        actualCommerceBrief: actualBriefValidation.summary.commerceBrief,
-      });
-    }
+  if (!Object.prototype.hasOwnProperty.call(parsed ?? {}, "commerceBrief")) {
+    throw transformValidationError("shot_boundary_visual_summary_commerce_missing", "视觉摘要结果缺少 commerceBrief", parsed, turn);
+  }
+  const commerceValidation = validateCommerceBrief(parsed.commerceBrief);
+  if (!commerceValidation.ok) {
+    throw transformValidationError("shot_boundary_visual_summary_commerce_invalid", "视觉摘要 commerceBrief 不完整", parsed, turn, commerceValidation.summary);
   }
   const sourceShots = Array.isArray(shots) ? shots : [];
   if (parsed.shots.length !== sourceShots.length) {
@@ -88,13 +75,14 @@ function validateVisualSummaryResult(message, shots, turn, expectedCommerceBrief
       summary,
     };
   });
-  return { shots: summaries };
+  return { shots: summaries, commerceBrief: commerceValidation.commerceBrief };
 }
 
 function applyVisualSummaryResult(result, visualSummary) {
   const summaries = Array.isArray(visualSummary?.shots) ? visualSummary.shots : [];
   return {
     ...result,
+    commerceBrief: visualSummary?.commerceBrief ?? result?.commerceBrief ?? null,
     shots: (Array.isArray(result?.shots) ? result.shots : []).map((shot, index) => ({
       ...shot,
       summary: summaries[index]?.summary ?? shot.summary,
@@ -106,6 +94,7 @@ function summarizeVisualSummaryResult(result) {
   return {
     shotCount: Array.isArray(result?.shots) ? result.shots.length : 0,
     emptySummaryCount: Array.isArray(result?.shots) ? result.shots.filter((shot) => !shot?.summary).length : 0,
+    hasCommerceBrief: Boolean(result?.commerceBrief),
   };
 }
 

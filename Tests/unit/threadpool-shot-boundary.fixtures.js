@@ -2,16 +2,29 @@ function createTransformMessage() {
   return JSON.stringify({
     shots: [
       {
-        summary: "turn_transform 人物半身面对镜头",
         start: 0,
         end: 1.2,
         endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", needReview: false },
       },
       {
-        summary: "turn_transform 产品包装特写",
         start: 1.2,
         end: 2,
         endBoundary: null,
+      },
+    ],
+  });
+}
+
+function createVisualSummaryMessage() {
+  return JSON.stringify({
+    shots: [
+      {
+        shotNo: "S001",
+        summary: "turn_visual 人物半身面对镜头",
+      },
+      {
+        shotNo: "S002",
+        summary: "turn_visual 产品包装特写",
       },
     ],
     commerceBrief: {
@@ -29,26 +42,16 @@ function createInvalidTransformMessage() {
   return JSON.stringify({
     shots: [
       {
-        summary: "人物半身面对镜头",
         start: 0,
         end: 1.2,
         endBoundary: { timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", needReview: false },
       },
       {
-        summary: "产品包装特写",
         start: 1.4,
         end: 2,
         endBoundary: null,
       },
     ],
-    commerceBrief: {
-      sellingObject: "产品样例",
-      proofApproach: "画面展示",
-      promisedOutcome: "快速理解卖点",
-      persuasionTarget: "潜在购买用户",
-      conversionAction: "未观察到明显转化动作",
-      uncertainties: [],
-    },
   });
 }
 
@@ -133,6 +136,7 @@ function createCachedShotAnalysis() {
 
 module.exports = {
   createTransformMessage,
+  createVisualSummaryMessage,
   createInvalidTransformMessage,
   createShotMessage,
   createCachedShotAnalysis,

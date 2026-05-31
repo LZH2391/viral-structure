@@ -161,8 +161,8 @@ test("shot boundary collect completed writes transformed artifact and releases r
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => sheet.localImagePath === undefined), true);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => (sheet.gridItems ?? []).every((item) => item.filePath === undefined)), true);
   assert.equal(artifact.shotBoundaryAnalysis.boundaries.length, 1);
-  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_transform 人物半身面对镜头");
-  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_transform 产品包装特写");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[0].summary, "turn_visual 人物半身面对镜头");
+  assert.equal(artifact.shotBoundaryAnalysis.shots[1].summary, "turn_visual 产品包装特写");
   assert.equal(Object.prototype.hasOwnProperty.call(artifact.shotBoundaryAnalysis.commerceBrief, "videoSummary"), false);
   assert.equal(transformTurns.length, 2);
   assert.equal(transformTurn.payload.inputs.length, 1);

@@ -15,8 +15,7 @@ const {
 
 function buildTransformOutputContract() {
   return {
-    shots: "non-empty array, time boundary contract; omit shots[].summary until visual summary turn",
-    commerceBrief: "object, describe the commerce context from raw text; keep sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
+    shots: "non-empty array, time boundary contract; omit shots[].summary and commerceBrief until visual summary turn",
     "shots[].start": "number, first shot must start at 0",
     "shots[].end": "number, last shot must end at durationSeconds",
     "shots[].endBoundary": "object|null, null only for the last shot",
@@ -84,7 +83,7 @@ function buildVisualSummaryOutputContract() {
     shots: "array, same order and count as input shots",
     "shots[].shotNo": "string, copy from input shot",
     "shots[].summary": "string, describe only visible people/objects/actions/scenes/product state in this shot; no hook, topic, selling point, price, persuasion task, subtitle meaning, or script role",
-    commerceBrief: "object, copy existing commerceBrief unchanged if present; do not infer new commerce fields from images",
+    commerceBrief: "object, summarize the commerce context grounded by shot contact sheets and visual summaries; keep sellingObject/proofApproach/promisedOutcome/persuasionTarget/conversionAction/uncertainties fields",
   };
 }
 
@@ -96,7 +95,6 @@ function buildVisualSummaryManifest({ shots, result }) {
       end: shot?.end ?? null,
       currentSummary: normalizeText(shot?.summary, 120),
     })),
-    commerceBrief: result?.commerceBrief ?? null,
   };
 }
 

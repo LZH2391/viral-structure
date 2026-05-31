@@ -14,7 +14,7 @@ const { loadRoleProfileByRole } = require("../../Apps/Api/lib/gateways/threadpoo
 const { summarizeThreadConversation } = require("../../Apps/Api/lib/observability/thread-conversation");
 const { createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES } = require("../../Apps/Api/lib/gateways/threadpool/proxy");
 const { planContactSheets } = require("../../Infrastructure/MediaProcessing/contact-sheet-generator");
-const { createTransformMessage, createInvalidTransformMessage, createShotMessage, createCachedShotAnalysis } = require("./threadpool-shot-boundary.fixtures");
+const { createTransformMessage, createVisualSummaryMessage, createInvalidTransformMessage, createShotMessage, createCachedShotAnalysis } = require("./threadpool-shot-boundary.fixtures");
 
 function createArtifact(overrides = {}) {
   const subtitleStatus = overrides.subtitleStatus ?? null;
@@ -202,9 +202,10 @@ async function createShotHarness({
         const result = appServerImpl.startTurnWithInputs
           ? await appServerImpl.startTurnWithInputs(payload)
           : { ok: true, threadId: "thread_1", turnId: "turn_1", status: "submitted" };
-        const kind = isTransformTurnPayload(payload) ? "transform" : "shot";
-        turnKinds.push({ turnId: result.turnId ?? null, kind });
-        startedTurns.push({ kind, payload, result });
+        const turnKind = resolveTurnKind(payload);
+        const kind = turnKind === "shot" ? "shot" : "transform";
+        turnKinds.push({ turnId: result.turnId ?? null, kind: turnKind });
+        startedTurns.push({ kind, turnKind, payload, result });
         return result;
       },
       collectTurnResult: async (payload) => {
@@ -216,8 +217,11 @@ async function createShotHarness({
         if (turnKind === "transform" && result?.status !== "completed") {
           turnKinds.unshift(turnKindEntry);
         }
-        if (autoTransformFallback && turnKind === "transform" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("commerceBrief")) {
+        if (autoTransformFallback && turnKind === "transform" && result?.status === "completed" && !String(result.finalMessage ?? "").includes("\"shots\"")) {
           return { ...result, finalMessage: createTransformMessage() };
+        }
+        if (autoTransformFallback && turnKind === "visualSummary" && result?.status === "completed") {
+          return { ...result, finalMessage: createVisualSummaryMessage() };
         }
         return result;
       },
@@ -234,10 +238,14 @@ async function createShotHarness({
 }
 
 function isTransformTurnPayload(payload) {
+  return resolveTurnKind(payload) !== "shot";
+}
+
+function resolveTurnKind(payload) {
   const text = String(payload?.inputs?.[0]?.text ?? "");
-  return text.includes("结果转换 agent")
-    || text.includes("修正 shots[].summary")
-    || (text.includes("commerceBrief") && text.includes("rawAnalyzerResult"));
+  if (text.includes("修正 shots[].summary")) return "visualSummary";
+  if (text.includes("结果转换 agent") || text.includes("上一次 raw 切镜结果转换输出")) return "transform";
+  return "shot";
 }
 
 function createContactSheets(prepared, sampleDir, options = {}) {
@@ -459,6 +467,7 @@ module.exports = {
   response,
   structuredErrorForTest,
   createTransformMessage,
+  createVisualSummaryMessage,
   createInvalidTransformMessage,
   createShotMessage,
   createCachedShotAnalysis,

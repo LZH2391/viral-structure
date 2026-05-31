@@ -1,4 +1,5 @@
 const { test, assert, fs, os, path, crypto, createJobStore, DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES, buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint, splitPredecessorCacheParams, resolveSkillHash, createArtifactCacheParamBuilders, createArtifactIndex, loadRoleProfileByRole, summarizeThreadConversation, createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES, planContactSheets, createArtifact, createShotHarness, isTransformTurnPayload, createContactSheets, rootRuntime, escapeRegExp, delay, hashText, response, structuredErrorForTest, createTransformMessage, createInvalidTransformMessage, createShotMessage, createCachedShotAnalysis, createValidCachedShotAnalysis } = require("./threadpool-shot-boundary.helpers");
+const { validateTransformResult, validateVisualSummaryResult, applyVisualSummaryResult } = require("../../Apps/Api/lib/shot-boundary-review");
 
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
   const artifact = createArtifact();
@@ -199,6 +200,52 @@ test("processed shot analysis accepts shot-centric output and derives boundaries
   assert.equal(analysis.shots[0].endBoundaryReason, "包装特写切到手持展示");
   assert.equal(analysis.shots[1].summary, "手持多包鳗鱼展示");
   assert.equal(analysis.shots[1].endBoundaryReason, null);
+});
+
+test("shot boundary transformer separates cut transform from visual commerce brief", () => {
+  const artifact = createArtifact();
+  const prepared = prepareInput(artifact, 1, { runtimeRoot: "C:\\Runtime" });
+  const transform = validateTransformResult(JSON.stringify({
+    shots: [
+      {
+        start: 0,
+        end: 1.2,
+        endBoundary: { timestamp: 1.2, confidence: 0.8, reason: "视觉切换", needReview: false },
+      },
+      {
+        start: 1.2,
+        end: 2,
+        endBoundary: null,
+      },
+    ],
+  }), prepared, { turnId: "turn_transform" });
+
+  assert.equal(transform.commerceBrief, null);
+
+  const visualSummary = validateVisualSummaryResult(JSON.stringify({
+    shots: [
+      { shotNo: "S001", summary: "包装鱼体特写" },
+      { shotNo: "S002", summary: "手持包装展示" },
+    ],
+    commerceBrief: {
+      sellingObject: "即食鱼类产品",
+      proofApproach: "通过包装和手持展示证明商品状态",
+      promisedOutcome: "帮助用户快速识别商品",
+      persuasionTarget: "想了解商品外观的人",
+      conversionAction: "未观察到明显转化动作",
+      uncertainties: [],
+    },
+  }), transform.shots, { turnId: "turn_visual" });
+  const merged = applyVisualSummaryResult(transform, visualSummary);
+
+  assert.equal(merged.shots[0].summary, "包装鱼体特写");
+  assert.equal(merged.commerceBrief.sellingObject, "即食鱼类产品");
+  assert.throws(() => validateVisualSummaryResult(JSON.stringify({
+    shots: [
+      { shotNo: "S001", summary: "包装鱼体特写" },
+      { shotNo: "S002", summary: "手持包装展示" },
+    ],
+  }), transform.shots, { turnId: "turn_visual_missing_brief" }), /commerceBrief/);
 });
 
 test("processed shot analysis tolerates incomplete commerceBrief on legacy path", () => {
