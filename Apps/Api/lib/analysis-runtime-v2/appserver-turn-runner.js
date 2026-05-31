@@ -238,7 +238,7 @@ function shouldRetireThreadForContext(tokenUsage, maxInputTokenRatio = DEFAULT_M
   const inputTokens = normalized?.inputTokens;
   const modelContextWindow = normalized?.modelContextWindow;
   if (!Number.isFinite(inputTokens) || !Number.isFinite(modelContextWindow) || modelContextWindow <= 0) {
-    return { retire: true, reason: "thread_context_usage_missing", inputTokens: inputTokens ?? null, modelContextWindow: modelContextWindow ?? null, ratio: null };
+    return { retire: false, reason: "thread_context_usage_missing", inputTokens: inputTokens ?? null, modelContextWindow: modelContextWindow ?? null, ratio: null };
   }
   const ratio = inputTokens / modelContextWindow;
   return {
