@@ -158,6 +158,7 @@ function createPackagingStructurePipelineDescriptor({ store, artifactIndex }) {
         shotPackagingNoteCount: result.analysis.shotPackagingNotes.length,
         packagingBlockCount: result.analysis.packagingBlocks.length,
         repairAttemptCount: result.repairAttemptCount,
+        threadContextPolicy: context.threadContextPolicy ?? null,
       };
     },
     buildMaterializeInputSummary(analysis) {

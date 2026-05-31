@@ -413,7 +413,7 @@ function normalizeTokenUsage(usage, fallbackModelContextWindow = null) {
   if (!usage || typeof usage !== "object") return null;
   const nested = usage.last_token_usage ?? usage.lastTokenUsage ?? usage.last ?? null;
   if (nested && nested !== usage) return normalizeTokenUsage(nested, usage.model_context_window ?? usage.modelContextWindow ?? fallbackModelContextWindow);
-  const modelContextWindow = nullableNumber(usage.modelContextWindow ?? usage.model_context_window ?? fallbackModelContextWindow);
+  const modelContextWindow = nullablePositiveNumber(usage.modelContextWindow ?? usage.model_context_window ?? fallbackModelContextWindow);
   const result = {
     inputTokens: nullableNumber(usage.inputTokens ?? usage.input_tokens),
     outputTokens: nullableNumber(usage.outputTokens ?? usage.output_tokens),
@@ -435,7 +435,7 @@ function summarizeThreadContextUsage(thread) {
 }
 
 function enrichContextUsage(usage, modelContextWindow) {
-  const contextWindow = nullableNumber(modelContextWindow);
+  const contextWindow = nullablePositiveNumber(modelContextWindow);
   const inputTokens = nullableNumber(usage.inputTokens);
   const threshold = contextWindow != null && contextWindow > 0 ? Math.round(contextWindow * CONTEXT_THRESHOLD_RATIO) : null;
   const ratio = inputTokens != null && contextWindow != null && contextWindow > 0 ? inputTokens / contextWindow : null;
@@ -478,6 +478,11 @@ function stringOrNull(value) {
 function nullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function nullablePositiveNumber(value) {
+  const number = nullableNumber(value);
+  return number != null && number > 0 ? number : null;
 }
 
 function byteLength(value) {

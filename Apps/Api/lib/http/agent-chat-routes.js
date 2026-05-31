@@ -752,7 +752,7 @@ function summarizeCompactUsage(value) {
   if (!usage) return null;
   return {
     inputTokens: nullableNumber(usage.inputTokens),
-    modelContextWindow: nullableNumber(usage.modelContextWindow),
+    modelContextWindow: nullablePositiveNumber(usage.modelContextWindow),
     contextThresholdTokens: nullableNumber(usage.contextThresholdTokens),
     contextUsageRatio: nullableNumber(usage.contextUsageRatio),
     contextUsageState: normalizeText(usage.contextUsageState),
@@ -774,6 +774,11 @@ function safePreview(value, limit = 240) {
 function nullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function nullablePositiveNumber(value) {
+  const number = nullableNumber(value);
+  return number != null && number > 0 ? number : null;
 }
 
 function summarizeDebugPayload(value) {

@@ -152,6 +152,7 @@ function createRhythmStructurePipelineDescriptor({ store, artifactIndex }) {
         status: result.analysis.status,
         sectionCount: result.analysis.sections.length,
         repairAttemptCount: result.repairAttemptCount,
+        threadContextPolicy: context.threadContextPolicy ?? null,
       };
     },
     buildMaterializeInputSummary(analysis) {

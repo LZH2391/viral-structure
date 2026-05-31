@@ -175,24 +175,36 @@ function createAnalysisPipelineRunner({
           collectIdleTimeoutMs,
           collectHardTimeoutMs,
           onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
-          onLeaseReplaced: ({ agentRun, decision }) => {
+          onLeaseReplaced: ({ previousAgentRun, agentRun, decision }) => {
             context.agentRun = agentRun;
+            const threadContextPolicy = {
+              event: decision.reason,
+              maxInputTokenRatio: 0.8,
+              previousThreadId: previousAgentRun?.threadId ?? null,
+              previousLeaseId: previousAgentRun?.leaseId ?? null,
+              threadId: agentRun?.threadId ?? null,
+              leaseId: agentRun?.leaseId ?? null,
+              inputTokens: decision.inputTokens,
+              modelContextWindow: decision.modelContextWindow,
+              ratio: decision.ratio,
+            };
+            context.threadContextPolicy = threadContextPolicy;
+            if (context.activeStage) {
+              context.activeStage.outputSummary = {
+                ...(context.activeStage.outputSummary ?? {}),
+                threadContextPolicy,
+              };
+            }
             runtime.thread.upsertTraceCard(context, descriptor.buildAgentTraceCard?.(context, "thread-context", {
               status: "completed",
               run: agentRun,
               artifactId: context.artifactId,
               parentArtifactId: descriptor.resolveMaterializeParentArtifactId(context, context.input),
-              activity: { reason: decision.reason, inputTokens: decision.inputTokens, modelContextWindow: decision.modelContextWindow, ratio: decision.ratio },
+              activity: threadContextPolicy,
             }));
             runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.repaired, descriptor.progress.repaired, {
               agentRun,
-              threadContextPolicy: {
-                event: decision.reason,
-                maxInputTokenRatio: 0.8,
-                inputTokens: decision.inputTokens,
-                modelContextWindow: decision.modelContextWindow,
-                ratio: decision.ratio,
-              },
+              threadContextPolicy,
             });
           },
         });

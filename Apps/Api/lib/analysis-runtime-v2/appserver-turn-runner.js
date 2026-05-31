@@ -255,13 +255,18 @@ function normalizeTokenUsage(tokenUsage) {
   const last = tokenUsage.last_token_usage ?? tokenUsage.lastTokenUsage ?? tokenUsage.token_usage ?? tokenUsage.tokenUsage ?? tokenUsage;
   return {
     inputTokens: nullableNumber(last.input_tokens ?? last.inputTokens),
-    modelContextWindow: nullableNumber(tokenUsage.model_context_window ?? tokenUsage.modelContextWindow ?? last.model_context_window ?? last.modelContextWindow),
+    modelContextWindow: nullablePositiveNumber(tokenUsage.model_context_window ?? tokenUsage.modelContextWindow ?? last.model_context_window ?? last.modelContextWindow),
   };
 }
 
 function nullableNumber(value) {
   const next = Number(value);
   return Number.isFinite(next) ? next : null;
+}
+
+function nullablePositiveNumber(value) {
+  const next = nullableNumber(value);
+  return next != null && next > 0 ? next : null;
 }
 
 function buildCollectTimeoutPayload({

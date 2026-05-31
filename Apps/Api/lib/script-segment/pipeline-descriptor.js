@@ -154,6 +154,7 @@ function createScriptSegmentPipelineDescriptor({ store, artifactIndex }) {
         status: result.analysis.status,
         segmentCount: result.analysis.segments.length,
         repairAttemptCount: result.repairAttemptCount,
+        threadContextPolicy: context.threadContextPolicy ?? null,
       };
     },
     buildMaterializeInputSummary(analysis) {

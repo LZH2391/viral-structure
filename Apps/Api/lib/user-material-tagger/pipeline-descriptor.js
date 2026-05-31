@@ -156,6 +156,7 @@ function createUserMaterialTaggerPipelineDescriptor({ store, artifactIndex }) {
         shotCardCount: result.analysis.shotCards.length,
         materialGroupCount: result.analysis.materialGroups.length,
         repairAttemptCount: result.repairAttemptCount,
+        threadContextPolicy: context.threadContextPolicy ?? null,
       };
     },
     buildMaterializeInputSummary(analysis) {

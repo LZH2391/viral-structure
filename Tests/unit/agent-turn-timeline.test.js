@@ -62,6 +62,26 @@ test("agent turn timeline enriches context usage from model context window", () 
   assert.equal(timeline.items.find((item) => item.kind === "token_usage").metadata.contextUsageState, "danger");
 });
 
+test("agent turn timeline treats zero model context window as unknown", () => {
+  const thread = {
+    id: "thread_zero_window",
+    turns: [{
+      id: "turn_zero_window",
+      status: "completed",
+      last_token_usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+      model_context_window: 0,
+      items: [{ type: "agentMessage", text: "done" }],
+    }],
+  };
+
+  const timeline = summarizeAgentTurnTimeline(thread, "turn_zero_window");
+
+  assert.equal(timeline.activity.tokenUsage.modelContextWindow, null);
+  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, null);
+  assert.equal(timeline.activity.tokenUsage.contextUsageRatio, null);
+  assert.equal(timeline.activity.tokenUsage.contextUsageState, "unknown");
+});
+
 test("agent turn timeline returns null for missing turn", () => {
   const timeline = summarizeAgentTurnTimeline({ id: "thread_1", turns: [] }, "turn_missing");
   assert.equal(timeline, null);

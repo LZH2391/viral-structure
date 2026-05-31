@@ -172,6 +172,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
         status: result.analysis.status,
         slotCount: result.analysis.slotMap.slots.length,
         repairAttemptCount: result.repairAttemptCount,
+        threadContextPolicy: context.threadContextPolicy ?? null,
       };
     },
     buildBoundaryReworkInputSummary(context, boundaryReview, reworkAttemptCount) {

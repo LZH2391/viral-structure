@@ -328,7 +328,7 @@ function normalizePersistedTokenUsage(payload) {
   const normalized = normalizeTokenUsage(last);
   const total = payload.total_token_usage ?? payload.totalTokenUsage;
   const normalizedTotal = normalizeTokenUsage(total);
-  const modelContextWindow = nullableNumber(payload.model_context_window ?? payload.modelContextWindow);
+  const modelContextWindow = nullablePositiveNumber(payload.model_context_window ?? payload.modelContextWindow);
   const result = {};
   if (normalized) result.last_token_usage = normalized;
   if (normalizedTotal) result.total_token_usage = normalizedTotal;
@@ -373,7 +373,7 @@ function extractTurnUsageSummary(turn) {
   if (usage?.input_tokens != null) {
     summary.latestInputTokens = nullableNumber(usage.input_tokens);
   }
-  const modelContextWindow = nullableNumber(turn.model_context_window ?? turn.modelContextWindow);
+  const modelContextWindow = nullablePositiveNumber(turn.model_context_window ?? turn.modelContextWindow);
   if (modelContextWindow != null) {
     summary.modelContextWindow = modelContextWindow;
   }
@@ -627,6 +627,11 @@ function isThreadShortIdMatch(threadId, requestedThreadId) {
 function nullableNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function nullablePositiveNumber(value) {
+  const number = nullableNumber(value);
+  return number != null && number > 0 ? number : null;
 }
 
 function normalizeOptionalText(value) {

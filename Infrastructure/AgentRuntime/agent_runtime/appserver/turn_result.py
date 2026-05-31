@@ -273,7 +273,9 @@ class AppServerTurnResultMixin:
         model_context_window = turn.get("model_context_window", turn.get("modelContextWindow"))
         if model_context_window is not None:
             try:
-                result["model_context_window"] = int(model_context_window)
+                normalized_window = int(model_context_window)
+                if normalized_window > 0:
+                    result["model_context_window"] = normalized_window
             except (TypeError, ValueError):
                 pass
         return result or None
@@ -292,7 +294,9 @@ class AppServerTurnResultMixin:
         model_context_window = payload.get("modelContextWindow")
         if model_context_window is not None:
             try:
-                result["model_context_window"] = int(model_context_window)
+                normalized_window = int(model_context_window)
+                if normalized_window > 0:
+                    result["model_context_window"] = normalized_window
             except (TypeError, ValueError):
                 pass
         return result
