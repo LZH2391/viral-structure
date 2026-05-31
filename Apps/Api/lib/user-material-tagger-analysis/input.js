@@ -199,7 +199,7 @@ function buildInputSummaryText(inputPackage) {
   const subtitleReadyShotCount = Array.isArray(inputPackage?.manifest?.shots)
     ? inputPackage.manifest.shots.filter((shot) => String(shot?.subtitleText ?? shot?.subtitleContextText ?? "").trim()).length
     : 0;
-  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕。`;
+  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个代表帧联表页、${inputPackage.visualManifest.emptyShotCount} 个缺代表帧镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕。`;
 }
 
 function normalizeCommerceBrief(brief) {

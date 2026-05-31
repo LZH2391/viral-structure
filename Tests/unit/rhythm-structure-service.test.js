@@ -32,9 +32,16 @@ contactSheetGenerator.generateContactSheets = async ({ frames, sampleDir, parent
       artifactId: frame.artifactId,
       parentArtifactId: frame.parentArtifactId,
       timestamp: frame.timestamp,
+      shotId: frame.shotId,
+      shotNo: frame.shotNo,
+      shotStart: frame.shotStart,
+      shotEnd: frame.shotEnd,
+      shotDuration: frame.shotDuration,
+      middleTimestamp: frame.middleTimestamp,
+      representativeFrameTimestamp: frame.representativeFrameTimestamp,
       row: 0,
       col: index,
-      displayFrameLabel: `${frame.shotNo} ${Number(frame.timestamp ?? 0).toFixed(3)}s`,
+      displayFrameLabel: `${frame.shotNo} ${Number(frame.shotStart ?? 0).toFixed(1)}-${Number(frame.shotEnd ?? 0).toFixed(1)}s / ${Number(frame.shotDuration ?? 0).toFixed(1)}s`,
     })),
   }];
 };
@@ -69,6 +76,10 @@ test("rhythm input uses shots, subtitles and localImage sheets without script or
   assert.equal("frameCount" in inputPackage.visualManifest.sheets[0], false);
   assert.equal(inputPackage.visualManifest.sheets[0].attachmentIndex, 0);
   assert.equal(typeof inputPackage.visualManifest.sheets[0].timeRange.start, "number");
+  assert.equal(inputPackage.visualManifest.sheets[0].cells[0].shotNo, "S001");
+  assert.equal(typeof inputPackage.visualManifest.sheets[0].cells[0].duration, "number");
+  assert.equal(typeof inputPackage.visualManifest.sheets[0].cells[0].middleTimestamp, "number");
+  assert.equal(typeof inputPackage.visualManifest.sheets[0].cells[0].representativeFrameTimestamp, "number");
   assert.equal(Array.isArray(inputPackage.visualManifest.shotSheets), true);
   assert.equal("shots" in inputPackage.visualManifest, false);
   assert.match(promptText, /manifestPath/);

@@ -271,7 +271,7 @@ function buildInputSummaryText(inputPackage) {
   const sfxCandidateCount = Array.isArray(inputPackage?.manifest?.audioEventCandidates)
     ? inputPackage.manifest.audioEventCandidates.length
     : 0;
-  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个镜头联表页、${inputPackage.visualManifest.emptyShotCount} 个空镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕，${sfxCandidateCount} 个 sfx_candidate 音效候选。输入包路径见下。`;
+  return `本次包含 ${inputPackage.manifest.shotCount} 个镜头、${inputPackage.visualManifest.sheetCount} 个代表帧联表页、${inputPackage.visualManifest.emptyShotCount} 个缺代表帧镜头；其中 ${subtitleReadyShotCount} 个镜头附带对齐字幕，${sfxCandidateCount} 个 sfx_candidate 音效候选。输入包路径见下。`;
 }
 
 function frameBelongsToShot(frame, shot, isLastShot) {
@@ -284,12 +284,13 @@ function buildVisualRefsByShot(visualManifest) {
   for (const shotSheet of visualManifest?.shotSheets ?? []) {
     result.set(shotSheet.shotId, (shotSheet.sheetIds ?? []).map((sheetId) => {
       const sheet = sheetsById.get(sheetId);
+      const cell = (sheet?.cells ?? []).find((item) => item.shotId === shotSheet.shotId);
       return {
         type: "shot_contact_sheet",
         sheetId,
         attachmentIndex: sheet?.attachmentIndex ?? null,
         pageIndex: sheet?.pageIndex ?? null,
-        timeRange: sheet?.timeRange ?? null,
+        timeRange: cell ? { start: cell.start, end: cell.end } : sheet?.timeRange ?? null,
       };
     }));
   }

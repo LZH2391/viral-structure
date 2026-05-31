@@ -33,6 +33,13 @@ contactSheetGenerator.generateContactSheets = async ({ frames, sampleDir, parent
       artifactId: frame.artifactId,
       parentArtifactId: frame.parentArtifactId,
       timestamp: frame.timestamp,
+      shotId: frame.shotId,
+      shotNo: frame.shotNo,
+      shotStart: frame.shotStart,
+      shotEnd: frame.shotEnd,
+      shotDuration: frame.shotDuration,
+      middleTimestamp: frame.middleTimestamp,
+      representativeFrameTimestamp: frame.representativeFrameTimestamp,
       row: 0,
       col: index,
     })),
@@ -61,6 +68,9 @@ test("packaging input package includes shot subtitles, visualRefs and sfx candid
   assert.equal(typeof shot.subtitleContextText, "string");
   assert.equal(Array.isArray(shot.visualRefs), true);
   assert.equal(shot.visualRefs[0].type, "shot_contact_sheet");
+  assert.equal(inputPackage.manifest.shots[1].visualRefs[0].sheetId, shot.visualRefs[0].sheetId);
+  assert.deepEqual(shot.visualRefs[0].timeRange, { start: 0, end: 1.2 });
+  assert.deepEqual(inputPackage.manifest.shots[1].visualRefs[0].timeRange, { start: 1.2, end: 3.8 });
   assert.equal(turnInputs.inputs.filter((item) => item.type === "localImage").length, inputPackage.visualManifest.sheetCount);
   assert.match(turnInputs.inputs[0].text, /sfx_candidate/);
 });

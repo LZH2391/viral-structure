@@ -57,6 +57,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
         archivedAt: null,
         invalidated: false,
         invalidatedAt: null,
+        threadStopped: false,
+        threadStoppedAt: null,
+        threadStopReason: null,
         lastResumeError: null,
         confirmedPlan: null,
         messages: [],
@@ -78,6 +81,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
         sampleVideoId: sampleVideoId ?? conversation.sampleVideoId ?? null,
         invalidated: false,
         invalidatedAt: null,
+        threadStopped: false,
+        threadStoppedAt: null,
+        threadStopReason: null,
         lastResumeError: null,
         updatedAt: now,
         archivedAt: null,
@@ -138,11 +144,75 @@ function createAgentConversationStore({ store, filePath } = {}) {
         turnId,
         role: "assistant",
         text: limitText(text || "生成中"),
-        status: isTerminalStatus(status) ? "completed" : "running",
+        status: normalizeMessageStatus(status),
         createdAt: now,
         updatedAt: now,
       });
     }, { skipArchived: true });
+  }
+
+  async function recordTurnStopped({ conversationId, turnId, text = "已停止当前 turn", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !turnId) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.latestTurnId = turnId;
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      upsertMessage(conversation, {
+        id: `assistant-${turnId}`,
+        turnId,
+        role: "assistant",
+        text: limitText(text),
+        status: "canceled",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }, { skipArchived: true });
+  }
+
+  async function stopThread({ conversationId, reason = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.threadStopped = true;
+      conversation.threadStoppedAt = now;
+      conversation.threadStopReason = limitText(reason);
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      upsertMessage(conversation, {
+        id: `system-thread-stopped-${now}-${randomUUID()}`,
+        turnId: conversation.latestTurnId ?? null,
+        role: "system",
+        text: limitText(reason ? `已停止当前 thread：${reason}` : "已停止当前 thread"),
+        status: "completed",
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+  }
+
+  async function bindThread({ conversationId, threadId, parentThreadId = null, leaseId = null, ownerId = null, workspaceRoot = null, skillPath = null, source = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !threadId) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.threadId = threadId;
+      conversation.parentThreadId = parentThreadId ?? conversation.parentThreadId ?? null;
+      conversation.leaseId = leaseId ?? conversation.leaseId ?? null;
+      conversation.ownerId = ownerId ?? conversation.ownerId ?? null;
+      conversation.workspaceRoot = workspaceRoot ?? conversation.workspaceRoot ?? null;
+      conversation.skillPath = skillPath ?? conversation.skillPath ?? null;
+      conversation.source = source ?? conversation.source ?? null;
+      conversation.threadStopped = false;
+      conversation.threadStoppedAt = null;
+      conversation.threadStopReason = null;
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    });
   }
 
   async function recordSystemMessage({ conversationId, text, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
@@ -306,6 +376,9 @@ function createAgentConversationStore({ store, filePath } = {}) {
     createOrUpdateFromSession,
     recordUserTurn,
     recordAssistantTurn,
+    recordTurnStopped,
+    stopThread,
+    bindThread,
     recordSystemMessage,
     invalidate,
     confirmPlan,
@@ -343,6 +416,9 @@ function normalizeConversation(value) {
     revision: normalizeRevision(value.revision),
     invalidated: Boolean(value.invalidated),
     invalidatedAt: value.invalidatedAt ?? null,
+    threadStopped: Boolean(value.threadStopped),
+    threadStoppedAt: value.threadStoppedAt ?? null,
+    threadStopReason: value.threadStopReason ? String(value.threadStopReason) : null,
     lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
     confirmedPlan: normalizeConfirmedPlan(value.confirmedPlan),
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
@@ -441,7 +517,7 @@ function normalizeMessage(value) {
     turnId: value.turnId ? String(value.turnId) : null,
     role: ["user", "assistant", "system"].includes(value.role) ? value.role : "system",
     text: limitText(value.text),
-    status: ["running", "completed", "failed"].includes(value.status) ? value.status : "completed",
+    status: normalizeMessageStatus(value.status),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
   };
@@ -470,6 +546,13 @@ function limitText(value) {
 
 function isTerminalStatus(status) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
+}
+
+function normalizeMessageStatus(status) {
+  const value = String(status ?? "").trim().toLowerCase();
+  if (["running", "completed", "failed", "canceled"].includes(value)) return value;
+  if (value === "cancelled") return "canceled";
+  return isTerminalStatus(value) ? "completed" : "running";
 }
 
 module.exports = {

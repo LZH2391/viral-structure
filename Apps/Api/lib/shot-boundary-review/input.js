@@ -154,24 +154,30 @@ async function prepareShotSheets({
   const frames = Array.isArray(prepared.frames) ? prepared.frames.map(normalizeReviewFrame).filter((frame) => frame.frameId && frame.filePath) : [];
   const normalizedShots = Array.isArray(shots) ? shots.map((shot, index) => normalizeTransformShot(shot, index)) : [];
   const sheets = [];
+  const representativeFrames = normalizedShots
+    .map((shot) => buildRepresentativeShotFrame({ shot, frame: selectRepresentativeFrameForShot({ shot, frames }) }))
+    .filter(Boolean);
+  const representedShotNos = new Set(representativeFrames.map((frame) => frame.shotNo));
   for (const shot of normalizedShots) {
-    const shotFrames = selectFramesForShot(frames, shot, shot.index === (normalizedShots.length - 1));
-    if (!shotFrames.length) {
-      sheets.push({
-        shotNo: shot.shotNo,
-        shotIndex: shot.index,
-        start: shot.start,
-        end: shot.end,
-        pageIndex: 0,
-        pageCount: 0,
-        frameCount: 0,
-        empty: true,
-        localImagePath: null,
-      });
-      continue;
-    }
+    if (representedShotNos.has(shot.shotNo)) continue;
+    sheets.push({
+      shotNo: shot.shotNo,
+      shotIndex: shot.index,
+      start: shot.start,
+      end: shot.end,
+      duration: roundShotTime(shot.end - shot.start),
+      middleTimestamp: resolveShotMiddleTimestamp(shot),
+      representativeFrameTimestamp: null,
+      pageIndex: 0,
+      pageCount: 0,
+      frameCount: 0,
+      empty: true,
+      localImagePath: null,
+    });
+  }
+  if (representativeFrames.length) {
     const rendered = await contactSheetGenerator.generateContactSheets({
-      frames: shotFrames,
+      frames: representativeFrames,
       frameWidth: prepared.frameDimensions?.width ?? 0,
       frameHeight: prepared.frameDimensions?.height ?? 0,
       sampleDir: resultDir,
@@ -179,22 +185,21 @@ async function prepareShotSheets({
       store,
       outputSubdir: RESULT_SHEET_SUBDIR,
       sheetPurpose: RESULT_SHEET_PURPOSE,
-      buildSheetId: ({ sheetIndex }) => `${shot.shotNo}-p${sheetIndex + 1}`,
-      buildGridItemLabel: (frame) => `${shot.shotNo} ${Number(frame.timestamp ?? 0).toFixed(3)}s`,
+      buildSheetId: ({ sheetIndex }) => `shot-representatives-p${sheetIndex + 1}`,
+      buildGridItemLabel: (frame) => ({ text: buildShotCellLabel(frame), complete: true }),
       outputFileNameBuilder: (sheet) => `${sheet.sheetId}.jpg`,
       constraints: {
         ...contactSheetGenerator.DEFAULT_CONSTRAINTS,
         overlapFrameCount: 0,
       },
     });
-    for (const sheet of rendered) {
+    for (const [sheetIndex, sheet] of rendered.entries()) {
       sheets.push({
         ...sheet,
-        shotNo: shot.shotNo,
-        shotIndex: shot.index,
-        start: shot.start,
-        end: shot.end,
-        pageIndex: sheet.sheetIndex ?? 0,
+        shotNos: sheet.gridItems.map((item) => item.shotNo).filter(Boolean),
+        start: minFinite(sheet.gridItems.map((item) => item.shotStart)),
+        end: maxFinite(sheet.gridItems.map((item) => item.shotEnd)),
+        pageIndex: sheet.sheetIndex ?? sheetIndex,
         pageCount: rendered.length,
         empty: false,
       });
@@ -203,15 +208,72 @@ async function prepareShotSheets({
   return sanitizeForAppServerText(sheets);
 }
 
-function selectFramesForShot(frames, shot, isLastShot) {
-  const start = Number(shot.start);
-  const end = Number(shot.end);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
-  return frames.filter((frame) => {
-    const timestamp = Number(frame.timestamp);
-    if (!Number.isFinite(timestamp)) return false;
-    return isLastShot ? timestamp >= start && timestamp <= end : timestamp >= start && timestamp < end;
-  });
+function selectRepresentativeFrameForShot({ shot, frames }) {
+  const safeFrames = Array.isArray(frames) ? frames : [];
+  if (!safeFrames.length) return null;
+  const middleTimestamp = resolveShotMiddleTimestamp(shot);
+  let bestFrame = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const frame of safeFrames) {
+    const timestamp = Number(frame?.timestamp ?? Number.NaN);
+    if (!Number.isFinite(timestamp)) continue;
+    const distance = Math.abs(timestamp - middleTimestamp);
+    if (
+      !bestFrame
+      || distance < bestDistance
+      || (distance === bestDistance && timestamp > Number(bestFrame.timestamp ?? Number.NEGATIVE_INFINITY))
+    ) {
+      bestFrame = frame;
+      bestDistance = distance;
+    }
+  }
+  return bestFrame;
+}
+
+function buildRepresentativeShotFrame({ shot, frame }) {
+  if (!frame) return null;
+  const start = roundShotTime(shot?.start);
+  const end = roundShotTime(shot?.end);
+  const duration = roundShotTime(end - start);
+  return {
+    ...frame,
+    shotId: shot.shotId,
+    shotNo: shot.shotNo,
+    shotStart: start,
+    shotEnd: end,
+    shotDuration: duration,
+    middleTimestamp: resolveShotMiddleTimestamp(shot),
+    representativeFrameTimestamp: roundShotTime(frame?.timestamp),
+  };
+}
+
+function resolveShotMiddleTimestamp(shot) {
+  const start = roundShotTime(shot?.start);
+  const end = roundShotTime(shot?.end);
+  return roundShotTime(start + Math.max(0, end - start) / 2);
+}
+
+function buildShotCellLabel(frame) {
+  return `${frame.shotNo} ${formatSeconds(frame.shotStart)}-${formatSeconds(frame.shotEnd)}s / ${formatSeconds(frame.shotDuration)}s`;
+}
+
+function formatSeconds(value) {
+  return roundShotTime(value).toFixed(1);
+}
+
+function roundShotTime(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 1000) / 1000 : 0;
+}
+
+function minFinite(values) {
+  const finite = values.map(Number).filter(Number.isFinite);
+  return finite.length ? Math.min(...finite) : null;
+}
+
+function maxFinite(values) {
+  const finite = values.map(Number).filter(Number.isFinite);
+  return finite.length ? Math.max(...finite) : null;
 }
 
 module.exports = {

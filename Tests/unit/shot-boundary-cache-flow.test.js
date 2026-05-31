@@ -30,8 +30,7 @@ test("shot boundary raw submit acquires raw analyzer lease and sends fixed mp4 p
   });
 
   const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
-  await delay(20);
-  const job = harness.jobStore.getJob(result.processingJobId);
+  const job = await waitForJobField(harness.jobStore, result.processingJobId, (item) => item.agentActivity?.latestItemType === "tool_call");
   const rawTurn = harness.startedTurns.find((item) => item.kind === "shot");
 
   assert.equal(harness.startedThreads.length, 0);
@@ -57,6 +56,17 @@ test("shot boundary raw submit acquires raw analyzer lease and sends fixed mp4 p
   assert.equal(job.agentActivity.tokenUsage.totalTokens, 120);
   assert.equal(harness.threadPool.released.length, 0);
 });
+
+async function waitForJobField(jobStore, jobId, predicate) {
+  let lastJob = null;
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const job = jobStore.getJob(jobId);
+    lastJob = job;
+    if (job && predicate(job)) return job;
+    await delay(20);
+  }
+  throw new Error(`job ${jobId} did not reach expected field: ${JSON.stringify(lastJob)}`);
+}
 
 test("shot boundary transform collect polls running turn and preserves active message", async () => {
   let transformCollectCount = 0;
@@ -156,7 +166,7 @@ test("shot boundary collect completed writes transformed artifact and releases r
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.turnId, "turn_raw_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.leaseId, "lease_1");
   assert.equal(artifact.shotBoundaryAnalysis.agent.rawAnalyzer.inputMode, "raw_video_path_text");
-  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 4);
+  assert.equal(artifact.shotBoundaryAnalysis.contactSheets.length, 2);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.some((sheet) => sheet.sheetPurpose === "shot_boundary_result_sheet"), true);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => sheet.localImagePath === undefined), true);
   assert.equal(artifact.shotBoundaryAnalysis.contactSheets.every((sheet) => (sheet.gridItems ?? []).every((item) => item.filePath === undefined)), true);
@@ -168,9 +178,9 @@ test("shot boundary collect completed writes transformed artifact and releases r
   assert.equal(transformTurn.payload.inputs.length, 1);
   assert.equal(transformTurn.payload.inputs[0].type, "text");
   assert.equal(transformTurn.payload.inputs.filter((item) => item.type === "localImage").length, 0);
-  assert.equal(visualSummaryTurn.payload.inputs.length, 5);
+  assert.equal(visualSummaryTurn.payload.inputs.length, 3);
   assert.equal(visualSummaryTurn.payload.inputs[0].type, "text");
-  assert.equal(visualSummaryTurn.payload.inputs.filter((item) => item.type === "localImage").length, 4);
+  assert.equal(visualSummaryTurn.payload.inputs.filter((item) => item.type === "localImage").length, 2);
   assert.match(transformTurn.payload.inputs[0].text, /结果转换 agent/);
   assert.match(transformTurn.payload.inputs[0].text, /rawAnalyzerResult/);
   assert.doesNotMatch(transformTurn.payload.inputs[0].text, /subtitleContext/);

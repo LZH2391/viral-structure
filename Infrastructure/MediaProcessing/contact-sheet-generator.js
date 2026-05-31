@@ -170,9 +170,11 @@ function buildSheetArtifact({
   const gridItems = frames.map((frame, index) => {
     const inputIndex = normalizeNonNegativeInteger(frame.inputIndex, index);
     const sourceFrameIndex = normalizeNonNegativeInteger(frame.sourceFrameIndex, index);
-    const displayFrameLabel = typeof buildGridItemLabel === "function"
-      ? String(buildGridItemLabel(frame, index, { sheetIndex, inputIndex, sourceFrameIndex }) ?? "").trim()
-      : buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index);
+    const rawDisplayFrameLabel = typeof buildGridItemLabel === "function"
+      ? buildGridItemLabel(frame, index, { sheetIndex, inputIndex, sourceFrameIndex })
+      : null;
+    const displayFrameLabel = normalizeGridItemLabel(rawDisplayFrameLabel, { inputIndex, sourceFrameIndex }, index);
+    const displayFrameLabelComplete = Boolean(rawDisplayFrameLabel && typeof rawDisplayFrameLabel === "object" && rawDisplayFrameLabel.complete);
     return {
       frameId: frame.frameId,
       artifactId: frame.artifactId ?? null,
@@ -181,9 +183,15 @@ function buildSheetArtifact({
       inputIndex,
       sourceFrameIndex,
       displayFrameLabel: displayFrameLabel || buildDisplayFrameLabel({ inputIndex, sourceFrameIndex }, index),
+      displayFrameLabelComplete,
       filePath: frame.filePath ?? null,
       shotId: frame.shotId ?? null,
       shotNo: frame.shotNo ?? null,
+      shotStart: frame.shotStart ?? null,
+      shotEnd: frame.shotEnd ?? null,
+      shotDuration: frame.shotDuration ?? null,
+      middleTimestamp: frame.middleTimestamp ?? null,
+      representativeFrameTimestamp: frame.representativeFrameTimestamp ?? null,
       gridIndex: index,
       row: Math.floor(index / layout.cols),
       col: index % layout.cols,
@@ -287,7 +295,16 @@ async function buildFrameCell({ framePath, label, cellWidth, cellHeight, frameBo
 function buildFrameLabel(item) {
   const timestamp = Number(item.timestamp ?? 0);
   const displayLabel = item.displayFrameLabel || item.frameId;
+  if (item.displayFrameLabelComplete) return displayLabel;
   return `${displayLabel}  ${timestamp.toFixed(3)}s`;
+}
+
+function normalizeGridItemLabel(rawLabel, frame, fallbackIndex) {
+  if (rawLabel && typeof rawLabel === "object") {
+    return String(rawLabel.text ?? rawLabel.label ?? "").trim();
+  }
+  if (typeof rawLabel === "string") return rawLabel.trim();
+  return buildDisplayFrameLabel(frame, fallbackIndex);
 }
 
 function buildDisplayFrameLabel(frame, fallbackIndex = 0) {

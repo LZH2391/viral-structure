@@ -92,6 +92,46 @@ export type AgentChatCompactResponse = {
   conversationRevision?: number | null;
 };
 
+export type AgentChatActionProjection = {
+  flags: {
+    stopTurn: boolean;
+    stopThread: boolean;
+    retrySameThread: boolean;
+    retryNewThread: boolean;
+  };
+  availableActions: Array<"stop_turn" | "stop_thread" | "retry_same_thread" | "retry_new_thread" | string>;
+};
+
+export type AgentChatStopResponse = {
+  ok: boolean;
+  action: "stop_turn" | "stop_thread";
+  threadId: string;
+  turnId?: string | null;
+  activeTurnId?: string | null;
+  status?: string | null;
+  conversationStatus?: string | null;
+  conversationRevision?: number | null;
+  actionProjection?: AgentChatActionProjection;
+  traceId: string;
+  runId: string;
+  stageId: string;
+};
+
+export type AgentChatRetryResponse = {
+  ok: boolean;
+  action: "retry_same_thread" | "retry_new_thread";
+  sourceTurnId: string;
+  previousThreadId: string;
+  threadId: string;
+  turnId: string;
+  status: string;
+  conversationRevision?: number | null;
+  actionProjection?: AgentChatActionProjection;
+  traceId: string;
+  runId: string;
+  stageId: string;
+};
+
 export type FunctionSlotLibraryBuilderRefreshResponse = {
   ok: boolean;
   traceId: string;
@@ -458,6 +498,47 @@ export async function compactAgentChatThread(
 ) {
   return readJsonResponse<AgentChatCompactResponse>(
     await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/compact`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function stopAgentChatTurn(
+  threadId: string,
+  turnId: string,
+  payload: { conversationId?: string | null; expectedRevision?: number | null; workspaceRoot?: string | null; reason?: string | null } = {},
+) {
+  return readJsonResponse<AgentChatStopResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/stop`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function stopAgentChatThread(
+  threadId: string,
+  payload: { conversationId?: string | null; expectedRevision?: number | null; workspaceRoot?: string | null; activeTurnId?: string | null; source?: "direct" | "threadpool-role"; leaseId?: string | null; ownerId?: string | null; discardThread?: boolean; archiveConversation?: boolean; reason?: string | null } = {},
+) {
+  return readJsonResponse<AgentChatStopResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/stop`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function retryAgentChatTurn(
+  threadId: string,
+  turnId: string,
+  payload: { mode?: "same_thread" | "new_thread"; conversationId: string; expectedRevision?: number | null; workspaceRoot?: string | null; source?: "direct" | "threadpool-role"; role?: string | null; skillPath?: string | null } ,
+) {
+  return readJsonResponse<AgentChatRetryResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/${encodeURIComponent(turnId)}/retry`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),

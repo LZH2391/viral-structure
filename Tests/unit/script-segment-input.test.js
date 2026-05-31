@@ -199,7 +199,7 @@ test("script segment frame ownership keeps half-open ranges and last shot closed
   assert.equal(frameBelongsToShot({ timestamp: 6 }, shot3, true), true);
 });
 
-test("script segment input package records empty shots without failing", async () => {
+test("script segment input package falls back to nearest middle frame for sparse shots", async () => {
   const artifact = createArtifact();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-script-segment-empty-shot-"));
   const store = createLocalStore(tempRoot);
@@ -216,7 +216,10 @@ test("script segment input package records empty shots without failing", async (
     store,
   });
 
-  assert.equal(inputPackage.emptyShotCount, 2);
-  assert.equal(inputPackage.visualManifest.shotSheets.filter((shot) => shot.empty).length, 2);
+  assert.equal(inputPackage.emptyShotCount, 0);
+  assert.equal(inputPackage.visualManifest.shotSheets.filter((shot) => shot.empty).length, 0);
   assert.equal(inputPackage.visualManifest.sheetCount, 1);
+  assert.equal(inputPackage.visualManifest.sheets[0].cells.length, 3);
+  assert.equal(inputPackage.visualManifest.sheets[0].cells[2].shotNo, "S003");
+  assert.equal(inputPackage.visualManifest.sheets[0].cells[2].representativeFrameTimestamp, 0);
 });

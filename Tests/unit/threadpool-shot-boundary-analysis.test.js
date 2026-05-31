@@ -99,6 +99,24 @@ test("contact sheet grid items include sequential display labels without changin
   assert.deepEqual(sheets[0].overlapFrameIds, []);
 });
 
+test("contact sheet grid items can use complete labels for representative shot cells", () => {
+  const sheets = planContactSheets({
+    frames: [
+      { frameId: "frame_a1b2", artifactId: "artifact_frame_0", parentArtifactId: "artifact_sample", timestamp: 0.6, inputIndex: 0, sourceFrameIndex: 7, filePath: "C:\\Runtime\\frame-0.jpg", shotNo: "S001", shotStart: 0, shotEnd: 1.2, shotDuration: 1.2, middleTimestamp: 0.6, representativeFrameTimestamp: 0.6 },
+    ],
+    frameWidth: 1280,
+    frameHeight: 720,
+    parentArtifactId: "artifact_sample",
+    buildGridItemLabel: (frame) => ({ text: `${frame.shotNo} 0.0-1.2s / 1.2s`, complete: true }),
+  });
+
+  assert.equal(sheets[0].gridItems[0].displayFrameLabel, "S001 0.0-1.2s / 1.2s");
+  assert.equal(sheets[0].gridItems[0].displayFrameLabelComplete, true);
+  assert.equal(sheets[0].gridItems[0].shotDuration, 1.2);
+  assert.equal(sheets[0].gridItems[0].middleTimestamp, 0.6);
+  assert.equal(sheets[0].gridItems[0].representativeFrameTimestamp, 0.6);
+});
+
 test("shot boundary normalizes timestamp boundaries and builds contiguous shots", () => {
   const frames = [
     { frameId: "frame_0", inputIndex: 0, timestamp: 0 },

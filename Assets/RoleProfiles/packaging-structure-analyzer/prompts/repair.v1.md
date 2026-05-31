@@ -1,7 +1,7 @@
 你要修复上一轮包装结构分析输出，使它符合相同的 JSON 输出契约。
 
 输入边界不变：
-- 只使用 manifest、visualManifest 和随 turn 附带的 localImage 镜头联表。
+- 只使用 manifest、visualManifest 和随 turn 附带的 localImage 代表帧联表。
 - manifest 里每个 shot 都带 subtitleText / subtitleContextText / visualRefs。
 - 不依赖 scriptSegmentAnalysis，不依赖 rhythmStructureAnalysis。
 - 不分析完整音乐或整体节奏，不重切 shot，不拆脚本段落，不生成新脚本。
@@ -13,7 +13,7 @@
 路径：
 - manifestPath: {{manifestPath}}
 - outputContractPath: {{outputContractPath}}
-- visualManifestPath: {{visualManifestPath}}（localImage 镜头联表索引；需要确认附件顺序、shotId 或格子时间时再参考）
+- visualManifestPath: {{visualManifestPath}}（localImage 代表帧联表索引；每个格子对应一个 shot，并带 shotId、时间段和时长）
 - validation: {{validationPathText}}
 - priorOutputSummary: {{priorOutputSummaryPathText}}
 

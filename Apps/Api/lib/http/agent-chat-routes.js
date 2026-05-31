@@ -4,6 +4,7 @@ const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
 const { summarizeThreadConversation } = require("../observability/thread-conversation");
+const { buildAgentChatActionProjection, findReplayTask, latestAssistantStatus } = require("../agent-chat/actions");
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
@@ -139,6 +140,246 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
       threadId: result.threadId,
       turnId: result.turnId,
       status: result.status,
+    }),
+    successStatus: 202,
+  });
+}
+
+async function handleAgentChatTurnStop(req, res, threadId, turnId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.turn.stop",
+    inputSummary: {
+      threadId,
+      turnId,
+      conversationId: normalizeText(body.conversationId),
+      expectedRevision: normalizeRevision(body.expectedRevision),
+      reason: safePreview(body.reason, 120),
+    },
+    action: async ({ traceContext }) => {
+      const conversationId = normalizeText(body.conversationId);
+      return withConversationLock(conversationId, async () => {
+        const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
+        let conversation = conversationId ? await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision: normalizeRevision(body.expectedRevision) }) : null;
+        if (conversationId && !conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
+        const cancelled = await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId });
+        conversation = await handlers.agentConversationStore?.recordTurnStopped?.({
+          conversationId,
+          turnId,
+          text: normalizeText(body.reason) ? `已停止当前 turn：${normalizeText(body.reason)}` : "已停止当前 turn",
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        }) ?? conversation;
+        return {
+          ok: true,
+          action: "stop_turn",
+          threadId,
+          turnId,
+          status: cancelled.status ?? "canceled",
+          conversationRevision: conversation?.revision ?? null,
+          actionProjection: buildAgentChatActionProjection({
+            conversation,
+            threadId,
+            turnId,
+            status: "canceled",
+            retryable: true,
+          }),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        };
+      });
+    },
+    summarizeOutput: (result) => ({
+      action: result.action,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      conversationRevision: result.conversationRevision,
+      availableActions: result.actionProjection.availableActions,
+    }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatThreadStop(req, res, threadId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  return runAgentChatStage(res, handlers, {
+    stageName: "agentChat.thread.stop",
+    inputSummary: {
+      threadId,
+      activeTurnId: normalizeText(body.activeTurnId ?? body.turnId),
+      conversationId: normalizeText(body.conversationId),
+      source: normalizeSource(body.source),
+      leaseId: normalizeText(body.leaseId),
+      discardThread: Boolean(body.discardThread),
+      archiveConversation: Boolean(body.archiveConversation),
+      reason: safePreview(body.reason, 120),
+    },
+    action: async ({ traceContext }) => {
+      const conversationId = normalizeText(body.conversationId);
+      return withConversationLock(conversationId, async () => {
+        const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
+        let conversation = conversationId ? await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision: normalizeRevision(body.expectedRevision) }) : null;
+        if (conversationId && !conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
+        const activeTurnId = normalizeText(body.activeTurnId ?? body.turnId ?? conversation?.latestTurnId);
+        const turnStop = activeTurnId ? await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId: activeTurnId }) : null;
+        let leaseRelease = null;
+        let threadDiscard = null;
+        if (normalizeSource(body.source ?? conversation?.source) === "threadpool-role") {
+          const leaseId = normalizeText(body.leaseId ?? conversation?.leaseId);
+          const ownerId = normalizeText(body.ownerId ?? conversation?.ownerId) || OWNER_PREFIX;
+          if (leaseId && typeof handlers.threadPool?.releaseLease === "function") {
+            leaseRelease = await handlers.threadPool.releaseLease({ leaseId, ownerId }).catch((error) => safeThreadPoolError(error));
+          }
+          if (body.discardThread && typeof handlers.threadPool?.discardThread === "function") {
+            threadDiscard = await handlers.threadPool.discardThread({
+              threadId,
+              reason: normalizeText(body.reason) || "agent-chat-thread-stopped",
+            }).catch((error) => safeThreadPoolError(error));
+          }
+        }
+        conversation = await handlers.agentConversationStore?.stopThread?.({
+          conversationId,
+          reason: normalizeText(body.reason),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        }) ?? conversation;
+        if (body.archiveConversation && conversationId) {
+          conversation = await handlers.agentConversationStore?.archive?.(conversationId, { expectedRevision: null }) ?? conversation;
+        }
+        return {
+          ok: true,
+          action: "stop_thread",
+          threadId,
+          activeTurnId,
+          turnStop,
+          leaseRelease,
+          threadDiscard,
+          conversationStatus: conversation?.status ?? null,
+          conversationRevision: conversation?.revision ?? null,
+          actionProjection: buildAgentChatActionProjection({
+            conversation,
+            threadId,
+            turnId: activeTurnId,
+            status: turnStop?.status ?? latestAssistantStatus(conversation, activeTurnId),
+            retryable: true,
+          }),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        };
+      });
+    },
+    summarizeOutput: (result) => ({
+      action: result.action,
+      threadId: result.threadId,
+      activeTurnId: result.activeTurnId,
+      turnStopStatus: result.turnStop?.status ?? null,
+      leaseRelease: result.leaseRelease?.status ?? null,
+      threadDiscard: result.threadDiscard?.status ?? null,
+      conversationStatus: result.conversationStatus,
+    }),
+    successStatus: 200,
+  });
+}
+
+async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const mode = normalizeRetryMode(body.mode);
+  return runAgentChatStage(res, handlers, {
+    stageName: mode === "new_thread" ? "agentChat.thread.retry" : "agentChat.turn.retry",
+    inputSummary: {
+      threadId,
+      turnId,
+      mode,
+      conversationId: normalizeText(body.conversationId),
+      source: normalizeSource(body.source),
+      role: normalizeText(body.role),
+    },
+    action: async ({ traceContext }) => {
+      const conversationId = normalizeText(body.conversationId);
+      if (!conversationId) throw badRequestError("agent_chat_conversation_required", "重试需要 conversationId 以读取可重放任务");
+      return withConversationLock(conversationId, async () => {
+        const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision: normalizeRevision(body.expectedRevision) });
+        if (!conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
+        const replayTask = findReplayTask(conversation, turnId);
+        if (!replayTask) throw badRequestError("agent_chat_replay_task_missing", "未找到可重放任务");
+        const session = mode === "new_thread"
+          ? await createRetryThreadSession({ body, conversation, handlers, traceContext })
+          : {
+              source: conversation.source ?? body.source ?? "direct",
+              role: conversation.role ?? body.role ?? null,
+              threadId,
+              leaseId: conversation.leaseId ?? body.leaseId ?? null,
+              parentThreadId: conversation.parentThreadId ?? body.parentThreadId ?? null,
+              workspaceRoot: normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir,
+              skillPath: normalizeText(body.skillPath) || conversation.skillPath || null,
+            };
+        let boundConversation = conversation;
+        if (mode === "new_thread") {
+          boundConversation = await handlers.agentConversationStore?.bindThread?.({
+            conversationId,
+            threadId: session.threadId,
+            parentThreadId: session.parentThreadId,
+            leaseId: session.leaseId,
+            ownerId: session.ownerId,
+            workspaceRoot: session.workspaceRoot,
+            skillPath: session.skillPath,
+            source: session.source,
+            traceId: traceContext.traceId,
+            runId: traceContext.runId,
+            stageId: traceContext.stageId,
+          }) ?? conversation;
+        }
+        const result = await handlers.appServer.startTurnWithInputs({
+          workspaceRoot: session.workspaceRoot || handlers.rootDir,
+          threadId: session.threadId,
+          inputs: buildTextInputs(replayTask.text),
+          skillPath: session.skillPath,
+          timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+        });
+        const retryTurnId = result.turnId ?? result.turn?.id ?? null;
+        const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
+          conversationId,
+          turnId: retryTurnId,
+          text: replayTask.text,
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        }) ?? boundConversation;
+        return {
+          ok: true,
+          action: mode === "new_thread" ? "retry_new_thread" : "retry_same_thread",
+          sourceTurnId: replayTask.sourceTurnId,
+          threadId: session.threadId,
+          previousThreadId: threadId,
+          turnId: retryTurnId,
+          status: result.status ?? "submitted",
+          conversationRevision: recorded?.revision ?? null,
+          actionProjection: buildAgentChatActionProjection({
+            conversation: recorded,
+            threadId: session.threadId,
+            turnId: retryTurnId,
+            status: result.status ?? "submitted",
+            retryable: true,
+          }),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        };
+      });
+    },
+    summarizeOutput: (result) => ({
+      action: result.action,
+      sourceTurnId: result.sourceTurnId,
+      previousThreadId: result.previousThreadId,
+      threadId: result.threadId,
+      turnId: result.turnId,
+      status: result.status,
+      conversationRevision: result.conversationRevision,
     }),
     successStatus: 202,
   });
@@ -743,6 +984,94 @@ function isUnknownActiveLeaseError(error) {
   return values.some((value) => String(value ?? "").includes("unknown active lease"));
 }
 
+async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId }) {
+  if (!turnId) return { status: "not_requested" };
+  if (typeof handlers.appServer?.cancelTurn !== "function") {
+    const error = new Error("AppServer turn/cancel 能力不可用");
+    error.statusCode = 503;
+    error.code = "appserver_turn_cancel_unavailable";
+    throw error;
+  }
+  const result = await handlers.appServer.cancelTurn({
+    workspaceRoot,
+    threadId,
+    turnId,
+    timeoutSeconds: 30,
+  });
+  return {
+    ok: result?.ok !== false,
+    threadId: result?.threadId ?? threadId,
+    turnId: result?.turnId ?? turnId,
+    status: normalizeText(result?.status) || "canceled",
+  };
+}
+
+async function createRetryThreadSession({ body, conversation, handlers, traceContext }) {
+  const source = normalizeSource(body.source ?? conversation.source);
+  if (source === "threadpool-role") {
+    const session = await startThreadPoolRoleSession({
+      body: {
+        ...body,
+        source,
+        role: normalizeText(body.role) || conversation.role,
+      },
+      handlers,
+      traceContext,
+    });
+    if (session?.ok === false || !session.threadId) {
+      const error = new Error(session?.message || "ThreadPool role 暂不可用");
+      error.statusCode = 503;
+      error.code = session?.error || "threadpool_role_unavailable";
+      throw error;
+    }
+    return session;
+  }
+  const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
+  const result = await handlers.appServer.startThread({
+    workspaceRoot,
+    timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+  });
+  return {
+    ok: true,
+    source: "direct",
+    role: conversation.role ?? normalizeText(body.role),
+    threadId: result.threadId ?? result.thread?.id ?? null,
+    parentThreadId: conversation.threadId ?? null,
+    leaseId: null,
+    ownerId: null,
+    workspaceRoot,
+    skillPath: normalizeText(body.skillPath) || conversation.skillPath || null,
+  };
+}
+
+function normalizeRetryMode(value) {
+  return String(value ?? "").trim() === "new_thread" ? "new_thread" : "same_thread";
+}
+
+function safeThreadPoolError(error) {
+  return {
+    ok: false,
+    error: error?.code ?? "threadpool_operation_failed",
+    message: safePreview(error instanceof Error ? error.message : "ThreadPool 操作失败", 160),
+  };
+}
+
+function badRequestError(code, message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  error.code = code;
+  error.retryable = false;
+  return error;
+}
+
+function notFoundError(code, message) {
+  const error = new Error(message);
+  error.statusCode = 404;
+  error.code = code;
+  error.retryable = false;
+  return error;
+}
+
 function buildTextInputs(message) {
   return [{ type: "text", text: message, text_elements: [] }];
 }
@@ -821,6 +1150,9 @@ module.exports = {
   handleAgentChatThreadCompact,
   handleAgentChatThreadStart,
   handleAgentChatTurnCollect,
+  handleAgentChatThreadStop,
+  handleAgentChatTurnRetry,
   handleAgentChatTurnSubmit,
+  handleAgentChatTurnStop,
   handleAgentChatTurnTimeline,
 };

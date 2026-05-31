@@ -8,7 +8,7 @@
 输入包：
 - manifest: `{{manifestPath}}`
 - output contract: `{{outputContractPath}}`
-- visual manifest: `{{visualManifestPath}}`
+- visual manifest: `{{visualManifestPath}}`（localImage 代表帧联表索引；每个格子对应一个 shot，并带 shotId、时间段和时长）
 
 校验失败摘要：
 ```json
