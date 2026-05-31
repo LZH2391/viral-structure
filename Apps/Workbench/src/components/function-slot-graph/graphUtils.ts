@@ -16,6 +16,20 @@ type LayoutPosition = {
   layoutYScale?: number;
 };
 
+type ProjectedEdgesCacheEntry = {
+  edgeSignature: string;
+  visibleSignature: string;
+  edges: FunctionSlotGraphEdge[];
+};
+
+type FocusIndex = {
+  connected: Map<string, Set<string>>;
+  incoming: Map<string, FunctionSlotGraphEdge[]>;
+};
+
+const projectedEdgesCache = new WeakMap<FunctionSlotLibraryGraph, ProjectedEdgesCacheEntry>();
+const focusIndexCache = new WeakMap<FunctionSlotGraphEdge[], FocusIndex>();
+
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
   const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1"
@@ -141,6 +155,11 @@ function withAtomLayerProjection(graph: FunctionSlotLibraryGraph): FunctionSlotL
 }
 
 function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string>) {
+  const edgeSignature = graph.edges.map((edge) => `${edge.id}:${edge.source}>${edge.target}:${edge.type}`).join("|");
+  const visibleSignature = [...visibleNodeIds].sort().join("|");
+  const cached = projectedEdgesCache.get(graph);
+  if (cached?.edgeSignature === edgeSignature && cached.visibleSignature === visibleSignature) return cached.edges;
+
   const incoming = new Map<string, FunctionSlotGraphEdge[]>();
   for (const edge of graph.edges) {
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
@@ -163,7 +182,9 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
     if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) continue;
     edges.push(edge);
   }
-  return dedupeEdges(edges);
+  const result = dedupeEdges(edges);
+  projectedEdgesCache.set(graph, { edgeSignature, visibleSignature, edges: result });
+  return result;
 }
 
 function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>) {
@@ -260,10 +281,7 @@ export function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraph
   const ids = new Set<string>();
   if (!nodeId) return ids;
   ids.add(nodeId);
-  for (const edge of edges) {
-    if (edge.source === nodeId) ids.add(edge.target);
-    if (edge.target === nodeId) ids.add(edge.source);
-  }
+  for (const connectedId of focusIndex(edges).connected.get(nodeId) ?? []) ids.add(connectedId);
   return ids;
 }
 
@@ -273,19 +291,38 @@ export function reverseTracePath(nodeId: string | null, edges: FunctionSlotGraph
   if (!nodeId) return { nodes, edges: edgeIds };
   nodes.add(nodeId);
   let frontier = new Set<string>([nodeId]);
+  const incoming = focusIndex(edges).incoming;
   while (frontier.size) {
     const next = new Set<string>();
-    for (const edge of edges) {
-      if (!frontier.has(edge.target)) continue;
+    for (const targetId of frontier) {
+      for (const edge of incoming.get(targetId) ?? []) {
       edgeIds.add(edge.id);
       if (!nodes.has(edge.source)) {
         nodes.add(edge.source);
         next.add(edge.source);
       }
+      }
     }
     frontier = next;
   }
   return { nodes, edges: edgeIds };
+}
+
+function focusIndex(edges: FunctionSlotGraphEdge[]) {
+  const cached = focusIndexCache.get(edges);
+  if (cached) return cached;
+  const connected = new Map<string, Set<string>>();
+  const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  for (const edge of edges) {
+    if (!connected.has(edge.source)) connected.set(edge.source, new Set());
+    if (!connected.has(edge.target)) connected.set(edge.target, new Set());
+    connected.get(edge.source)?.add(edge.target);
+    connected.get(edge.target)?.add(edge.source);
+    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
+  }
+  const index = { connected, incoming };
+  focusIndexCache.set(edges, index);
+  return index;
 }
 
 export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
@@ -300,7 +337,7 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
   if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
   if (node.type === "unmappedVariant") return 8;
   if (node.type === "sourceExample") return 9;
-  if (node.type === "sourceSample") return 14;
+  if (node.type === "sourceSample") return 24;
   if (node.type === "confirmedPlan") return 30;
   if (node.type.startsWith("traced")) return 13;
   if (node.type === "libraryItem") return 20;
@@ -515,7 +552,7 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
   if (node.type === "slotArchetype") return filters.slotArchetype;
   if (node.type === "slotSubtype") return filters.slotSubtype;
   if (node.type === "atomLayer") return filters.atomLayer;
-  if (node.type === "atomArchetype") return filters.atomLayer;
+  if (node.type === "atomArchetype") return filters.atomArchetype;
   if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type.startsWith("binding")) return filters.binding;
   if (node.type === "rulePattern" || node.type === "recompositionPolicy") return filters.rule;
@@ -530,7 +567,7 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "slotArchetype") return filters.slotArchetype;
   if (node.type === "slotSubtype") return filters.slotSubtype;
   if (node.type === "atomLayer") return filters.atomLayer;
-  if (node.type === "atomArchetype") return filters.atomLayer;
+  if (node.type === "atomArchetype") return filters.atomArchetype;
   if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type === "sourceVariant") return filters.sourceVariant;
   if (node.type === "sourceSample") return filters.sourceVariant;
@@ -565,8 +602,9 @@ function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
       { types: ["slotArchetype"], radius: 420 },
       { types: ["slotSubtype"], radius: 600 },
       { types: ["atomLayer"], radius: 820 },
-      { types: ["atomPattern"], radius: 1080 },
-      { types: ["sourceVariant"], radius: 1380 },
+      { types: ["atomArchetype"], radius: 1080 },
+      { types: ["atomPattern"], radius: 1380 },
+      { types: ["sourceVariant"], radius: 1600 },
       { types: ["sourceSample"], radius: 1720 },
     ],
   });
@@ -596,6 +634,7 @@ const PLAN_TRACE_COLUMN_LEVELS = [
   { types: ["slotArchetype"], spacing: 170 },
   { types: ["slotSubtype"], spacing: 150 },
   { types: ["atomLayer"], spacing: 132 },
+  { types: ["atomArchetype"], spacing: 112 },
   { types: ["atomPattern"], spacing: 96 },
   { types: ["sourceVariant"], spacing: 58 },
   { types: ["sourceSample"], spacing: 58 },
@@ -636,14 +675,15 @@ function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
     center: CENTER,
     yScale: 1,
     levels: [
-      { types: ["slotFamily"], radius: 150 },
-      { types: ["slotArchetype"], radius: 270 },
-      { types: ["slotSubtype"], radius: 420 },
-      { types: ["atomLayer"], radius: 600 },
-      { types: ["atomPattern"], radius: 820 },
-      { types: ["sourceVariant"], radius: 1080 },
-      { types: ["sourceSample"], radius: 1380 },
-      { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], radius: 1720 },
+      { types: ["slotFamily"], radius: 260 },
+      { types: ["slotArchetype"], radius: 520 },
+      { types: ["slotSubtype"], radius: 820 },
+      { types: ["atomLayer"], radius: 1080 },
+      { types: ["atomArchetype"], radius: 1240 },
+      { types: ["atomPattern"], radius: 1400 },
+      { types: ["sourceVariant"], radius: 1600 },
+      { types: ["sourceSample"], radius: 1760 },
+      { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], radius: 1840 },
     ],
   });
 }

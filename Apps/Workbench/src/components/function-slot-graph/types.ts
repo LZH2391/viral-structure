@@ -12,6 +12,7 @@ export type GraphFiltersState = {
   slotArchetype: boolean;
   slotSubtype: boolean;
   atomLayer: boolean;
+  atomArchetype: boolean;
   atomPattern: boolean;
   sourceVariant: boolean;
 };

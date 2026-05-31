@@ -13,6 +13,7 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
         <label><input type="checkbox" checked={filters.slotArchetype} onChange={() => update("slotArchetype")} /> Archetype</label>
         <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> Subtype</label>
         <label><input type="checkbox" checked={filters.atomLayer} onChange={() => update("atomLayer")} /> Layer</label>
+        <label><input type="checkbox" checked={filters.atomArchetype} onChange={() => update("atomArchetype")} /> AtomArchetype</label>
         <label><input type="checkbox" checked={filters.atomPattern} onChange={() => update("atomPattern")} /> Pattern</label>
         <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariant</label>
       </section>
@@ -26,6 +27,7 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
         <label><input type="checkbox" checked={filters.slotArchetype} onChange={() => update("slotArchetype")} /> Archetype</label>
         <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> Subtype</label>
         <label><input type="checkbox" checked={filters.atomLayer} onChange={() => update("atomLayer")} /> Layer</label>
+        <label><input type="checkbox" checked={filters.atomArchetype} onChange={() => update("atomArchetype")} /> AtomArchetype</label>
         <label><input type="checkbox" checked={filters.atomPattern} onChange={() => update("atomPattern")} /> Pattern</label>
         <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariant</label>
         <label><input type="checkbox" checked={filters.binding} onChange={() => update("binding")} /> Binding Governance</label>

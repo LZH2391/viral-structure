@@ -395,6 +395,7 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.equal(graph.nodes.some((node) => hasGovernanceStatusFields(node.data)), false);
   assert.equal(Object.prototype.hasOwnProperty.call(graph.summary, "needReviewCount"), false);
   assert.ok(graph.edges.some((edge) => edge.type === "bundle_to_atom_pattern"));
+  assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
 });
 
 test("function slot governance graph builder normalizes value-object ids and labels", () => {

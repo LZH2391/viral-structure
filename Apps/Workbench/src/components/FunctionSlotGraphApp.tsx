@@ -16,7 +16,7 @@ type LibraryGraphSummary = {
 
 type GraphMode = "structure" | "governance" | "planTrace";
 
-const DEFAULT_FILTERS: GraphFiltersState = {
+const STRUCTURE_FILTERS: GraphFiltersState = {
   slot: true,
   atom: true,
   binding: false,
@@ -26,9 +26,18 @@ const DEFAULT_FILTERS: GraphFiltersState = {
   slotFamily: true,
   slotArchetype: true,
   slotSubtype: true,
-  atomLayer: true,
+  atomLayer: false,
+  atomArchetype: true,
   atomPattern: true,
   sourceVariant: true,
+};
+
+const GOVERNANCE_FILTERS: GraphFiltersState = {
+  ...STRUCTURE_FILTERS,
+};
+
+const PLAN_TRACE_FILTERS: GraphFiltersState = {
+  ...STRUCTURE_FILTERS,
 };
 
 export function FunctionSlotGraphApp() {
@@ -38,7 +47,11 @@ export function FunctionSlotGraphApp() {
   const [mode, setMode] = useState<GraphMode>("structure");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取结构图谱");
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
+    structure: STRUCTURE_FILTERS,
+    governance: GOVERNANCE_FILTERS,
+    planTrace: PLAN_TRACE_FILTERS,
+  });
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("force");
 
@@ -114,8 +127,12 @@ export function FunctionSlotGraphApp() {
     return () => window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
   }, [mode]);
 
+  const filters = filtersByMode[mode];
+  const setActiveFilters = useCallback((nextFilters: GraphFiltersState) => {
+    setFiltersByMode((current) => ({ ...current, [mode]: nextFilters }));
+  }, [mode]);
   const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(graph, selectedPlanIds) : graph, [graph, mode, selectedPlanIds]);
-  const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, selectedNodeId, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode, selectedNodeId]);
+  const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode]);
   const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [activeGraph, selectedNodeId, visible.nodes]);
 
   return (
@@ -187,7 +204,7 @@ export function FunctionSlotGraphApp() {
           {activeGraph ? <GraphCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
-          <GraphFilters mode={mode} filters={filters} onChange={setFilters} />
+          <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />
           <NodeInspector node={selectedNode} graph={activeGraph} />
         </aside>
       </main>

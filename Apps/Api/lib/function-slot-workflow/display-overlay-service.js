@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v7";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v8";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -365,6 +365,7 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
   }
   for (const patternId of atomPatternIds) {
     const patternItem = sourceIndex.get(`${patternId}::item`) ?? {};
+    const atomArchetypeId = firstText(patternItem.parentAtomArchetype);
     const layer = firstText(patternItem.atomLayer, parsed.variantKind, "script");
     const layerNodeId = traceId(planId, "atomLayer", slotNodeId, layer);
     pushGraphNode(nodes, {
@@ -379,6 +380,23 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
       },
     });
     pushGraphEdge(edges, planId, slotNodeId, layerNodeId, "subtype_to_atom_layer", layerDisplayName(layer));
+    const patternParentNodeId = atomArchetypeId ? traceId(planId, "atomArchetype", atomArchetypeId) : layerNodeId;
+    if (atomArchetypeId) {
+      pushGraphNode(nodes, {
+        id: patternParentNodeId,
+        type: "atomArchetype",
+        label: governanceName(sourceIndex, atomArchetypeId, atomArchetypeId),
+        group: atomGroup(parsed.variantKey),
+        data: {
+          planId,
+          governanceId: atomArchetypeId,
+          governanceNodeId: `atomArchetype:${sanitizeGraphId(atomArchetypeId)}`,
+          layer,
+          sourceVariantIds: sourceIndex.get(atomArchetypeId) ?? [],
+        },
+      });
+      pushGraphEdge(edges, planId, layerNodeId, patternParentNodeId, "atom_layer_to_archetype", "archetype");
+    }
     const patternNodeId = traceId(planId, "atomPattern", patternId);
     pushGraphNode(nodes, {
       id: patternNodeId,
@@ -393,7 +411,7 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
         sourceVariantIds: [atomVariantId],
       },
     });
-    pushGraphEdge(edges, planId, layerNodeId, patternNodeId, "atom_layer_to_pattern", "pattern");
+    pushGraphEdge(edges, planId, patternParentNodeId, patternNodeId, atomArchetypeId ? "atom_archetype_to_pattern" : "atom_layer_to_pattern", "pattern");
     pushSourceVariantTrace(nodes, edges, planId, patternNodeId, atomVariantId, aliasMap, sourceIndex);
   }
   return null;

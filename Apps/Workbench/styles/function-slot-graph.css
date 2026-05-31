@@ -478,6 +478,21 @@
   font-size: 12px;
 }
 
+.slot-graph-node.node-sourceSample > circle:not(.slot-graph-plan-ring) {
+  fill: #05070c;
+  stroke: rgba(244, 246, 255, 0.94);
+  stroke-dasharray: none;
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 14px rgba(187, 174, 255, 0.42));
+  opacity: 1;
+}
+
+.slot-graph-node.node-sourceSample text {
+  fill: #f7f8ff;
+  font-size: 13px;
+  stroke-width: 5px;
+}
+
 .slot-graph-node.node-plan > circle:not(.slot-graph-plan-ring) {
   fill: #05070c;
   stroke: rgba(244, 246, 255, 0.96);

@@ -16,6 +16,7 @@ function allFilters() {
     slotArchetype: true,
     slotSubtype: true,
     atomLayer: true,
+    atomArchetype: true,
     atomPattern: true,
     sourceVariant: true,
   };
@@ -90,6 +91,7 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
       { id: "archetype:a1", type: "slotArchetype", label: "archetype", group: "slot", data: {} },
       { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
       { id: "atomLayer:l1", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom archetype", group: "script", data: {} },
       { id: "atomPattern:ap1", type: "atomPattern", label: "atom pattern", group: "script", data: {} },
       { id: "variant:v1", type: "sourceVariant", label: "source label", group: "sourceVariant", data: { label: "source label" } },
       { id: "sample:s1", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_1" } },
@@ -99,7 +101,8 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
       { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
       { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
       { id: "e4", source: "subtype:s1", target: "atomLayer:l1", type: "subtype_to_atom_layer" },
-      { id: "e5", source: "atomLayer:l1", target: "atomPattern:ap1", type: "atom_layer_to_pattern" },
+      { id: "e5", source: "atomLayer:l1", target: "atomArchetype:aa1", type: "atom_layer_to_archetype" },
+      { id: "e5b", source: "atomArchetype:aa1", target: "atomPattern:ap1", type: "atom_archetype_to_pattern" },
       { id: "e6", source: "atomPattern:ap1", target: "variant:v1", type: "traced_to_source_variant" },
       { id: "e7", source: "variant:v1", target: "sample:s1", type: "source_variant_to_sample" },
     ],
@@ -117,7 +120,8 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
   assert.ok(distance("family:f1") < distance("archetype:a1"));
   assert.ok(distance("archetype:a1") < distance("subtype:s1"));
   assert.ok(distance("subtype:s1") < distance("atomLayer:l1"));
-  assert.ok(distance("atomLayer:l1") < distance("atomPattern:ap1"));
+  assert.ok(distance("atomLayer:l1") < distance("atomArchetype:aa1"));
+  assert.ok(distance("atomArchetype:aa1") < distance("atomPattern:ap1"));
   assert.ok(distance("atomPattern:ap1") < distance("variant:v1"));
   assert.ok(distance("variant:v1") < distance("sample:s1"));
 });

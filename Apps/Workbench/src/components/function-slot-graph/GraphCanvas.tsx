@@ -207,10 +207,13 @@ export function GraphCanvas({
       setNodes(nodesRef.current.map((node) => ({ ...node })));
       return;
     }
+    const rect = svgRef.current?.getBoundingClientRect();
+    const scaleX = rect?.width ? VIEWBOX.width / rect.width : 1;
+    const scaleY = rect?.height ? VIEWBOX.height / rect.height : 1;
     const nextViewport = {
       ...viewportRef.current,
-      x: drag.startX + event.clientX - drag.clientX,
-      y: drag.startY + event.clientY - drag.clientY,
+      x: drag.startX + (event.clientX - drag.clientX) * scaleX,
+      y: drag.startY + (event.clientY - drag.clientY) * scaleY,
     };
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
@@ -340,7 +343,7 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
       role="button"
       aria-label={node.label}
     >
-      {node.type === "confirmedPlan" || node.type === "governanceRoot" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
+      {node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
       <circle cx={node.x} cy={node.y} r={radius} />
       {overlayColors.length ? (
         <g className="slot-graph-plan-badge">

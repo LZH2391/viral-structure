@@ -43,7 +43,12 @@ function buildFunctionSlotGovernanceGraph(governance) {
     for (const subtypeId of pattern.forSlotSubtypeIds ?? []) {
       const layerId = pushAtomLayerNode(nodes, subtypeId, pattern.atomLayer);
       pushEdge(edges, nodeId("slotSubtype", subtypeId), layerId, "subtype_to_atom_layer", groupForAtomLayer(pattern.atomLayer));
-      pushEdge(edges, layerId, nodeId("atomPattern", pattern.id), "atom_layer_to_pattern", "pattern");
+      if (pattern.parentAtomArchetype) {
+        pushEdge(edges, layerId, nodeId("atomArchetype", pattern.parentAtomArchetype), "atom_layer_to_archetype", "archetype");
+        pushEdge(edges, nodeId("atomArchetype", pattern.parentAtomArchetype), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
+      } else {
+        pushEdge(edges, layerId, nodeId("atomPattern", pattern.id), "atom_layer_to_pattern", "pattern");
+      }
     }
   }
 
@@ -69,7 +74,6 @@ function buildFunctionSlotGovernanceGraph(governance) {
 
   for (const bundle of governance.implementationBundles ?? []) {
     pushGovernanceNode(nodes, "implementationBundle", "bundle", bundle);
-    pushEdge(edges, rootId, nodeId("implementationBundle", bundle.id), "governance_contains_bundle", "bundle");
     for (const subtypeId of bundle.slotSubtypeIds ?? []) {
       pushEdge(edges, nodeId("implementationBundle", bundle.id), nodeId("slotSubtype", subtypeId), "bundle_to_subtype", "slot");
     }
@@ -216,7 +220,6 @@ function pushUnmapped(nodes, edges, rootId, variants, variantKind) {
         variantKind,
       },
     });
-    pushEdge(edges, rootId, id, "governance_contains_unmapped", "unmapped");
   }
 }
 
