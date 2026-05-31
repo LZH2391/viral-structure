@@ -45,12 +45,12 @@ function createHarness() {
   };
   const moduleRegistry = {
     getByModuleId: (moduleId) => moduleDefinitions[moduleId] ?? null,
-    startModule: async ({ moduleId }) => {
+    startModule: async ({ moduleId, sampleVideoId = "sample_1" }) => {
       const jobId = `job_${moduleId}`;
-      const artifact = attachAnalysis(artifacts.get("sample_1"), moduleId);
-      artifacts.set("sample_1", artifact);
-      jobs.set(jobId, { jobId, sampleVideoId: "sample_1", status: "processed", stage: `${moduleId}.materialize`, progress: 100, traceId: `trace_${moduleId}` });
-      return { processingJobId: jobId, sampleVideoId: "sample_1", traceId: `trace_${moduleId}` };
+      const artifact = attachAnalysis(artifacts.get(sampleVideoId), moduleId);
+      artifacts.set(sampleVideoId, artifact);
+      jobs.set(jobId, { jobId, sampleVideoId, status: "processed", stage: `${moduleId}.materialize`, progress: 100, traceId: `trace_${moduleId}` });
+      return { processingJobId: jobId, sampleVideoId, traceId: `trace_${moduleId}` };
     },
   };
   const workflow = createFullAnalysisWorkflowService({
@@ -143,6 +143,44 @@ test("material recognition workflow only runs upload, shot boundary, and aggrega
   ]);
   assert.equal(run.workflowKey, "material-recognition");
   assert.equal(run.stages.find((stage) => stage.key === "aggregate").outputSummary.shotCount, 1);
+});
+
+test("material recognition workflow continues after upload cache reuse", async () => {
+  const { workflowRunStore, shotBoundaryService, moduleRegistry, jobStore, logger, artifacts } = createHarness();
+  artifacts.set("sample_cached", buildArtifact({ sampleVideoId: "sample_cached" }));
+  const service = {
+    enqueueUpload: async () => ({
+      cacheHit: true,
+      cachedItem: {
+        sampleVideoId: "sample_cached",
+        artifactId: "artifact_video",
+      },
+    }),
+  };
+  const workflow = createMaterialRecognitionWorkflowService({
+    workflowRunStore,
+    service,
+    shotBoundaryService,
+    moduleRegistry,
+    jobStore,
+    logger,
+    store: {},
+    artifactIndex: {},
+    loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
+    pollIntervalMs: 60_000,
+  });
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "cached.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("cached") },
+    fields: { cacheDecision: "reuse" },
+  });
+
+  await workflow.advance(started.workflowRunId);
+
+  const run = workflow.get(started.workflowRunId);
+  assert.equal(run.sampleVideoId, "sample_cached");
+  assert.equal(run.stages.find((stage) => stage.key === "upload").status, "processed");
+  assert.equal(run.stages.find((stage) => stage.key === "shotBoundary").status, "running");
 });
 
 test("full analysis workflow can skip atomization when disabled", async () => {
@@ -328,9 +366,9 @@ test("workflow run store marks running persisted runs as failed on restart", () 
   assert.equal(persisted.runs.find((run) => run.workflowRunId === "workflow_running").status, "failed");
 });
 
-function buildArtifact({ shot = false } = {}) {
+function buildArtifact({ shot = false, sampleVideoId = "sample_1" } = {}) {
   return {
-    sampleVideoId: "sample_1",
+    sampleVideoId,
     sampleVideo: {
       artifactId: "artifact_video",
       parentArtifactId: null,

@@ -62,6 +62,7 @@ export function WorkbenchApp() {
   const lastShotIdRef = useRef<string | null>(null);
   const restoredAnalysisJobsRef = useRef(false);
   const lastFullAnalysisArtifactSyncRef = useRef<string | null>(null);
+  const lastMaterialRecognitionArtifactSyncRef = useRef<string | null>(null);
   const workspaceLayout = useResizableWorkspaceLayout(workspaceGridRef);
   const shotBoundaryAnalysis = state.sampleArtifact?.shotBoundaryAnalysis ?? null;
 
@@ -352,8 +353,8 @@ export function WorkbenchApp() {
     const nextArtifact = payload.artifact;
     if (nextArtifact?.sampleVideo?.artifactId) {
       const artifactSignature = sampleArtifactSyncSignature(nextArtifact);
-      if (artifactSignature !== lastFullAnalysisArtifactSyncRef.current) {
-        lastFullAnalysisArtifactSyncRef.current = artifactSignature;
+      if (artifactSignature !== lastMaterialRecognitionArtifactSyncRef.current) {
+        lastMaterialRecognitionArtifactSyncRef.current = artifactSignature;
         dispatch({ type: "apply-artifact", artifact: nextArtifact, activeSampleSource: "fullAnalysis", bumpActiveSampleRevision: true });
         persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null, { revision: state.activeSampleRevision + 1, source: "fullAnalysis" });
       }
@@ -390,6 +391,22 @@ export function WorkbenchApp() {
     writeActiveAnalysisJob("packagingStructure", toActiveJobDraft(packagingJob));
     if (atomizationJob) writeActiveAnalysisJob("functionSlotAtomization", toActiveJobDraft(atomizationJob));
   }, [functionSlotAtomizationFlow, packagingStructureFlow, persistWorkbenchArtifact, rhythmStructureFlow, scriptSegmentFlow, shotBoundaryFlow, state.activeSampleRevision]);
+
+  const handleMaterialRecognitionWorkbenchSync = useCallback((payload: FullAnalysisWorkbenchSync) => {
+    const nextArtifact = payload.artifact;
+    if (nextArtifact?.sampleVideo?.artifactId) {
+      const artifactSignature = sampleArtifactSyncSignature(nextArtifact);
+      if (artifactSignature !== lastFullAnalysisArtifactSyncRef.current) {
+        lastFullAnalysisArtifactSyncRef.current = artifactSignature;
+        dispatch({ type: "apply-artifact", artifact: nextArtifact, activeSampleSource: "materialRecognition", bumpActiveSampleRevision: true });
+        persistWorkbenchArtifact(nextArtifact, payload.run.traceId ?? nextArtifact.trace?.traceId ?? null, { revision: state.activeSampleRevision + 1, source: "materialRecognition" });
+      }
+    }
+    const shotStage = payload.run.stages.find((stage) => stage.key === "shotBoundary");
+    const shotJob = shotStage?.childJobId ? payload.childJobs[shotStage.childJobId] ?? null : null;
+    shotBoundaryFlow.setAgentJob(shotJob);
+    writeActiveAgentJob(toActiveJobDraft(shotJob));
+  }, [persistWorkbenchArtifact, shotBoundaryFlow, state.activeSampleRevision]);
 
   const handleOpenWorkbenchStage = useCallback((stageKey: FullAnalysisStageTarget) => {
     const tab = fullAnalysisStageToPropertyTab(stageKey);
@@ -502,7 +519,7 @@ export function WorkbenchApp() {
       ) : null}
       {mountedViews["material-recognition"] ? (
         <section className={`view-shell ${activeView === "material-recognition" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "material-recognition"}>
-          <FullAnalysisApp embedded mode="material-recognition" activeSample={fullAnalysisActiveSample} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
+          <FullAnalysisApp embedded mode="material-recognition" activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleMaterialRecognitionWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews.library ? (

@@ -94,7 +94,7 @@ export type DraftState = {
   artifactId?: string;
   traceId?: string | null;
   activeSampleRevision?: number;
-  activeSampleSource?: "workbench" | "fullAnalysis" | "library";
+  activeSampleSource?: "workbench" | "fullAnalysis" | "materialRecognition" | "library";
   sampleArtifact: SampleArtifact;
   selectedFrameId?: string | null;
   selectedDerivativeId?: string | null;

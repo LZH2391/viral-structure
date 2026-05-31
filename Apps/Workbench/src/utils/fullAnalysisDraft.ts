@@ -9,7 +9,7 @@ export type FullAnalysisDraft = {
   status?: string | null;
   updatedAt?: string | null;
   activeSampleRevision?: number;
-  activeSampleSource?: "workbench" | "fullAnalysis" | "library";
+  activeSampleSource?: "workbench" | "fullAnalysis" | "materialRecognition" | "library";
   sampleArtifact?: SampleArtifact | null;
 };
 

@@ -52,7 +52,7 @@ export type WorkbenchState = {
   uploadStatusText: string | null;
   sampleArtifact: SampleArtifact | null;
   activeSampleRevision: number;
-  activeSampleSource: "workbench" | "fullAnalysis" | "library";
+  activeSampleSource: "workbench" | "fullAnalysis" | "materialRecognition" | "library";
   errorSummary: ErrorSummary | null;
   subtitleDrafts: Record<string, SubtitleDraft>;
 };

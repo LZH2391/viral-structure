@@ -16,7 +16,7 @@ type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
 export type FullAnalysisWorkbenchActiveSample = {
   artifact: SampleArtifact;
   activeSampleRevision: number;
-  activeSampleSource: "workbench" | "fullAnalysis" | "library";
+  activeSampleSource: "workbench" | "fullAnalysis" | "materialRecognition" | "library";
 };
 export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null>; activeSampleChanged: boolean };
 
@@ -158,11 +158,11 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
       }
       terminalPollsRemaining -= 1;
     };
-    void poll().catch((error) => setErrorText(error instanceof Error ? error.message : "查询完整分析状态失败"));
+    void poll().catch((error) => setErrorText(error instanceof Error ? error.message : `查询${pageTitle}状态失败`));
     pollTimerRef.current = window.setInterval(() => {
-      void poll().catch((error) => setErrorText(error instanceof Error ? error.message : "查询完整分析状态失败"));
+      void poll().catch((error) => setErrorText(error instanceof Error ? error.message : `查询${pageTitle}状态失败`));
     }, POLL_INTERVAL_MS);
-  }, [draftStorageKey]);
+  }, [draftStorageKey, pageTitle]);
 
   useEffect(() => () => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
@@ -200,7 +200,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
       const draft = readFullAnalysisDraft(draftStorageKey);
       if (draft?.sampleArtifact) {
         setArtifact(draft.sampleArtifact);
-        setStatusText("已恢复最近完整分析结果");
+        setStatusText(`已恢复最近${pageTitle}结果`);
         lastActiveSampleRevisionRef.current = draft.activeSampleRevision ?? null;
         lastSyncedSampleVideoIdRef.current = draft.sampleArtifact.sampleVideoId;
       }
@@ -709,6 +709,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
 function shouldPreserveActiveWorkflow(run: WorkflowRun | null, activeSample: FullAnalysisWorkbenchActiveSample) {
   if (!run) return false;
   if (activeSample.activeSampleSource === "fullAnalysis") return true;
+  if (activeSample.activeSampleSource === "materialRecognition") return true;
   if (run.sampleVideoId && run.sampleVideoId === activeSample.artifact.sampleVideoId) return true;
   return isRunExecuting(run);
 }

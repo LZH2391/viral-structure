@@ -172,6 +172,11 @@ function createWorkflowService({
       const result = await executeStage(workflowRunId, stageKey, input);
       if (result?.terminal) {
         await markStageProcessed(workflowRunId, stageKey, result, stageContext, startedAt);
+        if (result.sampleVideoId) {
+          workflowRunStore.updateRun(workflowRunId, (current) => ({
+            sampleVideoId: result.sampleVideoId ?? current.sampleVideoId ?? null,
+          }));
+        }
         scheduleAdvance(workflowRunId);
         return result;
       }
