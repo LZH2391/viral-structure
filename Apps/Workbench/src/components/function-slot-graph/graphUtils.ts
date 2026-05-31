@@ -201,6 +201,7 @@ function nearestVisibleAncestors(targetId: string, incoming: Map<string, Functio
         else next.push(edge.source);
       }
     }
+    if (ancestors.size) break;
     frontier = next;
   }
   return ancestors;
@@ -546,7 +547,7 @@ function connectedGovernanceIds(graph: FunctionSlotLibraryGraph, nodeId: string,
 function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
   if (node.type === "unmappedVariant") return filters.unmapped;
   if (node.type === "sourceVariant") return filters.sourceVariant;
-  if (node.type === "sourceSample") return filters.sourceVariant;
+  if (node.type === "sourceSample") return true;
   if (node.type === "governanceRoot") return true;
   if (node.type === "slotFamily") return filters.slotFamily;
   if (node.type === "slotArchetype") return filters.slotArchetype;
@@ -570,7 +571,7 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "atomArchetype") return filters.atomArchetype;
   if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type === "sourceVariant") return filters.sourceVariant;
-  if (node.type === "sourceSample") return filters.sourceVariant;
+  if (node.type === "sourceSample") return true;
   if (node.type === "sourceExample") return false;
   return true;
 }
@@ -587,6 +588,7 @@ function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: G
   placeColumn(positions, graph.nodes.filter((node) => node.type === "atomPattern" || node.type === "bindingPattern" || node.type === "rulePattern"), 1050);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "implementationBundle"), 1060, 170, 84);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1180, 90, 34);
+  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceSample"), 1300, 90, 34);
   placeColumn(positions, graph.nodes.filter((node) => node.type === "unmappedVariant"), 1180, 610, 28);
   return positions;
 }

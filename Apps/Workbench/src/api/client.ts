@@ -140,6 +140,22 @@ export async function startFullAnalysisRun(file: File, options: { frameSampleRat
   return readJsonResponse<WorkflowRun>(response);
 }
 
+export async function startMaterialRecognitionRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("enableAudioSeparation", String(options.enableAudioSeparation ?? true));
+  formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
+  formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  const response = await fetch(`${API_BASE_URL}/api/workflows/material-recognition/runs`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<WorkflowRun>(response);
+}
+
 export async function startFullAnalysisBatchRun(files: File[], options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; enableFunctionSlotAtomization?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; maxConcurrentRuns?: number } = {}) {
   const formData = new FormData();
   for (const file of files) formData.append("files", file);
@@ -175,6 +191,19 @@ export async function checkFullAnalysisUploadCache(file: File, options: { frameS
   return readJsonResponse<{ cacheHit: true; cachedItem: LibraryItemSummary } | { cacheHit: false }>(response);
 }
 
+export async function checkMaterialRecognitionUploadCache(file: File, options: { frameSampleRateFps?: number; cacheDecision?: "ask" | "refresh" } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  const response = await fetch(`${API_BASE_URL}/api/workflows/material-recognition/cache-check`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<{ cacheHit: true; cachedItem: LibraryItemSummary } | { cacheHit: false }>(response);
+}
+
 export async function getWorkflowRun(workflowRunId: string) {
   return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`, { cache: "no-store" }));
 }
@@ -185,6 +214,14 @@ export async function getLatestFullAnalysisRun() {
 
 export async function getLatestFullAnalysisRunForSample(sampleVideoId: string) {
   return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/workflows/full-analysis/latest`, { cache: "no-store" }));
+}
+
+export async function getLatestMaterialRecognitionRun() {
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/material-recognition/latest`, { cache: "no-store" }));
+}
+
+export async function getLatestMaterialRecognitionRunForSample(sampleVideoId: string) {
+  return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/sample-videos/${encodeURIComponent(sampleVideoId)}/workflows/material-recognition/latest`, { cache: "no-store" }));
 }
 
 export async function rerunWorkflowStage(workflowRunId: string, stageKey: string) {

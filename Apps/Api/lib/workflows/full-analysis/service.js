@@ -27,7 +27,7 @@ const WORKFLOW_VERSION = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.version;
 const TERMINAL_JOB_STATUSES = new Set(["processed", "failed"]);
 const CACHE_WAITING_STATUS = "cache_waiting";
 
-function createFullAnalysisWorkflowService({
+function createWorkflowService({
   workflowRunStore,
   service,
   shotBoundaryService,
@@ -38,9 +38,14 @@ function createFullAnalysisWorkflowService({
   artifactIndex,
   loadSampleArtifact = loadCurrentSampleArtifact,
   pollIntervalMs = 2000,
+  workflowDescriptor = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR,
+  buildOptions = (fields) => ({
+    enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
+  }),
 }) {
   const timers = new Map();
-  const workflowDescriptor = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR;
+  const workflowKey = workflowDescriptor.workflowId;
+  const workflowVersion = workflowDescriptor.version;
   const stageDefinitions = resolveWorkflowStages(workflowDescriptor, moduleRegistry);
   const moduleStages = stageDefinitions.filter((stage) => stage.kind === "module");
   const structureAnalysisKeys = workflowDescriptor.parallelGroups["structure-analysis"] ?? [];
@@ -54,12 +59,10 @@ function createFullAnalysisWorkflowService({
     const cacheDecision = fields.cacheDecision === "refresh" ? "refresh" : "ask";
     const run = workflowRunStore.createRun({
       workflowRunId,
-      workflowKey: WORKFLOW_KEY,
-      workflowVersion: WORKFLOW_VERSION,
+      workflowKey,
+      workflowVersion,
       cacheDecision,
-      options: {
-        enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
-      },
+      options: buildOptions(fields),
       status: "running",
       traceId: traceContext.traceId,
       runId: traceContext.runId,
@@ -73,8 +76,8 @@ function createFullAnalysisWorkflowService({
     });
     await logWorkflowEvent(traceContext, "stage.start", "workflow.run", null, null, {
       workflowRunId,
-      workflowKey: WORKFLOW_KEY,
-      workflowVersion: WORKFLOW_VERSION,
+      workflowKey,
+      workflowVersion,
     });
     await startStage(workflowRunId, "upload", {
       workspaceId,
@@ -95,7 +98,7 @@ function createFullAnalysisWorkflowService({
   function getLatest() {
     const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
     const latest = runs
-      .filter((run) => run?.workflowKey === WORKFLOW_KEY)
+      .filter((run) => run?.workflowKey === workflowKey)
       .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
     return latest ? publicRun(latest) : null;
   }
@@ -104,7 +107,7 @@ function createFullAnalysisWorkflowService({
     if (!sampleVideoId) return null;
     const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
     const latest = runs
-      .filter((run) => run?.workflowKey === WORKFLOW_KEY && run.sampleVideoId === sampleVideoId)
+      .filter((run) => run?.workflowKey === workflowKey && run.sampleVideoId === sampleVideoId)
       .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
     return latest ? publicRun(latest) : null;
   }
@@ -321,7 +324,7 @@ function createFullAnalysisWorkflowService({
       });
       return;
     }
-    if (shot.status === "processed") {
+    if (shot.status === "processed" && structureAnalysisKeys.length) {
       const pending = structureAnalysisKeys.filter((key) => findStage(run, key).status === "pending");
       await Promise.all(pending.map((key) => startStage(run.workflowRunId, key, { cacheDecision }, {
         runId: run.runId,
@@ -331,9 +334,10 @@ function createFullAnalysisWorkflowService({
     }
     const latest = workflowRunStore.getRun(run.workflowRunId);
     if (!latest) return;
+    const hasAtomizationStage = hasStage(latest, "functionSlotAtomization");
     const analysesDone = structureAnalysisKeys.every((key) => ["processed", "failed"].includes(findStage(latest, key).status));
-    const atomization = findStage(latest, "functionSlotAtomization");
-    if (analysesDone && atomization.status === "pending") {
+    const atomization = hasAtomizationStage ? findStage(latest, "functionSlotAtomization") : null;
+    if (hasAtomizationStage && analysesDone && atomization.status === "pending") {
       await startStage(latest.workflowRunId, "functionSlotAtomization", { cacheDecision }, {
         runId: latest.runId,
         traceId: latest.traceId,
@@ -344,8 +348,11 @@ function createFullAnalysisWorkflowService({
     const afterAtomization = workflowRunStore.getRun(run.workflowRunId);
     if (!afterAtomization) return;
     const aggregate = findStage(afterAtomization, "aggregate");
-    if (["processed", "failed"].includes(findStage(afterAtomization, "functionSlotAtomization").status) && aggregate.status === "pending") {
-      await startStage(latest.workflowRunId, "aggregate", {}, {
+    const dependencyReadyForAggregate = hasAtomizationStage
+      ? ["processed", "failed"].includes(findStage(afterAtomization, "functionSlotAtomization").status)
+      : findStage(afterAtomization, "shotBoundary").status === "processed";
+    if (dependencyReadyForAggregate && aggregate.status === "pending") {
+      await startStage(afterAtomization.workflowRunId, "aggregate", {}, {
         runId: afterAtomization.runId,
         traceId: afterAtomization.traceId,
         stageId: `stage_${randomUUID()}`,
@@ -452,7 +459,8 @@ function createFullAnalysisWorkflowService({
       return;
     }
     if (aggregate.status !== "processed") return;
-    const anyFailed = [...structureAnalysisKeys, "functionSlotAtomization"].some((key) => findStage(run, key).status === "failed");
+    const optionalStageKeys = [...structureAnalysisKeys, ...(hasStage(run, "functionSlotAtomization") ? ["functionSlotAtomization"] : [])];
+    const anyFailed = optionalStageKeys.some((key) => findStage(run, key).status === "failed");
     const completed = workflowRunStore.updateRun(run.workflowRunId, {
       status: anyFailed ? "partial_failed" : "processed",
       currentStageKeys: [],
@@ -538,9 +546,18 @@ function createFullAnalysisWorkflowService({
   return { start, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
 }
 
+function hasStage(run, stageKey) {
+  return Boolean(run?.stages?.some((stage) => stage.key === stageKey));
+}
+
+function createFullAnalysisWorkflowService(options) {
+  return createWorkflowService(options);
+}
+
 module.exports = {
   WORKFLOW_KEY,
   WORKFLOW_VERSION,
   FULL_ANALYSIS_WORKFLOW_DESCRIPTOR,
+  createWorkflowService,
   createFullAnalysisWorkflowService,
 };

@@ -31,7 +31,7 @@ export function GraphCanvas({
   visible: VisibleGraph;
   layoutMode?: GovernanceLayoutMode;
   selectedNodeId: string | null;
-  onSelectNode: (id: string) => void;
+  onSelectNode: (id: string | null) => void;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const nodesRef = useRef<SimNode[]>([]);
@@ -184,6 +184,7 @@ export function GraphCanvas({
       clientY: event.clientY,
       startX: viewportRef.current.x,
       startY: viewportRef.current.y,
+      moved: false,
     };
     svgRef.current?.setPointerCapture(event.pointerId);
   };
@@ -208,6 +209,7 @@ export function GraphCanvas({
       return;
     }
     const rect = svgRef.current?.getBoundingClientRect();
+    const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 3;
     const scaleX = rect?.width ? VIEWBOX.width / rect.width : 1;
     const scaleY = rect?.height ? VIEWBOX.height / rect.height : 1;
     const nextViewport = {
@@ -215,6 +217,7 @@ export function GraphCanvas({
       x: drag.startX + (event.clientX - drag.clientX) * scaleX,
       y: drag.startY + (event.clientY - drag.clientY) * scaleY,
     };
+    dragRef.current = { ...drag, moved };
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
   };
@@ -237,6 +240,7 @@ export function GraphCanvas({
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (clickedNode?.type === "libraryItem" || clickedNode?.type === "sourceSample") setPinnedPreviewNodeId(clickedNode.id);
     }
+    if (drag?.kind === "pan" && !drag.moved) onSelectNode(null);
     dragRef.current = null;
   };
 

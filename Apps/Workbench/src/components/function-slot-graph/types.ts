@@ -49,7 +49,7 @@ export type D3Link = Omit<FunctionSlotGraphEdge, "source" | "target"> &
 
 export type DragState =
   | { kind: "node"; nodeId: string; dx: number; dy: number; moved: boolean }
-  | { kind: "pan"; clientX: number; clientY: number; startX: number; startY: number };
+  | { kind: "pan"; clientX: number; clientY: number; startX: number; startY: number; moved: boolean };
 
 export type VisibleGraph = {
   nodes: PositionedNode[];

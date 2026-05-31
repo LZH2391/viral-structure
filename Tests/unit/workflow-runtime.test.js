@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { createWorkflowRunStore } = require("../../Apps/Api/lib/stores/workflow-run-store");
 const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } = require("../../Apps/Api/lib/workflows/full-analysis/service");
+const { MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR, createMaterialRecognitionWorkflowService } = require("../../Apps/Api/lib/workflows/material-recognition/service");
 
 function createHarness() {
   const jobs = new Map();
@@ -64,7 +65,7 @@ function createHarness() {
     loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
     pollIntervalMs: 60_000,
   });
-  return { workflow, stageLogs, jobs, artifacts, workflowRunStore };
+  return { workflow, stageLogs, jobs, artifacts, workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger };
 }
 
 test("full analysis workflow advances upload, shot, parallel analyses, and aggregate", async () => {
@@ -106,6 +107,42 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
     FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
     ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure", "function-slot-atomization"],
   );
+});
+
+test("material recognition workflow only runs upload, shot boundary, and aggregate", async () => {
+  const { workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, artifacts } = createHarness();
+  const workflow = createMaterialRecognitionWorkflowService({
+    workflowRunStore,
+    service,
+    shotBoundaryService,
+    moduleRegistry,
+    jobStore,
+    logger,
+    store: {},
+    artifactIndex: {},
+    loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
+    pollIntervalMs: 60_000,
+  });
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "material.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("material") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+
+  const run = workflow.get(started.workflowRunId);
+  assert.equal(MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR.workflowId, "material-recognition");
+  assert.equal(run.status, "processed");
+  assert.deepEqual(run.stages.map((stage) => [stage.key, stage.status]), [
+    ["upload", "processed"],
+    ["shotBoundary", "processed"],
+    ["aggregate", "processed"],
+  ]);
+  assert.equal(run.workflowKey, "material-recognition");
+  assert.equal(run.stages.find((stage) => stage.key === "aggregate").outputSummary.shotCount, 1);
 });
 
 test("full analysis workflow can skip atomization when disabled", async () => {
@@ -315,6 +352,17 @@ function buildArtifact({ shot = false } = {}) {
 }
 
 function attachAnalysis(artifact, analysisId) {
+  if (analysisId === "shot-boundary") {
+    return {
+      ...artifact,
+      shotBoundaryAnalysis: {
+        artifactId: "artifact_shot",
+        parentArtifactId: "artifact_video",
+        type: "shot-boundary-analysis",
+        shots: [{ id: "shot_1", start: 0, end: 10 }],
+      },
+    };
+  }
   if (analysisId === "script-segments") {
     return { ...artifact, scriptSegmentAnalysis: { artifactId: "artifact_script", parentArtifactId: "artifact_shot", type: "script-segment-analysis", segments: [{ segmentId: "seg_1", start: 0, end: 10 }] } };
   }

@@ -32,6 +32,7 @@ function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
   if (pathname === "/threadpool" || pathname === "/threadpool/") return "index.html";
   if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "index.html";
+  if (pathname === "/material-recognition" || pathname === "/material-recognition/") return "index.html";
   if (pathname === "/library" || pathname === "/library/") return "index.html";
   if (pathname === "/function-slot-graph" || pathname === "/function-slot-graph/") return "function-slot-graph.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";

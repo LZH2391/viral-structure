@@ -13,18 +13,18 @@ export type FullAnalysisDraft = {
   sampleArtifact?: SampleArtifact | null;
 };
 
-export function readFullAnalysisDraft(): FullAnalysisDraft | null {
+export function readFullAnalysisDraft(storageKey = FULL_ANALYSIS_DRAFT_STORAGE_KEY): FullAnalysisDraft | null {
   try {
-    return JSON.parse(localStorage.getItem(FULL_ANALYSIS_DRAFT_STORAGE_KEY) ?? "null") as FullAnalysisDraft | null;
+    return JSON.parse(localStorage.getItem(storageKey) ?? "null") as FullAnalysisDraft | null;
   } catch {
-    localStorage.removeItem(FULL_ANALYSIS_DRAFT_STORAGE_KEY);
+    localStorage.removeItem(storageKey);
     return null;
   }
 }
 
-export function writeFullAnalysisDraft(run: WorkflowRun, sampleArtifact?: SampleArtifact | null) {
-  const current = readFullAnalysisDraft();
-  localStorage.setItem(FULL_ANALYSIS_DRAFT_STORAGE_KEY, JSON.stringify({
+export function writeFullAnalysisDraft(run: WorkflowRun, sampleArtifact?: SampleArtifact | null, storageKey = FULL_ANALYSIS_DRAFT_STORAGE_KEY) {
+  const current = readFullAnalysisDraft(storageKey);
+  localStorage.setItem(storageKey, JSON.stringify({
     workflowRunId: run.workflowRunId,
     sampleVideoId: run.sampleVideoId ?? sampleArtifact?.sampleVideoId ?? null,
     traceId: run.traceId ?? null,
@@ -39,9 +39,10 @@ export function writeFullAnalysisDraft(run: WorkflowRun, sampleArtifact?: Sample
 export function writeFullAnalysisActiveSampleDraft(
   sampleArtifact: SampleArtifact,
   options: { activeSampleRevision?: number; activeSampleSource?: FullAnalysisDraft["activeSampleSource"] } = {},
+  storageKey = FULL_ANALYSIS_DRAFT_STORAGE_KEY,
 ) {
-  const current = readFullAnalysisDraft();
-  localStorage.setItem(FULL_ANALYSIS_DRAFT_STORAGE_KEY, JSON.stringify({
+  const current = readFullAnalysisDraft(storageKey);
+  localStorage.setItem(storageKey, JSON.stringify({
     ...current,
     sampleVideoId: sampleArtifact.sampleVideoId,
     activeSampleRevision: options.activeSampleRevision ?? current?.activeSampleRevision ?? 0,

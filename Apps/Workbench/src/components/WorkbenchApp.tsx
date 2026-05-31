@@ -48,6 +48,7 @@ export function WorkbenchApp() {
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
     "full-analysis": initialViewFromPath() === "full-analysis",
+    "material-recognition": initialViewFromPath() === "material-recognition",
     library: initialViewFromPath() === "library",
     threadpool: initialViewFromPath() === "threadpool",
     "agent-chat": initialViewFromPath() === "agent-chat",
@@ -428,6 +429,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "full-analysis" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("full-analysis", setActiveView)}>
             完整分析
           </button>
+          <button className={`tab-button ${activeView === "material-recognition" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("material-recognition", setActiveView)}>
+            素材识别
+          </button>
           <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
             处理库
           </button>
@@ -494,6 +498,11 @@ export function WorkbenchApp() {
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
           <FullAnalysisApp embedded activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
+        </section>
+      ) : null}
+      {mountedViews["material-recognition"] ? (
+        <section className={`view-shell ${activeView === "material-recognition" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "material-recognition"}>
+          <FullAnalysisApp embedded mode="material-recognition" activeSample={fullAnalysisActiveSample} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews.library ? (

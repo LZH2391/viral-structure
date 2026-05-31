@@ -30,6 +30,7 @@ const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-rol
 const { createModuleRegistry } = require("./lib/modules/registry");
 const { createExecutorRegistry } = require("./lib/executors/registry");
 const { createFullAnalysisWorkflowService } = require("./lib/workflows/full-analysis/service");
+const { createMaterialRecognitionWorkflowService } = require("./lib/workflows/material-recognition/service");
 const { createFullAnalysisBatchQueue } = require("./lib/workflows/full-analysis/batch-queue");
 const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
@@ -72,6 +73,7 @@ const moduleRegistry = createModuleRegistry({
 });
 const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
 const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
+const materialRecognitionWorkflowService = createMaterialRecognitionWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
 const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: fullAnalysisWorkflowService, runtimeRoot: store.runtimeRoot, logger });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
@@ -142,6 +144,17 @@ function createServer(deps = {}) {
     artifactIndex: activeArtifactIndex,
     loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
   });
+  const activeMaterialRecognitionWorkflowService = deps.materialRecognitionWorkflowService ?? createMaterialRecognitionWorkflowService({
+    workflowRunStore: activeWorkflowRunStore,
+    service: activeSampleService,
+    shotBoundaryService: activeShotBoundaryService,
+    moduleRegistry: activeModuleRegistry,
+    jobStore: activeJobStore,
+    logger: activeLogger,
+    store: activeStore,
+    artifactIndex: activeArtifactIndex,
+    loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
+  });
   const activeFullAnalysisBatchQueue = deps.fullAnalysisBatchQueue ?? createFullAnalysisBatchQueue({
     workflowService: activeFullAnalysisWorkflowService,
     runtimeRoot: activeStore.runtimeRoot,
@@ -167,6 +180,7 @@ function createServer(deps = {}) {
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     restructureDisplayOverlayService: activeRestructureDisplayOverlayService,
     fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
+    materialRecognitionWorkflowService: activeMaterialRecognitionWorkflowService,
     fullAnalysisBatchQueue: activeFullAnalysisBatchQueue,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: deps.rootDir ?? rootDir,
@@ -218,6 +232,10 @@ function createServer(deps = {}) {
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) return await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers);
+      if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/runs") return await handleMaterialRecognitionRun(req, res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/workflows/material-recognition/latest") return await handleLatestMaterialRecognitionRun(res, handlers);
+      if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/material-recognition\/latest$/.test(url.pathname)) return await handleLatestMaterialRecognitionRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers);
       if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) return await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) return await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/workspaces\/[^/]+\/sample-videos$/.test(url.pathname)) return await handleUpload(req, res, url, handlers);
@@ -710,6 +728,16 @@ async function handleFullAnalysisRun(req, res, handlers = {}) {
   return sendJson(res, 202, result);
 }
 
+async function handleMaterialRecognitionRun(req, res, handlers = {}) {
+  const { file, fields } = await parseMultipartUpload(req, req.headers["content-type"]);
+  const result = await (handlers.materialRecognitionWorkflowService ?? materialRecognitionWorkflowService).start({
+    workspaceId: fields.workspaceId || "default-workspace",
+    file,
+    fields,
+  });
+  return sendJson(res, 202, result);
+}
+
 async function handleFullAnalysisBatchRun(req, res, handlers = {}) {
   const { files, fields } = await parseMultipartUploads(req, req.headers["content-type"]);
   const queue = handlers.fullAnalysisBatchQueue ?? fullAnalysisBatchQueue;
@@ -758,8 +786,30 @@ async function handleLatestFullAnalysisRunForSample(res, sampleVideoId, handlers
   return sendJson(res, 200, run);
 }
 
+async function handleLatestMaterialRecognitionRun(res, handlers = {}) {
+  const workflow = handlers.materialRecognitionWorkflowService ?? materialRecognitionWorkflowService;
+  const latest = workflow.getLatest?.() ?? null;
+  if (latest?.workflowRunId && typeof workflow.advance === "function") {
+    await workflow.advance(latest.workflowRunId).catch(() => undefined);
+  }
+  const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
+  if (!run) return notFound(res);
+  return sendJson(res, 200, run);
+}
+
+async function handleLatestMaterialRecognitionRunForSample(res, sampleVideoId, handlers = {}) {
+  const workflow = handlers.materialRecognitionWorkflowService ?? materialRecognitionWorkflowService;
+  const latest = workflow.getLatestBySampleVideoId?.(sampleVideoId) ?? null;
+  if (latest?.workflowRunId && typeof workflow.advance === "function") {
+    await workflow.advance(latest.workflowRunId).catch(() => undefined);
+  }
+  const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
+  if (!run) return notFound(res);
+  return sendJson(res, 200, run);
+}
+
 async function handleWorkflowRun(res, workflowRunId, handlers = {}) {
-  const workflow = handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
+  const workflow = resolveWorkflowService(workflowRunId, handlers);
   if (typeof workflow.advance === "function") {
     await workflow.advance(workflowRunId).catch(() => undefined);
   }
@@ -769,9 +819,17 @@ async function handleWorkflowRun(res, workflowRunId, handlers = {}) {
 }
 
 async function handleWorkflowStageRerun(res, workflowRunId, stageKey, handlers = {}) {
-  const run = await (handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService).rerunStage({ workflowRunId, stageKey });
+  const run = await resolveWorkflowService(workflowRunId, handlers).rerunStage({ workflowRunId, stageKey });
   if (!run) return notFound(res);
   return sendJson(res, 202, run);
+}
+
+function resolveWorkflowService(workflowRunId, handlers = {}) {
+  const storedRun = (handlers.workflowRunStore ?? workflowRunStore).getRun?.(workflowRunId);
+  if (storedRun?.workflowKey === "material-recognition") {
+    return handlers.materialRecognitionWorkflowService ?? materialRecognitionWorkflowService;
+  }
+  return handlers.fullAnalysisWorkflowService ?? fullAnalysisWorkflowService;
 }
 
 function handleJob(res, jobId, handlers = {}) {
