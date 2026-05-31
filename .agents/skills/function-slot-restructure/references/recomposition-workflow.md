@@ -4,7 +4,11 @@
 
 Template 可以证明某条链路曾在一个样例中成立，但它不是新链路的生成器。
 
-正式重组默认同时读取：
+本参考描述不带用户素材包、或只做库侧重组时的通用流程。
+
+如果任务提供 `user-material-pack-compact` / `user-material-pack.grouped-shots.v1`，不要把素材流程混入本文；改用 `material-aware-restructure.md`。
+
+正式重组默认读取：
 
 ```text
 Runtime/Temp/FunctionSlotLibrary/slot_index.json

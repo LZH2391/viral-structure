@@ -1846,13 +1846,11 @@
       "workflowVersion": "material-recognition.v1",
       "cacheDecision": "ask",
       "options": {},
-      "status": "cache_waiting",
+      "status": "failed",
       "traceId": "trace_c7350e44-0550-4a34-8925-492365971bee",
       "runId": "run_939239c1-7509-4379-8c02-702356958668",
       "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
-      "currentStageKeys": [
-        "userMaterialTagger"
-      ],
+      "currentStageKeys": [],
       "stages": [
         {
           "key": "upload",
@@ -1923,7 +1921,7 @@
           ],
           "parallelGroup": null,
           "blocking": true,
-          "status": "running",
+          "status": "failed",
           "attemptNo": 1,
           "stageId": "stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9",
           "childJobId": "job_bb6de5f8-89bf-4591-a339-8423de290e58",
@@ -1933,9 +1931,15 @@
           "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
           "inputSummary": null,
           "outputSummary": null,
-          "errorSummary": null,
+          "errorSummary": {
+            "code": "appserver_bridge_failed",
+            "message": "AppServer bridge exited with 3221225786",
+            "stageName": "userMaterialTagger",
+            "retryable": true,
+            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9_3522328232.json"
+          },
           "startedAt": "2026-05-31T06:52:05.539Z",
-          "completedAt": null
+          "completedAt": "2026-05-31T10:26:45.088Z"
         },
         {
           "key": "aggregate",
@@ -1964,9 +1968,15 @@
         }
       ],
       "createdAt": "2026-05-31T06:52:02.624Z",
-      "updatedAt": "2026-05-31T06:52:05.788Z",
+      "updatedAt": "2026-05-31T10:26:45.088Z",
       "completedAt": null,
-      "errorSummary": null
+      "errorSummary": {
+        "code": "appserver_bridge_failed",
+        "message": "AppServer bridge exited with 3221225786",
+        "stageName": "userMaterialTagger",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9_3522328232.json"
+      }
     }
   ]
 }

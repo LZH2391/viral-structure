@@ -9,6 +9,7 @@
 - 逐槽位实现中的 atom 必须能追溯到 concrete atom variant；允许且鼓励使用短码映射，例如先声明 `A=sample_xxx`，再在表内写 `A::script::S001`。`atomPatternId` 可保留但不能替代具体 atom。
 - 必须按以下模板顺序输出。
 - 第 2 节负责说明最终功能槽位链和选择理由；第 3 节只说明每个槽位实际使用了哪些 script/rhythm/packaging atoms。
+- 如果使用 `user-material-pack-compact`，输出格式以 `material-aware-restructure.md` 为准；不要把素材包专属表格维护在本通用模板中。
 - 第 5、6、7 节是同一套槽位链和 atoms 的三个并行落地视图，不表示先写完脚本再派生节奏、再派生包装。三节必须互相对齐，但允许边界不一致。
 - 第 5 节只写脚本段落方案，不使用“脚本节拍”作为结构单位；脚本段落可以一对一、一对多或多对一承接 script atoms。
 - 第 6 节写节奏区间和视频级注意力曲线；节奏区间可以跨脚本段落或跨槽位边界。

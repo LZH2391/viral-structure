@@ -1,19 +1,18 @@
 # 给 function-slot-restructure 的交接规则
 
-`user-material-pack` 是素材供给侧证据，不是结构方案。`function-slot-restructure` 会用它做素材约束判断。
+compact 版 `user-material-pack` 是素材供给侧证据，不是结构方案。`function-slot-restructure` 会用它做素材约束判断。
 
 ## 下游消费字段
 
-- `proofCoverage`：对照 script atom 的 `proofNeed`，判断目标主张是否有真实素材支撑。
-- `shotCards.proofAffordances`：对照 packaging atom 的 `proofType`，判断包装证明是否有画面承载。
-- `materialGroups`：寻找可连续落地的过程、证明、桥接或收束素材。
-- `sequenceRecommendations`：判断候选素材是否适合开头、中段、结尾结构位置。
-- `globalConstraints`：约束不能过度承诺、不能错配证明、不能把弱素材包装成强证明。
-- `restructureInputSummary`：给重组 skill 的压缩入口，用于快速理解强素材区、弱素材区、缺失区、推荐用法和禁止误用。
+- `capabilities`：对照 script atom 的 `proofNeed` 和 packaging atom 的 `proofType`，判断目标主张是否有真实素材支撑。
+- `groups`：寻找可连续落地的过程、证明、桥接或收束素材；组内 shot 已下放到 `group.shots`。
+- `ungroupedShots`：读取未成组镜头，避免遗漏孤立但可用的开头、桥接或结尾素材。
+- `groups[].shots[].capabilityRefs` 和 `ungroupedShots[].capabilityRefs`：判断单镜头能承载哪些能力、强度如何。
+- `shots[].recommendations`：判断候选素材是否适合开头、中段、结尾结构位置。
 
 ## 必须写清“不适合做什么”
 
-重组最容易犯错的是把“有画面”误当成“有证明”。因此每个相关 shot、group、coverage 都要尽量写 `limits / constraints / doNotUseAs / notUsableForProofNeedClasses`。
+重组最容易犯错的是把“有画面”误当成“有证明”。因此每个相关 shot、group、capability 都要尽量写 `doNotUseAsCapabilityIds / notUsableCapabilityIds / safeUsage / gapAdvice`。
 
 常见边界：
 
@@ -22,15 +21,15 @@
 - 有人物反应但无因果证据，不可支撑强效果主张。
 - 有结果画面但缺少前态，不可单独承担对比证明。
 - 有字幕主张但画面没有对应证据，只能标记 `needs_caption_context` 或 `claim_risk`。
-- 有视觉吸引力但无证明能力，只能帮助 `attention_entry`，不能提高 `proofAffordances.strength`。
+- 有视觉吸引力但无证明能力，只能帮助 `attention_entry`，不能提高 `capabilityRefs` 强度。
 
 ## 与槽位/原子的关系
 
 - 标签不是槽位。
 - shot 不是原子。
 - `proofNeedClass` 是连接素材供给和 atoms proof need 的中间层。
-- `sequenceRecommendations` 是位置适配，不是最终槽位链。
-- `materialGroups` 是可取材组合，不是新视频 shot 设计。
+- `recommendations` 是位置适配，不是最终槽位链。
+- `groups` 是可取材组合，不是新视频 shot 设计。
 
 ## 禁止替下游决策
 
@@ -53,4 +52,4 @@
 
 - `safeUsage`：现有素材能安全承担到什么程度。
 - `gapAdvice`：如果目标结构需要更强证明，应降主张、换槽位、加 adapter、用字幕补语义、或提示补拍。
-- `needsRestructureAttention`：把影响结构成立的风险放到摘要层。
+- `notUsableCapabilityIds` 和 `doNotUseAsCapabilityIds`：把影响结构成立的风险放到组和 shot 层。

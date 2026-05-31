@@ -5,7 +5,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 
 # SKILL: 用户素材打标签
 
-你负责把用户上传视频的切镜结果转成 `user-material-pack`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断目标槽位链和 atoms 能否被用户真实素材支撑。
+你负责把用户上传视频的切镜结果转成 compact 版 `user-material-pack`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断目标槽位链和 atoms 能否被用户真实素材支撑。
 
 一句话边界：
 
@@ -14,7 +14,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 ## 何时读取 References
 
 - 需要确认输出字段、JSON 结构或必填项时，读取 `references/output-contract.md`。
-- 需要确认 `shotClass`、`shotFunctions`、`materialTags`、证明能力类型、质量枚举或推荐位置规则时，读取 `references/taxonomy.md`。
+- 需要确认 `shotClass`、`shotFunctions`、证明能力类型、素材组类型、质量枚举或推荐位置规则时，读取 `references/taxonomy.md`。
 - 需要确认产物如何交给 `function-slot-restructure`、哪些字段会被下游消费、哪些误用必须避免时，读取 `references/restructure-handoff.md`。
 
 ## 输入
@@ -34,30 +34,33 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 
 1. **通读 shots**
    - 按时间顺序理解视频素材库存。
-   - 识别明显重复、过渡、低质、不可用镜头，但仍为每个输入 shot 输出 `shotCard`。
+   - 识别明显重复、过渡、低质、不可用镜头，但仍为每个输入 shot 输出一个 shot 条目。
 
-2. **建立 shot 素材卡**
-   - 为每个 shot 判断 `shotClass`、`shotFunctions`、`detectedEntities`、`materialTags`、`quality`、`constraints`。
-   - `detectedEntities` 只记录可见或由字幕/OCR明确支持的信息；无法确认则写空数组或 `unknown`。
+2. **建立 shot 素材条目**
+   - 为每个 shot 判断 `shotClass`、`visualSummary`、`spokenOrSubtitleSummary`、`shotFunctions`、`quality`、`confidence`。
+   - `spokenOrSubtitleSummary` 只写口播/字幕安全摘要；没有可用信息时省略该字段。
 
-3. **判断证明能力**
-   - 为每个 shot 输出 `proofAffordances`，说明它能支撑哪些证明需求、强度如何、限制是什么。
+3. **判断素材能力**
+   - 先建立顶层 `capabilities`，按 `cap_xxx` 建索引，说明每类能力的证明类别、支撑强度、关联镜头/素材组、安全用法和缺口建议。
+   - 再在每个 shot 的 `capabilityRefs` 中引用能力 ID 和该镜头支撑强度，例如 `["cap_product_identity", "strong"]`。
    - 证明能力只看证据责任，不看镜头是否“好看”。
 
 4. **推荐结构位置候选**
-   - 输出 `openingCandidates / middleCandidates / endingCandidates`。
+   - 在每个 shot 的 `recommendations` 中按 `opening / middle / ending` 写候选建议。
    - 推荐依据是结构位置适配，不是娱乐化高光、精彩程度或剪辑爆点。
 
 5. **组合素材组**
-   - 只在 shots 有明确连续性、共同对象或同一证明功能时输出 `materialGroups`。
+   - 只在 shots 有明确连续性、共同对象或同一证明功能时输出 `groups`。
+   - 已进入素材组的 shot 下放到对应 `group.shots` 中。
+   - 未进入任何素材组的 shot 放入 `ungroupedShots`。
    - 素材组不改变原始 shot 边界。
 
 6. **汇总覆盖与缺口**
-   - 输出完整 `proofCoverage`，即使某类证明能力为 `missing`。
-   - 写清 `safeUsage` 和 `gapAdvice`，避免下游把弱素材包装成强证明。
+   - 每个 `capabilities.cap_xxx` 都要写清 `safeUsage` 和 `gapAdvice`，避免下游把弱素材包装成强证明。
+   - 不足以形成能力池条目的缺失项，不要硬造 capability；可在相关能力的 `gapAdvice` 或 shot 的 `needReview` 中说明。
 
-7. **输出重组输入摘要**
-   - `restructureInputSummary` 要压缩成给重组 skill 看的结论：强素材区、弱素材区、缺失区、推荐用法、禁止误用、需要重组注意的点。
+7. **输出追踪摘要**
+   - `traceMeta` 目前只输出 `stageName`，固定为 `user_material_tagger.analyze`。
 
 ## 输出
 
@@ -67,8 +70,8 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 
 ```json
 {
-  "type": "user-material-pack",
-  "schemaVersion": "user-material-pack.stable"
+  "type": "user-material-pack-compact",
+  "schemaVersion": "user-material-pack.grouped-shots.v1"
 }
 ```
 
@@ -76,8 +79,8 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 
 ## 核心规则
 
-- `shotCards` 必须按原 shot 时间顺序输出。
-- 每个输入 shot 都必须有一个 `shotCard`，低质或无关镜头也要标明原因。
+- 每个输入 shot 都必须出现在 `groups[].shots` 或 `ungroupedShots` 中且只能出现一次，低质或无关镜头也要标明原因。
+- `groups[].shots` 和 `ungroupedShots` 内的 shot 必须保持原 shot 时间顺序。
 - 标签必须来自素材能力，不来自目标槽位名称。
 - 不把 shot 直接标成最终槽位。
 - 不替 `function-slot-restructure` 选择 slotSubtype、slotArchetype 或 atoms。
@@ -88,3 +91,4 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 - 不粘贴长段字幕、OCR 或隐私内容；只写安全摘要。
 - 不修改 shot 边界，不要求重新切镜。
 - 如果信息不足，输出 `unknown`、空数组或 `needReview: true`，不要猜。
+- 不输出旧版顶层字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`globalConstraints`、`restructureInputSummary`。

@@ -32,6 +32,8 @@
 - 必要同步点是否存在？
 - 替换是否是功能性替换，而不是装饰性替换？
 
+若使用 `user-material-pack-compact`，素材相关质量检查不要写在本文；按 `material-aware-restructure.md` 的“质量检查”执行。
+
 ## 包装 / 字幕规格检查
 
 检查第 7 节是否足够支撑后续 `function-slot-shot-design`：

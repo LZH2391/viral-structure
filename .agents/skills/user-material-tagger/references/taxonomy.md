@@ -28,36 +28,12 @@
 - `result_visibility`
 - `comparison_support`
 - `trust_support`
+- `mechanism_support`
 - `emotion_or_reaction`
 - `conversion_support`
 - `visual_bridge`
 
 不要写成具体槽位名，例如不要写 `problem_activation_slot`。
-
-## detectedEntities
-
-只记录可见或由字幕/OCR 明确支持的信息：
-
-- `products`：商品、包装、界面、服务对象、品牌露出、关键部件。
-- `people`：人物数量、身份线索、动作、表情、是否口播。不能编造姓名、职业、年龄、关系。
-- `scenes`：地点、空间、使用环境、时间感、平台/屏幕环境。
-- `objects`：支撑证明的道具、证据物、对比物、工具。
-- `textSignals`：字幕、OCR、屏幕文字的安全摘要，不粘贴长段原文。
-
-## materialTags
-
-`materialTags` 是素材供给标签，不是槽位标签。标签应稳定、短、可检索。
-
-推荐标签族：
-
-- 主体：`product_visible`、`brand_visible`、`person_visible`、`hand_visible`、`screen_visible`
-- 场景：`home_scene`、`work_scene`、`store_scene`、`outdoor_scene`、`platform_screen`
-- 动作：`usage_action`、`step_action`、`before_state`、`after_state`、`reaction`、`gesture_pointing`
-- 证明：`problem_visual`、`process_proof`、`result_visual`、`comparison_visual`、`trust_evidence_visual`、`data_or_record_visual`
-- 表达位置：`opening_candidate`、`middle_candidate`、`ending_candidate`
-- 风险：`low_clarity`、`unstable_camera`、`weak_subject`、`duplicate_content`、`needs_caption_context`、`claim_risk`
-
-位置候选标签只表示“适合放在该结构位置被重组考虑”，不表示最终一定采用。
 
 ## proofNeedClass
 
@@ -72,7 +48,7 @@
 - `trust_evidence`：能否支撑信任、长期性、第三方、记录或资质。
 - `conversion_support`：能否支撑结尾行动、购买/咨询/下一步。
 
-`proofAffordances[].strength` 只能是：
+`shot.capabilityRefs[][1]` 只能是：
 
 - `strong`
 - `medium`
@@ -80,12 +56,11 @@
 - `none`
 - `unknown`
 
-`proofCoverage[].coverage` 只能是：
+`capabilities.*.supportLevel` 只能是：
 
 - `strong`
 - `partial`
 - `weak`
-- `missing`
 - `unknown`
 
 ## 序列推荐规则
@@ -104,7 +79,7 @@
 
 不要输出“高光片段”“精彩片段”“爆点片段”这类剪辑概念。若某个镜头视觉吸引力强，只能作为 `attention_entry` 或推荐理由的一部分说明。
 
-## materialGroups
+## groups
 
 常见 `groupType`：
 
