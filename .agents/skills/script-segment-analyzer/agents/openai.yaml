@@ -1,0 +1,3 @@
+interface:
+  display_name: "脚本段落分析"
+  short_description: "基于 shots 与 commerceBrief 分析样例脚本说服段落"

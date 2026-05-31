@@ -1,0 +1,3 @@
+interface:
+  display_name: "包装结构分析"
+  short_description: "逐镜分析字幕、标题条、贴纸、画中画、音效和转场包装"

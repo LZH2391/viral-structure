@@ -1,0 +1,3 @@
+interface:
+  display_name: "切镜结果转换"
+  short_description: "将 raw 切镜文本整理为固定 shot-centric JSON"

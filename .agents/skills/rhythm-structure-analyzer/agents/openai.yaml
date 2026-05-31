@@ -1,0 +1,3 @@
+interface:
+  display_name: "节奏结构分析"
+  short_description: "分析视频快慢、密度、停顿、爆点和注意力动势"

@@ -1,0 +1,3 @@
+interface:
+  display_name: "可观测性审查"
+  short_description: "审查日志、trace、DebugSnapshot、模型留痕和 artifact 血缘"
