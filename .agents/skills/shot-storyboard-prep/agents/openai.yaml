@@ -1,4 +1,3 @@
-interface:
+﻿interface:
   display_name: "Shot Storyboard Prep"
   short_description: "Prepare shot storyboard prompts and duration estimates."
-  default_prompt: "Prepare storyboard prompts from a shot-design final markdown."

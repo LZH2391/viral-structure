@@ -1,4 +1,3 @@
-interface:
+﻿interface:
   display_name: "Function Slot Shot Design"
   short_description: "Generate standalone shot-design finals from restructure plans."
-  default_prompt: "Use $function-slot-shot-design to turn an approved restructure.final.md into a standalone shot-design.final.md."
