@@ -1,7 +1,6 @@
 const { spawn } = require("child_process");
 const fs = require("fs/promises");
 const path = require("path");
-const { extractJsonObject } = require("../function-slot-atomization-analysis/shared");
 const { ROLE } = require("./governance-constants");
 
 function runProcess(command, args, { cwd }) {
@@ -18,18 +17,6 @@ function runProcess(command, args, { cwd }) {
     child.on("error", reject);
     child.on("close", (exitCode) => resolve({ exitCode, stdout, stderr }));
   });
-}
-
-function parseGovernanceOutput(message, agentRun, repairAttemptCount) {
-  try {
-    return extractJsonObject(message);
-  } catch (error) {
-    throw codedError("function_slot_governance_parse_failed", "语义治理 Agent 未返回合法 JSON", {
-      turnId: agentRun?.turnId ?? null,
-      repairAttemptCount,
-      outputSummary: { messagePreview: safePreview(message), outputLength: String(message ?? "").length },
-    }, false);
-  }
 }
 
 function buildCoverageSummary(input) {
@@ -167,7 +154,6 @@ async function writeJson(filePath, value) {
 
 module.exports = {
   runProcess,
-  parseGovernanceOutput,
   buildCoverageSummary,
   buildTurnInputSummary,
   promptTemplateSummary,

@@ -26,7 +26,10 @@
 - 不要按字段相同、文本相似、slotType 名称相似自动合并。
 - 不要让 script atom 归并结果决定 rhythm 或 packaging。
 - 不要把 observed chain 当固定模板。
-- 不要输出 Markdown 解释。
 - 不要修改样例库文件。
+- 不要在 final 里输出完整治理 JSON。
 
-只返回一个合法 JSON object，且必须是完整的 `function_slot_semantic_governance.v1` 文件内容。
+输出要求：
+1. 将完整 `function_slot_semantic_governance.v1` 治理结果直接写回 `{{governancePath}}`。
+2. final 只返回简要总结，不要输出 Markdown，不要输出完整 JSON。
+3. 总结必须包含：是否已写回、治理文件路径、主要治理变化、reviewItems / openQuestions 数量、主要风险。

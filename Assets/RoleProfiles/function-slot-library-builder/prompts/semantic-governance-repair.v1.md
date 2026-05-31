@@ -16,8 +16,9 @@
 {{priorOutputSummaryJson}}
 
 修复要求：
-1. 只返回完整合法 JSON object。
+1. 直接修复并写回 `{{governancePath}}`。
 2. 保留 sourceSnapshot / coverage / sourceVariants 证据层字段。
 3. 修复所有校验错误，包括父子覆盖、引用闭合、support 统计、unmapped 覆盖。
 4. 不要用字段相似或名称相似新增自动合并；无法判断的 variant 放入 unmapped*Variants 或 reviewItems。
-5. 不要输出 Markdown 解释。
+5. final 只返回简要修复总结，不要输出 Markdown，不要输出完整 JSON。
+6. 总结必须包含：是否已写回、治理文件路径、修复的校验问题、剩余风险。

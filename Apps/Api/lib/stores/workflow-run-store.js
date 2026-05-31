@@ -8,7 +8,8 @@ function createWorkflowRunStore({ filePath = null } = {}) {
 
   function createRun(run) {
     runs.set(run.workflowRunId, run);
-    persistRuns(filePath, runs);
+    persistRun(filePath, run);
+    persistRunIndex(filePath, runs);
     return run;
   }
 
@@ -18,7 +19,8 @@ function createWorkflowRunStore({ filePath = null } = {}) {
     const patch = typeof updater === "function" ? updater(current) : updater;
     const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
     runs.set(workflowRunId, next);
-    persistRuns(filePath, runs);
+    persistRun(filePath, next);
+    persistRunIndex(filePath, runs);
     return next;
   }
 
@@ -34,19 +36,63 @@ function createWorkflowRunStore({ filePath = null } = {}) {
 }
 
 function loadRuns(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return { runs: [], changed: false };
+  if (!filePath) return { runs: [], changed: false };
+  if (!fs.existsSync(filePath)) return loadRunsFromDirectory(filePath);
   try {
     const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    if (!Array.isArray(parsed.runs)) return { runs: [], changed: false };
-    let changed = false;
-    const runs = parsed.runs.filter((run) => run?.workflowRunId).map((run) => {
+    if (Array.isArray(parsed.runRefs)) return loadRunsFromIndex(filePath, parsed.runRefs);
+    if (!Array.isArray(parsed.runs)) return loadRunsFromDirectory(filePath);
+    let changed = true;
+    const runs = parsed.runs.filter((run) => run?.workflowRunId).map((run) => normalizeLoadedRun(run));
+    return { runs, changed };
+  } catch {
+    return loadRunsFromDirectory(filePath);
+  }
+}
+
+function loadRunsFromIndex(filePath, runRefs) {
+  let changed = false;
+  const runs = runRefs
+    .filter((ref) => ref?.workflowRunId)
+    .map((ref) => {
+      const run = readRunFile(filePath, ref);
+      if (!run?.workflowRunId) {
+        changed = true;
+        return null;
+      }
       const next = normalizeLoadedRun(run);
       if (next !== run) changed = true;
       return next;
-    });
-    return { runs, changed };
+    })
+    .filter(Boolean);
+  return { runs, changed };
+}
+
+function loadRunsFromDirectory(filePath) {
+  const runsDir = workflowRunFilesDir(filePath);
+  if (!runsDir || !fs.existsSync(runsDir)) return { runs: [], changed: false };
+  const runs = fs.readdirSync(runsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => {
+      try {
+        const run = JSON.parse(fs.readFileSync(path.join(runsDir, entry.name), "utf8"));
+        return run?.workflowRunId ? normalizeLoadedRun(run) : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  return { runs, changed: true };
+}
+
+function readRunFile(filePath, ref) {
+  const rootDir = path.dirname(filePath);
+  const runPath = path.resolve(rootDir, ref.file ?? path.join("runs", `${safeWorkflowRunFileName(ref.workflowRunId)}.json`));
+  if (!isPathInside(runPath, rootDir)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(runPath, "utf8"));
   } catch {
-    return { runs: [], changed: false };
+    return null;
   }
 }
 
@@ -90,7 +136,57 @@ function normalizeLoadedStage(stage, completedAt, runErrorSummary) {
 function persistRuns(filePath, runs) {
   if (!filePath) return;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify({ runs: Array.from(runs.values()) }, null, 2), "utf8");
+  for (const run of runs.values()) persistRun(filePath, run);
+  persistRunIndex(filePath, runs);
+}
+
+function persistRun(filePath, run) {
+  if (!filePath || !run?.workflowRunId) return;
+  const runPath = workflowRunFilePath(filePath, run.workflowRunId);
+  fs.mkdirSync(path.dirname(runPath), { recursive: true });
+  fs.writeFileSync(runPath, JSON.stringify(run, null, 2), "utf8");
+}
+
+function persistRunIndex(filePath, runs) {
+  if (!filePath) return;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify({
+    schemaVersion: 2,
+    storage: {
+      mode: "per-run-file",
+      runsDir: "runs",
+    },
+    runRefs: Array.from(runs.values()).map((run) => ({
+      workflowRunId: run.workflowRunId,
+      workflowKey: run.workflowKey ?? null,
+      workflowVersion: run.workflowVersion ?? null,
+      status: run.status ?? null,
+      traceId: run.traceId ?? null,
+      runId: run.runId ?? null,
+      sampleVideoId: run.sampleVideoId ?? null,
+      createdAt: run.createdAt ?? null,
+      updatedAt: run.updatedAt ?? null,
+      completedAt: run.completedAt ?? null,
+      file: path.join("runs", `${safeWorkflowRunFileName(run.workflowRunId)}.json`).replace(/\\/g, "/"),
+    })),
+  }, null, 2), "utf8");
+}
+
+function workflowRunFilesDir(filePath) {
+  return filePath ? path.join(path.dirname(filePath), "runs") : null;
+}
+
+function workflowRunFilePath(filePath, workflowRunId) {
+  return path.join(workflowRunFilesDir(filePath), `${safeWorkflowRunFileName(workflowRunId)}.json`);
+}
+
+function safeWorkflowRunFileName(workflowRunId) {
+  return String(workflowRunId).replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function isPathInside(targetPath, rootDir) {
+  const relative = path.relative(rootDir, targetPath);
+  return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 module.exports = { createWorkflowRunStore };

@@ -1,0 +1,237 @@
+{
+  "workflowRunId": "workflow_5e1cd619-4ea5-48a0-b662-079557b7d1c4",
+  "workflowKey": "full-analysis",
+  "workflowVersion": "full-analysis.v1",
+  "cacheDecision": "ask",
+  "options": {
+    "enableFunctionSlotAtomization": true
+  },
+  "status": "partial_failed",
+  "traceId": "trace_3e37597d-2176-4eaf-9876-45b09803aa49",
+  "runId": "run_b5ddae16-fbb2-4d55-acb1-4471f2807ef2",
+  "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_ebc4727c-229e-41bc-b711-96d9c1d032a5",
+      "childJobId": "job_6578f1b0-12ff-46f5-98c3-e6f91abcdb2a",
+      "childTraceId": "trace_a557373a-990f-4b90-971a-1b62c4ef5053",
+      "artifactId": "artifact_fdaa492c-3eab-42ac-a8c9-6e368d418d22",
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_6578f1b0-12ff-46f5-98c3-e6f91abcdb2a",
+        "childTraceId": "trace_a557373a-990f-4b90-971a-1b62c4ef5053",
+        "artifactId": "artifact_fdaa492c-3eab-42ac-a8c9-6e368d418d22"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T10:58:06.456Z",
+      "completedAt": "2026-05-31T11:00:21.435Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_201b9c5c-29a2-417f-af0f-a590a94eecfa",
+      "childJobId": "job_b5a7a9f9-cbf4-417c-bb5f-d4c83f6e912a",
+      "childTraceId": "trace_4100753c-ca16-49e7-b9f3-6179681481e2",
+      "artifactId": "artifact_021b47df-bba9-45f2-a19e-43d09d20c984",
+      "parentArtifactId": "artifact_fdaa492c-3eab-42ac-a8c9-6e368d418d22",
+      "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_b5a7a9f9-cbf4-417c-bb5f-d4c83f6e912a",
+        "childTraceId": "trace_4100753c-ca16-49e7-b9f3-6179681481e2",
+        "artifactId": "artifact_021b47df-bba9-45f2-a19e-43d09d20c984"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T11:00:21.494Z",
+      "completedAt": "2026-05-31T11:09:47.098Z"
+    },
+    {
+      "key": "scriptSegment",
+      "kind": "module",
+      "moduleId": "script-segments",
+      "stageName": "script.segment.analyze",
+      "label": "脚本段落",
+      "artifactKey": "scriptSegmentAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_06b7f5fb-d83a-42da-8059-2e4009b5172f",
+      "childJobId": "job_5cbe5864-add3-49b0-b0d7-71af10bceb21",
+      "childTraceId": "trace_f20babdb-f28f-41c1-9114-ec7daca9d25a",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "script_segment_validation_failed",
+        "message": "脚本段落输出未通过校验",
+        "stageName": "scriptSegment",
+        "retryable": false,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_06b7f5fb-d83a-42da-8059-2e4009b5172f_3ffdad66cb.json"
+      },
+      "startedAt": "2026-05-31T11:09:47.106Z",
+      "completedAt": "2026-05-31T11:14:01.306Z"
+    },
+    {
+      "key": "rhythmStructure",
+      "kind": "module",
+      "moduleId": "rhythm-structure",
+      "stageName": "rhythm.structure.analyze",
+      "label": "节奏结构",
+      "artifactKey": "rhythmStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_d95abd15-a410-403c-b0c0-5c8fbe084e60",
+      "childJobId": "job_497e2fd7-f09c-480c-92ba-a14a25a3eac8",
+      "childTraceId": "trace_02e4c68b-9850-4df8-8c89-7586b0de490e",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "rhythm_structure_validation_failed",
+        "message": "节奏结构输出未通过校验",
+        "stageName": "rhythmStructure",
+        "retryable": false,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_d95abd15-a410-403c-b0c0-5c8fbe084e60_bdfababb2a.json"
+      },
+      "startedAt": "2026-05-31T11:09:47.289Z",
+      "completedAt": "2026-05-31T11:12:57.274Z"
+    },
+    {
+      "key": "packagingStructure",
+      "kind": "module",
+      "moduleId": "packaging-structure",
+      "stageName": "packaging.structure.analyze",
+      "label": "包装结构",
+      "artifactKey": "packagingStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_116f3d52-129d-4cf2-9855-a67030cfea68",
+      "childJobId": "job_b2eed2f1-89d8-4f7d-9681-8e3585634610",
+      "childTraceId": "trace_90f5bbde-fdc9-412e-a650-797d9b0853cc",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_8abf7efa-a671-45aa-99b6-2fec6ac686f7",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "packaging_structure_validation_failed",
+        "message": "包装结构输出未通过校验",
+        "stageName": "packagingStructure",
+        "retryable": false,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_116f3d52-129d-4cf2-9855-a67030cfea68_ddec20be4f.json"
+      },
+      "startedAt": "2026-05-31T11:09:47.737Z",
+      "completedAt": "2026-05-31T11:12:20.107Z"
+    },
+    {
+      "key": "functionSlotAtomization",
+      "kind": "module",
+      "moduleId": "function-slot-atomization",
+      "stageName": "function.slot.atomization.analyze",
+      "label": "功能槽位原子化",
+      "artifactKey": "functionSlotAtomizationAnalysis",
+      "after": [
+        "structure-analysis"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_778772a8-45fe-4ad4-8dce-4f14d8159dc0",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "function_slot_atomization_missing_script_segments",
+        "message": "请先完成脚本段落分析",
+        "stageName": "functionSlotAtomization",
+        "retryable": false,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_778772a8-45fe-4ad4-8dce-4f14d8159dc0_5cb0cfd9b2.json"
+      },
+      "startedAt": "2026-05-31T11:14:01.308Z",
+      "completedAt": "2026-05-31T11:14:01.499Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "functionSlotAtomization"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "pending",
+      "attemptNo": 1,
+      "stageId": null,
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": null,
+      "startedAt": null,
+      "completedAt": null
+    }
+  ],
+  "createdAt": "2026-05-31T10:58:06.437Z",
+  "updatedAt": "2026-05-31T11:14:01.499Z",
+  "completedAt": null,
+  "errorSummary": {
+    "code": "function_slot_atomization_missing_script_segments",
+    "message": "请先完成脚本段落分析",
+    "stageName": "functionSlotAtomization",
+    "retryable": false,
+    "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_778772a8-45fe-4ad4-8dce-4f14d8159dc0_5cb0cfd9b2.json"
+  }
+}

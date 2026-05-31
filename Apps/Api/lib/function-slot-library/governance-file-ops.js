@@ -44,17 +44,26 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
     };
   }
 
+  async function readGovernanceText() {
+    return fs.readFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), "utf8");
+  }
+
+  async function readGovernanceObject() {
+    return readJson(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
+  }
+
+  async function restoreGovernanceText(text) {
+    if (text == null) return;
+    await fs.writeFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), text, "utf8");
+  }
+
   async function validateGovernanceObject(governance) {
     if (!governance || governance.schemaVersion !== "function_slot_semantic_governance.v1") {
       return { ok: false, code: "governance_schema_invalid", message: "schemaVersion 不支持", issues: [] };
     }
     const governancePath = path.join(rootDir, GOVERNANCE_RELATIVE_PATH);
-    const previousText = await fs.readFile(governancePath, "utf8").catch(() => null);
     await writeJson(governancePath, governance);
     const result = await runBuilderScript("validate_governance.py", [rootDir], { allowNonZero: true });
-    if (result.exitCode !== 0 && previousText != null) {
-      await fs.writeFile(governancePath, previousText, "utf8");
-    }
     return {
       ok: result.exitCode === 0,
       code: result.exitCode === 0 ? null : "governance_validation_failed",
@@ -110,6 +119,9 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
   return {
     refreshEvidence,
     prepareGovernanceInput,
+    readGovernanceText,
+    readGovernanceObject,
+    restoreGovernanceText,
     validateGovernanceObject,
     writeGovernanceArtifact,
   };

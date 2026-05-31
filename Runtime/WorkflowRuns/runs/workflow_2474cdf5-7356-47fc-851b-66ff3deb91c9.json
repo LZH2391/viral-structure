@@ -1,0 +1,139 @@
+{
+  "workflowRunId": "workflow_2474cdf5-7356-47fc-851b-66ff3deb91c9",
+  "workflowKey": "material-recognition",
+  "workflowVersion": "material-recognition.v1",
+  "cacheDecision": "ask",
+  "options": {},
+  "status": "processed",
+  "traceId": "trace_dbe65e97-84ee-490f-89b1-a4005e986a73",
+  "runId": "run_fc1f9205-556f-4c38-a373-16cc722bc9b6",
+  "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_867f8dce-b560-49e3-af1b-6d7514c40238",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "cacheHit": true,
+        "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:17:26.207Z",
+      "completedAt": "2026-05-31T06:17:26.277Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_54de1417-58a2-4487-a3dc-fbc94bce23df",
+      "childJobId": "job_9323aa90-ac44-4610-87f5-8db14bd80e8b",
+      "childTraceId": "trace_ac427d1f-d6e9-4f1c-8532-6f815a799b81",
+      "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+      "parentArtifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_9323aa90-ac44-4610-87f5-8db14bd80e8b",
+        "childTraceId": "trace_ac427d1f-d6e9-4f1c-8532-6f815a799b81",
+        "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:17:26.290Z",
+      "completedAt": "2026-05-31T06:17:28.221Z"
+    },
+    {
+      "key": "userMaterialTagger",
+      "kind": "module",
+      "moduleId": "user-material-tagger",
+      "stageName": "user.material_tagger.analyze",
+      "label": "素材识别",
+      "artifactKey": "userMaterialPack",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 2,
+      "stageId": "stage_363ebb76-4441-4d64-97a3-40dfba43975a",
+      "childJobId": "job_11f4770c-6898-4c73-90df-3ba49797c117",
+      "childTraceId": "trace_015f9482-2858-4c5e-9349-e9a194d5e64b",
+      "artifactId": "artifact_726aeeb3-f561-4679-905b-43ecabd9cc41",
+      "parentArtifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_11f4770c-6898-4c73-90df-3ba49797c117",
+        "childTraceId": "trace_015f9482-2858-4c5e-9349-e9a194d5e64b",
+        "artifactId": "artifact_726aeeb3-f561-4679-905b-43ecabd9cc41"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:22:00.365Z",
+      "completedAt": "2026-05-31T06:35:39.683Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "userMaterialTagger"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_dd0050ed-79c2-4252-8c1f-fdcfabeca387",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+        "shotCount": 19,
+        "scriptSegmentCount": 0,
+        "rhythmSectionCount": 0,
+        "packagingBlockCount": 0,
+        "functionSlotCount": 0,
+        "userMaterialShotCardCount": 19,
+        "userMaterialGroupCount": 4
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:35:39.686Z",
+      "completedAt": "2026-05-31T06:35:39.866Z"
+    }
+  ],
+  "createdAt": "2026-05-31T06:17:26.204Z",
+  "updatedAt": "2026-05-31T06:35:39.873Z",
+  "completedAt": "2026-05-31T06:35:39.873Z",
+  "errorSummary": null
+}

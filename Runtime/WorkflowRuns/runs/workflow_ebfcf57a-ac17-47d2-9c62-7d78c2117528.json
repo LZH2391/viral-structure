@@ -1,0 +1,239 @@
+{
+  "workflowRunId": "workflow_ebfcf57a-ac17-47d2-9c62-7d78c2117528",
+  "workflowKey": "full-analysis",
+  "workflowVersion": "full-analysis.v1",
+  "cacheDecision": "ask",
+  "options": {
+    "enableFunctionSlotAtomization": true
+  },
+  "status": "processed",
+  "traceId": "trace_fbecb07d-60d1-4f3c-b95e-da4b3325449f",
+  "runId": "run_261ce715-2428-4b2a-89e4-d8d33acd752b",
+  "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_21effd97-d78e-429e-9a37-e5375740f907",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "cacheHit": true,
+        "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:06:28.241Z",
+      "completedAt": "2026-05-31T12:06:28.351Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_bb6d971e-fef1-4c41-8121-90f1d2b1c8cf",
+      "childJobId": "job_1c5574d2-ea3b-42ae-b210-a7a74edda5a1",
+      "childTraceId": "trace_64dfca88-88ed-4f65-bb77-ccdff9c9e9d0",
+      "artifactId": "artifact_53918403-e696-4379-aaa0-5728d25b6d38",
+      "parentArtifactId": "artifact_6a9a6a03-5bb0-4462-803e-85a4c5ed396d",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_1c5574d2-ea3b-42ae-b210-a7a74edda5a1",
+        "childTraceId": "trace_64dfca88-88ed-4f65-bb77-ccdff9c9e9d0",
+        "artifactId": "artifact_53918403-e696-4379-aaa0-5728d25b6d38"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:06:30.230Z",
+      "completedAt": "2026-05-31T12:16:36.395Z"
+    },
+    {
+      "key": "scriptSegment",
+      "kind": "module",
+      "moduleId": "script-segments",
+      "stageName": "script.segment.analyze",
+      "label": "脚本段落",
+      "artifactKey": "scriptSegmentAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_7eb4e6c7-b133-4a58-b340-338128b283b8",
+      "childJobId": "job_2a351d95-a12a-49f4-b208-310a620332c0",
+      "childTraceId": "trace_931edcf3-4982-4d82-910c-77ed5e8928c0",
+      "artifactId": "artifact_d755c29e-b6e3-4db2-a7ce-b35f14e2aee2",
+      "parentArtifactId": "artifact_53918403-e696-4379-aaa0-5728d25b6d38",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_2a351d95-a12a-49f4-b208-310a620332c0",
+        "childTraceId": "trace_931edcf3-4982-4d82-910c-77ed5e8928c0",
+        "artifactId": "artifact_d755c29e-b6e3-4db2-a7ce-b35f14e2aee2"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:16:36.402Z",
+      "completedAt": "2026-05-31T12:20:22.918Z"
+    },
+    {
+      "key": "rhythmStructure",
+      "kind": "module",
+      "moduleId": "rhythm-structure",
+      "stageName": "rhythm.structure.analyze",
+      "label": "节奏结构",
+      "artifactKey": "rhythmStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_f95c3db7-a292-482e-98f8-21e02c32e315",
+      "childJobId": "job_c779a368-e05f-474b-b9ca-cd04ab8da698",
+      "childTraceId": "trace_07cab593-03c4-4ba2-a0ce-ad4e40d847a2",
+      "artifactId": "artifact_91b1c5ce-407d-4f09-a275-fb9bb140ab30",
+      "parentArtifactId": "artifact_53918403-e696-4379-aaa0-5728d25b6d38",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_c779a368-e05f-474b-b9ca-cd04ab8da698",
+        "childTraceId": "trace_07cab593-03c4-4ba2-a0ce-ad4e40d847a2",
+        "artifactId": "artifact_91b1c5ce-407d-4f09-a275-fb9bb140ab30"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:16:36.633Z",
+      "completedAt": "2026-05-31T12:20:09.700Z"
+    },
+    {
+      "key": "packagingStructure",
+      "kind": "module",
+      "moduleId": "packaging-structure",
+      "stageName": "packaging.structure.analyze",
+      "label": "包装结构",
+      "artifactKey": "packagingStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_3eaa8e7b-9eef-4768-b671-3145aefc23cb",
+      "childJobId": "job_479443e9-f463-43f7-a823-59e45ce98b53",
+      "childTraceId": "trace_a13bcb7f-8d33-4f95-8d61-1ac94b0632ea",
+      "artifactId": "artifact_d173e3ce-2157-4988-acfa-2fbe0cf419a7",
+      "parentArtifactId": "artifact_53918403-e696-4379-aaa0-5728d25b6d38",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_479443e9-f463-43f7-a823-59e45ce98b53",
+        "childTraceId": "trace_a13bcb7f-8d33-4f95-8d61-1ac94b0632ea",
+        "artifactId": "artifact_d173e3ce-2157-4988-acfa-2fbe0cf419a7"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:16:37.258Z",
+      "completedAt": "2026-05-31T12:22:20.498Z"
+    },
+    {
+      "key": "functionSlotAtomization",
+      "kind": "module",
+      "moduleId": "function-slot-atomization",
+      "stageName": "function.slot.atomization.analyze",
+      "label": "功能槽位原子化",
+      "artifactKey": "functionSlotAtomizationAnalysis",
+      "after": [
+        "structure-analysis"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_60e5fa5f-177e-4b6d-817e-1ab42fb92807",
+      "childJobId": "job_b230d04d-6061-4f77-867b-e59a1d768803",
+      "childTraceId": "trace_f2c6371e-2a4c-4baa-9c8c-ea622ecf40d7",
+      "artifactId": "artifact_bb8e3b0a-cff5-466c-92f3-8068b9d0b6f6",
+      "parentArtifactId": "artifact_d173e3ce-2157-4988-acfa-2fbe0cf419a7",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_b230d04d-6061-4f77-867b-e59a1d768803",
+        "childTraceId": "trace_f2c6371e-2a4c-4baa-9c8c-ea622ecf40d7",
+        "artifactId": "artifact_bb8e3b0a-cff5-466c-92f3-8068b9d0b6f6",
+        "manualRecovery": true,
+        "sourcePackagingStructureArtifactId": "artifact_d173e3ce-2157-4988-acfa-2fbe0cf419a7",
+        "currentPackagingStructureArtifactId": "artifact_a679eb80-9486-4ac7-8405-b655f0110794"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:22:20.506Z",
+      "completedAt": "2026-05-31T12:49:31.782Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "functionSlotAtomization"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_manual_recovery_1780231771793",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": "artifact_6a9a6a03-5bb0-4462-803e-85a4c5ed396d",
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+        "shotCount": 19,
+        "scriptSegmentCount": 6,
+        "rhythmSectionCount": 7,
+        "packagingBlockCount": 5,
+        "functionSlotCount": 6,
+        "userMaterialShotCardCount": 0,
+        "userMaterialGroupCount": 0
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T12:49:31.782Z",
+      "completedAt": "2026-05-31T12:49:31.782Z"
+    }
+  ],
+  "createdAt": "2026-05-31T12:06:28.226Z",
+  "updatedAt": "2026-05-31T12:49:31.782Z",
+  "completedAt": "2026-05-31T12:49:31.782Z",
+  "errorSummary": null,
+  "manualRecovery": {
+    "recoveredAt": "2026-05-31T12:49:31.782Z",
+    "reason": "user_confirmed_stale_dependency_result_is_usable",
+    "functionSlotAtomizationArtifactId": "artifact_bb8e3b0a-cff5-466c-92f3-8068b9d0b6f6"
+  }
+}

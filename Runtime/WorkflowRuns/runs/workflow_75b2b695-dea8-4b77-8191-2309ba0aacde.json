@@ -1,0 +1,138 @@
+{
+  "workflowRunId": "workflow_75b2b695-dea8-4b77-8191-2309ba0aacde",
+  "workflowKey": "material-recognition",
+  "workflowVersion": "material-recognition.v1",
+  "cacheDecision": "ask",
+  "options": {},
+  "status": "failed",
+  "traceId": "trace_c7350e44-0550-4a34-8925-492365971bee",
+  "runId": "run_939239c1-7509-4379-8c02-702356958668",
+  "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_c77c5359-601b-47af-a395-6b7602467b92",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "cacheHit": true,
+        "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:52:02.650Z",
+      "completedAt": "2026-05-31T06:52:02.822Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_35711a13-3f86-48e9-b9c6-c03f196431ac",
+      "childJobId": "job_6b512ef9-ed1a-49f2-a284-b2137db734d3",
+      "childTraceId": "trace_d426dd8e-fafe-49fa-b189-c0c8cceba506",
+      "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+      "parentArtifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_6b512ef9-ed1a-49f2-a284-b2137db734d3",
+        "childTraceId": "trace_d426dd8e-fafe-49fa-b189-c0c8cceba506",
+        "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T06:52:02.851Z",
+      "completedAt": "2026-05-31T06:52:05.527Z"
+    },
+    {
+      "key": "userMaterialTagger",
+      "kind": "module",
+      "moduleId": "user-material-tagger",
+      "stageName": "user.material_tagger.analyze",
+      "label": "素材识别",
+      "artifactKey": "userMaterialPack",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9",
+      "childJobId": "job_bb6de5f8-89bf-4591-a339-8423de290e58",
+      "childTraceId": "trace_da605f4a-58c8-49cd-a63c-bf1644a1741a",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "appserver_bridge_failed",
+        "message": "AppServer bridge exited with 3221225786",
+        "stageName": "userMaterialTagger",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9_3522328232.json"
+      },
+      "startedAt": "2026-05-31T06:52:05.539Z",
+      "completedAt": "2026-05-31T10:26:45.088Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "userMaterialTagger"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "pending",
+      "attemptNo": 1,
+      "stageId": null,
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": null,
+      "startedAt": null,
+      "completedAt": null
+    }
+  ],
+  "createdAt": "2026-05-31T06:52:02.624Z",
+  "updatedAt": "2026-05-31T10:26:45.088Z",
+  "completedAt": null,
+  "errorSummary": {
+    "code": "appserver_bridge_failed",
+    "message": "AppServer bridge exited with 3221225786",
+    "stageName": "userMaterialTagger",
+    "retryable": true,
+    "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_fed18b52-1ff4-4fd3-84df-7c9cd1db65f9_3522328232.json"
+  }
+}

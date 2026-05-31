@@ -1,0 +1,233 @@
+{
+  "workflowRunId": "workflow_1fd82ab0-e52a-4818-8c48-7c0c8590ef5c",
+  "workflowKey": "full-analysis",
+  "workflowVersion": "full-analysis.v1",
+  "cacheDecision": "ask",
+  "options": {
+    "enableFunctionSlotAtomization": true
+  },
+  "status": "partial_failed",
+  "traceId": "trace_3298699e-2001-4e8a-a7ae-67a30c8db5c7",
+  "runId": "run_1ff9dac6-fc56-44b3-8709-684474f4bdd3",
+  "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_f5003061-7470-41ba-a37d-2fc23ab0e54e",
+      "childJobId": "job_06c52921-55e5-452a-a3ed-7c5de8fd1754",
+      "childTraceId": "trace_846da675-fb10-4ae8-a7c4-12bbd1dd3fcb",
+      "artifactId": "artifact_6a9a6a03-5bb0-4462-803e-85a4c5ed396d",
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_06c52921-55e5-452a-a3ed-7c5de8fd1754",
+        "childTraceId": "trace_846da675-fb10-4ae8-a7c4-12bbd1dd3fcb",
+        "artifactId": "artifact_6a9a6a03-5bb0-4462-803e-85a4c5ed396d"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T10:48:16.720Z",
+      "completedAt": "2026-05-31T10:52:13.339Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_ab195034-5923-42a6-96b2-c814a655ad98",
+      "childJobId": "job_5d9f57ad-5c06-461a-8091-09c54da52a9b",
+      "childTraceId": "trace_bf601ad7-ddaf-4b8f-ba03-cd91f4333f75",
+      "artifactId": "artifact_bfe2c177-dd67-4f2c-83eb-9ce418760d18",
+      "parentArtifactId": "artifact_6a9a6a03-5bb0-4462-803e-85a4c5ed396d",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_5d9f57ad-5c06-461a-8091-09c54da52a9b",
+        "childTraceId": "trace_bf601ad7-ddaf-4b8f-ba03-cd91f4333f75",
+        "artifactId": "artifact_bfe2c177-dd67-4f2c-83eb-9ce418760d18"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T10:52:13.344Z",
+      "completedAt": "2026-05-31T10:58:04.903Z"
+    },
+    {
+      "key": "scriptSegment",
+      "kind": "module",
+      "moduleId": "script-segments",
+      "stageName": "script.segment.analyze",
+      "label": "脚本段落",
+      "artifactKey": "scriptSegmentAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_5d8358e2-4569-4c8e-9190-e9d7e1c01491",
+      "childJobId": "job_c78e7459-6a57-4c6c-a36b-e9dbed4513ee",
+      "childTraceId": "trace_165dd180-bb8a-4278-9b01-375428045220",
+      "artifactId": "artifact_0e01d996-352e-4adb-8d3d-24a0bb1d26f3",
+      "parentArtifactId": "artifact_bfe2c177-dd67-4f2c-83eb-9ce418760d18",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_c78e7459-6a57-4c6c-a36b-e9dbed4513ee",
+        "childTraceId": "trace_165dd180-bb8a-4278-9b01-375428045220",
+        "artifactId": "artifact_0e01d996-352e-4adb-8d3d-24a0bb1d26f3"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T10:58:04.708Z",
+      "completedAt": "2026-05-31T11:01:49.517Z"
+    },
+    {
+      "key": "rhythmStructure",
+      "kind": "module",
+      "moduleId": "rhythm-structure",
+      "stageName": "rhythm.structure.analyze",
+      "label": "节奏结构",
+      "artifactKey": "rhythmStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_8a3db492-e5ef-40c2-b89d-3817b471acaa",
+      "childJobId": "job_bf240a19-e0fb-4001-93ba-25a3f8301e02",
+      "childTraceId": "trace_8661dad7-ae4c-4447-b949-bab96d8747ea",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "UNKNOWN",
+        "message": "UNKNOWN: unknown error, open 'C:\\ByteDanceFullStack\\Runtime\\WorkflowRuns\\workflow-runs.json'",
+        "stageName": "rhythmStructure",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_8a3db492-e5ef-40c2-b89d-3817b471acaa_795e6ee278.json"
+      },
+      "startedAt": "2026-05-31T10:58:05.250Z",
+      "completedAt": "2026-05-31T10:58:06.029Z"
+    },
+    {
+      "key": "packagingStructure",
+      "kind": "module",
+      "moduleId": "packaging-structure",
+      "stageName": "packaging.structure.analyze",
+      "label": "包装结构",
+      "artifactKey": "packagingStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_f4bc0268-bedc-45b9-ae1d-85d9bc5d4053",
+      "childJobId": "job_ca3ff693-ca48-4ca8-976e-ee066cd582f0",
+      "childTraceId": "trace_32e65ae0-4ee8-424a-b5fe-95b3d0222fc2",
+      "artifactId": "artifact_e2158a09-fe3d-410b-8993-81404071f055",
+      "parentArtifactId": "artifact_bfe2c177-dd67-4f2c-83eb-9ce418760d18",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_ca3ff693-ca48-4ca8-976e-ee066cd582f0",
+        "childTraceId": "trace_32e65ae0-4ee8-424a-b5fe-95b3d0222fc2",
+        "artifactId": "artifact_e2158a09-fe3d-410b-8993-81404071f055"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T10:58:05.421Z",
+      "completedAt": "2026-05-31T11:02:58.504Z"
+    },
+    {
+      "key": "functionSlotAtomization",
+      "kind": "module",
+      "moduleId": "function-slot-atomization",
+      "stageName": "function.slot.atomization.analyze",
+      "label": "功能槽位原子化",
+      "artifactKey": "functionSlotAtomizationAnalysis",
+      "after": [
+        "structure-analysis"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "failed",
+      "attemptNo": 1,
+      "stageId": "stage_2ec3c7fd-2e4b-4e1e-8a48-65ab22a973c8",
+      "childJobId": "job_530717df-46d3-420c-80cd-4e66ab443c38",
+      "childTraceId": "trace_85fb3797-af6e-41a2-a0d0-99036c3a5e0c",
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": {
+        "code": "function_slot_atomization_boundary_review_parse_failed",
+        "message": "边界审查结果不是合法 JSON object",
+        "stageName": "functionSlotAtomization",
+        "retryable": false,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_2ec3c7fd-2e4b-4e1e-8a48-65ab22a973c8_fc102c2593.json"
+      },
+      "startedAt": "2026-05-31T11:02:58.510Z",
+      "completedAt": "2026-05-31T11:09:56.681Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "functionSlotAtomization"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "pending",
+      "attemptNo": 1,
+      "stageId": null,
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": null,
+      "errorSummary": null,
+      "startedAt": null,
+      "completedAt": null
+    }
+  ],
+  "createdAt": "2026-05-31T10:48:16.712Z",
+  "updatedAt": "2026-05-31T11:09:56.681Z",
+  "completedAt": null,
+  "errorSummary": {
+    "code": "function_slot_atomization_boundary_review_parse_failed",
+    "message": "边界审查结果不是合法 JSON object",
+    "stageName": "functionSlotAtomization",
+    "retryable": false,
+    "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_2ec3c7fd-2e4b-4e1e-8a48-65ab22a973c8_fc102c2593.json"
+  }
+}

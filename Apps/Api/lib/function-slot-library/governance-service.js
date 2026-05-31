@@ -29,7 +29,6 @@ const {
   buildTurnInputSummary,
   codedError,
   extractTurnTokenUsage,
-  parseGovernanceOutput,
   promptTemplateSummary,
   safeErrorMessage,
   safePreview,
@@ -116,6 +115,7 @@ function createFunctionSlotGovernanceService({
       }
 
       const input = await fileOps.prepareGovernanceInput();
+      const originalGovernanceText = await fileOps.readGovernanceText();
       context.roleProfile = await loadRoleProfileByRole(ROLE);
       context.skillHash = await resolveSkillHash(context.roleProfile.skillPath);
       const analyzeTurn = renderGovernanceTurn(context.roleProfile, "semanticGovernance", input);
@@ -165,7 +165,7 @@ function createFunctionSlotGovernanceService({
         }),
       });
 
-      let governance = parseGovernanceOutput(analyzed.message, context.agentRun, 0);
+      let governance = await fileOps.readGovernanceObject();
       let validation = await validateCandidate(context, governance, { repairAttemptCount: 0 });
       for (let repairAttemptCount = 1; !validation.ok && repairAttemptCount <= maxRepairAttempts; repairAttemptCount += 1) {
         const repairTurn = renderGovernanceRepairTurn(context.roleProfile, input, validation, analyzed.message, repairAttemptCount);
@@ -225,10 +225,11 @@ function createFunctionSlotGovernanceService({
             messagePreview: safePreview(result.message),
           }),
         });
-        governance = parseGovernanceOutput(repaired.message, context.agentRun, repairAttemptCount);
+        governance = await fileOps.readGovernanceObject();
         validation = await validateCandidate(context, governance, { repairAttemptCount });
       }
       if (!validation.ok) {
+        await fileOps.restoreGovernanceText(originalGovernanceText);
         throw codedError("function_slot_governance_validation_failed", "语义治理结果未通过校验", {
           validation,
           stageName: STAGES.validate,

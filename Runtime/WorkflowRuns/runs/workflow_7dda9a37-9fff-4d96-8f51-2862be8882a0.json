@@ -1,0 +1,231 @@
+{
+  "workflowRunId": "workflow_7dda9a37-9fff-4d96-8f51-2862be8882a0",
+  "workflowKey": "full-analysis",
+  "workflowVersion": "full-analysis.v1",
+  "cacheDecision": "ask",
+  "options": {
+    "enableFunctionSlotAtomization": true
+  },
+  "status": "processed",
+  "traceId": "trace_e8e64d25-cf8e-4e0f-9cf1-1a8b81a38370",
+  "runId": "run_02c85883-be07-4c8b-83ce-07b4bc75f74e",
+  "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+  "currentStageKeys": [],
+  "stages": [
+    {
+      "key": "upload",
+      "kind": "module",
+      "moduleId": "sample-ingest",
+      "stageName": "upload.ingest",
+      "label": "上传",
+      "artifactKey": "sampleVideo",
+      "after": [],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_9980fd0e-db2c-4e20-bebd-05de01c1c3c2",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": null,
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "cacheHit": true,
+        "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-28T05:05:18.857Z",
+      "completedAt": "2026-05-28T05:05:18.916Z"
+    },
+    {
+      "key": "shotBoundary",
+      "kind": "module",
+      "moduleId": "shot-boundary",
+      "stageName": "shot.boundary",
+      "label": "切镜",
+      "artifactKey": "shotBoundaryAnalysis",
+      "after": [
+        "upload"
+      ],
+      "parallelGroup": null,
+      "blocking": true,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_c95cc931-c2f5-4897-b423-180f584aceb2",
+      "childJobId": "job_1ecbeb87-5f9e-4bc3-aaed-862c652dd39f",
+      "childTraceId": "trace_d59cc233-3505-456a-a94b-5e063c941ef4",
+      "artifactId": "artifact_2a9bcd0f-ce0e-41b3-8fbd-781e48614677",
+      "parentArtifactId": "artifact_caa0947c-5442-4f2e-877a-27bc86e58a89",
+      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_1ecbeb87-5f9e-4bc3-aaed-862c652dd39f",
+        "childTraceId": "trace_d59cc233-3505-456a-a94b-5e063c941ef4",
+        "artifactId": "artifact_2a9bcd0f-ce0e-41b3-8fbd-781e48614677"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-28T05:05:18.923Z",
+      "completedAt": "2026-05-28T05:12:02.604Z"
+    },
+    {
+      "key": "scriptSegment",
+      "kind": "module",
+      "moduleId": "script-segments",
+      "stageName": "script.segment.analyze",
+      "label": "脚本段落",
+      "artifactKey": "scriptSegmentAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_23a5a568-f6a1-4d12-81eb-9b87e6ae2c17",
+      "childJobId": "job_8268e1fb-6622-42d0-b997-a7508cc2967e",
+      "childTraceId": "trace_29c30905-c90f-4e9c-ae65-ad3562c59bc3",
+      "artifactId": "artifact_ec6e89fb-0f0d-404e-a2c2-8a2ffc6fd2c2",
+      "parentArtifactId": "artifact_2a9bcd0f-ce0e-41b3-8fbd-781e48614677",
+      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_8268e1fb-6622-42d0-b997-a7508cc2967e",
+        "childTraceId": "trace_29c30905-c90f-4e9c-ae65-ad3562c59bc3",
+        "artifactId": "artifact_ec6e89fb-0f0d-404e-a2c2-8a2ffc6fd2c2"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-28T05:12:02.606Z",
+      "completedAt": "2026-05-28T05:15:13.858Z"
+    },
+    {
+      "key": "rhythmStructure",
+      "kind": "module",
+      "moduleId": "rhythm-structure",
+      "stageName": "rhythm.structure.analyze",
+      "label": "节奏结构",
+      "artifactKey": "rhythmStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_91279a7d-f124-4c52-88dd-2b99a2e616ab",
+      "childJobId": "job_eee4c24d-ef04-41db-b36f-c6685e62f935",
+      "childTraceId": "trace_8dfb1ab7-ee68-4d61-a639-b0658ce9390e",
+      "artifactId": "artifact_28c68eea-2dab-4e7c-aa7e-cf071cfcfcb5",
+      "parentArtifactId": "artifact_2a9bcd0f-ce0e-41b3-8fbd-781e48614677",
+      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_eee4c24d-ef04-41db-b36f-c6685e62f935",
+        "childTraceId": "trace_8dfb1ab7-ee68-4d61-a639-b0658ce9390e",
+        "artifactId": "artifact_28c68eea-2dab-4e7c-aa7e-cf071cfcfcb5"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-28T05:12:02.607Z",
+      "completedAt": "2026-05-28T05:15:18.001Z"
+    },
+    {
+      "key": "packagingStructure",
+      "kind": "module",
+      "moduleId": "packaging-structure",
+      "stageName": "packaging.structure.analyze",
+      "label": "包装结构",
+      "artifactKey": "packagingStructureAnalysis",
+      "after": [
+        "shotBoundary"
+      ],
+      "parallelGroup": "structure-analysis",
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_bfec6864-fb9d-4761-892d-2e5ada3e6112",
+      "childJobId": "job_9f9a4fb5-b66d-4578-904d-c948de1499f6",
+      "childTraceId": "trace_d0dd7cfa-e9db-42b4-8ad4-780d24515825",
+      "artifactId": "artifact_ea1c544d-395e-40b1-a075-b44f8e47d103",
+      "parentArtifactId": "artifact_2a9bcd0f-ce0e-41b3-8fbd-781e48614677",
+      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_9f9a4fb5-b66d-4578-904d-c948de1499f6",
+        "childTraceId": "trace_d0dd7cfa-e9db-42b4-8ad4-780d24515825",
+        "artifactId": "artifact_ea1c544d-395e-40b1-a075-b44f8e47d103"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-28T05:12:02.608Z",
+      "completedAt": "2026-05-28T05:16:20.379Z"
+    },
+    {
+      "key": "functionSlotAtomization",
+      "kind": "module",
+      "moduleId": "function-slot-atomization",
+      "stageName": "function.slot.atomization.analyze",
+      "label": "功能槽位原子化",
+      "artifactKey": "functionSlotAtomizationAnalysis",
+      "after": [
+        "structure-analysis"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 2,
+      "stageId": "stage_4dbf0df7-518d-45cc-a8fe-285d6d330c73",
+      "childJobId": "job_2796f607-f6b1-48a4-ae38-2384e438276c",
+      "childTraceId": "trace_0bf85b72-5694-49a5-9052-259b2094b744",
+      "artifactId": "artifact_eec11642-36bd-4e34-9e06-e4ac26084cd4",
+      "parentArtifactId": "artifact_ea1c544d-395e-40b1-a075-b44f8e47d103",
+      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "inputSummary": null,
+      "outputSummary": {
+        "childJobId": "job_2796f607-f6b1-48a4-ae38-2384e438276c",
+        "childTraceId": "trace_0bf85b72-5694-49a5-9052-259b2094b744",
+        "artifactId": "artifact_eec11642-36bd-4e34-9e06-e4ac26084cd4"
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T11:25:31.866Z",
+      "completedAt": "2026-05-31T11:30:23.150Z"
+    },
+    {
+      "key": "aggregate",
+      "kind": "builtin",
+      "stageName": "workflow.aggregate",
+      "label": "汇总",
+      "artifactKey": "sampleVideo",
+      "after": [
+        "functionSlotAtomization"
+      ],
+      "parallelGroup": null,
+      "blocking": false,
+      "status": "processed",
+      "attemptNo": 1,
+      "stageId": "stage_f8775bcd-79c1-4641-9056-a11ffec66cf5",
+      "childJobId": null,
+      "childTraceId": null,
+      "artifactId": "artifact_caa0947c-5442-4f2e-877a-27bc86e58a89",
+      "parentArtifactId": null,
+      "sampleVideoId": null,
+      "inputSummary": null,
+      "outputSummary": {
+        "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+        "shotCount": 14,
+        "scriptSegmentCount": 4,
+        "rhythmSectionCount": 6,
+        "packagingBlockCount": 5,
+        "functionSlotCount": 6,
+        "userMaterialShotCardCount": 0,
+        "userMaterialGroupCount": 0
+      },
+      "errorSummary": null,
+      "startedAt": "2026-05-31T11:30:23.073Z",
+      "completedAt": "2026-05-31T11:30:23.317Z"
+    }
+  ],
+  "createdAt": "2026-05-28T05:05:18.856Z",
+  "updatedAt": "2026-05-31T11:30:23.324Z",
+  "completedAt": "2026-05-31T11:30:23.324Z",
+  "errorSummary": null
+}

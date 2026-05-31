@@ -97,11 +97,12 @@ function createFakeAppServer(root) {
       return { turnId: "turn_semantic_governance" };
     },
     async collectTurnResult() {
+      await writeGovernanceFile(root, await buildValidGovernance(root));
       return {
         status: "completed",
         threadId: "thread_governance",
         turnId: "turn_semantic_governance",
-        finalMessage: JSON.stringify(await buildValidGovernance(root)),
+        finalMessage: "已写回 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json；治理覆盖已更新，reviewItems 0。",
         turnActivity: {
           threadId: "thread_governance",
           turnId: "turn_semantic_governance",
@@ -130,11 +131,12 @@ function createInvalidAppServer(root) {
       governance.unmappedAtomVariants = [];
       governance.unmappedBindingVariants = [];
       governance.unmappedRuleVariants = [];
+      await writeGovernanceFile(root, governance);
       return {
         status: "completed",
         threadId: "thread_governance",
         turnId: "turn_invalid_semantic_governance",
-        finalMessage: JSON.stringify(governance),
+        finalMessage: "已写回治理文件；仍可能存在 unmapped 覆盖风险。",
         turnActivity: {
           threadId: "thread_governance",
           turnId: "turn_invalid_semantic_governance",
@@ -150,6 +152,10 @@ function createInvalidAppServer(root) {
       };
     },
   };
+}
+
+async function writeGovernanceFile(root, governance) {
+  await writeJson(path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), governance);
 }
 
 async function buildValidGovernance(root) {

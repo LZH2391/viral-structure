@@ -390,7 +390,64 @@ test("workflow run store marks running persisted runs as failed on restart", () 
   assert.equal(processed.status, "processed");
 
   const persisted = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  assert.equal(persisted.runs.find((run) => run.workflowRunId === "workflow_running").status, "failed");
+  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.storage.mode, "per-run-file");
+  assert.equal(persisted.runRefs.find((run) => run.workflowRunId === "workflow_running").status, "failed");
+  assert.equal(persisted.runRefs.some((run) => Array.isArray(run.stages)), false);
+
+  const runFile = path.join(dir, persisted.runRefs.find((run) => run.workflowRunId === "workflow_running").file);
+  const persistedRun = JSON.parse(fs.readFileSync(runFile, "utf8"));
+  assert.equal(persistedRun.status, "failed");
+  assert.equal(persistedRun.stages.find((stage) => stage.key === "scriptSegment").status, "failed");
+});
+
+test("workflow run store persists each run in its own file and reloads through index refs", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-files-"));
+  const filePath = path.join(dir, "workflow-runs.json");
+  const store = createWorkflowRunStore({ filePath });
+  store.createRun({
+    workflowRunId: "workflow_one",
+    workflowKey: "full-analysis",
+    workflowVersion: "full-analysis.v1",
+    status: "running",
+    traceId: "trace_one",
+    runId: "run_one",
+    sampleVideoId: "sample_1",
+    currentStageKeys: [],
+    stages: [{ key: "upload", stageName: "sample.ingest", status: "processed" }],
+    createdAt: "2026-05-27T00:00:00.000Z",
+  });
+  store.updateRun("workflow_one", { status: "processed", completedAt: "2026-05-27T00:01:00.000Z" });
+
+  const index = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  assert.equal(index.runRefs.length, 1);
+  assert.equal(index.runRefs[0].file, "runs/workflow_one.json");
+  assert.equal(index.runRefs[0].status, "processed");
+  assert.equal(index.runRefs[0].stages, undefined);
+
+  const runPath = path.join(dir, "runs", "workflow_one.json");
+  const runFile = JSON.parse(fs.readFileSync(runPath, "utf8"));
+  assert.deepEqual(runFile.stages.map((stage) => stage.key), ["upload"]);
+
+  const reloaded = createWorkflowRunStore({ filePath });
+  assert.equal(reloaded.getRun("workflow_one").status, "processed");
+  assert.deepEqual(reloaded.listRuns().map((run) => run.workflowRunId), ["workflow_one"]);
+});
+
+test("workflow run store ignores out-of-root run refs", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-safety-"));
+  const filePath = path.join(dir, "workflow-runs.json");
+  fs.writeFileSync(filePath, JSON.stringify({
+    schemaVersion: 2,
+    storage: { mode: "per-run-file", runsDir: "runs" },
+    runRefs: [
+      { workflowRunId: "workflow_bad", file: "../outside.json" },
+    ],
+  }), "utf8");
+
+  const store = createWorkflowRunStore({ filePath });
+  assert.equal(store.getRun("workflow_bad"), null);
+  assert.deepEqual(store.listRuns(), []);
 });
 
 function buildArtifact({ shot = false, sampleVideoId = "sample_1" } = {}) {
