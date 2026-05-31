@@ -1,0 +1,171 @@
+[
+  {
+    "id": "R001",
+    "slot": "familiarity_bridge_hook",
+    "label": "高密度快速入场",
+    "function": "用快速主体变化和使用状态把观众从未进入语境拉到商品关注状态",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "快速开场与食物刺激堆叠"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "fast_dense_opening",
+    "densityType": "scene_subject_density",
+    "beatShape": "连续换景起势",
+    "avoidFor": [
+      "complex_mechanism",
+      "multi_step_instruction",
+      "long_trust_claim"
+    ],
+    "syncPoints": [
+      "入口主张出现",
+      "商品身份露出",
+      "使用状态被看见"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "combination_claim_peak",
+    "label": "短促压缩到首轮峰值",
+    "function": "把组合信息用短镜头压缩推进，并在结果性表达处形成第一轮记忆点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "短促压缩到第一爆点"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "pace": "compressed_fast_peak",
+    "densityType": "claim_and_object_density",
+    "beatShape": "短促推进后集中爆点",
+    "avoidFor": [
+      "detailed_quality_explanation",
+      "price_rule_explanation",
+      "long_reasoning"
+    ],
+    "syncPoints": [
+      "组合关系明确",
+      "包装身份强化",
+      "感官承诺落点"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "sensory_evidence_deepening",
+    "label": "中速细节停留",
+    "function": "从快速换景转为中速细节观看，让观众停在可验证的关键细节、对象状态和使用反馈上",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "质感验证的中速推进",
+        "咬食与撕扯形成第二感官峰值"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": false,
+    "pace": "medium_detail_hold",
+    "densityType": "action_detail_density",
+    "beatShape": "细节递进后动作峰值",
+    "avoidFor": [
+      "new_topic_intro",
+      "dense_price_conversion",
+      "abstract_brand_claim_only"
+    ],
+    "syncPoints": [
+      "细节被揭示",
+      "使用反馈出现",
+      "第二体验峰值"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "trust_assurance_shift",
+    "label": "稳定说明平台",
+    "function": "降低动作冲击，给品质、安全或工艺信息留出稳定理解空间",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "品质说明的稳定平台"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.8,
+    "needReview": false,
+    "pace": "steady_explanation_platform",
+    "densityType": "subtitle_and_label_density",
+    "beatShape": "均匀切换与信息抬升",
+    "avoidFor": [
+      "first_second_hook",
+      "pure_sensory_peak",
+      "urgent_conversion_push"
+    ],
+    "syncPoints": [
+      "背书信息出现",
+      "实物证明补充",
+      "信任结论落回商品形态"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "conversion_reason_close",
+    "label": "放慢定格式收束",
+    "function": "用明显降速和稳定终屏把观众注意力从体验刺激收回到购买对象和利益点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "放慢包装铺陈与收束"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "slow_closing_hold",
+    "densityType": "conversion_information_density",
+    "beatShape": "长停留后定格锚定",
+    "avoidFor": [
+      "new_sensory_claim",
+      "complex_new_proof",
+      "unresolved_objection"
+    ],
+    "syncPoints": [
+      "利益信息出现",
+      "数量或规格感建立",
+      "终屏商品锚定"
+    ]
+  }
+]

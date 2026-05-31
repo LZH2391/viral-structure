@@ -1,0 +1,205 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R001",
+        "R003"
+      ],
+      "reason": "客观证明释放需要看清证据，不适合承载过快短切或连续追问节奏。",
+      "fix": "把追问节奏留在可信疑问槽，证明槽改用更稳定的展示释放节奏，并用标注包装同步证据。",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P005"
+      ],
+      "reason": "感官证据堆叠不能只列卖点形容，必须让每个关键感官判断对应可见细节或体验反馈。",
+      "fix": "为外观、结构、质地、体验反馈至少保留两个互补的可视证明维度。",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B005",
+        "B008"
+      ]
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "R007",
+        "P006"
+      ],
+      "reason": "收尾槽不适合继续启动新的复杂主张，否则会破坏峰值后的记忆回落。",
+      "fix": "末尾只保留商品可见、体验余韵或利益回扣，不再新增需要解释的证据点。",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B009"
+      ]
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S003",
+        "S004",
+        "P003",
+        "P004"
+      ],
+      "reason": "低门槛利益如果只加压不证明，会放大不信任。",
+      "fix": "可信疑问后必须接客观证据或可核查视觉信息，且证据要直接回应疑问对象。",
+      "appliesTo": [],
+      "sourceBindingIds": [
+        "B003",
+        "B004"
+      ]
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F001",
+        "F006"
+      ],
+      "atomIds": [
+        "S001",
+        "S006",
+        "P001",
+        "P006"
+      ],
+      "reason": "开场拎出的核心利益点，末段必须回到同一利益或同一观众关切完成收束。",
+      "fix": "",
+      "appliesTo": [
+        "core_interest_conflict",
+        "scenario_value_close"
+      ],
+      "sourceBindingIds": [
+        "B006"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F003",
+        "F004"
+      ],
+      "atomIds": [
+        "S003",
+        "S004",
+        "P003",
+        "P004"
+      ],
+      "reason": "低门槛、高规格或高利益主张后，必须主动处理可信疑问，并用可核查证据释放压力。",
+      "fix": "",
+      "appliesTo": [
+        "credibility_question",
+        "objective_proof_release"
+      ],
+      "sourceBindingIds": [
+        "B003",
+        "B004"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R004",
+        "P004"
+      ],
+      "reason": "客观证明类信息应放在节奏减速或视觉稳定点，并让标注、字幕和证据区域同步。",
+      "fix": "",
+      "appliesTo": [
+        "objective_proof_release"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "R005",
+        "P005"
+      ],
+      "reason": "感官证明可以移动或增删具体维度，但必须保持从可见细节到体验反馈的递进关系。",
+      "fix": "",
+      "appliesTo": [
+        "sensory_proof_stack"
+      ],
+      "sourceBindingIds": [
+        "B005"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "R006",
+        "R007",
+        "P006"
+      ],
+      "reason": "末段允许节奏跨越脚本收束边界：先二次加压回应价值问题，再低密度停留保留商品记忆。",
+      "fix": "",
+      "appliesTo": [
+        "scenario_value_close",
+        "memory_hold"
+      ],
+      "sourceBindingIds": [
+        "B009"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [
+        "F003",
+        "F004",
+        "F005"
+      ],
+      "atomIds": [
+        "P003",
+        "P004",
+        "P005"
+      ],
+      "reason": "包装替换优先保留证明功能：疑问槽需要证明对象，客观证明槽需要可核查依据，感官槽需要实拍细节或动作反馈。",
+      "fix": "",
+      "appliesTo": [
+        "credibility_question",
+        "objective_proof_release",
+        "sensory_proof_stack"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    }
+  ]
+}

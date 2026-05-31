@@ -1,0 +1,213 @@
+[
+  {
+    "id": "S001",
+    "slot": "aspirational_outcome_activation",
+    "label": "强欲望结果先抛",
+    "function": "先命中目标人群的强烈结果期待，再用即时可见收益和外部评价建立继续观看理由",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "增高欲望钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "claimType": "aspiration_to_visible_outcome",
+    "proofNeed": "需要可见的结果状态、目标人群关切和生活化反馈共同支撑",
+    "mustKeep": [
+      "目标人群强欲望",
+      "结果先行",
+      "生活化反馈"
+    ],
+    "replaceableVariables": [
+      "目标人群",
+      "核心收益",
+      "反馈来源",
+      "结果表达方式"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "mechanism_credibility",
+    "label": "隐藏机制可信化",
+    "function": "承接结果承诺，解释实现机制，并通过外显正常与内部结构形成可信反差，降低突兀顾虑",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "隐形增高机制说明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12",
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "outcome_mechanism_with_concern_reduction",
+    "proofNeed": "需要外观正常性、内部结构揭示和使用后不被识别的证明组合",
+    "mustKeep": [
+      "机制解释",
+      "隐藏性证明",
+      "顾虑降低"
+    ],
+    "replaceableVariables": [
+      "实现机制",
+      "隐藏方式",
+      "外观参照",
+      "顾虑表达"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "wearability_reassurance",
+    "label": "使用顾虑解除",
+    "function": "在机制可信后补足日常使用体验，说明核心功能不会以舒适性或基础体验为代价",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "舒适透气与搭配价值"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "functional_benefit_without_usage_cost",
+    "proofNeed": "需要材料、触感、穿用过程或体验细节等可感知证明",
+    "mustKeep": [
+      "体验顾虑回应",
+      "可感知细节证明",
+      "不牺牲日常使用"
+    ],
+    "replaceableVariables": [
+      "体验顾虑",
+      "功能细节",
+      "证明动作",
+      "使用场景"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "scenario_value_expansion",
+    "label": "日常场景价值扩展",
+    "function": "把单一核心收益扩展为日常可用价值，让观众相信产品适合反复使用而非只解决一次性需求",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "舒适透气与搭配价值"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "core_benefit_to_daily_utility",
+    "proofNeed": "需要多场景展示、风格适配或日常使用理由支撑",
+    "mustKeep": [
+      "日常可用性",
+      "多场景适配",
+      "核心收益不突兀"
+    ],
+    "replaceableVariables": [
+      "使用场景",
+      "搭配语境",
+      "审美评价",
+      "展示角度"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "value_trust_reinforcement",
+    "label": "质价信任补强",
+    "function": "在功能与场景价值之后，用外部误判、低门槛成本、品牌或工艺细节强化值得买的判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "价格品牌与品质背书"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_22",
+        "shot_23",
+        "shot_24",
+        "shot_25",
+        "shot_26"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "perceived_value_with_trust_support",
+    "proofNeed": "需要价格反差、第三方感知、品牌信任或细节质量证明中至少两类支撑",
+    "mustKeep": [
+      "价值反差",
+      "信任背书",
+      "细节证明"
+    ],
+    "replaceableVariables": [
+      "价值参照",
+      "背书来源",
+      "质量细节",
+      "成本门槛"
+    ]
+  },
+  {
+    "id": "S006",
+    "slot": "identity_conversion_close",
+    "label": "身份回扣与稀缺收束",
+    "function": "回扣开头痛点带来的身份变化，再叠加稀缺或库存风险，把价值判断推向即时行动",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "自信收束与断码催单"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "claimType": "identity_shift_to_action",
+    "proofNeed": "需要回到前置核心关切，并提供清晰的行动理由或稀缺触发",
+    "mustKeep": [
+      "前置关切回扣",
+      "身份或情绪收益",
+      "明确行动触发"
+    ],
+    "replaceableVariables": [
+      "身份表达",
+      "稀缺理由",
+      "行动提示",
+      "收尾展示方式"
+    ]
+  }
+]

@@ -1,0 +1,249 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "欲望结果激活槽",
+    "slotType": "aspirational_outcome_activation",
+    "viewerStateBefore": "观众尚未进入具体购买语境，只可能对某类改善结果有潜在兴趣",
+    "viewerStateAfter": "观众看到一个强结果承诺，并愿意继续了解它如何成立",
+    "persuasionTask": "先把目标人群的核心欲望推到前台，用可见结果和生活反馈建立观看动机",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "核心收益提出",
+      "可见结果展示",
+      "生活反馈补强"
+    ],
+    "substitutionRules": [
+      "目标人群和收益类型可替换，但必须保留强欲望、可见结果和反馈支撑的组合",
+      "包装形式可从手持或镜前展示替换为其他即时结果展示，但不能只保留口播"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": true
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "机制可信槽",
+    "slotType": "mechanism_credibility",
+    "viewerStateBefore": "观众已被结果吸引，但仍需要知道承诺为什么可信且是否会带来突兀感",
+    "viewerStateAfter": "观众理解结果背后的实现方式，并初步相信它能在正常使用状态中成立",
+    "persuasionTask": "用外部正常性和内部机制揭示承接结果承诺，降低对夸张、突兀或不真实的担心",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "外部正常性出现",
+      "内部机制揭示",
+      "关键结构被指示或停留"
+    ],
+    "substitutionRules": [
+      "具体机制载体可替换，但必须保留从外部正常到内部机制的证明路径",
+      "节奏可以跨越前后展示边界，但机制揭示处必须有明确视觉锚点"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12",
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "使用顾虑解除槽",
+    "slotType": "wearability_reassurance",
+    "viewerStateBefore": "观众理解机制，但可能担心核心功能会牺牲日常体验",
+    "viewerStateAfter": "观众获得可感知的体验证明，认为产品可以正常、舒适或低负担使用",
+    "persuasionTask": "把功能带来的潜在负担转化为可见体验细节，补足日常使用安全感",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "体验顾虑被提出",
+      "细节证明出现",
+      "动作或触感证据落点"
+    ],
+    "substitutionRules": [
+      "具体体验维度可替换，但必须配可感知细节证明",
+      "此槽位适合放缓或给细节停留，不适合全程高密快切"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "场景价值扩展槽",
+    "slotType": "scenario_value_expansion",
+    "viewerStateBefore": "观众已相信功能和体验，但仍可能把产品视为单一用途选择",
+    "viewerStateAfter": "观众把核心收益迁移到多个日常场景，形成更高使用频率想象",
+    "persuasionTask": "用多场景或整体状态展示扩展产品的日常可用性，提升购买理由的覆盖面",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "场景切换",
+      "整体效果可见",
+      "日常价值评价"
+    ],
+    "substitutionRules": [
+      "场景、风格和人群状态可替换，但必须保留多场景适配证明",
+      "包装装饰可弱化，核心是让主体在不同场景中稳定可见"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "质价信任补强槽",
+    "slotType": "value_trust_reinforcement",
+    "viewerStateBefore": "观众认可功能和场景价值，但还需要判断是否值得买、是否可靠",
+    "viewerStateAfter": "观众获得价值反差和信任证据，购买阻力进一步降低",
+    "persuasionTask": "用外部感知、低门槛成本、背书和细节证明把产品从可用推进到值得买",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "价值反差出现",
+      "信任背书补强",
+      "质量细节证明"
+    ],
+    "substitutionRules": [
+      "价值反差和信任来源可替换，但不能只保留低门槛成本而删除质量证明",
+      "质量细节可以换成认证、记录或使用痕迹，但必须能支撑可靠性"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_22",
+        "shot_23",
+        "shot_24",
+        "shot_25",
+        "shot_26"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": true
+  },
+  {
+    "slotId": "F006",
+    "slotOrder": 6,
+    "slotName": "身份转化收束槽",
+    "slotType": "identity_conversion_close",
+    "viewerStateBefore": "观众已获得功能、体验、场景和价值理由，但尚未被推向行动",
+    "viewerStateAfter": "观众把前置核心关切转化为身份收益，并接收到立即行动触发",
+    "persuasionTask": "回扣开头关切形成情绪闭环，再用稀缺或库存风险完成转化收尾",
+    "scriptAtomIds": [
+      "S006"
+    ],
+    "rhythmAtomIds": [
+      "R006"
+    ],
+    "packagingAtomIds": [
+      "P006"
+    ],
+    "requiredSyncPoints": [
+      "核心关切回扣",
+      "身份收益出现",
+      "稀缺行动提示"
+    ],
+    "substitutionRules": [
+      "收尾情绪表达和稀缺理由可替换，但必须回到开头同一观众关切",
+      "行动提示可以是字幕、口播或组件，但不能在尾段引入新的复杂卖点"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.89,
+    "needReview": false
+  }
+]

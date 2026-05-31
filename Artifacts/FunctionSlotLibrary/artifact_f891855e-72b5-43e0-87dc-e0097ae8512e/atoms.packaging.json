@@ -1,0 +1,198 @@
+[
+  {
+    "id": "P001",
+    "slot": "familiarity_bridge_hook",
+    "label": "首屏使用状态加品类入口",
+    "function": "用强主体、使用状态和入口标题把商品类别与观看动机同时推到第一视线",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "首屏吃播加品类大字"
+      ],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "用强主体、使用状态和入口标题把商品类别与观看动机同时推到第一视线",
+    "proofType": "category_and_appetite_entry_proof",
+    "visualProofType": "direct_use_state_with_product_anchor",
+    "visualHierarchy": "入口标题先解释对象，使用状态制造停留，商品露出确认购买对象",
+    "visualElements": [
+      "极近景主体",
+      "人物使用状态",
+      "首屏大字",
+      "商品小露出",
+      "低位短字幕"
+    ],
+    "replaceableForms": [
+      "首屏标题",
+      "使用状态近景",
+      "手持商品露出",
+      "主体特写开场"
+    ],
+    "risk": "如果首屏只强调体验刺激而商品身份不清，后续组合卖点需要额外补认知成本"
+  },
+  {
+    "id": "P002",
+    "slot": "combination_claim_peak",
+    "label": "包装身份与实物组合绑定",
+    "function": "让商品包装、内容物和组合关系连续互证，把新品认知转成可记住的卖点对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "包装正面与实物组合展示",
+        "食材质地近景证明"
+      ],
+      "shotRefs": [
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "让商品包装、内容物和组合关系连续互证，把新品认知转成可记住的卖点对象",
+    "proofType": "product_identity_and_combination_proof",
+    "visualProofType": "package_content_co_presence",
+    "visualHierarchy": "商品身份和实物内容并列为主层，字幕只补充组合关系和感官承诺",
+    "visualElements": [
+      "包装正面",
+      "实物同框",
+      "内容物近景",
+      "低位卖点字幕",
+      "满屏主体展示"
+    ],
+    "replaceableForms": [
+      "包装正面特写",
+      "包装与实物同框",
+      "内容物俯拍",
+      "组合陈列"
+    ],
+    "risk": "如果包装露出与内容物证明分离太远，观众可能记住口感但不能稳定回到购买对象"
+  },
+  {
+    "id": "P003",
+    "slot": "sensory_evidence_deepening",
+    "label": "细节动作证明体验",
+    "function": "把体验形容转成可见的关键细节、内部或结果状态和使用者反馈，增强效果承诺可信度",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "食材质地近景证明"
+      ],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "把体验形容转成可见的关键细节、内部或结果状态和使用者反馈，增强效果承诺可信度",
+    "proofType": "sensory_texture_experience_proof",
+    "visualProofType": "visible_texture_and_eating_feedback",
+    "visualHierarchy": "细节动作和使用反馈为第一层，字幕解释体验结果，商品露出作为背景锚点",
+    "visualElements": [
+      "对象细节近景",
+      "操作或揭示动作",
+      "人物使用反馈",
+      "内部或结果状态展示",
+      "短字幕解释"
+    ],
+    "replaceableForms": [
+      "操作展示",
+      "揭示展示",
+      "使用反馈",
+      "内部或结果状态特写",
+      "连续细节对比"
+    ],
+    "risk": "如果只保留字幕感官词而缺少细节动作，体验承诺会变弱且难以迁移复用"
+  },
+  {
+    "id": "P004",
+    "slot": "trust_assurance_shift",
+    "label": "标题化背书加实物支撑",
+    "function": "把品质或安全信息从普通口播抬升为可见背书，并用实物状态减轻文字背书的空泛感",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "品质安全标题条背书"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "packagingFunction": "把品质或安全信息从普通口播抬升为可见背书，并用实物状态减轻文字背书的空泛感",
+    "proofType": "trust_assurance_proof",
+    "visualProofType": "titleized_claim_with_material_support",
+    "visualHierarchy": "背书标题临时升为最高层级，实物证明居中承接，字幕补足解释",
+    "visualElements": [
+      "高亮标题条",
+      "重点字横条",
+      "实物完整状态",
+      "细节展示",
+      "底部补充字幕"
+    ],
+    "replaceableForms": [
+      "顶部标题条",
+      "重点信息横条",
+      "认证式图卡",
+      "实物细节补证"
+    ],
+    "risk": "如果背书标题强度过高但没有实物支撑，容易从可信证明变成硬广感"
+  },
+  {
+    "id": "P005",
+    "slot": "conversion_reason_close",
+    "label": "多件视觉与终屏商品锚定",
+    "function": "用数量感、商品正面和利益字幕把观看兴趣转成购买理由，并在最后稳定记住购买对象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "多袋铺陈促销收口"
+      ],
+      "shotRefs": [
+        "shot_17",
+        "shot_18"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用数量感、商品正面和利益字幕把观看兴趣转成购买理由，并在最后稳定记住购买对象",
+    "proofType": "conversion_benefit_proof",
+    "visualProofType": "quantity_and_final_product_anchor",
+    "visualHierarchy": "商品包装为最终主视觉，利益信息贴近商品出现，画面变化减少以服务记忆锚定",
+    "visualElements": [
+      "多件铺陈",
+      "终屏正面露出",
+      "利益字幕",
+      "规格或数量暗示",
+      "稳定商品停留"
+    ],
+    "replaceableForms": [
+      "多件陈列",
+      "终屏包装正面",
+      "利益字幕",
+      "规格图卡",
+      "购买对象定格"
+    ],
+    "risk": "如果终段只讲优惠但没有商品锚定，转化利益会脱离前面的卖点证明"
+  }
+]

@@ -1,0 +1,208 @@
+[
+  {
+    "id": "R001",
+    "slot": "aspirational_outcome_activation",
+    "label": "高密度结果抛点",
+    "function": "用快速切换和短促信息堆叠把观众直接拉入结果期待",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "高密度开场抛点"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "fast_result_stack",
+    "densityType": "cut_and_claim_density",
+    "beatShape": "短镜连推后给一次结果停留",
+    "avoidFor": [
+      "complex_mechanism",
+      "multi_step_instruction"
+    ],
+    "syncPoints": [
+      "结果主张出现",
+      "可见结果展示",
+      "外部反馈落点"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "mechanism_credibility",
+    "label": "由外到内的揭示加速",
+    "function": "先稳定展示外部正常性，再通过细节插入把注意力推进到内部机制",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "外观到鞋垫的揭示加速",
+        "证明效果后的放缓展示"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12",
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "progressive_reveal",
+    "densityType": "detail_insert_density",
+    "beatShape": "铺垫-插入-指示停留",
+    "avoidFor": [
+      "pure_emotional_hook",
+      "long_price_push"
+    ],
+    "syncPoints": [
+      "外部正常性铺垫",
+      "内部结构出现",
+      "关键细节指示"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "wearability_reassurance",
+    "label": "体验证明放缓",
+    "function": "把前段机制密度放慢，让观众看清体验细节并消化顾虑回应",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "证明效果后的放缓展示"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "moderate_proof_hold",
+    "densityType": "detail_hold_density",
+    "beatShape": "细节跳点后进入较长证明停留",
+    "avoidFor": [
+      "urgent_conversion",
+      "large_claim_without_visual_anchor"
+    ],
+    "syncPoints": [
+      "体验细节出现",
+      "触感或使用动作",
+      "顾虑回应字幕"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "scenario_value_expansion",
+    "label": "场景展示舒展回落",
+    "function": "从功能解释转向整体场景感，用更平稳的停留降低理解负担并扩展使用想象",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "搭配展示的舒展回落"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "steady_scenario_hold",
+    "densityType": "scene_variation_density",
+    "beatShape": "均匀展示中穿插短转场",
+    "avoidFor": [
+      "high_urgency_close",
+      "technical_detail_explain"
+    ],
+    "syncPoints": [
+      "场景切换",
+      "整体效果展示",
+      "日常价值评价"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "value_trust_reinforcement",
+    "label": "价值信息二次堆叠",
+    "function": "在场景回落后重新压缩信息，用价值反差与细节证明抬高购买判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "价格与细节的二次堆叠"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_22",
+        "shot_23",
+        "shot_24",
+        "shot_25",
+        "shot_26"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "compressed_value_stack",
+    "densityType": "claim_and_detail_density",
+    "beatShape": "价值刺激连续推进后用细节停留收住",
+    "avoidFor": [
+      "slow_emotional_resolution",
+      "complex_step_instruction"
+    ],
+    "syncPoints": [
+      "价值反差出现",
+      "背书信息出现",
+      "质量细节停留"
+    ]
+  },
+  {
+    "id": "R006",
+    "slot": "identity_conversion_close",
+    "label": "紧迫收尾抬升",
+    "function": "用情绪回扣和紧迫信息形成最后峰值，再用较完整收尾画面给行动提示落点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "收尾紧迫感抬升"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.89,
+    "needReview": false,
+    "pace": "urgent_close_with_hold",
+    "densityType": "conversion_density",
+    "beatShape": "短促转折-紧迫峰值-收尾停留",
+    "avoidFor": [
+      "new_feature_explain",
+      "unresolved_mechanism"
+    ],
+    "syncPoints": [
+      "身份收益回扣",
+      "稀缺信息出现",
+      "行动提示落点"
+    ]
+  }
+]

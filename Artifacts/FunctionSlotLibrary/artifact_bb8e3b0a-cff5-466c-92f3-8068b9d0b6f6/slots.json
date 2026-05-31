@@ -1,0 +1,233 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "核心兴趣激活槽",
+    "slotType": "core_interest_conflict",
+    "viewerStateBefore": "观众尚未进入商品语境，也没有明确关注点。",
+    "viewerStateAfter": "观众被一个具体核心利益点和反差表达吸引，愿意等待解释。",
+    "persuasionTask": "用冲突感和真实体验入口先建立记忆点，把普通观看状态转成卖点期待。",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "核心利益点出现",
+      "体验动作出现",
+      "商品识别成立"
+    ],
+    "substitutionRules": [
+      "核心利益点、冲突话术和体验形式可以替换，但必须保留可见商品或可见使用状态支撑开场判断。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "价值立场承接槽",
+    "slotType": "value_positioning",
+    "viewerStateBefore": "观众记住了核心利益点，但还不清楚利益服务谁、为什么成立。",
+    "viewerStateAfter": "观众理解该利益对应的目标人群和基础价值承诺。",
+    "persuasionTask": "把开场情绪转化为明确的用户利益和价值站位，为后续可信疑问做铺垫。",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "目标人群被点明",
+      "价值承诺出现",
+      "商品保持可见"
+    ],
+    "substitutionRules": [
+      "目标人群和利益表述可以替换，但必须承接开场核心利益，不能另起无关卖点。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "可信疑问加压槽",
+    "slotType": "credibility_question",
+    "viewerStateBefore": "观众听到了低门槛或高利益承诺，但可能产生可靠性疑问。",
+    "viewerStateAfter": "观众的疑虑被显性化，并期待后续证据回应。",
+    "persuasionTask": "主动抛出可信度问题，并把问题落到可见对象上，制造证据释放的必要性。",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "低门槛利益出现",
+      "可信疑问提出",
+      "证明对象前置"
+    ],
+    "substitutionRules": [
+      "低门槛类型、质疑角度和证明对象可替换，但疑问必须指向后续能被证明的信息。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "客观证明释放槽",
+    "slotType": "objective_proof_release",
+    "viewerStateBefore": "观众带着低门槛是否可信的疑问等待解释。",
+    "viewerStateAfter": "观众看到可核查证据，基础信任被修复，可以继续接受感官证明。",
+    "persuasionTask": "用可见、可核查的信息回应前一槽位疑问，完成从追问压力到证据释放的转换。",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "疑问回应开始",
+      "客观证据出现",
+      "标注动作与说明同步"
+    ],
+    "substitutionRules": [
+      "客观证据可以是标签、记录、参数、认证或可回看的外部信息，但必须能直接回应前一槽位提出的疑问。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": true
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "感官证据堆叠槽",
+    "slotType": "sensory_proof_stack",
+    "viewerStateBefore": "观众已获得基础信任，但还需要判断真实吸引力和体验价值。",
+    "viewerStateAfter": "观众通过多维实拍细节和体验反馈形成感官确认。",
+    "persuasionTask": "把商品好不好、值不值得的判断从客观可信推进到可感知、可想象的体验欲望。",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "外观细节与字幕对应",
+      "结构或质地展示与卖点对应",
+      "体验反馈回收前面证明"
+    ],
+    "substitutionRules": [
+      "具体展示维度可以替换，但至少应形成两个以上互补的感官证据，并由体验反馈或使用结果回收。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false
+  },
+  {
+    "slotId": "F006",
+    "slotOrder": 6,
+    "slotName": "场景价值收束槽",
+    "slotType": "scenario_value_close",
+    "viewerStateBefore": "观众认可商品有可信证据和感官吸引力，但购买场景和最终理由还需要收束。",
+    "viewerStateAfter": "观众把商品与高频使用场景、用户利益和末尾记忆点连接起来。",
+    "persuasionTask": "补足使用场景和价值态度，并通过节奏峰值后的停留保留商品印象。",
+    "scriptAtomIds": [
+      "S006"
+    ],
+    "rhythmAtomIds": [
+      "R006",
+      "R007"
+    ],
+    "packagingAtomIds": [
+      "P006"
+    ],
+    "requiredSyncPoints": [
+      "使用场景出现",
+      "利益态度收束",
+      "商品保持可见",
+      "末尾停止追加新信息"
+    ],
+    "substitutionRules": [
+      "场景、态度和收尾画面可以替换，但必须回扣前面已证明的核心利益或同一观众关切。"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  }
+]

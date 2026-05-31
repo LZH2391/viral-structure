@@ -1,0 +1,26 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "强结果先抛到机制证明再稀缺收束",
+    "sequence": [
+      "aspirational_outcome_activation",
+      "mechanism_credibility",
+      "wearability_reassurance",
+      "scenario_value_expansion",
+      "value_trust_reinforcement",
+      "identity_conversion_close"
+    ]
+  },
+  {
+    "templateId": "T002",
+    "templateName": "结果钩子加日常价值扩展型",
+    "sequence": [
+      "aspirational_outcome_activation",
+      "mechanism_credibility",
+      "scenario_value_expansion",
+      "wearability_reassurance",
+      "value_trust_reinforcement",
+      "identity_conversion_close"
+    ]
+  }
+]

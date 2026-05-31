@@ -1,0 +1,165 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F002"
+      ],
+      "atomIds": [
+        "S002",
+        "R001"
+      ],
+      "reason": "机制可信槽包含实现逻辑和顾虑降低，不适合直接使用开场高密结果抛点节奏",
+      "fix": "机制揭示处保留细节插入，但关键结构需要明确停留或指示",
+      "appliesTo": [],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F003"
+      ],
+      "atomIds": [
+        "S003",
+        "R005"
+      ],
+      "reason": "体验顾虑解除需要可感知证明，不适合和价值信息二次堆叠节奏混用",
+      "fix": "把体验证明放在相对放缓点，并用近景、触感或使用动作承接",
+      "appliesTo": [],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P005"
+      ],
+      "reason": "低门槛成本如果缺少质量或信任证据，会和质价信任任务冲突",
+      "fix": "至少补入一种背书、细节、记录或第三方感知证明",
+      "appliesTo": [],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "R006"
+      ],
+      "reason": "转化收尾不适合引入新的复杂机制或新卖点，否则会打断行动峰值",
+      "fix": "尾段只回扣核心关切、强化收益和给出行动触发",
+      "appliesTo": [],
+      "sourceBindingIds": []
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "强欲望开场后，后续必须至少安排一个机制或证明槽位承接结果承诺，避免开头收益悬空",
+      "fix": "",
+      "appliesTo": [
+        "aspirational_outcome_activation",
+        "mechanism_credibility"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B002"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "机制可信槽可以跨越脚本边界吸收部分效果证明，但关键机制揭示必须有可见结构锚点和节奏停留",
+      "fix": "",
+      "appliesTo": [
+        "mechanism_credibility"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "体验顾虑解除槽应放在核心机制之后、日常场景扩展之前，优先证明不会牺牲使用体验",
+      "fix": "",
+      "appliesTo": [
+        "mechanism_credibility",
+        "wearability_reassurance",
+        "scenario_value_expansion"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B005"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "日常场景扩展槽可以移动或压缩，但不能早于观众理解核心收益和基本可信证据",
+      "fix": "",
+      "appliesTo": [
+        "scenario_value_expansion"
+      ],
+      "sourceBindingIds": [
+        "B005"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "质价信任槽中的低门槛信息必须和质量、背书或细节证明绑定，不能单独作为购买理由",
+      "fix": "",
+      "appliesTo": [
+        "value_trust_reinforcement"
+      ],
+      "sourceBindingIds": [
+        "B006",
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "转化收尾必须回扣开头同一核心关切或同一身份收益，再叠加稀缺、库存或行动提示",
+      "fix": "",
+      "appliesTo": [
+        "aspirational_outcome_activation",
+        "identity_conversion_close"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "RULE007",
+      "slotIds": [],
+      "atomIds": [],
+      "reason": "重组优先保证脚本逻辑完整性和证明匹配度；节奏曲线和包装风格只能在不破坏证明关系的前提下替换",
+      "fix": "",
+      "appliesTo": [
+        "aspirational_outcome_activation",
+        "mechanism_credibility",
+        "wearability_reassurance",
+        "scenario_value_expansion",
+        "value_trust_reinforcement",
+        "identity_conversion_close"
+      ],
+      "sourceBindingIds": [
+        "B010"
+      ]
+    }
+  ]
+}

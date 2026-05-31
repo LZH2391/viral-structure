@@ -1,0 +1,198 @@
+[
+  {
+    "id": "S001",
+    "slot": "core_interest_conflict",
+    "label": "核心利益反差钩子",
+    "function": "用夸张质疑或角色冲突先放大一个最易被记住的核心利益点，让观众从普通商品识别进入具体卖点期待。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "反差冲突钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "conflict_to_interest",
+    "proofNeed": "需要可见的商品状态或真实使用反应支撑开场判断，避免只停留在口头夸张。",
+    "mustKeep": [
+      "开场冲突",
+      "核心利益点前置",
+      "真实体验入口"
+    ],
+    "replaceableVariables": [
+      "核心利益点",
+      "冲突表达方式",
+      "体验者角色",
+      "开场口播语气"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "value_positioning",
+    "label": "利益立场承接",
+    "function": "把开场冲突转成明确的用户利益和价值立场，使观众理解该卖点服务谁、为什么值得继续看。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "便宜好蛋糕立场"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": false,
+    "claimType": "interest_to_value_position",
+    "proofNeed": "需要商品持续同框或体验动作维持可信入口，同时用简短解释完成价值转向。",
+    "mustKeep": [
+      "目标人群站位",
+      "核心利益解释",
+      "从情绪钩子转向价值承诺"
+    ],
+    "replaceableVariables": [
+      "目标人群",
+      "利益表述",
+      "价值承诺角度"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "credibility_question",
+    "label": "低门槛可信质疑",
+    "function": "主动提出低门槛利益背后的可信疑问，把观众可能的顾虑显性化，并为后续证据释放建立必要性。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "低价大箱质疑"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "value_to_trust_question",
+    "proofNeed": "需要可见规格、外部标识或可核查信息作为质疑对象，不能只用抽象反问。",
+    "mustKeep": [
+      "低门槛利益",
+      "可信度疑问",
+      "后续证明入口"
+    ],
+    "replaceableVariables": [
+      "门槛类型",
+      "质疑角度",
+      "可视化承接对象"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "objective_proof_release",
+    "label": "客观指标回应",
+    "function": "用可核查的客观信息回应前一槽位的信任疑问，先建立基础可信度，再转入感官或体验证明。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "成分含量回应"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "claimType": "trust_question_to_objective_proof",
+    "proofNeed": "需要包装信息、标签信息、参数、记录或其他可回看的客观证据与口播同步出现。",
+    "mustKeep": [
+      "前置疑问回应",
+      "可核查证据",
+      "证明从口播落到视觉"
+    ],
+    "replaceableVariables": [
+      "客观指标",
+      "证据载体",
+      "标注方式"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "sensory_proof_stack",
+    "label": "感官证据堆叠",
+    "function": "在基础可信成立后，连续展示外观、结构、质地和体验反馈，把理性信任推进为感官欲望和购买理由。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "外观口感证据堆叠"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "claimType": "objective_proof_to_sensory_confirmation",
+    "proofNeed": "需要多层次实拍细节、动作演示或体验反应形成递进证据链。",
+    "mustKeep": [
+      "多维感官证据",
+      "细节递进",
+      "体验反馈回收"
+    ],
+    "replaceableVariables": [
+      "外观维度",
+      "结构维度",
+      "体验反馈方式",
+      "细节展示顺序"
+    ]
+  },
+  {
+    "id": "S006",
+    "slot": "scenario_value_close",
+    "label": "场景利益收束",
+    "function": "在证明完成后补充高频使用场景，并用用户利益或态度表达把价值判断收束成购买理由和商品记忆。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "场景适配与价格反问收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "proof_to_usage_and_value_close",
+    "proofNeed": "需要商品继续可见、体验状态延续，并尽量保留前面核心利益或可信问题的回扣。",
+    "mustKeep": [
+      "使用场景",
+      "用户利益收束",
+      "商品记忆停留"
+    ],
+    "replaceableVariables": [
+      "消费场景",
+      "收束态度",
+      "利益重申方式",
+      "末尾停留形式"
+    ]
+  }
+]

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "S001",
+    "slot": "familiarity_bridge_hook",
+    "label": "熟悉经验转新组合入口",
+    "function": "先借观众已理解的单点体验降低认知门槛，再把两个熟悉对象合成为一个新的核心卖点入口",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "新品组合钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "familiarity_to_new_combination",
+    "proofNeed": "需要同时出现可识别的使用或体验状态、商品身份和组合关系，避免新品信息只停留在口播",
+    "mustKeep": [
+      "熟悉经验前置",
+      "新组合关系明确",
+      "商品对象快速可见"
+    ],
+    "replaceableVariables": [
+      "熟悉经验类型",
+      "组合对象",
+      "新品表达方式",
+      "入口话题表达"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "combination_claim_peak",
+    "label": "组合卖点压缩成峰值",
+    "function": "把新组合从认知入口推进为明确的感官承诺，并用密集展示把卖点推到第一轮注意力高点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "新品组合钩子"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "combination_sensory_promise",
+    "proofNeed": "需要组合关系、商品包装和内容物同屏或连续互证，并用结果性表达承接前段入口",
+    "mustKeep": [
+      "组合承诺被明确说清",
+      "包装身份与内容物绑定",
+      "第一轮感官峰值"
+    ],
+    "replaceableVariables": [
+      "组合卖点名称",
+      "峰值表达",
+      "展示角度",
+      "商品露出形式"
+    ]
+  },
+  {
+    "id": "S003",
+    "slot": "sensory_evidence_deepening",
+    "label": "体验状态与效果证明",
+    "function": "承接前面的体验承诺，把抽象效果拆成可见的规格状态、关键细节、内部或结果状态和体验反馈",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "食材口感证明"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "sensory_claim_to_visible_evidence",
+    "proofNeed": "需要对象细节、内部或结果状态展示和使用者反馈连续出现，证明体验承诺不是单纯形容词",
+    "mustKeep": [
+      "体验承诺回到可见证据",
+      "细节证明逐步加深",
+      "体验反馈形成第二峰值"
+    ],
+    "replaceableVariables": [
+      "质地证明对象",
+      "细节展示方式",
+      "体验反馈表达",
+      "感官结果词"
+    ]
+  },
+  {
+    "id": "S004",
+    "slot": "trust_assurance_shift",
+    "label": "从体验兴趣转向放心背书",
+    "function": "在体验兴趣已建立后切入理性信任，补足品质、安全或工艺层面的购买顾虑",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "品质安全背书"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "sensory_to_trust_assurance",
+    "proofNeed": "需要背书信息被显性化，同时保留实物细节支撑，避免信任主张变成空泛口播",
+    "mustKeep": [
+      "信任主张在体验证明之后出现",
+      "背书信息清晰抬升",
+      "实物状态辅助背书"
+    ],
+    "replaceableVariables": [
+      "背书来源",
+      "工艺或安全表述",
+      "质量证明角度",
+      "信任标题样式"
+    ]
+  },
+  {
+    "id": "S005",
+    "slot": "conversion_reason_close",
+    "label": "便利与利益收束",
+    "function": "把前面的卖点和信任证明转化为明确购买理由，用便利性、规格感或优惠感完成下单动机收口",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "便利优惠收束"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "claimType": "proof_to_purchase_reason",
+    "proofNeed": "需要清楚呈现购买对象、数量或规格利益，并让最终画面回到商品身份",
+    "mustKeep": [
+      "购买理由后置",
+      "商品身份最终锚定",
+      "利益点集中收口"
+    ],
+    "replaceableVariables": [
+      "便利利益",
+      "促销利益",
+      "规格呈现",
+      "终屏商品锚点"
+    ]
+  }
+]

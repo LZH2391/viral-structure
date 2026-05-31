@@ -1,0 +1,195 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "熟悉经验钩子槽",
+    "slotType": "familiarity_bridge_hook",
+    "viewerStateBefore": "观众尚未进入商品语境，只可能对熟悉使用或体验场景有基础认知",
+    "viewerStateAfter": "观众知道这是一个由熟悉体验组合出的新卖点，并愿意继续看证明",
+    "persuasionTask": "用熟悉经验降低新品理解成本，同时快速建立商品对象和观看动机",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "入口话题出现",
+      "使用状态出现",
+      "商品身份露出"
+    ],
+    "substitutionRules": [
+      "熟悉经验、入口话题和首屏视觉形式可替换，但必须保留快速说明对象和制造停留的双重任务"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "组合承诺峰值槽",
+    "slotType": "combination_claim_peak",
+    "viewerStateBefore": "观众已知道商品对象，但组合卖点还没有形成强记忆点",
+    "viewerStateAfter": "观众把商品身份、组合关系和感官承诺绑定成一个清晰卖点",
+    "persuasionTask": "把组合卖点压缩到第一轮注意力峰值，并用包装与实物互证避免只记住概念",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "组合关系被明确",
+      "商品身份被强化",
+      "感官承诺形成峰值"
+    ],
+    "substitutionRules": [
+      "展示角度和包装露出形式可替换，但组合关系、商品身份和峰值承诺必须在同一注意力段内完成"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false
+  },
+  {
+    "slotId": "F003",
+    "slotOrder": 3,
+    "slotName": "感官证据深化槽",
+    "slotType": "sensory_evidence_deepening",
+    "viewerStateBefore": "观众已被感官承诺吸引，但仍需要看到承诺如何成立",
+    "viewerStateAfter": "观众通过细节状态和使用反馈相信体验或效果承诺有可见依据",
+    "persuasionTask": "把体验卖点从抽象形容推进到连续可见证据，并形成第二轮体验峰值",
+    "scriptAtomIds": [
+      "S003"
+    ],
+    "rhythmAtomIds": [
+      "R003"
+    ],
+    "packagingAtomIds": [
+      "P003"
+    ],
+    "requiredSyncPoints": [
+      "细节证据出现",
+      "动作揭示状态",
+      "真人体验或结果反馈出现"
+    ],
+    "substitutionRules": [
+      "具体细节动作和体验反馈形式可替换，但必须保留从状态展示到体验确认的递进"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false
+  },
+  {
+    "slotId": "F004",
+    "slotOrder": 4,
+    "slotName": "品质放心背书槽",
+    "slotType": "trust_assurance_shift",
+    "viewerStateBefore": "观众已产生体验兴趣，但仍可能担心品质、安全或可靠性",
+    "viewerStateAfter": "观众获得理性信任补充，前面的感官兴趣被转化为更放心的购买判断",
+    "persuasionTask": "在感官证明之后补上信任背书，并用稳定节奏和标题化包装承载理性信息",
+    "scriptAtomIds": [
+      "S004"
+    ],
+    "rhythmAtomIds": [
+      "R004"
+    ],
+    "packagingAtomIds": [
+      "P004"
+    ],
+    "requiredSyncPoints": [
+      "信任主张出现",
+      "背书信息被抬升",
+      "实物证据同步补充"
+    ],
+    "substitutionRules": [
+      "背书来源和标题化载体可替换，但理性信任必须位于感官证明之后，并配可见支撑"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": false
+  },
+  {
+    "slotId": "F005",
+    "slotOrder": 5,
+    "slotName": "转化利益收束槽",
+    "slotType": "conversion_reason_close",
+    "viewerStateBefore": "观众已理解卖点和可信理由，但还缺少立即购买的现实动机",
+    "viewerStateAfter": "观众把商品对象、便利或利益点与购买理由合并记住",
+    "persuasionTask": "用便利性、数量感或优惠感完成购买理由收口，并在终屏回到商品身份",
+    "scriptAtomIds": [
+      "S005"
+    ],
+    "rhythmAtomIds": [
+      "R005"
+    ],
+    "packagingAtomIds": [
+      "P005"
+    ],
+    "requiredSyncPoints": [
+      "购买利益出现",
+      "规格或数量感被看见",
+      "终屏商品身份锚定"
+    ],
+    "substitutionRules": [
+      "促销利益、规格呈现和终屏形式可替换，但购买对象必须在收尾被清楚锚定"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false
+  }
+]

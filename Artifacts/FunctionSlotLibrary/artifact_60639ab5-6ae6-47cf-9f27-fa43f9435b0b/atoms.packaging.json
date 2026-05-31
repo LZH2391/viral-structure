@@ -1,0 +1,240 @@
+[
+  {
+    "id": "P001",
+    "slot": "aspirational_outcome_activation",
+    "label": "实拍结果钩子包装",
+    "function": "用真人口播、前景展示、试用状态和统一字幕把抽象收益变成首屏可感知结果",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "手持商品钩子与增高承诺",
+        "镜前穿搭与身高效果展示"
+      ],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": true,
+    "packagingFunction": "用真人口播、前景展示、试用状态和统一字幕把抽象收益变成首屏可感知结果",
+    "proofType": "visible_outcome_and_social_feedback",
+    "visualProofType": "direct_use_result_display",
+    "visualHierarchy": "收益结果第一，主体对象第二，人物反馈和字幕辅助解释",
+    "visualElements": [
+      "前景主体展示",
+      "真人口播",
+      "试用状态画面",
+      "底部解释字幕",
+      "生活反馈表达"
+    ],
+    "replaceableForms": [
+      "手持展示",
+      "镜前展示",
+      "前后状态展示",
+      "第三方评价字幕"
+    ],
+    "risk": "如果首屏只讲收益没有可见结果，强欲望钩子会变成空口承诺"
+  },
+  {
+    "id": "P002",
+    "slot": "mechanism_credibility",
+    "label": "内外反差机制包装",
+    "function": "用外部正常性展示与内部结构揭示形成反差，把结果承诺落到可见机制证据上",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "外观普通与隐藏鞋垫揭示"
+      ],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "packagingFunction": "用外部正常性展示与内部结构揭示形成反差，把结果承诺落到可见机制证据上",
+    "proofType": "mechanism_visual_proof",
+    "visualProofType": "outside_normal_inside_function_reveal",
+    "visualHierarchy": "外部正常性先建立，内部关键结构随后成为第一视线，字幕补足机制逻辑",
+    "visualElements": [
+      "外观整体展示",
+      "内部结构近景",
+      "手部指示",
+      "底部机制字幕",
+      "实物反差"
+    ],
+    "replaceableForms": [
+      "拆开展示",
+      "局部拉出",
+      "剖面展示",
+      "指示近景"
+    ],
+    "risk": "如果只保留机制口播而缺少内部可见证据，隐藏性与可信度都会下降"
+  },
+  {
+    "id": "P003",
+    "slot": "wearability_reassurance",
+    "label": "体验细节证明包装",
+    "function": "用近景细节、触碰或使用动作把潜在体验顾虑转化为可感知的功能证明",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "鞋垫舒适与透气细节证明"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "packagingFunction": "用近景细节、触碰或使用动作把潜在体验顾虑转化为可感知的功能证明",
+    "proofType": "usage_experience_proof",
+    "visualProofType": "detail_and_action_reassurance",
+    "visualHierarchy": "体验证据主体第一，动作第二，字幕解释具体感受和功能",
+    "visualElements": [
+      "功能部件近景",
+      "触碰动作",
+      "使用动作",
+      "细节字幕",
+      "材质或结构展示"
+    ],
+    "replaceableForms": [
+      "按压展示",
+      "触摸展示",
+      "穿用展示",
+      "局部近景"
+    ],
+    "risk": "如果体验主张放在高密快切中，观众可能看不到证明细节，只记住口播结论"
+  },
+  {
+    "id": "P004",
+    "slot": "scenario_value_expansion",
+    "label": "多场景实用价值包装",
+    "function": "用多个日常状态或场景展示证明核心收益可以融入真实使用，而不是孤立功能演示",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "黑色百搭与日常穿搭展示"
+      ],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "用多个日常状态或场景展示证明核心收益可以融入真实使用，而不是孤立功能演示",
+    "proofType": "scenario_fit_proof",
+    "visualProofType": "multi_context_use_display",
+    "visualHierarchy": "整体使用效果第一，主体对象作为稳定视觉锚点，字幕补充风格或日常价值判断",
+    "visualElements": [
+      "多场景展示",
+      "整体状态画面",
+      "主体稳定露出",
+      "评价式字幕",
+      "低装饰实拍"
+    ],
+    "replaceableForms": [
+      "不同场景切换",
+      "不同人群状态",
+      "不同搭配状态",
+      "日常动作展示"
+    ],
+    "risk": "如果场景展示缺少核心收益的视觉锚点，会变成泛泛生活片段，削弱说服链路"
+  },
+  {
+    "id": "P005",
+    "slot": "value_trust_reinforcement",
+    "label": "质价信任包装",
+    "function": "用外部评价、低门槛信息、品牌感和细节近景共同包装值得买的判断",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "质价比、品牌与工艺信任"
+      ],
+      "shotRefs": [
+        "shot_22",
+        "shot_23",
+        "shot_24",
+        "shot_25",
+        "shot_26"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": true,
+    "packagingFunction": "用外部评价、低门槛信息、品牌感和细节近景共同包装值得买的判断",
+    "proofType": "value_and_trust_proof",
+    "visualProofType": "price_quality_contrast_with_detail",
+    "visualHierarchy": "价值判断由字幕提出，实物细节和使用状态提供支撑，指示动作引导看见质量证据",
+    "visualElements": [
+      "主体近景",
+      "第三方感知字幕",
+      "低门槛字幕",
+      "细节指示",
+      "品质近景"
+    ],
+    "replaceableForms": [
+      "第三方评价",
+      "价格反差表达",
+      "品牌背书",
+      "工艺细节近景"
+    ],
+    "risk": "如果只强调低门槛成本而没有质量或信任证据，容易降低感知价值"
+  },
+  {
+    "id": "P006",
+    "slot": "identity_conversion_close",
+    "label": "稀缺行动收尾包装",
+    "function": "用正面收束展示、情绪动作和口播字幕把身份收益、稀缺理由与行动提示合并到最后落点",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "断码稀缺与收尾行动"
+      ],
+      "shotRefs": [
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "用正面收束展示、情绪动作和口播字幕把身份收益、稀缺理由与行动提示合并到最后落点",
+    "proofType": "scarcity_conversion_wrap",
+    "visualProofType": "identity_callback_with_action_display",
+    "visualHierarchy": "收尾主体对象第一，身份情绪第二，稀缺和行动字幕负责转化闭环",
+    "visualElements": [
+      "正面收尾展示",
+      "情绪手势",
+      "稀缺字幕",
+      "行动提示字幕",
+      "主体中心露出"
+    ],
+    "replaceableForms": [
+      "正面展示",
+      "结果回扣动作",
+      "库存稀缺字幕",
+      "行动口播字幕"
+    ],
+    "risk": "如果尾段只做稀缺催促而不回扣前面核心关切，行动理由会显得割裂"
+  }
+]

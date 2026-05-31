@@ -1,0 +1,224 @@
+[
+  {
+    "id": "R001",
+    "slot": "core_interest_conflict",
+    "label": "密集体验起手",
+    "function": "用真实体验动作和短句连续推进快速抓住注意力，并把观众压入核心卖点讨论。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "开场密集试吃钩子"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "fast_tight_opening",
+    "densityType": "speech_action_density",
+    "beatShape": "先进入再收紧",
+    "avoidFor": [
+      "complex_mechanism",
+      "long_parameter_explain"
+    ],
+    "syncPoints": [
+      "核心利益被点出",
+      "体验动作出现",
+      "字幕质疑推进"
+    ]
+  },
+  {
+    "id": "R002",
+    "slot": "value_positioning",
+    "label": "短顿解释承接",
+    "function": "从开场紧压中稍微放松，用短暂停顿承接价值解释，让观众从情绪冲突转向理解利益。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "短促解释中的小停顿"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.78,
+    "needReview": false,
+    "pace": "brief_pause_then_explain",
+    "densityType": "speech_density",
+    "beatShape": "短顿后继续推进",
+    "avoidFor": [
+      "major_emotional_peak",
+      "dense_evidence_stack"
+    ],
+    "syncPoints": [
+      "价值立场出现",
+      "目标人群被点明",
+      "商品保持同框"
+    ]
+  },
+  {
+    "id": "R003",
+    "slot": "credibility_question",
+    "label": "追问加压节奏",
+    "function": "通过短镜头、对象切换和连续追问把低门槛利益转成可信压力，迫使观众等待证据释放。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "包装介入后的追问加压"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "pace": "fast_interrogative_pressure",
+    "densityType": "cut_and_question_density",
+    "beatShape": "连续追问后蓄势",
+    "avoidFor": [
+      "calm_instruction",
+      "detailed_parameter_reading"
+    ],
+    "syncPoints": [
+      "低门槛信息出现",
+      "质疑句推进",
+      "证明对象被推到前景"
+    ]
+  },
+  {
+    "id": "R004",
+    "slot": "objective_proof_release",
+    "label": "展示释放节奏",
+    "function": "把前段追问压力转换为较长的视觉证明时间，让观众有机会看清客观证据。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "展示型信息释放"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_12"
+      ]
+    },
+    "confidence": 0.8,
+    "needReview": true,
+    "pace": "slower_visual_release",
+    "densityType": "visual_proof_density",
+    "beatShape": "加压后的证据释放",
+    "avoidFor": [
+      "pure_emotional_punchline",
+      "rapid_multi_claim_switch"
+    ],
+    "syncPoints": [
+      "疑问被回应",
+      "证据区域出现",
+      "标注动作与说明同步"
+    ]
+  },
+  {
+    "id": "R005",
+    "slot": "sensory_proof_stack",
+    "label": "细节堆叠推进",
+    "function": "用连续细节切换维持中段注意力，把观众从信任判断带到感官确认。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "产品细节堆叠推进"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "medium_dense_showcase",
+    "densityType": "visual_detail_density",
+    "beatShape": "细节递进后短回收",
+    "avoidFor": [
+      "new_trust_question",
+      "long_scene_expansion"
+    ],
+    "syncPoints": [
+      "外观细节出现",
+      "结构细节出现",
+      "体验反馈回收"
+    ]
+  },
+  {
+    "id": "R006",
+    "slot": "scenario_value_close",
+    "label": "对话二次加压",
+    "function": "在证明完成后回到人物对话，用场景补充和价值反问制造末段情绪峰值。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "回到对话的二次加压"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_17",
+        "shot_18"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "pace": "long_dialogue_pressure",
+    "densityType": "speech_and_gesture_density",
+    "beatShape": "持续累积后正面回应",
+    "avoidFor": [
+      "new_objective_proof",
+      "multi_step_instruction"
+    ],
+    "syncPoints": [
+      "使用场景出现",
+      "价值质疑被回应",
+      "体验状态延续"
+    ]
+  },
+  {
+    "id": "R007",
+    "slot": "scenario_value_close",
+    "label": "静止记忆回落",
+    "function": "在情绪峰值后降低动作和信息密度，让商品印象停留而不是继续追加新主张。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "静止余韵收尾"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_19"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "static_cooldown",
+    "densityType": "low_information_density",
+    "beatShape": "峰值后的停顿回落",
+    "avoidFor": [
+      "new_claim_launch",
+      "urgent_conversion_push"
+    ],
+    "syncPoints": [
+      "新信息停止",
+      "商品保持可见",
+      "人物动作放缓"
+    ]
+  }
+]

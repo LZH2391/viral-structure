@@ -20,6 +20,19 @@
       }
     },
     {
+      "artifactId": "artifact_60639ab5-6ae6-47cf-9f27-fa43f9435b0b",
+      "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "traceId": "trace_dca3f301-6bc6-435f-b981-d590f1e95876",
+      "contentHash": "4afaff0d55dcec71814e720e95145779200d1f4e66c7b03da05a8c62abf0dab7",
+      "counts": {
+        "slotCount": 6,
+        "atomCount": 18,
+        "bindingCount": 10,
+        "ruleCount": 11,
+        "templateCount": 2
+      }
+    },
+    {
       "artifactId": "artifact_88b76b7b-2c1f-415b-bcb3-849558e72582",
       "sampleVideoId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
       "traceId": "trace_9c8105c7-2a8f-4342-95c4-4f03778daeeb",
@@ -46,16 +59,16 @@
       }
     },
     {
-      "artifactId": "artifact_caf4498c-156c-49c4-b336-5576e97d1b17",
-      "sampleVideoId": "sample_a05498b1-db46-4a1d-ad1f-e5eabd36fb39",
-      "traceId": "trace_bac127ee-299f-4452-bcf9-d925c3c581fc",
-      "contentHash": "64677b16fc3d93458071205a1c9f7a63f6fd369af8d40253bba263385bd1ddef",
+      "artifactId": "artifact_bb8e3b0a-cff5-466c-92f3-8068b9d0b6f6",
+      "sampleVideoId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "traceId": "trace_f2c6371e-2a4c-4baa-9c8c-ea622ecf40d7",
+      "contentHash": "8c6f8275b5bbc734cfc9cae076922500f0bfc64ceeedc627ae0dd436ebe55dee",
       "counts": {
-        "slotCount": 0,
-        "atomCount": 0,
-        "bindingCount": 0,
-        "ruleCount": 0,
-        "templateCount": 0
+        "slotCount": 6,
+        "atomCount": 19,
+        "bindingCount": 9,
+        "ruleCount": 10,
+        "templateCount": 1
       }
     },
     {
@@ -72,32 +85,38 @@
       }
     },
     {
-      "artifactId": "artifact_eec11642-36bd-4e34-9e06-e4ac26084cd4",
-      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
-      "traceId": "trace_0bf85b72-5694-49a5-9052-259b2094b744",
-      "contentHash": "4a6e60d6d9d838937ef2faf121da1ca1cf4841fbcd3656ba2df4d085489fc45f",
+      "artifactId": "artifact_f891855e-72b5-43e0-87dc-e0097ae8512e",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "traceId": "trace_4ee62469-7e4e-4994-92cd-2f4753e547a4",
+      "contentHash": "643c35a8b3bdd2ac1c334fe92a2c228fa159c5d118b335c96bcac954d2634475",
       "counts": {
-        "slotCount": 6,
-        "atomCount": 18,
+        "slotCount": 5,
+        "atomCount": 15,
         "bindingCount": 9,
         "ruleCount": 10,
-        "templateCount": 2
+        "templateCount": 1
       }
     }
   ],
   "coverage": {
-    "sampleCount": 6,
-    "slotVariantCount": 27,
-    "atomVariantCount": 82,
-    "bindingCount": 42,
-    "ruleCount": 49,
-    "templateCount": 8,
+    "sampleCount": 7,
+    "slotVariantCount": 38,
+    "atomVariantCount": 116,
+    "bindingCount": 61,
+    "ruleCount": 70,
+    "templateCount": 10,
     "slotTypeSupport": {
       "instant_solution_preview": 1,
-      "pain_backfill": 2,
+      "pain_backfill": 1,
       "coverage_bridge": 1,
-      "mechanism_trust": 2,
+      "mechanism_trust": 1,
       "life_benefit_close": 1,
+      "aspirational_outcome_activation": 1,
+      "mechanism_credibility": 2,
+      "wearability_reassurance": 1,
+      "scenario_value_expansion": 1,
+      "value_trust_reinforcement": 1,
+      "identity_conversion_close": 1,
       "value_anchor": 1,
       "quantity_value_confirmation": 1,
       "quality_trust_build": 1,
@@ -109,25 +128,33 @@
       "mechanism_proof": 1,
       "usage_result_confirmation": 1,
       "choice_close": 1,
+      "core_interest_conflict": 1,
+      "value_positioning": 1,
+      "credibility_question": 1,
+      "objective_proof_release": 1,
+      "sensory_proof_stack": 1,
+      "scenario_value_close": 1,
       "problem_activation": 1,
-      "mechanism_credibility": 1,
       "low_barrier_operation": 1,
       "result_confirmation": 1,
       "long_term_trust_close": 1,
-      "low_barrier_entry": 1,
-      "stress_result_validation": 1,
-      "scope_assurance": 1,
-      "lifestyle_result_close": 1
+      "familiarity_bridge_hook": 1,
+      "combination_claim_peak": 1,
+      "sensory_evidence_deepening": 1,
+      "trust_assurance_shift": 1,
+      "conversion_reason_close": 1
     },
     "chainPatternSupport": {
       "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close": 1,
       "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close": 1,
+      "aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close": 1,
+      "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close": 1,
       "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close": 1,
       "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close": 1,
       "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close": 1,
+      "core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close": 1,
       "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close": 1,
-      "low_barrier_entry > stress_result_validation > pain_backfill > scope_assurance > mechanism_trust > lifestyle_result_close": 1,
-      "pain_backfill > low_barrier_entry > stress_result_validation > scope_assurance > mechanism_trust > lifestyle_result_close": 1
+      "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close": 1
     }
   },
   "slotFamilies": [
@@ -3105,82 +3132,107 @@
   ],
   "unmappedAtomVariants": [
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001",
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003",
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R002",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R004",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
@@ -3215,34 +3267,189 @@
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
-      "reason": "single_sample_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005",
+      "reason": "pending_agent_atom_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P001",
@@ -3258,33 +3465,138 @@
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P005",
       "reason": "single_sample_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R002",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R004",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003",
+      "reason": "single_sample_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
     }
   ],
   "unmappedBindingVariants": [
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B004",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B001",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B006",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B002",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B007",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B003",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B001",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B004",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B003",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B005",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B006",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B007",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B008",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B009",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B010",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B001",
@@ -3302,6 +3614,96 @@
       "suggestedAction": "keep_as_variant_until_more_support"
     },
     {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B001",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B002",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B003",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B004",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B005",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B006",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B007",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B008",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B009",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B001",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B002",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B003",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B004",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B005",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B006",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B007",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B008",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B009",
+      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B002",
       "reason": "local_binding_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
@@ -3310,53 +3712,88 @@
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B003",
       "reason": "local_binding_no_reusable_pattern_yet",
       "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B001",
+      "reason": "local_binding_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B003",
+      "reason": "local_binding_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B004",
+      "reason": "local_binding_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B006",
+      "reason": "local_binding_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B007",
+      "reason": "local_binding_no_reusable_pattern_yet",
+      "suggestedAction": "keep_as_variant_until_more_support"
     }
   ],
   "unmappedRuleVariants": [
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C002",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE001",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE002",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE005",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE006",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE007",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C002",
@@ -3377,6 +3814,106 @@
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE005",
       "reason": "local_rule_no_cross_sample_support",
       "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE005",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE006",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE001",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE002",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE003",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE004",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE005",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE006",
+      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C001",
@@ -3410,6 +3947,51 @@
     },
     {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE004",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C002",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE001",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE002",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE004",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
+      "reason": "local_rule_no_cross_sample_support",
+      "suggestedAction": "keep_for_local_audit_only"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
       "reason": "local_rule_no_cross_sample_support",
       "suggestedAction": "keep_for_local_audit_only"
     }
@@ -3598,6 +4180,335 @@
     }
   ],
   "sourceVariants": [
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "欲望结果激活槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "机制可信槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "使用顾虑解除槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "场景价值扩展槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "质价信任补强槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "身份转化收束槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B007",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B008",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B009",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B010",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B010",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "实拍结果钩子包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "内外反差机制包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "体验细节证明包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "多场景实用价值包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "质价信任包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "稀缺行动收尾包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "高密度结果抛点"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "由外到内的揭示加速"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "体验证明放缓"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "场景展示舒展回落"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "价值信息二次堆叠"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R006",
+      "label": "紧迫收尾抬升"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "机制可信槽包含实现逻辑和顾虑降低，不适合直接使用开场高密结果抛点节奏"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "体验顾虑解除需要可感知证明，不适合和价值信息二次堆叠节奏混用"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "低门槛成本如果缺少质量或信任证据，会和质价信任任务冲突"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "转化收尾不适合引入新的复杂机制或新卖点，否则会打断行动峰值"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "强欲望开场后，后续必须至少安排一个机制或证明槽位承接结果承诺，避免开头收益悬空"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "机制可信槽可以跨越脚本边界吸收部分效果证明，但关键机制揭示必须有可见结构锚点和节奏停留"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "体验顾虑解除槽应放在核心机制之后、日常场景扩展之前，优先证明不会牺牲使用体验"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "日常场景扩展槽可以移动或压缩，但不能早于观众理解核心收益和基本可信证据"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "质价信任槽中的低门槛信息必须和质量、背书或细节证明绑定，不能单独作为购买理由"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "转化收尾必须回扣开头同一核心关切或同一身份收益，再叠加稀缺、库存或行动提示"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE007",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE007",
+      "label": "重组优先保证脚本逻辑完整性和证明匹配度；节奏曲线和包装风格只能在不破坏证明关系的前提下替换"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "强欲望结果先抛"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "隐藏机制可信化"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "使用顾虑解除"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "日常场景价值扩展"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "质价信任补强"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S006",
+      "label": "身份回扣与稀缺收束"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "template",
+      "sourceId": "T002",
+      "label": "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close"
+    },
     {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
       "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
@@ -3912,6 +4823,601 @@
       "kind": "template",
       "sourceId": "T002",
       "label": "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "核心兴趣激活槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "价值立场承接槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "可信疑问加压槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "客观证明释放槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "感官证据堆叠槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "场景价值收束槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B007",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B008",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B009",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "商品识别与体验入口"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "价值口播同框"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "低门槛证明对象前置"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "客观标签标注证明"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "多维实拍质感证明"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "场景利益与态度收束包装"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "密集体验起手"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "短顿解释承接"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "追问加压节奏"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "展示释放节奏"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "细节堆叠推进"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R006",
+      "label": "对话二次加压"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R007",
+      "label": "静止记忆回落"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "客观证明释放需要看清证据，不适合承载过快短切或连续追问节奏。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "感官证据堆叠不能只列卖点形容，必须让每个关键感官判断对应可见细节或体验反馈。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "收尾槽不适合继续启动新的复杂主张，否则会破坏峰值后的记忆回落。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "低门槛利益如果只加压不证明，会放大不信任。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "开场拎出的核心利益点，末段必须回到同一利益或同一观众关切完成收束。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "低门槛、高规格或高利益主张后，必须主动处理可信疑问，并用可核查证据释放压力。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "客观证明类信息应放在节奏减速或视觉稳定点，并让标注、字幕和证据区域同步。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "感官证明可以移动或增删具体维度，但必须保持从可见细节到体验反馈的递进关系。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "末段允许节奏跨越脚本收束边界：先二次加压回应价值问题，再低密度停留保留商品记忆。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装替换优先保留证明功能：疑问槽需要证明对象，客观证明槽需要可核查依据，感官槽需要实拍细节或动作反馈。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "核心利益反差钩子"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "利益立场承接"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "低门槛可信质疑"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "客观指标回应"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "感官证据堆叠"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S006",
+      "label": "场景利益收束"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::template::T001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "熟悉经验钩子槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "组合承诺峰值槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "感官证据深化槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "品质放心背书槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "转化利益收束槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B006",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B007",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B008",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B009",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "首屏使用状态加品类入口"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "包装身份与实物组合绑定"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "细节动作证明体验"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "标题化背书加实物支撑"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "多件视觉与终屏商品锚定"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "高密度快速入场"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "短促压缩到首轮峰值"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "中速细节停留"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "稳定说明平台"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "放慢定格式收束"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "信任背书类信息不适合承载在开场高密度快切或短促峰值中"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "感官承诺如果只保留字幕表达而缺少细节动作证明，会削弱可信度"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "转化利益不能脱离最终商品锚点单独出现"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "入口钩子如果只展示熟悉经验但不及时转到新组合关系，会导致新品定位不清"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "熟悉经验入口的作用是降低理解成本，不是替代核心卖点"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "感官卖点需要从承诺进入证明，否则只能形成短暂刺激"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "节奏 section 可以跨越脚本边界，但不能破坏注意力功能"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "信任信息属于理性补强，过早出现会打断体验兴趣建立"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "转化槽负责把证明转成购买理由，不能继续引入新的复杂卖点"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE006",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装功能比包装载体更重要，表面形式可迁移但证明任务不可丢"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "熟悉经验转新组合入口"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "组合卖点压缩成峰值"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "体验状态与效果证明"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "从体验兴趣转向放心背书"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "便利与利益收束"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::template::T001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close"
     },
     {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001",
@@ -4443,42 +5949,35 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F001",
-      "label": "低门槛入口槽"
+      "label": "即时解决预览槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F002",
-      "label": "压力验证槽"
+      "label": "旧痛点回补槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F003",
-      "label": "痛点回补槽"
+      "label": "覆盖可信桥接槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F004",
-      "label": "覆盖安心槽"
+      "label": "机制便利可信槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F005",
-      "label": "机制可信槽"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F006",
-      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
-      "kind": "slot",
-      "sourceId": "F006",
-      "label": "生活结果收束槽"
+      "label": "生活利益收束槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
@@ -4492,7 +5991,7 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B002",
-      "label": "require"
+      "label": "carryover"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
@@ -4534,21 +6033,21 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B008",
-      "label": "carryover"
+      "label": "substitute"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B009",
-      "label": "substitute"
+      "label": "conflict"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P001",
-      "label": "实物识别加即时使用包装"
+      "label": "实物入口加即时使用包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
@@ -4562,69 +6061,62 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P003",
-      "label": "旧状态成本包装"
+      "label": "旧状态生活成本包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P004",
-      "label": "覆盖感堆叠包装"
+      "label": "覆盖感和使用关系包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P005",
-      "label": "结构细节可信包装"
+      "label": "结构开合证据包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P006",
-      "label": "最终状态生活化包装"
+      "label": "多场景结果收束包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R001",
-      "label": "快速清楚起手"
+      "label": "快入加动作爆点"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R002",
-      "label": "动作验证加速"
+      "label": "多场景问题堆叠"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R003",
-      "label": "多场景问题堆叠"
+      "label": "长镜头信息峰值"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R004",
-      "label": "信息峰值转场"
+      "label": "操作细节减速"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R005",
-      "label": "操作细节减速"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006",
-      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
-      "kind": "rhythm",
-      "sourceId": "R006",
       "label": "轻动作回落收束"
     },
     {
@@ -4632,70 +6124,70 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C001",
-      "label": "机制可信槽不适合直接套用高强度动作验证节奏"
+      "label": "机制便利可信槽承载结构和持续使用理由，不适合直接配快入动作爆点节奏"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C002",
-      "label": "结果验证、痛点回补和最终收束如果不围绕同一观众关切，会造成前后承接断裂"
+      "label": "结果先行结构必须在后续补回同一核心关切，否则开头结果缺少问题动机"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C003",
-      "label": "覆盖安心槽不能只堆叠数量或画面元素而不呈现应用关系"
+      "label": "结果收束槽不适合新增复杂机制、价格福利或新承诺，否则会打断生活利益回落"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C004",
-      "label": "低门槛入口如果过度包装，可能遮挡实物识别和操作动作；压力验证如果包装过轻，可能无法撑起结果主张"
+      "label": "高信息密度桥接槽如果没有清晰的机制落点，容易变成单纯堆料"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE001",
-      "label": "该样例不是先讲痛点再讲解决，而是先给使用后状态，再解释为什么这个结果有价值"
+      "label": "结果先行开头可以成立，但后续必须补回同一核心痛点或同一观众关切，形成结果到需求的反向解释"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE002",
-      "label": "开场承担理解门槛控制，而不是单纯露出产品"
+      "label": "动态压力证明可以替换为其他强动作或强对比证明，但必须让压力动作、结果状态和字幕结论同步出现"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE003",
-      "label": "先验结果结构依赖快速看到有效，移动后会变成常规痛点到证明结构"
+      "label": "痛点回补槽可使用多场景堆叠，也可使用单个强对比场景；不可只描述痛点而缺少可见旧状态或成本证据"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE004",
-      "label": "信息峰值适合制造方案感，不适合完整承载结构机制"
+      "label": "覆盖桥接槽允许节奏跨越脚本边界，用高信息密度承接痛点并转入机制，但必须在下一槽位降低节奏并解释结构"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE005",
-      "label": "结果场景能证明有效，但不能解释为什么方便可靠"
+      "label": "结构、低门槛和可持续使用类主张必须配近距离结构证据、操作完成点或重复使用证据，不能只靠结果画面替代"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE006",
-      "label": "该槽位承担记忆点收束，不承担新机制或新卖点解释"
+      "label": "包装风格可以低图形化，但每个槽位都要保留对应证明功能；字幕只能辅助解释，不能替代关键视觉证据"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
@@ -4709,41 +6201,34 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S001",
-      "label": "低门槛使用入口"
+      "label": "即用结果预览"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S002",
-      "label": "即时结果压力验证"
+      "label": "旧状态痛点回补"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S003",
-      "label": "旧状态痛点回补"
+      "label": "适用范围桥接"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S004",
-      "label": "多点覆盖安心"
+      "label": "结构便利可信"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S005",
-      "label": "结构可信解释"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006",
-      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
-      "kind": "script",
-      "sourceId": "S006",
       "label": "生活状态利益收束"
     },
     {
@@ -4751,14 +6236,14 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "template",
       "sourceId": "T001",
-      "label": "low_barrier_entry > stress_result_validation > pain_backfill > scope_assurance > mechanism_trust > lifestyle_result_close"
+      "label": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "template",
       "sourceId": "T002",
-      "label": "pain_backfill > low_barrier_entry > stress_result_validation > scope_assurance > mechanism_trust > lifestyle_result_close"
+      "label": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close"
     }
   ]
 }

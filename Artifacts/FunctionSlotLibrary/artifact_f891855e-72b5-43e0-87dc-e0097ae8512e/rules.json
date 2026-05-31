@@ -1,0 +1,226 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R001",
+        "R002"
+      ],
+      "reason": "信任背书类信息不适合承载在开场高密度快切或短促峰值中",
+      "fix": "将信任背书放在感官证据之后，用稳定说明平台和标题化包装承接",
+      "appliesTo": [
+        "trust_assurance_shift",
+        "quality_claim",
+        "safety_reassurance"
+      ],
+      "sourceBindingIds": [
+        "B006",
+        "B007"
+      ]
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F003"
+      ],
+      "atomIds": [
+        "S003",
+        "P003"
+      ],
+      "reason": "感官承诺如果只保留字幕表达而缺少细节动作证明，会削弱可信度",
+      "fix": "保留中速细节停留和动作证明，必要时替换为同等功能的对象状态展示",
+      "appliesTo": [
+        "sensory_evidence_deepening",
+        "texture_proof",
+        "experience_confirmation"
+      ],
+      "sourceBindingIds": [
+        "B004"
+      ]
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P005"
+      ],
+      "reason": "转化利益不能脱离最终商品锚点单独出现",
+      "fix": "在收尾放慢段同步呈现利益信息和商品身份，最后保留稳定商品锚点",
+      "appliesTo": [
+        "conversion_reason_close",
+        "benefit_summary",
+        "product_anchor"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "P001",
+        "P002"
+      ],
+      "reason": "入口钩子如果只展示熟悉经验但不及时转到新组合关系，会导致新品定位不清",
+      "fix": "把熟悉经验、组合关系和商品身份安排在前两个槽位连续完成",
+      "appliesTo": [
+        "familiarity_bridge_hook",
+        "combination_claim_peak"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B002"
+      ]
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "P001",
+        "P002"
+      ],
+      "reason": "熟悉经验入口的作用是降低理解成本，不是替代核心卖点",
+      "fix": "如果入口经验较强，下一槽位要用包装身份与内容物互证完成卖点锚定",
+      "appliesTo": [
+        "familiarity_bridge_hook",
+        "combination_claim_peak"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B002"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F002",
+        "F003"
+      ],
+      "atomIds": [
+        "S002",
+        "S003",
+        "P002",
+        "P003"
+      ],
+      "reason": "感官卖点需要从承诺进入证明，否则只能形成短暂刺激",
+      "fix": "保留从包装与实物互证到细节动作证明的承接关系",
+      "appliesTo": [
+        "combination_claim_peak",
+        "sensory_evidence_deepening"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B005"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F002",
+        "F003"
+      ],
+      "atomIds": [
+        "R002",
+        "R003"
+      ],
+      "reason": "节奏 section 可以跨越脚本边界，但不能破坏注意力功能",
+      "fix": "按注意力任务绑定节奏原子，允许组合峰值和感官证明在相邻槽位之间形成承接",
+      "appliesTo": [
+        "combination_claim_peak",
+        "sensory_evidence_deepening"
+      ],
+      "sourceBindingIds": [
+        "B003",
+        "B004"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "R004",
+        "P004"
+      ],
+      "reason": "信任信息属于理性补强，过早出现会打断体验兴趣建立",
+      "fix": "如果需要提前出现信任信号，只做短锚点，完整解释后移到信任槽",
+      "appliesTo": [
+        "trust_assurance_shift"
+      ],
+      "sourceBindingIds": [
+        "B006",
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "R005",
+        "P005"
+      ],
+      "reason": "转化槽负责把证明转成购买理由，不能继续引入新的复杂卖点",
+      "fix": "删除终段新增证明，把空间留给购买利益和最终商品露出",
+      "appliesTo": [
+        "conversion_reason_close"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [
+        "F001",
+        "F002",
+        "F003",
+        "F004",
+        "F005"
+      ],
+      "atomIds": [
+        "P001",
+        "P002",
+        "P003",
+        "P004",
+        "P005"
+      ],
+      "reason": "包装功能比包装载体更重要，表面形式可迁移但证明任务不可丢",
+      "fix": "每次替换包装载体前，先检查其服务的主张类型和证明需求是否仍然匹配",
+      "appliesTo": [
+        "familiarity_bridge_hook",
+        "combination_claim_peak",
+        "sensory_evidence_deepening",
+        "trust_assurance_shift",
+        "conversion_reason_close"
+      ],
+      "sourceBindingIds": [
+        "B009"
+      ]
+    }
+  ]
+}

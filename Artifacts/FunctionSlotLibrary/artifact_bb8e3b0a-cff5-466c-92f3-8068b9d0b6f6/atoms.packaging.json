@@ -1,0 +1,228 @@
+[
+  {
+    "id": "P001",
+    "slot": "core_interest_conflict",
+    "label": "商品识别与体验入口",
+    "function": "用商品近景、体验动作和轻字幕快速建立卖点讨论对象，并让开场冲突有真实体验支撑。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "产品识别加试吃开场"
+      ],
+      "shotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "packagingFunction": "用商品近景、体验动作和轻字幕快速建立卖点讨论对象，并让开场冲突有真实体验支撑。",
+    "proofType": "direct_experience_proof",
+    "visualProofType": "product_closeup_with_usage_reaction",
+    "visualHierarchy": "核心可体验对象优先，体验者反应第二，字幕辅助推进观点。",
+    "visualElements": [
+      "商品近景",
+      "真实体验动作",
+      "轻量字幕",
+      "实物同框"
+    ],
+    "replaceableForms": [
+      "开场商品特写",
+      "体验者试用同框",
+      "短标签式提示",
+      "实物前景露出"
+    ],
+    "risk": "如果只保留冲突口播而缺少体验或实物支撑，开场会变成空泛噱头。"
+  },
+  {
+    "id": "P002",
+    "slot": "value_positioning",
+    "label": "价值口播同框",
+    "function": "用人物、使用对象和字幕的稳定同框承接价值解释，使利益立场保持在可体验、可感知的实物语境中。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "便宜好吃的口播同框"
+      ],
+      "shotRefs": [
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "packagingFunction": "用人物、使用对象和字幕的稳定同框承接价值解释，使利益立场保持在可体验、可感知的实物语境中。",
+    "proofType": "contextual_value_support",
+    "visualProofType": "speaker_product_same_frame",
+    "visualHierarchy": "人物解释与手中对象并列，背景商品露出作为持续锚点，字幕承担利益压缩。",
+    "visualElements": [
+      "人物口播",
+      "手持商品",
+      "底部短字幕",
+      "商品固定露出"
+    ],
+    "replaceableForms": [
+      "手持讲解",
+      "桌面商品露出",
+      "短字幕利益点",
+      "体验后讲述"
+    ],
+    "risk": "如果此处包装过重，会打断从冲突到价值解释的承接，降低可信感。"
+  },
+  {
+    "id": "P003",
+    "slot": "credibility_question",
+    "label": "低门槛证明对象前置",
+    "function": "把低门槛利益对应的规格、数量或外部信息推到前景，让观众的信任疑问有明确视觉对象。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "大箱与成分标签证明"
+      ],
+      "shotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "packagingFunction": "把低门槛利益对应的规格、数量或外部信息推到前景，让观众的信任疑问有明确视觉对象。",
+    "proofType": "threshold_claim_setup",
+    "visualProofType": "visible_specification_anchor",
+    "visualHierarchy": "可核查对象优先，指向动作第二，人物反应和字幕制造追问压力。",
+    "visualElements": [
+      "规格载体前置",
+      "手部指向",
+      "字幕反问",
+      "人物反应穿插"
+    ],
+    "replaceableForms": [
+      "外包装特写",
+      "规格陈列",
+      "数量展示",
+      "指向标注"
+    ],
+    "risk": "如果低门槛利益没有可视对象，后续证明会显得突然，质疑也不够具体。"
+  },
+  {
+    "id": "P004",
+    "slot": "objective_proof_release",
+    "label": "客观标签标注证明",
+    "function": "用可核查信息区域和标注动作把客观证明视觉化，完成从反问到可信证据的转换。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "大箱与成分标签证明"
+      ],
+      "shotRefs": [
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.9,
+    "needReview": false,
+    "packagingFunction": "用可核查信息区域和标注动作把客观证明视觉化，完成从反问到可信证据的转换。",
+    "proofType": "objective_label_proof",
+    "visualProofType": "annotated_verifiable_information",
+    "visualHierarchy": "可核查信息第一，标注动作第二，字幕解释第三，商品状态作为旁证。",
+    "visualElements": [
+      "可核查信息特写",
+      "指向标注",
+      "同步说明字幕",
+      "商品状态补充"
+    ],
+    "replaceableForms": [
+      "标签特写",
+      "检测记录截图",
+      "参数图卡",
+      "手势或箭头标注"
+    ],
+    "risk": "如果标注和说明不同步，观众会听到证明但无法确认依据来源。"
+  },
+  {
+    "id": "P005",
+    "slot": "sensory_proof_stack",
+    "label": "多维实拍质感证明",
+    "function": "通过外观、结构、内部状态和体验反馈的连续实拍，把抽象感官卖点转换成可见证据链。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "纹路切面内馅质地证明"
+      ],
+      "shotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ]
+    },
+    "confidence": 0.91,
+    "needReview": false,
+    "packagingFunction": "通过外观、结构、内部状态和体验反馈的连续实拍，把抽象感官卖点转换成可见证据链。",
+    "proofType": "sensory_detail_proof_stack",
+    "visualProofType": "sequential_texture_and_usage_evidence",
+    "visualHierarchy": "商品细节为第一视线，动作演示增强可信度，体验者回收主观评价。",
+    "visualElements": [
+      "外观近景",
+      "结构切面",
+      "内部质地展示",
+      "体验反馈",
+      "轻字幕串联"
+    ],
+    "replaceableForms": [
+      "表面细节展示",
+      "结构层次展示",
+      "内部状态展示",
+      "试用反馈",
+      "对比式细节镜头"
+    ],
+    "risk": "如果细节维度堆叠但没有递进顺序，观众会看到很多画面却难以形成明确购买理由。"
+  },
+  {
+    "id": "P006",
+    "slot": "scenario_value_close",
+    "label": "场景利益与态度收束包装",
+    "function": "用持续体验、手势互动、商品露出和字幕态度，把使用场景与用户利益压缩成末段购买理由。",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "场景利益与主播态度收束"
+      ],
+      "shotRefs": [
+        "shot_17",
+        "shot_18",
+        "shot_19"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "packagingFunction": "用持续体验、手势互动、商品露出和字幕态度，把使用场景与用户利益压缩成末段购买理由。",
+    "proofType": "usage_context_and_trust_close",
+    "visualProofType": "continued_usage_with_product_anchor",
+    "visualHierarchy": "人物态度和体验状态优先，商品锚点持续保留，末尾降低包装密度形成记忆停留。",
+    "visualElements": [
+      "持续体验",
+      "手势互动",
+      "商品稳定露出",
+      "利益字幕",
+      "静态收尾"
+    ],
+    "replaceableForms": [
+      "场景字幕",
+      "体验后推荐",
+      "商品静态同框",
+      "轻量利益提示"
+    ],
+    "risk": "如果末段只强调态度而商品不再可见，购买理由会和具体对象脱节；如果强加行动按钮，可能破坏当前样例的信任收束风格。"
+  }
+]

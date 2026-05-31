@@ -2213,7 +2213,7 @@
       "options": {
         "enableFunctionSlotAtomization": true
       },
-      "status": "failed",
+      "status": "processed",
       "traceId": "trace_7b095307-7c20-463e-8a68-b4ee551bafc9",
       "runId": "run_87198125-6812-4300-b8ba-7794b4d039b3",
       "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
@@ -2379,25 +2379,27 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "failed",
+          "status": "processed",
           "attemptNo": 2,
           "stageId": "stage_e5c3bdc7-1edc-4d32-9a0e-f229799aa05e",
           "childJobId": "job_e45d347d-057d-4e39-af45-aa3f23b5f2d2",
           "childTraceId": "trace_dca3f301-6bc6-435f-b981-d590f1e95876",
-          "artifactId": null,
-          "parentArtifactId": null,
+          "artifactId": "artifact_60639ab5-6ae6-47cf-9f27-fa43f9435b0b",
+          "parentArtifactId": "artifact_4c5eaa72-7a39-434d-a9ab-43f320f27a0c",
           "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
           "inputSummary": null,
-          "outputSummary": null,
-          "errorSummary": {
-            "code": "workflow_run_interrupted_by_restart",
-            "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
-            "stageName": "function.slot.atomization.analyze",
-            "retryable": true,
-            "debugSnapshotUri": null
+          "outputSummary": {
+            "role": "function-slot-atomization-analyzer",
+            "threadId": "019e7dc8-3211-7f31-a11c-b4cdfa6edcc5",
+            "turnId": "019e7e12-f24a-7cd0-a9ec-c3ef9fe9a43a",
+            "status": "processed",
+            "slotCount": 6,
+            "promptTemplateVersion": "repair.v1",
+            "manualRecovery": true
           },
+          "errorSummary": null,
           "startedAt": "2026-05-31T12:47:10.424Z",
-          "completedAt": "2026-05-31T12:49:32.111Z"
+          "completedAt": "2026-05-31T12:59:15.088Z"
         },
         {
           "key": "aggregate",
@@ -2410,33 +2412,53 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "pending",
+          "status": "processed",
           "attemptNo": 1,
-          "stageId": null,
+          "stageId": "stage_manual_recovery_aggregate_1780232355481",
           "childJobId": null,
           "childTraceId": null,
-          "artifactId": null,
+          "artifactId": "artifact_f6633a56-43a2-4caf-a545-9e666955ba15",
           "parentArtifactId": null,
-          "sampleVideoId": null,
-          "inputSummary": null,
-          "outputSummary": null,
+          "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "inputSummary": {
+            "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+            "shotCount": 29,
+            "scriptSegmentCount": 5,
+            "rhythmSectionCount": 6,
+            "packagingBlockCount": 7,
+            "functionSlotCount": 6,
+            "userMaterialShotCardCount": 0,
+            "userMaterialGroupCount": 0
+          },
+          "outputSummary": {
+            "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+            "shotCount": 29,
+            "scriptSegmentCount": 5,
+            "rhythmSectionCount": 6,
+            "packagingBlockCount": 7,
+            "functionSlotCount": 6,
+            "userMaterialShotCardCount": 0,
+            "userMaterialGroupCount": 0
+          },
           "errorSummary": null,
-          "startedAt": null,
-          "completedAt": null
+          "startedAt": "2026-05-31T12:59:15.088Z",
+          "completedAt": "2026-05-31T12:59:15.088Z"
         }
       ],
       "createdAt": "2026-05-31T10:48:16.819Z",
-      "updatedAt": "2026-05-31T12:47:10.640Z",
-      "completedAt": "2026-05-31T12:49:32.111Z",
-      "errorSummary": {
-        "code": "workflow_run_interrupted_by_restart",
-        "message": "服务重启后，之前未完成的完整分析已中断，请重新运行完整分析或重跑具体步骤。",
-        "stageName": "workflow.run",
-        "retryable": true,
-        "debugSnapshotUri": null
-      },
+      "updatedAt": "2026-05-31T12:59:15.088Z",
+      "completedAt": "2026-05-31T12:59:15.088Z",
+      "errorSummary": null,
       "interruptedAt": "2026-05-31T12:49:32.111Z",
-      "interruptedReason": "server_restart"
+      "interruptedReason": "server_restart",
+      "manualRecovery": {
+        "recoveredAt": "2026-05-31T12:59:15.088Z",
+        "reason": "appserver_turn_completed_after_workflow_marked_interrupted_by_restart",
+        "sourceThreadId": "019e7dc8-3211-7f31-a11c-b4cdfa6edcc5",
+        "sourceTurnId": "019e7e12-f24a-7cd0-a9ec-c3ef9fe9a43a",
+        "sourceJobId": "job_e45d347d-057d-4e39-af45-aa3f23b5f2d2",
+        "sourceWorkflowRunId": "workflow_7b0cd979-3ea5-4af6-9bca-7a4dcd9c9b07"
+      }
     },
     {
       "workflowRunId": "workflow_5e1cd619-4ea5-48a0-b662-079557b7d1c4",
