@@ -108,6 +108,18 @@ export type FunctionSlotLibraryBuilderRefreshResponse = {
   governance: { path: string; stdout?: string | null } | null;
 };
 
+export type FunctionSlotGovernanceRunResponse = {
+  processingJobId: string;
+  sampleVideoId: string;
+  traceId: string;
+  runId: string;
+  stageId: string;
+  artifactId: string;
+  parentArtifactId: string | null;
+  status: "submitted" | string;
+  message: string;
+};
+
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);
@@ -590,6 +602,16 @@ export async function getFunctionSlotGovernanceGraph() {
 export async function refreshFunctionSlotLibraryBuilder(payload: { mode?: "skip-existing" | "replace"; updateGovernance?: boolean } = {}) {
   return readJsonResponse<FunctionSlotLibraryBuilderRefreshResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-library/builder/refresh`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function startFunctionSlotGovernanceRun(payload: { refreshEvidence?: boolean } = {}) {
+  return readJsonResponse<FunctionSlotGovernanceRunResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library/governance/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),

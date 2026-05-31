@@ -1,6 +1,6 @@
 {
   "role": "function-slot-library-builder",
-  "profileVersion": "2026-05-29.placeholder.1",
+  "profileVersion": "2026-05-31.semantic-governance.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-library-builder/SKILL.md",
   "init": {
     "template": "init.md",
@@ -8,8 +8,12 @@
   },
   "turnTemplates": {
     "semanticGovernance": {
-      "template": "prompts/semantic-governance.placeholder.v1.md",
-      "version": "semantic-governance.placeholder.v1"
+      "template": "prompts/semantic-governance.v1.md",
+      "version": "semantic-governance.v1"
+    },
+    "semanticGovernanceRepair": {
+      "template": "prompts/semantic-governance-repair.v1.md",
+      "version": "semantic-governance-repair.v1"
     }
   }
 }

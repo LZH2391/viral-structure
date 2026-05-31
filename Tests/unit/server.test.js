@@ -1264,6 +1264,44 @@ test("function slot workflow placeholder route returns traceable job", async () 
   }
 });
 
+test("function slot governance route enqueues semantic governance job", async () => {
+  const calls = [];
+  const server = createServer({
+    functionSlotGovernanceService: {
+      enqueue: async (payload) => {
+        calls.push(payload);
+        return {
+          processingJobId: "job_governance",
+          sampleVideoId: "function-slot-library",
+          traceId: "trace_governance",
+          runId: "run_governance",
+          stageId: "stage_governance",
+          artifactId: "artifact_governance",
+          parentArtifactId: null,
+          status: "submitted",
+          message: "FunctionSlotLibrary 语义治理任务已提交。",
+        };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-library/governance/run", {
+      refreshEvidence: false,
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.status, "submitted");
+    assert.equal(response.body.traceId, "trace_governance");
+    assert.deepEqual(calls, [{ refreshEvidence: false }]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("full analysis workflow routes create, read, and rerun runs", async () => {
   const calls = [];
   const fakeRun = { workflowRunId: "workflow_1", workflowKey: "full-analysis", workflowVersion: "full-analysis.v1", status: "running", traceId: "trace_workflow", runId: "run_workflow", sampleVideoId: "sample_1", currentStageKeys: ["upload"], stages: [] };

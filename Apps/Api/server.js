@@ -36,6 +36,7 @@ const { loadCurrentSampleArtifact } = require("./lib/stores/artifact-reader");
 const { createFunctionSlotProjectionService } = require("./lib/function-slot-projection/service");
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { createFunctionSlotLibraryBuilderService } = require("./lib/function-slot-library/builder-service");
+const { createFunctionSlotGovernanceService } = require("./lib/function-slot-library/governance-service");
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
 const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
@@ -96,6 +97,14 @@ function createServer(deps = {}) {
     store: activeStore,
     logger: activeLogger,
     libraryService: activeFunctionSlotLibraryService,
+  });
+  const activeFunctionSlotGovernanceService = deps.functionSlotGovernanceService ?? createFunctionSlotGovernanceService({
+    rootDir: deps.rootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    jobStore: activeJobStore,
+    threadPool: deps.threadPool ?? threadPool,
+    appServer: deps.appServer ?? appServer,
   });
   const activeFunctionSlotAtomizationManualEditService = deps.functionSlotAtomizationManualEditService ?? createFunctionSlotAtomizationManualEditService({
     rootDir: deps.rootDir ?? rootDir,
@@ -177,6 +186,7 @@ function createServer(deps = {}) {
     functionSlotProjectionService: activeFunctionSlotProjectionService,
     functionSlotLibraryService: activeFunctionSlotLibraryService,
     functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
+    functionSlotGovernanceService: activeFunctionSlotGovernanceService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     restructureDisplayOverlayService: activeRestructureDisplayOverlayService,
     fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
@@ -206,6 +216,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-library/governance/run") return await handleFunctionSlotGovernanceRun(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/graph") return await handleConfirmedPlanTraceGraph(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") return await handleFunctionSlotGovernancePlanOverlays(res);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/builder/refresh") return await handleFunctionSlotLibraryBuilderRefresh(req, res, handlers);
@@ -402,6 +413,22 @@ async function handleFunctionSlotLibraryBuilderRefresh(req, res, handlers = {}) 
     updateGovernance: body.updateGovernance !== false,
   });
   return sendJson(res, 200, result);
+}
+
+async function handleFunctionSlotGovernanceRun(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const service = handlers.functionSlotGovernanceService;
+  if (!service?.enqueue) {
+    return sendJson(res, 503, {
+      error: "function_slot_governance_unavailable",
+      code: "function_slot_governance_unavailable",
+      message: "FunctionSlotLibrary 语义治理服务不可用",
+    });
+  }
+  const result = await service.enqueue({
+    refreshEvidence: body.refreshEvidence !== false,
+  });
+  return sendJson(res, 202, result);
 }
 
 async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {

@@ -1,6 +1,9 @@
-import { useState } from "react";
-import { autoRunShotStoryboardPrep, refreshFunctionSlotLibraryBuilder, startFunctionSlotWorkflowPlaceholder, type FunctionSlotLibraryBuilderRefreshResponse, type FunctionSlotWorkflowPlaceholderResponse } from "../api/client";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { autoRunShotStoryboardPrep, getProcessingJob, startFunctionSlotGovernanceRun, startFunctionSlotWorkflowPlaceholder, type FunctionSlotGovernanceRunResponse, type FunctionSlotWorkflowPlaceholderResponse } from "../api/client";
+import type { AgentRunJob } from "../types";
 import { shortId } from "../utils/format";
+import { pollProcessingJob } from "../hooks/jobPolling";
+import { AgentTurnTimelinePanel } from "./property-panel/AgentTurnTimeline";
 
 type WorkflowKey = "semantic-governance" | "shot-storyboard-prep";
 
@@ -13,7 +16,8 @@ type FunctionSlotWorkflowCardsProps = {
 
 type CardState = {
   running: boolean;
-  result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotLibraryBuilderRefreshResponse | null;
+  result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotGovernanceRunResponse | null;
+  job: AgentRunJob | null;
   error: string | null;
 };
 
@@ -25,9 +29,9 @@ const CARDS: Array<{
 }> = [
   {
     key: "semantic-governance",
-    title: "结构库刷新",
+    title: "语义治理",
     agentName: "function-slot-library-builder",
-    description: "脚本入库：刷新 validation、slot_index 和 semantic-governance 骨架。",
+    description: "刷新证据索引后运行真实语义治理。",
   },
   {
     key: "shot-storyboard-prep",
@@ -49,10 +53,10 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
       ...current,
       [workflowKey]: { ...current[workflowKey], running: true, error: null },
     }));
-    onStatusChange?.(workflowKey === "semantic-governance" ? "结构库刷新中" : "功能槽位任务创建中");
+    onStatusChange?.(workflowKey === "semantic-governance" ? "语义治理运行中" : "功能槽位任务创建中");
     try {
       const result = workflowKey === "semantic-governance"
-        ? await refreshFunctionSlotLibraryBuilder({ mode: "skip-existing", updateGovernance: true })
+        ? await runSemanticGovernance(setCardStates)
         : workflowKey === "shot-storyboard-prep"
           ? await autoRunShotStoryboardPrep({
             sampleVideoId: sampleVideoId ?? "function-slot-workflow",
@@ -65,9 +69,9 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
           });
       setCardStates((current) => ({
         ...current,
-        [workflowKey]: { running: false, result, error: null },
+        [workflowKey]: { ...current[workflowKey], running: false, result, error: null },
       }));
-      onStatusChange?.(workflowKey === "semantic-governance" ? "结构库索引与治理骨架已刷新" : (result as FunctionSlotWorkflowPlaceholderResponse).message);
+      onStatusChange?.(workflowKey === "semantic-governance" ? "语义治理已完成" : (result as FunctionSlotWorkflowPlaceholderResponse).message);
     } catch (error) {
       const message = error instanceof Error ? error.message : "占位任务创建失败";
       setCardStates((current) => ({
@@ -85,10 +89,22 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
       {visibleCards.map((card) => {
         const state = cardStates[card.key];
         const statusText = state.running
-          ? card.key === "semantic-governance" ? "刷新中" : "placeholder / 40%"
+          ? card.key === "semantic-governance" ? renderGovernanceJobStatus(state.job) : "placeholder / 40%"
           : state.result
             ? resultText(card.key, state.result)
             : card.description;
+        if (card.key === "semantic-governance") {
+          return (
+            <AgentTurnTimelinePanel
+              key={card.key}
+              agentName={card.agentName}
+              statusText={state.error ?? statusText}
+              job={state.job}
+              running={state.running}
+              onRun={() => void runWorkflow(card.key)}
+            />
+          );
+        }
         return (
           <article className="agent-summary-card" key={card.key}>
             <div className="agent-summary-top">
@@ -97,7 +113,7 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
                 <span>{statusText}</span>
               </div>
               <div className="agent-summary-actions">
-                <span className="agent-status-badge">{state.result ? card.key === "semantic-governance" ? "已刷新" : "占位完成" : state.running ? "创建中" : card.key === "semantic-governance" ? "可运行" : "未接入"}</span>
+                <span className="agent-status-badge">{state.result ? "占位完成" : state.running ? "创建中" : "未接入"}</span>
                 <button className="primary-button" type="button" disabled={state.running} onClick={() => void runWorkflow(card.key)}>
                   {state.running ? "运行中" : "运行"}
                 </button>
@@ -108,12 +124,12 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
             </div>
             {state.result ? (
               <div className="agent-latest-activity">
-                <span>{card.key === "semantic-governance" ? "索引产物" : "占位产物"}</span>
+                <span>占位产物</span>
                 <strong>{activityText(card.key, state.result)}</strong>
               </div>
             ) : null}
             {state.error ? <div className="detail-hint">{state.error}</div> : null}
-            {!state.result && !state.error ? <div className="detail-hint">{card.key === "semantic-governance" ? "先把已完成原子化样例写入 FunctionSlotLibrary，再刷新索引和治理骨架。" : "当前是 ThreadPool 占位入口，真实执行链路稍后接入。"}</div> : null}
+            {!state.result && !state.error ? <div className="detail-hint">当前是 ThreadPool 占位入口，真实执行链路稍后接入。</div> : null}
           </article>
         );
       })}
@@ -123,22 +139,64 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
 }
 
 function emptyState(): CardState {
-  return { running: false, result: null, error: null };
+  return { running: false, result: null, job: null, error: null };
 }
 
-function resultText(workflowKey: WorkflowKey, result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotLibraryBuilderRefreshResponse) {
+async function runSemanticGovernance(setCardStates: Dispatch<SetStateAction<Record<WorkflowKey, CardState>>>) {
+  const started = await startFunctionSlotGovernanceRun({ refreshEvidence: true });
+  let finalJob: AgentRunJob | null = null;
+  if (started.processingJobId) {
+    finalJob = await pollProcessingJob(
+      () => getProcessingJob(started.processingJobId),
+      {
+        idleTimeoutMs: 30 * 60 * 1000,
+        onUpdate: (job) => {
+          setCardStates((current) => ({
+            ...current,
+            "semantic-governance": { ...current["semantic-governance"], job },
+          }));
+        },
+      },
+    ) as AgentRunJob | null;
+  }
+  setCardStates((current) => ({
+    ...current,
+    "semantic-governance": { ...current["semantic-governance"], job: finalJob ?? current["semantic-governance"].job },
+  }));
+  if (finalJob?.status === "failed") {
+    throw new Error(finalJob.errorSummary?.message ?? "语义治理失败");
+  }
+  if (finalJob && finalJob.status !== "processed") {
+    throw new Error("语义治理仍在运行或轮询超时，请打开追踪查看当前 Agent 状态");
+  }
+  return started;
+}
+
+function resultText(workflowKey: WorkflowKey, result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotGovernanceRunResponse) {
   if (workflowKey === "semantic-governance") {
-    const builder = result as FunctionSlotLibraryBuilderRefreshResponse;
-    return `已刷新 / exported ${builder.exported.exportedCount} / skipped ${builder.exported.skippedCount}`;
+    const governance = result as FunctionSlotGovernanceRunResponse;
+    return `治理完成 / trace ${shortId(governance.traceId)}`;
   }
   return `占位完成 / artifact ${shortId((result as FunctionSlotWorkflowPlaceholderResponse).artifactId)}`;
 }
 
-function activityText(workflowKey: WorkflowKey, result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotLibraryBuilderRefreshResponse) {
+function activityText(workflowKey: WorkflowKey, result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotGovernanceRunResponse) {
   if (workflowKey === "semantic-governance") {
-    const builder = result as FunctionSlotLibraryBuilderRefreshResponse;
-    return `trace ${shortId(builder.traceId)} · ${builder.slotIndex.path}`;
+    const governance = result as FunctionSlotGovernanceRunResponse;
+    return `trace ${shortId(governance.traceId)} · ${governance.artifactId ? shortId(governance.artifactId) : "governance"}`;
   }
   const placeholder = result as FunctionSlotWorkflowPlaceholderResponse;
   return `trace ${shortId(placeholder.traceId)} · artifact ${shortId(placeholder.artifactId)}`;
+}
+
+function renderGovernanceJobStatus(job: AgentRunJob | null) {
+  if (!job) return "任务提交中";
+  if (job.status === "failed") return "治理失败";
+  if (job.status === "processed") return "治理完成";
+  if (job.stage?.includes("evidence_refresh")) return "证据刷新中";
+  if (job.stage?.includes("agent_analyze")) return "Agent 治理中";
+  if (job.stage?.includes("validate")) return "校验中";
+  if (job.stage?.includes("repair")) return "Agent 修复中";
+  if (job.stage?.includes("materialize")) return "写回治理结果";
+  return "治理运行中";
 }
