@@ -4025,6 +4025,131 @@
       },
       "interruptedAt": "2026-05-31T12:49:32.111Z",
       "interruptedReason": "server_restart"
+    },
+    {
+      "workflowRunId": "workflow_877f921e-7d44-466b-b9d2-2a28c5b949fe",
+      "workflowKey": "material-recognition",
+      "workflowVersion": "material-recognition.v1",
+      "cacheDecision": "ask",
+      "options": {},
+      "status": "running",
+      "traceId": "trace_341eb808-5c1b-482f-9629-de4c4363069b",
+      "runId": "run_0384545f-b620-475b-b88b-8f4779833b07",
+      "sampleVideoId": "sample_51ebef4b-03d4-41fb-8f34-59b5dae069c5",
+      "currentStageKeys": [
+        "shotBoundary"
+      ],
+      "stages": [
+        {
+          "key": "upload",
+          "kind": "module",
+          "moduleId": "sample-ingest",
+          "stageName": "upload.ingest",
+          "label": "上传",
+          "artifactKey": "sampleVideo",
+          "after": [],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_cd9a2160-5866-4467-b376-fe0e303f4b31",
+          "childJobId": "job_ddf3e3d9-0f76-4844-929b-c674e71eeaa7",
+          "childTraceId": "trace_45fcff73-53e1-41a6-ab9a-96a5b42cdbd0",
+          "artifactId": "artifact_7c2b3286-f99c-4b60-9876-d1b42b13dbcb",
+          "parentArtifactId": null,
+          "sampleVideoId": "sample_51ebef4b-03d4-41fb-8f34-59b5dae069c5",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_ddf3e3d9-0f76-4844-929b-c674e71eeaa7",
+            "childTraceId": "trace_45fcff73-53e1-41a6-ab9a-96a5b42cdbd0",
+            "artifactId": "artifact_7c2b3286-f99c-4b60-9876-d1b42b13dbcb"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-31T14:19:13.401Z",
+          "completedAt": "2026-05-31T14:22:18.120Z"
+        },
+        {
+          "key": "shotBoundary",
+          "kind": "module",
+          "moduleId": "shot-boundary",
+          "stageName": "shot.boundary",
+          "label": "切镜",
+          "artifactKey": "shotBoundaryAnalysis",
+          "after": [
+            "upload"
+          ],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "running",
+          "attemptNo": 1,
+          "stageId": "stage_3af5bc38-a157-4e18-b89f-c0a3755aebfc",
+          "childJobId": "job_1acfd520-6337-411f-99d9-48bb0ad1312c",
+          "childTraceId": "trace_02c15fe2-d7c8-4ead-9665-7f114039698e",
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": "sample_51ebef4b-03d4-41fb-8f34-59b5dae069c5",
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": null,
+          "startedAt": "2026-05-31T14:22:18.127Z",
+          "completedAt": null
+        },
+        {
+          "key": "userMaterialTagger",
+          "kind": "module",
+          "moduleId": "user-material-tagger",
+          "stageName": "user.material_tagger.analyze",
+          "label": "素材识别",
+          "artifactKey": "userMaterialPack",
+          "after": [
+            "shotBoundary"
+          ],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "pending",
+          "attemptNo": 1,
+          "stageId": null,
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": null,
+          "startedAt": null,
+          "completedAt": null
+        },
+        {
+          "key": "aggregate",
+          "kind": "builtin",
+          "stageName": "workflow.aggregate",
+          "label": "汇总",
+          "artifactKey": "sampleVideo",
+          "after": [
+            "userMaterialTagger"
+          ],
+          "parallelGroup": null,
+          "blocking": false,
+          "status": "pending",
+          "attemptNo": 1,
+          "stageId": null,
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": null,
+          "startedAt": null,
+          "completedAt": null
+        }
+      ],
+      "createdAt": "2026-05-31T14:19:13.396Z",
+      "updatedAt": "2026-05-31T14:22:18.139Z",
+      "completedAt": null,
+      "errorSummary": null
     }
   ]
 }

@@ -1,9 +1,11 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { autoRunShotStoryboardPrep, getProcessingJob, startFunctionSlotGovernanceRun, startFunctionSlotWorkflowPlaceholder, type FunctionSlotGovernanceRunResponse, type FunctionSlotWorkflowPlaceholderResponse } from "../api/client";
 import type { AgentRunJob } from "../types";
 import { shortId } from "../utils/format";
 import { pollProcessingJob } from "../hooks/jobPolling";
 import { AgentTurnTimelinePanel } from "./property-panel/AgentTurnTimeline";
+import { readWorkbenchDraft, writeActiveSemanticGovernanceJob } from "../utils/workbenchDraft";
+import type { ActiveJobDraft } from "../utils/workbenchHelpers";
 
 type WorkflowKey = "semantic-governance" | "shot-storyboard-prep";
 
@@ -46,7 +48,50 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
     "semantic-governance": emptyState(),
     "shot-storyboard-prep": emptyState(),
   }));
+  const restoredSemanticGovernanceRef = useRef(false);
   const visibleCards = workflowKey ? CARDS.filter((card) => card.key === workflowKey) : CARDS;
+
+  useEffect(() => {
+    if (workflowKey && workflowKey !== "semantic-governance") return;
+    if (restoredSemanticGovernanceRef.current) return;
+    restoredSemanticGovernanceRef.current = true;
+    const draftJob = readWorkbenchDraft()?.activeSemanticGovernanceJob;
+    if (!draftJob?.processingJobId) return;
+    let active = true;
+    setCardStates((current) => ({
+      ...current,
+      "semantic-governance": { ...current["semantic-governance"], running: true, error: null },
+    }));
+    onStatusChange?.("恢复语义治理运行中");
+    void attachSemanticGovernanceJob(draftJob, setCardStates, () => active)
+      .then((job) => {
+        if (!active) return;
+        if (job?.status === "processed" || job?.status === "failed") writeActiveSemanticGovernanceJob(null);
+        setCardStates((current) => ({
+          ...current,
+          "semantic-governance": {
+            ...current["semantic-governance"],
+            running: job ? !["processed", "failed"].includes(job.status) : false,
+            job: job ?? current["semantic-governance"].job,
+            error: job?.status === "failed" ? job.errorSummary?.message ?? "语义治理失败" : null,
+          },
+        }));
+        if (job?.status === "processed") onStatusChange?.("语义治理已完成");
+        if (job?.status === "failed") onStatusChange?.(job.errorSummary?.message ?? "语义治理失败");
+      })
+      .catch((error) => {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "恢复语义治理任务失败";
+        setCardStates((current) => ({
+          ...current,
+          "semantic-governance": { ...current["semantic-governance"], running: false, error: message },
+        }));
+        onStatusChange?.(message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [onStatusChange, workflowKey]);
 
   const runWorkflow = async (workflowKey: WorkflowKey) => {
     setCardStates((current) => ({
@@ -88,8 +133,10 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
       <div className="agent-trace-shell">
       {visibleCards.map((card) => {
         const state = cardStates[card.key];
-        const statusText = state.running
-          ? card.key === "semantic-governance" ? renderGovernanceJobStatus(state.job) : "placeholder / 40%"
+        const statusText = card.key === "semantic-governance" && state.job
+          ? renderGovernanceJobStatus(state.job)
+          : state.running
+            ? "placeholder / 40%"
           : state.result
             ? resultText(card.key, state.result)
             : card.description;
@@ -144,32 +191,47 @@ function emptyState(): CardState {
 
 async function runSemanticGovernance(setCardStates: Dispatch<SetStateAction<Record<WorkflowKey, CardState>>>) {
   const started = await startFunctionSlotGovernanceRun({ refreshEvidence: true });
-  let finalJob: AgentRunJob | null = null;
-  if (started.processingJobId) {
-    finalJob = await pollProcessingJob(
-      () => getProcessingJob(started.processingJobId),
-      {
-        idleTimeoutMs: 30 * 60 * 1000,
-        onUpdate: (job) => {
-          setCardStates((current) => ({
-            ...current,
-            "semantic-governance": { ...current["semantic-governance"], job },
-          }));
-        },
-      },
-    ) as AgentRunJob | null;
-  }
+  writeActiveSemanticGovernanceJob({
+    processingJobId: started.processingJobId,
+    sampleVideoId: started.sampleVideoId,
+    traceId: started.traceId,
+  });
+  const finalJob = await attachSemanticGovernanceJob(started, setCardStates);
   setCardStates((current) => ({
     ...current,
     "semantic-governance": { ...current["semantic-governance"], job: finalJob ?? current["semantic-governance"].job },
   }));
   if (finalJob?.status === "failed") {
+    writeActiveSemanticGovernanceJob(null);
     throw new Error(finalJob.errorSummary?.message ?? "语义治理失败");
   }
+  if (finalJob?.status === "processed") writeActiveSemanticGovernanceJob(null);
   if (finalJob && finalJob.status !== "processed") {
     throw new Error("语义治理仍在运行或轮询超时，请打开追踪查看当前 Agent 状态");
   }
   return started;
+}
+
+async function attachSemanticGovernanceJob(
+  jobDraft: Pick<ActiveJobDraft, "processingJobId" | "sampleVideoId" | "traceId">,
+  setCardStates: Dispatch<SetStateAction<Record<WorkflowKey, CardState>>>,
+  shouldUpdate: () => boolean = () => true,
+) {
+  if (!jobDraft.processingJobId) return null;
+  return await pollProcessingJob(
+    () => getProcessingJob(jobDraft.processingJobId).catch(() => null),
+    {
+      idleTimeoutMs: 30 * 60 * 1000,
+      preservePreviousOnNull: true,
+      onUpdate: (job) => {
+        if (!shouldUpdate()) return;
+        setCardStates((current) => ({
+          ...current,
+          "semantic-governance": { ...current["semantic-governance"], job },
+        }));
+      },
+    },
+  ) as AgentRunJob | null;
 }
 
 function resultText(workflowKey: WorkflowKey, result: FunctionSlotWorkflowPlaceholderResponse | FunctionSlotGovernanceRunResponse) {

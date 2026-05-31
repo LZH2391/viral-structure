@@ -306,13 +306,15 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(workflowCards, /agent-summary-card/);
   assert.match(workflowCards, /agent-status-badge/);
   assert.match(workflowCards, /agent-latest-activity/);
-  assert.match(workflowCards, /结构库刷新/);
+  assert.match(workflowCards, /语义治理/);
   assert.doesNotMatch(workflowCards, /结构重组/);
   assert.match(workflowCards, /Shot Storyboard Prep/);
   assert.match(workflowCards, /startFunctionSlotWorkflowPlaceholder/);
-  assert.match(workflowCards, /refreshFunctionSlotLibraryBuilder/);
+  assert.match(workflowCards, /startFunctionSlotGovernanceRun/);
+  assert.match(workflowCards, /readWorkbenchDraft\(\)\?\.activeSemanticGovernanceJob/);
+  assert.match(workflowCards, /writeActiveSemanticGovernanceJob/);
   assert.match(workflowCards, /autoRunShotStoryboardPrep/);
-  assert.match(api, /\/api\/function-slot-library\/builder\/refresh/);
+  assert.match(api, /\/api\/function-slot-library\/governance\/run/);
   assert.match(api, /\/api\/function-slot-workflow\/storyboard-prep\/auto-run/);
   assert.match(api, /\/api\/function-slot-workflow\/restructure-display-transform\/auto-run/);
   assert.match(api, /\/api\/function-slot-workflow\/\$\{encodeURIComponent\(workflowKey\)\}\/run/);

@@ -61,6 +61,24 @@ export function writeActiveAnalysisJob(stageKind: AnalysisStageKind, job: Active
   });
 }
 
+export function writeActiveSemanticGovernanceJob(job: ActiveJobDraft | null) {
+  updateDraft((draft) => {
+    if (!job) {
+      const { activeSemanticGovernanceJob, ...rest } = draft;
+      void activeSemanticGovernanceJob;
+      return rest;
+    }
+    return {
+      ...draft,
+      activeSemanticGovernanceJob: {
+        processingJobId: job.processingJobId,
+        sampleVideoId: job.sampleVideoId,
+        traceId: job.traceId,
+      },
+    };
+  });
+}
+
 function analysisDraftKey(stageKind: AnalysisStageKind): "activeShotBoundaryJob" | "activeScriptSegmentJob" | "activeRhythmStructureJob" | "activePackagingStructureJob" | "activeFunctionSlotAtomizationJob" | "activeUserMaterialTaggerJob" {
   if (stageKind === "scriptSegment") return "activeScriptSegmentJob";
   if (stageKind === "rhythmStructure") return "activeRhythmStructureJob";
