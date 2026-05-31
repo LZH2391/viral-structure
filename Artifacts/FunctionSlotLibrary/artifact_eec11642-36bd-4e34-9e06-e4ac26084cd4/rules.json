@@ -1,0 +1,205 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "R002"
+      ],
+      "reason": "机制可信槽不适合直接套用高强度动作验证节奏",
+      "fix": "把机制信息放在减速解释段，并用结构特写或分解动作证明",
+      "appliesTo": [
+        "mechanism_trust"
+      ],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "atomIds": [
+        "S002",
+        "S003",
+        "S006"
+      ],
+      "reason": "结果验证、痛点回补和最终收束如果不围绕同一观众关切，会造成前后承接断裂",
+      "fix": "重组时统一痛点对象和结果对象，必要时删去不相关的收束利益",
+      "appliesTo": [
+        "stress_result_validation",
+        "pain_backfill",
+        "lifestyle_result_close"
+      ],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C003",
+      "slotIds": [
+        "F004"
+      ],
+      "atomIds": [
+        "S004",
+        "P004"
+      ],
+      "reason": "覆盖安心槽不能只堆叠数量或画面元素而不呈现应用关系",
+      "fix": "增加应用关系、覆盖范围或使用场景的可见连接",
+      "appliesTo": [
+        "scope_assurance"
+      ],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C004",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "P001",
+        "P002"
+      ],
+      "reason": "低门槛入口如果过度包装，可能遮挡实物识别和操作动作；压力验证如果包装过轻，可能无法撑起结果主张",
+      "fix": "入口保留轻包装和清晰操作，验证段提高动作可见性和结果指向",
+      "appliesTo": [
+        "low_barrier_entry",
+        "stress_result_validation"
+      ],
+      "sourceBindingIds": []
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "atomIds": [
+        "S002",
+        "S003",
+        "S006"
+      ],
+      "reason": "该样例不是先讲痛点再讲解决，而是先给使用后状态，再解释为什么这个结果有价值",
+      "fix": "重组时如果替换痛点，必须同步替换前面的结果验证对象和结尾结果对象",
+      "appliesTo": [
+        "stress_result_validation",
+        "pain_backfill",
+        "lifestyle_result_close"
+      ],
+      "sourceBindingIds": [
+        "B004",
+        "B008"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F001"
+      ],
+      "atomIds": [
+        "S001",
+        "R001",
+        "P001"
+      ],
+      "reason": "开场承担理解门槛控制，而不是单纯露出产品",
+      "fix": "若替换为更复杂载体，应增加一个清晰的使用位置锚点，不要直接进入压力验证",
+      "appliesTo": [
+        "low_barrier_entry"
+      ],
+      "sourceBindingIds": [
+        "B001"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F002",
+        "F003"
+      ],
+      "atomIds": [
+        "S002",
+        "S003",
+        "R002",
+        "R003"
+      ],
+      "reason": "先验结果结构依赖快速看到有效，移动后会变成常规痛点到证明结构",
+      "fix": "移动时同步调整节奏曲线，把痛点堆叠放在前，压力验证作为中段峰值",
+      "appliesTo": [
+        "stress_result_validation",
+        "pain_backfill"
+      ],
+      "sourceBindingIds": [
+        "B003",
+        "B004"
+      ]
+    },
+    {
+      "id": "RULE004",
+      "slotIds": [
+        "F004",
+        "F005"
+      ],
+      "atomIds": [
+        "S004",
+        "R004",
+        "P004",
+        "S005",
+        "R005",
+        "P005"
+      ],
+      "reason": "信息峰值适合制造方案感，不适合完整承载结构机制",
+      "fix": "保留信息峰值后，仍要接减速的结构或操作证明",
+      "appliesTo": [
+        "scope_assurance",
+        "mechanism_trust"
+      ],
+      "sourceBindingIds": [
+        "B006",
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE005",
+      "slotIds": [
+        "F005"
+      ],
+      "atomIds": [
+        "S005",
+        "P005"
+      ],
+      "reason": "结果场景能证明有效，但不能解释为什么方便可靠",
+      "fix": "为机制槽配置局部特写、开合演示、安装完成确认或等价结构证据",
+      "appliesTo": [
+        "mechanism_trust"
+      ],
+      "sourceBindingIds": [
+        "B007"
+      ]
+    },
+    {
+      "id": "RULE006",
+      "slotIds": [
+        "F006"
+      ],
+      "atomIds": [
+        "S006",
+        "R006",
+        "P006"
+      ],
+      "reason": "该槽位承担记忆点收束，不承担新机制或新卖点解释",
+      "fix": "只回收前文已经证明的结果，并用低强度真实使用状态呈现",
+      "appliesTo": [
+        "lifestyle_result_close"
+      ],
+      "sourceBindingIds": [
+        "B008"
+      ]
+    }
+  ]
+}

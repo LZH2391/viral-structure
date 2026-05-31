@@ -131,7 +131,7 @@ test("function slot analyzer renders boundary rework turn with reviewer issues",
         fieldPaths: ["atom_inventory.script_atoms[0].semantic_function"],
       }],
     },
-    priorTurnOutput: "{\"atom_inventory\":{\"script_atoms\":[]}}",
+    priorTurnOutput: "{\"previous_turn_only_marker\":true}",
     reworkAttemptCount: 1,
     roleProfile,
   });
@@ -139,7 +139,8 @@ test("function slot analyzer renders boundary rework turn with reviewer issues",
   assert.equal(turn.promptTemplateId, "boundaryRework");
   assert.match(turn.text, /boundary reviewer/);
   assert.match(turn.text, /semantic_function/);
-  assert.match(turn.text, /上一轮 JSON/);
-  assert.doesNotMatch(turn.text, /manifestPath/);
-  assert.doesNotMatch(turn.text, /outputContractPath/);
+  assert.match(turn.text, /manifestPath: C:\/tmp\/manifest\.json/);
+  assert.match(turn.text, /outputContractPath: C:\/tmp\/output-contract\.json/);
+  assert.doesNotMatch(turn.text, /上一轮 JSON/);
+  assert.doesNotMatch(turn.text, /previous_turn_only_marker/);
 });

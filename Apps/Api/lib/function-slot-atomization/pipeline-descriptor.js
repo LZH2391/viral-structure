@@ -285,7 +285,6 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
       const boundaryReworkTurn = renderBoundaryReworkTurnInputs({
         inputPackage: context.inputPackage,
         boundaryReview,
-        priorTurnOutput: context.finalOutputText,
         reworkAttemptCount,
         roleProfile: context.roleProfile,
       });

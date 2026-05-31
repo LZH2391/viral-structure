@@ -16,8 +16,8 @@
       "version": "repair.v1"
     },
     "boundaryRework": {
-      "template": "prompts/boundary-rework.v1.md",
-      "version": "boundary-rework.v1"
+      "template": "prompts/boundary-rework.v2.md",
+      "version": "boundary-rework.v2"
     }
   }
 }

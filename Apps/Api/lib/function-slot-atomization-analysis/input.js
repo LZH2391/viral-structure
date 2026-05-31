@@ -120,7 +120,7 @@ function renderRepairTurnInputs({ inputPackage, validationError, priorTurnOutput
   };
 }
 
-function renderBoundaryReworkTurnInputs({ inputPackage, boundaryReview, priorTurnOutput, reworkAttemptCount, roleProfile }) {
+function renderBoundaryReworkTurnInputs({ inputPackage, boundaryReview, reworkAttemptCount, roleProfile }) {
   const reviewSummary = {
     decision: boundaryReview?.decision ?? null,
     reason: boundaryReview?.reason ?? null,
@@ -136,7 +136,6 @@ function renderBoundaryReworkTurnInputs({ inputPackage, boundaryReview, priorTur
     manifestPath: inputPackage.manifestPath,
     outputContractPath: inputPackage.outputContractPath,
     boundaryReviewJson: stableJson(reviewSummary),
-    priorOutputText: String(priorTurnOutput ?? "").trim(),
   });
   return {
     ...prompt,

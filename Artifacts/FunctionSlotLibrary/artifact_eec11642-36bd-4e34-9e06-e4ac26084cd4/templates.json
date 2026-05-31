@@ -1,0 +1,26 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "先验结果型低门槛演示",
+    "sequence": [
+      "low_barrier_entry",
+      "stress_result_validation",
+      "pain_backfill",
+      "scope_assurance",
+      "mechanism_trust",
+      "lifestyle_result_close"
+    ]
+  },
+  {
+    "templateId": "T002",
+    "templateName": "痛点前置型机制证明演示",
+    "sequence": [
+      "pain_backfill",
+      "low_barrier_entry",
+      "stress_result_validation",
+      "scope_assurance",
+      "mechanism_trust",
+      "lifestyle_result_close"
+    ]
+  }
+]
