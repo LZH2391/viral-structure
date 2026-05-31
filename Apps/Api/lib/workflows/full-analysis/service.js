@@ -51,6 +51,7 @@ function createWorkflowService({
   const structureAnalysisKeys = workflowDescriptor.parallelGroups["structure-analysis"] ?? [];
   const rerunnableStageKeys = new Set(workflowDescriptor.nodes.filter((node) => node.rerunnable).map((node) => node.key));
   const blockingStageKeys = new Set(stageDefinitions.filter((stage) => stage.blocking).map((stage) => stage.key));
+  const advanceLocks = new Map();
 
   async function start({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
@@ -264,7 +265,19 @@ function createWorkflowService({
     throw error;
   }
 
-  async function advance(workflowRunId) {
+  function advance(workflowRunId) {
+    const previous = advanceLocks.get(workflowRunId) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() => advanceUnlocked(workflowRunId));
+    advanceLocks.set(workflowRunId, next);
+    next.finally(() => {
+      if (advanceLocks.get(workflowRunId) === next) advanceLocks.delete(workflowRunId);
+    }).catch(() => undefined);
+    return next;
+  }
+
+  async function advanceUnlocked(workflowRunId) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return;
     if (!["running", "partial_failed", CACHE_WAITING_STATUS].includes(run.status) && !hasTerminalRunWithRunningChildren(run, jobStore, CACHE_WAITING_STATUS)) return;

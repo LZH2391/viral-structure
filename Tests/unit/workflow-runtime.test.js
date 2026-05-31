@@ -10,6 +10,7 @@ const { MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR, createMaterialRecognitionWorkf
 function createHarness() {
   const jobs = new Map();
   const artifacts = new Map();
+  const moduleStarts = [];
   const workflowRunStore = createWorkflowRunStore();
   const stageLogs = [];
   const logger = {
@@ -47,6 +48,7 @@ function createHarness() {
   const moduleRegistry = {
     getByModuleId: (moduleId) => moduleDefinitions[moduleId] ?? null,
     startModule: async ({ moduleId, sampleVideoId = "sample_1" }) => {
+      moduleStarts.push(moduleId);
       const jobId = `job_${moduleId}`;
       const artifact = attachAnalysis(artifacts.get(sampleVideoId), moduleId);
       artifacts.set(sampleVideoId, artifact);
@@ -66,7 +68,7 @@ function createHarness() {
     loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
     pollIntervalMs: 60_000,
   });
-  return { workflow, stageLogs, jobs, artifacts, workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger };
+  return { workflow, stageLogs, jobs, artifacts, moduleStarts, workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger };
 }
 
 test("full analysis workflow advances upload, shot, parallel analyses, and aggregate", async () => {
@@ -108,6 +110,27 @@ test("full analysis workflow descriptor defines module nodes and parallel analys
     FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.nodes.filter((node) => node.kind === "module").map((node) => node.moduleId),
     ["sample-ingest", "shot-boundary", "script-segments", "rhythm-structure", "packaging-structure", "function-slot-atomization"],
   );
+});
+
+test("full analysis workflow serializes concurrent advances before starting parallel stages", async () => {
+  const { workflow, moduleStarts } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await Promise.all([
+    workflow.advance(started.workflowRunId),
+    workflow.advance(started.workflowRunId),
+    workflow.advance(started.workflowRunId),
+  ]);
+
+  assert.equal(moduleStarts.filter((moduleId) => moduleId === "script-segments").length, 1);
+  assert.equal(moduleStarts.filter((moduleId) => moduleId === "rhythm-structure").length, 1);
+  assert.equal(moduleStarts.filter((moduleId) => moduleId === "packaging-structure").length, 1);
 });
 
 test("material recognition workflow runs upload, shot boundary, material tagging, and aggregate", async () => {
