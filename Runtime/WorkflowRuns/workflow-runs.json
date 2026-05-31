@@ -1495,13 +1495,11 @@
       "workflowVersion": "material-recognition.v1",
       "cacheDecision": "ask",
       "options": {},
-      "status": "cache_waiting",
+      "status": "processed",
       "traceId": "trace_81e6e896-83d8-41ef-934d-1f19819ae8d8",
       "runId": "run_aa2432e5-768b-48b5-85bb-5a00342bcb7d",
       "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
-      "currentStageKeys": [
-        "shotBoundary"
-      ],
+      "currentStageKeys": [],
       "stages": [
         {
           "key": "upload",
@@ -1542,24 +1540,23 @@
           ],
           "parallelGroup": null,
           "blocking": true,
-          "status": "cache_waiting",
+          "status": "processed",
           "attemptNo": 1,
           "stageId": "stage_c4166697-6681-48f7-8d54-5a610dd24c5b",
           "childJobId": "job_2b295ce9-410a-4f53-a583-861ba106ae1b",
           "childTraceId": "trace_6cc38f46-b67e-44dd-9ab4-c96cfd7b1f41",
-          "artifactId": null,
-          "parentArtifactId": null,
+          "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+          "parentArtifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
           "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
           "inputSummary": null,
           "outputSummary": {
             "childJobId": "job_2b295ce9-410a-4f53-a583-861ba106ae1b",
             "childTraceId": "trace_6cc38f46-b67e-44dd-9ab4-c96cfd7b1f41",
-            "cacheKind": null,
-            "cacheWaiting": true
+            "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf"
           },
           "errorSummary": null,
           "startedAt": "2026-05-31T05:42:40.584Z",
-          "completedAt": null
+          "completedAt": "2026-05-31T06:17:03.812Z"
         },
         {
           "key": "aggregate",
@@ -1572,24 +1569,33 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "pending",
+          "status": "processed",
           "attemptNo": 1,
-          "stageId": null,
+          "stageId": "stage_1ce05bd3-65d7-484c-9114-a482a3a0cb8f",
           "childJobId": null,
           "childTraceId": null,
-          "artifactId": null,
+          "artifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
           "parentArtifactId": null,
           "sampleVideoId": null,
           "inputSummary": null,
-          "outputSummary": null,
+          "outputSummary": {
+            "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+            "shotCount": 19,
+            "scriptSegmentCount": 0,
+            "rhythmSectionCount": 0,
+            "packagingBlockCount": 0,
+            "functionSlotCount": 0,
+            "userMaterialShotCardCount": 0,
+            "userMaterialGroupCount": 0
+          },
           "errorSummary": null,
-          "startedAt": null,
-          "completedAt": null
+          "startedAt": "2026-05-31T06:17:03.815Z",
+          "completedAt": "2026-05-31T06:17:03.947Z"
         }
       ],
       "createdAt": "2026-05-31T05:42:40.501Z",
-      "updatedAt": "2026-05-31T06:03:10.876Z",
-      "completedAt": null,
+      "updatedAt": "2026-05-31T06:17:03.950Z",
+      "completedAt": "2026-05-31T06:17:03.950Z",
       "errorSummary": null
     },
     {
@@ -1694,6 +1700,144 @@
       "updatedAt": "2026-05-31T06:03:10.711Z",
       "completedAt": null,
       "errorSummary": null
+    },
+    {
+      "workflowRunId": "workflow_2474cdf5-7356-47fc-851b-66ff3deb91c9",
+      "workflowKey": "material-recognition",
+      "workflowVersion": "material-recognition.v1",
+      "cacheDecision": "ask",
+      "options": {},
+      "status": "failed",
+      "traceId": "trace_dbe65e97-84ee-490f-89b1-a4005e986a73",
+      "runId": "run_fc1f9205-556f-4c38-a373-16cc722bc9b6",
+      "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "currentStageKeys": [],
+      "stages": [
+        {
+          "key": "upload",
+          "kind": "module",
+          "moduleId": "sample-ingest",
+          "stageName": "upload.ingest",
+          "label": "上传",
+          "artifactKey": "sampleVideo",
+          "after": [],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_867f8dce-b560-49e3-af1b-6d7514c40238",
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": {
+            "cacheHit": true,
+            "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-31T06:17:26.207Z",
+          "completedAt": "2026-05-31T06:17:26.277Z"
+        },
+        {
+          "key": "shotBoundary",
+          "kind": "module",
+          "moduleId": "shot-boundary",
+          "stageName": "shot.boundary",
+          "label": "切镜",
+          "artifactKey": "shotBoundaryAnalysis",
+          "after": [
+            "upload"
+          ],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "processed",
+          "attemptNo": 1,
+          "stageId": "stage_54de1417-58a2-4487-a3dc-fbc94bce23df",
+          "childJobId": "job_9323aa90-ac44-4610-87f5-8db14bd80e8b",
+          "childTraceId": "trace_ac427d1f-d6e9-4f1c-8532-6f815a799b81",
+          "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+          "parentArtifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
+          "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "inputSummary": null,
+          "outputSummary": {
+            "childJobId": "job_9323aa90-ac44-4610-87f5-8db14bd80e8b",
+            "childTraceId": "trace_ac427d1f-d6e9-4f1c-8532-6f815a799b81",
+            "artifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf"
+          },
+          "errorSummary": null,
+          "startedAt": "2026-05-31T06:17:26.290Z",
+          "completedAt": "2026-05-31T06:17:28.221Z"
+        },
+        {
+          "key": "userMaterialTagger",
+          "kind": "module",
+          "moduleId": "user-material-tagger",
+          "stageName": "user.material_tagger.analyze",
+          "label": "素材识别",
+          "artifactKey": "userMaterialPack",
+          "after": [
+            "shotBoundary"
+          ],
+          "parallelGroup": null,
+          "blocking": true,
+          "status": "failed",
+          "attemptNo": 1,
+          "stageId": "stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f",
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": {
+            "code": "workflow_stage_failed",
+            "message": "role profile_path missing: user-material-tagger",
+            "stageName": "userMaterialTagger",
+            "retryable": true,
+            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f_d3c44ede19.json"
+          },
+          "startedAt": "2026-05-31T06:17:28.227Z",
+          "completedAt": "2026-05-31T06:17:28.375Z"
+        },
+        {
+          "key": "aggregate",
+          "kind": "builtin",
+          "stageName": "workflow.aggregate",
+          "label": "汇总",
+          "artifactKey": "sampleVideo",
+          "after": [
+            "userMaterialTagger"
+          ],
+          "parallelGroup": null,
+          "blocking": false,
+          "status": "pending",
+          "attemptNo": 1,
+          "stageId": null,
+          "childJobId": null,
+          "childTraceId": null,
+          "artifactId": null,
+          "parentArtifactId": null,
+          "sampleVideoId": null,
+          "inputSummary": null,
+          "outputSummary": null,
+          "errorSummary": null,
+          "startedAt": null,
+          "completedAt": null
+        }
+      ],
+      "createdAt": "2026-05-31T06:17:26.204Z",
+      "updatedAt": "2026-05-31T06:17:28.375Z",
+      "completedAt": null,
+      "errorSummary": {
+        "code": "workflow_stage_failed",
+        "message": "role profile_path missing: user-material-tagger",
+        "stageName": "userMaterialTagger",
+        "retryable": true,
+        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f_d3c44ede19.json"
+      }
     }
   ]
 }

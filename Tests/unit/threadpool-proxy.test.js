@@ -248,6 +248,7 @@ test("threadpool proxy default allowlist follows thread role config", () => {
     "script-segment-analyzer",
     "rhythm-structure-analyzer",
     "packaging-structure-analyzer",
+    "user-material-tagger",
     "function-slot-atomization-analyzer",
     "function-slot-atomization-boundary-reviewer",
     "function-slot-library-builder",

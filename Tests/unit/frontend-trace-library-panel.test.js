@@ -153,6 +153,8 @@ test("workbench exposes commerce brief summary and visible content profile input
   assert.match(css, /\.commerce-brief-panel/);
   assert.match(roles, /"script-segment-analyzer"/);
   assert.match(roles, /"script-segment-analyzer"[\s\S]*"min_idle": 3/);
+  assert.match(roles, /"user-material-tagger"/);
+  assert.match(roles, /"user-material-tagger"[\s\S]*"min_idle": 3/);
   assert.doesNotMatch(property, /CommerceBriefPanel/);
 });
 
