@@ -17,6 +17,8 @@ import type {
   StructureCard,
   SubtitleArtifact,
   SubtitleDraft,
+  UserMaterialPackArtifact,
+  UserMaterialPackHistoryEntry,
 } from "../types";
 import { AgentRunPanel } from "./property-panel/AgentRunPanel";
 import { MetaInfoPanel } from "./property-panel/MetaInfoPanel";
@@ -24,9 +26,10 @@ import { PackagingStructurePanel } from "./property-panel/PackagingStructurePane
 import { RhythmStructurePanel } from "./property-panel/RhythmStructurePanel";
 import { ScriptSegmentPanel } from "./property-panel/ScriptSegmentPanel";
 import { FunctionSlotAtomizationPanel } from "./property-panel/FunctionSlotAtomizationPanel";
+import { UserMaterialTaggerPanel } from "./property-panel/UserMaterialTaggerPanel";
 import { FunctionSlotWorkflowCards } from "./FunctionSlotWorkflowCards";
 
-export type PropertyPanelTab = "shot" | "script" | "rhythm" | "packaging" | "atomization" | "semanticGovernance" | "storyboardPrep" | "meta";
+export type PropertyPanelTab = "shot" | "material" | "script" | "rhythm" | "packaging" | "atomization" | "semanticGovernance" | "storyboardPrep" | "meta";
 
 export type PropertyPanelProps = {
   sampleVideo: SampleVideo | null;
@@ -62,6 +65,9 @@ export type PropertyPanelProps = {
   functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
   functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
   functionSlotAtomizationJob?: AgentRunJob | null;
+  userMaterialPack?: UserMaterialPackArtifact | null;
+  userMaterialPackHistory?: UserMaterialPackHistoryEntry[] | null;
+  userMaterialTaggerJob?: AgentRunJob | null;
   activeTab?: PropertyPanelTab;
   onActiveTabChange?: (tab: PropertyPanelTab) => void;
   agentAnalysisFps: number;
@@ -73,6 +79,7 @@ export type PropertyPanelProps = {
   onRunRhythmStructure: () => void;
   onRunPackagingStructure: () => void;
   onRunFunctionSlotAtomization: () => void;
+  onRunUserMaterialTagger: () => void;
   onManualFunctionSlotBoundaryEdit: (editedJsonText: string) => Promise<void>;
   onFunctionSlotWorkflowStatus?: (message: string) => void;
   onSelectShot: (time: number) => void;
@@ -123,6 +130,15 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onClick={() => setActiveTab("shot")}
           >
             切镜
+          </button>
+          <button
+            className={`property-tab ${activeTab === "material" ? "active" : ""}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "material"}
+            onClick={() => setActiveTab("material")}
+          >
+            素材
           </button>
           <button
             className={`property-tab ${activeTab === "script" ? "active" : ""}`}
@@ -201,6 +217,14 @@ export function PropertyPanel(props: PropertyPanelProps) {
             onAnalysisFpsChange={props.onAgentAnalysisFpsChange}
             onEnableReviewChange={props.onEnableShotBoundaryReviewChange}
             onRun={props.onRunShotBoundary}
+            onSelectShot={props.onSelectShot}
+          />
+        ) : activeTab === "material" ? (
+          <UserMaterialTaggerPanel
+            analysis={props.userMaterialPack}
+            analysisHistory={props.userMaterialPackHistory}
+            job={props.userMaterialTaggerJob}
+            onRun={props.onRunUserMaterialTagger}
             onSelectShot={props.onSelectShot}
           />
         ) : activeTab === "script" ? (

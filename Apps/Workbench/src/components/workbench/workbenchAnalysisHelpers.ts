@@ -13,6 +13,7 @@ export const STAGES = {
   rhythmStructureAnalyze: "rhythm.structure.analyze",
   packagingStructureAnalyze: "packaging.structure.analyze",
   functionSlotAtomizationAnalyze: "function.slot.atomization.analyze",
+  userMaterialTaggerAnalyze: "user.material_tagger.analyze",
 } as const;
 
 export async function reuseAnalysisCache(
@@ -74,6 +75,7 @@ export function fullAnalysisStageToPropertyTab(stageKey: FullAnalysisStageTarget
   if (stageKey === "rhythmStructure") return "rhythm";
   if (stageKey === "packagingStructure") return "packaging";
   if (stageKey === "functionSlotAtomization") return "atomization";
+  if (stageKey === "userMaterialTagger") return "material";
   if (stageKey === "aggregate") return "meta";
   return "shot";
 }
@@ -93,5 +95,6 @@ export function sampleArtifactSyncSignature(artifact: SampleArtifact) {
     artifact.rhythmStructureAnalysis?.artifactId,
     artifact.packagingStructureAnalysis?.artifactId,
     artifact.functionSlotAtomizationAnalysis?.artifactId,
+    artifact.userMaterialPack?.artifactId,
   ].filter(Boolean).join("|");
 }

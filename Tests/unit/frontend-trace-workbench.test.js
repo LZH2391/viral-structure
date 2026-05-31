@@ -13,6 +13,7 @@ test("React workbench entry keeps uiTrace and backend trace boundaries", () => {
   assert.match(state, /understand: "sample\.understand"/);
   assert.match(state, /scriptSegmentAnalyze: "script\.segment\.analyze"/);
   assert.match(state, /rhythmStructureAnalyze: "rhythm\.structure\.analyze"/);
+  assert.match(state, /userMaterialTaggerAnalyze: "user\.material_tagger\.analyze"/);
   assert.doesNotMatch(state, /structure\.transfer/);
   assert.match(app, /uiTraceId: state\.uiTraceId/);
   assert.match(app, /backendTraceId: state\.processingJob\?\.traceId/);
@@ -40,6 +41,8 @@ test("full analysis sync keeps atomization job independent and labels trace laye
   assert.match(app, /activeSampleSource/);
   assert.match(app, /functionSlotAtomizationFlow\.setJob\(atomizationJob\)/);
   assert.match(app, /if \(atomizationJob\) writeActiveAnalysisJob\("functionSlotAtomization", toActiveJobDraft\(atomizationJob\)\)/);
+  assert.match(app, /userMaterialTaggerFlow\.setJob\(materialJob\)/);
+  assert.match(app, /writeActiveAnalysisJob\("userMaterialTagger", toActiveJobDraft\(materialJob\)\)/);
   assert.match(full, /workflow trace/);
   assert.match(fullStageStep, /child trace/);
   assert.match(full, /operationTokenRef/);
@@ -455,7 +458,7 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /agent-chat-timeline-list/);
   assert.doesNotMatch(chat, /className="agent-timeline-list"/);
   const graphUtils = read(root, "Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  assert.match(graphUtils, /node\.type === "sourceVariant"\) return false/);
+  assert.match(graphUtils, /node\.type === "sourceVariant"\) return filters\.sourceVariant/);
   assert.doesNotMatch(graphUtils, /if \(node\.type === "sourceVariant"\) return true/);
   assert.match(css, /\.agent-chat-layout/);
   assert.match(css, /--agent-chat-list-width/);

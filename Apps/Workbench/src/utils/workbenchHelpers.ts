@@ -22,6 +22,7 @@ export type ScriptSegmentCacheHandler = AnalysisCacheHandler;
 export type RhythmStructureCacheHandler = AnalysisCacheHandler;
 export type PackagingStructureCacheHandler = AnalysisCacheHandler;
 export type FunctionSlotAtomizationCacheHandler = AnalysisCacheHandler;
+export type UserMaterialTaggerCacheHandler = AnalysisCacheHandler;
 
 const ANALYSIS_STAGE_LABELS = Object.fromEntries(listAnalysisRoles().flatMap((role) => Object.entries(role.stageLabels)));
 const SHOT_BOUNDARY_POLL_MAX_ATTEMPTS = 60 * 60;
@@ -188,6 +189,17 @@ export async function runFunctionSlotAtomizationAnalysis(
   onCacheHit?: FunctionSlotAtomizationCacheHandler,
 ) {
   return runAnalysisRole("functionSlotAtomization", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, "refresh");
+}
+
+export async function runUserMaterialTaggerAnalysis(
+  state: WorkbenchState,
+  dispatch: (action: WorkbenchAction) => void,
+  onJobUpdate?: (job: ProcessingJob | null) => void,
+  writeActiveJob?: JobDraftWriter,
+  onCacheHit?: UserMaterialTaggerCacheHandler,
+  cacheDecision: "ask" | "reuse" | "refresh" = "ask",
+) {
+  return runAnalysisRole("userMaterialTagger", state, dispatch, onJobUpdate, writeActiveJob, onCacheHit, cacheDecision);
 }
 
 export async function attachProcessingJob(jobDraft: ActiveJobDraft, dispatch: (action: WorkbenchAction) => void, writeActiveUploadJob: JobDraftWriter) {

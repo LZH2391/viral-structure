@@ -35,6 +35,7 @@ type WorkbenchWorkspaceViewProps = {
   rhythmStructureFlow: AnalysisFlow;
   packagingStructureFlow: AnalysisFlow;
   functionSlotAtomizationFlow: AnalysisFlow;
+  userMaterialTaggerFlow: AnalysisFlow;
   fileLabel: string;
   processingText: string;
   traceText: string;
@@ -69,6 +70,7 @@ type WorkbenchWorkspaceViewProps = {
   handleRhythmStructure: () => Promise<SampleArtifact | null>;
   handlePackagingStructure: () => Promise<SampleArtifact | null>;
   handleFunctionSlotAtomization: () => Promise<SampleArtifact | null>;
+  handleUserMaterialTagger: () => Promise<SampleArtifact | null>;
   handleFunctionSlotManualBoundaryEdit: (editedJsonText: string) => Promise<void>;
 };
 
@@ -85,6 +87,7 @@ export function WorkbenchWorkspaceView({
   rhythmStructureFlow,
   packagingStructureFlow,
   functionSlotAtomizationFlow,
+  userMaterialTaggerFlow,
   fileLabel,
   processingText,
   traceText,
@@ -119,6 +122,7 @@ export function WorkbenchWorkspaceView({
   handleRhythmStructure,
   handlePackagingStructure,
   handleFunctionSlotAtomization,
+  handleUserMaterialTagger,
   handleFunctionSlotManualBoundaryEdit,
 }: WorkbenchWorkspaceViewProps) {
   return (
@@ -192,6 +196,9 @@ export function WorkbenchWorkspaceView({
         functionSlotAtomizationAnalysis={state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null}
         functionSlotAtomizationAnalysisHistory={state.sampleArtifact?.functionSlotAtomizationAnalysisHistory ?? null}
         functionSlotAtomizationJob={functionSlotAtomizationFlow.job}
+        userMaterialPack={state.sampleArtifact?.userMaterialPack ?? null}
+        userMaterialPackHistory={state.sampleArtifact?.userMaterialPackHistory ?? null}
+        userMaterialTaggerJob={userMaterialTaggerFlow.job}
         activeTab={propertyPanelTab}
         onActiveTabChange={setPropertyPanelTab}
         agentAnalysisFps={agentAnalysisFps}
@@ -220,6 +227,9 @@ export function WorkbenchWorkspaceView({
         }}
         onRunFunctionSlotAtomization={() => {
           void handleFunctionSlotAtomization().catch((error) => setSaveStatus(error instanceof Error ? error.message : "功能槽位原子化失败"));
+        }}
+        onRunUserMaterialTagger={() => {
+          void handleUserMaterialTagger().catch((error) => setSaveStatus(error instanceof Error ? error.message : "素材识别失败"));
         }}
         onManualFunctionSlotBoundaryEdit={(editedJsonText) => handleFunctionSlotManualBoundaryEdit(editedJsonText).catch((error) => {
           setSaveStatus(error instanceof Error ? error.message : "原子化手动修正失败");

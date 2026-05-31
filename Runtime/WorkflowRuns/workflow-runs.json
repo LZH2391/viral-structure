@@ -1707,7 +1707,7 @@
       "workflowVersion": "material-recognition.v1",
       "cacheDecision": "ask",
       "options": {},
-      "status": "failed",
+      "status": "processed",
       "traceId": "trace_dbe65e97-84ee-490f-89b1-a4005e986a73",
       "runId": "run_fc1f9205-556f-4c38-a373-16cc722bc9b6",
       "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -1782,25 +1782,23 @@
           ],
           "parallelGroup": null,
           "blocking": true,
-          "status": "failed",
-          "attemptNo": 1,
-          "stageId": "stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f",
-          "childJobId": null,
-          "childTraceId": null,
-          "artifactId": null,
-          "parentArtifactId": null,
-          "sampleVideoId": null,
+          "status": "processed",
+          "attemptNo": 2,
+          "stageId": "stage_363ebb76-4441-4d64-97a3-40dfba43975a",
+          "childJobId": "job_11f4770c-6898-4c73-90df-3ba49797c117",
+          "childTraceId": "trace_015f9482-2858-4c5e-9349-e9a194d5e64b",
+          "artifactId": "artifact_726aeeb3-f561-4679-905b-43ecabd9cc41",
+          "parentArtifactId": "artifact_895f9667-341c-42dd-9d29-966d178611bf",
+          "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
           "inputSummary": null,
-          "outputSummary": null,
-          "errorSummary": {
-            "code": "workflow_stage_failed",
-            "message": "role profile_path missing: user-material-tagger",
-            "stageName": "userMaterialTagger",
-            "retryable": true,
-            "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f_d3c44ede19.json"
+          "outputSummary": {
+            "childJobId": "job_11f4770c-6898-4c73-90df-3ba49797c117",
+            "childTraceId": "trace_015f9482-2858-4c5e-9349-e9a194d5e64b",
+            "artifactId": "artifact_726aeeb3-f561-4679-905b-43ecabd9cc41"
           },
-          "startedAt": "2026-05-31T06:17:28.227Z",
-          "completedAt": "2026-05-31T06:17:28.375Z"
+          "errorSummary": null,
+          "startedAt": "2026-05-31T06:22:00.365Z",
+          "completedAt": "2026-05-31T06:35:39.683Z"
         },
         {
           "key": "aggregate",
@@ -1813,31 +1811,34 @@
           ],
           "parallelGroup": null,
           "blocking": false,
-          "status": "pending",
+          "status": "processed",
           "attemptNo": 1,
-          "stageId": null,
+          "stageId": "stage_dd0050ed-79c2-4252-8c1f-fdcfabeca387",
           "childJobId": null,
           "childTraceId": null,
-          "artifactId": null,
+          "artifactId": "artifact_f4e35b06-769f-49e1-8fc5-8c722ae94d1e",
           "parentArtifactId": null,
           "sampleVideoId": null,
           "inputSummary": null,
-          "outputSummary": null,
+          "outputSummary": {
+            "sampleVideoId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+            "shotCount": 19,
+            "scriptSegmentCount": 0,
+            "rhythmSectionCount": 0,
+            "packagingBlockCount": 0,
+            "functionSlotCount": 0,
+            "userMaterialShotCardCount": 19,
+            "userMaterialGroupCount": 4
+          },
           "errorSummary": null,
-          "startedAt": null,
-          "completedAt": null
+          "startedAt": "2026-05-31T06:35:39.686Z",
+          "completedAt": "2026-05-31T06:35:39.866Z"
         }
       ],
       "createdAt": "2026-05-31T06:17:26.204Z",
-      "updatedAt": "2026-05-31T06:17:28.375Z",
-      "completedAt": null,
-      "errorSummary": {
-        "code": "workflow_stage_failed",
-        "message": "role profile_path missing: user-material-tagger",
-        "stageName": "userMaterialTagger",
-        "retryable": true,
-        "debugSnapshotUri": "/runtime/DebugSnapshots/snapshot_stage_776d40c6-ba3c-4b2c-84bf-f49f81567b4f_d3c44ede19.json"
-      }
+      "updatedAt": "2026-05-31T06:35:39.873Z",
+      "completedAt": "2026-05-31T06:35:39.873Z",
+      "errorSummary": null
     }
   ]
 }

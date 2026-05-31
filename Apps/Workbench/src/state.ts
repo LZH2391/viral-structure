@@ -23,6 +23,7 @@ export const STAGES = {
   rhythmStructureAnalyze: "rhythm.structure.analyze",
   packagingStructureAnalyze: "packaging.structure.analyze",
   functionSlotAtomizationAnalyze: "function.slot.atomization.analyze",
+  userMaterialTaggerAnalyze: "user.material_tagger.analyze",
 } as const;
 
 export type RunStatus = {
@@ -106,6 +107,7 @@ export type DraftState = {
   activeRhythmStructureJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activePackagingStructureJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activeFunctionSlotAtomizationJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
+  activeUserMaterialTaggerJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
 };
 
 export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction): WorkbenchState {

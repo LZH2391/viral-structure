@@ -9,7 +9,7 @@ export type LibraryItemSummary = {
   updatedAt?: string | null;
   tags: string[];
   cacheAvailable: boolean;
-  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | string;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | "function_slot_atomization" | "user_material_pack" | string;
   traceId?: string | null;
   sourceSampleVideoId?: string | null;
   sourceTraceId?: string | null;

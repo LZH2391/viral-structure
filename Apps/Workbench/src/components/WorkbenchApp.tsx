@@ -155,6 +155,15 @@ export function WorkbenchApp() {
     uploadTokenRef: uploadFlow.uploadTokenRef,
   });
 
+  const userMaterialTaggerFlow = useAnalysisJobFlow({
+    kind: "userMaterialTagger",
+    state,
+    dispatch,
+    persistWorkbenchArtifact,
+    setSaveStatus,
+    uploadTokenRef: uploadFlow.uploadTokenRef,
+  });
+
   const { currentTime, setCurrentTime, currentCard, currentShot } = useWorkbenchPlaybackSync({
     videoRef,
     structureCards: state.structureCards,
@@ -194,9 +203,10 @@ export function WorkbenchApp() {
       await rhythmStructureFlow.attachDraftJob(draft?.activeRhythmStructureJob).catch(() => setSaveStatus("恢复节奏结构任务失败"));
       await packagingStructureFlow.attachDraftJob(draft?.activePackagingStructureJob).catch(() => setSaveStatus("恢复包装结构任务失败"));
       await functionSlotAtomizationFlow.attachDraftJob(draft?.activeFunctionSlotAtomizationJob).catch(() => setSaveStatus("恢复原子化任务失败"));
+      await userMaterialTaggerFlow.attachDraftJob(draft?.activeUserMaterialTaggerJob).catch(() => setSaveStatus("恢复素材识别任务失败"));
     };
     void restoreJobs();
-  }, [functionSlotAtomizationFlow, packagingStructureFlow, rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow]);
+  }, [functionSlotAtomizationFlow, packagingStructureFlow, rhythmStructureFlow, scriptSegmentFlow, setSaveStatus, shotBoundaryFlow, userMaterialTaggerFlow]);
 
   const handleUnderstand = useCallback(async () => {
     if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
@@ -322,6 +332,37 @@ export function WorkbenchApp() {
     }
   }, [functionSlotAtomizationFlow, stageLogger, state]);
 
+  const handleUserMaterialTagger = useCallback(async () => {
+    if (!state.sampleVideo || !state.sampleArtifact?.shotBoundaryAnalysis?.shots?.length) return null;
+    const stage = stageLogger.beginStage(STAGES.userMaterialTaggerAnalyze, state.sampleArtifact.shotBoundaryAnalysis.artifactId, {
+      sampleVideoId: state.sampleVideo.id,
+      sourceShotBoundaryArtifactId: state.sampleArtifact.shotBoundaryAnalysis.artifactId,
+      shotCount: state.sampleArtifact.shotBoundaryAnalysis.shots.length,
+    });
+    try {
+      const result = await userMaterialTaggerFlow.run("ask");
+      if (!result?.artifact?.userMaterialPack) throw new Error("素材识别未返回有效产物");
+      userMaterialTaggerFlow.applyCompletedArtifact(result.artifact, result.job.traceId ?? state.processingJob?.traceId ?? null, "素材识别完成");
+      stageLogger.finishStage(stage, result.artifact.userMaterialPack.artifactId, {
+        shotCardCount: result.artifact.userMaterialPack.shotCards.length,
+        materialGroupCount: result.artifact.userMaterialPack.materialGroups.length,
+        proofCoverageCount: result.artifact.userMaterialPack.proofCoverage.length,
+        validatorCode: result.artifact.userMaterialPack.validation?.validatorCode ?? null,
+      });
+      return result.artifact;
+    } catch (error) {
+      userMaterialTaggerFlow.setJob(resolveFailedProcessingJob(error));
+      stageLogger.failStage(stage, error, {
+        errorCode: (error as { code?: string })?.code,
+        errorMessage: error instanceof Error ? error.message : "素材识别失败",
+        errorStage: STAGES.userMaterialTaggerAnalyze,
+        backendTraceId: userMaterialTaggerFlow.job?.traceId ?? state.processingJob?.traceId ?? null,
+        debugPayload: { kind: "user-material-tagger-failure", sampleVideoId: state.sampleVideo.id },
+      });
+      throw error;
+    }
+  }, [stageLogger, state, userMaterialTaggerFlow]);
+
   const handleFunctionSlotManualBoundaryEdit = useCallback(async (editedJsonText: string) => {
     const sampleVideoId = state.sampleVideo?.id ?? state.sampleArtifact?.sampleVideoId ?? null;
     const analysis = state.sampleArtifact?.functionSlotAtomizationAnalysis ?? null;
@@ -404,9 +445,13 @@ export function WorkbenchApp() {
     }
     const shotStage = payload.run.stages.find((stage) => stage.key === "shotBoundary");
     const shotJob = shotStage?.childJobId ? payload.childJobs[shotStage.childJobId] ?? null : null;
+    const materialStage = payload.run.stages.find((stage) => stage.key === "userMaterialTagger");
+    const materialJob = materialStage?.childJobId ? payload.childJobs[materialStage.childJobId] ?? null : null;
     shotBoundaryFlow.setAgentJob(shotJob);
+    userMaterialTaggerFlow.setJob(materialJob);
     writeActiveAgentJob(toActiveJobDraft(shotJob));
-  }, [persistWorkbenchArtifact, shotBoundaryFlow, state.activeSampleRevision]);
+    writeActiveAnalysisJob("userMaterialTagger", toActiveJobDraft(materialJob));
+  }, [persistWorkbenchArtifact, shotBoundaryFlow, state.activeSampleRevision, userMaterialTaggerFlow]);
 
   const handleOpenWorkbenchStage = useCallback((stageKey: FullAnalysisStageTarget) => {
     const tab = fullAnalysisStageToPropertyTab(stageKey);
@@ -476,6 +521,7 @@ export function WorkbenchApp() {
         rhythmStructureFlow={rhythmStructureFlow}
         packagingStructureFlow={packagingStructureFlow}
         functionSlotAtomizationFlow={functionSlotAtomizationFlow}
+        userMaterialTaggerFlow={userMaterialTaggerFlow}
         fileLabel={fileLabel}
         processingText={processingText}
         traceText={traceText}
@@ -510,6 +556,7 @@ export function WorkbenchApp() {
         handleRhythmStructure={handleRhythmStructure}
         handlePackagingStructure={handlePackagingStructure}
         handleFunctionSlotAtomization={handleFunctionSlotAtomization}
+        handleUserMaterialTagger={handleUserMaterialTagger}
         handleFunctionSlotManualBoundaryEdit={handleFunctionSlotManualBoundaryEdit}
       />
       {mountedViews["full-analysis"] ? (
@@ -543,6 +590,7 @@ export function WorkbenchApp() {
       {rhythmStructureFlow.cachePrompt ? <CacheDecisionDialog item={rhythmStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("rhythmStructure", rhythmStructureFlow, setSaveStatus, state)} onCancel={() => rhythmStructureFlow.setCachePrompt(null)} /> : null}
       {packagingStructureFlow.cachePrompt ? <CacheDecisionDialog item={packagingStructureFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("packagingStructure", packagingStructureFlow, setSaveStatus, state)} onCancel={() => packagingStructureFlow.setCachePrompt(null)} /> : null}
       {functionSlotAtomizationFlow.cachePrompt ? <CacheDecisionDialog item={functionSlotAtomizationFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("functionSlotAtomization", functionSlotAtomizationFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("functionSlotAtomization", functionSlotAtomizationFlow, setSaveStatus, state)} onCancel={() => functionSlotAtomizationFlow.setCachePrompt(null)} /> : null}
+      {userMaterialTaggerFlow.cachePrompt ? <CacheDecisionDialog item={userMaterialTaggerFlow.cachePrompt.cachedItem} onReuse={async () => await reuseAnalysisCache("userMaterialTagger", userMaterialTaggerFlow, setSaveStatus, state, dispatch)} onRefresh={async () => await refreshAnalysisCache("userMaterialTagger", userMaterialTaggerFlow, setSaveStatus, state)} onCancel={() => userMaterialTaggerFlow.setCachePrompt(null)} /> : null}
       <button id="understandBtn" className="sr-only" type="button" onClick={handleUnderstand}>
         结构理解
       </button>

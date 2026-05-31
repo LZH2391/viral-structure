@@ -1,15 +1,15 @@
 import { STAGES } from "../state";
 import type { ModuleSummary, SampleArtifact } from "../types";
 
-export type AnalysisKind = "scriptSegment" | "rhythmStructure" | "packagingStructure" | "functionSlotAtomization";
+export type AnalysisKind = "scriptSegment" | "rhythmStructure" | "packagingStructure" | "functionSlotAtomization" | "userMaterialTagger";
 
 export type AnalysisRoleMetadata = {
   kind: AnalysisKind;
   moduleId: string;
   analysisId: string;
   cacheKind: string;
-  artifactKey: "scriptSegmentAnalysis" | "rhythmStructureAnalysis" | "packagingStructureAnalysis" | "functionSlotAtomizationAnalysis";
-  historyKey: "scriptSegmentAnalysisHistory" | "rhythmStructureAnalysisHistory" | "packagingStructureAnalysisHistory" | "functionSlotAtomizationAnalysisHistory";
+  artifactKey: "scriptSegmentAnalysis" | "rhythmStructureAnalysis" | "packagingStructureAnalysis" | "functionSlotAtomizationAnalysis" | "userMaterialPack";
+  historyKey: "scriptSegmentAnalysisHistory" | "rhythmStructureAnalysisHistory" | "packagingStructureAnalysisHistory" | "functionSlotAtomizationAnalysisHistory" | "userMaterialPackHistory";
   stageId: string;
   initialStage: string;
   cacheLookupStage: string;
@@ -163,6 +163,39 @@ export const ANALYSIS_ROLES: Record<AnalysisKind, AnalysisRoleMetadata> = {
     getArtifactId: (artifact) => artifact.functionSlotAtomizationAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
     getParentArtifactId: (artifact) => artifact.functionSlotAtomizationAnalysis?.parentArtifactId ?? artifact.packagingStructureAnalysis?.artifactId ?? artifact.sampleVideo.artifactId,
   }),
+  userMaterialTagger: createAnalysisRoleMetadata({
+    kind: "userMaterialTagger",
+    fallback: {
+      moduleId: "user-material-tagger",
+      analysisId: "user-material-tagger",
+      cacheKind: "user_material_pack",
+      artifactKey: "userMaterialPack",
+      historyKey: "userMaterialPackHistory",
+      stageId: STAGES.userMaterialTaggerAnalyze,
+      initialStage: "user_material_tagger.input_prepare",
+      cacheLookupStage: "user_material_tagger.cache_lookup",
+      displayName: "素材识别",
+      completeReason: "素材识别完成",
+      refreshReason: "素材识别重新生成",
+      reuseReason: "素材识别复用缓存",
+      invalidResultMessage: "素材识别未返回有效产物",
+      failureMessage: "素材识别失败",
+      timeoutMessage: "素材识别超时",
+      stageLabels: {
+        "user_material_tagger.cache_lookup": "检查素材识别缓存",
+        "user_material_tagger.input_prepare": "准备素材识别输入",
+        "user_material_tagger.input_package": "生成素材识别输入包",
+        "user_material_tagger.analyze": "分析素材标签",
+        "user_material_tagger.validate": "校验素材识别结果",
+        "user_material_tagger.repair": "修复素材识别结果",
+        "user_material_tagger.cache_reuse": "复用素材识别缓存",
+        "user_material_tagger.materialize": "写入素材识别产物",
+      },
+    },
+    getArtifact: (artifact) => artifact.userMaterialPack,
+    getArtifactId: (artifact) => artifact.userMaterialPack?.artifactId ?? artifact.sampleVideo.artifactId,
+    getParentArtifactId: (artifact) => artifact.userMaterialPack?.parentArtifactId ?? artifact.shotBoundaryAnalysis?.artifactId ?? null,
+  }),
 };
 
 function createAnalysisRoleMetadata(binding: AnalysisRoleSurfaceBinding): AnalysisRoleMetadata {
@@ -176,7 +209,7 @@ function createAnalysisRoleMetadata(binding: AnalysisRoleSurfaceBinding): Analys
 
 export function mergeAnalysisRoleModules(modules: ModuleSummary[]) {
   const byStageKind = new Map(modules
-    .filter((module) => module.moduleKind === "structure-analysis" && module.ui?.stageKind)
+    .filter((module) => ["structure-analysis", "material-understanding"].includes(module.moduleKind) && module.ui?.stageKind)
     .map((module) => [module.ui?.stageKind, module]));
   return Object.fromEntries(
     Object.entries(ANALYSIS_ROLES).map(([kind, role]) => {

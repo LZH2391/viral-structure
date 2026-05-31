@@ -215,23 +215,29 @@ test("property panel shows all shots and recent shot analysis history", () => {
   const scriptPanel = read(root, "Apps/Workbench/src/components/property-panel/ScriptSegmentPanel.tsx");
   const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
   const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
+  const materialPanel = read(root, "Apps/Workbench/src/components/property-panel/UserMaterialTaggerPanel.tsx");
   const formatters = read(root, "Apps/Workbench/src/components/property-panel/formatters.ts");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const workspaceView = read(root, "Apps/Workbench/src/components/workbench/WorkbenchWorkspaceView.tsx");
   const css = readPropertyPanelCss(root);
   const types = read(root, "Apps/Workbench/src/types.ts");
 
-  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "semanticGovernance" \| "storyboardPrep" \| "meta"/);
+  assert.match(propertyPanel, /export type PropertyPanelTab = "shot" \| "material" \| "script" \| "rhythm" \| "packaging" \| "atomization" \| "semanticGovernance" \| "storyboardPrep" \| "meta"/);
   assert.match(propertyPanel, /const \[internalActiveTab, setInternalActiveTab\] = useState<PropertyPanelTab>\("shot"\)/);
   assert.match(propertyPanel, /const activeTab = props\.activeTab \?\? internalActiveTab/);
   assert.match(propertyPanel, /role="tablist"/);
   assert.match(propertyPanel, /shot/);
+  assert.match(propertyPanel, /素材/);
   assert.match(propertyPanel, /script/);
   assert.match(propertyPanel, /节奏结构/);
   assert.match(propertyPanel, /包装结构/);
   assert.match(propertyPanel, /原子化/);
   assert.match(propertyPanel, /<PackagingStructurePanel/);
   assert.match(propertyPanel, /<FunctionSlotAtomizationPanel/);
+  assert.match(propertyPanel, /<UserMaterialTaggerPanel/);
+  assert.match(materialPanel, /agentName="user-material-tagger"/);
+  assert.match(materialPanel, /shotCards/);
+  assert.match(materialPanel, /proofCoverage/);
   assert.match(packagingPanel, /agentName="packaging-structure"/);
   assert.match(packagingPanel, /整体包装/);
   assert.match(packagingPanel, /shotPackagingNotes/);
@@ -274,12 +280,17 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(workspaceView, /packagingStructureAnalysis=\{state\.sampleArtifact\?\.packagingStructureAnalysis \?\? null\}/);
   assert.match(workspaceView, /packagingStructureAnalysisHistory=\{state\.sampleArtifact\?\.packagingStructureAnalysisHistory \?\? null\}/);
   assert.match(workspaceView, /packagingStructureJob=\{packagingStructureFlow\.job\}/);
+  assert.match(workspaceView, /userMaterialPack=\{state\.sampleArtifact\?\.userMaterialPack \?\? null\}/);
+  assert.match(workspaceView, /userMaterialPackHistory=\{state\.sampleArtifact\?\.userMaterialPackHistory \?\? null\}/);
+  assert.match(workspaceView, /userMaterialTaggerJob=\{userMaterialTaggerFlow\.job\}/);
   assert.match(app, /scriptSegmentFlow\.cachePrompt/);
   assert.match(app, /rhythmStructureFlow\.cachePrompt/);
   assert.match(app, /packagingStructureFlow\.cachePrompt/);
+  assert.match(app, /userMaterialTaggerFlow\.cachePrompt/);
   assert.match(workspaceView, /onRunScriptSegment=\{/);
   assert.match(workspaceView, /onRunRhythmStructure=\{/);
   assert.match(workspaceView, /onRunPackagingStructure=\{/);
+  assert.match(workspaceView, /onRunUserMaterialTagger=\{/);
   assert.match(workspaceView, /onSelectScriptSegment=\{/);
   assert.match(workspaceView, /onSelectRhythmCard=\{/);
   assert.match(workspaceView, /onSelectPackagingBlock=\{/);
@@ -303,7 +314,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(css, /\.agent-script-item/);
   assert.match(types, /shotBoundaryAnalysisHistory\?: ShotBoundaryAnalysisHistoryEntry\[] \| null;/);
   assert.match(types, /scriptSegmentAnalysisHistory\?: ScriptSegmentHistoryEntry\[] \| null;/);
-  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| "packaging_structure" \| "function_slot_atomization" \| string;/);
+  assert.match(types, /cacheKind\?: "sample" \| "shot_boundary" \| "script_segment" \| "rhythm_structure" \| "packaging_structure" \| "function_slot_atomization" \| "user_material_pack" \| string;/);
   assert.match(types, /segmentCount\?: number \| null;/);
   assert.match(types, /sectionCount\?: number \| null;/);
   assert.match(types, /cardCount\?: number \| null;/);
@@ -313,6 +324,7 @@ test("property panel shows all shots and recent shot analysis history", () => {
   assert.match(types, /scriptSegmentAnalysis\?: ScriptSegmentArtifact \| null;/);
   assert.match(types, /rhythmStructureAnalysis\?: RhythmStructureArtifact \| null;/);
   assert.match(types, /packagingStructureAnalysis\?: PackagingStructureArtifact \| null;/);
+  assert.match(types, /userMaterialPack\?: UserMaterialPackArtifact \| null;/);
 });
 
 test("agent cards show readable activity and timeline traces across agent turns", () => {
@@ -324,6 +336,7 @@ test("agent cards show readable activity and timeline traces across agent turns"
   const rhythmPanel = read(root, "Apps/Workbench/src/components/property-panel/RhythmStructurePanel.tsx");
   const packagingPanel = read(root, "Apps/Workbench/src/components/property-panel/PackagingStructurePanel.tsx");
   const atomizationPanel = read(root, "Apps/Workbench/src/components/property-panel/FunctionSlotAtomizationPanel.tsx");
+  const materialPanel = read(root, "Apps/Workbench/src/components/property-panel/UserMaterialTaggerPanel.tsx");
   const timelinePanel = read(root, "Apps/Workbench/src/components/property-panel/AgentTurnTimeline.tsx");
   const traceCards = read(root, "Apps/Workbench/src/components/property-panel/agentTraceCards.ts");
   const css = readPropertyPanelCss(root);
@@ -340,6 +353,7 @@ test("agent cards show readable activity and timeline traces across agent turns"
   assert.match(rhythmPanel, /AgentTurnTimelinePanel/);
   assert.match(packagingPanel, /AgentTurnTimelinePanel/);
   assert.match(atomizationPanel, /AgentTurnTimelinePanel/);
+  assert.match(materialPanel, /AgentTurnTimelinePanel/);
   assert.match(timelinePanel, /resolveAgentTraceCards\(job\)/);
   assert.match(timelinePanel, /getAgentTurnTimeline\(selectedCard\.threadId as string, selectedCard\.turnId as string\)/);
   assert.match(timelinePanel, /setInterval\([\s\S]*2000/);

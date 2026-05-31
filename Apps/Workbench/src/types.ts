@@ -15,6 +15,7 @@ import type {
   ScriptSegmentArtifact,
   ScriptSegmentHistoryEntry,
   ShotBoundaryAnalysisHistoryEntry,
+  UserMaterialPackArtifact,
 } from "./types/artifact";
 import type { AgentActivitySummary } from "./types/job";
 
@@ -36,7 +37,7 @@ export type StaticTraceTypeCompatibility = {
   scriptSegmentAnalysisHistory?: ScriptSegmentHistoryEntry[] | null;
   packagingStructureAnalysisHistory?: PackagingStructureHistoryEntry[] | null;
   functionSlotAtomizationAnalysisHistory?: FunctionSlotAtomizationHistoryEntry[] | null;
-  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | "function_slot_atomization" | string;
+  cacheKind?: "sample" | "shot_boundary" | "script_segment" | "rhythm_structure" | "packaging_structure" | "function_slot_atomization" | "user_material_pack" | string;
   segmentCount?: number | null;
   sectionCount?: number | null;
   cardCount?: number | null;
@@ -51,6 +52,7 @@ export type StaticTraceTypeCompatibility = {
   rhythmStructureAnalysis?: RhythmStructureArtifact | null;
   packagingStructureAnalysis?: PackagingStructureArtifact | null;
   functionSlotAtomizationAnalysis?: FunctionSlotAtomizationArtifact | null;
+  userMaterialPack?: UserMaterialPackArtifact | null;
   activeThreadMessage?: {
     threadId?: string | null;
     turnId?: string | null;
