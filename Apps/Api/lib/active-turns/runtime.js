@@ -46,7 +46,12 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
 
   async function cancel({ workspaceRoot, threadId, turnId, timeoutSeconds = 30, traceContext = null } = {}) {
     if (!appServer?.cancelTurn) throw activeRuntimeError("appserver_turn_cancel_unavailable", "AppServer turn/cancel 能力不可用", null, true);
-    const result = await appServer.cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds });
+    let result;
+    try {
+      result = await appServer.cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds });
+    } catch (error) {
+      result = await resolveCancelFailure({ error, workspaceRoot, threadId, turnId, timeoutSeconds });
+    }
     const previous = await bindingStore.getByTurnId(turnId);
     const binding = await bindingStore.markStatus({ turnId, status: result?.status ?? "canceled", result, traceContext });
     const ownerResult = await ownerHandlers?.onCancel?.(binding ?? previous, result);
@@ -58,6 +63,42 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
       status: normalizeTurnStatus(result?.status ?? "canceled"),
       ownerResult,
     };
+  }
+
+  async function resolveCancelFailure({ error, workspaceRoot, threadId, turnId, timeoutSeconds }) {
+    const message = String(error?.message ?? "");
+    if (isIdempotentCancelError(message)) {
+      return {
+        ok: true,
+        threadId,
+        turnId,
+        status: "canceled",
+        cancelWarning: summarizeCancelError(error),
+      };
+    }
+    const collected = await collectAfterCancelFailure({ workspaceRoot, threadId, turnId, timeoutSeconds }).catch(() => null);
+    if (collected && isTerminalTurnStatus(collected.status)) {
+      return {
+        ...collected,
+        ok: collected.ok !== false,
+        threadId: collected.threadId ?? threadId,
+        turnId: collected.turnId ?? turnId,
+        cancelWarning: summarizeCancelError(error),
+      };
+    }
+    const cancelError = activeRuntimeError(error?.code ?? "appserver_turn_cancel_failed", safeCancelMessage(error), error?.debugPayload ?? null, true);
+    cancelError.statusCode = 502;
+    throw cancelError;
+  }
+
+  async function collectAfterCancelFailure({ workspaceRoot, threadId, turnId, timeoutSeconds }) {
+    if (!appServer?.collectTurnResult) return null;
+    return appServer.collectTurnResult({
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds: Math.min(Math.max(Number(timeoutSeconds) || 30, 5), 30),
+    });
   }
 
   async function listActive(filters = {}) {
@@ -109,6 +150,23 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     getByTurnId,
     getByBindingId,
   };
+}
+
+function isIdempotentCancelError(message) {
+  const value = String(message ?? "").toLowerCase();
+  return ["not found", "unknown turn", "no such turn", "already completed", "already cancelled", "already canceled", "terminal", "not running"].some((marker) => value.includes(marker));
+}
+
+function summarizeCancelError(error) {
+  return {
+    code: error?.code ?? null,
+    message: safeCancelMessage(error),
+  };
+}
+
+function safeCancelMessage(error) {
+  const message = String(error?.message ?? "AppServer turn/cancel 请求失败").replace(/\s+/g, " ").trim();
+  return message.length > 240 ? `${message.slice(0, 240)}...` : message;
 }
 
 function activeRuntimeError(code, message, debugPayload = null, retryable = true) {

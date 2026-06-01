@@ -2497,6 +2497,47 @@ test("active turn stop thread route marks agent chat thread stopped and releases
   }
 });
 
+test("active turn stop thread route does not release lease or write owner when cancel fails", async () => {
+  const calls = [];
+  const server = createServer({
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        leaseId: "lease_1",
+        threadPoolOwnerId: "owner_1",
+      }),
+      cancel: async () => {
+        const error = new Error("request failed: turn/cancel");
+        error.code = "appserver_turn_cancel_failed";
+        error.statusCode = 502;
+        throw error;
+      },
+    },
+    threadPool: {
+      releaseLease: async (payload) => calls.push({ type: "release", payload }),
+    },
+    agentConversationStore: {
+      stopThread: async (payload) => calls.push({ type: "stopThread", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_chat/stop-thread", { turnId: "turn_1" });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "appserver_turn_cancel_failed");
+    assert.deepEqual(calls, []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("active turn retry route replays agent chat user message through owner binding", async () => {
   const calls = [];
   const server = createServer({

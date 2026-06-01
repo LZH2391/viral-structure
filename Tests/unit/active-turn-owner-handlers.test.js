@@ -132,6 +132,51 @@ test("runtime list prunes orphan and stale active bindings before projection", a
   }
 });
 
+test("runtime cancel falls back to terminal collect when appserver cancel errors", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-cancel-terminal-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const calls = [];
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        cancelTurn: async () => {
+          const error = new Error("request failed: turn/cancel");
+          error.code = "appserver_bridge_failed";
+          throw error;
+        },
+        collectTurnResult: async (payload) => {
+          calls.push({ type: "collect", payload });
+          return { status: "completed", threadId: payload.threadId, turnId: payload.turnId };
+        },
+      },
+      ownerHandlers: {
+        onCancel: async (binding, result) => {
+          calls.push({ type: "cancelOwner", binding, result });
+          return { status: "canceled" };
+        },
+      },
+    });
+    await runtime.register({
+      threadId: "thread_1",
+      turnId: "turn_1",
+      ownerType: "processing-job",
+      ownerId: "job_1",
+      currentAttemptId: "attempt_1",
+      stageName: "stage",
+      replayRef: { type: "processing-job-input", refId: "job_1" },
+      status: "running",
+    });
+
+    const result = await runtime.cancel({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" });
+    assert.equal(result.status, "completed");
+    assert.deepEqual(calls.map((call) => call.type), ["collect", "cancelOwner"]);
+    assert.equal(await runtime.getByTurnId("turn_1"), null);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("analysis turn runner registers active binding and terminal collect writes current processing job", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-runner-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };

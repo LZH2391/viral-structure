@@ -30,6 +30,9 @@ async function recordApiRequestFailure(logger, req, error) {
       ...inputSummary,
       statusCode,
       errorCode: errorSummary.code,
+      rawErrorMessage: safeMessage(error.message, "请求处理失败"),
+      rawErrorCode: error.code ?? null,
+      upstreamError: summarizeDebugPayload(error.debugPayload),
       message: errorSummary.message,
       retryable: errorSummary.retryable,
     },
@@ -42,6 +45,17 @@ async function recordApiRequestFailure(logger, req, error) {
     errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
   });
   return { traceContext, snapshot, errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri } };
+}
+
+function summarizeDebugPayload(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    error: safeMessage(value.error, ""),
+    message: safeMessage(value.message, ""),
+    operation: safeMessage(value.operation, ""),
+    threadId: safeMessage(value.threadId, ""),
+    turnId: safeMessage(value.turnId, ""),
+  };
 }
 
 function safePathname(value) {

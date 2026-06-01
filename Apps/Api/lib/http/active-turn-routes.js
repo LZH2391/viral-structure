@@ -30,12 +30,21 @@ async function handleActiveTurnStop(req, res, bindingId, handlers = {}) {
   if (body.turnId && String(body.turnId) !== String(binding.turnId)) {
     return sendJson(res, 409, { ok: false, error: "active_turn_mismatch", turnId: binding.turnId });
   }
-  const result = await runtime.cancel({
-    workspaceRoot: body.workspaceRoot ?? body.rootDir ?? handlers.rootDir,
-    threadId: binding.threadId,
-    turnId: binding.turnId,
-    timeoutSeconds: 30,
-  });
+  const result = await cancelActiveBinding(runtime, binding, body, handlers);
+  if (result.ok === false) {
+    return sendJson(res, result.statusCode ?? 502, {
+      ok: false,
+      error: result.errorCode ?? "active_turn_cancel_failed",
+      code: result.errorCode ?? "active_turn_cancel_failed",
+      message: result.message ?? "停止 active turn 失败",
+      bindingId,
+      ownerType: binding.ownerType,
+      ownerId: binding.ownerId,
+      threadId: binding.threadId,
+      turnId: binding.turnId,
+      retryable: true,
+    });
+  }
   await releaseBindingLease(binding, handlers);
   return sendJson(res, 200, {
     ok: true,
@@ -61,12 +70,21 @@ async function handleActiveTurnStopThread(req, res, bindingId, handlers = {}) {
   if (body.turnId && String(body.turnId) !== String(binding.turnId)) {
     return sendJson(res, 409, { ok: false, error: "active_turn_mismatch", turnId: binding.turnId });
   }
-  const result = await runtime.cancel({
-    workspaceRoot: body.workspaceRoot ?? body.rootDir ?? handlers.rootDir,
-    threadId: binding.threadId,
-    turnId: binding.turnId,
-    timeoutSeconds: 30,
-  });
+  const result = await cancelActiveBinding(runtime, binding, body, handlers);
+  if (result.ok === false) {
+    return sendJson(res, result.statusCode ?? 502, {
+      ok: false,
+      error: result.errorCode ?? "active_turn_cancel_failed",
+      code: result.errorCode ?? "active_turn_cancel_failed",
+      message: result.message ?? "结束 Thread 前停止 active turn 失败",
+      bindingId,
+      ownerType: binding.ownerType,
+      ownerId: binding.ownerId,
+      threadId: binding.threadId,
+      turnId: binding.turnId,
+      retryable: true,
+    });
+  }
   await releaseBindingLease(binding, handlers, { forceAgentChat: true });
   const ownerResult = await stopOwnerThread(binding, handlers, body);
   return sendJson(res, 200, {
@@ -80,6 +98,28 @@ async function handleActiveTurnStopThread(req, res, bindingId, handlers = {}) {
     status: result.status,
     ownerResult: ownerResult ?? result.ownerResult ?? null,
   });
+}
+
+async function cancelActiveBinding(runtime, binding, body, handlers) {
+  try {
+    return await runtime.cancel({
+      workspaceRoot: body.workspaceRoot ?? body.rootDir ?? handlers.rootDir,
+      threadId: binding.threadId,
+      turnId: binding.turnId,
+      timeoutSeconds: 30,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      threadId: binding.threadId,
+      turnId: binding.turnId,
+      status: "failed",
+      errorCode: error?.code ?? "active_turn_cancel_failed",
+      message: safeErrorMessage(error, "停止 active turn 失败"),
+      statusCode: error?.statusCode ?? 502,
+      debugPayload: error?.debugPayload ?? null,
+    };
+  }
 }
 
 async function handleActiveTurnRetry(req, res, bindingId, handlers = {}) {
@@ -414,6 +454,11 @@ function normalizeProgress(value) {
   const progress = Number(value);
   if (!Number.isFinite(progress)) return 0;
   return Math.max(0, Math.min(99, progress));
+}
+
+function safeErrorMessage(error, fallback) {
+  const text = String(error?.message ?? fallback).replace(/\s+/g, " ").trim();
+  return text ? text.slice(0, 240) : fallback;
 }
 
 function routeError(code, message, statusCode) {
