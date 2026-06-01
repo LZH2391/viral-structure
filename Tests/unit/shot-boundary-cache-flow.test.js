@@ -210,6 +210,29 @@ test("shot boundary collect completed writes transformed artifact and releases r
   assert.deepEqual(harness.threadPool.discarded, []);
 });
 
+test("shot boundary transform collect rejects mismatched turn result", async () => {
+  const harness = await createShotHarness({
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        if (isTransformTurnPayload(payload)) return { ok: true, threadId: "review_thread_1", turnId: "turn_transform_1", status: "submitted" };
+        return { ok: true, threadId: "thread_raw_1", turnId: "turn_raw_1", status: "submitted" };
+      },
+      collectTurnResult: async ({ threadId, turnId }) => {
+        if (turnId === "turn_raw_1") return { ok: true, threadId, turnId, status: "completed", finalMessage: "raw analyzer finished" };
+        return { ok: true, threadId, turnId: "turn_other", status: "completed", finalMessage: createTransformMessage() };
+      },
+    },
+  });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_1", analysisFps: 3 });
+  await delay(20);
+  await harness.service.collectAgentRun(result.processingJobId);
+  const job = harness.jobStore.getJob(result.processingJobId);
+
+  assert.equal(job.status, "failed");
+  assert.equal(job.errorSummary.code, "appserver_turn_collect_mismatch");
+});
+
 test("shot boundary skill content change misses old shot cache", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "shot-skill-hash-"));
   const skillPath = path.join(tempRoot, "SKILL.md");

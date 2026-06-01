@@ -106,3 +106,31 @@ test("appserver-turn executor rejects thread start without thread id", async () 
     { code: "appserver_thread_start_failed" },
   );
 });
+
+test("appserver-turn executor rejects collect result for a different turn", async () => {
+  const registry = createExecutorRegistry({
+    appServer: {
+      collectTurnResult: async (payload) => ({
+        threadId: payload.threadId,
+        turnId: "turn_other",
+        status: "completed",
+        finalMessage: "wrong turn",
+      }),
+    },
+  });
+  const context = {
+    runStage: async (_stageName, _progress, options) => options.action(),
+  };
+
+  await assert.rejects(
+    () => registry.execute("appserver-turn", {
+      action: "collect-turn",
+      stageName: "agent.collect",
+      progress: 90,
+      workspaceRoot: "C:/workspace",
+      threadId: "thread_1",
+      turnId: "turn_expected",
+    }, context),
+    { code: "appserver_turn_collect_mismatch" },
+  );
+});

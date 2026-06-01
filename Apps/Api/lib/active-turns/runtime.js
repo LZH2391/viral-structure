@@ -38,6 +38,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
   async function collect({ workspaceRoot, threadId, turnId, timeoutSeconds = 60, traceContext = null, skipOwnerHandler = false } = {}) {
     if (!appServer?.collectTurnResult) throw activeRuntimeError("appserver_turn_collect_unavailable", "AppServer turn/collect 能力不可用", null, true);
     const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
+    assertExpectedCollectTurn(result, turnId);
     await markCollectResult({ turnId, result, traceContext, skipOwnerHandler });
     return result;
   }
@@ -106,12 +107,14 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
 
   async function collectAfterCancelFailure({ workspaceRoot, threadId, turnId, timeoutSeconds }) {
     if (!appServer?.collectTurnResult) return null;
-    return appServer.collectTurnResult({
+    const result = await appServer.collectTurnResult({
       workspaceRoot,
       threadId,
       turnId,
       timeoutSeconds: Math.min(Math.max(Number(timeoutSeconds) || 30, 5), 30),
     });
+    assertExpectedCollectTurn(result, turnId);
+    return result;
   }
 
   async function listActive(filters = {}) {
@@ -186,6 +189,24 @@ function resultToCancelError(result) {
   );
   error.statusCode = result?.statusCode ?? 502;
   return error;
+}
+
+function assertExpectedCollectTurn(result, expectedTurnId) {
+  const actualTurnId = normalizeTurnId(result?.turnId ?? result?.turn?.id ?? null);
+  const expected = normalizeTurnId(expectedTurnId);
+  if (!actualTurnId || !expected || actualTurnId === expected) return;
+  const error = activeRuntimeError("appserver_turn_collect_mismatch", "AppServer turn/collect 返回了非目标 turn", {
+    expectedTurnId: expected,
+    actualTurnId,
+    status: result?.status ?? null,
+  }, true);
+  error.statusCode = 502;
+  throw error;
+}
+
+function normalizeTurnId(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function safeCancelMessage(error) {

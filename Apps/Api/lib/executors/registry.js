@@ -168,6 +168,7 @@ async function collectTurn(appServer, activeTurnRuntime, payload, context) {
       promptTemplateHash: payload.promptTemplateHash ?? null,
     }),
   });
+  assertExpectedCollectedTurn(result, payload.turnId);
   const normalized = normalizeTurnResult(result);
   if (!activeTurnRuntime?.collect) await activeTurnRuntime?.markCollectResult?.({
     turnId: normalized.turnId,
@@ -202,6 +203,19 @@ function assertTurnStarted(result) {
     true,
   );
   error.statusCode = result?.statusCode ?? 502;
+  throw error;
+}
+
+function assertExpectedCollectedTurn(result, expectedTurnId) {
+  const actualTurnId = normalizeText(result?.turnId ?? result?.turn?.id ?? null);
+  const expected = normalizeText(expectedTurnId);
+  if (!actualTurnId || !expected || actualTurnId === expected) return;
+  const error = executorError("appserver_turn_collect_mismatch", "AppServer turn/collect 返回了非目标 turn", {
+    expectedTurnId: expected,
+    actualTurnId,
+    status: result?.status ?? null,
+  }, true);
+  error.statusCode = 502;
   throw error;
 }
 
@@ -275,6 +289,11 @@ function summarizeError(error) {
     message: summarizeMessage(error.message ?? error.summary ?? "执行失败")?.preview ?? "执行失败",
     retryable: typeof error.retryable === "boolean" ? error.retryable : null,
   };
+}
+
+function normalizeText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function createUnsupportedExecutor(executorKind) {

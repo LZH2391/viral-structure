@@ -262,6 +262,43 @@ test("runtime cancel rejects failed cancel result without marking owner canceled
   }
 });
 
+test("runtime collect rejects mismatched turn result without touching owner", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-collect-mismatch-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const ownerCalls = [];
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        collectTurnResult: async (payload) => ({ status: "completed", threadId: payload.threadId, turnId: "turn_other" }),
+      },
+      ownerHandlers: {
+        onCollect: async (binding, result) => ownerCalls.push({ binding, result }),
+      },
+    });
+    await runtime.register({
+      threadId: "thread_1",
+      turnId: "turn_1",
+      ownerType: "processing-job",
+      ownerId: "job_1",
+      currentAttemptId: "attempt_1",
+      stageName: "stage",
+      replayRef: { type: "processing-job-input", refId: "job_1" },
+      status: "running",
+    });
+
+    await assert.rejects(
+      () => runtime.collect({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" }),
+      { code: "appserver_turn_collect_mismatch" },
+    );
+
+    assert.equal(ownerCalls.length, 0);
+    assert.equal((await runtime.getByTurnId("turn_1")).status, "running");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("analysis turn runner registers active binding and terminal collect writes current processing job", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-runner-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };

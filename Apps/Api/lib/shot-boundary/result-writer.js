@@ -596,8 +596,30 @@ async function collectActiveTurn({ appServer, activeTurnRuntime, workspaceRoot, 
     return activeTurnRuntime.collect({ workspaceRoot, threadId, turnId, timeoutSeconds, traceContext });
   }
   const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
+  assertExpectedCollectTurn(result, turnId);
   await activeTurnRuntime?.markCollectResult?.({ turnId, result, traceContext }).catch(() => null);
   return result;
+}
+
+function assertExpectedCollectTurn(result, expectedTurnId) {
+  const actualTurnId = normalizeTurnId(result?.turnId ?? result?.turn?.id ?? null);
+  const expected = normalizeTurnId(expectedTurnId);
+  if (!actualTurnId || !expected || actualTurnId === expected) return;
+  const error = new Error("AppServer turn/collect 返回了非目标 turn");
+  error.code = "appserver_turn_collect_mismatch";
+  error.statusCode = 502;
+  error.retryable = true;
+  error.debugPayload = {
+    expectedTurnId: expected,
+    actualTurnId,
+    status: result?.status ?? null,
+  };
+  throw error;
+}
+
+function normalizeTurnId(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function buildActiveTurnBinding({ context, lease, stageName, role, prompt, sourceTurnId, attemptKind, parentArtifactId }) {
