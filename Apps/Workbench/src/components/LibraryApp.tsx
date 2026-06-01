@@ -248,6 +248,7 @@ function writeWorkbenchDraft(sampleArtifact: LibraryItemDetail["artifact"]) {
       selectedFrameId: sampleArtifact.frames[0]?.frameId ?? null,
       selectedDerivativeId: sampleArtifact.sampleVideo.normalized.artifactId,
       versions: [],
+      activeSemanticGovernanceJob: current?.activeSemanticGovernanceJob,
     }),
   );
   window.location.assign("/");
@@ -255,7 +256,14 @@ function writeWorkbenchDraft(sampleArtifact: LibraryItemDetail["artifact"]) {
 
 function readExistingWorkbenchDraft() {
   try {
-    return JSON.parse(localStorage.getItem("workbench:last-sample") ?? "null") as { activeSampleRevision?: number } | null;
+    return JSON.parse(localStorage.getItem("workbench:last-sample") ?? "null") as {
+      activeSampleRevision?: number;
+      activeSemanticGovernanceJob?: {
+        processingJobId: string;
+        sampleVideoId: string;
+        traceId: string;
+      };
+    } | null;
   } catch {
     return null;
   }

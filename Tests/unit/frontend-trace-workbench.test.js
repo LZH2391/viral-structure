@@ -126,8 +126,10 @@ test("workbench upload cancels stale polling and restores local draft", () => {
   assert.match(uploadFlow, /resolveDraftDerivativeId/);
   assert.match(uploadFlow, /pollProcessingJob/);
   assert.match(jobPolling, /stopOnNull\?: boolean/);
-  assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(value\)\)/);
+  assert.match(draft, /const current = readWorkbenchDraft\(\)/);
+  assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(\{/);
   assert.match(draft, /localStorage\.getItem\(WORKBENCH_DRAFT_STORAGE_KEY\)/);
+  assert.match(draft, /activeSemanticGovernanceJob: value\.activeSemanticGovernanceJob \?\? current\?\.activeSemanticGovernanceJob/);
   assert.match(state, /type: "restore-draft"/);
   assert.match(state, /case "set-shot-boundary-analysis":[\s\S]*return applySampleArtifact\(state, action\.artifact\)/);
   assert.match(state, /sampleArtifact: SampleArtifact/);

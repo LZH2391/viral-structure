@@ -14,7 +14,11 @@ export function readWorkbenchDraft(): DraftState | null {
 }
 
 export function writeWorkbenchDraft(value: DraftState) {
-  localStorage.setItem(WORKBENCH_DRAFT_STORAGE_KEY, JSON.stringify(value));
+  const current = readWorkbenchDraft();
+  localStorage.setItem(WORKBENCH_DRAFT_STORAGE_KEY, JSON.stringify({
+    ...value,
+    activeSemanticGovernanceJob: value.activeSemanticGovernanceJob ?? current?.activeSemanticGovernanceJob,
+  }));
 }
 
 export function writeActiveUploadJob(job: ActiveJobDraft | null) {
