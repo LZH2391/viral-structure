@@ -7,7 +7,9 @@ description: 将 function-slot-restructure 产出的 restructure.final.md 中第
 
 ## 职责
 
-把已确认的 `restructure.final.md` 转成前端展示 JSON。
+配合确定性脚本把已确认的 `restructure.final.md` 转成前端展示 JSON。
+
+自动触发由后端编排判断：找到当前或历史 `restructure.final.md` 路径后，比对文件指纹（size / mtimeMs / sha256）；文件变化才转换，文件未变则跳过。不要根据回答文本触发词自行判断是否转换。
 
 只读取并转换这些章节：
 
@@ -28,6 +30,8 @@ description: 将 function-slot-restructure 产出的 restructure.final.md 中第
 - 不新增 slot、atom、adapter、脚本、节奏或包装判断。
 - 不执行 `function-slot-restructure` 的重组职责。
 - 不执行 `shot-storyboard-prep` 的故事板职责。
+- 不决定自动转换触发时机。
+- 不覆盖原始 `restructure.final.md`。
 - 如果原文缺字段，只标记 `missing` 或保留原文片段，不自行补全。
 
 ## 转换规则
@@ -35,6 +39,16 @@ description: 将 function-slot-restructure 产出的 restructure.final.md 中第
 优先保留原文语义和顺序。可以把 Markdown 表格、编号列表、项目符号和段落转换成数组或对象，但字段值必须来自原文。
 
 像 `shot-boundary-transformer` 一样，目标是稳定结构化输出，而不是重新分析。
+
+## Repair 规则
+
+当确定性脚本解析失败时，只做格式修复：
+
+- 输入可以是原始 `restructure.final.md`，也可以是上一轮 `restructure.final.repair-attempt-N.md`。
+- 修复结果必须写入后端指定的 `restructure.final.repair-attempt-N.md` 旁路文件。
+- 不得写回或覆盖原始 `restructure.final.md`。
+- finalMessage 只返回简短状态和修复文件路径，不返回完整 Markdown。
+- 修复后仍由确定性脚本重新转换，不绕过脚本直接输出展示 JSON。
 
 ## 输出
 

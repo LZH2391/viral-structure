@@ -250,9 +250,11 @@ async function transformWithRepair({
       lastError = error;
       if (attempt >= MAX_REPAIR_ATTEMPTS) break;
       const repairAttemptCount = attempt + 1;
+      const repairedPath = path.join(path.dirname(restructureFinalPath), `restructure.final.repair-attempt-${repairAttemptCount}.md`);
       const repairRequest = buildAgentRepairRequest({
         error,
         inputPath: safeRelative(rootDir, transformInputPath),
+        repairedPath: safeRelative(rootDir, repairedPath),
         outputPath: safeRelative(rootDir, displayJsonPath),
         restructureArtifactId: artifactId,
         repairAttemptCount,
@@ -263,14 +265,14 @@ async function transformWithRepair({
         rootDir,
         repairRequest,
         repairAttemptCount,
+        repairInputPath: transformInputPath,
+        repairedPath,
         restructureFinalPath,
         artifactId,
         parentArtifactId,
         sourceTurnId,
         stageTraceContext,
       });
-      const repairedPath = path.join(path.dirname(restructureFinalPath), `restructure.final.repair-attempt-${repairAttemptCount}.md`);
-      await fs.writeFile(repairedPath, normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
       transformInputPath = repairedPath;
       repairTurns.push({
         ...repair.summary,
@@ -290,6 +292,8 @@ async function runFormatRepairTurn({
   rootDir,
   repairRequest,
   repairAttemptCount,
+  repairInputPath,
+  repairedPath,
   restructureFinalPath,
   artifactId,
   parentArtifactId,
@@ -302,10 +306,11 @@ async function runFormatRepairTurn({
     throw error;
   }
   const roleProfile = await loadRoleProfileByRole(REPAIR_ROLE);
-  const sourceMarkdown = await fs.readFile(restructureFinalPath, "utf8");
+  const sourceMarkdown = await fs.readFile(repairInputPath, "utf8");
   const prompt = renderTurnTemplate(roleProfile, "repairTurn", {
     repairAttemptCount,
-    restructureFinalPath: repairRequest.source.restructureFinalPath ?? safeRelative(rootDir, restructureFinalPath),
+    restructureFinalPath: repairRequest.source.restructureFinalPath ?? safeRelative(rootDir, repairInputPath),
+    repairedPath: repairRequest.source.repairedPath ?? safeRelative(rootDir, repairedPath),
     restructureArtifactId: repairRequest.source.restructureArtifactId ?? artifactId,
     parentArtifactId: parentArtifactId ?? "",
     sourceTurnId: sourceTurnId ?? "",
@@ -317,6 +322,8 @@ async function runFormatRepairTurn({
     repairTargetsJson: JSON.stringify(repairRequest.repairTargets ?? []),
     scriptInputJson: JSON.stringify({
       restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
+      repairInputPath: safeRelative(rootDir, repairInputPath),
+      repairedPath: safeRelative(rootDir, repairedPath),
       repairAttemptCount,
       maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
     }),
@@ -344,9 +351,8 @@ async function runFormatRepairTurn({
       inputs: [{ type: "text", text: prompt.text, text_elements: [] }],
       timeoutSeconds: 180,
     });
-    const repairedMarkdown = normalizeRepairMarkdown(turn.finalMessage ?? "");
+    await assertRepairOutputExists(repairedPath);
     return {
-      repairedMarkdown,
       summary: {
         repairAttemptCount,
         role: REPAIR_ROLE,
@@ -358,6 +364,18 @@ async function runFormatRepairTurn({
     };
   } finally {
     await handlers.threadPool.releaseLease({ leaseId: lease.lease_id ?? lease.leaseId, ownerId }).catch(() => null);
+  }
+}
+
+async function assertRepairOutputExists(repairedPath) {
+  try {
+    await fs.access(repairedPath);
+  } catch (error) {
+    const wrapped = new Error("display repair turn did not write repaired markdown file");
+    wrapped.code = "restructure_display_repair_output_missing";
+    wrapped.retryable = true;
+    wrapped.cause = error;
+    throw wrapped;
   }
 }
 
@@ -444,12 +462,6 @@ function normalizeRelativeArtifactPath(value, rootDir) {
 function normalizeFinalMarkdown(value) {
   const text = String(value ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd();
   return `${text}\n`;
-}
-
-function normalizeRepairMarkdown(value) {
-  const text = String(value ?? "").trim();
-  const fenced = text.match(/^```(?:markdown|md)?\s*([\s\S]*?)\s*```$/i);
-  return fenced?.[1] ?? text;
 }
 
 function buildRepairSnippet(markdown, repairTargets = []) {

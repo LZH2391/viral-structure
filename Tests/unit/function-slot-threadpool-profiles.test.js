@@ -72,7 +72,11 @@ test("function slot placeholder role profiles load init and task prompts", async
         debugSnapshotUri: "/runtime/DebugSnapshots/snapshot.json",
         validationErrorsJson: JSON.stringify(["table row has 3 cells, expected 4"]),
         repairTargetsJson: JSON.stringify([{ sectionKey: "finalSlotChain", line: 12, blockType: "table" }]),
-        scriptInputJson: JSON.stringify({ restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md" }),
+        repairedPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.repair-attempt-1.md",
+        scriptInputJson: JSON.stringify({
+          restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md",
+          repairedPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.repair-attempt-1.md",
+        }),
         sourceSnippet: "| 顺序 | 需求 |\n|---|---|\n| 1 | 喷泵亮相 | 多余列 |",
       };
       const repairTurn = renderTurnTemplate(profile, "repairTurn", repairValues);
@@ -82,10 +86,13 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(repairTurn.text, /display_json_schema_invalid/);
       assert.match(repairTurn.text, /table row has 3 cells/);
       assert.match(repairTurn.text, /只做格式修复/);
+      assert.match(repairTurn.text, /直接修改或创建/);
+      assert.match(repairTurn.text, /finalMessage 只返回简短中文状态/);
+      assert.match(repairTurn.text, /restructure\.final\.repair-attempt-1\.md/);
       assert.match(repairTurn.text, /snapshot\.json/);
       assert.match(repairTurn.text, /spray-pump-floral-water/);
-      assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v1");
-      assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v1");
+      assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v2");
+      assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v2");
     } else if (item.role === "function-slot-library-builder") {
       assert.match(rendered.text, /FunctionSlotLibrary 语义治理 Agent/);
       assert.match(rendered.text, /slot_index/);

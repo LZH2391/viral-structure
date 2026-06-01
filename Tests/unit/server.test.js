@@ -1641,7 +1641,12 @@ test("agent chat auto display runs format repair turn before retrying transform"
       }),
       runTurnWithInputs: async ({ threadId, inputs }) => {
         repairCalls.push({ type: "repair-turn", threadId, prompt: inputs[0].text });
-        return { ok: true, threadId, turnId: "turn_repair_1", status: "completed", finalMessage: sampleRestructureFinalMarkdown().replaceAll("auto-demo", "repair-demo") };
+        await fsPromises.writeFile(
+          path.join(planDir, "restructure.final.repair-attempt-1.md"),
+          sampleRestructureFinalMarkdown().replaceAll("auto-demo", "repair-demo"),
+          "utf8",
+        );
+        return { ok: true, threadId, turnId: "turn_repair_1", status: "completed", finalMessage: "已修复：Artifacts/FunctionSlotRestructure/repair-demo/restructure.final.repair-attempt-1.md" };
       },
     },
     agentConversationStore: {
@@ -1667,6 +1672,7 @@ test("agent chat auto display runs format repair turn before retrying transform"
     assert.equal(collected.body.autoDisplayTransform.repairTurns[0].turnId, "turn_repair_1");
     assert.equal(collected.body.autoDisplayTransform.repairTurns[0].repairedPath, "Artifacts/FunctionSlotRestructure/repair-demo/restructure.final.repair-attempt-1.md");
     assert.equal(repairCalls.some((call) => call.type === "repair-turn" && /只做格式修复/.test(call.prompt)), true);
+    assert.equal(repairCalls.some((call) => call.type === "repair-turn" && /restructure\.final\.repair-attempt-1\.md/.test(call.prompt)), true);
     assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.final.repair-attempt-1.md")));
     assert.equal(await fsPromises.readFile(finalPath, "utf8"), originalMarkdown);
     const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.display.json"), "utf8"));

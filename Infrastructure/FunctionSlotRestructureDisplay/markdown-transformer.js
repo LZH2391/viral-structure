@@ -150,7 +150,7 @@ function validateRestructureDisplaySectionJson(value) {
   return true;
 }
 
-function buildAgentRepairRequest({ error, inputPath, outputPath = null, restructureArtifactId = null, repairAttemptCount = 1 } = {}) {
+function buildAgentRepairRequest({ error, inputPath, repairedPath = null, outputPath = null, restructureArtifactId = null, repairAttemptCount = 1 } = {}) {
   const validationErrors = normalizeErrors(error);
   return {
     role: "function-slot-restructure-display-transformer",
@@ -164,6 +164,7 @@ function buildAgentRepairRequest({ error, inputPath, outputPath = null, restruct
     ],
     source: {
       restructureFinalPath: normalizePath(inputPath),
+      repairedPath: repairedPath ? normalizePath(repairedPath) : null,
       restructureArtifactId: restructureArtifactId ?? null,
       outputPath: outputPath ? normalizePath(outputPath) : null,
     },

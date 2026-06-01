@@ -1,6 +1,6 @@
 {
   "role": "function-slot-restructure-display-transformer",
-  "profileVersion": "2026-05-29.placeholder.1",
+  "profileVersion": "2026-06-01.auto-display.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-restructure-display-transformer/SKILL.md",
   "init": {
     "template": "init.md",
@@ -12,8 +12,8 @@
       "version": "transform.placeholder.v1"
     },
     "repairTurn": {
-      "template": "prompts/repair-turn.v1.md",
-      "version": "repair-turn.v1"
+      "template": "prompts/repair-turn.v2.md",
+      "version": "repair-turn.v2"
     }
   }
 }
