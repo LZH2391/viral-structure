@@ -1,5 +1,6 @@
 const path = require("path");
 const { writeAnalysisResult } = require("../stores/analysis-result-store");
+const { lockStoreForSample } = require("../stores/sample-artifact-mutation-lock");
 
 function createAnalysisArtifactAttacher({
   analysisKey,
@@ -10,6 +11,10 @@ function createAnalysisArtifactAttacher({
   resolveSourceArtifactId,
 }) {
   return async function attachAnalysis(sampleVideoId, analysis, store, traceMeta = {}) {
+    return lockStoreForSample(store, sampleVideoId, () => attachAnalysisUnlocked(sampleVideoId, analysis, store, traceMeta));
+  };
+
+  async function attachAnalysisUnlocked(sampleVideoId, analysis, store, traceMeta = {}) {
     const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
     const artifact = await store.readJson(artifactPath);
     const resultRef = await writeAnalysisResult({ store, sampleVideoId, kind: resultKind, analysis });
@@ -23,7 +28,7 @@ function createAnalysisArtifactAttacher({
     });
     await store.writeJson(artifactPath, artifact);
     return artifact;
-  };
+  }
 }
 
 module.exports = {

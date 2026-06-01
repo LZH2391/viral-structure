@@ -1,11 +1,16 @@
 const path = require("path");
 const { appendShotBoundaryHistory } = require("./history");
+const { lockStoreForSample } = require("../stores/sample-artifact-mutation-lock");
 
 async function loadSampleArtifact(store, sampleVideoId) {
   return store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json"));
 }
 
 async function attachAnalysis({ store, sampleVideoId, analysis, traceMeta = {} }) {
+  return lockStoreForSample(store, sampleVideoId, () => attachAnalysisUnlocked({ store, sampleVideoId, analysis, traceMeta }));
+}
+
+async function attachAnalysisUnlocked({ store, sampleVideoId, analysis, traceMeta = {} }) {
   const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
   const artifact = await store.readJson(artifactPath);
   artifact.shotBoundaryAnalysis = analysis;

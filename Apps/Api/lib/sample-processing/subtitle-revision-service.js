@@ -2,6 +2,7 @@ const path = require("path");
 const { randomUUID, createHash } = require("crypto");
 const { createTraceContext } = require("../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../../Infrastructure/Observability/trace");
+const { lockStoreForSample } = require("../stores/sample-artifact-mutation-lock");
 
 const STAGE_NAME = "sample.subtitle.revised";
 const MAX_SEGMENT_TEXT_LENGTH = 240;
@@ -16,71 +17,73 @@ function createSubtitleRevisionService({ store, logger, artifactIndex }) {
     };
 
     try {
-      const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
-      const artifact = await store.readJson(artifactPath).catch(() => null);
-      if (!artifact) throw badRequestError("sample_artifact_not_found", "样例产物不存在");
-      if (!artifact.subtitles || artifact.subtitles.type !== "subtitle-track") {
-        throw badRequestError("subtitle_artifact_missing", "当前样例没有可编辑字幕");
-      }
+      return await lockStoreForSample(store, sampleVideoId, async () => {
+        const artifactPath = path.join(store.sampleDir(sampleVideoId), "artifact.json");
+        const artifact = await store.readJson(artifactPath).catch(() => null);
+        if (!artifact) throw badRequestError("sample_artifact_not_found", "样例产物不存在");
+        if (!artifact.subtitles || artifact.subtitles.type !== "subtitle-track") {
+          throw badRequestError("subtitle_artifact_missing", "当前样例没有可编辑字幕");
+        }
 
-      const currentSubtitles = artifact.subtitles;
-      assertExpectedSubtitleRevision(currentSubtitles, { expectedSubtitleArtifactId, expectedRevisionIndex });
-      const normalizedSegments = normalizeSubtitleSegments(segments, artifact.metadata?.durationSeconds);
-      if (!normalizedSegments.length) throw badRequestError("subtitle_segments_empty", "字幕列表不能为空");
-      if (!hasSubtitleChanges(currentSubtitles.segments, normalizedSegments)) {
-        return { sampleArtifact: artifact, traceId: traceContext.traceId, changed: false };
-      }
+        const currentSubtitles = artifact.subtitles;
+        assertExpectedSubtitleRevision(currentSubtitles, { expectedSubtitleArtifactId, expectedRevisionIndex });
+        const normalizedSegments = normalizeSubtitleSegments(segments, artifact.metadata?.durationSeconds);
+        if (!normalizedSegments.length) throw badRequestError("subtitle_segments_empty", "字幕列表不能为空");
+        if (!hasSubtitleChanges(currentSubtitles.segments, normalizedSegments)) {
+          return { sampleArtifact: artifact, traceId: traceContext.traceId, changed: false };
+        }
 
-      const revisionOfArtifactId = currentSubtitles.revisionOfArtifactId ?? currentSubtitles.artifactId ?? null;
-      const revisionIndex = resolveNextRevisionIndex(currentSubtitles);
-      const inputSummary = {
-        sampleVideoId,
-        sourceSubtitleArtifactId: currentSubtitles.artifactId ?? null,
-        expectedSubtitleArtifactId,
-        expectedRevisionIndex,
-        revisionOfArtifactId,
-        requestedSegmentCount: normalizedSegments.length,
-        nextRevisionIndex: revisionIndex,
-      };
+        const revisionOfArtifactId = currentSubtitles.revisionOfArtifactId ?? currentSubtitles.artifactId ?? null;
+        const revisionIndex = resolveNextRevisionIndex(currentSubtitles);
+        const inputSummary = {
+          sampleVideoId,
+          sourceSubtitleArtifactId: currentSubtitles.artifactId ?? null,
+          expectedSubtitleArtifactId,
+          expectedRevisionIndex,
+          revisionOfArtifactId,
+          requestedSegmentCount: normalizedSegments.length,
+          nextRevisionIndex: revisionIndex,
+        };
 
-      return runStage(context, {
-        stageName: STAGE_NAME,
-        artifactId: `artifact_${randomUUID()}`,
-        parentArtifactId: currentSubtitles.artifactId ?? artifact.sampleVideo?.artifactId ?? null,
-        inputSummary,
-        action: async () => {
-          const nextSubtitleArtifact = buildRevisedSubtitleArtifact({
-            artifactId: context.activeStage.artifactId,
-            currentSubtitles,
-            normalizedSegments,
-            revisionOfArtifactId,
-            revisionIndex,
-            traceId: context.traceContext.traceId,
-          });
-          const nextArtifact = {
-            ...artifact,
-            subtitles: nextSubtitleArtifact,
-            subtitlesRevisionHistory: appendRevisionHistory(artifact.subtitlesRevisionHistory, currentSubtitles, artifact.trace?.traceId ?? null),
-          };
-          await store.writeJson(artifactPath, nextArtifact);
-          const item = await artifactIndex.getItem(sampleVideoId).catch(() => null);
-          await artifactIndex.registerSampleArtifact({
-            artifact: nextArtifact,
-            fileHash: item?.fileHash ?? null,
-            traceId: context.traceContext.traceId,
-          });
-          return { sampleArtifact: nextArtifact, subtitleArtifact: nextSubtitleArtifact, changed: true };
-        },
-        outputSummary: ({ sampleArtifact, subtitleArtifact }) => ({
-          subtitleArtifactId: subtitleArtifact.artifactId,
-          parentArtifactId: subtitleArtifact.parentArtifactId ?? null,
-          revisionOfArtifactId: subtitleArtifact.revisionOfArtifactId ?? null,
-          revisionIndex: subtitleArtifact.revisionIndex ?? 0,
-          source: subtitleArtifact.source ?? null,
-          segmentCount: subtitleArtifact.segments?.length ?? 0,
-          textHash: subtitleArtifact.textHash ?? null,
-          historyCount: sampleArtifact.subtitlesRevisionHistory?.length ?? 0,
-        }),
+        return runStage(context, {
+          stageName: STAGE_NAME,
+          artifactId: `artifact_${randomUUID()}`,
+          parentArtifactId: currentSubtitles.artifactId ?? artifact.sampleVideo?.artifactId ?? null,
+          inputSummary,
+          action: async () => {
+            const nextSubtitleArtifact = buildRevisedSubtitleArtifact({
+              artifactId: context.activeStage.artifactId,
+              currentSubtitles,
+              normalizedSegments,
+              revisionOfArtifactId,
+              revisionIndex,
+              traceId: context.traceContext.traceId,
+            });
+            const nextArtifact = {
+              ...artifact,
+              subtitles: nextSubtitleArtifact,
+              subtitlesRevisionHistory: appendRevisionHistory(artifact.subtitlesRevisionHistory, currentSubtitles, artifact.trace?.traceId ?? null),
+            };
+            await store.writeJson(artifactPath, nextArtifact);
+            const item = await artifactIndex.getItem(sampleVideoId).catch(() => null);
+            await artifactIndex.registerSampleArtifact({
+              artifact: nextArtifact,
+              fileHash: item?.fileHash ?? null,
+              traceId: context.traceContext.traceId,
+            });
+            return { sampleArtifact: nextArtifact, subtitleArtifact: nextSubtitleArtifact, changed: true };
+          },
+          outputSummary: ({ sampleArtifact, subtitleArtifact }) => ({
+            subtitleArtifactId: subtitleArtifact.artifactId,
+            parentArtifactId: subtitleArtifact.parentArtifactId ?? null,
+            revisionOfArtifactId: subtitleArtifact.revisionOfArtifactId ?? null,
+            revisionIndex: subtitleArtifact.revisionIndex ?? 0,
+            source: subtitleArtifact.source ?? null,
+            segmentCount: subtitleArtifact.segments?.length ?? 0,
+            textHash: subtitleArtifact.textHash ?? null,
+            historyCount: sampleArtifact.subtitlesRevisionHistory?.length ?? 0,
+          }),
+        });
       });
     } catch (error) {
       throw await markFailed(context, error);
