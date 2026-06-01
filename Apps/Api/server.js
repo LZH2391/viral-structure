@@ -23,6 +23,7 @@ const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { createActiveTurnRuntime } = require("./lib/active-turns/runtime");
+const { createActiveTurnOwnerHandlers } = require("./lib/active-turns/owner-handlers");
 const { handleActiveTurnsList } = require("./lib/http/active-turn-routes");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
 const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatManualReplacementSubmit, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
@@ -55,7 +56,8 @@ const agentConversationStore = createAgentConversationStore({ store });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const appServer = createAppServerBridge();
-const activeTurnRuntime = createActiveTurnRuntime({ store, appServer });
+const activeTurnOwnerHandlers = createActiveTurnOwnerHandlers({ agentConversationStore, jobStore, workflowRunStore });
+const activeTurnRuntime = createActiveTurnRuntime({ store, appServer, ownerHandlers: activeTurnOwnerHandlers });
 const threadPool = createThreadPoolProxy({
   readThreadImpl: async (threadId, options = {}) => appServer.readThread({ workspaceRoot: options.workspaceRoot ?? rootDir, threadId }),
 });
@@ -126,7 +128,12 @@ function createServer(deps = {}) {
   });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
-  const activeActiveTurnRuntime = deps.activeTurnRuntime ?? (activeStore === store && (deps.appServer ?? appServer) === appServer ? activeTurnRuntime : createActiveTurnRuntime({ store: activeStore, appServer: deps.appServer ?? appServer }));
+  const activeTurnOwnerHandlers = deps.activeTurnOwnerHandlers ?? createActiveTurnOwnerHandlers({
+    agentConversationStore: activeAgentConversationStore,
+    jobStore: activeJobStore,
+    workflowRunStore: activeWorkflowRunStore,
+  });
+  const activeActiveTurnRuntime = deps.activeTurnRuntime ?? (activeStore === store && (deps.appServer ?? appServer) === appServer ? activeTurnRuntime : createActiveTurnRuntime({ store: activeStore, appServer: deps.appServer ?? appServer, ownerHandlers: activeTurnOwnerHandlers }));
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
     appServer: deps.appServer ?? appServer,
     activeTurnRuntime: activeActiveTurnRuntime,

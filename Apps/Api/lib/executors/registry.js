@@ -93,13 +93,22 @@ async function submitTurn(appServer, activeTurnRuntime, payload, context) {
     artifactId: payload.artifactId,
     parentArtifactId: payload.parentArtifactId,
     inputSummary: payload.inputSummary,
-    action: () => appServer.startTurnWithInputs({
-      workspaceRoot: payload.workspaceRoot,
-      threadId: payload.threadId,
-      inputs: payload.inputs,
-      skillPath: payload.skillPath,
-      timeoutSeconds: payload.timeoutSeconds ?? 240,
-    }),
+    action: () => activeTurnRuntime?.start
+      ? activeTurnRuntime.start({
+          workspaceRoot: payload.workspaceRoot,
+          threadId: payload.threadId,
+          inputs: payload.inputs,
+          skillPath: payload.skillPath,
+          timeoutSeconds: payload.timeoutSeconds ?? 240,
+          binding: buildExecutorBinding(payload, context),
+        })
+      : appServer.startTurnWithInputs({
+          workspaceRoot: payload.workspaceRoot,
+          threadId: payload.threadId,
+          inputs: payload.inputs,
+          skillPath: payload.skillPath,
+          timeoutSeconds: payload.timeoutSeconds ?? 240,
+        }),
     outputSummary: (output) => ({
       role: payload.role ?? null,
       threadId: output.threadId,
@@ -109,7 +118,7 @@ async function submitTurn(appServer, activeTurnRuntime, payload, context) {
     }),
   });
   const normalized = normalizeTurnResult(result);
-  await registerExecutorActiveTurn(activeTurnRuntime, payload, normalized, context);
+  if (!activeTurnRuntime?.start) await registerExecutorActiveTurn(activeTurnRuntime, payload, normalized, context);
   return normalized;
 }
 
@@ -119,12 +128,20 @@ async function collectTurn(appServer, activeTurnRuntime, payload, context) {
     artifactId: payload.artifactId,
     parentArtifactId: payload.parentArtifactId,
     inputSummary: payload.inputSummary,
-    action: () => appServer.collectTurnResult({
-      workspaceRoot: payload.workspaceRoot,
-      threadId: payload.threadId,
-      turnId: payload.turnId,
-      timeoutSeconds: payload.timeoutSeconds ?? 60,
-    }),
+    action: () => activeTurnRuntime?.collect
+      ? activeTurnRuntime.collect({
+          workspaceRoot: payload.workspaceRoot,
+          threadId: payload.threadId,
+          turnId: payload.turnId,
+          timeoutSeconds: payload.timeoutSeconds ?? 60,
+          traceContext: context.traceContext,
+        })
+      : appServer.collectTurnResult({
+          workspaceRoot: payload.workspaceRoot,
+          threadId: payload.threadId,
+          turnId: payload.turnId,
+          timeoutSeconds: payload.timeoutSeconds ?? 60,
+        }),
     outputSummary: (output) => ({
       role: payload.role ?? null,
       threadId: output.threadId,
@@ -137,7 +154,7 @@ async function collectTurn(appServer, activeTurnRuntime, payload, context) {
     }),
   });
   const normalized = normalizeTurnResult(result);
-  await activeTurnRuntime?.markCollectResult?.({
+  if (!activeTurnRuntime?.collect) await activeTurnRuntime?.markCollectResult?.({
     turnId: normalized.turnId,
     result: normalized,
     traceContext: context.traceContext,
@@ -174,11 +191,20 @@ async function registerExecutorActiveTurn(activeTurnRuntime, payload, result, co
   const replayRef = payload.replayRef ?? buildExecutorReplayRef(payload, result);
   if (!ownerType || !ownerId || !replayRef) return null;
   return activeTurnRuntime.register({
+    ...buildExecutorBinding(payload, context),
     threadId: result.threadId ?? payload.threadId,
     turnId: result.turnId,
-    ownerType,
-    ownerId,
     currentAttemptId: payload.currentAttemptId ?? result.turnId,
+    status: result.status ?? "submitted",
+  }).catch(() => null);
+}
+
+function buildExecutorBinding(payload, context) {
+  const resultPlaceholder = { turnId: payload.turnId ?? null };
+  return {
+    ownerType: payload.ownerType ?? payload.activeTurnOwnerType ?? "processing-job",
+    ownerId: payload.ownerId ?? payload.activeTurnOwnerId ?? payload.inputSummary?.jobId ?? payload.inputSummary?.sampleVideoId ?? payload.threadId,
+    currentAttemptId: payload.currentAttemptId ?? payload.turnId ?? null,
     stageName: payload.stageName,
     traceId: context.traceContext?.traceId ?? null,
     runId: context.traceContext?.runId ?? null,
@@ -187,9 +213,8 @@ async function registerExecutorActiveTurn(activeTurnRuntime, payload, result, co
     parentArtifactId: payload.parentArtifactId ?? null,
     leaseId: payload.leaseId ?? payload.inputSummary?.leaseId ?? null,
     threadPoolOwnerId: payload.threadPoolOwnerId ?? payload.inputSummary?.ownerId ?? null,
-    replayRef,
-    status: result.status ?? "submitted",
-  }).catch(() => null);
+    replayRef: payload.replayRef ?? buildExecutorReplayRef(payload, resultPlaceholder),
+  };
 }
 
 function buildExecutorReplayRef(payload, result) {

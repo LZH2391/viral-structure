@@ -135,7 +135,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
-      conversation.latestTurnId = turnId;
+      const isCurrentTurn = !conversation.latestTurnId || String(conversation.latestTurnId) === String(turnId);
+      if (isCurrentTurn) conversation.latestTurnId = turnId;
       conversation.traceId = traceId ?? conversation.traceId ?? null;
       conversation.runId = runId ?? conversation.runId ?? null;
       conversation.stageId = stageId ?? conversation.stageId ?? null;

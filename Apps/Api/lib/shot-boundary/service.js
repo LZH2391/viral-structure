@@ -315,6 +315,10 @@ function createShotBoundaryService({
         timeoutSeconds: 240,
         role: RAW_ANALYZER_ROLE,
         inputMode: "raw_video_path_text",
+        ownerType: "processing-job",
+        ownerId: context.job.jobId,
+        currentAttemptId: `${context.job.jobId}:${STAGES.turnStarted}`,
+        replayRef: { type: "processing-job-input", refId: context.job.jobId },
       }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
       const turn = turnExecution.result;
       const agentRun = buildAgentRun({ context, lease: rawThread, turn, prepared, contactSheets: [] });
@@ -371,6 +375,9 @@ function createShotBoundaryService({
           turnId: agentRun.turnId,
           timeoutSeconds: 60,
           role: agentRun.role ?? ROLE,
+          ownerType: "processing-job",
+          ownerId: job.jobId,
+          currentAttemptId: `${job.jobId}:${STAGES.turnStarted}`,
         }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
         const turn = turnExecution.result;
         updateActiveThreadMessage(context, turn, {

@@ -32,7 +32,43 @@ function createWorkflowRunStore({ filePath = null } = {}) {
     return Array.from(runs.values());
   }
 
-  return { createRun, updateRun, getRun, listRuns };
+  function updateStageTurnState(workflowRunId, { currentAttemptId, turnId, status, errorSummary = null } = {}) {
+    const current = runs.get(workflowRunId);
+    if (!current) return null;
+    let changed = false;
+    const nextStages = Array.isArray(current.stages)
+      ? current.stages.map((stage) => {
+          if (!isCurrentStageTurn(stage, currentAttemptId, turnId)) return stage;
+          changed = true;
+          return {
+            ...stage,
+            status,
+            errorSummary,
+            completedAt: ["completed", "failed", "canceled"].includes(status) ? new Date().toISOString() : stage.completedAt ?? null,
+            activeTurn: stage.activeTurn ? { ...stage.activeTurn, status, updatedAt: new Date().toISOString() } : stage.activeTurn,
+          };
+        })
+      : current.stages;
+    if (!changed) return { status: "stale", workflowRunId, turnId, currentAttemptId };
+    const next = {
+      ...current,
+      stages: nextStages,
+      updatedAt: new Date().toISOString(),
+    };
+    runs.set(workflowRunId, next);
+    persistRun(filePath, next);
+    persistRunIndex(filePath, runs);
+    return { status, workflowRunId, turnId, currentAttemptId };
+  }
+
+  return { createRun, updateRun, getRun, listRuns, updateStageTurnState };
+}
+
+function isCurrentStageTurn(stage, currentAttemptId, turnId) {
+  const activeTurn = stage?.activeTurn;
+  if (!activeTurn) return false;
+  if (currentAttemptId && String(activeTurn.currentAttemptId ?? "") === String(currentAttemptId)) return true;
+  return turnId && String(activeTurn.turnId ?? "") === String(turnId);
 }
 
 function loadRuns(filePath) {

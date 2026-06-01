@@ -1322,6 +1322,25 @@ test("function slot workflow placeholder route returns traceable job", async () 
   }
 });
 
+test("agent conversation store does not let stale assistant turn steal latest turn", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-conversation-stale-turn-"));
+  try {
+    const store = createAgentConversationStore({ filePath: tempRoot });
+    const conversation = await store.createOrUpdateFromSession({
+      source: "direct",
+      role: "agent",
+      threadId: "thread_1",
+    });
+    await store.recordUserTurn({ conversationId: conversation.conversationId, turnId: "turn_new", text: "new" });
+    await store.recordAssistantTurn({ conversationId: conversation.conversationId, turnId: "turn_old", text: "old done", status: "completed" });
+    const updated = await store.get(conversation.conversationId);
+    assert.equal(updated.latestTurnId, "turn_new");
+    assert.equal(updated.messages.find((message) => message.id === "assistant-turn_old").text, "old done");
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("function slot replacement candidates endpoint reads slot index evidence", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-replacement-candidates-"));
   const indexDir = path.join(rootDir, "Runtime", "Temp", "FunctionSlotLibrary");
