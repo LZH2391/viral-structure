@@ -11,6 +11,7 @@ function createHarness() {
   const jobs = new Map();
   const artifacts = new Map();
   const moduleStarts = [];
+  let loadSampleArtifactImpl = async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null;
   const workflowRunStore = createWorkflowRunStore();
   const stageLogs = [];
   const logger = {
@@ -65,10 +66,25 @@ function createHarness() {
     logger,
     store: {},
     artifactIndex: {},
-    loadSampleArtifact: async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null,
+    loadSampleArtifact: (args) => loadSampleArtifactImpl(args),
     pollIntervalMs: 60_000,
   });
-  return { workflow, stageLogs, jobs, artifacts, moduleStarts, workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger };
+  return {
+    workflow,
+    stageLogs,
+    jobs,
+    artifacts,
+    moduleStarts,
+    workflowRunStore,
+    service,
+    shotBoundaryService,
+    moduleRegistry,
+    jobStore,
+    logger,
+    setLoadSampleArtifact: (loader) => {
+      loadSampleArtifactImpl = loader;
+    },
+  };
 }
 
 test("full analysis workflow advances upload, shot, parallel analyses, and aggregate", async () => {
@@ -260,6 +276,47 @@ test("full analysis rerun resets aggregate and recovers completed child stage", 
   assert.equal(atomization.artifactId, "artifact_atomization");
   assert.equal(aggregate.status, "processed");
   assert.equal(aggregate.outputSummary.functionSlotCount, 1);
+});
+
+test("full analysis rerun waits for in-flight advance before resetting stage", async () => {
+  const { workflow, jobs, artifacts, moduleStarts, setLoadSampleArtifact } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+
+  let releaseArtifact;
+  const slowArtifact = new Promise((resolve) => {
+    releaseArtifact = () => resolve(artifacts.get("sample_1") ?? null);
+  });
+  let delayedOnce = false;
+  setLoadSampleArtifact(async (args) => {
+    if (!delayedOnce) {
+      delayedOnce = true;
+      return slowArtifact;
+    }
+    return artifacts.get(args.sampleVideoId) ?? null;
+  });
+  const advancePromise = workflow.advance(started.workflowRunId);
+  const rerunPromise = workflow.rerunStage({ workflowRunId: started.workflowRunId, stageKey: "scriptSegment" });
+  releaseArtifact();
+  await advancePromise;
+  await rerunPromise;
+
+  const run = workflow.get(started.workflowRunId);
+  const script = run.stages.find((stage) => stage.key === "scriptSegment");
+  const atomization = run.stages.find((stage) => stage.key === "functionSlotAtomization");
+  assert.equal(script.status, "running");
+  assert.equal(script.attemptNo, 2);
+  assert.equal(script.childJobId, "job_script-segments");
+  assert.equal(atomization.status, "pending");
+  assert.equal(moduleStarts.filter((moduleId) => moduleId === "script-segments").length, 2);
+  assert.equal(jobs.get("job_script-segments").status, "processed");
 });
 
 test("full analysis advance repairs processed run with running completed child", async () => {

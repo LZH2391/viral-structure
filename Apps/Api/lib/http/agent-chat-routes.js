@@ -482,7 +482,10 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
             timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
           });
         } catch (error) {
-          if (mode === "new_thread") await releaseRetrySessionLease(session, handlers);
+          if (mode === "new_thread") {
+            await releaseRetrySessionLease(session, handlers);
+            await restoreRetryConversationBinding({ conversation, session, handlers, traceContext });
+          }
           throw error;
         }
         const retryTurnId = result.turnId ?? result.turn?.id ?? null;
@@ -1063,6 +1066,24 @@ async function startThreadPoolRoleSession({ body, handlers, traceContext }) {
 async function releaseRetrySessionLease(session, handlers) {
   if (!session?.leaseId || !session?.ownerId || !handlers.threadPool?.releaseLease) return null;
   return handlers.threadPool.releaseLease({ leaseId: session.leaseId, ownerId: session.ownerId }).catch(() => null);
+}
+
+async function restoreRetryConversationBinding({ conversation, session, handlers, traceContext }) {
+  if (!conversation?.conversationId || !session?.threadId || session.threadId === conversation.threadId) return null;
+  return handlers.agentConversationStore?.bindThread?.({
+    conversationId: conversation.conversationId,
+    threadId: conversation.threadId,
+    parentThreadId: conversation.parentThreadId ?? null,
+    leaseId: conversation.leaseId ?? null,
+    ownerId: conversation.ownerId ?? null,
+    workspaceRoot: conversation.workspaceRoot ?? session.workspaceRoot ?? handlers.rootDir,
+    skillPath: conversation.skillPath ?? null,
+    source: conversation.source ?? session.source ?? null,
+    traceId: traceContext?.traceId ?? conversation.traceId ?? null,
+    runId: traceContext?.runId ?? conversation.runId ?? null,
+    stageId: traceContext?.stageId ?? conversation.stageId ?? null,
+    replace: true,
+  }).catch(() => null);
 }
 
 async function persistRestructureSession(session, body, handlers) {

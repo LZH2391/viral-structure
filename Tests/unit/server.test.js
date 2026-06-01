@@ -39,6 +39,71 @@ test("agent conversation store writes one json file per conversation", async () 
   }
 });
 
+test("agent conversation store preserves concurrent writes to one conversation", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-conversation-store-concurrent-"));
+  try {
+    const store = createAgentConversationStore({ filePath: tempRoot });
+    const conversation = await store.createOrUpdateFromSession({
+      source: "direct",
+      threadId: "thread_a",
+    });
+
+    await Promise.all([
+      store.recordUserTurn({
+        conversationId: conversation.conversationId,
+        turnId: "turn_a",
+        text: "first",
+      }),
+      store.recordSystemMessage({
+        conversationId: conversation.conversationId,
+        text: "system note",
+      }),
+    ]);
+
+    const saved = await store.get(conversation.conversationId);
+    assert.equal(saved.messages.some((message) => message.id === "user-turn_a"), true);
+    assert.equal(saved.messages.some((message) => message.role === "system" && message.text === "system note"), true);
+    assert.equal(saved.messages.some((message) => message.id === "assistant-turn_a"), true);
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("agent conversation bindThread replace clears stale lease metadata", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-conversation-store-bind-replace-"));
+  try {
+    const store = createAgentConversationStore({ filePath: tempRoot });
+    const conversation = await store.createOrUpdateFromSession({
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      threadId: "thread_new",
+      parentThreadId: "thread_old",
+      leaseId: "lease_new",
+      ownerId: "owner_new",
+      workspaceRoot: "C:/workspace",
+      skillPath: "skill/new.md",
+    });
+
+    await store.bindThread({
+      conversationId: conversation.conversationId,
+      threadId: "thread_old",
+      source: "direct",
+      replace: true,
+    });
+
+    const saved = await store.get(conversation.conversationId);
+    assert.equal(saved.threadId, "thread_old");
+    assert.equal(saved.parentThreadId, null);
+    assert.equal(saved.leaseId, null);
+    assert.equal(saved.ownerId, null);
+    assert.equal(saved.workspaceRoot, null);
+    assert.equal(saved.skillPath, null);
+    assert.equal(saved.source, "direct");
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 function makeRequest(server, method, requestPath, body) {
   return new Promise((resolve, reject) => {
     const address = server.address();
@@ -2493,8 +2558,11 @@ test("agent chat retry new thread releases newly acquired lease when submit fail
       conversationId: "conversation_1",
     });
     assert.equal(response.statusCode, 502);
-    assert.deepEqual(calls.map((call) => call.type), ["acquire", "bindThread", "startTurn", "release"]);
+    assert.deepEqual(calls.map((call) => call.type), ["acquire", "bindThread", "startTurn", "release", "bindThread"]);
     assert.equal(calls[3].payload.leaseId, "lease_new");
+    assert.equal(calls[4].payload.threadId, "thread_old");
+    assert.equal(calls[4].payload.leaseId, null);
+    assert.equal(calls[4].payload.replace, true);
   } finally {
     await closeServer(server);
   }

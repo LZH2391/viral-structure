@@ -114,6 +114,10 @@ function createWorkflowService({
   }
 
   async function rerunStage({ workflowRunId, stageKey }) {
+    return runWithWorkflowLock(workflowRunId, () => rerunStageUnlocked({ workflowRunId, stageKey }));
+  }
+
+  async function rerunStageUnlocked({ workflowRunId, stageKey }) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
     if (!rerunnableStageKeys.has(stageKey)) {
@@ -265,16 +269,20 @@ function createWorkflowService({
     throw error;
   }
 
-  function advance(workflowRunId) {
+  function runWithWorkflowLock(workflowRunId, operation) {
     const previous = advanceLocks.get(workflowRunId) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
-      .then(() => advanceUnlocked(workflowRunId));
+      .then(operation);
     advanceLocks.set(workflowRunId, next);
     next.finally(() => {
       if (advanceLocks.get(workflowRunId) === next) advanceLocks.delete(workflowRunId);
     }).catch(() => undefined);
     return next;
+  }
+
+  function advance(workflowRunId) {
+    return runWithWorkflowLock(workflowRunId, () => advanceUnlocked(workflowRunId));
   }
 
   async function advanceUnlocked(workflowRunId) {
@@ -298,6 +306,7 @@ function createWorkflowService({
       }
       if (!TERMINAL_JOB_STATUSES.has(job.status)) continue;
       const artifact = job.status === "processed" ? await readArtifact(job.sampleVideoId) : null;
+      if (!isSameAwaitedStage(workflowRunId, stage)) continue;
       const artifactRef = artifactRefForStage(stage, artifact);
       if (job.status === "processed") {
         const traceContext = { runId: run.runId, traceId: run.traceId, stageId: stage.stageId ?? `stage_${randomUUID()}` };
@@ -349,6 +358,11 @@ function createWorkflowService({
         break;
       }
     }
+  }
+
+  function isSameAwaitedStage(workflowRunId, stage) {
+    const current = findStage(workflowRunStore.getRun(workflowRunId), stage.key);
+    return current.childJobId === stage.childJobId && ["running", "pending", CACHE_WAITING_STATUS].includes(current.status);
   }
 
   function stageDependenciesReady(run, stage) {

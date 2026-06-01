@@ -15,6 +15,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
   if (!store?.runtimeRoot && !filePath) throw new Error("store or filePath is required for agent conversation store");
   const conversationsDirectory = resolveConversationsDirectory({ store, filePath });
   const legacyFilePath = path.join(conversationsDirectory, "conversations.json");
+  const conversationLocks = new Map();
 
   async function list({ role, status = "active" } = {}) {
     const conversations = await readAllConversations();
@@ -30,6 +31,13 @@ function createAgentConversationStore({ store, filePath } = {}) {
   }
 
   async function createOrUpdateFromSession(session, { conversationId = null, sampleVideoId = null, expectedRevision = null } = {}) {
+    if (conversationId) {
+      return withConversationLock(conversationId, () => createOrUpdateFromSessionUnlocked(session, { conversationId, sampleVideoId, expectedRevision }));
+    }
+    return createOrUpdateFromSessionUnlocked(session, { conversationId, sampleVideoId, expectedRevision });
+  }
+
+  async function createOrUpdateFromSessionUnlocked(session, { conversationId = null, sampleVideoId = null, expectedRevision = null } = {}) {
     const now = new Date().toISOString();
     let conversation = conversationId ? await readConversation(conversationId) : null;
     if (!conversation) {
@@ -96,10 +104,12 @@ function createAgentConversationStore({ store, filePath } = {}) {
 
   async function remove(conversationId) {
     if (!conversationId) return null;
-    const conversation = await readConversation(conversationId);
-    if (!conversation) return null;
-    await fs.rm(conversationFilePath(conversationId), { force: true });
-    return conversation;
+    return withConversationLock(conversationId, async () => {
+      const conversation = await readConversation(conversationId);
+      if (!conversation) return null;
+      await fs.rm(conversationFilePath(conversationId), { force: true });
+      return conversation;
+    });
   }
 
   async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null }) {
@@ -197,17 +207,17 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function bindThread({ conversationId, threadId, parentThreadId = null, leaseId = null, ownerId = null, workspaceRoot = null, skillPath = null, source = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function bindThread({ conversationId, threadId, parentThreadId = null, leaseId = null, ownerId = null, workspaceRoot = null, skillPath = null, source = null, traceId = null, runId = null, stageId = null, expectedRevision = null, replace = false }) {
     if (!conversationId || !threadId) return null;
     return mutateConversation(conversationId, (conversation) => {
       assertExpectedRevision(conversation, expectedRevision);
       conversation.threadId = threadId;
-      conversation.parentThreadId = parentThreadId ?? conversation.parentThreadId ?? null;
-      conversation.leaseId = leaseId ?? conversation.leaseId ?? null;
-      conversation.ownerId = ownerId ?? conversation.ownerId ?? null;
-      conversation.workspaceRoot = workspaceRoot ?? conversation.workspaceRoot ?? null;
-      conversation.skillPath = skillPath ?? conversation.skillPath ?? null;
-      conversation.source = source ?? conversation.source ?? null;
+      conversation.parentThreadId = replace ? parentThreadId ?? null : parentThreadId ?? conversation.parentThreadId ?? null;
+      conversation.leaseId = replace ? leaseId ?? null : leaseId ?? conversation.leaseId ?? null;
+      conversation.ownerId = replace ? ownerId ?? null : ownerId ?? conversation.ownerId ?? null;
+      conversation.workspaceRoot = replace ? workspaceRoot ?? null : workspaceRoot ?? conversation.workspaceRoot ?? null;
+      conversation.skillPath = replace ? skillPath ?? null : skillPath ?? conversation.skillPath ?? null;
+      conversation.source = replace ? source ?? null : source ?? conversation.source ?? null;
       conversation.threadStopped = false;
       conversation.threadStoppedAt = null;
       conversation.threadStopReason = null;
@@ -289,6 +299,10 @@ function createAgentConversationStore({ store, filePath } = {}) {
   }
 
   async function mutateConversation(conversationId, updater, { allowArchived = false, skipArchived = false } = {}) {
+    return withConversationLock(conversationId, () => mutateConversationUnlocked(conversationId, updater, { allowArchived, skipArchived }));
+  }
+
+  async function mutateConversationUnlocked(conversationId, updater, { allowArchived = false, skipArchived = false } = {}) {
     const conversation = await readConversation(conversationId);
     if (!conversation) return null;
     if (conversation.status === "archived" && skipArchived) return null;
@@ -361,9 +375,22 @@ function createAgentConversationStore({ store, filePath } = {}) {
     if (!normalized) return;
     await fs.mkdir(conversationsDirectory, { recursive: true });
     const targetPath = conversationFilePath(normalized.conversationId);
-    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
     await fs.writeFile(tempPath, JSON.stringify(normalized, null, 2), "utf8");
     await fs.rename(tempPath, targetPath);
+  }
+
+  async function withConversationLock(conversationId, action) {
+    if (!conversationId) return action();
+    const key = String(conversationId);
+    const previous = conversationLocks.get(key) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(action);
+    conversationLocks.set(key, next);
+    try {
+      return await next;
+    } finally {
+      if (conversationLocks.get(key) === next) conversationLocks.delete(key);
+    }
   }
 
   function conversationFilePath(conversationId) {
