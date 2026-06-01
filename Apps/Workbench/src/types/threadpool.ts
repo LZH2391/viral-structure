@@ -204,3 +204,59 @@ export type AgentChatAtomSummary = {
   packagingAtom?: string | null;
   handling?: string | null;
 };
+
+export type ReplacementCandidate = {
+  kind: "slot" | "atom" | string;
+  atomKind?: "script" | "rhythm" | "packaging" | string | null;
+  candidateId: string;
+  slotSubtypeId?: string | null;
+  sourceSlotId?: string | null;
+  atomId?: string | null;
+  label?: string | null;
+  functionText?: string | null;
+  sourceSampleId?: string | null;
+  sourceArtifactId?: string | null;
+  order?: number | null;
+  confidence?: number | null;
+  needReview?: boolean | null;
+  evidenceTags?: string[];
+  evidence?: Record<string, unknown> | null;
+  bindingEvidence?: {
+    bindings?: Array<Record<string, unknown>>;
+    rules?: Array<Record<string, unknown>>;
+  } | null;
+};
+
+export type SlotReplacement = {
+  type: "slot";
+  slotOrder?: number | null;
+  fromSlotSubtypeId: string;
+  fromSlotLabel?: string | null;
+  toSlotSubtypeId: string;
+  toSlotLabel?: string | null;
+  candidateId: string;
+  sourceSampleId?: string | null;
+  sourceArtifactId?: string | null;
+  affectedAtomIds?: string[];
+};
+
+export type AtomReplacement = {
+  type: "atom";
+  atomKind: "script" | "rhythm" | "packaging";
+  slotSubtypeId: string;
+  slotLabel?: string | null;
+  fromAtomId: string;
+  fromAtomLabel?: string | null;
+  toAtomId: string;
+  toAtomLabel?: string | null;
+  candidateId: string;
+  sourceSampleId?: string | null;
+  sourceArtifactId?: string | null;
+};
+
+export type ReplacementDraft = {
+  sourceDisplayJsonPath?: string | null;
+  sourceRestructureFinalPath?: string | null;
+  displayFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"];
+  replacements: Array<SlotReplacement | AtomReplacement>;
+};

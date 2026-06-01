@@ -52,6 +52,7 @@ export function GraphCanvas({
   const fixedLayout = layoutMode === "columns";
   const positions = new Map(nodes.map((node) => [node.id, node]));
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
+  const hasFocusNode = Boolean(focusNodeId);
   const focusedPath = useMemo(() => mode === "planTrace" ? reverseTracePath(focusNodeId, visible.edges) : { nodes: connectedNodeIds(focusNodeId, visible.edges), edges: new Set<string>() }, [focusNodeId, mode, visible.edges]);
   const focusedIds = focusedPath.nodes;
   const focusedEdgeIds = focusedPath.edges;
@@ -307,7 +308,7 @@ export function GraphCanvas({
             <GraphNode
               key={node.id}
               node={node}
-              focused={!focusNodeId || node.id === focusNodeId || focusedIds.has(node.id)}
+              focused={hasFocusNode && (node.id === focusNodeId || focusedIds.has(node.id))}
               selected={node.id === selectedNodeId}
               pinnedPreview={node.id === pinnedPreviewNodeId}
               onHover={showHover}

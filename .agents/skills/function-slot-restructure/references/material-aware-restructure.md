@@ -1,6 +1,6 @@
 # 用户素材包参与的重组流程
 
-本参考只用于存在 `user-material-pack-compact` / `user-material-pack.grouped-shots.v1` 的重组任务。
+本参考只用于存在 `user-material-pack` / `user-material-pack.stable` 的重组任务。
 
 一句话边界：
 
@@ -29,10 +29,10 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
 1. **brief / 需求侧**
    - 定义品类、产品、观众、痛点、主张、平台、转化目标和生产约束。
 
-2. **user-material-pack-compact / 用户素材供给侧**
+2. **user-material-pack.stable / 用户素材供给侧**
    - 来自 `user-material-tagger`。
-   - 描述真实素材能支撑哪些证明能力、有哪些候选 group/shot、哪些能力弱、哪些证明缺口不可硬讲。
-   - 关键字段：`capabilities`、`groups`、`ungroupedShots`、`safeUsage`、`gapAdvice`、`doNotUseAsCapabilityIds`、`notUsableCapabilityIds`。
+   - 描述真实素材能支撑哪些证明需求、有哪些候选 group/shot、哪些能力弱、哪些证明缺口不可硬讲。
+   - 关键字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`globalConstraints`。
 
 3. **FunctionSlotLibrary / 结构库侧**
    - `Runtime/Temp/FunctionSlotLibrary/slot_index.json`
@@ -70,11 +70,10 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
 ```json
 {
   "materialPackId": "sampleVideoId or artifactId",
-  "capabilitySupport": [
+  "proofCoverage": [
     {
-      "capabilityId": "cap_product_identity",
       "proofNeedClass": "product_identity",
-      "supportLevel": "strong",
+      "coverage": "strong",
       "shotIds": ["shot_003"],
       "groupIds": ["group_product_identity_01"],
       "safeUsage": "可用于商品身份、品牌露出、包装记忆",
@@ -86,11 +85,16 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
       "groupId": "group_product_identity_01",
       "groupType": "product_display_group",
       "continuity": "strong",
-      "usableCapabilityIds": ["cap_product_identity"],
-      "notUsableCapabilityIds": ["cap_trust_evidence"],
+      "usableProofNeedClasses": ["product_identity"],
+      "notUsableProofNeedClasses": ["trust_evidence"],
       "shotIds": ["shot_003", "shot_004"]
     }
-  ]
+  ],
+  "sequenceRecommendations": {
+    "openingCandidates": ["shot_003"],
+    "middleCandidates": ["group_product_identity_01"],
+    "endingCandidates": []
+  }
 }
 ```
 

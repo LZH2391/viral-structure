@@ -1,262 +1,180 @@
-# user-material-pack compact 输出契约
+# user-material-pack stable 输出契约
 
 只返回 JSON object，不输出 Markdown，不输出 JSON 外解释。
 
-必须使用 compact/grouped-shots 结构，顶层只包含以下字段：
+运行时会提供 `output-skeleton.json`。它是答题纸，不是最终判断结果：
+
+- 保留骨架的顶层结构。
+- 保留每个 `shotCard` 的 `shotRef / shotNo / timeRange / visualSummary`。
+- `visualSummary` 来自切镜 summary，只描述画面内容，不代表素材能力。
+- 你必须补全 `shotClass / shotFunctions / materialTags / proofAffordances / sequenceFit / quality / confidence / needReview`。
+- 你必须基于素材判断补全 `materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary`，不要原样返回空骨架。
+
+## 顶层结构
 
 ```json
 {
-  "type": "user-material-pack-compact",
-  "schemaVersion": "user-material-pack.grouped-shots.v1",
+  "type": "user-material-pack",
+  "schemaVersion": "user-material-pack.stable",
   "sampleVideoId": "sample_xxx",
   "sourceArtifacts": {
     "shotBoundaryAnalysis": {
+      "artifactId": "artifact_xxx",
       "shotCount": 0
-    },
-    "visualManifest": {
-      "sheetCount": 0,
-      "emptyShotCount": 0
     }
   },
-  "capabilities": {},
-  "groups": [],
-  "ungroupedShots": [],
-  "traceMeta": {
-    "stageName": "user_material_tagger.analyze"
+  "shotCards": [],
+  "materialGroups": [],
+  "proofCoverage": [],
+  "sequenceRecommendations": {
+    "openingCandidates": [],
+    "middleCandidates": [],
+    "endingCandidates": []
+  },
+  "globalConstraints": [],
+  "restructureInputSummary": {
+    "strongMaterialAreas": [],
+    "weakMaterialAreas": [],
+    "missingMaterialAreas": [],
+    "recommendedUse": [],
+    "doNotUseFor": [],
+    "needsRestructureAttention": []
   }
 }
 ```
 
-## sourceArtifacts
+## shotCards
 
-- `shotBoundaryAnalysis.shotCount`：输入切镜数量。
-- `visualManifest.sheetCount`：视觉 sheet 数量；没有上游信息时填 `0`。
-- `visualManifest.emptyShotCount`：空镜头数量；没有上游信息时填 `0`。
-
-不要在 compact 输出中添加旧版 `artifactId / parentArtifactId / traceId` 字段。
-
-## capabilities
-
-`capabilities` 是素材能力池，必须按 `cap_xxx` 建索引。每个 capability 的结构：
+每个输入 shot 必须有且只有一个 `shotCard`，顺序必须和输入 shots 一致。
 
 ```json
 {
-  "cap_product_identity": {
-    "proofNeedClass": "product_identity",
-    "supportLevel": "strong",
-    "shotIds": ["shot_3", "shot_4"],
-    "groupIds": ["group_product_identity_01"],
-    "safeUsage": "可安全用于商品身份、品牌露出和包装记忆。",
-    "gapAdvice": "如需要更严谨规格信息，可补拍包装背面、配料表或完整外包装细节。"
-  }
-}
-```
-
-字段规则：
-
-- `proofNeedClass` 使用 taxonomy 中的证明能力类型。
-- `supportLevel` 只能是 `strong / partial / weak / unknown`。
-- `shotIds` 只能引用输入里存在的 shot。
-- `groupIds` 只在存在可支撑该能力的素材组时输出；没有素材组时省略该字段。
-- `safeUsage` 写现有素材可以安全承担什么。
-- `gapAdvice` 写如果要增强该能力，需要补什么、降级什么或避免什么误用。
-
-## groups
-
-`groups` 是素材组列表，shot 已下放到组内。只在 shots 有明确连续性、共同对象或同一证明功能时建组：
-
-```json
-{
-  "groupId": "group_usage_01",
-  "groupType": "usage_process_group",
-  "groupSummary": "连续展示使用动作，主体稳定。",
-  "usableCapabilityIds": ["cap_process_demonstration", "cap_product_identity"],
-  "notUsableCapabilityIds": ["cap_result_evidence"],
-  "continuity": "strong",
-  "shots": []
-}
-```
-
-字段规则：
-
-- `groupId` 使用稳定 ID，例如 `group_product_identity_01`。
-- `groupType` 使用 taxonomy 中的素材组类型。
-- `groupSummary` 写这一组整体能表达什么。
-- `usableCapabilityIds` 只能引用 `capabilities` 中存在的能力 ID。
-- `notUsableCapabilityIds` 只能引用 `capabilities` 中存在的能力 ID；用于说明不能承担的能力。
-- `continuity` 只能是 `strong / medium / weak / none`。
-- `shots` 内放该组的 shot 条目。
-
-## shot 条目
-
-每个输入 shot 必须出现在 `groups[].shots` 或 `ungroupedShots` 中且只能出现一次。结构如下：
-
-```json
-{
-  "shotId": "shot_3",
-  "shotNo": "S003",
-  "timeRange": [1.167, 2.033],
-  "visualRef": {
-    "type": "shot_representative_frame",
-    "sheetId": "shot-representatives-p1",
-    "attachmentIndex": 0,
-    "pageIndex": 0,
-    "row": 0,
-    "col": 2,
-    "timeRange": { "start": 1.167, "end": 2.033 },
-    "middleTimestamp": 1.6,
-    "representativeFrameTimestamp": 1.7
+  "shotRef": "shot_1",
+  "shotNo": "S001",
+  "timeRange": { "start": 0, "end": 1.2 },
+  "visualSummary": "商品包装近景",
+  "spokenOrSubtitleSummary": "",
+  "detectedEntities": {
+    "products": [],
+    "people": [],
+    "scenes": [],
+    "objects": [],
+    "textSignals": []
   },
   "shotClass": "product_display",
-  "visualSummary": "安全画面摘要。",
-  "spokenOrSubtitleSummary": "安全口播/字幕摘要。",
-  "shotFunctions": ["product_visibility", "context_setup"],
-  "capabilityRefs": [
-    ["cap_product_identity", "strong"],
-    ["cap_comparison_evidence", "weak"]
-  ],
-  "recommendations": {
-    "opening": {
-      "fit": "strong",
-      "reason": "适合开头的原因。",
-      "requiredSupport": ["需要后续包装补充商品身份"],
-      "doNotUseAsCapabilityIds": ["cap_trust_evidence"]
+  "shotFunctions": ["product_visibility"],
+  "materialTags": [],
+  "proofAffordances": [
+    {
+      "proofNeedClass": "product_identity",
+      "strength": "strong",
+      "reason": "包装正面清晰可见",
+      "limits": []
     }
+  ],
+  "sequenceFit": {
+    "opening": { "fit": "medium", "reason": "", "requiredSupport": [] },
+    "middle": { "fit": "weak", "reason": "", "requiredSupport": [] },
+    "ending": { "fit": "medium", "reason": "", "requiredSupport": [] }
   },
   "quality": {
     "visualClarity": "high",
     "stability": "medium",
     "subjectFocus": "high",
-    "audioUsefulness": "none",
-    "captionUsefulness": "medium"
+    "audioUsefulness": "unknown",
+    "captionUsefulness": "none"
   },
-  "confidence": 0.85,
-  "needReview": true
+  "constraints": [],
+  "confidence": 0.8,
+  "needReview": false
 }
 ```
 
-字段规则：
+规则：
 
-- `shotId` 使用输入 shot ID。
-- `shotNo` 使用展示编号；如果输入没有，按时间顺序生成 `S001`、`S002`。
-- `timeRange` 使用 `[start, end]` 数组，单位秒。
-- `visualRef` 引用该 shot 的中间代表帧所在 sheet/cell；由运行时根据 `visualManifest` 注入，没有代表帧时可省略。
-- `spokenOrSubtitleSummary` 只有在存在可用口播/字幕信息时输出。
-- `shotFunctions` 使用 taxonomy 中的功能标签。
-- `capabilityRefs` 引用顶层 `capabilities` 中存在的能力 ID，强度只能是 `strong / medium / weak / none / unknown`。
-- `recommendations` 只输出适合的位置键，可包含 `opening / middle / ending`。
-- `recommendations.*.fit` 只能是 `strong / medium / weak`。
-- `recommendations.*.requiredSupport` 没有时可省略或填空数组。
-- `recommendations.*.doNotUseAsCapabilityIds` 没有时可省略或填空数组，只能引用 `capabilities` 中存在的能力 ID。
-- `quality` 字段取值见 taxonomy。
-- `confidence` 使用 0 到 1。
-- `needReview` 需要人工复核时才出现；不需要复核时省略。
+- `shotRef` 只能引用骨架中已有 shot。
+- `visualSummary` 是切镜画面摘要，可以沿用，不要把证明能力写进这里。
+- `shotClass`、`shotFunctions`、`materialTags`、`proofAffordances` 必须基于画面、字幕和上下文判断。
+- 信息不足时使用 `unknown`、空数组或 `needReview: true`，不要猜。
 
-## ungroupedShots
+## materialGroups
 
-`ungroupedShots` 放未进入任何 `group` 的镜头，结构同 `group.shots`。如果所有 shot 都已入组，输出空数组。
-
-## traceMeta
-
-当前只输出：
+只在 shots 有明确连续性、共同对象或同一证明功能时建组。不要为了凑字段硬建组。
 
 ```json
 {
-  "stageName": "user_material_tagger.analyze"
+  "groupId": "group_product_identity_01",
+  "groupType": "product_display_group",
+  "shotRefs": ["shot_1", "shot_2"],
+  "groupSummary": "连续展示商品包装和小包形态",
+  "usableForProofNeedClasses": ["product_identity"],
+  "notUsableForProofNeedClasses": ["trust_evidence"],
+  "continuity": "medium",
+  "constraints": []
 }
 ```
 
-## 输出完整性
+## proofCoverage
 
-- `type` 固定为 `user-material-pack-compact`。
-- `schemaVersion` 固定为 `user-material-pack.grouped-shots.v1`。
-- `capabilities` 是对象，不是数组。
-- 每个输入 shot 必须输出一次，且只能输出一次。
-- `groups[].shots` 和 `ungroupedShots` 内的 shot 按原时间顺序。
-- `capabilities.*.shotIds`、`groups[].shots[].capabilityRefs`、`usableCapabilityIds`、`notUsableCapabilityIds` 只能引用当前输出中存在的 ID。
-- 不输出旧版顶层字段：`artifactId`、`parentArtifactId`、`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`globalConstraints`、`restructureInputSummary`。
-- 信息不足时使用 `unknown`、空数组或 `needReview: true`，不要猜。
+必须覆盖全部 proofNeedClass，每类一个对象。允许判断为 `missing`，但不能缺字段。
 
-## 结构树
-
-```text
-root
-├─ type
-│  输出类型，标记这是 compact 版素材包。
-├─ schemaVersion
-│  当前格式版本。
-├─ sampleVideoId
-│  样例视频 ID。
-├─ sourceArtifacts
-│  上游来源摘要。
-│  ├─ shotBoundaryAnalysis.shotCount
-│  │  切镜数量。
-│  └─ visualManifest
-│     ├─ sheetCount
-│     │  视觉 sheet 数量。
-│     └─ emptyShotCount
-│        空镜头数量。
-├─ capabilities
-│  素材能力池，按 cap_xxx 建索引。
-│  └─ cap_xxx
-│     ├─ proofNeedClass
-│     │  能力类别，如商品识别、过程展示、信任证明。
-│     ├─ supportLevel
-│     │  支撑强度，如 strong / partial / weak。
-│     ├─ shotIds
-│     │  能支撑该能力的镜头 ID。
-│     ├─ groupIds
-│     │  能支撑该能力的素材组 ID，部分能力没有。
-│     ├─ safeUsage
-│     │  这个能力可安全怎么用。
-│     └─ gapAdvice
-│        如果要增强该能力，需要补什么。
-├─ groups
-│  素材组列表，shot 已下放到组内。
-│  └─ group
-│     ├─ groupId
-│     │  素材组 ID。
-│     ├─ groupType
-│     │  素材组类型。
-│     ├─ groupSummary
-│     │  这一组整体能表达什么。
-│     ├─ usableCapabilityIds
-│     │  这组可承担的能力 ID。
-│     ├─ notUsableCapabilityIds
-│     │  这组不能承担的能力 ID。
-│     ├─ continuity
-│     │  组内镜头连续性强弱。
-│     └─ shots
-│        组内镜头。
-│        └─ shot
-│           ├─ shotId
-│           │  镜头 ID。
-│           ├─ shotNo
-│           │  展示编号。
-│           ├─ timeRange
-│           │  起止时间。
-│           ├─ visualRef
-│           │  中间代表帧的 sheet/cell 引用。
-│           ├─ shotClass
-│           │  镜头类别。
-│           ├─ visualSummary
-│           │  画面摘要。
-│           ├─ spokenOrSubtitleSummary
-│           │  口播/字幕摘要，部分镜头有。
-│           ├─ shotFunctions
-│           │  镜头功能标签。
-│           ├─ capabilityRefs
-│           │  该镜头关联能力和强度，如 [cap_product_identity, strong]。
-│           ├─ recommendations
-│           │  该镜头适合放在 opening / middle / ending 的建议。
-│           ├─ quality
-│           │  清晰度、稳定性、主体聚焦、音频/字幕可用性。
-│           ├─ confidence
-│           │  判断置信度。
-│           └─ needReview
-│              需要人工复核时才出现。
-├─ ungroupedShots
-│  未进入任何 group 的镜头，结构同 group.shots。
-└─ traceMeta
-   运行追踪摘要，目前只有 stageName。
+```json
+{
+  "proofNeedClass": "product_identity",
+  "coverage": "strong",
+  "candidateShots": ["shot_1"],
+  "candidateGroups": ["group_product_identity_01"],
+  "reason": "包装和商品形态清楚。",
+  "safeUsage": "可用于商品身份和包装记忆。",
+  "gapAdvice": ""
+}
 ```
+
+`coverage` 只能是：
+
+- `strong`
+- `partial`
+- `weak`
+- `missing`
+- `unknown`
+
+必须覆盖这些 `proofNeedClass`：
+
+- `problem_visibility`
+- `product_identity`
+- `process_demonstration`
+- `mechanism_support`
+- `result_evidence`
+- `comparison_evidence`
+- `trust_evidence`
+- `conversion_support`
+
+## sequenceRecommendations
+
+只推荐结构位置候选，不输出高光片段。
+
+```json
+{
+  "openingCandidates": [
+    {
+      "shotRef": "shot_1",
+      "fit": "medium",
+      "recommendedPosition": "opening",
+      "reason": "能快速建立商品对象。",
+      "requiredSupport": [],
+      "doNotUseAs": ["trust_evidence"]
+    }
+  ],
+  "middleCandidates": [],
+  "endingCandidates": []
+}
+```
+
+## 完整性要求
+
+- `type` 固定为 `user-material-pack`。
+- `schemaVersion` 固定为 `user-material-pack.stable`。
+- `shotCards` 必须逐镜头覆盖所有输入 shots。
+- `materialGroups[].shotRefs`、`proofCoverage[].candidateShots`、`sequenceRecommendations.*[].shotRef` 只能引用骨架中已有 `shotRef`。
+- `proofCoverage` 不能原样空返回；必须写判断、依据、安全用法和缺口。
+- 不生成新脚本、新分镜、新视频方案。

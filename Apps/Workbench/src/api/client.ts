@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, AtomReplacement, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, ReplacementCandidate, SampleArtifact, SlotReplacement, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -504,6 +504,29 @@ export async function sendAgentChatMessage(
   );
 }
 
+export async function submitAgentChatManualReplacement(
+  threadId: string,
+  payload: {
+    conversationId?: string | null;
+    expectedRevision?: number | null;
+    workspaceRoot?: string | null;
+    skillPath?: string | null;
+    source?: "direct" | "threadpool-role";
+    sourceRestructureFinalPath: string;
+    sourceDisplayJsonPath: string;
+    displayFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"];
+    replacements: Array<SlotReplacement | AtomReplacement>;
+  },
+) {
+  return readJsonResponse<AgentChatTurnResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/threads/${encodeURIComponent(threadId)}/turns/manual-replacement`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export async function compactAgentChatThread(
   threadId: string,
   payload: {
@@ -686,6 +709,19 @@ export async function getLibraryItems() {
 export async function getFunctionSlotLibraryItems() {
   return readJsonResponse<{ items: Array<{ artifactId: string; sampleVideoId?: string | null; traceId?: string | null; counts?: Record<string, number> }> }>(
     await fetch(`${API_BASE_URL}/api/function-slot-library`),
+  );
+}
+
+export async function getFunctionSlotReplacementCandidates(payload: { kind: "slot" | "atom"; atomKind?: "script" | "rhythm" | "packaging" | null; slotSubtypeId?: string | null; q?: string | null; limit?: number | null }) {
+  const query = buildQuery({
+    kind: payload.kind,
+    atomKind: payload.atomKind,
+    slotSubtypeId: payload.slotSubtypeId,
+    q: payload.q,
+    limit: payload.limit,
+  });
+  return readJsonResponse<{ ok: boolean; schemaVersion: string; kind: string; atomKind?: string | null; candidates: ReplacementCandidate[]; source?: Record<string, unknown> }>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library/replacement-candidates${query}`, { cache: "no-store" }),
   );
 }
 

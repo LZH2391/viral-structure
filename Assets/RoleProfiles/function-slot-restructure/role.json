@@ -5,5 +5,11 @@
   "init": {
     "template": "init.md",
     "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "manualReplacement": {
+      "template": "prompts/manual-replacement.v1.md",
+      "version": "manual-replacement.v1"
+    }
   }
 }

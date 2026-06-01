@@ -48,7 +48,7 @@
 - `trust_evidence`：能否支撑信任、长期性、第三方、记录或资质。
 - `conversion_support`：能否支撑结尾行动、购买/咨询/下一步。
 
-`shot.capabilityRefs[][1]` 只能是：
+`shotCards[].proofAffordances[].strength` 只能是：
 
 - `strong`
 - `medium`
@@ -56,11 +56,12 @@
 - `none`
 - `unknown`
 
-`capabilities.*.supportLevel` 只能是：
+`proofCoverage[].coverage` 只能是：
 
 - `strong`
 - `partial`
 - `weak`
+- `missing`
 - `unknown`
 
 ## 序列推荐规则

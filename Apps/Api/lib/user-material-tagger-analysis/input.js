@@ -16,6 +16,7 @@ const {
   buildOutputContract,
   stableJson,
   contentHash,
+  PROOF_NEED_CLASSES,
 } = require("./shared");
 
 const INPUT_PACKAGE_SCHEMA_VERSION = "user_material_tagger_input_package.v1";
@@ -83,23 +84,27 @@ async function prepareInputPackage({ input, sampleDir, store }) {
   const metadata = buildMetadata(inputPackageDir, input);
   const lineage = buildLineage(input);
   const outputContract = buildOutputContract();
+  const outputSkeleton = buildOutputSkeleton(input);
 
   const manifestPath = path.join(inputPackageDir, "manifest.json");
   const metadataPath = path.join(inputPackageDir, "metadata.json");
   const lineagePath = path.join(inputPackageDir, "lineage.json");
   const outputContractPath = path.join(inputPackageDir, "output-contract.json");
+  const outputSkeletonPath = path.join(inputPackageDir, "output-skeleton.json");
   const visualManifestPath = path.join(inputPackageDir, "visual-manifest.json");
   await Promise.all([
     store.writeJson(manifestPath, manifest),
     store.writeJson(metadataPath, metadata),
     store.writeJson(lineagePath, lineage),
     store.writeJson(outputContractPath, outputContract),
+    store.writeJson(outputSkeletonPath, outputSkeleton),
     store.writeJson(visualManifestPath, visualManifest),
   ]);
 
   const hashes = {
     manifestHash: contentHash(stableJson(manifest)),
     outputContractHash: contentHash(stableJson(outputContract)),
+    outputSkeletonHash: contentHash(stableJson(outputSkeleton)),
     visualManifestHash: contentHash(stableJson(stripVisualManifestPaths(visualManifest))),
   };
 
@@ -113,6 +118,8 @@ async function prepareInputPackage({ input, sampleDir, store }) {
     lineagePath,
     outputContract,
     outputContractPath,
+    outputSkeleton,
+    outputSkeletonPath,
     visualManifest,
     visualManifestPath,
     visualAttachments,
@@ -127,6 +134,7 @@ function renderAnalyzeTurnInputs({ inputPackage, roleProfile }) {
     inputSummaryText: buildInputSummaryText(inputPackage),
     manifestPath: inputPackage.manifestPath,
     outputContractPath: inputPackage.outputContractPath,
+    outputSkeletonPath: inputPackage.outputSkeletonPath,
     visualManifestPath: inputPackage.visualManifestPath,
   });
   return buildTurnPayload(prompt, inputPackage);
@@ -138,6 +146,7 @@ function renderRepairTurnInputs({ inputPackage, validationError, priorTurnOutput
     inputSummaryText: buildInputSummaryText(inputPackage),
     manifestPath: inputPackage.manifestPath,
     outputContractPath: inputPackage.outputContractPath,
+    outputSkeletonPath: inputPackage.outputSkeletonPath,
     visualManifestPath: inputPackage.visualManifestPath,
     validationJson: stableJson(validationError?.debugPayload?.validation ?? { code: validationError?.code ?? null, message: validationError?.message ?? null }),
     priorOutputSummaryJson: stableJson({
@@ -160,6 +169,7 @@ function buildTurnPayload(prompt, inputPackage) {
     metadata: inputPackage.metadata,
     lineage: inputPackage.lineage,
     outputContract: inputPackage.outputContract,
+    outputSkeleton: inputPackage.outputSkeleton,
     visualManifest: inputPackage.visualManifest,
   };
 }
@@ -195,6 +205,75 @@ function buildLineage(input) {
   };
 }
 
+function buildOutputSkeleton(input) {
+  return {
+    type: "user-material-pack",
+    schemaVersion: "user-material-pack.stable",
+    sampleVideoId: input.sampleVideoId,
+    sourceArtifacts: {
+      shotBoundaryAnalysis: {
+        artifactId: input.parentArtifactId,
+        shotCount: input.shots.length,
+      },
+    },
+    shotCards: input.shots.map((shot) => ({
+      shotRef: shot.shotId,
+      shotNo: shot.shotNo,
+      timeRange: { start: shot.start, end: shot.end },
+      visualSummary: shot.summary,
+      spokenOrSubtitleSummary: shot.subtitleText || shot.subtitleContextText || "",
+      detectedEntities: { products: [], people: [], scenes: [], objects: [], textSignals: [] },
+      shotClass: "",
+      shotFunctions: [],
+      materialTags: [],
+      proofAffordances: [],
+      sequenceFit: {
+        opening: { fit: "weak", reason: "", requiredSupport: [] },
+        middle: { fit: "weak", reason: "", requiredSupport: [] },
+        ending: { fit: "weak", reason: "", requiredSupport: [] },
+      },
+      quality: {
+        visualClarity: "unknown",
+        stability: "unknown",
+        subjectFocus: "unknown",
+        audioUsefulness: shot.subtitleText || shot.subtitleContextText ? "medium" : "unknown",
+        captionUsefulness: shot.subtitleText || shot.subtitleContextText ? "medium" : "none",
+      },
+      constraints: [],
+      confidence: 0.72,
+      needReview: true,
+    })),
+    materialGroups: [],
+    proofCoverage: buildProofCoverageSkeleton(),
+    sequenceRecommendations: {
+      openingCandidates: [],
+      middleCandidates: [],
+      endingCandidates: [],
+    },
+    globalConstraints: [],
+    restructureInputSummary: {
+      strongMaterialAreas: [],
+      weakMaterialAreas: [],
+      missingMaterialAreas: [],
+      recommendedUse: [],
+      doNotUseFor: [],
+      needsRestructureAttention: [],
+    },
+  };
+}
+
+function buildProofCoverageSkeleton() {
+  return PROOF_NEED_CLASSES.map((proofNeedClass) => ({
+    proofNeedClass,
+    coverage: "unknown",
+    candidateShots: [],
+    candidateGroups: [],
+    reason: "",
+    safeUsage: "",
+    gapAdvice: "",
+  }));
+}
+
 function buildInputSummaryText(inputPackage) {
   const subtitleReadyShotCount = Array.isArray(inputPackage?.manifest?.shots)
     ? inputPackage.manifest.shots.filter((shot) => String(shot?.subtitleText ?? shot?.subtitleContextText ?? "").trim()).length
@@ -221,5 +300,6 @@ module.exports = {
   prepareInputPackage,
   renderAnalyzeTurnInputs,
   renderRepairTurnInputs,
+  buildOutputSkeleton,
   buildInputSummaryText,
 };

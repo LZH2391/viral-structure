@@ -13,8 +13,8 @@ const ROLES = [
   },
   {
     role: "function-slot-restructure",
+    templateId: "manualReplacement",
     skill: "function-slot-restructure",
-    chatOnly: true,
   },
   {
     role: "function-slot-restructure-display-transformer",
@@ -46,11 +46,6 @@ test("function slot placeholder role profiles load init and task prompts", async
     assert.equal(profile.role, item.role);
     assert.equal(profile.skillPath?.split(/[\\/]/).slice(-2).join("/"), `${item.skill}/SKILL.md`);
     assert.match(profile.init.templateBody, /已就绪/);
-    if (item.chatOnly) {
-      assert.equal(profile.turnTemplates?.restructure, undefined);
-      continue;
-    }
-
     const rendered = renderTurnTemplate(profile, item.templateId, defaultTemplateValues(item.role));
     if (item.role === "shot-storyboard-prep") {
       assert.match(rendered.text, /后处理任务/);
@@ -93,6 +88,13 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(repairTurn.text, /spray-pump-floral-water/);
       assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v2");
       assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v2");
+    } else if (item.role === "function-slot-restructure") {
+      assert.match(rendered.text, /手动 Slot\/Atom 替换返工任务/);
+      assert.match(rendered.text, /低门槛价值锚点/);
+      assert.match(rendered.text, /强痛点场景进入/);
+      assert.match(rendered.text, /先说明影响并请求用户确认/);
+      assert.match(rendered.text, /不要直接编辑 `restructure\.display\.json`/);
+      assert.equal(rendered.promptTemplateVersion, "manual-replacement.v1");
     } else if (item.role === "function-slot-library-builder") {
       assert.match(rendered.text, /FunctionSlotLibrary 语义治理 Agent/);
       assert.match(rendered.text, /slot_index/);
@@ -101,7 +103,7 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(rendered.text, /ThreadPool 占位任务/);
       assert.match(rendered.text, /占位语义/);
     }
-    if (item.role !== "function-slot-library-builder") {
+    if (item.role !== "function-slot-library-builder" && item.role !== "function-slot-restructure") {
       assert.equal(rendered.promptTemplateVersion.endsWith(".placeholder.v1"), true);
     }
   }
@@ -116,6 +118,16 @@ function defaultTemplateValues(role) {
       atomBindingRuleProtocolPath: "Docs/Architecture/FunctionSlotAtomBindingRuleGovernance.md",
       outputFormatPath: "Docs/Architecture/FunctionSlotSemanticGovernanceOutput.md",
       coverageSummaryJson: JSON.stringify({ slotCount: 1 }),
+    };
+  }
+  if (role === "function-slot-restructure") {
+    return {
+      sourceRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      sourceDisplayJsonPath: "Artifacts/FunctionSlotRestructure/demo/restructure.display.json",
+      displayFingerprintJson: JSON.stringify({ path: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md", sha256: "abc" }),
+      replacementSummary: "Slot 1 低门槛价值锚点 -> 强痛点场景进入",
+      replacementsJson: JSON.stringify([{ type: "slot", fromSlotLabel: "低门槛价值锚点", toSlotLabel: "强痛点场景进入" }]),
+      userInstruction: "用户手动替换了上述 Slot/Atom。请根据替换后的结构重新设计；如果替换破坏链路逻辑、素材能力、binding rule 或证明路径，必须先说明影响并请求用户确认，不要直接重写最终方案。",
     };
   }
   return {};

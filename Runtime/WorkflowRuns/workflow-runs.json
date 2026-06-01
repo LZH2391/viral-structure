@@ -308,12 +308,12 @@
       "workflowRunId": "workflow_855373bf-c938-4b4e-b8bb-2c1599f02f3f",
       "workflowKey": "material-recognition",
       "workflowVersion": "material-recognition.v1",
-      "status": "running",
+      "status": "failed",
       "traceId": "trace_aecc61fa-77ef-445f-8d4d-cdc3a3f8e43b",
       "runId": "run_892eb098-70f3-42dc-bd16-b490acf172ec",
       "sampleVideoId": "sample_b1d3133f-1db0-4dcd-8e12-9990a7aff39f",
       "createdAt": "2026-06-01T06:27:00.126Z",
-      "updatedAt": "2026-06-01T06:30:17.379Z",
+      "updatedAt": "2026-06-01T06:30:17.609Z",
       "completedAt": null,
       "file": "runs/workflow_855373bf-c938-4b4e-b8bb-2c1599f02f3f.json"
     }

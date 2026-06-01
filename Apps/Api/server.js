@@ -23,7 +23,7 @@ const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
-const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
+const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatManualReplacementSubmit, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
@@ -37,6 +37,7 @@ const { createFunctionSlotProjectionService } = require("./lib/function-slot-pro
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { createFunctionSlotLibraryBuilderService } = require("./lib/function-slot-library/builder-service");
 const { createFunctionSlotGovernanceService } = require("./lib/function-slot-library/governance-service");
+const { createFunctionSlotReplacementCandidateService } = require("./lib/function-slot-library/replacement-candidates");
 const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/graph");
 const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
@@ -105,6 +106,9 @@ function createServer(deps = {}) {
     jobStore: activeJobStore,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+  });
+  const activeFunctionSlotReplacementCandidateService = deps.functionSlotReplacementCandidateService ?? createFunctionSlotReplacementCandidateService({
+    rootDir: deps.rootDir ?? rootDir,
   });
   const activeFunctionSlotAtomizationManualEditService = deps.functionSlotAtomizationManualEditService ?? createFunctionSlotAtomizationManualEditService({
     rootDir: deps.rootDir ?? rootDir,
@@ -187,6 +191,7 @@ function createServer(deps = {}) {
     functionSlotLibraryService: activeFunctionSlotLibraryService,
     functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
     functionSlotGovernanceService: activeFunctionSlotGovernanceService,
+    functionSlotReplacementCandidateService: activeFunctionSlotReplacementCandidateService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     restructureDisplayOverlayService: activeRestructureDisplayOverlayService,
     fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
@@ -215,6 +220,7 @@ function createServer(deps = {}) {
       if (req.method === "DELETE" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "GET" && url.pathname.startsWith("/api/function-slot-projection/")) return await handleFunctionSlotProjectionQuery(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library") return await handleFunctionSlotLibraryList(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/function-slot-library/replacement-candidates") return await handleFunctionSlotReplacementCandidates(res, url, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/governance/run") return await handleFunctionSlotGovernanceRun(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/graph") return await handleConfirmedPlanTraceGraph(res, handlers);
@@ -234,6 +240,7 @@ function createServer(deps = {}) {
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/system-messages$/.test(url.pathname)) return await handleAgentChatConversationSystemMessage(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/compact$/.test(url.pathname)) return await handleAgentChatThreadCompact(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/stop$/.test(url.pathname)) return await handleAgentChatThreadStop(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/manual-replacement$/.test(url.pathname)) return await handleAgentChatManualReplacementSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-3)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns$/.test(url.pathname)) return await handleAgentChatTurnSubmit(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+\/stop$/.test(url.pathname)) return await handleAgentChatTurnStop(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/threads\/[^/]+\/turns\/[^/]+\/retry$/.test(url.pathname)) return await handleAgentChatTurnRetry(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -399,6 +406,25 @@ async function handleFunctionSlotLibraryExport(res, sampleVideoId, url, handlers
 async function handleFunctionSlotLibraryList(res, handlers = {}) {
   const service = handlers.functionSlotLibraryService ?? functionSlotLibraryService;
   return sendJson(res, 200, { items: await service.listLibraryItems() });
+}
+
+async function handleFunctionSlotReplacementCandidates(res, url, handlers = {}) {
+  const service = handlers.functionSlotReplacementCandidateService;
+  if (!service?.listCandidates) {
+    return sendJson(res, 503, {
+      error: "function_slot_replacement_candidates_unavailable",
+      code: "function_slot_replacement_candidates_unavailable",
+      message: "FunctionSlotLibrary replacement candidate 服务不可用",
+    });
+  }
+  const result = await service.listCandidates({
+    kind: url.searchParams.get("kind"),
+    atomKind: url.searchParams.get("atomKind"),
+    slotSubtypeId: url.searchParams.get("slotSubtypeId"),
+    q: url.searchParams.get("q"),
+    limit: url.searchParams.get("limit"),
+  });
+  return sendJson(res, 200, result);
 }
 
 async function handleFunctionSlotLibraryBuilderRefresh(req, res, handlers = {}) {

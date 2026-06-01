@@ -158,9 +158,12 @@ function buildOutputContract() {
     ],
     notes: [
       "只返回 JSON object。",
+      "优先复制 output-skeleton.json 的整体结构，再补全语义判断字段。",
+      "脚本预填的 shotRef、shotNo、timeRange、visualSummary 来自切镜事实，不要改写或删减。",
       "每个输入 shot 必须有一个 shotCard。",
       "proofCoverage 必须覆盖全部 proofNeedClass。",
       "不要输出高光片段列表；只输出结构位置适配候选。",
+      "materialGroups、proofCoverage、sequenceRecommendations 和 restructureInputSummary 必须由 Agent 基于素材判断补全；不要让空骨架直接通过。",
     ],
     proofNeedClasses: PROOF_NEED_CLASSES,
   };

@@ -1322,6 +1322,157 @@ test("function slot workflow placeholder route returns traceable job", async () 
   }
 });
 
+test("function slot replacement candidates endpoint reads slot index evidence", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-replacement-candidates-"));
+  const indexDir = path.join(rootDir, "Runtime", "Temp", "FunctionSlotLibrary");
+  const governanceDir = path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance");
+  await fsPromises.mkdir(indexDir, { recursive: true });
+  await fsPromises.mkdir(governanceDir, { recursive: true });
+  await fsPromises.writeFile(path.join(indexDir, "slot_index.json"), JSON.stringify({
+    schemaVersion: "short_video_slot_index.v1",
+    slotVariants: [{
+      variantId: "sample_a::F001",
+      sampleId: "sample_a",
+      artifactId: "artifact_a",
+      sourceSlotId: "F001",
+      slotType: "pain_entry",
+      slotName: "强痛点场景进入",
+      slotOrder: 1,
+      persuasionTask: "先建立具体痛点",
+      confidence: 0.8,
+      requiredSyncPoints: ["痛点出现"],
+      substitutionRules: ["保留痛点"],
+    }],
+    atomVariants: [{
+      variantId: "sample_a::script::S001",
+      sampleId: "sample_a",
+      artifactId: "artifact_a",
+      kind: "script",
+      sourceAtomId: "S001",
+      slotType: "pain_entry",
+      label: "痛点先行",
+      function: "先讲痛点",
+      confidence: 0.81,
+    }],
+    bindings: [{
+      id: "B001",
+      type: "sync",
+      sampleId: "sample_a",
+      artifactId: "artifact_a",
+      slotIds: ["F001"],
+      atomIds: ["S001"],
+      rule: "痛点和脚本同步",
+      riskIfBroken: "入口断裂",
+    }],
+    rules: [],
+  }), "utf8");
+  await fsPromises.writeFile(path.join(governanceDir, "semantic-governance.v1.json"), JSON.stringify({
+    schemaVersion: "function_slot_semantic_governance.v1",
+    governanceId: "governance_test",
+    reviewItems: [{ severity: "medium", topic: "单样例支持", sourceVariantIds: ["sample_a::F001"] }],
+  }), "utf8");
+  const server = createServer({ rootDir, staticWorkbench: { handle: () => false } });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const slotResponse = await makeRequest(server, "GET", "/api/function-slot-library/replacement-candidates?kind=slot&q=%E7%97%9B%E7%82%B9");
+    assert.equal(slotResponse.statusCode, 200);
+    assert.equal(slotResponse.body.schemaVersion, "function_slot_replacement_candidates.v1");
+    assert.equal(slotResponse.body.candidates[0].slotSubtypeId, "pain_entry");
+    assert.equal(slotResponse.body.candidates[0].bindingEvidence.bindings[0].riskIfBroken, "入口断裂");
+    assert.equal(slotResponse.body.candidates[0].evidenceTags.some((tag) => /单样例支持/.test(tag)), true);
+
+    const atomResponse = await makeRequest(server, "GET", "/api/function-slot-library/replacement-candidates?kind=atom&atomKind=script&slotSubtypeId=pain_entry");
+    assert.equal(atomResponse.statusCode, 200);
+    assert.equal(atomResponse.body.candidates[0].atomId, "S001");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat manual replacement route renders restructure replacement turn", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-manual-replacement-"));
+  const conversations = new Map();
+  conversations.set("conversation_restructure", {
+    conversationId: "conversation_restructure",
+    revision: 4,
+    role: "function-slot-restructure",
+    source: "threadpool-role",
+    status: "active",
+    threadId: "thread_restructure",
+    workspaceRoot: rootDir,
+    skillPath: "function-slot-restructure/SKILL.md",
+    messages: [],
+  });
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push(payload);
+        return { threadId: payload.threadId, turnId: "turn_manual_1", status: "submitted" };
+      },
+    },
+    agentConversationStore: {
+      assertActive: async (conversationId, { expectedRevision } = {}) => {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        if (expectedRevision && expectedRevision !== conversation.revision) {
+          const error = new Error("revision mismatch");
+          error.statusCode = 409;
+          error.code = "agent_chat_conversation_revision_conflict";
+          throw error;
+        }
+        return conversation;
+      },
+      recordUserTurn: async ({ conversationId, turnId, text }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `user-${turnId}`, role: "user", text });
+        conversation.revision += 1;
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_restructure/turns/manual-replacement", {
+      conversationId: "conversation_restructure",
+      expectedRevision: 4,
+      sourceRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      sourceDisplayJsonPath: "Artifacts/FunctionSlotRestructure/demo/restructure.display.json",
+      displayFingerprint: { path: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md", sha256: "abc" },
+      replacements: [{
+        type: "slot",
+        slotOrder: 1,
+        fromSlotSubtypeId: "value_anchor",
+        fromSlotLabel: "低门槛价值锚点",
+        toSlotSubtypeId: "pain_entry",
+        toSlotLabel: "强痛点场景进入",
+        candidateId: "sample_a::F001",
+        affectedAtomIds: ["A::script::S001"],
+      }],
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.turnId, "turn_manual_1");
+    assert.equal(response.body.promptTemplateVersion, "manual-replacement.v1");
+    assert.match(calls[0].inputs[0].text, /强痛点场景进入/);
+    assert.match(calls[0].inputs[0].text, /先说明影响并请求用户确认/);
+    assert.match(conversations.get("conversation_restructure").messages[0].text, /低门槛价值锚点 -> 强痛点场景进入/);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat collect auto transforms completed restructure final markdown", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-restructure-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "auto-demo");

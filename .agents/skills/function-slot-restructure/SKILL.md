@@ -1,6 +1,6 @@
 ---
 name: function-slot-restructure
-description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 user-material-pack-compact 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险并输出新短视频结构方案时。不要用它执行库构建、入库校验或 slotType 命名治理。
+description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 user-material-pack.stable 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险并输出新短视频结构方案时。不要用它执行库构建、入库校验或 slotType 命名治理。
 ---
 
 # 功能槽位重组
@@ -46,7 +46,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 use
 
 ### 2. 用户素材包
 
-如果用户已经提供 `user-material-pack-compact`，将其视为正式的第二大类输入，不是临时备注。它用于描述当前视频素材能证明什么、哪些能力强/弱、哪些组有连续性、哪些镜头可承载开头/中段/结尾候选，以及哪些证明义务仍然缺口；它不替代 `slot_index.json` 或 `semantic-governance.v1.json`，也不直接决定 `slotType` 命名。
+如果用户已经提供 `user-material-pack.stable`，将其视为正式的第二大类输入，不是临时备注。它用于描述当前视频素材能证明什么、哪些证明需求强/弱/缺失、哪些组有连续性、哪些镜头可承载开头/中段/结尾候选，以及哪些证明义务仍然缺口；它不替代 `slot_index.json` 或 `semantic-governance.v1.json`，也不直接决定 `slotType` 命名。
 
 如果没有用户素材包，仍可做库侧重组，但必须披露“未使用用户素材包，无法进行逐槽位素材落地判断”。
 
@@ -68,14 +68,15 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - 品类、产品、受众、痛点、转化目标、平台、语气、证明资产、生产约束
 - 指定槽位链或指定 `slotType`
 - 指定 `slotSubtypeId / slotArchetypeId / implementationBundleId`
+- 前端 Slot/Atom 面板提交的手动替换请求
 - 待校验的脚本、分镜或镜头计划，用于校验和修复
 
 ### 2. 用户素材包 / 供给侧
 
-- `user-material-pack-compact` / `user-material-pack.grouped-shots.v1`
+- `user-material-pack` / `user-material-pack.stable`
   - 来自 `user-material-tagger` 的素材供给侧证据。
-  - 重点消费字段：`capabilities`、`groups`、`ungroupedShots`、`sourceArtifacts`、`traceMeta`。
-  - 用途：判断真实素材能否满足 `proofNeedClass`、`supportLevel`、组连续性、镜头覆盖和证明缺口。
+  - 重点消费字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`sourceArtifacts`。
+  - 用途：判断真实素材能否满足 `proofNeedClass`、`coverage`、组连续性、镜头覆盖和证明缺口。
   - 限制：只能作为素材约束和证明资产输入，不能直接生成槽位链、slot subtype 或 atom 选择。
 
 ### 3. FunctionSlotLibrary / 结构库侧
@@ -85,7 +86,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 ## 重组流程
 
-如果任务提供 `user-material-pack-compact`，先读取 `references/material-aware-restructure.md`，按其专用流程执行。以下是基础库侧重组流程。
+如果任务提供 `user-material-pack.stable`，先读取 `references/material-aware-restructure.md`，按其专用流程执行。以下是基础库侧重组流程。
 
 1. **标准化 brief / 需求侧**  
    明确目标产品/品类、受众、痛点、结果、平台、语气和限制，形成观众状态路径与主张需求。
@@ -110,6 +111,15 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 8. **输出方案**  
    输出结构方案、脚本段落方案、节奏曲线、包装证明方案、风险和必要替代实现，并保存为 markdown 文件。具体 Shot 设计后置到 `function-slot-shot-design`，在用户认可结构方案后另存独立文件。
+
+## 手动 Slot/Atom 替换返工
+
+当前端提交 `manualReplacement` turn 时，输入是用户手动从 FunctionSlotLibrary 选择的替换意图，不是已经成立的新方案。
+
+- Slot 替换会使该 slot 下原 script / rhythm / packaging atom 绑定失效，必须重新评估或重选。
+- Atom 替换只影响指定 atom kind，但仍要检查它与当前 slot、其它 atoms、binding rule 和素材能力是否兼容。
+- 如果替换会明显破坏链路逻辑、素材承接、证明路径或节奏/包装同步，先说明影响并请求用户确认，不要直接重写 `restructure.final.md`。
+- 如果替换可以成立，基于替换后的结构重新设计并更新 `restructure.final.md`；不要直接编辑 `restructure.display.json`。
 
 ## Shot 设计后置原则
 
@@ -172,7 +182,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 1. 重组目标与假设
 2. 最终功能槽位链（精确到 `slotSubtype`）
-   - 若使用 `user-material-pack-compact`，第 2 节的素材判断格式以 `references/material-aware-restructure.md` 为准。
+   - 若使用 `user-material-pack.stable`，第 2 节的素材判断格式以 `references/material-aware-restructure.md` 为准。
 3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms，允许且鼓励使用已声明短码；每个 atom 必须写“原标签 → 本方案落地”，选择理由放在第 2 节）
 4. Adapter 方案（说明触发理由、解决了什么、如何桥接）
 5. 脚本段落方案
@@ -210,7 +220,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 按需读取：
 
-- `references/material-aware-restructure.md`：有 `user-material-pack-compact` 时的专用流程。素材包参与重组时优先读取此文档，不要把素材流程混入普通库侧重组流程。
+- `references/material-aware-restructure.md`：有 `user-material-pack.stable` 时的专用流程。素材包参与重组时优先读取此文档，不要把素材流程混入普通库侧重组流程。
 - `references/recomposition-workflow.md`：重组工作流。
 - `references/retrieval-and-selection.md`：evidence 检索和适配检查。
 - `references/quality-checks.md`：重组质量检查。

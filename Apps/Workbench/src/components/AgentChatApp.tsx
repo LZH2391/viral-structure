@@ -1,9 +1,10 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
-import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement, type AgentChatSessionResponse } from "../api/client";
+import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../utils/restructurePath";
+import { buildReplacementDraftSummary, SlotAtomView } from "./agent-chat/SlotAtomReplacementPanel";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 
 type ChatMode = "direct" | "threadpool-role";
@@ -328,6 +329,52 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setStatusText("发送失败");
     }
   }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, busy, draft, ensureSession, maybeCompactBeforeSend, refreshConversations, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
+
+  const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
+    if (busy) return;
+    if (activeConversationInvalidated) {
+      const message = "thread 已不可读，此会话已失效，请归档后新建会话";
+      setErrorText(message);
+      setStatusText("会话已失效");
+      return;
+    }
+    if (!replacementDraft.sourceRestructureFinalPath || !replacementDraft.sourceDisplayJsonPath || !replacementDraft.replacements.length) {
+      setErrorText("替换请求缺少源文件或替换项");
+      return;
+    }
+    setBusy(true);
+    setErrorText(null);
+    setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text: summary || buildReplacementDraftSummary(replacementDraft.replacements), status: "completed" }]);
+    try {
+      const activeSession = await ensureSession(false);
+      const compacted = await maybeCompactBeforeSend(activeSession);
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
+      if (compactRevision) setActiveConversationRevision(compactRevision);
+      const submitted = await submitAgentChatManualReplacement(activeSession.threadId as string, {
+        ...sessionMeta,
+        source: activeSession.source,
+        conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
+        expectedRevision: compactRevision ?? activeConversationRevision,
+        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+        skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
+        sourceRestructureFinalPath: replacementDraft.sourceRestructureFinalPath,
+        sourceDisplayJsonPath: replacementDraft.sourceDisplayJsonPath,
+        displayFingerprint: replacementDraft.displayFingerprint,
+        replacements: replacementDraft.replacements,
+      });
+      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      setCurrentTurnId(submitted.turnId);
+      setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
+      setStatusText("Agent 正在评估替换");
+      schedulePoll(activeSession, submitted.turnId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "提交替换失败";
+      setErrorText(message);
+      setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
+      setBusy(false);
+      setStatusText("提交替换失败");
+    }
+  }, [activeConversationInvalidated, activeConversationRevision, busy, ensureSession, maybeCompactBeforeSend, schedulePoll, sessionMeta]);
 
   const startNewConversation = useCallback(() => {
     creatingDraftConversationRef.current = true;
@@ -677,77 +724,17 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               Slot/Atom
             </button>
           </div>
-          {rightPanelTab === "timeline" ? <TimelineView timeline={timeline} /> : <SlotAtomView display={activeSlotAtomDisplay} />}
+          {rightPanelTab === "timeline" ? <TimelineView timeline={timeline} /> : (
+            <SlotAtomView
+              display={activeSlotAtomDisplay}
+              busy={busy}
+              sourceRestructureFinalPath={resolveCurrentRestructureFinalPath({ messages, currentTurnId, confirmedPlan: activeConversationConfirmedPlan })}
+              onSubmitReplacement={handleManualReplacementSubmit}
+            />
+          )}
         </aside>
       </main>
     </div>
-  );
-}
-
-function SlotAtomView({ display }: { display: AgentChatSlotAtomDisplay | null }) {
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const slots = display?.slots ?? [];
-  const atoms = display?.atoms ?? [];
-  const selectedSlot = useMemo(() => {
-    if (!slots.length) return null;
-    return slots.find((slot) => slot.slotSubtypeId === selectedSlotId) ?? slots.find((slot) => slot.slotSubtypeId === display?.selectedSlotSubtypeId) ?? slots[0];
-  }, [display?.selectedSlotSubtypeId, selectedSlotId, slots]);
-  const selectedAtoms = useMemo(() => {
-    if (!selectedSlot?.slotSubtypeId) return atoms[0] ?? null;
-    return atoms.find((atom) => atom.slotSubtypeId === selectedSlot.slotSubtypeId) ?? null;
-  }, [atoms, selectedSlot?.slotSubtypeId]);
-
-  useEffect(() => {
-    setSelectedSlotId(display?.selectedSlotSubtypeId ?? display?.slots?.[0]?.slotSubtypeId ?? null);
-  }, [display]);
-
-  if (!display || display.status === "empty" || (!slots.length && !atoms.length)) {
-    return <div className="empty-state"><strong>无</strong><span>当前 turn 还没有可展示的 Slot/Atom 转换结果</span></div>;
-  }
-
-  return (
-    <div className="agent-chat-slot-atom-panel">
-      <div className="agent-chat-slot-atom-summary">
-        <b>{display.slotCount ?? slots.length} slots</b>
-        <span>{display.atomBindingCount ?? atoms.length} atom bindings</span>
-      </div>
-      {display.displayJsonPath ? <div className="agent-chat-slot-atom-path" title={display.displayJsonPath}>{display.displayJsonPath}</div> : null}
-      <div className="agent-chat-slot-list" aria-label="Slot 链">
-        {slots.map((slot, index) => (
-          <button
-            key={`${slot.slotSubtypeId ?? "slot"}-${index}`}
-            className={slot.slotSubtypeId === selectedSlot?.slotSubtypeId ? "active" : ""}
-            type="button"
-            onClick={() => setSelectedSlotId(slot.slotSubtypeId ?? null)}
-          >
-            <small>{String(slot.index ?? index + 1).padStart(2, "0")}</small>
-            <b>{stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名 slot"}</b>
-            {slot.functionText ? <span>{slot.functionText}</span> : null}
-          </button>
-        ))}
-      </div>
-      <div className="agent-chat-slot-detail">
-        <div className="agent-chat-slot-detail-head">
-          <b>{stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || "Slot"}</b>
-          {selectedSlot?.archetypeId ? <span>{selectedSlot.archetypeId}</span> : null}
-        </div>
-        {selectedSlot?.usage ? <p>{selectedSlot.usage}</p> : null}
-        <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" />
-        <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" />
-        <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" />
-        {selectedAtoms?.handling ? <div className="agent-chat-atom-handling">{selectedAtoms.handling}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function AtomCard({ label, value, tone }: { label: string; value?: string | null; tone: "script" | "rhythm" | "packaging" }) {
-  if (!value) return null;
-  return (
-    <article className={`agent-chat-atom-card ${tone}`}>
-      <span>{label}</span>
-      <b>{value}</b>
-    </article>
   );
 }
 
@@ -878,10 +865,6 @@ function resolveActiveSlotAtomDisplay(messages: ChatMessage[], currentTurnId: st
     if (display) return display;
   }
   return null;
-}
-
-function stripBacktickLabel(value?: string | null) {
-  return String(value ?? "").replace(/`[^`]+`\s*/g, "").trim();
 }
 
 function buildConfirmationId(turnId: string | null) {

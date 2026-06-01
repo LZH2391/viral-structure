@@ -2,7 +2,7 @@
 
 当需要从多视频库中选择槽位和原子时，使用本参考。
 
-本参考描述库侧 evidence 检索。若任务提供 `user-material-pack-compact`，先使用 `material-aware-restructure.md` 的专用流程，再回到本文做 FunctionSlotLibrary 检索。
+本参考描述库侧 evidence 检索。若任务提供 `user-material-pack.stable`，先使用 `material-aware-restructure.md` 的专用流程，再回到本文做 FunctionSlotLibrary 检索。
 
 ## 选择顺序
 
