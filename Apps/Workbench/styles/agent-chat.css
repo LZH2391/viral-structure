@@ -398,7 +398,7 @@
 
 .agent-chat-side-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 3px;
   border: 1px solid var(--line);
@@ -450,6 +450,60 @@
 
 .agent-chat-timeline .agent-timeline-item p {
   white-space: pre-wrap;
+}
+
+.agent-chat-active-turns-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-chat-active-turn-list {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.agent-chat-active-turn {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.agent-chat-active-turn div,
+.agent-chat-active-turn dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.agent-chat-active-turn span,
+.agent-chat-active-turn dt,
+.agent-chat-active-turn small {
+  color: var(--muted);
+}
+
+.agent-chat-active-turn p {
+  margin: 0;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-chat-active-turn dl {
+  margin: 0;
+  font-size: 12px;
+}
+
+.agent-chat-active-turn dd {
+  margin: 0;
+  color: var(--text);
 }
 
 .agent-chat-slot-atom-panel {

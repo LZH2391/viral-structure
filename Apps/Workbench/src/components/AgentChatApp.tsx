@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, retryAgentChatTurn, sendAgentChatMessage, startAgentChatThread, stopAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listActiveTurns, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, retryAgentChatTurn, sendAgentChatMessage, startAgentChatThread, stopAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type ActiveTurnSummary, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -8,7 +8,7 @@ import { buildReplacementDraftSummary, SlotAtomView } from "./agent-chat/SlotAto
 import { SplitResizeHandle } from "./SplitResizeHandle";
 
 type ChatMode = "direct" | "threadpool-role";
-type RightPanelTab = "timeline" | "slotAtom";
+type RightPanelTab = "timeline" | "slotAtom" | "activeTurns";
 type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -37,6 +37,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [turnActionBusy, setTurnActionBusy] = useState<"stop_turn" | "stop_thread" | "retry_same_thread" | "retry_new_thread" | null>(null);
   const [threadStopped, setThreadStopped] = useState(false);
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
+  const [activeTurns, setActiveTurns] = useState<ActiveTurnSummary[]>([]);
+  const [activeTurnsError, setActiveTurnsError] = useState<string | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("timeline");
   const [statusText, setStatusText] = useState("等待连接");
   const [busy, setBusy] = useState(false);
@@ -215,6 +217,27 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       cancelled = true;
     };
   }, [currentTurnId, session?.threadId, session?.workspaceRoot]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | null = null;
+    const poll = async () => {
+      try {
+        const payload = await listActiveTurns();
+        if (cancelled) return;
+        setActiveTurns(payload.activeTurns ?? []);
+        setActiveTurnsError(null);
+      } catch (error) {
+        if (!cancelled) setActiveTurnsError(error instanceof Error ? error.message : "读取 Active Turns 失败");
+      }
+      if (!cancelled) timer = window.setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
 
   const ensureSession = useCallback(async (forceNew = false) => {
     if (!forceNew && session?.threadId) return session;
@@ -931,8 +954,19 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             >
               Slot/Atom
             </button>
+            <button
+              className={rightPanelTab === "activeTurns" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={rightPanelTab === "activeTurns"}
+              onClick={() => setRightPanelTab("activeTurns")}
+            >
+              Active
+            </button>
           </div>
-          {rightPanelTab === "timeline" ? <TimelineView timeline={timeline} /> : (
+          {rightPanelTab === "timeline" ? <TimelineView timeline={timeline} /> : rightPanelTab === "activeTurns" ? (
+            <ActiveTurnsView activeTurns={activeTurns} error={activeTurnsError} />
+          ) : (
             <SlotAtomView
               display={activeSlotAtomDisplay}
               busy={busy}
@@ -967,6 +1001,40 @@ function TimelineView({ timeline }: { timeline: AgentTurnTimeline | null }) {
   );
 }
 
+function ActiveTurnsView({ activeTurns, error }: { activeTurns: ActiveTurnSummary[]; error: string | null }) {
+  return (
+    <div className="agent-chat-active-turns-panel">
+      <div className="agent-chat-timeline-summary">
+        <strong>Active Turns</strong>
+        <span>{activeTurns.length} running</span>
+      </div>
+      {error ? <div className="agent-chat-error">{error}</div> : null}
+      <div className="agent-chat-active-turn-list">
+        {activeTurns.length ? activeTurns.map((turn) => (
+          <article key={turn.bindingId ?? `${turn.threadId}-${turn.turnId}`} className="agent-chat-active-turn">
+            <div>
+              <b>{turn.ownerType}</b>
+              <span>{turn.status}</span>
+            </div>
+            <p>{turn.stageName ?? "unknown stage"}</p>
+            <dl>
+              <dt>owner</dt>
+              <dd>{shortId(turn.ownerId)}</dd>
+              <dt>thread</dt>
+              <dd>{shortId(turn.threadId)}</dd>
+              <dt>turn</dt>
+              <dd>{shortId(turn.turnId)}</dd>
+              <dt>trace</dt>
+              <dd>{shortId(turn.traceId ?? "none")}</dd>
+            </dl>
+            <small>{formatReplayRef(turn.replayRef)}</small>
+          </article>
+        )) : <div className="empty-state"><strong>暂无运行中 turn</strong><span>这里只显示 submitted / running / collecting</span></div>}
+      </div>
+    </div>
+  );
+}
+
 function ContextUsageIndicator({ usage }: { usage: AgentTurnTimeline["activity"]["tokenUsage"] | null }) {
   const ratio = typeof usage?.contextUsageRatio === "number" && Number.isFinite(usage.contextUsageRatio)
     ? Math.max(0, Math.min(1, usage.contextUsageRatio))
@@ -984,6 +1052,13 @@ function ContextUsageIndicator({ usage }: { usage: AgentTurnTimeline["activity"]
       <i aria-hidden="true" />
     </span>
   );
+}
+
+function formatReplayRef(ref: ActiveTurnSummary["replayRef"]) {
+  if (!ref) return "replay ref unavailable";
+  const id = ref.refId ?? ref.messageId ?? ref.sourceTurnId ?? "no-ref";
+  const preview = ref.textSummary?.preview;
+  return [ref.type ?? "ref", shortId(id), preview].filter(Boolean).join(" · ");
 }
 
 function formatContextUsageTitle(usage: AgentTurnTimeline["activity"]["tokenUsage"] | null) {

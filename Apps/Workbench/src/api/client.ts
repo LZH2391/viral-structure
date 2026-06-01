@@ -163,6 +163,35 @@ export type AgentChatRetryResponse = {
   stageId: string;
 };
 
+export type ActiveTurnSummary = {
+  bindingId?: string | null;
+  threadId: string;
+  turnId: string;
+  ownerType: string;
+  ownerId: string;
+  currentAttemptId?: string | null;
+  stageName?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  artifactId?: string | null;
+  parentArtifactId?: string | null;
+  leaseId?: string | null;
+  threadPoolOwnerId?: string | null;
+  replayRef?: {
+    type?: string | null;
+    sourceTurnId?: string | null;
+    messageId?: string | null;
+    refId?: string | null;
+    textSummary?: { length?: number | null; preview?: string | null } | null;
+  } | null;
+  status: string;
+  activeThreadMessageSummary?: { length?: number | null; preview?: string | null } | null;
+  finalMessageSummary?: { length?: number | null; preview?: string | null } | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type FunctionSlotLibraryBuilderRefreshResponse = {
   ok: boolean;
   traceId: string;
@@ -610,6 +639,13 @@ export async function retryAgentChatTurn(
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }),
+  );
+}
+
+export async function listActiveTurns(payload: { ownerType?: string | null; ownerId?: string | null } = {}) {
+  const query = buildQuery({ ownerType: payload.ownerType, ownerId: payload.ownerId });
+  return readJsonResponse<{ ok: boolean; activeTurns: ActiveTurnSummary[]; count: number }>(
+    await fetch(`${API_BASE_URL}/api/active-turns${query}`, { cache: "no-store" }),
   );
 }
 

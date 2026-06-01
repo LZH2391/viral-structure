@@ -382,6 +382,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns/);
   assert.match(api, /stopAgentChatTurn/);
   assert.match(api, /retryAgentChatTurn/);
+  assert.match(api, /listActiveTurns/);
+  assert.match(api, /\/api\/active-turns/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/compact/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.js"), /compactThread/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.py"), /client\.compact_thread/);
@@ -397,6 +399,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /停止 Turn/);
   assert.match(chat, /同线程重试/);
   assert.match(chat, /新线程重试/);
+  assert.match(chat, /ActiveTurnsView/);
+  assert.match(chat, /Active Turns/);
   assert.match(chat, /useResizableThreePaneLayout/);
   assert.match(chat, /agent-chat:layout/);
   assert.match(chat, /leftCssVar: "--agent-chat-list-width"/);
