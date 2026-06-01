@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -39,6 +39,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [compacting, setCompacting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [registeringTrace, setRegisteringTrace] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -132,6 +133,17 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     () => resolveActiveSlotAtomDisplay(messages, currentTurnId),
     [currentTurnId, messages],
   );
+  const currentRestructureFinalPath = useMemo(
+    () => resolveCurrentRestructureFinalPath({ messages, currentTurnId, confirmedPlan: activeConversationConfirmedPlan }),
+    [activeConversationConfirmedPlan, currentTurnId, messages],
+  );
+  const canRegisterPlanTrace = session?.role === "function-slot-restructure"
+    && Boolean(currentRestructureFinalPath)
+    && Boolean(activeSlotAtomDisplay?.displayJsonPath)
+    && activeSlotAtomDisplay?.status !== "empty"
+    && !activeConversationInvalidated
+    && !busy
+    && !registeringTrace;
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
@@ -601,6 +613,30 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
   }, [activeConversationConfirmedPlan, activeConversationId, activeConversationRevision, canConfirmRestructure, currentTurnId, messages, refreshConversations, session, syncActiveConversationForRetry]);
 
+  const handleRegisterPlanTrace = useCallback(async () => {
+    if (!canRegisterPlanTrace || !currentRestructureFinalPath || !activeSlotAtomDisplay?.displayJsonPath) return;
+    setRegisteringTrace(true);
+    setErrorText(null);
+    setStatusText("登记当前方案到溯源图");
+    try {
+      const result = await registerFunctionSlotConfirmedPlanTrace({
+        restructureFinalPath: currentRestructureFinalPath,
+        displayJsonPath: activeSlotAtomDisplay.displayJsonPath,
+        sourceTurnId: currentTurnId,
+        parentArtifactId: currentTurnId,
+        confirmationId: activeConversationConfirmedPlan?.confirmationId ?? undefined,
+      });
+      if (!result.ok) throw new Error(result.message ?? "登记溯源图失败");
+      setStatusText(`已进入溯源图：${result.planId ?? "当前方案"}`);
+      window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "登记溯源图失败");
+      setStatusText("登记溯源图失败");
+    } finally {
+      setRegisteringTrace(false);
+    }
+  }, [activeConversationConfirmedPlan?.confirmationId, activeSlotAtomDisplay?.displayJsonPath, activeSlotAtomDisplay?.status, canRegisterPlanTrace, currentRestructureFinalPath, currentTurnId]);
+
   return (
     <div className={embedded ? "agent-chat-shell embedded-view" : "agent-chat-shell"}>
       <main ref={layoutRef} className="agent-chat-layout">
@@ -661,9 +697,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 </select>
               ) : null}
               {session?.role === "function-slot-restructure" ? (
-                <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
-                  {confirming ? "确认中" : activeConversationConfirmedPlan?.turnId === currentTurnId ? "重新确认" : "确认此方案"}
-                </button>
+                <>
+                  <button className="ghost-button agent-chat-action" type="button" disabled={!canRegisterPlanTrace} onClick={() => void handleRegisterPlanTrace()} title={canRegisterPlanTrace ? "登记当前方案到确定方案溯源图" : "需要当前方案已自动生成 restructure.display.json"}>
+                    {registeringTrace ? "登记中" : "进入溯源图"}
+                  </button>
+                  <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
+                    {confirming ? "确认中" : activeConversationConfirmedPlan?.turnId === currentTurnId ? "重新确认" : "确认此方案"}
+                  </button>
+                </>
               ) : null}
               {session?.leaseId ? <button className="ghost-button agent-chat-action" type="button" disabled={busy} onClick={handleRelease}>释放</button> : null}
             </div>
@@ -734,7 +775,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             <SlotAtomView
               display={activeSlotAtomDisplay}
               busy={busy}
-              sourceRestructureFinalPath={resolveCurrentRestructureFinalPath({ messages, currentTurnId, confirmedPlan: activeConversationConfirmedPlan })}
+              sourceRestructureFinalPath={currentRestructureFinalPath}
               onSubmitReplacement={handleManualReplacementSubmit}
             />
           )}

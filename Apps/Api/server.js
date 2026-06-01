@@ -224,6 +224,7 @@ function createServer(deps = {}) {
       if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") return await handleFunctionSlotGovernanceGraph(res, handlers);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/governance/run") return await handleFunctionSlotGovernanceRun(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/graph") return await handleConfirmedPlanTraceGraph(res, handlers);
+      if (req.method === "POST" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/register") return await handleConfirmedPlanTraceRegister(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") return await handleFunctionSlotGovernancePlanOverlays(res);
       if (req.method === "POST" && url.pathname === "/api/function-slot-library/builder/refresh") return await handleFunctionSlotLibraryBuilderRefresh(req, res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-library\/[^/]+\/graph$/.test(url.pathname)) return await handleFunctionSlotLibraryGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -711,6 +712,33 @@ async function handleConfirmedPlanTraceGraph(res, handlers = {}) {
     });
   }
   return sendJson(res, 200, await traceService.readConfirmedPlanTraceGraph());
+}
+
+async function handleConfirmedPlanTraceRegister(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const traceService = handlers.restructureDisplayOverlayService;
+  if (!traceService?.registerDisplayJson) {
+    return sendJson(res, 503, {
+      error: "confirmed_plan_trace_register_unavailable",
+      code: "confirmed_plan_trace_register_unavailable",
+      message: "确定方案溯源登记服务不可用",
+    });
+  }
+  const traceContext = createTraceIds();
+  const result = await traceService.registerDisplayJson({
+    displayJsonPath: body.displayJsonPath,
+    restructureFinalPath: body.restructureFinalPath,
+    sourceTurnId: body.sourceTurnId,
+    parentArtifactId: body.parentArtifactId,
+    confirmationId: body.confirmationId,
+    traceContext,
+  });
+  return sendJson(res, result.ok ? 200 : 422, {
+    ...result,
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+  });
 }
 
 async function handleFunctionSlotGovernancePlanOverlays(res) {

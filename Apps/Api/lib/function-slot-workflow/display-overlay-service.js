@@ -124,6 +124,120 @@ function createRestructureDisplayOverlayService({ rootDir, logger, now = () => n
     }
   }
 
+  async function registerDisplayJson({
+    displayJsonPath,
+    restructureFinalPath,
+    sourceTurnId = null,
+    parentArtifactId = null,
+    confirmationId = null,
+    traceContext,
+  } = {}) {
+    const startedAt = Date.now();
+    const artifactId = `artifact_${randomUUID()}`;
+    const inputSummary = {
+      displayJsonPath: safeRelativePath(displayJsonPath),
+      restructureFinalPath: safeRelativePath(restructureFinalPath),
+      sourceTurnId: sourceTurnId ?? null,
+      parentArtifactId: parentArtifactId ?? null,
+      confirmationId: confirmationId ?? null,
+    };
+    await logger.writeStageLog({
+      traceContext,
+      stageName: STAGE_NAME,
+      event: "stage.start",
+      artifactId,
+      parentArtifactId,
+      inputSummary,
+    });
+    try {
+      const absoluteDisplayJsonPath = resolveInsideRoot(displayJsonPath, rootDir);
+      const stored = await readJsonIfExists(absoluteDisplayJsonPath);
+      const rawDisplayJson = stored?.display ?? stored;
+      const displayJson = normalizeDisplayForOverlay(rawDisplayJson);
+      validateRestructureDisplayJson(displayJson);
+      const sourceRestructurePath = normalizeRelativePath(restructureFinalPath)
+        ?? normalizeRelativePath(stored?.sourceRestructurePath)
+        ?? normalizeRelativePath(displayJson?.source?.restructureFinalPath)
+        ?? inferRestructureFinalPathFromDisplayPath(displayJsonPath);
+      const planId = inferPlanId({ restructureFinalPath: sourceRestructurePath, displayJson });
+      const displayArtifact = await writeDisplayJson({
+        displayJson,
+        planId,
+        restructureFinalPath: sourceRestructurePath,
+        sourceTurnId: sourceTurnId ?? stored?.sourceTurnId ?? null,
+        artifactId,
+        parentArtifactId,
+        confirmationId: confirmationId ?? stored?.confirmationId ?? null,
+        traceContext,
+      });
+      const index = await upsertDisplayIndex(displayArtifact);
+      const traceGraph = await buildAndWriteTraceGraph(index);
+      const outputSummary = {
+        artifactId,
+        planId,
+        displayJsonPath: safeRelativePath(displayArtifact.displayJsonPath),
+        sourceRestructurePath,
+        traceGraphPath: TRACE_GRAPH_RELATIVE_PATH.replaceAll(path.sep, "/"),
+        planCount: traceGraph.summary.planCount,
+        nodeCount: traceGraph.nodes.length,
+        edgeCount: traceGraph.edges.length,
+      };
+      await logger.writeStageLog({
+        traceContext,
+        stageName: STAGE_NAME,
+        event: "stage.end",
+        artifactId,
+        parentArtifactId,
+        outputSummary,
+        durationMs: Date.now() - startedAt,
+      });
+      return {
+        ok: true,
+        artifactId,
+        planId,
+        displayJsonPath: displayArtifact.displayJsonPath,
+        indexPath: path.join(rootDir, INDEX_RELATIVE_PATH),
+        traceGraphPath: path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH),
+        traceGraph,
+      };
+    } catch (error) {
+      const errorSummary = {
+        code: error.code ?? "restructure_display_register_failed",
+        message: safePreview(error.message),
+        retryable: true,
+      };
+      const snapshot = await logger.writeDebugSnapshot({
+        traceContext,
+        stageName: STAGE_NAME,
+        artifactId,
+        parentArtifactId,
+        reason: errorSummary.code,
+        inputSummary,
+        outputSummary: null,
+        debugPayload: {
+          message: errorSummary.message,
+          validationErrors: error.validationErrors ?? null,
+        },
+      });
+      await logger.writeStageLog({
+        traceContext,
+        stageName: STAGE_NAME,
+        event: "stage.fail",
+        artifactId,
+        parentArtifactId,
+        errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri },
+        durationMs: Date.now() - startedAt,
+      });
+      return {
+        ok: false,
+        artifactId,
+        error: errorSummary.code,
+        message: errorSummary.message,
+        debugSnapshotUri: snapshot.uri,
+      };
+    }
+  }
+
 async function readConfirmedPlanTraceGraph() {
     const traceGraphPath = path.join(rootDir, TRACE_GRAPH_RELATIVE_PATH);
     const traceGraph = await readJsonIfExists(traceGraphPath);
@@ -269,7 +383,7 @@ async function readConfirmedPlanTraceGraph() {
     }
   }
 
-  return { materializeFromTurn, readConfirmedPlanTraceGraph };
+  return { materializeFromTurn, registerDisplayJson, readConfirmedPlanTraceGraph };
 }
 
 function parseDisplayTransformerFinalMessage(finalMessage) {
@@ -768,6 +882,23 @@ function normalizeRelativePath(filePath) {
   const text = String(filePath ?? "").trim();
   if (!text) return null;
   return text.replaceAll("\\", "/").replace(/^[A-Za-z]:\//, "");
+}
+
+function inferRestructureFinalPathFromDisplayPath(displayJsonPath) {
+  const normalized = normalizeRelativePath(displayJsonPath);
+  if (!normalized) return null;
+  return normalized.replace(/(^|\/)restructure\.display\.json$/i, "$1restructure.final.md");
+}
+
+function resolveInsideRoot(filePath, rootDir) {
+  const relativePath = normalizeRelativePath(filePath);
+  if (!relativePath) throw codedError("display_json_path_required", "displayJsonPath 不能为空");
+  const resolved = path.resolve(rootDir, relativePath);
+  const root = path.resolve(rootDir);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw codedError("display_json_path_outside_workspace", "displayJsonPath 必须位于工作区内");
+  }
+  return resolved;
 }
 
 function safeRelativePath(filePath) {

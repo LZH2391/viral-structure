@@ -780,6 +780,16 @@ export async function getFunctionSlotConfirmedPlanTraceGraph() {
   );
 }
 
+export async function registerFunctionSlotConfirmedPlanTrace(payload: { restructureFinalPath?: string | null; displayJsonPath?: string | null; sourceTurnId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null }) {
+  return readJsonResponse<{ ok: boolean; artifactId?: string | null; planId?: string | null; traceId?: string | null; runId?: string | null; stageId?: string | null; traceGraphPath?: string | null; error?: string | null; message?: string | null }>(
+    await fetch(`${API_BASE_URL}/api/function-slot-restructure/confirmed-plan-trace/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export async function startFunctionSlotWorkflowPlaceholder(
   workflowKey: "semantic-governance" | "restructure" | "restructure-display-transform" | "shot-storyboard-prep",
   payload: { sampleVideoId?: string | null; parentArtifactId?: string | null } = {},
