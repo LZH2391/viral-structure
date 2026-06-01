@@ -216,3 +216,38 @@ test("analysis role registry maps route ids, legacy paths, and cache kinds", asy
     (error) => error.statusCode === 404 && error.code === "module_not_found",
   );
 });
+
+test("module registry rejects invalid enqueue results before exposing them to routes", async () => {
+  const { createModuleRegistry } = require("../../Apps/Api/lib/modules/registry");
+  const registry = createModuleRegistry({
+    serviceOverrides: {
+      shotBoundaryService: {
+        enqueue: async () => ({ ok: false, error: "shot_start_rejected", message: "shot start rejected", retryable: false, statusCode: 409 }),
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => registry.startModule({ moduleId: "shot-boundary", sampleVideoId: "sample_1", body: {} }),
+    (error) => {
+      assert.equal(error.code, "shot_start_rejected");
+      assert.equal(error.statusCode, 409);
+      assert.equal(error.retryable, false);
+      assert.equal(error.debugPayload.moduleId, "shot-boundary");
+      return true;
+    },
+  );
+
+  const missingJobRegistry = createModuleRegistry({
+    serviceOverrides: {
+      shotBoundaryService: {
+        enqueue: async () => ({ ok: true, sampleVideoId: "sample_1", traceId: "trace_1" }),
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => missingJobRegistry.startModule({ moduleId: "shot-boundary", sampleVideoId: "sample_1", body: {} }),
+    { code: "module_start_result_invalid" },
+  );
+});

@@ -41,7 +41,28 @@ async function executeServiceModule(executorRegistry, entry, options, method, ar
     method,
     args,
   }, { moduleId: entry.moduleId });
+  if (method === "enqueue") assertModuleStarted(execution.result, entry);
   return execution.result;
+}
+
+function assertModuleStarted(result, entry) {
+  if (result?.ok === false) {
+    throw moduleStartError(
+      result.error ?? result.code ?? "module_start_failed",
+      result.message ?? "模块启动失败",
+      { moduleId: entry.moduleId, result },
+      result.retryable !== false,
+      result.statusCode ?? 502,
+    );
+  }
+  if (result?.processingJobId) return;
+  throw moduleStartError(
+    "module_start_result_invalid",
+    "模块启动未返回 processingJobId",
+    { moduleId: entry.moduleId, result },
+    true,
+    502,
+  );
 }
 
 function resolveService(entry, options) {
@@ -75,6 +96,15 @@ function unsupportedError(code, message, debugPayload = {}) {
   error.code = code;
   error.debugPayload = debugPayload;
   error.retryable = false;
+  return error;
+}
+
+function moduleStartError(code, message, debugPayload = {}, retryable = true, statusCode = 502) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  error.debugPayload = debugPayload;
+  error.retryable = retryable;
   return error;
 }
 
