@@ -12,10 +12,23 @@ const ANALYSIS_OUTPUTS = {
 function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
   const projectRoot = rootDir ?? path.dirname(store.runtimeRoot);
   const outputRoot = path.join(projectRoot, "Artifacts", "AnalysisFinalOutputs");
+  const sampleLocks = new Map();
 
   async function writeFinalOutput({ sampleVideoId, analysis, finalOutputText, traceId, stageName, source = "turn-final-message" }) {
     const config = ANALYSIS_OUTPUTS[analysis?.type];
     if (!config || !sampleVideoId) return null;
+    return withSampleLock(sampleVideoId, () => writeFinalOutputUnlocked({
+      sampleVideoId,
+      analysis,
+      finalOutputText,
+      traceId,
+      stageName,
+      source,
+      config,
+    }));
+  }
+
+  async function writeFinalOutputUnlocked({ sampleVideoId, analysis, finalOutputText, traceId, stageName, source, config }) {
     const sampleDir = path.join(outputRoot, sampleVideoId);
     const outputPath = path.join(sampleDir, config.fileName);
     const manifestPath = path.join(sampleDir, "manifest.json");
@@ -69,6 +82,18 @@ function createAnalysisFinalOutputStore({ store, rootDir = null } = {}) {
       filePath: outputPath,
       manifestPath,
     };
+  }
+
+  async function withSampleLock(sampleVideoId, action) {
+    const key = String(sampleVideoId);
+    const previous = sampleLocks.get(key) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(action);
+    sampleLocks.set(key, next);
+    try {
+      return await next;
+    } finally {
+      if (sampleLocks.get(key) === next) sampleLocks.delete(key);
+    }
   }
 
   return { outputRoot, writeFinalOutput };

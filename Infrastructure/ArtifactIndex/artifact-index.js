@@ -7,6 +7,7 @@ const INDEX_VERSION = 1;
 function createArtifactIndex({ store, processorVersion = "local-media-v1", cacheParamBuilders = {} }) {
   const indexRoot = path.join(store.runtimeRoot, "ArtifactIndex");
   const indexPath = path.join(indexRoot, "index.json");
+  let indexWriteQueue = Promise.resolve();
 
   async function ensureIndex() {
     await fs.mkdir(indexRoot, { recursive: true });
@@ -34,19 +35,21 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1", cache
   }
 
   async function registerSampleArtifact({ artifact, fileHash, traceId }) {
-    const index = await readIndex();
-    const item = buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cacheParamBuilders });
-    index.items[item.sampleVideoId] = item;
-    for (const entry of item.cacheEntries) {
-      index.cacheEntries[entry.cacheKey] = {
-        ...entry,
-        fileHash,
-        sampleVideoId: item.sampleVideoId,
-        updatedAt: item.updatedAt,
-      };
-    }
-    await writeIndex(index);
-    return item;
+    return withIndexWriteLock(async () => {
+      const index = await readIndex();
+      const item = buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cacheParamBuilders });
+      index.items[item.sampleVideoId] = item;
+      for (const entry of item.cacheEntries) {
+        index.cacheEntries[entry.cacheKey] = {
+          ...entry,
+          fileHash,
+          sampleVideoId: item.sampleVideoId,
+          updatedAt: item.updatedAt,
+        };
+      }
+      await writeIndex(index);
+      return item;
+    });
   }
 
   async function listItems() {
@@ -80,22 +83,24 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1", cache
   }
 
   async function deleteCacheForItem(sampleVideoId) {
-    const index = await readIndex();
-    const item = index.items[sampleVideoId];
-    if (!item) return null;
-    const fileHash = item.fileHash;
-    const removedSampleVideoIds = [];
-    for (const [id, current] of Object.entries(index.items)) {
-      if (current.fileHash === fileHash) {
-        delete index.items[id];
-        removedSampleVideoIds.push(id);
+    return withIndexWriteLock(async () => {
+      const index = await readIndex();
+      const item = index.items[sampleVideoId];
+      if (!item) return null;
+      const fileHash = item.fileHash;
+      const removedSampleVideoIds = [];
+      for (const [id, current] of Object.entries(index.items)) {
+        if (current.fileHash === fileHash) {
+          delete index.items[id];
+          removedSampleVideoIds.push(id);
+        }
       }
-    }
-    for (const [cacheKey, entry] of Object.entries(index.cacheEntries)) {
-      if (entry.fileHash === fileHash || removedSampleVideoIds.includes(entry.sampleVideoId)) delete index.cacheEntries[cacheKey];
-    }
-    await writeIndex(index);
-    return { fileHash, removedSampleVideoIds };
+      for (const [cacheKey, entry] of Object.entries(index.cacheEntries)) {
+        if (entry.fileHash === fileHash || removedSampleVideoIds.includes(entry.sampleVideoId)) delete index.cacheEntries[cacheKey];
+      }
+      await writeIndex(index);
+      return { fileHash, removedSampleVideoIds };
+    });
   }
 
   async function findLatestByFileHash(fileHash) {
@@ -109,6 +114,12 @@ function createArtifactIndex({ store, processorVersion = "local-media-v1", cache
       .filter((item) => item.fileHash === fileHash)
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     return items[0] ? detailFromItem(items[0]) : null;
+  }
+
+  async function withIndexWriteLock(action) {
+    const next = indexWriteQueue.catch(() => undefined).then(action);
+    indexWriteQueue = next.catch(() => undefined);
+    return next;
   }
 
   return {
@@ -133,6 +144,7 @@ function detailFromItem(item) {
     ...item,
     artifactTree: item.artifactNodes ?? buildArtifactTree(item.artifact),
   };
+
 }
 
 function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cacheParamBuilders }) {

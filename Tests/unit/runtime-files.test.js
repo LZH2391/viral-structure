@@ -6,6 +6,7 @@ const path = require("path");
 const { once } = require("events");
 const { Writable } = require("stream");
 const { parseRangeHeader, sendRuntimeFile } = require("../../Apps/Api/lib/http/runtime-files");
+const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 
 test("runtime files support byte ranges for media seeking", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-runtime-range-"));
@@ -28,6 +29,27 @@ test("runtime range parser handles open, suffix, and invalid ranges", () => {
   assert.equal(parseRangeHeader("", 10), null);
   assert.deepEqual(parseRangeHeader("items=0-1", 10), { invalid: true });
   assert.deepEqual(parseRangeHeader("bytes=20-30", 10), { invalid: true });
+});
+
+test("runtime file resolver rejects sibling paths with shared prefixes", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-runtime-prefix-"));
+  const runtimeRoot = path.join(root, "Runtime");
+  const siblingRoot = path.join(root, "Runtime2");
+  await fs.mkdir(runtimeRoot, { recursive: true });
+  await fs.mkdir(siblingRoot, { recursive: true });
+  await fs.writeFile(path.join(siblingRoot, "secret.txt"), "secret");
+  const res = new CollectingResponse();
+
+  sendRuntimeFile({ headers: {} }, res, runtimeRoot, "/runtime/../Runtime2/secret.txt");
+
+  assert.equal(res.statusCode, 404);
+});
+
+test("local store runtimeUri rejects files outside runtime root", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-runtime-uri-"));
+  const store = createLocalStore(root);
+  assert.equal(store.runtimeUri(path.join(root, "Runtime", "file.txt")), "/runtime/file.txt");
+  assert.throws(() => store.runtimeUri(path.join(root, "Runtime2", "file.txt")), /inside runtimeRoot/);
 });
 
 class CollectingResponse extends Writable {

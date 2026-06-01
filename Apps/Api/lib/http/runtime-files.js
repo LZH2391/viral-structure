@@ -41,7 +41,8 @@ function resolveRuntimePath(runtimeRoot, pathname) {
   const relative = decodeURIComponent(pathname.replace(/^\/runtime\//, ""));
   const filePath = path.resolve(runtimeRoot, relative);
   const root = path.resolve(runtimeRoot);
-  return filePath.startsWith(root) ? filePath : null;
+  const insideRoot = filePath === root || filePath.startsWith(`${root}${path.sep}`);
+  return insideRoot ? filePath : null;
 }
 
 function parseRangeHeader(header, size) {

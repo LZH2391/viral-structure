@@ -39,7 +39,11 @@ function createLocalStore(rootDir) {
   }
 
   function runtimeUri(filePath) {
-    const relative = path.relative(runtimeRoot, filePath).split(path.sep).join("/");
+    const resolvedFile = path.resolve(filePath);
+    const resolvedRoot = path.resolve(runtimeRoot);
+    const insideRoot = resolvedFile === resolvedRoot || resolvedFile.startsWith(`${resolvedRoot}${path.sep}`);
+    if (!insideRoot) throw new Error("runtimeUri path must be inside runtimeRoot");
+    const relative = path.relative(resolvedRoot, resolvedFile).split(path.sep).join("/");
     return `/runtime/${relative}`;
   }
 

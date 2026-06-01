@@ -41,6 +41,32 @@ test("artifact index registers list, detail, load and cache entries", async () =
   assert.equal(cache.sampleVideoId, "sample_1");
 });
 
+test("artifact index preserves concurrent sample registrations", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-concurrent-"));
+  const store = createLocalStore(tempRoot);
+  await store.ensureRuntimeDirs();
+  const index = createArtifactIndex({ store, processorVersion: "test-v1", cacheParamBuilders: createArtifactCacheParamBuilders() });
+
+  await Promise.all([
+    index.registerSampleArtifact({
+      artifact: createArtifact({ sampleVideoId: "sample_a" }),
+      fileHash: hashBuffer(Buffer.from("video-a")),
+      traceId: "trace_a",
+    }),
+    index.registerSampleArtifact({
+      artifact: createArtifact({ sampleVideoId: "sample_b" }),
+      fileHash: hashBuffer(Buffer.from("video-b")),
+      traceId: "trace_b",
+    }),
+  ]);
+
+  const rawIndex = await index.readIndex();
+  assert.equal(rawIndex.items.sample_a.sampleVideoId, "sample_a");
+  assert.equal(rawIndex.items.sample_b.sampleVideoId, "sample_b");
+  assert.equal((await index.getItem("sample_a")).traceId, "trace_a");
+  assert.equal((await index.getItem("sample_b")).traceId, "trace_b");
+});
+
 test("artifact index registers packaging structure analysis node, tag and cache params", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-artifact-index-packaging-"));
   const store = createLocalStore(tempRoot);

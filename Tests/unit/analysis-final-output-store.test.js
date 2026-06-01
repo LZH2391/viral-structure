@@ -73,6 +73,34 @@ test("analysis final output store writes function slot atomization final text", 
   assert.equal(manifest.history.at(-1).outputKey, "function-slot-atomization");
 });
 
+test("analysis final output store preserves concurrent manifest updates", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "analysis-final-output-concurrent-"));
+  const outputStore = createAnalysisFinalOutputStore({ store: { runtimeRoot: path.join(root, "Runtime") } });
+
+  await Promise.all([
+    outputStore.writeFinalOutput({
+      sampleVideoId: "sample_1",
+      analysis: { artifactId: "artifact_script", type: "script-segment-analysis" },
+      finalOutputText: "script final",
+      traceId: "trace_script",
+      stageName: "script_segment.materialize",
+    }),
+    outputStore.writeFinalOutput({
+      sampleVideoId: "sample_1",
+      analysis: { artifactId: "artifact_rhythm", type: "rhythm-structure-analysis" },
+      finalOutputText: "rhythm final",
+      traceId: "trace_rhythm",
+      stageName: "rhythm_structure.materialize",
+    }),
+  ]);
+
+  const manifestPath = path.join(root, "Artifacts", "AnalysisFinalOutputs", "sample_1", "manifest.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  assert.equal(manifest.outputs["script-segments"].artifactId, "artifact_script");
+  assert.equal(manifest.outputs["rhythm-structure"].artifactId, "artifact_rhythm");
+  assert.deepEqual(new Set(manifest.history.map((event) => event.outputKey)), new Set(["script-segments", "rhythm-structure"]));
+});
+
 test("analysis final output store overwrites fixed latest file", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "analysis-final-output-"));
   const outputStore = createAnalysisFinalOutputStore({ store: { runtimeRoot: path.join(root, "Runtime") } });
