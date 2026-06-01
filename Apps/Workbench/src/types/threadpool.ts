@@ -173,6 +173,12 @@ export type AgentChatSlotAtomDisplay = {
   slotCount?: number;
   atomBindingCount?: number;
   selectedSlotSubtypeId?: string | null;
+  fileFingerprint?: {
+    path?: string | null;
+    size?: number;
+    mtimeMs?: number;
+    sha256?: string | null;
+  } | null;
   slots?: AgentChatSlotSummary[];
   atoms?: AgentChatAtomSummary[];
 };

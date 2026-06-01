@@ -534,8 +534,19 @@ function normalizeSlotAtomDisplay(value) {
     slotCount: normalizeCount(value.slotCount),
     atomBindingCount: normalizeCount(value.atomBindingCount),
     selectedSlotSubtypeId: value.selectedSlotSubtypeId ? String(value.selectedSlotSubtypeId) : null,
+    fileFingerprint: normalizeFileFingerprint(value.fileFingerprint),
     slots: Array.isArray(value.slots) ? value.slots.map(normalizeSlotSummary).filter(Boolean) : [],
     atoms: Array.isArray(value.atoms) ? value.atoms.map(normalizeAtomSummary).filter(Boolean) : [],
+  };
+}
+
+function normalizeFileFingerprint(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    path: normalizePathText(value.path),
+    size: normalizeCount(value.size),
+    mtimeMs: normalizeCount(value.mtimeMs),
+    sha256: value.sha256 ? String(value.sha256) : null,
   };
 }
 

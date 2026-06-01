@@ -1,6 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
-const { randomUUID } = require("crypto");
+const { createHash, randomUUID } = require("crypto");
 const { nextStage } = require("../../../../Infrastructure/Observability/trace");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const {
@@ -23,10 +23,15 @@ async function maybeAutoTransformRestructureResult({
   if (!isCompleted(payload?.status)) return null;
   if (!String(payload?.finalMessage ?? "").trim()) return null;
   if (!conversationId) return null;
-  if (!looksLikeRestructureFinal(payload.finalMessage)) return null;
 
   const conversation = await handlers.agentConversationStore?.get?.(conversationId);
   if (conversation?.role !== "function-slot-restructure") return null;
+  const finalMessage = String(payload.finalMessage ?? "");
+  const explicitPath = normalizeText(url?.searchParams?.get("restructureFinalPath"));
+  const currentMessagePath = explicitPath || extractRestructureFinalPath(finalMessage);
+  const historicalPath = currentMessagePath ? null : findLatestRestructureFinalPath(conversation);
+  const linkedRestructureFinalPath = currentMessagePath || historicalPath;
+  if (!linkedRestructureFinalPath) return null;
 
   const rootDir = handlers.rootDir;
   const logger = handlers.logger;
@@ -35,21 +40,26 @@ async function maybeAutoTransformRestructureResult({
   const stageTraceContext = nextStage(traceContext);
   const artifactId = `artifact_${randomUUID()}`;
   const parentArtifactId = normalizeText(url?.searchParams?.get("parentArtifactId")) ?? null;
+  const sourceMode = currentMessagePath ? "linkedFile" : "conversationHistory";
   const restructureFinalPath = resolveRestructureFinalPath({
     rootDir,
-    finalMessage: payload.finalMessage,
-    explicitPath: normalizeText(url?.searchParams?.get("restructureFinalPath")),
+    finalMessage,
+    explicitPath: linkedRestructureFinalPath,
     conversationId,
     turnId: payload.turnId,
   });
   const displayJsonPath = path.join(path.dirname(restructureFinalPath), "restructure.display.json");
   const repairRequestPath = path.join(path.dirname(restructureFinalPath), "restructure.display.repair-request.json");
+  const previousFingerprint = findLatestDisplayFingerprint(conversation, safeRelative(rootDir, restructureFinalPath));
+  const trigger = "file_changed";
   const inputSummary = {
     conversationId,
     turnId: payload.turnId ?? null,
     finalMessageChars: String(payload.finalMessage ?? "").length,
     restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
     displayJsonPath: safeRelative(rootDir, displayJsonPath),
+    sourceMode,
+    previousFingerprint,
   };
   const startedAt = Date.now();
 
@@ -63,8 +73,41 @@ async function maybeAutoTransformRestructureResult({
   });
 
   try {
-    await fs.mkdir(path.dirname(restructureFinalPath), { recursive: true });
-    await fs.writeFile(restructureFinalPath, normalizeFinalMarkdown(payload.finalMessage), "utf8");
+    const fileFingerprint = await readRestructureFinalFingerprint(restructureFinalPath, rootDir);
+    if (fingerprintsEqual(fileFingerprint, previousFingerprint)) {
+      const outputSummary = {
+        artifactId,
+        status: "skipped_unchanged",
+        restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
+        displayJsonPath: safeRelative(rootDir, displayJsonPath),
+        sourceMode,
+        trigger: "file_unchanged",
+        fileFingerprint,
+      };
+      await logger.writeStageLog({
+        traceContext: stageTraceContext,
+        stageName: AUTO_STAGE_NAME,
+        event: "stage.end",
+        artifactId,
+        parentArtifactId,
+        outputSummary,
+        durationMs: Date.now() - startedAt,
+      });
+      return {
+        ok: true,
+        status: "skipped_unchanged",
+        artifactId,
+        traceId: stageTraceContext.traceId,
+        runId: stageTraceContext.runId,
+        stageId: stageTraceContext.stageId,
+        stageName: AUTO_STAGE_NAME,
+        restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
+        displayJsonPath: safeRelative(rootDir, displayJsonPath),
+        sourceMode,
+        trigger: "file_unchanged",
+        fileFingerprint,
+      };
+    }
     const transformResult = await transformWithRepair({
       handlers,
       rootDir,
@@ -86,6 +129,9 @@ async function maybeAutoTransformRestructureResult({
       sectionCount: displayJson.sourceTextDigest.sectionCount,
       missingSections: displayJson.missingSections,
       repairAttemptCount: transformResult.repairAttemptCount,
+      sourceMode,
+      trigger,
+      fileFingerprint,
     };
     await logger.writeStageLog({
       traceContext: stageTraceContext,
@@ -109,8 +155,11 @@ async function maybeAutoTransformRestructureResult({
       missingSections: displayJson.missingSections,
       repairAttemptCount: transformResult.repairAttemptCount,
       repairTurns: transformResult.repairTurns,
+      sourceMode,
+      trigger,
       slotAtomDisplay: buildSlotAtomDisplaySummary(displayJson, {
         displayJsonPath: safeRelative(rootDir, displayJsonPath),
+        fileFingerprint,
       }),
     };
   } catch (error) {
@@ -307,12 +356,53 @@ async function runFormatRepairTurn({
   }
 }
 
-function looksLikeRestructureFinal(finalMessage) {
-  const text = String(finalMessage ?? "");
-  return /#{1,6}\s+1[.．、]\s*重组目标与假设/.test(text)
-    || /#{1,6}\s+2[.．、]\s*最终功能槽位链/.test(text)
-    || /#\s*重组方案/.test(text)
-    || /Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?restructure\.final\.md/i.test(text);
+async function assertReadableRestructureFinal(restructureFinalPath) {
+  try {
+    await fs.access(restructureFinalPath);
+  } catch (error) {
+    const wrapped = new Error("restructure.final.md does not exist for linked agent response");
+    wrapped.code = "restructure_final_link_target_missing";
+    wrapped.statusCode = 404;
+    wrapped.retryable = false;
+    wrapped.cause = error;
+    throw wrapped;
+  }
+}
+
+function findLatestRestructureFinalPath(conversation) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const pathFromMessage = extractRestructureFinalPath(messages[index]?.text);
+    if (pathFromMessage) return pathFromMessage;
+  }
+  return normalizeText(conversation?.confirmedPlan?.sourceRestructurePath);
+}
+
+function findLatestDisplayFingerprint(conversation, restructureFinalPath) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const fingerprint = messages[index]?.slotAtomDisplay?.fileFingerprint;
+    if (fingerprint?.path === restructureFinalPath) return fingerprint;
+  }
+  return null;
+}
+
+async function readRestructureFinalFingerprint(filePath, rootDir) {
+  const content = await fs.readFile(filePath);
+  const stat = await fs.stat(filePath);
+  return {
+    path: safeRelative(rootDir, filePath),
+    size: stat.size,
+    mtimeMs: Math.trunc(stat.mtimeMs),
+    sha256: createHash("sha256").update(content).digest("hex"),
+  };
+}
+
+function fingerprintsEqual(left, right) {
+  if (!left || !right) return false;
+  return left.path === right.path
+    && left.size === right.size
+    && left.sha256 === right.sha256;
 }
 
 function resolveRestructureFinalPath({ rootDir, finalMessage, explicitPath, conversationId, turnId }) {
@@ -380,7 +470,7 @@ function isCompleted(status) {
   return String(status ?? "").toLowerCase() === "completed";
 }
 
-function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null } = {}) {
+function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, fileFingerprint = null } = {}) {
   const slotRows = firstTableRows(displayJson?.sections?.finalSlotChain);
   const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
   const slots = slotRows.map((row, index) => {
@@ -417,6 +507,7 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null } = {
     slotCount: slots.length,
     atomBindingCount: atoms.length,
     selectedSlotSubtypeId: slots[0]?.slotSubtypeId ?? atoms[0]?.slotSubtypeId ?? null,
+    fileFingerprint,
     slots,
     atoms,
   };
