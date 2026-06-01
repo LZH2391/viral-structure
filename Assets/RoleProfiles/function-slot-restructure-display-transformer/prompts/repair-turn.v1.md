@@ -1,8 +1,14 @@
-这是 Function Slot Restructure Display Transformer 的 repairTurn。
+这是 Function Slot Restructure Display Transformer 的 agentRepair 兜底轮。
 
 修复轮次：{{repairAttemptCount}}
 
-本轮只修复上一次展示转换输出的具体失败点，不重新设计方案、不改写 `restructure.final.md` 原文语义、不补编缺失内容。
+本轮只修复 `restructure.final.md` 的 Markdown 格式问题，目标是让确定性脚本可以重新转换成功。
+
+硬边界：
+- 只做格式修复，不改写内容。
+- 不新增、不删除、不补充任何 slot、atom、脚本、节奏、包装或判断。
+- 不重新输出展示 JSON。
+- 修复后必须交回脚本再次转换，不能绕过脚本。
 
 上游输入：
 - restructureFinalPath: {{restructureFinalPath}}
@@ -16,29 +22,22 @@
 - errorMessage: {{errorMessage}}
 - debugSnapshotUri: {{debugSnapshotUri}}
 - validationErrors: {{validationErrorsJson}}
+- repairTargets: {{repairTargetsJson}}
 
-物化阶段输入摘要：
-{{materializeInputJson}}
+脚本阶段输入摘要：
+{{scriptInputJson}}
 
-上次输出摘要：
-{{priorOutputSummaryJson}}
+待修复原文片段：
+{{sourceSnippet}}
 
-上次输出预览：
-{{priorOutputPreview}}
-
-目标输出约束：
-- 输出必须是严格 JSON object，不要 Markdown，不要解释性文字。
-- `schemaVersion` 必须是 `function_slot_restructure_display.v1`。
-- 顶层必须包含 `source`、`sections`、`missingSections`、`sourceTextDigest`。
-- `sections` 只允许包含 `goalAndAssumptions`、`finalSlotChain`、`atomLandingTable`、`scriptSegments`、`rhythmCurve`、`packagingProof`。
-- 每个 section 必须有 `title` 和 `items`。
-- 表格 item 必须是 `{ "type": "table", "columns": [], "rows": [] }`。
-- 段落 item 必须是 `{ "type": "paragraph", "text": "..." }`。
-- 列表 item 必须是 `{ "type": "list", "items": [] }`。
-- 如果某节原文缺失，对应 `items` 为空数组，并把 section key 写入 `missingSections`。
+输出要求：
+- 只返回修复后的 Markdown。
+- 如果 `repairTargets` 只定位到局部片段，只返回该片段的修复版。
+- 如果局部不足以修复结构，再返回完整 `restructure.final.md`。
+- 不要解释，不要 Markdown fence，不要 JSON。
 
 修复重点：
-- 优先修复 `validationErrors` 指出的字段、层级、数组类型、JSON 格式问题。
-- 保留 `source.restructureFinalPath` 和 `source.restructureArtifactId`。
-- 只转换 `restructure.final.md` 的第 1、2、3、5、6、7 节。
-- 不输出 `targetAssumption`、`slotChain`、`atoms` 等投影内部字段；那些由后端 adapter 从 `sections` 派生。
+- 优先修复 `repairTargets` 指出的章节、行号、表格分隔行、表格列数、标题层级等格式问题。
+- 保持第 1、2、3、5、6、7 节原有顺序和原有文字。
+- 表格只能修 Markdown 表格结构，例如补齐空单元格、修正分隔行、对齐列数。
+- 标题只能修成脚本可识别的固定标题格式，例如 `## 1. 重组目标与假设`。

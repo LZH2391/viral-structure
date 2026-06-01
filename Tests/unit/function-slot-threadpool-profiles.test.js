@@ -51,7 +51,7 @@ test("function slot placeholder role profiles load init and task prompts", async
       continue;
     }
 
-    const rendered = renderTurnTemplate(profile, item.templateId, {});
+    const rendered = renderTurnTemplate(profile, item.templateId, defaultTemplateValues(item.role));
     if (item.role === "shot-storyboard-prep") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
@@ -70,25 +70,46 @@ test("function slot placeholder role profiles load init and task prompts", async
         errorCode: "display_json_schema_invalid",
         errorMessage: "展示转换 JSON 校验失败",
         debugSnapshotUri: "/runtime/DebugSnapshots/snapshot.json",
-        validationErrorsJson: JSON.stringify(["missing targetAssumption", "missing slotChain"]),
-        materializeInputJson: JSON.stringify({ finalMessageChars: 14509 }),
-        priorOutputSummaryJson: JSON.stringify({ hasPriorOutput: true, outputLength: 14509 }),
-        priorOutputPreview: "{\"schemaVersion\":\"function_slot_restructure_display.v1\"}",
+        validationErrorsJson: JSON.stringify(["table row has 3 cells, expected 4"]),
+        repairTargetsJson: JSON.stringify([{ sectionKey: "finalSlotChain", line: 12, blockType: "table" }]),
+        scriptInputJson: JSON.stringify({ restructureFinalPath: "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.final.md" }),
+        sourceSnippet: "| 顺序 | 需求 |\n|---|---|\n| 1 | 喷泵亮相 | 多余列 |",
       };
       const repairTurn = renderTurnTemplate(profile, "repairTurn", repairValues);
       const repairAlias = renderTurnTemplate(profile, "repair", repairValues);
-      assert.match(repairTurn.text, /repairTurn/);
+      assert.match(repairTurn.text, /agentRepair/);
       assert.match(repairTurn.text, /展示转换 JSON 校验失败/);
       assert.match(repairTurn.text, /display_json_schema_invalid/);
-      assert.match(repairTurn.text, /missing targetAssumption/);
+      assert.match(repairTurn.text, /table row has 3 cells/);
+      assert.match(repairTurn.text, /只做格式修复/);
       assert.match(repairTurn.text, /snapshot\.json/);
       assert.match(repairTurn.text, /spray-pump-floral-water/);
       assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v1");
       assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v1");
+    } else if (item.role === "function-slot-library-builder") {
+      assert.match(rendered.text, /FunctionSlotLibrary 语义治理 Agent/);
+      assert.match(rendered.text, /slot_index/);
+      assert.match(rendered.text, /semantic-governance\.v1\.json/);
     } else {
       assert.match(rendered.text, /ThreadPool 占位任务/);
       assert.match(rendered.text, /占位语义/);
     }
-    assert.equal(rendered.promptTemplateVersion.endsWith(".placeholder.v1"), true);
+    if (item.role !== "function-slot-library-builder") {
+      assert.equal(rendered.promptTemplateVersion.endsWith(".placeholder.v1"), true);
+    }
   }
 });
+
+function defaultTemplateValues(role) {
+  if (role === "function-slot-library-builder") {
+    return {
+      slotIndexPath: "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
+      governancePath: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
+      semanticProtocolPath: "Docs/Architecture/FunctionSlotSemanticGovernance.md",
+      atomBindingRuleProtocolPath: "Docs/Architecture/FunctionSlotAtomBindingRuleGovernance.md",
+      outputFormatPath: "Docs/Architecture/FunctionSlotSemanticGovernanceOutput.md",
+      coverageSummaryJson: JSON.stringify({ slotCount: 1 }),
+    };
+  }
+  return {};
+}

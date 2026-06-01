@@ -16,7 +16,7 @@ function normalizeDisplayForOverlay(value) {
     schemaVersion: value.schemaVersion,
     source: value.source ?? null,
     targetAssumption: normalizeSection(sections.goalAndAssumptions, "targetAssumption"),
-    slotChain: normalizeTableSection(sections.finalSlotChain, "slotChain"),
+    slotChain: normalizeTableSection(sections.finalSlotChain, "slotChain", { firstTableOnly: true }),
     atoms: normalizeTableSection(sections.atomLandingTable, "atoms"),
     scriptSegments: normalizeMixedSection(sections.scriptSegments, "scriptSegments"),
     rhythmCurve: normalizeMixedSection(sections.rhythmCurve, "rhythmCurve"),
@@ -43,13 +43,15 @@ function normalizeSection(section, fallbackId) {
   return normalized;
 }
 
-function normalizeTableSection(section, fallbackKey) {
+function normalizeTableSection(section, fallbackKey, options = {}) {
   const rows = [];
   const items = Array.isArray(section?.items) ? section.items : [];
   for (const item of items) {
     if (item?.type === "table" && Array.isArray(item.rows)) {
       rows.push(...item.rows.map((row) => normalizeRow(row, fallbackKey)));
+      if (options.firstTableOnly) break;
     } else if (item) {
+      if (options.firstTableOnly && rows.length) break;
       rows.push(normalizeLooseItem(item, fallbackKey));
     }
   }
@@ -74,8 +76,8 @@ function normalizeRow(row, fallbackKey) {
   for (const [key, rawValue] of Object.entries(row && typeof row === "object" ? row : {})) {
     normalized[normalizeKey(key)] = stripMarkdownTicks(rawValue);
   }
-  const slotSubtype = firstText(normalized.slotSubtype, normalized.subtype, normalized.slot);
-  const archetype = firstText(normalized.parentArchetype, normalized.slotArchetype, normalized.archetype);
+  const slotSubtype = firstCodeOrText(normalized.slotSubtype, normalized.subtype, normalized.slot);
+  const archetype = firstCodeOrText(normalized.parentArchetype, normalized.slotArchetype, normalized.archetype);
   if (slotSubtype) normalized.slotSubtype = slotSubtype;
   if (archetype) normalized.slotArchetype = archetype;
   normalized.id = firstText(normalized.id, normalized.order, normalized.sequence, normalized.segment, normalized.name, normalized.title, stableLabel(normalized, fallbackKey));
@@ -126,6 +128,16 @@ function firstText(...values) {
     if (text) return text;
   }
   return null;
+}
+
+function firstCodeOrText(...values) {
+  const text = firstText(...values);
+  if (!text) return null;
+  const code = text.match(/`([^`]+)`/);
+  if (code?.[1]) return code[1].trim();
+  const leadingIdentifier = text.match(/^([A-Za-z0-9_.:-]+)`?\b/);
+  if (leadingIdentifier?.[1]) return leadingIdentifier[1].trim();
+  return (code?.[1] ?? text).trim();
 }
 
 function stringOrNull(value) {
