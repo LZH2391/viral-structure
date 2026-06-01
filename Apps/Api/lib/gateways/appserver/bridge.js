@@ -44,6 +44,7 @@ function createAppServerBridge({
     };
     const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
     if (!result?.ok) throw appServerError(result, "appserver_turn_start_failed");
+    if (!(result.turnId ?? result.turn?.id)) throw appServerError({ ...result, message: "AppServer turn/start 未返回有效 turnId" }, "appserver_turn_start_failed");
     return result;
   }
 
@@ -57,6 +58,7 @@ function createAppServerBridge({
     };
     const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
     if (!result?.ok) throw appServerError(result, "appserver_thread_start_failed");
+    if (!(result.threadId ?? result.thread?.id)) throw appServerError({ ...result, message: "AppServer thread/start 未返回有效 threadId" }, "appserver_thread_start_failed");
     return result;
   }
 

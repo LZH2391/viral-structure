@@ -85,3 +85,24 @@ test("appserver-turn executor runs start, submit and collect through traced stag
   assert.deepEqual(stageLogs.map((entry) => entry.stageName), ["agent.thread_start", "agent.submit", "agent.collect"]);
   assert.deepEqual(calls.map((entry) => entry.type), ["startThread", "startTurn", "collectTurn"]);
 });
+
+test("appserver-turn executor rejects thread start without thread id", async () => {
+  const registry = createExecutorRegistry({
+    appServer: {
+      startThread: async () => ({ ok: true, status: "created" }),
+    },
+  });
+  const context = {
+    runStage: async (_stageName, _progress, options) => options.action(),
+  };
+
+  await assert.rejects(
+    () => registry.execute("appserver-turn", {
+      action: "start-thread",
+      stageName: "agent.thread_start",
+      progress: 10,
+      workspaceRoot: "C:/workspace",
+    }, context),
+    { code: "appserver_thread_start_failed" },
+  );
+});

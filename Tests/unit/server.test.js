@@ -433,6 +433,29 @@ test("agent chat starts direct appserver thread", async () => {
   }
 });
 
+test("agent chat direct thread start rejects missing thread id", async () => {
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startThread: async () => ({ ok: true, status: "created" }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads", { source: "direct" });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "appserver_thread_start_failed");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat starts ThreadPool role fork session through lease", async () => {
   const calls = [];
   const server = createServer({
@@ -469,6 +492,41 @@ test("agent chat starts ThreadPool role fork session through lease", async () =>
     assert.equal(calls[0].type, "ready");
     assert.equal(calls[1].payload.role, "script-segment-analyzer");
     assert.match(calls[1].payload.ownerId, /^workbench-agent-chat-run_/);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat threadpool session rejects lease without lease id", async () => {
+  const conversations = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: "C:/workspace", skillPath: "skill/path" } }),
+      acquireLease: async () => ({ ok: true, thread_id: "thread_fork", status: "leased" }),
+    },
+    agentConversationStore: {
+      createOrUpdateFromSession: async (session) => {
+        conversations.push(session);
+        return { conversationId: "conversation_1", revision: 1, status: "active" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads", {
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+    });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.error, "threadpool_lease_unavailable");
+    assert.equal(conversations.length, 0);
   } finally {
     await closeServer(server);
   }
@@ -2933,6 +2991,59 @@ test("active turn retry route can create a new thread for agent chat replay", as
   }
 });
 
+test("active turn retry new direct thread rejects missing thread id before binding conversation", async () => {
+  const calls = [];
+  const server = createServer({
+    appServer: {
+      startThread: async () => {
+        calls.push({ type: "startThread" });
+        return { ok: true, status: "created" };
+      },
+    },
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_old",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        replayRef: { type: "agent-chat-message", sourceTurnId: "turn_1", messageId: "user-turn_1" },
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { status: "canceled", threadId: payload.threadId, turnId: payload.turnId };
+      },
+      start: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { status: "submitted", threadId: payload.threadId, turnId: "turn_retry" };
+      },
+    },
+    agentConversationStore: {
+      get: async () => ({
+        conversationId: "conversation_1",
+        source: "direct",
+        latestTurnId: "turn_1",
+        threadId: "thread_old",
+        messages: [{ id: "user-turn_1", turnId: "turn_1", role: "user", text: "retry me" }],
+      }),
+      bindThread: async (payload) => calls.push({ type: "bindThread", payload }),
+      recordUserTurn: async (payload) => calls.push({ type: "recordUser", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_chat/retry", { mode: "new_thread" });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "appserver_thread_start_failed");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "startThread"]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("active turn retry new thread releases agent chat lease when start returns failure", async () => {
   const calls = [];
   const server = createServer({
@@ -3112,6 +3223,73 @@ test("active turn retry route can create a new thread for processing job replay 
     assert.equal(jobs.get("job_1").agentRun.threadId, "thread_new");
     assert.equal(jobs.get("job_1").agentRun.turnId, "turn_new");
     assert.equal(jobs.get("job_1").agentRun.retrySourceTurnId, "turn_old");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("active turn processing-job retry rejects threadpool lease without lease id", async () => {
+  const calls = [];
+  const jobs = new Map([["job_1", {
+    jobId: "job_1",
+    status: "failed",
+    stage: "shot.boundary.turn_started",
+    progress: 80,
+    activeTurnReplay: { inputs: [{ type: "text", text: "retry job", text_elements: [] }] },
+    agentRun: {
+      threadId: "thread_old",
+      turnId: "turn_old",
+      currentAttemptId: "attempt_old",
+      status: "canceled",
+    },
+  }]]);
+  const server = createServer({
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_old",
+        turnId: "turn_old",
+        ownerType: "processing-job",
+        ownerId: "job_1",
+        currentAttemptId: "attempt_old",
+        stageName: "shot.boundary.turn_started",
+        replayRef: { type: "processing-job-input", refId: "job_1", sourceTurnId: "turn_old" },
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { status: "canceled", threadId: payload.threadId, turnId: payload.turnId };
+      },
+      start: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { status: "submitted", threadId: payload.threadId, turnId: "turn_new" };
+      },
+    },
+    jobStore: {
+      getJob: (jobId) => jobs.get(jobId) ?? null,
+      updateJob: (jobId, patch) => {
+        calls.push({ type: "updateJob", jobId, patch });
+        jobs.set(jobId, { ...jobs.get(jobId), ...patch });
+      },
+    },
+    threadPool: {
+      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: "C:/workspace" } }),
+      acquireLease: async (payload) => {
+        calls.push({ type: "acquire", payload });
+        return { ok: true, thread_id: "thread_new" };
+      },
+      releaseLease: async (payload) => calls.push({ type: "release", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_job/retry", { mode: "new_thread", role: "script-segment-analyzer" });
+    assert.equal(response.statusCode, 503);
+    assert.equal(response.body.error, "active_turn_retry_threadpool_lease_failed");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "acquire"]);
+    assert.equal(jobs.get("job_1").status, "failed");
   } finally {
     await closeServer(server);
   }

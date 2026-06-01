@@ -45,6 +45,7 @@ async function handleAgentChatThreadStart(req, res, handlers = {}) {
         workspaceRoot: handlers.rootDir,
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
+      assertDirectThreadStarted(result);
       return {
         ok: true,
         source: "direct",
@@ -1049,6 +1050,20 @@ async function startThreadPoolRoleSession({ body, handlers, traceContext }) {
   }
   const lease = await handlers.threadPool.acquireLease({ role, ownerId });
   const threadId = lease.thread_id ?? lease.threadId ?? null;
+  if (lease?.ok === false || !threadId || !(lease.lease_id ?? lease.leaseId)) {
+    return {
+      ok: false,
+      source: "threadpool-role",
+      role,
+      status: "unavailable",
+      error: lease?.error ?? lease?.code ?? "threadpool_lease_unavailable",
+      message: lease?.message ?? "ThreadPool 未返回有效 lease/thread",
+      retryable: true,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    };
+  }
   return {
     ok: lease.ok !== false,
     source: "threadpool-role",
@@ -1393,6 +1408,7 @@ async function createRetryThreadSession({ body, conversation, handlers, traceCon
     workspaceRoot,
     timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
   });
+  assertDirectThreadStarted(result);
   return {
     ok: true,
     source: "direct",
@@ -1416,6 +1432,16 @@ function safeThreadPoolError(error) {
     error: error?.code ?? "threadpool_operation_failed",
     message: safePreview(error instanceof Error ? error.message : "ThreadPool 操作失败", 160),
   };
+}
+
+function assertDirectThreadStarted(result) {
+  const threadId = result?.threadId ?? result?.thread?.id ?? null;
+  if (result?.ok !== false && threadId) return;
+  const error = new Error(result?.message ?? "AppServer thread/start 未返回有效 threadId");
+  error.statusCode = result?.statusCode ?? 502;
+  error.code = result?.error ?? result?.code ?? "appserver_thread_start_failed";
+  error.retryable = true;
+  throw error;
 }
 
 function assertAgentChatTurnStarted(result) {

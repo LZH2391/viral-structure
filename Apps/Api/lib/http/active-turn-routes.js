@@ -414,6 +414,7 @@ async function createAgentChatRetryThreadSession({ conversation, binding, body, 
     const readiness = await handlers.threadPool.ensureRoleReady(role);
     if (!readiness?.ok) throw routeError(readiness?.error ?? "threadpool_role_unavailable", readiness?.message ?? "ThreadPool role 暂不可用", 503);
     const lease = await handlers.threadPool.acquireLease({ role, ownerId });
+    assertThreadPoolLease(lease, "active_turn_retry_threadpool_lease_failed");
     return {
       source,
       role,
@@ -427,6 +428,7 @@ async function createAgentChatRetryThreadSession({ conversation, binding, body, 
   }
   const workspaceRoot = body.workspaceRoot ?? conversation.workspaceRoot ?? handlers.rootDir;
   const result = await handlers.appServer.startThread({ workspaceRoot, timeoutSeconds: 180 });
+  assertDirectThreadStarted(result);
   return {
     source,
     role: conversation.role ?? null,
@@ -446,6 +448,7 @@ async function createProcessingJobRetryThread({ binding, body, handlers, job }) 
     const readiness = handlers.threadPool.ensureRoleReady ? await handlers.threadPool.ensureRoleReady(body.role) : { ok: true, status: {} };
     if (!readiness?.ok) throw routeError(readiness?.error ?? "threadpool_role_unavailable", readiness?.message ?? "ThreadPool role 暂不可用", 503);
     const lease = await handlers.threadPool.acquireLease({ role: body.role, ownerId });
+    assertThreadPoolLease(lease, "active_turn_retry_threadpool_lease_failed");
     return {
       threadId: lease.thread_id ?? lease.threadId ?? null,
       leaseId: lease.lease_id ?? lease.leaseId ?? null,
@@ -456,6 +459,7 @@ async function createProcessingJobRetryThread({ binding, body, handlers, job }) 
   if (handlers.appServer?.startThread) {
     const workspaceRoot = body.workspaceRoot ?? job?.agentRun?.workspaceRoot ?? binding.workspaceRoot ?? handlers.rootDir;
     const result = await handlers.appServer.startThread({ workspaceRoot, timeoutSeconds: 180 });
+    assertDirectThreadStarted(result);
     return { threadId: result.threadId ?? result.thread?.id ?? null, workspaceRoot };
   }
   throw routeError("active_turn_retry_new_thread_unavailable", "无法创建新 thread", 409);
@@ -464,6 +468,19 @@ async function createProcessingJobRetryThread({ binding, body, handlers, job }) 
 async function releaseRetryThreadLease(retryThread, handlers) {
   if (!retryThread?.leaseId || !retryThread?.ownerId || !handlers.threadPool?.releaseLease) return null;
   return handlers.threadPool.releaseLease({ leaseId: retryThread.leaseId, ownerId: retryThread.ownerId }).catch(() => null);
+}
+
+function assertThreadPoolLease(lease, code) {
+  const threadId = lease?.thread_id ?? lease?.threadId ?? null;
+  const leaseId = lease?.lease_id ?? lease?.leaseId ?? null;
+  if (lease?.ok !== false && threadId && leaseId) return;
+  throw routeError(lease?.error ?? lease?.code ?? code, lease?.message ?? "ThreadPool 未返回有效 lease/thread", lease?.statusCode ?? 503);
+}
+
+function assertDirectThreadStarted(result) {
+  const threadId = result?.threadId ?? result?.thread?.id ?? null;
+  if (result?.ok !== false && threadId) return;
+  throw routeError(result?.error ?? result?.code ?? "appserver_thread_start_failed", result?.message ?? "AppServer thread/start 未返回有效 threadId", result?.statusCode ?? 502);
 }
 
 function normalizeRetryMode(value) {

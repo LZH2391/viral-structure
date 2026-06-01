@@ -80,11 +80,25 @@ async function startThread(appServer, payload, context) {
       status: output.status,
     }),
   });
+  assertThreadStarted(result);
   return {
     status: result.status ?? "submitted",
     threadId: result.threadId,
     result,
   };
+}
+
+function assertThreadStarted(result) {
+  const threadId = result?.threadId ?? result?.thread?.id ?? null;
+  if (result?.ok !== false && threadId) return;
+  const error = executorError(
+    result?.error ?? result?.code ?? "appserver_thread_start_failed",
+    result?.message ?? "AppServer thread/start 未返回有效 threadId",
+    result,
+    true,
+  );
+  error.statusCode = result?.statusCode ?? 502;
+  throw error;
 }
 
 async function submitTurn(appServer, activeTurnRuntime, payload, context) {
