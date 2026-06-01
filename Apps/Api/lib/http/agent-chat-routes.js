@@ -5,6 +5,7 @@ const { readJsonBody } = require("../observability/ui-debug-events");
 const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
 const { summarizeThreadConversation } = require("../observability/thread-conversation");
 const { buildAgentChatActionProjection, findReplayTask, latestAssistantStatus } = require("../agent-chat/actions");
+const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
@@ -480,6 +481,14 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       });
       if (materializedDisplay) payload.materializedDisplay = materializedDisplay;
       const conversationId = normalizeText(url?.searchParams?.get("conversationId"));
+      const autoDisplayTransform = await maybeAutoTransformRestructureResult({
+        payload,
+        handlers,
+        traceContext,
+        conversationId,
+        url,
+      });
+      if (autoDisplayTransform) payload.autoDisplayTransform = autoDisplayTransform;
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);
       await handlers.agentConversationStore?.recordAssistantTurn?.({
         conversationId,
@@ -498,6 +507,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       status: result.status,
       finalMessageChars: result.finalMessage ? String(result.finalMessage).length : 0,
       activityStatus: result.activity?.status ?? null,
+      autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
     }),
     successStatus: 200,
   });

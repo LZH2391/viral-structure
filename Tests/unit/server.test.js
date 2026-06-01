@@ -166,6 +166,54 @@ function closeServer(server) {
   });
 }
 
+function sampleRestructureFinalMarkdown() {
+  return [
+    "# 重组方案",
+    "",
+    "保存路径：`Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md`",
+    "",
+    "## 1. 重组目标与假设",
+    "",
+    "### 输入分层",
+    "",
+    "- brief：自动转换测试。",
+    "",
+    "## 2. 最终功能槽位链",
+    "",
+    "| 顺序 | 需求 | slotSubtype | parent archetype | 链路功能 | 本方案用法 | 选择理由 |",
+    "|---:|---|---|---|---|---|---|",
+    "| 1 | 首秒说明对象 | `SUB_auto_demo` 自动展示 | `ARCH_auto_demo` 自动原型 | 建立观看理由 | 展示对象 | 测试脚本转换 |",
+    "",
+    "## 3. Atoms 落地表",
+    "",
+    "| 槽位 | 来源 | script atom（原标签 → 本方案落地） | rhythm atom（原标签 → 本方案落地） | packaging atom（原标签 → 本方案落地） | atom 处理 |",
+    "|---|---|---|---|---|---|",
+    "| `SUB_auto_demo` | `A::F001` | `A::script::S001`：自动脚本 | `A::rhythm::R001`：自动节奏 | `A::packaging::P001`：自动包装 | 同源复用 |",
+    "",
+    "## 4. Adapter 方案",
+    "",
+    "不转换。",
+    "",
+    "## 5. 脚本段落方案",
+    "",
+    "| 脚本段落 | 使用 script atom | 段落任务 | 本方案表达 | 承接/依赖 | 证明义务 |",
+    "|---|---|---|---|---|---|",
+    "| 段落 1 | `A::script::S001` | 自动任务 | 自动表达 | 无 | 不改内容 |",
+    "",
+    "## 6. 节奏曲线",
+    "",
+    "| 节奏区间 | 使用 rhythm atom | 注意力状态 | 速度/密度 | 峰值/停顿/回落 | 必须同步点 |",
+    "|---|---|---|---|---|---|",
+    "| 区间 1 | `A::rhythm::R001` | 自动注意 | 快 | 峰值 | 同步 |",
+    "",
+    "## 7. 包装与证明方案",
+    "",
+    "| 包装块 | 使用 packaging atom | 服务主张 | 证明功能 | 覆盖层与视觉证明落地 | 字幕层规格 | 风险 |",
+    "|---|---|---|---|---|---|---|",
+    "| 包装块 1 | `A::packaging::P001` | 自动主张 | 自动证明 | 自动覆盖 | 自动字幕 | 无 |",
+  ].join("\n");
+}
+
 test("thread conversation forbidden path closes stage with stage.start and stage.end", async () => {
   const stageLogs = [];
   const server = createServer({
@@ -1259,6 +1307,62 @@ test("function slot workflow placeholder route returns traceable job", async () 
         parentArtifactId: "artifact_parent",
       },
     }]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat collect auto transforms completed restructure final markdown", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-restructure-"));
+  const conversations = new Map();
+  conversations.set("conversation_restructure", {
+    conversationId: "conversation_restructure",
+    revision: 1,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_restructure",
+    messages: [],
+  });
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      collectTurnResult: async () => ({
+        threadId: "thread_restructure",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: sampleRestructureFinalMarkdown(),
+      }),
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status });
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
+
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.autoDisplayTransform.status, "processed");
+    assert.equal(collected.body.autoDisplayTransform.restructureFinalPath, "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md");
+    assert.equal(collected.body.autoDisplayTransform.displayJsonPath, "Artifacts/FunctionSlotRestructure/auto-demo/restructure.display.json");
+    const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "auto-demo", "restructure.display.json"), "utf8"));
+    assert.equal(displayJson.schemaVersion, "function_slot_restructure_display.v1");
+    assert.equal(displayJson.sections.finalSlotChain.items[0].type, "table");
+    assert.equal(conversations.get("conversation_restructure").messages[0].text, sampleRestructureFinalMarkdown());
   } finally {
     await closeServer(server);
   }
