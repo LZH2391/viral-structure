@@ -82,9 +82,11 @@ function buildSlotCandidates(slotIndex, governance, { query, max }) {
 
 function buildAtomCandidates(slotIndex, governance, { atomKind, slotSubtypeId, query, max }) {
   const reviewByVariant = buildReviewMap(governance);
-  return (slotIndex.atomVariants ?? [])
+  const kindMatched = (slotIndex.atomVariants ?? [])
     .filter((atom) => !atomKind || atom.kind === atomKind)
-    .filter((atom) => !slotSubtypeId || atom.slotType === slotSubtypeId)
+  const slotMatched = slotSubtypeId ? kindMatched.filter((atom) => atom.slotType === slotSubtypeId) : kindMatched;
+  const sourceAtoms = slotMatched.length ? slotMatched : kindMatched;
+  return sourceAtoms
     .map((atom) => {
       const tags = buildTags([
         atom.needReview ? "need_review" : null,

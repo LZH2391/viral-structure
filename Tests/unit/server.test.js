@@ -1387,6 +1387,10 @@ test("function slot replacement candidates endpoint reads slot index evidence", 
     const atomResponse = await makeRequest(server, "GET", "/api/function-slot-library/replacement-candidates?kind=atom&atomKind=script&slotSubtypeId=pain_entry");
     assert.equal(atomResponse.statusCode, 200);
     assert.equal(atomResponse.body.candidates[0].atomId, "S001");
+
+    const fallbackAtomResponse = await makeRequest(server, "GET", "/api/function-slot-library/replacement-candidates?kind=atom&atomKind=script&slotSubtypeId=ARCH_unknown_display_id");
+    assert.equal(fallbackAtomResponse.statusCode, 200);
+    assert.equal(fallbackAtomResponse.body.candidates[0].atomId, "S001");
   } finally {
     await closeServer(server);
   }

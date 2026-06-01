@@ -66,6 +66,21 @@ export function SlotAtomView({
     };
   }, [drawer, query, selectedSlot?.slotSubtypeId]);
 
+  const openSlotDrawer = useCallback((slot?: AgentChatSlotSummary | null) => {
+    setSelectedSlotId(slot?.slotSubtypeId ?? null);
+    setQuery("");
+    setCandidates([]);
+    setCandidateStatus("等待读取 Slot 库");
+    setDrawer({ kind: "slot" });
+  }, []);
+
+  const openAtomDrawer = useCallback((atomKind: AtomKind) => {
+    setQuery("");
+    setCandidates([]);
+    setCandidateStatus(`等待读取 ${atomKind} Atom 库`);
+    setDrawer({ kind: "atom", atomKind });
+  }, []);
+
   const stageSlotReplacement = useCallback((candidate: ReplacementCandidate) => {
     if (!selectedSlot?.slotSubtypeId) return;
     const next: SlotReplacement = {
@@ -142,13 +157,13 @@ export function SlotAtomView({
               tabIndex={0}
               onClick={(event) => {
                 event.stopPropagation();
-                setDrawer({ kind: "slot" });
+                openSlotDrawer(slot);
               }}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") return;
                 event.preventDefault();
                 event.stopPropagation();
-                setDrawer({ kind: "slot" });
+                openSlotDrawer(slot);
               }}
             >
               替换
@@ -163,21 +178,20 @@ export function SlotAtomView({
         </div>
         {selectedSlot?.usage ? <p>{selectedSlot.usage}</p> : null}
         {slotInvalidated ? <div className="agent-chat-replacement-warning">Slot 已预选替换，原绑定 Atom 将交给 Agent 重新评估。</div> : null}
-        <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => setDrawer({ kind: "atom", atomKind: "script" })} />
-        <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" onReplace={() => setDrawer({ kind: "atom", atomKind: "rhythm" })} />
-        <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" onReplace={() => setDrawer({ kind: "atom", atomKind: "packaging" })} />
+        <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => openAtomDrawer("script")} />
+        <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" onReplace={() => openAtomDrawer("rhythm")} />
+        <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" onReplace={() => openAtomDrawer("packaging")} />
         {selectedAtoms?.handling ? <div className="agent-chat-atom-handling">{selectedAtoms.handling}</div> : null}
       </div>
       {drawer ? (
         <section className="agent-chat-replacement-drawer" aria-label="FunctionSlotLibrary 替换候选">
           <div className="agent-chat-replacement-drawer-head">
-            <b>{drawer.kind === "slot" ? "Slot 库" : `${drawer.atomKind} Atom 库`}</b>
+            <b>{replacementDrawerTitle(drawer)}</b>
             <button type="button" onClick={() => setDrawer(null)}>关闭</button>
           </div>
-          <div className="agent-chat-replacement-tabs">
-            <button className={drawer.kind === "slot" ? "active" : ""} type="button" onClick={() => setDrawer({ kind: "slot" })}>Slot 库</button>
-            <button className={drawer.kind === "atom" ? "active" : ""} type="button" onClick={() => setDrawer({ kind: "atom", atomKind: drawer.kind === "atom" ? drawer.atomKind : "script" })}>Atom 库</button>
-            <span>绑定证据随候选展示</span>
+          <div className="agent-chat-replacement-mode">
+            <span>{drawer.kind === "slot" ? "当前仅展示 Slot 候选" : `当前仅展示 ${drawer.atomKind} Atom 候选`}</span>
+            <small>绑定证据随候选展示</small>
           </div>
           <input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="搜索 slot / atom / 样例来源" />
           <small>{candidateStatus}</small>
@@ -234,6 +248,13 @@ function CandidateEvidence({ candidate }: { candidate: ReplacementCandidate }) {
       {firstRule ? <span>Rule: {String(firstRule.reason ?? firstRule.ruleKind ?? firstRule.id ?? "")}</span> : null}
     </div>
   );
+}
+
+function replacementDrawerTitle(drawer: DrawerState) {
+  if (drawer.kind === "slot") return "Slot 库";
+  if (drawer.atomKind === "script") return "Script Atom 库";
+  if (drawer.atomKind === "rhythm") return "Rhythm Atom 库";
+  return "Packaging Atom 库";
 }
 
 export function buildReplacementDraftSummary(replacements: Array<SlotReplacement | AtomReplacement>) {
