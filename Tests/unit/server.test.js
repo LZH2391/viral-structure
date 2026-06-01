@@ -1469,7 +1469,9 @@ test("agent chat manual replacement route renders restructure replacement turn",
     assert.equal(response.statusCode, 202);
     assert.equal(response.body.turnId, "turn_manual_1");
     assert.equal(response.body.promptTemplateVersion, "manual-replacement.v1");
+    assert.match(response.body.userTurnText, /低门槛价值锚点 -> 强痛点场景进入/);
     assert.match(calls[0].inputs[0].text, /强痛点场景进入/);
+    assert.match(calls[0].inputs[0].text, new RegExp(response.body.userTurnText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(calls[0].inputs[0].text, /先说明影响并请求用户确认/);
     assert.match(conversations.get("conversation_restructure").messages[0].text, /低门槛价值锚点 -> 强痛点场景进入/);
   } finally {

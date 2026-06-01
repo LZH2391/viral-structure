@@ -344,7 +344,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
     setBusy(true);
     setErrorText(null);
-    setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text: summary || buildReplacementDraftSummary(replacementDraft.replacements), status: "completed" }]);
+    const userMessageId = uniqueId("user");
+    setMessages((current) => [...current, { id: userMessageId, role: "user", text: summary || buildReplacementDraftSummary(replacementDraft.replacements), status: "completed" }]);
     try {
       const activeSession = await ensureSession(false);
       const compacted = await maybeCompactBeforeSend(activeSession);
@@ -362,6 +363,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         displayFingerprint: replacementDraft.displayFingerprint,
         replacements: replacementDraft.replacements,
       });
+      if (submitted.userTurnText) {
+        setMessages((current) => current.map((message) => (
+          message.id === userMessageId ? { ...message, text: submitted.userTurnText ?? message.text } : message
+        )));
+      }
       if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);

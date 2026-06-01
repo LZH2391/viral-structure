@@ -130,6 +130,7 @@ test("workbench upload cancels stale polling and restores local draft", () => {
   assert.match(draft, /localStorage\.setItem\(WORKBENCH_DRAFT_STORAGE_KEY, JSON\.stringify\(\{/);
   assert.match(draft, /localStorage\.getItem\(WORKBENCH_DRAFT_STORAGE_KEY\)/);
   assert.match(draft, /activeSemanticGovernanceJob: value\.activeSemanticGovernanceJob \?\? current\?\.activeSemanticGovernanceJob/);
+  assert.match(draft, /writeActiveSemanticGovernanceJobSnapshot/);
   assert.match(state, /type: "restore-draft"/);
   assert.match(state, /case "set-shot-boundary-analysis":[\s\S]*return applySampleArtifact\(state, action\.artifact\)/);
   assert.match(state, /sampleArtifact: SampleArtifact/);
@@ -315,6 +316,8 @@ test("upload options and optional media tracks are visible in workbench UI", () 
   assert.match(workflowCards, /startFunctionSlotGovernanceRun/);
   assert.match(workflowCards, /readWorkbenchDraft\(\)\?\.activeSemanticGovernanceJob/);
   assert.match(workflowCards, /writeActiveSemanticGovernanceJob/);
+  assert.match(workflowCards, /job: draftJob\.jobSnapshot \?\? current\["semantic-governance"\]\.job/);
+  assert.match(workflowCards, /writeActiveSemanticGovernanceJobSnapshot\(job\)/);
   assert.match(workflowCards, /autoRunShotStoryboardPrep/);
   assert.match(api, /\/api\/function-slot-library\/governance\/run/);
   assert.match(api, /\/api\/function-slot-workflow\/storyboard-prep\/auto-run/);

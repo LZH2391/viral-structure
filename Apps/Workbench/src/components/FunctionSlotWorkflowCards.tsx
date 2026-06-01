@@ -4,7 +4,7 @@ import type { AgentRunJob } from "../types";
 import { shortId } from "../utils/format";
 import { pollProcessingJob } from "../hooks/jobPolling";
 import { AgentTurnTimelinePanel } from "./property-panel/AgentTurnTimeline";
-import { readWorkbenchDraft, writeActiveSemanticGovernanceJob } from "../utils/workbenchDraft";
+import { readWorkbenchDraft, writeActiveSemanticGovernanceJob, writeActiveSemanticGovernanceJobSnapshot } from "../utils/workbenchDraft";
 import type { ActiveJobDraft } from "../utils/workbenchHelpers";
 
 type WorkflowKey = "semantic-governance" | "shot-storyboard-prep";
@@ -60,7 +60,7 @@ export function FunctionSlotWorkflowCards({ workflowKey, sampleVideoId, parentAr
     let active = true;
     setCardStates((current) => ({
       ...current,
-      "semantic-governance": { ...current["semantic-governance"], running: true, error: null },
+      "semantic-governance": { ...current["semantic-governance"], running: true, job: draftJob.jobSnapshot ?? current["semantic-governance"].job, error: null },
     }));
     onStatusChange?.("恢复语义治理运行中");
     void attachSemanticGovernanceJob(draftJob, setCardStates, () => active)
@@ -225,6 +225,7 @@ async function attachSemanticGovernanceJob(
       preservePreviousOnNull: true,
       onUpdate: (job) => {
         if (!shouldUpdate()) return;
+        writeActiveSemanticGovernanceJobSnapshot(job);
         setCardStates((current) => ({
           ...current,
           "semantic-governance": { ...current["semantic-governance"], job },

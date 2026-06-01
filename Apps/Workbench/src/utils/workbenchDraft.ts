@@ -78,6 +78,20 @@ export function writeActiveSemanticGovernanceJob(job: ActiveJobDraft | null) {
         processingJobId: job.processingJobId,
         sampleVideoId: job.sampleVideoId,
         traceId: job.traceId,
+        jobSnapshot: draft.activeSemanticGovernanceJob?.jobSnapshot ?? null,
+      },
+    };
+  });
+}
+
+export function writeActiveSemanticGovernanceJobSnapshot(job: NonNullable<DraftState["activeSemanticGovernanceJob"]>["jobSnapshot"] | null) {
+  updateDraft((draft) => {
+    if (!draft.activeSemanticGovernanceJob) return draft;
+    return {
+      ...draft,
+      activeSemanticGovernanceJob: {
+        ...draft.activeSemanticGovernanceJob,
+        jobSnapshot: job,
       },
     };
   });

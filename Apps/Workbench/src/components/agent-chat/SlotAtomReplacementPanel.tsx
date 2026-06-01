@@ -310,10 +310,15 @@ function idSetsOverlap(left: Set<string>, right: Set<string>) {
 }
 
 export function buildReplacementDraftSummary(replacements: Array<SlotReplacement | AtomReplacement>) {
-  return replacements.map((item) => {
-    if (item.type === "slot") return `Slot ${item.slotOrder ?? ""} ${item.fromSlotLabel ?? item.fromSlotSubtypeId} -> ${item.toSlotLabel ?? item.toSlotSubtypeId}`;
-    return `${item.atomKind} Atom ${item.fromAtomLabel ?? item.fromAtomId} -> ${item.toAtomLabel ?? item.toAtomId}`;
-  }).join("\n");
+  const lines = ["用户手动替换 Slot/Atom："];
+  for (const item of replacements) {
+    if (item.type === "slot") {
+      lines.push(`- Slot ${item.slotOrder ?? ""} ${item.fromSlotLabel ?? item.fromSlotSubtypeId} -> ${item.toSlotLabel ?? item.toSlotSubtypeId}`);
+    } else {
+      lines.push(`- ${item.atomKind} Atom (${item.slotLabel ?? item.slotSubtypeId}) ${item.fromAtomLabel ?? item.fromAtomId} -> ${item.toAtomLabel ?? item.toAtomId}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 function atomIdsFor(atom: AgentChatAtomSummary | null) {

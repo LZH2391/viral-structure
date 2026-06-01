@@ -108,7 +108,7 @@ export type DraftState = {
   activePackagingStructureJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activeFunctionSlotAtomizationJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
   activeUserMaterialTaggerJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
-  activeSemanticGovernanceJob?: { processingJobId: string; sampleVideoId: string; traceId: string };
+  activeSemanticGovernanceJob?: { processingJobId: string; sampleVideoId: string; traceId: string; jobSnapshot?: ProcessingJob | null };
 };
 
 export function workbenchReducer(state: WorkbenchState, action: WorkbenchAction): WorkbenchState {

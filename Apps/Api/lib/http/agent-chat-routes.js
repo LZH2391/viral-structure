@@ -172,12 +172,13 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
         if (conversation.threadId && conversation.threadId !== threadId) throw badRequestError("agent_chat_manual_replacement_thread_mismatch", "manual replacement threadId 与会话不一致");
         const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
         const roleProfile = await loadRoleProfileByRole("function-slot-restructure");
+        const replacementSummary = buildManualReplacementSummary(replacements);
         const prompt = renderTurnTemplate(roleProfile, "manualReplacement", {
           sourceRestructureFinalPath,
           sourceDisplayJsonPath,
           displayFingerprintJson: JSON.stringify(normalizeDisplayFingerprint(body.displayFingerprint), null, 2),
           replacementsJson: JSON.stringify(replacements, null, 2),
-          replacementSummary: buildManualReplacementSummary(replacements),
+          replacementSummary,
           userInstruction: "用户手动替换了上述 Slot/Atom。请根据替换后的结构重新设计；如果替换破坏链路逻辑、素材能力、binding rule 或证明路径，必须先说明影响并请求用户确认，不要直接重写最终方案。",
         });
         const result = await handlers.appServer.startTurnWithInputs({
@@ -191,7 +192,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
         const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
           conversationId,
           turnId,
-          text: buildManualReplacementSummary(replacements),
+          text: replacementSummary,
           traceId: traceContext.traceId,
           runId: traceContext.runId,
           stageId: traceContext.stageId,
@@ -206,6 +207,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           threadId: result.threadId ?? threadId,
           turnId,
           status: result.status ?? "submitted",
+          userTurnText: replacementSummary,
           promptTemplateId: prompt.promptTemplateId,
           promptTemplateVersion: prompt.promptTemplateVersion,
           promptTemplateHash: prompt.promptTemplateHash,

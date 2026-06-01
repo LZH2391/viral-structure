@@ -77,6 +77,7 @@ export type AgentChatTurnResponse = {
   stageId: string;
   conversationRevision?: number | null;
   finalMessage?: string | null;
+  userTurnText?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
   materializedDisplay?: { ok: boolean; planId?: string | null; displayJsonPath?: string | null; traceGraphPath?: string | null; error?: string | null; message?: string | null } | null;
   autoDisplayTransform?: {
