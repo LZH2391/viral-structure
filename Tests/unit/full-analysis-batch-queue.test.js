@@ -185,3 +185,32 @@ test("full analysis batch queue restores failed items and retries from persisted
   assert.equal(current.items[0].status, "running");
   assert.equal(current.items[0].workflowRunId, "workflow_retry");
 });
+
+test("full analysis batch queue fails item when workflow start returns no run id", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  const started = [];
+  const workflowService = {
+    start: async ({ file }) => {
+      started.push(file.filename);
+      return { ok: true, status: "running", currentStageKeys: ["upload"], stages: [{ key: "upload", label: "上传" }] };
+    },
+    get: () => null,
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({ workflowService, runtimeRoot: root, defaultMaxConcurrentRuns: 1 });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("a.mp4"), createFile("b.mp4")],
+    fields: {},
+  });
+
+  await queue.advance(batch.batchRunId);
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(started.length, 2);
+  assert.equal(current.items[0].status, "failed");
+  assert.equal(current.items[0].workflowRunId, null);
+  assert.equal(current.items[0].errorSummary.code, "full_analysis_batch_workflow_start_invalid");
+  assert.equal(current.items[0].retryable, true);
+  assert.equal(current.items[1].status, "failed");
+});

@@ -188,7 +188,7 @@ function createWorkflowService({
       workflowRunStore.updateRun(workflowRunId, (current) => ({
         stages: updateStage(current.stages, stageKey, (currentStage) => ({
           ...currentStage,
-          childJobId: result.processingJobId,
+          childJobId: requireChildJobId(result, stageKey),
           childTraceId: result.traceId ?? null,
           sampleVideoId: result.sampleVideoId ?? current.sampleVideoId ?? null,
           status: "running",
@@ -201,6 +201,15 @@ function createWorkflowService({
       await markStageFailed(workflowRunId, stageKey, error, stageContext, startedAt);
       throw error;
     }
+  }
+
+  function requireChildJobId(result, stageKey) {
+    if (result?.processingJobId) return result.processingJobId;
+    const error = new Error(result?.message ?? "workflow 子任务启动未返回 processingJobId");
+    error.code = result?.error ?? result?.code ?? "workflow_child_job_start_invalid";
+    error.stageName = stageKey;
+    error.retryable = true;
+    throw error;
   }
 
   async function executeStage(workflowRunId, stageKey, input) {

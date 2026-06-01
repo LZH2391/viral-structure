@@ -399,6 +399,30 @@ test("full analysis workflow exposes cache waiting as recoverable run state", as
   assert.equal(resumed.stages.find((stage) => stage.key === "shotBoundary").status, "running");
 });
 
+test("full analysis workflow fails stage when child job start returns no job id", async () => {
+  const { workflow, moduleRegistry } = createHarness();
+  moduleRegistry.startModule = async ({ moduleId }) => {
+    if (moduleId === "shot-boundary") return { ok: true, sampleVideoId: "sample_1", traceId: "trace_missing_job" };
+    throw new Error("unexpected module start");
+  };
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { name: "sample.mp4", type: "video/mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await assert.rejects(
+    () => workflow.advance(started.workflowRunId),
+    { code: "workflow_child_job_start_invalid" },
+  );
+  const run = workflow.get(started.workflowRunId);
+  const shot = run.stages.find((stage) => stage.key === "shotBoundary");
+  assert.equal(run.status, "failed");
+  assert.equal(shot.status, "failed");
+  assert.equal(shot.childJobId, null);
+  assert.equal(shot.errorSummary.code, "workflow_child_job_start_invalid");
+});
+
 test("workflow run store marks running persisted runs as failed on restart", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-restart-"));
   const filePath = path.join(dir, "workflow-runs.json");

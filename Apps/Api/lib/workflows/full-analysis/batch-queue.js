@@ -172,8 +172,8 @@ function createFullAnalysisBatchQueue({
     const queued = batch.items.filter((item) => item.status === "queued").sort((a, b) => a.position - b.position);
     for (const item of queued) {
       if (activeCount >= limit) break;
-      await startQueueItem(batch, item);
-      activeCount += 1;
+      const active = await startQueueItem(batch, item);
+      if (active) activeCount += 1;
     }
     assignQueuedPositions(batch);
   }
@@ -195,12 +195,14 @@ function createFullAnalysisBatchQueue({
           maxConcurrentRuns: undefined,
         },
       });
+      assertWorkflowStarted(result);
       item.workflowRunId = result.workflowRunId;
       item.sampleVideoId = result.sampleVideoId ?? null;
       item.currentStageKeys = result.currentStageKeys ?? [];
       item.currentStageLabel = currentStageLabel(result);
       item.status = normalizeItemStatusFromRun(result.status);
       item.updatedAt = new Date().toISOString();
+      return isActiveItem(item);
     } catch (error) {
       item.status = "failed";
       item.completedAt = new Date().toISOString();
@@ -213,7 +215,16 @@ function createFullAnalysisBatchQueue({
         inputSummary: { batchRunId: batch.batchRunId, queueItemId: item.queueItemId, filename: item.filename },
         debugPayload: { message: item.errorSummary.message },
       }).catch(() => undefined);
+      return false;
     }
+  }
+
+  function assertWorkflowStarted(result) {
+    if (result?.workflowRunId) return;
+    const error = new Error(result?.message ?? "完整分析 workflow 启动未返回 workflowRunId");
+    error.code = result?.error ?? result?.code ?? "full_analysis_batch_workflow_start_invalid";
+    error.retryable = true;
+    throw error;
   }
 
   function batchFieldsForWorkflow(batch) {
