@@ -93,7 +93,13 @@ test("shot boundary startup interrupt fails active inflight without collecting o
     threadId: "thread_restart",
     turnId: "turn_restart",
     timeoutSeconds: 30,
+    traceContext: {
+      runId: "trace_restart",
+      traceId: "trace_restart",
+      stageId: harness.cancelledTurns[0].traceContext.stageId,
+    },
   }]);
+  assert.match(harness.cancelledTurns[0].traceContext.stageId, /^stage_recover_/);
   assert.deepEqual(harness.threadPool.released, []);
   assert.deepEqual(harness.threadPool.ownerReleased, ["trace_restart"]);
   assert.deepEqual(harness.startedTurns.filter((item) => item.kind === "transform"), []);

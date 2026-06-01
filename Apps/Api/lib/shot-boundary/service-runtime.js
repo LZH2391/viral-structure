@@ -152,13 +152,18 @@ function createShotBoundaryServiceRuntime({
   async function failActiveAgentJob(job, loadSampleArtifact, reason) {
     const agentRun = job.agentRun;
     if (!agentRun) return;
+    const traceContext = {
+      runId: agentRun.traceId ?? job.traceId,
+      traceId: agentRun.traceId ?? job.traceId,
+      stageId: `stage_recover_${Date.now()}`,
+    };
     if (agentRun.threadId && agentRun.turnId && typeof appServer?.cancelTurn === "function") {
       const cancelPayload = {
         workspaceRoot: agentRun.workspaceRoot ?? rawWorkspaceRoot,
         threadId: agentRun.threadId,
         turnId: agentRun.turnId,
         timeoutSeconds: 30,
-        traceContext: context.traceContext,
+        traceContext,
       };
       if (typeof activeTurnRuntime?.cancel === "function") {
         await activeTurnRuntime.cancel(cancelPayload).catch(() => undefined);
@@ -176,11 +181,7 @@ function createShotBoundaryServiceRuntime({
       sampleVideoId: job.sampleVideoId,
       analysisFps: agentRun.analysisFps ?? 10,
       sampleArtifact,
-      traceContext: {
-        runId: agentRun.traceId ?? job.traceId,
-        traceId: agentRun.traceId ?? job.traceId,
-        stageId: `stage_recover_${Date.now()}`,
-      },
+      traceContext,
       artifactId: agentRun.artifactId ?? `artifact_${randomUUID()}`,
       job,
       activeStage: {
