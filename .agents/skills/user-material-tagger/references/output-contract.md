@@ -96,6 +96,17 @@
   "shotId": "shot_3",
   "shotNo": "S003",
   "timeRange": [1.167, 2.033],
+  "visualRef": {
+    "type": "shot_representative_frame",
+    "sheetId": "shot-representatives-p1",
+    "attachmentIndex": 0,
+    "pageIndex": 0,
+    "row": 0,
+    "col": 2,
+    "timeRange": { "start": 1.167, "end": 2.033 },
+    "middleTimestamp": 1.6,
+    "representativeFrameTimestamp": 1.7
+  },
   "shotClass": "product_display",
   "visualSummary": "安全画面摘要。",
   "spokenOrSubtitleSummary": "安全口播/字幕摘要。",
@@ -129,6 +140,7 @@
 - `shotId` 使用输入 shot ID。
 - `shotNo` 使用展示编号；如果输入没有，按时间顺序生成 `S001`、`S002`。
 - `timeRange` 使用 `[start, end]` 数组，单位秒。
+- `visualRef` 引用该 shot 的中间代表帧所在 sheet/cell；由运行时根据 `visualManifest` 注入，没有代表帧时可省略。
 - `spokenOrSubtitleSummary` 只有在存在可用口播/字幕信息时输出。
 - `shotFunctions` 使用 taxonomy 中的功能标签。
 - `capabilityRefs` 引用顶层 `capabilities` 中存在的能力 ID，强度只能是 `strong / medium / weak / none / unknown`。
@@ -223,6 +235,8 @@ root
 │           │  展示编号。
 │           ├─ timeRange
 │           │  起止时间。
+│           ├─ visualRef
+│           │  中间代表帧的 sheet/cell 引用。
 │           ├─ shotClass
 │           │  镜头类别。
 │           ├─ visualSummary

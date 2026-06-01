@@ -46,7 +46,7 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     },
     cacheKey: context.cacheKey ?? buildUserMaterialTaggerContentFingerprint(input),
     inputPackage: context.inputPackage ?? null,
-    shotCards: validation.shotCards,
+    shotCards: attachShotVisualRefs(validation.shotCards, context.inputPackage?.visualManifest),
     materialGroups: validation.materialGroups,
     proofCoverage: validation.proofCoverage,
     sequenceRecommendations: validation.sequenceRecommendations,
@@ -66,6 +66,38 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
     debugSnapshotUri: null,
     createdAt: new Date().toISOString(),
   };
+}
+
+function attachShotVisualRefs(shotCards, visualManifest) {
+  const visualRefsByShot = buildVisualRefsByShot(visualManifest);
+  return shotCards.map((card) => {
+    const visualRef = visualRefsByShot.get(card.shotRef);
+    return visualRef ? { ...card, visualRef } : card;
+  });
+}
+
+function buildVisualRefsByShot(visualManifest) {
+  const sheetsById = new Map((visualManifest?.sheets ?? []).map((sheet) => [sheet.sheetId, sheet]));
+  const result = new Map();
+  for (const shotSheet of visualManifest?.shotSheets ?? []) {
+    const sheetId = (shotSheet.sheetIds ?? [])[0] ?? null;
+    if (!sheetId) continue;
+    const sheet = sheetsById.get(sheetId);
+    const cell = (sheet?.cells ?? []).find((item) => item.shotId === shotSheet.shotId);
+    if (!cell) continue;
+    result.set(shotSheet.shotId, {
+      type: "shot_representative_frame",
+      sheetId,
+      attachmentIndex: sheet?.attachmentIndex ?? null,
+      pageIndex: sheet?.pageIndex ?? null,
+      row: cell.row ?? null,
+      col: cell.col ?? null,
+      timeRange: { start: cell.start, end: cell.end },
+      middleTimestamp: cell.middleTimestamp ?? shotSheet.middleTimestamp ?? null,
+      representativeFrameTimestamp: cell.representativeFrameTimestamp ?? shotSheet.representativeFrameTimestamp ?? null,
+    });
+  }
+  return result;
 }
 
 function parseAgentOutput(message, agentRun, turn, repairAttemptCount) {
@@ -165,6 +197,7 @@ function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
     sourceCreatedAt: cachedAnalysis?.createdAt ?? null,
     sampleVideoId: context.sampleVideoId,
     cacheKey: context.cacheKey ?? cachedAnalysis?.cacheKey ?? null,
+    shotCards: attachShotVisualRefs(cachedAnalysis?.shotCards ?? [], context.inputPackage?.visualManifest),
     createdAt: new Date().toISOString(),
   };
 }
@@ -190,4 +223,5 @@ module.exports = {
   buildFailedArtifact,
   buildCacheReuseAnalysis,
   evaluateCacheEligibility,
+  attachShotVisualRefs,
 };

@@ -178,6 +178,17 @@ export type UserMaterialPackArtifact = {
     confidence: number;
     needReview: boolean;
     timeRange?: { start: number; end: number } | null;
+    visualRef?: {
+      type: "shot_representative_frame" | string;
+      sheetId: string;
+      attachmentIndex?: number | null;
+      pageIndex?: number | null;
+      row?: number | null;
+      col?: number | null;
+      timeRange?: { start: number; end: number } | null;
+      middleTimestamp?: number | null;
+      representativeFrameTimestamp?: number | null;
+    } | null;
   }>;
   materialGroups: Array<{
     groupId: string;
