@@ -1600,8 +1600,10 @@ test("agent chat auto display skips when restructure file is unchanged", async (
 test("agent chat auto display runs format repair turn before retrying transform", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-repair-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo");
+  const finalPath = path.join(planDir, "restructure.final.md");
+  const originalMarkdown = "# 坏格式\n\n没有目标章节\n";
   await fsPromises.mkdir(planDir, { recursive: true });
-  await fsPromises.writeFile(path.join(planDir, "restructure.final.md"), "# 坏格式\n\n没有目标章节\n", "utf8");
+  await fsPromises.writeFile(finalPath, originalMarkdown, "utf8");
   const conversations = new Map();
   const repairCalls = [];
   conversations.set("conversation_restructure", {
@@ -1663,9 +1665,12 @@ test("agent chat auto display runs format repair turn before retrying transform"
     assert.equal(collected.body.autoDisplayTransform.status, "processed");
     assert.equal(collected.body.autoDisplayTransform.repairAttemptCount, 1);
     assert.equal(collected.body.autoDisplayTransform.repairTurns[0].turnId, "turn_repair_1");
+    assert.equal(collected.body.autoDisplayTransform.repairTurns[0].repairedPath, "Artifacts/FunctionSlotRestructure/repair-demo/restructure.final.repair-attempt-1.md");
     assert.equal(repairCalls.some((call) => call.type === "repair-turn" && /只做格式修复/.test(call.prompt)), true);
     assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.final.repair-attempt-1.md")));
+    assert.equal(await fsPromises.readFile(finalPath, "utf8"), originalMarkdown);
     const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.display.json"), "utf8"));
+    assert.equal(displayJson.source.restructureFinalPath.endsWith("restructure.final.repair-attempt-1.md"), true);
     assert.equal(displayJson.sourceTextDigest.sectionCount, 6);
   } finally {
     await closeServer(server);

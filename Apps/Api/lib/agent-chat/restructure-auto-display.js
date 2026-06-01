@@ -233,10 +233,11 @@ async function transformWithRepair({
 }) {
   const repairTurns = [];
   let lastError = null;
+  let transformInputPath = restructureFinalPath;
   for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
     try {
       const displayJson = await transformRestructureFinalFile({
-        inputPath: restructureFinalPath,
+        inputPath: transformInputPath,
         outputPath: displayJsonPath,
         restructureArtifactId: artifactId,
       });
@@ -251,7 +252,7 @@ async function transformWithRepair({
       const repairAttemptCount = attempt + 1;
       const repairRequest = buildAgentRepairRequest({
         error,
-        inputPath: safeRelative(rootDir, restructureFinalPath),
+        inputPath: safeRelative(rootDir, transformInputPath),
         outputPath: safeRelative(rootDir, displayJsonPath),
         restructureArtifactId: artifactId,
         repairAttemptCount,
@@ -268,9 +269,13 @@ async function transformWithRepair({
         sourceTurnId,
         stageTraceContext,
       });
-      repairTurns.push(repair.summary);
-      await fs.writeFile(restructureFinalPath, normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
-      await fs.writeFile(path.join(path.dirname(restructureFinalPath), `restructure.final.repair-attempt-${repairAttemptCount}.md`), normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
+      const repairedPath = path.join(path.dirname(restructureFinalPath), `restructure.final.repair-attempt-${repairAttemptCount}.md`);
+      await fs.writeFile(repairedPath, normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
+      transformInputPath = repairedPath;
+      repairTurns.push({
+        ...repair.summary,
+        repairedPath: safeRelative(rootDir, repairedPath),
+      });
     }
   }
   if (lastError) {
