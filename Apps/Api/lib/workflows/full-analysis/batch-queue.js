@@ -17,6 +17,8 @@ function createFullAnalysisBatchQueue({
   const state = loadQueueState(filePath);
   restoreQueuedFiles(state, uploadRoot);
   let advancing = false;
+  const pendingAdvances = new Set();
+  const advanceWaiters = [];
   for (const batch of state.batches.filter((item) => !isBatchTerminal(item))) {
     scheduleAdvance(batch.batchRunId, 0);
   }
@@ -115,22 +117,32 @@ function createFullAnalysisBatchQueue({
   }
 
   async function advance(batchRunId = null) {
-    if (advancing) return batchRunId ? publicBatch(findBatch(batchRunId)) : null;
+    if (advancing) {
+      pendingAdvances.add(batchRunId ?? "*");
+      return waitForAdvanceDrain(batchRunId);
+    }
     advancing = true;
     try {
-      const batches = state.batches.filter((batch) => (
-        batchRunId ? batch.batchRunId === batchRunId : !isBatchTerminal(batch)
-      ));
-      for (const batch of batches) {
-        await syncBatchItems(batch);
-        await dispatchQueuedItems(batch);
-      updateBatchStatus(batch);
-      if (!isBatchTerminal(batch)) scheduleAdvance(batch.batchRunId, 2000);
-      }
-      persistQueueState(filePath, state);
+      let targetBatchRunId = batchRunId;
+      do {
+        if (targetBatchRunId) pendingAdvances.delete(targetBatchRunId);
+        else pendingAdvances.clear();
+        const batches = state.batches.filter((batch) => (
+          targetBatchRunId ? batch.batchRunId === targetBatchRunId : !isBatchTerminal(batch)
+        ));
+        for (const batch of batches) {
+          await syncBatchItems(batch);
+          await dispatchQueuedItems(batch);
+          updateBatchStatus(batch);
+          if (!isBatchTerminal(batch)) scheduleAdvance(batch.batchRunId, 2000);
+        }
+        persistQueueState(filePath, state);
+        targetBatchRunId = nextPendingBatchRunId(pendingAdvances);
+      } while (targetBatchRunId !== undefined);
       return batchRunId ? publicBatch(findBatch(batchRunId)) : null;
     } finally {
       advancing = false;
+      resolveAdvanceWaiters();
     }
   }
 
@@ -156,7 +168,7 @@ function createFullAnalysisBatchQueue({
 
   async function dispatchQueuedItems(batch) {
     const limit = normalizeMaxConcurrentRuns(batch.maxConcurrentRuns, defaultMaxConcurrentRuns);
-    let activeCount = batch.items.filter((item) => item.status === "running").length;
+    let activeCount = batch.items.filter((item) => isActiveItem(item)).length;
     const queued = batch.items.filter((item) => item.status === "queued").sort((a, b) => a.position - b.position);
     for (const item of queued) {
       if (activeCount >= limit) break;
@@ -221,6 +233,19 @@ function createFullAnalysisBatchQueue({
       advance(batchRunId).catch(() => undefined);
     }, delayMs);
     timer.unref?.();
+  }
+
+  function waitForAdvanceDrain(batchRunId) {
+    return new Promise((resolve) => {
+      advanceWaiters.push({ batchRunId, resolve });
+    });
+  }
+
+  function resolveAdvanceWaiters() {
+    while (advanceWaiters.length) {
+      const waiter = advanceWaiters.shift();
+      waiter.resolve(waiter.batchRunId ? publicBatch(findBatch(waiter.batchRunId)) : null);
+    }
   }
 
   function findBatch(batchRunId) {
@@ -325,8 +350,18 @@ function isItemTerminal(item) {
   return TERMINAL_WORKFLOW_STATUSES.has(item?.status);
 }
 
+function isActiveItem(item) {
+  return item?.status === "running" || item?.status === CACHE_WAITING_STATUS;
+}
+
 function isBatchTerminal(batch) {
   return batch?.items?.length && batch.items.every((item) => isItemTerminal(item));
+}
+
+function nextPendingBatchRunId(pendingAdvances) {
+  if (pendingAdvances.has("*")) return null;
+  const next = pendingAdvances.values().next();
+  return next.done ? undefined : next.value;
 }
 
 function updateBatchStatus(batch) {

@@ -9,6 +9,14 @@ function createFile(name) {
   return { filename: name, mimeType: "video/mp4", size: 5, buffer: Buffer.from(name) };
 }
 
+async function waitUntil(predicate) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("condition was not met before timeout");
+}
+
 test("full analysis batch queue starts at most two workflow runs by default", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
   const runs = new Map();
@@ -67,7 +75,7 @@ test("full analysis batch queue dispatches next item when one run completes", as
   assert.equal(current.items[2].status, "running");
 });
 
-test("full analysis batch queue treats cache waiting as non-active for dispatch", async () => {
+test("full analysis batch queue treats cache waiting as active for dispatch limit", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
   const runs = new Map();
   const workflowService = {
@@ -91,9 +99,49 @@ test("full analysis batch queue treats cache waiting as non-active for dispatch"
   await queue.advance(batch.batchRunId);
   const current = queue.getBatch(batch.batchRunId);
 
-  assert.equal(runs.size, 3);
+  assert.equal(runs.size, 2);
   assert.equal(current.items[0].status, "cache_waiting");
-  assert.equal(current.items[2].status, "running");
+  assert.equal(current.items[2].status, "queued");
+});
+
+test("full analysis batch queue replays advance requested while dispatch is running", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  const runs = new Map();
+  let releaseStart;
+  const firstStartBlocked = new Promise((resolve) => {
+    releaseStart = () => {
+      runs.get("workflow_1").status = "processed";
+      resolve();
+    };
+  });
+  const workflowService = {
+    start: async ({ file }) => {
+      const workflowRunId = `workflow_${runs.size + 1}`;
+      runs.set(workflowRunId, { workflowRunId, status: "running", currentStageKeys: ["upload"], stages: [{ key: "upload", label: "上传" }] });
+      if (file.filename === "a.mp4") await firstStartBlocked;
+      return runs.get(workflowRunId);
+    },
+    get: (workflowRunId) => runs.get(workflowRunId) ?? null,
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({ workflowService, runtimeRoot: root, defaultMaxConcurrentRuns: 1 });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("a.mp4"), createFile("b.mp4")],
+    fields: {},
+  });
+  const firstAdvance = queue.advance(batch.batchRunId);
+  await waitUntil(() => runs.has("workflow_1"));
+  const replayedAdvance = queue.advance(batch.batchRunId);
+
+  releaseStart();
+  await firstAdvance;
+  await replayedAdvance;
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(runs.size, 2);
+  assert.equal(current.items[0].status, "processed");
+  assert.equal(current.items[1].status, "running");
 });
 
 test("full analysis batch queue restores failed items and retries from persisted upload", async () => {

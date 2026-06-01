@@ -54,7 +54,8 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     }
     const previous = await bindingStore.getByTurnId(turnId);
     const binding = await bindingStore.markStatus({ turnId, status: result?.status ?? "canceled", result, traceContext });
-    const ownerResult = await ownerHandlers?.onCancel?.(binding ?? previous, result);
+    const handler = result?.cancelResolvedBy === "collect" ? ownerHandlers?.onCollect : ownerHandlers?.onCancel;
+    const ownerResult = await handler?.(binding ?? previous, result);
     await bindingStore.removeByTurnId(turnId);
     return {
       ok: result?.ok !== false,
@@ -83,6 +84,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
         ok: collected.ok !== false,
         threadId: collected.threadId ?? threadId,
         turnId: collected.turnId ?? turnId,
+        cancelResolvedBy: "collect",
         cancelWarning: summarizeCancelError(error),
       };
     }

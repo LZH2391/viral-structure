@@ -170,8 +170,55 @@ test("runtime cancel falls back to terminal collect when appserver cancel errors
 
     const result = await runtime.cancel({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" });
     assert.equal(result.status, "completed");
-    assert.deepEqual(calls.map((call) => call.type), ["collect", "cancelOwner"]);
+    assert.deepEqual(calls.map((call) => call.type), ["collect"]);
     assert.equal(await runtime.getByTurnId("turn_1"), null);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime cancel fallback collect writes successful terminal result through collect owner", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-cancel-collect-owner-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const jobs = new Map([["job_1", {
+    jobId: "job_1",
+    status: "processing",
+    agentRun: { turnId: "turn_1", currentAttemptId: "attempt_1", status: "collecting" },
+  }]]);
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        cancelTurn: async () => {
+          throw new Error("bridge timeout while canceling");
+        },
+        collectTurnResult: async (payload) => ({ status: "completed", threadId: payload.threadId, turnId: payload.turnId }),
+      },
+      ownerHandlers: createActiveTurnOwnerHandlers({
+        jobStore: {
+          getJob: (jobId) => jobs.get(jobId),
+          updateJob: (jobId, patch) => jobs.set(jobId, { ...jobs.get(jobId), ...patch }),
+        },
+      }),
+    });
+    await runtime.register({
+      threadId: "thread_1",
+      turnId: "turn_1",
+      ownerType: "processing-job",
+      ownerId: "job_1",
+      currentAttemptId: "attempt_1",
+      stageName: "stage",
+      replayRef: { type: "processing-job-input", refId: "job_1" },
+      status: "running",
+    });
+
+    const result = await runtime.cancel({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.ownerResult.status, "completed");
+    assert.equal(jobs.get("job_1").status, "processing");
+    assert.equal(jobs.get("job_1").agentRun.status, "completed");
+    assert.equal(jobs.get("job_1").errorSummary, undefined);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
