@@ -399,6 +399,7 @@ async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId
     inputs,
     timeoutSeconds,
   });
+  assertStartTurnResult(result);
   if (typeof activeTurnRuntime?.register === "function" && result?.turnId && binding) {
     await activeTurnRuntime.register({
       ...binding,
@@ -409,6 +410,16 @@ async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId
     }).catch(() => null);
   }
   return result;
+}
+
+function assertStartTurnResult(result) {
+  const turnId = result?.turnId ?? result?.turn?.id ?? null;
+  if (result?.ok !== false && turnId) return;
+  const error = new Error(result?.message ?? "AppServer turn/start 未返回有效 turnId");
+  error.code = result?.error ?? result?.code ?? "appserver_turn_start_failed";
+  error.statusCode = result?.statusCode ?? 502;
+  error.retryable = true;
+  throw error;
 }
 
 async function collectTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, turnId, timeoutSeconds }) {

@@ -13,6 +13,16 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     if (!appServer?.startTurnWithInputs) throw activeRuntimeError("appserver_turn_start_unavailable", "AppServer turn/start 能力不可用", null, true);
     const result = await appServer.startTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds });
     const turnId = result.turnId ?? result.turn?.id ?? null;
+    if (result?.ok === false || !turnId) {
+      const error = activeRuntimeError(
+        result?.error ?? result?.code ?? "appserver_turn_start_failed",
+        result?.message ?? "AppServer turn/start 未返回有效 turnId",
+        result,
+        true,
+      );
+      error.statusCode = result?.statusCode ?? 502;
+      throw error;
+    }
     if (binding && turnId) {
       await register({
         ...binding,

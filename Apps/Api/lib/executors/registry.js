@@ -117,6 +117,7 @@ async function submitTurn(appServer, activeTurnRuntime, payload, context) {
       inputMode: payload.inputMode ?? null,
     }),
   });
+  assertTurnStarted(result);
   const normalized = normalizeTurnResult(result);
   if (!activeTurnRuntime?.start) await registerExecutorActiveTurn(activeTurnRuntime, payload, normalized, context);
   return normalized;
@@ -175,6 +176,19 @@ function normalizeTurnResult(result) {
     errorSummary: summarizeError(result.errorSummary ?? result.error ?? null),
     result,
   };
+}
+
+function assertTurnStarted(result) {
+  const turnId = result?.turnId ?? result?.turn?.id ?? null;
+  if (result?.ok !== false && turnId) return;
+  const error = executorError(
+    result?.error ?? result?.code ?? "appserver_turn_start_failed",
+    result?.message ?? "AppServer turn/start 未返回有效 turnId",
+    result,
+    true,
+  );
+  error.statusCode = result?.statusCode ?? 502;
+  throw error;
 }
 
 function requireRunStage(context) {

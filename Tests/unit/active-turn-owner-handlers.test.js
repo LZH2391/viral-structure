@@ -281,3 +281,37 @@ test("analysis turn runner registers active binding and terminal collect writes 
   assert.equal(jobStore.getJob(job.jobId).agentRun.status, "completed");
   assert.deepEqual(await runtime.listActive(), []);
 });
+
+test("active turn runtime rejects failed start result before registering binding", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-start-failed-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const runtime = createActiveTurnRuntime({
+    store,
+    appServer: {
+      async startTurnWithInputs() {
+        return { ok: false, error: "appserver_turn_start_failed", message: "start returned failed" };
+      },
+    },
+  });
+
+  try {
+    await assert.rejects(
+      () => runtime.start({
+        workspaceRoot: root,
+        threadId: "thread_1",
+        inputs: [{ type: "text", text: "safe" }],
+        binding: {
+          ownerType: "processing-job",
+          ownerId: "job_1",
+          currentAttemptId: "attempt_1",
+          stageName: "content.model",
+          replayRef: { type: "processing-job-input", refId: "job_1" },
+        },
+      }),
+      { code: "appserver_turn_start_failed" },
+    );
+    assert.deepEqual(await runtime.listActive(), []);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
