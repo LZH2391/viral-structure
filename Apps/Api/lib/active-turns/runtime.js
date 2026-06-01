@@ -59,6 +59,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     let result;
     try {
       result = await appServer.cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds });
+      if (result?.ok === false) throw resultToCancelError(result);
     } catch (error) {
       result = await resolveCancelFailure({ error, workspaceRoot, threadId, turnId, timeoutSeconds });
     }
@@ -174,6 +175,17 @@ function summarizeCancelError(error) {
     code: error?.code ?? null,
     message: safeCancelMessage(error),
   };
+}
+
+function resultToCancelError(result) {
+  const error = activeRuntimeError(
+    result?.error ?? result?.code ?? "appserver_turn_cancel_failed",
+    result?.message ?? "AppServer turn/interrupt 请求失败",
+    result,
+    true,
+  );
+  error.statusCode = result?.statusCode ?? 502;
+  return error;
 }
 
 function safeCancelMessage(error) {

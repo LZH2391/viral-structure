@@ -224,6 +224,44 @@ test("runtime cancel fallback collect writes successful terminal result through 
   }
 });
 
+test("runtime cancel rejects failed cancel result without marking owner canceled", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-cancel-failed-result-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const ownerCalls = [];
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        cancelTurn: async () => ({ ok: false, error: "appserver_turn_cancel_failed", message: "cancel rejected" }),
+        collectTurnResult: async (payload) => ({ status: "running", threadId: payload.threadId, turnId: payload.turnId }),
+      },
+      ownerHandlers: {
+        onCancel: async (binding, result) => ownerCalls.push({ binding, result }),
+      },
+    });
+    await runtime.register({
+      threadId: "thread_1",
+      turnId: "turn_1",
+      ownerType: "processing-job",
+      ownerId: "job_1",
+      currentAttemptId: "attempt_1",
+      stageName: "stage",
+      replayRef: { type: "processing-job-input", refId: "job_1" },
+      status: "running",
+    });
+
+    await assert.rejects(
+      () => runtime.cancel({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" }),
+      { code: "appserver_turn_cancel_failed" },
+    );
+
+    assert.equal(ownerCalls.length, 0);
+    assert.equal((await runtime.getByTurnId("turn_1")).status, "running");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("analysis turn runner registers active binding and terminal collect writes current processing job", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-runner-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };
