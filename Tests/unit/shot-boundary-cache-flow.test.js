@@ -152,6 +152,10 @@ test("shot boundary collect completed writes transformed artifact and releases r
   const visualSummaryTurn = transformTurns[1];
 
   assert.equal(job.status, "processed");
+  assert.equal(job.agentRun.status, "completed");
+  assert.equal(job.agentRun.leaseId, null);
+  assert.equal(job.agentRun.releasedLeaseId, "lease_1");
+  assert.equal(typeof job.agentRun.leaseReleasedAt, "string");
   assert.equal(artifact.shotBoundaryAnalysis.status, "processed");
   assert.equal(artifact.shotBoundaryAnalysis.resultOrigin, "transformed_turn");
   assert.equal(artifact.shotBoundaryAnalysis.agent.role, "shot-boundary-transformer");

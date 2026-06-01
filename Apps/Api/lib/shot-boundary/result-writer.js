@@ -21,6 +21,7 @@ async function writeCompletedAnalysis({
   jobStore,
   sampleStatus,
   updateActiveThreadMessage,
+  jobAgentRun = agentRun,
 }) {
   if (typeof buildProcessedAnalysis !== "function") {
     throw new Error("buildProcessedAnalysis is not available");
@@ -103,7 +104,7 @@ async function writeCompletedAnalysis({
     }),
   });
   jobStore.updateJob(context.job.jobId, {
-    agentRun: { ...agentRun, status: "completed", updatedAt: new Date().toISOString() },
+    agentRun: { ...jobAgentRun, status: "completed", updatedAt: new Date().toISOString() },
     shotBoundaryTransform: {
       ...transform.run,
       status: "completed",

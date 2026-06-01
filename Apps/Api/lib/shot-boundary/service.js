@@ -415,6 +415,7 @@ function createShotBoundaryService({
         await writeCompletedAnalysis({
           context,
           agentRun,
+          jobAgentRun: context.job.agentRun ?? agentRun,
           turn,
           runStage,
           stages: STAGES,
