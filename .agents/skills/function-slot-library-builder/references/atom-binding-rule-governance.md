@@ -26,7 +26,9 @@ atom archetype
 
 `atomArchetype` 是同一 atom layer 内的高层实现语义，例如脚本层的需求建立、机制/品质证据解释、前置关切闭合，节奏层的信息负载控制，包装层的视觉证明载体。它必须通过 `sourcePatternIds` 连接到 atom pattern，并继续保留 `sourceVariantIds` 作为证据来源。
 
-未进入 atom pattern 的孤例 atom 不要强行 pattern 化，必须进入 `unmappedAtomVariants`，并写明 `reason` 和 `suggestedAction`。
+语义功能清晰、claim/proof/rhythm/packaging function 可命名的孤例 atom 可以进入 `atomPatterns`，但必须作为 candidate pattern 处理：`support.variantCount` 可以是 1，`judgementReason` 要说明为什么当前可命名，`differenceNotes` 要写清单例证据和后续可合并/拆分空间，`riskIfMisclassified` 要写明误用风险。
+
+`unmappedAtomVariants` 只用于字段不足、证明功能无法命名、边界冲突、或暂不适合进入检索治理层的 atom。不要把清晰单例长期堆进 unmapped；否则图谱和重组只会看到“未治理盒子”，无法使用当前样例的结构化经验。
 
 ### script pattern
 

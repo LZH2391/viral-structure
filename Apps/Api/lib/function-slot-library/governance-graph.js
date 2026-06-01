@@ -82,6 +82,7 @@ function buildFunctionSlotGovernanceGraph(governance) {
     }
   }
 
+  pushSourceSamplesFromSnapshot(nodes, edges, rootId, governance.sourceSnapshot ?? []);
   pushSourceVariantEdges(nodes, edges, governance.sourceVariants ?? []);
 
   pushUnmapped(nodes, edges, rootId, governance.unmappedAtomVariants ?? [], "atom");
@@ -142,6 +143,30 @@ function pushAtomLayerNode(nodes, subtypeId, layer) {
     },
   });
   return id;
+}
+
+function pushSourceSamplesFromSnapshot(nodes, edges, rootId, sourceSnapshot) {
+  if (!Array.isArray(sourceSnapshot)) return;
+  for (const sample of sourceSnapshot) {
+    const sampleId = normalizeGraphText(sample?.sampleVideoId ?? sample?.sampleId);
+    if (!sampleId) continue;
+    const sampleNodeId = graphId("sourceSample", sampleId);
+    pushNode(nodes, {
+      id: sampleNodeId,
+      type: "sourceSample",
+      label: sampleId,
+      group: "sourceSample",
+      data: {
+        sampleVideoId: sampleId,
+        sampleId,
+        artifactId: normalizeGraphText(sample?.artifactId),
+        traceId: normalizeGraphText(sample?.traceId),
+        contentHash: normalizeGraphText(sample?.contentHash),
+        counts: sample?.counts && typeof sample.counts === "object" ? sample.counts : null,
+      },
+    });
+    pushEdge(edges, rootId, sampleNodeId, "governance_contains_source_sample", "sample");
+  }
 }
 
 function pushSourceVariantEdges(nodes, edges, sourceVariants) {

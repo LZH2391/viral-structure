@@ -19,11 +19,13 @@
 4. 对 binding pattern / principle、rule pattern / recomposition policy 做治理。
 5. 保留所有 sourceSnapshot / coverage / sourceVariants 证据层字段。
 6. 每个治理项必须带 sourceVariantIds、support、judgementReason、differenceNotes、riskIfMisclassified。
-7. 未进入 pattern 的 atom / binding / rule variant 必须进入 unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants。
-8. 证据不足或边界冲突的问题进入 reviewItems / openQuestions。
+7. 对语义功能清晰、claim/proof/rhythm/packaging function 可命名的 atom variant，即使只有单样例支持，也应建立 candidate atomPattern；在 judgementReason / differenceNotes / riskIfMisclassified 中明确单样例风险和后续可合并/拆分空间。
+8. 未进入 pattern 的 atom / binding / rule variant 必须进入 unmappedAtomVariants / unmappedBindingVariants / unmappedRuleVariants；unmapped 只用于字段不足、边界冲突、证明功能无法命名或暂不适合进入检索治理层的 variant，不要把清晰单例长期堆进 unmapped。
+9. 证据不足或边界冲突的问题进入 reviewItems / openQuestions。
 
 禁止：
 - 不要按字段相同、文本相似、slotType 名称相似自动合并。
+- 不要把“禁止自动合并”误解为“禁止单例 candidate pattern”；清晰单例可以上 pattern，但必须保留单例风险。
 - 不要让 script atom 归并结果决定 rhythm 或 packaging。
 - 不要把 observed chain 当固定模板。
 - 不要修改样例库文件。

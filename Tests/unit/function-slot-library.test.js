@@ -402,6 +402,36 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
 });
 
+test("function slot governance graph builder shows source snapshot samples without requiring atom patterns", () => {
+  const governance = {
+    ...buildGovernance(),
+    coverage: { ...buildGovernance().coverage, sampleCount: 2 },
+    sourceSnapshot: [
+      {
+        artifactId: "artifact_a",
+        sampleVideoId: "sample_a",
+        traceId: "trace_a",
+        contentHash: "hash_a",
+        counts: { slotCount: 1, atomCount: 1, bindingCount: 0, ruleCount: 0, templateCount: 0 },
+      },
+      {
+        artifactId: "artifact_unpatterned",
+        sampleVideoId: "sample_unpatterned",
+        traceId: "trace_unpatterned",
+        contentHash: "hash_unpatterned",
+        counts: { slotCount: 1, atomCount: 3, bindingCount: 1, ruleCount: 1, templateCount: 1 },
+      },
+    ],
+  };
+  const graph = buildFunctionSlotGovernanceGraph(governance);
+  const samples = graph.nodes.filter((node) => node.type === "sourceSample");
+  const root = graph.nodes.find((node) => node.type === "governanceRoot");
+
+  assert.ok(samples.some((node) => node.data.sampleVideoId === "sample_unpatterned"));
+  assert.ok(graph.edges.some((edge) => edge.source === root.id && edge.target === "sourceSample:sample_unpatterned" && edge.type === "governance_contains_source_sample"));
+  assert.ok(graph.edges.some((edge) => edge.type === "source_variant_to_sample"));
+});
+
 test("function slot governance graph builder normalizes value-object ids and labels", () => {
   const graph = buildFunctionSlotGovernanceGraph({
     ...buildGovernance(),

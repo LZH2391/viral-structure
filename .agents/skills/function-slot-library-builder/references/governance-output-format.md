@@ -189,6 +189,8 @@ Atom archetype 是 atom pattern 的父层，用来表达同一 atom layer 内更
 }
 ```
 
+单样例但语义功能清晰的 atom 可以先写为 candidate pattern。不要增加 `status / reviewStatus / maturityStatus` 字段；用 `support.variantCount: 1`、`judgementReason`、`differenceNotes` 和 `riskIfMisclassified` 表达候选性、单例风险和后续可合并/拆分空间。只有字段不足、证明功能无法命名或边界冲突的 atom 才留在 `unmappedAtomVariants`。
+
 For rhythm atoms, use `rhythmFunction`, `paceClass`, `densityClass` and `syncPointClasses`.
 
 For packaging atoms, use `proofType`, `visualHierarchyClass`, `replaceableFormClasses` and `riskClass`.
