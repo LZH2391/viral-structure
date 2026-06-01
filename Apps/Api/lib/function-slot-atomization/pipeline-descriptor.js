@@ -263,7 +263,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
     async attachAnalysis(sampleVideoId, analysis, traceMeta) {
       return attachFunctionSlotAtomizationAnalysis(sampleVideoId, analysis, store, traceMeta);
     },
-    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reviewAttemptCount }) {
+    async runBoundaryReview({ context, analysis, runtime, threadPool, appServer, activeTurnRuntime, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reviewAttemptCount }) {
       context.boundaryReviewSkillPath = REVIEW_SKILL_PATH;
       context.boundaryReviewSkillHash = context.boundaryReviewSkillHash ?? await resolveBoundaryReviewSkillHash();
       return runFunctionSlotBoundaryReview({
@@ -272,6 +272,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
         runtime,
         threadPool,
         appServer,
+        activeTurnRuntime,
         rootDir,
         store,
         pollIntervalMs,
@@ -281,7 +282,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
         reviewAttemptCount,
       });
     },
-    async runBoundaryRework({ context, analysis, boundaryReview, runtime, appServer, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reworkAttemptCount }) {
+    async runBoundaryRework({ context, analysis, boundaryReview, runtime, appServer, activeTurnRuntime, rootDir, pollIntervalMs, maxCollectAttempts, collectIdleTimeoutMs, collectHardTimeoutMs, reworkAttemptCount }) {
       const boundaryReworkTurn = renderBoundaryReworkTurnInputs({
         inputPackage: context.inputPackage,
         boundaryReview,
@@ -302,6 +303,7 @@ function createFunctionSlotAtomizationPipelineDescriptor({ store, artifactIndex 
             agentRun: context.agentRun,
             turnInputs: boundaryReworkTurn,
             appServer,
+            activeTurnRuntime,
             rootDir,
             pollIntervalMs,
             maxCollectAttempts,

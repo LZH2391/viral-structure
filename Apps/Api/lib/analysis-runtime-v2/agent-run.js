@@ -14,6 +14,7 @@ function createAgentRunBuilders({ role, skillPath, buildPreparedInputSummary }) 
       leaseId: lease.lease_id,
       threadId: lease.thread_id,
       turnId: turn.turnId ?? null,
+      currentAttemptId: buildCurrentAttemptId(context, turn.turnId),
       traceId: context.traceContext.traceId,
       artifactId: context.artifactId,
       parentArtifactId: input.parentArtifactId ?? null,
@@ -40,6 +41,7 @@ function createAgentRunBuilders({ role, skillPath, buildPreparedInputSummary }) 
       threadId: agentRun?.threadId ?? null,
       leaseId: agentRun?.leaseId ?? null,
       turnId: turn.turnId ?? agentRun?.turnId ?? null,
+      currentAttemptId: buildCurrentAttemptId(context, turn.turnId ?? agentRun?.turnId ?? null, agentRun?.currentAttemptId ?? null),
       traceId: context.traceContext.traceId,
       status: "completed",
       updatedAt: new Date().toISOString(),
@@ -50,6 +52,10 @@ function createAgentRunBuilders({ role, skillPath, buildPreparedInputSummary }) 
     buildAgentRun,
     updateAgentRun,
   };
+}
+
+function buildCurrentAttemptId(context, turnId, fallback = null) {
+  return fallback ?? (turnId && context?.job?.jobId ? `${context.job.jobId}:${turnId}` : null);
 }
 
 module.exports = {

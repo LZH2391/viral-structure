@@ -109,6 +109,7 @@ function createShotBoundaryService({
   artifactIndex,
   threadPool = createThreadPoolProxy(),
   appServer = createAppServerBridge(),
+  activeTurnRuntime = null,
   executorRegistry = createExecutorRegistry({ appServer }),
   contactSheetGenerator = defaultContactSheetGenerator,
   skillPath = VIDEO_SHOT_SKILL_PATH,
@@ -125,6 +126,7 @@ function createShotBoundaryService({
     jobStore,
     threadPool,
     appServer,
+    activeTurnRuntime,
     rawWorkspaceRoot,
     sampleStatus: SAMPLE_STATUS,
     stages: STAGES,
@@ -426,6 +428,7 @@ function createShotBoundaryService({
           finalizeLease,
           threadPool,
           appServer,
+          activeTurnRuntime,
           rootDir,
           reviewer: {
             role: REVIEW_ROLE,

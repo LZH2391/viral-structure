@@ -14,6 +14,7 @@ async function writeCompletedAnalysis({
   finalizeLease,
   threadPool,
   appServer,
+  activeTurnRuntime,
   rootDir,
   reviewer,
   role,
@@ -33,6 +34,7 @@ async function writeCompletedAnalysis({
     runStage,
     stages,
     appServer,
+    activeTurnRuntime,
     rootDir,
     reviewer,
     threadPool,
@@ -123,6 +125,7 @@ async function runTransformTurn({
   runStage,
   stages,
   appServer,
+  activeTurnRuntime,
   rootDir,
   reviewer,
   threadPool,
@@ -158,11 +161,23 @@ async function runTransformTurn({
       artifactId: context.artifactId,
       parentArtifactId: prepared.sourceArtifactId,
       inputSummary: { role: reviewer.role, threadId: lease.thread_id, leaseId: lease.lease_id, rawTurnId: turn.turnId },
-      action: () => appServer.startTurnWithInputs({
+      action: () => startTurn({
+        appServer,
+        activeTurnRuntime,
         workspaceRoot: rootDir,
         threadId: lease.thread_id,
         inputs: transformTurn.inputs,
         timeoutSeconds: 240,
+        binding: buildActiveTurnBinding({
+          context,
+          lease,
+          stageName: stages.reviewStarted,
+          role: reviewer.role,
+          prompt: transformTurn,
+          sourceTurnId: turn.turnId,
+          attemptKind: "transform",
+          parentArtifactId: prepared.sourceArtifactId,
+        }),
       }),
       outputSummary: (result) => ({
         role: reviewer.role,
@@ -182,6 +197,7 @@ async function runTransformTurn({
       threadId: lease.thread_id,
       turnId: started.turnId,
       appServer,
+      activeTurnRuntime,
       rootDir,
       runStage,
       inputSummary: (attempt) => ({ role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, attempt }),
@@ -228,6 +244,7 @@ async function runTransformTurn({
         roleProfile,
         lease,
         appServer,
+        activeTurnRuntime,
         rootDir,
         reviewer,
         runStage,
@@ -267,11 +284,23 @@ async function runTransformTurn({
         artifactId: context.artifactId,
         parentArtifactId: prepared.sourceArtifactId,
         inputSummary: { role: reviewer.role, threadId: lease.thread_id, leaseId: lease.lease_id, shotCount: result.shots.length, sheetCount: visualSheetCount },
-        action: () => appServer.startTurnWithInputs({
+        action: () => startTurn({
+          appServer,
+          activeTurnRuntime,
           workspaceRoot: rootDir,
           threadId: lease.thread_id,
           inputs: visualSummaryTurn.inputs,
           timeoutSeconds: 240,
+          binding: buildActiveTurnBinding({
+            context,
+            lease,
+            stageName: stages.visualSummaryStarted,
+            role: reviewer.role,
+            prompt: visualSummaryTurn,
+            sourceTurnId: collectedForResult.turnId ?? started.turnId ?? null,
+            attemptKind: "visual-summary",
+            parentArtifactId: prepared.sourceArtifactId,
+          }),
         }),
         outputSummary: (value) => ({
           role: reviewer.role,
@@ -291,6 +320,7 @@ async function runTransformTurn({
         threadId: lease.thread_id,
         turnId: visualStarted.turnId,
         appServer,
+        activeTurnRuntime,
         rootDir,
         runStage,
         inputSummary: (attempt) => ({ role: reviewer.role, threadId: lease.thread_id, turnId: visualStarted.turnId, attempt }),
@@ -368,6 +398,7 @@ async function runTransformRepairTurn({
   roleProfile,
   lease,
   appServer,
+  activeTurnRuntime,
   rootDir,
   reviewer,
   runStage,
@@ -393,11 +424,23 @@ async function runTransformRepairTurn({
       repairAttemptCount,
       validatorCode: validationError?.debugPayload?.validation?.validatorCode ?? validationError?.code ?? null,
     },
-    action: () => appServer.startTurnWithInputs({
+    action: () => startTurn({
+      appServer,
+      activeTurnRuntime,
       workspaceRoot: rootDir,
       threadId: lease.thread_id,
       inputs: repairTurn.inputs,
       timeoutSeconds: 240,
+      binding: buildActiveTurnBinding({
+        context,
+        lease,
+        stageName: stages.reviewRepairStarted,
+        role: reviewer.role,
+        prompt: repairTurn,
+        sourceTurnId: rawTurn.turnId,
+        attemptKind: `transform-repair-${repairAttemptCount}`,
+        parentArtifactId: prepared.sourceArtifactId,
+      }),
     }),
     outputSummary: (result) => ({
       role: reviewer.role,
@@ -418,6 +461,7 @@ async function runTransformRepairTurn({
     threadId: lease.thread_id,
     turnId: started.turnId,
     appServer,
+    activeTurnRuntime,
     rootDir,
     runStage,
     inputSummary: (attempt) => ({ role: reviewer.role, threadId: lease.thread_id, turnId: started.turnId, attempt, repairAttemptCount }),
@@ -466,6 +510,7 @@ async function collectTurn({
   threadId,
   turnId,
   appServer,
+  activeTurnRuntime,
   rootDir,
   runStage,
   inputSummary,
@@ -485,11 +530,14 @@ async function collectTurn({
       artifactId,
       parentArtifactId,
       inputSummary: inputSummary(attempt),
-      action: () => appServer.collectTurnResult({
+      action: () => collectActiveTurn({
+        appServer,
+        activeTurnRuntime,
         workspaceRoot: rootDir,
         threadId,
         turnId,
         timeoutSeconds: 120,
+        traceContext: context.traceContext,
       }),
       outputSummary: (result) => outputSummary(result, attempt),
     });
@@ -512,6 +560,56 @@ async function collectTurn({
     startedAt: Date.now(),
   };
   throw error;
+}
+
+async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, inputs, timeoutSeconds, binding }) {
+  if (typeof activeTurnRuntime?.start === "function") {
+    return activeTurnRuntime.start({ workspaceRoot, threadId, inputs, timeoutSeconds, binding });
+  }
+  const result = await appServer.startTurnWithInputs({ workspaceRoot, threadId, inputs, timeoutSeconds });
+  if (typeof activeTurnRuntime?.register === "function" && result?.turnId && binding) {
+    await activeTurnRuntime.register({
+      ...binding,
+      threadId: result.threadId ?? threadId,
+      turnId: result.turnId,
+      currentAttemptId: binding.currentAttemptId ?? result.turnId,
+      status: result.status ?? "submitted",
+    }).catch(() => null);
+  }
+  return result;
+}
+
+async function collectActiveTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, turnId, timeoutSeconds, traceContext }) {
+  if (typeof activeTurnRuntime?.collect === "function") {
+    return activeTurnRuntime.collect({ workspaceRoot, threadId, turnId, timeoutSeconds, traceContext });
+  }
+  const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
+  await activeTurnRuntime?.markCollectResult?.({ turnId, result, traceContext }).catch(() => null);
+  return result;
+}
+
+function buildActiveTurnBinding({ context, lease, stageName, role, prompt, sourceTurnId, attemptKind, parentArtifactId }) {
+  const ownerId = context?.job?.jobId ?? context?.sampleVideoId ?? lease?.thread_id ?? null;
+  if (!ownerId) return null;
+  return {
+    ownerType: "processing-job",
+    ownerId,
+    currentAttemptId: `${ownerId}:${stageName}:${attemptKind}:${context?.traceContext?.stageId ?? Date.now()}`,
+    stageName,
+    traceId: context?.traceContext?.traceId ?? null,
+    runId: context?.traceContext?.runId ?? null,
+    stageId: context?.traceContext?.stageId ?? null,
+    artifactId: context?.artifactId ?? null,
+    parentArtifactId: parentArtifactId ?? null,
+    leaseId: lease?.lease_id ?? null,
+    threadPoolOwnerId: `${context?.traceContext?.traceId ?? ownerId}:transform`,
+    replayRef: {
+      type: "processing-job-input",
+      refId: ownerId,
+      messageId: prompt?.promptTemplateId ?? null,
+      sourceTurnId: sourceTurnId ?? null,
+    },
+  };
 }
 
 function safePreview(value, maxLength = 200) {

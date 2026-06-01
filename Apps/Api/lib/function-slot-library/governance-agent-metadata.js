@@ -22,6 +22,7 @@ function buildAgentRun(context, lease, turn, status) {
     leaseId: lease?.lease_id ?? null,
     threadId: lease?.thread_id ?? null,
     turnId: turn?.turnId ?? null,
+    currentAttemptId: turn?.turnId && context.job?.jobId ? `${context.job.jobId}:${turn.turnId}` : null,
     traceId: context.traceContext.traceId,
     artifactId: context.artifactId,
     parentArtifactId: context.parentArtifactId,

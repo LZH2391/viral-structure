@@ -61,9 +61,9 @@ const activeTurnRuntime = createActiveTurnRuntime({ store, appServer, ownerHandl
 const threadPool = createThreadPoolProxy({
   readThreadImpl: async (threadId, options = {}) => appServer.readThread({ workspaceRoot: options.workspaceRoot ?? rootDir, threadId }),
 });
-const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
-const executorRegistry = createExecutorRegistry({ appServer });
+const executorRegistry = createExecutorRegistry({ appServer, activeTurnRuntime });
+const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer, activeTurnRuntime, executorRegistry });
 const functionSlotProjectionService = createFunctionSlotProjectionService({ store });
 const functionSlotLibraryService = createFunctionSlotLibraryService({ rootDir, store, logger, projectionService: functionSlotProjectionService });
 const moduleRegistry = createModuleRegistry({
@@ -92,6 +92,16 @@ function createServer(deps = {}) {
   const activeAgentConversationStore = deps.agentConversationStore ?? (activeStore === store ? agentConversationStore : createAgentConversationStore({ store: activeStore }));
   const activeArtifactIndex = deps.artifactIndex ?? artifactIndex;
   const activeFunctionSlotProjectionService = deps.functionSlotProjectionService ?? createFunctionSlotProjectionService({ store: activeStore });
+  const activeTurnOwnerHandlers = deps.activeTurnOwnerHandlers ?? createActiveTurnOwnerHandlers({
+    agentConversationStore: activeAgentConversationStore,
+    jobStore: activeJobStore,
+    workflowRunStore: activeWorkflowRunStore,
+  });
+  const activeActiveTurnRuntime = deps.activeTurnRuntime ?? (activeStore === store && (deps.appServer ?? appServer) === appServer ? activeTurnRuntime : createActiveTurnRuntime({ store: activeStore, appServer: deps.appServer ?? appServer, ownerHandlers: activeTurnOwnerHandlers }));
+  const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
+    appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
+  });
   const activeFunctionSlotLibraryService = deps.functionSlotLibraryService ?? createFunctionSlotLibraryService({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
@@ -111,6 +121,7 @@ function createServer(deps = {}) {
     jobStore: activeJobStore,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeFunctionSlotReplacementCandidateService = deps.functionSlotReplacementCandidateService ?? createFunctionSlotReplacementCandidateService({
     rootDir: deps.rootDir ?? rootDir,
@@ -127,17 +138,19 @@ function createServer(deps = {}) {
     logger: activeLogger,
   });
   const activeSampleService = deps.service ?? service;
-  const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
-  const activeTurnOwnerHandlers = deps.activeTurnOwnerHandlers ?? createActiveTurnOwnerHandlers({
-    agentConversationStore: activeAgentConversationStore,
-    jobStore: activeJobStore,
-    workflowRunStore: activeWorkflowRunStore,
-  });
-  const activeActiveTurnRuntime = deps.activeTurnRuntime ?? (activeStore === store && (deps.appServer ?? appServer) === appServer ? activeTurnRuntime : createActiveTurnRuntime({ store: activeStore, appServer: deps.appServer ?? appServer, ownerHandlers: activeTurnOwnerHandlers }));
-  const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
-    appServer: deps.appServer ?? appServer,
-    activeTurnRuntime: activeActiveTurnRuntime,
-  });
+  const activeShotBoundaryService = deps.shotBoundaryService ?? (activeStore === store && activeExecutorRegistry === executorRegistry
+    ? shotBoundaryService
+    : createShotBoundaryService({
+        rootDir: deps.rootDir ?? rootDir,
+        store: activeStore,
+        logger: activeLogger,
+        jobStore: activeJobStore,
+        artifactIndex: activeArtifactIndex,
+        threadPool: deps.threadPool ?? threadPool,
+        appServer: deps.appServer ?? appServer,
+        activeTurnRuntime: activeActiveTurnRuntime,
+        executorRegistry: activeExecutorRegistry,
+      }));
   const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
     rootDir: deps.rootDir ?? rootDir,
     store: activeStore,
@@ -525,6 +538,7 @@ async function handleRestructureDisplayTransformAutoRun(req, res, handlers = {})
 async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {
   const traceContext = createTraceContext(createTraceIds());
   const startedAt = Date.now();
+  const job = handlers.jobStore?.createJob?.({ sampleVideoId, traceId: traceContext.traceId });
   const inputSummary = {
     role,
     sampleVideoId,
@@ -550,14 +564,41 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
     if (!threadId) throw codedWorkflowError("threadpool_lease_missing_thread", "ThreadPool lease 未返回 threadId", { leaseStatus: lease.status ?? null });
     const workspaceRoot = readiness.status?.workspaceRoot ?? handlers.rootDir;
     const skillPath = readiness.status?.skillPath ?? null;
-    const started = await handlers.appServer.startTurnWithInputs({
-      workspaceRoot,
-      threadId,
-      skillPath,
-      inputs: buildFunctionSlotAutoRunInputs({ role, body: { ...body, sampleVideoId, parentArtifactId } }),
-      timeoutSeconds: 240,
-    });
-    const artifactId = started.turnId ?? started.turn?.id ?? null;
+    const turnInputs = buildFunctionSlotAutoRunInputs({ role, body: { ...body, sampleVideoId, parentArtifactId } });
+    const activeTurnBinding = {
+      ownerType: "processing-job",
+      ownerId: job?.jobId ?? ownerId,
+      currentAttemptId: job?.jobId ? `${job.jobId}:${traceContext.stageId}` : `${ownerId}:${traceContext.stageId}`,
+      stageName,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId: job?.jobId ?? null,
+      parentArtifactId,
+      leaseId: lease.lease_id ?? lease.leaseId ?? null,
+      threadPoolOwnerId: ownerId,
+      replayRef: {
+        type: "function-slot-auto-run-input",
+        refId: job?.jobId ?? ownerId,
+      },
+    };
+    const started = typeof handlers.activeTurnRuntime?.start === "function"
+      ? await handlers.activeTurnRuntime.start({
+          workspaceRoot,
+          threadId,
+          skillPath,
+          inputs: turnInputs,
+          timeoutSeconds: 240,
+          binding: activeTurnBinding,
+        })
+      : await handlers.appServer.startTurnWithInputs({
+          workspaceRoot,
+          threadId,
+          skillPath,
+          inputs: turnInputs,
+          timeoutSeconds: 240,
+        });
+    const artifactId = job?.jobId ?? started.turnId ?? started.turn?.id ?? null;
     const result = {
       ok: true,
       sampleVideoId,
@@ -591,7 +632,6 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
       },
       durationMs: Date.now() - startedAt,
     });
-    const job = handlers.jobStore?.createJob?.({ sampleVideoId, traceId: traceContext.traceId });
     if (job?.jobId) {
       handlers.jobStore.updateJob(job.jobId, {
         stage: stageName,
@@ -605,6 +645,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
           role,
           threadId: result.threadId,
           turnId: result.turnId,
+          currentAttemptId: `${job.jobId}:${traceContext.stageId}`,
           leaseId: result.leaseId,
           ownerId,
           confirmationId: result.confirmationId,

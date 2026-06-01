@@ -2410,6 +2410,55 @@ test("active turns route returns safe running bindings only", async () => {
   }
 });
 
+test("function slot auto-run creates processing job and active binding for stop writeback", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-active-turn-"));
+  const activeStarts = [];
+  const server = createServer({
+    rootDir,
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: rootDir, skillPath: "skill.md" } }),
+      acquireLease: async () => ({ lease_id: "lease_auto", thread_id: "thread_auto" }),
+    },
+    appServer: {
+      startTurnWithInputs: async () => {
+        throw new Error("active runtime should start the turn");
+      },
+    },
+    activeTurnRuntime: {
+      start: async (payload) => {
+        activeStarts.push(payload);
+        return { threadId: payload.threadId, turnId: "turn_auto", status: "submitted" };
+      },
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
+      sampleVideoId: "sample_auto",
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      parentArtifactId: "artifact_parent",
+      confirmationId: "confirm_1",
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.processingJobId.startsWith("job_"), true);
+    assert.equal(response.body.artifactId, response.body.processingJobId);
+    assert.equal(activeStarts.length, 1);
+    assert.equal(activeStarts[0].binding.ownerType, "processing-job");
+    assert.equal(activeStarts[0].binding.ownerId, response.body.processingJobId);
+    assert.equal(activeStarts[0].binding.replayRef.type, "function-slot-auto-run-input");
+    assert.equal(activeStarts[0].inputs[0].type, "text");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("full analysis batch routes create and read batch queue", async () => {
   const calls = [];
   const fakeBatch = {

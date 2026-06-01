@@ -27,6 +27,7 @@ function createActiveTurnOwnerHandlers({ agentConversationStore = null, jobStore
       ? {
           ...job.agentRun,
           status: failed ? "failed" : "completed",
+          turnId: result?.turnId ?? binding.turnId ?? job.agentRun.turnId ?? null,
           updatedAt: new Date().toISOString(),
         }
       : job.agentRun;
@@ -53,7 +54,7 @@ function createActiveTurnOwnerHandlers({ agentConversationStore = null, jobStore
     jobStore.updateJob(binding.ownerId, {
       status: SAMPLE_STATUS.failed,
       agentRun: job.agentRun
-        ? { ...job.agentRun, status: "canceled", updatedAt: new Date().toISOString() }
+        ? { ...job.agentRun, status: "canceled", turnId: result?.turnId ?? binding.turnId ?? job.agentRun.turnId ?? null, updatedAt: new Date().toISOString() }
         : job.agentRun,
       errorSummary: {
         code: "active_turn_canceled",

@@ -7,6 +7,7 @@ function createShotBoundaryServiceRuntime({
   threadPool,
   sampleStatus,
   appServer,
+  activeTurnRuntime,
   rawWorkspaceRoot,
   stages,
   nextStage,
@@ -152,12 +153,18 @@ function createShotBoundaryServiceRuntime({
     const agentRun = job.agentRun;
     if (!agentRun) return;
     if (agentRun.threadId && agentRun.turnId && typeof appServer?.cancelTurn === "function") {
-      await appServer.cancelTurn({
+      const cancelPayload = {
         workspaceRoot: agentRun.workspaceRoot ?? rawWorkspaceRoot,
         threadId: agentRun.threadId,
         turnId: agentRun.turnId,
         timeoutSeconds: 30,
-      }).catch(() => undefined);
+        traceContext: context.traceContext,
+      };
+      if (typeof activeTurnRuntime?.cancel === "function") {
+        await activeTurnRuntime.cancel(cancelPayload).catch(() => undefined);
+      } else {
+        await appServer.cancelTurn(cancelPayload).catch(() => undefined);
+      }
     }
     if (agentRun.leaseId && agentRun.traceId && typeof threadPool.releaseLease === "function") {
       await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId }).catch(() => undefined);

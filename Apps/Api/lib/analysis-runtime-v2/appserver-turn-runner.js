@@ -16,6 +16,7 @@ function createAppServerTurnRunner({
     turnInputs,
     threadPool,
     appServer,
+    activeTurnRuntime,
     rootDir,
     pollIntervalMs,
     maxCollectAttempts,
@@ -45,17 +46,21 @@ function createAppServerTurnRunner({
       leaseId: lease?.lease_id ?? null,
       threadId: lease?.thread_id ?? null,
     });
-    const started = await appServer.startTurnWithInputs({
+    const started = await startTurn({
+      appServer,
+      activeTurnRuntime,
       workspaceRoot: rootDir,
       threadId: lease.thread_id,
       inputs: turnInputs.inputs,
       timeoutSeconds: startTimeoutSeconds,
+      binding: buildActiveTurnBinding({ context, lease, turnInputs, ownerType: "processing-job", attemptKind: "analyze" }),
     });
     await onTurnSubmit?.({ lease, started });
     await onTurnStarted?.({ lease, started });
     await onTurnCollectStart?.({ lease, started });
     const finalTurn = await collectTurnToCompletion({
       appServer,
+      activeTurnRuntime,
       rootDir,
       threadId: lease.thread_id,
       turnId: started.turnId,
@@ -75,6 +80,7 @@ function createAppServerTurnRunner({
     turnInputs,
     threadPool,
     appServer,
+    activeTurnRuntime,
     rootDir,
     pollIntervalMs,
     maxCollectAttempts,
@@ -98,15 +104,19 @@ function createAppServerTurnRunner({
       collectIdleTimeoutMs,
       collectHardTimeoutMs,
     });
-    const started = await appServer.startTurnWithInputs({
+    const started = await startTurn({
+      appServer,
+      activeTurnRuntime,
       workspaceRoot: rootDir,
       threadId: agentRun.threadId,
       inputs: turnInputs.inputs,
       timeoutSeconds: startTimeoutSeconds,
+      binding: buildActiveTurnBinding({ context, lease: normalizeAgentRunLease(agentRun), turnInputs, ownerType: "processing-job", attemptKind: "repair" }),
     });
     await onTurnStarted?.({ started });
     const finalTurn = await collectTurnToCompletion({
       appServer,
+      activeTurnRuntime,
       rootDir,
       threadId: agentRun.threadId,
       turnId: started.turnId,
@@ -121,6 +131,7 @@ function createAppServerTurnRunner({
 
   async function collectTurnToCompletion({
     appServer,
+    activeTurnRuntime,
     rootDir,
     threadId,
     turnId,
@@ -162,7 +173,9 @@ function createAppServerTurnRunner({
         idleRemainingMs: idleTimeoutMs - idleElapsedMs,
         hardRemainingMs: hardTimeoutMs - hardElapsedMs,
       });
-      const result = await appServer.collectTurnResult({
+      const result = await collectTurn({
+        appServer,
+        activeTurnRuntime,
         workspaceRoot: rootDir,
         threadId,
         turnId,
@@ -368,6 +381,81 @@ function collectRequestTimeoutSeconds({ collectTimeoutSeconds, idleRemainingMs, 
   const baseMs = normalizePositiveMs(collectTimeoutSeconds, 120) * 1000;
   const remainingMs = Math.max(1, Math.min(baseMs, idleRemainingMs, hardRemainingMs));
   return Math.max(1, Math.ceil(remainingMs / 1000));
+}
+
+async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, inputs, timeoutSeconds, binding }) {
+  if (typeof activeTurnRuntime?.start === "function") {
+    return activeTurnRuntime.start({
+      workspaceRoot,
+      threadId,
+      inputs,
+      timeoutSeconds,
+      binding,
+    });
+  }
+  const result = await appServer.startTurnWithInputs({
+    workspaceRoot,
+    threadId,
+    inputs,
+    timeoutSeconds,
+  });
+  if (typeof activeTurnRuntime?.register === "function" && result?.turnId && binding) {
+    await activeTurnRuntime.register({
+      ...binding,
+      threadId: result.threadId ?? threadId,
+      turnId: result.turnId,
+      currentAttemptId: binding.currentAttemptId ?? result.turnId,
+      status: result.status ?? "submitted",
+    }).catch(() => null);
+  }
+  return result;
+}
+
+async function collectTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, turnId, timeoutSeconds }) {
+  if (typeof activeTurnRuntime?.collect === "function") {
+    return activeTurnRuntime.collect({ workspaceRoot, threadId, turnId, timeoutSeconds });
+  }
+  const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
+  await activeTurnRuntime?.markCollectResult?.({ turnId, result }).catch(() => null);
+  return result;
+}
+
+function buildActiveTurnBinding({ context, lease, turnInputs, ownerType, attemptKind }) {
+  const ownerId = context?.job?.jobId ?? context?.sampleVideoId ?? lease?.thread_id ?? null;
+  if (!ownerId) return null;
+  return {
+    ownerType,
+    ownerId,
+    currentAttemptId: buildCurrentAttemptId(context, attemptKind),
+    stageName: context?.activeStage?.stageName ?? null,
+    traceId: context?.traceContext?.traceId ?? null,
+    runId: context?.traceContext?.runId ?? null,
+    stageId: context?.traceContext?.stageId ?? null,
+    artifactId: context?.activeStage?.artifactId ?? context?.artifactId ?? null,
+    parentArtifactId: context?.activeStage?.parentArtifactId ?? context?.parentArtifactId ?? null,
+    leaseId: lease?.lease_id ?? null,
+    threadPoolOwnerId: context?.traceContext?.traceId ?? null,
+    replayRef: {
+      type: "processing-job-input",
+      refId: ownerId,
+      sourceTurnId: context?.agentRun?.turnId ?? null,
+      messageId: turnInputs?.promptTemplateId ?? null,
+    },
+  };
+}
+
+function buildCurrentAttemptId(context, attemptKind) {
+  const jobId = context?.job?.jobId ?? context?.sampleVideoId ?? "unknown";
+  const stageName = context?.activeStage?.stageName ?? "turn";
+  const stageId = context?.traceContext?.stageId ?? Date.now();
+  return `${jobId}:${stageName}:${attemptKind ?? "turn"}:${stageId}`;
+}
+
+function normalizeAgentRunLease(agentRun) {
+  return {
+    lease_id: agentRun?.leaseId ?? null,
+    thread_id: agentRun?.threadId ?? null,
+  };
 }
 
 async function waitBeforeRetry(delayMs) {
