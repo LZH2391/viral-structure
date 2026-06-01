@@ -51,14 +51,14 @@ function createThreadPoolRoleExecutor() {
   };
 }
 
-function createAppServerTurnExecutor({ appServer } = {}) {
+function createAppServerTurnExecutor({ appServer, activeTurnRuntime = null } = {}) {
   return {
     executorKind: "appserver-turn",
     execute: async (payload = {}, context = {}) => {
       if (!appServer) throw executorError("appserver_turn_bridge_missing", "AppServer bridge 未配置", null, true);
       if (payload.action === "start-thread") return startThread(appServer, payload, context);
-      if (payload.action === "submit-turn") return submitTurn(appServer, payload, context);
-      if (payload.action === "collect-turn") return collectTurn(appServer, payload, context);
+      if (payload.action === "submit-turn") return submitTurn(appServer, activeTurnRuntime, payload, context);
+      if (payload.action === "collect-turn") return collectTurn(appServer, activeTurnRuntime, payload, context);
       throw executorError("appserver_turn_action_unknown", "未知 AppServer turn 操作", { action: payload.action }, false);
     },
   };
@@ -87,7 +87,7 @@ async function startThread(appServer, payload, context) {
   };
 }
 
-async function submitTurn(appServer, payload, context) {
+async function submitTurn(appServer, activeTurnRuntime, payload, context) {
   const runStage = requireRunStage(context);
   const result = await runStage(payload.stageName, payload.progress, {
     artifactId: payload.artifactId,
@@ -108,10 +108,12 @@ async function submitTurn(appServer, payload, context) {
       inputMode: payload.inputMode ?? null,
     }),
   });
-  return normalizeTurnResult(result);
+  const normalized = normalizeTurnResult(result);
+  await registerExecutorActiveTurn(activeTurnRuntime, payload, normalized, context);
+  return normalized;
 }
 
-async function collectTurn(appServer, payload, context) {
+async function collectTurn(appServer, activeTurnRuntime, payload, context) {
   const runStage = requireRunStage(context);
   const result = await runStage(payload.stageName, payload.progress, {
     artifactId: payload.artifactId,
@@ -134,7 +136,13 @@ async function collectTurn(appServer, payload, context) {
       promptTemplateHash: payload.promptTemplateHash ?? null,
     }),
   });
-  return normalizeTurnResult(result);
+  const normalized = normalizeTurnResult(result);
+  await activeTurnRuntime?.markCollectResult?.({
+    turnId: normalized.turnId,
+    result: normalized,
+    traceContext: context.traceContext,
+  }).catch(() => null);
+  return normalized;
 }
 
 function normalizeTurnResult(result) {
@@ -157,6 +165,41 @@ function requireRunStage(context) {
     throw executorError("executor_stage_logger_missing", "执行器缺少 stage logger", null, false);
   }
   return context.runStage;
+}
+
+async function registerExecutorActiveTurn(activeTurnRuntime, payload, result, context) {
+  if (!activeTurnRuntime?.register || !result?.turnId) return null;
+  const ownerType = payload.ownerType ?? payload.activeTurnOwnerType ?? "processing-job";
+  const ownerId = payload.ownerId ?? payload.activeTurnOwnerId ?? payload.inputSummary?.jobId ?? payload.inputSummary?.sampleVideoId ?? payload.threadId;
+  const replayRef = payload.replayRef ?? buildExecutorReplayRef(payload, result);
+  if (!ownerType || !ownerId || !replayRef) return null;
+  return activeTurnRuntime.register({
+    threadId: result.threadId ?? payload.threadId,
+    turnId: result.turnId,
+    ownerType,
+    ownerId,
+    currentAttemptId: payload.currentAttemptId ?? result.turnId,
+    stageName: payload.stageName,
+    traceId: context.traceContext?.traceId ?? null,
+    runId: context.traceContext?.runId ?? null,
+    stageId: context.traceContext?.stageId ?? null,
+    artifactId: payload.artifactId ?? null,
+    parentArtifactId: payload.parentArtifactId ?? null,
+    leaseId: payload.leaseId ?? payload.inputSummary?.leaseId ?? null,
+    threadPoolOwnerId: payload.threadPoolOwnerId ?? payload.inputSummary?.ownerId ?? null,
+    replayRef,
+    status: result.status ?? "submitted",
+  }).catch(() => null);
+}
+
+function buildExecutorReplayRef(payload, result) {
+  const refId = payload.replayRefId ?? payload.inputSummary?.replayRefId ?? payload.inputSummary?.jobId ?? payload.inputSummary?.sampleVideoId ?? result.turnId;
+  if (!refId) return null;
+  return {
+    type: payload.replayRefType ?? "executor-input",
+    refId,
+    sourceTurnId: payload.sourceTurnId ?? null,
+  };
 }
 
 function summarizeMessage(message) {

@@ -253,6 +253,22 @@
   color: var(--text);
 }
 
+.agent-chat-turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.agent-chat-turn-actions .danger-action {
+  border-color: rgba(255, 107, 107, 0.48);
+  color: var(--text);
+}
+
 .agent-chat-conversation-bar select {
   min-width: 180px;
   max-width: 360px;

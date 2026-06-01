@@ -2149,10 +2149,17 @@ test("agent chat compact route writes failure stage and snapshot", async () => {
 test("agent chat stop turn cancels the specified turn and marks it retryable", async () => {
   const cancelCalls = [];
   const stopped = [];
+  const activeTurnCalls = [];
   const server = createServer({
     logger: {
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    activeTurnRuntime: {
+      cancel: async (payload) => {
+        activeTurnCalls.push(payload);
+        return { ok: true, threadId: payload.threadId, turnId: payload.turnId, status: "canceled" };
+      },
     },
     appServer: {
       cancelTurn: async (payload) => {
@@ -2183,9 +2190,11 @@ test("agent chat stop turn cancels the specified turn and marks it retryable", a
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.action, "stop_turn");
     assert.equal(response.body.status, "canceled");
-    assert.deepEqual(cancelCalls.map((call) => [call.threadId, call.turnId]), [["thread_1", "turn_1"]]);
+    assert.deepEqual(cancelCalls.map((call) => [call.threadId, call.turnId]), []);
+    assert.deepEqual(activeTurnCalls.map((call) => [call.threadId, call.turnId]), [["thread_1", "turn_1"]]);
     assert.equal(stopped[0].text, "已停止当前 turn：manual stop");
     assert.equal(response.body.actionProjection.flags.retrySameThread, true);
+    assert.equal(response.body.activeTurnStatus, "canceled");
   } finally {
     await closeServer(server);
   }
@@ -2248,10 +2257,14 @@ test("agent chat stop thread cancels active turn and discards threadpool thread 
 
 test("agent chat retry same thread replays persisted user task on the same thread", async () => {
   const turnCalls = [];
+  const activeTurns = [];
   const server = createServer({
     logger: {
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    activeTurnRuntime: {
+      register: async (binding) => activeTurns.push(binding),
     },
     appServer: {
       startTurnWithInputs: async (payload) => {
@@ -2270,7 +2283,7 @@ test("agent chat retry same thread replays persisted user task on the same threa
         latestTurnId: "turn_1",
         messages: [{ id: "user-turn_1", role: "user", turnId: "turn_1", text: "继续分析这个方案" }],
       }),
-      recordUserTurn: async (payload) => ({ conversationId: payload.conversationId, status: "active", revision: 3, latestTurnId: payload.turnId, messages: [] }),
+      recordUserTurn: async (payload) => ({ conversationId: payload.conversationId, source: "direct", status: "active", revision: 3, latestTurnId: payload.turnId, messages: [] }),
     },
     staticWorkbench: { handle: () => false },
   });
@@ -2289,6 +2302,9 @@ test("agent chat retry same thread replays persisted user task on the same threa
     assert.equal(response.body.turnId, "turn_retry");
     assert.equal(turnCalls[0].threadId, "thread_1");
     assert.deepEqual(turnCalls[0].inputs, [{ type: "text", text: "继续分析这个方案", text_elements: [] }]);
+    assert.equal(activeTurns[0].ownerType, "agent-chat");
+    assert.equal(activeTurns[0].replayRef.type, "agent-chat-message");
+    assert.equal(activeTurns[0].replayRef.sourceTurnId, "turn_1");
   } finally {
     await closeServer(server);
   }
@@ -2342,6 +2358,34 @@ test("agent chat retry new thread starts a new thread before replaying task", as
     assert.equal(response.body.threadId, "thread_new");
     assert.deepEqual(calls.map((call) => call.type), ["startThread", "startTurn"]);
     assert.equal(calls[1].threadId, "thread_new");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("active turns route returns safe running bindings only", async () => {
+  const server = createServer({
+    activeTurnRuntime: {
+      listActive: async () => [{
+        threadId: "thread_1",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        status: "running",
+        replayRef: { type: "text", textSummary: { length: 12, preview: "safe preview" } },
+      }],
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/active-turns");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.count, 1);
+    assert.equal(response.body.activeTurns[0].turnId, "turn_1");
+    assert.equal(response.body.activeTurns[0].replayRef.textSummary.preview, "safe preview");
   } finally {
     await closeServer(server);
   }

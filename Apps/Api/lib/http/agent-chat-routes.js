@@ -8,6 +8,7 @@ const { summarizeThreadConversation } = require("../observability/thread-convers
 const { buildAgentChatActionProjection, findReplayTask, latestAssistantStatus } = require("../agent-chat/actions");
 const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
+const { normalizeTurnStatus } = require("../active-turns/status");
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
@@ -134,6 +135,15 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           stageId: payload.stageId,
         });
         if (conversation?.revision) payload.conversationRevision = conversation.revision;
+        await registerAgentChatActiveTurn(handlers, {
+          payload,
+          conversation,
+          message,
+          traceContext,
+          stageName: "agentChat.turn.submit",
+          sourceTurnId: null,
+        });
+        attachAgentChatProjection(payload, conversation, payload.status);
         return payload;
       });
     },
@@ -197,6 +207,27 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           runId: traceContext.runId,
           stageId: traceContext.stageId,
         }) ?? conversation;
+        await registerAgentChatActiveTurn(handlers, {
+          payload: {
+            conversationId,
+            source: conversation.source ?? body.source ?? "threadpool-role",
+            role: conversation.role,
+            leaseId: conversation.leaseId ?? body.leaseId ?? null,
+            threadPoolOwnerId: conversation.ownerId ?? body.ownerId ?? null,
+            workspaceRoot,
+            threadId: result.threadId ?? threadId,
+            turnId,
+            status: result.status ?? "submitted",
+            traceId: traceContext.traceId,
+            runId: traceContext.runId,
+            stageId: traceContext.stageId,
+          },
+          conversation: recorded,
+          message: replacementSummary,
+          traceContext,
+          stageName: "agentChat.manualReplacement.submit",
+          sourceTurnId: conversation.latestTurnId ?? null,
+        });
         return {
           ok: true,
           source: conversation.source ?? body.source ?? "threadpool-role",
@@ -214,6 +245,17 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           traceId: traceContext.traceId,
           runId: traceContext.runId,
           stageId: traceContext.stageId,
+          actionProjection: buildAgentChatActionProjection({
+            conversation: recorded,
+            threadId: result.threadId ?? threadId,
+            turnId,
+            status: result.status ?? "submitted",
+            retryable: true,
+          }),
+          latestTurnId: recorded?.latestTurnId ?? turnId,
+          threadStopped: Boolean(recorded?.threadStopped),
+          retryable: true,
+          activeTurnStatus: normalizeTurnStatus(result.status ?? "submitted"),
         };
       });
     },
@@ -246,7 +288,7 @@ async function handleAgentChatTurnStop(req, res, threadId, turnId, handlers = {}
         const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
         let conversation = conversationId ? await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision: normalizeRevision(body.expectedRevision) }) : null;
         if (conversationId && !conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
-        const cancelled = await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId });
+        const cancelled = await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId, traceContext });
         conversation = await handlers.agentConversationStore?.recordTurnStopped?.({
           conversationId,
           turnId,
@@ -262,6 +304,10 @@ async function handleAgentChatTurnStop(req, res, threadId, turnId, handlers = {}
           turnId,
           status: cancelled.status ?? "canceled",
           conversationRevision: conversation?.revision ?? null,
+          latestTurnId: conversation?.latestTurnId ?? turnId,
+          threadStopped: Boolean(conversation?.threadStopped),
+          retryable: true,
+          activeTurnStatus: normalizeTurnStatus(cancelled.status ?? "canceled"),
           actionProjection: buildAgentChatActionProjection({
             conversation,
             threadId,
@@ -308,7 +354,7 @@ async function handleAgentChatThreadStop(req, res, threadId, handlers = {}) {
         let conversation = conversationId ? await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision: normalizeRevision(body.expectedRevision) }) : null;
         if (conversationId && !conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
         const activeTurnId = normalizeText(body.activeTurnId ?? body.turnId ?? conversation?.latestTurnId);
-        const turnStop = activeTurnId ? await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId: activeTurnId }) : null;
+        const turnStop = activeTurnId ? await cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId: activeTurnId, traceContext }) : null;
         let leaseRelease = null;
         let threadDiscard = null;
         if (normalizeSource(body.source ?? conversation?.source) === "threadpool-role") {
@@ -344,6 +390,10 @@ async function handleAgentChatThreadStop(req, res, threadId, handlers = {}) {
           threadDiscard,
           conversationStatus: conversation?.status ?? null,
           conversationRevision: conversation?.revision ?? null,
+          latestTurnId: conversation?.latestTurnId ?? activeTurnId,
+          threadStopped: Boolean(conversation?.threadStopped),
+          retryable: true,
+          activeTurnStatus: normalizeTurnStatus(turnStop?.status ?? latestAssistantStatus(conversation, activeTurnId)),
           actionProjection: buildAgentChatActionProjection({
             conversation,
             threadId,
@@ -434,6 +484,27 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
           runId: traceContext.runId,
           stageId: traceContext.stageId,
         }) ?? boundConversation;
+        await registerAgentChatActiveTurn(handlers, {
+          payload: {
+            conversationId,
+            source: session.source,
+            role: session.role,
+            leaseId: session.leaseId,
+            threadPoolOwnerId: session.ownerId,
+            workspaceRoot: session.workspaceRoot,
+            threadId: session.threadId,
+            turnId: retryTurnId,
+            status: result.status ?? "submitted",
+            traceId: traceContext.traceId,
+            runId: traceContext.runId,
+            stageId: traceContext.stageId,
+          },
+          conversation: recorded,
+          message: replayTask.text,
+          traceContext,
+          stageName: mode === "new_thread" ? "agentChat.thread.retry" : "agentChat.turn.retry",
+          sourceTurnId: replayTask.sourceTurnId,
+        });
         return {
           ok: true,
           action: mode === "new_thread" ? "retry_new_thread" : "retry_same_thread",
@@ -443,6 +514,10 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
           turnId: retryTurnId,
           status: result.status ?? "submitted",
           conversationRevision: recorded?.revision ?? null,
+          latestTurnId: recorded?.latestTurnId ?? retryTurnId,
+          threadStopped: Boolean(recorded?.threadStopped),
+          retryable: true,
+          activeTurnStatus: normalizeTurnStatus(result.status ?? "submitted"),
           actionProjection: buildAgentChatActionProjection({
             conversation: recorded,
             threadId: session.threadId,
@@ -564,6 +639,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       });
       if (materializedDisplay) payload.materializedDisplay = materializedDisplay;
       const conversationId = normalizeText(url?.searchParams?.get("conversationId"));
+      let recorded = null;
       const autoDisplayTransform = await maybeAutoTransformRestructureResult({
         payload,
         handlers,
@@ -573,15 +649,34 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       });
       if (autoDisplayTransform) payload.autoDisplayTransform = autoDisplayTransform;
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);
-      await handlers.agentConversationStore?.recordAssistantTurn?.({
-        conversationId,
+      if (conversationId) {
+        recorded = await handlers.agentConversationStore?.recordAssistantTurn?.({
+          conversationId,
+          turnId: payload.turnId,
+          text: payload.finalMessage || activeText || (isTerminalStatus(payload.status) ? "" : "生成中"),
+          status: payload.status,
+          traceId: payload.traceId,
+          runId: payload.runId,
+          stageId: payload.stageId,
+          slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
+        });
+      }
+      await handlers.activeTurnRuntime?.markCollectResult?.({
         turnId: payload.turnId,
-        text: payload.finalMessage || activeText || (isTerminalStatus(payload.status) ? "" : "生成中"),
+        result: payload,
+        traceContext,
+      }).catch(() => null);
+      payload.conversationRevision = recorded?.revision ?? null;
+      payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;
+      payload.threadStopped = Boolean(recorded?.threadStopped);
+      payload.retryable = true;
+      payload.activeTurnStatus = normalizeTurnStatus(payload.status);
+      payload.actionProjection = buildAgentChatActionProjection({
+        conversation: recorded,
+        threadId: payload.threadId,
+        turnId: payload.turnId,
         status: payload.status,
-        traceId: payload.traceId,
-        runId: payload.runId,
-        stageId: payload.stageId,
-        slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
+        retryable: true,
       });
       return payload;
     },
@@ -1159,8 +1254,17 @@ function isUnknownActiveLeaseError(error) {
   return values.some((value) => String(value ?? "").includes("unknown active lease"));
 }
 
-async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId }) {
+async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId, traceContext = null }) {
   if (!turnId) return { status: "not_requested" };
+  if (typeof handlers.activeTurnRuntime?.cancel === "function") {
+    return handlers.activeTurnRuntime.cancel({
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds: 30,
+      traceContext,
+    });
+  }
   if (typeof handlers.appServer?.cancelTurn !== "function") {
     const error = new Error("AppServer turn/cancel 能力不可用");
     error.statusCode = 503;
@@ -1179,6 +1283,49 @@ async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId
     turnId: result?.turnId ?? turnId,
     status: normalizeText(result?.status) || "canceled",
   };
+}
+
+async function registerAgentChatActiveTurn(handlers, { payload, conversation, message, traceContext, stageName, sourceTurnId }) {
+  if (!handlers.activeTurnRuntime?.register || !payload?.turnId || !message) return null;
+  const conversationId = normalizeText(payload.conversationId ?? conversation?.conversationId);
+  if (!conversationId) return null;
+  return handlers.activeTurnRuntime.register({
+    threadId: payload.threadId,
+    turnId: payload.turnId,
+    ownerType: "agent-chat",
+    ownerId: conversationId,
+    currentAttemptId: payload.turnId,
+    stageName,
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+    artifactId: payload.artifactId ?? null,
+    parentArtifactId: payload.parentArtifactId ?? sourceTurnId ?? null,
+    leaseId: payload.leaseId ?? conversation?.leaseId ?? null,
+    threadPoolOwnerId: payload.threadPoolOwnerId ?? conversation?.ownerId ?? null,
+    replayRef: {
+      type: "agent-chat-message",
+      refId: `user-${payload.turnId}`,
+      messageId: `user-${payload.turnId}`,
+      sourceTurnId,
+    },
+    status: payload.status ?? "submitted",
+  }).catch(() => null);
+}
+
+function attachAgentChatProjection(payload, conversation, status) {
+  payload.latestTurnId = conversation?.latestTurnId ?? payload.turnId ?? null;
+  payload.threadStopped = Boolean(conversation?.threadStopped);
+  payload.retryable = true;
+  payload.activeTurnStatus = normalizeTurnStatus(status);
+  payload.actionProjection = buildAgentChatActionProjection({
+    conversation,
+    threadId: payload.threadId,
+    turnId: payload.turnId,
+    status,
+    retryable: true,
+  });
+  return payload;
 }
 
 async function createRetryThreadSession({ body, conversation, handlers, traceContext }) {

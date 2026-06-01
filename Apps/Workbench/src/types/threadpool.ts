@@ -107,7 +107,7 @@ export type AgentChatMessageSnapshot = {
   turnId?: string | null;
   role: "user" | "assistant" | "system";
   text: string;
-  status?: "running" | "completed" | "failed";
+  status?: "running" | "completed" | "failed" | "canceled";
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -137,6 +137,9 @@ export type AgentChatConversation = {
   archivedAt?: string | null;
   invalidated?: boolean;
   invalidatedAt?: string | null;
+  threadStopped?: boolean;
+  threadStoppedAt?: string | null;
+  threadStopReason?: string | null;
   lastResumeError?: {
     code?: string | null;
     message?: string | null;

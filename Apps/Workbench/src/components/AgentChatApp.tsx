@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, retryAgentChatTurn, sendAgentChatMessage, startAgentChatThread, stopAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -13,7 +13,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   text: string;
-  status?: "running" | "completed" | "failed";
+  status?: "running" | "completed" | "failed" | "canceled";
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
 };
 
@@ -33,6 +33,9 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+  const [turnActionProjection, setTurnActionProjection] = useState<AgentChatActionProjection | null>(null);
+  const [turnActionBusy, setTurnActionBusy] = useState<"stop_turn" | "stop_thread" | "retry_same_thread" | "retry_new_thread" | null>(null);
+  const [threadStopped, setThreadStopped] = useState(false);
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("timeline");
   const [statusText, setStatusText] = useState("等待连接");
@@ -81,6 +84,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         setActiveConversationRevision(normalizeConversationRevision(active.revision));
         setActiveConversationInvalidated(Boolean(active.invalidated));
         setActiveConversationConfirmedPlan(active.confirmedPlan ?? null);
+        setThreadStopped(Boolean(active.threadStopped));
       }
     }
     return items;
@@ -98,6 +102,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setActiveConversationRevision(revision);
     setActiveConversationInvalidated(Boolean(payload.conversation.invalidated));
     setActiveConversationConfirmedPlan(payload.conversation.confirmedPlan ?? null);
+    setThreadStopped(Boolean(payload.conversation.threadStopped));
     setSession((current) => current?.conversationId === conversationId ? {
       ...current,
       conversationRevision: revision,
@@ -144,6 +149,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && !activeConversationInvalidated
     && !busy
     && !registeringTrace;
+  const availableTurnActions = turnActionProjection?.availableActions ?? [];
+  const showStopTurn = availableTurnActions.includes("stop_turn");
+  const showStopThread = availableTurnActions.includes("stop_thread");
+  const showRetrySameThread = availableTurnActions.includes("retry_same_thread") && !threadStopped;
+  const showRetryNewThread = availableTurnActions.includes("retry_new_thread");
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
@@ -172,6 +182,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     });
     const refreshedTurns = refreshed?.turns ?? [];
     setCurrentTurnId(conversation.latestTurnId ?? latestVisibleTurnId(refreshedTurns));
+    setThreadStopped(Boolean(conversation.threadStopped));
+    setTurnActionProjection(null);
     setTimeline(null);
     const persistedMessages = messagesFromConversation(conversation);
     const refreshedMessages = refreshed ? messagesFromThreadConversation(refreshed) : [];
@@ -233,13 +245,16 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           getAgentChatTurnTimeline(activeSession.threadId as string, turnId, activeSession.workspaceRoot).catch(() => null),
         ]);
         if (nextTimeline) setTimeline(nextTimeline);
+        setTurnActionProjection(turn.actionProjection ?? null);
+        setThreadStopped(Boolean(turn.threadStopped));
+        if (turn.conversationRevision) setActiveConversationRevision(turn.conversationRevision);
         const activeText = normalizeActiveMessage(turn.activeThreadMessage);
         const finalText = turn.finalMessage || activeText || (isTerminalStatus(turn.status) ? "" : "生成中");
         setMessages((current) => current.map((message) => message.id === `assistant-${turnId}`
           ? {
               ...message,
               text: finalText || message.text,
-              status: isTerminalStatus(turn.status) ? "completed" : "running",
+              status: toChatMessageStatus(turn.status),
               slotAtomDisplay: turn.autoDisplayTransform?.slotAtomDisplay ?? message.slotAtomDisplay ?? null,
             }
           : message));
@@ -328,6 +343,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         submitted = await sendWithRevision(normalizeConversationRevision(synced?.revision));
       }
       if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      setTurnActionProjection(submitted.actionProjection ?? null);
+      setThreadStopped(Boolean(submitted.threadStopped));
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
       setStatusText("Agent 回复中");
@@ -381,6 +398,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         )));
       }
       if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      setTurnActionProjection(submitted.actionProjection ?? null);
+      setThreadStopped(Boolean(submitted.threadStopped));
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
       setStatusText("Agent 正在评估替换");
@@ -404,6 +423,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setMessages([]);
     setDraft("");
     setCurrentTurnId(null);
+    setTurnActionProjection(null);
+    setThreadStopped(false);
     setTimeline(null);
     compactedUsageKeysRef.current.clear();
     setActiveConversationId(null);
@@ -503,6 +524,121 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setStatusText("释放失败");
     }
   }, [activeConversationId, applyConversation, refreshConversations, session, startNewConversation]);
+
+  const stopPolling = useCallback(() => {
+    if (!pollTimerRef.current) return;
+    window.clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = null;
+  }, []);
+
+  const handleStopTurn = useCallback(async () => {
+    if (!session?.threadId || !currentTurnId || turnActionBusy) return;
+    setTurnActionBusy("stop_turn");
+    setErrorText(null);
+    setStatusText("停止当前 turn");
+    stopPolling();
+    try {
+      const response = await stopAgentChatTurn(session.threadId, currentTurnId, {
+        conversationId: session.conversationId ?? activeConversationId,
+        expectedRevision: activeConversationRevision,
+        workspaceRoot: session.workspaceRoot,
+        reason: "manual stop",
+      });
+      setTurnActionProjection(response.actionProjection ?? null);
+      setThreadStopped(Boolean(response.threadStopped));
+      if (response.conversationRevision) setActiveConversationRevision(response.conversationRevision);
+      setMessages((current) => current.map((message) => message.id === `assistant-${currentTurnId}`
+        ? { ...message, text: "已停止当前 turn", status: "canceled" }
+        : message));
+      setBusy(false);
+      setStatusText("turn 已停止");
+      void refreshConversations().catch(() => undefined);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "停止 turn 失败");
+      setStatusText("停止失败");
+    } finally {
+      setTurnActionBusy(null);
+    }
+  }, [activeConversationId, activeConversationRevision, currentTurnId, refreshConversations, session, stopPolling, turnActionBusy]);
+
+  const handleStopThread = useCallback(async () => {
+    if (!session?.threadId || turnActionBusy) return;
+    setTurnActionBusy("stop_thread");
+    setErrorText(null);
+    setStatusText("停止当前 thread");
+    stopPolling();
+    try {
+      const response = await stopAgentChatThread(session.threadId, {
+        conversationId: session.conversationId ?? activeConversationId,
+        expectedRevision: activeConversationRevision,
+        workspaceRoot: session.workspaceRoot,
+        activeTurnId: currentTurnId,
+        source: session.source,
+        leaseId: session.leaseId,
+        ownerId: session.ownerId,
+        discardThread: false,
+        reason: "manual stop",
+      });
+      setTurnActionProjection(response.actionProjection ?? null);
+      setThreadStopped(Boolean(response.threadStopped));
+      if (response.conversationRevision) setActiveConversationRevision(response.conversationRevision);
+      if (currentTurnId) {
+        setMessages((current) => current.map((message) => message.id === `assistant-${currentTurnId}`
+          ? { ...message, text: message.text === "生成中" ? "已停止当前 thread" : message.text, status: "canceled" }
+          : message));
+      }
+      setBusy(false);
+      setStatusText("thread 已停止");
+      void refreshConversations().catch(() => undefined);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "停止 thread 失败");
+      setStatusText("停止失败");
+    } finally {
+      setTurnActionBusy(null);
+    }
+  }, [activeConversationId, activeConversationRevision, currentTurnId, refreshConversations, session, stopPolling, turnActionBusy]);
+
+  const handleRetryTurn = useCallback(async (mode: "same_thread" | "new_thread") => {
+    if (!session?.threadId || !currentTurnId || !session.conversationId || turnActionBusy) return;
+    const action = mode === "new_thread" ? "retry_new_thread" : "retry_same_thread";
+    setTurnActionBusy(action);
+    setErrorText(null);
+    setStatusText(mode === "new_thread" ? "新 thread 重试" : "同 thread 重试");
+    stopPolling();
+    try {
+      const response = await retryAgentChatTurn(session.threadId, currentTurnId, {
+        mode,
+        conversationId: session.conversationId,
+        expectedRevision: activeConversationRevision,
+        workspaceRoot: session.workspaceRoot,
+        source: session.source,
+        role: session.role,
+        skillPath: session.skillPath,
+      });
+      const nextSession = mode === "new_thread"
+        ? { ...session, threadId: response.threadId, conversationRevision: response.conversationRevision ?? session.conversationRevision }
+        : session;
+      setSession(nextSession);
+      setCurrentTurnId(response.turnId);
+      setTurnActionProjection(response.actionProjection ?? null);
+      setThreadStopped(Boolean(response.threadStopped));
+      if (response.conversationRevision) setActiveConversationRevision(response.conversationRevision);
+      const replayText = resolveReplayText(messages, response.sourceTurnId);
+      setMessages((current) => [
+        ...current,
+        { id: `user-${response.turnId}`, role: "user", text: replayText || "重试上一轮任务", status: "completed" },
+        { id: `assistant-${response.turnId}`, role: "assistant", text: "生成中", status: "running" },
+      ]);
+      setBusy(true);
+      setStatusText("Agent 回复中");
+      schedulePoll(nextSession, response.turnId);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "重试 turn 失败");
+      setStatusText("重试失败");
+    } finally {
+      setTurnActionBusy(null);
+    }
+  }, [activeConversationRevision, currentTurnId, messages, schedulePoll, session, stopPolling, turnActionBusy]);
 
   const handleConfirmRestructure = useCallback(async () => {
     if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
@@ -713,8 +849,33 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             <span>{activeConversationId ? `当前会话 ${shortId(activeConversationId)}` : "新会话"}</span>
             {session?.role ? <span>role {session.role}</span> : null}
             {activeConversationInvalidated ? <span className="agent-chat-state-badge danger">thread 失效</span> : null}
+            {threadStopped ? <span className="agent-chat-state-badge danger">thread 已停止</span> : null}
             {activeConversationConfirmedPlan ? <span className="agent-chat-state-badge success">方案已确认</span> : null}
           </div>
+          {availableTurnActions.length ? (
+            <div className="agent-chat-turn-actions" aria-label="当前 turn 操作">
+              {showStopTurn ? (
+                <button className="ghost-button agent-chat-action danger-action" type="button" disabled={Boolean(turnActionBusy)} onClick={() => void handleStopTurn()}>
+                  {turnActionBusy === "stop_turn" ? "停止中" : "停止 Turn"}
+                </button>
+              ) : null}
+              {showStopThread ? (
+                <button className="ghost-button agent-chat-action danger-action" type="button" disabled={Boolean(turnActionBusy)} onClick={() => void handleStopThread()}>
+                  {turnActionBusy === "stop_thread" ? "停止中" : "停止 Thread"}
+                </button>
+              ) : null}
+              {showRetrySameThread ? (
+                <button className="ghost-button agent-chat-action" type="button" disabled={Boolean(turnActionBusy)} onClick={() => void handleRetryTurn("same_thread")}>
+                  {turnActionBusy === "retry_same_thread" ? "重试中" : "同线程重试"}
+                </button>
+              ) : null}
+              {showRetryNewThread ? (
+                <button className="primary-button agent-chat-action" type="button" disabled={Boolean(turnActionBusy)} onClick={() => void handleRetryTurn("new_thread")}>
+                  {turnActionBusy === "retry_new_thread" ? "重试中" : "新线程重试"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="agent-chat-messages">
             {messages.length ? messages.map((message) => (
               <article key={message.id} className={`agent-chat-message ${message.role} ${message.status ?? ""}`}>
@@ -842,6 +1003,18 @@ function normalizeActiveMessage(value: unknown) {
 
 function isTerminalStatus(status: string | null | undefined) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
+}
+
+function toChatMessageStatus(status: string | null | undefined): ChatMessage["status"] {
+  const value = String(status ?? "").trim().toLowerCase();
+  if (value === "canceled" || value === "cancelled") return "canceled";
+  if (value === "failed" || value === "error" || value === "errored") return "failed";
+  return isTerminalStatus(value) ? "completed" : "running";
+}
+
+function resolveReplayText(messages: ChatMessage[], sourceTurnId: string | null | undefined) {
+  if (!sourceTurnId) return "";
+  return messages.find((message) => message.id === `user-${sourceTurnId}` || (message.role === "user" && message.id.endsWith(String(sourceTurnId))))?.text ?? "";
 }
 
 function messagesFromConversation(conversation: AgentChatConversation): ChatMessage[] {

@@ -22,6 +22,8 @@ const { readCapabilities } = require("./lib/http/capabilities");
 const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
+const { createActiveTurnRuntime } = require("./lib/active-turns/runtime");
+const { handleActiveTurnsList } = require("./lib/http/active-turn-routes");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
 const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatManualReplacementSubmit, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
@@ -53,6 +55,7 @@ const agentConversationStore = createAgentConversationStore({ store });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const appServer = createAppServerBridge();
+const activeTurnRuntime = createActiveTurnRuntime({ store, appServer });
 const threadPool = createThreadPoolProxy({
   readThreadImpl: async (threadId, options = {}) => appServer.readThread({ workspaceRoot: options.workspaceRoot ?? rootDir, threadId }),
 });
@@ -123,8 +126,10 @@ function createServer(deps = {}) {
   });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? shotBoundaryService;
+  const activeActiveTurnRuntime = deps.activeTurnRuntime ?? (activeStore === store && (deps.appServer ?? appServer) === appServer ? activeTurnRuntime : createActiveTurnRuntime({ store: activeStore, appServer: deps.appServer ?? appServer }));
   const activeExecutorRegistry = deps.executorRegistry ?? createExecutorRegistry({
     appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
     rootDir: deps.rootDir ?? rootDir,
@@ -135,6 +140,7 @@ function createServer(deps = {}) {
     functionSlotProjectionService: activeFunctionSlotProjectionService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
     executorRegistry: activeExecutorRegistry,
     serviceOverrides: {
       scriptSegmentService: deps.scriptSegmentService,
@@ -183,6 +189,7 @@ function createServer(deps = {}) {
     service: activeSampleService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
     shotBoundaryService: activeShotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     moduleRegistry: activeModuleRegistry,
@@ -214,6 +221,7 @@ function createServer(deps = {}) {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/active-turns") return await handleActiveTurnsList(res, handlers, url);
       if (req.method === "GET" && url.pathname === "/api/modules") return await handleModules(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
       if (req.method === "GET" && /^\/api\/function-slot-projection\/artifacts\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotProjectionArtifact(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);

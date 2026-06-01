@@ -76,6 +76,11 @@ export type AgentChatTurnResponse = {
   runId: string;
   stageId: string;
   conversationRevision?: number | null;
+  latestTurnId?: string | null;
+  threadStopped?: boolean | null;
+  retryable?: boolean | null;
+  activeTurnStatus?: string | null;
+  actionProjection?: AgentChatActionProjection;
   finalMessage?: string | null;
   userTurnText?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
@@ -129,6 +134,10 @@ export type AgentChatStopResponse = {
   status?: string | null;
   conversationStatus?: string | null;
   conversationRevision?: number | null;
+  latestTurnId?: string | null;
+  threadStopped?: boolean | null;
+  retryable?: boolean | null;
+  activeTurnStatus?: string | null;
   actionProjection?: AgentChatActionProjection;
   traceId: string;
   runId: string;
@@ -144,6 +153,10 @@ export type AgentChatRetryResponse = {
   turnId: string;
   status: string;
   conversationRevision?: number | null;
+  latestTurnId?: string | null;
+  threadStopped?: boolean | null;
+  retryable?: boolean | null;
+  activeTurnStatus?: string | null;
   actionProjection?: AgentChatActionProjection;
   traceId: string;
   runId: string;
