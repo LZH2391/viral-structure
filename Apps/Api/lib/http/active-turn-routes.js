@@ -197,6 +197,7 @@ async function handleActiveTurnRetry(req, res, bindingId, handlers = {}) {
         status: "submitted",
       },
     });
+    assertRetryStartSucceeded(started);
   } catch (error) {
     await releaseRetryThreadLease(retryThread, handlers);
     throw error;
@@ -350,6 +351,7 @@ async function retryAgentChatTurnFromBinding({ res, binding, body, handlers, run
         },
       },
     });
+    assertRetryStartSucceeded(started);
   } catch (error) {
     await releaseRetryThreadLease(retrySession, handlers);
     throw error;
@@ -484,6 +486,15 @@ function sendRetrySourceNotCanceled(res, binding, cancelResult) {
     status: cancelResult?.status ?? null,
     ownerResult: cancelResult?.ownerResult ?? null,
   });
+}
+
+function assertRetryStartSucceeded(result) {
+  const turnId = result?.turnId ?? result?.turn?.id ?? null;
+  if (result?.ok !== false && turnId) return;
+  const error = new Error(result?.message ?? "Active turn retry start 未返回有效 turnId");
+  error.code = result?.error ?? result?.code ?? "active_turn_retry_start_failed";
+  error.statusCode = result?.statusCode ?? 502;
+  throw error;
 }
 
 function isCurrentProcessingJobTurn(job, binding) {
