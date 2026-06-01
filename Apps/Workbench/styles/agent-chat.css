@@ -663,6 +663,28 @@
   font-size: 12px;
 }
 
+.agent-chat-replacement-current {
+  display: grid;
+  gap: 4px;
+  padding: 7px 8px;
+  border: 1px solid rgba(134, 239, 172, 0.26);
+  border-radius: 6px;
+  background: rgba(134, 239, 172, 0.07);
+}
+
+.agent-chat-replacement-current span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-chat-replacement-current b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-chat-replacement-drawer input {
   width: 100%;
   min-width: 0;

@@ -33,6 +33,10 @@ export function SlotAtomView({
     return atoms.find((atom) => atom.slotSubtypeId === selectedSlot.slotSubtypeId) ?? null;
   }, [atoms, selectedSlot?.slotSubtypeId]);
   const slotInvalidated = Boolean(draft.find((item) => item.type === "slot" && item.fromSlotSubtypeId === selectedSlot?.slotSubtypeId));
+  const visibleCandidates = useMemo(
+    () => candidates.filter((candidate) => !isCurrentReplacementCandidate(candidate, drawer, selectedSlot, selectedAtoms)),
+    [candidates, drawer, selectedAtoms, selectedSlot],
+  );
 
   useEffect(() => {
     setSelectedSlotId(display?.selectedSlotSubtypeId ?? display?.slots?.[0]?.slotSubtypeId ?? null);
@@ -54,7 +58,6 @@ export function SlotAtomView({
       .then((payload) => {
         if (cancelled) return;
         setCandidates(payload.candidates ?? []);
-        setCandidateStatus(`${payload.candidates?.length ?? 0} candidates`);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -193,10 +196,14 @@ export function SlotAtomView({
             <span>{drawer.kind === "slot" ? "当前仅展示 Slot 候选" : `当前仅展示 ${drawer.atomKind} Atom 候选`}</span>
             <small>绑定证据随候选展示</small>
           </div>
+          <div className="agent-chat-replacement-current">
+            <span>当前替换对象</span>
+            <b>{currentReplacementLabel(drawer, selectedSlot, selectedAtoms)}</b>
+          </div>
           <input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="搜索 slot / atom / 样例来源" />
-          <small>{candidateStatus}</small>
+          <small>{candidateStatusText(candidateStatus, candidates.length, visibleCandidates.length)}</small>
           <div className="agent-chat-replacement-candidates">
-            {candidates.map((candidate) => (
+            {visibleCandidates.map((candidate) => (
               <article key={candidate.candidateId} className={candidate.needReview ? "needs-review" : ""}>
                 <div>
                   <b>{candidate.label ?? candidate.candidateId}</b>
@@ -257,6 +264,51 @@ function replacementDrawerTitle(drawer: DrawerState) {
   return "Packaging Atom 库";
 }
 
+function currentReplacementLabel(drawer: DrawerState, slot: AgentChatSlotSummary | null, atoms: AgentChatAtomSummary | null) {
+  if (drawer.kind === "slot") return stripBacktickLabel(slot?.slotSubtype) || slot?.slotSubtypeId || "未知 Slot";
+  return atomValueFor(atoms, drawer.atomKind) || `未知 ${drawer.atomKind} Atom`;
+}
+
+function candidateStatusText(status: string, totalCount: number, visibleCount: number) {
+  if (!status.includes("候选") && !status.includes("candidate")) return status;
+  const hiddenCount = Math.max(0, totalCount - visibleCount);
+  return hiddenCount ? `${visibleCount} candidates，可见候选已排除当前对象 ${hiddenCount} 项` : `${visibleCount} candidates`;
+}
+
+function isCurrentReplacementCandidate(
+  candidate: ReplacementCandidate,
+  drawer: DrawerState | null,
+  slot: AgentChatSlotSummary | null,
+  atoms: AgentChatAtomSummary | null,
+) {
+  if (!drawer) return false;
+  if (drawer.kind === "slot") return idSetsOverlap(candidateSlotKeys(candidate), currentSlotKeys(slot));
+  return idSetsOverlap(candidateAtomKeys(candidate), currentAtomKeys(atomValueFor(atoms, drawer.atomKind)));
+}
+
+function candidateSlotKeys(candidate: ReplacementCandidate) {
+  return normalizeKeySet([candidate.slotSubtypeId, candidate.sourceSlotId, candidate.label, candidate.candidateId]);
+}
+
+function currentSlotKeys(slot: AgentChatSlotSummary | null) {
+  return normalizeKeySet([slot?.slotSubtypeId, slot?.slotSubtype, stripBacktickLabel(slot?.slotSubtype), extractBacktickId(slot?.slotSubtype)]);
+}
+
+function candidateAtomKeys(candidate: ReplacementCandidate) {
+  return normalizeKeySet([candidate.atomId, candidate.label, candidate.candidateId]);
+}
+
+function currentAtomKeys(value?: string | null) {
+  return normalizeKeySet([value, stripBacktickLabel(value), extractBacktickId(value)]);
+}
+
+function idSetsOverlap(left: Set<string>, right: Set<string>) {
+  for (const value of left) {
+    if (right.has(value)) return true;
+  }
+  return false;
+}
+
 export function buildReplacementDraftSummary(replacements: Array<SlotReplacement | AtomReplacement>) {
   return replacements.map((item) => {
     if (item.type === "slot") return `Slot ${item.slotOrder ?? ""} ${item.fromSlotLabel ?? item.fromSlotSubtypeId} -> ${item.toSlotLabel ?? item.toSlotSubtypeId}`;
@@ -283,4 +335,28 @@ function stripBacktickLabel(value?: string | null) {
 function extractBacktickId(value?: string | null) {
   const text = String(value ?? "");
   return text.match(/`([^`]+)`/)?.[1] ?? null;
+}
+
+function normalizeKeySet(values: Array<string | null | undefined>) {
+  return new Set(values.flatMap((value) => normalizeCandidateKeys(value)));
+}
+
+function normalizeCandidateKeys(value?: string | null) {
+  const text = String(value ?? "").trim();
+  if (!text) return [];
+  const withoutBackticks = text.replace(/`/g, "").trim();
+  const parts = [
+    text,
+    withoutBackticks,
+    stripBacktickLabel(text),
+    extractBacktickId(text),
+    lastSegment(text, "::"),
+    lastSegment(withoutBackticks, "::"),
+  ];
+  return [...new Set(parts.map((part) => String(part ?? "").trim().toLowerCase()).filter(Boolean))];
+}
+
+function lastSegment(value: string, separator: string) {
+  const parts = value.split(separator);
+  return parts[parts.length - 1] ?? value;
 }
