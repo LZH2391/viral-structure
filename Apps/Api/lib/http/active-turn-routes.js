@@ -160,37 +160,47 @@ async function handleActiveTurnRetry(req, res, bindingId, handlers = {}) {
       ownerId: binding.ownerId,
     });
   }
-  await runtime.cancel({
+  const cancelResult = await runtime.cancel({
     workspaceRoot: body.workspaceRoot ?? job?.agentRun?.workspaceRoot ?? binding.workspaceRoot ?? handlers.rootDir,
     threadId: binding.threadId,
     turnId: binding.turnId,
     timeoutSeconds: 30,
   });
+  if (!isCanceledTurnStatus(cancelResult?.status)) {
+    return sendRetrySourceNotCanceled(res, binding, cancelResult);
+  }
+  if (mode === "new_thread") await releaseBindingLease(binding, handlers, { forceAgentChat: true });
   const currentAttemptId = `${binding.ownerId}:${binding.stageName ?? "retry"}:${Date.now()}`;
   const retryThread = mode === "new_thread"
     ? await createProcessingJobRetryThread({ binding, body, handlers, job })
     : { threadId: binding.threadId, workspaceRoot: body.workspaceRoot ?? binding.workspaceRoot ?? handlers.rootDir };
-  const started = await runtime.start({
-    workspaceRoot: retryThread.workspaceRoot,
-    threadId: retryThread.threadId,
-    inputs: replayInputs,
-    skillPath: job?.agentRun?.skillPath ?? null,
-    timeoutSeconds: 240,
-    binding: {
-      ...binding,
-      bindingId: null,
-      turnId: null,
-      currentAttemptId,
-      leaseId: retryThread.leaseId ?? (mode === "same_thread" ? binding.leaseId : null),
-      threadPoolOwnerId: retryThread.ownerId ?? (mode === "same_thread" ? binding.threadPoolOwnerId : null),
-      replayRef: {
-        type: "processing-job-input",
-        refId: binding.ownerId,
-        sourceTurnId: binding.turnId,
+  let started;
+  try {
+    started = await runtime.start({
+      workspaceRoot: retryThread.workspaceRoot,
+      threadId: retryThread.threadId,
+      inputs: replayInputs,
+      skillPath: job?.agentRun?.skillPath ?? null,
+      timeoutSeconds: 240,
+      binding: {
+        ...binding,
+        bindingId: null,
+        turnId: null,
+        currentAttemptId,
+        leaseId: retryThread.leaseId ?? (mode === "same_thread" ? binding.leaseId : null),
+        threadPoolOwnerId: retryThread.ownerId ?? (mode === "same_thread" ? binding.threadPoolOwnerId : null),
+        replayRef: {
+          type: "processing-job-input",
+          refId: binding.ownerId,
+          sourceTurnId: binding.turnId,
+        },
+        status: "submitted",
       },
-      status: "submitted",
-    },
-  });
+    });
+  } catch (error) {
+    await releaseRetryThreadLease(retryThread, handlers);
+    throw error;
+  }
   const startedThreadId = started.threadId ?? retryThread.threadId;
   const startedTurnId = started.turnId ?? null;
   if (startedTurnId) {
@@ -289,12 +299,16 @@ async function retryAgentChatTurnFromBinding({ res, binding, body, handlers, run
       ownerId: binding.ownerId,
     });
   }
-  await runtime.cancel({
+  const cancelResult = await runtime.cancel({
     workspaceRoot: body.workspaceRoot ?? conversation.workspaceRoot ?? handlers.rootDir,
     threadId: binding.threadId,
     turnId: binding.turnId,
     timeoutSeconds: 30,
   });
+  if (!isCanceledTurnStatus(cancelResult?.status)) {
+    return sendRetrySourceNotCanceled(res, binding, cancelResult);
+  }
+  if (mode === "new_thread") await releaseBindingLease(binding, handlers, { forceAgentChat: true });
   const retrySession = mode === "new_thread"
     ? await createAgentChatRetryThreadSession({ conversation, binding, body, handlers })
     : {
@@ -308,32 +322,38 @@ async function retryAgentChatTurnFromBinding({ res, binding, body, handlers, run
         ownerId: conversation.ownerId ?? binding.threadPoolOwnerId ?? null,
         parentThreadId: conversation.parentThreadId ?? null,
       };
-  const started = await runtime.start({
-    workspaceRoot: retrySession.workspaceRoot,
-    threadId: retrySession.threadId,
-    inputs: buildTextInputs(replayText),
-    skillPath: retrySession.skillPath,
-    timeoutSeconds: 240,
-    binding: {
-      ownerType: "agent-chat",
-      ownerId: conversation.conversationId,
-      currentAttemptId: null,
-      stageName: binding.stageName ?? "agentChat.turn.retry",
-      traceId: binding.traceId ?? conversation.traceId ?? null,
-      runId: binding.runId ?? conversation.runId ?? null,
-      stageId: binding.stageId ?? conversation.stageId ?? null,
-      artifactId: binding.artifactId ?? null,
-      parentArtifactId: binding.parentArtifactId ?? null,
-      leaseId: retrySession.leaseId ?? null,
-      threadPoolOwnerId: retrySession.ownerId ?? null,
-      replayRef: {
-        type: "agent-chat-message",
-        refId: `user-${binding.turnId}`,
-        messageId: `user-${binding.turnId}`,
-        sourceTurnId: binding.turnId,
+  let started;
+  try {
+    started = await runtime.start({
+      workspaceRoot: retrySession.workspaceRoot,
+      threadId: retrySession.threadId,
+      inputs: buildTextInputs(replayText),
+      skillPath: retrySession.skillPath,
+      timeoutSeconds: 240,
+      binding: {
+        ownerType: "agent-chat",
+        ownerId: conversation.conversationId,
+        currentAttemptId: null,
+        stageName: binding.stageName ?? "agentChat.turn.retry",
+        traceId: binding.traceId ?? conversation.traceId ?? null,
+        runId: binding.runId ?? conversation.runId ?? null,
+        stageId: binding.stageId ?? conversation.stageId ?? null,
+        artifactId: binding.artifactId ?? null,
+        parentArtifactId: binding.parentArtifactId ?? null,
+        leaseId: retrySession.leaseId ?? null,
+        threadPoolOwnerId: retrySession.ownerId ?? null,
+        replayRef: {
+          type: "agent-chat-message",
+          refId: `user-${binding.turnId}`,
+          messageId: `user-${binding.turnId}`,
+          sourceTurnId: binding.turnId,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    await releaseRetryThreadLease(retrySession, handlers);
+    throw error;
+  }
   const retryTurnId = started.turnId ?? null;
   if (mode === "new_thread") {
     await handlers.agentConversationStore?.bindThread?.({
@@ -439,8 +459,31 @@ async function createProcessingJobRetryThread({ binding, body, handlers, job }) 
   throw routeError("active_turn_retry_new_thread_unavailable", "无法创建新 thread", 409);
 }
 
+async function releaseRetryThreadLease(retryThread, handlers) {
+  if (!retryThread?.leaseId || !retryThread?.ownerId || !handlers.threadPool?.releaseLease) return null;
+  return handlers.threadPool.releaseLease({ leaseId: retryThread.leaseId, ownerId: retryThread.ownerId }).catch(() => null);
+}
+
 function normalizeRetryMode(value) {
   return String(value ?? "").trim() === "new_thread" ? "new_thread" : "same_thread";
+}
+
+function isCanceledTurnStatus(status) {
+  return ["canceled", "cancelled"].includes(String(status ?? "").trim().toLowerCase());
+}
+
+function sendRetrySourceNotCanceled(res, binding, cancelResult) {
+  return sendJson(res, 409, {
+    ok: false,
+    error: "active_turn_retry_source_not_canceled",
+    message: "当前 turn 未被停止，不能安全重试以免重复执行。",
+    ownerType: binding.ownerType,
+    ownerId: binding.ownerId,
+    threadId: cancelResult?.threadId ?? binding.threadId,
+    turnId: cancelResult?.turnId ?? binding.turnId,
+    status: cancelResult?.status ?? null,
+    ownerResult: cancelResult?.ownerResult ?? null,
+  });
 }
 
 function isCurrentProcessingJobTurn(job, binding) {

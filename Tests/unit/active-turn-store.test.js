@@ -105,3 +105,34 @@ test("active turn store exposes raw active bindings for runtime reconciliation",
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("active turn store preserves concurrent upserts", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "active-turn-store-concurrent-"));
+  try {
+    const store = createActiveTurnStore({ filePath: path.join(tempRoot, "active-turns.json") });
+    await Promise.all(Array.from({ length: 8 }, (_, index) => store.upsert({
+      threadId: `thread_${index}`,
+      turnId: `turn_${index}`,
+      ownerType: "processing-job",
+      ownerId: `job_${index}`,
+      currentAttemptId: `attempt_${index}`,
+      stageName: "content.model",
+      replayRef: { type: "processing-job-input", refId: `job_${index}` },
+      status: "submitted",
+    })));
+
+    const active = await store.listActive();
+    assert.deepEqual(active.map((binding) => binding.turnId).sort(), [
+      "turn_0",
+      "turn_1",
+      "turn_2",
+      "turn_3",
+      "turn_4",
+      "turn_5",
+      "turn_6",
+      "turn_7",
+    ]);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

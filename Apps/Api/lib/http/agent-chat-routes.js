@@ -441,6 +441,10 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
         if (!conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
         const replayTask = findReplayTask(conversation, turnId);
         if (!replayTask) throw badRequestError("agent_chat_replay_task_missing", "未找到可重放任务");
+        const sourceStatus = latestAssistantStatus(conversation, replayTask.sourceTurnId);
+        if (!isTerminalStatus(sourceStatus)) {
+          throw badRequestError("agent_chat_retry_source_not_terminal", "当前 turn 尚未结束，不能安全重试");
+        }
         const session = mode === "new_thread"
           ? await createRetryThreadSession({ body, conversation, handlers, traceContext })
           : {
@@ -468,13 +472,19 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
             stageId: traceContext.stageId,
           }) ?? conversation;
         }
-        const result = await handlers.appServer.startTurnWithInputs({
-          workspaceRoot: session.workspaceRoot || handlers.rootDir,
-          threadId: session.threadId,
-          inputs: buildTextInputs(replayTask.text),
-          skillPath: session.skillPath,
-          timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
-        });
+        let result;
+        try {
+          result = await handlers.appServer.startTurnWithInputs({
+            workspaceRoot: session.workspaceRoot || handlers.rootDir,
+            threadId: session.threadId,
+            inputs: buildTextInputs(replayTask.text),
+            skillPath: session.skillPath,
+            timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+          });
+        } catch (error) {
+          if (mode === "new_thread") await releaseRetrySessionLease(session, handlers);
+          throw error;
+        }
         const retryTurnId = result.turnId ?? result.turn?.id ?? null;
         const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
           conversationId,
@@ -1048,6 +1058,11 @@ async function startThreadPoolRoleSession({ body, handlers, traceContext }) {
     runId: traceContext.runId,
     stageId: traceContext.stageId,
   };
+}
+
+async function releaseRetrySessionLease(session, handlers) {
+  if (!session?.leaseId || !session?.ownerId || !handlers.threadPool?.releaseLease) return null;
+  return handlers.threadPool.releaseLease({ leaseId: session.leaseId, ownerId: session.ownerId }).catch(() => null);
 }
 
 async function persistRestructureSession(session, body, handlers) {

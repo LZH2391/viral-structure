@@ -7,42 +7,47 @@ const SCHEMA_VERSION = "active_turn_bindings.v1";
 
 function createActiveTurnStore({ store, filePath } = {}) {
   const bindingsPath = filePath || path.join(store.runtimeRoot, "ActiveTurns", "active-turns.json");
+  let stateQueue = Promise.resolve();
 
   async function upsert(binding) {
     const normalized = normalizeBinding(binding);
     if (!normalized) throw activeTurnError("active_turn_binding_invalid", "active turn binding 缺少必要字段", { required: ["threadId", "turnId", "ownerType", "ownerId", "currentAttemptId", "replayRef"] }, false);
-    const state = await readState();
-    const existingIndex = state.bindings.findIndex((item) => item.bindingId === normalized.bindingId || item.turnId === normalized.turnId);
-    const next = {
-      ...(existingIndex >= 0 ? state.bindings[existingIndex] : {}),
-      ...normalized,
-      updatedAt: new Date().toISOString(),
-    };
-    if (isTerminalTurnStatus(next.status)) next.archivedAt = next.archivedAt ?? new Date().toISOString();
-    if (existingIndex >= 0) state.bindings[existingIndex] = next;
-    else state.bindings.push({ ...next, createdAt: next.createdAt ?? new Date().toISOString() });
-    await writeState(pruneTerminalBindings(state));
-    return next;
+    return withStateLock(async () => {
+      const state = await readState();
+      const existingIndex = state.bindings.findIndex((item) => item.bindingId === normalized.bindingId || item.turnId === normalized.turnId);
+      const next = {
+        ...(existingIndex >= 0 ? state.bindings[existingIndex] : {}),
+        ...normalized,
+        updatedAt: new Date().toISOString(),
+      };
+      if (isTerminalTurnStatus(next.status)) next.archivedAt = next.archivedAt ?? new Date().toISOString();
+      if (existingIndex >= 0) state.bindings[existingIndex] = next;
+      else state.bindings.push({ ...next, createdAt: next.createdAt ?? new Date().toISOString() });
+      await writeState(pruneTerminalBindings(state));
+      return next;
+    });
   }
 
   async function markStatus({ turnId, status, result = null, traceContext = null } = {}) {
-    const state = await readState();
-    const index = state.bindings.findIndex((item) => item.turnId === turnId);
-    if (index < 0) return null;
-    const current = state.bindings[index];
-    const next = {
-      ...current,
-      status: normalizeTurnStatus(status),
-      lastResultSummary: summarizeResult(result),
-      updatedAt: new Date().toISOString(),
-      traceId: traceContext?.traceId ?? current.traceId ?? null,
-      runId: traceContext?.runId ?? current.runId ?? null,
-      stageId: traceContext?.stageId ?? current.stageId ?? null,
-    };
-    if (isTerminalTurnStatus(next.status)) next.archivedAt = next.archivedAt ?? new Date().toISOString();
-    state.bindings[index] = next;
-    await writeState(pruneTerminalBindings(state));
-    return next;
+    return withStateLock(async () => {
+      const state = await readState();
+      const index = state.bindings.findIndex((item) => item.turnId === turnId);
+      if (index < 0) return null;
+      const current = state.bindings[index];
+      const next = {
+        ...current,
+        status: normalizeTurnStatus(status),
+        lastResultSummary: summarizeResult(result),
+        updatedAt: new Date().toISOString(),
+        traceId: traceContext?.traceId ?? current.traceId ?? null,
+        runId: traceContext?.runId ?? current.runId ?? null,
+        stageId: traceContext?.stageId ?? current.stageId ?? null,
+      };
+      if (isTerminalTurnStatus(next.status)) next.archivedAt = next.archivedAt ?? new Date().toISOString();
+      state.bindings[index] = next;
+      await writeState(pruneTerminalBindings(state));
+      return next;
+    });
   }
 
   async function getByTurnId(turnId) {
@@ -56,11 +61,13 @@ function createActiveTurnStore({ store, filePath } = {}) {
   }
 
   async function removeByTurnId(turnId) {
-    const state = await readState();
-    const next = state.bindings.filter((item) => item.turnId !== turnId);
-    if (next.length === state.bindings.length) return null;
-    await writeState({ ...state, bindings: next, updatedAt: new Date().toISOString() });
-    return true;
+    return withStateLock(async () => {
+      const state = await readState();
+      const next = state.bindings.filter((item) => item.turnId !== turnId);
+      if (next.length === state.bindings.length) return null;
+      await writeState({ ...state, bindings: next, updatedAt: new Date().toISOString() });
+      return true;
+    });
   }
 
   async function listActive(filters = {}) {
@@ -94,16 +101,24 @@ function createActiveTurnStore({ store, filePath } = {}) {
   async function writeState(state) {
     await fs.mkdir(path.dirname(bindingsPath), { recursive: true });
     const next = { schemaVersion: SCHEMA_VERSION, updatedAt: new Date().toISOString(), bindings: state.bindings };
-    const tempPath = `${bindingsPath}.${process.pid}.${Date.now()}.tmp`;
+    const tempPath = `${bindingsPath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
     await fs.writeFile(tempPath, JSON.stringify(next, null, 2), "utf8");
     await fs.rename(tempPath, bindingsPath);
   }
 
   async function pruneAndPersistTerminalBindings() {
-    const state = await readState();
-    const pruned = pruneTerminalBindings(state);
-    if (pruned.bindings.length !== state.bindings.length) await writeState(pruned);
-    return pruned;
+    return withStateLock(async () => {
+      const state = await readState();
+      const pruned = pruneTerminalBindings(state);
+      if (pruned.bindings.length !== state.bindings.length) await writeState(pruned);
+      return pruned;
+    });
+  }
+
+  function withStateLock(operation) {
+    const run = stateQueue.catch(() => undefined).then(operation);
+    stateQueue = run.catch(() => undefined);
+    return run;
   }
 
   return {
