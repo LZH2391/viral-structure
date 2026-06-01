@@ -82,3 +82,26 @@ test("active turn store removes terminal turns when collect result is marked", a
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("active turn store exposes raw active bindings for runtime reconciliation", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "active-turn-store-raw-"));
+  try {
+    const store = createActiveTurnStore({ filePath: path.join(tempRoot, "active-turns.json") });
+    await store.upsert({
+      threadId: "thread_1",
+      turnId: "turn_raw",
+      ownerType: "agent-chat",
+      ownerId: "conversation_1",
+      currentAttemptId: "turn_raw",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_raw" },
+      status: "submitted",
+    });
+    const raw = await store.listActiveBindings();
+    assert.equal(raw.length, 1);
+    assert.equal(raw[0].turnId, "turn_raw");
+    assert.equal(raw[0].replayRef.refId, "user-turn_raw");
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

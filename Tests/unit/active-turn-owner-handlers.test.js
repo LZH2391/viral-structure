@@ -75,6 +75,63 @@ test("agent chat owner cancel writes conversation only for current turn", async 
   assert.equal(calls[0].turnId, "turn_current");
 });
 
+test("runtime list prunes orphan and stale active bindings before projection", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-reconcile-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {},
+      ownerHandlers: createActiveTurnOwnerHandlers({
+        agentConversationStore: {
+          get: async (conversationId) => {
+            if (conversationId === "conversation_current") return { conversationId, status: "active", latestTurnId: "turn_current" };
+            if (conversationId === "conversation_stale") return { conversationId, status: "active", latestTurnId: "turn_latest" };
+            return null;
+          },
+        },
+      }),
+    });
+    await runtime.register({
+      threadId: "thread_orphan",
+      turnId: "turn_orphan",
+      ownerType: "agent-chat",
+      ownerId: "conversation_missing",
+      currentAttemptId: "turn_orphan",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_orphan" },
+      status: "submitted",
+    });
+    await runtime.register({
+      threadId: "thread_stale",
+      turnId: "turn_stale",
+      ownerType: "agent-chat",
+      ownerId: "conversation_stale",
+      currentAttemptId: "turn_stale",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_stale" },
+      status: "submitted",
+    });
+    await runtime.register({
+      threadId: "thread_current",
+      turnId: "turn_current",
+      ownerType: "agent-chat",
+      ownerId: "conversation_current",
+      currentAttemptId: "turn_current",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_current" },
+      status: "submitted",
+    });
+
+    const active = await runtime.listActive();
+    assert.deepEqual(active.map((binding) => binding.turnId), ["turn_current"]);
+    assert.equal(await runtime.getByTurnId("turn_orphan"), null);
+    assert.equal(await runtime.getByTurnId("turn_stale"), null);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("analysis turn runner registers active binding and terminal collect writes current processing job", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-runner-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };

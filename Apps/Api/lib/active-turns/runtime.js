@@ -61,6 +61,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
   }
 
   async function listActive(filters = {}) {
+    await reconcileActiveBindings(filters);
     return bindingStore.listActive(filters);
   }
 
@@ -72,6 +73,30 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     return bindingStore.getByBindingId(bindingId);
   }
 
+  async function reconcileActiveBindings(filters = {}) {
+    if (!bindingStore.listActiveBindings || !bindingStore.removeByTurnId || !ownerHandlers?.validateActiveBinding) return [];
+    const activeBindings = await bindingStore.listActiveBindings(filters);
+    const removed = [];
+    for (const binding of activeBindings) {
+      const validation = await ownerHandlers.validateActiveBinding(binding).catch((error) => ({
+        ok: false,
+        reason: "owner_validation_failed",
+        code: error?.code ?? null,
+      }));
+      if (validation?.ok !== false) continue;
+      await bindingStore.removeByTurnId(binding.turnId);
+      removed.push({
+        bindingId: binding.bindingId,
+        ownerType: binding.ownerType,
+        ownerId: binding.ownerId,
+        threadId: binding.threadId,
+        turnId: binding.turnId,
+        reason: validation.reason ?? "invalid",
+      });
+    }
+    return removed;
+  }
+
   return {
     store: bindingStore,
     register,
@@ -80,6 +105,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     markCollectResult,
     cancel,
     listActive,
+    reconcileActiveBindings,
     getByTurnId,
     getByBindingId,
   };

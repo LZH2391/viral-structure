@@ -361,7 +361,8 @@ test("agent chat starts direct appserver thread", async () => {
     assert.match(response.body.traceId, /^trace_/);
     assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
     assert.equal(stageLogs[0].stageName, "agentChat.thread.start");
-    assert.equal(calls[0].workspaceRoot.endsWith("ByteDanceFullStack"), true);
+    assert.equal(calls[0].workspaceRoot, response.body.workspaceRoot);
+    assert.equal(calls[0].workspaceRoot.includes("bd-api-server-isolated-"), true);
   } finally {
     await closeServer(server);
   }
@@ -2330,8 +2331,10 @@ test("agent chat retry same thread replays persisted user task on the same threa
 });
 
 test("agent chat retry new thread starts a new thread before replaying task", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-retry-new-thread-"));
   const calls = [];
   const server = createServer({
+    rootDir,
     logger: {
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
@@ -2379,6 +2382,7 @@ test("agent chat retry new thread starts a new thread before replaying task", as
     assert.equal(calls[1].threadId, "thread_new");
   } finally {
     await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
   }
 });
 
@@ -2448,6 +2452,51 @@ test("active turn stop route cancels binding and releases lease", async () => {
   }
 });
 
+test("active turn stop thread route marks agent chat thread stopped and releases lease", async () => {
+  const calls = [];
+  const server = createServer({
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        leaseId: "lease_1",
+        threadPoolOwnerId: "owner_1",
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { threadId: payload.threadId, turnId: payload.turnId, status: "canceled" };
+      },
+    },
+    threadPool: {
+      releaseLease: async (payload) => calls.push({ type: "release", payload }),
+    },
+    agentConversationStore: {
+      recordTurnStopped: async () => undefined,
+      stopThread: async (payload) => {
+        calls.push({ type: "stopThread", payload });
+        return { conversationId: payload.conversationId, threadStopped: true };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_chat/stop-thread", { turnId: "turn_1" });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.action, "stop_thread");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "release", "stopThread"]);
+    assert.equal(calls[1].payload.leaseId, "lease_1");
+    assert.equal(calls[2].payload.conversationId, "conversation_1");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("active turn retry route replays agent chat user message through owner binding", async () => {
   const calls = [];
   const server = createServer({
@@ -2496,6 +2545,141 @@ test("active turn retry route replays agent chat user message through owner bind
   }
 });
 
+test("active turn retry route can create a new thread for agent chat replay", async () => {
+  const calls = [];
+  const server = createServer({
+    appServer: {
+      startThread: async () => {
+        calls.push({ type: "startThread" });
+        return { threadId: "thread_new" };
+      },
+    },
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_old",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        replayRef: { type: "agent-chat-message", sourceTurnId: "turn_1", messageId: "user-turn_1" },
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { status: "canceled", threadId: payload.threadId, turnId: payload.turnId };
+      },
+      start: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { status: "submitted", threadId: payload.threadId, turnId: "turn_retry" };
+      },
+    },
+    agentConversationStore: {
+      get: async () => ({
+        conversationId: "conversation_1",
+        source: "direct",
+        latestTurnId: "turn_1",
+        threadId: "thread_old",
+        messages: [{ id: "user-turn_1", turnId: "turn_1", role: "user", text: "retry me" }],
+      }),
+      recordTurnStopped: async () => undefined,
+      bindThread: async (payload) => {
+        calls.push({ type: "bindThread", payload });
+        return { conversationId: payload.conversationId, threadId: payload.threadId };
+      },
+      recordUserTurn: async (payload) => calls.push({ type: "recordUser", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_chat/retry", { mode: "new_thread" });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.action, "retry_new_thread");
+    assert.equal(response.body.threadId, "thread_new");
+    assert.equal(response.body.previousThreadId, "thread_old");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "startThread", "start", "bindThread", "recordUser"]);
+    assert.equal(calls[2].payload.threadId, "thread_new");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("active turn retry route can create a new thread for processing job replay and update owner run", async () => {
+  const calls = [];
+  const jobs = new Map([["job_1", {
+    jobId: "job_1",
+    status: "failed",
+    stage: "shot.boundary.turn_started",
+    progress: 80,
+    activeTurnReplay: { inputs: [{ type: "text", text: "retry job", text_elements: [] }] },
+    agentRun: {
+      threadId: "thread_old",
+      turnId: "turn_old",
+      currentAttemptId: "attempt_old",
+      leaseId: "lease_old",
+      skillPath: "skill.md",
+      status: "canceled",
+    },
+  }]]);
+  const server = createServer({
+    appServer: {
+      startThread: async (payload) => {
+        calls.push({ type: "startThread", payload });
+        return { threadId: "thread_new" };
+      },
+    },
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_old",
+        turnId: "turn_old",
+        ownerType: "processing-job",
+        ownerId: "job_1",
+        currentAttemptId: "attempt_old",
+        stageName: "shot.boundary.turn_started",
+        replayRef: { type: "processing-job-input", refId: "job_1", sourceTurnId: "turn_old" },
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { status: "canceled", threadId: payload.threadId, turnId: payload.turnId };
+      },
+      start: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { status: "submitted", threadId: payload.threadId, turnId: "turn_new" };
+      },
+    },
+    jobStore: {
+      getJob: (jobId) => jobs.get(jobId) ?? null,
+      updateJob: (jobId, patch) => {
+        calls.push({ type: "updateJob", jobId, patch });
+        const next = { ...(jobs.get(jobId) ?? {}), ...patch };
+        jobs.set(jobId, next);
+        return next;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_job/retry", { mode: "new_thread" });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.action, "retry_new_thread");
+    assert.equal(response.body.threadId, "thread_new");
+    assert.equal(response.body.previousThreadId, "thread_old");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "startThread", "start", "updateJob"]);
+    assert.equal(calls[2].payload.inputs[0].text, "retry job");
+    assert.equal(jobs.get("job_1").status, "processing");
+    assert.equal(jobs.get("job_1").agentRun.threadId, "thread_new");
+    assert.equal(jobs.get("job_1").agentRun.turnId, "turn_new");
+    assert.equal(jobs.get("job_1").agentRun.retrySourceTurnId, "turn_old");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot auto-run creates processing job and active binding for stop writeback", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-active-turn-"));
   const activeStarts = [];
@@ -2538,7 +2722,7 @@ test("function slot auto-run creates processing job and active binding for stop 
     assert.equal(activeStarts.length, 1);
     assert.equal(activeStarts[0].binding.ownerType, "processing-job");
     assert.equal(activeStarts[0].binding.ownerId, response.body.processingJobId);
-    assert.equal(activeStarts[0].binding.replayRef.type, "function-slot-auto-run-input");
+    assert.equal(activeStarts[0].binding.replayRef.type, "processing-job-input");
     assert.equal(activeStarts[0].inputs[0].type, "text");
   } finally {
     await closeServer(server);

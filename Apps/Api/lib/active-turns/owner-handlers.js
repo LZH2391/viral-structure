@@ -17,6 +17,14 @@ function createActiveTurnOwnerHandlers({ agentConversationStore = null, jobStore
     return { status: "owner_unknown", ownerType: binding.ownerType };
   }
 
+  async function validateActiveBinding(binding) {
+    if (!binding) return { ok: false, reason: "binding_missing" };
+    if (binding.ownerType === "processing-job") return validateProcessingJob(binding);
+    if (binding.ownerType === "workflow-stage") return validateWorkflowStage(binding);
+    if (binding.ownerType === "agent-chat") return validateAgentChat(binding);
+    return { ok: true, status: "owner_unknown" };
+  }
+
   function collectProcessingJob(binding, result) {
     const job = jobStore?.getJob?.(binding.ownerId);
     if (!job) return { status: "owner_missing" };
@@ -137,10 +145,48 @@ function createActiveTurnOwnerHandlers({ agentConversationStore = null, jobStore
     return { status: "canceled" };
   }
 
+  function validateProcessingJob(binding) {
+    const job = jobStore?.getJob?.(binding.ownerId);
+    if (!job) return { ok: false, reason: "owner_missing", ownerType: binding.ownerType, ownerId: binding.ownerId };
+    if (!isCurrentJobTurn(job, binding)) return { ok: false, reason: "stale", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    if ([SAMPLE_STATUS.processed, SAMPLE_STATUS.failed].includes(job.status)) {
+      return { ok: false, reason: "owner_terminal", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    }
+    if (job.agentRun?.status && !["turn_submitted", "collecting", "running", "submitted"].includes(String(job.agentRun.status))) {
+      return { ok: false, reason: "owner_terminal", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    }
+    return { ok: true, status: job.agentRun?.status ?? job.status ?? null };
+  }
+
+  function validateWorkflowStage(binding) {
+    const run = workflowRunStore?.getRun?.(binding.ownerId);
+    if (!run) return { ok: false, reason: "owner_missing", ownerType: binding.ownerType, ownerId: binding.ownerId };
+    const stages = Array.isArray(run.stages) ? run.stages : [];
+    const matchingStage = stages.find((stage) => isCurrentStageTurn(stage, binding.currentAttemptId, binding.turnId));
+    if (!matchingStage) return { ok: false, reason: "stale", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    if (["completed", "failed", "canceled"].includes(String(matchingStage.status ?? ""))) {
+      return { ok: false, reason: "owner_terminal", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    }
+    return { ok: true, status: matchingStage.status ?? null };
+  }
+
+  async function validateAgentChat(binding) {
+    const conversation = await agentConversationStore?.get?.(binding.ownerId);
+    if (!conversation) return { ok: false, reason: "owner_missing", ownerType: binding.ownerType, ownerId: binding.ownerId };
+    if (conversation.status && conversation.status !== "active") {
+      return { ok: false, reason: "owner_terminal", ownerType: binding.ownerType, ownerId: binding.ownerId, turnId: binding.turnId };
+    }
+    if (conversation.latestTurnId && String(conversation.latestTurnId) !== String(binding.turnId)) {
+      return { ok: false, reason: "stale", ownerType: binding.ownerType, ownerId: binding.ownerId, latestTurnId: conversation.latestTurnId, turnId: binding.turnId };
+    }
+    return { ok: true, status: conversation.status ?? null };
+  }
+
   return {
     agentConversationStore,
     onCollect,
     onCancel,
+    validateActiveBinding,
   };
 }
 
@@ -149,6 +195,13 @@ function isCurrentJobTurn(job, binding) {
   if (!agentRun) return false;
   return String(agentRun.turnId ?? "") === String(binding.turnId ?? "")
     || String(agentRun.currentAttemptId ?? "") === String(binding.currentAttemptId ?? "");
+}
+
+function isCurrentStageTurn(stage, currentAttemptId, turnId) {
+  const activeTurn = stage?.activeTurn;
+  if (!activeTurn) return false;
+  if (currentAttemptId && String(activeTurn.currentAttemptId ?? "") === String(currentAttemptId)) return true;
+  return turnId && String(activeTurn.turnId ?? "") === String(turnId);
 }
 
 function isTerminalStatus(status) {

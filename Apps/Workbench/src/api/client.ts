@@ -188,6 +188,7 @@ export type ActiveTurnSummary = {
   status: string;
   activeThreadMessageSummary?: { length?: number | null; preview?: string | null } | null;
   finalMessageSummary?: { length?: number | null; preview?: string | null } | null;
+  actionProjection?: AgentChatActionProjection | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -659,8 +660,18 @@ export async function stopActiveTurn(bindingId: string, payload: { turnId?: stri
   );
 }
 
-export async function retryActiveTurn(bindingId: string, payload: { workspaceRoot?: string | null } = {}) {
-  return readJsonResponse<{ ok: boolean; action: "retry"; bindingId: string; ownerType: string; ownerId: string; threadId: string; turnId: string | null; status: string }>(
+export async function stopActiveThread(bindingId: string, payload: { turnId?: string | null; workspaceRoot?: string | null; reason?: string | null } = {}) {
+  return readJsonResponse<{ ok: boolean; action: "stop_thread"; bindingId: string; ownerType: string; ownerId: string; threadId: string; turnId: string; status: string; ownerResult?: unknown }>(
+    await fetch(`${API_BASE_URL}/api/active-turns/${encodeURIComponent(bindingId)}/stop-thread`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function retryActiveTurn(bindingId: string, payload: { workspaceRoot?: string | null; mode?: "same_thread" | "new_thread"; role?: string | null } = {}) {
+  return readJsonResponse<{ ok: boolean; action: "retry" | "retry_new_thread"; bindingId: string; ownerType: string; ownerId: string; threadId: string; previousThreadId?: string | null; turnId: string | null; status: string }>(
     await fetch(`${API_BASE_URL}/api/active-turns/${encodeURIComponent(bindingId)}/retry`, {
       method: "POST",
       headers: { "content-type": "application/json" },

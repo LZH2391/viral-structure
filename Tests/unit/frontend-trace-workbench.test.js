@@ -384,7 +384,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /retryAgentChatTurn/);
   assert.match(api, /listActiveTurns/);
   assert.match(api, /stopActiveTurn/);
+  assert.match(api, /stopActiveThread/);
   assert.match(api, /retryActiveTurn/);
+  assert.match(api, /\/api\/active-turns\/\$\{encodeURIComponent\(bindingId\)\}\/stop-thread/);
   assert.match(api, /\/api\/active-turns/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/compact/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.js"), /compactThread/);
@@ -434,7 +436,14 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(workbench, /运行面板/);
   assert.match(activeTurns, /listActiveTurns/);
   assert.match(activeTurns, /stopActiveTurn/);
+  assert.match(activeTurns, /stopActiveThread/);
   assert.match(activeTurns, /retryActiveTurn/);
+  assert.match(activeTurns, /actionProjection\?\.flags\?\.stopTurn/);
+  assert.match(activeTurns, /actionProjection\?\.flags\?\.retrySameThread/);
+  assert.match(activeTurns, /actionProjection\?\.flags\?\.retryNewThread/);
+  assert.match(activeTurns, /结束 Thread/);
+  assert.match(activeTurns, /新 Thread 重试/);
+  assert.match(activeTurns, /mode: "new_thread"/);
   assert.match(activeTurns, /processing-job/);
   assert.match(activeTurnsCss, /active-turns-shell/);
   assert.match(chat, /会话已同步，重试发送/);

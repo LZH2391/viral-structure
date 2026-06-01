@@ -1,5 +1,6 @@
 const http = require("http");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
@@ -24,7 +25,7 @@ const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
 const { createActiveTurnRuntime } = require("./lib/active-turns/runtime");
 const { createActiveTurnOwnerHandlers } = require("./lib/active-turns/owner-handlers");
-const { handleActiveTurnsList, handleActiveTurnRetry, handleActiveTurnStop } = require("./lib/http/active-turn-routes");
+const { handleActiveTurnsList, handleActiveTurnRetry, handleActiveTurnStop, handleActiveTurnStopThread } = require("./lib/http/active-turn-routes");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
 const { handleAgentChatConversationArchive, handleAgentChatConversationConfirm, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatManualReplacementSubmit, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
@@ -85,7 +86,11 @@ const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: f
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
-  const activeStore = deps.store ?? store;
+  const isolatedRootDir = !deps.store && !deps.rootDir && deps.appServer && deps.appServer !== appServer
+    ? fs.mkdtempSync(path.join(os.tmpdir(), "bd-api-server-isolated-"))
+    : null;
+  const activeRootDir = deps.rootDir ?? isolatedRootDir;
+  const activeStore = deps.store ?? (activeRootDir ? createLocalStore(path.resolve(activeRootDir)) : store);
   const activeLogger = deps.logger ?? logger;
   const activeJobStore = deps.jobStore ?? jobStore;
   const activeWorkflowRunStore = deps.workflowRunStore ?? workflowRunStore;
@@ -103,19 +108,19 @@ function createServer(deps = {}) {
     activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeFunctionSlotLibraryService = deps.functionSlotLibraryService ?? createFunctionSlotLibraryService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
     projectionService: activeFunctionSlotProjectionService,
   });
   const activeFunctionSlotLibraryBuilderService = deps.functionSlotLibraryBuilderService ?? createFunctionSlotLibraryBuilderService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
     libraryService: activeFunctionSlotLibraryService,
   });
   const activeFunctionSlotGovernanceService = deps.functionSlotGovernanceService ?? createFunctionSlotGovernanceService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
     jobStore: activeJobStore,
@@ -124,24 +129,24 @@ function createServer(deps = {}) {
     activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeFunctionSlotReplacementCandidateService = deps.functionSlotReplacementCandidateService ?? createFunctionSlotReplacementCandidateService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
   });
   const activeFunctionSlotAtomizationManualEditService = deps.functionSlotAtomizationManualEditService ?? createFunctionSlotAtomizationManualEditService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
     artifactIndex: activeArtifactIndex,
     projectionService: activeFunctionSlotProjectionService,
   });
   const activeRestructureDisplayOverlayService = deps.restructureDisplayOverlayService ?? createRestructureDisplayOverlayService({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     logger: activeLogger,
   });
   const activeSampleService = deps.service ?? service;
   const activeShotBoundaryService = deps.shotBoundaryService ?? (activeStore === store && activeExecutorRegistry === executorRegistry
     ? shotBoundaryService
     : createShotBoundaryService({
-        rootDir: deps.rootDir ?? rootDir,
+        rootDir: activeRootDir ?? rootDir,
         store: activeStore,
         logger: activeLogger,
         jobStore: activeJobStore,
@@ -152,7 +157,7 @@ function createServer(deps = {}) {
         executorRegistry: activeExecutorRegistry,
       }));
   const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     store: activeStore,
     logger: activeLogger,
     jobStore: activeJobStore,
@@ -225,7 +230,7 @@ function createServer(deps = {}) {
     materialRecognitionWorkflowService: activeMaterialRecognitionWorkflowService,
     fullAnalysisBatchQueue: activeFullAnalysisBatchQueue,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
-    rootDir: deps.rootDir ?? rootDir,
+    rootDir: activeRootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,
     readDebugTracesImpl: deps.readDebugTraces ?? readDebugTraces,
     readDebugTraceDetailImpl: deps.readDebugTraceDetail ?? readDebugTraceDetail,
@@ -236,13 +241,14 @@ function createServer(deps = {}) {
     loadCurrentSampleArtifactImpl: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
   };
 
-  return http.createServer(async (req, res) => {
+  const apiServer = http.createServer(async (req, res) => {
     try {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
       const url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/active-turns") return await handleActiveTurnsList(res, handlers, url);
       if (req.method === "POST" && /^\/api\/active-turns\/[^/]+\/stop$/.test(url.pathname)) return await handleActiveTurnStop(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "POST" && /^\/api\/active-turns\/[^/]+\/stop-thread$/.test(url.pathname)) return await handleActiveTurnStopThread(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/active-turns\/[^/]+\/retry$/.test(url.pathname)) return await handleActiveTurnRetry(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && url.pathname === "/api/modules") return await handleModules(res, handlers);
       if (req.method === "GET" && url.pathname === "/api/analysis-roles") return await handleAnalysisRoles(res, handlers);
@@ -348,6 +354,12 @@ function createServer(deps = {}) {
       });
     }
   });
+  if (isolatedRootDir) {
+    apiServer.once("close", () => {
+      fs.rm(isolatedRootDir, { recursive: true, force: true }, () => undefined);
+    });
+  }
+  return apiServer;
 }
 
 const server = createServer();
@@ -580,7 +592,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
       leaseId: lease.lease_id ?? lease.leaseId ?? null,
       threadPoolOwnerId: ownerId,
       replayRef: {
-        type: "function-slot-auto-run-input",
+        type: "processing-job-input",
         refId: job?.jobId ?? ownerId,
       },
     };
@@ -653,6 +665,12 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
           confirmationId: result.confirmationId,
           status: "turn_submitted",
           startedAt: new Date().toISOString(),
+        },
+        activeTurnReplay: {
+          type: "function-slot-auto-run-input",
+          inputs: turnInputs,
+          sourceTurnId: result.turnId,
+          createdAt: new Date().toISOString(),
         },
       });
       result.processingJobId = job.jobId;

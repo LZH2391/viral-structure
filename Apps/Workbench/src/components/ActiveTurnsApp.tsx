@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { listActiveTurns, retryActiveTurn, stopActiveTurn, type ActiveTurnSummary } from "../api/client";
+import { listActiveTurns, retryActiveTurn, stopActiveThread, stopActiveTurn, type ActiveTurnSummary } from "../api/client";
 import { shortId } from "../utils/format";
 
 type OwnerFilter = "all" | "agent-chat" | "processing-job" | "workflow-stage";
@@ -65,11 +65,41 @@ export function ActiveTurnsApp({ embedded = false }: { embedded?: boolean }) {
     setBusyBindingId(turn.bindingId);
     setError(null);
     try {
-      const result = await retryActiveTurn(turn.bindingId);
+      const result = await retryActiveTurn(turn.bindingId, { mode: "same_thread" });
       setLastAction(`已重试 ${shortId(result.turnId ?? turn.turnId)}`);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "重试失败");
+    } finally {
+      setBusyBindingId(null);
+    }
+  }, [refresh]);
+
+  const handleStopThread = useCallback(async (turn: ActiveTurnSummary) => {
+    if (!turn.bindingId) return;
+    setBusyBindingId(turn.bindingId);
+    setError(null);
+    try {
+      await stopActiveThread(turn.bindingId, { turnId: turn.turnId, reason: "从运行面板结束 Thread" });
+      setLastAction(`已结束 thread ${shortId(turn.threadId)}`);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "结束 Thread 失败");
+    } finally {
+      setBusyBindingId(null);
+    }
+  }, [refresh]);
+
+  const handleRetryNewThread = useCallback(async (turn: ActiveTurnSummary) => {
+    if (!turn.bindingId) return;
+    setBusyBindingId(turn.bindingId);
+    setError(null);
+    try {
+      const result = await retryActiveTurn(turn.bindingId, { mode: "new_thread" });
+      setLastAction(`已新线程重试 ${shortId(result.turnId ?? turn.turnId)}`);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "新线程重试失败");
     } finally {
       setBusyBindingId(null);
     }
@@ -136,11 +166,17 @@ export function ActiveTurnsApp({ embedded = false }: { embedded?: boolean }) {
               <dd>{formatReplayRef(turn.replayRef)}</dd>
             </dl>
             <div className="active-turn-actions">
-              <button className="ghost-button danger-action" type="button" disabled={busyBindingId === turn.bindingId || !turn.bindingId} onClick={() => void handleStop(turn)}>
+              <button className="ghost-button danger-action" type="button" disabled={busyBindingId === turn.bindingId || !turn.bindingId || !canStopTurn(turn)} onClick={() => void handleStop(turn)}>
                 {busyBindingId === turn.bindingId ? "处理中" : "停止"}
+              </button>
+              <button className="ghost-button danger-action" type="button" disabled={busyBindingId === turn.bindingId || !turn.bindingId || !canStopThread(turn)} onClick={() => void handleStopThread(turn)}>
+                结束 Thread
               </button>
               <button className="ghost-button" type="button" disabled={busyBindingId === turn.bindingId || !canRetryFromPanel(turn)} onClick={() => void handleRetry(turn)} title={retryTitle(turn)}>
                 重试
+              </button>
+              <button className="primary-button" type="button" disabled={busyBindingId === turn.bindingId || !canRetryNewThreadFromPanel(turn)} onClick={() => void handleRetryNewThread(turn)} title={retryNewThreadTitle(turn)}>
+                新 Thread 重试
               </button>
             </div>
           </article>
@@ -168,13 +204,29 @@ function formatReplayRef(ref: ActiveTurnSummary["replayRef"]) {
   return [ref.type ?? "ref", shortId(id)].filter(Boolean).join(" / ");
 }
 
+function canStopTurn(turn: ActiveTurnSummary) {
+  return Boolean(turn.actionProjection?.flags?.stopTurn ?? true);
+}
+
+function canStopThread(turn: ActiveTurnSummary) {
+  return Boolean(turn.actionProjection?.flags?.stopThread ?? true);
+}
+
 function canRetryFromPanel(turn: ActiveTurnSummary) {
-  return (turn.ownerType === "agent-chat" && turn.replayRef?.type === "agent-chat-message")
-    || (turn.ownerType === "processing-job" && turn.replayRef?.type === "processing-job-input");
+  return Boolean(turn.actionProjection?.flags?.retrySameThread);
 }
 
 function retryTitle(turn: ActiveTurnSummary) {
   if (turn.ownerType === "agent-chat") return "同 thread 重试 AgentChat 用户消息";
   if (!canRetryFromPanel(turn)) return "该 turn 没有可安全重放的 owner replayRef";
   return "用 owner 保存的输入重试";
+}
+
+function canRetryNewThreadFromPanel(turn: ActiveTurnSummary) {
+  return Boolean(turn.actionProjection?.flags?.retryNewThread);
+}
+
+function retryNewThreadTitle(turn: ActiveTurnSummary) {
+  if (canRetryNewThreadFromPanel(turn)) return "新建 thread 并重放用户消息";
+  return "该 owner 尚未提供全局新 thread 重试协议";
 }

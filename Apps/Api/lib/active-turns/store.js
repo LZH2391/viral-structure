@@ -64,12 +64,15 @@ function createActiveTurnStore({ store, filePath } = {}) {
   }
 
   async function listActive(filters = {}) {
-    const state = pruneTerminalBindings(await readState());
-    const active = state.bindings.filter((binding) => isRunningTurnStatus(binding.status));
-    return active
+    return (await listActiveBindingsRaw(filters)).map(toSafeBinding);
+  }
+
+  async function listActiveBindingsRaw(filters = {}) {
+    const state = await pruneAndPersistTerminalBindings();
+    return state.bindings
+      .filter((binding) => isRunningTurnStatus(binding.status))
       .filter((binding) => !filters.ownerType || binding.ownerType === filters.ownerType)
       .filter((binding) => !filters.ownerId || binding.ownerId === filters.ownerId)
-      .map(toSafeBinding)
       .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")));
   }
 
@@ -96,6 +99,13 @@ function createActiveTurnStore({ store, filePath } = {}) {
     await fs.rename(tempPath, bindingsPath);
   }
 
+  async function pruneAndPersistTerminalBindings() {
+    const state = await readState();
+    const pruned = pruneTerminalBindings(state);
+    if (pruned.bindings.length !== state.bindings.length) await writeState(pruned);
+    return pruned;
+  }
+
   return {
     filePath: bindingsPath,
     upsert,
@@ -104,6 +114,8 @@ function createActiveTurnStore({ store, filePath } = {}) {
     getByBindingId,
     removeByTurnId,
     listActive,
+    listActiveBindings: listActiveBindingsRaw,
+    toSafeBinding,
   };
 }
 
