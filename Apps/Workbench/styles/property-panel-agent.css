@@ -454,6 +454,251 @@
   font-size: 12px;
 }
 
+.material-overview-panel {
+  gap: 12px;
+}
+
+.material-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.material-summary-list {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
+}
+
+.material-summary-list strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.material-summary-list span {
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.material-summary-list.strong {
+  border-color: rgba(35, 195, 107, 0.3);
+  background: rgba(35, 195, 107, 0.08);
+}
+
+.material-summary-list.weak {
+  border-color: rgba(242, 169, 59, 0.34);
+  background: var(--warn-soft);
+}
+
+.material-summary-list.missing {
+  border-color: rgba(255, 92, 92, 0.32);
+  background: rgba(255, 92, 92, 0.08);
+}
+
+.material-boundary-panel {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(255, 92, 92, 0.22);
+  border-radius: 7px;
+  background: rgba(255, 92, 92, 0.06);
+  padding: 8px;
+}
+
+.material-boundary-panel span {
+  display: grid;
+  gap: 3px;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.material-boundary-panel b {
+  color: #ff8a8a;
+}
+
+.material-proof-matrix,
+.material-group-list,
+.material-sequence-grid {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+  padding: 9px;
+}
+
+.material-proof-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.material-proof-head strong,
+.material-group-list > strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.material-proof-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.material-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.material-proof-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.material-proof-cell:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.material-proof-cell b,
+.material-proof-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-proof-cell b {
+  font-size: 12px;
+}
+
+.material-proof-cell span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.material-proof-cell small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.material-proof-cell.strong,
+.material-shot-proof-tags i.strong,
+.material-proof-detail.strong {
+  border-color: rgba(35, 195, 107, 0.34);
+  background: rgba(35, 195, 107, 0.08);
+}
+
+.material-proof-cell.partial,
+.material-shot-proof-tags i.partial,
+.material-proof-detail.partial,
+.material-proof-cell.weak,
+.material-shot-proof-tags i.weak,
+.material-proof-detail.weak {
+  border-color: rgba(242, 169, 59, 0.36);
+  background: var(--warn-soft);
+}
+
+.material-proof-cell.missing,
+.material-shot-proof-tags i.missing,
+.material-proof-detail.missing {
+  border-color: rgba(255, 92, 92, 0.36);
+  background: rgba(255, 92, 92, 0.08);
+}
+
+.material-shot-proof-tags {
+  grid-column: 2 / 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.material-shot-proof-tags i {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-soft);
+  padding: 2px 7px;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.material-proof-detail-list {
+  max-height: 260px;
+}
+
+.material-proof-detail small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.material-group-item,
+.material-sequence-column button {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  padding: 8px;
+  text-align: left;
+}
+
+.material-group-item b,
+.material-sequence-column strong,
+.material-sequence-column button b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.material-group-item span,
+.material-group-item small,
+.material-sequence-column button span,
+.material-sequence-column button small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.material-sequence-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.material-sequence-column {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.material-sequence-column button {
+  cursor: pointer;
+}
+
+.material-sequence-column button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .agent-shot-item {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

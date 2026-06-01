@@ -3,6 +3,8 @@ import { formatSecondsCompact } from "../../utils/format";
 import { AgentTurnTimelinePanel } from "./AgentTurnTimeline";
 
 type ShotCard = UserMaterialPackArtifact["shotCards"][number];
+type ProofCoverage = UserMaterialPackArtifact["proofCoverage"][number];
+type SequenceCandidate = UserMaterialPackArtifact["sequenceRecommendations"]["openingCandidates"][number];
 
 function renderRange(card: ShotCard) {
   const range = card.timeRange;
@@ -22,6 +24,57 @@ function renderHistoryOrigin(value: string | null | undefined) {
   return "新识别";
 }
 
+function renderCoverage(value: string | null | undefined) {
+  if (value === "strong") return "强";
+  if (value === "partial") return "部分";
+  if (value === "weak") return "弱";
+  if (value === "missing") return "缺";
+  return value || "未知";
+}
+
+function coverageTone(value: string | null | undefined) {
+  if (value === "strong") return "strong";
+  if (value === "partial") return "partial";
+  if (value === "weak") return "weak";
+  if (value === "missing") return "missing";
+  return "unknown";
+}
+
+function shotTimeByRef(cards: ShotCard[], shotRef: string | null | undefined) {
+  if (!shotRef) return 0;
+  return cards.find((card) => card.shotRef === shotRef)?.timeRange?.start ?? 0;
+}
+
+function firstShotTime(cards: ShotCard[], refs: string[]) {
+  return shotTimeByRef(cards, refs[0]);
+}
+
+function SummaryList({ title, tone, items, empty }: { title: string; tone: "strong" | "weak" | "missing" | "neutral"; items?: string[] | null; empty: string }) {
+  const values = items?.filter(Boolean) ?? [];
+  return (
+    <div className={`material-summary-list ${tone}`}>
+      <strong>{title}</strong>
+      {values.length ? values.slice(0, 4).map((item) => <span key={`${title}_${item}`}>{item}</span>) : <span>{empty}</span>}
+    </div>
+  );
+}
+
+function SequenceList({ title, items, cards, onSelectShot }: { title: string; items: SequenceCandidate[]; cards: ShotCard[]; onSelectShot: (time: number) => void }) {
+  if (!items.length) return null;
+  return (
+    <div className="material-sequence-column">
+      <strong>{title}</strong>
+      {items.slice(0, 3).map((item) => (
+        <button key={`${title}_${item.shotRef}`} type="button" onClick={() => onSelectShot(shotTimeByRef(cards, item.shotRef))}>
+          <b>{item.shotRef}</b>
+          <span>{item.fit} / {item.recommendedPosition}</span>
+          <small>{item.reason}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function UserMaterialTaggerPanel({
   analysis,
   analysisHistory,
@@ -39,6 +92,8 @@ export function UserMaterialTaggerPanel({
   const cards = analysis?.shotCards ?? [];
   const groups = analysis?.materialGroups ?? [];
   const proof = analysis?.proofCoverage ?? [];
+  const sequence = analysis?.sequenceRecommendations;
+  const summary = analysis?.restructureInputSummary;
   const historyEntries = analysisHistory ?? [];
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = job?.errorSummary?.message ?? null;
@@ -70,7 +125,7 @@ export function UserMaterialTaggerPanel({
         </div>
       ) : null}
       {analysis?.restructureInputSummary ? (
-        <div className="rhythm-overview-panel">
+        <div className="rhythm-overview-panel material-overview-panel">
           <div className="rhythm-overview-heading">
             <span>重组可用性</span>
             <strong>{analysis.restructureInputSummary.recommendedUse?.[0] ?? "已生成素材识别包"}</strong>
@@ -88,6 +143,40 @@ export function UserMaterialTaggerPanel({
               <span>缺口</span>
               <strong>{analysis.restructureInputSummary.missingMaterialAreas?.length ?? 0}</strong>
             </div>
+          </div>
+          <div className="material-summary-grid">
+            <SummaryList title="强素材" tone="strong" items={summary?.strongMaterialAreas} empty="暂无强素材判断" />
+            <SummaryList title="弱素材" tone="weak" items={summary?.weakMaterialAreas} empty="暂无弱素材判断" />
+            <SummaryList title="素材缺口" tone="missing" items={summary?.missingMaterialAreas} empty="暂无缺口判断" />
+            <SummaryList title="推荐用途" tone="neutral" items={summary?.recommendedUse} empty="暂无推荐用途" />
+          </div>
+          {summary?.doNotUseFor?.length || summary?.needsRestructureAttention?.length ? (
+            <div className="material-boundary-panel">
+              {summary.doNotUseFor?.length ? <span><b>禁用边界</b>{summary.doNotUseFor.slice(0, 3).join(" / ")}</span> : null}
+              {summary.needsRestructureAttention?.length ? <span><b>重组注意</b>{summary.needsRestructureAttention.slice(0, 3).join(" / ")}</span> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {proof.length ? (
+        <div className="material-proof-matrix" aria-label="证明覆盖矩阵">
+          <div className="material-proof-head">
+            <strong>证明覆盖</strong>
+            <span>{proof.filter((item) => item.coverage === "missing").length} 缺 / {proof.filter((item) => item.coverage === "weak").length} 弱</span>
+          </div>
+          <div className="material-proof-grid">
+            {proof.map((item: ProofCoverage) => (
+              <button
+                key={item.proofNeedClass}
+                className={`material-proof-cell ${coverageTone(item.coverage)}`}
+                type="button"
+                onClick={() => onSelectShot(firstShotTime(cards, item.candidateShots))}
+              >
+                <b>{item.proofNeedClass}</b>
+                <span>{renderCoverage(item.coverage)}</span>
+                <small>{item.candidateShots.join(", ") || "无候选镜头"}</small>
+              </button>
+            ))}
           </div>
         </div>
       ) : null}
@@ -115,6 +204,13 @@ export function UserMaterialTaggerPanel({
                 <small>{card.materialTags.slice(0, 4).join(" / ") || "无"}</small>
               </span>
               <span className="rhythm-card-meta">{card.visualSummary}</span>
+              {proof.some((item) => item.candidateShots.includes(card.shotRef)) ? (
+                <span className="material-shot-proof-tags">
+                  {proof.filter((item) => item.candidateShots.includes(card.shotRef)).slice(0, 4).map((item) => (
+                    <i key={`${card.shotRef}_${item.proofNeedClass}`} className={coverageTone(item.coverage)}>{item.proofNeedClass}</i>
+                  ))}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -122,15 +218,35 @@ export function UserMaterialTaggerPanel({
         <div className="detail-hint">{failed ? "本次失败产物已记录，但没有有效 shotCards。" : "还没有素材识别结果。运行后会在这里展示素材卡和运行追踪。"}</div>
       )}
       {proof.length ? (
-        <div className="agent-history-list">
-          <strong>证明覆盖</strong>
+        <div className="agent-history-list material-proof-detail-list">
+          <strong>证明详情与缺口建议</strong>
           {proof.map((item) => (
-            <div key={item.proofNeedClass} className="agent-history-item">
+            <div key={item.proofNeedClass} className={`agent-history-item material-proof-detail ${coverageTone(item.coverage)}`}>
               <strong>{item.proofNeedClass} / {item.coverage}</strong>
               <span>shots {item.candidateShots.join(", ") || "无"} / groups {item.candidateGroups.join(", ") || "无"}</span>
               <small>{item.reason}</small>
+              <small>{item.gapAdvice}</small>
             </div>
           ))}
+        </div>
+      ) : null}
+      {groups.length ? (
+        <div className="material-group-list">
+          <strong>素材组</strong>
+          {groups.map((group) => (
+            <div key={group.groupId} className="material-group-item">
+              <b>{group.groupId} / {group.groupType}</b>
+              <span>{group.shotRefs.join(", ")}</span>
+              <small>{group.groupSummary}</small>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {sequence ? (
+        <div className="material-sequence-grid">
+          <SequenceList title="开头候选" items={sequence.openingCandidates ?? []} cards={cards} onSelectShot={onSelectShot} />
+          <SequenceList title="中段候选" items={sequence.middleCandidates ?? []} cards={cards} onSelectShot={onSelectShot} />
+          <SequenceList title="结尾候选" items={sequence.endingCandidates ?? []} cards={cards} onSelectShot={onSelectShot} />
         </div>
       ) : null}
       {historyEntries.length ? (

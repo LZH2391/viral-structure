@@ -4,6 +4,13 @@ import type { AgentChatAtomSummary, AgentChatSlotAtomDisplay, AgentChatSlotSumma
 
 type AtomKind = "script" | "rhythm" | "packaging";
 type DrawerState = { kind: "slot"; atomKind?: null } | { kind: "atom"; atomKind: AtomKind };
+type MaterialGap = {
+  tone: "gap" | "weak" | "ready";
+  label: string;
+  title: string;
+  body: string;
+  action: string;
+};
 
 export function SlotAtomView({
   display,
@@ -32,6 +39,8 @@ export function SlotAtomView({
     if (!selectedSlot?.slotSubtypeId) return atoms[0] ?? null;
     return atoms.find((atom) => atom.slotSubtypeId === selectedSlot.slotSubtypeId) ?? null;
   }, [atoms, selectedSlot?.slotSubtypeId]);
+  const materialGaps = useMemo(() => buildMaterialGapHints(selectedSlot, selectedAtoms), [selectedAtoms, selectedSlot]);
+  const planHealth = useMemo(() => summarizePlanHealth(slots, atoms), [atoms, slots]);
   const slotInvalidated = Boolean(draft.find((item) => item.type === "slot" && item.fromSlotSubtypeId === selectedSlot?.slotSubtypeId));
   const visibleCandidates = useMemo(
     () => candidates.filter((candidate) => !isCurrentReplacementCandidate(candidate, drawer, selectedSlot, selectedAtoms)),
@@ -143,18 +152,24 @@ export function SlotAtomView({
         <b>{display.slotCount ?? slots.length} slots</b>
         <span>{display.atomBindingCount ?? atoms.length} atom bindings</span>
       </div>
+      <div className="agent-chat-plan-health" aria-label="素材缺口总览">
+        <span><b>{planHealth.ready}</b> 可落地</span>
+        <span><b>{planHealth.weak}</b> 需补强</span>
+        <span><b>{planHealth.gap}</b> 高缺口</span>
+      </div>
       {display.displayJsonPath ? <div className="agent-chat-slot-atom-path" title={display.displayJsonPath}>{display.displayJsonPath}</div> : null}
       <div className="agent-chat-slot-list" aria-label="Slot 链">
         {slots.map((slot, index) => (
           <button
             key={`${slot.slotSubtypeId ?? "slot"}-${index}`}
-            className={slot.slotSubtypeId === selectedSlot?.slotSubtypeId ? "active" : ""}
+            className={`${slot.slotSubtypeId === selectedSlot?.slotSubtypeId ? "active" : ""} slot-material-${slotMaterialTone(slot, atoms)}`}
             type="button"
             onClick={() => setSelectedSlotId(slot.slotSubtypeId ?? null)}
           >
             <small>{String(slot.index ?? index + 1).padStart(2, "0")}</small>
             <b>{stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名 slot"}</b>
             {slot.functionText ? <span>{slot.functionText}</span> : null}
+            <em>{slotMaterialLabel(slot, atoms)}</em>
             <i
               role="button"
               tabIndex={0}
@@ -180,11 +195,27 @@ export function SlotAtomView({
           {selectedSlot?.archetypeId ? <span>{selectedSlot.archetypeId}</span> : null}
         </div>
         {selectedSlot?.usage ? <p>{selectedSlot.usage}</p> : null}
+        {selectedSlot?.demand || selectedSlot?.reason ? (
+          <div className="agent-chat-slot-evidence">
+            {selectedSlot.demand ? <span><b>需求</b>{selectedSlot.demand}</span> : null}
+            {selectedSlot.reason ? <span><b>选择理由</b>{selectedSlot.reason}</span> : null}
+          </div>
+        ) : null}
         {slotInvalidated ? <div className="agent-chat-replacement-warning">Slot 已预选替换，原绑定 Atom 将交给 Agent 重新评估。</div> : null}
         <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => openAtomDrawer("script")} />
         <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" onReplace={() => openAtomDrawer("rhythm")} />
         <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" onReplace={() => openAtomDrawer("packaging")} />
         {selectedAtoms?.handling ? <div className="agent-chat-atom-handling">{selectedAtoms.handling}</div> : null}
+        <div className="agent-chat-material-gap-list">
+          {materialGaps.map((gap) => (
+            <article key={`${gap.tone}_${gap.label}`} className={gap.tone}>
+              <span>{gap.label}</span>
+              <b>{gap.title}</b>
+              <p>{gap.body}</p>
+              <small>{gap.action}</small>
+            </article>
+          ))}
+        </div>
       </div>
       {drawer ? (
         <section className="agent-chat-replacement-drawer" aria-label="FunctionSlotLibrary 替换候选">
@@ -229,6 +260,90 @@ export function SlotAtomView({
       ) : null}
     </div>
   );
+}
+
+function buildMaterialGapHints(slot: AgentChatSlotSummary | null, atoms: AgentChatAtomSummary | null): MaterialGap[] {
+  const text = [
+    slot?.demand,
+    slot?.functionText,
+    slot?.usage,
+    slot?.reason,
+    atoms?.scriptAtom,
+    atoms?.rhythmAtom,
+    atoms?.packagingAtom,
+    atoms?.handling,
+  ].filter(Boolean).join(" ");
+  const hints: MaterialGap[] = [];
+  if (/(缺口|无长期|若无|必须|要求|需要|补足|补齐|不能|避免)/.test(text)) {
+    hints.push({
+      tone: "gap",
+      label: "素材缺口",
+      title: firstMatchingPhrase(text, ["若无长期素材", "必须通过", "必须有", "要求", "需要"]) || "当前 Slot 对素材有硬约束",
+      body: compactText(text, 96),
+      action: "处理：补拍对应证据，或替换 Slot/Atom 后交给 Agent 重新评估。",
+    });
+  }
+  if (/(实拍|近景|同框|接触|动作|等待|结果|包装|商品|时间证据|使用痕迹|购买入口|活动利益)/.test(text)) {
+    hints.push({
+      tone: "weak",
+      label: "拍摄义务",
+      title: "需要把抽象主张落到可见镜头",
+      body: extractMaterialObligation(text),
+      action: "补拍草稿：问题/动作/结果/商品锚点至少命中其中一个可见证据。",
+    });
+  }
+  if (!hints.length) {
+    hints.push({
+      tone: "ready",
+      label: "素材状态",
+      title: "当前绑定没有明显高缺口提示",
+      body: "可先按现有 Slot/Atom 进入 Shot 设计，再在分镜阶段校验真实素材。",
+      action: "处理：保持绑定，后续按具体素材做落地检查。",
+    });
+  }
+  return hints.slice(0, 2);
+}
+
+function summarizePlanHealth(slots: AgentChatSlotSummary[], atoms: AgentChatAtomSummary[]) {
+  return slots.reduce((summary, slot) => {
+    const atom = atoms.find((item) => item.slotSubtypeId === slot.slotSubtypeId) ?? null;
+    const tone = buildMaterialGapHints(slot, atom)[0]?.tone ?? "ready";
+    if (tone === "gap") summary.gap += 1;
+    else if (tone === "weak") summary.weak += 1;
+    else summary.ready += 1;
+    return summary;
+  }, { ready: 0, weak: 0, gap: 0 });
+}
+
+function slotMaterialTone(slot: AgentChatSlotSummary, atoms: AgentChatAtomSummary[]) {
+  const tone = buildMaterialGapHints(slot, atoms.find((item) => item.slotSubtypeId === slot.slotSubtypeId) ?? null)[0]?.tone ?? "ready";
+  return tone;
+}
+
+function slotMaterialLabel(slot: AgentChatSlotSummary, atoms: AgentChatAtomSummary[]) {
+  const tone = slotMaterialTone(slot, atoms);
+  if (tone === "gap") return "高缺口";
+  if (tone === "weak") return "需补强";
+  return "可落地";
+}
+
+function firstMatchingPhrase(text: string, markers: string[]) {
+  for (const marker of markers) {
+    const index = text.indexOf(marker);
+    if (index >= 0) return compactText(text.slice(index), 36);
+  }
+  return "";
+}
+
+function extractMaterialObligation(text: string) {
+  const sentences = text.split(/[。；;]\s*/).map((item) => item.trim()).filter(Boolean);
+  return compactText(sentences.find((sentence) => /(实拍|近景|同框|接触|动作|等待|结果|包装|商品|时间证据|使用痕迹|购买入口|活动利益)/.test(sentence)) ?? text, 88);
+}
+
+function compactText(value: string, maxLength: number) {
+  const text = value.replace(/`/g, "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
 function AtomCard({ label, value, tone, onReplace }: { label: string; value?: string | null; tone: AtomKind; onReplace: () => void }) {
