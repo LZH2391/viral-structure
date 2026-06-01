@@ -187,7 +187,15 @@ function createThreadPoolProxy({
       if (timer) clearTimeout(timer);
     }
     const text = await response.text();
-    const payload = text ? parseJson(text) : {};
+    const parsed = text ? parseJson(text) : {};
+    const payload = parsed?.invalidJson ? { raw: parsed.raw } : parsed;
+    if (response.ok && parsed?.invalidJson) {
+      const error = new Error("ThreadPool 返回了非 JSON 响应");
+      error.code = "threadpool_invalid_json";
+      error.payload = payload;
+      error.request = request;
+      throw error;
+    }
     if (!response.ok) {
       const error = new Error(safeErrorMessage(payload, response.status));
       error.statusCode = response.status;
@@ -644,7 +652,7 @@ function parseJson(text) {
   try {
     return JSON.parse(text);
   } catch {
-    return { raw: String(text).slice(0, 500) };
+    return { invalidJson: true, raw: String(text).slice(0, 500) };
   }
 }
 

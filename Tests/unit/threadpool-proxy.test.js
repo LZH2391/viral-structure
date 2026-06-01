@@ -286,6 +286,25 @@ test("threadpool proxy timeout becomes unavailable payload", async () => {
   assert.equal(health.request.method, "GET");
 });
 
+test("threadpool proxy treats 2xx non-json responses as unavailable", async () => {
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-transformer"],
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "<html>not json</html>",
+    }),
+  });
+
+  const health = await proxy.health();
+
+  assert.equal(health.ok, false);
+  assert.equal(health.unavailable, true);
+  assert.equal(health.error, "threadpool_unavailable");
+  assert.match(health.message, /非 JSON/);
+  assert.equal(health.request.pathname, "/health");
+});
+
 test("threadpool proxy acquire lease uses dedicated timeout", async () => {
   const requests = [];
   const proxy = createThreadPoolProxy({
