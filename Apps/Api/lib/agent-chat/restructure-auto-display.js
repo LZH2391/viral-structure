@@ -338,9 +338,10 @@ async function runFormatRepairTurn({
   }
   const lease = await handlers.threadPool.acquireLease({ role: REPAIR_ROLE, ownerId });
   const threadId = lease.thread_id ?? lease.threadId;
-  if (!threadId) {
-    const error = new Error("display repair lease missing threadId");
-    error.code = "restructure_display_repair_thread_missing";
+  const leaseId = lease.lease_id ?? lease.leaseId;
+  if (lease?.ok === false || !threadId || !leaseId) {
+    const error = new Error(lease?.message ?? "display repair lease missing leaseId/threadId");
+    error.code = lease?.error ?? lease?.code ?? "restructure_display_repair_lease_invalid";
     throw error;
   }
   try {
@@ -363,7 +364,7 @@ async function runFormatRepairTurn({
       },
     };
   } finally {
-    await handlers.threadPool.releaseLease({ leaseId: lease.lease_id ?? lease.leaseId, ownerId }).catch(() => null);
+    await handlers.threadPool.releaseLease({ leaseId, ownerId }).catch(() => null);
   }
 }
 

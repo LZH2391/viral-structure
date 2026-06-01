@@ -186,6 +186,7 @@ async function acquireLeaseWithRetry(threadPool, {
     });
     try {
       const lease = await threadPool.acquireLease({ role, ownerId });
+      validateAcquiredLease(lease, codedError);
       await notifyAcquireUpdate(onAcquireUpdate, {
         role,
         ownerId,
@@ -244,6 +245,18 @@ async function acquireLeaseWithRetry(threadPool, {
       lastRequestError,
       requestTimeoutMs,
     }),
+    true,
+  );
+}
+
+function validateAcquiredLease(lease, codedError) {
+  const leaseId = lease?.lease_id ?? lease?.leaseId ?? null;
+  const threadId = lease?.thread_id ?? lease?.threadId ?? null;
+  if (lease?.ok !== false && leaseId && threadId) return;
+  throw codedError(
+    lease?.error ?? lease?.code ?? "threadpool_acquire_failed",
+    lease?.message ?? "ThreadPool 获取 lease 未返回有效 lease/thread",
+    { leaseId: leaseId ?? null, threadId: threadId ?? null },
     true,
   );
 }

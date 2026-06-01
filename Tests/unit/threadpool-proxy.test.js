@@ -386,6 +386,41 @@ test("threadpool acquire retries warming until role becomes ready", async () => 
   assert.equal(result.attemptCount, 3);
 });
 
+test("threadpool acquire retries invalid lease responses", async () => {
+  const { acquireLeaseWithRetry } = require("../../Apps/Api/lib/shot-boundary/threadpool-runner");
+  let acquireCalls = 0;
+  const releasedOwners = [];
+  const threadPool = {
+    leaseAcquireTimeoutMs: 90000,
+    ensureRoleReady: async () => ({
+      ok: true,
+      status: { role: "script-segment-analyzer", warming: false, canAcquire: true, readyForLeases: true },
+    }),
+    acquireLease: async () => {
+      acquireCalls += 1;
+      return { ok: true, thread_id: "thread_1" };
+    },
+    releaseOwnerLeases: async (ownerId) => {
+      releasedOwners.push(ownerId);
+      return { ok: true };
+    },
+  };
+
+  await assert.rejects(
+    () => acquireLeaseWithRetry(threadPool, {
+      role: "script-segment-analyzer",
+      ownerId: "trace_1",
+      maxAttempts: 2,
+      backoffMs: [0],
+      codedError: (code, message, debugPayload, retryable) => Object.assign(new Error(message), { code, debugPayload, retryable }),
+    }),
+    { code: "threadpool_acquire_failed" },
+  );
+
+  assert.equal(acquireCalls, 2);
+  assert.deepEqual(releasedOwners, ["trace_1", "trace_1"]);
+});
+
 test("appserver bridge defaults to in-repo python runtime root", () => {
   const bridge = createAppServerBridge({ python: "python" });
   assert.equal(bridge.pythonRuntimeRoot, DEFAULT_PYTHON_RUNTIME_ROOT);

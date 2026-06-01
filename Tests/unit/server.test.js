@@ -2082,6 +2082,76 @@ test("agent chat auto display runs format repair turn before retrying transform"
   }
 });
 
+test("agent chat auto display rejects invalid repair lease before running repair turn", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-repair-lease-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-lease-demo");
+  const finalPath = path.join(planDir, "restructure.final.md");
+  await fsPromises.mkdir(planDir, { recursive: true });
+  await fsPromises.writeFile(finalPath, "# 坏格式\n\n没有目标章节\n", "utf8");
+  const repairCalls = [];
+  const conversations = new Map([["conversation_restructure", {
+    conversationId: "conversation_restructure",
+    revision: 1,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_restructure",
+    messages: [],
+  }]]);
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => ({ ok: true, status: { skillPath: `${role}/SKILL.md` } }),
+      acquireLease: async () => {
+        repairCalls.push({ type: "lease" });
+        return { ok: true, thread_id: "thread_repair" };
+      },
+      releaseLease: async ({ leaseId }) => {
+        repairCalls.push({ type: "release", leaseId });
+        return { ok: true };
+      },
+    },
+    appServer: {
+      collectTurnResult: async () => ({
+        threadId: "thread_restructure",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: "已生成并落盘：[restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/repair-lease-demo/restructure.final.md)",
+      }),
+      runTurnWithInputs: async () => {
+        repairCalls.push({ type: "repair-turn" });
+        return { ok: true, threadId: "thread_repair", turnId: "turn_repair_1", status: "completed" };
+      },
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status });
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.autoDisplayTransform.status, "repair_required");
+    assert.deepEqual(repairCalls.map((call) => call.type), ["lease"]);
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
+  }
+});
+
 test("function slot governance route enqueues semantic governance job", async () => {
   const calls = [];
   const server = createServer({
