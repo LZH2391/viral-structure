@@ -1,6 +1,6 @@
 ---
 name: function-slot-restructure
-description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 user-material-pack.stable 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险并输出新短视频结构方案时。不要用它执行库构建、入库校验或 slotType 命名治理。
+description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可选 user-material-pack.stable 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险，并在存在素材包时做素材供给判断与最佳成片顺序选择。不要用它执行库构建、入库校验或 slotType 命名治理。
 ---
 
 # 功能槽位重组
@@ -8,10 +8,10 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 use
 正式重组有三大输入，顺序和职责必须清晰分开：
 
 1. **目标 brief / 需求侧**：定义要卖什么、说服谁、要达成什么观众状态变化。
-2. **用户素材包 / 供给侧**：定义用户真实素材能承载哪些证明能力，以及哪些槽位需要降级、改写或补拍。
+2. **用户素材包 / 供给侧**：定义用户真实素材能承载哪些证明能力；重组只用它判断素材供给类型、最佳成片路径和结构级证明边界，不做逐 shot 最终落地。
 3. **FunctionSlotLibrary / 结构库侧**：提供可复用的 slot subtype、archetype、atoms、binding 和 recomposition policy。
 
-不要把用户素材包混进 FunctionSlotLibrary，也不要把 shot 直接标成槽位。素材包是第二大类输入，用于 `material-aware-restructure` 的逐槽位落地判断。
+不要把用户素材包混进 FunctionSlotLibrary，也不要把 shot 直接标成槽位。素材包是第二大类输入，用于 `material-aware-restructure` 的供给判断和最佳成片路径选择；具体镜头落地、包装字幕、AIGC 补镜头和复用处理交给后续 `function-slot-shot-design`。
 
 ## 职责
 
@@ -20,7 +20,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 use
 - 解析目标 brief
 - 从已有证据索引和已确认治理结论中定位可用 source variants
 - 组成功能槽位链
-- 对已选槽位逐一判断用户素材是否可落地，并绑定候选 shot/group
+- 若提供用户素材包，判断素材供给是否过多、刚好支持特定路径或不足以独立成片，并可按说服逻辑筛选 `shotRef/groupId` 推荐路径；推荐路径可以重排，也可以在成片逻辑成立时沿用输入顺序
 - 为每个槽位选择或改写 script / rhythm / packaging pattern 与 atoms
 - 检查 binding patterns / principles 和 rule patterns / recomposition policies
 - 判断跨样例组合是否需要 adapter
@@ -36,7 +36,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 use
 
 历史兼容路径中可能保留校验/索引脚本 wrapper，但正式脚本归属和文档入口都在 `function-slot-library-builder`。重组 skill 只消费其产出的 evidence index 和 governance JSON。
 
-素材理解由 `user-material-tagger` 负责。重组 skill 不把 shot 直接标成槽位，也不照单全收素材标签；它只在槽位链和证明义务明确之后，判断每个槽位能否由用户素材包中的候选 shot/group 承载。
+素材理解由 `user-material-tagger` 负责。重组 skill 不把 shot 直接标成槽位，也不照单全收素材标签；它只判断素材包能否支撑一条完整合适的视频路径，并在素材充足时输出重排后的推荐素材顺序。逐 slot 的最终素材选择、AIGC 补镜头、包装字幕强化和复用兜底由 `function-slot-shot-design` 完成。
 
 ## 前置条件
 
@@ -46,9 +46,9 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和 use
 
 ### 2. 用户素材包
 
-如果用户已经提供 `user-material-pack.stable`，将其视为正式的第二大类输入，不是临时备注。它用于描述当前视频素材能证明什么、哪些证明需求强/弱/缺失、哪些组有连续性、哪些镜头可承载开头/中段/结尾候选，以及哪些证明义务仍然缺口；它不替代 `slot_index.json` 或 `semantic-governance.v1.json`，也不直接决定 `slotType` 命名。
+如果用户已经提供 `user-material-pack.stable`，将其视为正式的第二大类输入，不是临时备注。它用于描述当前视频素材能证明什么、哪些证明需求强/弱/缺失、哪些组有连续性、哪些镜头可承载开头/中段/结尾候选，以及哪些证明义务仍然缺口；它不替代 `slot_index.json` 或 `semantic-governance.v1.json`，也不直接决定 `slotType` 命名。素材包内 `shotCards` 的输入顺序不自动等于成片顺序；重组必须按说服逻辑选择最佳素材路径，如果原顺序就是最合理的 `shot_1 -> shot_2 -> shot_3 -> shot_4`，可以沿用并说明原因。
 
-如果没有用户素材包，仍可做库侧重组，但必须披露“未使用用户素材包，无法进行逐槽位素材落地判断”。
+如果没有用户素材包，仍可做库侧重组，但必须披露“未使用用户素材包，无法进行素材供给判断和推荐素材路径选择”。
 
 ### 3. FunctionSlotLibrary
 
@@ -76,8 +76,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - `user-material-pack` / `user-material-pack.stable`
   - 来自 `user-material-tagger` 的素材供给侧证据。
   - 重点消费字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`sourceArtifacts`。
-  - 用途：判断真实素材能否满足 `proofNeedClass`、`coverage`、组连续性、镜头覆盖和证明缺口。
-  - 限制：只能作为素材约束和证明资产输入，不能直接生成槽位链、slot subtype 或 atom 选择。
+  - 用途：判断真实素材能否满足 `proofNeedClass`、`coverage`、组连续性、镜头覆盖、证明缺口，以及能否组成一条完整视频路径；路径可以重排，也可以合理沿用输入顺序。
+  - 限制：只能作为素材供给和证明资产输入，不能直接决定 `slotType` 命名；不能在重组阶段写最终剪法、台词、包装细节、AIGC 补法或复用变形。
 
 ### 3. FunctionSlotLibrary / 结构库侧
 
@@ -121,13 +121,17 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - 如果替换会明显破坏链路逻辑、素材承接、证明路径或节奏/包装同步，先说明影响并请求用户确认，不要直接重写 `restructure.final.md`。
 - 如果替换可以成立，基于替换后的结构重新设计并更新 `restructure.final.md`；不要直接编辑 `restructure.display.json`。
 
+## ShotDesign 回重组能力接口
+
+当同一 thread 后续执行 `function-slot-shot-design` 时，如果 ShotDesign 声明 `return_to_restructure_required`，必须读取 `references/shot-design-return-to-restructure.md`，按其中的交回内容和处理方式重新生成或修正结构方案。不要在 ShotDesign 内私自改槽位链，也不要新增独立 `function-slot-shot-design` ThreadPool role。
+
 ## Shot 设计后置原则
 
 本 skill 不展开具体 Shot 表、逐 shot 台词、分镜画面或包装说明。第一轮重组只把槽位链、atoms、adapter、脚本段落、节奏曲线、包装证明方案和结构级校验写清楚。
 
 - 第 7 节“包装与证明方案”必须足够支撑后续 Shot 设计：写明每个包装块的证明功能、覆盖层载体、字幕层规格、避让要求和风险。
 - 第 6 节“节奏曲线”必须消费证据层的 `rhythmTimingProfiles` 和治理层可选 `timingPolicy`，输出结构级 `timingBudget`：建议总时长范围、建议 shot 数范围、单镜时长范围、台词容量/字幕字数约束和同步点；不得只写“快 / 中 / 慢”。
-- 若使用用户素材包，按 `references/material-aware-restructure.md` 写逐槽位素材能力判断；这里允许引用候选 shot/group，但不展开逐 shot 台词、分镜或时间轴。
+- 若使用用户素材包，按 `references/material-aware-restructure.md` 写素材供给判断和推荐素材路径；这里允许引用选定的成片 `shotRef/groupId` 顺序，但不展开逐 shot 台词、分镜、包装说明或时间轴。
 - 不在第 5 节写逐字台词，不把结构说明伪装成口播。
 - 不输出 shot 表、shot group、分镜画面、包装说明、台词/字幕或预计时长。
 - 用户认可结构方案后，使用 `function-slot-shot-design` 在第二轮生成独立 `shot-design.final.md`。
@@ -182,7 +186,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 1. 重组目标与假设
 2. 最终功能槽位链（精确到 `slotSubtype`）
-   - 若使用 `user-material-pack.stable`，第 2 节的素材判断格式以 `references/material-aware-restructure.md` 为准。
+   - 若使用 `user-material-pack.stable`，第 2 节必须包含 `references/material-aware-restructure.md` 规定的素材供给判断和推荐素材路径。
 3. Atoms 落地表（只写每个槽位实际使用的 concrete script / rhythm / packaging atoms，允许且鼓励使用已声明短码；每个 atom 必须写“原标签 → 本方案落地”，选择理由放在第 2 节）
 4. Adapter 方案（说明触发理由、解决了什么、如何桥接）
 5. 脚本段落方案
@@ -221,6 +225,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 按需读取：
 
 - `references/material-aware-restructure.md`：有 `user-material-pack.stable` 时的专用流程。素材包参与重组时优先读取此文档，不要把素材流程混入普通库侧重组流程。
+- `references/shot-design-return-to-restructure.md`：ShotDesign 判断当前结构无法落地并声明 `return_to_restructure_required` 时的回重组能力接口。
 - `references/recomposition-workflow.md`：重组工作流。
 - `references/retrieval-and-selection.md`：evidence 检索和适配检查。
 - `references/quality-checks.md`：重组质量检查。

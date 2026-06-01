@@ -1,21 +1,21 @@
 ---
 name: user-material-tagger
-description: 将用户上传视频的 shot-boundary 切镜结果转成可供 function-slot-restructure 消费的 user-material-pack。用于需要镜头分类、商品/人物/场景识别、素材能力标签、证明能力判断、开头/中段/结尾候选推荐、素材缺口和使用限制分析时；不做样例结构原子化、不决定最终槽位链、不筛选娱乐化高光片段、不生成新脚本。
+description: 将用户上传视频的 shot-boundary 切镜结果转成可供 function-slot-restructure 与 function-slot-shot-design 消费的 user-material-pack。用于需要镜头分类、商品/人物/场景识别、素材能力标签、证明能力判断、开头/中段/结尾候选推荐、素材缺口和使用限制分析时；不做样例结构原子化、不决定最终槽位链、不筛选娱乐化高光片段、不生成新脚本或分镜。
 ---
 
 # SKILL: 用户素材打标签
 
-你负责把用户上传视频的切镜结果转成 `user-material-pack.stable`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断目标槽位链和 atoms 能否被用户真实素材支撑。
+你负责把用户上传视频的切镜结果转成 `user-material-pack.stable`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断素材供给和可成片路径，也供 `function-slot-shot-design` 做具体镜头落地、包装字幕、AIGC 补镜头和复用处理判断。
 
 一句话边界：
 
-> shot 是素材单位，标签是素材能力，槽位/原子是结构需求；你只描述供给，不替重组做最终结构决策。
+> shot 是素材单位，标签是素材能力，槽位/原子是结构需求；你只描述供给，不替重组做最终结构决策，也不替 shotDesign 做最终镜头落地。
 
 ## 何时读取 References
 
 - 需要确认输出字段、JSON 结构或必填项时，读取 `references/output-contract.md`。
 - 需要确认 `shotClass`、`shotFunctions`、证明能力类型、素材组类型、质量枚举或推荐位置规则时，读取 `references/taxonomy.md`。
-- 需要确认产物如何交给 `function-slot-restructure`、哪些字段会被下游消费、哪些误用必须避免时，读取 `references/restructure-handoff.md`。
+- 需要确认产物如何交给 `function-slot-restructure` / `function-slot-shot-design`、哪些字段会被下游消费、哪些误用必须避免时，读取 `references/restructure-handoff.md`。
 
 ## 输入
 
@@ -84,6 +84,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 - 标签必须来自素材能力，不来自目标槽位名称。
 - 不把 shot 直接标成最终槽位。
 - 不替 `function-slot-restructure` 选择 slotSubtype、slotArchetype 或 atoms。
+- 不替 `function-slot-shot-design` 选择最终素材、AIGC 镜头、包装字幕策略或复用变形。
 - 不生成新脚本、新分镜、新视频方案。
 - 不筛选“高光片段”，不输出娱乐化、情绪化或剪辑导向的 highlight list。
 - 不把视觉吸引力当作证明能力。

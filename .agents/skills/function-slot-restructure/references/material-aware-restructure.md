@@ -6,23 +6,23 @@
 
 ```text
 brief + FunctionSlotLibrary + 用户素材包
--> 选槽位链
--> 逐槽位判断用户素材能否落地
--> 有素材则绑定候选 shot/group
--> 素材过量则筛选
--> 素材不足则降级、改写、重排、补全或提示补拍
--> 输出带素材约束的重组方案
+-> 判断素材供给类型
+-> 按说服逻辑选择最佳成片 shot/group 路径
+-> 生成或修正结构方案
+-> 把具体镜头落地、包装字幕、AIGC 补镜头和复用处理交给 function-slot-shot-design
 ```
 
 不要做成：
 
 ```text
 shot-boundary
--> 直接把 shot 标成槽位
--> 重组照单全收
+-> 不判断成片逻辑就照搬原始 shot 顺序
+-> 低分槽位删除
+-> 把同一批强素材当万能填充
+-> 重组阶段替 shotDesign 决定 AIGC/包装/复用补法
 ```
 
-shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案中服务不同槽位，素材理解阶段不能过早定死。
+shot 是素材单位，slot 是结构需求。`shotCards` 的输入顺序只表示原视频时间顺序，不自动等于新视频成片顺序。重组必须按观众理解路径、证明路径和转化路径选择最佳素材顺序：如果 `shot_2 -> shot_4 -> shot_3 -> shot_1` 更顺，就重排并说明原因；如果原始 `shot_1 -> shot_2 -> shot_3 -> shot_4` 本来就最顺，就沿用并说明原因。
 
 ## 三大输入
 
@@ -41,64 +41,17 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
 
 ## 工作流
 
-### 1. 标准化 brief
+### 1. 读取三类输入并建立边界
 
-输出 `brief_constraints`：
+先同时看清三件事，不生成额外 JSON 产物，也不要把三者混成一个字段：
 
-```json
-{
-  "productCategory": "凤爪",
-  "audience": "target viewers",
-  "conversionGoal": "purchase / remember / click / ask",
-  "claims": [
-    {
-      "claimId": "C01",
-      "claimType": "product_identity | process | result | trust | comparison | choice",
-      "strength": "strong | medium | light",
-      "proofNeedClass": "product_identity"
-    }
-  ],
-  "platformConstraints": [],
-  "productionConstraints": []
-}
-```
+- **需求侧 brief**：产品/品类、目标观众、转化目标、主张强度、平台和生产限制。
+- **素材供给侧 user-material-pack**：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary` 里真实可用的素材能力、限制和缺口。
+- **结构库侧 FunctionSlotLibrary**：治理层的 slot subtype / archetype / atom pattern / binding principle，以及证据层 concrete variants。
 
-### 2. 标准化用户素材包
+这一阶段只做理解和边界确认，不新增中间产物、不新增文件、不写入 FunctionSlotLibrary。
 
-输出 `material_constraints`，不要合并进 brief，也不要写入 FunctionSlotLibrary：
-
-```json
-{
-  "materialPackId": "sampleVideoId or artifactId",
-  "proofCoverage": [
-    {
-      "proofNeedClass": "product_identity",
-      "coverage": "strong",
-      "shotIds": ["shot_003"],
-      "groupIds": ["group_product_identity_01"],
-      "safeUsage": "可用于商品身份、品牌露出、包装记忆",
-      "gapAdvice": "强规格信息需补拍包装背面或配料表"
-    }
-  ],
-  "groups": [
-    {
-      "groupId": "group_product_identity_01",
-      "groupType": "product_display_group",
-      "continuity": "strong",
-      "usableProofNeedClasses": ["product_identity"],
-      "notUsableProofNeedClasses": ["trust_evidence"],
-      "shotIds": ["shot_003", "shot_004"]
-    }
-  ],
-  "sequenceRecommendations": {
-    "openingCandidates": ["shot_003"],
-    "middleCandidates": ["group_product_identity_01"],
-    "endingCandidates": []
-  }
-}
-```
-
-### 3. 读取 FunctionSlotLibrary
+### 2. 读取 FunctionSlotLibrary
 
 读取治理层和证据层：
 
@@ -106,95 +59,99 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
 - 用 slot index 回到真实 source variants 和 concrete atoms。
 - 不用素材包决定 slot 命名。
 
-### 4. 规划槽位链
+### 3. 判断素材供给类型
 
-先按 brief + FunctionSlotLibrary 生成槽位需求图和候选槽位链。
+重组先判断素材包是否能支持完整合适的视频，而不是逐槽位判生死。供给类型只允许三类：
 
-槽位链必须精确到 `slotSubtype`。此时还不要生成 shot 表。
+| 供给类型 | 判断标准 | 重组可做什么 | 交给 ShotDesign 什么 |
+|---|---|---|---|
+| `material_oversupply_selectable` | 素材覆盖完整且有多条可选路径或明显冗余 | 筛选一条具体 `shotRef/groupId` 推荐路径，路径可重排也可沿用原序，说明未选素材为何不用 | 最终镜头拆分、剪法、包装字幕、少量补镜头 |
+| `material_sufficient_specific_path` | 素材数量不多，但能支撑一条明确路径，时长、信息密度、证明强度和复用压力基本可控 | 顺着素材能力生成结构方案，输出重排后的推荐素材顺序 | 最终落镜头和局部表达增强 |
+| `material_insufficient_for_full_video` | 缺关键链路、总时长/信息密度不足、证明弱、复用压力高，或只能靠重复素材硬撑 | 仍输出结构方案，只说明素材不足以独立支撑完整视频 | 逐 slot 决定现有素材、包装字幕、AIGC 自行设计、回重组或复用变形兜底 |
 
-### 5. 逐槽位素材能力判断
+判断维度必须至少包含：
 
-对每个槽位生成 `slot_material_fit`：
+- **链路覆盖**：是否覆盖开场/对象建立、过程或机制、结果或证明、转化收束等必要观众路径。
+- **顺序可组性**：素材能否组成观众能理解的顺序；该顺序可能是重排后的，也可能刚好等于输入顺序。
+- **总时长与信息密度**：例如 4 个镜头总共 6 秒，即使能力类型齐全，也可能只是骨架够、成片厚度不足。
+- **证明强度**：有画面不等于有证明；弱结果、弱对比、弱信任不能承载强主张。
+- **复用压力**：如果同一 shot 必须承担多个主功能，不能判断为素材刚好够。
+- **素材连续性**：`materialGroups` 可作为连续证据，但未成组的 shot 不默认连续。
+
+### 4. 推荐素材路径
+
+当供给类型为 `material_oversupply_selectable` 或 `material_sufficient_specific_path` 时，必须输出一条推荐素材路径：
 
 ```json
 {
-  "slotId": "slot_001",
-  "slotSubtypeId": "SUB_problem_activation",
-  "materialNeeds": {
-    "proofNeedClass": "problem_visibility",
-    "visualNeed": "问题画面或需求场景",
-    "attentionNeed": "强注意力入口",
-    "captionNeed": "可被字幕点题"
-  },
-  "candidateMaterials": [
+  "materialSupplyType": "material_sufficient_specific_path",
+  "recommendedMaterialPath": [
     {
-      "source": "shot_003",
-      "groupId": "group_product_identity_01",
-      "fitScore": 82,
-      "fitLevel": "strong",
-      "usableAs": ["product_identity", "attention_entry"],
-      "notUsableAs": ["trust_evidence"],
-      "reason": "商品主体和包装可见，可做开场身份建立"
+      "order": 1,
+      "source": "shot_002",
+      "roleInVideo": "开场对象建立",
+      "reason": "商品主体清楚，适合先建立观看对象"
+    },
+    {
+      "order": 2,
+      "source": "shot_004",
+      "roleInVideo": "过程演示",
+      "reason": "动作比 shot_003 更完整，放在商品识别之后更顺"
     }
   ],
-  "landingDecision": "material_supported",
-  "handlingStrategy": "bind_candidate_materials",
-  "gapImpact": "无关键缺口"
+  "sequenceRationale": "按对象建立 -> 过程可见 -> 结果确认 -> 轻 CTA 选择成片顺序；若不沿用原输入顺序，说明重排原因。",
+  "unusedMaterialReason": [
+    {
+      "source": "shot_001",
+      "reason": "与 shot_002 信息重复，保留给 shotDesign 作为备选，不进入主路径"
+    }
+  ]
 }
 ```
 
-## 素材评分策略
+要求：
 
-每个槽位对所有候选 group/shot 计算 `materialFitScore`，满分 100：
+- 推荐素材顺序必须是成片顺序，不是简单复述输入顺序。
+- 如果沿用输入顺序，必须明确说明它刚好符合成片逻辑；沿用合理顺序是允许的。
+- 允许精确到 `shotRef` 或 `groupId`；如果用 `groupId`，说明组内顺序是否沿用原组连续性。
+- 只写结构级 role 和选择理由，不写最终剪法、台词、包装细节、AIGC 补法或逐 shot 分镜。
 
-| 维度 | 分值 | 评分依据 |
-|---|---:|---|
-| 证明覆盖 `proofCoverage` | 0-30 | 是否覆盖该槽位核心 `proofNeedClass`；strong=30，partial=18-24，weak=6-12，unknown/none=0 |
-| 对象/动作匹配 `objectActionFit` | 0-20 | 商品、动作、结果、对比或信任对象是否对应当前槽位需求 |
-| 连续性 `continuityFit` | 0-15 | group 连续性、动作闭环、前后承接、是否支持段落推进 |
-| 画面可读性 `visualClarity` | 0-10 | 清晰度、主体焦点、稳定性、遮挡情况 |
-| 字幕/包装可点题 `captionPackagingAffordance` | 0-10 | 是否能被字幕、标签、标题条、圈选、卖点卡片有效点题 |
-| 节奏适配 `rhythmFit` | 0-5 | 是否适合该槽位注意力强度、停顿和信息密度 |
-| 复用成本 `reuseCost` | 0-5 | 是否需要裁切、重复、放大、重排；成本越低分越高 |
-| 风险扣分 `riskPenalty` | 0 至 -20 | 过度承诺、证明不成立、素材排斥项、隐私/合规/误导风险 |
+## 供给分级判断
 
-阈值：
+重组侧不做最终策略评分。这里不要输出 0-100 分，也不要按分数决定“现有素材 / 包装字幕 / AIGC / 复用”。重组只做素材供给分级，回答：
 
-- `80-100`：可落地，优先绑定候选素材。
-- `65-79`：可落地但需包装、字幕或轻 adapter 补强。
-- `50-64`：弱落地，必须降主张、改写实现或重组复用。
-- `30-49`：缺口明显，优先结构重排、文案/包装补全或 AIGC 表达补全；不能承担强证明。
-- `<30`：不可落地，删除/替换槽位、补拍/补证或仅作为 generated gap-fill 的表达占位。
+- 这包素材能不能支撑一条完整合适的视频。
+- 如果能，最适合哪条成片路径。
+- 如果不能，是链路缺失、时长厚度不足、证明弱，还是复用压力高。
 
-## 素材过量处理
+供给分级只看这些结构级信号：
 
-当一个槽位有过多候选素材：
+| 信号 | 判断问题 |
+|---|---|
+| 链路覆盖 | 是否覆盖开场/对象建立、过程或机制、结果或证明、转化收束等必要观众路径 |
+| 顺序可组性 | shot/group 是否能组成顺畅视频；可以重排，也可以合理沿用输入顺序 |
+| 证明有效性 | 证明是否真实成立，是否存在强主张弱证据 |
+| 成片厚度 | 总时长、信息密度、动作可读停留是否支撑完整视频 |
+| 画面可读性 | 清晰度、主体焦点、稳定性、遮挡是否影响结构判断 |
+| 复用压力 | 是否需要同一 shot 承担多个主功能；压力高时不能判断为素材刚好够 |
+| 风险边界 | 是否存在过度承诺、素材排斥项、隐私/合规/误导风险 |
 
-1. 每个槽位保留 1-3 个主候选，最多 2 个备选。
-2. 优先选择能覆盖不同证明功能的素材，不堆重复画面。
-3. 连续 group 优先整体保留；只有信息重复、节奏拖慢或证据冗余时才建议裁切。
-4. 同一 shot 被多个槽位看中时，记录 `reuseConflict`，后续 Shot 设计再最终分配。
-5. 不把所有候选塞进方案；输出必须说明筛选依据。
+具体策略评分后置到 `function-slot-shot-design`：
 
-处理结论：
+- 每个 slot 用哪个现有素材。
+- 哪些素材需要包装/字幕强化。
+- 哪些位置由 shotDesign 自行设计 AIGC 镜头。
+- 是否需要回到重组。
+- 是否只能复用变形兜底。
 
-- `material_over_supply_filter_required`
-- `bind_candidate_materials`
-- `existing_material_reuse_required`
+## 明确禁止
 
-## 素材不足处理
-
-素材不足时按分数和缺失维度选择处理方式：
-
-| 处理方式 | 适用条件 | 不能做什么 |
-|---|---|---|
-| 结构重排 `structure_reorder_required` | 缺某个强镜头，但可通过调整段落顺序、合并/拆分槽位、前置商品身份、后置轻感受降低依赖 | 不能掩盖核心证明缺失 |
-| 文案/字幕补全 `copy_caption_fill_required` | 信息可安全写成文字，画面有弱支撑或只需说明规格/口味/场景/CTA | 不能把文字当成真实结果证明 |
-| 包装补全 `packaging_fill_required` | 画面对象存在但表达不清，需要标题条、卖点卡片、贴纸、转场、箭头、圈选、图卡 | 不能让装饰替代证明 |
-| AIGC 表达补全 `aigc_expression_fill_required` | 需要封面、背景、氛围、示意画面、配音或非证明性补充画面 | 不能伪造结果、对比、资质、评价、检测或信任证明 |
-| 现有素材重组复用 `existing_material_reuse_required` | 有弱覆盖但数量不足，可裁切、重复利用、局部放大、冻结帧、镜头重排 | 必须说明原素材缺口和影响 |
-| 降级主张 `claim_downgrade_required` | 素材只能弱支撑强主张 | 不能继续使用强证明语气 |
-| 补拍/补证 `reshoot_or_evidence_required` | 需要强结果、强对比、资质、评价或可信证据，但素材包没有真实证据 | 不能用 AIGC 或包装伪造 |
+- 禁止因为某个 slot 的素材得分低就删除该 slot。
+- 禁止把高分 shot 反复塞进多个 slot。
+- 禁止不判断成片逻辑就按输入 shot 顺序直接生成素材链路。
+- 禁止在重组阶段决定“这个 slot 用 AIGC / 包装字幕 / 复用”。
+- 禁止把 AIGC 写成低优先级补丁；AIGC 的具体使用由 shotDesign 依据落地缺口决定。
+- 禁止用 AIGC、包装或字幕伪造结果、对比、资质、评价、检测或强信任证明。
 
 ## 输出要求
 
@@ -206,27 +163,26 @@ shot 是素材单位，slot 是结构需求。一个 shot 可以在不同方案�
 - 供给侧用户素材包
 - 结构库侧 FunctionSlotLibrary
 
-### 第 2 节必须包含“槽位素材能力判断”
+### 第 2 节必须包含“素材供给判断”
 
-| 槽位 | 素材需求 | 用户素材候选 | 素材得分 | 落地结论 | 处理方式 | 缺口与影响 |
-|---|---|---|---:|---|---|---|
-| slot_001 | proofNeedClass、画面/动作/字幕点题需求 | `group_x` / `shot_003` / `shot_011` | 0-100 | 可落地 / 过量需筛选 / 需结构重排 / 需文案字幕补全 / 需包装补全 / 需 AIGC 表达补全 / 需现有素材重组复用 / 需降级主张 / 需补拍补证 | 绑定 / 筛选 / 重排 / 补字幕 / 补包装 / AIGC / 裁切复用 / 降主张 / 补拍 | 原素材缺口槽位、缺失证明能力、对主张强度或后续 Shot 设计的影响 |
+| 供给类型 | 可支持的视频路径 | 推荐素材顺序 | 关键 shot/group | 总时长/信息密度判断 | 复用压力 | 证明强度 | 后续 shotDesign 注意事项 |
+|---|---|---|---|---|---|---|---|
+| `material_sufficient_specific_path` | 对象建立 -> 过程演示 -> 结果确认 -> 轻 CTA | `shot_002 -> shot_004 -> shot_003 -> shot_001` | `shot_002`, `shot_004`, `shot_003`, `shot_001` | 总时长偏短但信息链完整 | 低 / 中 / 高 | 强 / 中 / 弱 | 只提示注意事项，不指定补法 |
 
 ### 第 9 节必须汇总素材风险
 
-- 哪些槽位素材不足。
-- 哪些槽位素材过量但已筛选。
-- 哪些处理方式会影响主张强度。
-- 哪些缺口必须补拍/补证。
+- 素材供给类型的主要风险。
+- 推荐素材路径中证明强度不足的位置。
+- 总时长、信息密度或复用压力的结构级影响。
+- 哪些强证明缺口不能用 AIGC、包装或字幕伪造。
 
 ## 质量检查
 
 - 是否把素材包作为第二大类输入，而不是 brief 字段或库字段？
-- 是否先选槽位链，再逐槽位判断素材落地？
 - 是否没有把 `shotClass / shotFunctions / recommendations` 当成 `slotSubtype`？
-- 是否给每个槽位输出素材得分、候选素材、处理方式、缺口与影响？
-- 素材过量时是否筛选，而不是全塞？
-- 素材不足时是否按分数选择结构重排、文案/字幕补全、包装补全、AIGC 表达补全、现有素材重组复用、降级或补拍？
-- AIGC 是否只用于表达补全，而没有伪造证明？
-- 对低于 65 分的素材是否没有直接绑定为强证明？
-- 对低于 50 分的槽位是否明确说明缺口和处理方式？
+- 是否没有在缺少成片逻辑说明时照搬原始 shot 顺序？
+- 是否在素材充足时输出了推荐素材路径，且说明了为何重排或为何沿用原序？
+- 是否没有因为低分素材删除槽位？
+- 是否没有把同一批强素材反复填进多个 slot？
+- 是否没有在重组阶段指定逐 slot 的 AIGC、包装字幕或复用补法？
+- 是否把具体镜头落地、复用变形和 AIGC 自行设计交给 `function-slot-shot-design`？
