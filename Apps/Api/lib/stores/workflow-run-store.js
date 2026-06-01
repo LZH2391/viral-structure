@@ -40,7 +40,7 @@ function loadRuns(filePath) {
   if (!fs.existsSync(filePath)) return loadRunsFromDirectory(filePath);
   try {
     const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    if (Array.isArray(parsed.runRefs)) return loadRunsFromIndex(filePath, parsed.runRefs);
+    if (Array.isArray(parsed.runRefs)) return loadRunsFromIndexAndDirectory(filePath, parsed.runRefs);
     if (!Array.isArray(parsed.runs)) return loadRunsFromDirectory(filePath);
     let changed = true;
     const runs = parsed.runs.filter((run) => run?.workflowRunId).map((run) => normalizeLoadedRun(run));
@@ -48,6 +48,18 @@ function loadRuns(filePath) {
   } catch {
     return loadRunsFromDirectory(filePath);
   }
+}
+
+function loadRunsFromIndexAndDirectory(filePath, runRefs) {
+  const indexed = loadRunsFromIndex(filePath, runRefs);
+  const scanned = loadRunsFromDirectory(filePath);
+  const runs = new Map();
+  for (const run of indexed.runs) runs.set(run.workflowRunId, run);
+  for (const run of scanned.runs) runs.set(run.workflowRunId, run);
+  return {
+    runs: Array.from(runs.values()),
+    changed: indexed.changed || scanned.changed || runs.size !== indexed.runs.length,
+  };
 }
 
 function loadRunsFromIndex(filePath, runRefs) {
@@ -149,27 +161,31 @@ function persistRun(filePath, run) {
 
 function persistRunIndex(filePath, runs) {
   if (!filePath) return;
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify({
-    schemaVersion: 2,
-    storage: {
-      mode: "per-run-file",
-      runsDir: "runs",
-    },
-    runRefs: Array.from(runs.values()).map((run) => ({
-      workflowRunId: run.workflowRunId,
-      workflowKey: run.workflowKey ?? null,
-      workflowVersion: run.workflowVersion ?? null,
-      status: run.status ?? null,
-      traceId: run.traceId ?? null,
-      runId: run.runId ?? null,
-      sampleVideoId: run.sampleVideoId ?? null,
-      createdAt: run.createdAt ?? null,
-      updatedAt: run.updatedAt ?? null,
-      completedAt: run.completedAt ?? null,
-      file: path.join("runs", `${safeWorkflowRunFileName(run.workflowRunId)}.json`).replace(/\\/g, "/"),
-    })),
-  }, null, 2), "utf8");
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify({
+      schemaVersion: 2,
+      storage: {
+        mode: "per-run-file",
+        runsDir: "runs",
+      },
+      runRefs: Array.from(runs.values()).map((run) => ({
+        workflowRunId: run.workflowRunId,
+        workflowKey: run.workflowKey ?? null,
+        workflowVersion: run.workflowVersion ?? null,
+        status: run.status ?? null,
+        traceId: run.traceId ?? null,
+        runId: run.runId ?? null,
+        sampleVideoId: run.sampleVideoId ?? null,
+        createdAt: run.createdAt ?? null,
+        updatedAt: run.updatedAt ?? null,
+        completedAt: run.completedAt ?? null,
+        file: path.join("runs", `${safeWorkflowRunFileName(run.workflowRunId)}.json`).replace(/\\/g, "/"),
+      })),
+    }, null, 2), "utf8");
+  } catch {
+    // The index is a convenience cache; individual run files remain the source of truth.
+  }
 }
 
 function workflowRunFilesDir(filePath) {

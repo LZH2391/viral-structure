@@ -1,14 +1,7 @@
 # Runtime artifacts
-/Runtime/Uploads/*
-/Runtime/Artifacts/*
-/Runtime/ArtifactIndex/*
-/Runtime/DebugSnapshots/*
-/Runtime/Jobs/*
-/Runtime/AgentConversations/*.json
-/Runtime/WorkflowRuns/full-analysis-queue.json
-/Runtime/WorkflowRuns/full-analysis-batch-uploads/*
-/Runtime/Projection/*
-/Runtime/Temp/*
+/Runtime/*
+!/Runtime/*/
+/Runtime/**/*
 /Artifacts/AnalysisFinalOutputs/*
 /Artifacts/FunctionSlotRestructure/*
 /Artifacts/FunctionSlotShotDesign/*
@@ -32,12 +25,23 @@ __pycache__/
 **/__pycache__/
 
 # Keep runtime directory placeholders
+!/Runtime/README.md
+!/Runtime/AgentConversations/
+!/Runtime/WorkflowRuns/
+!/Runtime/WorkflowRuns/README.md
+!/Runtime/Uploads/
 !/Runtime/Uploads/README.md
+!/Runtime/Artifacts/
 !/Runtime/Artifacts/README.md
+!/Runtime/ArtifactIndex/
 !/Runtime/ArtifactIndex/README.md
+!/Runtime/DebugSnapshots/
 !/Runtime/DebugSnapshots/README.md
+!/Runtime/Jobs/
 !/Runtime/Jobs/README.md
+!/Runtime/Projection/
 !/Runtime/Projection/README.md
+!/Runtime/Temp/
 !/Runtime/Temp/README.md
 !/Artifacts/AnalysisFinalOutputs/README.md
 !/Artifacts/FunctionSlotRestructure/README.md

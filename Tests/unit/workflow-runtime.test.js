@@ -450,6 +450,32 @@ test("workflow run store ignores out-of-root run refs", () => {
   assert.deepEqual(store.listRuns(), []);
 });
 
+test("workflow run store treats index as rebuildable cache", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-index-cache-"));
+  const filePath = path.join(dir, "workflow-runs.json");
+  fs.mkdirSync(path.join(dir, "runs"), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify({
+    schemaVersion: 2,
+    storage: { mode: "per-run-file", runsDir: "runs" },
+    runRefs: [],
+  }), "utf8");
+  fs.writeFileSync(path.join(dir, "runs", "workflow_unindexed.json"), JSON.stringify({
+    workflowRunId: "workflow_unindexed",
+    workflowKey: "material-recognition",
+    workflowVersion: "material-recognition.v1",
+    status: "processed",
+    traceId: "trace_unindexed",
+    runId: "run_unindexed",
+    currentStageKeys: [],
+    stages: [],
+  }), "utf8");
+
+  const store = createWorkflowRunStore({ filePath });
+
+  assert.equal(store.getRun("workflow_unindexed").status, "processed");
+  assert.deepEqual(store.listRuns().map((run) => run.workflowRunId), ["workflow_unindexed"]);
+});
+
 function buildArtifact({ shot = false, sampleVideoId = "sample_1" } = {}) {
   return {
     sampleVideoId,
