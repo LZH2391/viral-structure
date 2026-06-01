@@ -20,6 +20,7 @@ from common import (
     text_blob,
     write_json,
 )
+from timing_evidence import normalize_timing_evidence
 
 
 def build_index(root: Path) -> Dict[str, Any]:
@@ -62,6 +63,7 @@ def build_index(root: Path) -> Dict[str, Any]:
         ]:
             for atom_id, atom in atoms.items():
                 slot_type = atom.get("slot")
+                timing_evidence = normalize_timing_evidence(atom.get("timingEvidence")) if atom_kind == "rhythm" else None
                 atom_variants.append({
                     "variantId": f"{sample_id}::{atom_kind}::{atom_id}",
                     "sampleId": sample_id,
@@ -77,6 +79,7 @@ def build_index(root: Path) -> Dict[str, Any]:
                     "proofNeed": atom.get("proofNeed"),
                     "pace": atom.get("pace"),
                     "densityType": atom.get("densityType"),
+                    "timingEvidence": timing_evidence,
                     "avoidFor": atom.get("avoidFor", []),
                     "packagingFunction": atom.get("packagingFunction"),
                     "visualHierarchy": atom.get("visualHierarchy"),
@@ -92,6 +95,11 @@ def build_index(root: Path) -> Dict[str, Any]:
             packaging_ids = [str(x) for x in as_list(slot.get("packagingAtomIds"))]
             script = [script_atoms[x] for x in script_ids if x in script_atoms]
             rhythm = [rhythm_atoms[x] for x in rhythm_ids if x in rhythm_atoms]
+            rhythm_timing_profiles = [
+                profile
+                for profile in (normalize_timing_evidence(atom.get("timingEvidence")) for atom in rhythm)
+                if profile is not None
+            ]
             packaging = [packaging_atoms[x] for x in packaging_ids if x in packaging_atoms]
             variant_id = f"{sample_id}::{slot_id}"
             slot_type_counter[str(slot_type)] += 1
@@ -113,6 +121,7 @@ def build_index(root: Path) -> Dict[str, Any]:
                 "needReview": slot.get("needReview", False),
                 "scriptAtoms": script,
                 "rhythmAtoms": rhythm,
+                "rhythmTimingProfiles": rhythm_timing_profiles,
                 "packagingAtoms": packaging,
                 "sourceRefs": slot.get("sourceRefs", {}),
                 "searchText": text_blob(slot) + " " + text_blob(script) + " " + text_blob(rhythm) + " " + text_blob(packaging),

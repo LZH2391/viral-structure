@@ -166,6 +166,15 @@ function closeServer(server) {
   });
 }
 
+async function exists(filePath) {
+  try {
+    await fsPromises.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sampleRestructureFinalMarkdown() {
   return [
     "# 重组方案",
@@ -1363,6 +1372,78 @@ test("agent chat collect auto transforms completed restructure final markdown", 
     assert.equal(displayJson.schemaVersion, "function_slot_restructure_display.v1");
     assert.equal(displayJson.sections.finalSlotChain.items[0].type, "table");
     assert.equal(conversations.get("conversation_restructure").messages[0].text, sampleRestructureFinalMarkdown());
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat auto display runs format repair turn before retrying transform", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-repair-"));
+  const conversations = new Map();
+  const repairCalls = [];
+  conversations.set("conversation_restructure", {
+    conversationId: "conversation_restructure",
+    revision: 1,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_restructure",
+    messages: [],
+  });
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => ({ ok: true, status: { skillPath: `${role}/SKILL.md` } }),
+      acquireLease: async ({ role }) => {
+        repairCalls.push({ type: "lease", role });
+        return { ok: true, lease_id: "lease_repair", thread_id: "thread_repair" };
+      },
+      releaseLease: async ({ leaseId }) => {
+        repairCalls.push({ type: "release", leaseId });
+        return { ok: true };
+      },
+    },
+    appServer: {
+      collectTurnResult: async () => ({
+        threadId: "thread_restructure",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: "# 坏格式\n\n保存路径：`Artifacts/FunctionSlotRestructure/repair-demo/restructure.final.md`\n\n没有目标章节",
+      }),
+      runTurnWithInputs: async ({ threadId, inputs }) => {
+        repairCalls.push({ type: "repair-turn", threadId, prompt: inputs[0].text });
+        return { ok: true, threadId, turnId: "turn_repair_1", status: "completed", finalMessage: sampleRestructureFinalMarkdown().replaceAll("auto-demo", "repair-demo") };
+      },
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status });
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
+
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.autoDisplayTransform.status, "processed");
+    assert.equal(collected.body.autoDisplayTransform.repairAttemptCount, 1);
+    assert.equal(collected.body.autoDisplayTransform.repairTurns[0].turnId, "turn_repair_1");
+    assert.equal(repairCalls.some((call) => call.type === "repair-turn" && /只做格式修复/.test(call.prompt)), true);
+    assert.ok(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.final.repair-attempt-1.md")));
+    const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "repair-demo", "restructure.display.json"), "utf8"));
+    assert.equal(displayJson.sourceTextDigest.sectionCount, 6);
   } finally {
     await closeServer(server);
   }

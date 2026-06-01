@@ -29,7 +29,51 @@
       "核心利益被点出",
       "体验动作出现",
       "字幕质疑推进"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 6.433,
+      "minShotDurationSec": 1.1,
+      "maxShotDurationSec": 3.433,
+      "avgShotDurationSec": 2.144,
+      "medianShotDurationSec": 1.9,
+      "subtitleCharCount": 80,
+      "dialogueCharsPerSec": 12.436,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0.0,
+          "end": 3.433,
+          "durationSec": 3.433,
+          "subtitleText": "你把虎皮蛋糕里面最好吃的虎皮单独拎出来卖，",
+          "subtitleCharCount": 20
+        },
+        {
+          "shotRef": "shot_2",
+          "start": 3.433,
+          "end": 5.333,
+          "durationSec": 1.9,
+          "subtitleText": "你把虎皮蛋糕里面最好吃的虎皮单独拎出来卖， 就是想弄死我们蛋糕店啊。",
+          "subtitleCharCount": 31
+        },
+        {
+          "shotRef": "shot_3",
+          "start": 5.333,
+          "end": 6.433,
+          "durationSec": 1.1,
+          "subtitleText": "就是想弄死我们蛋糕店啊。 我只不过想打工人吃点便宜的好蛋糕而已。",
+          "subtitleCharCount": 29
+        }
+      ]
+    }
   },
   {
     "id": "R002",
@@ -61,7 +105,51 @@
       "价值立场出现",
       "目标人群被点明",
       "商品保持同框"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_4",
+        "shot_5",
+        "shot_6"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 3.767,
+      "minShotDurationSec": 0.7,
+      "maxShotDurationSec": 1.634,
+      "avgShotDurationSec": 1.256,
+      "medianShotDurationSec": 1.433,
+      "subtitleCharCount": 67,
+      "dialogueCharsPerSec": 17.786,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_4",
+          "start": 6.433,
+          "end": 7.133,
+          "durationSec": 0.7,
+          "subtitleText": "我只不过想打工人吃点便宜的好蛋糕而已。",
+          "subtitleCharCount": 18
+        },
+        {
+          "shotRef": "shot_5",
+          "start": 7.133,
+          "end": 8.767,
+          "durationSec": 1.634,
+          "subtitleText": "我只不过想打工人吃点便宜的好蛋糕而已。",
+          "subtitleCharCount": 18
+        },
+        {
+          "shotRef": "shot_6",
+          "start": 8.767,
+          "end": 10.2,
+          "durationSec": 1.433,
+          "subtitleText": "我只不过想打工人吃点便宜的好蛋糕而已。 你这个十几块到手这么一大箱，",
+          "subtitleCharCount": 31
+        }
+      ]
+    }
   },
   {
     "id": "R003",
@@ -95,7 +183,69 @@
       "低门槛信息出现",
       "质疑句推进",
       "证明对象被推到前景"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_7",
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11"
+      ],
+      "shotCount": 5,
+      "totalDurationSec": 5.8,
+      "minShotDurationSec": 0.633,
+      "maxShotDurationSec": 1.967,
+      "avgShotDurationSec": 1.16,
+      "medianShotDurationSec": 0.9,
+      "subtitleCharCount": 72,
+      "dialogueCharsPerSec": 12.414,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_7",
+          "start": 10.2,
+          "end": 11.833,
+          "durationSec": 1.633,
+          "subtitleText": "你这个十几块到手这么一大箱，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_8",
+          "start": 11.833,
+          "end": 12.5,
+          "durationSec": 0.667,
+          "subtitleText": "你这个十几块到手这么一大箱，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_9",
+          "start": 12.5,
+          "end": 14.467,
+          "durationSec": 1.967,
+          "subtitleText": "你这个十几块到手这么一大箱， 原料能好到哪里去啊？ 你装什么？",
+          "subtitleCharCount": 26
+        },
+        {
+          "shotRef": "shot_10",
+          "start": 14.467,
+          "end": 15.367,
+          "durationSec": 0.9,
+          "subtitleText": "你装什么？ 装什么？",
+          "subtitleCharCount": 7
+        },
+        {
+          "shotRef": "shot_11",
+          "start": 15.367,
+          "end": 16.0,
+          "durationSec": 0.633,
+          "subtitleText": "装什么？ 我来告诉你我装了什么，",
+          "subtitleCharCount": 13
+        }
+      ]
+    }
   },
   {
     "id": "R004",
@@ -125,7 +275,33 @@
       "疑问被回应",
       "证据区域出现",
       "标注动作与说明同步"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_12"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 4.8,
+      "minShotDurationSec": 4.8,
+      "maxShotDurationSec": 4.8,
+      "avgShotDurationSec": 4.8,
+      "medianShotDurationSec": 4.8,
+      "subtitleCharCount": 25,
+      "dialogueCharsPerSec": 5.208,
+      "derivedPace": "slow",
+      "shotTimings": [
+        {
+          "shotRef": "shot_12",
+          "start": 16.0,
+          "end": 20.8,
+          "durationSec": 4.8,
+          "subtitleText": "我来告诉你我装了什么， 我这个鲜鸡蛋添加量啊， 高达52%。",
+          "subtitleCharCount": 25
+        }
+      ]
+    }
   },
   {
     "id": "R005",
@@ -158,7 +334,60 @@
       "外观细节出现",
       "结构细节出现",
       "体验反馈回收"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ],
+      "shotCount": 4,
+      "totalDurationSec": 8.733,
+      "minShotDurationSec": 1.166,
+      "maxShotDurationSec": 3.1,
+      "avgShotDurationSec": 2.183,
+      "medianShotDurationSec": 2.234,
+      "subtitleCharCount": 84,
+      "dialogueCharsPerSec": 9.619,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_13",
+          "start": 20.8,
+          "end": 22.4,
+          "durationSec": 1.6,
+          "subtitleText": "烤出来虎皮纹路金黄金黄的，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_14",
+          "start": 22.4,
+          "end": 25.267,
+          "durationSec": 2.867,
+          "subtitleText": "烤出来虎皮纹路金黄金黄的， 每一片都又大又厚， 吃起来松松软软，",
+          "subtitleCharCount": 27
+        },
+        {
+          "shotRef": "shot_15",
+          "start": 25.267,
+          "end": 28.367,
+          "durationSec": 3.1,
+          "subtitleText": "吃起来松松软软， 浓郁的蛋香混合着奶香， 比你们甜品店现烤的还要好吃啊。",
+          "subtitleCharCount": 31
+        },
+        {
+          "shotRef": "shot_16",
+          "start": 28.367,
+          "end": 29.533,
+          "durationSec": 1.166,
+          "subtitleText": "比你们甜品店现烤的还要好吃啊。",
+          "subtitleCharCount": 14
+        }
+      ]
+    }
   },
   {
     "id": "R006",
@@ -189,7 +418,42 @@
       "使用场景出现",
       "价值质疑被回应",
       "体验状态延续"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_17",
+        "shot_18"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 9.634,
+      "minShotDurationSec": 3.434,
+      "maxShotDurationSec": 6.2,
+      "avgShotDurationSec": 4.817,
+      "medianShotDurationSec": 4.817,
+      "subtitleCharCount": 62,
+      "dialogueCharsPerSec": 6.436,
+      "derivedPace": "slow",
+      "shotTimings": [
+        {
+          "shotRef": "shot_17",
+          "start": 29.533,
+          "end": 35.733,
+          "durationSec": 6.2,
+          "subtitleText": "那你这个拿来当早茶或者下午茶肯定超合适的， 你卖这么便宜怎么赚钱啊？ 我赚不赚钱关你毛事啊？",
+          "subtitleCharCount": 41
+        },
+        {
+          "shotRef": "shot_18",
+          "start": 35.733,
+          "end": 39.167,
+          "durationSec": 3.434,
+          "subtitleText": "我赚不赚钱关你毛事啊？ 我的粉丝吃爽了才是王道。",
+          "subtitleCharCount": 21
+        }
+      ]
+    }
   },
   {
     "id": "R007",
@@ -219,6 +483,32 @@
       "新信息停止",
       "商品保持可见",
       "人物动作放缓"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_19"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 1.2,
+      "minShotDurationSec": 1.2,
+      "maxShotDurationSec": 1.2,
+      "avgShotDurationSec": 1.2,
+      "medianShotDurationSec": 1.2,
+      "subtitleCharCount": 0,
+      "dialogueCharsPerSec": 0.0,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_19",
+          "start": 39.167,
+          "end": 40.367,
+          "durationSec": 1.2,
+          "subtitleText": "",
+          "subtitleCharCount": 0
+        }
+      ]
+    }
   }
 ]

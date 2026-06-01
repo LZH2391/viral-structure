@@ -532,6 +532,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
             "persuasionTask": candidate.get("persuasionTask"),
             "scriptAtoms": [a.get("id") for a in candidate.get("scriptAtoms", [])],
             "rhythmAtoms": [a.get("id") for a in candidate.get("rhythmAtoms", [])],
+            "rhythmTimingProfiles": candidate.get("rhythmTimingProfiles", []),
             "packagingAtoms": [a.get("id") for a in candidate.get("packagingAtoms", [])],
             "scriptConcreteAtomVariants": concrete_atom_variant_ids(candidate, "scriptAtoms", "script"),
             "rhythmConcreteAtomVariants": concrete_atom_variant_ids(candidate, "rhythmAtoms", "rhythm"),
@@ -540,6 +541,7 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
             "syncPoints": candidate.get("requiredSyncPoints", []),
             "proofNotes": [a.get("proofNeed") for a in candidate.get("scriptAtoms", []) if a.get("proofNeed")],
             "packagingNotes": [a.get("packagingFunction") or a.get("function") for a in candidate.get("packagingAtoms", []) if a.get("packagingFunction") or a.get("function")],
+            "timingBudgetSeed": build_timing_budget_seed(candidate),
         })
 
     if selected_chain.get("requiredAdapters"):
@@ -560,6 +562,24 @@ def build_plan(index: Dict[str, Any], brief: Dict[str, Any], sequence_override: 
         "selectedSlots": selected_slots,
         "warnings": warnings,
         "nextStep": "使用该骨架继续撰写脚本段落方案、节奏曲线、包装证明方案和 adapters，并按 governanceAudit 中的 binding principles / recomposition policies 做校验；具体 Shot 设计在用户认可结构方案后交给 function-slot-shot-design 完成。",
+    }
+
+
+def build_timing_budget_seed(candidate: Dict[str, Any]) -> Dict[str, Any] | None:
+    profiles = [profile for profile in candidate.get("rhythmTimingProfiles", []) or [] if isinstance(profile, dict)]
+    if not profiles:
+        return None
+    totals = [profile.get("totalDurationSec") for profile in profiles if isinstance(profile.get("totalDurationSec"), (int, float))]
+    shot_counts = [profile.get("shotCount") for profile in profiles if isinstance(profile.get("shotCount"), int)]
+    avg_durations = [profile.get("avgShotDurationSec") for profile in profiles if isinstance(profile.get("avgShotDurationSec"), (int, float))]
+    return {
+        "source": "slot_index.rhythmTimingProfiles",
+        "sourceRhythmAtomCount": len(profiles),
+        "sourceTotalDurationSec": round(sum(totals), 3) if totals else None,
+        "sourceShotCount": sum(shot_counts) if shot_counts else None,
+        "avgShotDurationSec": round(sum(avg_durations) / len(avg_durations), 3) if avg_durations else None,
+        "derivedPace": profiles[0].get("derivedPace"),
+        "dialogueCharsPerSec": profiles[0].get("dialogueCharsPerSec"),
     }
 
 

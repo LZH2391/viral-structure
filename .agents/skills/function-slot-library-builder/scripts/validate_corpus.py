@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from common import as_list, by_id, discover_sample_dirs, display_path, load_sample, resolve_corpus_root, resolve_default_output_path, write_json
+from timing_evidence import normalize_timing_evidence
 
 REQUIRED_SAMPLE_FILES = [
     "slots",
@@ -55,6 +56,12 @@ def validate_sample(meta: Dict[str, Any], files: Dict[str, Any]) -> Dict[str, An
             atom_slot = atom.get("slot")
             if atom_slot and atom_slot not in slot_types:
                 warnings.append(f"atom {atom_id} references slot type not present in slots: {atom_slot}")
+            if collection_name == "rhythmAtoms" and atom.get("timingEvidence") is not None:
+                timing = normalize_timing_evidence(atom.get("timingEvidence"))
+                if not timing or not timing.get("shotTimings"):
+                    warnings.append(f"rhythm atom {atom_id} has invalid timingEvidence")
+                elif timing.get("totalDurationSec") is None:
+                    warnings.append(f"rhythm atom {atom_id} timingEvidence missing totalDurationSec")
 
     for slot in slots:
         slot_id = slot.get("slotId")

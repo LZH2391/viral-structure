@@ -116,6 +116,7 @@ description: 从脚本段落、节奏结构、包装结构三份 final 分析结
 - `fields`
 - `confidence`
 - `needReview`
+- 系统或建库链路可能补充 `timing_evidence / timingEvidence`：只作为 SourceTrace 证据，记录来源 shot 的起止、时长、字幕字数和密度；不要把它改写成 AtomCore 语义。
 
 包装结构输入通常包含：
 
@@ -175,6 +176,7 @@ description: 从脚本段落、节奏结构、包装结构三份 final 分析结
 - 适配的脚本功能
 - 不适配的脚本功能
 - 必须同步的节奏点
+- 如果输入或系统侧提供 timing evidence，节奏原子应原样保留到 `timing_evidence`，用于后续重组预算；不要手写、猜测或平均生成不存在的秒数。
 
 如果节奏跨越多个脚本槽位，要在绑定关系里说明，不要硬切成和脚本完全一致。
 
@@ -385,6 +387,7 @@ description: 从脚本段落、节奏结构、包装结构三份 final 分析结
 - 不要改写上游 final 结果。
 - 不要把包装元素清单当成包装原子，必须写出包装功能。
 - 不要把节奏快慢当成节奏原子的全部，必须写出注意力作用。
+- 不要把 timing evidence 当成节奏原子的抽象核心；真实秒数属于 SourceTrace，抽象节奏作用仍写在 `attention_function / pace / density_type / beat_shape`。
 - 不要把脚本文案当成脚本原子，必须写出说服任务和证明需求。
 
 ## 防错规则

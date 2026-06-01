@@ -76,6 +76,17 @@ python .agents/skills/function-slot-library-builder/scripts/build_slot_index.py 
 
 索引用于后续审查和重组，是证据层，不是治理结果。生成物在 `Runtime/Temp/FunctionSlotLibrary/`，默认不入库。
 
+### 2.5 回填节奏时长证据
+
+已有样例库如果缺少 rhythm atom 的 `timingEvidence`，先从运行时样例 artifact 回填：
+
+```bash
+python .agents/skills/function-slot-library-builder/scripts/backfill_timing_evidence.py . --runtime-root Runtime
+python .agents/skills/function-slot-library-builder/scripts/backfill_timing_evidence.py . --runtime-root Runtime --write
+```
+
+第一条是 dry-run，第二条才写回 `atoms.rhythm.json`。`timingEvidence` 属于证据层，记录来源 shot 的起止、时长、字幕文本、字幕字数、总时长和口播密度；它不是治理层结论。
+
 ### 3. 读取 slot_index 证据入口
 
 语义治理直接读取 `Runtime/Temp/FunctionSlotLibrary/slot_index.json`。不要用 `retrieve_candidates.py` 或任何字段相似脚本生成治理候选。
@@ -92,6 +103,7 @@ python .agents/skills/function-slot-library-builder/scripts/build_slot_index.py 
 - `persuasionTask`
 - script / rhythm / packaging atom 详情
 - binding / rule / template 的承接关系
+- rhythm atom 的 `timingEvidence` 与 slot variant 的 `rhythmTimingProfiles`，作为节奏预算和台词容量的真实证据
 
 如果需要按 brief 检索重组候选，那是 `function-slot-restructure` 的职责，不是本 skill 的治理流程。
 
@@ -161,6 +173,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 读取 `references/atom-binding-rule-governance.md`。
 
 - script / rhythm / packaging 三类 atom 独立治理，不允许全部按 script pattern 并入。
+- rhythm atom 治理可以归纳 `timingPolicy`，例如单镜范围、总段范围、口播密度和不适配场景；不要把每个来源 shot 的真实秒数搬进治理层。
 - binding pattern 看关系约束，不看文本相似。
 - rule pattern 看重组政策，不看 `reason` / `fix` 文案接近。
 - 三类 atom 可以形成 implementation bundle，但 bundle 不能替代 atom pattern。

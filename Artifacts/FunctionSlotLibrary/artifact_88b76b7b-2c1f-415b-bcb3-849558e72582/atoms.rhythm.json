@@ -27,7 +27,33 @@
       "主体出现",
       "价值提示出现",
       "购买对象识别"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 2.167,
+      "minShotDurationSec": 2.167,
+      "maxShotDurationSec": 2.167,
+      "avgShotDurationSec": 2.167,
+      "medianShotDurationSec": 2.167,
+      "subtitleCharCount": 13,
+      "dialogueCharsPerSec": 5.999,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0.0,
+          "end": 2.167,
+          "durationSec": 2.167,
+          "subtitleText": "就这个两块多一条的辣卤鲮鱼，",
+          "subtitleCharCount": 13
+        }
+      ]
+    }
   },
   {
     "id": "R002",
@@ -58,7 +84,42 @@
       "数量增加",
       "规格露出",
       "价值字幕承接"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_2",
+        "shot_3"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 3.833,
+      "minShotDurationSec": 1.766,
+      "maxShotDurationSec": 2.067,
+      "avgShotDurationSec": 1.917,
+      "medianShotDurationSec": 1.917,
+      "subtitleCharCount": 31,
+      "dialogueCharsPerSec": 8.088,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_2",
+          "start": 2.167,
+          "end": 3.933,
+          "durationSec": 1.766,
+          "subtitleText": "彻底让我实现了鱼肉自由。",
+          "subtitleCharCount": 11
+        },
+        {
+          "shotRef": "shot_3",
+          "start": 3.933,
+          "end": 6.0,
+          "durationSec": 2.067,
+          "subtitleText": "现在到手8袋才一出头， 它并不是硬邦邦的鱼干，",
+          "subtitleCharCount": 20
+        }
+      ]
+    }
   },
   {
     "id": "R003",
@@ -88,7 +149,33 @@
       "疑虑转向",
       "主体近景稳定",
       "质地观察开始"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_4"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 1.433,
+      "minShotDurationSec": 1.433,
+      "maxShotDurationSec": 1.433,
+      "avgShotDurationSec": 1.433,
+      "medianShotDurationSec": 1.433,
+      "subtitleCharCount": 16,
+      "dialogueCharsPerSec": 11.165,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_4",
+          "start": 6.0,
+          "end": 7.433,
+          "durationSec": 1.433,
+          "subtitleText": "它并不是硬邦邦的鱼干， 是一整条鲮鱼，",
+          "subtitleCharCount": 16
+        }
+      ]
+    }
   },
   {
     "id": "R004",
@@ -120,7 +207,51 @@
       "拆解动作完成",
       "内部证据露出",
       "关键体验主张出现"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 5.2,
+      "minShotDurationSec": 1.2,
+      "maxShotDurationSec": 2.067,
+      "avgShotDurationSec": 1.733,
+      "medianShotDurationSec": 1.933,
+      "subtitleCharCount": 36,
+      "dialogueCharsPerSec": 6.923,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_5",
+          "start": 7.433,
+          "end": 9.5,
+          "durationSec": 2.067,
+          "subtitleText": "是一整条鲮鱼， 先炸后卤， 鱼肉鲜嫩又多汁，",
+          "subtitleCharCount": 17
+        },
+        {
+          "shotRef": "shot_6",
+          "start": 9.5,
+          "end": 10.7,
+          "durationSec": 1.2,
+          "subtitleText": "鱼肉鲜嫩又多汁，",
+          "subtitleCharCount": 7
+        },
+        {
+          "shotRef": "shot_7",
+          "start": 10.7,
+          "end": 12.633,
+          "durationSec": 1.933,
+          "subtitleText": "鱼刺都是酥酥的， 一点不硌牙。",
+          "subtitleCharCount": 12
+        }
+      ]
+    }
   },
   {
     "id": "R005",
@@ -151,6 +282,41 @@
       "场景理由出现",
       "购买对象再识别",
       "最终同框定格"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_8",
+        "shot_9"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 3.267,
+      "minShotDurationSec": 1.5,
+      "maxShotDurationSec": 1.767,
+      "avgShotDurationSec": 1.633,
+      "medianShotDurationSec": 1.633,
+      "subtitleCharCount": 31,
+      "dialogueCharsPerSec": 9.489,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_8",
+          "start": 12.633,
+          "end": 14.133,
+          "durationSec": 1.5,
+          "subtitleText": "一点不硌牙。 平时追剧解馋， 拿它下酒别提多过瘾了。",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_9",
+          "start": 14.133,
+          "end": 15.9,
+          "durationSec": 1.767,
+          "subtitleText": "拿它下酒别提多过瘾了。",
+          "subtitleCharCount": 10
+        }
+      ]
+    }
   }
 ]

@@ -11,6 +11,7 @@ description: 基于已确认的 function-slot-restructure 结构方案生成独�
 
 - 读取已确认的 `function-slot-restructure` 方案。
 - 使用第 5 节脚本段落、第 6 节节奏曲线、第 7 节包装与证明方案作为唯一表达来源。
+- 第 6 节若包含 `timingBudget`，必须把它作为台词长度和镜头拆分的硬输入；不要只按“快 / 中 / 慢”感性判断。
 - 把三条并行视图对齐为新视频顺序 shot 或必要的 shot group。
 - 写具体分镜画面、包装说明、台词/字幕、预计时长占位、必须同步点和证明功能。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
@@ -49,8 +50,8 @@ description: 基于已确认的 function-slot-restructure 结构方案生成独�
 
    安全边界、条件采用、素材限制、拍摄提醒和修复建议默认进入 `包装说明` 或内部检查，不得占用 `台词/字幕（若有）`。例如“远离易燃物”“保持通风”“按说明使用”属于包装安全提示；“有真实物证再拍”“没有素材就删除”属于内部条件，不是成片台词。
 
-7. **写预计时长占位**  
-   每个 shot 的 `预计时长` 统一写 `待后置估算`。不要手写秒数、时间码、起止时间、段落时长或心算后的估计值。
+7. **写预计时长约束**  
+   如果上游第 6 节提供 `timingBudget`，每个 shot 的 `预计时长` 写预算约束，例如 `预算 0.8-1.2s，后置校验回填`，并让台词/字幕长度服从该预算。若上游没有 timingBudget，统一写 `待后置估算`。不要手写起止时间或脱离预算心算秒数。
 
 8. **落独立文件**  
    若输入来自 `restructure.final.md`，在同一个重组目录下写入 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。不要修改上游 `restructure.final.md`，也不要再新建 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>`。
@@ -109,7 +110,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - `分镜画面` 必须在当前 shot 内独立可消费，不能依赖前文才能理解；需要一致性时，在当前 shot 内写出可见特征，例如人物大致外观、场景、产品外观或界面状态。
 - `包装说明` 写后期叠加的覆盖层、字幕、标题条、圈选、箭头、标签、图卡、画中画等，必须来自第 7 节包装证明方案。
 - `台词/字幕（若有）` 只写该 shot 内实际会出现在成片里的口播、主字幕或屏幕文字；无台词写“无”，不要用动作描述、拍摄备注、条件判断、安全规范或修复建议替代台词。
-- `预计时长` 只能写 `待后置估算`。
+- `预计时长` 有上游 timingBudget 时写预算约束；没有 timingBudget 时只能写 `待后置估算`。
 - `必须同步点` 写台词、动作、证据、包装弹出、节奏峰值之间必须同时发生或按顺序贴合的点。
 - `证明功能` 写该 shot 最终证明了什么；不能只写“展示产品”或“加强可信”。
 
@@ -126,7 +127,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 台词是否自然、短、口语，不像审计表格或 brief 摘要。
 - 包装说明是否写到可执行规格，而不是“轻量字幕”“极简标签”等空泛描述。
 - 字幕、标签、箭头、圈选、图卡是否避开主体细节、证据区域、关键动作、结果状态或人物表情。
-- 所有 `预计时长` 是否都是 `待后置估算`。
+- 所有 `预计时长` 是否遵守上游 timingBudget；若没有 timingBudget，是否都是 `待后置估算`。
 - 是否只输出 Shot 设计表，没有把输入依据、校验表、剩余风险、必要修复或替代实现写进最终文件。
 
 ## 聊天回复

@@ -70,6 +70,16 @@ function transformRestructureFinalMarkdown(markdown, {
   if (errors.length) {
     throw validationError("restructure_display_markdown_parse_failed", "restructure.final.md 展示转换解析失败", errors);
   }
+  if (missingSections.length === TARGET_SECTIONS.length) {
+    throw validationError("restructure_display_no_target_sections", "restructure.final.md 未识别到目标展示章节", [
+      errorAt("sections", null, "未识别到第 1、2、3、5、6、7 节，请检查 Markdown 标题格式", {
+        sectionKey: null,
+        sectionTitle: null,
+        blockType: "heading",
+        snippet: lines.slice(0, 80).join("\n"),
+      }),
+    ]);
+  }
 
   const result = {
     schemaVersion: SCHEMA_VERSION,
@@ -297,13 +307,13 @@ function parseTable(lines, startIndex, context) {
 function findTargetSectionRanges(lines) {
   const headings = [];
   lines.forEach((line, index) => {
-    const match = line.trim().match(/^##\s+(\d+)\.\s*(.+)$/);
-    if (match) headings.push({ index, number: match[1], heading: match[2].trim() });
+    const match = line.trim().match(/^#{1,6}\s+(\d+)[.．、]\s*(.+)$/);
+    if (match) headings.push({ index, number: match[1], heading: normalizeHeadingText(match[2]) });
   });
   const ranges = new Map();
   for (let index = 0; index < headings.length; index += 1) {
     const current = headings[index];
-    const definition = TARGET_SECTIONS.find((item) => item.number === current.number && current.heading === item.heading);
+    const definition = TARGET_SECTIONS.find((item) => item.number === current.number && isTargetHeading(current.heading, item.heading));
     if (!definition) continue;
     ranges.set(definition.key, {
       start: current.index,
@@ -311,6 +321,19 @@ function findTargetSectionRanges(lines) {
     });
   }
   return ranges;
+}
+
+function isTargetHeading(actual, expected) {
+  const normalizedActual = normalizeHeadingText(actual);
+  const normalizedExpected = normalizeHeadingText(expected);
+  return normalizedActual === normalizedExpected || normalizedActual.startsWith(normalizedExpected);
+}
+
+function normalizeHeadingText(value) {
+  return String(value ?? "")
+    .replace(/[#`*_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isTableStart(lines, index) {

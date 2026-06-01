@@ -33,7 +33,69 @@
       "干扰源出现",
       "困扰状态说明",
       "矛盾判断落点"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ],
+      "shotCount": 5,
+      "totalDurationSec": 8.13,
+      "minShotDurationSec": 0.43,
+      "maxShotDurationSec": 2.63,
+      "avgShotDurationSec": 1.626,
+      "medianShotDurationSec": 2.0,
+      "subtitleCharCount": 82,
+      "dialogueCharsPerSec": 10.086,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0.0,
+          "end": 0.43,
+          "durationSec": 0.43,
+          "subtitleText": "打游戏声，",
+          "subtitleCharCount": 4
+        },
+        {
+          "shotRef": "shot_2",
+          "start": 0.43,
+          "end": 1.27,
+          "durationSec": 0.84,
+          "subtitleText": "打游戏声， 楼上美女，",
+          "subtitleCharCount": 8
+        },
+        {
+          "shotRef": "shot_3",
+          "start": 1.27,
+          "end": 3.5,
+          "durationSec": 2.23,
+          "subtitleText": "楼上美女， 隔壁床在跟对象打电话。",
+          "subtitleCharCount": 14
+        },
+        {
+          "shotRef": "shot_4",
+          "start": 3.5,
+          "end": 5.5,
+          "durationSec": 2.0,
+          "subtitleText": "还有不到3天就开学了， 在宿舍想11点上床睡觉，",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_5",
+          "start": 5.5,
+          "end": 8.13,
+          "durationSec": 2.63,
+          "subtitleText": "在宿舍想11点上床睡觉， 那你绝对是个笑话。 除非你是试过这个宿舍物理生存外挂。",
+          "subtitleCharCount": 35
+        }
+      ]
+    }
   },
   {
     "id": "R002",
@@ -64,7 +126,42 @@
       "解决物首次出现",
       "识别载体清楚露出",
       "问题语境转向方案语境"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_6",
+        "shot_7"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 2.2,
+      "minShotDurationSec": 0.77,
+      "maxShotDurationSec": 1.43,
+      "avgShotDurationSec": 1.1,
+      "medianShotDurationSec": 1.1,
+      "subtitleCharCount": 38,
+      "dialogueCharsPerSec": 17.273,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_6",
+          "start": 8.13,
+          "end": 8.9,
+          "durationSec": 0.77,
+          "subtitleText": "除非你是试过这个宿舍物理生存外挂。",
+          "subtitleCharCount": 16
+        },
+        {
+          "shotRef": "shot_7",
+          "start": 8.9,
+          "end": 10.33,
+          "durationSec": 1.43,
+          "subtitleText": "除非你是试过这个宿舍物理生存外挂。 但耳塞这东西，",
+          "subtitleCharCount": 22
+        }
+      ]
+    }
   },
   {
     "id": "R003",
@@ -99,7 +196,69 @@
       "替代方案露出",
       "缺陷体验出现",
       "对比结论落下"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_8",
+        "shot_9",
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ],
+      "shotCount": 5,
+      "totalDurationSec": 8.54,
+      "minShotDurationSec": 0.8,
+      "maxShotDurationSec": 2.77,
+      "avgShotDurationSec": 1.708,
+      "medianShotDurationSec": 1.37,
+      "subtitleCharCount": 113,
+      "dialogueCharsPerSec": 13.232,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_8",
+          "start": 10.33,
+          "end": 11.13,
+          "durationSec": 0.8,
+          "subtitleText": "但耳塞这东西， 要是买这种普通的工业耳塞，",
+          "subtitleCharCount": 18
+        },
+        {
+          "shotRef": "shot_9",
+          "start": 11.13,
+          "end": 12.23,
+          "durationSec": 1.1,
+          "subtitleText": "要是买这种普通的工业耳塞，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_10",
+          "start": 12.23,
+          "end": 13.6,
+          "durationSec": 1.37,
+          "subtitleText": "要是买这种普通的工业耳塞， 降噪是没问题。 但要是睡觉戴这个，",
+          "subtitleCharCount": 26
+        },
+        {
+          "shotRef": "shot_11",
+          "start": 13.6,
+          "end": 16.37,
+          "durationSec": 2.77,
+          "subtitleText": "但要是睡觉戴这个， 耳朵是真的感觉又胀又痛， 半夜还容易掉出来，",
+          "subtitleCharCount": 27
+        },
+        {
+          "shotRef": "shot_12",
+          "start": 16.37,
+          "end": 18.87,
+          "durationSec": 2.5,
+          "subtitleText": "半夜还容易掉出来， 该被吵醒还被吵醒。 但是你看困困鸭他们家这款采用",
+          "subtitleCharCount": 30
+        }
+      ]
+    }
   },
   {
     "id": "R004",
@@ -143,7 +302,132 @@
       "实物细节出现",
       "动态演示峰值",
       "图文化证据进入"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16",
+        "shot_17",
+        "shot_18",
+        "shot_19",
+        "shot_20",
+        "shot_21",
+        "shot_22",
+        "shot_23",
+        "shot_24"
+      ],
+      "shotCount": 12,
+      "totalDurationSec": 14.43,
+      "minShotDurationSec": 0.23,
+      "maxShotDurationSec": 3.13,
+      "avgShotDurationSec": 1.202,
+      "medianShotDurationSec": 1.085,
+      "subtitleCharCount": 263,
+      "dialogueCharsPerSec": 18.226,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_13",
+          "start": 18.87,
+          "end": 19.33,
+          "durationSec": 0.46,
+          "subtitleText": "但是你看困困鸭他们家这款采用",
+          "subtitleCharCount": 14
+        },
+        {
+          "shotRef": "shot_14",
+          "start": 19.33,
+          "end": 20.3,
+          "durationSec": 0.97,
+          "subtitleText": "但是你看困困鸭他们家这款采用",
+          "subtitleCharCount": 14
+        },
+        {
+          "shotRef": "shot_15",
+          "start": 20.3,
+          "end": 21.5,
+          "durationSec": 1.2,
+          "subtitleText": "但是你看困困鸭他们家这款采用 用的是温感的记忆棉，",
+          "subtitleCharCount": 23
+        },
+        {
+          "shotRef": "shot_16",
+          "start": 21.5,
+          "end": 21.97,
+          "durationSec": 0.47,
+          "subtitleText": "用的是温感的记忆棉， 它是根据咱们耳道的温度来慢慢回弹的，",
+          "subtitleCharCount": 26
+        },
+        {
+          "shotRef": "shot_17",
+          "start": 21.97,
+          "end": 24.27,
+          "durationSec": 2.3,
+          "subtitleText": "它是根据咱们耳道的温度来慢慢回弹的，",
+          "subtitleCharCount": 17
+        },
+        {
+          "shotRef": "shot_18",
+          "start": 24.27,
+          "end": 24.5,
+          "durationSec": 0.23,
+          "subtitleText": "它是根据咱们耳道的温度来慢慢回弹的， 直接就是充斥着咱们的耳道，",
+          "subtitleCharCount": 29
+        },
+        {
+          "shotRef": "shot_19",
+          "start": 24.5,
+          "end": 27.63,
+          "durationSec": 3.13,
+          "subtitleText": "直接就是充斥着咱们的耳道， 达到一个隔音的效果。 而且它是采用这种中空式的泄压设计，",
+          "subtitleCharCount": 37
+        },
+        {
+          "shotRef": "shot_20",
+          "start": 27.63,
+          "end": 29.8,
+          "durationSec": 2.17,
+          "subtitleText": "而且它是采用这种中空式的泄压设计，",
+          "subtitleCharCount": 16
+        },
+        {
+          "shotRef": "shot_21",
+          "start": 29.8,
+          "end": 30.03,
+          "durationSec": 0.23,
+          "subtitleText": "而且它是采用这种中空式的泄压设计， 你戴一晚上耳朵也不会酸胀。",
+          "subtitleCharCount": 28
+        },
+        {
+          "shotRef": "shot_22",
+          "start": 30.03,
+          "end": 31.73,
+          "durationSec": 1.7,
+          "subtitleText": "你戴一晚上耳朵也不会酸胀。 还利用了五层的隔音吸音棉，",
+          "subtitleCharCount": 24
+        },
+        {
+          "shotRef": "shot_23",
+          "start": 31.73,
+          "end": 32.97,
+          "durationSec": 1.24,
+          "subtitleText": "还利用了五层的隔音吸音棉，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_24",
+          "start": 32.97,
+          "end": 33.3,
+          "durationSec": 0.33,
+          "subtitleText": "还利用了五层的隔音吸音棉， 戴上直接就给咱开了降噪。",
+          "subtitleCharCount": 23
+        }
+      ]
+    }
   },
   {
     "id": "R005",
@@ -174,7 +458,33 @@
       "使用状态稳定",
       "结果感受落点",
       "前文关切回扣"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_25"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 1.5,
+      "minShotDurationSec": 1.5,
+      "maxShotDurationSec": 1.5,
+      "avgShotDurationSec": 1.5,
+      "medianShotDurationSec": 1.5,
+      "subtitleCharCount": 24,
+      "dialogueCharsPerSec": 16.0,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_25",
+          "start": 33.3,
+          "end": 34.8,
+          "durationSec": 1.5,
+          "subtitleText": "戴上直接就给咱开了降噪。 如果开学有什么必带物品的话，",
+          "subtitleCharCount": 24
+        }
+      ]
+    }
   },
   {
     "id": "R006",
@@ -207,6 +517,59 @@
       "推荐判断出现",
       "识别锚点重复",
       "结尾记忆点落下"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_26",
+        "shot_27",
+        "shot_28",
+        "shot_29"
+      ],
+      "shotCount": 4,
+      "totalDurationSec": 3.133,
+      "minShotDurationSec": 0.033,
+      "maxShotDurationSec": 1.4,
+      "avgShotDurationSec": 0.783,
+      "medianShotDurationSec": 0.85,
+      "subtitleCharCount": 38,
+      "dialogueCharsPerSec": 12.129,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_26",
+          "start": 34.8,
+          "end": 35.5,
+          "durationSec": 0.7,
+          "subtitleText": "如果开学有什么必带物品的话，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_27",
+          "start": 35.5,
+          "end": 36.5,
+          "durationSec": 1.0,
+          "subtitleText": "如果开学有什么必带物品的话， 那一定是这个。",
+          "subtitleCharCount": 19
+        },
+        {
+          "shotRef": "shot_28",
+          "start": 36.5,
+          "end": 37.9,
+          "durationSec": 1.4,
+          "subtitleText": "那一定是这个。",
+          "subtitleCharCount": 6
+        },
+        {
+          "shotRef": "shot_29",
+          "start": 37.9,
+          "end": 37.933,
+          "durationSec": 0.033,
+          "subtitleText": "",
+          "subtitleCharCount": 0
+        }
+      ]
+    }
   }
 ]

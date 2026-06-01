@@ -2,6 +2,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { nextStage } = require("../../../../Infrastructure/Observability/trace");
+const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const {
   STAGE_NAME: TRANSFORM_STAGE_NAME,
   buildAgentRepairRequest,
@@ -9,6 +10,8 @@ const {
 } = require("../../../../Infrastructure/FunctionSlotRestructureDisplay/markdown-transformer");
 
 const AUTO_STAGE_NAME = "function.slot.restructure_display.auto_transform";
+const REPAIR_ROLE = "function-slot-restructure-display-transformer";
+const MAX_REPAIR_ATTEMPTS = 2;
 
 async function maybeAutoTransformRestructureResult({
   payload,
@@ -62,11 +65,18 @@ async function maybeAutoTransformRestructureResult({
   try {
     await fs.mkdir(path.dirname(restructureFinalPath), { recursive: true });
     await fs.writeFile(restructureFinalPath, normalizeFinalMarkdown(payload.finalMessage), "utf8");
-    const displayJson = await transformRestructureFinalFile({
-      inputPath: restructureFinalPath,
-      outputPath: displayJsonPath,
-      restructureArtifactId: artifactId,
+    const transformResult = await transformWithRepair({
+      handlers,
+      rootDir,
+      restructureFinalPath,
+      displayJsonPath,
+      repairRequestPath,
+      artifactId,
+      parentArtifactId,
+      sourceTurnId: payload.turnId,
+      stageTraceContext,
     });
+    const displayJson = transformResult.displayJson;
     const outputSummary = {
       artifactId,
       status: "processed",
@@ -75,6 +85,7 @@ async function maybeAutoTransformRestructureResult({
       displayJsonPath: safeRelative(rootDir, displayJsonPath),
       sectionCount: displayJson.sourceTextDigest.sectionCount,
       missingSections: displayJson.missingSections,
+      repairAttemptCount: transformResult.repairAttemptCount,
     };
     await logger.writeStageLog({
       traceContext: stageTraceContext,
@@ -96,16 +107,20 @@ async function maybeAutoTransformRestructureResult({
       restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
       displayJsonPath: safeRelative(rootDir, displayJsonPath),
       missingSections: displayJson.missingSections,
+      repairAttemptCount: transformResult.repairAttemptCount,
+      repairTurns: transformResult.repairTurns,
     };
   } catch (error) {
-    const repairRequest = buildAgentRepairRequest({
-      error,
-      inputPath: safeRelative(rootDir, restructureFinalPath),
-      outputPath: safeRelative(rootDir, displayJsonPath),
-      restructureArtifactId: artifactId,
-    });
-    await fs.mkdir(path.dirname(repairRequestPath), { recursive: true });
-    await fs.writeFile(repairRequestPath, `${JSON.stringify(repairRequest, null, 2)}\n`, "utf8");
+    if (!error.repairRequestWritten) {
+      const repairRequest = buildAgentRepairRequest({
+        error,
+        inputPath: safeRelative(rootDir, restructureFinalPath),
+        outputPath: safeRelative(rootDir, displayJsonPath),
+        restructureArtifactId: artifactId,
+      });
+      await fs.mkdir(path.dirname(repairRequestPath), { recursive: true });
+      await fs.writeFile(repairRequestPath, `${JSON.stringify(repairRequest, null, 2)}\n`, "utf8");
+    }
     const safeError = {
       code: error?.code ?? "restructure_display_auto_transform_failed",
       message: safePreview(error instanceof Error ? error.message : "结构展示自动转换失败", 240),
@@ -145,6 +160,7 @@ async function maybeAutoTransformRestructureResult({
       stageName: AUTO_STAGE_NAME,
       restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
       repairRequestPath: safeRelative(rootDir, repairRequestPath),
+      repairAttemptCount: error.repairAttemptCount ?? 0,
       error: safeError.code,
       message: safeError.message,
       debugSnapshotUri: snapshot.uri,
@@ -152,11 +168,148 @@ async function maybeAutoTransformRestructureResult({
   }
 }
 
+async function transformWithRepair({
+  handlers,
+  rootDir,
+  restructureFinalPath,
+  displayJsonPath,
+  repairRequestPath,
+  artifactId,
+  parentArtifactId,
+  sourceTurnId,
+  stageTraceContext,
+}) {
+  const repairTurns = [];
+  let lastError = null;
+  for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+    try {
+      const displayJson = await transformRestructureFinalFile({
+        inputPath: restructureFinalPath,
+        outputPath: displayJsonPath,
+        restructureArtifactId: artifactId,
+      });
+      return {
+        displayJson,
+        repairAttemptCount: attempt,
+        repairTurns,
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt >= MAX_REPAIR_ATTEMPTS) break;
+      const repairAttemptCount = attempt + 1;
+      const repairRequest = buildAgentRepairRequest({
+        error,
+        inputPath: safeRelative(rootDir, restructureFinalPath),
+        outputPath: safeRelative(rootDir, displayJsonPath),
+        restructureArtifactId: artifactId,
+        repairAttemptCount,
+      });
+      await fs.writeFile(repairRequestPath, `${JSON.stringify(repairRequest, null, 2)}\n`, "utf8");
+      const repair = await runFormatRepairTurn({
+        handlers,
+        rootDir,
+        repairRequest,
+        repairAttemptCount,
+        restructureFinalPath,
+        artifactId,
+        parentArtifactId,
+        sourceTurnId,
+        stageTraceContext,
+      });
+      repairTurns.push(repair.summary);
+      await fs.writeFile(restructureFinalPath, normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
+      await fs.writeFile(path.join(path.dirname(restructureFinalPath), `restructure.final.repair-attempt-${repairAttemptCount}.md`), normalizeFinalMarkdown(repair.repairedMarkdown), "utf8");
+    }
+  }
+  if (lastError) {
+    lastError.repairAttemptCount = MAX_REPAIR_ATTEMPTS;
+    lastError.repairRequestWritten = true;
+  }
+  throw lastError;
+}
+
+async function runFormatRepairTurn({
+  handlers,
+  rootDir,
+  repairRequest,
+  repairAttemptCount,
+  restructureFinalPath,
+  artifactId,
+  parentArtifactId,
+  sourceTurnId,
+  stageTraceContext,
+}) {
+  if (!handlers.threadPool?.ensureRoleReady || !handlers.threadPool?.acquireLease || !handlers.threadPool?.releaseLease || !handlers.appServer?.runTurnWithInputs) {
+    const error = new Error("agentRepair requires ThreadPool lease and appServer runTurnWithInputs");
+    error.code = "restructure_display_agent_repair_unavailable";
+    throw error;
+  }
+  const roleProfile = await loadRoleProfileByRole(REPAIR_ROLE);
+  const sourceMarkdown = await fs.readFile(restructureFinalPath, "utf8");
+  const prompt = renderTurnTemplate(roleProfile, "repairTurn", {
+    repairAttemptCount,
+    restructureFinalPath: repairRequest.source.restructureFinalPath ?? safeRelative(rootDir, restructureFinalPath),
+    restructureArtifactId: repairRequest.source.restructureArtifactId ?? artifactId,
+    parentArtifactId: parentArtifactId ?? "",
+    sourceTurnId: sourceTurnId ?? "",
+    stageName: AUTO_STAGE_NAME,
+    errorCode: repairRequest.errorCode,
+    errorMessage: repairRequest.errorMessage,
+    debugSnapshotUri: "",
+    validationErrorsJson: JSON.stringify(repairRequest.validationErrors ?? []),
+    repairTargetsJson: JSON.stringify(repairRequest.repairTargets ?? []),
+    scriptInputJson: JSON.stringify({
+      restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
+      repairAttemptCount,
+      maxRepairAttempts: MAX_REPAIR_ATTEMPTS,
+    }),
+    sourceSnippet: buildRepairSnippet(sourceMarkdown, repairRequest.repairTargets),
+  });
+  const ownerId = `restructure-display-repair-${stageTraceContext.runId}`;
+  const readiness = await handlers.threadPool.ensureRoleReady(REPAIR_ROLE);
+  if (!readiness?.ok) {
+    const error = new Error(readiness?.message || "display repair role unavailable");
+    error.code = readiness?.error || "restructure_display_repair_role_unavailable";
+    throw error;
+  }
+  const lease = await handlers.threadPool.acquireLease({ role: REPAIR_ROLE, ownerId });
+  const threadId = lease.thread_id ?? lease.threadId;
+  if (!threadId) {
+    const error = new Error("display repair lease missing threadId");
+    error.code = "restructure_display_repair_thread_missing";
+    throw error;
+  }
+  try {
+    const turn = await handlers.appServer.runTurnWithInputs({
+      workspaceRoot: rootDir,
+      threadId,
+      skillPath: readiness.status?.skillPath ?? roleProfile.skillPath ?? null,
+      inputs: [{ type: "text", text: prompt.text, text_elements: [] }],
+      timeoutSeconds: 180,
+    });
+    const repairedMarkdown = normalizeRepairMarkdown(turn.finalMessage ?? "");
+    return {
+      repairedMarkdown,
+      summary: {
+        repairAttemptCount,
+        role: REPAIR_ROLE,
+        threadId,
+        turnId: turn.turnId ?? turn.turn?.id ?? null,
+        status: turn.status ?? null,
+        promptTemplateVersion: prompt.promptTemplateVersion,
+      },
+    };
+  } finally {
+    await handlers.threadPool.releaseLease({ leaseId: lease.lease_id ?? lease.leaseId, ownerId }).catch(() => null);
+  }
+}
+
 function looksLikeRestructureFinal(finalMessage) {
   const text = String(finalMessage ?? "");
-  return /##\s+1\.\s*重组目标与假设/.test(text)
-    || /##\s+2\.\s*最终功能槽位链/.test(text)
-    || /#\s*重组方案/.test(text);
+  return /#{1,6}\s+1[.．、]\s*重组目标与假设/.test(text)
+    || /#{1,6}\s+2[.．、]\s*最终功能槽位链/.test(text)
+    || /#\s*重组方案/.test(text)
+    || /Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?restructure\.final\.md/i.test(text);
 }
 
 function resolveRestructureFinalPath({ rootDir, finalMessage, explicitPath, conversationId, turnId }) {
@@ -195,6 +348,31 @@ function normalizeFinalMarkdown(value) {
   return `${text}\n`;
 }
 
+function normalizeRepairMarkdown(value) {
+  const text = String(value ?? "").trim();
+  const fenced = text.match(/^```(?:markdown|md)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1] ?? text;
+}
+
+function buildRepairSnippet(markdown, repairTargets = []) {
+  const lines = String(markdown ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  const lineNumbers = (repairTargets ?? []).map((target) => Number(target.line)).filter((line) => Number.isFinite(line) && line > 0);
+  if (!lineNumbers.length) return lines.slice(0, 240).join("\n");
+  const ranges = [];
+  for (const line of lineNumbers) {
+    const start = Math.max(1, line - 8);
+    const end = Math.min(lines.length, line + 12);
+    ranges.push([start, end]);
+  }
+  const merged = [];
+  for (const [start, end] of ranges.sort((left, right) => left[0] - right[0])) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1] + 1) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged.map(([start, end]) => lines.slice(start - 1, end).join("\n")).join("\n\n...\n\n");
+}
+
 function isCompleted(status) {
   return String(status ?? "").toLowerCase() === "completed";
 }
@@ -220,6 +398,7 @@ function safePreview(value, limit = 240) {
 
 module.exports = {
   AUTO_STAGE_NAME,
+  MAX_REPAIR_ATTEMPTS,
   extractRestructureFinalPath,
   maybeAutoTransformRestructureResult,
 };

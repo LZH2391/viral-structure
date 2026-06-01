@@ -34,6 +34,8 @@ test("slot restructure scripts resolve repo roots to the local FunctionSlotLibra
   assert.equal(index.samples[0].lineage.parentArtifactId, "artifact_parent");
   assert.equal(index.samples[0].lineage.contentHash, "hash_local");
   assert.equal(index.slotVariants[0].artifactId, "artifact_local");
+  assert.equal(index.slotVariants[0].rhythmTimingProfiles[0].totalDurationSec, 1.2);
+  assert.equal(index.atomVariants.find((item) => item.kind === "rhythm").timingEvidence.totalDurationSec, 1.2);
 });
 
 test("slot restructure corpus discovery skips bundled seed samples unless explicitly requested", async () => {
@@ -46,6 +48,38 @@ test("slot restructure corpus discovery skips bundled seed samples unless explic
   const seedRun = runPython(["validate_corpus.py", seedRoot]);
   assert.equal(seedRun.status, 0, seedRun.stderr || seedRun.stdout);
   assert.match(seedRun.stdout, /"sampleCount": 1/);
+});
+
+test("timing evidence backfill dry-run reads runtime artifacts without writing", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-slot-timing-"));
+  const sampleDir = path.join(tempRoot, "Artifacts", "FunctionSlotLibrary", "artifact_local");
+  await writeSampleLibrary(sampleDir);
+  await fs.mkdir(path.join(tempRoot, "Runtime", "Artifacts", "sample_local"), { recursive: true });
+  await writeJson(path.join(tempRoot, "Runtime", "Artifacts", "sample_local", "artifact.json"), {
+    sampleVideoId: "sample_local",
+    shotBoundaryAnalysis: {
+      shots: [{ id: "shot_1", start: 0, end: 1.5 }],
+    },
+    subtitles: {
+      segments: [{ id: "subtitle_1", start: 0, end: 1.5, text: "回填字幕" }],
+    },
+  });
+  await writeJson(path.join(sampleDir, "atoms.rhythm.json"), [{
+    id: "R001",
+    slot: "problem_activation",
+    label: "rhythm",
+    function: "rhythm function",
+    sourceRefs: { shotRefs: ["shot_1"] },
+  }]);
+
+  const run = runPython(["backfill_timing_evidence.py", tempRoot, "--runtime-root", path.join(tempRoot, "Runtime")], { cwd: tempRoot });
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const report = JSON.parse(run.stdout);
+  const after = await readJson(path.join(sampleDir, "atoms.rhythm.json"));
+
+  assert.equal(report.updatedRhythmAtomCount, 1);
+  assert.equal(report.samples[0].written, false);
+  assert.equal(after[0].timingEvidence, undefined);
 });
 
 async function writeSampleLibrary(sampleDir) {
@@ -116,6 +150,25 @@ async function writeSampleLibrary(sampleDir) {
     function: "rhythm function",
     pace: "fast",
     densityType: "dense",
+    timingEvidence: {
+      schemaVersion: "rhythm_timing_evidence.v1",
+      source: "test_fixture",
+      sourceShotRefs: ["shot_1"],
+      shotCount: 1,
+      totalDurationSec: 1.2,
+      avgShotDurationSec: 1.2,
+      subtitleCharCount: 4,
+      dialogueCharsPerSec: 3.333,
+      derivedPace: "fast",
+      shotTimings: [{
+        shotRef: "shot_1",
+        start: 0,
+        end: 1.2,
+        durationSec: 1.2,
+        subtitleText: "测试字幕",
+        subtitleCharCount: 4,
+      }],
+    },
     confidence: 0.9,
     needReview: false,
   }]);
@@ -148,7 +201,10 @@ async function writeSampleLibrary(sampleDir) {
 
 function runPython(args, { cwd = REPO_ROOT } = {}) {
   const [script, ...rest] = args;
-  return spawnSync(PYTHON, [path.join(SCRIPTS_DIR, script), ...rest], {
+  const scriptPath = script === "backfill_timing_evidence.py"
+    ? path.join(REPO_ROOT, ".agents", "skills", "function-slot-library-builder", "scripts", script)
+    : path.join(SCRIPTS_DIR, script);
+  return spawnSync(PYTHON, [scriptPath, ...rest], {
     cwd,
     encoding: "utf8",
   });

@@ -116,6 +116,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 本 skill 不展开具体 Shot 表、逐 shot 台词、分镜画面或包装说明。第一轮重组只把槽位链、atoms、adapter、脚本段落、节奏曲线、包装证明方案和结构级校验写清楚。
 
 - 第 7 节“包装与证明方案”必须足够支撑后续 Shot 设计：写明每个包装块的证明功能、覆盖层载体、字幕层规格、避让要求和风险。
+- 第 6 节“节奏曲线”必须消费证据层的 `rhythmTimingProfiles` 和治理层可选 `timingPolicy`，输出结构级 `timingBudget`：建议总时长范围、建议 shot 数范围、单镜时长范围、台词容量/字幕字数约束和同步点；不得只写“快 / 中 / 慢”。
 - 若使用用户素材包，按 `references/material-aware-restructure.md` 写逐槽位素材能力判断；这里允许引用候选 shot/group，但不展开逐 shot 台词、分镜或时间轴。
 - 不在第 5 节写逐字台词，不把结构说明伪装成口播。
 - 不输出 shot 表、shot group、分镜画面、包装说明、台词/字幕或预计时长。
@@ -140,6 +141,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - script atom pattern 的 `claimPattern / proofNeedClass / mustKeepClasses` 是否能保留
 - `proofNeed` 是否能被目标素材满足
 - rhythm atom 是否适合信息密度和主张复杂度
+- rhythm atom 的 `timingEvidence / rhythmTimingProfiles` 是否支持当前节奏预算，包括来源总时长、单镜范围、字幕字数和口播密度
 - rhythm pattern 是否排斥当前 claim 或信息密度
 - packaging atom 的 `packagingFunction` 是否服务证明
 - packaging pattern 的 `proofType / visualHierarchyClass / riskClass` 是否适合目标素材
@@ -180,7 +182,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 9. 剩余风险与修复
 10. 必要替代实现
 
-必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 7 节必须写清包装证明和字幕层规格。第 8 节进行 binding / rule policy 校验，但不做 shot 级同步校验。brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`。Shot 设计不写入该文件，后续由 `function-slot-shot-design` 读取本文件并另存到同一目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
+必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 6 节必须写结构级 timingBudget，但不展开逐 shot 时间轴；第 7 节必须写清包装证明和字幕层规格。第 8 节进行 binding / rule policy 校验，但不做 shot 级同步校验。brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`。Shot 设计不写入该文件，后续由 `function-slot-shot-design` 读取本文件并另存到同一目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
 
 ## 方案完成后的聊天回复
 

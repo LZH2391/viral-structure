@@ -20,6 +20,7 @@ test("function slot library exports fixed json files with manifest counts and ha
   const itemDir = path.join(libraryRoot, "artifact_function_slot");
   const files = await fs.readdir(itemDir);
   const manifest = await readJson(path.join(itemDir, FILES.manifest));
+  const rhythmAtoms = await readJson(path.join(itemDir, FILES.rhythmAtoms));
 
   assert.equal(result.exported, true);
   assert.equal(result.itemPath, "Artifacts/FunctionSlotLibrary/artifact_function_slot");
@@ -33,6 +34,9 @@ test("function slot library exports fixed json files with manifest counts and ha
   assert.equal(manifest.counts.ruleCount, 2);
   assert.equal(manifest.counts.templateCount, 1);
   assert.match(manifest.contentHash, /^[a-f0-9]{64}$/);
+  assert.equal(rhythmAtoms[0].timingEvidence.shotCount, 1);
+  assert.equal(rhythmAtoms[0].timingEvidence.totalDurationSec, 1.2);
+  assert.equal(rhythmAtoms[0].timingEvidence.shotTimings[0].subtitleText, "这是字幕");
 });
 
 test("function slot library export supports skip-existing and replace", async () => {
@@ -542,7 +546,7 @@ function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace
   return {
     sampleVideoId: "sample_library",
     trace: { traceId: "trace_sample" },
-    functionSlotAtomizationAnalysis: {
+      functionSlotAtomizationAnalysis: {
       artifactId,
       parentArtifactId: "artifact_packaging",
       traceId,
@@ -591,6 +595,22 @@ function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace
       recombinationRules: [{ id: "RULE1", reason: "rule", appliesTo: ["problem_activation"], sourceBindingIds: ["B1"] }],
       recompositionTemplates: [{ templateId: "T1", templateName: "template", sequence: slotTypes }],
       createdAt,
+    },
+    shotBoundaryAnalysis: {
+      shots: slotTypes.map((slot, index) => ({
+        id: `shot_${index + 1}`,
+        shotNo: `S${String(index + 1).padStart(3, "0")}`,
+        start: index * 1.2,
+        end: (index + 1) * 1.2,
+      })),
+    },
+    subtitles: {
+      segments: slotTypes.map((slot, index) => ({
+        id: `subtitle_${index + 1}`,
+        start: index * 1.2,
+        end: (index + 1) * 1.2,
+        text: index === 0 ? "这是字幕" : `字幕${index + 1}`,
+      })),
     },
   };
 }

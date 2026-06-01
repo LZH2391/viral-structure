@@ -33,7 +33,69 @@
       "使用入口出现",
       "核心动作完成",
       "压力结果显现"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ],
+      "shotCount": 5,
+      "totalDurationSec": 4.367,
+      "minShotDurationSec": 0.667,
+      "maxShotDurationSec": 1.134,
+      "avgShotDurationSec": 0.873,
+      "medianShotDurationSec": 0.766,
+      "subtitleCharCount": 68,
+      "dialogueCharsPerSec": 15.571,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0.0,
+          "end": 1.133,
+          "durationSec": 1.133,
+          "subtitleText": "只要把这小玩意往床垫上一扣，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_2",
+          "start": 1.133,
+          "end": 2.267,
+          "durationSec": 1.134,
+          "subtitleText": "只要把这小玩意往床垫上一扣， 不管怎么拉扯翻滚，",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_3",
+          "start": 2.267,
+          "end": 3.033,
+          "durationSec": 0.766,
+          "subtitleText": "不管怎么拉扯翻滚，",
+          "subtitleCharCount": 8
+        },
+        {
+          "shotRef": "shot_4",
+          "start": 3.033,
+          "end": 3.7,
+          "durationSec": 0.667,
+          "subtitleText": "不管怎么拉扯翻滚， 床单都不会乱了。",
+          "subtitleCharCount": 15
+        },
+        {
+          "shotRef": "shot_5",
+          "start": 3.7,
+          "end": 4.367,
+          "durationSec": 0.667,
+          "subtitleText": "床单都不会乱了。 以前睡觉，",
+          "subtitleCharCount": 11
+        }
+      ]
+    }
   },
   {
     "id": "R002",
@@ -66,7 +128,51 @@
       "旧状态出现",
       "困扰动作出现",
       "成本后果出现"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 2.633,
+      "minShotDurationSec": 0.834,
+      "maxShotDurationSec": 0.933,
+      "avgShotDurationSec": 0.878,
+      "medianShotDurationSec": 0.866,
+      "subtitleCharCount": 40,
+      "dialogueCharsPerSec": 15.192,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_6",
+          "start": 4.367,
+          "end": 5.233,
+          "durationSec": 0.866,
+          "subtitleText": "以前睡觉， 床单总是卷成一团，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_7",
+          "start": 5.233,
+          "end": 6.067,
+          "durationSec": 0.834,
+          "subtitleText": "床单总是卷成一团， 早上醒来还要费力整理。",
+          "subtitleCharCount": 18
+        },
+        {
+          "shotRef": "shot_8",
+          "start": 6.067,
+          "end": 7.0,
+          "durationSec": 0.933,
+          "subtitleText": "早上醒来还要费力整理。",
+          "subtitleCharCount": 10
+        }
+      ]
+    }
   },
   {
     "id": "R003",
@@ -97,7 +203,33 @@
       "覆盖感建立",
       "使用关系出现",
       "机制说明引出"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_9"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 2.567,
+      "minShotDurationSec": 2.567,
+      "maxShotDurationSec": 2.567,
+      "avgShotDurationSec": 2.567,
+      "medianShotDurationSec": 2.567,
+      "subtitleCharCount": 34,
+      "dialogueCharsPerSec": 13.245,
+      "derivedPace": "slow",
+      "shotTimings": [
+        {
+          "shotRef": "shot_9",
+          "start": 7.0,
+          "end": 9.567,
+          "durationSec": 2.567,
+          "subtitleText": "早上醒来还要费力整理。 有了它， 再也不用担心床单跑位了。 它的卡扣设计不需要针，",
+          "subtitleCharCount": 34
+        }
+      ]
+    }
   },
   {
     "id": "R004",
@@ -130,7 +262,51 @@
       "结构打开",
       "结构闭合",
       "固定结果确认"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 5.066,
+      "minShotDurationSec": 1.3,
+      "maxShotDurationSec": 2.033,
+      "avgShotDurationSec": 1.689,
+      "medianShotDurationSec": 1.733,
+      "subtitleCharCount": 63,
+      "dialogueCharsPerSec": 12.436,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_10",
+          "start": 9.567,
+          "end": 11.3,
+          "durationSec": 1.733,
+          "subtitleText": "它的卡扣设计不需要针， 换洗床单时只要轻松打开卡扣，",
+          "subtitleCharCount": 23
+        },
+        {
+          "shotRef": "shot_11",
+          "start": 11.3,
+          "end": 13.333,
+          "durationSec": 2.033,
+          "subtitleText": "换洗床单时只要轻松打开卡扣， 还能重复使用。",
+          "subtitleCharCount": 19
+        },
+        {
+          "shotRef": "shot_12",
+          "start": 13.333,
+          "end": 14.633,
+          "durationSec": 1.3,
+          "subtitleText": "还能重复使用。 现在终于不用为乱糟糟的床单发愁，",
+          "subtitleCharCount": 21
+        }
+      ]
+    }
   },
   {
     "id": "R005",
@@ -162,6 +338,41 @@
       "最终状态出现",
       "核心关切回收",
       "动作强度回落"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_13",
+        "shot_14"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 1.9,
+      "minShotDurationSec": 0.934,
+      "maxShotDurationSec": 0.966,
+      "avgShotDurationSec": 0.95,
+      "medianShotDurationSec": 0.95,
+      "subtitleCharCount": 27,
+      "dialogueCharsPerSec": 14.211,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_13",
+          "start": 14.633,
+          "end": 15.567,
+          "durationSec": 0.934,
+          "subtitleText": "现在终于不用为乱糟糟的床单发愁， 睡个安稳觉吧。",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_14",
+          "start": 15.567,
+          "end": 16.533,
+          "durationSec": 0.966,
+          "subtitleText": "睡个安稳觉吧。",
+          "subtitleCharCount": 6
+        }
+      ]
+    }
   }
 ]

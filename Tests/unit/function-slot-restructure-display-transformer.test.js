@@ -43,6 +43,26 @@ test("restructure display transformer marks missing sections without inventing c
   assert.deepEqual(result.sections.finalSlotChain.items, []);
 });
 
+test("restructure display transformer accepts flexible heading levels", () => {
+  const result = transformRestructureFinalMarkdown(sampleMarkdown().replaceAll("## ", "# "), {
+    convertedAt: () => "2026-06-01T00:00:00.000Z",
+  });
+
+  assert.equal(result.sourceTextDigest.sectionCount, 6);
+  assert.equal(result.sections.finalSlotChain.items[0].type, "table");
+});
+
+test("restructure display transformer fails when no target section is recognizable", () => {
+  assert.throws(
+    () => transformRestructureFinalMarkdown("# 完全不是重组格式\n\n没有目标章节"),
+    (error) => {
+      assert.equal(error.code, "restructure_display_no_target_sections");
+      assert.equal(error.validationErrors[0].blockType, "heading");
+      return true;
+    },
+  );
+});
+
 test("malformed markdown table is preserved as rawMarkdown with line location", () => {
   const result = transformRestructureFinalMarkdown(sampleMarkdown().replace("| 1 | 需求 | `SUB_demo` 可视 hook |", "| 1 | 需求 |"), {
     convertedAt: () => "2026-06-01T00:00:00.000Z",

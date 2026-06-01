@@ -132,6 +132,7 @@ function normalizeAtom(atom, atomType, index) {
       beatShape: normalizeText(atom?.beat_shape ?? atom?.beatShape ?? "", 160),
       avoidFor: normalizeStringArray(atom?.avoid_for ?? atom?.avoidFor, 12),
       syncPoints: normalizeStringArray(atom?.sync_points ?? atom?.syncPoints, 16),
+      timingEvidence: normalizeTimingEvidence(atom?.timing_evidence ?? atom?.timingEvidence),
     };
   }
   return {
@@ -144,6 +145,66 @@ function normalizeAtom(atom, atomType, index) {
     replaceableForms: normalizeStringArray(atom?.replaceable_forms ?? atom?.replaceableForms ?? atom?.replaceable_style ?? atom?.replaceableVariables, 16),
     risk: normalizeText(atom?.risk ?? "", 260),
   };
+}
+
+function normalizeTimingEvidence(value) {
+  if (!value || typeof value !== "object") return null;
+  const shotTimings = Array.isArray(value.shot_timings ?? value.shotTimings)
+    ? (value.shot_timings ?? value.shotTimings).map(normalizeShotTiming).filter(Boolean).slice(0, 48)
+    : [];
+  const totalDurationSec = normalizeOptionalNumber(value.total_duration_sec ?? value.totalDurationSec)
+    ?? roundNumber(shotTimings.reduce((sum, item) => sum + (item.durationSec ?? 0), 0));
+  const subtitleCharCount = Number.isInteger(value.subtitle_char_count ?? value.subtitleCharCount)
+    ? Number(value.subtitle_char_count ?? value.subtitleCharCount)
+    : shotTimings.reduce((sum, item) => sum + (item.subtitleCharCount ?? 0), 0);
+  const dialogueCharsPerSec = normalizeOptionalNumber(value.dialogue_chars_per_sec ?? value.dialogueCharsPerSec)
+    ?? (totalDurationSec > 0 ? roundNumber(subtitleCharCount / totalDurationSec) : null);
+  return {
+    schemaVersion: normalizeText(value.schema_version ?? value.schemaVersion, 80) || "rhythm_timing_evidence.v1",
+    source: normalizeText(value.source, 120) || "function_slot_atomization",
+    sourceShotRefs: normalizeStringArray(value.source_shot_refs ?? value.sourceShotRefs, 48),
+    shotCount: Number.isInteger(value.shot_count ?? value.shotCount) ? Number(value.shot_count ?? value.shotCount) : shotTimings.length,
+    totalDurationSec,
+    minShotDurationSec: normalizeOptionalNumber(value.min_shot_duration_sec ?? value.minShotDurationSec),
+    maxShotDurationSec: normalizeOptionalNumber(value.max_shot_duration_sec ?? value.maxShotDurationSec),
+    avgShotDurationSec: normalizeOptionalNumber(value.avg_shot_duration_sec ?? value.avgShotDurationSec),
+    medianShotDurationSec: normalizeOptionalNumber(value.median_shot_duration_sec ?? value.medianShotDurationSec),
+    subtitleCharCount,
+    dialogueCharsPerSec,
+    derivedPace: normalizeText(value.derived_pace ?? value.derivedPace, 80),
+    shotTimings,
+  };
+}
+
+function normalizeShotTiming(value) {
+  if (!value || typeof value !== "object") return null;
+  const shotRef = normalizeText(value.shot_ref ?? value.shotRef ?? value.shotId, 80);
+  if (!shotRef) return null;
+  const subtitleText = normalizeText(value.subtitle_text ?? value.subtitleText, 240);
+  return {
+    shotRef,
+    start: normalizeOptionalNumber(value.start),
+    end: normalizeOptionalNumber(value.end),
+    durationSec: normalizeOptionalNumber(value.duration_sec ?? value.durationSec),
+    subtitleText,
+    subtitleCharCount: Number.isInteger(value.subtitle_char_count ?? value.subtitleCharCount)
+      ? Number(value.subtitle_char_count ?? value.subtitleCharCount)
+      : countDialogueChars(subtitleText),
+  };
+}
+
+function normalizeOptionalNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return roundNumber(number);
+}
+
+function roundNumber(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+}
+
+function countDialogueChars(text) {
+  return String(text ?? "").replace(/[\s，。！？、,.!?;；:："'"“”‘’（）()[\]【】《》<>…—-]/g, "").length;
 }
 
 function normalizeSlot(slot, index) {

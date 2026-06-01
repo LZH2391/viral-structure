@@ -32,7 +32,60 @@
       "定位提示出现",
       "解决方案接触目标对象",
       "动作字幕落点"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1",
+        "shot_2",
+        "shot_3",
+        "shot_4"
+      ],
+      "shotCount": 4,
+      "totalDurationSec": 2.17,
+      "minShotDurationSec": 0.47,
+      "maxShotDurationSec": 0.6,
+      "avgShotDurationSec": 0.542,
+      "medianShotDurationSec": 0.55,
+      "subtitleCharCount": 29,
+      "dialogueCharsPerSec": 13.364,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0.0,
+          "end": 0.6,
+          "durationSec": 0.6,
+          "subtitleText": "这样涂，",
+          "subtitleCharCount": 3
+        },
+        {
+          "shotRef": "shot_2",
+          "start": 0.6,
+          "end": 1.13,
+          "durationSec": 0.53,
+          "subtitleText": "这样涂， 下巴这样涂，",
+          "subtitleCharCount": 8
+        },
+        {
+          "shotRef": "shot_3",
+          "start": 1.13,
+          "end": 1.7,
+          "durationSec": 0.57,
+          "subtitleText": "下巴这样涂，",
+          "subtitleCharCount": 5
+        },
+        {
+          "shotRef": "shot_4",
+          "start": 1.7,
+          "end": 2.17,
+          "durationSec": 0.47,
+          "subtitleText": "下巴这样涂， 管他黑头还是油光，",
+          "subtitleCharCount": 13
+        }
+      ]
+    }
   },
   {
     "id": "R002",
@@ -66,7 +119,60 @@
       "口播机制关键词",
       "执行动作持续",
       "适用范围提示"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_5",
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ],
+      "shotCount": 4,
+      "totalDurationSec": 9.23,
+      "minShotDurationSec": 1.9,
+      "maxShotDurationSec": 3.1,
+      "avgShotDurationSec": 2.308,
+      "medianShotDurationSec": 2.115,
+      "subtitleCharCount": 88,
+      "dialogueCharsPerSec": 9.534,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_5",
+          "start": 2.17,
+          "end": 5.27,
+          "durationSec": 3.1,
+          "subtitleText": "管他黑头还是油光， 这只泥膜棒， 见一个是一个。 看好了，",
+          "subtitleCharCount": 22
+        },
+        {
+          "shotRef": "shot_6",
+          "start": 5.27,
+          "end": 7.57,
+          "durationSec": 2.3,
+          "subtitleText": "看好了， 壬二酸钻进毛孔溶解油脂， 四层矿物泥在外面吸附打包，",
+          "subtitleCharCount": 26
+        },
+        {
+          "shotRef": "shot_7",
+          "start": 7.57,
+          "end": 9.47,
+          "durationSec": 1.9,
+          "subtitleText": "四层矿物泥在外面吸附打包， 你就涂在有黑头闭口的地方就行。",
+          "subtitleCharCount": 26
+        },
+        {
+          "shotRef": "shot_8",
+          "start": 9.47,
+          "end": 11.4,
+          "durationSec": 1.93,
+          "subtitleText": "你就涂在有黑头闭口的地方就行。",
+          "subtitleCharCount": 14
+        }
+      ]
+    }
   },
   {
     "id": "R003",
@@ -98,7 +204,42 @@
       "步骤提示动作",
       "时间可视化锚点",
       "完成动作开始"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_9",
+        "shot_10"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 2.27,
+      "minShotDurationSec": 0.94,
+      "maxShotDurationSec": 1.33,
+      "avgShotDurationSec": 1.135,
+      "medianShotDurationSec": 1.135,
+      "subtitleCharCount": 23,
+      "dialogueCharsPerSec": 10.132,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_9",
+          "start": 11.4,
+          "end": 12.73,
+          "durationSec": 1.33,
+          "subtitleText": "涂完之后等5分钟， 直接水洗，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_10",
+          "start": 12.73,
+          "end": 13.67,
+          "durationSec": 0.94,
+          "subtitleText": "直接水洗， 脏东西连根拔起。",
+          "subtitleCharCount": 11
+        }
+      ]
+    }
   },
   {
     "id": "R004",
@@ -130,7 +271,42 @@
       "定位提示指向结果区域",
       "结果近景停留",
       "生活收益字幕"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_11",
+        "shot_12"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 3.46,
+      "minShotDurationSec": 0.96,
+      "maxShotDurationSec": 2.5,
+      "avgShotDurationSec": 1.73,
+      "medianShotDurationSec": 1.73,
+      "subtitleCharCount": 29,
+      "dialogueCharsPerSec": 8.382,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_11",
+          "start": 13.67,
+          "end": 14.63,
+          "durationSec": 0.96,
+          "subtitleText": "脏东西连根拔起。 现在这个皮肤，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_12",
+          "start": 14.63,
+          "end": 17.13,
+          "durationSec": 2.5,
+          "subtitleText": "现在这个皮肤， 女朋友凑再近都不怕了。",
+          "subtitleCharCount": 16
+        }
+      ]
+    }
   },
   {
     "id": "R005",
@@ -164,6 +340,59 @@
       "解决方案归因同框",
       "使用痕迹特写",
       "选择对象近景收尾"
-    ]
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_13",
+        "shot_14",
+        "shot_15",
+        "shot_16"
+      ],
+      "shotCount": 4,
+      "totalDurationSec": 8.47,
+      "minShotDurationSec": 1.27,
+      "maxShotDurationSec": 3.2,
+      "avgShotDurationSec": 2.118,
+      "medianShotDurationSec": 2.0,
+      "subtitleCharCount": 85,
+      "dialogueCharsPerSec": 10.035,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_13",
+          "start": 17.13,
+          "end": 20.33,
+          "durationSec": 3.2,
+          "subtitleText": "女朋友凑再近都不怕了。 今天刚好是我打卡白云山清洁泥膜棒的第30天。 这一管",
+          "subtitleCharCount": 34
+        },
+        {
+          "shotRef": "shot_14",
+          "start": 20.33,
+          "end": 21.6,
+          "durationSec": 1.27,
+          "subtitleText": "这一管 啊， 是已经快用空了。 说真的，",
+          "subtitleCharCount": 14
+        },
+        {
+          "shotRef": "shot_15",
+          "start": 21.6,
+          "end": 23.97,
+          "durationSec": 2.37,
+          "subtitleText": "说真的， 我感觉男生护肤啊， 真不用那些瓶瓶罐罐的，",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_16",
+          "start": 23.97,
+          "end": 25.6,
+          "durationSec": 1.63,
+          "subtitleText": "真不用那些瓶瓶罐罐的， 这一支就够了。",
+          "subtitleCharCount": 16
+        }
+      ]
+    }
   }
 ]
