@@ -111,6 +111,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           skillPath: normalizeText(body.skillPath),
           timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
         });
+        assertAgentChatTurnStarted(result);
         const payload = {
           ok: true,
           source: body.source ?? "direct",
@@ -198,6 +199,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           skillPath: conversation.skillPath || roleProfile.skillPath || normalizeText(body.skillPath),
           timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
         });
+        assertAgentChatTurnStarted(result);
         const turnId = result.turnId ?? result.turn?.id ?? null;
         const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
           conversationId,
@@ -481,6 +483,7 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
             skillPath: session.skillPath,
             timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
           });
+          assertAgentChatTurnStarted(result);
         } catch (error) {
           if (mode === "new_thread") {
             await releaseRetrySessionLease(session, handlers);
@@ -1413,6 +1416,16 @@ function safeThreadPoolError(error) {
     error: error?.code ?? "threadpool_operation_failed",
     message: safePreview(error instanceof Error ? error.message : "ThreadPool 操作失败", 160),
   };
+}
+
+function assertAgentChatTurnStarted(result) {
+  const turnId = result?.turnId ?? result?.turn?.id ?? null;
+  if (result?.ok !== false && turnId) return;
+  const error = new Error(result?.message ?? "AgentChat turn start 未返回有效 turnId");
+  error.statusCode = result?.statusCode ?? 502;
+  error.code = result?.error ?? result?.code ?? "agent_chat_turn_start_failed";
+  error.retryable = true;
+  throw error;
 }
 
 function badRequestError(code, message) {

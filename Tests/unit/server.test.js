@@ -976,6 +976,42 @@ test("agent chat submits message, collects answer, and reads timeline", async ()
   }
 });
 
+test("agent chat submit rejects failed turn start before recording user turn", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push({ type: "startTurn", payload });
+        return { ok: false, error: "appserver_turn_start_failed", message: "start returned failed" };
+      },
+    },
+    agentConversationStore: {
+      recordUserTurn: async (payload) => calls.push({ type: "recordUser", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_fork/turns", {
+      message: "你好",
+      source: "threadpool-role",
+      role: "script-segment-analyzer",
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "appserver_turn_start_failed");
+    assert.deepEqual(calls.map((call) => call.type), ["startTurn"]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("processing job endpoint can read archived terminal jobs", async () => {
   const server = createServer({
     jobStore: {
@@ -1561,6 +1597,69 @@ test("agent chat manual replacement route renders restructure replacement turn",
     assert.match(conversations.get("conversation_restructure").messages[0].text, /低门槛价值锚点 -> 强痛点场景进入/);
   } finally {
     await closeServer(server);
+  }
+});
+
+test("agent chat manual replacement rejects failed turn start before recording user turn", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-manual-replacement-failed-"));
+  const conversation = {
+    conversationId: "conversation_restructure",
+    revision: 4,
+    role: "function-slot-restructure",
+    source: "threadpool-role",
+    status: "active",
+    threadId: "thread_restructure",
+    workspaceRoot: rootDir,
+    skillPath: "function-slot-restructure/SKILL.md",
+    messages: [],
+  };
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push({ type: "startTurn", payload });
+        return { ok: false, error: "appserver_turn_start_failed", message: "start returned failed" };
+      },
+    },
+    agentConversationStore: {
+      assertActive: async () => conversation,
+      recordUserTurn: async (payload) => calls.push({ type: "recordUser", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_restructure/turns/manual-replacement", {
+      conversationId: "conversation_restructure",
+      expectedRevision: 4,
+      sourceRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      sourceDisplayJsonPath: "Artifacts/FunctionSlotRestructure/demo/restructure.display.json",
+      displayFingerprint: { path: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md", sha256: "abc" },
+      replacements: [{
+        type: "slot",
+        slotOrder: 1,
+        fromSlotSubtypeId: "value_anchor",
+        fromSlotLabel: "低门槛价值锚点",
+        toSlotSubtypeId: "pain_entry",
+        toSlotLabel: "强痛点场景进入",
+        candidateId: "sample_a::F001",
+      }],
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "appserver_turn_start_failed");
+    assert.deepEqual(calls.map((call) => call.type), ["startTurn"]);
+    assert.equal(conversation.messages.length, 0);
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
   }
 });
 
