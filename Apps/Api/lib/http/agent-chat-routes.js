@@ -1267,7 +1267,7 @@ async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId
     });
   }
   if (typeof handlers.appServer?.cancelTurn !== "function") {
-    const error = new Error("AppServer turn/cancel 能力不可用");
+    const error = new Error("AppServer turn/interrupt 能力不可用");
     error.statusCode = 503;
     error.code = "appserver_turn_cancel_unavailable";
     throw error;

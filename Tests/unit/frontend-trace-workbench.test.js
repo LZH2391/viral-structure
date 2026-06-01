@@ -391,6 +391,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/compact/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.js"), /compactThread/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.py"), /client\.compact_thread/);
+  assert.match(read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/client.py"), /"turn\/interrupt"/);
+  assert.doesNotMatch(read(root, "Infrastructure/AgentRuntime/agent_runtime/appserver/client.py"), /"turn\/cancel"/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/turns\/\$\{encodeURIComponent\(turnId\)\}\/timeline/);
   assert.match(api, /\/api\/agent-chat\/conversations/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/resume/);

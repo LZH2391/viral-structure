@@ -250,7 +250,7 @@ def cancel_turn(client, payload) -> int:
             "ok": True,
             "threadId": str(payload["threadId"]),
             "turnId": str(payload["turnId"]),
-            "status": turn.get("status"),
+            "status": turn.get("status") or "canceled",
         }
     )
     return 0

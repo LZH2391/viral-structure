@@ -45,7 +45,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
   }
 
   async function cancel({ workspaceRoot, threadId, turnId, timeoutSeconds = 30, traceContext = null } = {}) {
-    if (!appServer?.cancelTurn) throw activeRuntimeError("appserver_turn_cancel_unavailable", "AppServer turn/cancel 能力不可用", null, true);
+    if (!appServer?.cancelTurn) throw activeRuntimeError("appserver_turn_cancel_unavailable", "AppServer turn/interrupt 能力不可用", null, true);
     let result;
     try {
       result = await appServer.cancelTurn({ workspaceRoot, threadId, turnId, timeoutSeconds });
@@ -165,7 +165,7 @@ function summarizeCancelError(error) {
 }
 
 function safeCancelMessage(error) {
-  const message = String(error?.message ?? "AppServer turn/cancel 请求失败").replace(/\s+/g, " ").trim();
+  const message = String(error?.message ?? "AppServer turn/interrupt 请求失败").replace(/\s+/g, " ").trim();
   return message.length > 240 ? `${message.slice(0, 240)}...` : message;
 }
 

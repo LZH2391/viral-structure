@@ -446,13 +446,13 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
 
     def cancel_turn(self, thread_id: str, turn_id: str) -> dict[str, Any]:
         response = self._request(
-            "turn/cancel",
+            "turn/interrupt",
             {
                 "threadId": str(thread_id),
                 "turnId": str(turn_id),
             },
         )
-        return dict(response.get("turn") or response)
+        return dict(response.get("turn") or response or {})
 
     def wait_turn_completed(self, thread_id: str, turn_id: str, timeout_seconds: float | None = None) -> str:
         event = self._turn_completion_events.setdefault(turn_id, threading.Event())
