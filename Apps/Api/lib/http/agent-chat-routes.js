@@ -498,6 +498,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         traceId: payload.traceId,
         runId: payload.runId,
         stageId: payload.stageId,
+        slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
       });
       return payload;
     },

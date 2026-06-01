@@ -108,6 +108,7 @@ export type AgentChatMessageSnapshot = {
   role: "user" | "assistant" | "system";
   text: string;
   status?: "running" | "completed" | "failed";
+  slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -163,4 +164,37 @@ export type AgentChatArtifactRef = {
   runId?: string | null;
   stageId?: string | null;
   status?: string | null;
+};
+
+export type AgentChatSlotAtomDisplay = {
+  schemaVersion?: string;
+  status?: "available" | "empty" | string;
+  displayJsonPath?: string | null;
+  slotCount?: number;
+  atomBindingCount?: number;
+  selectedSlotSubtypeId?: string | null;
+  slots?: AgentChatSlotSummary[];
+  atoms?: AgentChatAtomSummary[];
+};
+
+export type AgentChatSlotSummary = {
+  index?: number;
+  demand?: string | null;
+  slotSubtype?: string | null;
+  slotSubtypeId?: string | null;
+  archetype?: string | null;
+  archetypeId?: string | null;
+  functionText?: string | null;
+  usage?: string | null;
+  reason?: string | null;
+};
+
+export type AgentChatAtomSummary = {
+  slotSubtype?: string | null;
+  slotSubtypeId?: string | null;
+  source?: string | null;
+  scriptAtom?: string | null;
+  rhythmAtom?: string | null;
+  packagingAtom?: string | null;
+  handling?: string | null;
 };

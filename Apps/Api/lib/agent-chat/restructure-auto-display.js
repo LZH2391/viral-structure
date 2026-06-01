@@ -109,6 +109,9 @@ async function maybeAutoTransformRestructureResult({
       missingSections: displayJson.missingSections,
       repairAttemptCount: transformResult.repairAttemptCount,
       repairTurns: transformResult.repairTurns,
+      slotAtomDisplay: buildSlotAtomDisplaySummary(displayJson, {
+        displayJsonPath: safeRelative(rootDir, displayJsonPath),
+      }),
     };
   } catch (error) {
     if (!error.repairRequestWritten) {
@@ -375,6 +378,83 @@ function buildRepairSnippet(markdown, repairTargets = []) {
 
 function isCompleted(status) {
   return String(status ?? "").toLowerCase() === "completed";
+}
+
+function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null } = {}) {
+  const slotRows = firstTableRows(displayJson?.sections?.finalSlotChain);
+  const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
+  const slots = slotRows.map((row, index) => {
+    const slotSubtype = rowValue(row, ["slotSubtype", "槽位", "slot subtype"]);
+    const archetype = rowValue(row, ["parent archetype", "archetype"]);
+    return {
+      index: numberOrFallback(rowValue(row, ["顺序", "序号"]), index + 1),
+      demand: rowValue(row, ["需求"]),
+      slotSubtype,
+      slotSubtypeId: extractBacktickId(slotSubtype),
+      archetype,
+      archetypeId: extractBacktickId(archetype),
+      functionText: rowValue(row, ["链路功能", "功能"]),
+      usage: rowValue(row, ["本方案用法", "用法"]),
+      reason: rowValue(row, ["选择理由", "理由"]),
+    };
+  });
+  const atoms = atomRows.map((row) => {
+    const slotSubtype = rowValue(row, ["槽位", "slotSubtype"]);
+    return {
+      slotSubtype,
+      slotSubtypeId: extractBacktickId(slotSubtype),
+      source: rowValue(row, ["来源"]),
+      scriptAtom: rowValueContains(row, "script atom"),
+      rhythmAtom: rowValueContains(row, "rhythm atom"),
+      packagingAtom: rowValueContains(row, "packaging atom"),
+      handling: rowValue(row, ["atom 处理", "处理"]),
+    };
+  });
+  return {
+    schemaVersion: "function_slot_restructure_slot_atom_display.v1",
+    status: slots.length || atoms.length ? "available" : "empty",
+    displayJsonPath,
+    slotCount: slots.length,
+    atomBindingCount: atoms.length,
+    selectedSlotSubtypeId: slots[0]?.slotSubtypeId ?? atoms[0]?.slotSubtypeId ?? null,
+    slots,
+    atoms,
+  };
+}
+
+function firstTableRows(section) {
+  const table = (section?.items ?? []).find((item) => item?.type === "table" && Array.isArray(item.rows));
+  return table?.rows ?? [];
+}
+
+function rowValue(row, keys) {
+  for (const key of keys) {
+    if (row?.[key] != null) return String(row[key]);
+  }
+  const entries = Object.entries(row ?? {});
+  const normalizedKeys = keys.map(normalizeKey);
+  const found = entries.find(([key]) => normalizedKeys.includes(normalizeKey(key)));
+  return found ? String(found[1]) : "";
+}
+
+function rowValueContains(row, needle) {
+  const normalizedNeedle = normalizeKey(needle);
+  const found = Object.entries(row ?? {}).find(([key]) => normalizeKey(key).includes(normalizedNeedle));
+  return found ? String(found[1]) : "";
+}
+
+function normalizeKey(value) {
+  return String(value ?? "").toLowerCase().replace(/[\s_（）()：:·\-]/g, "");
+}
+
+function extractBacktickId(value) {
+  const match = String(value ?? "").match(/`([^`]+)`/);
+  return match?.[1] ?? null;
+}
+
+function numberOrFallback(value, fallback) {
+  const number = Number(String(value ?? "").match(/\d+/)?.[0]);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
 }
 
 function normalizeText(value) {

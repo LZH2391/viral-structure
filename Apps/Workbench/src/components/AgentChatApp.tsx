@@ -1,17 +1,19 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, type AgentChatSessionResponse } from "../api/client";
-import type { AgentChatConversation, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
+import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../utils/restructurePath";
 import { SplitResizeHandle } from "./SplitResizeHandle";
 
 type ChatMode = "direct" | "threadpool-role";
+type RightPanelTab = "timeline" | "slotAtom";
 type ChatMessage = {
   id: string;
   role: "user" | "assistant" | "system";
   text: string;
   status?: "running" | "completed" | "failed";
+  slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
 };
 
 const POLL_INTERVAL_MS = 1800;
@@ -31,6 +33,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [draft, setDraft] = useState("");
   const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("timeline");
   const [statusText, setStatusText] = useState("等待连接");
   const [busy, setBusy] = useState(false);
   const [compacting, setCompacting] = useState(false);
@@ -124,6 +127,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     && !busy
     && !confirming;
   const contextUsage = timeline?.activity?.tokenUsage ?? null;
+  const activeSlotAtomDisplay = useMemo(
+    () => resolveActiveSlotAtomDisplay(messages, currentTurnId),
+    [currentTurnId, messages],
+  );
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     setActiveConversationId(conversation.conversationId);
@@ -216,8 +223,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         const activeText = normalizeActiveMessage(turn.activeThreadMessage);
         const finalText = turn.finalMessage || activeText || (isTerminalStatus(turn.status) ? "" : "生成中");
         setMessages((current) => current.map((message) => message.id === `assistant-${turnId}`
-          ? { ...message, text: finalText || message.text, status: isTerminalStatus(turn.status) ? "completed" : "running" }
+          ? {
+              ...message,
+              text: finalText || message.text,
+              status: isTerminalStatus(turn.status) ? "completed" : "running",
+              slotAtomDisplay: turn.autoDisplayTransform?.slotAtomDisplay ?? message.slotAtomDisplay ?? null,
+            }
           : message));
+        if (turn.autoDisplayTransform?.slotAtomDisplay) setRightPanelTab("slotAtom");
         setStatusText(`turn ${turn.status}`);
         if (isTerminalStatus(turn.status)) {
           setBusy(false);
@@ -644,11 +657,97 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           onNudge={(direction) => layout.nudgeSize("right", direction)}
         />
         <aside className="agent-chat-timeline" aria-label="Agent timeline">
-          <div className="section-heading">Timeline</div>
-          <TimelineView timeline={timeline} />
+          <div className="agent-chat-side-tabs" role="tablist" aria-label="右侧信息面板">
+            <button
+              className={rightPanelTab === "timeline" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={rightPanelTab === "timeline"}
+              onClick={() => setRightPanelTab("timeline")}
+            >
+              Timeline
+            </button>
+            <button
+              className={rightPanelTab === "slotAtom" ? "active" : ""}
+              type="button"
+              role="tab"
+              aria-selected={rightPanelTab === "slotAtom"}
+              onClick={() => setRightPanelTab("slotAtom")}
+            >
+              Slot/Atom
+            </button>
+          </div>
+          {rightPanelTab === "timeline" ? <TimelineView timeline={timeline} /> : <SlotAtomView display={activeSlotAtomDisplay} />}
         </aside>
       </main>
     </div>
+  );
+}
+
+function SlotAtomView({ display }: { display: AgentChatSlotAtomDisplay | null }) {
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const slots = display?.slots ?? [];
+  const atoms = display?.atoms ?? [];
+  const selectedSlot = useMemo(() => {
+    if (!slots.length) return null;
+    return slots.find((slot) => slot.slotSubtypeId === selectedSlotId) ?? slots.find((slot) => slot.slotSubtypeId === display?.selectedSlotSubtypeId) ?? slots[0];
+  }, [display?.selectedSlotSubtypeId, selectedSlotId, slots]);
+  const selectedAtoms = useMemo(() => {
+    if (!selectedSlot?.slotSubtypeId) return atoms[0] ?? null;
+    return atoms.find((atom) => atom.slotSubtypeId === selectedSlot.slotSubtypeId) ?? null;
+  }, [atoms, selectedSlot?.slotSubtypeId]);
+
+  useEffect(() => {
+    setSelectedSlotId(display?.selectedSlotSubtypeId ?? display?.slots?.[0]?.slotSubtypeId ?? null);
+  }, [display]);
+
+  if (!display || display.status === "empty" || (!slots.length && !atoms.length)) {
+    return <div className="empty-state"><strong>无</strong><span>当前 turn 还没有可展示的 Slot/Atom 转换结果</span></div>;
+  }
+
+  return (
+    <div className="agent-chat-slot-atom-panel">
+      <div className="agent-chat-slot-atom-summary">
+        <b>{display.slotCount ?? slots.length} slots</b>
+        <span>{display.atomBindingCount ?? atoms.length} atom bindings</span>
+      </div>
+      {display.displayJsonPath ? <div className="agent-chat-slot-atom-path" title={display.displayJsonPath}>{display.displayJsonPath}</div> : null}
+      <div className="agent-chat-slot-list" aria-label="Slot 链">
+        {slots.map((slot, index) => (
+          <button
+            key={`${slot.slotSubtypeId ?? "slot"}-${index}`}
+            className={slot.slotSubtypeId === selectedSlot?.slotSubtypeId ? "active" : ""}
+            type="button"
+            onClick={() => setSelectedSlotId(slot.slotSubtypeId ?? null)}
+          >
+            <small>{String(slot.index ?? index + 1).padStart(2, "0")}</small>
+            <b>{stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名 slot"}</b>
+            {slot.functionText ? <span>{slot.functionText}</span> : null}
+          </button>
+        ))}
+      </div>
+      <div className="agent-chat-slot-detail">
+        <div className="agent-chat-slot-detail-head">
+          <b>{stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || "Slot"}</b>
+          {selectedSlot?.archetypeId ? <span>{selectedSlot.archetypeId}</span> : null}
+        </div>
+        {selectedSlot?.usage ? <p>{selectedSlot.usage}</p> : null}
+        <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" />
+        <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" />
+        <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" />
+        {selectedAtoms?.handling ? <div className="agent-chat-atom-handling">{selectedAtoms.handling}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function AtomCard({ label, value, tone }: { label: string; value?: string | null; tone: "script" | "rhythm" | "packaging" }) {
+  if (!value) return null;
+  return (
+    <article className={`agent-chat-atom-card ${tone}`}>
+      <span>{label}</span>
+      <b>{value}</b>
+    </article>
   );
 }
 
@@ -717,6 +816,7 @@ function messagesFromConversation(conversation: AgentChatConversation): ChatMess
     role: message.role,
     text: message.text,
     status: message.status ?? "completed",
+    slotAtomDisplay: message.slotAtomDisplay ?? null,
   }));
 }
 
@@ -766,6 +866,22 @@ function isAgentChatBootstrapTurn(turn: NonNullable<ThreadConversation["turns"]>
 
 function uniqueId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function resolveActiveSlotAtomDisplay(messages: ChatMessage[], currentTurnId: string | null) {
+  const current = currentTurnId
+    ? messages.find((message) => message.id === `assistant-${currentTurnId}` && message.slotAtomDisplay)?.slotAtomDisplay ?? null
+    : null;
+  if (current) return current;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const display = messages[index].slotAtomDisplay;
+    if (display) return display;
+  }
+  return null;
+}
+
+function stripBacktickLabel(value?: string | null) {
+  return String(value ?? "").replace(/`[^`]+`\s*/g, "").trim();
 }
 
 function buildConfirmationId(turnId: string | null) {

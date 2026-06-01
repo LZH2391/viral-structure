@@ -458,6 +458,11 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /event\.preventDefault\(\)/);
   assert.match(chat, /agent-chat-timeline/);
   assert.match(chat, /agent-chat-timeline-list/);
+  assert.match(chat, /rightPanelTab/);
+  assert.match(chat, /Slot\/Atom/);
+  assert.match(chat, /SlotAtomView/);
+  assert.match(chat, /slotAtomDisplay/);
+  assert.match(chat, /resolveActiveSlotAtomDisplay/);
   assert.doesNotMatch(chat, /className="agent-timeline-list"/);
   const graphUtils = read(root, "Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   assert.match(graphUtils, /node\.type === "sourceVariant"\) return filters\.sourceVariant/);
@@ -474,5 +479,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(css, /--context-progress/);
   assert.match(css, /\.agent-chat-timeline \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*height: 100%/);
   assert.match(css, /\.agent-chat-timeline-list \{[\s\S]*min-height: 0;[\s\S]*overflow: auto/);
+  assert.match(css, /\.agent-chat-side-tabs/);
+  assert.match(css, /\.agent-chat-slot-atom-panel/);
+  assert.match(css, /\.agent-chat-slot-list/);
+  assert.match(css, /\.agent-chat-atom-card/);
   assert.match(styles, /agent-chat\.css/);
 });

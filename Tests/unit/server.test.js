@@ -1349,9 +1349,9 @@ test("agent chat collect auto transforms completed restructure final markdown", 
     },
     agentConversationStore: {
       get: async (conversationId) => conversations.get(conversationId) ?? null,
-      recordAssistantTurn: async ({ conversationId, turnId, text, status }) => {
+      recordAssistantTurn: async ({ conversationId, turnId, text, status, slotAtomDisplay }) => {
         const conversation = conversations.get(conversationId);
-        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status });
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status, slotAtomDisplay });
         return conversation;
       },
     },
@@ -1368,10 +1368,16 @@ test("agent chat collect auto transforms completed restructure final markdown", 
     assert.equal(collected.body.autoDisplayTransform.status, "processed");
     assert.equal(collected.body.autoDisplayTransform.restructureFinalPath, "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md");
     assert.equal(collected.body.autoDisplayTransform.displayJsonPath, "Artifacts/FunctionSlotRestructure/auto-demo/restructure.display.json");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.status, "available");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.slotCount, 1);
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.atomBindingCount, 1);
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.slots[0].slotSubtypeId, "SUB_auto_demo");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.atoms[0].scriptAtom.includes("A::script::S001"), true);
     const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "auto-demo", "restructure.display.json"), "utf8"));
     assert.equal(displayJson.schemaVersion, "function_slot_restructure_display.v1");
     assert.equal(displayJson.sections.finalSlotChain.items[0].type, "table");
     assert.equal(conversations.get("conversation_restructure").messages[0].text, sampleRestructureFinalMarkdown());
+    assert.equal(conversations.get("conversation_restructure").messages[0].slotAtomDisplay.slots[0].slotSubtypeId, "SUB_auto_demo");
   } finally {
     await closeServer(server);
   }

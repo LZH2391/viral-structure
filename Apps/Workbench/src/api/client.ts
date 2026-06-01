@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, SampleArtifact, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -79,6 +79,23 @@ export type AgentChatTurnResponse = {
   finalMessage?: string | null;
   activeThreadMessage?: { text?: string; role?: string | null; createdAt?: string | null } | string | null;
   materializedDisplay?: { ok: boolean; planId?: string | null; displayJsonPath?: string | null; traceGraphPath?: string | null; error?: string | null; message?: string | null } | null;
+  autoDisplayTransform?: {
+    ok: boolean;
+    status: string;
+    artifactId?: string | null;
+    traceId?: string | null;
+    runId?: string | null;
+    stageId?: string | null;
+    stageName?: string | null;
+    restructureFinalPath?: string | null;
+    displayJsonPath?: string | null;
+    repairRequestPath?: string | null;
+    missingSections?: string[];
+    repairAttemptCount?: number;
+    error?: string | null;
+    message?: string | null;
+    slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
+  } | null;
 };
 
 export type AgentChatCompactResponse = {

@@ -131,7 +131,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function recordAssistantTurn({ conversationId, turnId, text, status, traceId = null, runId = null, stageId = null }) {
+  async function recordAssistantTurn({ conversationId, turnId, text, status, traceId = null, runId = null, stageId = null, slotAtomDisplay = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -145,6 +145,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         role: "assistant",
         text: limitText(text || "生成中"),
         status: normalizeMessageStatus(status),
+        slotAtomDisplay: normalizeSlotAtomDisplay(slotAtomDisplay),
         createdAt: now,
         updatedAt: now,
       });
@@ -518,9 +519,57 @@ function normalizeMessage(value) {
     role: ["user", "assistant", "system"].includes(value.role) ? value.role : "system",
     text: limitText(value.text),
     status: normalizeMessageStatus(value.status),
+    slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
   };
+}
+
+function normalizeSlotAtomDisplay(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    schemaVersion: String(value.schemaVersion ?? "function_slot_restructure_slot_atom_display.v1"),
+    status: value.status === "available" ? "available" : value.status === "empty" ? "empty" : "available",
+    displayJsonPath: normalizePathText(value.displayJsonPath),
+    slotCount: normalizeCount(value.slotCount),
+    atomBindingCount: normalizeCount(value.atomBindingCount),
+    selectedSlotSubtypeId: value.selectedSlotSubtypeId ? String(value.selectedSlotSubtypeId) : null,
+    slots: Array.isArray(value.slots) ? value.slots.map(normalizeSlotSummary).filter(Boolean) : [],
+    atoms: Array.isArray(value.atoms) ? value.atoms.map(normalizeAtomSummary).filter(Boolean) : [],
+  };
+}
+
+function normalizeSlotSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    index: normalizeCount(value.index),
+    demand: limitText(value.demand),
+    slotSubtype: limitText(value.slotSubtype),
+    slotSubtypeId: value.slotSubtypeId ? String(value.slotSubtypeId) : null,
+    archetype: limitText(value.archetype),
+    archetypeId: value.archetypeId ? String(value.archetypeId) : null,
+    functionText: limitText(value.functionText),
+    usage: limitText(value.usage),
+    reason: limitText(value.reason),
+  };
+}
+
+function normalizeAtomSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    slotSubtype: limitText(value.slotSubtype),
+    slotSubtypeId: value.slotSubtypeId ? String(value.slotSubtypeId) : null,
+    source: limitText(value.source),
+    scriptAtom: limitText(value.scriptAtom),
+    rhythmAtom: limitText(value.rhythmAtom),
+    packagingAtom: limitText(value.packagingAtom),
+    handling: limitText(value.handling),
+  };
+}
+
+function normalizeCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : 0;
 }
 
 function upsertMessage(conversation, message) {
