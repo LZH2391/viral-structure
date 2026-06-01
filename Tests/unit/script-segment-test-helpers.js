@@ -9,7 +9,7 @@ const { createArtifactIndex, hashBuffer } = require("../../Infrastructure/Artifa
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
 
-async function createScriptHarness({ appServer = {}, serviceOptions = {} } = {}) {
+async function createScriptHarness({ appServer = {}, threadPool: threadPoolOverrides = {}, serviceOptions = {} } = {}) {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-script-segment-agent-"));
   const store = createLocalStore(tempRoot);
   await store.ensureRuntimeDirs();
@@ -35,6 +35,7 @@ async function createScriptHarness({ appServer = {}, serviceOptions = {} } = {})
     },
     discardThread: async () => ({ ok: true }),
     releaseOwnerLeases: async () => ({ ok: true }),
+    ...threadPoolOverrides,
   };
   const bridge = {
     startTurnWithInputs: async (...args) => appServer.startTurnWithInputs(...args),

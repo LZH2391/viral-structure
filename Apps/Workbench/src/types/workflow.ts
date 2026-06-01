@@ -56,6 +56,9 @@ export type FullAnalysisBatchItem = {
   currentStageKeys: string[];
   currentStageLabel?: string | null;
   errorSummary?: ErrorSummary | null;
+  retryable?: boolean;
+  sourceFileAvailable?: boolean;
+  lastFailure?: ErrorSummary | null;
   createdAt: string;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -75,5 +78,6 @@ export type FullAnalysisBatchRun = {
   createdAt: string;
   updatedAt: string;
   completedAt?: string | null;
+  restored?: boolean;
   items: FullAnalysisBatchItem[];
 };

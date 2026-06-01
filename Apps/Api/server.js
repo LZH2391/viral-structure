@@ -250,7 +250,9 @@ function createServer(deps = {}) {
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threadpool/leases/release") return await handleAgentChatLeaseRelease(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/runs") return await handleFullAnalysisRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/batch-runs") return await handleFullAnalysisBatchRun(req, res, handlers);
+      if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/batch-runs/latest") return await handleFullAnalysisBatchLatest(res, handlers, url);
       if (req.method === "GET" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+$/.test(url.pathname)) return await handleFullAnalysisBatchRead(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
+      if (req.method === "POST" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+\/items\/[^/]+\/retry$/.test(url.pathname)) return await handleFullAnalysisBatchItemRetry(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") return await handleFullAnalysisCacheCheck(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") return await handleLatestFullAnalysisRun(res, handlers);
       if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) return await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers);
@@ -839,6 +841,23 @@ async function handleFullAnalysisBatchRead(res, batchRunId, handlers = {}) {
   const batch = queue.getBatch(batchRunId);
   if (!batch) return notFound(res);
   return sendJson(res, 200, batch);
+}
+
+async function handleFullAnalysisBatchLatest(res, handlers = {}, url = null) {
+  const queue = handlers.fullAnalysisBatchQueue ?? fullAnalysisBatchQueue;
+  const activeOnly = url?.searchParams?.get("active") === "true";
+  const batch = activeOnly ? queue.getLatestActiveBatch?.() : queue.getLatestBatch?.();
+  if (!batch) return notFound(res);
+  await queue.advance?.(batch.batchRunId).catch(() => undefined);
+  const updated = queue.getBatch?.(batch.batchRunId) ?? batch;
+  return sendJson(res, 200, updated);
+}
+
+async function handleFullAnalysisBatchItemRetry(res, batchRunId, queueItemId, handlers = {}) {
+  const queue = handlers.fullAnalysisBatchQueue ?? fullAnalysisBatchQueue;
+  const batch = queue.retryItem?.(batchRunId, queueItemId);
+  if (!batch) return notFound(res);
+  return sendJson(res, 202, batch);
 }
 
 async function handleFullAnalysisCacheCheck(req, res, handlers = {}) {

@@ -248,6 +248,19 @@ export async function getFullAnalysisBatchRun(batchRunId: string) {
   return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}`, { cache: "no-store" }));
 }
 
+export async function getLatestFullAnalysisBatchRun(options: { active?: boolean } = {}) {
+  const query = options.active ? "?active=true" : "";
+  return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/latest${query}`, { cache: "no-store" }));
+}
+
+export async function retryFullAnalysisBatchItem(batchRunId: string, queueItemId: string) {
+  return readJsonResponse<FullAnalysisBatchRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/retry`, {
+      method: "POST",
+    }),
+  );
+}
+
 export async function checkFullAnalysisUploadCache(file: File, options: { frameSampleRateFps?: number; cacheDecision?: "ask" | "refresh" } = {}) {
   const formData = new FormData();
   formData.append("file", file);

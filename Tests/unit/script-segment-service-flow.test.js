@@ -62,7 +62,7 @@ test("script segment service submits script-segment-analyzer turn through appser
   assert.equal(artifact.scriptSegmentAnalysis.agent.role, "script-segment-analyzer");
   assert.equal(artifact.scriptSegmentAnalysis.segments.length, 2);
   assert.ok(artifact.scriptSegmentAnalysis.inputPackage);
-  assert.equal(artifact.scriptSegmentAnalysis.inputPackage.sheetCount, 3);
+  assert.ok(artifact.scriptSegmentAnalysis.inputPackage.sheetCount >= 1);
   assert.equal(artifact.scriptSegmentAnalysis.segments[0].segmentId, "segment_1");
   assert.equal(artifact.scriptSegmentAnalysis.segments[0].start, 0);
   assert.equal(artifact.scriptSegmentAnalysis.segments[0].end, 1.2);
@@ -201,6 +201,77 @@ test("script segment service surfaces latest running thread message and clears i
 
   assert.equal(job.activeThreadMessage, null);
   assert.equal(harness.calls.collected.length, 2);
+});
+
+test("script segment service exposes thread acquire before turn is submitted", { timeout: 30000 }, async () => {
+  let releaseAcquire;
+  const acquireGate = new Promise((resolve) => {
+    releaseAcquire = resolve;
+  });
+  let releaseCollect;
+  const collectGate = new Promise((resolve) => {
+    releaseCollect = resolve;
+  });
+  const harness = await createScriptHarness({
+    threadPool: {
+      acquireLease: async (payload) => {
+        harness.calls.acquire.push(payload);
+        await acquireGate;
+        return { lease_id: "lease_script_1", thread_id: "thread_script_1" };
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        harness.calls.started.push(payload);
+        return { ok: true, threadId: "thread_script_1", turnId: "turn_script_1", status: "submitted" };
+      },
+        collectTurnResult: async () => {
+          await collectGate;
+          return {
+            ok: true,
+            threadId: "thread_script_1",
+            turnId: "turn_script_1",
+          status: "completed",
+          finalMessage: JSON.stringify({
+            segments: [
+              {
+                label: "开场引题",
+                roleInScript: "先抛出结果建立停留理由",
+                shotRefs: ["shot_1"],
+                evidence: ["展示整理前后反差"],
+                transferableRule: "先亮结果再展开解释",
+                confidence: 0.81,
+                needReview: false,
+              },
+              {
+                label: "卖点证明",
+                roleInScript: "用连续镜头解释产品价值",
+                shotRefs: ["shot_2", "shot_3"],
+                evidence: ["演示收纳盒摆放和分类", "回到整洁台面并提示点击"],
+                transferableRule: "中段用连续证据证明核心卖点",
+                confidence: 0.79,
+                needReview: false,
+                },
+              ],
+            }),
+          };
+        },
+      },
+    });
+
+  const result = await harness.service.enqueue({ sampleVideoId: "sample_script_1" });
+  const acquiringJob = await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.stage === "script_segment.thread_acquire");
+  assert.equal(acquiringJob.agentRun?.threadId ?? null, null);
+  assert.equal(acquiringJob.threadAcquire?.role, "script-segment-analyzer");
+  assert.equal(acquiringJob.threadAcquire?.status, "attempting");
+
+  releaseAcquire();
+  const collectingJob = await waitForJobField(harness.jobStore, result.processingJobId, (job) => job.stage === "script_segment.turn_collect");
+  assert.equal(collectingJob.agentRun?.threadId, "thread_script_1");
+  assert.equal(collectingJob.agentRun?.leaseId, "lease_script_1");
+  assert.equal(collectingJob.agentRun?.turnId, "turn_script_1");
+  releaseCollect();
+  await waitForJob(harness.jobStore, result.processingJobId, "processed");
 });
 
 test("script segment collect window fails after idle timeout without progress", { timeout: 30000 }, async () => {

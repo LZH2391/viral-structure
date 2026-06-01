@@ -33,6 +33,17 @@ export type ProcessingJob = {
     text: string;
     createdAt?: string | null;
   } | null;
+  threadAcquire?: {
+    role?: string | null;
+    status?: string | null;
+    attemptCount?: number | null;
+    readinessDetail?: Record<string, unknown> | null;
+    lastRequestError?: Record<string, unknown> | null;
+    requestTimeoutMs?: number | null;
+    leaseId?: string | null;
+    threadId?: string | null;
+    updatedAt?: string | null;
+  } | null;
   agentActivity?: AgentActivitySummary | null;
   errorSummary?: ErrorSummary | null;
   cachePrompt?: {

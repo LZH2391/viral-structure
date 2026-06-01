@@ -161,6 +161,7 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   if (cached?.edgeSignature === edgeSignature && cached.visibleSignature === visibleSignature) return cached.edges;
 
   const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  const nodeTypeById = new Map(graph.nodes.map((node) => [node.id, node.type]));
   for (const edge of graph.edges) {
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
   }
@@ -169,6 +170,7 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
     const ancestors = nearestVisibleAncestors(targetId, incoming, visibleNodeIds);
     for (const ancestorId of ancestors) {
       if (ancestorId === targetId) continue;
+      if (!shouldProjectHierarchyEdge(nodeTypeById, ancestorId, targetId)) continue;
       edges.push({
         id: graphId("edge", "projected", ancestorId, targetId),
         source: ancestorId,
@@ -185,6 +187,15 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   const result = dedupeEdges(edges);
   projectedEdgesCache.set(graph, { edgeSignature, visibleSignature, edges: result });
   return result;
+}
+
+function shouldProjectHierarchyEdge(nodeTypeById: Map<string, string>, sourceId: string, targetId: string) {
+  const sourceType = nodeTypeById.get(sourceId);
+  const targetType = nodeTypeById.get(targetId);
+  if (targetType === "atomPattern" && sourceType === "slotSubtype") return false;
+  if (targetType === "sourceVariant" && (sourceType === "slotSubtype" || sourceType === "atomLayer" || sourceType === "atomArchetype")) return false;
+  if (targetType === "sourceSample" && sourceType !== "sourceVariant" && sourceType !== "governanceRoot") return false;
+  return true;
 }
 
 function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>) {

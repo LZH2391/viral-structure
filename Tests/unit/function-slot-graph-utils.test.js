@@ -42,6 +42,34 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
+test("governance graph does not project hidden atom archetype paths into subtype-pattern hairballs", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false, sourceVariant: false };
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype", group: "slot", data: {} },
+      { id: "atomLayer:SUB_a:script", type: "atomLayer", label: "Script", group: "script", data: { layer: "script" } },
+      { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: {} },
+    ],
+    edges: [
+      { id: "edge:sub:layer", source: "slotSubtype:SUB_a", target: "atomLayer:SUB_a:script", type: "subtype_to_atom_layer" },
+      { id: "edge:layer:arch", source: "atomLayer:SUB_a:script", target: "atomArchetype:ARCH_script", type: "atom_layer_to_archetype" },
+      { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
+    ],
+    summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters);
+
+  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_a"));
+  assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
+  assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
+});
+
 test("confirmed plan trace graph shows used source variants and source samples but hides source examples", () => {
   const { buildVisibleGraph, reverseTracePath } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();

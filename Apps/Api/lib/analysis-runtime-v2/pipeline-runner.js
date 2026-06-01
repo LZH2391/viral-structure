@@ -69,17 +69,38 @@ function createAnalysisPipelineRunner({
             maxCollectAttempts,
             collectIdleTimeoutMs,
             collectHardTimeoutMs,
+            onThreadAcquire: (activity) => {
+              runtime.job.resumeProcessing(context.job.jobId, threadAcquireStage(descriptor), threadAcquireProgress(descriptor), {
+                threadAcquire: buildThreadAcquireSummary(activity),
+              });
+            },
+            onTurnSubmit: ({ lease: startedLease, started }) => {
+              const nextRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
+              context.agentRun = nextRun;
+              runtime.job.resumeProcessing(context.job.jobId, turnSubmitStage(descriptor), turnSubmitProgress(descriptor), {
+                agentRun: nextRun,
+                threadAcquire: buildThreadAcquireSummary({
+                  role: nextRun.role,
+                  status: "acquired",
+                  leaseId: startedLease?.lease_id ?? null,
+                  threadId: startedLease?.thread_id ?? null,
+                }),
+              });
+            },
+            onTurnCollectStart: ({ lease: startedLease, started }) => {
+              if (!context.agentRun) context.agentRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
+              runtime.job.resumeProcessing(context.job.jobId, turnCollectStage(descriptor), turnCollectProgress(descriptor), {
+                agentRun: context.agentRun,
+              });
+            },
             onTurnStarted: ({ lease: startedLease, started }) => {
               lease = startedLease;
-              context.agentRun = descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
+              context.agentRun = context.agentRun ?? descriptor.buildAgentRun({ context, lease: startedLease, turn: started, input });
               upsertDescriptorTraceCard(runtime, context, descriptor, "analyze", {
                 status: "running",
                 run: context.agentRun,
                 artifactId: context.artifactId,
                 parentArtifactId: descriptor.resolveMaterializeParentArtifactId(context, input),
-              });
-              runtime.job.resumeProcessing(context.job.jobId, descriptor.STAGES.analyzed, descriptor.progress.analyzed, {
-                agentRun: context.agentRun,
               });
             },
             onTurnCollect: (turn) => runtime.updateActiveThreadMessage(context, turn),
@@ -301,6 +322,44 @@ function createAnalysisPipelineRunner({
 
   return {
     runAnalysisPipeline,
+  };
+}
+
+function threadAcquireStage(descriptor) {
+  return descriptor.STAGES.threadAcquire ?? descriptor.STAGES.analyzed.replace(/\.analyze$/, ".thread_acquire");
+}
+
+function turnSubmitStage(descriptor) {
+  return descriptor.STAGES.turnSubmit ?? descriptor.STAGES.analyzed.replace(/\.analyze$/, ".turn_submit");
+}
+
+function turnCollectStage(descriptor) {
+  return descriptor.STAGES.turnCollect ?? descriptor.STAGES.analyzed.replace(/\.analyze$/, ".turn_collect");
+}
+
+function threadAcquireProgress(descriptor) {
+  return Math.max(0, descriptor.progress.analyzed - 2);
+}
+
+function turnSubmitProgress(descriptor) {
+  return Math.max(0, descriptor.progress.analyzed - 1);
+}
+
+function turnCollectProgress(descriptor) {
+  return descriptor.progress.analyzed;
+}
+
+function buildThreadAcquireSummary(activity = {}) {
+  return {
+    role: activity.role ?? null,
+    status: activity.status ?? null,
+    attemptCount: activity.attemptCount ?? null,
+    readinessDetail: activity.readinessDetail ?? null,
+    lastRequestError: activity.lastRequestError ?? null,
+    requestTimeoutMs: activity.requestTimeoutMs ?? null,
+    leaseId: activity.leaseId ?? null,
+    threadId: activity.threadId ?? null,
+    updatedAt: new Date().toISOString(),
   };
 }
 

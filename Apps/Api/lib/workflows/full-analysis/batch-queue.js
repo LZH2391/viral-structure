@@ -15,6 +15,7 @@ function createFullAnalysisBatchQueue({
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
+  restoreQueuedFiles(state, uploadRoot);
   let advancing = false;
   for (const batch of state.batches.filter((item) => !isBatchTerminal(item))) {
     scheduleAdvance(batch.batchRunId, 0);
@@ -75,6 +76,44 @@ function createFullAnalysisBatchQueue({
     return publicBatch(batch);
   }
 
+  function getLatestBatch() {
+    const batch = [...state.batches].sort((a, b) => batchTime(b) - batchTime(a))[0];
+    if (!batch) return null;
+    scheduleAdvance(batch.batchRunId, 0);
+    return publicBatch(batch);
+  }
+
+  function getLatestActiveBatch() {
+    const batch = [...state.batches].filter((item) => !isBatchTerminal(item)).sort((a, b) => batchTime(b) - batchTime(a))[0];
+    if (!batch) return null;
+    scheduleAdvance(batch.batchRunId, 0);
+    return publicBatch(batch);
+  }
+
+  function retryItem(batchRunId, queueItemId) {
+    const batch = findBatch(batchRunId);
+    if (!batch) return null;
+    const item = batch.items.find((entry) => entry.queueItemId === queueItemId);
+    if (!item || !isRetryableItem(item)) return publicBatch(batch);
+    const now = new Date().toISOString();
+    item.workflowRunId = null;
+    item.sampleVideoId = null;
+    item.status = "queued";
+    item.position = nextQueuedPosition(batch);
+    item.currentStageKeys = [];
+    item.currentStageLabel = null;
+    item.errorSummary = null;
+    item.startedAt = null;
+    item.completedAt = null;
+    item.updatedAt = now;
+    batch.status = "queued";
+    batch.completedAt = null;
+    batch.updatedAt = now;
+    persistQueueState(filePath, state);
+    scheduleAdvance(batchRunId, 0);
+    return publicBatch(batch);
+  }
+
   async function advance(batchRunId = null) {
     if (advancing) return batchRunId ? publicBatch(findBatch(batchRunId)) : null;
     advancing = true;
@@ -109,7 +148,7 @@ function createFullAnalysisBatchQueue({
       item.updatedAt = new Date().toISOString();
       if (isItemTerminal(item) && !item.completedAt) {
         item.completedAt = item.updatedAt;
-        cleanupQueuedFile(item);
+        if (item.status === "processed") cleanupQueuedFile(item);
       }
     }
     assignQueuedPositions(batch);
@@ -155,7 +194,6 @@ function createFullAnalysisBatchQueue({
       item.completedAt = new Date().toISOString();
       item.updatedAt = item.completedAt;
       item.errorSummary = normalizeQueueError(error);
-      cleanupQueuedFile(item);
       await logger?.writeDebugSnapshot?.({
         traceContext: { runId: `batch_${batch.batchRunId}`, traceId: batch.batchRunId, stageId: item.queueItemId },
         stageName: "workflow.full_analysis.batch.dispatch",
@@ -192,6 +230,9 @@ function createFullAnalysisBatchQueue({
   return {
     createBatch,
     getBatch,
+    getLatestBatch,
+    getLatestActiveBatch,
+    retryItem,
     advance,
   };
 }
@@ -219,6 +260,7 @@ function normalizeLoadedBatch(batch) {
   }) : [];
   return {
     ...batch,
+    restored: true,
     status: batch.status === "running" ? "queued" : batch.status,
     maxConcurrentRuns: normalizeMaxConcurrentRuns(batch.maxConcurrentRuns, DEFAULT_MAX_CONCURRENT_RUNS),
     items,
@@ -254,6 +296,16 @@ function readQueuedFile(item) {
 function cleanupQueuedFile(item) {
   if (!item.filePath) return;
   fs.rmSync(item.filePath, { force: true });
+}
+
+function restoreQueuedFiles(state, uploadRoot) {
+  for (const batch of state.batches) {
+    for (const item of batch.items ?? []) {
+      if (!item?.filePath || fs.existsSync(item.filePath)) continue;
+      const fallbackPath = path.join(uploadRoot, batch.batchRunId, path.basename(item.filePath));
+      if (fs.existsSync(fallbackPath)) item.filePath = fallbackPath;
+    }
+  }
 }
 
 function normalizeMaxConcurrentRuns(value, fallback) {
@@ -300,10 +352,22 @@ function assignQueuedPositions(batch) {
   }
 }
 
+function nextQueuedPosition(batch) {
+  return Math.max(0, ...batch.items.map((item) => Number(item.position ?? 0))) + 1;
+}
+
 function currentStageLabel(run) {
   const keys = run.currentStageKeys ?? [];
   if (!keys.length) return null;
   return keys.map((key) => run.stages?.find((stage) => stage.key === key)?.label ?? key).join(" / ");
+}
+
+function batchTime(batch) {
+  return Date.parse(batch?.updatedAt ?? batch?.createdAt ?? "") || 0;
+}
+
+function isRetryableItem(item) {
+  return ["failed", "partial_failed"].includes(String(item?.status ?? "")) && Boolean(item?.filePath && fs.existsSync(item.filePath));
 }
 
 function normalizeQueueError(error) {
@@ -328,6 +392,7 @@ function publicBatch(batch) {
     createdAt: batch.createdAt,
     updatedAt: batch.updatedAt,
     completedAt: batch.completedAt ?? null,
+    restored: Boolean(batch.restored),
     items: batch.items.map((item) => ({
       queueItemId: item.queueItemId,
       batchRunId: item.batchRunId,
@@ -341,6 +406,9 @@ function publicBatch(batch) {
       currentStageKeys: item.currentStageKeys ?? [],
       currentStageLabel: item.currentStageLabel ?? null,
       errorSummary: item.errorSummary ?? null,
+      retryable: isRetryableItem(item),
+      sourceFileAvailable: Boolean(item.filePath && fs.existsSync(item.filePath)),
+      lastFailure: item.status === "failed" || item.status === "partial_failed" ? item.errorSummary ?? null : null,
       createdAt: item.createdAt,
       startedAt: item.startedAt ?? null,
       completedAt: item.completedAt ?? null,

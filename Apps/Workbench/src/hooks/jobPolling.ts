@@ -69,6 +69,7 @@ function normalizeJobSnapshot(job: ProcessingJob) {
     traceId: job.traceId ?? null,
     finalMessage: job.finalMessage ?? null,
     agentRun: normalizeAgentRun(job.agentRun ?? null),
+    threadAcquire: normalizeThreadAcquire(job.threadAcquire ?? null),
     shotBoundaryTransform: normalizeTraceCard(job.shotBoundaryTransform ?? null),
     agentTraceCards: Array.isArray(job.agentTraceCards) ? job.agentTraceCards.map(normalizeTraceCard) : null,
     agentActivity: normalizeAgentActivity(job.agentActivity ?? null),
@@ -91,6 +92,21 @@ function normalizeAgentRun(agentRun: ProcessingJob["agentRun"]) {
     status: agentRun.status ?? null,
     startedAt: agentRun.startedAt ?? null,
     updatedAt: agentRun.updatedAt ?? null,
+  };
+}
+
+function normalizeThreadAcquire(threadAcquire: ProcessingJob["threadAcquire"]) {
+  if (!threadAcquire) return null;
+  return {
+    role: threadAcquire.role ?? null,
+    status: threadAcquire.status ?? null,
+    attemptCount: threadAcquire.attemptCount ?? null,
+    readinessDetail: threadAcquire.readinessDetail ?? null,
+    lastRequestError: threadAcquire.lastRequestError ?? null,
+    requestTimeoutMs: threadAcquire.requestTimeoutMs ?? null,
+    leaseId: threadAcquire.leaseId ?? null,
+    threadId: threadAcquire.threadId ?? null,
+    updatedAt: threadAcquire.updatedAt ?? null,
   };
 }
 
@@ -198,6 +214,7 @@ function normalizeCachePrompt(cachePrompt: ProcessingJob["cachePrompt"]) {
 function resolveAgentActivityTime(job: ProcessingJob | null | undefined) {
   const candidates = [
     job?.agentActivity?.updatedAt,
+    job?.threadAcquire?.updatedAt,
     job?.activeThreadMessage?.createdAt,
   ];
   for (const candidate of candidates) {

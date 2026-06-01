@@ -139,6 +139,7 @@ async function acquireLeaseWithRetry(threadPool, {
   maxAttempts = 12,
   backoffMs = [1000, 2000, 3000, 5000, 8000, 10000],
   codedError,
+  onAcquireUpdate,
 }) {
   let attemptCount = 0;
   let readinessDetail = null;
@@ -174,8 +175,28 @@ async function acquireLeaseWithRetry(threadPool, {
       continue;
     }
     readinessDetail = readiness?.ok ? buildThreadPoolStatusDetail(readiness.status) : readiness?.detail ?? null;
+    await notifyAcquireUpdate(onAcquireUpdate, {
+      role,
+      ownerId,
+      status: "attempting",
+      attemptCount,
+      readinessDetail,
+      lastRequestError,
+      requestTimeoutMs,
+    });
     try {
       const lease = await threadPool.acquireLease({ role, ownerId });
+      await notifyAcquireUpdate(onAcquireUpdate, {
+        role,
+        ownerId,
+        status: "acquired",
+        attemptCount,
+        readinessDetail,
+        lastRequestError,
+        requestTimeoutMs,
+        leaseId: lease?.lease_id ?? null,
+        threadId: lease?.thread_id ?? null,
+      });
       return {
         lease,
         attemptCount,
@@ -187,6 +208,15 @@ async function acquireLeaseWithRetry(threadPool, {
       requestTimeoutMs = Number.isFinite(error?.request?.requestTimeoutMs) ? Number(error.request.requestTimeoutMs) : requestTimeoutMs;
       lastRequestError = summarizeRequestError(error);
       const failure = normalizeThreadPoolAcquireError(error, readiness?.status ?? null, codedError);
+      await notifyAcquireUpdate(onAcquireUpdate, {
+        role,
+        ownerId,
+        status: "retrying",
+        attemptCount,
+        readinessDetail,
+        lastRequestError,
+        requestTimeoutMs,
+      });
       failure.debugPayload = {
         ...(failure.debugPayload ?? {}),
         ...buildAcquireFailurePayload({
@@ -216,6 +246,15 @@ async function acquireLeaseWithRetry(threadPool, {
     }),
     true,
   );
+}
+
+async function notifyAcquireUpdate(callback, payload) {
+  if (typeof callback !== "function") return;
+  try {
+    await callback(payload);
+  } catch {
+    // Status updates must never make lease acquisition fail.
+  }
 }
 
 module.exports = {

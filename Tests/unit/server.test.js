@@ -2360,14 +2360,29 @@ test("full analysis batch routes create and read batch queue", async () => {
     completedAt: null,
     items: [],
   };
+  let storedBatch = { ...fakeBatch };
   const server = createServer({
     fullAnalysisBatchQueue: {
       createBatch: ({ files, fields }) => {
         calls.push({ type: "create", fileNames: files.map((file) => file.filename), maxConcurrentRuns: fields.maxConcurrentRuns });
-        return fakeBatch;
+        storedBatch = { ...fakeBatch };
+        return storedBatch;
       },
       advance: async (batchRunId) => calls.push({ type: "advance", batchRunId }),
-      getBatch: (batchRunId) => batchRunId === "batch_1" ? fakeBatch : null,
+      getBatch: (batchRunId) => batchRunId === "batch_1" ? storedBatch : null,
+      getLatestBatch: () => {
+        storedBatch = { ...storedBatch, restored: true };
+        return storedBatch;
+      },
+      getLatestActiveBatch: () => {
+        storedBatch = { ...storedBatch, status: "running", restored: true };
+        return storedBatch;
+      },
+      retryItem: (batchRunId, queueItemId) => {
+        calls.push({ type: "retry", batchRunId, queueItemId });
+        storedBatch = { ...storedBatch, status: "running" };
+        return storedBatch;
+      },
     },
     staticWorkbench: { handle: () => false },
   });
@@ -2389,9 +2404,27 @@ test("full analysis batch routes create and read batch queue", async () => {
     const read = await makeRequest(server, "GET", "/api/workflows/full-analysis/batch-runs/batch_1");
     assert.equal(read.statusCode, 200);
     assert.equal(read.body.batchRunId, "batch_1");
+
+    const latestActive = await makeRequest(server, "GET", "/api/workflows/full-analysis/batch-runs/latest?active=true");
+    assert.equal(latestActive.statusCode, 200);
+    assert.equal(latestActive.body.batchRunId, "batch_1");
+    assert.equal(latestActive.body.status, "running");
+    assert.equal(latestActive.body.restored, true);
+
+    const latest = await makeRequest(server, "GET", "/api/workflows/full-analysis/batch-runs/latest");
+    assert.equal(latest.statusCode, 200);
+    assert.equal(latest.body.batchRunId, "batch_1");
+    assert.equal(latest.body.restored, true);
+
+    const retry = await makeRequest(server, "POST", "/api/workflows/full-analysis/batch-runs/batch_1/items/item_1/retry");
+    assert.equal(retry.statusCode, 202);
+    assert.equal(retry.body.batchRunId, "batch_1");
     assert.deepEqual(calls, [
       { type: "create", fileNames: ["a.mp4", "b.mp4"], maxConcurrentRuns: "2" },
       { type: "advance", batchRunId: "batch_1" },
+      { type: "advance", batchRunId: "batch_1" },
+      { type: "advance", batchRunId: "batch_1" },
+      { type: "retry", batchRunId: "batch_1", queueItemId: "item_1" },
     ]);
   } finally {
     await closeServer(server);

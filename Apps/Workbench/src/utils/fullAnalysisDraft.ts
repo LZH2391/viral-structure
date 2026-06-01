@@ -4,6 +4,7 @@ export const FULL_ANALYSIS_DRAFT_STORAGE_KEY = "full-analysis:last-run";
 
 export type FullAnalysisDraft = {
   workflowRunId?: string | null;
+  batchRunId?: string | null;
   sampleVideoId?: string | null;
   traceId?: string | null;
   status?: string | null;
@@ -26,6 +27,7 @@ export function writeFullAnalysisDraft(run: WorkflowRun, sampleArtifact?: Sample
   const current = readFullAnalysisDraft(storageKey);
   localStorage.setItem(storageKey, JSON.stringify({
     workflowRunId: run.workflowRunId,
+    batchRunId: current?.batchRunId ?? null,
     sampleVideoId: run.sampleVideoId ?? sampleArtifact?.sampleVideoId ?? null,
     traceId: run.traceId ?? null,
     status: run.status ?? null,
@@ -33,6 +35,15 @@ export function writeFullAnalysisDraft(run: WorkflowRun, sampleArtifact?: Sample
     activeSampleRevision: current?.activeSampleRevision ?? 0,
     activeSampleSource: current?.activeSampleSource ?? "fullAnalysis",
     sampleArtifact: sampleArtifact ?? null,
+  }));
+}
+
+export function writeFullAnalysisBatchDraft(batchRunId: string | null, storageKey = FULL_ANALYSIS_DRAFT_STORAGE_KEY) {
+  const current = readFullAnalysisDraft(storageKey);
+  localStorage.setItem(storageKey, JSON.stringify({
+    ...current,
+    batchRunId,
+    updatedAt: new Date().toISOString(),
   }));
 }
 

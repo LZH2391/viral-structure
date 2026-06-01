@@ -22,21 +22,38 @@ function createAppServerTurnRunner({
     collectIdleTimeoutMs,
     collectHardTimeoutMs,
     onTurnStarted,
+    onThreadAcquire,
+    onTurnSubmit,
+    onTurnCollectStart,
     onTurnCollect,
   }) {
     const leaseAcquisition = await acquireLeaseWithRetry(threadPool, {
       role,
       ownerId: context.traceContext.traceId,
       codedError,
+      onAcquireUpdate: onThreadAcquire,
     });
     const lease = leaseAcquisition.lease;
+    await onThreadAcquire?.({
+      role,
+      ownerId: context.traceContext.traceId,
+      status: "acquired",
+      attemptCount: leaseAcquisition.attemptCount,
+      readinessDetail: leaseAcquisition.readinessDetail,
+      lastRequestError: leaseAcquisition.lastRequestError,
+      requestTimeoutMs: leaseAcquisition.requestTimeoutMs,
+      leaseId: lease?.lease_id ?? null,
+      threadId: lease?.thread_id ?? null,
+    });
     const started = await appServer.startTurnWithInputs({
       workspaceRoot: rootDir,
       threadId: lease.thread_id,
       inputs: turnInputs.inputs,
       timeoutSeconds: startTimeoutSeconds,
     });
+    await onTurnSubmit?.({ lease, started });
     await onTurnStarted?.({ lease, started });
+    await onTurnCollectStart?.({ lease, started });
     const finalTurn = await collectTurnToCompletion({
       appServer,
       rootDir,
