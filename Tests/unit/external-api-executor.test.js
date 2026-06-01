@@ -62,3 +62,28 @@ test("external-api executor normalizes provider failures without leaking paths o
     },
   );
 });
+
+test("external-api executor rejects failed provider result objects", async () => {
+  const registry = createExecutorRegistry();
+  const provider = {
+    providerName: "test-provider",
+    request: async () => ({
+      ok: false,
+      error: "provider_rejected",
+      message: "failed with Bearer secret-token at C:\\Users\\Administrator\\file.png",
+      retryable: false,
+      detail: "Bearer secret-token C:\\Users\\Administrator\\file.png",
+    }),
+  };
+
+  await assert.rejects(
+    () => registry.execute("external-api", { provider, providerName: "test-provider" }),
+    (error) => {
+      assert.equal(error.code, "provider_rejected");
+      assert.equal(error.retryable, false);
+      assert.match(error.debugPayload.detail, /\[redacted\]/);
+      assert.match(error.debugPayload.detail, /\[local-path\]/);
+      return true;
+    },
+  );
+});

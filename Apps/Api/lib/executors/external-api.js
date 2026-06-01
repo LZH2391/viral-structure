@@ -15,6 +15,9 @@ function createExternalApiExecutor() {
       ).catch((error) => {
         throw normalizeExternalApiError(error, payload);
       });
+      if (result?.ok === false) {
+        throw normalizeExternalApiError(providerResultError(result, payload), payload);
+      }
       return {
         status: "completed",
         provider: payload.providerName ?? provider.providerName ?? null,
@@ -22,6 +25,21 @@ function createExternalApiExecutor() {
       };
     },
   };
+}
+
+function providerResultError(result, payload = {}) {
+  const rawError = result.error && typeof result.error === "object" ? result.error : null;
+  const error = new Error(result.message ?? rawError?.message ?? "外部 API provider 返回失败");
+  error.code = result.errorCode ?? result.code ?? (typeof result.error === "string" ? result.error : rawError?.code) ?? "external_api_provider_failed";
+  error.retryable = result.retryable ?? rawError?.retryable ?? true;
+  error.providerStatus = result.providerStatus ?? result.statusCode ?? result.status ?? null;
+  error.providerErrorCode = result.providerErrorCode ?? rawError?.code ?? null;
+  error.providerMessage = result.providerMessage ?? rawError?.message ?? result.message ?? null;
+  error.detail = result.detail ?? rawError?.detail ?? result.debugPayload ?? {
+    providerName: payload.providerName ?? null,
+    result,
+  };
+  return error;
 }
 
 function withTimeout(action, timeoutSeconds) {
