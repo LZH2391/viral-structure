@@ -2410,6 +2410,92 @@ test("active turns route returns safe running bindings only", async () => {
   }
 });
 
+test("active turn stop route cancels binding and releases lease", async () => {
+  const calls = [];
+  const server = createServer({
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        ownerType: "processing-job",
+        ownerId: "job_1",
+        leaseId: "lease_1",
+        threadPoolOwnerId: "owner_1",
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { threadId: payload.threadId, turnId: payload.turnId, status: "canceled", ownerResult: { status: "canceled" } };
+      },
+    },
+    threadPool: {
+      releaseLease: async (payload) => calls.push({ type: "release", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_1/stop", { turnId: "turn_1" });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.status, "canceled");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "release"]);
+    assert.equal(calls[0].payload.turnId, "turn_1");
+    assert.equal(calls[1].payload.leaseId, "lease_1");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("active turn retry route replays agent chat user message through owner binding", async () => {
+  const calls = [];
+  const server = createServer({
+    activeTurnRuntime: {
+      getByBindingId: async (bindingId) => ({
+        bindingId,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        ownerType: "agent-chat",
+        ownerId: "conversation_1",
+        replayRef: { type: "agent-chat-message", sourceTurnId: "turn_1", messageId: "user-turn_1" },
+      }),
+      cancel: async (payload) => {
+        calls.push({ type: "cancel", payload });
+        return { status: "canceled", threadId: payload.threadId, turnId: payload.turnId };
+      },
+      start: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { status: "submitted", threadId: payload.threadId, turnId: "turn_retry" };
+      },
+    },
+    agentConversationStore: {
+      get: async () => ({
+        conversationId: "conversation_1",
+        latestTurnId: "turn_1",
+        threadId: "thread_1",
+        messages: [{ id: "user-turn_1", turnId: "turn_1", role: "user", text: "retry me" }],
+      }),
+      recordTurnStopped: async () => undefined,
+      recordUserTurn: async (payload) => calls.push({ type: "recordUser", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/active-turns/binding_chat/retry", {});
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.turnId, "turn_retry");
+    assert.deepEqual(calls.map((call) => call.type), ["cancel", "start", "recordUser"]);
+    assert.equal(calls[1].payload.inputs[0].text, "retry me");
+    assert.equal(calls[2].payload.turnId, "turn_retry");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot auto-run creates processing job and active binding for stop writeback", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-active-turn-"));
   const activeStarts = [];

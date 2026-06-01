@@ -665,6 +665,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         turnId: payload.turnId,
         result: payload,
         traceContext,
+        skipOwnerHandler: true,
       }).catch(() => null);
       payload.conversationRevision = recorded?.revision ?? null;
       payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;

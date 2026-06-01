@@ -383,6 +383,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /stopAgentChatTurn/);
   assert.match(api, /retryAgentChatTurn/);
   assert.match(api, /listActiveTurns/);
+  assert.match(api, /stopActiveTurn/);
+  assert.match(api, /retryActiveTurn/);
   assert.match(api, /\/api\/active-turns/);
   assert.match(api, /\/api\/agent-chat\/threads\/\$\{encodeURIComponent\(threadId\)\}\/compact/);
   assert.match(read(root, "Apps/Api/lib/gateways/appserver/bridge.js"), /compactThread/);
@@ -399,8 +401,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /停止 Turn/);
   assert.match(chat, /同线程重试/);
   assert.match(chat, /新线程重试/);
-  assert.match(chat, /ActiveTurnsView/);
-  assert.match(chat, /Active Turns/);
+  assert.doesNotMatch(chat, /ActiveTurnsView/);
+  assert.doesNotMatch(chat, /listActiveTurns/);
   assert.match(chat, /useResizableThreePaneLayout/);
   assert.match(chat, /agent-chat:layout/);
   assert.match(chat, /leftCssVar: "--agent-chat-list-width"/);
@@ -423,6 +425,18 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /activeConversationRevision/);
   assert.match(chat, /syncActiveConversationForRetry/);
   assert.match(chat, /会话已更新，自动同步中/);
+
+  const workbench = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const activeTurns = read(root, "Apps/Workbench/src/components/ActiveTurnsApp.tsx");
+  const activeTurnsCss = read(root, "Apps/Workbench/styles/active-turns.css");
+  assert.match(workbench, /ActiveTurnsApp/);
+  assert.match(workbench, /activeView === "active-turns"/);
+  assert.match(workbench, /运行面板/);
+  assert.match(activeTurns, /listActiveTurns/);
+  assert.match(activeTurns, /stopActiveTurn/);
+  assert.match(activeTurns, /retryActiveTurn/);
+  assert.match(activeTurns, /processing-job/);
+  assert.match(activeTurnsCss, /active-turns-shell/);
   assert.match(chat, /会话已同步，重试发送/);
   assert.match(chat, /会话已同步，重试归档/);
   assert.match(chat, /会话已同步，重试确认/);

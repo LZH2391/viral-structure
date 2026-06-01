@@ -1,0 +1,150 @@
+.active-turns-shell {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.active-turns-header,
+.active-turns-toolbar,
+.active-turn-card-head,
+.active-turn-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.active-turns-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.active-turns-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.active-turns-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.active-turns-summary span,
+.active-turn-card-head i {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: var(--panel-2);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.active-turns-filters {
+  display: inline-flex;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 3px;
+}
+
+.active-turns-filters button {
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.active-turns-filters button.active,
+.active-turns-filters button:hover {
+  border-color: rgba(90, 202, 222, 0.45);
+  background: rgba(90, 202, 222, 0.12);
+  color: var(--text);
+}
+
+.active-turns-error,
+.active-turns-note {
+  border: 1px solid rgba(240, 99, 99, 0.32);
+  border-radius: 8px;
+  background: rgba(240, 99, 99, 0.1);
+  color: #ffc7c7;
+  padding: 10px 12px;
+}
+
+.active-turns-note {
+  border-color: rgba(90, 202, 222, 0.32);
+  background: rgba(90, 202, 222, 0.1);
+  color: var(--text-soft);
+}
+
+.active-turns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.active-turn-card,
+.active-turns-empty {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.active-turn-card-head strong {
+  display: block;
+}
+
+.active-turn-card-head span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.active-turn-card dl {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 7px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.active-turn-card dt {
+  color: var(--muted);
+}
+
+.active-turn-card dd {
+  margin: 0;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-turn-actions {
+  justify-content: flex-end;
+}
+
+.active-turns-empty {
+  grid-column: 1 / -1;
+  justify-items: center;
+  color: var(--muted);
+}

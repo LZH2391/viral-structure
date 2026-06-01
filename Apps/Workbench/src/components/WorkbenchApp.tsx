@@ -16,6 +16,7 @@ import { useShotBoundaryFlow } from "../hooks/useShotBoundaryFlow";
 import { useSubtitleDraftFlow } from "../hooks/useSubtitleDraftFlow";
 import { buildRunStatus, normalizeAnalysisFps } from "./workbenchRunStatus";
 import { CacheDecisionDialog } from "./CacheDecisionDialog";
+import { ActiveTurnsApp } from "./ActiveTurnsApp";
 import { AgentChatApp } from "./AgentChatApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
@@ -52,6 +53,7 @@ export function WorkbenchApp() {
     library: initialViewFromPath() === "library",
     threadpool: initialViewFromPath() === "threadpool",
     "agent-chat": initialViewFromPath() === "agent-chat",
+    "active-turns": initialViewFromPath() === "active-turns",
   }));
   const audioSeekRequestIdRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -503,6 +505,9 @@ export function WorkbenchApp() {
           <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
             ThreadPool
           </button>
+          <button className={`tab-button ${activeView === "active-turns" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("active-turns", setActiveView)}>
+            运行面板
+          </button>
           <button className={`tab-button ${activeView === "agent-chat" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("agent-chat", setActiveView)}>
             Agent 对话
           </button>
@@ -577,6 +582,11 @@ export function WorkbenchApp() {
       {mountedViews.threadpool ? (
         <section className={`view-shell ${activeView === "threadpool" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "threadpool"}>
           <ThreadPoolApp embedded />
+        </section>
+      ) : null}
+      {mountedViews["active-turns"] ? (
+        <section className={`view-shell ${activeView === "active-turns" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "active-turns"}>
+          <ActiveTurnsApp embedded />
         </section>
       ) : null}
       {mountedViews["agent-chat"] ? (

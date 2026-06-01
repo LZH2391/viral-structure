@@ -649,6 +649,26 @@ export async function listActiveTurns(payload: { ownerType?: string | null; owne
   );
 }
 
+export async function stopActiveTurn(bindingId: string, payload: { turnId?: string | null; workspaceRoot?: string | null } = {}) {
+  return readJsonResponse<{ ok: boolean; action: "stop"; bindingId: string; ownerType: string; ownerId: string; threadId: string; turnId: string; status: string; ownerResult?: unknown }>(
+    await fetch(`${API_BASE_URL}/api/active-turns/${encodeURIComponent(bindingId)}/stop`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function retryActiveTurn(bindingId: string, payload: { workspaceRoot?: string | null } = {}) {
+  return readJsonResponse<{ ok: boolean; action: "retry"; bindingId: string; ownerType: string; ownerId: string; threadId: string; turnId: string | null; status: string }>(
+    await fetch(`${API_BASE_URL}/api/active-turns/${encodeURIComponent(bindingId)}/retry`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 export async function collectAgentChatTurn(
   threadId: string,
   turnId: string,

@@ -50,6 +50,11 @@ function createActiveTurnStore({ store, filePath } = {}) {
     return state.bindings.find((item) => item.turnId === turnId) ?? null;
   }
 
+  async function getByBindingId(bindingId) {
+    const state = await readState();
+    return state.bindings.find((item) => item.bindingId === bindingId) ?? null;
+  }
+
   async function removeByTurnId(turnId) {
     const state = await readState();
     const next = state.bindings.filter((item) => item.turnId !== turnId);
@@ -96,6 +101,7 @@ function createActiveTurnStore({ store, filePath } = {}) {
     upsert,
     markStatus,
     getByTurnId,
+    getByBindingId,
     removeByTurnId,
     listActive,
   };

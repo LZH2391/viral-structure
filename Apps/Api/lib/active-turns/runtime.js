@@ -25,20 +25,20 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     return result;
   }
 
-  async function collect({ workspaceRoot, threadId, turnId, timeoutSeconds = 60, traceContext = null } = {}) {
+  async function collect({ workspaceRoot, threadId, turnId, timeoutSeconds = 60, traceContext = null, skipOwnerHandler = false } = {}) {
     if (!appServer?.collectTurnResult) throw activeRuntimeError("appserver_turn_collect_unavailable", "AppServer turn/collect 能力不可用", null, true);
     const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
-    await markCollectResult({ turnId, result, traceContext });
+    await markCollectResult({ turnId, result, traceContext, skipOwnerHandler });
     return result;
   }
 
-  async function markCollectResult({ turnId, result, traceContext = null } = {}) {
+  async function markCollectResult({ turnId, result, traceContext = null, skipOwnerHandler = false } = {}) {
     const previous = await bindingStore.getByTurnId(turnId);
     const binding = await bindingStore.markStatus({ turnId, status: result?.status ?? "running", result, traceContext });
     const activeBinding = binding ?? previous;
     let ownerResult = null;
     if (activeBinding && isTerminalTurnStatus(result?.status)) {
-      ownerResult = await ownerHandlers?.onCollect?.(activeBinding, result);
+      if (!skipOwnerHandler) ownerResult = await ownerHandlers?.onCollect?.(activeBinding, result);
       await bindingStore.removeByTurnId(turnId);
     }
     return { binding: activeBinding, ownerResult };
@@ -68,6 +68,10 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     return bindingStore.getByTurnId(turnId);
   }
 
+  async function getByBindingId(bindingId) {
+    return bindingStore.getByBindingId(bindingId);
+  }
+
   return {
     store: bindingStore,
     register,
@@ -77,6 +81,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     cancel,
     listActive,
     getByTurnId,
+    getByBindingId,
   };
 }
 

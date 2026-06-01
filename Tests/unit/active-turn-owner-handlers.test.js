@@ -56,6 +56,25 @@ test("workflow stage owner updates only matching active turn attempt", async () 
   assert.equal(calls.length, 2);
 });
 
+test("agent chat owner cancel writes conversation only for current turn", async () => {
+  const calls = [];
+  const handlers = createActiveTurnOwnerHandlers({
+    agentConversationStore: {
+      get: async () => ({ conversationId: "conversation_1", latestTurnId: "turn_current" }),
+      recordTurnStopped: async (payload) => calls.push(payload),
+    },
+  });
+
+  const stale = await handlers.onCancel({ ownerType: "agent-chat", ownerId: "conversation_1", turnId: "turn_old", currentAttemptId: "turn_old" }, { status: "canceled" });
+  assert.equal(stale.status, "stale");
+  assert.equal(calls.length, 0);
+
+  const current = await handlers.onCancel({ ownerType: "agent-chat", ownerId: "conversation_1", turnId: "turn_current", currentAttemptId: "turn_current" }, { status: "canceled" });
+  assert.equal(current.status, "canceled");
+  assert.equal(calls[0].conversationId, "conversation_1");
+  assert.equal(calls[0].turnId, "turn_current");
+});
+
 test("analysis turn runner registers active binding and terminal collect writes current processing job", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-runner-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };
