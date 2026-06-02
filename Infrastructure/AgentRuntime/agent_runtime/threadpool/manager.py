@@ -22,6 +22,7 @@ def _now() -> str:
 
 
 STARTUP_RECOVERY_STALE_SECONDS = 120.0
+DEFAULT_WARMUP_CONCURRENCY_LIMIT = 5
 
 
 class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, ThreadPoolRolePolicyMixin):
@@ -35,6 +36,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         client: AppServerSessionClient | None = None,
         orphan_ttl_minutes: int = 30,
         async_warmup: bool = True,
+        warmup_concurrency_limit: int = DEFAULT_WARMUP_CONCURRENCY_LIMIT,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
         self.config_path = Path(config_path).resolve()
@@ -53,6 +55,8 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
         self._role_clients: dict[str, AppServerSessionClient] = {}
         self.orphan_ttl_minutes = int(orphan_ttl_minutes)
         self.async_warmup = bool(async_warmup)
+        self.warmup_concurrency_limit = max(1, int(warmup_concurrency_limit or DEFAULT_WARMUP_CONCURRENCY_LIMIT))
+        self._warmup_semaphore = threading.BoundedSemaphore(self.warmup_concurrency_limit)
         self.roles: dict[str, RoleConfig] = {}
         self.discard_on_release = True
         self._lock = threading.RLock()
@@ -212,6 +216,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "roles": sorted(self.roles.keys()),
                 "discard_on_release": self.discard_on_release,
                 "async_warmup": self.async_warmup,
+                "warmup_concurrency_limit": self.warmup_concurrency_limit,
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,
@@ -611,6 +616,7 @@ class ThreadPoolManager(ThreadPoolLeaseStoreMixin, ThreadPoolSeedPoolMixin, Thre
                 "transport_url": self.transport_url,
                 "discard_on_release": self.discard_on_release,
                 "async_warmup": self.async_warmup,
+                "warmup_concurrency_limit": self.warmup_concurrency_limit,
                 "recovering": self._recovering,
                 "ready_for_leases": self._ready_for_leases,
                 "startup_error": self._startup_error,

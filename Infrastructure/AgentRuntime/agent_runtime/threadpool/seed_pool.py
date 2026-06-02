@@ -193,7 +193,11 @@ class ThreadPoolSeedPoolMixin:
         worker.start()
 
     def _run_background_warmup(self, role_name: str) -> None:
+        acquired = False
         try:
+            self._set_warmup_detail(role_name, f"queued; waiting for warmup slot {self.warmup_concurrency_limit}")
+            self._warmup_semaphore.acquire()
+            acquired = True
             while True:
                 self._set_warmup_detail(role_name, "ensuring seed and idle threads")
                 if self._ensure_min_idle(role_name, wait_for_ready=False):
@@ -209,6 +213,8 @@ class ThreadPoolSeedPoolMixin:
                 self._warmup_details[role_name] = "failed"
                 self._write_catalog()
         finally:
+            if acquired:
+                self._warmup_semaphore.release()
             with self._lock:
                 self._warming_roles.discard(role_name)
                 self._warmup_details.pop(role_name, None)
