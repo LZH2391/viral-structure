@@ -54,6 +54,12 @@ selfDesignPressure = selfDesignNeedScore
 
 路由顺序必须按表格自上而下判断。不要因为 `materialSupportScore` 总分高就跳过证明边界；`proofValidityScore < 12` 时禁止走 `existing_material` 或 `existing_material_packaging_caption`。`reuse_transformed_fallback` 只能在没有更好的未占用现有素材、包装字幕方案、自行设计方案时选择。
 
+## 素材镜头字段边界
+
+`existing_material` 是完全使用素材镜头：画面、已有包装、台词/字幕都以原素材为准。ShotDesign 不再自行设计分镜画面，不新增包装说明，不重写台词/字幕；原素材没有台词/字幕时写“无”。
+
+`existing_material_packaging_caption` 是“素材画面 + 后期包装/字幕补强”：画面仍锁定为原素材镜头，只能写原素材代表帧、主体动作、结果状态或素材包摘要；不得写给生图模型使用的自设计画面提示词。允许新增包装/字幕，但必须写清楚补强的是哪一层后期信息、如何安全补清证明或理解，不能把弱素材包装成强证明，不能伪造素材里不存在的动作、结果、对比、评价或资质。
+
 ## 复用硬约束
 
 同一 `shotRef` 可以成为多个 slot 候选，但默认只能有一个主承载。已占用素材再次使用时必须加高复用惩罚，只有没有更好的现有素材、包装字幕或自行设计方案时才允许复用。

@@ -43,12 +43,14 @@ async function maybeAutoReviewShotDialogue({
     turnId: payload.turnId,
   });
   const reviewOutputPath = path.join(path.dirname(shotDesignFinalPath), "dialogue-robotic-review.final.json");
-  const previousFingerprint = findLatestReviewFingerprint(conversation, safeRelative(rootDir, shotDesignFinalPath));
+  const relativeShotDesignFinalPath = safeRelative(rootDir, shotDesignFinalPath);
+  const previousReview = findLatestDialogueReviewSummary(conversation, relativeShotDesignFinalPath);
+  const previousFingerprint = previousReview?.fileFingerprint ?? null;
   const inputSummary = {
     conversationId,
     turnId: payload.turnId ?? null,
     finalMessageChars: finalMessage.length,
-    shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+    shotDesignFinalPath: relativeShotDesignFinalPath,
     reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
     sourceMode,
     previousFingerprint,
@@ -71,7 +73,7 @@ async function maybeAutoReviewShotDialogue({
       const outputSummary = {
         artifactId,
         status: "skipped_unchanged",
-        shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+        shotDesignFinalPath: relativeShotDesignFinalPath,
         reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
         sourceMode,
         trigger: "file_unchanged",
@@ -199,6 +201,214 @@ async function maybeAutoReviewShotDialogue({
       message: safeError.message,
       debugSnapshotUri: snapshot.uri,
     };
+  }
+}
+
+async function reviewShotDialogueForConversation({
+  handlers,
+  traceContext,
+  conversationId,
+  shotDesignFinalPath: requestedShotDesignFinalPath = null,
+  sourceTurnId = null,
+  parentArtifactId = null,
+  trigger = "manual",
+  force = false,
+} = {}) {
+  if (!conversationId) {
+    const error = new Error("conversationId is required for dialogue review");
+    error.code = "dialogue_robotic_review_conversation_required";
+    error.statusCode = 400;
+    throw error;
+  }
+  const rootDir = handlers.rootDir;
+  const logger = handlers.logger;
+  if (!rootDir || !logger) {
+    const error = new Error("dialogue review requires rootDir and logger");
+    error.code = "dialogue_robotic_review_runtime_unavailable";
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const conversation = await handlers.agentConversationStore?.get?.(conversationId);
+  if (!conversation) {
+    const error = new Error("未找到 Agent 会话");
+    error.code = "agent_chat_conversation_not_found";
+    error.statusCode = 404;
+    throw error;
+  }
+  const linkedShotDesignFinalPath = normalizeText(requestedShotDesignFinalPath) || findLatestShotDesignFinalPath(conversation);
+  if (!linkedShotDesignFinalPath) {
+    const error = new Error("未找到可审查的 shot-design.final.md");
+    error.code = "dialogue_robotic_review_shot_design_missing";
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!isDialogueReviewEligibleConversation(conversation, linkedShotDesignFinalPath)) {
+    const error = new Error("当前会话不支持台词机器人感审查");
+    error.code = "dialogue_robotic_review_conversation_ineligible";
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const stageTraceContext = nextStage(traceContext);
+  const artifactId = `artifact_${randomUUID()}`;
+  const sourceParentArtifactId = normalizeText(parentArtifactId) ?? normalizeText(sourceTurnId) ?? conversation.latestTurnId ?? null;
+  const shotDesignFinalPath = resolveShotDesignFinalPath({
+    rootDir,
+    finalMessage: "",
+    explicitPath: linkedShotDesignFinalPath,
+    conversationId,
+    turnId: sourceTurnId,
+  });
+  const reviewOutputPath = path.join(path.dirname(shotDesignFinalPath), "dialogue-robotic-review.final.json");
+  const previousFingerprint = findLatestReviewFingerprint(conversation, safeRelative(rootDir, shotDesignFinalPath));
+  const inputSummary = {
+    conversationId,
+    sourceTurnId: sourceTurnId ?? conversation.latestTurnId ?? null,
+    shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+    reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+    previousFingerprint,
+    role: REVIEW_ROLE,
+    trigger,
+    force: Boolean(force),
+  };
+  const startedAt = Date.now();
+
+  await logger.writeStageLog({
+    traceContext: stageTraceContext,
+    stageName: AUTO_STAGE_NAME,
+    event: "stage.start",
+    artifactId,
+    parentArtifactId: sourceParentArtifactId,
+    inputSummary,
+  });
+
+  try {
+    const fileFingerprint = await readFileFingerprint(shotDesignFinalPath, rootDir);
+    if (!force && fingerprintsEqual(fileFingerprint, previousFingerprint)) {
+      const outputSummary = {
+        artifactId,
+        status: "skipped_unchanged",
+        shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+        reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+        trigger: "file_unchanged",
+        fileFingerprint,
+      };
+      await logger.writeStageLog({
+        traceContext: stageTraceContext,
+        stageName: AUTO_STAGE_NAME,
+        event: "stage.end",
+        artifactId,
+        parentArtifactId: sourceParentArtifactId,
+        outputSummary,
+        durationMs: Date.now() - startedAt,
+      });
+      return {
+        ok: true,
+        status: "skipped_unchanged",
+        artifactId,
+        traceId: stageTraceContext.traceId,
+        runId: stageTraceContext.runId,
+        stageId: stageTraceContext.stageId,
+        stageName: AUTO_STAGE_NAME,
+        shotDesignFinalPath: relativeShotDesignFinalPath,
+        reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+        sourceMode: "manual",
+        trigger: "file_unchanged",
+        fileFingerprint,
+        decision: previousReview?.decision ?? null,
+        issueCount: previousReview?.issueCount ?? 0,
+        role: previousReview?.role ?? REVIEW_ROLE,
+        promptTemplateVersion: previousReview?.promptTemplateVersion ?? null,
+      };
+    }
+
+    const reviewResult = await runDialogueReviewTurn({
+      handlers,
+      rootDir,
+      shotDesignFinalPath,
+      reviewOutputPath,
+      artifactId,
+      parentArtifactId: sourceParentArtifactId,
+      sourceTurnId: sourceTurnId ?? conversation.latestTurnId,
+      stageTraceContext,
+      fileFingerprint,
+    });
+    const outputSummary = {
+      artifactId,
+      status: "processed",
+      decision: reviewResult.review.decision,
+      issueCount: reviewResult.review.issues.length,
+      shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+      reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+      trigger,
+      fileFingerprint,
+      role: REVIEW_ROLE,
+      promptTemplateVersion: reviewResult.agent.promptTemplateVersion,
+    };
+    await logger.writeStageLog({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.end",
+      artifactId,
+      parentArtifactId: sourceParentArtifactId,
+      outputSummary,
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      ok: true,
+      status: "processed",
+      artifactId,
+      traceId: stageTraceContext.traceId,
+      runId: stageTraceContext.runId,
+      stageId: stageTraceContext.stageId,
+      stageName: AUTO_STAGE_NAME,
+      shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+      reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+      sourceMode: "manual",
+      trigger,
+      fileFingerprint,
+      decision: reviewResult.review.decision,
+      issueCount: reviewResult.review.issues.length,
+      turnId: reviewResult.agent.turnId,
+      role: REVIEW_ROLE,
+      promptTemplateVersion: reviewResult.agent.promptTemplateVersion,
+    };
+  } catch (error) {
+    const safeError = {
+      code: error?.code ?? "dialogue_robotic_review_manual_failed",
+      message: safePreview(error instanceof Error ? error.message : "台词机器人感审查失败", 240),
+      retryable: error?.retryable !== false,
+    };
+    const snapshot = await logger.writeDebugSnapshot({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      artifactId,
+      parentArtifactId: sourceParentArtifactId,
+      reason: safeError.code,
+      inputSummary,
+      outputSummary: null,
+      debugPayload: {
+        code: safeError.code,
+        message: safeError.message,
+        role: REVIEW_ROLE,
+        shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+        reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+      },
+    });
+    await logger.writeStageLog({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.fail",
+      artifactId,
+      parentArtifactId: sourceParentArtifactId,
+      errorSummary: { ...safeError, debugSnapshotUri: snapshot.uri },
+      durationMs: Date.now() - startedAt,
+    });
+    error.code = safeError.code;
+    error.retryable = safeError.retryable;
+    error.debugPayload = { ...safeError, debugSnapshotUri: snapshot.uri };
+    throw error;
   }
 }
 
@@ -351,6 +561,15 @@ function findLatestReviewFingerprint(conversation, shotDesignFinalPath) {
   return null;
 }
 
+function findLatestDialogueReviewSummary(conversation, shotDesignFinalPath) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const review = messages[index]?.dialogueRoboticReview;
+    if (review?.fileFingerprint?.path === shotDesignFinalPath) return review;
+  }
+  return null;
+}
+
 async function readFileFingerprint(filePath, rootDir) {
   const content = await fs.readFile(filePath);
   const stat = await fs.stat(filePath);
@@ -437,4 +656,5 @@ module.exports = {
   extractShotDesignFinalPath,
   maybeAutoReviewShotDialogue,
   parseReviewJson,
+  reviewShotDialogueForConversation,
 };

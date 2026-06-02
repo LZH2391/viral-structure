@@ -2075,6 +2075,204 @@ test("agent chat collect auto reviews completed shot design dialogue in restruct
   }
 });
 
+test("agent chat conversation dialogue review route attaches review summary to assistant message", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-manual-dialogue-review-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
+  await fsPromises.mkdir(planDir, { recursive: true });
+  await fsPromises.writeFile(path.join(planDir, "shot-design.final.md"), sampleShotDesignFinalMarkdown(), "utf8");
+  const conversations = new Map();
+  conversations.set("conversation_shot_design", {
+    conversationId: "conversation_shot_design",
+    revision: 3,
+    source: "threadpool-role",
+    role: "function-slot-shot-design",
+    status: "active",
+    threadId: "thread_shot_design",
+    latestTurnId: "turn_shot_1",
+    messages: [{
+      id: "assistant-turn_shot_1",
+      turnId: "turn_shot_1",
+      role: "assistant",
+      text: "已生成并落盘：Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md",
+      status: "completed",
+    }],
+  });
+  const reviewTurns = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/dialogue-review.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => ({ ok: true, status: { role, skillPath: "dialogue-reviewer/SKILL.md" } }),
+      acquireLease: async ({ role, ownerId }) => ({ ok: true, role, ownerId, thread_id: "thread_dialogue_review", lease_id: "lease_dialogue_review" }),
+      releaseLease: async () => ({ ok: true }),
+    },
+    appServer: {
+      runTurnWithInputs: async (payload) => {
+        reviewTurns.push(payload);
+        return {
+          threadId: payload.threadId,
+          turnId: "turn_dialogue_review_1",
+          status: "completed",
+          finalMessage: JSON.stringify({
+            decision: "rework",
+            reason: "存在模板腔台词",
+            issues: [{
+              shot: "shot_001",
+              original: "商品记忆轻转化，包装信息也给你看。",
+              robotic_type: "模板腔",
+              reason: "像方案说明。",
+              minimal_direction: "改成自然口播。",
+            }],
+          }),
+        };
+      },
+    },
+    agentConversationStore: {
+      assertActive: async (conversationId, { expectedRevision } = {}) => {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        if (expectedRevision && expectedRevision !== conversation.revision) {
+          const error = new Error("revision mismatch");
+          error.statusCode = 409;
+          error.code = "agent_chat_conversation_revision_conflict";
+          throw error;
+        }
+        return conversation;
+      },
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      attachDialogueRoboticReview: async ({ conversationId, turnId, dialogueRoboticReview }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages = conversation.messages.map((message) => (
+          message.turnId === turnId ? { ...message, dialogueRoboticReview } : message
+        ));
+        conversation.revision += 1;
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_shot_design/dialogue-review", {
+      turnId: "turn_shot_1",
+      expectedRevision: 3,
+      shotDesignFinalPath: "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md",
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.review.status, "processed");
+    assert.equal(response.body.review.decision, "rework");
+    assert.equal(response.body.review.issueCount, 1);
+    assert.equal(response.body.conversationRevision, 4);
+    assert.equal(reviewTurns.length, 1);
+    assert.match(reviewTurns[0].inputs[0].text, /shot-design\.final\.md/);
+    assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.decision, "rework");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat conversation dialogue rework route records review-driven user turn", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-dialogue-rework-"));
+  const conversations = new Map();
+  conversations.set("conversation_shot_design", {
+    conversationId: "conversation_shot_design",
+    revision: 4,
+    source: "threadpool-role",
+    role: "function-slot-shot-design",
+    status: "active",
+    threadId: "thread_shot_design",
+    workspaceRoot: rootDir,
+    skillPath: "function-slot-shot-design/SKILL.md",
+    latestTurnId: "turn_shot_1",
+    messages: [{
+      id: "assistant-turn_shot_1",
+      turnId: "turn_shot_1",
+      role: "assistant",
+      text: "已生成 shot-design.final.md",
+      status: "completed",
+      dialogueRoboticReview: {
+        decision: "rework",
+        issueCount: 1,
+        shotDesignFinalPath: "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md",
+        reviewOutputPath: "Artifacts/FunctionSlotRestructure/shot-demo/dialogue-robotic-review.final.json",
+        artifactId: "artifact_review_1",
+      },
+    }],
+  });
+  const turnCalls = [];
+  const activeTurns = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/dialogue-rework.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        turnCalls.push(payload);
+        return { threadId: payload.threadId, turnId: "turn_rework_1", status: "submitted" };
+      },
+    },
+    activeTurnRuntime: {
+      register: async (binding) => {
+        activeTurns.push(binding);
+        return binding;
+      },
+    },
+    agentConversationStore: {
+      assertActive: async (conversationId, { expectedRevision } = {}) => {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        if (expectedRevision && expectedRevision !== conversation.revision) {
+          const error = new Error("revision mismatch");
+          error.statusCode = 409;
+          error.code = "agent_chat_conversation_revision_conflict";
+          throw error;
+        }
+        return conversation;
+      },
+      recordUserTurn: async ({ conversationId, turnId, text }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `user-${turnId}`, turnId, role: "user", text });
+        conversation.latestTurnId = turnId;
+        conversation.revision += 1;
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_shot_design/dialogue-rework", {
+      expectedRevision: 4,
+    });
+
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.turnId, "turn_rework_1");
+    assert.equal(response.body.conversationRevision, 5);
+    assert.match(response.body.userTurnText, /根据台词机器人感审查结果/);
+    assert.match(response.body.userTurnText, /dialogue-robotic-review\.final\.json/);
+    assert.equal(turnCalls[0].threadId, "thread_shot_design");
+    assert.match(turnCalls[0].inputs[0].text, /只修 review 指出的机器人感/);
+    assert.equal(conversations.get("conversation_shot_design").messages.at(-1).id, "user-turn_rework_1");
+    assert.equal(activeTurns[0].ownerType, "agent-chat");
+    assert.equal(activeTurns[0].replayRef.type, "agent-chat-message");
+    assert.equal(activeTurns[0].parentArtifactId, "Artifacts/FunctionSlotRestructure/shot-demo/dialogue-robotic-review.final.json");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat auto display reads linked restructure file without overwriting final answer", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-linked-restructure-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "linked-demo");

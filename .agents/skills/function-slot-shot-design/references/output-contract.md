@@ -38,6 +38,25 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 如果用户只要求粗分镜，可以输出 shot group，但仍使用同一字段，并在 `shot` 写 `new_shot_group_01` 这类编号。
 
+## 素材策略字段约束
+
+当 `素材来源/处理策略` 为 `existing_material`：
+
+- `分镜画面` 只写原素材镜头摘要和 `shotRef/groupId`，不写给生图模型使用的自设计画面。
+- `包装说明` 写原素材已有包装，或“无新增包装，沿用原素材”。
+- `台词/字幕（若有）` 必须使用原素材镜头的字幕/口播；原素材没有则写“无”。
+
+当 `素材来源/处理策略` 为 `existing_material_packaging_caption`：
+
+- `分镜画面` 仍只写原素材镜头摘要和 `shotRef/groupId`，不得写自设计画面或新增素材中不存在的视觉内容。
+- `包装说明` 必须写“新包装/字幕如何在原素材画面上补强”，包括覆盖层位置、样式、出现时机、服务功能和避让区域；这些内容服务剪辑后期，不服务生图。
+- `台词/字幕（若有）` 保留原素材已有口播/主字幕；允许新增包装字幕、标签文案或屏幕文字，但必须标明为后期字幕/包装层，不得伪装成素材人物新口播。
+
+当 `素材来源/处理策略` 为 `self_designed_by_shot_design`：
+
+- `分镜画面` 才写可供生图/拍摄的新镜头画面设计。
+- `包装说明` 和 `台词/字幕（若有）` 可按新镜头重新设计，但不得伪造证明。
+
 ## 质量检查
 
 完成 `shot-design.final.md` 后逐项检查：
@@ -48,6 +67,8 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 是否没有把同一 `shotRef` 原样复用到多个主承载。
 - 所有 `reuse_transformed_fallback` 是否写明裁切、放大、冻结帧、局部特写、变速、错位重入等变形处理。
 - 是否优先使用未占用现有素材，其次包装/字幕强化，再自行设计，最后才复用变形兜底。
+- `existing_material` 是否没有新增自设计画面、包装或台词/字幕。
+- `existing_material_packaging_caption` 是否只新增后期包装/字幕补强，没有把素材镜头写成生图画面。
 - 每个主张是否有画面、包装或证据承载；只有口播没有证明的主张必须标为风险。
 - 分镜画面和包装说明是否分离：底图不承担小字、复杂 UI 文案和包装覆盖层。
 - 台词字段是否只包含成片口播、主字幕或屏幕文字；机器人感审查交给 `function-slot-dialogue-robotic-reviewer`。

@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, AtomReplacement, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, ReplacementCandidate, SampleArtifact, SlotReplacement, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, AtomReplacement, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, ReplacementCandidate, SampleArtifact, SlotReplacement, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -102,6 +102,7 @@ export type AgentChatTurnResponse = {
     message?: string | null;
     slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   } | null;
+  autoDialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
 };
 
 export type AgentChatCompactResponse = {
@@ -733,6 +734,53 @@ export async function recordAgentChatSystemMessage(conversationId: string, messa
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message, expectedRevision: expectedRevision ?? null }),
+    }),
+  );
+}
+
+export async function reviewAgentChatDialogue(
+  conversationId: string,
+  payload: {
+    turnId?: string | null;
+    shotDesignFinalPath?: string | null;
+    parentArtifactId?: string | null;
+    expectedRevision?: number | null;
+    force?: boolean;
+  } = {},
+) {
+  return readJsonResponse<{ ok: boolean; review: AgentChatDialogueRoboticReview; conversation: AgentChatConversation; conversationRevision?: number | null; traceId: string; runId: string; stageId: string }>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/dialogue-review`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function submitAgentChatDialogueRework(
+  conversationId: string,
+  payload: {
+    threadId?: string | null;
+    turnId?: string | null;
+    shotDesignFinalPath?: string | null;
+    reviewOutputPath?: string | null;
+    decision?: string | null;
+    issueCount?: number | null;
+    userInstruction?: string | null;
+    expectedRevision?: number | null;
+    workspaceRoot?: string | null;
+    skillPath?: string | null;
+    source?: "direct" | "threadpool-role";
+    role?: string | null;
+    leaseId?: string | null;
+    parentArtifactId?: string | null;
+  } = {},
+) {
+  return readJsonResponse<AgentChatTurnResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/dialogue-rework`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
     }),
   );
 }

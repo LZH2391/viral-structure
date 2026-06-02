@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
-import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, reviewAgentChatDialogue, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatDialogueRework, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
+import type { AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../utils/restructurePath";
@@ -15,6 +15,7 @@ type ChatMessage = {
   text: string;
   status?: "running" | "completed" | "failed" | "canceled";
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
+  dialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
 };
 type PendingAgentChatSend = {
   text: string;
@@ -49,6 +50,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [compacting, setCompacting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [registeringTrace, setRegisteringTrace] = useState(false);
+  const [reviewingDialogue, setReviewingDialogue] = useState(false);
+  const [dialogueReworking, setDialogueReworking] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -162,6 +165,28 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     () => resolveCurrentRestructureFinalPath({ messages, currentTurnId, confirmedPlan: activeConversationConfirmedPlan }),
     [activeConversationConfirmedPlan, currentTurnId, messages],
   );
+  const currentShotDesignFinalPath = useMemo(
+    () => resolveCurrentShotDesignFinalPath(messages, currentTurnId),
+    [currentTurnId, messages],
+  );
+  const activeDialogueReview = useMemo(
+    () => resolveActiveDialogueReview(messages, currentTurnId),
+    [currentTurnId, messages],
+  );
+  const dialogueActionLocked = reviewingDialogue || dialogueReworking;
+  const composerLocked = busy || dialogueActionLocked || activeConversationInvalidated;
+  const canReviewDialogue = Boolean(activeConversationId)
+    && Boolean(currentShotDesignFinalPath)
+    && !activeConversationInvalidated
+    && !busy
+    && !dialogueActionLocked;
+  const canReworkDialogue = Boolean(activeConversationId)
+    && Boolean(session?.threadId)
+    && Boolean(activeDialogueReview?.reviewOutputPath)
+    && activeDialogueReview?.decision === "rework"
+    && !activeConversationInvalidated
+    && !busy
+    && !dialogueActionLocked;
   const canRegisterPlanTrace = session?.role === "function-slot-restructure"
     && Boolean(currentRestructureFinalPath)
     && Boolean(activeSlotAtomDisplay?.displayJsonPath)
@@ -280,6 +305,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               text: finalText || message.text,
               status: toChatMessageStatus(turn.status),
               slotAtomDisplay: turn.autoDisplayTransform?.slotAtomDisplay ?? message.slotAtomDisplay ?? null,
+              dialogueRoboticReview: turn.autoDialogueRoboticReview ?? message.dialogueRoboticReview ?? null,
             }
           : message));
         if (turn.autoDisplayTransform?.slotAtomDisplay) setRightPanelTab("slotAtom");
@@ -318,6 +344,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setTurnActionBusy(null);
     setConfirming(false);
     setRegisteringTrace(false);
+    setReviewingDialogue(false);
+    setDialogueReworking(false);
   }, []);
 
   const maybeCompactBeforeSend = useCallback(async (activeSession: AgentChatSessionResponse, isCurrentAction: () => boolean = () => true) => {
@@ -375,6 +403,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const handleSend = useCallback(async (pending?: PendingAgentChatSend | null) => {
     const text = (pending?.text ?? draft).trim();
     if (!text || (busy && !pending)) return;
+    if (dialogueActionLocked && !pending) return;
     if (activeConversationInvalidated) {
       const message = "thread 已不可读，此会话已失效，请归档后新建会话";
       setErrorText(message);
@@ -461,13 +490,116 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, beginConversationAction, busy, draft, ensureSession, maybeCompactBeforeSend, mode, refreshConversations, schedulePoll, scheduleWarmingResend, selectedRole, session?.role, sessionMeta, syncActiveConversationForRetry]);
+  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, beginConversationAction, busy, dialogueActionLocked, draft, ensureSession, maybeCompactBeforeSend, mode, refreshConversations, schedulePoll, scheduleWarmingResend, selectedRole, session?.role, sessionMeta, syncActiveConversationForRetry]);
 
   useEffect(() => {
     resendPendingRef.current = (pending) => {
       void handleSend(pending);
     };
   }, [handleSend]);
+
+  const handleDialogueReview = useCallback(async () => {
+    if (!activeConversationId || !currentShotDesignFinalPath || !canReviewDialogue) return;
+    const isCurrentAction = beginConversationAction();
+    setReviewingDialogue(true);
+    setErrorText(null);
+    setStatusText("台词审查中");
+    try {
+      const reviewWithRevision = async (expectedRevision: number | null) => reviewAgentChatDialogue(activeConversationId, {
+        turnId: currentTurnId,
+        shotDesignFinalPath: currentShotDesignFinalPath,
+        parentArtifactId: currentTurnId,
+        expectedRevision,
+        force: true,
+      });
+      let result: Awaited<ReturnType<typeof reviewAgentChatDialogue>>;
+      try {
+        result = await reviewWithRevision(activeConversationRevision);
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const synced = await syncActiveConversationForRetry(activeConversationId);
+        if (!isCurrentAction()) return;
+        setStatusText("会话已同步，重试台词审查");
+        result = await reviewWithRevision(normalizeConversationRevision(synced?.revision));
+      }
+      if (!isCurrentAction()) return;
+      setActiveConversationRevision(normalizeConversationRevision(result.conversationRevision ?? result.conversation?.revision));
+      setConversations((current) => current.map((item) => item.conversationId === activeConversationId ? result.conversation : item));
+      const review = result.review ?? null;
+      setMessages((current) => attachDialogueReviewToMessages(current, currentTurnId, review));
+      setStatusText(review?.decision === "rework" ? "台词审查建议返工" : "台词审查完成");
+      void refreshConversations().catch(() => undefined);
+    } catch (error) {
+      if (!isCurrentAction()) return;
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请恢复后再审查" : error instanceof Error ? error.message : "台词审查失败";
+      setErrorText(message);
+      setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
+      setStatusText("台词审查失败");
+    } finally {
+      if (isCurrentAction()) setReviewingDialogue(false);
+    }
+  }, [activeConversationId, activeConversationRevision, beginConversationAction, canReviewDialogue, currentShotDesignFinalPath, currentTurnId, refreshConversations, syncActiveConversationForRetry]);
+
+  const handleDialogueRework = useCallback(async () => {
+    if (!activeConversationId || !session?.threadId || !activeDialogueReview?.reviewOutputPath || !canReworkDialogue) return;
+    const isCurrentAction = beginConversationAction();
+    setDialogueReworking(true);
+    setErrorText(null);
+    setStatusText("按审查返工中");
+    const userMessageId = uniqueId("user");
+    try {
+      const activeSession = await ensureSession(false, isCurrentAction);
+      if (!isCurrentAction()) return;
+      const compacted = await maybeCompactBeforeSend(activeSession, isCurrentAction);
+      if (!isCurrentAction()) return;
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
+      if (compactRevision) setActiveConversationRevision(compactRevision);
+      const reworkWithRevision = async (expectedRevision: number | null) => submitAgentChatDialogueRework(activeConversationId, {
+        ...sessionMeta,
+        source: activeSession.source,
+        role: activeSession.role ?? sessionMeta.role,
+        leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
+        threadId: activeSession.threadId,
+        turnId: currentTurnId,
+        expectedRevision,
+        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+        skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
+        shotDesignFinalPath: activeDialogueReview.shotDesignFinalPath ?? currentShotDesignFinalPath,
+        reviewOutputPath: activeDialogueReview.reviewOutputPath,
+        decision: activeDialogueReview.decision,
+        issueCount: activeDialogueReview.issueCount,
+        parentArtifactId: activeDialogueReview.artifactId ?? activeDialogueReview.reviewOutputPath,
+      });
+      let submitted: Awaited<ReturnType<typeof submitAgentChatDialogueRework>>;
+      try {
+        submitted = await reworkWithRevision(compactRevision ?? activeConversationRevision);
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const synced = await syncActiveConversationForRetry(activeConversationId);
+        if (!isCurrentAction()) return;
+        setStatusText("会话已同步，重试返工");
+        submitted = await reworkWithRevision(normalizeConversationRevision(synced?.revision));
+      }
+      if (!isCurrentAction()) return;
+      const userText = submitted.userTurnText ?? buildDialogueReworkPreview(activeDialogueReview);
+      setMessages((current) => [...current, { id: userMessageId, role: "user", text: userText, status: "completed" }]);
+      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      setTurnActionProjection(submitted.actionProjection ?? null);
+      setThreadStopped(Boolean(submitted.threadStopped));
+      setCurrentTurnId(submitted.turnId);
+      setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
+      setStatusText("Agent 正在按审查返工");
+      schedulePoll(activeSession, submitted.turnId);
+    } catch (error) {
+      if (!isCurrentAction()) return;
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请恢复后再返工" : error instanceof Error ? error.message : "按审查返工失败";
+      setErrorText(message);
+      setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
+      setStatusText("按审查返工失败");
+    } finally {
+      if (isCurrentAction()) setDialogueReworking(false);
+    }
+  }, [activeConversationId, activeConversationRevision, activeDialogueReview, beginConversationAction, canReworkDialogue, currentShotDesignFinalPath, currentTurnId, ensureSession, maybeCompactBeforeSend, schedulePoll, session?.threadId, sessionMeta, syncActiveConversationForRetry]);
 
   const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
     if (busy) return;
@@ -883,6 +1015,13 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                   {roles.map((role) => <option key={role.role} value={role.role}>{role.role}</option>)}
                 </select>
               ) : null}
+              {session?.role === "function-slot-restructure" || session?.role === "function-slot-shot-design" ? (
+                <>
+                  <button className="ghost-button agent-chat-action" type="button" disabled={!canReviewDialogue} onClick={() => void handleDialogueReview()} title={currentShotDesignFinalPath ? "审查当前 shot-design.final.md 台词自然度" : "需要当前对话里有 shot-design.final.md 路径"}>
+                    {reviewingDialogue ? "审查中" : "审查台词"}
+                  </button>
+                </>
+              ) : null}
               {session?.role === "function-slot-restructure" ? (
                 <>
                   <button className="ghost-button agent-chat-action" type="button" disabled={!canRegisterPlanTrace} onClick={() => void handleRegisterPlanTrace()} title={canRegisterPlanTrace ? "登记当前方案到确定方案溯源图" : "需要当前方案已自动生成 restructure.display.json"}>
@@ -908,6 +1047,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               <article key={message.id} className={`agent-chat-message ${message.role} ${message.status ?? ""}`}>
                 <b>{message.role === "user" ? "User" : message.role === "assistant" ? "Agent" : "System"}</b>
                 <p>{message.text}</p>
+                {message.dialogueRoboticReview ? (
+                  <DialogueReviewSummary
+                    review={message.dialogueRoboticReview}
+                    canRework={message.dialogueRoboticReview === activeDialogueReview && canReworkDialogue}
+                    reworking={dialogueReworking}
+                    onRework={handleDialogueRework}
+                  />
+                ) : null}
               </article>
             )) : <div className="empty-state"><strong>还没有对话</strong><span>输入一条消息后会通过 app-server 发送</span></div>}
           </div>
@@ -917,12 +1064,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
               value={draft}
               rows={3}
               placeholder="输入要发给 Agent 的消息"
-              disabled={busy || activeConversationInvalidated}
+              disabled={composerLocked}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" || event.ctrlKey) return;
                 event.preventDefault();
-                void handleSend();
+                if (!composerLocked) void handleSend();
               }}
             />
             {canStopCurrentTurn ? (
@@ -930,8 +1077,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
                 {turnActionBusy === "stop_turn" ? "停止中" : "停止 Turn"}
               </button>
             ) : (
-              <button className="primary-button" type="submit" disabled={busy || activeConversationInvalidated || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
-                {compacting ? "正在压缩上下文..." : "发送"}
+              <button className="primary-button" type="submit" disabled={composerLocked || !draft.trim() || (mode === "threadpool-role" && !selectedRole)}>
+                {compacting ? "正在压缩上下文..." : reviewingDialogue ? "审查中" : dialogueReworking ? "返工中" : "发送"}
               </button>
             )}
           </form>
@@ -1000,6 +1147,42 @@ function TimelineView({ timeline }: { timeline: AgentTurnTimeline | null }) {
   );
 }
 
+function DialogueReviewSummary({
+  review,
+  canRework,
+  reworking,
+  onRework,
+}: {
+  review: AgentChatDialogueRoboticReview;
+  canRework: boolean;
+  reworking: boolean;
+  onRework: () => void;
+}) {
+  const decision = review.decision ?? "unknown";
+  const issueCount = Number.isFinite(Number(review.issueCount)) ? Number(review.issueCount) : 0;
+  return (
+    <div className={`agent-chat-dialogue-review ${decision}`}>
+      <div>
+        <b>台词审查</b>
+        <span>{formatDialogueReviewDecision(decision)} · {issueCount} issue{issueCount === 1 ? "" : "s"}</span>
+      </div>
+      <small>{review.reviewOutputPath ? `review ${review.reviewOutputPath}` : review.status ?? "processed"}</small>
+      {decision === "rework" ? (
+        <button className="ghost-button agent-chat-action" type="button" disabled={!canRework || reworking} onClick={onRework}>
+          {reworking ? "返工中" : "按审查返工"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function formatDialogueReviewDecision(value?: string | null) {
+  if (value === "pass") return "通过";
+  if (value === "rework") return "建议返工";
+  if (value === "blocked") return "阻塞";
+  return value ?? "未知";
+}
+
 function ContextUsageIndicator({ usage }: { usage: AgentTurnTimeline["activity"]["tokenUsage"] | null }) {
   const ratio = typeof usage?.contextUsageRatio === "number" && Number.isFinite(usage.contextUsageRatio)
     ? Math.max(0, Math.min(1, usage.contextUsageRatio))
@@ -1052,6 +1235,7 @@ function messagesFromConversation(conversation: AgentChatConversation): ChatMess
     text: message.text,
     status: message.status ?? "completed",
     slotAtomDisplay: message.slotAtomDisplay ?? null,
+    dialogueRoboticReview: message.dialogueRoboticReview ?? null,
   }));
 }
 
@@ -1115,6 +1299,39 @@ function resolveActiveSlotAtomDisplay(messages: ChatMessage[], currentTurnId: st
   return null;
 }
 
+function resolveActiveDialogueReview(messages: ChatMessage[], currentTurnId: string | null) {
+  const current = currentTurnId
+    ? messages.find((message) => message.id === `assistant-${currentTurnId}` && message.dialogueRoboticReview)?.dialogueRoboticReview ?? null
+    : null;
+  if (current) return current;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const review = messages[index].dialogueRoboticReview;
+    if (review) return review;
+  }
+  return null;
+}
+
+function attachDialogueReviewToMessages(messages: ChatMessage[], currentTurnId: string | null, review: AgentChatDialogueRoboticReview | null): ChatMessage[] {
+  if (!review) return messages;
+  const targetId = currentTurnId ? `assistant-${currentTurnId}` : null;
+  const targetIndex = targetId ? messages.findIndex((message) => message.id === targetId) : -1;
+  if (targetIndex >= 0) {
+    return messages.map((message, index) => index === targetIndex ? { ...message, dialogueRoboticReview: review } : message);
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === "assistant") {
+      return messages.map((message, cursor) => cursor === index ? { ...message, dialogueRoboticReview: review } : message);
+    }
+  }
+  return [...messages, {
+    id: uniqueId("assistant-dialogue-review"),
+    role: "assistant",
+    text: "台词机器人感审查已完成",
+    status: "completed",
+    dialogueRoboticReview: review,
+  }];
+}
+
 function buildConfirmationId(turnId: string | null) {
   const suffix = String(turnId ?? "turn").replace(/[^A-Za-z0-9_.-]+/g, "").slice(-8) || "turn";
   return `confirm_${suffix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1140,6 +1357,49 @@ function resolveCurrentRestructureFinalPath({
     if (path) return path;
   }
   return normalizeRestructureFinalPath(confirmedPlan?.sourceRestructurePath);
+}
+
+function resolveCurrentShotDesignFinalPath(messages: ChatMessage[], currentTurnId: string | null) {
+  const reversed = [...messages].reverse();
+  const currentAssistantPath = normalizeShotDesignFinalPath(extractShotDesignFinalPath(
+    reversed.find((message) => message.id === `assistant-${currentTurnId}`)?.text,
+  ));
+  if (currentAssistantPath) return currentAssistantPath;
+  for (const message of reversed) {
+    if (message.dialogueRoboticReview?.shotDesignFinalPath) return normalizeShotDesignFinalPath(message.dialogueRoboticReview.shotDesignFinalPath);
+    if (message.role !== "assistant") continue;
+    const path = normalizeShotDesignFinalPath(extractShotDesignFinalPath(message.text));
+    if (path) return path;
+  }
+  return null;
+}
+
+function extractShotDesignFinalPath(text?: string | null) {
+  const value = String(text ?? "");
+  const saved = value.match(/保存路径[：:]\s*`([^`]+shot-design\.final\.md)`/i);
+  if (saved?.[1]) return saved[1];
+  const artifactPath = value.match(/(Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?shot-design\.final\.md)/i);
+  if (artifactPath?.[1]) return artifactPath[1];
+  const absolutePath = value.match(/([A-Za-z]:[\\/][^\n`)]*?shot-design\.final\.md)/i);
+  return absolutePath?.[1] ?? null;
+}
+
+function normalizeShotDesignFinalPath(pathText?: string | null) {
+  const text = String(pathText ?? "").trim();
+  if (!text) return null;
+  const normalized = text.replace(/\\/g, "/").replace(/^\/*[A-Za-z]:\//, "");
+  const marker = "Artifacts/FunctionSlotRestructure/";
+  const index = normalized.indexOf(marker);
+  return index >= 0 ? normalized.slice(index) : normalized;
+}
+
+function buildDialogueReworkPreview(review: AgentChatDialogueRoboticReview) {
+  return [
+    "根据台词机器人感审查结果返工当前 Shot 设计台词。",
+    review.shotDesignFinalPath ? `shot-design: ${review.shotDesignFinalPath}` : null,
+    review.reviewOutputPath ? `review: ${review.reviewOutputPath}` : null,
+    review.decision ? `decision: ${review.decision}` : null,
+  ].filter(Boolean).join("\n");
 }
 
 function normalizeConversationRevision(value: unknown) {

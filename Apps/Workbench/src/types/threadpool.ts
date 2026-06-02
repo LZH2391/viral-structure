@@ -109,6 +109,7 @@ export type AgentChatMessageSnapshot = {
   text: string;
   status?: "running" | "completed" | "failed" | "canceled";
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
+  dialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -167,6 +168,27 @@ export type AgentChatArtifactRef = {
   runId?: string | null;
   stageId?: string | null;
   status?: string | null;
+};
+
+export type AgentChatDialogueRoboticReview = {
+  schemaVersion?: string;
+  status?: "processed" | "skipped_unchanged" | "review_failed" | string;
+  decision?: "pass" | "rework" | "blocked" | string | null;
+  issueCount?: number;
+  shotDesignFinalPath?: string | null;
+  reviewOutputPath?: string | null;
+  sourceMode?: string | null;
+  trigger?: string | null;
+  artifactId?: string | null;
+  role?: string | null;
+  turnId?: string | null;
+  promptTemplateVersion?: string | null;
+  fileFingerprint?: {
+    path?: string | null;
+    size?: number;
+    mtimeMs?: number;
+    sha256?: string | null;
+  } | null;
 };
 
 export type AgentChatSlotAtomDisplay = {

@@ -164,6 +164,49 @@ function createAgentConversationStore({ store, filePath } = {}) {
     }, { skipArchived: true });
   }
 
+  async function attachDialogueRoboticReview({ conversationId, turnId = null, dialogueRoboticReview = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !dialogueRoboticReview) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      const targetTurnId = turnId ?? conversation.latestTurnId ?? null;
+      const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+      let index = targetTurnId
+        ? messages.findIndex((message) => message.id === `assistant-${targetTurnId}` || (message.role === "assistant" && String(message.turnId ?? "") === String(targetTurnId)))
+        : -1;
+      if (index < 0) {
+        for (let cursor = messages.length - 1; cursor >= 0; cursor -= 1) {
+          if (messages[cursor]?.role === "assistant") {
+            index = cursor;
+            break;
+          }
+        }
+      }
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      if (index >= 0) {
+        messages[index] = {
+          ...messages[index],
+          dialogueRoboticReview: normalizeDialogueRoboticReview(dialogueRoboticReview),
+          updatedAt: now,
+        };
+        conversation.messages = messages;
+      } else {
+        upsertMessage(conversation, {
+          id: `assistant-dialogue-review-${targetTurnId ?? now}`,
+          turnId: targetTurnId,
+          role: "assistant",
+          text: "台词机器人感审查已完成",
+          status: "completed",
+          dialogueRoboticReview: normalizeDialogueRoboticReview(dialogueRoboticReview),
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }, { skipArchived: true });
+  }
+
   async function recordTurnStopped({ conversationId, turnId, text = "已停止当前 turn", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
@@ -406,6 +449,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     createOrUpdateFromSession,
     recordUserTurn,
     recordAssistantTurn,
+    attachDialogueRoboticReview,
     recordTurnStopped,
     stopThread,
     bindThread,

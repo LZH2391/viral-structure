@@ -398,6 +398,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/resume/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/archive/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/confirm/);
+  assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/dialogue-review/);
+  assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/dialogue-rework/);
   assert.match(api, /\/api\/agent-chat\/conversations\/\$\{encodeURIComponent\(conversationId\)\}\/system-messages/);
   assert.match(api, /\/api\/agent-chat\/threadpool\/leases\/release/);
   assert.match(chat, /ThreadPool Role Fork/);
@@ -464,6 +466,18 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /isAgentChatBootstrapTurn/);
   assert.match(chat, /初始化阶段阅读/);
   assert.match(chat, /function-slot-restructure/);
+  assert.match(chat, /function-slot-shot-design/);
+  assert.match(chat, /reviewAgentChatDialogue/);
+  assert.match(chat, /submitAgentChatDialogueRework/);
+  assert.match(chat, /审查台词/);
+  assert.match(chat, /按审查返工/);
+  assert.match(chat, /台词审查中/);
+  assert.match(chat, /composerLocked/);
+  assert.match(chat, /dialogueActionLocked/);
+  assert.match(chat, /DialogueReviewSummary/);
+  assert.match(chat, /resolveCurrentShotDesignFinalPath/);
+  assert.match(chat, /attachDialogueReviewToMessages/);
+  assert.match(chat, /dialogueRoboticReview/);
   assert.match(chat, /确认此方案/);
   assert.match(chat, /重新确认/);
   assert.match(chat, /canConfirmRestructure/);
@@ -516,6 +530,8 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(css, /\.agent-chat-resizer/);
   assert.match(css, /\.agent-chat-session-meta/);
   assert.match(css, /\.agent-chat-context-usage/);
+  assert.match(css, /\.agent-chat-dialogue-review/);
+  assert.match(css, /\.agent-chat-dialogue-review\.rework/);
   assert.match(css, /conic-gradient/);
   assert.match(css, /--context-progress/);
   assert.match(css, /\.agent-chat-timeline \{[\s\S]*grid-template-rows: auto minmax\(0, 1fr\)[\s\S]*height: 100%/);

@@ -15,6 +15,11 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 - 写具体分镜画面、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
 
+使用素材镜头时要区分两种字段边界：
+
+- `existing_material`：完全使用素材镜头，不需要也不允许再自行设计 `分镜画面`、`包装说明`、`台词/字幕（若有）`。这些字段必须来自原素材镜头：画面写原素材代表帧/动作摘要，包装写原素材已有包装或“无新增包装，沿用原素材”，台词/字幕必须使用原素材镜头的字幕/口播；原素材无字幕时写“无”，不得新写。
+- `existing_material_packaging_caption`：画面仍使用素材镜头，不允许把 `分镜画面` 写成给生图服务的自设计画面；但允许在 `包装说明` 和必要的 `台词/字幕（若有）` 中写新包装/字幕如何补强。补强内容必须是后期叠加层、字幕层、圈选、标签、标题条、画中画等剪辑执行说明，不能伪造成新拍摄画面或自行生图镜头。
+
 不要在这里重新选择 slotSubtype、slotArchetype、atoms、adapter 或 FunctionSlotLibrary evidence。若发现前序结构无法落地，只在聊天中指出阻塞项并要求回到 `function-slot-restructure` 修正，不要在 Shot 文件里偷偷改核心方案，也不要把校验、风险与修复建议写进 `shot-design.final.md`。
 
 ## 输入
@@ -47,6 +52,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 6. **写画面、包装、台词**
    进入分镜画面、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。
+   对 `existing_material` shot，跳过自行画面设计、包装设计和新台词写作，只从素材包读取原镜头画面摘要、已有包装/字幕和原字幕/口播填表。对 `existing_material_packaging_caption` shot，画面仍只写素材镜头摘要，包装/字幕字段只写后期补强方案，不写自设计镜头画面。
 
 7. **落表字段与预计时长**
    开始写 Shot 表字段前，读取 `references/output-contract.md`。
