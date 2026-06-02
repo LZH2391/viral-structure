@@ -316,6 +316,19 @@
       "updatedAt": "2026-06-01T07:30:00.054Z",
       "completedAt": "2026-06-01T07:30:00.054Z",
       "file": "runs/workflow_855373bf-c938-4b4e-b8bb-2c1599f02f3f.json"
+    },
+    {
+      "workflowRunId": "workflow_c233c7ea-21af-4f5b-9247-cbb8810b6fad",
+      "workflowKey": "material-recognition",
+      "workflowVersion": "material-recognition.v1",
+      "status": "processed",
+      "traceId": "trace_e4a1f050-f7f7-4d2a-b2bf-e8da943b112f",
+      "runId": "run_d55e1f02-05c9-4ce0-9beb-1ae12f7fd999",
+      "sampleVideoId": "sample_2c4fb5fe-99ab-4b96-85ad-a17c01923528",
+      "createdAt": "2026-06-02T02:24:42.083Z",
+      "updatedAt": "2026-06-02T02:30:12.362Z",
+      "completedAt": "2026-06-02T02:30:12.362Z",
+      "file": "runs/workflow_c233c7ea-21af-4f5b-9247-cbb8810b6fad.json"
     }
   ]
 }

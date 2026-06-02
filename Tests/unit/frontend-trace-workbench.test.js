@@ -403,8 +403,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /ThreadPool Role Fork/);
   assert.match(chat, /actionProjection/);
   assert.match(chat, /停止 Turn/);
-  assert.match(chat, /同线程重试/);
-  assert.match(chat, /新线程重试/);
+  assert.doesNotMatch(chat, /停止 Thread/);
+  assert.doesNotMatch(chat, /同线程重试/);
+  assert.doesNotMatch(chat, /新线程重试/);
   assert.doesNotMatch(chat, /ActiveTurnsView/);
   assert.doesNotMatch(chat, /listActiveTurns/);
   assert.match(chat, /useResizableThreePaneLayout/);

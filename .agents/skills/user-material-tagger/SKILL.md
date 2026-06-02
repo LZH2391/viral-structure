@@ -50,6 +50,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 4. **推荐结构位置候选**
    - 在每个 shot 的 `sequenceFit` 中按 `opening / middle / ending` 写适配判断。
    - 在顶层 `sequenceRecommendations` 中输出开头/中段/结尾候选。
+   - 顶层候选只收录 `fit` 为 `strong` 或 `medium` 的镜头；`weak` 只留在单个 shot 的 `sequenceFit` 中，不进入候选池。
    - 推荐依据是结构位置适配，不是娱乐化高光、精彩程度或剪辑爆点。
 
 5. **组合素材组**

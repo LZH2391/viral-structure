@@ -92,8 +92,9 @@
 }
 
 .agent-chat-main {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .agent-chat-resizer {
@@ -253,22 +254,6 @@
   color: var(--text);
 }
 
-.agent-chat-turn-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-}
-
-.agent-chat-turn-actions .danger-action {
-  border-color: rgba(255, 107, 107, 0.48);
-  color: var(--text);
-}
-
 .agent-chat-conversation-bar select {
   min-width: 180px;
   max-width: 360px;
@@ -320,6 +305,7 @@
 }
 
 .agent-chat-messages {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -384,6 +370,12 @@
   max-height: 180px;
   padding: 10px;
   line-height: 1.5;
+}
+
+.agent-chat-stop-button {
+  min-width: 86px;
+  border-color: rgba(255, 107, 107, 0.48);
+  color: var(--text);
 }
 
 .agent-chat-timeline {

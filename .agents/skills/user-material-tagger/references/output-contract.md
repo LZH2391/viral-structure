@@ -153,6 +153,8 @@
 
 只推荐结构位置候选，不输出高光片段。
 
+顶层 `openingCandidates / middleCandidates / endingCandidates` 只收录 `fit` 为 `strong` 或 `medium` 的镜头。`weak` 只能保留在单个 `shotCards[].sequenceFit` 里作为“不适合/弱适配”判断，不进入顶层候选池。
+
 ```json
 {
   "openingCandidates": [

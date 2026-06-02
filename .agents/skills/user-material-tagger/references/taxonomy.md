@@ -78,6 +78,8 @@
 - `medium`
 - `weak`
 
+顶层 `sequenceRecommendations` 只收录 `strong` / `medium` 候选。`weak` 不进入开头/中段/结尾候选池，只在对应 shot 的 `sequenceFit` 中说明原因和所需支持。
+
 不要输出“高光片段”“精彩片段”“爆点片段”这类剪辑概念。若某个镜头视觉吸引力强，只能作为 `attention_entry` 或推荐理由的一部分说明。
 
 ## groups
