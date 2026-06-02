@@ -2182,6 +2182,23 @@ test("agent chat conversation dialogue review route attaches review summary to a
 
 test("agent chat conversation dialogue rework route records review-driven user turn", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-dialogue-rework-"));
+  const reviewDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
+  await fsPromises.mkdir(reviewDir, { recursive: true });
+  await fsPromises.writeFile(path.join(reviewDir, "dialogue-robotic-review.final.json"), JSON.stringify({
+    schemaVersion: "function_slot_dialogue_robotic_review.v1",
+    artifactId: "artifact_review_1",
+    review: {
+      decision: "rework",
+      reason: "台词偏说明书腔",
+      issues: [{
+        shot: "shot_001",
+        original: "成分、用法、适用提示，都要看清楚。",
+        robotic_type: "说明书腔",
+        reason: "字段式表达像在念商品页。",
+        minimal_direction: "改成下单前确认自己能不能用、买哪款的动作判断。",
+      }],
+    },
+  }, null, 2), "utf8");
   const conversations = new Map();
   conversations.set("conversation_shot_design", {
     conversationId: "conversation_shot_design",
@@ -2264,8 +2281,14 @@ test("agent chat conversation dialogue rework route records review-driven user t
     assert.equal(response.body.conversationRevision, 5);
     assert.match(response.body.userTurnText, /根据台词机器人感审查结果/);
     assert.match(response.body.userTurnText, /dialogue-robotic-review\.final\.json/);
+    assert.match(response.body.userTurnText, /reviewIssuesJson/);
+    assert.match(response.body.userTurnText, /shot_001/);
+    assert.match(response.body.userTurnText, /成分、用法、适用提示/);
+    assert.match(response.body.userTurnText, /说明书腔/);
+    assert.match(response.body.userTurnText, /最小|minimal_direction|动作判断/);
     assert.equal(turnCalls[0].threadId, "thread_shot_design");
-    assert.match(turnCalls[0].inputs[0].text, /只修 review 指出的机器人感/);
+    assert.match(turnCalls[0].inputs[0].text, /必须逐条依据 reviewIssuesJson/);
+    assert.match(turnCalls[0].inputs[0].text, /minimal_direction/);
     assert.equal(conversations.get("conversation_shot_design").messages.at(-1).id, "user-turn_rework_1");
     assert.equal(activeTurns[0].ownerType, "agent-chat");
     assert.equal(activeTurns[0].replayRef.type, "agent-chat-message");

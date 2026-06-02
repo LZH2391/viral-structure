@@ -31,6 +31,14 @@ class AppServerTransport(ABC):
             return
         self._event_handler(TransportEvent(method=method, params=dict(params or {})))
 
+    def _emit_payload_event(self, payload: Mapping[str, Any]) -> None:
+        method = str(payload.get("method") or payload.get("type") or "")
+        params = payload.get("params")
+        if isinstance(params, Mapping):
+            self._emit_event(method, params)
+            return
+        self._emit_event(method, payload)
+
     def _handle_tool_call(self, params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         if self._tool_call_handler is None:
             return {

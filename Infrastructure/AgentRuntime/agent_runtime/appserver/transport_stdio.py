@@ -147,7 +147,7 @@ class StdioTransport(AppServerTransport):
                     self._send_message({"id": int(payload["id"]), "result": result})
                     continue
                 if isinstance(payload, dict):
-                    self._emit_event(str(payload.get("method") or ""), payload.get("params") or {})
+                    self._emit_payload_event(payload)
         finally:
             self._process_exit_message = self._connection_error_message("app-server process exited")
             self._fail_pending_requests(self._process_exit_message)

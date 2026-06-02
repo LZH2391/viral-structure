@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs/promises");
 const { createTraceContext } = require("../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../../../Infrastructure/Observability/trace");
 const { sendJson } = require("./utils");
@@ -365,11 +366,16 @@ async function handleAgentChatConversationDialogueRework(req, res, conversationI
       if (!shotDesignFinalPath || !reviewOutputPath) {
         throw badRequestError("agent_chat_dialogue_rework_review_missing", "缺少台词 review 结果，需先触发台词审查");
       }
+      const reviewDetails = await readDialogueReviewDetails({
+        rootDir: workspaceRoot,
+        reviewOutputPath,
+      });
       const message = buildDialogueReworkMessage({
         shotDesignFinalPath,
         reviewOutputPath,
         decision: normalizeText(body.decision) || findLatestDialogueReviewValue(conversation, "decision"),
         issueCount: nullableNumber(body.issueCount) ?? nullableNumber(findLatestDialogueReviewValue(conversation, "issueCount")),
+        reviewDetails,
         userInstruction: normalizeText(body.userInstruction),
       });
       const result = await handlers.appServer.startTurnWithInputs({
@@ -1439,18 +1445,28 @@ function buildDialogueReworkMessage({
   reviewOutputPath,
   decision,
   issueCount,
+  reviewDetails,
   userInstruction,
 }) {
+  const reviewSummary = normalizeDialogueReviewDetails(reviewDetails);
   const lines = [
     "根据台词机器人感审查结果，返工当前 Shot 设计里的台词字段。",
     "",
     `- shotDesignFinalPath: \`${shotDesignFinalPath}\``,
     `- dialogueReviewPath: \`${reviewOutputPath}\``,
-    decision ? `- reviewDecision: \`${decision}\`` : null,
-    issueCount != null ? `- issueCount: ${issueCount}` : null,
+    `- reviewDecision: \`${reviewSummary.decision ?? decision ?? "unknown"}\``,
+    `- issueCount: ${reviewSummary.issues.length || issueCount || 0}`,
+    "",
+    "reviewIssuesJson:",
+    stableJson({
+      decision: reviewSummary.decision ?? decision ?? null,
+      reason: reviewSummary.reason ?? null,
+      issues: reviewSummary.issues,
+    }),
     "",
     "要求：",
-    "- 只修 review 指出的机器人感、方案腔、审计腔、模板腔或说明书腔台词。",
+    "- 必须逐条依据 reviewIssuesJson 中的 issues 返工，不要只按泛泛的“自然一点”自行发挥。",
+    "- 每条 issue 只改对应 shot 的台词字段；优先按 minimal_direction 做最小改写。",
     "- 不重新选择槽位链，不改素材策略，不改包装证明方案，除非台词修正必须同步轻微调整字幕表述。",
     "- 保留原 shot-design.final.md 的表格结构和 shot 顺序，返工后仍写回同一个 shot-design.final.md。",
     "- 回复中说明已修哪些 shot，并给出文件路径。",
@@ -1460,6 +1476,51 @@ function buildDialogueReworkMessage({
   return lines.filter(Boolean).join("\n");
 }
 
+async function readDialogueReviewDetails({ rootDir, reviewOutputPath }) {
+  const absolutePath = resolveWorkspacePath(rootDir, reviewOutputPath, "dialogueReviewPath");
+  try {
+    const parsed = JSON.parse(await fs.readFile(absolutePath, "utf8"));
+    return parsed?.review && typeof parsed.review === "object" ? parsed.review : parsed;
+  } catch (error) {
+    const wrapped = badRequestError("agent_chat_dialogue_rework_review_unreadable", "台词 review 结果不可读，需重新触发台词审查");
+    wrapped.debugPayload = {
+      message: safePreview(error instanceof Error ? error.message : String(error), 240),
+      reviewOutputPath,
+    };
+    throw wrapped;
+  }
+}
+
+function normalizeDialogueReviewDetails(value) {
+  const details = value && typeof value === "object" ? value : {};
+  return {
+    decision: ["pass", "rework", "blocked"].includes(details.decision) ? details.decision : null,
+    reason: safePreview(details.reason, 500),
+    issues: Array.isArray(details.issues) ? details.issues.map(normalizeDialogueReviewIssue).filter(Boolean) : [],
+  };
+}
+
+function normalizeDialogueReviewIssue(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    shot: normalizeText(value.shot),
+    original: safePreview(value.original, 300),
+    robotic_type: normalizeText(value.robotic_type ?? value.roboticType),
+    reason: safePreview(value.reason, 500),
+    minimal_direction: safePreview(value.minimal_direction ?? value.minimalDirection, 500),
+  };
+}
+
+function stableJson(value) {
+  return JSON.stringify(sortJsonValue(value), null, 2);
+}
+
+function sortJsonValue(value) {
+  if (Array.isArray(value)) return value.map(sortJsonValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortJsonValue(value[key])]));
+}
+
 function findLatestDialogueReviewValue(conversation, key) {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -1467,6 +1528,15 @@ function findLatestDialogueReviewValue(conversation, key) {
     if (review && review[key] != null && review[key] !== "") return review[key];
   }
   return null;
+}
+
+function resolveWorkspacePath(rootDir, value, fieldName) {
+  const text = requiredText(value, fieldName).replaceAll("\\", "/");
+  const absolute = /^[A-Za-z]:\//.test(text) || text.startsWith("/");
+  const root = path.resolve(rootDir).replaceAll("\\", "/");
+  const resolved = (absolute ? path.resolve(text) : path.resolve(rootDir, text)).replaceAll("\\", "/");
+  if (resolved !== root && !resolved.startsWith(`${root}/`)) throw badRequestError("agent_chat_dialogue_rework_path_outside_workspace", "台词 review 路径不能超出 workspace");
+  return resolved;
 }
 
 function normalizeDisplayFingerprint(value) {

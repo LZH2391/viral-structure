@@ -165,7 +165,7 @@ class WebSocketTransport(AppServerTransport):
                     self._dispatch_tool_call(int(payload["id"]), payload.get("params", {}))
                     continue
                 if isinstance(payload, dict):
-                    self._emit_event(str(payload.get("method") or ""), payload.get("params") or {})
+                    self._emit_payload_event(payload)
         except Exception as exc:
             self._process_exit_message = self._connection_error_message(f"websocket app-server reader stopped: {exc}")
         finally:

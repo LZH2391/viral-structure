@@ -328,6 +328,52 @@ class AppServerClientTests(unittest.TestCase):
             self.assertEqual(status, "completed")
             self.assertEqual(client.get_final_agent_message("thread_1", "turn_1"), "review finished")
 
+    def test_wait_turn_completed_uses_raw_rollout_task_complete_event(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def read_thread(self, thread_id: str, include_turns: bool = False) -> dict:
+                    raise AssertionError("raw rollout completion should not need thread/read fallback")
+
+            client = TestClient(workspace_root, transport_mode="ws")
+            client._initialized = True
+            client._turn_completion_events.setdefault("turn_raw_1", appserver_client.threading.Event())
+
+            client._handle_transport_event(
+                TransportEvent(
+                    method="event_msg",
+                    params={"payload": {"type": "task_started", "turn_id": "turn_raw_1"}},
+                )
+            )
+            client._handle_transport_event(
+                TransportEvent(
+                    method="response_item",
+                    params={
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": "{\"decision\":\"rework\",\"issues\":[]}"}],
+                        },
+                    },
+                )
+            )
+            client._handle_transport_event(
+                TransportEvent(
+                    method="event_msg",
+                    params={"payload": {"type": "task_complete", "turn_id": "turn_raw_1"}},
+                )
+            )
+
+            status = client.wait_turn_completed("thread_1", "turn_raw_1", timeout_seconds=0.01)
+
+            self.assertEqual(status, "completed")
+            self.assertEqual(client.get_final_agent_message("thread_1", "turn_raw_1"), "{\"decision\":\"rework\",\"issues\":[]}")
+
     def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_root = Path(tmp)

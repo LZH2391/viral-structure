@@ -235,7 +235,8 @@
 }
 
 .slot-graph-edge.edge-plan_uses_slot,
-.slot-graph-edge.edge-plan_uses_slot_family {
+.slot-graph-edge.edge-plan_uses_slot_family,
+.slot-graph-edge.edge-plan_uses_slot_subtype {
   stroke: rgba(244, 246, 255, 0.78);
   stroke-width: 2.6;
 }
@@ -284,6 +285,30 @@
   stroke: rgba(196, 203, 237, 0.42);
   stroke-width: 1.55;
   stroke-dasharray: 7 7;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge {
+  opacity: 0.52;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.edge-plan_uses_slot_subtype {
+  stroke: rgba(255, 238, 158, 0.82);
+  stroke-width: 2.8;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.edge-traced_to_source_variant {
+  stroke: rgba(178, 205, 255, 0.68);
+  stroke-width: 1.9;
+  stroke-dasharray: none;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.focused {
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 3.4;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.muted {
+  opacity: 0.2;
 }
 
 .slot-graph-node {
@@ -483,6 +508,25 @@
 .slot-graph-node.node-sourceVariant text {
   fill: rgba(234, 239, 255, 0.86);
   font-size: 12px;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
+  fill: #182235;
+  stroke: rgba(178, 205, 255, 0.95);
+  stroke-dasharray: none;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 9px rgba(127, 183, 255, 0.3));
+  opacity: 1;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-node.node-sourceVariant text {
+  fill: #eaf1ff;
+  font-size: 13px;
+  stroke-width: 5px;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-node.node-type-slotSubtype > circle:not(.slot-graph-plan-ring) {
+  filter: drop-shadow(0 0 13px rgba(240, 211, 109, 0.52));
 }
 
 .slot-graph-node.node-sourceSample > circle:not(.slot-graph-plan-ring) {

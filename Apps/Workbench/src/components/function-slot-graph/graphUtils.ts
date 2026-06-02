@@ -341,11 +341,12 @@ function focusIndex(edges: FunctionSlotGraphEdge[]) {
   return index;
 }
 
-export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type">) {
+export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type" | "data">) {
   if (node.type === "governanceRoot") return 30;
   if (node.type === "slotFamily") return 24;
   if (node.type === "slotArchetype") return 18;
   if (node.type === "slotSubtype") return 22;
+  if (node.type === "sourceVariant" && typeof node.data?.planId === "string") return 16;
   if (node.type === "atomLayer") return 18;
   if (node.type === "atomArchetype") return 14;
   if (node.type === "atomPattern") return 12;
@@ -609,8 +610,8 @@ function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
     center: CENTER,
     yScale: 1,
     levels: [
-      { types: ["slotSubtype"], radius: 620 },
-      { types: ["sourceVariant"], radius: 1320 },
+      { types: ["slotSubtype"], radius: 360 },
+      { types: ["sourceVariant"], radius: 760 },
     ],
   });
 }
@@ -627,16 +628,16 @@ function buildPlanTraceColumnPositions(graph: FunctionSlotLibraryGraph): Map<str
     const nodes = graph.nodes
       .filter((node) => level.types.includes(node.type))
       .sort((left, right) => planTraceColumnSort(left, right, positions, incoming, levelByType, nodeTypeById));
-    const x = 180 + levelIndex * 520;
+    const x = 480 + levelIndex * 620;
     placeColumn(positions, nodes, x, CENTER.y, level.spacing);
   });
   return positions;
 }
 
 const PLAN_TRACE_COLUMN_LEVELS = [
-  { types: ["confirmedPlan"], spacing: 220 },
-  { types: ["slotSubtype"], spacing: 150 },
-  { types: ["sourceVariant"], spacing: 58 },
+  { types: ["confirmedPlan"], spacing: 260 },
+  { types: ["slotSubtype"], spacing: 112 },
+  { types: ["sourceVariant"], spacing: 46 },
 ];
 
 function planTraceColumnSort(

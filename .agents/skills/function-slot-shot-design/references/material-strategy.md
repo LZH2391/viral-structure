@@ -68,8 +68,6 @@ selfDesignPressure = selfDesignNeedScore
 
 ## 自行设计边界
 
-自行设计可以补非真实证明性的场景、动作、氛围、承接、商品记忆和 CTA 镜头。
-
-自行设计不得伪造结果、对比、资质、评价、检测或强信任证明。包装和字幕也不能把弱素材写成强证明。
-
+自行设计本质是对拍摄的指导，若有需要真实证明的内容，可以直接设计。比如真实包装背面、成分表、备案页、检测报告、商品详情页、使用说明；
+但不能自行假设，比如无依据硬说“过欧盟检测”。可以说“看我们的成分表，都是安全可见的”，这不属于伪造。
 如果选择 `return_to_restructure_required`，按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。不要在 `shot-design.final.md` 中偷偷改槽位链，也不要硬写一版低质量 Shot 表。

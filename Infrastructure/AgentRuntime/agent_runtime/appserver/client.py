@@ -100,6 +100,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         self._thread_lifecycle_listeners: dict[int, Callable[[ThreadLifecycleEvent], None]] = {}
         self._notified_turn_ids: set[str] = set()
         self._next_listener_id = 1
+        self._latest_raw_rollout_turn_id: str | None = None
         self._reviewer_thread_id: str | None = None
         self._invalid_thread_ids: set[str] = set()
         self._thread_token_usage_path = (self.workspace_root / "_workspace" / "runtime" / "appserver" / "thread_token_usage.json").resolve()
@@ -559,6 +560,8 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
                 if not is_non_terminal_turn_status(status):
                     self._turn_completion_events.setdefault(turn_id, threading.Event()).set()
                 self._maybe_notify_turn_completed(turn_id)
+        elif method in {"event_msg", "response_item"}:
+            self._handle_raw_rollout_event(method, params)
         elif method == "thread/tokenUsage/updated":
             thread_id = str(params.get("threadId") or "")
             turn_id = str(params.get("turnId") or "")
@@ -573,6 +576,41 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
             source_thread_id = str(params.get("sourceThreadId") or params.get("source_thread_id") or "")
             if thread_id and source_thread_id:
                 self._clone_thread_token_usage(source_thread_id, thread_id)
+
+    def _handle_raw_rollout_event(self, method: str, params: Mapping[str, Any]) -> None:
+        payload = params.get("payload") if isinstance(params, Mapping) else None
+        if not isinstance(payload, Mapping):
+            payload = params
+        payload_type = str(payload.get("type") or "")
+        raw_turn_id = str(payload.get("turn_id") or payload.get("turnId") or params.get("turn_id") or params.get("turnId") or "")
+        if raw_turn_id:
+            self._latest_raw_rollout_turn_id = raw_turn_id
+        if method == "response_item" and payload_type == "message":
+            turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
+            if not turn_id:
+                return
+            role = str(payload.get("role") or "").lower()
+            if role and role not in {"assistant", "agent"}:
+                return
+            text = self._extract_text_from_item(payload)
+            if text:
+                self._turn_final_messages[turn_id] = text
+                self._remember_turn_activity_item(turn_id, {
+                    "id": str(payload.get("id") or f"raw_message_{turn_id}"),
+                    "type": "agentMessage",
+                    "text": text,
+                    "role": "assistant",
+                })
+                self._maybe_notify_turn_completed(turn_id)
+            return
+        if method == "event_msg" and payload_type == "task_complete":
+            turn_id = raw_turn_id
+            if not turn_id:
+                return
+            self._turn_statuses[turn_id] = "completed"
+            self._turn_errors[turn_id] = None
+            self._turn_completion_events.setdefault(turn_id, threading.Event()).set()
+            self._maybe_notify_turn_completed(turn_id)
 
     def validate_thread(self, thread_id: str) -> bool:
         try:
