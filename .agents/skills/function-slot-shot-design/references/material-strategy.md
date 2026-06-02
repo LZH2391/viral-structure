@@ -33,13 +33,24 @@
 
 ## 策略路由
 
+先计算两个内部判断值：
+
+```text
+materialSupportScore = slotFitScore + proofValidityScore + visualActionScore + packagingRecoverScore + reusePenalty
+selfDesignPressure = selfDesignNeedScore
+```
+
+评分只用于当前 slot / shot 候选，不跨 slot 平均。`reusePenalty` 必须在候选素材已经被其他 shot 主承载时计入；同一素材只是被列为候选但未占用，不扣复用分。
+
 | 条件 | 策略 |
 |---|---|
-| 未占用现有素材高度匹配，证明成立，动作/画面完整 | `existing_material` |
-| 现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足 | `existing_material_packaging_caption` |
-| 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且自行设计不会伪造证明 | `self_designed_by_shot_design` |
-| 多个关键 slot 都无法靠现有素材、包装字幕或合理自行设计落地，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
-| 没有更好的现有素材、包装字幕或自行设计方案，且重复出现不会严重伤害观感 | `reuse_transformed_fallback` |
+| 未占用现有素材高度匹配，证明成立，动作/画面完整；`slotFitScore >= 20`、`proofValidityScore >= 20`、`visualActionScore >= 15`、`materialSupportScore >= 65`、`selfDesignPressure <= 6` | `existing_material` |
+| 现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足；`slotFitScore >= 16`、`proofValidityScore >= 16`、`visualActionScore >= 10`、`packagingRecoverScore >= 8`、`materialSupportScore >= 50` | `existing_material_packaging_caption` |
+| 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且自行设计不会伪造证明；`selfDesignPressure >= 9`，或 `materialSupportScore < 50` 且缺失点属于可合理自设计内容 | `self_designed_by_shot_design` |
+| 多个关键 slot 的 `proofValidityScore < 12`，且既不能靠包装字幕补清，也不能靠合理自行设计补齐，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
+| 已占用素材再次使用后仍比其他方案更可执行，且前四类都不成立；`reusePenalty < 0` 时只能作为最低优先级兜底 | `reuse_transformed_fallback` |
+
+路由顺序必须按表格自上而下判断。不要因为 `materialSupportScore` 总分高就跳过证明边界；`proofValidityScore < 12` 时禁止走 `existing_material` 或 `existing_material_packaging_caption`。`reuse_transformed_fallback` 只能在没有更好的未占用现有素材、包装字幕方案、自行设计方案时选择。
 
 ## 复用硬约束
 

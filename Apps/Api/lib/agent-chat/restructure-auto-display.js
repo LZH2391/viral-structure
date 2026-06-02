@@ -489,7 +489,7 @@ function isCompleted(status) {
 }
 
 function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, fileFingerprint = null } = {}) {
-  const slotRows = firstTableRows(displayJson?.sections?.finalSlotChain);
+  const slotRows = tableRowsAfterHeading(displayJson?.sections?.finalSlotChain, "槽位链");
   const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
   const slots = slotRows.map((row, index) => {
     const slotSubtype = rowValue(row, ["slotSubtype", "槽位", "slot subtype"]);
@@ -534,6 +534,19 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
 function firstTableRows(section) {
   const table = (section?.items ?? []).find((item) => item?.type === "table" && Array.isArray(item.rows));
   return table?.rows ?? [];
+}
+
+function tableRowsAfterHeading(section, headingNeedle) {
+  const normalizedNeedle = normalizeKey(headingNeedle);
+  let matchedHeading = false;
+  for (const item of section?.items ?? []) {
+    if (item?.type === "heading" && normalizeKey(item.text).includes(normalizedNeedle)) {
+      matchedHeading = true;
+      continue;
+    }
+    if (matchedHeading && item?.type === "table" && Array.isArray(item.rows)) return item.rows;
+  }
+  return [];
 }
 
 function rowValue(row, keys) {

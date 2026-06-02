@@ -255,6 +255,14 @@ function sampleRestructureFinalMarkdown() {
     "",
     "## 2. 最终功能槽位链",
     "",
+    "### 素材供给判断",
+    "",
+    "| 供给类型 | 可支持的视频路径 |",
+    "|---|---|",
+    "| `material_insufficient_for_full_video` | 不能独立支持完整视频 |",
+    "",
+    "### 槽位链",
+    "",
     "| 顺序 | 需求 | slotSubtype | parent archetype | 链路功能 | 本方案用法 | 选择理由 |",
     "|---:|---|---|---|---|---|---|",
     "| 1 | 首秒说明对象 | `SUB_auto_demo` 自动展示 | `ARCH_auto_demo` 自动原型 | 建立观看理由 | 展示对象 | 测试脚本转换 |",
@@ -1888,7 +1896,7 @@ test("agent chat collect auto transforms completed restructure final markdown", 
     assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.atoms[0].scriptAtom.includes("A::script::S001"), true);
     const displayJson = JSON.parse(await fsPromises.readFile(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "auto-demo", "restructure.display.json"), "utf8"));
     assert.equal(displayJson.schemaVersion, "function_slot_restructure_display.v1");
-    assert.equal(displayJson.sections.finalSlotChain.items[0].type, "table");
+    assert.equal(displayJson.sections.finalSlotChain.items[0].type, "heading");
     assert.equal(conversations.get("conversation_restructure").messages[0].text, "已生成并落盘：[restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md)");
     assert.equal(conversations.get("conversation_restructure").messages[0].slotAtomDisplay.slots[0].slotSubtypeId, "SUB_auto_demo");
   } finally {
@@ -1896,7 +1904,7 @@ test("agent chat collect auto transforms completed restructure final markdown", 
   }
 });
 
-test("agent chat collect auto reviews completed shot design dialogue", async () => {
+test("agent chat collect auto reviews completed shot design dialogue in restructure conversation", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-dialogue-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
   await fsPromises.mkdir(planDir, { recursive: true });
@@ -1906,7 +1914,7 @@ test("agent chat collect auto reviews completed shot design dialogue", async () 
     conversationId: "conversation_shot_design",
     revision: 1,
     source: "direct",
-    role: "function-slot-shot-design",
+    role: "function-slot-restructure",
     status: "active",
     threadId: "thread_shot_design",
     messages: [],

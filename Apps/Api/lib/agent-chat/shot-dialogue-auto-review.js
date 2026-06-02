@@ -18,19 +18,18 @@ async function maybeAutoReviewShotDialogue({
   if (!String(payload?.finalMessage ?? "").trim()) return null;
   if (!conversationId) return null;
 
-  const conversation = await handlers.agentConversationStore?.get?.(conversationId);
-  if (conversation?.role !== "function-slot-shot-design") return null;
-
   const rootDir = handlers.rootDir;
   const logger = handlers.logger;
   if (!rootDir || !logger) return null;
 
   const finalMessage = String(payload.finalMessage ?? "");
   const explicitPath = normalizeText(url?.searchParams?.get("shotDesignFinalPath"));
+  const conversation = await handlers.agentConversationStore?.get?.(conversationId);
   const currentMessagePath = explicitPath || extractShotDesignFinalPath(finalMessage);
   const historicalPath = currentMessagePath ? null : findLatestShotDesignFinalPath(conversation);
   const linkedShotDesignFinalPath = currentMessagePath || historicalPath;
   if (!linkedShotDesignFinalPath) return null;
+  if (!isDialogueReviewEligibleConversation(conversation, linkedShotDesignFinalPath)) return null;
 
   const stageTraceContext = nextStage(traceContext);
   const artifactId = `artifact_${randomUUID()}`;
@@ -405,6 +404,12 @@ function normalizeRelativeArtifactPath(value, rootDir) {
 
 function isCompleted(status) {
   return String(status ?? "").toLowerCase() === "completed";
+}
+
+function isDialogueReviewEligibleConversation(conversation, shotDesignPath) {
+  const role = String(conversation?.role ?? "").trim();
+  if (!["function-slot-shot-design", "function-slot-restructure"].includes(role)) return false;
+  return /shot-design\.final\.md$/i.test(String(shotDesignPath ?? "").trim());
 }
 
 function normalizeText(value) {
