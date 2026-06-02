@@ -1,0 +1,15 @@
+{
+  "role": "function-slot-dialogue-robotic-reviewer",
+  "profileVersion": "2026-06-02.auto-review.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/function-slot-dialogue-robotic-reviewer/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "review": {
+      "template": "prompts/review.v1.md",
+      "version": "review.v1"
+    }
+  }
+}

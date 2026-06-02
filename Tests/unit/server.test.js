@@ -289,6 +289,19 @@ function sampleRestructureFinalMarkdown() {
   ].join("\n");
 }
 
+function sampleShotDesignFinalMarkdown() {
+  return [
+    "# Shot 设计",
+    "",
+    "保存路径：`Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md`",
+    "",
+    "| shot | 画面 | 台词/字幕（若有） |",
+    "|---|---|---|",
+    "| shot_001 | 包装近景 | 商品记忆轻转化，包装信息也给你看。 |",
+    "| shot_002 | 成品杯 | 你看这个颜色，冲出来就是这种豆浆感。 |",
+  ].join("\n");
+}
+
 test("thread conversation forbidden path closes stage with stage.start and stage.end", async () => {
   const stageLogs = [];
   const server = createServer({
@@ -1878,6 +1891,116 @@ test("agent chat collect auto transforms completed restructure final markdown", 
     assert.equal(displayJson.sections.finalSlotChain.items[0].type, "table");
     assert.equal(conversations.get("conversation_restructure").messages[0].text, "已生成并落盘：[restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md)");
     assert.equal(conversations.get("conversation_restructure").messages[0].slotAtomDisplay.slots[0].slotSubtypeId, "SUB_auto_demo");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat collect auto reviews completed shot design dialogue", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-dialogue-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
+  await fsPromises.mkdir(planDir, { recursive: true });
+  await fsPromises.writeFile(path.join(planDir, "shot-design.final.md"), sampleShotDesignFinalMarkdown(), "utf8");
+  const conversations = new Map();
+  conversations.set("conversation_shot_design", {
+    conversationId: "conversation_shot_design",
+    revision: 1,
+    source: "direct",
+    role: "function-slot-shot-design",
+    status: "active",
+    threadId: "thread_shot_design",
+    messages: [],
+  });
+  const reviewTurns = [];
+  const releases = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/dialogue-review.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => ({
+        ok: true,
+        status: {
+          role,
+          skillPath: "C:/ByteDanceFullStack/.agents/skills/function-slot-dialogue-robotic-reviewer/SKILL.md",
+        },
+      }),
+      acquireLease: async ({ role, ownerId }) => ({
+        ok: true,
+        role,
+        ownerId,
+        thread_id: "thread_dialogue_review",
+        lease_id: "lease_dialogue_review",
+      }),
+      releaseLease: async (payload) => {
+        releases.push(payload);
+        return { ok: true };
+      },
+    },
+    appServer: {
+      collectTurnResult: async () => ({
+        threadId: "thread_shot_design",
+        turnId: "turn_shot_1",
+        status: "completed",
+        finalMessage: "已生成并落盘：Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md",
+      }),
+      runTurnWithInputs: async (payload) => {
+        reviewTurns.push(payload);
+        return {
+          threadId: payload.threadId,
+          turnId: "turn_dialogue_review_1",
+          status: "completed",
+          finalMessage: JSON.stringify({
+            decision: "rework",
+            reason: "存在明显方案腔台词",
+            issues: [
+              {
+                shot: "shot_001",
+                original: "商品记忆轻转化，包装信息也给你看。",
+                robotic_type: "名词堆叠腔",
+                reason: "像结构字段拼成的说明，不像真人口播。",
+                minimal_direction: "删掉方案词，改成观众能听懂的包装信息提示。",
+              },
+            ],
+          }),
+        };
+      },
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      recordAssistantTurn: async ({ conversationId, turnId, text, status, dialogueRoboticReview }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status, dialogueRoboticReview });
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_shot_design/turns/turn_shot_1?conversationId=conversation_shot_design");
+
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.autoDialogueRoboticReview.status, "processed");
+    assert.equal(collected.body.autoDialogueRoboticReview.decision, "rework");
+    assert.equal(collected.body.autoDialogueRoboticReview.issueCount, 1);
+    assert.equal(collected.body.autoDialogueRoboticReview.shotDesignFinalPath, "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md");
+    assert.equal(reviewTurns.length, 1);
+    assert.equal(reviewTurns[0].threadId, "thread_dialogue_review");
+    assert.match(reviewTurns[0].inputs[0].text, /shot-design\.final\.md/);
+    assert.match(reviewTurns[0].inputs[0].text, /finalMessage 只返回 JSON object/);
+    assert.equal(releases[0].leaseId, "lease_dialogue_review");
+    const artifact = JSON.parse(await fsPromises.readFile(path.join(planDir, "dialogue-robotic-review.final.json"), "utf8"));
+    assert.equal(artifact.schemaVersion, "function_slot_dialogue_robotic_review.v1");
+    assert.equal(artifact.review.decision, "rework");
+    assert.equal(artifact.review.issues[0].shot, "shot_001");
+    assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.decision, "rework");
+    assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.fileFingerprint.path, "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md");
   } finally {
     await closeServer(server);
   }

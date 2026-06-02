@@ -40,6 +40,10 @@
       "profile_path": "Assets/RoleProfiles/function-slot-restructure-display-transformer/role.json",
       "min_idle": 3
     },
+    "function-slot-dialogue-robotic-reviewer": {
+      "profile_path": "Assets/RoleProfiles/function-slot-dialogue-robotic-reviewer/role.json",
+      "min_idle": 3
+    },
     "shot-storyboard-prep": {
       "profile_path": "Assets/RoleProfiles/shot-storyboard-prep/role.json",
       "min_idle": 3

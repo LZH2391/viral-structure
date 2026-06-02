@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dialogue Robotic Reviewer"
+  short_description: "Review shot dialogue for robotic wording."
+  default_prompt: "Use $function-slot-dialogue-robotic-reviewer to review these shot dialogue lines for robotic wording."

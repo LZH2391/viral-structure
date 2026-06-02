@@ -22,6 +22,11 @@ const ROLES = [
     skill: "function-slot-restructure-display-transformer",
   },
   {
+    role: "function-slot-dialogue-robotic-reviewer",
+    templateId: "review",
+    skill: "function-slot-dialogue-robotic-reviewer",
+  },
+  {
     role: "shot-storyboard-prep",
     templateId: "prepareStoryboard",
     skill: "shot-storyboard-prep",
@@ -88,6 +93,12 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(repairTurn.text, /spray-pump-floral-water/);
       assert.equal(repairTurn.promptTemplateVersion, "repair-turn.v2");
       assert.equal(repairAlias.promptTemplateVersion, "repair-turn.v2");
+    } else if (item.role === "function-slot-dialogue-robotic-reviewer") {
+      assert.match(rendered.text, /台词机器人感审查任务/);
+      assert.match(rendered.text, /shot-design\.final\.md/);
+      assert.match(rendered.text, /finalMessage 只返回 JSON object/);
+      assert.match(rendered.text, /不判断素材是否够用/);
+      assert.equal(rendered.promptTemplateVersion, "review.v1");
     } else if (item.role === "function-slot-restructure") {
       assert.match(rendered.text, /手动 Slot\/Atom 替换返工任务/);
       assert.match(rendered.text, /低门槛价值锚点/);
@@ -103,7 +114,7 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(rendered.text, /ThreadPool 占位任务/);
       assert.match(rendered.text, /占位语义/);
     }
-    if (item.role !== "function-slot-library-builder" && item.role !== "function-slot-restructure") {
+    if (!["function-slot-library-builder", "function-slot-restructure", "function-slot-dialogue-robotic-reviewer"].includes(item.role)) {
       assert.equal(rendered.promptTemplateVersion.endsWith(".placeholder.v1"), true);
     }
   }
@@ -128,6 +139,17 @@ function defaultTemplateValues(role) {
       replacementSummary: "Slot 1 低门槛价值锚点 -> 强痛点场景进入",
       replacementsJson: JSON.stringify([{ type: "slot", fromSlotLabel: "低门槛价值锚点", toSlotLabel: "强痛点场景进入" }]),
       userInstruction: "用户手动替换了上述 Slot/Atom。请根据替换后的结构重新设计；如果替换破坏链路逻辑、素材能力、binding rule 或证明路径，必须先说明影响并请求用户确认，不要直接重写最终方案。",
+    };
+  }
+  if (role === "function-slot-dialogue-robotic-reviewer") {
+    return {
+      shotDesignFinalPath: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md",
+      reviewOutputPath: "Artifacts/FunctionSlotRestructure/demo/dialogue-robotic-review.final.json",
+      artifactId: "artifact_review",
+      parentArtifactId: "turn_shot_design",
+      sourceTurnId: "turn_shot_design",
+      stageName: "function.slot.dialogue_robotic_review.auto_review",
+      fileFingerprintJson: JSON.stringify({ path: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md", sha256: "abc" }),
     };
   }
   return {};

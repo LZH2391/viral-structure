@@ -7,6 +7,7 @@ const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeA
 const { summarizeThreadConversation } = require("../observability/thread-conversation");
 const { buildAgentChatActionProjection, findReplayTask, latestAssistantStatus } = require("../agent-chat/actions");
 const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
+const { maybeAutoReviewShotDialogue } = require("../agent-chat/shot-dialogue-auto-review");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const { normalizeTurnStatus } = require("../active-turns/status");
 
@@ -669,6 +670,14 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         url,
       });
       if (autoDisplayTransform) payload.autoDisplayTransform = autoDisplayTransform;
+      const autoDialogueRoboticReview = await maybeAutoReviewShotDialogue({
+        payload,
+        handlers,
+        traceContext,
+        conversationId,
+        url,
+      });
+      if (autoDialogueRoboticReview) payload.autoDialogueRoboticReview = autoDialogueRoboticReview;
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);
       if (conversationId) {
         recorded = await handlers.agentConversationStore?.recordAssistantTurn?.({
@@ -680,6 +689,9 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
           runId: payload.runId,
           stageId: payload.stageId,
           slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
+          dialogueRoboticReview: payload.autoDialogueRoboticReview?.status === "processed"
+            ? payload.autoDialogueRoboticReview
+            : null,
         });
       }
       await handlers.activeTurnRuntime?.markCollectResult?.({
@@ -709,6 +721,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       finalMessageChars: result.finalMessage ? String(result.finalMessage).length : 0,
       activityStatus: result.activity?.status ?? null,
       autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
+      autoDialogueReviewStatus: result.autoDialogueRoboticReview?.status ?? null,
     }),
     successStatus: 200,
   });

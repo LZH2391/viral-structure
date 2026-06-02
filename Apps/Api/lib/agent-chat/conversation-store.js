@@ -141,7 +141,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function recordAssistantTurn({ conversationId, turnId, text, status, traceId = null, runId = null, stageId = null, slotAtomDisplay = null }) {
+  async function recordAssistantTurn({ conversationId, turnId, text, status, traceId = null, runId = null, stageId = null, slotAtomDisplay = null, dialogueRoboticReview = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -157,6 +157,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         text: limitText(text || "生成中"),
         status: normalizeMessageStatus(status),
         slotAtomDisplay: normalizeSlotAtomDisplay(slotAtomDisplay),
+        dialogueRoboticReview: normalizeDialogueRoboticReview(dialogueRoboticReview),
         createdAt: now,
         updatedAt: now,
       });
@@ -548,8 +549,28 @@ function normalizeMessage(value) {
     text: limitText(value.text),
     status: normalizeMessageStatus(value.status),
     slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
+    dialogueRoboticReview: normalizeDialogueRoboticReview(value.dialogueRoboticReview),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
+  };
+}
+
+function normalizeDialogueRoboticReview(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    schemaVersion: String(value.schemaVersion ?? "function_slot_dialogue_robotic_review_summary.v1"),
+    status: String(value.status ?? "processed"),
+    decision: ["pass", "rework", "blocked"].includes(value.decision) ? value.decision : null,
+    issueCount: normalizeCount(value.issueCount),
+    shotDesignFinalPath: normalizePathText(value.shotDesignFinalPath),
+    reviewOutputPath: normalizePathText(value.reviewOutputPath),
+    sourceMode: value.sourceMode ? String(value.sourceMode) : null,
+    trigger: value.trigger ? String(value.trigger) : null,
+    artifactId: value.artifactId ? String(value.artifactId) : null,
+    role: value.role ? String(value.role) : null,
+    turnId: value.turnId ? String(value.turnId) : null,
+    promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
+    fileFingerprint: normalizeFileFingerprint(value.fileFingerprint),
   };
 }
 
