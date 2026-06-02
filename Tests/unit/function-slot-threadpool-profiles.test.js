@@ -56,6 +56,26 @@ test("function slot placeholder role profiles load init and task prompts", async
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);
       assert.match(rendered.text, /image-generation/);
+      const repairTurn = renderTurnTemplate(profile, "repairTurn", {
+        repairAttemptCount: 1,
+        restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+        shotDesignFinalPath: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md",
+        repairedPath: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.repair-attempt-1.md",
+        errorCode: "storyboard_prep_manifest_count_mismatch",
+        errorMessage: "generatedShotCount 与 manifest 不一致",
+        validationErrorsJson: JSON.stringify([{ code: "missing_strategy", shotId: "new_shot_01" }]),
+        repairRequestJson: JSON.stringify({
+          schemaVersion: "shot-storyboard-prep.repair.v1",
+          allowedRepairs: ["补齐 Shot 表字段"],
+          forbiddenRepairs: ["不得修改已确认的 restructure.final.md"],
+        }),
+      });
+      assert.match(repairTurn.text, /agentRepair/);
+      assert.match(repairTurn.text, /shot-design\.final\.repair-attempt-1\.md/);
+      assert.match(repairTurn.text, /generatedShotCount 与 manifest 不一致/);
+      assert.match(repairTurn.text, /不得修改已确认的 `restructure\.final\.md`/);
+      assert.match(repairTurn.text, /不得手工调用 image-generation/);
+      assert.equal(repairTurn.promptTemplateVersion, "repair-storyboard.v1");
     } else if (item.role === "function-slot-restructure-display-transformer") {
       assert.match(rendered.text, /后处理任务/);
       assert.match(rendered.text, /restructure\.final\.md/);

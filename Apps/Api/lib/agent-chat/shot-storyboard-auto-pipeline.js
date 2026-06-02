@@ -1,0 +1,461 @@
+const path = require("path");
+const { randomUUID } = require("crypto");
+const { SAMPLE_STATUS } = require("../../../../Core/Workspace/sample-video-contracts");
+const { createTraceIds, nextStage } = require("../../../../Infrastructure/Observability/trace");
+const {
+  assertFile,
+  buildInputSummary,
+  createPathHelpers,
+  isRepairable,
+  normalizeText,
+  parseJsonStdout,
+  pipelineError,
+  readJson,
+  validateCropResult,
+  validateImageArtifact,
+  validatePrepareResult,
+} = require("./shot-storyboard-pipeline-utils");
+const {
+  MAX_REPAIR_ATTEMPTS,
+  REPAIR_ROLE,
+  createShotStoryboardRepairRunner,
+} = require("./shot-storyboard-repair");
+const { createShotStoryboardPipelineRuntime } = require("./shot-storyboard-pipeline-runtime");
+
+const AUTO_STAGE_NAME = "function.slot.shot_storyboard_prep.pipeline";
+
+function createShotStoryboardAutoPipelineService({
+  rootDir,
+  store,
+  logger,
+  jobStore,
+  moduleRegistry,
+  threadPool = null,
+  appServer = null,
+  now = () => new Date().toISOString(),
+} = {}) {
+  if (!rootDir) throw new Error("rootDir is required for shot storyboard pipeline");
+  if (!store) throw new Error("store is required for shot storyboard pipeline");
+  if (!logger) throw new Error("logger is required for shot storyboard pipeline");
+  if (!jobStore) throw new Error("jobStore is required for shot storyboard pipeline");
+  if (!moduleRegistry) throw new Error("moduleRegistry is required for shot storyboard pipeline");
+  const { resolveInsideRoot, resolveRuntimeUri, safeRelative } = createPathHelpers({ rootDir, store });
+  const { markFailed, runLoggedStage, runPythonScript, waitForJob } = createShotStoryboardPipelineRuntime({
+    rootDir,
+    logger,
+    jobStore,
+    autoStageName: AUTO_STAGE_NAME,
+  });
+  const repairRunner = createShotStoryboardRepairRunner({
+    rootDir,
+    threadPool,
+    appServer,
+    resolveInputs,
+    safeRelative,
+  });
+
+  async function enqueue(options = {}) {
+    await store.ensureRuntimeDirs?.();
+    const sampleVideoId = normalizeText(options.sampleVideoId) || "function-slot-workflow";
+    const traceContext = nextStage(createTraceIds());
+    const artifactId = options.artifactId || `artifact_${randomUUID()}`;
+    const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
+    const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
+    runPipelineWithRepair({
+      options: { ...options, sampleVideoId, parentArtifactId },
+      job,
+      traceContext,
+      artifactId,
+      parentArtifactId,
+    }).catch((error) => markFailed({
+      job,
+      traceContext,
+      artifactId,
+      parentArtifactId,
+      error,
+      inputSummary: buildInputSummary(options),
+    }));
+    return {
+      ok: true,
+      processingJobId: job.jobId,
+      sampleVideoId,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId,
+      parentArtifactId,
+      confirmationId: normalizeText(options.confirmationId),
+      status: "processing",
+      role: REPAIR_ROLE,
+      message: "Shot Storyboard Prep pipeline 已启动。",
+    };
+  }
+
+  async function runPipelineWithRepair(context) {
+    let lastError = null;
+    let shotDesignPath = null;
+    for (let attempt = 0; attempt <= MAX_REPAIR_ATTEMPTS; attempt += 1) {
+      try {
+        return await runPipeline({ ...context, repairAttemptCount: attempt, shotDesignPathOverride: shotDesignPath });
+      } catch (error) {
+        lastError = error;
+        if (!isRepairable(error) || attempt >= MAX_REPAIR_ATTEMPTS) break;
+        const repairAttemptCount = attempt + 1;
+        const repair = await repairRunner.runRepairTurn({ ...context, error, repairAttemptCount, shotDesignPathOverride: shotDesignPath });
+        shotDesignPath = repair.repairedPath;
+      }
+    }
+    if (lastError) {
+      lastError.repairAttemptCount = Math.min(MAX_REPAIR_ATTEMPTS, Math.max(0, lastError.repairAttemptCount ?? MAX_REPAIR_ATTEMPTS));
+      throw lastError;
+    }
+  }
+
+  async function runPipeline({ options, job, traceContext, artifactId, parentArtifactId, repairAttemptCount = 0, shotDesignPathOverride = null }) {
+    const stageStartedAt = Date.now();
+    const inputSummary = buildInputSummary(options);
+    jobStore.updateJob(job.jobId, {
+      stage: AUTO_STAGE_NAME,
+      status: SAMPLE_STATUS.processing,
+      progress: 10,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId,
+      parentArtifactId,
+      moduleId: "shot-storyboard-prep",
+    });
+    await logger.writeStageLog({
+      traceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.start",
+      artifactId,
+      parentArtifactId,
+      inputSummary,
+    });
+
+    const resolved = await resolveInputs(options, shotDesignPathOverride);
+    const prepare = await runPrepareStage({ resolved, traceContext, artifactId, parentArtifactId, repairAttemptCount, job });
+    if (options.runImageGeneration === false) {
+      return await finishProcessed({
+        job,
+        traceContext,
+        artifactId,
+        parentArtifactId,
+        outputSummary: {
+          status: "prompt_ready",
+          ...prepare.outputSummary,
+          repairAttemptCount,
+        },
+        stageStartedAt,
+      });
+    }
+
+    const image = await runImageGenerationStage({ options, prepare, traceContext, artifactId, parentArtifactId, job });
+    const crop = await runCropStage({ prepare, image, resolved, traceContext, artifactId, parentArtifactId, job });
+    const pdf = await runPdfStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job });
+    return await finishProcessed({
+      job,
+      traceContext,
+      artifactId,
+      parentArtifactId,
+      outputSummary: {
+        status: "processed",
+        restructureFinalPath: safeRelative(resolved.restructureFinalPath),
+        shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+        promptPath: safeRelative(prepare.promptPath),
+        manifestPath: safeRelative(prepare.manifestPath),
+        imageGenerationArtifactId: image.artifact?.artifactId ?? null,
+        cropsManifestPath: safeRelative(crop.cropsManifestPath),
+        pdfPath: safeRelative(pdf.pdfPath),
+        summaryPath: safeRelative(pdf.summaryPath),
+        warningCount: pdf.summary?.warnings?.length ?? 0,
+        repairAttemptCount,
+      },
+      stageStartedAt,
+      pipelineArtifact: {
+        artifactId,
+        parentArtifactId,
+        artifactType: "shot-storyboard-prep",
+        type: "shot-storyboard-prep",
+        stageName: AUTO_STAGE_NAME,
+        sampleVideoId: options.sampleVideoId,
+        runId: traceContext.runId,
+        traceId: traceContext.traceId,
+        stageId: traceContext.stageId,
+        status: "processed",
+        createdAt: now(),
+        files: {
+          restructureFinalPath: safeRelative(resolved.restructureFinalPath),
+          shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+          promptPath: safeRelative(prepare.promptPath),
+          manifestPath: safeRelative(prepare.manifestPath),
+          cropsManifestPath: safeRelative(crop.cropsManifestPath),
+          pdfPath: safeRelative(pdf.pdfPath),
+          summaryPath: safeRelative(pdf.summaryPath),
+        },
+        imageGenerationArtifact: image.artifact ? {
+          artifactId: image.artifact.artifactId,
+          uri: image.artifact.uri,
+          groupCount: image.artifact.storyboardGroups?.length ?? null,
+        } : null,
+        validation: {
+          repairAttemptCount,
+          warnings: pdf.summary?.warnings ?? [],
+        },
+      },
+    });
+  }
+
+  async function resolveInputs(options, shotDesignPathOverride) {
+    const restructureFinalPath = resolveInsideRoot(options.restructureFinalPath);
+    if (!restructureFinalPath) throw pipelineError("storyboard_prep_restructure_required", "需要 restructureFinalPath", { retryable: false });
+    await assertFile(restructureFinalPath, "storyboard_prep_restructure_missing", false);
+    const shotDesignFinalPath = shotDesignPathOverride
+      ? resolveInsideRoot(shotDesignPathOverride)
+      : resolveInsideRoot(options.shotDesignFinalPath) || path.join(path.dirname(restructureFinalPath), "shot-design.final.md");
+    await assertFile(shotDesignFinalPath, "storyboard_prep_shot_design_missing", true);
+    return {
+      restructureFinalPath,
+      shotDesignFinalPath,
+      baseDir: path.dirname(shotDesignFinalPath),
+    };
+  }
+
+  async function runPrepareStage({ resolved, traceContext, artifactId, parentArtifactId, repairAttemptCount, job }) {
+    const stageTrace = nextStage(traceContext);
+    const promptPath = path.join(resolved.baseDir, "shot-storyboard-prompts.md");
+    const manifestPath = path.join(resolved.baseDir, "shot-storyboard-manifest.json");
+    jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.prepare", progress: 25 });
+    const result = await runLoggedStage({
+      stageName: "function.slot.shot_storyboard_prep.prepare",
+      traceContext: stageTrace,
+      artifactId,
+      parentArtifactId,
+      inputSummary: {
+        shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+        promptPath: safeRelative(promptPath),
+        manifestPath: safeRelative(manifestPath),
+        repairAttemptCount,
+      },
+      action: async () => {
+        const output = await runPythonScript("prepare_storyboard.py", [
+          "--input", resolved.shotDesignFinalPath,
+          "--output", promptPath,
+          "--manifest-output", manifestPath,
+        ]);
+        const parsed = parseJsonStdout(output.stdout, "storyboard_prep_prepare_output_invalid", true);
+        const manifest = await readJson(manifestPath);
+        validatePrepareResult(parsed, manifest);
+        return { parsed, manifest };
+      },
+      outputSummary: ({ parsed, manifest }) => ({
+        shotCount: parsed.shotCount,
+        generatedShotCount: parsed.generatedShotCount,
+        materialShotCount: parsed.materialShotCount,
+        groupCount: parsed.groupCount,
+        warnings: manifest.warnings ?? [],
+      }),
+    });
+    return {
+      promptPath,
+      manifestPath,
+      manifest: result.manifest,
+      outputSummary: {
+        shotCount: result.parsed.shotCount,
+        generatedShotCount: result.parsed.generatedShotCount,
+        materialShotCount: result.parsed.materialShotCount,
+        groupCount: result.parsed.groupCount,
+      },
+    };
+  }
+
+  async function runImageGenerationStage({ options, prepare, traceContext, artifactId, parentArtifactId, job }) {
+    const stageTrace = nextStage(traceContext);
+    jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.image_generation", progress: 45 });
+    return runLoggedStage({
+      stageName: "function.slot.shot_storyboard_prep.image_generation",
+      traceContext: stageTrace,
+      artifactId,
+      parentArtifactId,
+      inputSummary: {
+        storyboardPromptFile: safeRelative(prepare.promptPath),
+        groupCount: prepare.manifest.storyboardGroups?.length ?? null,
+      },
+      action: async () => {
+        const started = await moduleRegistry.startModule({
+          moduleId: "image-generation",
+          sampleVideoId: options.sampleVideoId,
+          body: {
+            storyboardPromptFile: prepare.promptPath,
+            parentArtifactId: artifactId,
+            timeoutSeconds: options.timeoutSeconds ?? 450,
+            storyboardConcurrency: options.storyboardConcurrency ?? 10,
+            storyboardRetryAttempts: options.storyboardRetryAttempts ?? 2,
+          },
+        });
+        const imageJob = await waitForJob(started.processingJobId, options.imageGenerationWaitMs ?? 30 * 60 * 1000);
+        if (imageJob.status !== SAMPLE_STATUS.processed || !imageJob.imageGenerationArtifact) {
+          throw pipelineError("storyboard_prep_image_generation_failed", "生图未产出有效 artifact", { retryable: true, debugPayload: { imageJobStatus: imageJob.status, errorSummary: imageJob.errorSummary ?? null } });
+        }
+        validateImageArtifact(imageJob.imageGenerationArtifact, prepare.manifest);
+        const artifactPath = resolveRuntimeUri(imageJob.imageGenerationArtifact.uri);
+        return {
+          started,
+          job: imageJob,
+          artifact: imageJob.imageGenerationArtifact,
+          artifactPath,
+        };
+      },
+      outputSummary: ({ artifact }) => ({
+        imageGenerationArtifactId: artifact.artifactId,
+        groupCount: artifact.storyboardGroups?.length ?? null,
+        imageCount: artifact.images?.length ?? null,
+        uri: artifact.uri ?? null,
+      }),
+    });
+  }
+
+  async function runCropStage({ prepare, image, resolved, traceContext, artifactId, parentArtifactId, job }) {
+    const stageTrace = nextStage(traceContext);
+    const outputDir = path.join(resolved.baseDir, "shot-storyboard-frames");
+    jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.crop", progress: 70 });
+    return runLoggedStage({
+      stageName: "function.slot.shot_storyboard_prep.crop",
+      traceContext: stageTrace,
+      artifactId,
+      parentArtifactId,
+      inputSummary: {
+        artifactPath: safeRelative(image.artifactPath),
+        manifestPath: safeRelative(prepare.manifestPath),
+        outputDir: safeRelative(outputDir),
+      },
+      action: async () => {
+        const output = await runPythonScript("crop_storyboard_groups.py", [
+          "--artifact", image.artifactPath,
+          "--manifest", prepare.manifestPath,
+          "--output-dir", outputDir,
+          "--root", rootDir,
+        ]);
+        const parsed = parseJsonStdout(output.stdout, "storyboard_prep_crop_output_invalid", true);
+        validateCropResult(parsed, prepare.manifest);
+        return {
+          parsed,
+          cropsManifestPath: path.join(outputDir, "shot-storyboard-crops.json"),
+        };
+      },
+      outputSummary: ({ parsed }) => ({
+        croppedCount: parsed.croppedCount,
+        warningCount: parsed.warnings?.length ?? 0,
+      }),
+    });
+  }
+
+  async function runPdfStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job }) {
+    const stageTrace = nextStage(traceContext);
+    const pdfPath = path.join(resolved.baseDir, "shot-storyboard.pdf");
+    const materialFrameMaps = collectMaterialFrameMaps(options, resolved.baseDir);
+    jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.pdf", progress: 88 });
+    return runLoggedStage({
+      stageName: "function.slot.shot_storyboard_prep.pdf",
+      traceContext: stageTrace,
+      artifactId,
+      parentArtifactId,
+      inputSummary: {
+        restructureFinalPath: safeRelative(resolved.restructureFinalPath),
+        shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+        cropsManifestPath: safeRelative(crop.cropsManifestPath),
+        materialFrameMapCount: materialFrameMaps.length,
+        pdfPath: safeRelative(pdfPath),
+      },
+      action: async () => {
+        const args = [
+          "--restructure", resolved.restructureFinalPath,
+          "--shot-design", resolved.shotDesignFinalPath,
+          "--manifest", prepare.manifestPath,
+          "--crops-manifest", crop.cropsManifestPath,
+          "--output", pdfPath,
+          "--root", rootDir,
+        ];
+        for (const item of materialFrameMaps) {
+          const resolvedMap = resolveInsideRoot(item.path);
+          if (item.required) await assertFile(resolvedMap, "storyboard_prep_material_frame_map_missing", false);
+          else {
+            try {
+              await assertFile(resolvedMap, "storyboard_prep_material_frame_map_missing", false);
+            } catch {
+              continue;
+            }
+          }
+          args.push("--material-frame-map", resolvedMap);
+        }
+        const output = await runPythonScript("build_storyboard_pdf.py", args);
+        const parsed = parseJsonStdout(output.stdout, "storyboard_prep_pdf_output_invalid", false);
+        await assertFile(pdfPath, "storyboard_prep_pdf_missing", false);
+        const summaryPath = pdfPath.replace(/\.pdf$/i, ".summary.json");
+        const summary = await readJson(summaryPath).catch(() => parsed);
+        return { parsed, pdfPath, summaryPath, summary };
+      },
+      outputSummary: ({ summary }) => ({
+        pdfPath: safeRelative(pdfPath),
+        slotCount: summary.slotCount ?? null,
+        shotCount: summary.shotCount ?? null,
+        warningCount: summary.warnings?.length ?? 0,
+      }),
+    });
+  }
+
+  async function finishProcessed({ job, traceContext, artifactId, parentArtifactId, outputSummary, stageStartedAt, pipelineArtifact = null }) {
+    let artifactWithUri = null;
+    if (pipelineArtifact) {
+      const artifactDir = path.join(store.sampleDir(pipelineArtifact.sampleVideoId || "function-slot-workflow"), "shot-storyboard-prep", artifactId);
+      const artifactPath = path.join(artifactDir, "artifact.json");
+      await store.writeJson(artifactPath, pipelineArtifact);
+      artifactWithUri = { ...pipelineArtifact, uri: store.runtimeUri(artifactPath) };
+    }
+    await logger.writeStageLog({
+      traceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.end",
+      artifactId,
+      parentArtifactId,
+      outputSummary,
+      durationMs: Date.now() - stageStartedAt,
+    });
+    jobStore.updateJob(job.jobId, {
+      stage: AUTO_STAGE_NAME,
+      status: SAMPLE_STATUS.processed,
+      progress: 100,
+      artifactId,
+      parentArtifactId,
+      storyboardPrepArtifact: artifactWithUri,
+      outputSummary,
+    });
+    return artifactWithUri;
+  }
+
+  return { enqueue };
+}
+
+function collectMaterialFrameMaps(options, baseDir) {
+  const explicit = Array.isArray(options.materialFrameMaps) ? options.materialFrameMaps : [];
+  const requiredCandidates = [
+    ...explicit,
+    options.materialFrameMap,
+    options.visualManifest,
+    options.frameMap,
+    options.userMaterialPackPath,
+  ].map(normalizeText).filter(Boolean).map((path) => ({ path, required: true }));
+  const optionalCandidates = [
+    path.join(baseDir, "material-frame-map.json"),
+    path.join(baseDir, "visual-manifest.json"),
+    path.join(baseDir, "user-material-pack.stable.json"),
+    path.join(baseDir, "user-material-pack.stable"),
+  ].map((path) => ({ path, required: false }));
+  return [...requiredCandidates, ...optionalCandidates];
+}
+
+module.exports = {
+  AUTO_STAGE_NAME,
+  MAX_REPAIR_ATTEMPTS,
+  createShotStoryboardAutoPipelineService,
+};

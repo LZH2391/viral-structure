@@ -153,6 +153,7 @@ export type AgentChatConversation = {
     updatedAt?: string | null;
     note?: string | null;
     sourceRestructurePath?: string | null;
+    sourceShotDesignPath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
     traceId?: string | null;

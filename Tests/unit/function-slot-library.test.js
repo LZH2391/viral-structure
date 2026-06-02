@@ -230,18 +230,32 @@ test("function slot library builder refresh route returns index and governance o
 test("storyboard prep auto-run requires confirmed restructure source", async () => {
   const calls = [];
   const server = createServer({
-    threadPool: {
-      ensureRoleReady: async (role) => ({ ok: true, role, status: { workspaceRoot: "C:\\Workspace", skillPath: "skill.md" } }),
-      acquireLease: async (payload) => {
+    shotStoryboardAutoPipelineService: {
+      enqueue: async (payload) => {
         calls.push(payload);
-        return { ok: true, lease_id: "lease_storyboard", thread_id: "thread_storyboard" };
+        return {
+          ok: true,
+          processingJobId: "job_storyboard",
+          sampleVideoId: payload.sampleVideoId,
+          traceId: "trace_storyboard",
+          runId: "run_storyboard",
+          stageId: "stage_storyboard",
+          artifactId: "artifact_storyboard",
+          parentArtifactId: payload.parentArtifactId,
+          status: "processing",
+          role: "shot-storyboard-prep",
+          message: "pipeline started",
+        };
       },
     },
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        calls.push(payload);
-        return { ok: true, threadId: payload.threadId, turnId: "turn_storyboard", status: "submitted" };
-      },
+    agentConversationStore: {
+      get: async (conversationId) => ({
+        conversationId,
+        confirmedPlan: {
+          sourceRestructurePath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+          sourceShotDesignPath: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md",
+        },
+      }),
     },
     logger: {
       writeStageLog: async () => undefined,
@@ -257,24 +271,31 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
     assert.equal(missing.statusCode, 400);
     assert.equal(missing.body.code, "storyboard_prep_restructure_required");
 
-    const response = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
+    const artifactOnly = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
       sampleVideoId: "sample_1",
       restructureArtifactId: "artifact_restructure",
     });
+    assert.equal(artifactOnly.statusCode, 400);
+    assert.equal(artifactOnly.body.code, "storyboard_prep_restructure_required");
+
+    const response = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
+      sampleVideoId: "sample_1",
+      conversationId: "conversation_confirmed",
+      parentArtifactId: "artifact_restructure",
+      confirmationId: "confirm_1",
+      runImageGeneration: true,
+    });
     assert.equal(response.statusCode, 202);
-    assert.equal(response.body.status, "submitted");
+    assert.equal(response.body.status, "processing");
     assert.equal(response.body.role, "shot-storyboard-prep");
-    assert.equal(response.body.threadId, "thread_storyboard");
-    assert.equal(response.body.processingJobId.startsWith("job_"), true);
-    assert.equal(response.body.turnId, response.body.processingJobId);
-    assert.equal(response.body.artifactId, response.body.processingJobId);
-    assert.deepEqual(calls[0], { role: "shot-storyboard-prep", ownerId: response.body.ownerId });
-    assert.equal(calls[1].threadId, "thread_storyboard");
-    assert.equal(calls[1].skillPath, "skill.md");
-    assert.match(calls[1].inputs[0].text, /Shot Storyboard Prep/);
-    assert.match(calls[1].inputs[0].text, /image-generation/);
-    assert.match(calls[1].inputs[0].text, /"runImageGeneration": true/);
-    assert.match(calls[1].inputs[0].text, /artifact_restructure/);
+    assert.equal(response.body.processingJobId, "job_storyboard");
+    assert.equal(response.body.artifactId, "artifact_storyboard");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].sampleVideoId, "sample_1");
+    assert.equal(calls[0].restructureFinalPath, "Artifacts/FunctionSlotRestructure/demo/restructure.final.md");
+    assert.equal(calls[0].shotDesignFinalPath, "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md");
+    assert.equal(calls[0].parentArtifactId, "artifact_restructure");
+    assert.equal(calls[0].confirmationId, "confirm_1");
   } finally {
     await closeServer(server);
   }

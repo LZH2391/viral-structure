@@ -44,13 +44,13 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 - `分镜画面` 只写原素材镜头摘要和 `shotRef/groupId`，不写给生图模型使用的自设计画面。
 - `包装说明` 写原素材已有包装，或“无新增包装，沿用原素材”。
-- `台词/字幕（若有）` 必须使用原素材镜头的字幕/口播；原素材没有则写“无”。
+- `台词/字幕（若有）` 必须使用原素材镜头的字幕/口播；原素材没有则写“无”。这类 shot 默认不补写，并在最终聊天摘要中列出，询问用户是否需要补写。
 
 当 `素材来源/处理策略` 为 `existing_material_packaging_caption`：
 
 - `分镜画面` 仍只写原素材镜头摘要和 `shotRef/groupId`，不得写自设计画面或新增素材中不存在的视觉内容。
 - `包装说明` 必须写“新包装/字幕如何在原素材画面上补强”，包括覆盖层位置、样式、出现时机、服务功能和避让区域；这些内容服务剪辑后期，不服务生图。
-- `台词/字幕（若有）` 保留原素材已有口播/主字幕；允许新增包装字幕、标签文案或屏幕文字，但必须标明为后期字幕/包装层，不得伪装成素材人物新口播。
+- `台词/字幕（若有）` 保留原素材已有口播/主字幕；允许新增包装字幕、标签文案或屏幕文字，但必须标明为后期字幕/包装层，不得伪装成素材人物新口播。若原素材无口播/字幕，只有用户已明确授权补写时才允许新增。
 
 当 `素材来源/处理策略` 为 `self_designed_by_shot_design`：
 
@@ -69,9 +69,11 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 是否优先使用未占用现有素材，其次包装/字幕强化，再自行设计，最后才复用变形兜底。
 - `existing_material` 是否没有新增自设计画面、包装或台词/字幕。
 - `existing_material_packaging_caption` 是否只新增后期包装/字幕补强，没有把素材镜头写成生图画面。
+- 无原素材口播/字幕的现有素材 shot 是否默认写“无”，并在最终聊天摘要中列出；只有用户预授权或回复授权后才补写。
 - 每个主张是否有画面、包装或证据承载；只有口播没有证明的主张必须标为风险。
 - 分镜画面和包装说明是否分离：底图不承担小字、复杂 UI 文案和包装覆盖层。
 - 台词字段是否只包含成片口播、主字幕或屏幕文字；机器人感审查交给 `function-slot-dialogue-robotic-reviewer`。
+- 本轮若新写了非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，是否已经通过 `function-slot-dialogue-robotic-reviewer`；未通过不得交付为最终版本。
 - 包装说明是否写到可执行规格，而不是“轻量字幕”“极简标签”等空泛描述。
 - 字幕、标签、箭头、圈选、图卡是否避开主体细节、证据区域、关键动作、结果状态或人物表情。
 - 所有 `预计时长` 是否遵守上游 `timingBudget`；若没有 `timingBudget`，是否都是 `待估算`。
@@ -80,10 +82,14 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 ## 聊天回复
 
-完成后只给可点击文件路径和一句摘要；不带验证结果、不带建议 git 提交、不列本轮相关文件。
+完成后给可点击文件路径、一句摘要、必要的台词 review 结果，以及“无原素材台词镜头”询问。不要把输入依据、质量检查表、剩余风险或替代实现写进聊天回复。
 
 ```markdown
 已生成 Shot 设计：[shot-design.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md)
 
 摘要：一句话说明 Shot 设计如何承接结构方案。
+
+台词 review：通过 / 未生成需审查台词 / 无可审台词。
+
+无原素材台词镜头：new_shot_03、new_shot_07 当前写“无”。是否需要我为这些镜头补写后期字幕/旁白？
 ```

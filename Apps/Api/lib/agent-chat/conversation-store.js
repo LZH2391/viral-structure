@@ -300,7 +300,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, sourceShotDesignPath = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -316,6 +316,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         updatedAt: now,
         note: limitText(note),
         sourceRestructurePath: normalizePathText(sourceRestructurePath),
+        sourceShotDesignPath: normalizePathText(sourceShotDesignPath),
         displayArtifact: normalizeArtifactRef(displayArtifact),
         storyboardArtifact: normalizeArtifactRef(storyboardArtifact),
         traceId: traceId ?? null,
@@ -509,6 +510,7 @@ function normalizeConfirmedPlan(value) {
     updatedAt: value.updatedAt ?? null,
     note: limitText(value.note),
     sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
+    sourceShotDesignPath: normalizePathText(value.sourceShotDesignPath),
     displayArtifact: normalizeArtifactRef(value.displayArtifact),
     storyboardArtifact: normalizeArtifactRef(value.storyboardArtifact),
     traceId: value.traceId ? String(value.traceId) : null,

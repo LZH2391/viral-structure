@@ -20,6 +20,10 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 - `existing_material`：完全使用素材镜头，不需要也不允许再自行设计 `分镜画面`、`包装说明`、`台词/字幕（若有）`。这些字段必须来自原素材镜头：画面写原素材代表帧/动作摘要，包装写原素材已有包装或“无新增包装，沿用原素材”，台词/字幕必须使用原素材镜头的字幕/口播；原素材无字幕时写“无”，不得新写。
 - `existing_material_packaging_caption`：画面仍使用素材镜头，不允许把 `分镜画面` 写成给生图服务的自设计画面；但允许在 `包装说明` 和必要的 `台词/字幕（若有）` 中写新包装/字幕如何补强。补强内容必须是后期叠加层、字幕层、圈选、标签、标题条、画中画等剪辑执行说明，不能伪造成新拍摄画面或自行生图镜头。
 
+无原素材口播/字幕的镜头，默认不新写台词或字幕。只有用户在发起 Shot 设计前明确说明“无台词镜头也可以写/需要补字幕/需要补口播”，或在上一轮最终摘要询问后明确回复要写，才允许为无台词素材镜头新增后期字幕、屏幕文字或旁白。新增内容必须标明为“后期字幕/包装层/旁白”，不得伪装成原素材人物口播；新增后该 shot 的策略应使用 `existing_material_packaging_caption`、`self_designed_by_shot_design` 或合适的兜底策略，而不是继续标为纯 `existing_material`。
+
+只要本轮 ShotDesign 新写了任何台词、后期字幕、屏幕文字或旁白，完成后必须把 `shot-design.final.md` 交给 `function-slot-dialogue-robotic-reviewer` 做台词自然度终审。若 reviewer 返回 `rework`，先按最小方向回修台词，再复审；最终聊天回复必须说明 review 结果。若全片没有可审台词，review 可返回 `blocked`，但必须说明是因为没有新增或可审查台词。
+
 不要在这里重新选择 slotSubtype、slotArchetype、atoms、adapter 或 FunctionSlotLibrary evidence。若发现前序结构无法落地，只在聊天中指出阻塞项并要求回到 `function-slot-restructure` 修正，不要在 Shot 文件里偷偷改核心方案，也不要把校验、风险与修复建议写进 `shot-design.final.md`。
 
 ## 输入
@@ -52,7 +56,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 6. **写画面、包装、台词**
    进入分镜画面、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。
-   对 `existing_material` shot，跳过自行画面设计、包装设计和新台词写作，只从素材包读取原镜头画面摘要、已有包装/字幕和原字幕/口播填表。对 `existing_material_packaging_caption` shot，画面仍只写素材镜头摘要，包装/字幕字段只写后期补强方案，不写自设计镜头画面。
+   对 `existing_material` shot，跳过自行画面设计、包装设计和新台词写作，只从素材包读取原镜头画面摘要、已有包装/字幕和原字幕/口播填表；原素材没有口播/字幕时写“无”，并记录到最终摘要的“无原素材台词镜头”清单中，询问用户是否需要补写。对 `existing_material_packaging_caption` shot，画面仍只写素材镜头摘要，包装/字幕字段只写后期补强方案，不写自设计镜头画面；若补强内容来自用户授权的无台词补写，必须标明为后期新增层。
 
 7. **落表字段与预计时长**
    开始写 Shot 表字段前，读取 `references/output-contract.md`。
@@ -60,3 +64,6 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 8. **落独立文件并检查**
    在同一个重组目录下写入 `shot-design.final.md`，然后按 `references/output-contract.md` 的质量检查逐项自查。最终聊天回复也遵守该 reference。
+
+9. **台词自然度 review**
+   如果本轮写入了任何非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，调用 `function-slot-dialogue-robotic-reviewer` 审查 `shot-design.final.md`。通过后再回复用户；未通过时先按 reviewer 的最小方向回修并复审，不要把未审或未通过的新台词当作最终交付。

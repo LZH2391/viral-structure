@@ -46,6 +46,7 @@ const { buildFunctionSlotLibraryGraph } = require("./lib/function-slot-library/g
 const { buildFunctionSlotGovernanceGraph } = require("./lib/function-slot-library/governance-graph");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 const { createRestructureDisplayOverlayService } = require("./lib/function-slot-workflow/display-overlay-service");
+const { createShotStoryboardAutoPipelineService } = require("./lib/agent-chat/shot-storyboard-auto-pipeline");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -176,6 +177,15 @@ function createServer(deps = {}) {
       sampleProcessingService: activeSampleService,
     },
   });
+  const activeShotStoryboardAutoPipelineService = deps.shotStoryboardAutoPipelineService ?? createShotStoryboardAutoPipelineService({
+    rootDir: activeRootDir ?? rootDir,
+    store: activeStore,
+    logger: activeLogger,
+    jobStore: activeJobStore,
+    moduleRegistry: activeModuleRegistry,
+    threadPool: deps.threadPool ?? threadPool,
+    appServer: deps.appServer ?? appServer,
+  });
   const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({ moduleRegistry: activeModuleRegistry });
   const activeFullAnalysisWorkflowService = deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({
     workflowRunStore: activeWorkflowRunStore,
@@ -218,6 +228,7 @@ function createServer(deps = {}) {
     shotBoundaryService: activeShotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,
     moduleRegistry: activeModuleRegistry,
+    shotStoryboardAutoPipelineService: activeShotStoryboardAutoPipelineService,
     analysisRegistry: activeAnalysisRegistry,
     functionSlotProjectionService: activeFunctionSlotProjectionService,
     functionSlotLibraryService: activeFunctionSlotLibraryService,
@@ -510,22 +521,45 @@ async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
   const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
   const sampleVideoId = body.sampleVideoId ?? "function-slot-workflow";
   const parentArtifactId = body.parentArtifactId ?? body.restructureArtifactId ?? null;
-  if (!body.restructureFinalPath && !parentArtifactId) {
+  const resolvedInputs = await resolveStoryboardPrepInputs(body, handlers);
+  if (!resolvedInputs.restructureFinalPath) {
     return sendJson(res, 400, {
       error: "storyboard_prep_restructure_required",
       code: "storyboard_prep_restructure_required",
-      message: "需要 restructureFinalPath 或 restructureArtifactId",
+      message: "需要可解析到文件的 restructureFinalPath；仅有 artifactId 时不会让 agent 猜路径",
+      missing: ["restructureFinalPath"],
     });
   }
-  const result = await startFunctionSlotAutoRunTurn({
-    handlers,
-    role: "shot-storyboard-prep",
-    stageName: "function.slot.shot_storyboard_prep.auto_run",
+  if (!handlers.shotStoryboardAutoPipelineService?.enqueue) {
+    return sendJson(res, 503, {
+      error: "storyboard_prep_pipeline_unavailable",
+      code: "storyboard_prep_pipeline_unavailable",
+      message: "Shot Storyboard Prep pipeline 服务不可用",
+    });
+  }
+  const result = await handlers.shotStoryboardAutoPipelineService.enqueue({
+    ...body,
+    ...resolvedInputs,
     sampleVideoId,
     parentArtifactId,
-    body,
   });
   return sendJson(res, 202, result);
+}
+
+async function resolveStoryboardPrepInputs(body, handlers = {}) {
+  const conversationId = normalizeOptionalText(body.conversationId);
+  const conversation = conversationId ? await handlers.agentConversationStore?.get?.(conversationId) : null;
+  const confirmed = conversation?.confirmedPlan ?? {};
+  return {
+    restructureFinalPath: normalizeOptionalText(body.restructureFinalPath) ?? normalizeOptionalText(confirmed.sourceRestructurePath),
+    shotDesignFinalPath: normalizeOptionalText(body.shotDesignFinalPath) ?? normalizeOptionalText(confirmed.sourceShotDesignPath),
+    materialFrameMaps: normalizeStringArray(body.materialFrameMaps),
+    materialFrameMap: normalizeOptionalText(body.materialFrameMap),
+    visualManifest: normalizeOptionalText(body.visualManifest),
+    frameMap: normalizeOptionalText(body.frameMap),
+    userMaterialPackPath: normalizeOptionalText(body.userMaterialPackPath),
+    conversationId,
+  };
 }
 
 async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {
@@ -745,6 +779,11 @@ async function releaseAutoRunLeaseOnFailure({ handlers, lease, ownerId }) {
 function normalizeOptionalText(value) {
   const text = String(value ?? "").trim();
   return text || null;
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeOptionalText).filter(Boolean);
 }
 
 function safePreview(value, limit = 240) {

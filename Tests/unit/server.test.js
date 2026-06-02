@@ -707,7 +707,7 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
       return conversation;
     },
-    confirmPlan: async ({ conversationId, turnId, confirmationId, displayArtifact, storyboardArtifact, expectedRevision }) => {
+    confirmPlan: async ({ conversationId, turnId, confirmationId, sourceRestructurePath, sourceShotDesignPath, displayArtifact, storyboardArtifact, expectedRevision }) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
       if (expectedRevision != null && expectedRevision !== conversation.revision) {
@@ -721,6 +721,8 @@ test("agent chat persists restructure conversations and archives them manually",
         status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
         turnId,
         confirmationId,
+        sourceRestructurePath,
+        sourceShotDesignPath,
         displayArtifact,
         storyboardArtifact,
       };
@@ -4136,9 +4138,9 @@ test("active turn retry new thread releases newly acquired lease when start retu
   }
 });
 
-test("function slot auto-run creates processing job and active binding for stop writeback", async () => {
+test("function slot auto-run enqueues deterministic storyboard pipeline", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-active-turn-"));
-  const activeStarts = [];
+  const calls = [];
   const server = createServer({
     rootDir,
     staticWorkbench: { handle: () => false },
@@ -4146,19 +4148,22 @@ test("function slot auto-run creates processing job and active binding for stop 
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
     },
-    threadPool: {
-      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: rootDir, skillPath: "skill.md" } }),
-      acquireLease: async () => ({ lease_id: "lease_auto", thread_id: "thread_auto" }),
-    },
-    appServer: {
-      startTurnWithInputs: async () => {
-        throw new Error("active runtime should start the turn");
-      },
-    },
-    activeTurnRuntime: {
-      start: async (payload) => {
-        activeStarts.push(payload);
-        return { threadId: payload.threadId, turnId: "turn_auto", status: "submitted" };
+    shotStoryboardAutoPipelineService: {
+      enqueue: async (payload) => {
+        calls.push(payload);
+        return {
+          ok: true,
+          processingJobId: "job_auto",
+          sampleVideoId: payload.sampleVideoId,
+          traceId: "trace_auto",
+          runId: "run_auto",
+          stageId: "stage_auto",
+          artifactId: "artifact_auto",
+          parentArtifactId: payload.parentArtifactId,
+          status: "processing",
+          role: "shot-storyboard-prep",
+          message: "pipeline started",
+        };
       },
     },
   });
@@ -4173,19 +4178,20 @@ test("function slot auto-run creates processing job and active binding for stop 
       confirmationId: "confirm_1",
     });
     assert.equal(response.statusCode, 202);
-    assert.equal(response.body.processingJobId.startsWith("job_"), true);
-    assert.equal(response.body.artifactId, response.body.processingJobId);
-    assert.equal(activeStarts.length, 1);
-    assert.equal(activeStarts[0].binding.ownerType, "processing-job");
-    assert.equal(activeStarts[0].binding.ownerId, response.body.processingJobId);
-    assert.equal(activeStarts[0].binding.replayRef.type, "processing-job-input");
-    assert.equal(activeStarts[0].inputs[0].type, "text");
+    assert.equal(response.body.processingJobId, "job_auto");
+    assert.equal(response.body.artifactId, "artifact_auto");
+    assert.equal(response.body.status, "processing");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].sampleVideoId, "sample_auto");
+    assert.equal(calls[0].restructureFinalPath, "Artifacts/FunctionSlotRestructure/demo/restructure.final.md");
+    assert.equal(calls[0].parentArtifactId, "artifact_parent");
+    assert.equal(calls[0].confirmationId, "confirm_1");
   } finally {
     await closeServer(server);
   }
 });
 
-test("function slot auto-run releases lease when direct appserver start returns a different thread", async () => {
+test("function slot auto-run rejects artifact-only source before pipeline enqueue", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-thread-mismatch-"));
   const calls = [];
   const server = createServer({
@@ -4195,23 +4201,11 @@ test("function slot auto-run releases lease when direct appserver start returns 
       writeStageLog: async () => undefined,
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/auto-run-thread-mismatch.json" }),
     },
-    threadPool: {
-      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: rootDir, skillPath: "skill.md" } }),
-      acquireLease: async (payload) => {
-        calls.push({ type: "acquire", payload });
-        return { lease_id: "lease_auto", thread_id: "thread_auto" };
+    shotStoryboardAutoPipelineService: {
+      enqueue: async (payload) => {
+        calls.push(payload);
+        throw new Error("pipeline should not start without restructureFinalPath");
       },
-      releaseLease: async (payload) => calls.push({ type: "release", payload }),
-    },
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        calls.push({ type: "start", payload });
-        return { threadId: "thread_other", turnId: "turn_auto", status: "submitted" };
-      },
-    },
-    jobStore: {
-      createJob: () => ({ jobId: "job_auto" }),
-      updateJob: (jobId, patch) => calls.push({ type: "updateJob", jobId, patch }),
     },
   });
   server.listen(0, "127.0.0.1");
@@ -4220,14 +4214,13 @@ test("function slot auto-run releases lease when direct appserver start returns 
   try {
     const response = await makeRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
       sampleVideoId: "sample_auto",
-      restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      restructureArtifactId: "artifact_restructure",
       parentArtifactId: "artifact_parent",
       confirmationId: "confirm_1",
     });
-    assert.equal(response.statusCode, 502);
-    assert.equal(response.body.code, "appserver_turn_start_thread_mismatch");
-    assert.deepEqual(calls.map((call) => call.type), ["acquire", "start", "release"]);
-    assert.equal(calls[2].payload.leaseId, "lease_auto");
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "storyboard_prep_restructure_required");
+    assert.deepEqual(calls, []);
   } finally {
     await closeServer(server);
   }

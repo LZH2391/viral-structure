@@ -879,7 +879,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
     setConfirming(true);
     setErrorText(null);
-    setStatusText("确认方案并触发故事板准备与生图");
+    setStatusText("确认方案并触发故事板流水线");
     try {
       const confirmWithRevision = async (
         payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
@@ -912,7 +912,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             turnId: currentTurnId,
             confirmationId,
             sourceRestructurePath,
-            note: "用户已确认当前重组方案，准备触发 Shot Storyboard Prep 生图。",
+            sourceShotDesignPath: currentShotDesignFinalPath,
+            note: "用户已确认当前重组方案，准备触发 Shot Storyboard Prep 流水线。",
           },
           activeConversationRevision,
         );
@@ -923,16 +924,19 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       const payload = {
         sampleVideoId: "function-slot-workflow",
         restructureFinalPath: sourceRestructurePath,
+        shotDesignFinalPath: currentShotDesignFinalPath,
         restructureArtifactId: currentTurnId,
         parentArtifactId: currentTurnId,
         confirmationId,
+        conversationId: session.conversationId,
         runImageGeneration: true,
       };
       const storyboardResult = await autoRunShotStoryboardPrep(payload);
+      const storyboardJobLabel = storyboardResult.processingJobId ? `job ${shortId(storyboardResult.processingJobId)}` : `artifact ${shortId(storyboardResult.artifactId)}`;
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
-        text: `已确认当前方案，确认版本 ${shortId(confirmationId)}，已提交故事板准备与生图 turn：${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
+        text: `已确认当前方案，确认版本 ${shortId(confirmationId)}，已启动故事板准备流水线：${storyboardJobLabel} / trace ${shortId(storyboardResult.traceId)}`,
         status: "completed",
       }]);
       if (session.conversationId) {
@@ -941,7 +945,8 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             turnId: currentTurnId,
             confirmationId,
             sourceRestructurePath,
-            note: "已确认当前方案，已触发 Shot Storyboard Prep 生图。",
+            sourceShotDesignPath: currentShotDesignFinalPath,
+            note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
             storyboardArtifact: {
               artifactId: storyboardResult.artifactId,
               traceId: storyboardResult.traceId,
@@ -956,7 +961,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         setActiveConversationConfirmedPlan(logged?.conversation.confirmedPlan ?? null);
         void refreshConversations().catch(() => undefined);
       }
-      setStatusText("已触发故事板准备与生图");
+      setStatusText("已触发故事板准备流水线");
     } catch (error) {
       const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新恢复后再确认" : error instanceof Error ? error.message : "确认方案失败";
       setErrorText(message);

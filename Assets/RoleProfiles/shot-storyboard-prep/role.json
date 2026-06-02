@@ -10,6 +10,10 @@
     "prepareStoryboard": {
       "template": "prompts/prepare-storyboard.placeholder.v1.md",
       "version": "prepare-storyboard.placeholder.v1"
+    },
+    "repairTurn": {
+      "template": "prompts/repair-storyboard.v1.md",
+      "version": "repair-storyboard.v1"
     }
   }
 }

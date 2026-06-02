@@ -29,7 +29,7 @@ export type FunctionSlotWorkflowPlaceholderResponse = {
   stageId: string;
   artifactId: string | null;
   parentArtifactId: string | null;
-  status: "placeholder" | "submitted" | "running" | string;
+  status: "placeholder" | "submitted" | "running" | "processing" | string;
   message: string;
   role?: string | null;
   threadId?: string | null;
@@ -792,6 +792,7 @@ export async function confirmAgentChatConversation(
     note?: string | null;
     confirmationId?: string | null;
     sourceRestructurePath?: string | null;
+    sourceShotDesignPath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
     expectedRevision?: number | null;
@@ -899,7 +900,7 @@ export async function startFunctionSlotGovernanceRun(payload: { refreshEvidence?
   );
 }
 
-export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; runImageGeneration?: boolean } = {}) {
+export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; shotDesignFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; conversationId?: string | null; runImageGeneration?: boolean } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
       method: "POST",
