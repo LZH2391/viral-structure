@@ -15,7 +15,8 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   const [detail, setDetail] = useState<ThreadPoolRoleDetail | null>(null);
   const [status, setStatus] = useState("读取 ThreadPool");
   const [updatedAt, setUpdatedAt] = useState("等待刷新");
-  const [updatingSeeds, setUpdatingSeeds] = useState(false);
+  const [updatingAllSeeds, setUpdatingAllSeeds] = useState(false);
+  const [updatingSeedRole, setUpdatingSeedRole] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const layout = useResizableTwoPaneLayout({
     containerRef: layoutRef,
@@ -88,18 +89,36 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
     if (selectedRole) setDetail(await getThreadPoolRoleStatus(selectedRole));
   }, [refresh, selectedRole]);
 
-  const forceUpdateSeeds = useCallback(async () => {
+  const forceUpdateAllSeeds = useCallback(async () => {
     if (!window.confirm("确认强制更新所有 seed？空闲线程会被重建，运行中的线程会在释放后退休。")) return;
-    setUpdatingSeeds(true);
-    setStatus("正在更新 seed");
+    setUpdatingAllSeeds(true);
+    setStatus("正在更新所有 seed");
     try {
       const result = await forceUpdateThreadPoolSeeds();
-      setStatus(`seed 更新已触发：删除 ${result.deleted_count ?? 0}，待退休 ${result.retiring_count ?? 0}`);
+      setStatus(`所有 seed 更新已触发：删除 ${result.deleted_count ?? 0}，待退休 ${result.retiring_count ?? 0}`);
       await refreshDetail();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "seed 更新失败");
     } finally {
-      setUpdatingSeeds(false);
+      setUpdatingAllSeeds(false);
+    }
+  }, [refreshDetail]);
+
+  const forceUpdateRoleSeed = useCallback(async (role: string) => {
+    const targetRole = String(role || "").trim();
+    if (!targetRole) return;
+    if (!window.confirm(`确认强制更新 role ${targetRole} 的 seed？该 role 的空闲线程会被重建，运行中的线程会在释放后退休。`)) return;
+    setUpdatingSeedRole(targetRole);
+    setStatus(`正在更新 ${targetRole} seed`);
+    try {
+      const result = await forceUpdateThreadPoolSeeds({ roles: [targetRole], reason: "manual-force-update-role-seed-from-workbench" });
+      const updatedRole = result.roles?.[0] ?? targetRole;
+      setStatus(`${updatedRole} seed 更新已触发：删除 ${result.deleted_count ?? 0}，待退休 ${result.retiring_count ?? 0}`);
+      await refreshDetail();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "seed 更新失败");
+    } finally {
+      setUpdatingSeedRole(null);
     }
   }, [refreshDetail]);
 
@@ -116,7 +135,14 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
           onReset={layout.resetSize}
           onNudge={layout.nudgeSize}
         />
-        <RoleDetail detail={detail} updatingSeeds={updatingSeeds} onForceUpdateSeeds={forceUpdateSeeds} onChanged={refreshDetail} />
+        <RoleDetail
+          detail={detail}
+          updatingAllSeeds={updatingAllSeeds}
+          updatingSeedRole={updatingSeedRole}
+          onForceUpdateAllSeeds={forceUpdateAllSeeds}
+          onForceUpdateRoleSeed={forceUpdateRoleSeed}
+          onChanged={refreshDetail}
+        />
       </main>
     </div>
   );
@@ -207,19 +233,24 @@ function resolveRoleAvailability(role: ThreadPoolRoleSummary) {
 
 function RoleDetail({
   detail,
-  updatingSeeds,
-  onForceUpdateSeeds,
+  updatingAllSeeds,
+  updatingSeedRole,
+  onForceUpdateAllSeeds,
+  onForceUpdateRoleSeed,
   onChanged,
 }: {
   detail: ThreadPoolRoleDetail | null;
-  updatingSeeds: boolean;
-  onForceUpdateSeeds: () => Promise<void>;
+  updatingAllSeeds: boolean;
+  updatingSeedRole: string | null;
+  onForceUpdateAllSeeds: () => Promise<void>;
+  onForceUpdateRoleSeed: (role: string) => Promise<void>;
   onChanged: () => Promise<void>;
 }) {
   const threads = useMemo(() => (detail?.threads ?? []).filter((thread) => !thread.seed), [detail]);
   const [conversationStatus, setConversationStatus] = useState("选择 thread 查看对话");
   const [conversationThreadId, setConversationThreadId] = useState<string | null>(null);
   const [conversation, setConversation] = useState<ThreadConversation | null>(null);
+  const updatingCurrentRoleSeed = Boolean(detail?.role && updatingSeedRole === detail.role);
   const maintenanceBlocked = Boolean(detail?.warming) || Boolean(detail?.recovering) || detail?.readyForLeases === false;
   const maintenanceBlockedTitle = detail?.recovering
     ? "ThreadPool 正在恢复，维护操作暂不可用"
@@ -272,8 +303,11 @@ function RoleDetail({
           <div className="debug-trace-title">{detail ? detail.role : "未选择 role"}</div>
         </div>
         <div className="threadpool-maintenance-actions">
-          <button id="forceUpdateSeedsBtn" className="ghost-button danger-action" type="button" disabled={updatingSeeds} onClick={() => onForceUpdateSeeds().catch(() => undefined)}>
-            {updatingSeeds ? "更新中" : "更新 seed"}
+          <button id="forceUpdateRoleSeedBtn" className="ghost-button danger-action" type="button" disabled={!detail?.role || updatingAllSeeds || Boolean(updatingSeedRole)} onClick={() => detail?.role ? onForceUpdateRoleSeed(detail.role).catch(() => undefined) : undefined}>
+            {updatingCurrentRoleSeed ? "更新中" : "更新本 role seed"}
+          </button>
+          <button id="forceUpdateSeedsBtn" className="ghost-button danger-action" type="button" disabled={updatingAllSeeds || Boolean(updatingSeedRole)} onClick={() => onForceUpdateAllSeeds().catch(() => undefined)}>
+            {updatingAllSeeds ? "更新中" : "更新所有 seed"}
           </button>
         </div>
       </div>

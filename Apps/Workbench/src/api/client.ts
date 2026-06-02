@@ -778,12 +778,16 @@ export async function releaseThreadPoolOwnerLeases(ownerId: string) {
   );
 }
 
-export async function forceUpdateThreadPoolSeeds() {
+export async function forceUpdateThreadPoolSeeds(options: { roles?: string[]; reason?: string } = {}) {
+  const roles = (options.roles ?? []).map((role) => String(role).trim()).filter(Boolean);
   return readJsonResponse<{ ok: boolean; roles: string[]; deleted_count: number; retiring_count: number }>(
     await fetch(`${API_BASE_URL}/api/threadpool/maintenance/force-update-seeds`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reason: "manual-force-update-seeds-from-workbench" }),
+      body: JSON.stringify({
+        reason: options.reason ?? "manual-force-update-seeds-from-workbench",
+        ...(roles.length ? { roles } : {}),
+      }),
     }),
   );
 }

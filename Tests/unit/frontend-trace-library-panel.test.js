@@ -77,7 +77,12 @@ test("threadpool page and shot boundary agent use proxied API surface", () => {
   assert.match(api, /resolveCacheDecision/);
   assert.match(threadpoolApp, /discardThreadPoolThread/);
   assert.match(threadpoolApp, /forceUpdateThreadPoolSeeds/);
+  assert.match(threadpoolApp, /forceUpdateThreadPoolSeeds\(\{ roles: \[targetRole\]/);
+  assert.match(threadpoolApp, /更新本 role seed/);
+  assert.match(threadpoolApp, /更新所有 seed/);
+  assert.match(threadpoolApp, /id="forceUpdateRoleSeedBtn"/);
   assert.match(threadpoolApp, /id="forceUpdateSeedsBtn"/);
+  assert.match(api, /options\.roles/);
   assert.match(threadpoolApp, /THREADPOOL_REFRESH_INTERVAL_MS = 2000/);
   assert.match(threadpoolApp, /window\.setInterval/);
   assert.match(threadpoolApp, /getThreadConversation/);

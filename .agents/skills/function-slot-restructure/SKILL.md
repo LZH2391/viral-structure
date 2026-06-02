@@ -130,7 +130,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 本 skill 不展开具体 Shot 表、逐 shot 台词、分镜画面或包装说明。第一轮重组只把槽位链、atoms、adapter、脚本段落、节奏曲线、包装证明方案和结构级校验写清楚。
 
 - 第 7 节“包装与证明方案”必须足够支撑后续 Shot 设计：写明每个包装块的证明功能、覆盖层载体、字幕层规格、避让要求和风险。
-- 第 6 节“节奏曲线”必须消费证据层的 `rhythmTimingProfiles` 和治理层可选 `timingPolicy`，输出结构级 `timingBudget`：建议总时长范围、建议 shot 数范围、单镜时长范围、台词容量/字幕字数约束和同步点；不得只写“快 / 中 / 慢”。
+- 第 6 节“节奏曲线”必须消费证据层的 `rhythmTimingProfiles` 和治理层可选 `timingPolicy`，输出结构级 `timingBudget`：建议总时长范围、建议 shot 数范围、单镜时长范围、信息密度约束和同步点；不得只写“快 / 中 / 慢”，不得输出台词语速、每秒字数或按字数估算口播时长。
 - 若使用用户素材包，按 `references/material-aware-restructure.md` 写素材供给判断；素材充足时写推荐素材路径，素材不足时只标记供给类型并继续输出完整理想链路，不写推荐素材路径或素材缺口审计。这里允许引用选定的成片 `shotRef/groupId` 顺序，但不展开逐 shot 台词、分镜、包装说明或时间轴。
 - 不在第 5 节写逐字台词，不把结构说明伪装成口播。
 - 不输出 shot 表、shot group、分镜画面、包装说明、台词/字幕或预计时长。
@@ -155,7 +155,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - script atom pattern 的 `claimPattern / proofNeedClass / mustKeepClasses` 是否能保留
 - `proofNeed` 是否匹配目标 brief 的证明义务和观众状态变化；当前素材能否满足只用于素材供给类型判断，不作为 slot / atom 筛选条件
 - rhythm atom 是否适合信息密度和主张复杂度
-- rhythm atom 的 `timingEvidence / rhythmTimingProfiles` 是否支持当前节奏预算，包括来源总时长、单镜范围、字幕字数和口播密度
+- rhythm atom 的 `timingEvidence / rhythmTimingProfiles` 是否支持当前节奏预算，包括来源总时长、单镜范围、信息密度和同步点；证据中的台词语速或每秒字数只能作为来源事实，不得转写成重组方案建议
 - rhythm pattern 是否排斥当前 claim 或信息密度
 - packaging atom 的 `packagingFunction` 是否服务证明
 - packaging pattern 的 `proofType / visualHierarchyClass / riskClass` 是否适合目标主张、证明层级和平台呈现约束

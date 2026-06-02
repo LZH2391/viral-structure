@@ -579,7 +579,6 @@ def build_timing_budget_seed(candidate: Dict[str, Any]) -> Dict[str, Any] | None
         "sourceShotCount": sum(shot_counts) if shot_counts else None,
         "avgShotDurationSec": round(sum(avg_durations) / len(avg_durations), 3) if avg_durations else None,
         "derivedPace": profiles[0].get("derivedPace"),
-        "dialogueCharsPerSec": profiles[0].get("dialogueCharsPerSec"),
     }
 
 
