@@ -32,7 +32,7 @@ const focusIndexCache = new WeakMap<FunctionSlotGraphEdge[], FocusIndex>();
 
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
-  const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1"
+  const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1" && hasLegacyPlanTraceAtomNodes(graph)
     ? withAtomLayerProjection(graph)
     : graph;
   let positions: Map<string, LayoutPosition>;
@@ -187,6 +187,10 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   const result = dedupeEdges(edges);
   projectedEdgesCache.set(graph, { edgeSignature, visibleSignature, edges: result });
   return result;
+}
+
+function hasLegacyPlanTraceAtomNodes(graph: FunctionSlotLibraryGraph) {
+  return graph.nodes.some((node) => node.type === "atomArchetype" || node.type === "atomPattern");
 }
 
 function shouldProjectHierarchyEdge(nodeTypeById: Map<string, string>, sourceId: string, targetId: string) {
@@ -575,14 +579,9 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
 function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
   if (node.type === "confirmedPlan") return true;
   if (node.type === "tracedSlot") return filters.slot;
-  if (node.type === "slotFamily") return filters.slotFamily;
-  if (node.type === "slotArchetype") return filters.slotArchetype;
   if (node.type === "slotSubtype") return filters.slotSubtype;
-  if (node.type === "atomLayer") return filters.atomLayer;
-  if (node.type === "atomArchetype") return filters.atomArchetype;
-  if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type === "sourceVariant") return filters.sourceVariant;
-  if (node.type === "sourceSample") return true;
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern" || node.type === "sourceSample") return false;
   if (node.type === "sourceExample") return false;
   return true;
 }
@@ -610,15 +609,8 @@ function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
     center: CENTER,
     yScale: 1,
     levels: [
-      { types: ["tracedSlot"], radius: 150 },
-      { types: ["slotFamily"], radius: 270 },
-      { types: ["slotArchetype"], radius: 420 },
-      { types: ["slotSubtype"], radius: 600 },
-      { types: ["atomLayer"], radius: 820 },
-      { types: ["atomArchetype"], radius: 1080 },
-      { types: ["atomPattern"], radius: 1380 },
-      { types: ["sourceVariant"], radius: 1600 },
-      { types: ["sourceSample"], radius: 1720 },
+      { types: ["slotSubtype"], radius: 620 },
+      { types: ["sourceVariant"], radius: 1320 },
     ],
   });
 }
@@ -643,14 +635,8 @@ function buildPlanTraceColumnPositions(graph: FunctionSlotLibraryGraph): Map<str
 
 const PLAN_TRACE_COLUMN_LEVELS = [
   { types: ["confirmedPlan"], spacing: 220 },
-  { types: ["slotFamily"], spacing: 190 },
-  { types: ["slotArchetype"], spacing: 170 },
   { types: ["slotSubtype"], spacing: 150 },
-  { types: ["atomLayer"], spacing: 132 },
-  { types: ["atomArchetype"], spacing: 112 },
-  { types: ["atomPattern"], spacing: 96 },
   { types: ["sourceVariant"], spacing: 58 },
-  { types: ["sourceSample"], spacing: 58 },
 ];
 
 function planTraceColumnSort(
@@ -1163,7 +1149,7 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
   if (node.type === "libraryItem") return "SourceSample";
   if (node.type === "slotInstance") return `${node.data.slotId ?? ""} ${node.label}`.slice(0, 18);
-  if (node.type === "atomInstance") return String(node.data.atomId ?? node.label);
+  if (node.type === "atomInstance") return String(node.label ?? node.data.atomId ?? "").slice(0, 24);
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);
   if (node.type === "slotConcept") return "SlotConcept";
   return node.label;

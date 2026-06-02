@@ -9,13 +9,8 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
     return (
       <section className="slot-graph-card">
         <div className="section-heading">溯源筛选</div>
-        <label><input type="checkbox" checked={filters.slotFamily} onChange={() => update("slotFamily")} /> Family</label>
-        <label><input type="checkbox" checked={filters.slotArchetype} onChange={() => update("slotArchetype")} /> Archetype</label>
-        <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> Subtype</label>
-        <label><input type="checkbox" checked={filters.atomLayer} onChange={() => update("atomLayer")} /> Layer</label>
-        <label><input type="checkbox" checked={filters.atomArchetype} onChange={() => update("atomArchetype")} /> AtomArchetype</label>
-        <label><input type="checkbox" checked={filters.atomPattern} onChange={() => update("atomPattern")} /> Pattern</label>
-        <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariant</label>
+        <label><input type="checkbox" checked={filters.slotSubtype} onChange={() => update("slotSubtype")} /> SlotSubType</label>
+        <label><input type="checkbox" checked={filters.sourceVariant} onChange={() => update("sourceVariant")} /> SourceVariantAtom</label>
       </section>
     );
   }

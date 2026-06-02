@@ -70,7 +70,7 @@ test("governance graph does not project hidden atom archetype paths into subtype
   assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
 });
 
-test("confirmed plan trace graph shows used source variants and source samples but hides source examples", () => {
+test("confirmed plan trace graph shows plan to subtype to source variant only", () => {
   const { buildVisibleGraph, reverseTracePath } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();
   const graph = {
@@ -78,15 +78,15 @@ test("confirmed plan trace graph shows used source variants and source samples b
     artifactId: "confirmed-plan-trace",
     nodes: [
       { id: "plan_a:plan", type: "confirmedPlan", label: "plan_a", group: "plan", data: { planId: "plan_a" } },
-      { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
+      { id: "slotSubtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
       { id: "plan_a:sample:sample_1", type: "sourceExample", label: "A", group: "sourceExample", data: { planId: "plan_a", sampleId: "sample_1" } },
       { id: "plan_a:variant:sample_1:F001", type: "sourceVariant", label: "A::F001", group: "sourceVariant", data: { planId: "plan_a", sampleId: "sample_1", variantId: "sample_1::F001" } },
       { id: "plan_a:sourceSample:sample_1", type: "sourceSample", label: "sample_1", group: "sourceSample", data: { planId: "plan_a", sampleVideoId: "sample_1" } },
     ],
     edges: [
-      { id: "edge:family", source: "plan_a:plan", target: "family:f1", type: "plan_uses_slot_family" },
-      { id: "edge:source", source: "family:f1", target: "plan_a:sample:sample_1", type: "traced_to_source_sample" },
-      { id: "edge:variant", source: "family:f1", target: "plan_a:variant:sample_1:F001", type: "traced_to_source_variant" },
+      { id: "edge:subtype", source: "plan_a:plan", target: "slotSubtype:s1", type: "plan_uses_slot_subtype" },
+      { id: "edge:source", source: "slotSubtype:s1", target: "plan_a:sample:sample_1", type: "traced_to_source_sample" },
+      { id: "edge:variant", source: "slotSubtype:s1", target: "plan_a:variant:sample_1:F001", type: "traced_to_source_variant" },
       { id: "edge:sample", source: "plan_a:variant:sample_1:F001", target: "plan_a:sourceSample:sample_1", type: "source_variant_to_sample" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 0, bindingCount: 0, conceptCount: 1 },
@@ -95,19 +95,20 @@ test("confirmed plan trace graph shows used source variants and source samples b
   const visible = buildVisibleGraph(graph, filters);
 
   assert.ok(visible.nodes.some((node) => node.type === "confirmedPlan"));
+  assert.ok(visible.nodes.some((node) => node.type === "slotSubtype"));
   assert.equal(visible.nodes.some((node) => node.type === "sourceExample"), false);
   assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
-  assert.ok(visible.nodes.some((node) => node.type === "sourceSample"));
+  assert.equal(visible.nodes.some((node) => node.type === "sourceSample"), false);
   assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_sample"), false);
   assert.ok(visible.edges.some((edge) => edge.type === "traced_to_source_variant"));
   const path = reverseTracePath("plan_a:variant:sample_1:F001", visible.edges);
   assert.ok(path.nodes.has("plan_a:plan"));
-  assert.ok(path.nodes.has("family:f1"));
-  assert.ok(path.edges.has("edge:family"));
+  assert.ok(path.nodes.has("slotSubtype:s1"));
+  assert.ok(path.edges.has("edge:subtype"));
   assert.ok(path.edges.has("edge:variant"));
 });
 
-test("confirmed plan trace positions grow outward by provenance depth", () => {
+test("confirmed plan trace positions use three provenance levels", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();
   const graph = {
@@ -115,24 +116,12 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
     artifactId: "confirmed-plan-trace",
     nodes: [
       { id: "plan:root", type: "confirmedPlan", label: "plan", group: "plan", data: {} },
-      { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
-      { id: "archetype:a1", type: "slotArchetype", label: "archetype", group: "slot", data: {} },
       { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
-      { id: "atomLayer:l1", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
-      { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom archetype", group: "script", data: {} },
-      { id: "atomPattern:ap1", type: "atomPattern", label: "atom pattern", group: "script", data: {} },
       { id: "variant:v1", type: "sourceVariant", label: "source label", group: "sourceVariant", data: { label: "source label" } },
-      { id: "sample:s1", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_1" } },
     ],
     edges: [
-      { id: "e1", source: "plan:root", target: "family:f1", type: "plan_uses_slot_family" },
-      { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
-      { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
-      { id: "e4", source: "subtype:s1", target: "atomLayer:l1", type: "subtype_to_atom_layer" },
-      { id: "e5", source: "atomLayer:l1", target: "atomArchetype:aa1", type: "atom_layer_to_archetype" },
-      { id: "e5b", source: "atomArchetype:aa1", target: "atomPattern:ap1", type: "atom_archetype_to_pattern" },
-      { id: "e6", source: "atomPattern:ap1", target: "variant:v1", type: "traced_to_source_variant" },
-      { id: "e7", source: "variant:v1", target: "sample:s1", type: "source_variant_to_sample" },
+      { id: "e1", source: "plan:root", target: "subtype:s1", type: "plan_uses_slot_subtype" },
+      { id: "e2", source: "subtype:s1", target: "variant:v1", type: "traced_to_source_variant" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 5 },
   };
@@ -145,13 +134,7 @@ test("confirmed plan trace positions grow outward by provenance depth", () => {
     return Math.hypot(node.x - root.x, node.y - root.y);
   };
 
-  assert.ok(distance("family:f1") < distance("archetype:a1"));
-  assert.ok(distance("archetype:a1") < distance("subtype:s1"));
-  assert.ok(distance("subtype:s1") < distance("atomLayer:l1"));
-  assert.ok(distance("atomLayer:l1") < distance("atomArchetype:aa1"));
-  assert.ok(distance("atomArchetype:aa1") < distance("atomPattern:ap1"));
-  assert.ok(distance("atomPattern:ap1") < distance("variant:v1"));
-  assert.ok(distance("variant:v1") < distance("sample:s1"));
+  assert.ok(distance("subtype:s1") < distance("variant:v1"));
 });
 
 test("governance radial layout keeps root centered and keeps first layer inside its sector", () => {

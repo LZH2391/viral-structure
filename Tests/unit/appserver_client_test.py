@@ -289,6 +289,45 @@ class AppServerClientTests(unittest.TestCase):
             self.assertEqual(started.turn_id, "turn_1")
             self.assertEqual([method for method, _ in requests].count("thread/read"), 2)
 
+    def test_wait_turn_completed_syncs_thread_state_when_completion_event_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace_root = Path(tmp)
+            original_interval = appserver_client.TURN_COMPLETION_STATE_SYNC_INTERVAL_SECONDS
+            appserver_client.TURN_COMPLETION_STATE_SYNC_INTERVAL_SECONDS = 0.05
+
+            class TestClient(AppServerSessionClient):
+                def _build_transport(self):
+                    return FlakyStartTransport()
+
+                def read_thread(self, thread_id: str, include_turns: bool = False) -> dict:
+                    return {
+                        "id": thread_id,
+                        "turns": [
+                            {
+                                "id": "turn_1",
+                                "status": "completed",
+                                "items": [
+                                    {
+                                        "id": "agent_1",
+                                        "type": "agentMessage",
+                                        "text": "review finished",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+
+            try:
+                client = TestClient(workspace_root, transport_mode="ws")
+                client._initialized = True
+
+                status = client.wait_turn_completed("thread_1", "turn_1", timeout_seconds=0.2)
+            finally:
+                appserver_client.TURN_COMPLETION_STATE_SYNC_INTERVAL_SECONDS = original_interval
+
+            self.assertEqual(status, "completed")
+            self.assertEqual(client.get_final_agent_message("thread_1", "turn_1"), "review finished")
+
     def test_inspect_turn_activity_uses_v2_items_from_thread_read_and_events(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_root = Path(tmp)

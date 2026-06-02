@@ -252,19 +252,16 @@ test("display overlay traces confirmed plan slots to source samples and variants
   assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001" && node.label === "问题对象直冲与执行动作入口"));
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_other::script::S009"), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && String(node.label).includes("::")), false);
-  assert.ok(traceGraph.nodes.some((node) => node.type === "slotFamily" && node.label === "观看理由类"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "slotArchetype" && node.label === "问题激活原型"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "slotFamily"), false);
+  assert.equal(traceGraph.nodes.some((node) => node.type === "slotArchetype"), false);
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotSubtype" && node.label === "场景问题激活"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "atomLayer"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "atomArchetype" && node.label === "需求建立脚本原型"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceSample" && node.data.sampleVideoId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"));
-  assert.ok(traceGraph.nodes.some((node) => node.type === "atomPattern" && node.label === "可见问题建立需求脚本模式"));
-  assert.ok(traceGraph.edges.some((edge) => edge.type === "plan_uses_slot_family"));
-  assert.ok(traceGraph.edges.some((edge) => edge.type === "subtype_to_atom_layer"));
-  assert.ok(traceGraph.edges.some((edge) => edge.type === "atom_layer_to_archetype"));
-  assert.ok(traceGraph.edges.some((edge) => edge.type === "atom_archetype_to_pattern"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "atomLayer"), false);
+  assert.equal(traceGraph.nodes.some((node) => node.type === "atomArchetype"), false);
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceSample"), false);
+  assert.equal(traceGraph.nodes.some((node) => node.type === "atomPattern"), false);
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "plan_uses_slot_subtype"));
   assert.ok(traceGraph.edges.some((edge) => edge.type === "traced_to_source_variant"));
-  assert.ok(traceGraph.edges.some((edge) => edge.type === "source_variant_to_sample"));
+  assert.equal(traceGraph.edges.some((edge) => edge.type === "source_variant_to_sample"), false);
   assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
 });
 

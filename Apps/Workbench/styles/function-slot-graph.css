@@ -194,6 +194,11 @@
   background: #f28b82;
 }
 
+.legend-source-variant {
+  background: #111827;
+  border: 1px solid rgba(196, 203, 237, 0.82);
+}
+
 .slot-graph-bg circle {
   fill: rgba(255, 255, 255, 0.08);
 }
@@ -202,16 +207,18 @@
   stroke: rgba(151, 163, 185, 0.22);
   stroke-width: 1.1;
   stroke-linecap: round;
+  opacity: 0.34;
 }
 
 .slot-graph-edge.focused {
   stroke: rgba(196, 187, 255, 0.94);
   stroke-width: 3;
   filter: drop-shadow(0 0 7px rgba(187, 174, 255, 0.42));
+  opacity: 1;
 }
 
 .slot-graph-edge.muted {
-  opacity: 0.32;
+  opacity: 0.18;
 }
 
 .slot-graph-edge.edge-slot_next,

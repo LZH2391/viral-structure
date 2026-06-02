@@ -464,12 +464,8 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
     return (
       <div className="slot-graph-legend">
         <span><i className="legend-plan" />Confirmed plan</span>
-        <span><i className="legend-family" />Family</span>
-        <span><i className="legend-archetype" />Archetype</span>
         <span><i className="legend-subtype" />Subtype</span>
-        <span><i className="legend-script" />Script layer / pattern</span>
-        <span><i className="legend-rhythm" />Rhythm layer / pattern</span>
-        <span><i className="legend-packaging" />Packaging layer / pattern</span>
+        <span><i className="legend-source-variant" />SourceVariantAtom</span>
       </div>
     );
   }

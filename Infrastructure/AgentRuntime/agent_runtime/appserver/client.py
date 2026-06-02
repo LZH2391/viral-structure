@@ -31,6 +31,7 @@ TRANSPORT_RECOVERY_ATTEMPTS = 3
 THREAD_READ_AFTER_START_RETRY_SECONDS = 30.0
 THREAD_READ_AFTER_START_RETRY_INITIAL_DELAY_SECONDS = 0.2
 THREAD_READ_AFTER_START_RETRY_MAX_DELAY_SECONDS = 1.0
+TURN_COMPLETION_STATE_SYNC_INTERVAL_SECONDS = 2.0
 
 
 class AppServerError(RuntimeError):
@@ -457,8 +458,32 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
     def wait_turn_completed(self, thread_id: str, turn_id: str, timeout_seconds: float | None = None) -> str:
         event = self._turn_completion_events.setdefault(turn_id, threading.Event())
         timeout = self.turn_timeout_seconds if timeout_seconds is None else float(timeout_seconds)
-        if event.wait(timeout=timeout):
-            return self._turn_statuses.get(turn_id, "unknown")
+        deadline = time.monotonic() + max(0.0, timeout)
+        while True:
+            status = self._turn_statuses.get(turn_id)
+            if status and not is_non_terminal_turn_status(status):
+                return status
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self._sync_turn_state_from_thread(thread_id, turn_id)
+                status = self._turn_statuses.get(turn_id)
+                if status and not is_non_terminal_turn_status(status):
+                    return status
+                break
+            wait_seconds = min(remaining, max(0.05, TURN_COMPLETION_STATE_SYNC_INTERVAL_SECONDS))
+            if event.wait(timeout=wait_seconds):
+                return self._turn_statuses.get(turn_id, "unknown")
+            try:
+                self._sync_turn_state_from_thread(thread_id, turn_id)
+            except AppServerError:
+                continue
+        try:
+            self._sync_turn_state_from_thread(thread_id, turn_id)
+        except AppServerError:
+            pass
+        status = self._turn_statuses.get(turn_id)
+        if status and not is_non_terminal_turn_status(status):
+            return status
         raise TimeoutError(f"timed out waiting for turn completion: {turn_id}")
 
     def get_final_agent_message(self, thread_id: str, turn_id: str) -> str | None:
