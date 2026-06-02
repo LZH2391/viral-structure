@@ -16,9 +16,16 @@ type ChatMessage = {
   status?: "running" | "completed" | "failed" | "canceled";
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
 };
+type PendingAgentChatSend = {
+  text: string;
+  role: string;
+  userMessageId: string;
+  generation: number;
+};
 
 const POLL_INTERVAL_MS = 1800;
 const AUTO_TURN_MAX_POLLS = 80;
+const WARMING_RESEND_INTERVAL_MS = 2500;
 
 export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [mode, setMode] = useState<ChatMode>("direct");
@@ -46,7 +53,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const [errorText, setErrorText] = useState<string | null>(null);
   const layoutRef = useRef<HTMLElement>(null);
   const pollTimerRef = useRef<number | null>(null);
+  const warmingResendTimerRef = useRef<number | null>(null);
   const pollGenerationRef = useRef(0);
+  const pendingSendGenerationRef = useRef(0);
+  const pendingSendRef = useRef<PendingAgentChatSend | null>(null);
+  const resendPendingRef = useRef<(pending: PendingAgentChatSend) => void>(() => undefined);
   const activeConversationIdRef = useRef<string | null>(null);
   const resumeGenerationRef = useRef(0);
   const conversationActionGenerationRef = useRef(0);
@@ -123,6 +134,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
+    if (warmingResendTimerRef.current) window.clearTimeout(warmingResendTimerRef.current);
   }, []);
 
   const sessionMeta = useMemo(() => ({
@@ -231,7 +243,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       source: mode,
       role: mode === "threadpool-role" ? selectedRole : null,
     });
-    if (!nextSession.ok || !nextSession.threadId) throw new Error(nextSession.message || "Agent 会话创建失败");
+    if (!nextSession.ok || !nextSession.threadId) throw agentChatSessionError(nextSession);
     if (!isCurrentAction()) return nextSession;
     setSession(nextSession);
     if (nextSession.conversationId) {
@@ -332,9 +344,38 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     }
   }, [activeConversationRevision, contextUsage, sessionMeta.conversationId, sessionMeta.workspaceRoot]);
 
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text || busy) return;
+  const scheduleWarmingResend = useCallback((pending: PendingAgentChatSend) => {
+    if (warmingResendTimerRef.current) window.clearTimeout(warmingResendTimerRef.current);
+    const pollReady = async () => {
+      const currentPending = pendingSendRef.current;
+      if (!currentPending || currentPending.generation !== pending.generation) return;
+      try {
+        const payload = await getThreadPoolRoles();
+        const nextRoles = payload.roles ?? [];
+        setRoles(nextRoles);
+        const roleStatus = nextRoles.find((role) => role.role === currentPending.role);
+        if (isThreadPoolRoleReady(roleStatus)) {
+          warmingResendTimerRef.current = null;
+          setErrorText(null);
+          setStatusText("ThreadPool 已就绪，自动重发");
+          setMessages((current) => current.map((message) => message.id === `system-warming-${currentPending.userMessageId}`
+            ? { ...message, text: "ThreadPool 已就绪，正在自动重发", status: "completed" }
+            : message));
+          resendPendingRef.current(currentPending);
+          return;
+        }
+        setStatusText("ThreadPool warming 中，等待自动重发");
+      } catch {
+        setStatusText("ThreadPool warming 中，等待自动重发");
+      }
+      warmingResendTimerRef.current = window.setTimeout(pollReady, WARMING_RESEND_INTERVAL_MS);
+    };
+    warmingResendTimerRef.current = window.setTimeout(pollReady, WARMING_RESEND_INTERVAL_MS);
+  }, []);
+
+  const handleSend = useCallback(async (pending?: PendingAgentChatSend | null) => {
+    const text = (pending?.text ?? draft).trim();
+    if (!text || (busy && !pending)) return;
     if (activeConversationInvalidated) {
       const message = "thread 已不可读，此会话已失效，请归档后新建会话";
       setErrorText(message);
@@ -344,8 +385,15 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     const isCurrentAction = beginConversationAction();
     setBusy(true);
     setErrorText(null);
-    setDraft("");
-    setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text, status: "completed" }]);
+    if (!pending) setDraft("");
+    const userMessageId = pending?.userMessageId ?? uniqueId("user");
+    setMessages((current) => {
+      const existing = current.find((message) => message.id === userMessageId);
+      if (existing) {
+        return current.map((message) => message.id === userMessageId ? { ...message, status: "completed" } : message);
+      }
+      return [...current, { id: userMessageId, role: "user", text, status: "completed" }];
+    });
     try {
       const activeSession = await ensureSession(false, isCurrentAction);
       if (!isCurrentAction()) return;
@@ -386,17 +434,41 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setCurrentTurnId(submitted.turnId);
       setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
       setStatusText("Agent 回复中");
+      if (pendingSendRef.current?.userMessageId === userMessageId) pendingSendRef.current = null;
+      if (warmingResendTimerRef.current) {
+        window.clearTimeout(warmingResendTimerRef.current);
+        warmingResendTimerRef.current = null;
+      }
       schedulePoll(activeSession, submitted.turnId);
     } catch (error) {
       if (!isCurrentAction()) return;
       const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新选择或恢复后再发送" : error instanceof Error ? error.message : "发送失败";
+      if (isThreadPoolWarmingError(error) && mode === "threadpool-role") {
+        const role = session?.role ?? selectedRole;
+        const generation = pending?.generation ?? pendingSendGenerationRef.current + 1;
+        pendingSendGenerationRef.current = generation;
+        pendingSendRef.current = { text, role, userMessageId, generation };
+        setErrorText(`${message}，就绪后将自动重发`);
+        setMessages((current) => current.some((item) => item.id === `system-warming-${userMessageId}`)
+          ? current.map((item) => item.id === `system-warming-${userMessageId}` ? { ...item, text: `${message}，就绪后将自动重发`, status: "running" } : item)
+          : [...current, { id: `system-warming-${userMessageId}`, role: "system", text: `${message}，就绪后将自动重发`, status: "running" }]);
+        scheduleWarmingResend({ text, role, userMessageId, generation });
+        setStatusText("等待 ThreadPool 就绪后自动重发");
+        return;
+      }
       setErrorText(message);
       setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
       if (isConversationConflictError(error)) void refreshConversations().catch(() => undefined);
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, beginConversationAction, busy, draft, ensureSession, maybeCompactBeforeSend, refreshConversations, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
+  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, beginConversationAction, busy, draft, ensureSession, maybeCompactBeforeSend, mode, refreshConversations, schedulePoll, scheduleWarmingResend, selectedRole, session?.role, sessionMeta, syncActiveConversationForRetry]);
+
+  useEffect(() => {
+    resendPendingRef.current = (pending) => {
+      void handleSend(pending);
+    };
+  }, [handleSend]);
 
   const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
     if (busy) return;
@@ -1128,5 +1200,25 @@ function isConversationConflictError(error: unknown) {
   const apiError = error as { statusCode?: unknown; code?: unknown } | null;
   if (!apiError || typeof apiError !== "object") return false;
   return apiError.statusCode === 409 || String(apiError.code ?? "").includes("conversation_revision_conflict") || String(apiError.code ?? "").includes("conversation_archived");
+}
+
+function isThreadPoolWarmingError(error: unknown) {
+  const apiError = error as { code?: unknown; retryable?: unknown; message?: unknown } | null;
+  if (!apiError || typeof apiError !== "object") return false;
+  const code = String(apiError.code ?? "");
+  const message = String(apiError.message ?? "");
+  return code === "threadpool_warming" || (Boolean(apiError.retryable) && message.includes("warming"));
+}
+
+function isThreadPoolRoleReady(role?: ThreadPoolRoleSummary | null) {
+  if (!role) return false;
+  return Boolean(role.canAcquire) && role.readyForLeases !== false && !role.warming && !role.recovering && !role.seedMissing;
+}
+
+function agentChatSessionError(session: AgentChatSessionResponse) {
+  const error = new Error(session.message || "Agent 会话创建失败") as Error & { code?: string; retryable?: boolean | null };
+  error.code = session.error || "agent_chat_session_failed";
+  error.retryable = session.retryable ?? null;
+  return error;
 }
 
