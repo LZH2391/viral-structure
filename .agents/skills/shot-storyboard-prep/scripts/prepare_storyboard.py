@@ -7,6 +7,7 @@ import math
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,14 @@ SHOT_SECTION_RE = re.compile(r"(^##\s+(?:\d+\.\s+)?Shot 设计\s*\n)(.*?)(?=^##\
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 DEFAULT_GROUP_SIZE = 4
 DEFAULT_CHARS_PER_SECOND = 6.0
+STRATEGY_COLUMN = "素材来源/处理策略"
+SELF_DESIGNED_STRATEGY = "self_designed_by_shot_design"
+KNOWN_STRATEGIES = {
+    "existing_material",
+    "existing_material_packaging_caption",
+    SELF_DESIGNED_STRATEGY,
+    "reuse_transformed_fallback",
+}
 PLACEHOLDER_DURATION_VALUES = {
     "",
     "待估算",
@@ -28,6 +37,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Prepare storyboard prompts from shot-design.final.md")
     parser.add_argument("--input", required=True, help="Path to shot-design.final.md")
     parser.add_argument("--output", help="Output storyboard prompt markdown path")
+    parser.add_argument("--manifest-output", help="Output storyboard manifest JSON path")
     parser.add_argument("--group-size", type=int, default=DEFAULT_GROUP_SIZE)
     parser.add_argument("--chars-per-second", type=float, default=DEFAULT_CHARS_PER_SECOND)
     parser.add_argument("--duration-script", help="Optional estimate_dialogue_duration.py path")
@@ -37,6 +47,7 @@ def main() -> None:
 
     input_path = Path(args.input).resolve()
     output_path = Path(args.output).resolve() if args.output else input_path.with_name("shot-storyboard-prompts.md")
+    manifest_path = Path(args.manifest_output).resolve() if args.manifest_output else input_path.with_name("shot-storyboard-manifest.json")
     if args.group_size <= 0:
       raise ValueError("--group-size must be greater than 0")
     if args.chars_per_second <= 0:
@@ -49,21 +60,27 @@ def main() -> None:
     estimates = estimate_durations(table["rows"], args.chars_per_second, resolve_duration_script(args.duration_script))
     rows = apply_duration_estimates(table["rows"], estimates, args.chars_per_second)
     duration_stats = duration_update_stats(table["rows"], rows)
+    storyboard_plan = build_storyboard_plan(rows, aspect, args.group_size, input_path, output_path)
 
     if not args.no_write_back:
         updated_section_body = replace_table_rows(section["body"], table, rows)
         updated_text = text[: section["body_start"]] + updated_section_body + text[section["body_end"] :]
         input_path.write_text(updated_text, encoding="utf-8")
 
-    output_path.write_text(render_storyboard_markdown(rows, aspect, args.group_size, input_path), encoding="utf-8")
+    output_path.write_text(render_storyboard_markdown(storyboard_plan, input_path), encoding="utf-8")
+    manifest_path.write_text(json.dumps(storyboard_plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     result = {
         "input": str(input_path),
         "output": str(output_path),
+        "manifest": str(manifest_path),
         "updatedInput": None if args.no_write_back else str(input_path),
         "shotCount": len(rows),
+        "generatedShotCount": sum(1 for shot in storyboard_plan["shots"] if shot["shouldGenerate"]),
+        "materialShotCount": sum(1 for shot in storyboard_plan["shots"] if not shot["shouldGenerate"]),
         "groupSize": args.group_size,
-        "groupCount": math.ceil(len(rows) / args.group_size) if rows else 0,
+        "groupCount": len(storyboard_plan["storyboardGroups"]),
         "aspect": aspect,
+        "warnings": storyboard_plan["warnings"],
         **duration_stats,
     }
     print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
@@ -248,7 +265,117 @@ def replace_table_rows(section_body: str, table: dict[str, Any], rows: list[dict
     return "\n".join(lines) + ("\n" if section_body.endswith("\n") else "")
 
 
-def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str | None], group_size: int, source_path: Path) -> str:
+def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | None], group_size: int, source_path: Path, prompt_path: Path) -> dict[str, Any]:
+    has_strategy_column = any(STRATEGY_COLUMN in row for row in rows)
+    warnings = []
+    shots = []
+    generated_rows = []
+    for row in rows:
+        strategy_info = parse_strategy(row.get(STRATEGY_COLUMN, ""))
+        if has_strategy_column:
+            should_generate = strategy_info["strategy"] == SELF_DESIGNED_STRATEGY
+        else:
+            should_generate = True
+            strategy_info = {
+                **strategy_info,
+                "strategy": "legacy_unclassified",
+                "sourceRefs": [],
+            }
+        if has_strategy_column and not strategy_info["strategy"]:
+            warnings.append(f"{row.get('shot', '')}: 素材来源/处理策略未识别，已排除生图 prompt")
+        shot = {
+            "shotId": row.get("shot", ""),
+            "slotSubtype": row.get("slotSubtype 对齐", ""),
+            "slotKey": parse_slot_key(row.get("slotSubtype 对齐", "")),
+            "strategy": strategy_info["strategy"],
+            "strategyRaw": row.get(STRATEGY_COLUMN, ""),
+            "sourceRefs": strategy_info["sourceRefs"],
+            "shouldGenerate": should_generate,
+            "scriptSegment": row.get("脚本段落", ""),
+            "rhythmRange": row.get("节奏区间", ""),
+            "packagingBlock": row.get("包装块", ""),
+            "imagePrompt": row.get("分镜画面", ""),
+            "overlayPackaging": row.get("包装说明", ""),
+            "dialogue": row.get("台词/字幕（若有）", ""),
+            "duration": row.get("预计时长", ""),
+            "syncPoint": row.get("必须同步点", ""),
+            "proofFunction": row.get("证明功能", ""),
+        }
+        shots.append(shot)
+        if should_generate:
+            generated_rows.append(row)
+    if not has_strategy_column:
+        warnings.append("Shot 表缺少“素材来源/处理策略”列，已按 legacy 行为把所有 shot 写入生图 prompt")
+
+    groups = build_storyboard_groups(generated_rows, group_size)
+    return {
+        "type": "shot-storyboard-prep-manifest",
+        "schemaVersion": "shot-storyboard-prep.manifest.v1",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "source": {
+            "shotDesignFinalPath": str(source_path),
+            "storyboardPromptPath": str(prompt_path),
+        },
+        "aspect": aspect,
+        "groupSize": group_size,
+        "warnings": warnings,
+        "shots": shots,
+        "storyboardGroups": groups,
+    }
+
+
+def parse_strategy(value: str) -> dict[str, Any]:
+    text = str(value or "").strip().replace("`", "")
+    strategy = None
+    for candidate in KNOWN_STRATEGIES:
+        if re.search(rf"(^|[^A-Za-z0-9_]){re.escape(candidate)}([^A-Za-z0-9_]|$)", text):
+            strategy = candidate
+            break
+    source_refs = []
+    for match in re.finditer(r"\b(?:shot|group)_[A-Za-z0-9_\-]+\b", text):
+        ref = match.group(0)
+        if ref not in source_refs:
+            source_refs.append(ref)
+    return {
+        "strategy": strategy,
+        "sourceRefs": source_refs,
+    }
+
+
+def parse_slot_key(value: str) -> str:
+    text = str(value or "").strip()
+    match = re.search(r"`([^`]*SUB_[^`]*)`", text)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"\bSUB_[A-Za-z0-9_]+\b", text)
+    if match:
+        return match.group(0)
+    return text.split()[0] if text.split() else "未标明 slot"
+
+
+def build_storyboard_groups(rows: list[dict[str, str]], group_size: int) -> list[dict[str, Any]]:
+    groups = []
+    for group_index, start in enumerate(range(0, len(rows), group_size), 1):
+        group_rows = pad_storyboard_group(rows[start : start + group_size], group_size, start)
+        groups.append({
+            "groupId": f"storyboard-group-{group_index:02d}",
+            "title": f"{group_index:02d}",
+            "shots": [
+                {
+                    "shotId": row.get("shot", ""),
+                    "cellIndex": cell_index + 1,
+                    "isPad": str(row.get("shot", "")).startswith("storyboard_blank_pad_"),
+                    "imagePrompt": row.get("分镜画面", ""),
+                    "overlayPackaging": row.get("包装说明", ""),
+                }
+                for cell_index, row in enumerate(group_rows)
+            ],
+        })
+    return groups
+
+
+def render_storyboard_markdown(storyboard_plan: dict[str, Any], source_path: Path) -> str:
+    aspect = storyboard_plan["aspect"]
     ratio = aspect.get("ratio") or "未明确"
     orientation = aspect.get("orientation") or "未明确"
     reference_image_path = layout_reference_image_path(aspect)
@@ -261,10 +388,9 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
         "参考图说明：参考此四格布局图在对应位置绘制四个镜头；不要生成红线、image1/image2/image3/image4 标签、参考图文字或占位线。",
         "",
     ]
-    for group_index, start in enumerate(range(0, len(rows), group_size), 1):
-        group_rows = pad_storyboard_group(rows[start : start + group_size], group_size, start)
+    for group in storyboard_plan["storyboardGroups"]:
         lines.extend([
-            f"## Storyboard Group {group_index:02d}",
+            f"## Storyboard Group {group['title']}",
             "",
             f"以故事板呈现以下镜头，比例为{ratio}，{orientation}。",
             "本组四个镜头作为独立故事板生成；人物、产品、场景在本组内保持大致一致即可。",
@@ -274,10 +400,10 @@ def render_storyboard_markdown(rows: list[dict[str, str]], aspect: dict[str, str
             "参考图说明：只参考四格位置安排；最终画面不要出现红线、image1/image2/image3/image4 标签或任何参考图文字。",
             "",
         ])
-        for row in group_rows:
-            shot = row.get("shot", "")
-            image_prompt = row.get("分镜画面", "")
-            overlay = row.get("包装说明", "")
+        for row in group["shots"]:
+            shot = row.get("shotId", "")
+            image_prompt = row.get("imagePrompt", "")
+            overlay = row.get("overlayPackaging", "")
             lines.extend([
                 f"### {shot}",
                 f"- imagePrompt: {image_prompt}",

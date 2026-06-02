@@ -469,9 +469,11 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /function-slot-shot-design/);
   assert.match(chat, /reviewAgentChatDialogue/);
   assert.match(chat, /submitAgentChatDialogueRework/);
+  assert.match(chat, /submitDialogueReworkFromReview/);
   assert.match(chat, /审查台词/);
   assert.match(chat, /按审查返工/);
   assert.match(chat, /台词审查中/);
+  assert.match(chat, /台词审查建议返工，正在提交返工/);
   assert.match(chat, /composerLocked/);
   assert.match(chat, /dialogueActionLocked/);
   assert.match(chat, /DialogueReviewSummary/);

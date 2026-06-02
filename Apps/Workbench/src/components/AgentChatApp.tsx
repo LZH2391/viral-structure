@@ -498,6 +498,84 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     };
   }, [handleSend]);
 
+  const submitDialogueReworkFromReview = useCallback(async ({
+    review,
+    expectedRevision,
+    isCurrentAction = beginConversationAction(),
+    status = "按审查返工中",
+  }: {
+    review: AgentChatDialogueRoboticReview;
+    expectedRevision?: number | null;
+    isCurrentAction?: () => boolean;
+    status?: string;
+  }) => {
+    if (!activeConversationId || !review.reviewOutputPath) return false;
+    setDialogueReworking(true);
+    setBusy(true);
+    setErrorText(null);
+    setStatusText(status);
+    let submittedTurn = false;
+    try {
+      const activeSession = await ensureSession(false, isCurrentAction);
+      if (!isCurrentAction()) return false;
+      if (!activeSession.threadId) throw new Error("当前会话缺少可返工的 thread");
+      const compacted = await maybeCompactBeforeSend(activeSession, isCurrentAction);
+      if (!isCurrentAction()) return false;
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
+      if (compactRevision) setActiveConversationRevision(compactRevision);
+      const reworkWithRevision = async (revision: number | null) => submitAgentChatDialogueRework(activeConversationId, {
+        ...sessionMeta,
+        source: activeSession.source,
+        role: activeSession.role ?? sessionMeta.role,
+        leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
+        threadId: activeSession.threadId,
+        turnId: currentTurnId,
+        expectedRevision: revision,
+        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+        skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
+        shotDesignFinalPath: review.shotDesignFinalPath ?? currentShotDesignFinalPath,
+        reviewOutputPath: review.reviewOutputPath,
+        decision: review.decision,
+        issueCount: review.issueCount,
+        parentArtifactId: review.artifactId ?? review.reviewOutputPath,
+      });
+      let submitted: Awaited<ReturnType<typeof submitAgentChatDialogueRework>>;
+      try {
+        submitted = await reworkWithRevision(compactRevision ?? expectedRevision ?? activeConversationRevision);
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const synced = await syncActiveConversationForRetry(activeConversationId);
+        if (!isCurrentAction()) return false;
+        setStatusText("会话已同步，重试返工");
+        submitted = await reworkWithRevision(normalizeConversationRevision(synced?.revision));
+      }
+      if (!isCurrentAction()) return false;
+      const userText = submitted.userTurnText ?? buildDialogueReworkPreview(review);
+      setMessages((current) => [...current, { id: uniqueId("user"), role: "user", text: userText, status: "completed" }]);
+      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      setTurnActionProjection(submitted.actionProjection ?? null);
+      setThreadStopped(Boolean(submitted.threadStopped));
+      setCurrentTurnId(submitted.turnId);
+      setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
+      setStatusText("Agent 正在按审查返工");
+      submittedTurn = true;
+      schedulePoll(activeSession, submitted.turnId);
+      return true;
+    } catch (error) {
+      if (!isCurrentAction()) return false;
+      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请恢复后再返工" : error instanceof Error ? error.message : "按审查返工失败";
+      setErrorText(message);
+      setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
+      setStatusText("按审查返工失败");
+      return false;
+    } finally {
+      if (isCurrentAction()) {
+        setDialogueReworking(false);
+        if (!submittedTurn) setBusy(false);
+      }
+    }
+  }, [activeConversationId, activeConversationRevision, beginConversationAction, currentShotDesignFinalPath, currentTurnId, ensureSession, maybeCompactBeforeSend, schedulePoll, sessionMeta, syncActiveConversationForRetry]);
+
   const handleDialogueReview = useCallback(async () => {
     if (!activeConversationId || !currentShotDesignFinalPath || !canReviewDialogue) return;
     const isCurrentAction = beginConversationAction();
@@ -527,7 +605,17 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setConversations((current) => current.map((item) => item.conversationId === activeConversationId ? result.conversation : item));
       const review = result.review ?? null;
       setMessages((current) => attachDialogueReviewToMessages(current, currentTurnId, review));
-      setStatusText(review?.decision === "rework" ? "台词审查建议返工" : "台词审查完成");
+      const reviewRevision = normalizeConversationRevision(result.conversationRevision ?? result.conversation?.revision);
+      if (review?.decision === "rework" && review.reviewOutputPath) {
+        await submitDialogueReworkFromReview({
+          review,
+          expectedRevision: reviewRevision,
+          isCurrentAction,
+          status: "台词审查建议返工，正在提交返工",
+        });
+      } else {
+        setStatusText("台词审查完成");
+      }
       void refreshConversations().catch(() => undefined);
     } catch (error) {
       if (!isCurrentAction()) return;
@@ -538,68 +626,15 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     } finally {
       if (isCurrentAction()) setReviewingDialogue(false);
     }
-  }, [activeConversationId, activeConversationRevision, beginConversationAction, canReviewDialogue, currentShotDesignFinalPath, currentTurnId, refreshConversations, syncActiveConversationForRetry]);
+  }, [activeConversationId, activeConversationRevision, beginConversationAction, canReviewDialogue, currentShotDesignFinalPath, currentTurnId, refreshConversations, submitDialogueReworkFromReview, syncActiveConversationForRetry]);
 
   const handleDialogueRework = useCallback(async () => {
     if (!activeConversationId || !session?.threadId || !activeDialogueReview?.reviewOutputPath || !canReworkDialogue) return;
-    const isCurrentAction = beginConversationAction();
-    setDialogueReworking(true);
-    setErrorText(null);
-    setStatusText("按审查返工中");
-    const userMessageId = uniqueId("user");
-    try {
-      const activeSession = await ensureSession(false, isCurrentAction);
-      if (!isCurrentAction()) return;
-      const compacted = await maybeCompactBeforeSend(activeSession, isCurrentAction);
-      if (!isCurrentAction()) return;
-      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
-      if (compactRevision) setActiveConversationRevision(compactRevision);
-      const reworkWithRevision = async (expectedRevision: number | null) => submitAgentChatDialogueRework(activeConversationId, {
-        ...sessionMeta,
-        source: activeSession.source,
-        role: activeSession.role ?? sessionMeta.role,
-        leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
-        threadId: activeSession.threadId,
-        turnId: currentTurnId,
-        expectedRevision,
-        workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
-        skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
-        shotDesignFinalPath: activeDialogueReview.shotDesignFinalPath ?? currentShotDesignFinalPath,
-        reviewOutputPath: activeDialogueReview.reviewOutputPath,
-        decision: activeDialogueReview.decision,
-        issueCount: activeDialogueReview.issueCount,
-        parentArtifactId: activeDialogueReview.artifactId ?? activeDialogueReview.reviewOutputPath,
-      });
-      let submitted: Awaited<ReturnType<typeof submitAgentChatDialogueRework>>;
-      try {
-        submitted = await reworkWithRevision(compactRevision ?? activeConversationRevision);
-      } catch (error) {
-        if (!isConversationConflictError(error)) throw error;
-        const synced = await syncActiveConversationForRetry(activeConversationId);
-        if (!isCurrentAction()) return;
-        setStatusText("会话已同步，重试返工");
-        submitted = await reworkWithRevision(normalizeConversationRevision(synced?.revision));
-      }
-      if (!isCurrentAction()) return;
-      const userText = submitted.userTurnText ?? buildDialogueReworkPreview(activeDialogueReview);
-      setMessages((current) => [...current, { id: userMessageId, role: "user", text: userText, status: "completed" }]);
-      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
-      setTurnActionProjection(submitted.actionProjection ?? null);
-      setThreadStopped(Boolean(submitted.threadStopped));
-      setCurrentTurnId(submitted.turnId);
-      setMessages((current) => [...current, { id: `assistant-${submitted.turnId}`, role: "assistant", text: "生成中", status: "running" }]);
-      setStatusText("Agent 正在按审查返工");
-      schedulePoll(activeSession, submitted.turnId);
-    } catch (error) {
-      if (!isCurrentAction()) return;
-      const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请恢复后再返工" : error instanceof Error ? error.message : "按审查返工失败";
-      setErrorText(message);
-      setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: message, status: "failed" }]);
-      setStatusText("按审查返工失败");
-    } finally {
-      if (isCurrentAction()) setDialogueReworking(false);
-    }
-  }, [activeConversationId, activeConversationRevision, activeDialogueReview, beginConversationAction, canReworkDialogue, currentShotDesignFinalPath, currentTurnId, ensureSession, maybeCompactBeforeSend, schedulePoll, session?.threadId, sessionMeta, syncActiveConversationForRetry]);
+    void submitDialogueReworkFromReview({
+      review: activeDialogueReview,
+      expectedRevision: activeConversationRevision,
+    });
+  }, [activeConversationId, activeConversationRevision, activeDialogueReview, canReworkDialogue, session?.threadId, submitDialogueReworkFromReview]);
 
   const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
     if (busy) return;
