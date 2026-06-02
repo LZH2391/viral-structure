@@ -45,12 +45,13 @@ function buildProcessedAnalysis(message, input, context, agentRun, turn, { repai
       },
     },
     cacheKey: context.cacheKey ?? buildUserMaterialTaggerContentFingerprint(input),
-    inputPackage: context.inputPackage ?? null,
+    inputPackage: compactInputPackageForArtifact(context.inputPackage),
+    semanticDictionaries: validation.semanticDictionaries,
     shotCards: attachShotVisualRefs(validation.shotCards, context.inputPackage?.visualManifest),
     materialGroups: validation.materialGroups,
     proofCoverage: validation.proofCoverage,
     sequenceRecommendations: validation.sequenceRecommendations,
-    globalConstraints: validation.globalConstraints,
+    globalConstraintRefs: validation.globalConstraintRefs,
     restructureInputSummary: validation.restructureInputSummary,
     validation: {
       status: "passed",
@@ -100,6 +101,25 @@ function buildVisualRefsByShot(visualManifest) {
   return result;
 }
 
+function compactInputPackageForArtifact(inputPackage) {
+  if (!inputPackage) return null;
+  return {
+    schemaVersion: inputPackage.schemaVersion ?? null,
+    snapshotMode: "external_refs",
+    manifestPath: inputPackage.manifestPath ?? null,
+    metadataPath: inputPackage.metadataPath ?? null,
+    lineagePath: inputPackage.lineagePath ?? null,
+    outputContractPath: inputPackage.outputContractPath ?? null,
+    outputSkeletonPath: inputPackage.outputSkeletonPath ?? null,
+    visualManifestPath: inputPackage.visualManifestPath ?? null,
+    visualAttachments: inputPackage.visualAttachments ?? [],
+    sheetCount: inputPackage.sheetCount ?? inputPackage.visualManifest?.sheetCount ?? 0,
+    emptyShotCount: inputPackage.emptyShotCount ?? inputPackage.visualManifest?.emptyShotCount ?? 0,
+    hashes: inputPackage.hashes ?? null,
+    refIntegrity: "paths_and_hashes_preserve_full_input_package",
+  };
+}
+
 function parseAgentOutput(message, agentRun, turn, repairAttemptCount) {
   try {
     return extractJsonObject(message);
@@ -136,19 +156,20 @@ function buildFailedArtifact(context, errorSummary, debugSnapshotUri = null) {
     sourceShotBoundaryArtifactId: context.artifact?.shotBoundaryAnalysis?.artifactId ?? null,
     sourceShotCount: context.input?.shots?.length ?? context.artifact?.shotBoundaryAnalysis?.shots?.length ?? 0,
     cacheKey: context.cacheKey ?? (context.input ? buildUserMaterialTaggerContentFingerprint(context.input) : null),
-    inputPackage: context.inputPackage ?? null,
+    inputPackage: compactInputPackageForArtifact(context.inputPackage),
+    semanticDictionaries: { entityDict: {}, supportDict: {}, guardrailDict: {} },
     shotCards: [],
     materialGroups: [],
     proofCoverage: [],
     sequenceRecommendations: { openingCandidates: [], middleCandidates: [], endingCandidates: [] },
-    globalConstraints: [],
+    globalConstraintRefs: [],
     restructureInputSummary: {
       strongMaterialAreas: [],
       weakMaterialAreas: [],
       missingMaterialAreas: [],
       recommendedUse: [],
-      doNotUseFor: [],
-      needsRestructureAttention: [],
+      doNotUseForRefs: [],
+      needsRestructureAttentionRefs: [],
     },
     validation: {
       status: "failed",
@@ -182,8 +203,9 @@ function buildAgentArtifact(context, agentRun, turn) {
 }
 
 function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
+  const compactCachedAnalysis = compactMaterialPackForArtifact(cachedAnalysis);
   return {
-    ...cachedAnalysis,
+    ...compactCachedAnalysis,
     artifactId: context.artifactId ?? `artifact_${randomUUID()}`,
     parentArtifactId: context.input?.parentArtifactId ?? context.artifact?.shotBoundaryAnalysis?.artifactId ?? cachedAnalysis?.parentArtifactId ?? null,
     traceId: context.traceContext?.traceId ?? null,
@@ -197,9 +219,114 @@ function buildCacheReuseAnalysis({ cachedAnalysis, context }) {
     sourceCreatedAt: cachedAnalysis?.createdAt ?? null,
     sampleVideoId: context.sampleVideoId,
     cacheKey: context.cacheKey ?? cachedAnalysis?.cacheKey ?? null,
-    shotCards: attachShotVisualRefs(cachedAnalysis?.shotCards ?? [], context.inputPackage?.visualManifest),
+    inputPackage: compactInputPackageForArtifact(context.inputPackage),
+    shotCards: attachShotVisualRefs(compactCachedAnalysis?.shotCards ?? [], context.inputPackage?.visualManifest),
     createdAt: new Date().toISOString(),
   };
+}
+
+function compactMaterialPackForArtifact(analysis) {
+  if (!analysis || typeof analysis !== "object") return analysis;
+  const { semanticReuse, globalConstraints, ...rest } = analysis;
+  const reuse = semanticReuse ?? {};
+  const semanticDictionaries = analysis.semanticDictionaries ?? {
+    entityDict: reuse.entityDict ?? {},
+    supportDict: reuse.supportDict ?? {},
+    guardrailDict: reuse.guardrailDict ?? {},
+  };
+  return {
+    ...rest,
+    semanticDictionaries,
+    shotCards: (analysis.shotCards ?? []).map(compactShotCard),
+    materialGroups: (analysis.materialGroups ?? []).map(compactMaterialGroup),
+    proofCoverage: (analysis.proofCoverage ?? []).map(compactProofCoverage),
+    sequenceRecommendations: compactSequenceRecommendations(analysis.sequenceRecommendations),
+    globalConstraintRefs: firstArray(analysis.globalConstraintRefs, globalConstraints),
+    restructureInputSummary: compactRestructureInputSummary(analysis.restructureInputSummary),
+    inputPackage: compactInputPackageForArtifact(analysis.inputPackage),
+  };
+}
+
+function compactShotCard(card) {
+  const { detectedEntities, constraints, limitations, ...rest } = card;
+  return {
+    ...rest,
+    detectedEntityRefs: card.detectedEntityRefs ?? detectedEntities ?? { products: [], people: [], scenes: [], objects: [], textSignals: [] },
+    proofAffordances: (card.proofAffordances ?? []).map((item) => {
+      const { limits, limitations: proofLimitations, ...proofRest } = item;
+      return {
+        ...proofRest,
+        limitRefs: firstArray(item.limitRefs, limits, proofLimitations),
+      };
+    }),
+    sequenceFit: Object.fromEntries(Object.entries(card.sequenceFit ?? {}).map(([position, fit]) => [
+      position,
+      compactSequenceFit(fit),
+    ])),
+    constraintRefs: firstArray(card.constraintRefs, constraints, limitations),
+  };
+}
+
+function compactSequenceFit(fit) {
+  const { requiredSupport, ...rest } = fit ?? {};
+  return {
+    ...rest,
+    requiredSupportRefs: firstArray(fit?.requiredSupportRefs, requiredSupport),
+  };
+}
+
+function compactMaterialGroup(group) {
+  const { constraints, limitations, ...rest } = group;
+  return {
+    ...rest,
+    constraintRefs: firstArray(group.constraintRefs, constraints, limitations),
+  };
+}
+
+function compactProofCoverage(item) {
+  const { safeUsage, gapAdvice, ...rest } = item;
+  return {
+    ...rest,
+    safeUsageRefs: firstArray(item.safeUsageRefs, stringToArray(safeUsage)),
+    gapAdviceRefs: firstArray(item.gapAdviceRefs, stringToArray(gapAdvice)),
+  };
+}
+
+function compactSequenceRecommendations(sequenceRecommendations) {
+  return Object.fromEntries(Object.entries(sequenceRecommendations ?? {
+    openingCandidates: [],
+    middleCandidates: [],
+    endingCandidates: [],
+  }).map(([position, candidates]) => [
+    position,
+    (Array.isArray(candidates) ? candidates : []).map((item) => {
+      const { requiredSupport, ...rest } = item;
+      return {
+        ...rest,
+        requiredSupportRefs: firstArray(item.requiredSupportRefs, requiredSupport),
+      };
+    }),
+  ]));
+}
+
+function compactRestructureInputSummary(summary) {
+  return {
+    strongMaterialAreas: summary?.strongMaterialAreas ?? [],
+    weakMaterialAreas: summary?.weakMaterialAreas ?? [],
+    missingMaterialAreas: summary?.missingMaterialAreas ?? [],
+    recommendedUse: summary?.recommendedUse ?? [],
+    doNotUseForRefs: firstArray(summary?.doNotUseForRefs, summary?.doNotUseFor),
+    needsRestructureAttentionRefs: firstArray(summary?.needsRestructureAttentionRefs, summary?.needsRestructureAttention),
+  };
+}
+
+function firstArray(...values) {
+  return values.find((value) => Array.isArray(value) && value.length) ?? values.find((value) => Array.isArray(value)) ?? [];
+}
+
+function stringToArray(value) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text ? [text] : [];
 }
 
 function evaluateCacheEligibility(analysis, options = {}) {
@@ -224,4 +351,6 @@ module.exports = {
   buildCacheReuseAnalysis,
   evaluateCacheEligibility,
   attachShotVisualRefs,
+  compactInputPackageForArtifact,
+  compactMaterialPackForArtifact,
 };

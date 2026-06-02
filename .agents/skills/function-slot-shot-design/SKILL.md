@@ -43,7 +43,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
    在镜头密度目标上，为每个 shot 确认它承载的 slotSubtype、脚本段落、节奏区间和包装块。允许一对多、多对一和跨边界承接，但必须写清过渡、合并、fragment、hook、payoff 或 adapter 关系。
 
 5. **选择素材/设计策略**
-   进入素材来源和处理策略判断时，读取 `references/material-strategy.md`。若有素材包，基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary` 选择每个 shot 的策略。
+   进入素材来源和处理策略判断时，读取 `references/material-strategy.md`。若有素材包，先按 compact ref schema 展开 `semanticDictionaries` 引用，再基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary / globalConstraintRefs` 选择每个 shot 的策略。
 
 6. **写画面、包装、台词**
    进入分镜画面、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。

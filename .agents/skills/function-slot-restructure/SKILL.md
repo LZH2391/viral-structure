@@ -75,7 +75,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 
 - `user-material-pack` / `user-material-pack.stable`
   - 来自 `user-material-tagger` 的素材供给侧证据。
-  - 重点消费字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`sourceArtifacts`。
+  - 重点消费字段：`semanticDictionaries`、`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`globalConstraintRefs`、`sourceArtifacts`。
+  - 素材包使用 compact ref schema：先用 `semanticDictionaries.entityDict / supportDict / guardrailDict` 展开 `detectedEntityRefs / requiredSupportRefs / limitRefs / constraintRefs / safeUsageRefs / gapAdviceRefs / globalConstraintRefs`，再判断证明能力和风险边界；不得把 ref id 本身当语义标签。
   - 用途：判断素材供给类型；仅在素材充足时，判断真实素材能否组成一条完整视频路径，路径可以重排，也可以合理沿用输入顺序。
   - 限制：只能作为素材供给和证明资产输入，不能直接决定 `slotType` 命名；不能在重组阶段写最终剪法、台词、包装细节、自行设计补法或复用变形。
 

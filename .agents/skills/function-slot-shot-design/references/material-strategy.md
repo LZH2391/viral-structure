@@ -6,6 +6,8 @@
 
 如果当前 thread 中存在 `user-material-pack.stable`、素材包路径或用户明确提供的素材候选说明，ShotDesign 必须消费素材包做逐 shot / 逐 slot 的最终落地策略选择。
 
+素材包使用 compact ref schema 时，先用 `semanticDictionaries.entityDict / supportDict / guardrailDict` 展开引用，再评分和路由。需要展开的字段包括 `detectedEntityRefs`、`proofAffordances[].limitRefs`、`sequenceFit.openingCandidate.requiredSupportRefs`、`sequenceFit.middleCandidate.requiredSupportRefs`、`sequenceFit.endingCandidate.requiredSupportRefs`、`constraintRefs`、`safeUsageRefs`、`gapAdviceRefs`、`globalConstraintRefs`、`doNotUseForRefs`、`needsRestructureAttentionRefs`。不要把 ref id 当语义标签，也不要要求素材包回退输出旧展开字段。
+
 少素材时不要把镜头数硬压缩到素材数量。第一版 Shot 设计应尽量落在上游 `timingBudget` 的建议区间内；如果素材与自行设计都无法支撑合理镜头密度，优先声明 `return_to_restructure_required`。
 
 ## 策略优先级

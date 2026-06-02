@@ -34,6 +34,7 @@ function validateUserMaterialPack(parsed, input) {
     return invalidValidation("user_material_pack_schema_invalid", "用户素材识别输出 schemaVersion 不正确", { path: "schemaVersion" });
   }
   const shotMap = buildShotRefMap(input?.shots);
+  const semanticDictionaries = normalizeSemanticDictionaries(parsed?.semanticDictionaries ?? parsed?.semanticReuse);
   const shotCards = normalizeShotCards(parsed?.shotCards, shotMap);
   if (!shotCards.ok) return shotCards;
   const materialGroups = normalizeMaterialGroups(parsed?.materialGroups, shotMap);
@@ -44,11 +45,12 @@ function validateUserMaterialPack(parsed, input) {
   if (!sequenceRecommendations.ok) return sequenceRecommendations;
   return {
     ok: true,
+    semanticDictionaries,
     shotCards: shotCards.items,
     materialGroups: materialGroups.items,
     proofCoverage: proofCoverage.items,
     sequenceRecommendations: sequenceRecommendations.value,
-    globalConstraints: normalizeStringArray(parsed?.globalConstraints, 24),
+    globalConstraintRefs: normalizeStringArray(firstArray(parsed?.globalConstraintRefs, parsed?.globalConstraints), 24),
     restructureInputSummary: normalizeRestructureInputSummary(parsed?.restructureInputSummary),
     summary: {
       validatorCode: null,
@@ -104,12 +106,12 @@ function normalizeShotCard(card, index, shotMap) {
       shotFunctions: normalizeStringArray(card?.shotFunctions, 16),
       visualSummary: normalizeText(card?.visualSummary, 360),
       spokenOrSubtitleSummary: normalizeText(card?.spokenOrSubtitleSummary, 320),
-      detectedEntities: normalizeDetectedEntities(card?.detectedEntities, card),
+      detectedEntityRefs: normalizeDetectedEntityRefs(card?.detectedEntityRefs ?? card?.detectedEntities, card),
       materialTags: normalizeStringArray(card?.materialTags, 24),
       proofAffordances: normalizeProofAffordances(card?.proofAffordances ?? card?.proofNeedRefs),
       sequenceFit,
       quality: normalizeQuality(card?.quality),
-      constraints: normalizeStringArray(firstArray(card?.constraints, card?.limitations, card?.quality?.limitations), 16),
+      constraintRefs: normalizeStringArray(firstArray(card?.constraintRefs, card?.constraints, card?.limitations, card?.quality?.limitations), 16),
       confidence: normalizeConfidence(card?.confidence, 0.72),
       needReview: Boolean(card?.needReview),
       shotOrder: shot.order,
@@ -117,7 +119,7 @@ function normalizeShotCard(card, index, shotMap) {
   };
 }
 
-function normalizeDetectedEntities(value, card = {}) {
+function normalizeDetectedEntityRefs(value, card = {}) {
   return {
     products: normalizeStringArray(value?.products, 12),
     people: normalizeStringArray(value?.people, 12),
@@ -132,8 +134,8 @@ function normalizeProofAffordances(value) {
     proofNeedClass: normalizeEnum(item?.proofNeedClass, new Set(PROOF_NEED_CLASSES), "problem_visibility"),
     strength: normalizeEnum(item?.strength ?? item?.supportStrength, STRENGTHS, "unknown"),
     reason: normalizeText(item?.reason, 240),
-    limits: normalizeStringArray(firstArray(item?.limits, item?.limitations), 8),
-  })).filter((item) => item.reason || item.limits.length);
+    limitRefs: normalizeStringArray(firstArray(item?.limitRefs, item?.limits, item?.limitations), 8),
+  })).filter((item) => item.reason || item.limitRefs.length);
 }
 
 function normalizeSequenceFit(value) {
@@ -149,13 +151,13 @@ function normalizeFit(value) {
     return {
       fit: value.suitable ? "medium" : "weak",
       reason: normalizeText(value?.reason, 180),
-      requiredSupport: normalizeStringArray(value?.requiredSupport, 8),
+      requiredSupportRefs: normalizeStringArray(firstArray(value?.requiredSupportRefs, value?.requiredSupport), 8),
     };
   }
   return {
     fit: normalizeEnum(value?.fit, FITS, "weak"),
     reason: normalizeText(value?.reason, 180),
-    requiredSupport: normalizeStringArray(value?.requiredSupport, 8),
+    requiredSupportRefs: normalizeStringArray(firstArray(value?.requiredSupportRefs, value?.requiredSupport), 8),
   };
 }
 
@@ -185,7 +187,7 @@ function normalizeMaterialGroups(value, shotMap) {
       usableForProofNeedClasses: normalizeProofNeedClasses(firstArray(value[index]?.usableForProofNeedClasses, value[index]?.proofNeedClasses)),
       notUsableForProofNeedClasses: normalizeProofNeedClasses(value[index]?.notUsableForProofNeedClasses),
       continuity: normalizeEnum(value[index]?.continuity, CONTINUITY_VALUES, "none"),
-      constraints: normalizeStringArray(firstArray(value[index]?.constraints, value[index]?.limitations), 12),
+      constraintRefs: normalizeStringArray(firstArray(value[index]?.constraintRefs, value[index]?.constraints, value[index]?.limitations), 12),
     });
   }
   return { ok: true, items };
@@ -208,14 +210,14 @@ function normalizeProofCoverage(value, shotMap, materialGroups) {
       candidateShots: shotRefs.items,
       candidateGroups,
       reason: normalizeText(normalizedValue[index]?.reason, 320),
-      safeUsage: normalizeText(normalizedValue[index]?.safeUsage, 240),
-      gapAdvice: normalizeText(normalizedValue[index]?.gapAdvice, 240),
+      safeUsageRefs: normalizeStringArray(firstArray(normalizedValue[index]?.safeUsageRefs, stringToArray(normalizedValue[index]?.safeUsage)), 8),
+      gapAdviceRefs: normalizeStringArray(firstArray(normalizedValue[index]?.gapAdviceRefs, stringToArray(normalizedValue[index]?.gapAdvice)), 8),
     });
   }
   const missing = PROOF_NEED_CLASSES.filter((proofNeedClass) => !byClass.has(proofNeedClass));
   if (missing.length) return invalidValidation("user_material_pack_proof_coverage_incomplete", "proofCoverage 必须覆盖所有 proofNeedClass", { missingProofNeedClasses: missing });
   const items = PROOF_NEED_CLASSES.map((proofNeedClass) => byClass.get(proofNeedClass));
-  const untouched = items.every((item) => item.coverage === "unknown" && !item.candidateShots.length && !item.candidateGroups.length && !item.reason && !item.safeUsage && !item.gapAdvice);
+  const untouched = items.every((item) => item.coverage === "unknown" && !item.candidateShots.length && !item.candidateGroups.length && !item.reason && !item.safeUsageRefs.length && !item.gapAdviceRefs.length);
   if (untouched) return invalidValidation("user_material_pack_proof_coverage_unfilled", "proofCoverage 仍是未填写骨架", { path: "proofCoverage" });
   return { ok: true, items };
 }
@@ -234,14 +236,19 @@ function normalizeProofCoverageInput(value) {
       candidateShots,
       candidateGroups,
       reason: normalizeText(coverage.reason, 320) || safeUsage || normalizeProofCoverageReason(coverage),
-      safeUsage,
-      gapAdvice: normalizeText(coverage.gapAdvice, 240),
+      safeUsageRefs: firstArray(coverage.safeUsageRefs, stringToArray(safeUsage)),
+      gapAdviceRefs: firstArray(coverage.gapAdviceRefs, stringToArray(coverage.gapAdvice)),
     };
   });
 }
 
 function firstArray(...values) {
   return values.find((value) => Array.isArray(value) && value.length) ?? values.find((value) => Array.isArray(value)) ?? [];
+}
+
+function stringToArray(value) {
+  const text = normalizeText(value, 240);
+  return text ? [text] : [];
 }
 
 function normalizeCoverage(value) {
@@ -280,7 +287,7 @@ function normalizeCandidateList(value, position, shotMap) {
       fit: normalizeEnum(raw[index]?.fit, FITS, "weak"),
       recommendedPosition: normalizeEnum(raw[index]?.recommendedPosition, new Set(["opening", "middle", "ending"]), position),
       reason: normalizeText(raw[index]?.reason, 240),
-      requiredSupport: normalizeStringArray(raw[index]?.requiredSupport, 8),
+      requiredSupportRefs: normalizeStringArray(firstArray(raw[index]?.requiredSupportRefs, raw[index]?.requiredSupport), 8),
       doNotUseAs: normalizeProofNeedClasses(raw[index]?.doNotUseAs),
     });
   }
@@ -293,9 +300,25 @@ function normalizeRestructureInputSummary(value) {
     weakMaterialAreas: normalizeStringArray(value?.weakMaterialAreas, 12),
     missingMaterialAreas: normalizeStringArray(value?.missingMaterialAreas, 12),
     recommendedUse: normalizeStringArray(value?.recommendedUse, 12),
-    doNotUseFor: normalizeStringArray(value?.doNotUseFor, 12),
-    needsRestructureAttention: normalizeStringArray(value?.needsRestructureAttention, 12),
+    doNotUseForRefs: normalizeStringArray(firstArray(value?.doNotUseForRefs, value?.doNotUseFor), 12),
+    needsRestructureAttentionRefs: normalizeStringArray(firstArray(value?.needsRestructureAttentionRefs, value?.needsRestructureAttention), 12),
   };
+}
+
+function normalizeSemanticDictionaries(value) {
+  return {
+    entityDict: normalizeDictionary(value?.entityDict),
+    supportDict: normalizeDictionary(value?.supportDict),
+    guardrailDict: normalizeDictionary(value?.guardrailDict),
+  };
+}
+
+function normalizeDictionary(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(Object.entries(value)
+    .map(([key, item]) => [normalizeText(key, 80), normalizeText(item, 360)])
+    .filter(([key, item]) => key && item)
+    .slice(0, 160));
 }
 
 function normalizeProofNeedClasses(value) {

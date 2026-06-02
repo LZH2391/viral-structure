@@ -6,6 +6,11 @@ type ShotCard = UserMaterialPackArtifact["shotCards"][number];
 type ProofCoverage = UserMaterialPackArtifact["proofCoverage"][number];
 type SequenceCandidate = UserMaterialPackArtifact["sequenceRecommendations"]["openingCandidates"][number];
 
+function expandRefs(analysis: UserMaterialPackArtifact | null | undefined, refs?: string[] | null, dictName: "entityDict" | "supportDict" | "guardrailDict" = "guardrailDict") {
+  const dict = analysis?.semanticDictionaries?.[dictName] ?? {};
+  return (refs ?? []).map((item) => dict[item] ?? item).filter(Boolean);
+}
+
 function renderRange(card: ShotCard) {
   const range = card.timeRange;
   if (!range || !Number.isFinite(range.start) || !Number.isFinite(range.end)) return "时间未知";
@@ -94,6 +99,8 @@ export function UserMaterialTaggerPanel({
   const proof = analysis?.proofCoverage ?? [];
   const sequence = analysis?.sequenceRecommendations;
   const summary = analysis?.restructureInputSummary;
+  const doNotUseFor = expandRefs(analysis, summary?.doNotUseForRefs);
+  const restructureAttention = expandRefs(analysis, summary?.needsRestructureAttentionRefs);
   const historyEntries = analysisHistory ?? [];
   const failed = analysis?.status === "failed" || analysis?.validation?.status === "failed" || job?.status === "failed";
   const failureMessage = job?.errorSummary?.message ?? null;
@@ -150,10 +157,10 @@ export function UserMaterialTaggerPanel({
             <SummaryList title="素材缺口" tone="missing" items={summary?.missingMaterialAreas} empty="暂无缺口判断" />
             <SummaryList title="推荐用途" tone="neutral" items={summary?.recommendedUse} empty="暂无推荐用途" />
           </div>
-          {summary?.doNotUseFor?.length || summary?.needsRestructureAttention?.length ? (
+          {doNotUseFor.length || restructureAttention.length ? (
             <div className="material-boundary-panel">
-              {summary.doNotUseFor?.length ? <span><b>禁用边界</b>{summary.doNotUseFor.slice(0, 3).join(" / ")}</span> : null}
-              {summary.needsRestructureAttention?.length ? <span><b>重组注意</b>{summary.needsRestructureAttention.slice(0, 3).join(" / ")}</span> : null}
+              {doNotUseFor.length ? <span><b>禁用边界</b>{doNotUseFor.slice(0, 3).join(" / ")}</span> : null}
+              {restructureAttention.length ? <span><b>重组注意</b>{restructureAttention.slice(0, 3).join(" / ")}</span> : null}
             </div>
           ) : null}
         </div>
@@ -225,7 +232,7 @@ export function UserMaterialTaggerPanel({
               <strong>{item.proofNeedClass} / {item.coverage}</strong>
               <span>shots {item.candidateShots.join(", ") || "无"} / groups {item.candidateGroups.join(", ") || "无"}</span>
               <small>{item.reason}</small>
-              <small>{item.gapAdvice}</small>
+              <small>{expandRefs(analysis, item.gapAdviceRefs).join(" / ")}</small>
             </div>
           ))}
         </div>

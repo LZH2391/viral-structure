@@ -1,14 +1,14 @@
-# user-material-pack stable 输出契约
+# user-material-pack stable compact 输出契约
 
 只返回 JSON object，不输出 Markdown，不输出 JSON 外解释。
 
-运行时会提供 `output-skeleton.json`。它是答题纸，不是最终判断结果：
+运行时会提供 `output-skeleton.json`。它是 compact 答题纸，不是最终判断结果：
 
 - 保留骨架的顶层结构。
 - 保留每个 `shotCard` 的 `shotRef / shotNo / timeRange / visualSummary`。
 - `visualSummary` 来自切镜 summary，只描述画面内容，不代表素材能力。
-- 你必须补全 `shotClass / shotFunctions / materialTags / proofAffordances / sequenceFit / quality / confidence / needReview`。
-- 你必须基于素材判断补全 `materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary`，不要原样返回空骨架。
+- 你必须补全 `semanticDictionaries / shotClass / shotFunctions / materialTags / proofAffordances / sequenceFit / quality / confidence / needReview`。
+- 你必须基于素材判断补全 `materialGroups / proofCoverage / sequenceRecommendations / globalConstraintRefs / restructureInputSummary`，不要原样返回空骨架。
 
 ## 顶层结构
 
@@ -23,6 +23,11 @@
       "shotCount": 0
     }
   },
+  "semanticDictionaries": {
+    "entityDict": {},
+    "supportDict": {},
+    "guardrailDict": {}
+  },
   "shotCards": [],
   "materialGroups": [],
   "proofCoverage": [],
@@ -31,17 +36,54 @@
     "middleCandidates": [],
     "endingCandidates": []
   },
-  "globalConstraints": [],
+  "globalConstraintRefs": [],
   "restructureInputSummary": {
     "strongMaterialAreas": [],
     "weakMaterialAreas": [],
     "missingMaterialAreas": [],
     "recommendedUse": [],
-    "doNotUseFor": [],
-    "needsRestructureAttention": []
+    "doNotUseForRefs": [],
+    "needsRestructureAttentionRefs": []
   }
 }
 ```
+
+## 去重复结构
+
+`semanticDictionaries` 是必填字典，正文用 `*Refs` 引用它。不要先输出展开字段再二次压缩。
+
+- `entityDict`：实体或文本信号，ID 建议 `E_` 前缀。
+- `supportDict`：所需补充支持，ID 建议 `SUP_` 前缀。
+- `guardrailDict`：限制、缺口、安全用法、不可误用边界，ID 建议 `G_` 前缀。
+
+允许引用字段：
+
+- `shotCards[].detectedEntityRefs.*`
+- `shotCards[].proofAffordances[].limitRefs`
+- `shotCards[].sequenceFit.*.requiredSupportRefs`
+- `shotCards[].constraintRefs`
+- `materialGroups[].constraintRefs`
+- `proofCoverage[].safeUsageRefs`
+- `proofCoverage[].gapAdviceRefs`
+- `sequenceRecommendations.*[].requiredSupportRefs`
+- `globalConstraintRefs`
+- `restructureInputSummary.doNotUseForRefs`
+- `restructureInputSummary.needsRestructureAttentionRefs`
+
+禁止输出这些旧展开字段：
+
+- `detectedEntities`
+- `limits`
+- `requiredSupport`
+- `constraints`
+- `safeUsage`
+- `gapAdvice`
+- `globalConstraints`
+- `doNotUseFor`
+- `needsRestructureAttention`
+- `semanticReuse`
+
+标准枚举不要编码：`proofNeedClass / shotClass / shotFunctions / groupType / fit / coverage / strength / quality` 必须保持原枚举字符串。
 
 ## shotCards
 
@@ -54,10 +96,10 @@
   "timeRange": { "start": 0, "end": 1.2 },
   "visualSummary": "商品包装近景",
   "spokenOrSubtitleSummary": "",
-  "detectedEntities": {
-    "products": [],
+  "detectedEntityRefs": {
+    "products": ["E_PRODUCT"],
     "people": [],
-    "scenes": [],
+    "scenes": ["E_SCENE"],
     "objects": [],
     "textSignals": []
   },
@@ -69,13 +111,13 @@
       "proofNeedClass": "product_identity",
       "strength": "strong",
       "reason": "包装正面清晰可见",
-      "limits": []
+      "limitRefs": []
     }
   ],
   "sequenceFit": {
-    "opening": { "fit": "medium", "reason": "", "requiredSupport": [] },
-    "middle": { "fit": "weak", "reason": "", "requiredSupport": [] },
-    "ending": { "fit": "medium", "reason": "", "requiredSupport": [] }
+    "opening": { "fit": "medium", "reason": "", "requiredSupportRefs": [] },
+    "middle": { "fit": "weak", "reason": "", "requiredSupportRefs": [] },
+    "ending": { "fit": "medium", "reason": "", "requiredSupportRefs": [] }
   },
   "quality": {
     "visualClarity": "high",
@@ -84,18 +126,11 @@
     "audioUsefulness": "unknown",
     "captionUsefulness": "none"
   },
-  "constraints": [],
+  "constraintRefs": [],
   "confidence": 0.8,
   "needReview": false
 }
 ```
-
-规则：
-
-- `shotRef` 只能引用骨架中已有 shot。
-- `visualSummary` 是切镜画面摘要，可以沿用，不要把证明能力写进这里。
-- `shotClass`、`shotFunctions`、`materialTags`、`proofAffordances` 必须基于画面、字幕和上下文判断。
-- 信息不足时使用 `unknown`、空数组或 `needReview: true`，不要猜。
 
 ## materialGroups
 
@@ -110,7 +145,7 @@
   "usableForProofNeedClasses": ["product_identity"],
   "notUsableForProofNeedClasses": ["trust_evidence"],
   "continuity": "medium",
-  "constraints": []
+  "constraintRefs": ["G_NO_TRUST_PROOF"]
 }
 ```
 
@@ -125,8 +160,8 @@
   "candidateShots": ["shot_1"],
   "candidateGroups": ["group_product_identity_01"],
   "reason": "包装和商品形态清楚。",
-  "safeUsage": "可用于商品身份和包装记忆。",
-  "gapAdvice": ""
+  "safeUsageRefs": ["G_PRODUCT_IDENTITY_SAFE_USE"],
+  "gapAdviceRefs": []
 }
 ```
 
@@ -153,7 +188,7 @@
 
 只推荐结构位置候选，不输出高光片段。
 
-顶层 `openingCandidates / middleCandidates / endingCandidates` 只收录 `fit` 为 `strong` 或 `medium` 的镜头。`weak` 只能保留在单个 `shotCards[].sequenceFit` 里作为“不适合/弱适配”判断，不进入顶层候选池。
+顶层 `openingCandidates / middleCandidates / endingCandidates` 只收录 `fit` 为 `strong` 或 `medium` 的镜头。`weak` 只能保留在单个 `shotCards[].sequenceFit` 中，不进入顶层候选池。
 
 ```json
 {
@@ -163,7 +198,7 @@
       "fit": "medium",
       "recommendedPosition": "opening",
       "reason": "能快速建立商品对象。",
-      "requiredSupport": [],
+      "requiredSupportRefs": [],
       "doNotUseAs": ["trust_evidence"]
     }
   ],
@@ -178,5 +213,5 @@
 - `schemaVersion` 固定为 `user-material-pack.stable`。
 - `shotCards` 必须逐镜头覆盖所有输入 shots。
 - `materialGroups[].shotRefs`、`proofCoverage[].candidateShots`、`sequenceRecommendations.*[].shotRef` 只能引用骨架中已有 `shotRef`。
-- `proofCoverage` 不能原样空返回；必须写判断、依据、安全用法和缺口。
+- `proofCoverage` 不能原样空返回；必须写判断、依据、安全用法和缺口引用。
 - 不生成新脚本、新分镜、新视频方案。

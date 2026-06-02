@@ -1535,7 +1535,6 @@ test("modules endpoint returns public module descriptors only", async () => {
     const module = response.body.modules.find((entry) => entry.moduleId === "script-segments");
     const governance = response.body.modules.find((entry) => entry.moduleId === "function-slot-semantic-governance");
     const restructure = response.body.modules.find((entry) => entry.moduleId === "function-slot-restructure");
-    const displayTransform = response.body.modules.find((entry) => entry.moduleId === "function-slot-restructure-display-transformer");
     const storyboardPrep = response.body.modules.find((entry) => entry.moduleId === "shot-storyboard-prep");
     assert.equal(sample.moduleKind, "sample-ingest");
     assert.equal(sample.artifactKey, "sampleVideo");
@@ -1549,9 +1548,7 @@ test("modules endpoint returns public module descriptors only", async () => {
     assert.equal(governance.artifactType, "function-slot-semantic-governance-placeholder");
     assert.equal(governance.ui.placeholder, true);
     assert.equal(restructure.artifactType, "function-slot-restructure-placeholder");
-    assert.equal(displayTransform.artifactType, "function-slot-restructure-display-placeholder");
-    assert.equal(displayTransform.ui.stageKind, "functionSlotRestructureDisplayTransform");
-    assert.equal(displayTransform.ui.placeholder, true);
+    assert.equal(response.body.modules.some((entry) => entry.moduleId === "function-slot-restructure-display-transformer"), false);
     assert.equal(storyboardPrep.artifactType, "shot-storyboard-prep-placeholder");
     assert.equal(module.skillPath, undefined);
     assert.equal(module.createService, undefined);
@@ -3971,7 +3968,7 @@ test("function slot auto-run creates processing job and active binding for stop 
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
       sampleVideoId: "sample_auto",
       restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
       parentArtifactId: "artifact_parent",
@@ -4023,7 +4020,7 @@ test("function slot auto-run releases lease when direct appserver start returns 
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
       sampleVideoId: "sample_auto",
       restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
       parentArtifactId: "artifact_parent",

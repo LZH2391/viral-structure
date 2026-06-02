@@ -267,7 +267,6 @@ function createServer(deps = {}) {
       if (req.method === "POST" && /^\/api\/function-slot-library\/[^/]+\/project$/.test(url.pathname)) return await handleFunctionSlotLibraryProject(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "DELETE" && /^\/api\/function-slot-library\/[^/]+$/.test(url.pathname)) return await handleFunctionSlotLibraryDelete(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/function-slot-workflow\/[^/]+\/run$/.test(url.pathname)) return await handleFunctionSlotWorkflowPlaceholder(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
-      if (req.method === "POST" && url.pathname === "/api/function-slot-workflow/restructure-display-transform/auto-run") return await handleRestructureDisplayTransformAutoRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/function-slot-workflow/storyboard-prep/auto-run") return await handleStoryboardPrepAutoRun(req, res, handlers);
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threads") return await handleAgentChatThreadStart(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/agent-chat/conversations") return await handleAgentChatConversationList(res, handlers, url);
@@ -527,28 +526,6 @@ async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
   return sendJson(res, 202, result);
 }
 
-async function handleRestructureDisplayTransformAutoRun(req, res, handlers = {}) {
-  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
-  const sampleVideoId = body.sampleVideoId ?? "function-slot-workflow";
-  const parentArtifactId = body.parentArtifactId ?? body.restructureArtifactId ?? null;
-  if (!body.restructureFinalPath && !parentArtifactId) {
-    return sendJson(res, 400, {
-      error: "restructure_display_transform_restructure_required",
-      code: "restructure_display_transform_restructure_required",
-      message: "需要 restructureFinalPath 或 restructureArtifactId",
-    });
-  }
-  const result = await startFunctionSlotAutoRunTurn({
-    handlers,
-    role: "function-slot-restructure-display-transformer",
-    stageName: "function.slot.restructure_display_transform.auto_run",
-    sampleVideoId,
-    parentArtifactId,
-    body,
-  });
-  return sendJson(res, 202, result);
-}
-
 async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {
   const traceContext = createTraceContext(createTraceIds());
   const startedAt = Date.now();
@@ -720,9 +697,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
 }
 
 function buildFunctionSlotAutoRunInputs({ role, body }) {
-  const title = role === "shot-storyboard-prep"
-    ? "请基于已确认的重组方案执行 Shot Storyboard Prep，并在生成 prompt 后继续触发 image-generation 故事板生图。"
-    : "请基于已确认的重组方案执行展示结构转换。";
+  const title = "请基于已确认的重组方案执行 Shot Storyboard Prep，并在生成 prompt 后继续触发 image-generation 故事板生图。";
   const payload = {
     trigger: "restructure-confirmed",
     restructureFinalPath: body.restructureFinalPath ?? null,
@@ -730,7 +705,7 @@ function buildFunctionSlotAutoRunInputs({ role, body }) {
     parentArtifactId: body.parentArtifactId ?? null,
     confirmationId: body.confirmationId ?? null,
     sampleVideoId: body.sampleVideoId ?? null,
-    ...(role === "shot-storyboard-prep" ? { runImageGeneration: body.runImageGeneration !== false } : {}),
+    runImageGeneration: body.runImageGeneration !== false,
   };
   return [{
     type: "text",
@@ -881,7 +856,6 @@ async function handleFunctionSlotWorkflowPlaceholder(req, res, workflowKey, hand
 function resolveFunctionSlotWorkflowModuleId(workflowKey) {
   if (workflowKey === "semantic-governance") return "function-slot-semantic-governance";
   if (workflowKey === "restructure") return "function-slot-restructure";
-  if (workflowKey === "restructure-display-transform") return "function-slot-restructure-display-transformer";
   if (workflowKey === "shot-storyboard-prep") return "shot-storyboard-prep";
   return null;
 }

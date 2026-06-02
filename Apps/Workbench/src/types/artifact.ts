@@ -166,6 +166,11 @@ export type UserMaterialPackArtifact = {
   status: "processed" | "failed" | string;
   sampleVideoId?: string | null;
   sourceShotBoundaryArtifactId?: string | null;
+  semanticDictionaries?: {
+    entityDict?: Record<string, string>;
+    supportDict?: Record<string, string>;
+    guardrailDict?: Record<string, string>;
+  } | null;
   shotCards: Array<{
     shotRef: string;
     shotNo?: string | null;
@@ -174,7 +179,14 @@ export type UserMaterialPackArtifact = {
     visualSummary: string;
     spokenOrSubtitleSummary?: string | null;
     materialTags: string[];
-    constraints: string[];
+    detectedEntityRefs?: {
+      products: string[];
+      people: string[];
+      scenes: string[];
+      objects: string[];
+      textSignals: string[];
+    };
+    constraintRefs: string[];
     confidence: number;
     needReview: boolean;
     timeRange?: { start: number; end: number } | null;
@@ -195,7 +207,7 @@ export type UserMaterialPackArtifact = {
     groupType: string;
     shotRefs: string[];
     groupSummary: string;
-    constraints: string[];
+    constraintRefs: string[];
   }>;
   proofCoverage: Array<{
     proofNeedClass: string;
@@ -203,8 +215,8 @@ export type UserMaterialPackArtifact = {
     candidateShots: string[];
     candidateGroups: string[];
     reason: string;
-    safeUsage: string;
-    gapAdvice: string;
+    safeUsageRefs: string[];
+    gapAdviceRefs: string[];
   }>;
   sequenceRecommendations: {
     openingCandidates: Array<UserMaterialSequenceCandidate>;
@@ -216,9 +228,10 @@ export type UserMaterialPackArtifact = {
     weakMaterialAreas: string[];
     missingMaterialAreas: string[];
     recommendedUse: string[];
-    doNotUseFor: string[];
-    needsRestructureAttention: string[];
+    doNotUseForRefs: string[];
+    needsRestructureAttentionRefs: string[];
   } | null;
+  globalConstraintRefs?: string[];
   validation?: {
     status: "passed" | "failed" | string;
     shotCardCount: number;
@@ -235,7 +248,7 @@ export type UserMaterialSequenceCandidate = {
   fit: "strong" | "medium" | "weak" | string;
   recommendedPosition: "opening" | "middle" | "ending" | string;
   reason: string;
-  requiredSupport: string[];
+  requiredSupportRefs: string[];
   doNotUseAs: string[];
 };
 

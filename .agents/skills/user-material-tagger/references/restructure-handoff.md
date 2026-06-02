@@ -7,22 +7,32 @@
 
 ## 下游消费字段
 
-- `shotCards`：逐镜头素材卡，说明每个 shot 的素材形态、功能标签、实体、质量、位置适配。
+- `semanticDictionaries`：实体、所需支持、限制/缺口/安全边界字典。下游展示或推理前必须展开 `*Refs`。
+- `shotCards`：逐镜头素材卡，说明每个 shot 的素材形态、功能标签、实体引用、质量、位置适配。
 - `materialGroups`：可连续取材的素材组，例如商品展示组、过程组、结果组、桥接组。
 - `proofCoverage`：对全部 proofNeedClass 的覆盖判断，是下游判断主张能否成立的关键字段。
 - `sequenceRecommendations`：开头、中段、结尾候选，只表示位置适配，不表示最终成片顺序。
-- `restructureInputSummary`：素材强项、弱项、缺口和重组/shotDesign 注意事项。
+- `globalConstraintRefs`：全局不可误用边界引用。
+- `restructureInputSummary`：素材强项、弱项、缺口和重组/shotDesign 注意事项，其中禁用边界和重组注意使用 `*Refs`。
+
+## Ref 展开规则
+
+- `E_` 引用从 `semanticDictionaries.entityDict` 展开。
+- `SUP_` 引用从 `semanticDictionaries.supportDict` 展开。
+- `G_` 引用从 `semanticDictionaries.guardrailDict` 展开。
+- 如果下游遇到裸自然语言，允许直接使用；但新产物应优先使用引用。
+- `semanticDictionaries` 只减少重复表达，不改变素材能力、证明边界或字段含义。
 
 ## 必须写清“不适合做什么”
 
 下游最容易犯错的是把“有画面”误当成“有证明”，或把“输入顺序”误当成“新视频顺序”。因此相关字段要尽量写清：
 
-- `proofCoverage.safeUsage`
-- `proofCoverage.gapAdvice`
+- `proofCoverage.safeUsageRefs`
+- `proofCoverage.gapAdviceRefs`
 - `materialGroups.notUsableForProofNeedClasses`
-- `shotCards[].proofAffordances[].limits`
+- `shotCards[].proofAffordances[].limitRefs`
 - `sequenceRecommendations.*[].doNotUseAs`
-- `restructureInputSummary.doNotUseFor`
+- `restructureInputSummary.doNotUseForRefs`
 
 常见边界：
 
@@ -62,10 +72,11 @@
 
 ## 骨架边界
 
-运行时会提供 `output-skeleton.json`。骨架只保证结构完整和 shot 事实字段准确：
+运行时会提供 compact `output-skeleton.json`。骨架只保证结构完整和 shot 事实字段准确：
 
 - `shotRef / shotNo / timeRange / visualSummary`
 - `type / schemaVersion / sampleVideoId / sourceArtifacts`
+- 空 `semanticDictionaries`
 - 全部 proofNeedClass 的空 `proofCoverage` 条目
 
-这些不是语义判断。你必须补全真正的标签、素材组、证明覆盖和缺口判断。
+这些不是语义判断。你必须补全真正的标签、素材组、证明覆盖和缺口引用。

@@ -59,8 +59,17 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
    - 素材组不改变原始 shot 边界。
 
 6. **汇总覆盖与缺口**
-   - 每个 `proofCoverage` 都要写清 `safeUsage` 和 `gapAdvice`，避免下游把弱素材包装成强证明。
-   - 不足以形成能力池条目的缺失项，不要硬造 capability；可在相关能力的 `gapAdvice` 或 shot 的 `needReview` 中说明。
+   - 每个 `proofCoverage` 都要写清 `safeUsageRefs` 和 `gapAdviceRefs`，对应文本写入 `semanticDictionaries.guardrailDict`，避免下游把弱素材包装成强证明。
+   - 不足以形成能力池条目的缺失项，不要硬造 capability；可在相关能力的 `gapAdviceRefs` 或 shot 的 `needReview` 中说明。
+
+7. **去重复与去重叠**
+   - 当同一实体、所需支持、限制、缺口或安全边界在多个字段中重复出现时，必须直接写入顶层 `semanticDictionaries`，再在正文的 `*Refs` 字段中引用对应 ID。
+   - 只压缩重复/重叠的自然语言和实体文本；不要把 `proofNeedClass`、`shotClass`、`fit`、`coverage`、`strength` 等标准枚举改成短码。
+   - 新输出结构使用 `detectedEntityRefs`、`requiredSupportRefs`、`limitRefs`、`constraintRefs`、`globalConstraintRefs`、`safeUsageRefs`、`gapAdviceRefs`、`doNotUseForRefs`、`needsRestructureAttentionRefs`。
+   - 不要输出 `detectedEntities`、`requiredSupport`、`limits`、`constraints`、`globalConstraints`、`safeUsage`、`gapAdvice`、`doNotUseFor`、`needsRestructureAttention` 这类展开字段。
+   - 字典值必须保留完整自然语言含义；正文引用 ID 不能造成信息丢失。
+   - 不要因为措辞相似就强行合并语义不同的风险。若一个限制只对单个 shot 成立，保留原文，不抽字典。
+   - 如果运行时 artifact 已经记录输入包文件路径和 hash，不要再内嵌 `manifest`、`outputContract`、`outputSkeleton`、`visualManifest` 等已物化大对象；保留路径、hash、sheet/attachment 索引即可。
 
 ## 输出
 
@@ -93,5 +102,6 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 - 不粘贴长段字幕、OCR 或隐私内容；只写安全摘要。
 - 不修改 shot 边界，不要求重新切镜。
 - 如果信息不足，输出 `unknown`、空数组或 `needReview: true`，不要猜。
-- 必须输出 `shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`globalConstraints`、`restructureInputSummary`。
+- 必须输出 `semanticDictionaries`、`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`globalConstraintRefs`、`restructureInputSummary`。
 - `proofCoverage` 必须覆盖全部 proofNeedClass；不能原样返回空骨架。
+- `semanticDictionaries` 只用于去重复，不用于隐藏证据不足、压缩事实字段或改变素材判断。

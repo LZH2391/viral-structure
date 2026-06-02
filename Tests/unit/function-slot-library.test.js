@@ -265,64 +265,15 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
     assert.equal(response.body.status, "submitted");
     assert.equal(response.body.role, "shot-storyboard-prep");
     assert.equal(response.body.threadId, "thread_storyboard");
-    assert.equal(response.body.turnId, "turn_storyboard");
-    assert.equal(response.body.artifactId, "turn_storyboard");
+    assert.equal(response.body.processingJobId.startsWith("job_"), true);
+    assert.equal(response.body.turnId, response.body.processingJobId);
+    assert.equal(response.body.artifactId, response.body.processingJobId);
     assert.deepEqual(calls[0], { role: "shot-storyboard-prep", ownerId: response.body.ownerId });
     assert.equal(calls[1].threadId, "thread_storyboard");
     assert.equal(calls[1].skillPath, "skill.md");
     assert.match(calls[1].inputs[0].text, /Shot Storyboard Prep/);
     assert.match(calls[1].inputs[0].text, /image-generation/);
     assert.match(calls[1].inputs[0].text, /"runImageGeneration": true/);
-    assert.match(calls[1].inputs[0].text, /artifact_restructure/);
-  } finally {
-    await closeServer(server);
-  }
-});
-
-test("restructure display transform auto-run requires confirmed restructure source", async () => {
-  const calls = [];
-  const server = createServer({
-    threadPool: {
-      ensureRoleReady: async (role) => ({ ok: true, role, status: { workspaceRoot: "C:\\Workspace", skillPath: "skill.md" } }),
-      acquireLease: async (payload) => {
-        calls.push(payload);
-        return { ok: true, lease_id: "lease_display", thread_id: "thread_display" };
-      },
-    },
-    appServer: {
-      startTurnWithInputs: async (payload) => {
-        calls.push(payload);
-        return { ok: true, threadId: payload.threadId, turnId: "turn_display", status: "submitted" };
-      },
-    },
-    logger: {
-      writeStageLog: async () => undefined,
-      writeDebugSnapshot: async () => ({ uri: "/runtime/snapshot.json" }),
-    },
-    staticWorkbench: { handle: () => false },
-  });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  server.unref();
-  try {
-    const missing = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", { sampleVideoId: "sample_1" });
-    assert.equal(missing.statusCode, 400);
-    assert.equal(missing.body.code, "restructure_display_transform_restructure_required");
-
-    const response = await makeJsonRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
-      sampleVideoId: "sample_1",
-      restructureArtifactId: "artifact_restructure",
-    });
-    assert.equal(response.statusCode, 202);
-    assert.equal(response.body.status, "submitted");
-    assert.equal(response.body.role, "function-slot-restructure-display-transformer");
-    assert.equal(response.body.threadId, "thread_display");
-    assert.equal(response.body.turnId, "turn_display");
-    assert.equal(response.body.artifactId, "turn_display");
-    assert.deepEqual(calls[0], { role: "function-slot-restructure-display-transformer", ownerId: response.body.ownerId });
-    assert.equal(calls[1].threadId, "thread_display");
-    assert.equal(calls[1].skillPath, "skill.md");
-    assert.match(calls[1].inputs[0].text, /展示结构转换/);
     assert.match(calls[1].inputs[0].text, /artifact_restructure/);
   } finally {
     await closeServer(server);

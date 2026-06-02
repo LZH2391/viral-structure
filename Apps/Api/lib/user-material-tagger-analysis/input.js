@@ -216,21 +216,26 @@ function buildOutputSkeleton(input) {
         shotCount: input.shots.length,
       },
     },
+    semanticDictionaries: {
+      entityDict: {},
+      supportDict: {},
+      guardrailDict: {},
+    },
     shotCards: input.shots.map((shot) => ({
       shotRef: shot.shotId,
       shotNo: shot.shotNo,
       timeRange: { start: shot.start, end: shot.end },
       visualSummary: shot.summary,
       spokenOrSubtitleSummary: shot.subtitleText || shot.subtitleContextText || "",
-      detectedEntities: { products: [], people: [], scenes: [], objects: [], textSignals: [] },
+      detectedEntityRefs: { products: [], people: [], scenes: [], objects: [], textSignals: [] },
       shotClass: "",
       shotFunctions: [],
       materialTags: [],
       proofAffordances: [],
       sequenceFit: {
-        opening: { fit: "weak", reason: "", requiredSupport: [] },
-        middle: { fit: "weak", reason: "", requiredSupport: [] },
-        ending: { fit: "weak", reason: "", requiredSupport: [] },
+        opening: { fit: "weak", reason: "", requiredSupportRefs: [] },
+        middle: { fit: "weak", reason: "", requiredSupportRefs: [] },
+        ending: { fit: "weak", reason: "", requiredSupportRefs: [] },
       },
       quality: {
         visualClarity: "unknown",
@@ -239,7 +244,7 @@ function buildOutputSkeleton(input) {
         audioUsefulness: shot.subtitleText || shot.subtitleContextText ? "medium" : "unknown",
         captionUsefulness: shot.subtitleText || shot.subtitleContextText ? "medium" : "none",
       },
-      constraints: [],
+      constraintRefs: [],
       confidence: 0.72,
       needReview: true,
     })),
@@ -250,14 +255,14 @@ function buildOutputSkeleton(input) {
       middleCandidates: [],
       endingCandidates: [],
     },
-    globalConstraints: [],
+    globalConstraintRefs: [],
     restructureInputSummary: {
       strongMaterialAreas: [],
       weakMaterialAreas: [],
       missingMaterialAreas: [],
       recommendedUse: [],
-      doNotUseFor: [],
-      needsRestructureAttention: [],
+      doNotUseForRefs: [],
+      needsRestructureAttentionRefs: [],
     },
   };
 }
@@ -269,8 +274,8 @@ function buildProofCoverageSkeleton() {
     candidateShots: [],
     candidateGroups: [],
     reason: "",
-    safeUsage: "",
-    gapAdvice: "",
+    safeUsageRefs: [],
+    gapAdviceRefs: [],
   }));
 }
 

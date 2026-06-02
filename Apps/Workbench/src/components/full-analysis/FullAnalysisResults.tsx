@@ -50,12 +50,14 @@ export function ResultPanel({ tab, artifact }: { tab: ResultTab; artifact: Sampl
     }))} />;
   }
   if (tab === "material") {
-    const cards = artifact.userMaterialPack?.shotCards ?? [];
+    const materialPack = artifact.userMaterialPack;
+    const cards = materialPack?.shotCards ?? [];
+    const guardrailDict = materialPack?.semanticDictionaries?.guardrailDict ?? {};
     return <ResultList empty="素材识别完成后会展示素材卡。" items={cards.map((card) => ({
       id: card.shotRef,
       title: `${card.shotNo ?? card.shotRef} · ${card.shotClass}`,
       time: card.timeRange ? `${formatSecondsCompact(card.timeRange.start)} - ${formatSecondsCompact(card.timeRange.end)}` : card.materialTags.slice(0, 3).join(" / "),
-      body: card.visualSummary || card.constraints.join(" / ") || "无摘要",
+      body: card.visualSummary || (card.constraintRefs ?? []).map((ref) => guardrailDict[ref] ?? ref).join(" / ") || "无摘要",
     }))} />;
   }
   const blocks = artifact.packagingStructureAnalysis?.packagingBlocks ?? [];

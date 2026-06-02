@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { prepareInputPackage, renderAnalyzeTurnInputs, buildOutputSkeleton } = require("../../Apps/Api/lib/user-material-tagger-analysis/input");
-const { buildProcessedAnalysis } = require("../../Apps/Api/lib/user-material-tagger-analysis/result-builder");
+const { buildProcessedAnalysis, buildCacheReuseAnalysis } = require("../../Apps/Api/lib/user-material-tagger-analysis/result-builder");
 
 test("user material pack shot cards include representative frame visualRef from visual manifest", () => {
   const input = createInput();
@@ -123,8 +123,8 @@ test("user material pack accepts proofCoverage object map from agent output", ()
     candidateShots: ["shot_1"],
     candidateGroups: ["group_product"],
     reason: "可用于商品识别。",
-    safeUsage: "可用于商品识别。",
-    gapAdvice: "",
+    safeUsageRefs: ["可用于商品识别。"],
+    gapAdviceRefs: [],
   });
   assert.equal(analysis.proofCoverage.find((item) => item.proofNeedClass === "process_demonstration").coverage, "partial");
   assert.equal(analysis.proofCoverage.find((item) => item.proofNeedClass === "problem_visibility").coverage, "missing");
@@ -187,12 +187,12 @@ test("user material pack normalizes common agent field aliases", () => {
 
   assert.deepEqual(analysis.shotCards.map((card) => card.shotRef), ["shot_1", "shot_2"]);
   assert.equal(analysis.shotCards[1].shotClass, "usage_process");
-  assert.deepEqual(analysis.shotCards[1].detectedEntities.objects, ["杯子", "小包装"]);
+  assert.deepEqual(analysis.shotCards[1].detectedEntityRefs.objects, ["杯子", "小包装"]);
   assert.deepEqual(analysis.shotCards[1].proofAffordances[0], {
     proofNeedClass: "process_demonstration",
     strength: "medium",
     reason: "有倒粉动作。",
-    limits: ["不能证明完整搅拌。"],
+    limitRefs: ["不能证明完整搅拌。"],
   });
   assert.deepEqual(analysis.materialGroups[0].shotRefs, ["shot_1", "shot_2"]);
   assert.equal(analysis.sequenceRecommendations.middleCandidates[0].shotRef, "shot_2");
@@ -225,11 +225,20 @@ test("user material tagger input package includes output skeleton from shot fact
 
   assert.equal(skeleton.type, "user-material-pack");
   assert.equal(skeleton.schemaVersion, "user-material-pack.stable");
+  assert.deepEqual(skeleton.semanticDictionaries, { entityDict: {}, supportDict: {}, guardrailDict: {} });
   assert.deepEqual(skeleton.shotCards.map((card) => [card.shotRef, card.shotNo, card.timeRange, card.visualSummary]), [
     ["shot_1", "S001", { start: 0, end: 1 }, "商品包装近景"],
     ["shot_2", "S002", { start: 1, end: 2 }, "倒粉入杯"],
   ]);
+  assert.deepEqual(skeleton.shotCards[0].detectedEntityRefs, { products: [], people: [], scenes: [], objects: [], textSignals: [] });
+  assert.deepEqual(skeleton.shotCards[0].sequenceFit.opening.requiredSupportRefs, []);
+  assert.deepEqual(skeleton.shotCards[0].constraintRefs, []);
+  assert.equal(Object.hasOwn(skeleton.shotCards[0], "detectedEntities"), false);
+  assert.equal(Object.hasOwn(skeleton.shotCards[0].sequenceFit.opening, "requiredSupport"), false);
+  assert.equal(Object.hasOwn(skeleton.shotCards[0], "constraints"), false);
   assert.equal(skeleton.proofCoverage.length, 8);
+  assert.deepEqual(skeleton.proofCoverage[0].safeUsageRefs, []);
+  assert.deepEqual(skeleton.globalConstraintRefs, []);
 
   const payload = renderAnalyzeTurnInputs({
     inputPackage,
@@ -260,6 +269,55 @@ test("user material pack rejects untouched proof coverage skeleton", () => {
     ),
     /用户素材识别输出未通过校验/,
   );
+});
+
+test("user material pack cache reuse normalizes old expanded fields to compact refs", () => {
+  const oldCachedAnalysis = {
+    artifactId: "artifact_cached",
+    parentArtifactId: "artifact_shot_boundary",
+    traceId: "trace_old",
+    type: "user-material-pack",
+    schemaVersion: "user-material-pack.stable",
+    status: "processed",
+    validation: { status: "passed", validatorCode: null },
+    shotCards: [
+      {
+        ...createShotCard("shot_1", "S001"),
+        detectedEntityRefs: undefined,
+        constraintRefs: undefined,
+        detectedEntities: { products: ["商品"], people: [], scenes: [], objects: ["杯子"], textSignals: [] },
+        constraints: ["不能证明效果"],
+        proofAffordances: [{ proofNeedClass: "product_identity", strength: "medium", reason: "可见商品。", limits: ["缺包装"] }],
+        sequenceFit: { opening: { fit: "medium", reason: "可开头", requiredSupport: ["商品页"] } },
+      },
+    ],
+    materialGroups: [{ groupId: "group_1", groupType: "product_display_group", shotRefs: ["shot_1"], groupSummary: "商品组", constraints: ["缺包装"] }],
+    proofCoverage: [{ proofNeedClass: "product_identity", coverage: "partial", candidateShots: ["shot_1"], candidateGroups: [], reason: "可见商品。", safeUsage: "只做识别。", gapAdvice: "补包装。" }],
+    sequenceRecommendations: { openingCandidates: [{ shotRef: "shot_1", fit: "medium", recommendedPosition: "opening", reason: "可开头", requiredSupport: ["商品页"], doNotUseAs: [] }] },
+    globalConstraints: ["不能证明效果"],
+    restructureInputSummary: { strongMaterialAreas: [], weakMaterialAreas: [], missingMaterialAreas: [], recommendedUse: [], doNotUseFor: ["不能证明效果"], needsRestructureAttention: ["补包装"] },
+  };
+
+  const analysis = buildCacheReuseAnalysis({
+    cachedAnalysis: oldCachedAnalysis,
+    context: {
+      artifactId: "artifact_new",
+      input: createInput(),
+      traceContext: { traceId: "trace_new" },
+      inputPackage: { visualManifest: { shotSheets: [], sheets: [] } },
+    },
+  });
+
+  assert.equal(Object.hasOwn(analysis, "globalConstraints"), false);
+  assert.equal(Object.hasOwn(analysis.shotCards[0], "detectedEntities"), false);
+  assert.equal(Object.hasOwn(analysis.shotCards[0], "constraints"), false);
+  assert.equal(Object.hasOwn(analysis.shotCards[0].proofAffordances[0], "limits"), false);
+  assert.deepEqual(analysis.shotCards[0].detectedEntityRefs.objects, ["杯子"]);
+  assert.deepEqual(analysis.shotCards[0].proofAffordances[0].limitRefs, ["缺包装"]);
+  assert.deepEqual(analysis.proofCoverage[0].safeUsageRefs, ["只做识别。"]);
+  assert.deepEqual(analysis.sequenceRecommendations.openingCandidates[0].requiredSupportRefs, ["商品页"]);
+  assert.deepEqual(analysis.globalConstraintRefs, ["不能证明效果"]);
+  assert.deepEqual(analysis.restructureInputSummary.doNotUseForRefs, ["不能证明效果"]);
 });
 
 function createInput() {
@@ -299,14 +357,15 @@ function createOutput() {
       middleCandidates: [],
       endingCandidates: [],
     },
-    globalConstraints: [],
+    semanticDictionaries: { entityDict: {}, supportDict: {}, guardrailDict: {} },
+    globalConstraintRefs: [],
     restructureInputSummary: {
       strongMaterialAreas: [],
       weakMaterialAreas: [],
       missingMaterialAreas: [],
       recommendedUse: [],
-      doNotUseFor: [],
-      needsRestructureAttention: [],
+      doNotUseForRefs: [],
+      needsRestructureAttentionRefs: [],
     },
   };
 }
@@ -319,13 +378,13 @@ function createShotCard(shotRef, shotNo) {
     shotFunctions: ["product_visibility"],
     visualSummary: "商品画面",
     spokenOrSubtitleSummary: "",
-    detectedEntities: { products: [], people: [], scenes: [], objects: [], textSignals: [] },
+    detectedEntityRefs: { products: [], people: [], scenes: [], objects: [], textSignals: [] },
     materialTags: [],
     proofAffordances: [],
     sequenceFit: {
-      opening: { fit: "weak", reason: "", requiredSupport: [] },
-      middle: { fit: "weak", reason: "", requiredSupport: [] },
-      ending: { fit: "weak", reason: "", requiredSupport: [] },
+      opening: { fit: "weak", reason: "", requiredSupportRefs: [] },
+      middle: { fit: "weak", reason: "", requiredSupportRefs: [] },
+      ending: { fit: "weak", reason: "", requiredSupportRefs: [] },
     },
     quality: {
       visualClarity: "high",
@@ -334,7 +393,7 @@ function createShotCard(shotRef, shotNo) {
       audioUsefulness: "none",
       captionUsefulness: "none",
     },
-    constraints: [],
+    constraintRefs: [],
     confidence: 0.8,
     needReview: false,
   };
@@ -347,7 +406,7 @@ function createProofCoverage(proofNeedClass) {
     candidateShots: proofNeedClass === "product_identity" ? ["shot_1"] : [],
     candidateGroups: [],
     reason: proofNeedClass === "product_identity" ? "商品画面可见。" : "",
-    safeUsage: "",
-    gapAdvice: "",
+    safeUsageRefs: [],
+    gapAdviceRefs: [],
   };
 }

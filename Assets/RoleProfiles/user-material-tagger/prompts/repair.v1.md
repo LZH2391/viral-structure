@@ -27,5 +27,6 @@
 - 不要删减 shotCards；必须覆盖所有输入 shots。
 - 所有 shotRef 必须来自输入 shots。
 - 对照 output skeleton 保留每个 `shotRef / shotNo / timeRange / visualSummary`。
-- 如果失败字段是 `proofCoverage`，必须补齐全部 proofNeedClass，并写明 coverage、candidateShots/candidateGroups、reason、safeUsage、gapAdvice；不要原样返回空骨架。
+- 直接按 output skeleton 的 compact 结构修复；不要回退到 `detectedEntities / limits / constraints / requiredSupport / globalConstraints` 这类展开字段。
+- 如果失败字段是 `proofCoverage`，必须补齐全部 proofNeedClass，并写明 coverage、candidateShots/candidateGroups、reason、safeUsageRefs、gapAdviceRefs；不要原样返回空骨架。
 - 如果失败字段是 shot 引用，必须只使用 output skeleton 中已有的 `shotRef`。

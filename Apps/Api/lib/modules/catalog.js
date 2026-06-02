@@ -8,7 +8,6 @@ const { createUserMaterialTaggerAnalysisDefinition } = require("../user-material
 const { createImageGenerationModuleDefinition } = require("../image-generation/module-definition");
 const {
   createFunctionSlotSemanticGovernanceModuleDefinition,
-  createFunctionSlotRestructureDisplayTransformModuleDefinition,
   createFunctionSlotRestructureModuleDefinition,
   createShotStoryboardPrepModuleDefinition,
 } = require("../function-slot-workflow/module-definitions");
@@ -23,7 +22,6 @@ const MODULE_DEFINITIONS = [
   createUserMaterialTaggerAnalysisDefinition(),
   createFunctionSlotSemanticGovernanceModuleDefinition(),
   createFunctionSlotRestructureModuleDefinition(),
-  createFunctionSlotRestructureDisplayTransformModuleDefinition(),
   createShotStoryboardPrepModuleDefinition(),
   createImageGenerationModuleDefinition(),
 ];

@@ -34,7 +34,8 @@ shot 是素材单位，slot 是结构需求。`shotCards` 的输入顺序只表�
 2. **user-material-pack.stable / 用户素材供给侧**
    - 来自 `user-material-tagger`。
    - 描述真实素材能支撑哪些证明需求、有哪些候选 group/shot、哪些能力弱、哪些证明缺口不可硬讲。
-   - 关键字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`globalConstraints`。
+   - 关键字段：`semanticDictionaries`、`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`globalConstraintRefs`。
+   - 素材包使用 compact ref schema：先用 `semanticDictionaries.entityDict / supportDict / guardrailDict` 展开 `detectedEntityRefs / requiredSupportRefs / limitRefs / constraintRefs / safeUsageRefs / gapAdviceRefs / globalConstraintRefs`，再判断证明能力和风险边界；不要把 ref id 本身当语义标签。
 
 3. **FunctionSlotLibrary / 结构库侧**
    - `Runtime/Temp/FunctionSlotLibrary/slot_index.json`
@@ -48,7 +49,7 @@ shot 是素材单位，slot 是结构需求。`shotCards` 的输入顺序只表�
 先同时看清三件事，不生成额外 JSON 产物，也不要把三者混成一个字段：
 
 - **需求侧 brief**：产品/品类、目标观众、转化目标、主张强度、平台和生产限制。
-- **素材供给侧 user-material-pack**：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary` 里真实可用的素材能力、限制和缺口。
+- **素材供给侧 user-material-pack**：先展开 `semanticDictionaries` 引用，再读取 `shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`globalConstraintRefs` 里真实可用的素材能力、限制和缺口。
 - **结构库侧 FunctionSlotLibrary**：治理层的 slot subtype / archetype / atom pattern / binding principle，以及证据层 concrete variants。
 
 这一阶段只做理解和边界确认，不新增中间产物、不新增文件、不写入 FunctionSlotLibrary。

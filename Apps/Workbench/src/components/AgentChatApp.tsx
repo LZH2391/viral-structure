@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunRestructureDisplayTransform, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -24,7 +24,6 @@ type PendingAgentChatSend = {
 };
 
 const POLL_INTERVAL_MS = 1800;
-const AUTO_TURN_MAX_POLLS = 80;
 const WARMING_RESEND_INTERVAL_MS = 2500;
 
 export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
@@ -713,7 +712,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     if (!session?.threadId || !currentTurnId || !canConfirmRestructure) return;
     setConfirming(true);
     setErrorText(null);
-    setStatusText("确认方案并触发展示转换/故事板准备与生图");
+    setStatusText("确认方案并触发故事板准备与生图");
     try {
       const confirmWithRevision = async (
         payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
@@ -746,7 +745,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             turnId: currentTurnId,
             confirmationId,
             sourceRestructurePath,
-            note: "用户已确认当前重组方案，准备触发结构展示转换和 Shot Storyboard Prep 生图。",
+            note: "用户已确认当前重组方案，准备触发 Shot Storyboard Prep 生图。",
           },
           activeConversationRevision,
         );
@@ -762,21 +761,11 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         confirmationId,
         runImageGeneration: true,
       };
-      const [displayResult, storyboardResult] = await Promise.all([
-        autoRunRestructureDisplayTransform(payload),
-        autoRunShotStoryboardPrep(payload),
-      ]);
-      if (displayResult.threadId && displayResult.turnId) {
-        void collectAutoDisplayTransformTurn(displayResult, payload)
-          .then((materialized) => {
-            if (materialized?.ok) window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
-          })
-          .catch(() => undefined);
-      }
+      const storyboardResult = await autoRunShotStoryboardPrep(payload);
       setMessages((current) => [...current, {
         id: uniqueId("system"),
         role: "system",
-        text: `已确认当前方案，确认版本 ${shortId(confirmationId)}，已提交两个真实 turn：展示 ${shortId(displayResult.threadId)} / ${shortId(displayResult.turnId)} / trace ${shortId(displayResult.traceId)}；故事板准备与生图 ${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
+        text: `已确认当前方案，确认版本 ${shortId(confirmationId)}，已提交故事板准备与生图 turn：${shortId(storyboardResult.threadId)} / ${shortId(storyboardResult.turnId)} / trace ${shortId(storyboardResult.traceId)}`,
         status: "completed",
       }]);
       if (session.conversationId) {
@@ -785,14 +774,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
             turnId: currentTurnId,
             confirmationId,
             sourceRestructurePath,
-            note: "已确认当前方案，已触发结构展示转换和 Shot Storyboard Prep 生图。",
-            displayArtifact: {
-              artifactId: displayResult.artifactId,
-              traceId: displayResult.traceId,
-              runId: displayResult.runId,
-              stageId: displayResult.stageId,
-              status: displayResult.status,
-            },
+            note: "已确认当前方案，已触发 Shot Storyboard Prep 生图。",
             storyboardArtifact: {
               artifactId: storyboardResult.artifactId,
               traceId: storyboardResult.traceId,
@@ -807,7 +789,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         setActiveConversationConfirmedPlan(logged?.conversation.confirmedPlan ?? null);
         void refreshConversations().catch(() => undefined);
       }
-      setStatusText("已触发展示转换/故事板准备与生图");
+      setStatusText("已触发故事板准备与生图");
     } catch (error) {
       const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新恢复后再确认" : error instanceof Error ? error.message : "确认方案失败";
       setErrorText(message);
@@ -1163,28 +1145,6 @@ function resolveCurrentRestructureFinalPath({
 function normalizeConversationRevision(value: unknown) {
   const revision = Number(value);
   return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
-}
-
-async function collectAutoDisplayTransformTurn(
-  result: { threadId?: string | null; turnId?: string | null; workspaceRoot?: string | null; parentArtifactId?: string | null },
-  payload: { restructureFinalPath?: string | null; parentArtifactId?: string | null; confirmationId?: string | null },
-) {
-  if (!result.threadId || !result.turnId) return null;
-  for (let attempt = 0; attempt < AUTO_TURN_MAX_POLLS; attempt += 1) {
-    const latest = await collectAgentChatTurn(result.threadId, result.turnId, result.workspaceRoot, null, {
-      role: "function-slot-restructure-display-transformer",
-      restructureFinalPath: payload.restructureFinalPath,
-      parentArtifactId: payload.parentArtifactId ?? result.parentArtifactId,
-      confirmationId: payload.confirmationId,
-    });
-    if (isTerminalStatus(latest.status)) return latest.materializedDisplay ?? null;
-    await delay(POLL_INTERVAL_MS);
-  }
-  return null;
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function buildContextUsageKey(threadId: string, usage: NonNullable<AgentTurnTimeline["activity"]["tokenUsage"]>) {
