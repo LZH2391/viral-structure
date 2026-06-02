@@ -569,11 +569,15 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
     parentArtifactId,
     inputSummary,
   });
+  let acquiredLease = null;
+  let acquiredOwnerId = null;
   try {
     const readiness = await handlers.threadPool.ensureRoleReady(role);
     if (!readiness?.ok) throw codedWorkflowError(readiness?.error ?? "threadpool_role_unavailable", readiness?.message ?? "ThreadPool role 暂不可用", readiness);
     const ownerId = `${role}:${traceContext.traceId}`;
+    acquiredOwnerId = ownerId;
     const lease = await handlers.threadPool.acquireLease({ role, ownerId });
+    acquiredLease = lease;
     const threadId = lease.thread_id ?? lease.threadId ?? null;
     if (!threadId) throw codedWorkflowError("threadpool_lease_missing_thread", "ThreadPool lease 未返回 threadId", { leaseStatus: lease.status ?? null });
     const workspaceRoot = readiness.status?.workspaceRoot ?? handlers.rootDir;
@@ -604,6 +608,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
           inputs: turnInputs,
           timeoutSeconds: 240,
           binding: activeTurnBinding,
+          enforceThreadId: true,
         })
       : await handlers.appServer.startTurnWithInputs({
           workspaceRoot,
@@ -612,6 +617,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
           inputs: turnInputs,
           timeoutSeconds: 240,
         });
+    assertExpectedAutoRunThread(started, threadId);
     const artifactId = job?.jobId ?? started.turnId ?? started.turn?.id ?? null;
     const result = {
       ok: true,
@@ -677,6 +683,7 @@ async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleV
     }
     return result;
   } catch (error) {
+    await releaseAutoRunLeaseOnFailure({ handlers, lease: acquiredLease, ownerId: acquiredOwnerId });
     const safeError = {
       code: error?.code ?? "function_slot_auto_run_failed",
       message: safePreview(error instanceof Error ? error.message : "自动触发失败", 240),
@@ -732,11 +739,30 @@ function buildFunctionSlotAutoRunInputs({ role, body }) {
   }];
 }
 
-function codedWorkflowError(code, message, debugPayload = null) {
+function codedWorkflowError(code, message, debugPayload = null, statusCode = null) {
   const error = new Error(message);
   error.code = code;
   error.debugPayload = debugPayload;
+  if (statusCode) error.statusCode = statusCode;
   return error;
+}
+
+function assertExpectedAutoRunThread(result, expectedThreadId) {
+  const actualThreadId = normalizeOptionalText(result?.threadId ?? result?.thread?.id);
+  const expected = normalizeOptionalText(expectedThreadId);
+  if (!actualThreadId || !expected || actualThreadId === expected) return;
+  throw codedWorkflowError("appserver_turn_start_thread_mismatch", "AppServer turn/start 返回了非目标 thread", {
+    expectedThreadId: expected,
+    actualThreadId,
+    turnId: result?.turnId ?? result?.turn?.id ?? null,
+    status: result?.status ?? null,
+  }, 502);
+}
+
+async function releaseAutoRunLeaseOnFailure({ handlers, lease, ownerId }) {
+  const leaseId = lease?.lease_id ?? lease?.leaseId ?? null;
+  if (!leaseId || !ownerId || typeof handlers.threadPool?.releaseLease !== "function") return null;
+  return handlers.threadPool.releaseLease({ leaseId, ownerId }).catch(() => null);
 }
 
 function normalizeOptionalText(value) {

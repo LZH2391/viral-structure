@@ -9,7 +9,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     return bindingStore.upsert(binding);
   }
 
-  async function start({ workspaceRoot, threadId, inputs, skillPath = null, timeoutSeconds = 180, binding }) {
+  async function start({ workspaceRoot, threadId, inputs, skillPath = null, timeoutSeconds = 180, binding, enforceThreadId = false }) {
     if (!appServer?.startTurnWithInputs) throw activeRuntimeError("appserver_turn_start_unavailable", "AppServer turn/start 能力不可用", null, true);
     const result = await appServer.startTurnWithInputs({ workspaceRoot, threadId, inputs, skillPath, timeoutSeconds });
     const turnId = result.turnId ?? result.turn?.id ?? null;
@@ -23,10 +23,11 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
       error.statusCode = result?.statusCode ?? 502;
       throw error;
     }
+    if (enforceThreadId) assertExpectedStartThread(result, threadId);
     if (binding && turnId) {
       await register({
         ...binding,
-        threadId: result.threadId ?? threadId,
+        threadId,
         turnId,
         currentAttemptId: binding.currentAttemptId ?? turnId,
         status: result.status ?? "submitted",
@@ -198,6 +199,20 @@ function assertExpectedCollectTurn(result, expectedTurnId) {
   const error = activeRuntimeError("appserver_turn_collect_mismatch", "AppServer turn/collect 返回了非目标 turn", {
     expectedTurnId: expected,
     actualTurnId,
+    status: result?.status ?? null,
+  }, true);
+  error.statusCode = 502;
+  throw error;
+}
+
+function assertExpectedStartThread(result, expectedThreadId) {
+  const actualThreadId = normalizeTurnId(result?.threadId ?? result?.thread?.id ?? null);
+  const expected = normalizeTurnId(expectedThreadId);
+  if (!actualThreadId || !expected || actualThreadId === expected) return;
+  const error = activeRuntimeError("appserver_turn_start_thread_mismatch", "AppServer turn/start 返回了非目标 thread", {
+    expectedThreadId: expected,
+    actualThreadId,
+    turnId: result?.turnId ?? result?.turn?.id ?? null,
     status: result?.status ?? null,
   }, true);
   error.statusCode = 502;

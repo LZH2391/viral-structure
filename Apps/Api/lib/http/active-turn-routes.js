@@ -182,6 +182,7 @@ async function handleActiveTurnRetry(req, res, bindingId, handlers = {}) {
       inputs: replayInputs,
       skillPath: job?.agentRun?.skillPath ?? null,
       timeoutSeconds: 240,
+      enforceThreadId: true,
       binding: {
         ...binding,
         bindingId: null,
@@ -198,6 +199,7 @@ async function handleActiveTurnRetry(req, res, bindingId, handlers = {}) {
       },
     });
     assertRetryStartSucceeded(started);
+    assertRetryStartThread(started, retryThread.threadId);
   } catch (error) {
     await releaseRetryThreadLease(retryThread, handlers);
     throw error;
@@ -331,6 +333,7 @@ async function retryAgentChatTurnFromBinding({ res, binding, body, handlers, run
       inputs: buildTextInputs(replayText),
       skillPath: retrySession.skillPath,
       timeoutSeconds: 240,
+      enforceThreadId: true,
       binding: {
         ownerType: "agent-chat",
         ownerId: conversation.conversationId,
@@ -352,6 +355,7 @@ async function retryAgentChatTurnFromBinding({ res, binding, body, handlers, run
       },
     });
     assertRetryStartSucceeded(started);
+    assertRetryStartThread(started, retrySession.threadId);
   } catch (error) {
     await releaseRetryThreadLease(retrySession, handlers);
     throw error;
@@ -514,6 +518,18 @@ function assertRetryStartSucceeded(result) {
   throw error;
 }
 
+function assertRetryStartThread(result, expectedThreadId) {
+  const actualThreadId = normalizeId(result?.threadId ?? result?.thread?.id ?? null);
+  const expected = normalizeId(expectedThreadId);
+  if (!actualThreadId || !expected || actualThreadId === expected) return;
+  throw routeError("active_turn_retry_start_thread_mismatch", "Active turn retry start 返回了非目标 thread", 502, {
+    expectedThreadId: expected,
+    actualThreadId,
+    turnId: result?.turnId ?? result?.turn?.id ?? null,
+    status: result?.status ?? null,
+  });
+}
+
 function isCurrentProcessingJobTurn(job, binding) {
   const agentRun = job?.agentRun;
   if (!agentRun) return false;
@@ -532,11 +548,17 @@ function safeErrorMessage(error, fallback) {
   return text ? text.slice(0, 240) : fallback;
 }
 
-function routeError(code, message, statusCode) {
+function routeError(code, message, statusCode, debugPayload = null) {
   const error = new Error(message);
   error.code = code;
   error.statusCode = statusCode;
+  error.debugPayload = debugPayload;
   throw error;
+}
+
+function normalizeId(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function resolveAgentChatReplayText(conversation, binding) {

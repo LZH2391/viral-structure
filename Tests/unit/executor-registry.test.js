@@ -134,3 +134,31 @@ test("appserver-turn executor rejects collect result for a different turn", asyn
     { code: "appserver_turn_collect_mismatch" },
   );
 });
+
+test("appserver-turn executor rejects start result for a different thread", async () => {
+  const registry = createExecutorRegistry({
+    appServer: {
+      startTurnWithInputs: async () => ({
+        threadId: "thread_other",
+        turnId: "turn_1",
+        status: "submitted",
+      }),
+    },
+  });
+  const context = {
+    runStage: async (_stageName, _progress, options) => options.action(),
+  };
+
+  await assert.rejects(
+    () => registry.execute("appserver-turn", {
+      action: "submit-turn",
+      stageName: "agent.submit",
+      progress: 50,
+      workspaceRoot: "C:/workspace",
+      threadId: "thread_expected",
+      inputs: [{ type: "text", text: "hello" }],
+      enforceThreadId: true,
+    }, context),
+    { code: "appserver_turn_start_thread_mismatch" },
+  );
+});

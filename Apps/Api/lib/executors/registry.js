@@ -115,6 +115,7 @@ async function submitTurn(appServer, activeTurnRuntime, payload, context) {
           skillPath: payload.skillPath,
           timeoutSeconds: payload.timeoutSeconds ?? 240,
           binding: buildExecutorBinding(payload, context),
+          enforceThreadId: Boolean(payload.enforceThreadId),
         })
       : appServer.startTurnWithInputs({
           workspaceRoot: payload.workspaceRoot,
@@ -132,6 +133,7 @@ async function submitTurn(appServer, activeTurnRuntime, payload, context) {
     }),
   });
   assertTurnStarted(result);
+  if (payload.enforceThreadId) assertExpectedStartedThread(result, payload.threadId);
   const normalized = normalizeTurnResult(result);
   if (!activeTurnRuntime?.start) await registerExecutorActiveTurn(activeTurnRuntime, payload, normalized, context);
   return normalized;
@@ -203,6 +205,20 @@ function assertTurnStarted(result) {
     true,
   );
   error.statusCode = result?.statusCode ?? 502;
+  throw error;
+}
+
+function assertExpectedStartedThread(result, expectedThreadId) {
+  const actualThreadId = normalizeText(result?.threadId ?? result?.thread?.id ?? null);
+  const expected = normalizeText(expectedThreadId);
+  if (!actualThreadId || !expected || actualThreadId === expected) return;
+  const error = executorError("appserver_turn_start_thread_mismatch", "AppServer turn/start 返回了非目标 thread", {
+    expectedThreadId: expected,
+    actualThreadId,
+    turnId: result?.turnId ?? result?.turn?.id ?? null,
+    status: result?.status ?? null,
+  }, true);
+  error.statusCode = 502;
   throw error;
 }
 

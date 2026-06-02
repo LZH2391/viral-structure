@@ -427,7 +427,9 @@ async function collectTurn({ appServer, activeTurnRuntime, workspaceRoot, thread
     return activeTurnRuntime.collect({ workspaceRoot, threadId, turnId, timeoutSeconds });
   }
   const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
-  await activeTurnRuntime?.markCollectResult?.({ turnId, result }).catch(() => null);
+  if (isExpectedTurn(result, turnId)) {
+    await activeTurnRuntime?.markCollectResult?.({ turnId, result }).catch(() => null);
+  }
   return result;
 }
 

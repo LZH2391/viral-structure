@@ -113,6 +113,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
         });
         assertAgentChatTurnStarted(result);
+        assertExpectedThreadResult(result, threadId, "agent_chat_turn_start_thread_mismatch");
         const payload = {
           ok: true,
           source: body.source ?? "direct",
@@ -201,6 +202,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
         });
         assertAgentChatTurnStarted(result);
+        assertExpectedThreadResult(result, threadId, "agent_chat_turn_start_thread_mismatch");
         const turnId = result.turnId ?? result.turn?.id ?? null;
         const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
           conversationId,
@@ -485,6 +487,7 @@ async function handleAgentChatTurnRetry(req, res, threadId, turnId, handlers = {
             timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
           });
           assertAgentChatTurnStarted(result);
+          assertExpectedThreadResult(result, session.threadId, "agent_chat_turn_start_thread_mismatch");
         } catch (error) {
           if (mode === "new_thread") {
             await releaseRetrySessionLease(session, handlers);
@@ -635,6 +638,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         turnId,
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
+      assertExpectedTurnResult(result, turnId, "agent_chat_turn_collect_mismatch");
       const activity = buildAgentActivityFromTurnResult(result);
       const payload = {
         ok: true,
@@ -1332,6 +1336,7 @@ async function cancelTurnIfAvailable({ handlers, workspaceRoot, threadId, turnId
     turnId,
     timeoutSeconds: 30,
   });
+  assertCancelTurnSucceeded(result);
   return {
     ok: result?.ok !== false,
     threadId: result?.threadId ?? threadId,
@@ -1451,6 +1456,49 @@ function assertAgentChatTurnStarted(result) {
   error.statusCode = result?.statusCode ?? 502;
   error.code = result?.error ?? result?.code ?? "agent_chat_turn_start_failed";
   error.retryable = true;
+  throw error;
+}
+
+function assertExpectedTurnResult(result, expectedTurnId, code) {
+  const actualTurnId = normalizeText(result?.turnId ?? result?.turn?.id);
+  const expected = normalizeText(expectedTurnId);
+  if (!actualTurnId || !expected || actualTurnId === expected) return;
+  const error = new Error("AgentChat turn 返回了非目标 turn");
+  error.statusCode = 502;
+  error.code = code;
+  error.retryable = true;
+  error.debugPayload = {
+    expectedTurnId: expected,
+    actualTurnId,
+    status: result?.status ?? null,
+  };
+  throw error;
+}
+
+function assertExpectedThreadResult(result, expectedThreadId, code) {
+  const actualThreadId = normalizeText(result?.threadId ?? result?.thread?.id);
+  const expected = normalizeText(expectedThreadId);
+  if (!actualThreadId || !expected || actualThreadId === expected) return;
+  const error = new Error("AgentChat turn 返回了非目标 thread");
+  error.statusCode = 502;
+  error.code = code;
+  error.retryable = true;
+  error.debugPayload = {
+    expectedThreadId: expected,
+    actualThreadId,
+    turnId: result?.turnId ?? result?.turn?.id ?? null,
+    status: result?.status ?? null,
+  };
+  throw error;
+}
+
+function assertCancelTurnSucceeded(result) {
+  if (result?.ok !== false) return;
+  const error = new Error(result?.message ?? "AgentChat turn cancel 失败");
+  error.statusCode = result?.statusCode ?? 502;
+  error.code = result?.error ?? result?.code ?? "agent_chat_turn_cancel_failed";
+  error.retryable = true;
+  error.debugPayload = result;
   throw error;
 }
 

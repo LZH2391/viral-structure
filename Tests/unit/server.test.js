@@ -1034,6 +1034,47 @@ test("agent chat submits message, collects answer, and reads timeline", async ()
   }
 });
 
+test("agent chat collect rejects mismatched turn before recording conversation or active turn", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/collect-mismatch.json" }),
+    },
+    appServer: {
+      collectTurnResult: async (payload) => ({
+        ok: true,
+        threadId: payload.threadId,
+        turnId: "turn_other",
+        status: "completed",
+        finalMessage: "wrong turn",
+      }),
+    },
+    activeTurnRuntime: {
+      markCollectResult: async (payload) => calls.push({ type: "markCollectResult", payload }),
+    },
+    agentConversationStore: {
+      recordAssistantTurn: async (payload) => {
+        calls.push({ type: "recordAssistantTurn", payload });
+        return { conversationId: payload.conversationId, revision: 2, latestTurnId: payload.turnId, messages: [] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_1/turns/turn_1?conversationId=conversation_1");
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "agent_chat_turn_collect_mismatch");
+    assert.deepEqual(calls, []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat submit rejects failed turn start before recording user turn", async () => {
   const calls = [];
   const server = createServer({
@@ -1653,6 +1694,62 @@ test("agent chat manual replacement route renders restructure replacement turn",
     assert.match(calls[0].inputs[0].text, new RegExp(response.body.userTurnText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(calls[0].inputs[0].text, /先说明影响并请求用户确认/);
     assert.match(conversations.get("conversation_restructure").messages[0].text, /低门槛价值锚点 -> 强痛点场景进入/);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat manual replacement rejects start result for a different thread before recording user turn", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-manual-replacement-thread-mismatch-"));
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/start-thread-mismatch.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push({ type: "startTurn", payload });
+        return { threadId: "thread_other", turnId: "turn_manual_1", status: "submitted" };
+      },
+    },
+    agentConversationStore: {
+      assertActive: async () => ({
+        conversationId: "conversation_restructure",
+        revision: 4,
+        role: "function-slot-restructure",
+        source: "threadpool-role",
+        status: "active",
+        threadId: "thread_restructure",
+        workspaceRoot: rootDir,
+        skillPath: "function-slot-restructure/SKILL.md",
+        messages: [],
+      }),
+      recordUserTurn: async (payload) => calls.push({ type: "recordUserTurn", payload }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_restructure/turns/manual-replacement", {
+      conversationId: "conversation_restructure",
+      expectedRevision: 4,
+      sourceRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      sourceDisplayJsonPath: "Artifacts/FunctionSlotRestructure/demo/restructure.display.json",
+      replacements: [{
+        type: "slot",
+        fromSlotSubtypeId: "value_anchor",
+        toSlotSubtypeId: "pain_entry",
+        candidateId: "sample_a::F001",
+      }],
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "agent_chat_turn_start_thread_mismatch");
+    assert.deepEqual(calls.map((call) => call.type), ["startTurn"]);
   } finally {
     await closeServer(server);
   }
@@ -2512,6 +2609,46 @@ test("agent chat stop turn cancels the specified turn and marks it retryable", a
   }
 });
 
+test("agent chat stop turn rejects failed direct appserver cancel before recording stopped turn", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/cancel-failed.json" }),
+    },
+    appServer: {
+      cancelTurn: async (payload) => {
+        calls.push({ type: "cancelTurn", payload });
+        return { ok: false, error: "provider_cancel_rejected", message: "cancel rejected" };
+      },
+    },
+    activeTurnRuntime: {},
+    agentConversationStore: {
+      assertActive: async () => ({ conversationId: "conversation_1", status: "active", revision: 3, latestTurnId: "turn_1", messages: [] }),
+      recordTurnStopped: async (payload) => {
+        calls.push({ type: "recordTurnStopped", payload });
+        return { conversationId: payload.conversationId, revision: 4, latestTurnId: payload.turnId, messages: [] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_1/turns/turn_1/stop", {
+      conversationId: "conversation_1",
+      expectedRevision: 3,
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "provider_cancel_rejected");
+    assert.deepEqual(calls.map((call) => call.type), ["cancelTurn"]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat stop thread cancels active turn and discards threadpool thread when requested", async () => {
   const calls = [];
   const server = createServer({
@@ -2562,6 +2699,54 @@ test("agent chat stop thread cancels active turn and discards threadpool thread 
       { type: "release", leaseId: "lease_1", ownerId: "owner_1" },
       { type: "discard", threadId: "thread_1", reason: "manual stop" },
     ]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat stop thread rejects failed direct appserver cancel before stopping conversation", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/thread-cancel-failed.json" }),
+    },
+    appServer: {
+      cancelTurn: async (payload) => {
+        calls.push({ type: "cancelTurn", payload });
+        return { ok: false, message: "cancel rejected" };
+      },
+    },
+    activeTurnRuntime: {},
+    threadPool: {
+      releaseLease: async (payload) => calls.push({ type: "releaseLease", payload }),
+      discardThread: async (payload) => calls.push({ type: "discardThread", payload }),
+    },
+    agentConversationStore: {
+      assertActive: async () => ({ conversationId: "conversation_1", status: "active", revision: 5, source: "threadpool-role", latestTurnId: "turn_1", leaseId: "lease_1", ownerId: "owner_1", messages: [] }),
+      stopThread: async (payload) => {
+        calls.push({ type: "stopThread", payload });
+        return { conversationId: payload.conversationId, status: "active", revision: 6, latestTurnId: "turn_1", messages: [] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_1/stop", {
+      conversationId: "conversation_1",
+      activeTurnId: "turn_1",
+      source: "threadpool-role",
+      leaseId: "lease_1",
+      ownerId: "owner_1",
+      discardThread: true,
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.error, "agent_chat_turn_cancel_failed");
+    assert.deepEqual(calls.map((call) => call.type), ["cancelTurn"]);
   } finally {
     await closeServer(server);
   }
@@ -3605,6 +3790,54 @@ test("function slot auto-run creates processing job and active binding for stop 
     assert.equal(activeStarts[0].binding.ownerId, response.body.processingJobId);
     assert.equal(activeStarts[0].binding.replayRef.type, "processing-job-input");
     assert.equal(activeStarts[0].inputs[0].type, "text");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("function slot auto-run releases lease when direct appserver start returns a different thread", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-thread-mismatch-"));
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/auto-run-thread-mismatch.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async () => ({ ok: true, status: { workspaceRoot: rootDir, skillPath: "skill.md" } }),
+      acquireLease: async (payload) => {
+        calls.push({ type: "acquire", payload });
+        return { lease_id: "lease_auto", thread_id: "thread_auto" };
+      },
+      releaseLease: async (payload) => calls.push({ type: "release", payload }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push({ type: "start", payload });
+        return { threadId: "thread_other", turnId: "turn_auto", status: "submitted" };
+      },
+    },
+    jobStore: {
+      createJob: () => ({ jobId: "job_auto" }),
+      updateJob: (jobId, patch) => calls.push({ type: "updateJob", jobId, patch }),
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/restructure-display-transform/auto-run", {
+      sampleVideoId: "sample_auto",
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
+      parentArtifactId: "artifact_parent",
+      confirmationId: "confirm_1",
+    });
+    assert.equal(response.statusCode, 502);
+    assert.equal(response.body.code, "appserver_turn_start_thread_mismatch");
+    assert.deepEqual(calls.map((call) => call.type), ["acquire", "start", "release"]);
+    assert.equal(calls[2].payload.leaseId, "lease_auto");
   } finally {
     await closeServer(server);
   }

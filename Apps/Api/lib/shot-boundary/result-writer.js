@@ -565,7 +565,7 @@ async function collectTurn({
 
 async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId, inputs, timeoutSeconds, binding }) {
   if (typeof activeTurnRuntime?.start === "function") {
-    return activeTurnRuntime.start({ workspaceRoot, threadId, inputs, timeoutSeconds, binding });
+    return activeTurnRuntime.start({ workspaceRoot, threadId, inputs, timeoutSeconds, binding, enforceThreadId: false });
   }
   const result = await appServer.startTurnWithInputs({ workspaceRoot, threadId, inputs, timeoutSeconds });
   assertStartTurnResult(result);

@@ -357,6 +357,41 @@ test("analysis turn runner registers active binding and terminal collect writes 
   assert.deepEqual(await runtime.listActive(), []);
 });
 
+test("analysis turn runner direct collect ignores mismatched turn before marking active turn", async () => {
+  const markCalls = [];
+  const runner = createAppServerTurnRunner({
+    role: "test-role",
+    codedError: (code, message, payload) => Object.assign(new Error(message), { code, debugPayload: payload }),
+    collectFailedMessage: "collect failed",
+    collectTimeoutMessage: "collect timeout",
+  });
+
+  await assert.rejects(
+    () => runner.collectTurnToCompletion({
+      appServer: {
+        collectTurnResult: async (payload) => ({
+          status: "completed",
+          threadId: payload.threadId,
+          turnId: "turn_other",
+          finalMessage: "wrong turn",
+        }),
+      },
+      activeTurnRuntime: {
+        markCollectResult: async (payload) => markCalls.push(payload),
+      },
+      rootDir: "C:/workspace",
+      threadId: "thread_1",
+      turnId: "turn_expected",
+      pollIntervalMs: 0,
+      collectIdleTimeoutMs: 1,
+      collectHardTimeoutMs: 1,
+    }),
+    { code: "appserver_turn_collect_timeout" },
+  );
+
+  assert.deepEqual(markCalls, []);
+});
+
 test("active turn runtime rejects failed start result before registering binding", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-start-failed-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };
@@ -386,6 +421,54 @@ test("active turn runtime rejects failed start result before registering binding
       { code: "appserver_turn_start_failed" },
     );
     assert.deepEqual(await runtime.listActive(), []);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("active turn runtime keeps requested thread when start result reports a different thread unless enforced", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-start-thread-mismatch-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const runtime = createActiveTurnRuntime({
+    store,
+    appServer: {
+      async startTurnWithInputs() {
+        return { ok: true, threadId: "thread_other", turnId: "turn_1", status: "submitted" };
+      },
+    },
+  });
+
+  try {
+    const started = await runtime.start({
+      workspaceRoot: root,
+      threadId: "thread_expected",
+      inputs: [{ type: "text", text: "safe" }],
+      binding: {
+        ownerType: "processing-job",
+        ownerId: "job_1",
+        currentAttemptId: "attempt_1",
+        stageName: "content.model",
+        replayRef: { type: "processing-job-input", refId: "job_1" },
+      },
+    });
+    assert.equal(started.threadId, "thread_other");
+    assert.equal((await runtime.getByTurnId("turn_1")).threadId, "thread_expected");
+    await assert.rejects(
+      () => runtime.start({
+        workspaceRoot: root,
+        threadId: "thread_expected",
+        inputs: [{ type: "text", text: "safe" }],
+        enforceThreadId: true,
+        binding: {
+          ownerType: "processing-job",
+          ownerId: "job_1",
+          currentAttemptId: "attempt_1",
+          stageName: "content.model",
+          replayRef: { type: "processing-job-input", refId: "job_1" },
+        },
+      }),
+      { code: "appserver_turn_start_thread_mismatch" },
+    );
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
