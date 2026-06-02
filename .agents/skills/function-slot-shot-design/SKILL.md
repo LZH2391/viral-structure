@@ -28,13 +28,6 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 如果缺少第 5、6、7 节，不能直接写 Shot 设计；先要求补齐结构方案。
 
-## 必读 References
-
-- 选择素材来源/处理策略前，读 `references/material-strategy.md`。
-- 写分镜、包装、台词/字幕前，读 `references/dialogue-and-packaging.md` 和 `references/dialoguePool.md`。
-- 写文件前，读 `references/output-contract.md`。
-- 选择 `return_to_restructure_required` 时，读 `function-slot-restructure/references/shot-design-return-to-restructure.md`。
-
 ## 工作顺序
 
 1. **确认结构已认可**
@@ -50,12 +43,13 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
    在镜头密度目标上，为每个 shot 确认它承载的 slotSubtype、脚本段落、节奏区间和包装块。允许一对多、多对一和跨边界承接，但必须写清过渡、合并、fragment、hook、payoff 或 adapter 关系。
 
 5. **选择素材/设计策略**
-   若有素材包，基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary` 选择每个 shot 的策略；若没有素材包，也必须写清 `self_designed_by_shot_design` 或必要的回重组原因。遵守 `references/material-strategy.md`：未占用现有素材优先，其次包装/字幕强化，再自行设计，最后才复用变形兜底。
+   进入素材来源和处理策略判断时，读取 `references/material-strategy.md`。若有素材包，基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary` 选择每个 shot 的策略。
 
-6. **写 Shot 表内容**
-   按 `references/dialogue-and-packaging.md` 写分镜画面、包装说明、台词/字幕；按 `references/output-contract.md` 写字段。
+6. **写画面、包装、台词**
+   进入分镜画面、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。
 
-7. **写预计时长**
+7. **落表字段与预计时长**
+   开始写 Shot 表字段前，读取 `references/output-contract.md`。
    有上游 `timingBudget` 时，每个 shot 的 `预计时长` 必须在本版设计时直接写成具体预算范围，例如 `0.8-1.2s`、`1.5-2.0s`，并让台词/字幕长度服从这个范围。没有 `timingBudget` 时，统一写 `待估算`。
 
 8. **落独立文件并检查**
