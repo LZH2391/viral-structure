@@ -11,7 +11,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可�
 2. **用户素材包 / 供给侧**：定义用户真实素材能承载哪些证明能力；重组只用它判断素材供给类型、最佳成片路径和结构级证明边界，不做逐 shot 最终落地。
 3. **FunctionSlotLibrary / 结构库侧**：提供可复用的 slot subtype、archetype、atoms、binding 和 recomposition policy。
 
-不要把用户素材包混进 FunctionSlotLibrary，也不要把 shot 直接标成槽位。素材包是第二大类输入，用于 `material-aware-restructure` 的供给判断和最佳成片路径选择；具体镜头落地、包装字幕、AIGC 补镜头和复用处理交给后续 `function-slot-shot-design`。
+不要把用户素材包混进 FunctionSlotLibrary，也不要把 shot 直接标成槽位。素材包是第二大类输入，用于 `material-aware-restructure` 的供给判断和最佳成片路径选择；具体镜头落地、包装字幕、自行设计和复用处理交给后续 `function-slot-shot-design`。
 
 ## 职责
 
@@ -36,7 +36,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可�
 
 历史兼容路径中可能保留校验/索引脚本 wrapper，但正式脚本归属和文档入口都在 `function-slot-library-builder`。重组 skill 只消费其产出的 evidence index 和 governance JSON。
 
-素材理解由 `user-material-tagger` 负责。重组 skill 不把 shot 直接标成槽位，也不照单全收素材标签；它只判断素材包能否支撑一条完整合适的视频路径，并在素材充足时输出重排后的推荐素材顺序。逐 slot 的最终素材选择、AIGC 补镜头、包装字幕强化和复用兜底由 `function-slot-shot-design` 完成。
+素材理解由 `user-material-tagger` 负责。重组 skill 不把 shot 直接标成槽位，也不照单全收素材标签；它只判断素材包能否支撑一条完整合适的视频路径，并在素材充足时输出重排后的推荐素材顺序。逐 slot 的最终素材选择、自行设计、包装字幕强化和复用兜底由 `function-slot-shot-design` 完成。
 
 ## 前置条件
 
@@ -77,7 +77,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   - 来自 `user-material-tagger` 的素材供给侧证据。
   - 重点消费字段：`shotCards`、`materialGroups`、`proofCoverage`、`sequenceRecommendations`、`restructureInputSummary`、`sourceArtifacts`。
   - 用途：判断真实素材能否满足 `proofNeedClass`、`coverage`、组连续性、镜头覆盖、证明缺口，以及能否组成一条完整视频路径；路径可以重排，也可以合理沿用输入顺序。
-  - 限制：只能作为素材供给和证明资产输入，不能直接决定 `slotType` 命名；不能在重组阶段写最终剪法、台词、包装细节、AIGC 补法或复用变形。
+  - 限制：只能作为素材供给和证明资产输入，不能直接决定 `slotType` 命名；不能在重组阶段写最终剪法、台词、包装细节、自行设计补法或复用变形。
 
 ### 3. FunctionSlotLibrary / 结构库侧
 
@@ -202,7 +202,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 完成重组方案后，聊天回复只给可点击文件路径、一句关键摘要和一句 Shot 后续确认话术；不带验证结果、不带建议 git 提交、不列本轮相关文件、不补充其他说明。
 
-若本轮使用了 `user-material-pack.stable`，摘要必须简要提一句素材供给判断，例如“素材冗余，已筛选主路径”“素材刚好支持特定方案”“素材不足，后续 ShotDesign 需补镜头”。不要在聊天回复里展开素材评分、候选列表或逐 slot 处理。
+若本轮使用了 `user-material-pack.stable`，摘要必须简要提一句素材供给判断，例如“素材冗余，已筛选主路径”“素材刚好支持特定方案”“素材不足，后续 ShotDesign 需自行设计补足”。不要在聊天回复里展开素材评分、候选列表或逐 slot 处理。
 
 路径必须用 Markdown 文件链接，目标使用绝对路径，保证 UI 可点击打开：
 

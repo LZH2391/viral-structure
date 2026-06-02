@@ -3,7 +3,7 @@
 `user-material-pack.stable` 是素材供给侧证据，不是结构方案，也不是 Shot 设计方案。
 
 - `function-slot-restructure` 用它判断素材供给类型、最佳成片路径、证明边界和结构级素材风险。
-- `function-slot-shot-design` 用它判断每个已确认 slot 最终用现有素材、包装/字幕强化、AIGC 自行设计、回重组，还是复用变形兜底。
+- `function-slot-shot-design` 用它判断每个已确认 slot 最终用现有素材、包装/字幕强化、自行设计、回重组，还是复用变形兜底。
 
 ## 下游消费字段
 
@@ -50,7 +50,7 @@
 - script/rhythm/packaging atom 选择。
 - 新脚本、新分镜、新视频结构。
 - “这个 shot 必须用于某槽位”。
-- “这个 slot 必须 AIGC / 包装字幕 / 复用”。
+- “这个 slot 必须自行设计 / 包装字幕 / 复用”。
 - 复用镜头的裁切、放大、冻结帧、变速等具体变形方案。
 
 可以输出：

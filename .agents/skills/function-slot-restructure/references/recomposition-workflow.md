@@ -327,7 +327,7 @@ choice close -> concrete memory point
 
 ## 步骤 11：Shot 设计后置
 
-第一轮重组不展开具体 Shot 设计，也不在 `restructure.final.md` 中保留 Shot 占位章节。用户认可结构方案后，下一轮使用 `function-slot-shot-design` 读取 `restructure.final.md`，把第 5、6、7 节对齐成具体 shot 表、分镜画面、包装说明、台词/字幕和预计时长占位，并另存到同一重组目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
+第一轮重组不展开具体 Shot 设计，也不在 `restructure.final.md` 中保留 Shot 占位章节。用户认可结构方案后，下一轮使用 `function-slot-shot-design` 读取 `restructure.final.md`，把第 5、6、7 节对齐成具体 shot 表、分镜画面、包装说明、台词/字幕和预计时长预算，并另存到同一重组目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
 
 如果第 5、6、7 节之间存在边界不一致、证明落点不清、字幕层规格不足或同步风险，只在第 7、8、9 节说明后续 Shot 设计必须处理的点；不要在本轮偷偷补逐 shot 方案。
 

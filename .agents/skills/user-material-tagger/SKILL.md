@@ -5,7 +5,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 
 # SKILL: 用户素材打标签
 
-你负责把用户上传视频的切镜结果转成 `user-material-pack.stable`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断素材供给和可成片路径，也供 `function-slot-shot-design` 做具体镜头落地、包装字幕、AIGC 补镜头和复用处理判断。
+你负责把用户上传视频的切镜结果转成 `user-material-pack.stable`。这个产物是“素材供给侧证据”，供 `function-slot-restructure` 判断素材供给和可成片路径，也供 `function-slot-shot-design` 做具体镜头落地、包装字幕、自行设计和复用处理判断。
 
 一句话边界：
 
@@ -85,7 +85,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 - 标签必须来自素材能力，不来自目标槽位名称。
 - 不把 shot 直接标成最终槽位。
 - 不替 `function-slot-restructure` 选择 slotSubtype、slotArchetype 或 atoms。
-- 不替 `function-slot-shot-design` 选择最终素材、AIGC 镜头、包装字幕策略或复用变形。
+- 不替 `function-slot-shot-design` 选择最终素材、自行设计镜头、包装字幕策略或复用变形。
 - 不生成新脚本、新分镜、新视频方案。
 - 不筛选“高光片段”，不输出娱乐化、情绪化或剪辑导向的 highlight list。
 - 不把视觉吸引力当作证明能力。

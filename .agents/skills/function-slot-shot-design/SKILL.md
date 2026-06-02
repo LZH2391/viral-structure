@@ -1,6 +1,6 @@
 ---
 name: function-slot-shot-design
-description: 基于已确认的 function-slot-restructure 结构方案和当前 thread 中可用的 user-material-pack.stable 生成独立短视频 Shot 设计文件。用于已有 restructure.final.md 或结构方案且用户已认可方案后，需要把脚本段落、节奏曲线、包装与证明方案对齐成具体 shot / shot group，决定现有素材、包装字幕强化、AIGC 自行设计和复用变形兜底，并输出 shot-design.final.md 时；不回写 restructure.final.md、不重新选择槽位链、不重做 FunctionSlotLibrary 检索、不改写核心重组方案。
+description: 基于已确认的 function-slot-restructure 结构方案和当前 thread 中可用的 user-material-pack.stable 生成独立短视频 Shot 设计文件。用于已有 restructure.final.md 或结构方案且用户已认可方案后，需要把脚本段落、节奏曲线、包装与证明方案对齐成具体 shot / shot group，决定现有素材、包装字幕强化、自行设计和复用变形兜底，并输出 shot-design.final.md 时；不回写 restructure.final.md、不重新选择槽位链、不重做 FunctionSlotLibrary 检索、不改写核心重组方案。
 ---
 
 # Function Slot Shot Design
@@ -11,10 +11,10 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 - 读取已确认的 `function-slot-restructure` 方案。
 - 使用第 5 节脚本段落、第 6 节节奏曲线、第 7 节包装与证明方案作为唯一表达来源。
-- 第 6 节若包含 `timingBudget`，必须把它作为台词长度和镜头拆分的硬输入；不要只按“快 / 中 / 慢”感性判断。
+- 第 6 节若包含 `timingBudget`，必须在开写前先转成本版设计的镜头密度目标；不要把它留到最后校验，也不要只按“快 / 中 / 慢”感性判断。
 - 如果当前 thread 中已有 `user-material-pack.stable` 或素材包路径，必须消费素材包做逐 slot 镜头落地判断；不要只机械展开上游结构。
 - 把三条并行视图对齐为新视频顺序 shot 或必要的 shot group。
-- 写具体分镜画面、包装说明、台词/字幕、预计时长占位、必须同步点和证明功能。
+- 写具体分镜画面、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
 
 不要在这里重新选择 slotSubtype、slotArchetype、atoms、adapter 或 FunctionSlotLibrary evidence。若发现前序结构无法落地，只在聊天中指出阻塞项并要求回到 `function-slot-restructure` 修正，不要在 Shot 文件里偷偷改核心方案，也不要把校验、风险与修复建议写进 `shot-design.final.md`。
@@ -38,37 +38,40 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 2. **读取结构方案**  
    提取第 2 节槽位链、第 4 节 adapter、第 5 节脚本段落、第 6 节节奏区间、第 7 节包装块。第 9-10 节风险和替代实现只作为内部边界检查，不写入最终 Shot 文件。不要重新检索库。
 
-3. **建立对齐草图**  
-   为每个 shot 确认它承载的 slotSubtype、脚本段落、节奏区间和包装块。允许一对多、多对一和跨边界承接，但必须写清过渡、合并、fragment、hook、payoff 或 adapter 关系。
+3. **建立镜头密度目标**
+   先把上游第 6 节的 `timingBudget` 转成本版 Shot 设计的镜头密度目标：大概需要多少镜头、每段节奏大致放多少镜头、单镜信息容量多大。这个目标是在进入逐 slot 落地前先定下来的，不是最后补算。
 
-4. **逐 slot 选择素材落地策略**
+4. **建立对齐草图**
+   在镜头密度目标上，再为每个 shot 确认它承载的 slotSubtype、脚本段落、节奏区间和包装块。允许一对多、多对一和跨边界承接，但必须写清过渡、合并、fragment、hook、payoff 或 adapter 关系。
+
+5. **逐 slot 选择素材落地策略**
    如果有素材包，必须基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary` 判断每个 slot 的落地策略。评分只用于选策略，不用于删除 slot。
 
    策略优先级固定为：
 
    1. `existing_material`：未占用现有素材能直接承载。
    2. `existing_material_packaging_caption`：现有素材基本成立，但需要包装/字幕补清。
-   3. `aigc_designed_by_shot_design`：现有素材缺关键画面、场景、动作、非证明性承接、商品记忆或 CTA，需要本 skill 自行设计新镜头。
-   4. `return_to_restructure_required`：不是少几个镜头，而是槽位链整体不适合当前素材、合理包装字幕和 AIGC 补镜头，需要按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。
+   3. `self_designed_by_shot_design`：现有素材缺关键画面、场景、动作、非证明性承接、商品记忆或 CTA，需要本 skill 自行设计新镜头。
+   4. `return_to_restructure_required`：不是少几个镜头，而是槽位链整体不适合当前素材、合理包装字幕和自行设计，需要按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。
    5. `reuse_transformed_fallback`：复用已有镜头兜底，最低优先级。
 
-   同一 `shotRef` 可以成为多个 slot 候选，但默认只能有一个主承载。已占用素材再次使用时必须加高复用惩罚，只有没有更好的现有素材、包装字幕或 AIGC 方案时才允许复用。复用禁止原样使用，必须写明裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏或其他明确变形方式。
+   同一 `shotRef` 可以成为多个 slot 候选，但默认只能有一个主承载。已占用素材再次使用时必须加高复用惩罚，只有没有更好的现有素材、包装字幕或自行设计方案时才允许复用。复用禁止原样使用，必须写明裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏或其他明确变形方式。
 
-5. **写分镜画面**
+6. **写分镜画面**
    `分镜画面` 是给 GPT-image-2 生成底图/镜头画面的提示词，只写画面中真实可见的主体、场景、动作、构图、景别、视角、光线、材质、情绪和需要展示的产品/界面/结果。不要写槽位名、atom id、说服任务、字幕文案、包装规则、剪辑指令、购买按钮或海报式版式。
 
-6. **写包装说明**
+7. **写包装说明**
    `包装说明` 只写后期叠加层：字幕、标题条、箭头、圈选、标签、图卡、对比框、画中画、提示符号、品牌/商品露出层级等。必须继承第 7 节包装与证明方案，不能临时新增只为好看的装饰包装。
 
-7. **写台词/字幕**
+8. **写台词/字幕**
    先读取 `references/dialoguePool.md` 作为台词语感池，再把第 5 节的语义任务转成真人短视频口播或屏幕字幕，不直接复述结构说明。
 
    安全边界、条件采用、素材限制、拍摄提醒和修复建议默认进入 `包装说明` 或内部检查，不得占用 `台词/字幕（若有）`。例如“远离易燃物”“保持通风”“按说明使用”属于包装安全提示；“有真实物证再拍”“没有素材就删除”属于内部条件，不是成片台词。
 
-8. **写预计时长约束**
-   如果上游第 6 节提供 `timingBudget`，每个 shot 的 `预计时长` 写预算约束，例如 `预算 0.8-1.2s，后置校验回填`，并让台词/字幕长度服从该预算。若上游没有 timingBudget，统一写 `待后置估算`。不要手写起止时间或脱离预算心算秒数。
+9. **写预计时长设计**
+   如果上游第 6 节提供 `timingBudget`，每个 shot 的 `预计时长` 必须在本版设计时直接写成具体预算范围，例如 `0.8-1.2s`、`1.5-2.0s`，并让台词/字幕长度服从这个设计范围。若上游没有 timingBudget，统一写 `待估算`。不要把预计时长留成后置回填，也不要只写“快 / 中 / 慢”。
 
-9. **落独立文件**
+10. **落独立文件**
    若输入来自 `restructure.final.md`，在同一个重组目录下写入 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。不要修改上游 `restructure.final.md`，也不要再新建 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>`。
 
 ## 素材评分与策略边界
@@ -83,7 +86,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 | `proofValidityScore` | 0-25 | 能否真实支撑该 slot 的证明任务，是否会把弱证据说成强证明 |
 | `visualActionScore` | 0-20 | 画面主体、动作、结果是否完整可读，时长是否够剪出有效镜头 |
 | `packagingRecoverScore` | 0-15 | 是否能靠字幕、标签、圈选、标题条安全补清楚 |
-| `aigcNeedScore` | 0-15 | 是否缺关键画面/场景/动作/承接/商品记忆/CTA，更适合自行设计 AIGC 镜头 |
+| `selfDesignNeedScore` | 0-15 | 是否缺关键画面/场景/动作/承接/商品记忆/CTA，更适合自行设计镜头 |
 | `reusePenalty` | 0 至 -30 | 该 shot 是否已被占用，重复使用是否伤害成片；已主承载的 shot 再用必须重扣 |
 
 策略路由：
@@ -92,13 +95,15 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 |---|---|
 | 未占用现有素材高度匹配，证明成立，动作/画面完整 | `existing_material` |
 | 现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足 | `existing_material_packaging_caption` |
-| 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且 AIGC 不会伪造证明 | `aigc_designed_by_shot_design` |
-| 多个关键 slot 都无法靠现有素材、包装字幕或合理 AIGC 落地，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
-| 没有更好的现有素材、包装字幕或 AIGC 方案，且重复出现不会严重伤害观感 | `reuse_transformed_fallback` |
+| 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且自行设计不会伪造证明 | `self_designed_by_shot_design` |
+| 多个关键 slot 都无法靠现有素材、包装字幕或合理自行设计落地，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
+| 没有更好的现有素材、包装字幕或自行设计方案，且重复出现不会严重伤害观感 | `reuse_transformed_fallback` |
 
 `reuse_transformed_fallback` 永远最低优先级。使用时必须写明变形方式，例如裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏；禁止原样复用。
 
-AIGC 可以补非真实证明性的场景、动作、氛围、承接、商品记忆和 CTA 镜头；不得伪造结果、对比、资质、评价、检测或强信任证明。包装和字幕也不能把弱素材写成强证明。
+自行设计可以补非真实证明性的场景、动作、氛围、承接、商品记忆和 CTA 镜头；不得伪造结果、对比、资质、评价、检测或强信任证明。包装和字幕也不能把弱素材写成强证明。
+
+第一版 Shot 设计就应该尽量落在上游 timingBudget 的建议区间内，而不是先写一个明显过短的版本再靠后续修补。若素材与自行设计都无法把设计压进合理区间，应优先回重组，而不是把镜头数硬压缩到素材数量。
 
 如果选择 `return_to_restructure_required`，按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。不要在 `shot-design.final.md` 中偷偷改槽位链，也不要硬写一版低质量 Shot 表。
 
@@ -164,12 +169,12 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 - `shot` 使用 `new_shot_01`、`new_shot_02` 等，不沿用来源样例 shot 编号。
 - `slotSubtype 对齐` 写该 shot 承载或过渡的 slotSubtype；一个 shot 承载多个槽位时，说明过渡、合并、fragment、hook、payoff 或 adapter 关系。
-- `素材来源/处理策略` 必须写 `existing_material`、`existing_material_packaging_caption`、`aigc_designed_by_shot_design` 或 `reuse_transformed_fallback`。使用现有素材时引用 `shotRef/groupId`；AIGC 时写“自设计镜头”；复用兜底时必须写明变形方式，不能只写“复用 shot_x”。
+- `素材来源/处理策略` 必须写 `existing_material`、`existing_material_packaging_caption`、`self_designed_by_shot_design` 或 `reuse_transformed_fallback`。使用现有素材时引用 `shotRef/groupId`；自行设计时写“自设计镜头”；复用兜底时必须写明变形方式，不能只写“复用 shot_x”。
 - `脚本段落`、`节奏区间`、`包装块` 写该 shot 对齐第 5、6、7 节中的哪些编号，允许一对多或多对一；不要暗示三者存在上下游生成关系。
 - `分镜画面` 必须在当前 shot 内独立可消费，不能依赖前文才能理解；需要一致性时，在当前 shot 内写出可见特征，例如人物大致外观、场景、产品外观或界面状态。
 - `包装说明` 写后期叠加的覆盖层、字幕、标题条、圈选、箭头、标签、图卡、画中画等，必须来自第 7 节包装证明方案。
 - `台词/字幕（若有）` 只写该 shot 内实际会出现在成片里的口播、主字幕或屏幕文字；无台词写“无”，不要用动作描述、拍摄备注、条件判断、安全规范或修复建议替代台词。
-- `预计时长` 有上游 timingBudget 时写预算约束；没有 timingBudget 时只能写 `待后置估算`。
+- `预计时长` 有上游 timingBudget 时写本版设计时直接定下来的具体范围；没有 timingBudget 时只能写 `待估算`。
 - `必须同步点` 写台词、动作、证据、包装弹出、节奏峰值之间必须同时发生或按顺序贴合的点。
 - `证明功能` 写该 shot 最终证明了什么；不能只写“展示产品”或“加强可信”。
 
@@ -184,13 +189,14 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 如果有素材包，是否消费了素材包并为每个 shot 写明素材来源/处理策略。
 - 是否没有把同一 `shotRef` 原样复用到多个主承载。
 - 所有 `reuse_transformed_fallback` 是否写明裁切、放大、冻结帧、局部特写、变速、错位重入等变形处理。
-- 是否优先使用未占用现有素材，其次包装/字幕强化，再 AIGC 自行设计，最后才复用变形兜底。
+- 是否优先使用未占用现有素材，其次包装/字幕强化，再自行设计，最后才复用变形兜底。
 - 每个主张是否有画面、包装或证据承载；只有口播没有证明的主张必须标为风险。
 - 分镜画面和包装说明是否分离：底图不承担小字、复杂 UI 文案和包装覆盖层。
 - 台词是否自然、口语，不像审计表格或 brief 摘要。
 - 包装说明是否写到可执行规格，而不是“轻量字幕”“极简标签”等空泛描述。
 - 字幕、标签、箭头、圈选、图卡是否避开主体细节、证据区域、关键动作、结果状态或人物表情。
-- 所有 `预计时长` 是否遵守上游 timingBudget；若没有 timingBudget，是否都是 `待后置估算`。
+- 所有 `预计时长` 是否遵守上游 timingBudget；若没有 timingBudget，是否都是 `待估算`。
+- 第一版设计是否已经把 timingBudget 前移成镜头密度目标，而不是留到最后校验。
 - 是否只输出 Shot 设计表，没有把输入依据、校验表、剩余风险、必要修复或替代实现写进最终文件。
 
 ## 聊天回复
