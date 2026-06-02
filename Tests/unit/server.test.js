@@ -1096,6 +1096,70 @@ test("agent chat collect rejects mismatched turn before recording conversation o
   }
 });
 
+test("agent chat collect keeps regressed terminal turn running before recording conversation", async () => {
+  const calls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/regressed-terminal.json" }),
+    },
+    appServer: {
+      collectTurnResult: async (payload) => ({
+        ok: true,
+        threadId: payload.threadId,
+        turnId: payload.turnId,
+        status: "completed",
+        finalMessage: "我现在开始落盘方案文件。",
+        turnActivity: {
+          status: "completed",
+          itemCount: 18,
+          effectiveItemCount: 18,
+          latestItemType: "agent_message",
+        },
+      }),
+    },
+    activeTurnRuntime: {
+      getByTurnId: async () => ({
+        turnId: "turn_1",
+        lastResultSummary: {
+          turnActivity: {
+            itemCount: 40,
+            effectiveItemCount: 40,
+          },
+        },
+      }),
+      markCollectResult: async (payload) => {
+        calls.push({ type: "markCollectResult", payload });
+        return { result: payload.result };
+      },
+    },
+    agentConversationStore: {
+      recordAssistantTurn: async (payload) => {
+        calls.push({ type: "recordAssistantTurn", payload });
+        return { conversationId: payload.conversationId, revision: 2, latestTurnId: payload.turnId, messages: [] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_1/turns/turn_1?conversationId=conversation_1");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.status, "in_progress");
+    assert.equal(response.body.terminalConfidence, "uncertain");
+    assert.equal(response.body.finalMessage, null);
+    assert.equal(calls.find((call) => call.type === "recordAssistantTurn").payload.status, "in_progress");
+    assert.equal(calls.find((call) => call.type === "recordAssistantTurn").payload.text.includes("activity 视图发生回退"), true);
+    assert.equal(calls.find((call) => call.type === "markCollectResult").payload.result.status, "in_progress");
+    assert.equal(calls.find((call) => call.type === "markCollectResult").payload.result.turnActivity.itemCount, 18);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat submit rejects failed turn start before recording user turn", async () => {
   const calls = [];
   const server = createServer({

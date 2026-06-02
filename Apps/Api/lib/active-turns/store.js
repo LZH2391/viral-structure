@@ -239,7 +239,25 @@ function summarizeResult(result) {
     turnId: normalizeText(result.turnId),
     activeThreadMessageSummary: summarizeText(result.activeThreadMessage),
     finalMessageSummary: summarizeText(result.finalMessage),
+    turnActivity: summarizeTurnActivity(result.turnActivity),
   };
+}
+
+function summarizeTurnActivity(activity) {
+  if (!activity || typeof activity !== "object") return null;
+  return {
+    status: normalizeText(activity.status),
+    itemCount: normalizeNonNegativeInteger(activity.itemCount),
+    effectiveItemCount: normalizeNonNegativeInteger(activity.effectiveItemCount),
+    latestItemType: normalizeText(activity.latestItemType),
+    latestMessageSummary: summarizeText(activity.latestMessagePreview),
+    latestToolName: normalizeText(activity.latestToolName),
+  };
+}
+
+function normalizeNonNegativeInteger(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
 }
 
 function summarizeText(value) {

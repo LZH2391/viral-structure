@@ -164,6 +164,75 @@ test("runtime list prunes orphan and stale active bindings before projection", a
   }
 });
 
+test("runtime keeps active binding when terminal collect activity regresses", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-regressed-terminal-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const ownerCalls = [];
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        collectTurnResult: async () => ({
+          ok: true,
+          threadId: "thread_1",
+          turnId: "turn_1",
+          status: "completed",
+          finalMessage: "我现在开始落盘方案文件。",
+          turnActivity: {
+            status: "completed",
+            itemCount: 18,
+            effectiveItemCount: 18,
+            latestItemType: "agent_message",
+          },
+        }),
+      },
+      ownerHandlers: {
+        onCollect: async (...args) => {
+          ownerCalls.push(args);
+          return { status: "completed" };
+        },
+      },
+    });
+    await runtime.register({
+      threadId: "thread_1",
+      turnId: "turn_1",
+      ownerType: "agent-chat",
+      ownerId: "conversation_1",
+      currentAttemptId: "turn_1",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_1" },
+      status: "running",
+    });
+    await runtime.markCollectResult({
+      turnId: "turn_1",
+      result: {
+        ok: false,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "inProgress",
+        turnActivity: {
+          status: "inProgress",
+          itemCount: 40,
+          effectiveItemCount: 40,
+          latestItemType: "tool_call",
+        },
+      },
+    });
+
+    const collected = await runtime.collect({ workspaceRoot: root, threadId: "thread_1", turnId: "turn_1" });
+    assert.equal(collected.status, "in_progress");
+    assert.equal(collected.terminalConfidence, "uncertain");
+    assert.equal(collected.statusReason, "terminal_activity_regressed");
+    assert.equal(collected.finalMessage, null);
+    assert.equal(ownerCalls.length, 0);
+    const active = await runtime.getByTurnId("turn_1");
+    assert.equal(active.status, "in_progress");
+    assert.equal(active.lastResultSummary.turnActivity.itemCount, 18);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("runtime cancel falls back to terminal collect when appserver cancel errors", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-cancel-terminal-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };

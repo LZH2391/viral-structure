@@ -40,20 +40,21 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     if (!appServer?.collectTurnResult) throw activeRuntimeError("appserver_turn_collect_unavailable", "AppServer turn/collect 能力不可用", null, true);
     const result = await appServer.collectTurnResult({ workspaceRoot, threadId, turnId, timeoutSeconds });
     assertExpectedCollectTurn(result, turnId);
-    await markCollectResult({ turnId, result, traceContext, skipOwnerHandler });
-    return result;
+    const marked = await markCollectResult({ turnId, result, traceContext, skipOwnerHandler });
+    return marked.result ?? result;
   }
 
   async function markCollectResult({ turnId, result, traceContext = null, skipOwnerHandler = false } = {}) {
     const previous = await bindingStore.getByTurnId(turnId);
-    const binding = await bindingStore.markStatus({ turnId, status: result?.status ?? "running", result, traceContext });
+    const guardedResult = guardUncertainTerminalResult(previous, result);
+    const binding = await bindingStore.markStatus({ turnId, status: guardedResult?.status ?? "running", result: guardedResult, traceContext });
     const activeBinding = binding ?? previous;
     let ownerResult = null;
-    if (activeBinding && isTerminalTurnStatus(result?.status)) {
-      if (!skipOwnerHandler) ownerResult = await ownerHandlers?.onCollect?.(activeBinding, result);
+    if (activeBinding && isTerminalTurnStatus(guardedResult?.status)) {
+      if (!skipOwnerHandler) ownerResult = await ownerHandlers?.onCollect?.(activeBinding, guardedResult);
       await bindingStore.removeByTurnId(turnId);
     }
-    return { binding: activeBinding, ownerResult };
+    return { binding: activeBinding, ownerResult, result: guardedResult };
   }
 
   async function cancel({ workspaceRoot, threadId, turnId, timeoutSeconds = 30, traceContext = null } = {}) {
@@ -169,6 +170,50 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
   };
 }
 
+function guardUncertainTerminalResult(previous, result) {
+  if (!result || typeof result !== "object") return result;
+  if (!isTerminalTurnStatus(result.status)) return result;
+  const previousActivity = previous?.lastResultSummary?.turnActivity;
+  const currentActivity = result.turnActivity;
+  if (!isRegressedTurnActivity(previousActivity, currentActivity)) return result;
+  return {
+    ...result,
+    ok: false,
+    status: "in_progress",
+    finalMessage: null,
+    terminalConfidence: "uncertain",
+    statusReason: "terminal_activity_regressed",
+    originalStatus: result.status ?? null,
+    originalFinalMessageSummary: summarizeGuardedText(result.finalMessage),
+    activeThreadMessage: result.activeThreadMessage
+      ?? "AppServer 返回终态但 activity 视图发生回退，继续等待确认",
+  };
+}
+
+function isRegressedTurnActivity(previousActivity, currentActivity) {
+  if (!previousActivity || !currentActivity || typeof currentActivity !== "object") return false;
+  const previousEffective = nonNegativeInteger(previousActivity.effectiveItemCount);
+  const currentEffective = nonNegativeInteger(currentActivity.effectiveItemCount);
+  if (previousEffective != null && currentEffective != null && currentEffective < previousEffective) return true;
+  const previousItems = nonNegativeInteger(previousActivity.itemCount);
+  const currentItems = nonNegativeInteger(currentActivity.itemCount);
+  return previousItems != null && currentItems != null && currentItems < previousItems;
+}
+
+function nonNegativeInteger(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
+}
+
+function summarizeGuardedText(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  return {
+    length: text.length,
+    preview: text.slice(0, 160),
+  };
+}
+
 function isIdempotentCancelError(message) {
   const value = String(message ?? "").toLowerCase();
   return ["not found", "unknown turn", "no such turn", "already completed", "already cancelled", "already canceled", "terminal", "not running"].some((marker) => value.includes(marker));
@@ -240,4 +285,5 @@ function activeRuntimeError(code, message, debugPayload = null, retryable = true
 module.exports = {
   createActiveTurnRuntime,
   activeRuntimeError,
+  guardUncertainTerminalResult,
 };

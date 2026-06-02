@@ -10,6 +10,7 @@ const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructu
 const { maybeAutoReviewShotDialogue } = require("../agent-chat/shot-dialogue-auto-review");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const { normalizeTurnStatus } = require("../active-turns/status");
+const { guardUncertainTerminalResult } = require("../active-turns/runtime");
 
 const OWNER_PREFIX = "workbench-agent-chat";
 const DEFAULT_TURN_TIMEOUT_SECONDS = 180;
@@ -633,12 +634,14 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
     inputSummary: { threadId, turnId },
     action: async ({ traceContext }) => {
       const workspaceRoot = url?.searchParams?.get("workspaceRoot") || handlers.rootDir;
-      const result = await handlers.appServer.collectTurnResult({
+      const rawResult = await handlers.appServer.collectTurnResult({
         workspaceRoot,
         threadId,
         turnId,
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
+      const activeBinding = await handlers.activeTurnRuntime?.getByTurnId?.(turnId).catch(() => null);
+      const result = guardUncertainTerminalResult(activeBinding, rawResult);
       assertExpectedTurnResult(result, turnId, "agent_chat_turn_collect_mismatch");
       const activity = buildAgentActivityFromTurnResult(result);
       const payload = {
@@ -648,6 +651,11 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         status: result.status ?? "unknown",
         finalMessage: result.finalMessage ?? null,
         activeThreadMessage: result.activeThreadMessage ?? null,
+        turnActivity: result.turnActivity ?? null,
+        terminalConfidence: result.terminalConfidence ?? null,
+        statusReason: result.statusReason ?? null,
+        originalStatus: result.originalStatus ?? null,
+        originalFinalMessageSummary: result.originalFinalMessageSummary ?? null,
         activity,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
@@ -694,12 +702,15 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
             : null,
         });
       }
-      await handlers.activeTurnRuntime?.markCollectResult?.({
+      const markedActiveTurn = await handlers.activeTurnRuntime?.markCollectResult?.({
         turnId: payload.turnId,
         result: payload,
         traceContext,
         skipOwnerHandler: true,
       }).catch(() => null);
+      if (markedActiveTurn?.result && markedActiveTurn.result !== payload) {
+        Object.assign(payload, markedActiveTurn.result);
+      }
       payload.conversationRevision = recorded?.revision ?? null;
       payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;
       payload.threadStopped = Boolean(recorded?.threadStopped);
