@@ -15,6 +15,12 @@ SHOT_SECTION_RE = re.compile(r"(^##\s+(?:\d+\.\s+)?Shot 设计\s*\n)(.*?)(?=^##\
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 DEFAULT_GROUP_SIZE = 4
 DEFAULT_CHARS_PER_SECOND = 6.0
+PLACEHOLDER_DURATION_VALUES = {
+    "",
+    "待估算",
+    "待后置估算",
+    "待后置回填",
+}
 
 
 def main() -> None:
@@ -42,6 +48,7 @@ def main() -> None:
     table = parse_markdown_table(section["body"])
     estimates = estimate_durations(table["rows"], args.chars_per_second, resolve_duration_script(args.duration_script))
     rows = apply_duration_estimates(table["rows"], estimates, args.chars_per_second)
+    duration_stats = duration_update_stats(table["rows"], rows)
 
     if not args.no_write_back:
         updated_section_body = replace_table_rows(section["body"], table, rows)
@@ -57,6 +64,7 @@ def main() -> None:
         "groupSize": args.group_size,
         "groupCount": math.ceil(len(rows) / args.group_size) if rows else 0,
         "aspect": aspect,
+        **duration_stats,
     }
     print(json.dumps(result, ensure_ascii=False, indent=2 if args.pretty else None))
 
@@ -197,14 +205,39 @@ def fallback_duration(dialogue: str, chars_per_second: float) -> str:
     return f"约 {seconds}s（{len(cleaned)} 字 / {chars_per_second:g} 字每秒）"
 
 
+def needs_duration_estimate(value: str | None) -> bool:
+    normalized = str(value or "").strip()
+    if normalized in PLACEHOLDER_DURATION_VALUES:
+        return True
+    return bool(re.fullmatch(r"待.*估算", normalized))
+
+
 def apply_duration_estimates(rows: list[dict[str, str]], estimates: dict[str, str], chars_per_second: float) -> list[dict[str, str]]:
     updated = []
     for row in rows:
         next_row = dict(row)
         shot = str(row.get("shot") or "")
-        next_row["预计时长"] = estimates.get(shot) or fallback_duration(row.get("台词/字幕（若有）", ""), chars_per_second)
+        current_duration = row.get("预计时长", "")
+        if needs_duration_estimate(current_duration):
+            next_row["预计时长"] = estimates.get(shot) or fallback_duration(row.get("台词/字幕（若有）", ""), chars_per_second)
+        else:
+            next_row["预计时长"] = current_duration
         updated.append(next_row)
     return updated
+
+
+def duration_update_stats(original_rows: list[dict[str, str]], updated_rows: list[dict[str, str]]) -> dict[str, int]:
+    updated_count = 0
+    preserved_count = 0
+    for original, updated in zip(original_rows, updated_rows):
+        if str(original.get("预计时长", "")).strip() == str(updated.get("预计时长", "")).strip():
+            preserved_count += 1
+        else:
+            updated_count += 1
+    return {
+        "durationUpdatedCount": updated_count,
+        "durationPreservedCount": preserved_count,
+    }
 
 
 def replace_table_rows(section_body: str, table: dict[str, Any], rows: list[dict[str, str]]) -> str:

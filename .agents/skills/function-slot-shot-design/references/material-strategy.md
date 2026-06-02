@@ -1,0 +1,56 @@
+# Material Strategy
+
+## 核心原则
+
+素材评分只回答“这个 slot 用当前素材落地是否靠谱”，不决定 slot 是否存在，也不决定槽位链是否删除。
+
+如果当前 thread 中存在 `user-material-pack.stable`、素材包路径或用户明确提供的素材候选说明，ShotDesign 必须消费素材包做逐 shot / 逐 slot 的最终落地策略选择。
+
+少素材时不要把镜头数硬压缩到素材数量。第一版 Shot 设计应尽量落在上游 `timingBudget` 的建议区间内；如果素材与自行设计都无法支撑合理镜头密度，优先声明 `return_to_restructure_required`。
+
+## 策略优先级
+
+策略优先级固定为：
+
+1. `existing_material`：未占用现有素材能直接承载。
+2. `existing_material_packaging_caption`：现有素材基本成立，但需要包装/字幕补清。
+3. `self_designed_by_shot_design`：现有素材缺关键画面、场景、动作、非证明性承接、商品记忆或 CTA，需要本 skill 自行设计新镜头。
+4. `return_to_restructure_required`：不是少几个镜头，而是槽位链整体不适合当前素材、合理包装字幕和自行设计，需要按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。
+5. `reuse_transformed_fallback`：复用已有镜头兜底，最低优先级。
+
+## 评分维度
+
+对每个 slot，先从未占用的 `shotCards/materialGroups` 中找候选，再做策略评分。评分不是为了追求最高素材分，而是为了选择最合适的落地策略。
+
+| 维度 | 分值 | 判断问题 |
+|---|---:|---|
+| `slotFitScore` | 0-25 | shot/group 是否适合当前 slot 的表达目标、位置和观众动作 |
+| `proofValidityScore` | 0-25 | 能否真实支撑该 slot 的证明任务，是否会把弱证据说成强证明 |
+| `visualActionScore` | 0-20 | 画面主体、动作、结果是否完整可读，时长是否够剪出有效镜头 |
+| `packagingRecoverScore` | 0-15 | 是否能靠字幕、标签、圈选、标题条安全补清楚 |
+| `selfDesignNeedScore` | 0-15 | 是否缺关键画面/场景/动作/承接/商品记忆/CTA，更适合自行设计镜头 |
+| `reusePenalty` | 0 至 -30 | 该 shot 是否已被占用，重复使用是否伤害成片；已主承载的 shot 再用必须重扣 |
+
+## 策略路由
+
+| 条件 | 策略 |
+|---|---|
+| 未占用现有素材高度匹配，证明成立，动作/画面完整 | `existing_material` |
+| 现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足 | `existing_material_packaging_caption` |
+| 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且自行设计不会伪造证明 | `self_designed_by_shot_design` |
+| 多个关键 slot 都无法靠现有素材、包装字幕或合理自行设计落地，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
+| 没有更好的现有素材、包装字幕或自行设计方案，且重复出现不会严重伤害观感 | `reuse_transformed_fallback` |
+
+## 复用硬约束
+
+同一 `shotRef` 可以成为多个 slot 候选，但默认只能有一个主承载。已占用素材再次使用时必须加高复用惩罚，只有没有更好的现有素材、包装字幕或自行设计方案时才允许复用。
+
+`reuse_transformed_fallback` 永远最低优先级。使用时必须写明变形方式，例如裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏；禁止原样复用。
+
+## 自行设计边界
+
+自行设计可以补非真实证明性的场景、动作、氛围、承接、商品记忆和 CTA 镜头。
+
+自行设计不得伪造结果、对比、资质、评价、检测或强信任证明。包装和字幕也不能把弱素材写成强证明。
+
+如果选择 `return_to_restructure_required`，按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。不要在 `shot-design.final.md` 中偷偷改槽位链，也不要硬写一版低质量 Shot 表。

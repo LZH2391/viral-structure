@@ -11,7 +11,7 @@ description: 从 function-slot-shot-design 产出的 shot-design.final.md 中提
 
 - 提取原文中的横屏/竖屏/比例线索。
 - 读取 `## Shot 设计` 或旧格式 `## 2. Shot 设计` 中的 Shot 表。
-- 用 `function-slot-restructure/scripts/estimate_dialogue_duration.py --shot-json` 根据台词回填 `shot-design.final.md` 的 `预计时长` 列。
+- 用 `function-slot-restructure/scripts/estimate_dialogue_duration.py --shot-json` 根据台词回填 `shot-design.final.md` 中仍为占位的 `预计时长` 列；已由 ShotDesign 写成具体预算范围的时长必须保留。
 - 生成一个额外故事板 Markdown，默认每 4 个 shot 一组。
 - 每个 shot 只提取 `imagePrompt = 分镜画面` 与 `overlayPackaging = 包装说明`；预计时长只回填原文 Shot 表，不写入故事板 Markdown。
 - 最后一组不足 4 镜头时，补纯白占位镜头，保证每组仍是 4 格故事板；占位镜头不回写原文。
@@ -35,7 +35,7 @@ python .agents/skills/shot-storyboard-prep/scripts/prepare_storyboard.py --input
 - `--input`：必填，重组 final markdown。
 - `--output`：可选，故事板 Markdown 输出路径；默认写到同目录 `shot-storyboard-prompts.md`。
 - `--group-size`：可选，默认 `4`，表示每 4 镜头一组故事板。
-- `--chars-per-second`：可选，默认 `6`，传给时长估算脚本。
+- `--chars-per-second`：可选，默认 `6`，只用于回填空值、`待估算`、旧版 `待后置估算` 等占位时长。
 - `--no-write-back`：只生成故事板，不回填原文预计时长。
 
 如需生成给 `image-generation` 模块使用的标准请求 payload：
@@ -85,7 +85,7 @@ await moduleRegistry.startModule({
 
 ## 输出规则
 
-- 原文只允许改 `shot-design.final.md` 中 Shot 表的 `预计时长` 列，不改脚本、节奏、包装、证明功能等其它内容。
+- 原文只允许改 `shot-design.final.md` 中 Shot 表仍为占位的 `预计时长` 列，不改已写好的具体预算范围，也不改脚本、节奏、包装、证明功能等其它内容。
 - 故事板输出按组写：
   - `## Storyboard Group 01`
   - `- imagePrompt: ...`
@@ -99,7 +99,7 @@ await moduleRegistry.startModule({
 
 运行后检查：
 
-- 脚本 stdout 中 `shotCount` 是否符合 Shot 表行数。
+- 脚本 stdout 中 `shotCount` 是否符合 Shot 表行数，并查看 `durationUpdatedCount / durationPreservedCount` 是否符合预期。
 - `updatedInput` 是否为原文件路径，除非使用了 `--no-write-back`。
 - 输出 Markdown 是否按 4 镜头分组。
 - 生图前确认传给模块的是 `storyboardPromptFile`，不是单条 `prompt`。
