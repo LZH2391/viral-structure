@@ -67,8 +67,24 @@ function createWorkflowRunStore({ filePath = null } = {}) {
 function isCurrentStageTurn(stage, currentAttemptId, turnId) {
   const activeTurn = stage?.activeTurn;
   if (!activeTurn) return false;
-  if (currentAttemptId && String(activeTurn.currentAttemptId ?? "") === String(currentAttemptId)) return true;
-  return turnId && String(activeTurn.turnId ?? "") === String(turnId);
+  return matchesTurnIdentity(activeTurn, { currentAttemptId, turnId });
+}
+
+function matchesTurnIdentity(current, expected) {
+  const currentTurnId = normalizeIdentity(current?.turnId);
+  const expectedTurnId = normalizeIdentity(expected?.turnId);
+  const currentAttemptId = normalizeIdentity(current?.currentAttemptId);
+  const expectedAttemptId = normalizeIdentity(expected?.currentAttemptId);
+  const hasTurnPair = currentTurnId && expectedTurnId;
+  const hasAttemptPair = currentAttemptId && expectedAttemptId;
+  if (hasTurnPair) return currentTurnId === expectedTurnId;
+  if (hasAttemptPair) return currentAttemptId === expectedAttemptId;
+  return false;
+}
+
+function normalizeIdentity(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function loadRuns(filePath) {

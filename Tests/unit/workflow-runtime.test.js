@@ -515,6 +515,49 @@ test("workflow run store persists each run in its own file and reloads through i
   assert.deepEqual(reloaded.listRuns().map((run) => run.workflowRunId), ["workflow_one"]);
 });
 
+test("workflow run store rejects stale active turn updates when only attempt matches", () => {
+  const store = createWorkflowRunStore();
+  store.createRun({
+    workflowRunId: "workflow_turn_identity",
+    workflowKey: "full-analysis",
+    workflowVersion: "full-analysis.v1",
+    status: "running",
+    traceId: "trace_turn_identity",
+    runId: "run_turn_identity",
+    sampleVideoId: "sample_1",
+    currentStageKeys: ["scriptSegment"],
+    stages: [{
+      key: "scriptSegment",
+      stageName: "script.segment.analyze",
+      status: "running",
+      activeTurn: {
+        turnId: "turn_current",
+        currentAttemptId: "attempt_shared",
+        status: "running",
+      },
+    }],
+    createdAt: "2026-05-27T00:00:00.000Z",
+    updatedAt: "2026-05-27T00:00:00.000Z",
+  });
+
+  const stale = store.updateStageTurnState("workflow_turn_identity", {
+    turnId: "turn_old",
+    currentAttemptId: "attempt_shared",
+    status: "completed",
+  });
+  assert.equal(stale.status, "stale");
+  assert.equal(store.getRun("workflow_turn_identity").stages[0].status, "running");
+  assert.equal(store.getRun("workflow_turn_identity").stages[0].activeTurn.status, "running");
+
+  const current = store.updateStageTurnState("workflow_turn_identity", {
+    turnId: "turn_current",
+    currentAttemptId: "attempt_shared",
+    status: "completed",
+  });
+  assert.equal(current.status, "completed");
+  assert.equal(store.getRun("workflow_turn_identity").stages[0].status, "completed");
+});
+
 test("workflow run store ignores out-of-root run refs", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-run-safety-"));
   const filePath = path.join(dir, "workflow-runs.json");

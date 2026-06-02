@@ -56,6 +56,38 @@ test("workflow stage owner updates only matching active turn attempt", async () 
   assert.equal(calls.length, 2);
 });
 
+test("workflow stage validation rejects stale turn even when attempt matches", async () => {
+  const handlers = createActiveTurnOwnerHandlers({
+    workflowRunStore: {
+      getRun: () => ({
+        workflowRunId: "workflow_1",
+        stages: [{
+          key: "scriptSegment",
+          status: "running",
+          activeTurn: { turnId: "turn_current", currentAttemptId: "attempt_shared" },
+        }],
+      }),
+    },
+  });
+
+  const stale = await handlers.validateActiveBinding({
+    ownerType: "workflow-stage",
+    ownerId: "workflow_1",
+    turnId: "turn_old",
+    currentAttemptId: "attempt_shared",
+  });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.reason, "stale");
+
+  const current = await handlers.validateActiveBinding({
+    ownerType: "workflow-stage",
+    ownerId: "workflow_1",
+    turnId: "turn_current",
+    currentAttemptId: "attempt_shared",
+  });
+  assert.equal(current.ok, true);
+});
+
 test("agent chat owner cancel writes conversation only for current turn", async () => {
   const calls = [];
   const handlers = createActiveTurnOwnerHandlers({

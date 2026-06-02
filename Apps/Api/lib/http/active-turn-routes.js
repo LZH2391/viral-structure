@@ -533,8 +533,19 @@ function assertRetryStartThread(result, expectedThreadId) {
 function isCurrentProcessingJobTurn(job, binding) {
   const agentRun = job?.agentRun;
   if (!agentRun) return false;
-  return String(agentRun.turnId ?? "") === String(binding.turnId ?? "")
-    || String(agentRun.currentAttemptId ?? "") === String(binding.currentAttemptId ?? "");
+  return matchesTurnIdentity(agentRun, binding);
+}
+
+function matchesTurnIdentity(current, expected) {
+  const currentTurnId = normalizeId(current?.turnId);
+  const expectedTurnId = normalizeId(expected?.turnId);
+  const currentAttemptId = normalizeId(current?.currentAttemptId);
+  const expectedAttemptId = normalizeId(expected?.currentAttemptId);
+  const hasTurnPair = currentTurnId && expectedTurnId;
+  const hasAttemptPair = currentAttemptId && expectedAttemptId;
+  if (hasTurnPair) return currentTurnId === expectedTurnId;
+  if (hasAttemptPair) return currentAttemptId === expectedAttemptId;
+  return false;
 }
 
 function normalizeProgress(value) {
