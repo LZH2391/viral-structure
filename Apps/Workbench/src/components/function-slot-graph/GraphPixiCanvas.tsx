@@ -262,11 +262,10 @@ function GraphPixiCanvasInner({
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
       const existing = resetToken || fixedLayout ? null : previous.get(node.id);
       const pinnedRoot = node.type === "confirmedPlan" || node.type === "governanceRoot";
-      const jitter = !existing && !fixedLayout && !pinnedRoot ? nodeInitialJitter(node.id) : { x: 0, y: 0 };
       return {
         ...node,
-        x: existing?.x ?? node.x + jitter.x,
-        y: existing?.y ?? node.y + jitter.y,
+        x: existing?.x ?? node.x,
+        y: existing?.y ?? node.y,
         layoutX: node.layoutX ?? node.x,
         layoutY: node.layoutY ?? node.y,
         layoutAngleMin: node.layoutAngleMin,
@@ -755,16 +754,6 @@ function GraphPixiCanvasInner({
       ) : null}
     </div>
   );
-}
-
-function nodeInitialJitter(id: string) {
-  let hash = 0;
-  for (let index = 0; index < id.length; index += 1) {
-    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
-  }
-  const angle = (hash % 360) * (Math.PI / 180);
-  const radius = 24 + (hash % 31);
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
 function buildHitGrid(nodes: SimNode[]): HitGridIndex {

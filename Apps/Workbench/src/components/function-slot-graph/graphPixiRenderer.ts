@@ -453,6 +453,7 @@ function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode,
   const text = existing ?? new Text({ text: "", style: whiteTextStyle(fontSize) });
   if (!existing) {
     text.anchor.set(0.5, 0);
+    text.resolution = 2;
     labelLayer.addChild(text);
     view.label = text;
   }
@@ -472,18 +473,8 @@ function labelFontSize(mode: GraphMode, node: SimNode) {
 }
 
 function labelFill(mode: GraphMode, node: SimNode) {
-  const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
-  if (node.type === "governanceRoot" || node.type === "confirmedPlan" || node.type === "sourceSample") return "#f7f8ff";
-  if (node.type === "slotFamily") return "#a7f2d1";
-  if (node.type === "slotArchetype") return "#c4ddff";
-  if (node.type === "slotSubtype") return "#ffe58f";
-  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "script") return "#ffc3c2";
-  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "rhythm") return "#bdeaff";
-  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "packaging") return "#d8ccff";
-  if (node.type === "sourceVariant") return mode === "planTrace" ? "#eaf1ff" : "rgba(234, 239, 255, 0.86)";
-  if (layer === "script") return "#ffc3c2";
-  if (layer === "rhythm") return "#bdeaff";
-  if (layer === "packaging") return "#d8ccff";
+  void mode;
+  void node;
   return "#ffffff";
 }
 
