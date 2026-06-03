@@ -129,6 +129,8 @@ export type AgentChatCompactResponse = {
   threadId: string;
   status: string;
   compactStatus?: string | null;
+  compactTurnId?: string | null;
+  compactCompleted?: boolean | null;
   traceId: string;
   runId: string;
   stageId: string;

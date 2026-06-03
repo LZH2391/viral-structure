@@ -7,6 +7,7 @@ const {
 } = require("./agent-chat-route-core");
 const {
   DEFAULT_TURN_TIMEOUT_SECONDS,
+  assertConversationThreadMatches,
   OWNER_PREFIX,
   assertDirectThreadStarted,
   isUnknownActiveLeaseError,
@@ -88,14 +89,26 @@ async function handleAgentChatThreadCompact(req, res, threadId, handlers = {}) {
         error.code = "appserver_thread_compact_unavailable";
         throw error;
       }
+      const conversationId = normalizeText(body.conversationId);
+      let conversation = null;
+      if (conversationId) {
+        const currentConversation = await handlers.agentConversationStore?.assertActive?.(conversationId, {
+          expectedRevision: normalizeRevision(body.expectedRevision),
+        });
+        if (!currentConversation) {
+          const error = new Error("未找到 Agent 会话");
+          error.statusCode = 404;
+          error.code = "agent_chat_conversation_not_found";
+          throw error;
+        }
+        assertConversationThreadMatches(currentConversation, threadId, "agent_chat_compact_thread_mismatch");
+      }
       const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
       const result = await handlers.appServer.compactThread({
         workspaceRoot,
         threadId,
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
-      const conversationId = normalizeText(body.conversationId);
-      let conversation = null;
       if (conversationId) {
         conversation = await handlers.agentConversationStore?.recordSystemMessage?.({
           conversationId,
@@ -117,6 +130,8 @@ async function handleAgentChatThreadCompact(req, res, threadId, handlers = {}) {
         threadId: result.threadId ?? threadId,
         status: result.status ?? "started",
         compactStatus: result.status ?? "started",
+        compactTurnId: result.turnId ?? result.turn?.id ?? null,
+        compactCompleted: Boolean(result.compactCompleted) || isCompactCompletedStatus(result.status ?? "started"),
         conversationRevision: conversation?.revision ?? null,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
@@ -127,6 +142,8 @@ async function handleAgentChatThreadCompact(req, res, threadId, handlers = {}) {
       threadId: result.threadId,
       status: result.status,
       compactStatus: result.compactStatus,
+      compactTurnId: result.compactTurnId ?? null,
+      compactCompleted: result.compactCompleted ?? false,
       conversationRevision: result.conversationRevision ?? null,
     }),
     successStatus: 200,
@@ -173,6 +190,10 @@ async function handleAgentChatLeaseRelease(req, res, handlers = {}) {
     summarizeOutput: (result) => ({ leaseId: result.leaseId, ownerId: result.ownerId, status: result.status, conversationDeleted: result.conversationDeleted }),
     successStatus: 200,
   });
+}
+
+function isCompactCompletedStatus(status) {
+  return ["completed", "complete"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 module.exports = {

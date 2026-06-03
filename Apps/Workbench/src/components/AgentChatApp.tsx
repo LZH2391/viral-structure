@@ -61,6 +61,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   const pendingSendRef = useRef<PendingAgentChatSend | null>(null);
   const resendPendingRef = useRef<(pending: PendingAgentChatSend) => void>(() => undefined);
   const activeConversationIdRef = useRef<string | null>(null);
+  const activeConversationRevisionRef = useRef<number | null>(null);
+  const sessionRef = useRef<AgentChatSessionResponse | null>(null);
+  const modeRef = useRef<ChatMode>("direct");
+  const selectedRoleRef = useRef("");
   const resumeGenerationRef = useRef(0);
   const conversationActionGenerationRef = useRef(0);
   const creatingDraftConversationRef = useRef(false);
@@ -84,6 +88,22 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+
+  useEffect(() => {
+    activeConversationRevisionRef.current = activeConversationRevision;
+  }, [activeConversationRevision]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    selectedRoleRef.current = selectedRole;
+  }, [selectedRole]);
 
   useEffect(() => {
     void getThreadPoolRoles()
@@ -121,6 +141,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       throw new Error(payload.refreshError?.message ?? "thread 已不可读，此会话已失效");
     }
     const revision = normalizeConversationRevision(payload.conversation.revision);
+    activeConversationRevisionRef.current = revision;
     setActiveConversationRevision(revision);
     setActiveConversationInvalidated(Boolean(payload.conversation.invalidated));
     setActiveConversationConfirmedPlan(payload.conversation.confirmedPlan ?? null);
@@ -200,13 +221,19 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
 
   const applyConversation = useCallback((conversation: AgentChatConversation, refreshed?: ThreadConversation | null) => {
     activeConversationIdRef.current = conversation.conversationId;
+    activeConversationRevisionRef.current = normalizeConversationRevision(conversation.revision);
     setActiveConversationId(conversation.conversationId);
     setActiveConversationRevision(normalizeConversationRevision(conversation.revision));
     setActiveConversationInvalidated(Boolean(conversation.invalidated));
     setActiveConversationConfirmedPlan(conversation.confirmedPlan ?? null);
-    setMode(conversation.source === "threadpool-role" ? "threadpool-role" : "direct");
-    if (conversation.role) setSelectedRole(conversation.role);
-    setSession({
+    const nextMode = conversation.source === "threadpool-role" ? "threadpool-role" : "direct";
+    modeRef.current = nextMode;
+    setMode(nextMode);
+    if (conversation.role) {
+      selectedRoleRef.current = conversation.role;
+      setSelectedRole(conversation.role);
+    }
+    const nextSession: AgentChatSessionResponse = {
       ok: true,
       source: conversation.source === "threadpool-role" ? "threadpool-role" : "direct",
       status: "resumed",
@@ -223,7 +250,9 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       conversationId: conversation.conversationId,
       conversationStatus: conversation.status,
       conversationRevision: normalizeConversationRevision(conversation.revision),
-    });
+    };
+    sessionRef.current = nextSession;
+    setSession(nextSession);
     const refreshedTurns = refreshed?.turns ?? [];
     setCurrentTurnId(conversation.latestTurnId ?? latestVisibleTurnId(refreshedTurns));
     setThreadStopped(Boolean(conversation.threadStopped));
@@ -261,25 +290,31 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, [currentTurnId, session?.threadId, session?.workspaceRoot]);
 
   const ensureSession = useCallback(async (forceNew = false, isCurrentAction: () => boolean = () => true) => {
-    if (!forceNew && session?.threadId) return session;
-    setStatusText(mode === "threadpool-role" ? "Fork ThreadPool role" : "创建 app-server thread");
+    const currentSession = sessionRef.current;
+    if (!forceNew && currentSession?.threadId) return currentSession;
+    const currentMode = modeRef.current;
+    const currentRole = selectedRoleRef.current;
+    setStatusText(currentMode === "threadpool-role" ? "Fork ThreadPool role" : "创建 app-server thread");
     const nextSession = await startAgentChatThread({
-      source: mode,
-      role: mode === "threadpool-role" ? selectedRole : null,
+      source: currentMode,
+      role: currentMode === "threadpool-role" ? currentRole : null,
     });
     if (!nextSession.ok || !nextSession.threadId) throw agentChatSessionError(nextSession);
     if (!isCurrentAction()) return nextSession;
+    sessionRef.current = nextSession;
     setSession(nextSession);
     if (nextSession.conversationId) {
       creatingDraftConversationRef.current = false;
+      activeConversationIdRef.current = nextSession.conversationId;
       setActiveConversationId(nextSession.conversationId);
-      setActiveConversationRevision(nextSession.conversationRevision ?? activeConversationRevision);
+      activeConversationRevisionRef.current = nextSession.conversationRevision ?? activeConversationRevisionRef.current;
+      setActiveConversationRevision(activeConversationRevisionRef.current);
       setActiveConversationInvalidated(false);
       void refreshConversations().catch(() => undefined);
     }
     setStatusText(nextSession.source === "threadpool-role" ? "forkThread 已连接" : "thread 已连接");
     return nextSession;
-  }, [activeConversationRevision, mode, refreshConversations, selectedRole, session]);
+  }, [refreshConversations]);
 
   const schedulePoll = useCallback((activeSession: AgentChatSessionResponse, turnId: string) => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
@@ -386,11 +421,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     try {
       const result = await compactAgentChatThread(activeSession.threadId, {
         conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
-        expectedRevision: activeConversationRevision,
+        expectedRevision: activeConversationRevisionRef.current,
         workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
         contextUsage: usage,
       });
       if (!isCurrentAction()) return result;
+      if (!result.compactCompleted) {
+        throw new Error(`上下文压缩未确认完成，状态：${result.compactStatus ?? result.status ?? "unknown"}`);
+      }
       compactedUsageKeysRef.current.add(usageKey);
       setStatusText("上下文已自动压缩");
       return result;
@@ -456,35 +494,44 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       const compacted = await maybeCompactBeforeSend(activeSession, isCurrentAction);
       if (!isCurrentAction()) return;
       const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
-      if (compactRevision) setActiveConversationRevision(compactRevision);
+      if (compactRevision) {
+        activeConversationRevisionRef.current = compactRevision;
+        setActiveConversationRevision(compactRevision);
+      }
       if (compacted) {
         setMessages((current) => [...current, { id: uniqueId("system"), role: "system", text: "上下文已自动压缩", status: "completed" }]);
       }
-      const revisionForSend = compactRevision ?? activeConversationRevision;
-      const sendWithRevision = (expectedRevision: number | null) => sendAgentChatMessage(activeSession.threadId as string, {
+      const sendSession = sessionRef.current?.threadId ? sessionRef.current : activeSession;
+      const sendThreadId = sendSession.threadId;
+      if (!sendThreadId) throw new Error("当前会话缺少可发送的 thread");
+      const revisionForSend = compactRevision ?? activeConversationRevisionRef.current;
+      const sendWithRevision = (expectedRevision: number | null) => sendAgentChatMessage(sendThreadId, {
           message: text,
           ...sessionMeta,
-          source: activeSession.source,
-          role: activeSession.role ?? sessionMeta.role,
-          leaseId: activeSession.leaseId ?? sessionMeta.leaseId,
-          parentThreadId: activeSession.parentThreadId ?? sessionMeta.parentThreadId,
-          conversationId: activeSession.conversationId ?? sessionMeta.conversationId,
+          source: sendSession.source,
+          role: sendSession.role ?? sessionMeta.role,
+          leaseId: sendSession.leaseId ?? sessionMeta.leaseId,
+          parentThreadId: sendSession.parentThreadId ?? sessionMeta.parentThreadId,
+          conversationId: sendSession.conversationId ?? activeConversationIdRef.current,
           expectedRevision,
-          workspaceRoot: activeSession.workspaceRoot ?? sessionMeta.workspaceRoot,
-          skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
+          workspaceRoot: sendSession.workspaceRoot ?? sessionMeta.workspaceRoot,
+          skillPath: sendSession.skillPath ?? sessionMeta.skillPath,
         });
       let submitted: Awaited<ReturnType<typeof sendAgentChatMessage>>;
       try {
         submitted = await sendWithRevision(revisionForSend);
       } catch (error) {
         if (!isConversationConflictError(error)) throw error;
-        const synced = await syncActiveConversationForRetry(activeSession.conversationId ?? activeConversationId);
+        const synced = await syncActiveConversationForRetry(sendSession.conversationId ?? activeConversationIdRef.current);
         if (!isCurrentAction()) return;
         setStatusText("会话已同步，重试发送");
         submitted = await sendWithRevision(normalizeConversationRevision(synced?.revision));
       }
       if (!isCurrentAction()) return;
-      if (submitted.conversationRevision) setActiveConversationRevision(submitted.conversationRevision);
+      if (submitted.conversationRevision) {
+        activeConversationRevisionRef.current = submitted.conversationRevision;
+        setActiveConversationRevision(submitted.conversationRevision);
+      }
       setTurnActionProjection(submitted.actionProjection ?? null);
       setThreadStopped(Boolean(submitted.threadStopped));
       setCurrentTurnId(submitted.turnId);
@@ -495,7 +542,15 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         window.clearTimeout(warmingResendTimerRef.current);
         warmingResendTimerRef.current = null;
       }
-      schedulePoll(activeSession, submitted.turnId);
+      const pollSession = {
+        ...sendSession,
+        threadId: submitted.threadId ?? sendSession.threadId,
+        conversationId: submitted.conversationId ?? sendSession.conversationId,
+        workspaceRoot: submitted.workspaceRoot ?? sendSession.workspaceRoot,
+      };
+      sessionRef.current = pollSession;
+      setSession(pollSession);
+      schedulePoll(pollSession, submitted.turnId);
     } catch (error) {
       if (!isCurrentAction()) return;
       const message = isConversationConflictError(error) ? "会话已在其他窗口更新，请重新选择或恢复后再发送" : error instanceof Error ? error.message : "发送失败";
@@ -733,6 +788,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       window.clearTimeout(pollTimerRef.current);
       pollTimerRef.current = null;
     }
+    sessionRef.current = null;
     setSession(null);
     setMessages([]);
     setDraft("");
@@ -742,12 +798,15 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     setTimeline(null);
     compactedUsageKeysRef.current.clear();
     activeConversationIdRef.current = null;
+    activeConversationRevisionRef.current = null;
     setActiveConversationId(null);
     setActiveConversationRevision(null);
     setActiveConversationInvalidated(false);
     setActiveConversationConfirmedPlan(null);
     setErrorText(null);
+    modeRef.current = "threadpool-role";
     setMode("threadpool-role");
+    selectedRoleRef.current = selectedRoleRef.current || "function-slot-restructure";
     setSelectedRole((current) => current || "function-slot-restructure");
     setStatusText("新重组会话");
   }, [invalidateConversationActions, resetConversationBusyState]);

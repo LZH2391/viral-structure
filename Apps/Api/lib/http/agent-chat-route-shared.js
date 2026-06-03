@@ -315,6 +315,24 @@ function assertExpectedThreadResult(result, expectedThreadId, code) {
   throw error;
 }
 
+function assertConversationThreadMatches(conversation, threadId, code = "agent_chat_conversation_thread_mismatch") {
+  const expected = normalizeText(conversation?.threadId);
+  const actual = normalizeText(threadId);
+  if (!expected || !actual || expected === actual) return;
+  const error = new Error("AgentChat threadId 与当前会话绑定不一致，请恢复会话后重试");
+  error.statusCode = 409;
+  error.code = code;
+  error.retryable = false;
+  error.debugPayload = {
+    conversationId: conversation?.conversationId ?? null,
+    conversationThreadId: expected,
+    requestThreadId: actual,
+    latestTurnId: conversation?.latestTurnId ?? null,
+    revision: conversation?.revision ?? null,
+  };
+  throw error;
+}
+
 function assertCancelTurnSucceeded(result) {
   if (result?.ok !== false) return;
   const error = new Error(result?.message ?? "AgentChat turn cancel 失败");
@@ -351,6 +369,7 @@ module.exports = {
   DEFAULT_TURN_TIMEOUT_SECONDS,
   OWNER_PREFIX,
   assertAgentChatTurnStarted,
+  assertConversationThreadMatches,
   assertDirectThreadStarted,
   assertExpectedThreadResult,
   assertExpectedTurnResult,

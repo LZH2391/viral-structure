@@ -262,12 +262,22 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         return thread
 
     def compact_thread(self, thread_id: str) -> dict[str, Any]:
-        return self._request(
+        result = self._request(
             "thread/compact/start",
             {
                 "threadId": str(thread_id),
             },
         )
+        compact_thread_id = str(result.get("threadId") or result.get("thread_id") or thread_id)
+        if compact_thread_id:
+            self._notify_thread_lifecycle(
+                ThreadLifecycleEvent(
+                    event_type="thread/compact",
+                    thread_id=compact_thread_id,
+                    source_thread_id=str(thread_id),
+                )
+            )
+        return result
 
     def list_turn_items(
         self,

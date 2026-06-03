@@ -261,18 +261,20 @@ def compact_thread(client, payload) -> int:
     turn = result.get("turn") if isinstance(result, dict) else None
     turn_id = result.get("turnId") or result.get("turn_id") or (turn or {}).get("id") or (turn or {}).get("turnId")
     status = result.get("status") or (turn or {}).get("status")
+    compact_thread_id = result.get("threadId") or result.get("thread_id") or str(payload["threadId"])
     if turn_id and status not in {"completed", "complete", "failed", "error", "errored", "cancelled", "canceled"}:
         status = client.wait_turn_completed(
-            str(payload["threadId"]),
+            str(compact_thread_id),
             str(turn_id),
             timeout_seconds=float(payload.get("timeoutSeconds") or 60),
         )
     write_json(
         {
             "ok": True,
-            "threadId": str(payload["threadId"]),
+            "threadId": str(compact_thread_id),
             "turnId": str(turn_id) if turn_id else None,
-            "status": status or "completed",
+            "status": status or "unknown",
+            "compactCompleted": status in {"completed", "complete"},
         }
     )
     return 0

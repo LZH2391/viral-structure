@@ -950,6 +950,57 @@ test("agent chat rejects stale restructure conversation send before starting app
   }
 });
 
+test("agent chat rejects conversation thread mismatch before starting appserver turn", async () => {
+  const turnInputs = [];
+  const conversation = {
+    conversationId: "conversation_current",
+    revision: 4,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_current",
+    latestTurnId: "turn_latest",
+    messages: [],
+  };
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/thread-mismatch.json" }),
+    },
+    agentConversationStore: {
+      assertActive: async () => conversation,
+      recordUserTurn: async () => {
+        throw new Error("should not record mismatched turn");
+      },
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        turnInputs.push(payload);
+        return { threadId: "thread_old", turnId: "turn_wrong", status: "submitted" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_old/turns", {
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      conversationId: "conversation_current",
+      expectedRevision: 4,
+      message: "这条不能发进旧 thread",
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "agent_chat_conversation_thread_mismatch");
+    assert.deepEqual(turnInputs, []);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat rejects stale restructure archive without discarding thread", async () => {
   const discardedThreads = [];
   const conversation = {
@@ -3447,6 +3498,11 @@ test("agent chat compact route calls appserver and records a system message", as
       writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
     },
     agentConversationStore: {
+      assertActive: async (conversationId, { expectedRevision } = {}) => {
+        assert.equal(conversationId, "conversation_compact");
+        assert.equal(expectedRevision, 7);
+        return { conversationId, revision: 7, status: "active", threadId: "thread_compact" };
+      },
       recordSystemMessage: async (payload) => {
         systemMessages.push(payload);
         return { conversationId: payload.conversationId, revision: 8 };
@@ -3455,7 +3511,7 @@ test("agent chat compact route calls appserver and records a system message", as
     appServer: {
       compactThread: async (payload) => {
         compactCalls.push(payload);
-        return { ok: true, threadId: payload.threadId, status: "started" };
+        return { ok: true, threadId: payload.threadId, status: "completed" };
       },
     },
     staticWorkbench: { handle: () => false },
@@ -3474,6 +3530,7 @@ test("agent chat compact route calls appserver and records a system message", as
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.ok, true);
     assert.equal(response.body.threadId, "thread_compact");
+    assert.equal(response.body.compactCompleted, true);
     assert.equal(response.body.conversationRevision, 8);
     assert.equal(compactCalls[0].workspaceRoot, "C:/workspace");
     assert.equal(compactCalls[0].threadId, "thread_compact");
@@ -3481,6 +3538,45 @@ test("agent chat compact route calls appserver and records a system message", as
     assert.equal(stageLogs[0].stageName, "agentChat.context.compact");
     assert.deepEqual(stageLogs.map((entry) => entry.event), ["stage.start", "stage.end"]);
     assert.equal(stageLogs[0].inputSummary.contextUsage.contextUsageState, "danger");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat compact route rejects conversation thread mismatch before appserver compact", async () => {
+  const compactCalls = [];
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/compact-thread-mismatch.json" }),
+    },
+    agentConversationStore: {
+      assertActive: async () => ({ conversationId: "conversation_compact", revision: 3, status: "active", threadId: "thread_current" }),
+      recordSystemMessage: async () => {
+        throw new Error("should not record compact system message");
+      },
+    },
+    appServer: {
+      compactThread: async (payload) => {
+        compactCalls.push(payload);
+        return { ok: true, threadId: payload.threadId, status: "completed" };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/threads/thread_old/compact", {
+      conversationId: "conversation_compact",
+      expectedRevision: 3,
+      workspaceRoot: "C:/workspace",
+    });
+    assert.equal(response.statusCode, 409);
+    assert.equal(response.body.code, "agent_chat_compact_thread_mismatch");
+    assert.deepEqual(compactCalls, []);
   } finally {
     await closeServer(server);
   }

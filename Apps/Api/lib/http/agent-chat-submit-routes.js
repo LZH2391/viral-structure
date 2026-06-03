@@ -17,6 +17,7 @@ const {
 const {
   DEFAULT_TURN_TIMEOUT_SECONDS,
   assertAgentChatTurnStarted,
+  assertConversationThreadMatches,
   assertExpectedThreadResult,
   attachAgentChatProjection,
   buildTextInputs,
@@ -58,6 +59,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
             error.code = "agent_chat_conversation_not_found";
             throw error;
           }
+          assertConversationThreadMatches(conversation, threadId);
         }
         const result = await handlers.appServer.startTurnWithInputs({
           workspaceRoot,
