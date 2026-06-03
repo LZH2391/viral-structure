@@ -1,6 +1,6 @@
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
 import { shortId } from "../../utils/format";
-import { formatDetailValue, nodeDetailRows } from "./graphUtils";
+import { formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
 import type { GraphFiltersState } from "./types";
 
 export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | "governance" | "planTrace"; filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
@@ -48,7 +48,7 @@ export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | n
   return (
     <section className="slot-graph-card slot-graph-inspector">
       <div className="section-heading">当前选中</div>
-      <strong>{node.label}</strong>
+      <strong>{graphNodeDisplayLabel(node)}</strong>
       <span>{node.type} / {node.group}</span>
       {graph ? <small>artifact {shortId(graph.artifactId)}</small> : null}
       <div className="slot-graph-detail-rows">

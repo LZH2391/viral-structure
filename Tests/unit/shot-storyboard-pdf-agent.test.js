@@ -230,6 +230,58 @@ test("pdf turn prefers activeTurnRuntime and records job agentRun lifecycle", as
   }
 });
 
+test("pdf turn keeps collecting when active turn is still in progress", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-storyboard-pdf-turn-running-"));
+  const collectStatuses = [];
+  try {
+    const inputPackagePath = path.join(rootDir, "shot-storyboard-pdf-input.json");
+    await fs.writeFile(inputPackagePath, "{}\n", "utf8");
+    let collectCount = 0;
+    const result = await runShotStoryboardPdfTurn({
+      rootDir,
+      threadPool: {
+        ensureRoleReady: async () => ({ ok: true, status: { skillPath: "C:/ByteDanceFullStack/.agents/skills/shot-storyboard-prep/SKILL.md" } }),
+        acquireLease: async () => ({ lease_id: "lease_1", thread_id: "thread_1" }),
+        releaseLease: async () => ({ ok: true }),
+      },
+      appServer: {
+        runTurnWithInputs: async () => {
+          throw new Error("fallback should not run");
+        },
+      },
+      activeTurnRuntime: {
+        start: async () => ({ turnId: "turn_1", threadId: "thread_1", status: "submitted" }),
+        collect: async () => {
+          collectCount += 1;
+          const status = collectCount === 1 ? "inProgress" : "completed";
+          collectStatuses.push(status);
+          return {
+            turnId: "turn_1",
+            threadId: "thread_1",
+            status,
+            finalMessage: status === "completed" ? "已写出" : null,
+          };
+        },
+      },
+      jobStore: { updateJob: () => undefined },
+      jobId: "job_1",
+      traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+      artifactId: "artifact_1",
+      parentArtifactId: "artifact_parent",
+      inputPackagePath,
+      pdfPath: path.join(rootDir, "shot-storyboard.pdf"),
+      summaryPath: path.join(rootDir, "shot-storyboard.summary.json"),
+      layoutPath: path.join(rootDir, "shot-storyboard.layout.json"),
+      safeRelative: (filePath) => path.relative(rootDir, filePath).replaceAll(path.sep, "/"),
+    });
+
+    assert.deepEqual(collectStatuses, ["inProgress", "completed"]);
+    assert.equal(result.agent.turnId, "turn_1");
+  } finally {
+    await fs.rm(rootDir, { recursive: true, force: true });
+  }
+});
+
 async function writeSolidImage(filePath, width, height, color) {
   await sharp({
     create: {

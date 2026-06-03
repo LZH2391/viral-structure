@@ -59,7 +59,7 @@ export function FunctionSlotGraphApp() {
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [layoutModesByMode, setLayoutModesByMode] = useState<Record<GraphMode, GovernanceLayoutMode>>({
     structure: "force",
-    governance: "columns",
+    governance: "force",
     planTrace: "columns",
   });
 

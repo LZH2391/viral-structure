@@ -17,6 +17,14 @@ import {
   VIEWBOX,
 } from "./graphUtils";
 import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } from "./types";
+import {
+  edgeClassName,
+  edgeLinePoints,
+  edgeMarkerEnd,
+  nodeClassName,
+  nodeLabelOpacity,
+  slotOrderBadge,
+} from "./graphVisualStyles";
 
 type ViewportTransform = { x: number; y: number; k: number };
 
@@ -296,7 +304,7 @@ export function GraphCanvas({
     const rawX = ((event.clientX - rect.left) / rect.width) * VIEWBOX.width;
     const rawY = ((event.clientY - rect.top) / rect.height) * VIEWBOX.height;
     const current = viewportRef.current;
-    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 2.8);
+    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 5);
     const worldX = (rawX - current.x) / current.k;
     const worldY = (rawY - current.y) / current.k;
     const nextViewport = {
@@ -414,106 +422,6 @@ function GraphNode({ node, focused, selected, pinnedPreview, labelOpacity, onHov
       <title>{node.label}</title>
     </g>
   );
-}
-
-export function slotOrderBadge(node: SimNode) {
-  if (!isSlotSequenceNode(node)) return null;
-  const order = Number(node.data.slotOrder);
-  if (!Number.isFinite(order) || order <= 0) return null;
-  return order < 10 ? `0${order}` : String(order);
-}
-
-export function shouldShowNodeLabel(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
-  return nodeLabelOpacity(mode, node, zoom) > 0.01;
-}
-
-export function nodeLabelOpacity(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
-  if (mode !== "governance") return zoomFade(zoom, 0.45, 1, 0.58, 1);
-  if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") {
-    return zoomFade(zoom, 0.45, 1, 0.72, 1);
-  }
-  if (node.type === "slotSubtype") return zoomFade(zoom, 1.05, 1.45, 0.12, 1);
-  if (node.type === "slotArchetype" || node.type === "implementationBundle") return zoomFade(zoom, 1.45, 1.9, 0, 1);
-  return zoomFade(zoom, 1.9, 2.3, 0, 1);
-}
-
-function zoomFade(zoom: number, start: number, end: number, min: number, max: number) {
-  if (zoom <= start) return min;
-  if (zoom >= end) return max;
-  return min + ((zoom - start) / (end - start)) * (max - min);
-}
-
-function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {
-  return [
-    "slot-graph-node",
-    `node-${cssToken(node.group)}`,
-    `node-type-${cssToken(node.type)}`,
-    nodeLayerClass(node),
-    focused ? "" : "muted",
-    selected ? "selected" : "",
-    pinnedPreview ? "preview-pinned" : "",
-  ].filter(Boolean).join(" ");
-}
-
-function edgeClassName(type: string, source: SimNode, target: SimNode, focused: boolean, muted: boolean) {
-  return [
-    "slot-graph-edge",
-    `edge-${cssToken(type)}`,
-    edgeLayerClass(source, target),
-    focused ? "focused" : "",
-    muted ? "muted" : "",
-  ].filter(Boolean).join(" ");
-}
-
-function edgeMarkerEnd(type: string, source: SimNode, target: SimNode) {
-  return isSlotSequenceEdge(type, source, target) ? "url(#slot-graph-arrow)" : undefined;
-}
-
-export function edgeLinePoints(type: string, source: SimNode, target: SimNode) {
-  if (!isSlotSequenceEdge(type, source, target)) {
-    return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
-  }
-  const dx = target.x - source.x;
-  const dy = target.y - source.y;
-  const distance = Math.hypot(dx, dy);
-  if (!distance) return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
-  const ux = dx / distance;
-  const uy = dy / distance;
-  const sourceGap = nodeRadius(source) + 4;
-  const targetGap = nodeRadius(target) + 2;
-  return {
-    x1: source.x + ux * sourceGap,
-    y1: source.y + uy * sourceGap,
-    x2: target.x - ux * targetGap,
-    y2: target.y - uy * targetGap,
-  };
-}
-
-function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
-  return (type === "slot_next" || type === "plan_slot_next")
-    && isSlotSequenceNode(source)
-    && isSlotSequenceNode(target);
-}
-
-export function isSlotSequenceNode(node: SimNode) {
-  return node.type === "slotInstance" || node.type === "slotSubtype";
-}
-
-export function nodeLayerClass(node: SimNode) {
-  const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
-  if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
-  return "";
-}
-
-export function edgeLayerClass(source: SimNode, target: SimNode) {
-  const layer = [source, target]
-    .map((node) => typeof node.data.layer === "string" ? node.data.layer : node.group)
-    .find((value) => value === "script" || value === "rhythm" || value === "packaging");
-  return layer ? `edge-layer-${layer}` : "";
-}
-
-function cssToken(value: unknown) {
-  return String(value ?? "").replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
 function GraphDefinitions() {

@@ -27,7 +27,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 - `shot` 使用 `new_shot_01`、`new_shot_02` 等，不沿用来源样例 shot 编号。
 - `slotSubtype 对齐` 写该 shot 承载或过渡的 slotSubtype；一个 shot 承载多个槽位时，说明过渡、合并、fragment、hook、payoff 或 adapter 关系。
-- `素材来源/处理策略` 必须写 `existing_material`、`existing_material_packaging_caption`、`self_designed_by_shot_design` 或 `reuse_transformed_fallback`。使用现有素材时引用 `shotRef/groupId`；自行设计时写“自设计镜头”；复用兜底时必须写明变形方式，不能只写“复用 shot_x”。
+- `素材来源/处理策略` 必须写 `existing_material`、`existing_material_packaging_caption`、`self_designed_by_shot_design` 或 `reuse_transformed_fallback`。使用现有素材时引用 `shotRef/groupId`；自行设计时写“自设计镜头”；复用兜底时必须写明变形方式，不能只写“复用 shot_x”。同一 `shotRef/groupId` 已经作为主承载后，再次作为另一个 shot 的主画面时，必须标为 `reuse_transformed_fallback`，不能标为 `existing_material` 或 `existing_material_packaging_caption`。
 - `脚本段落`、`节奏区间`、`包装块` 写该 shot 对齐第 5、6、7 节中的哪些编号，允许一对多或多对一；不要暗示三者存在上下游生成关系。
 - `分镜画面` 必须在当前 shot 内独立可消费，不能依赖前文才能理解；需要一致性时，在当前 shot 内写出可见特征，例如人物大致外观、场景、产品外观或界面状态。该字段会用于生图，只写单帧可见的主体、场景、构图、人物/手部当前姿态和产品状态；不要写连续运镜、后期动效或剪辑指令。
 - `动作与运镜` 写这个 shot 怎么拍、人物/手怎么动、镜头怎么动，必须根据第 6 节节奏区间选择普通可拍的动作和轻量运镜，例如固定近景、轻推近、轻拉远、轻微横移、俯拍稳定停留、稳定手持、跟随手部动作，以及拿起、打开、指向、按压、展示、停顿。不要写复杂长镜头、夸张转场、快速甩镜、多机位调度或高成本拍摄设计。
@@ -43,6 +43,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 当 `素材来源/处理策略` 为 `existing_material`：
 
+- 只能使用本版尚未作为主承载的 `shotRef/groupId`。
 - `分镜画面` 只写原素材镜头摘要和 `shotRef/groupId`，不写给生图模型使用的自设计画面。
 - `动作与运镜` 写“沿用原素材动作与运镜”，或记录原素材已有的主体动作和镜头运动摘要。
 - `包装说明` 写原素材已有包装，或“无新增包装，沿用原素材”。
@@ -50,6 +51,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 当 `素材来源/处理策略` 为 `existing_material_packaging_caption`：
 
+- 只能使用本版尚未作为主承载的 `shotRef/groupId`；如果该素材已经被其他 shot 主承载，即使只是裁切、放大、冻结帧、局部特写或叠加字幕，也必须改用 `reuse_transformed_fallback`。
 - `分镜画面` 仍只写原素材镜头摘要和 `shotRef/groupId`，不得写自设计画面或新增素材中不存在的视觉内容。
 - `动作与运镜` 写“沿用原素材动作与运镜”，或记录原素材已有的主体动作和镜头运动摘要；不得新增素材中不存在的拍摄动作或运镜。
 - `包装说明` 必须写“新包装/字幕如何在原素材画面上补强”，包括覆盖层位置、样式、出现时机、服务功能和避让区域；这些内容服务剪辑后期，不服务生图。
@@ -68,7 +70,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 是否没有改变第 2-7 节已确认的核心结构。
 - 每个 shot 是否至少对齐一个槽位或 adapter。
 - 如果有素材包，是否消费了素材包并为每个 shot 写明素材来源/处理策略。
-- 是否没有把同一 `shotRef` 原样复用到多个主承载。
+- 是否没有把同一 `shotRef/groupId` 标为 `existing_material` 或 `existing_material_packaging_caption` 后又用于另一个主承载；凡是已占用素材再次主承载，是否一律标为 `reuse_transformed_fallback`。
 - 所有 `reuse_transformed_fallback` 是否写明裁切、放大、冻结帧、局部特写、变速、错位重入等变形处理。
 - 是否优先使用未占用现有素材，其次包装/字幕强化，再自行设计，最后才复用变形兜底。
 - `existing_material` 是否没有新增自设计画面、包装或台词/字幕。

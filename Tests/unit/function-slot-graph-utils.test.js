@@ -42,7 +42,7 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("governance graph does not project hidden atom archetype paths into subtype-pattern hairballs", () => {
+test("governance graph projects hidden atom hierarchy paths into subtype-pattern links", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = { ...allFilters(), atomLayer: false, atomArchetype: false, sourceVariant: false };
   const graph = {
@@ -67,7 +67,32 @@ test("governance graph does not project hidden atom archetype paths into subtype
 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_a"));
   assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
-  assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
+  assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "projected_hierarchy"));
+});
+
+test("governance graph hides atom pattern candidate suffixes in display labels", () => {
+  const { buildVisibleGraph, graphNodeDisplayLabel, nodeDetailRows } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = allFilters();
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "内部细节证明包装 candidate pattern", group: "packaging", data: { id: "PAT_a" } },
+      { id: "atomPattern:PAT_b", type: "atomPattern", label: "对象值 pattern", group: "script", data: { id: "PAT_b" } },
+    ],
+    edges: [],
+    summary: { slotCount: 0, atomCount: 2, bindingCount: 0, conceptCount: 2 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters);
+  const pattern = visible.nodes.find((node) => node.id === "atomPattern:PAT_a");
+  const shortPattern = visible.nodes.find((node) => node.id === "atomPattern:PAT_b");
+
+  assert.equal(pattern.shortLabel, "内部细节证明包装");
+  assert.equal(graphNodeDisplayLabel(pattern), "内部细节证明包装");
+  assert.equal(nodeDetailRows(pattern).find(([label]) => label === "name")?.[1], "内部细节证明包装");
+  assert.equal(shortPattern.shortLabel, "对象值");
 });
 
 test("confirmed plan trace graph shows plan to subtype to source variant to source sample", () => {

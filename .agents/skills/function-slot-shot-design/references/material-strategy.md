@@ -15,7 +15,7 @@
 策略优先级固定为：
 
 1. `existing_material`：未占用现有素材能直接承载。
-2. `existing_material_packaging_caption`：现有素材基本成立，但需要包装/字幕补清。
+2. `existing_material_packaging_caption`：未占用现有素材基本成立，但需要包装/字幕补清。
 3. `self_designed_by_shot_design`：现有素材缺关键画面、场景、动作、非证明性承接、商品记忆或 CTA，需要本 skill 自行设计新镜头。
 4. `return_to_restructure_required`：不是少几个镜头，而是槽位链整体不适合当前素材、合理包装字幕和自行设计，需要按 `function-slot-restructure/references/shot-design-return-to-restructure.md` 交回重组。
 5. `reuse_transformed_fallback`：复用已有镜头兜底，最低优先级。
@@ -23,6 +23,8 @@
 ## 评分维度
 
 对每个 slot，先从未占用的 `shotCards/materialGroups` 中找候选，再做策略评分。评分不是为了追求最高素材分，而是为了选择最合适的落地策略。
+
+素材占用状态先于评分和包装策略。某个 `shotRef/groupId` 已经作为主承载进入本版任一 shot 后，再次作为另一个 shot 的主画面时，不管是否裁切、放大、冻结帧、局部特写、变速、加字幕或加包装，都不得再判为 `existing_material` 或 `existing_material_packaging_caption`；只能在前四类策略都不成立时，按最低优先级判为 `reuse_transformed_fallback`。
 
 | 维度 | 分值 | 判断问题 |
 |---|---:|---|
@@ -42,27 +44,29 @@ materialSupportScore = slotFitScore + proofValidityScore + visualActionScore + p
 selfDesignPressure = selfDesignNeedScore
 ```
 
-评分只用于当前 slot / shot 候选，不跨 slot 平均。`reusePenalty` 必须在候选素材已经被其他 shot 主承载时计入；同一素材只是被列为候选但未占用，不扣复用分。
+评分只用于当前 slot / shot 候选，不跨 slot 平均。`reusePenalty` 只用于评估复用兜底是否仍可执行，不得把已占用素材扣分后重新路由进 `existing_material` 或 `existing_material_packaging_caption`；同一素材只是被列为候选但未占用，不扣复用分。
 
 | 条件 | 策略 |
 |---|---|
 | 未占用现有素材高度匹配，证明成立，动作/画面完整；`slotFitScore >= 20`、`proofValidityScore >= 20`、`visualActionScore >= 15`、`materialSupportScore >= 65`、`selfDesignPressure <= 6` | `existing_material` |
-| 现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足；`slotFitScore >= 16`、`proofValidityScore >= 16`、`visualActionScore >= 10`、`packagingRecoverScore >= 8`、`materialSupportScore >= 50` | `existing_material_packaging_caption` |
+| 未占用现有素材主体或动作成立，但表达不够清楚，且包装/字幕可以安全补足；`slotFitScore >= 16`、`proofValidityScore >= 16`、`visualActionScore >= 10`、`packagingRecoverScore >= 8`、`materialSupportScore >= 50` | `existing_material_packaging_caption` |
 | 现有素材缺关键画面、关键动作、非证明性承接、商品记忆或 CTA，且自行设计不会伪造证明；`selfDesignPressure >= 9`，或 `materialSupportScore < 50` 且缺失点属于可合理自设计内容 | `self_designed_by_shot_design` |
 | 多个关键 slot 的 `proofValidityScore < 12`，且既不能靠包装字幕补清，也不能靠合理自行设计补齐，说明槽位链整体不适合当前素材 | `return_to_restructure_required` |
 | 已占用素材再次使用后仍比其他方案更可执行，且前四类都不成立；`reusePenalty < 0` 时只能作为最低优先级兜底 | `reuse_transformed_fallback` |
 
-路由顺序必须按表格自上而下判断。不要因为 `materialSupportScore` 总分高就跳过证明边界；`proofValidityScore < 12` 时禁止走 `existing_material` 或 `existing_material_packaging_caption`。`reuse_transformed_fallback` 只能在没有更好的未占用现有素材、包装字幕方案、自行设计方案时选择。
+路由顺序必须按表格自上而下判断，但已占用素材不得进入前两类现有素材策略。不要因为 `materialSupportScore` 总分高就跳过证明边界；`proofValidityScore < 12` 时禁止走 `existing_material` 或 `existing_material_packaging_caption`。`reuse_transformed_fallback` 只能在没有更好的未占用现有素材、包装字幕方案、自行设计方案时选择。
 
 ## 素材镜头字段边界
 
 `existing_material` 是完全使用素材镜头：画面、已有包装、台词/字幕都以原素材为准。ShotDesign 不再自行设计分镜画面，不新增包装说明，不重写台词/字幕；原素材没有台词/字幕时写“无”，并在最终摘要中提示用户这些镜头无原素材台词，询问是否需要补写。
 
-`existing_material_packaging_caption` 是“素材画面 + 后期包装/字幕补强”：画面仍锁定为原素材镜头，只能写原素材代表帧、主体动作、结果状态或素材包摘要；不得写给生图模型使用的自设计画面提示词。允许新增包装/字幕，但必须写清楚补强的是哪一层后期信息、如何安全补清证明或理解，不能把弱素材包装成强证明，不能伪造素材里不存在的动作、结果、对比、评价或资质。若原素材无口播/字幕，只有用户已明确授权补写时才允许新增后期字幕、屏幕文字或旁白；新增内容必须标为后期层或旁白，不得伪装成原素材人物口播。
+`existing_material_packaging_caption` 是“未占用素材画面 + 后期包装/字幕补强”：画面仍锁定为原素材镜头，只能写原素材代表帧、主体动作、结果状态或素材包摘要；不得写给生图模型使用的自设计画面提示词。允许新增包装/字幕，但必须写清楚补强的是哪一层后期信息、如何安全补清证明或理解，不能把弱素材包装成强证明，不能伪造素材里不存在的动作、结果、对比、评价或资质。若原素材无口播/字幕，只有用户已明确授权补写时才允许新增后期字幕、屏幕文字或旁白；新增内容必须标为后期层或旁白，不得伪装成原素材人物口播。
 
 ## 复用硬约束
 
 同一 `shotRef` 可以成为多个 slot 候选，但默认只能有一个主承载。已占用素材再次使用时必须加高复用惩罚，只有没有更好的现有素材、包装字幕或自行设计方案时才允许复用。
+
+已占用 `shotRef/groupId` 再次作为主承载时，策略字段必须写 `reuse_transformed_fallback`。裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏、标题条、圈选、标签、画中画或后期字幕，都只是复用变形方式或包装说明，不能把复用镜头改判为 `existing_material_packaging_caption`。
 
 `reuse_transformed_fallback` 永远最低优先级。使用时必须写明变形方式，例如裁切、放大、冻结帧、局部特写、变速、错位重入、反向节奏；禁止原样复用。
 

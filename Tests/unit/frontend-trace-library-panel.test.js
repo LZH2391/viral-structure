@@ -39,6 +39,19 @@ test("library page exposes local artifact index views", () => {
   assert.match(libraryApp, /libraryArtifactTree/);
 });
 
+test("pixi graph keeps source variant labels synced during zoom", () => {
+  const root = path.resolve(__dirname, "../..");
+  const graphPixiCanvas = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphPixiCanvas.tsx");
+  const graphPixiRenderer = read(root, "Apps/Workbench/src/components/function-slot-graph/graphPixiRenderer.ts");
+
+  assert.match(graphPixiCanvas, /syncPixiLabels/);
+  assert.match(graphPixiCanvas, /previousZoom !== nextViewport\.k && syncGraphLabelsRef\.current\(\)/);
+  assert.match(graphPixiRenderer, /export function syncPixiLabels/);
+  assert.match(graphPixiRenderer, /labelLayer\.addChild\(text\)/);
+  assert.doesNotMatch(graphPixiRenderer, /view\.container\.addChild\(text\)/);
+  assert.match(graphPixiRenderer, /syncNodeLabel\(labelLayer, view, node, radius, nodeLabelOpacity\(state\.mode, node, zoom\), style\)/);
+});
+
 test("threadpool page and shot boundary agent use proxied API surface", () => {
   const root = path.resolve(__dirname, "../..");
   const vite = read(root, "vite.config.ts");

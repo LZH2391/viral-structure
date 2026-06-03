@@ -196,7 +196,6 @@ function hasLegacyPlanTraceAtomNodes(graph: FunctionSlotLibraryGraph) {
 function shouldProjectHierarchyEdge(nodeTypeById: Map<string, string>, sourceId: string, targetId: string) {
   const sourceType = nodeTypeById.get(sourceId);
   const targetType = nodeTypeById.get(targetId);
-  if (targetType === "atomPattern" && sourceType === "slotSubtype") return false;
   if (targetType === "sourceVariant" && (sourceType === "slotSubtype" || sourceType === "atomLayer" || sourceType === "atomArchetype")) return false;
   if (targetType === "sourceSample" && sourceType !== "sourceVariant" && sourceType !== "governanceRoot") return false;
   return true;
@@ -204,19 +203,21 @@ function shouldProjectHierarchyEdge(nodeTypeById: Map<string, string>, sourceId:
 
 function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>) {
   const ancestors = new Set<string>();
-  const visited = new Set<string>([targetId]);
-  let frontier = [targetId];
+  const visitedHidden = new Set<string>([targetId]);
+  let frontier = [{ nodeId: targetId, crossedHidden: false }];
   while (frontier.length) {
-    const next: string[] = [];
-    for (const nodeId of frontier) {
+    const next: Array<{ nodeId: string; crossedHidden: boolean }> = [];
+    for (const { nodeId, crossedHidden } of frontier) {
       for (const edge of incoming.get(nodeId) ?? []) {
-        if (visited.has(edge.source)) continue;
-        visited.add(edge.source);
-        if (visibleNodeIds.has(edge.source)) ancestors.add(edge.source);
-        else next.push(edge.source);
+        if (visibleNodeIds.has(edge.source)) {
+          if (crossedHidden) ancestors.add(edge.source);
+          continue;
+        }
+        if (visitedHidden.has(edge.source)) continue;
+        visitedHidden.add(edge.source);
+        next.push({ nodeId: edge.source, crossedHidden: true });
       }
     }
-    if (ancestors.size) break;
     frontier = next;
   }
   return ancestors;
@@ -414,7 +415,7 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   if (node.type === "sourceExample") return [["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
   if (node.type === "sourceVariant") return [["variantId", data.variantId], ["label", data.label], ["sampleId", data.sampleId], ["kind", data.kind], ["sourceId", data.sourceId], ["labelMissing", data.labelMissing]];
   if (node.type === "sourceSample") return [["sampleVideoId", data.sampleVideoId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
-  if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", node.label], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
+  if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", graphNodeDisplayLabel(node)], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
   if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
   if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
   if (node.type === "atomLayer") return [["planId", data.planId], ["layer", data.layer]];
@@ -1158,13 +1159,28 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
   if (node.type === "atomLayer") return String(node.label ?? node.id).slice(0, 18);
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
-  if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
+  if (isGovernanceNode(node)) return graphNodeDisplayLabel(node).slice(0, 20);
   if (node.type === "libraryItem") return "SourceSample";
   if (node.type === "slotInstance") return String(node.label ?? node.data.slotId ?? "").slice(0, 20);
   if (node.type === "atomInstance") return String(node.label ?? node.data.atomId ?? "").slice(0, 24);
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);
   if (node.type === "slotConcept") return "SlotConcept";
   return node.label;
+}
+
+export function graphNodeDisplayLabel(node: FunctionSlotGraphNode) {
+  const fallback = node.type === "sourceSample" ? node.data?.sampleVideoId ?? "SourceSample" : node.id;
+  const label = String(node.label ?? fallback);
+  if (node.type !== "atomPattern") return label;
+  return cleanAtomPatternDisplayLabel(label);
+}
+
+function cleanAtomPatternDisplayLabel(label: string) {
+  const cleaned = label
+    .replace(/\s+(?:candidate\s+)?pattern\s*$/i, "")
+    .replace(/\s+candidate\s*$/i, "")
+    .trim();
+  return cleaned || label;
 }
 
 function sourceVariantLabel(node: FunctionSlotGraphNode) {

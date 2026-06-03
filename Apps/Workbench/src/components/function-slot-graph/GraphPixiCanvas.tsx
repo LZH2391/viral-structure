@@ -30,6 +30,7 @@ import {
   pixiScreenPoint,
   syncPixiEdges,
   syncPixiFocus,
+  syncPixiLabels,
   syncPixiLayout,
   syncPixiNodes,
   type PixiGraphObjects,
@@ -49,6 +50,7 @@ type PixiLayers = {
 };
 
 type ViewportTransform = { x: number; y: number; k: number };
+type StageTransform = { scale: number; offsetX: number; offsetY: number };
 type HitGridEntry = { node: SimNode; index: number };
 type HitGridIndex = { cellSize: number; cells: Map<string, HitGridEntry[]> };
 
@@ -112,6 +114,7 @@ function GraphPixiCanvasInner({
   const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const syncGraphObjectsRef = useRef<() => void>(() => undefined);
   const syncGraphLayoutRef = useRef<() => void>(() => undefined);
+  const syncGraphLabelsRef = useRef<() => boolean>(() => false);
   const syncGraphFocusRef = useRef<(previous: PixiGraphRenderState, next: PixiGraphRenderState) => boolean>(() => false);
   const applyViewportTransformRef = useRef<() => void>(() => undefined);
   const renderViewportRef = useRef<() => void>(() => undefined);
@@ -216,7 +219,7 @@ function GraphPixiCanvasInner({
       backgroundAlpha: 0,
       preference: "webgl",
       resizeTo: host,
-      resolution: mode === "governance" ? 1 : Math.min(window.devicePixelRatio || 1, 2),
+      resolution: Math.max(1, Math.min(window.devicePixelRatio || 1, 2)),
     }).then(() => {
       initialized = true;
       if (disposed) {
@@ -414,6 +417,16 @@ function GraphPixiCanvasInner({
   };
   syncGraphLayoutRef.current = syncGraphLayout;
 
+  const syncGraphLabels = () => {
+    const layers = layersRef.current;
+    if (!layers) return false;
+    const rendered = syncPixiLabels(layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
+    if (!rendered) return false;
+    renderPixi();
+    return true;
+  };
+  syncGraphLabelsRef.current = syncGraphLabels;
+
   const syncGraphFocus = (previousState: PixiGraphRenderState, nextState: PixiGraphRenderState) => {
     const rendered = syncPixiFocus(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, previousState, nextState, viewportRef.current.k);
     if (!rendered) return false;
@@ -426,9 +439,9 @@ function GraphPixiCanvasInner({
     const layers = layersRef.current;
     if (!layers) return;
     const size = canvasSizeRef.current;
-    const scaleX = size.width / VIEWBOX.width;
-    const scaleY = size.height / VIEWBOX.height;
-    layers.root.scale.set(scaleX, scaleY);
+    const transform = stageTransform(size);
+    layers.root.position.set(transform.offsetX, transform.offsetY);
+    layers.root.scale.set(transform.scale);
     layers.world.position.set(viewportRef.current.x, viewportRef.current.y);
     layers.world.scale.set(viewportRef.current.k);
   };
@@ -457,10 +470,15 @@ function GraphPixiCanvasInner({
   renderViewportRef.current = renderViewport;
 
   const applyAnimatedViewport = (nextViewport: ViewportTransform) => {
+    const previousZoom = viewportRef.current.k;
     viewportRef.current = nextViewport;
     commitViewportState();
-    renderViewportRef.current();
-    scheduleDraw();
+    applyViewportTransformRef.current();
+    if (previousZoom !== nextViewport.k && syncGraphLabelsRef.current()) {
+      schedulePreviewTick();
+      return;
+    }
+    renderPixi();
     schedulePreviewTick();
   };
 
@@ -485,6 +503,7 @@ function GraphPixiCanvasInner({
       return;
     }
     zoomAnimationFrameRef.current = null;
+    scheduleDraw();
   };
 
   const animateViewportTo = (targetViewport: ViewportTransform) => {
@@ -518,8 +537,9 @@ function GraphPixiCanvasInner({
     const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     hostRectRef.current = rect;
-    const rawX = ((clientX - rect.left) / Math.max(rect.width, 1)) * VIEWBOX.width;
-    const rawY = ((clientY - rect.top) / Math.max(rect.height, 1)) * VIEWBOX.height;
+    const transform = stageTransform({ width: rect.width, height: rect.height });
+    const rawX = (clientX - rect.left - transform.offsetX) / transform.scale;
+    const rawY = (clientY - rect.top - transform.offsetY) / transform.scale;
     const view = viewportRef.current;
     return { x: (rawX - view.x) / view.k, y: (rawY - view.y) / view.k };
   };
@@ -584,18 +604,17 @@ function GraphPixiCanvasInner({
       }
       dragRef.current = { ...drag, moved: true };
       if (!fixedLayout) restartSimulationRef.current(0.75);
-      scheduleDraw();
+      syncGraphLayoutRef.current();
       schedulePreviewTick();
       return;
     }
     const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 3;
-    const scaleX = rect?.width ? VIEWBOX.width / rect.width : 1;
-    const scaleY = rect?.height ? VIEWBOX.height / rect.height : 1;
+    const transform = stageTransform({ width: rect?.width || VIEWBOX.width, height: rect?.height || VIEWBOX.height });
     const nextViewport = {
       ...viewportRef.current,
-      x: drag.startX + (event.clientX - drag.clientX) * scaleX,
-      y: drag.startY + (event.clientY - drag.clientY) * scaleY,
+      x: drag.startX + (event.clientX - drag.clientX) / transform.scale,
+      y: drag.startY + (event.clientY - drag.clientY) / transform.scale,
     };
     dragRef.current = { ...drag, moved };
     viewportRef.current = nextViewport;
@@ -617,7 +636,7 @@ function GraphPixiCanvasInner({
         draggedNode.vy = 0;
       }
       if (!fixedLayout) restartSimulationRef.current(paused ? 0 : 0.55);
-      scheduleDraw();
+      syncGraphLayoutRef.current();
     }
     if (drag?.kind === "node" && !drag.moved) {
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
@@ -697,10 +716,11 @@ function GraphPixiCanvasInner({
     const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     if (!rect) return;
     hostRectRef.current = rect;
-    const rawX = ((event.clientX - rect.left) / rect.width) * VIEWBOX.width;
-    const rawY = ((event.clientY - rect.top) / rect.height) * VIEWBOX.height;
+    const transform = stageTransform({ width: rect.width, height: rect.height });
+    const rawX = (event.clientX - rect.left - transform.offsetX) / transform.scale;
+    const rawY = (event.clientY - rect.top - transform.offsetY) / transform.scale;
     const current = zoomAnimationFrameRef.current ? zoomTargetViewportRef.current : viewportRef.current;
-    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 2.8);
+    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 5);
     const worldX = (rawX - current.x) / current.k;
     const worldY = (rawY - current.y) / current.k;
     const nextViewport = { k: nextK, x: rawX - worldX * nextK, y: rawY - worldY * nextK };
@@ -789,4 +809,13 @@ function hitTestHitGrid(index: HitGridIndex, point: { x: number; y: number }, zo
 
 function hitGridKey(x: number, y: number, cellSize: number) {
   return `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
+}
+
+function stageTransform(size: { width: number; height: number }): StageTransform {
+  const scale = Math.min(size.width / VIEWBOX.width, size.height / VIEWBOX.height) || 1;
+  return {
+    scale,
+    offsetX: (size.width - VIEWBOX.width * scale) / 2,
+    offsetY: (size.height - VIEWBOX.height * scale) / 2,
+  };
 }

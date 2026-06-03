@@ -1,4 +1,5 @@
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
+const { isRunningTurnStatus, isTerminalTurnStatus } = require("../active-turns/status");
 const { normalizeText } = require("./shot-storyboard-pipeline-utils");
 const { PDF_ROLE, PDF_STAGE_NAME, pdfAgentError } = require("./shot-storyboard-pdf-agent-shared");
 
@@ -163,13 +164,13 @@ async function startAndCollectPdfTurn({
       };
       jobStore?.updateJob?.(jobId, { agentRun: submittedAgentRun });
       jobStore?.updateJob?.(jobId, { agentRun: { ...submittedAgentRun, status: "collecting", updatedAt: new Date().toISOString() } });
-      const collected = await activeTurnRuntime.collect({
+      const collected = await collectPdfTurnUntilTerminal({
+        activeTurnRuntime,
         workspaceRoot,
         threadId: started.threadId ?? threadId,
         turnId,
         timeoutSeconds,
         traceContext,
-        skipOwnerHandler: true,
       });
       const status = String(collected?.status ?? "").trim().toLowerCase();
       jobStore?.updateJob?.(jobId, {
@@ -201,6 +202,43 @@ async function startAndCollectPdfTurn({
     jobStore,
     jobId,
     agentRunBase,
+  });
+}
+
+async function collectPdfTurnUntilTerminal({
+  activeTurnRuntime,
+  workspaceRoot,
+  threadId,
+  turnId,
+  timeoutSeconds,
+  traceContext,
+}) {
+  const startedAt = Date.now();
+  const timeoutMs = Math.max(1, Number(timeoutSeconds) || 240) * 1000;
+  let lastResult = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    const remainingSeconds = Math.ceil((timeoutMs - (Date.now() - startedAt)) / 1000);
+    lastResult = await activeTurnRuntime.collect({
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds: Math.min(30, Math.max(5, remainingSeconds)),
+      traceContext,
+      skipOwnerHandler: true,
+    });
+    if (isTerminalTurnStatus(lastResult?.status)) return lastResult;
+    if (!isRunningTurnStatus(lastResult?.status)) {
+      throw pdfAgentError("storyboard_prep_pdf_agent_turn_failed", "PDF agent turn 返回未知状态", true, {
+        status: lastResult?.status ?? null,
+        finalMessage: lastResult?.finalMessage ?? lastResult?.message ?? null,
+      });
+    }
+    await sleep(1200);
+  }
+  throw pdfAgentError("storyboard_prep_pdf_agent_turn_timeout", "PDF agent turn 长时间未完成", true, {
+    turnId,
+    status: lastResult?.status ?? null,
+    activeThreadMessage: lastResult?.activeThreadMessage ?? null,
   });
 }
 
@@ -268,6 +306,10 @@ async function startAndCollectWithFallback({
 function canRunPdfTurn({ appServer, activeTurnRuntime }) {
   if (activeTurnRuntime?.start && activeTurnRuntime?.collect) return true;
   return Boolean(appServer?.runTurnWithInputs);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 module.exports = {

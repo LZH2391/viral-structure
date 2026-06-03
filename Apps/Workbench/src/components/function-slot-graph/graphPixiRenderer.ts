@@ -2,10 +2,17 @@ import { Container, Graphics, Text } from "pixi.js";
 import type { TextStyleOptions } from "pixi.js";
 import type { FunctionSlotGraphEdge } from "../../types/library";
 import { clamp, nodeRadius, VIEWBOX } from "./graphUtils";
-import { edgeLayerClass, edgeLinePoints, nodeLabelOpacity, slotOrderBadge } from "./GraphCanvas";
 import type { SimNode } from "./types";
-
-type GraphMode = "structure" | "governance" | "planTrace";
+import {
+  edgeLinePoints,
+  nodeLabelOpacity,
+  resolveGraphEdgeStyle,
+  resolveGraphNodeStyle,
+  slotOrderBadge,
+  type GraphMode,
+  type GraphNodeDrawStyle,
+  type GraphStrokeStyle,
+} from "./graphVisualStyles";
 
 export type PixiGraphRenderState = {
   mode: GraphMode;
@@ -28,6 +35,8 @@ type PixiEdgeView = {
   glow: Graphics;
   line: Graphics;
   arrow: Graphics;
+  style: GraphStrokeStyle | null;
+  showArrow: boolean;
   glowKey: string | null;
   lineKey: string | null;
   arrowKey: string | null;
@@ -50,33 +59,6 @@ type PixiNodeView = {
   planBadgeKey: string | null;
 };
 
-type StrokeStyle = {
-  color: number;
-  alpha: number;
-  width: number;
-  dash?: [number, number];
-  glow?: {
-    color: number;
-    alpha: number;
-    width: number;
-  };
-};
-
-type NodeDrawStyle = {
-  fill: number;
-  stroke: number;
-  strokeWidth: number;
-  alpha: number;
-  strokeAlpha: number;
-  groupAlpha: number;
-  dash?: [number, number];
-  glow?: {
-    color: number;
-    alpha: number;
-    radiusPad: number;
-  };
-};
-
 const textStyleKeys = new WeakMap<Text, string>();
 const textStyleCache = new Map<string, TextStyleOptions>();
 const nodePositionCache = new WeakMap<SimNode[], Map<string, SimNode>>();
@@ -85,8 +67,6 @@ const SVG_LABEL_BASELINE_GAP = 14;
 const SVG_BASELINE_TO_TEXT_TOP_RATIO = 0.82;
 const SLOT_BADGE_FONT_SIZE = 6;
 const PLAN_BADGE_FONT_SIZE = 7;
-const NODE_LABEL_FONT_SIZE = 11;
-const PROMINENT_NODE_LABEL_FONT_SIZE = 12;
 
 export function createPixiGraphObjects(): PixiGraphObjects {
   return { edges: new Map(), nodes: new Map() };
@@ -131,7 +111,7 @@ export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, e
       : false;
     const muted = state.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
-    const style = edgeStyle(edge, source, target, focused, muted, state.mode);
+    const style = resolveGraphEdgeStyle(edge, source, target, state.mode, focused, muted);
     syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
   }
 }
@@ -147,12 +127,13 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
   }
 
   for (const node of nodes) {
-    const view = getNodeView(nodeLayer, labelLayer, objects, node.id);
+    const view = getNodeView(nodeLayer, objects, node.id);
     const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
     const selected = node.id === state.selectedNodeId;
     const pinned = node.id === state.pinnedPreviewNodeId;
+    const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = nodeStyle(node, focused, selected, pinned, state.mode, state.hasFocusNode);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
     view.container.position.set(node.x, node.y);
     view.container.alpha = style.groupAlpha;
 
@@ -162,7 +143,7 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
 
     syncSlotBadge(view, node, radius);
     syncPlanBadge(view, node, radius);
-    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode, style.groupAlpha);
+    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), style);
   }
 }
 
@@ -177,9 +158,12 @@ export function hitTestPixiNode(nodes: SimNode[], point: { x: number; y: number 
 }
 
 export function pixiScreenPoint(node: SimNode, viewport: { x: number; y: number; k: number }, size: { width: number; height: number }) {
+  const scale = Math.min(size.width / VIEWBOX.width, size.height / VIEWBOX.height) || 1;
+  const offsetX = (size.width - VIEWBOX.width * scale) / 2;
+  const offsetY = (size.height - VIEWBOX.height * scale) / 2;
   return {
-    x: (node.x * viewport.k + viewport.x) * (size.width / VIEWBOX.width),
-    y: (node.y * viewport.k + viewport.y) * (size.height / VIEWBOX.height),
+    x: (node.x * viewport.k + viewport.x) * scale + offsetX,
+    y: (node.y * viewport.k + viewport.y) * scale + offsetY,
   };
 }
 
@@ -190,21 +174,37 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
     const target = positions.get(edge.target);
     const view = objects.edges.get(edge.id);
     if (!source || !target || !view) return false;
-    const activeId = state.hoveredNodeId ?? state.selectedNodeId;
-    const focused = state.hasFocusNode
-      ? (state.mode === "planTrace" ? state.focusedEdgeIds.has(edge.id) : edge.source === activeId || edge.target === activeId)
-      : false;
-    const muted = state.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
-    const style = edgeStyle(edge, source, target, focused, muted, state.mode);
-    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
+    if (!syncEdgeGeometry(view, line.x1, line.y1, line.x2, line.y2)) return false;
   }
   for (const node of nodes) {
     const view = objects.nodes.get(node.id);
     if (!view) return false;
-    const radius = nodeRadius(node);
     view.container.position.set(node.x, node.y);
-    if (view.label) view.label.position.set(node.x, nodeLabelTopY(node, radius, labelFontSize(state.mode, node)));
+    if (view.label) {
+      const radius = nodeRadius(node);
+      const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
+      const selected = node.id === state.selectedNodeId;
+      const pinned = node.id === state.pinnedPreviewNodeId;
+      const hovered = node.id === state.hoveredNodeId;
+      const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
+      view.label.position.set(node.x, node.y + nodeLabelTopY(radius, style.labelFontSize));
+    }
+  }
+  return true;
+}
+
+export function syncPixiLabels(labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number) {
+  for (const node of nodes) {
+    const view = objects.nodes.get(node.id);
+    if (!view) return false;
+    const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
+    const selected = node.id === state.selectedNodeId;
+    const pinned = node.id === state.pinnedPreviewNodeId;
+    const hovered = node.id === state.hoveredNodeId;
+    const radius = nodeRadius(node);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
+    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), style);
   }
   return true;
 }
@@ -219,12 +219,17 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const focused = next.hasFocusNode && (node.id === next.hoveredNodeId || node.id === next.selectedNodeId || next.focusedIds.has(node.id));
     const selected = node.id === next.selectedNodeId;
     const pinned = node.id === next.pinnedPreviewNodeId;
+    const hovered = node.id === next.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = nodeStyle(node, focused, selected, pinned, next.mode, next.hasFocusNode);
+    const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered);
     view.container.alpha = style.groupAlpha;
     syncNodeGlow(view, radius, style);
     syncNodeBody(view, radius, style);
-    if (view.label) view.label.alpha = nodeLabelOpacity(next.mode, node, zoom) * style.groupAlpha;
+    if (view.label) {
+      view.label.alpha = nodeLabelOpacity(next.mode, node, zoom) * style.groupAlpha;
+      syncTextStyle(view.label, textStyle(style.labelFontSize, style.labelFill), `label:${style.labelFontSize}:${style.labelFill}`);
+      view.label.position.set(node.x, node.y + nodeLabelTopY(radius, style.labelFontSize));
+    }
   }
 
   const edgeIds = affectedFocusEdgeIds(edges, previous, next);
@@ -239,7 +244,7 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const focused = isEdgeFocused(edge, next);
     const muted = next.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
-    const style = edgeStyle(edge, source, target, focused, muted, next.mode);
+    const style = resolveGraphEdgeStyle(edge, source, target, next.mode, focused, muted);
     syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
   }
   return true;
@@ -257,13 +262,13 @@ function getEdgeView(edgeLayer: Container, objects: PixiGraphObjects, edgeId: st
   container.addChild(glow);
   container.addChild(line);
   container.addChild(arrow);
-  const view = { container, glow, line, arrow, glowKey: null, lineKey: null, arrowKey: null };
+  const view = { container, glow, line, arrow, style: null, showArrow: false, glowKey: null, lineKey: null, arrowKey: null };
   objects.edges.set(edgeId, view);
   edgeLayer.addChild(container);
   return view;
 }
 
-function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodeId: string) {
+function getNodeView(nodeLayer: Container, objects: PixiGraphObjects, nodeId: string) {
   const existing = objects.nodes.get(nodeId);
   if (existing) return existing;
 
@@ -306,51 +311,50 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
   return view;
 }
 
-function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number, style: StrokeStyle, showArrow: boolean) {
+function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number, style: GraphStrokeStyle, showArrow: boolean) {
+  view.style = style;
+  view.showArrow = showArrow;
+  syncEdgeGeometry(view, x1, y1, x2, y2);
+}
+
+function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number) {
+  const style = view.style;
+  if (!style) return false;
   const dx = x2 - x1;
   const dy = y2 - y1;
   const length = Math.hypot(dx, dy);
   view.container.visible = length > 0;
-  if (!length) return;
+  if (!length) return true;
   view.container.position.set(x1, y1);
   view.container.rotation = Math.atan2(dy, dx);
 
-  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${Math.round(length)}` : "solid";
+  const dashLength = style.dash ? Math.ceil(length / 12) * 12 : length;
+  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${dashLength}` : "solid";
   const lineKey = `${style.color}:${style.width}:${dashKey}`;
   if (view.lineKey !== lineKey) {
     view.line.clear();
-    drawLocalLine(view.line, length, style);
+    drawLocalLine(view.line, dashLength, style);
     view.lineKey = lineKey;
   }
   view.line.scale.x = style.dash ? 1 : length;
   view.line.alpha = style.alpha;
 
-  const glow = style.glow;
-  view.glow.visible = Boolean(glow);
-  if (glow) {
-    const glowKey = `${glow.color}:${glow.alpha}:${glow.width}:${Math.round(length)}`;
-    if (view.glowKey !== glowKey) {
-      view.glow
-        .clear()
-        .moveTo(0, 0)
-        .lineTo(length, 0)
-        .stroke({ color: glow.color, alpha: glow.alpha, width: glow.width });
-      view.glowKey = glowKey;
-    }
-  } else if (view.glowKey !== "none") {
+  view.glow.visible = false;
+  if (view.glowKey !== "none") {
     view.glow.clear();
     view.glowKey = "none";
   }
 
-  view.arrow.visible = showArrow;
-  if (!showArrow) return;
+  view.arrow.visible = view.showArrow;
+  if (!view.showArrow) return true;
   view.arrow.position.set(length, 0);
-  view.arrow.alpha = Math.max(style.alpha, 0.62);
-  const arrowKey = `${style.color}:11`;
-  if (view.arrowKey === arrowKey) return;
+  view.arrow.alpha = style.arrowAlpha;
+  const arrowKey = `${style.arrowColor}:11`;
+  if (view.arrowKey === arrowKey) return true;
   view.arrow.clear();
   drawLocalArrow(view.arrow, style);
   view.arrowKey = arrowKey;
+  return true;
 }
 
 function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
@@ -362,23 +366,22 @@ function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
   view.ringKey = key;
 }
 
-function syncNodeGlow(view: PixiNodeView, radius: number, style: NodeDrawStyle) {
-  const glow = style.glow;
-  const key = glow ? `${radius}:${glow.color}:${glow.alpha}:${glow.radiusPad}` : "none";
-  if (view.glowKey === key) return;
+function syncNodeGlow(view: PixiNodeView, radius: number, style: GraphNodeDrawStyle) {
+  void radius;
+  void style;
+  if (view.glowKey === "none") return;
   view.glow.clear();
-  if (glow) view.glow.circle(0, 0, radius + glow.radiusPad).fill({ color: glow.color, alpha: glow.alpha });
-  view.glowKey = key;
+  view.glowKey = "none";
 }
 
-function syncNodeBody(view: PixiNodeView, radius: number, style: NodeDrawStyle) {
+function syncNodeBody(view: PixiNodeView, radius: number, style: GraphNodeDrawStyle) {
   const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}` : "solid";
-  const key = `${radius}:${style.fill}:${style.alpha}:${style.stroke}:${style.strokeAlpha}:${style.strokeWidth}:${dashKey}`;
+  const key = `${radius}:${style.fill}:${style.fillAlpha}:${style.stroke}:${style.strokeAlpha}:${style.strokeWidth}:${dashKey}`;
   if (view.bodyKey === key) return;
   view.body
     .clear()
     .circle(0, 0, radius)
-    .fill({ color: style.fill, alpha: style.alpha });
+    .fill({ color: style.fill, alpha: style.fillAlpha });
   drawCircleStroke(view.body, radius, style.stroke, style.strokeAlpha, style.strokeWidth, style.dash);
   view.bodyKey = key;
 }
@@ -439,9 +442,7 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
   view.planBadgeText.visible = count > 1;
 }
 
-function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, mode: GraphMode, groupAlpha: number) {
-  const fontSize = labelFontSize(mode, node);
-  const fill = labelFill(mode, node);
+function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, style: GraphNodeDrawStyle) {
   if (opacity <= 0.01) {
     if (view.label) {
       view.label.destroy();
@@ -450,36 +451,22 @@ function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode,
     return;
   }
   const existing = view.label;
-  const text = existing ?? new Text({ text: "", style: whiteTextStyle(fontSize) });
+  const text = existing ?? new Text({ text: "", style: textStyle(style.labelFontSize, style.labelFill) });
   if (!existing) {
     text.anchor.set(0.5, 0);
     text.resolution = 2;
     labelLayer.addChild(text);
     view.label = text;
   }
-  syncTextStyle(text, textStyle(fontSize, fill), `label:${fontSize}:${fill}`);
+  syncTextStyle(text, textStyle(style.labelFontSize, style.labelFill), `label:${style.labelFontSize}:${style.labelFill}`);
   syncText(text, node.shortLabel);
-  text.position.set(node.x, nodeLabelTopY(node, radius, fontSize));
-  text.alpha = opacity * groupAlpha;
+  text.position.set(node.x, node.y + nodeLabelTopY(radius, style.labelFontSize));
+  text.alpha = opacity * style.groupAlpha;
   text.visible = true;
 }
 
-function labelFontSize(mode: GraphMode, node: SimNode) {
-  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return NODE_LABEL_FONT_SIZE;
-  if (mode === "structure") return PROMINENT_NODE_LABEL_FONT_SIZE;
-  if (mode === "planTrace" && node.type === "sourceVariant") return NODE_LABEL_FONT_SIZE;
-  if (node.type === "governanceRoot" || node.type === "confirmedPlan" || node.type === "sourceVariant") return PROMINENT_NODE_LABEL_FONT_SIZE;
-  return NODE_LABEL_FONT_SIZE;
-}
-
-function labelFill(mode: GraphMode, node: SimNode) {
-  void mode;
-  void node;
-  return "#ffffff";
-}
-
-function nodeLabelTopY(node: SimNode, radius: number, fontSize: number) {
-  return node.y + radius + SVG_LABEL_BASELINE_GAP - (fontSize * SVG_BASELINE_TO_TEXT_TOP_RATIO);
+function nodeLabelTopY(radius: number, fontSize: number) {
+  return radius + SVG_LABEL_BASELINE_GAP - (fontSize * SVG_BASELINE_TO_TEXT_TOP_RATIO);
 }
 
 function syncText(text: Text, value: string) {
@@ -573,229 +560,7 @@ function isEdgeFocused(edge: FunctionSlotGraphEdge, state: PixiGraphRenderState)
   return edge.source === activeId || edge.target === activeId;
 }
 
-function edgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, focused: boolean, muted: boolean, mode: GraphMode): StrokeStyle {
-  let color = 0x97a3b9;
-  let strokeAlpha = 0.22;
-  let opacity = mode === "planTrace" ? 0.36 : 0.34;
-  let width = 1.1;
-  let dash: [number, number] | undefined;
-  let glow: StrokeStyle["glow"] | undefined;
-
-  if (focused) {
-    color = mode === "planTrace" ? 0xffffff : 0xc4bbff;
-    strokeAlpha = mode === "planTrace" ? 0.96 : 0.94;
-    width = mode === "planTrace" ? 3.4 : 3;
-    opacity = 1;
-    glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
-  }
-
-  if (edge.type === "slot_next" || edge.type === "slot_instance_of_concept") {
-    color = 0x60d6a4;
-    strokeAlpha = 0.58;
-    width = 1.8;
-  }
-  if (edge.type === "slot_next" || edge.type === "plan_slot_next") {
-    color = 0xffee9e;
-    strokeAlpha = 0.56;
-    width = 1.9;
-    opacity = 0.48;
-  }
-  if (edge.type === "binding_targets_slot" || edge.type === "binding_targets_atom") {
-    color = 0xd6c066;
-    strokeAlpha = 0.46;
-    width = 1.5;
-    dash = [7, 7];
-  }
-  if (edge.type === "plan_uses_slot" || edge.type === "plan_uses_slot_family" || edge.type === "plan_uses_slot_subtype") {
-    color = 0xf4f6ff;
-    strokeAlpha = 0.78;
-    width = 2.6;
-  }
-  if (edge.type === "slot_traced_to_semantic" || edge.type === "subtype_to_atom_archetype") {
-    color = 0xf0d36d;
-    strokeAlpha = 0.7;
-    width = 2.3;
-  }
-  if (edge.type === "governance_contains_family" || edge.type === "slot_family_to_archetype" || edge.type === "family_to_archetype") {
-    color = 0x7fb7ff;
-    strokeAlpha = 0.72;
-    width = 2.2;
-  }
-  if (edge.type === "slot_archetype_to_subtype" || edge.type === "archetype_to_subtype") {
-    color = 0xf0d36d;
-    strokeAlpha = 0.78;
-    width = 2.3;
-  }
-  if (
-    edge.type === "subtype_to_atom_pattern"
-    || edge.type === "slot_uses_atom_layer"
-    || edge.type === "atom_layer_to_pattern"
-    || edge.type === "atom_archetype_to_pattern"
-  ) {
-    width = 1.9;
-  }
-
-  const layerClass = edgeLayerClass(source, target);
-  if (layerClass.includes("script")) { color = 0xe48182; strokeAlpha = Math.max(strokeAlpha, 0.62); }
-  if (layerClass.includes("rhythm")) { color = 0x69c5e8; strokeAlpha = Math.max(strokeAlpha, 0.62); }
-  if (layerClass.includes("packaging")) { color = 0xa98cff; strokeAlpha = Math.max(strokeAlpha, 0.62); }
-
-  if (edge.type === "pattern_to_source_variant" || edge.type === "traced_to_source_sample" || edge.type === "traced_to_source_variant") {
-    color = 0xc4cbed;
-    strokeAlpha = 0.42;
-    width = 1.55;
-    dash = [7, 7];
-  }
-
-  if (mode === "planTrace") {
-    if (edge.type === "plan_uses_slot_subtype") {
-      color = 0xffee9e;
-      strokeAlpha = 0.82;
-      width = 2.8;
-    }
-    if (edge.type === "plan_slot_next") {
-      color = 0xffee9e;
-      strokeAlpha = 0.88;
-      width = 2.6;
-      opacity = 0.68;
-    }
-    if (edge.type === "traced_to_source_variant") {
-      color = 0xb2cdff;
-      strokeAlpha = 0.68;
-      width = 1.9;
-      dash = undefined;
-      if (layerClass.includes("script")) { color = 0xe48182; strokeAlpha = 0.72; }
-      if (layerClass.includes("rhythm")) { color = 0x69c5e8; strokeAlpha = 0.72; }
-      if (layerClass.includes("packaging")) { color = 0xa98cff; strokeAlpha = 0.72; }
-    }
-    if (edge.type === "source_variant_to_sample") {
-      color = 0xebf0ff;
-      strokeAlpha = 0.56;
-      width = 1.7;
-      dash = [5, 6];
-    }
-    if (focused) {
-      color = 0xffffff;
-      strokeAlpha = 0.96;
-      width = 3.4;
-      opacity = 1;
-      dash = undefined;
-      glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
-    }
-  }
-
-  if (muted) opacity = mode === "planTrace" ? 0.08 : 0.18;
-  return { color, alpha: strokeAlpha * opacity, width, dash, glow };
-}
-
-function nodeStyle(node: SimNode, focused: boolean, selected: boolean, pinned: boolean, mode: GraphMode, hasFocusNode: boolean): NodeDrawStyle {
-  const layerClass = mode === "planTrace" && node.type === "sourceVariant" ? edgeLayerClass(node, node) : "";
-  let fill = 0x8b5cf6;
-  let stroke = 0xffffff;
-  let strokeWidth = 1;
-  let alpha = 0.78;
-  let strokeAlpha = 0.5;
-  let dash: [number, number] | undefined;
-  let glow: NodeDrawStyle["glow"] | undefined;
-
-  if (node.type === "slotInstance" || node.group === "slot") {
-    fill = 0x56d7b1;
-    glow = { color: 0x56d7b1, alpha: 0.18, radiusPad: 10 };
-  }
-  if (node.type === "slotFamily") {
-    fill = 0x3f8f75;
-    stroke = 0x60d6a4;
-    strokeWidth = 2.4;
-    glow = { color: 0x60d6a4, alpha: 0.15, radiusPad: 11 };
-  }
-  if (node.type === "slotArchetype") {
-    fill = 0x426c9f;
-    stroke = 0x7fb7ff;
-    strokeWidth = 2.2;
-    glow = { color: 0x7fb7ff, alpha: 0.14, radiusPad: 10 };
-  }
-  if (node.type === "slotSubtype") {
-    fill = 0x9b8132;
-    stroke = 0xf0d36d;
-    strokeWidth = 2.3;
-    glow = { color: 0xf0d36d, alpha: mode === "planTrace" ? 0.17 : 0.14, radiusPad: mode === "planTrace" ? 13 : 11 };
-  }
-  if (node.group === "script" || layerClass.includes("script")) {
-    fill = 0xf07070;
-    stroke = 0xe48182;
-    strokeWidth = 2;
-    glow = { color: 0xe48182, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
-  }
-  if (node.group === "rhythm" || layerClass.includes("rhythm")) {
-    fill = 0x58bfe7;
-    stroke = 0x69c5e8;
-    strokeWidth = 2;
-    glow = { color: 0x69c5e8, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
-  }
-  if (node.group === "packaging" || layerClass.includes("packaging")) {
-    fill = 0xb58cff;
-    stroke = 0xa98cff;
-    strokeWidth = 2;
-    glow = { color: 0xa98cff, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
-  }
-  if (node.type === "binding" || node.group === "binding") fill = 0xf0d46f;
-  if (node.group === "rule" || node.group === "policy") fill = 0x7fb0ff;
-  if (node.group === "unmapped" || node.group === "needReview") fill = 0xf28b82;
-  if (node.type === "slotConcept") {
-    fill = 0x35c98a;
-    dash = [4, 3];
-    glow = { color: 0x35c98a, alpha: 0.16, radiusPad: 8 };
-  }
-  if (node.type === "implementationBundle" || node.group === "bundle") {
-    fill = 0xf6c86b;
-    dash = [5, 3];
-  }
-  if (node.group === "unmapped" || node.group === "needReview" || node.type === "unmappedVariant") {
-    fill = 0xf28b82;
-    glow = { color: 0xf28b82, alpha: 0.16, radiusPad: 8 };
-  }
-  if (node.type === "sourceVariant" && !layerClass) {
-    fill = mode === "planTrace" ? 0x182235 : 0x111827;
-    stroke = mode === "planTrace" ? 0xb2cdff : 0xc4cbed;
-    strokeWidth = mode === "planTrace" ? 2.2 : 1.8;
-    strokeAlpha = mode === "planTrace" ? 0.95 : 0.82;
-    alpha = mode === "planTrace" ? 1 : 0.9;
-    dash = mode === "planTrace" ? undefined : [5, 4];
-    if (mode === "planTrace") glow = { color: 0x7fb7ff, alpha: 0.1, radiusPad: 9 };
-  }
-  if (node.type === "sourceSample" || node.type === "confirmedPlan" || node.type === "governanceRoot") {
-    fill = 0x05070c;
-    stroke = 0xf4f6ff;
-    strokeWidth = node.type === "sourceSample" ? 2.6 : 3;
-    strokeAlpha = node.type === "sourceSample" ? 0.94 : 0.96;
-    alpha = 1;
-    glow = { color: 0xbbaeff, alpha: 0.14, radiusPad: node.type === "sourceSample" ? 14 : 18 };
-  }
-  if (node.group === "projected") {
-    fill = 0x4b5563;
-    stroke = 0xffffff;
-    strokeAlpha = 0.62;
-  }
-  if (node.type === "atomArchetype") strokeWidth = Math.max(strokeWidth, 2.2);
-  if (selected || pinned || focused) {
-    stroke = 0xffffff;
-    strokeWidth = Math.max(strokeWidth, 2);
-    strokeAlpha = 1;
-  }
-  if (pinned) glow = { color: 0x8b5cf6, alpha: 0.26, radiusPad: 14 };
-  return {
-    fill,
-    stroke,
-    strokeWidth,
-    alpha,
-    strokeAlpha,
-    groupAlpha: hasFocusNode && !focused ? (mode === "planTrace" ? 0.26 : 0.52) : 1,
-    dash,
-    glow,
-  };
-}
-
-function drawLocalLine(graphics: Graphics, length: number, style: StrokeStyle) {
+function drawLocalLine(graphics: Graphics, length: number, style: GraphStrokeStyle) {
   if (!style.dash) {
     graphics.moveTo(0, 0).lineTo(1, 0).stroke({ color: style.color, alpha: 1, width: style.width });
     return;
@@ -834,7 +599,7 @@ function drawArcSegment(graphics: Graphics, radius: number, start: number, end: 
   graphics.stroke({ color, alpha, width });
 }
 
-function drawLocalArrow(graphics: Graphics, style: StrokeStyle) {
+function drawLocalArrow(graphics: Graphics, style: GraphStrokeStyle) {
   const size = 11;
   const left = Math.PI * 0.82;
   const right = -Math.PI * 0.82;
@@ -843,7 +608,7 @@ function drawLocalArrow(graphics: Graphics, style: StrokeStyle) {
     .lineTo(Math.cos(left) * size, Math.sin(left) * size)
     .lineTo(Math.cos(right) * size, Math.sin(right) * size)
     .closePath()
-    .fill({ color: style.color, alpha: 1 });
+    .fill({ color: style.arrowColor, alpha: 1 });
 }
 
 function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
