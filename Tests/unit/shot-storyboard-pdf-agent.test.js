@@ -23,6 +23,7 @@ test("pdf agent input package includes manifest crops material frames reference 
     const cropsManifestPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
     const referenceSvgPath = path.join(rootDir, "Runtime", "Temp", "pdf.svg");
     const generatedImagePath = path.join(baseDir, "shot-storyboard-frames", "generated_shot.png");
+    const coverImagePath = path.join(baseDir, "shot-storyboard-frames", "cover_image.png");
     const materialImagePath = path.join(baseDir, "material-frame.png");
     const materialMapPath = path.join(baseDir, "material-frame-map.json");
 
@@ -31,9 +32,16 @@ test("pdf agent input package includes manifest crops material frames reference 
     await fs.writeFile(shotDesignFinalPath, "# shot design\n", "utf8");
     await fs.writeFile(referenceSvgPath, "<svg></svg>\n", "utf8");
     await writeSolidImage(generatedImagePath, 447, 797, "#336699");
+    await writeSolidImage(coverImagePath, 900, 1600, "#ee88aa");
     await writeSolidImage(materialImagePath, 240, 180, "#cc8844");
     await writeJson(manifestPath, {
       schemaVersion: "shot-storyboard-prep.manifest.v1",
+      cover: {
+        coverId: "cover_image",
+        aspect: { ratio: "9:16", orientation: "竖屏" },
+        imagePrompt: "竖版封面",
+        overlayPackaging: "封面标题字",
+      },
       shots: [
         { shotId: "new_shot_01", slotKey: "HOOK", slotSubtype: "HOOK", shouldGenerate: true },
         { shotId: "new_shot_02", slotKey: "HOOK", slotSubtype: "HOOK", shouldGenerate: false, sourceRefs: ["shot_1"] },
@@ -43,7 +51,10 @@ test("pdf agent input package includes manifest crops material frames reference 
     });
     await writeJson(cropsManifestPath, {
       schemaVersion: "shot-storyboard-crops.v1",
-      crops: [{ shotId: "new_shot_01", path: generatedImagePath }],
+      crops: [
+        { shotId: "cover_image", path: coverImagePath, isCover: true },
+        { shotId: "new_shot_01", path: generatedImagePath },
+      ],
       warnings: [],
     });
     await writeJson(materialMapPath, {
@@ -72,6 +83,9 @@ test("pdf agent input package includes manifest crops material frames reference 
     assert.equal(prepared.inputPackage.schemaVersion, "shot-storyboard-pdf-input.v1");
     assert.equal(prepared.inputPackage.source.referenceSvgPath, "Runtime/Temp/pdf.svg");
     assert.equal(prepared.inputPackage.outputContract.layoutPath, "Artifacts/storyboard/shot-storyboard.layout.json");
+    assert.equal(prepared.inputPackage.cover.coverId, "cover_image");
+    assert.equal(prepared.inputPackage.cover.mediaKind, "cover-image");
+    assert.equal(prepared.inputPackage.cover.width, 900);
     assert.equal(prepared.inputPackage.shots.length, 2);
     assert.equal(prepared.inputPackage.shots[0].mediaKind, "generated-image");
     assert.equal(prepared.inputPackage.shots[0].width, 447);
@@ -90,6 +104,7 @@ test("pdf agent output validation enforces contain and missing material warnings
     const summaryPath = path.join(rootDir, "shot-storyboard.summary.json");
     const layoutPath = path.join(rootDir, "shot-storyboard.layout.json");
     const manifest = {
+      cover: { coverId: "cover_image" },
       shots: [
         { shotId: "new_shot_01", slotKey: "HOOK" },
         { shotId: "new_shot_02", slotKey: "HOOK" },
@@ -104,11 +119,12 @@ test("pdf agent output validation enforces contain and missing material warnings
     });
     await writeJson(layoutPath, {
       schemaVersion: "shot-storyboard-layout.v1",
-      pageCount: 1,
-      slots: [{ slotKey: "HOOK", pageIndexes: [0] }],
+      pageCount: 2,
+      cover: { coverId: "cover_image", pageIndex: 0, mediaKind: "cover-image", imageFit: "contain" },
+      slots: [{ slotKey: "HOOK", pageIndexes: [1] }],
       shots: [
-        { shotId: "new_shot_01", pageIndex: 0, mediaKind: "generated-image", imageFit: "contain" },
-        { shotId: "new_shot_02", pageIndex: 0, mediaKind: "material-frame", imageFit: "contain" },
+        { shotId: "new_shot_01", pageIndex: 1, mediaKind: "generated-image", imageFit: "contain" },
+        { shotId: "new_shot_02", pageIndex: 1, mediaKind: "material-frame", imageFit: "contain" },
       ],
       warnings: [],
     });
@@ -124,11 +140,12 @@ test("pdf agent output validation enforces contain and missing material warnings
 
     await writeJson(layoutPath, {
       schemaVersion: "shot-storyboard-layout.v1",
-      pageCount: 1,
-      slots: [{ slotKey: "HOOK", pageIndexes: [0] }],
+      pageCount: 2,
+      cover: { coverId: "cover_image", pageIndex: 0, mediaKind: "cover-image", imageFit: "contain" },
+      slots: [{ slotKey: "HOOK", pageIndexes: [1] }],
       shots: [
-        { shotId: "new_shot_01", pageIndex: 0, mediaKind: "generated-image", imageFit: "cover" },
-        { shotId: "new_shot_02", pageIndex: 0, mediaKind: "material-frame", imageFit: "contain" },
+        { shotId: "new_shot_01", pageIndex: 1, mediaKind: "generated-image", imageFit: "cover" },
+        { shotId: "new_shot_02", pageIndex: 1, mediaKind: "material-frame", imageFit: "contain" },
       ],
       warnings: [],
     });
@@ -145,11 +162,12 @@ test("pdf agent output validation enforces contain and missing material warnings
 
     await writeJson(layoutPath, {
       schemaVersion: "shot-storyboard-layout.v1",
-      pageCount: 1,
-      slots: [{ slotKey: "HOOK", pageIndexes: [0] }],
+      pageCount: 2,
+      cover: { coverId: "cover_image", pageIndex: 0, mediaKind: "cover-image", imageFit: "contain" },
+      slots: [{ slotKey: "HOOK", pageIndexes: [1] }],
       shots: [
-        { shotId: "new_shot_01", pageIndex: 0, mediaKind: "generated-image", imageFit: "contain" },
-        { shotId: "new_shot_02", pageIndex: 0, mediaKind: "material-frame", imageFit: "contain" },
+        { shotId: "new_shot_01", pageIndex: 1, mediaKind: "generated-image", imageFit: "contain" },
+        { shotId: "new_shot_02", pageIndex: 1, mediaKind: "material-frame", imageFit: "contain" },
       ],
       warnings: [],
     });

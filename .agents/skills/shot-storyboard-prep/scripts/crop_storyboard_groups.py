@@ -97,6 +97,15 @@ def crop_storyboard_artifact(context: dict[str, Any]) -> dict[str, Any]:
         if not image_path or not image_path.exists():
             warnings.append(f"{group_id}: 找不到 storyboard group 图片")
             continue
+        if manifest_group.get("isCover"):
+            cropped.extend(crop_cover_group({
+                "groupId": group_id,
+                "manifestGroup": manifest_group,
+                "imagePath": image_path,
+                "outputDir": context["outputDir"],
+                "warnings": warnings,
+            }))
+            continue
         layout_name = str(artifact_group.get("referenceImage") or artifact.get("storyboardRun", {}).get("referenceImage") or "")
         layout = layout_for_reference(layout_name, artifact.get("aspect") or manifest.get("aspect") or {})
         with Image.open(image_path) as image:
@@ -142,6 +151,30 @@ def crop_storyboard_artifact(context: dict[str, Any]) -> dict[str, Any]:
     output_manifest.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     result["output"] = str(output_manifest)
     return result
+
+
+def crop_cover_group(context: dict[str, Any]) -> list[dict[str, Any]]:
+    shots = context["manifestGroup"].get("shots") or []
+    cover_shot = next((shot for shot in shots if not shot.get("isPad")), None)
+    if not cover_shot:
+        context["warnings"].append(f"{context['groupId']}: cover group 缺少封面项")
+        return []
+    shot_id = safe_filename(str(cover_shot.get("shotId") or "cover_image"))
+    output_path = context["outputDir"] / f"{shot_id}.png"
+    with Image.open(context["imagePath"]) as image:
+        source = image.convert("RGB")
+        source.save(output_path)
+        width, height = source.size
+    return [{
+        "shotId": cover_shot.get("shotId") or "cover_image",
+        "groupId": context["groupId"],
+        "cellIndex": None,
+        "isCover": True,
+        "sourceImage": str(context["imagePath"]),
+        "referenceImage": "cover-full-image",
+        "cropBox": [0, 0, width, height],
+        "path": str(output_path),
+    }]
 
 
 def resolve_group_image_path(group: dict[str, Any], root: Path) -> Path | None:

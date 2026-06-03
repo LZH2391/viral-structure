@@ -57,6 +57,7 @@ function validatePdfAgentLayout(layout, manifest, expectedWarnings, summary) {
       hasWarnings: Array.isArray(layout?.warnings),
     });
   }
+  validateCoverLayout(layout, manifest);
   const expectedShotIds = new Set((manifest?.shots ?? []).map((shot) => normalizeText(shot.shotId)).filter(Boolean));
   const layoutShots = new Map();
   for (const item of layout.shots) {
@@ -97,6 +98,24 @@ function validatePdfAgentLayout(layout, manifest, expectedWarnings, summary) {
     throw pdfAgentError("storyboard_prep_pdf_agent_missing_material_warning", "缺失素材代表帧的 shot 未进入 warnings", true, {
       missingWarningShots,
     }, missingWarningShots.map((shotId) => ({ code: "missing_material_warning", shotId })));
+  }
+}
+
+function validateCoverLayout(layout, manifest) {
+  if (!manifest?.cover) return;
+  const cover = layout?.cover;
+  if (!cover || typeof cover !== "object") {
+    throw pdfAgentError("storyboard_prep_pdf_agent_layout_cover_missing", "layout 缺少封面首页记录", true, {
+      hasCoverManifest: true,
+    }, [{ code: "layout_cover_missing" }]);
+  }
+  const coverId = normalizeText(cover.coverId);
+  const expectedCoverId = normalizeText(manifest.cover.coverId) ?? "cover_image";
+  if (coverId !== expectedCoverId || Number(cover.pageIndex) !== 0 || String(cover.imageFit ?? "").trim().toLowerCase() !== "contain") {
+    throw pdfAgentError("storyboard_prep_pdf_agent_layout_cover_invalid", "layout.cover 不符合封面首页约束", true, {
+      expectedCoverId,
+      cover,
+    }, [{ code: "layout_cover_invalid", coverId: coverId ?? null }]);
   }
 }
 

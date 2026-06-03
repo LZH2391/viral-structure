@@ -101,6 +101,7 @@ function normalizeReferenceImagePath(value) {
 
 function normalizeGroupId(value, index) {
   const text = String(value ?? "").trim();
+  if (/^cover$/i.test(text) || /封面/.test(text)) return "storyboard-cover";
   const numberMatch = text.match(/\d+/);
   if (numberMatch) return `storyboard-group-${numberMatch[0].padStart(2, "0")}`;
   return `storyboard-group-${String(index).padStart(2, "0")}`;

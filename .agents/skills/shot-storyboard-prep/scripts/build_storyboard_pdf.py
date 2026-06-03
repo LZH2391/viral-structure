@@ -95,13 +95,34 @@ def build_pdf(context: dict[str, Any]) -> dict[str, Any]:
     warnings = list(context["manifest"].get("warnings") or []) + list(context["crops"].get("warnings") or [])
 
     doc = canvas.Canvas(str(output_path), pagesize=A4)
+    layout = {
+        "schemaVersion": "shot-storyboard-layout.v1",
+        "pageCount": 0,
+        "slots": [],
+        "shots": [],
+        "warnings": warnings,
+    }
+    current_page_index = 0
+    cover_media = resolve_cover_media(context["manifest"].get("cover"), crop_index, warnings)
+    if context["manifest"].get("cover"):
+        layout["cover"] = draw_cover_page(doc, context["manifest"]["cover"], cover_media, context)
+        doc.showPage()
+        current_page_index += 1
     for slot in slots:
         pages = chunk_fixed(slot["shots"], MAX_SHOTS_PER_PAGE)
+        slot_page_indexes = []
         for page_index, page_shots in enumerate(pages):
             page_media = [resolve_shot_media(shot, crop_index, context, warnings) for shot in page_shots]
             draw_slot_page(doc, slot, page_shots, page_media, page_index, len(pages), context)
+            absolute_page_index = current_page_index
+            slot_page_indexes.append(absolute_page_index)
+            append_layout_shots(layout, page_shots, page_media, absolute_page_index)
             doc.showPage()
+            current_page_index += 1
+        layout["slots"].append({"slotKey": slot["slot"], "pageIndexes": slot_page_indexes})
     doc.save()
+    layout["pageCount"] = current_page_index
+    layout["warnings"] = dedupe(warnings)
     result = {
         "type": "shot-storyboard-pdf",
         "schemaVersion": "shot-storyboard-pdf.v1",
@@ -120,8 +141,11 @@ def build_pdf(context: dict[str, Any]) -> dict[str, Any]:
         },
     }
     sidecar = output_path.with_suffix(".summary.json")
+    layout_sidecar = output_path.with_suffix(".layout.json")
     sidecar.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    layout_sidecar.write_text(json.dumps(layout, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     result["summary"] = str(sidecar)
+    result["layout"] = str(layout_sidecar)
     return result
 
 
@@ -196,6 +220,46 @@ def draw_page_shell(doc: canvas.Canvas) -> None:
     doc.setFillColor(colors.white)
     doc.setStrokeColor(colors.HexColor("#d8d8d0"))
     doc.roundRect(CARD_X, CARD_Y, CARD_WIDTH, CARD_HEIGHT, radius=8, stroke=1, fill=1)
+
+
+def draw_cover_page(doc: canvas.Canvas, cover: dict[str, Any], media: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    draw_page_shell(doc)
+    header_y = PAGE_HEIGHT - CARD_Y - 30
+    doc.setFont(font_name(), 18)
+    doc.setFillColor(colors.HexColor("#222222"))
+    doc.drawString(CARD_INNER_X, header_y, fit_text("封面", CARD_INNER_WIDTH, 18))
+    doc.setFont(font_name(), 9)
+    doc.setFillColor(colors.HexColor("#666666"))
+    aspect = cover.get("aspectRaw") or "跟随视频画幅"
+    doc.drawString(CARD_INNER_X, header_y - 20, fit_text(f"画幅：{aspect}", CARD_INNER_WIDTH, 9))
+    image_box = {
+        "x": CARD_INNER_X,
+        "y": CARD_Y + 128,
+        "width": CARD_INNER_WIDTH,
+        "height": PAGE_HEIGHT - CARD_Y * 2 - 210,
+    }
+    path = media.get("path")
+    if path and Path(path).exists():
+        try:
+            draw_contain_image(doc, str(path), image_box["x"], image_box["y"], image_box["width"], image_box["height"])
+        except Exception:
+            draw_placeholder(doc, image_box["x"], image_box["y"], image_box["width"], image_box["height"], "封面读取失败")
+    else:
+        draw_placeholder(doc, image_box["x"], image_box["y"], image_box["width"], image_box["height"], "缺封面图")
+    footer_y = CARD_Y + 76
+    doc.setFont(font_name(), 10)
+    doc.setFillColor(colors.HexColor("#333333"))
+    doc.drawString(CARD_INNER_X, footer_y + 20, fit_text(f"核心卖点：{cover.get('coreSellingPoint') or '未填写'}", CARD_INNER_WIDTH, 10))
+    doc.drawString(CARD_INNER_X, footer_y, fit_text(f"包装文字：{cover.get('overlayPackaging') or '无'}", CARD_INNER_WIDTH, 10))
+    return {
+        "coverId": cover.get("coverId") or "cover_image",
+        "pageIndex": 0,
+        "mediaKind": media.get("kind") or "cover-image",
+        "imageFit": "contain",
+        "sourceImageSize": media.get("sourceImageSize"),
+        "imageOrientation": media.get("imageOrientation"),
+        "imageBox": image_box,
+    }
 
 
 def draw_media_row(doc: canvas.Canvas, shots: list[dict[str, Any]], media: list[dict[str, Any]], y: float) -> None:
@@ -305,6 +369,59 @@ def resolve_shot_media(shot: dict[str, Any], crop_index: dict[str, Any], context
                 return {"kind": "material", "path": path, "sourceRef": ref}
     warnings.append(f"{shot_id}: 素材镜头缺少代表帧 sourceRefs={shot.get('sourceRefs')}")
     return {"kind": "material", "path": None, "sourceRef": ",".join(shot.get("sourceRefs") or [])}
+
+
+def resolve_cover_media(cover: dict[str, Any] | None, crop_index: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
+    if not cover:
+        return {"kind": "cover-image-missing", "path": None}
+    cover_id = cover.get("coverId") or "cover_image"
+    crop = crop_index.get(cover_id)
+    if crop and crop.get("path"):
+        return {
+            "kind": "cover-image",
+            "path": crop.get("path"),
+            "sourceImageSize": image_size(crop.get("path")),
+            "imageOrientation": image_orientation(crop.get("path")),
+        }
+    warnings.append(f"{cover_id}: 封面缺少裁切帧")
+    return {"kind": "cover-image-missing", "path": None, "sourceImageSize": None, "imageOrientation": None}
+
+
+def append_layout_shots(layout: dict[str, Any], shots: list[dict[str, Any]], media: list[dict[str, Any]], page_index: int) -> None:
+    for shot, item in zip(shots, media):
+        layout["shots"].append({
+            "shotId": shot.get("shotId"),
+            "pageIndex": page_index,
+            "mediaKind": item.get("kind"),
+            "imageFit": "contain",
+            "shotCategory": source_label_for_shot(shot, item),
+            "sourceImageSize": image_size(item.get("path")),
+            "imageOrientation": image_orientation(item.get("path")),
+            "imageBox": None,
+            "textBox": None,
+        })
+
+
+def image_size(path: str | None) -> dict[str, int] | None:
+    if not path or not Path(path).exists():
+        return None
+    try:
+        reader = ImageReader(path)
+        width, height = reader.getSize()
+        return {"width": width, "height": height}
+    except Exception:
+        return None
+
+
+def image_orientation(path: str | None) -> str | None:
+    size = image_size(path)
+    if not size:
+        return None
+    if size["width"] > size["height"]:
+        return "landscape"
+    if size["height"] > size["width"]:
+        return "portrait"
+    return "square"
 
 
 def source_label_for_shot(shot: dict[str, Any], media: dict[str, Any]) -> str:

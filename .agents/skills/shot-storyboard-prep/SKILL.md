@@ -66,10 +66,12 @@ python .agents/skills/shot-storyboard-prep/scripts/prepare_storyboard.py --input
 校验：
 
 - Shot 表可解析。
+- 若 `shot-design.final.md` 包含 `## 封面生图提示词`，prepare 必须解析为 `manifest.cover`，并生成独立 `storyboard-cover` 生图 group；封面不写入普通 `manifest.shots[]`。
 - 存在并识别 `素材来源/处理策略`。
 - `generatedShotCount` 与 manifest 对齐。
 - 只有 `self_designed_by_shot_design` 进入 prompt。
 - pad 只出现在 prompt/manifest 的 storyboard group，不进入最终 PDF。
+- cover 只进入 prompt/manifest/crop/PDF 首页，不进入普通 shot 时长和 slot 分页。
 
 ### 3. Image Generation
 
@@ -86,6 +88,7 @@ python .agents/skills/shot-storyboard-prep/scripts/prepare_storyboard.py --input
 
 - group 数与 manifest 一致。
 - 每个 group 至少有图片。
+- 如存在 `storyboard-cover` group，必须至少有一张封面图。
 - 失败 group 由 image-generation 模块自身重试。
 
 ### 4. Crop
@@ -99,6 +102,7 @@ python .agents/skills/shot-storyboard-prep/scripts/crop_storyboard_groups.py --a
 校验：
 
 - 每个非 pad 自设计 shot 都有 `shotId.png`。
+- 若 manifest 含 `cover`，必须有 `cover_image.png`；封面使用完整生成图，不按四格裁切。
 - pad 没有 crop。
 - `cropBox` 来自 layout reference。
 
@@ -122,6 +126,7 @@ python .agents/skills/shot-storyboard-prep/scripts/crop_storyboard_groups.py --a
 `pdfTurn` 版式硬约束：
 
 - 按 slot 分组分页，同一页不得混排不同 slot；每个 slot 应先集中展示该 slot 的镜头图片区，再集中展示该 slot 的文字说明区；文字区内部必须按镜头分块列字段，不得把多个镜头说明混成一段。
+- 如果 input package 含 `cover`，PDF 第 1 页必须是封面页；普通 shot 从第 2 页开始按 slot 分页。封面不计入 `summary.shotCount` 或普通 `layout.shots[]`，但必须写入 `layout.cover`，记录 `pageIndex: 0`、真实图片尺寸、`imageFit: "contain"` 和画幅信息。
 - 图片区直接按真实宽高落版，只能使用 `contain`；同一 slot 的图片应紧贴成组排列，不留装饰性间距，不得套装饰框、拉伸、裁切或把竖屏图塞进固定横屏框。
 - 每个 shot 必须标明镜头类型：`自行设计镜头`、`素材镜头` 或 `补强镜头`，并写入 `layout.shots[].shotCategory`。
 - 文案保留原 `台词/字幕`、`证明功能`，不得改写原文；包装/字幕补强镜头追加引用原 `包装说明` / `overlayPackaging`；自设计镜头追加引用原 `包装说明` / `overlayPackaging` 和原 `动作与运镜`。

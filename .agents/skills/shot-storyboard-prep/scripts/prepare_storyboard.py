@@ -13,6 +13,7 @@ from typing import Any
 
 
 SHOT_SECTION_RE = re.compile(r"(^##\s+(?:\d+\.\s+)?Shot 设计\s*\n)(.*?)(?=^##\s+|\Z)", re.M | re.S)
+COVER_SECTION_RE = re.compile(r"^##\s+(?:\d+\.\s+)?封面生图提示词\s*\n(.*?)(?=^##\s+|\Z)", re.M | re.S)
 TABLE_ROW_RE = re.compile(r"^\|(.+)\|\s*$")
 DEFAULT_GROUP_SIZE = 4
 DEFAULT_CHARS_PER_SECOND = 6.0
@@ -55,12 +56,13 @@ def main() -> None:
 
     text = input_path.read_text(encoding="utf-8-sig")
     aspect = detect_aspect(text)
+    cover = extract_cover_prompt(text, aspect)
     section = extract_shot_section(text)
     table = parse_markdown_table(section["body"])
     estimates = estimate_durations(table["rows"], args.chars_per_second, resolve_duration_script(args.duration_script))
     rows = apply_duration_estimates(table["rows"], estimates, args.chars_per_second)
     duration_stats = duration_update_stats(table["rows"], rows)
-    storyboard_plan = build_storyboard_plan(rows, aspect, args.group_size, input_path, output_path)
+    storyboard_plan = build_storyboard_plan(rows, aspect, args.group_size, input_path, output_path, cover)
 
     if not args.no_write_back:
         updated_section_body = replace_table_rows(section["body"], table, rows)
@@ -75,6 +77,7 @@ def main() -> None:
         "manifest": str(manifest_path),
         "updatedInput": None if args.no_write_back else str(input_path),
         "shotCount": len(rows),
+        "hasCover": storyboard_plan.get("cover") is not None,
         "generatedShotCount": sum(1 for shot in storyboard_plan["shots"] if shot["shouldGenerate"]),
         "materialShotCount": sum(1 for shot in storyboard_plan["shots"] if not shot["shouldGenerate"]),
         "groupSize": args.group_size,
@@ -115,6 +118,64 @@ def extract_shot_section(text: str) -> dict[str, Any]:
         "body_start": match.start(2),
         "body_end": match.end(2),
     }
+
+
+def extract_cover_prompt(text: str, aspect: dict[str, str | None]) -> dict[str, Any] | None:
+    match = COVER_SECTION_RE.search(text)
+    if not match:
+        return None
+    try:
+        table = parse_key_value_table(match.group(1))
+    except ValueError:
+        return {
+            "coverId": "cover_image",
+            "aspect": aspect,
+            "purpose": "",
+            "coreSellingPoint": "",
+            "subjectAndScene": "",
+            "visualFocus": "",
+            "imagePrompt": "",
+            "overlayPackaging": "",
+            "avoid": "",
+            "warnings": ["封面生图提示词区块存在，但无法解析两列表"],
+        }
+    cover = {
+        "coverId": "cover_image",
+        "aspect": aspect,
+        "purpose": table.get("封面用途", ""),
+        "coreSellingPoint": table.get("核心卖点", ""),
+        "subjectAndScene": table.get("主体与场景", ""),
+        "visualFocus": table.get("情绪与视觉重点", ""),
+        "imagePrompt": table.get("生图提示词", ""),
+        "overlayPackaging": table.get("包装文字建议", ""),
+        "avoid": table.get("避免项", ""),
+        "warnings": [],
+    }
+    cover["aspectRaw"] = table.get("画幅", "")
+    if not cover["imagePrompt"]:
+        cover["warnings"].append("封面生图提示词缺少“生图提示词”内容")
+    return cover
+
+
+def parse_key_value_table(section_body: str) -> dict[str, str]:
+    row_entries = []
+    for line in section_body.splitlines():
+        match = TABLE_ROW_RE.match(line.strip())
+        if not match:
+            continue
+        cells = [cell.strip() for cell in split_markdown_row(line)]
+        if len(cells) >= 2:
+            row_entries.append(cells)
+    if len(row_entries) < 3:
+        raise ValueError("Cover key-value table not found")
+    header = row_entries[0]
+    result = {}
+    for cells in row_entries[2:]:
+        key = str(cells[0] if len(cells) > 0 else "").strip()
+        value = str(cells[1] if len(cells) > 1 else "").strip()
+        if key:
+            result[key] = value
+    return result
 
 
 def parse_markdown_table(section_body: str) -> dict[str, Any]:
@@ -265,7 +326,7 @@ def replace_table_rows(section_body: str, table: dict[str, Any], rows: list[dict
     return "\n".join(lines) + ("\n" if section_body.endswith("\n") else "")
 
 
-def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | None], group_size: int, source_path: Path, prompt_path: Path) -> dict[str, Any]:
+def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | None], group_size: int, source_path: Path, prompt_path: Path, cover: dict[str, Any] | None = None) -> dict[str, Any]:
     has_strategy_column = any(STRATEGY_COLUMN in row for row in rows)
     warnings = []
     shots = []
@@ -308,6 +369,10 @@ def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | No
         warnings.append("Shot 表缺少“素材来源/处理策略”列，已按 legacy 行为把所有 shot 写入生图 prompt")
 
     groups = build_storyboard_groups(generated_rows, group_size)
+    if cover:
+        warnings.extend(cover.get("warnings") or [])
+        if cover.get("imagePrompt"):
+            groups.insert(0, build_cover_storyboard_group(cover))
     return {
         "type": "shot-storyboard-prep-manifest",
         "schemaVersion": "shot-storyboard-prep.manifest.v1",
@@ -317,6 +382,7 @@ def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | No
             "storyboardPromptPath": str(prompt_path),
         },
         "aspect": aspect,
+        "cover": cover,
         "groupSize": group_size,
         "warnings": warnings,
         "shots": shots,
@@ -374,6 +440,22 @@ def build_storyboard_groups(rows: list[dict[str, str]], group_size: int) -> list
     return groups
 
 
+def build_cover_storyboard_group(cover: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "groupId": "storyboard-cover",
+        "title": "Cover",
+        "isCover": True,
+        "shots": [{
+            "shotId": cover.get("coverId") or "cover_image",
+            "cellIndex": 1,
+            "isPad": False,
+            "isCover": True,
+            "imagePrompt": cover.get("imagePrompt", ""),
+            "overlayPackaging": cover.get("overlayPackaging", ""),
+        }],
+    }
+
+
 def render_storyboard_markdown(storyboard_plan: dict[str, Any], source_path: Path) -> str:
     aspect = storyboard_plan["aspect"]
     ratio = aspect.get("ratio") or "未明确"
@@ -389,6 +471,29 @@ def render_storyboard_markdown(storyboard_plan: dict[str, Any], source_path: Pat
         "",
     ]
     for group in storyboard_plan["storyboardGroups"]:
+        if group.get("isCover"):
+            cover = storyboard_plan.get("cover") or {}
+            lines.extend([
+                "## Storyboard Group Cover",
+                "",
+                f"以单张封面呈现，比例为{ratio}，{orientation}。",
+                "这是短视频封面首图，不是普通分镜帧；画面要清晰呈现主体、产品状态和核心视觉重点。",
+                "封面可有标题字/标签等包装层，但不要新增未在方案中确认的功效、价格、保证或证据结论。",
+                "生成一张完整封面图；不要生成四格故事板、红线、image 标签或占位线。",
+                f"核心卖点：{cover.get('coreSellingPoint') or '未填写'}",
+                f"视觉重点：{cover.get('visualFocus') or '未填写'}",
+                f"避免项：{cover.get('avoid') or '无'}",
+                "referenceImagePath: 未明确",
+                "",
+            ])
+            for row in group["shots"]:
+                lines.extend([
+                    f"### {row.get('shotId', 'cover_image')}",
+                    f"- imagePrompt: {row.get('imagePrompt', '')}",
+                    f"- overlayPackaging: {row.get('overlayPackaging', '')}",
+                    "",
+                ])
+            continue
         lines.extend([
             f"## Storyboard Group {group['title']}",
             "",

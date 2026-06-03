@@ -38,6 +38,12 @@ async function buildPdfAgentInputPackage({
     outputDir: materialFrameDir,
   });
   const packageWarnings = [];
+  const cover = await buildCoverInput({
+    coverManifest: prepare.manifest.cover,
+    cropItem: cropIndex.get(normalizeText(prepare.manifest.cover?.coverId) ?? "cover_image"),
+    safeRelative,
+    packageWarnings,
+  });
   const shots = [];
   for (const shot of prepare.manifest.shots ?? []) {
     const shotId = normalizeText(shot.shotId);
@@ -94,6 +100,7 @@ async function buildPdfAgentInputPackage({
       layoutSchemaVersion: PDF_LAYOUT_SCHEMA,
       requiredLayoutFields: ["schemaVersion", "pageCount", "slots", "shots", "warnings"],
       requiredShotFields: ["shotId", "pageIndex", "mediaKind", "imageFit"],
+      requiredCoverFields: ["coverId", "pageIndex", "mediaKind", "imageFit", "sourceImageSize", "imageOrientation", "imageBox"],
       imageFit: "contain",
     },
     hardConstraints: [
@@ -103,6 +110,7 @@ async function buildPdfAgentInputPackage({
       "不得重新裁切图片。",
       "所有图片必须以 contain 方式放入版面。",
       "素材代表帧缺失时只能写入 warnings，不得伪造图片。",
+      "如果输入包包含 cover，PDF 第 1 页必须是封面页；普通 shot 从第 2 页开始按 slot 分页。",
     ],
     retryContext,
     manifestSummary: summarizeManifest(prepare.manifest),
@@ -113,6 +121,7 @@ async function buildPdfAgentInputPackage({
     },
     manifest: prepare.manifest,
     cropsManifest: cropManifest,
+    cover,
     shots,
     warnings: packageWarnings,
   };
@@ -123,6 +132,45 @@ async function buildPdfAgentInputPackage({
     pdfPath,
     summaryPath,
     layoutPath,
+  };
+}
+
+async function buildCoverInput({ coverManifest, cropItem, safeRelative, packageWarnings }) {
+  if (!coverManifest) return null;
+  const coverId = normalizeText(coverManifest.coverId) ?? "cover_image";
+  if (!cropItem?.path) {
+    packageWarnings.push(`${coverId}: 封面缺少裁切帧`);
+    return {
+      coverId,
+      mediaKind: "cover-image-missing",
+      imagePath: null,
+      width: null,
+      height: null,
+      imageFit: "contain",
+      aspect: coverManifest.aspect ?? null,
+      overlayPackaging: normalizeText(coverManifest.overlayPackaging),
+      imagePrompt: normalizeText(coverManifest.imagePrompt),
+      warnings: ["missing_cover_crop"],
+    };
+  }
+  const metadata = await readImageMetadata(cropItem.path);
+  return {
+    coverId,
+    mediaKind: "cover-image",
+    imagePath: safeRelative(cropItem.path),
+    width: metadata.width,
+    height: metadata.height,
+    imageFit: "contain",
+    aspect: coverManifest.aspect ?? null,
+    aspectRaw: normalizeText(coverManifest.aspectRaw),
+    purpose: normalizeText(coverManifest.purpose),
+    coreSellingPoint: normalizeText(coverManifest.coreSellingPoint),
+    subjectAndScene: normalizeText(coverManifest.subjectAndScene),
+    visualFocus: normalizeText(coverManifest.visualFocus),
+    overlayPackaging: normalizeText(coverManifest.overlayPackaging),
+    imagePrompt: normalizeText(coverManifest.imagePrompt),
+    avoid: normalizeText(coverManifest.avoid),
+    warnings: [],
   };
 }
 
