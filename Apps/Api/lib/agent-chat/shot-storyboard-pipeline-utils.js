@@ -142,6 +142,7 @@ function buildInputSummary(options) {
     parentArtifactId: normalizeText(options.parentArtifactId || options.restructureArtifactId),
     restructureFinalPath: normalizeText(options.restructureFinalPath),
     shotDesignFinalPath: normalizeText(options.shotDesignFinalPath),
+    userMaterialPackPath: normalizeText(options.userMaterialPackPath),
     confirmationId: normalizeText(options.confirmationId),
     runImageGeneration: options.runImageGeneration !== false,
   };

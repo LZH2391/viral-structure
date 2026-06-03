@@ -357,8 +357,9 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type" | "data">) {
   if (node.type === "sourceSample") return 24;
   if (node.type === "confirmedPlan") return 30;
   if (node.type.startsWith("traced")) return 13;
-  if (node.type === "libraryItem") return 20;
-  if (node.type === "slotInstance") return 13;
+  if (node.type === "libraryItem") return 24;
+  if (node.type === "slotInstance") return 18;
+  if (node.type === "atomInstance") return 10;
   if (node.type === "slotConcept") return 11;
   if (node.type === "binding") return 6;
   return 7;
@@ -436,7 +437,7 @@ function buildPositions(graph: FunctionSlotLibraryGraph): Map<string, LayoutPosi
   if (root) positions.set(root.id, CENTER);
 
   const slots = graph.nodes.filter((node) => node.type === "slotInstance").sort((left, right) => Number(left.data.slotOrder ?? 0) - Number(right.data.slotOrder ?? 0));
-  const slotRadius = 210;
+  const slotRadius = 260;
   slots.forEach((slot, index) => {
     const angle = -Math.PI / 2 + (index / Math.max(slots.length, 1)) * Math.PI * 2;
     const x = CENTER.x + Math.cos(angle) * slotRadius;
@@ -446,8 +447,8 @@ function buildPositions(graph: FunctionSlotLibraryGraph): Map<string, LayoutPosi
     atoms.forEach((atom, atomIndex) => {
       const atomAngle = angle + (atomIndex - 1) * 0.34;
       positions.set(atom.id, {
-        x: CENTER.x + Math.cos(atomAngle) * 300,
-        y: CENTER.y + Math.sin(atomAngle) * 300,
+        x: CENTER.x + Math.cos(atomAngle) * 390,
+        y: CENTER.y + Math.sin(atomAngle) * 390,
       });
     });
   });
@@ -1152,7 +1153,7 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return String(node.label ?? node.id).slice(0, 20);
   if (node.type === "libraryItem") return "SourceSample";
-  if (node.type === "slotInstance") return `${node.data.slotId ?? ""} ${node.label}`.slice(0, 18);
+  if (node.type === "slotInstance") return String(node.label ?? node.data.slotId ?? "").slice(0, 20);
   if (node.type === "atomInstance") return String(node.label ?? node.data.atomId ?? "").slice(0, 24);
   if (node.type === "binding") return String(node.data.bindingId ?? node.label);
   if (node.type === "slotConcept") return "SlotConcept";

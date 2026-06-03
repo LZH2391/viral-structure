@@ -50,11 +50,7 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   assert.equal(cropResult.crops[0].cropBox.join(","), "0,0,447,797");
 
   const materialMapPath = path.join(root, "material-frame-map.json");
-  await writeJson(materialMapPath, {
-    shotCards: [
-      { shotRef: "shot_1", representativeFrame: path.join(cropsDir, "new_shot_02.png") },
-    ],
-  });
+  await writeMaterialPackWithVisualRef(root, materialMapPath);
 
   const pdfPath = path.join(root, "shot-storyboard.pdf");
   const pdf = runPython([
@@ -73,6 +69,10 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   assert.equal(pdfResult.slotCount, 1);
   assert.equal(pdfResult.warnings.length, 0);
   assert.equal((await fs.stat(pdfPath)).size > 0, true);
+  await assert.rejects(
+    fs.stat(path.join(root, "shot-storyboard-material-frames", "shot_1.png")),
+    /ENOENT/,
+  );
 });
 
 function sampleShotDesign() {
@@ -125,6 +125,75 @@ im.save(r"${imagePath.replace(/\\/g, "\\\\")}")
     }],
   });
   return artifactPath;
+}
+
+async function writeMaterialPackWithVisualRef(root, outputPath) {
+  const sourceFramePath = await writeSourceSampleArtifact(root);
+  const sheetDir = path.join(root, "material-input", "sheets");
+  await fs.mkdir(sheetDir, { recursive: true });
+  const sheetPath = path.join(sheetDir, "shot-representatives-p1.jpg");
+  const imageScript = `
+from PIL import Image, ImageDraw
+im = Image.new("RGB", (240, 180), "black")
+d = ImageDraw.Draw(im)
+d.rectangle((0, 0, 240, 152), fill="purple")
+d.rectangle((0, 152, 240, 180), fill="white")
+im.save(r"${sheetPath.replace(/\\/g, "\\\\")}")
+`;
+  const imageRun = spawnSync(PYTHON, ["-c", imageScript], { cwd: REPO_ROOT, encoding: "utf8" });
+  assert.equal(imageRun.status, 0, imageRun.stderr || imageRun.stdout);
+  const visualManifestPath = path.join(root, "material-input", "visual-manifest.json");
+  await writeJson(visualManifestPath, {
+    schemaVersion: "user_material_tagger_input_package.v1",
+    sheetPurpose: "user_material_tagger_shot_context",
+    sheetCount: 1,
+    emptyShotCount: 0,
+    shotSheets: [{ shotId: "shot_1", shotNo: "S001", empty: false, sheetIds: ["shot-representatives-p1"] }],
+    sheets: [{
+      sheetId: "shot-representatives-p1",
+      cells: [{ shotId: "shot_1", shotNo: "S001", row: 0, col: 0, representativeFrameTimestamp: 1.1 }],
+    }],
+  });
+  await writeJson(outputPath, {
+    type: "user-material-pack",
+    schemaVersion: "user-material-pack.stable",
+    sampleVideoId: "sample_material",
+    inputPackage: {
+      visualManifestPath,
+      visualAttachments: [{ sheetId: "shot-representatives-p1", localImagePath: sheetPath }],
+    },
+    shotCards: [{
+      shotRef: "shot_1",
+      shotNo: "S001",
+      visualSummary: "素材代表帧",
+      visualRef: { type: "shot_representative_frame", sheetId: "shot-representatives-p1", row: 0, col: 0, representativeFrameTimestamp: 1.1 },
+    }],
+  });
+  return sourceFramePath;
+}
+
+async function writeSourceSampleArtifact(root) {
+  const sampleDir = path.join(root, "Runtime", "Artifacts", "sample_material");
+  const frameDir = path.join(sampleDir, "frames");
+  await fs.mkdir(frameDir, { recursive: true });
+  const framePath = path.join(frameDir, "frame-00012.jpg");
+  const imageScript = `
+from PIL import Image, ImageDraw
+im = Image.new("RGB", (180, 320), "orange")
+d = ImageDraw.Draw(im)
+d.rectangle((20, 20, 160, 300), outline="white", width=8)
+im.save(r"${framePath.replace(/\\/g, "\\\\")}")
+`;
+  const imageRun = spawnSync(PYTHON, ["-c", imageScript], { cwd: REPO_ROOT, encoding: "utf8" });
+  assert.equal(imageRun.status, 0, imageRun.stderr || imageRun.stdout);
+  await writeJson(path.join(sampleDir, "artifact.json"), {
+    sampleVideoId: "sample_material",
+    frames: [
+      { frameId: "frame_early", timestamp: 0.1, imageUri: "/runtime/Artifacts/sample_material/frames/frame-00012.jpg" },
+      { frameId: "frame_target", timestamp: 1.1, imageUri: "/runtime/Artifacts/sample_material/frames/frame-00012.jpg" },
+    ],
+  });
+  return framePath;
 }
 
 function runPython(args) {

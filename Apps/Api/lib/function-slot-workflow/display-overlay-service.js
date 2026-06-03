@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v10";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v13";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -370,14 +370,17 @@ async function readConfirmedPlanTraceGraph() {
     for (let slotIndex = 0; slotIndex < asArray(display.slotChain).length; slotIndex += 1) {
       const slot = asArray(display.slotChain)[slotIndex];
       const slotId = firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id);
-      const slotNode = pushSlotSubtypeTrace(nodes, edges, plan.planId, planRootId, { subtypeId: slotId, sourceIndex, slotEvidence: slot, color });
-      const explicitSourceVariantIds = uniqueStrings(atomSourceRows[slotIndex]?.slotVariantIds ?? []);
-      for (const variantId of explicitSourceVariantIds) {
-        pushSourceVariantTrace(nodes, edges, plan.planId, slotNode, variantId, aliasMap, sourceIndex);
-      }
+      const slotNode = pushSlotSubtypeTrace(nodes, edges, plan.planId, planRootId, { subtypeId: slotId, sourceIndex, slotEvidence: slot, color, slotOrder: slotIndex + 1 });
       for (const atomVariantId of uniqueStrings(atomSourceRows[slotIndex]?.atomVariantIds ?? [])) {
         pushAtomTrace(nodes, edges, plan.planId, slotNode, atomVariantId, aliasMap, sourceIndex);
       }
+    }
+    const orderedSlotIds = asArray(display.slotChain)
+      .map((slot) => firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id))
+      .filter(Boolean)
+      .map((slotId) => traceId(plan.planId, "slotSubtype", slotId));
+    for (let slotIndex = 0; slotIndex < orderedSlotIds.length - 1; slotIndex += 1) {
+      pushGraphEdge(edges, plan.planId, orderedSlotIds[slotIndex], orderedSlotIds[slotIndex + 1], "plan_slot_next", "next");
     }
   }
 
@@ -474,7 +477,7 @@ function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap
   return null;
 }
 
-function pushSlotSubtypeTrace(nodes, edges, planId, planRootId, { subtypeId, sourceIndex, slotEvidence, color }) {
+function pushSlotSubtypeTrace(nodes, edges, planId, planRootId, { subtypeId, sourceIndex, slotEvidence, color, slotOrder }) {
   const slotNode = subtypeId ? traceId(planId, "slotSubtype", subtypeId) : planRootId;
   if (subtypeId) {
     pushGraphNode(nodes, {
@@ -485,6 +488,7 @@ function pushSlotSubtypeTrace(nodes, edges, planId, planRootId, { subtypeId, sou
       data: {
         ...governanceNodeData(sourceIndex, planId, subtypeId, "subtype"),
         color,
+        slotOrder,
         usedSlotEvidence: stripReviewFields(slotEvidence),
       },
     });
@@ -542,6 +546,8 @@ function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasM
   const variantMeta = sourceIndex.get(`${variantId}::sourceVariant`) ?? {};
   const sourceLabel = firstText(variantMeta.label);
   const shortVariant = variantDisplayLabel(aliasMap, variantId);
+  const sourceKind = firstText(variantMeta.kind, parsed.variantKind);
+  const sourceId = firstText(variantMeta.sourceId, parsed.variantKey);
   const nodeId = traceId(planId, "sourceVariant", variantId);
   upsertGraphNode(nodes, {
     id: nodeId,
@@ -557,8 +563,8 @@ function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasM
       sampleVideoId: parsed.sampleId,
       sampleId: parsed.sampleId,
       sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
-      kind: firstText(variantMeta.kind, parsed.variantKind),
-      sourceId: firstText(variantMeta.sourceId, parsed.variantKey),
+      kind: sourceKind,
+      sourceId,
       layer: parsed.variantKind === "slot" ? null : parsed.variantKind,
     },
   }, (existing) => existing);

@@ -294,6 +294,7 @@ export function GraphCanvas({
         onPointerCancel={endPointer}
         onWheel={zoom}
       >
+        <GraphDefinitions />
         <GraphBackground />
         <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.k})`}>
           {visible.edges.map((edge) => {
@@ -302,7 +303,8 @@ export function GraphCanvas({
             if (!source || !target) return null;
             const focused = focusNodeId ? (mode === "planTrace" ? focusedEdgeIds.has(edge.id) : edge.source === focusNodeId || edge.target === focusNodeId) : false;
             const muted = focusNodeId ? !focused : false;
-            return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={source.x} y1={source.y} x2={target.x} y2={target.y} />;
+            const line = edgeLinePoints(edge.type, source, target);
+            return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} markerEnd={edgeMarkerEnd(edge.type, source, target)} />;
           })}
           {nodes.map((node) => (
             <GraphNode
@@ -311,6 +313,7 @@ export function GraphCanvas({
               focused={hasFocusNode && (node.id === focusNodeId || focusedIds.has(node.id))}
               selected={node.id === selectedNodeId}
               pinnedPreview={node.id === pinnedPreviewNodeId}
+              showLabel={shouldShowNodeLabel(mode, node, viewport.k)}
               onHover={showHover}
               onHoverOut={hideHoverSoon}
               onStartDrag={startNodeDrag}
@@ -334,10 +337,11 @@ export function GraphCanvas({
   );
 }
 
-function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
+function GraphNode({ node, focused, selected, pinnedPreview, showLabel, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; showLabel: boolean; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = nodeRadius(node);
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
   const overlayUsageCount = Number(node.data.overlayUsageCount ?? overlayColors.length);
+  const slotBadge = slotOrderBadge(node);
   return (
     <g
       className={nodeClassName(node, focused, selected, pinnedPreview)}
@@ -350,16 +354,39 @@ function GraphNode({ node, focused, selected, pinnedPreview, onHover, onHoverOut
     >
       {node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample" ? <circle className="slot-graph-plan-ring" cx={node.x} cy={node.y} r={radius + 7} /> : null}
       <circle cx={node.x} cy={node.y} r={radius} />
+      {slotBadge ? (
+        <g className="slot-graph-slot-badge">
+          <circle cx={node.x - radius + 2} cy={node.y - radius + 2} r={8} />
+          <text x={node.x - radius + 2} y={node.y - radius + 5}>{slotBadge}</text>
+        </g>
+      ) : null}
       {overlayColors.length ? (
         <g className="slot-graph-plan-badge">
           <circle cx={node.x + radius - 1} cy={node.y - radius + 1} r={7} style={{ fill: overlayColors[0] }} />
           <text x={node.x + radius - 1} y={node.y - radius + 4}>{overlayUsageCount > 1 ? overlayUsageCount : ""}</text>
         </g>
       ) : null}
-      <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text>
+      {showLabel ? <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text> : null}
       <title>{node.label}</title>
     </g>
   );
+}
+
+function slotOrderBadge(node: SimNode) {
+  if (!isSlotSequenceNode(node)) return null;
+  const order = Number(node.data.slotOrder);
+  if (!Number.isFinite(order) || order <= 0) return null;
+  return order < 10 ? `0${order}` : String(order);
+}
+
+function shouldShowNodeLabel(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
+  if (mode !== "governance") return true;
+  if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") return true;
+  if (zoom < 1.5) return node.type === "slotSubtype";
+  if (zoom < 2) {
+    return node.type === "slotArchetype" || node.type === "slotSubtype" || node.type === "implementationBundle";
+  }
+  return true;
 }
 
 function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {
@@ -384,6 +411,40 @@ function edgeClassName(type: string, source: SimNode, target: SimNode, focused: 
   ].filter(Boolean).join(" ");
 }
 
+function edgeMarkerEnd(type: string, source: SimNode, target: SimNode) {
+  return isSlotSequenceEdge(type, source, target) ? "url(#slot-graph-arrow)" : undefined;
+}
+
+function edgeLinePoints(type: string, source: SimNode, target: SimNode) {
+  if (!isSlotSequenceEdge(type, source, target)) {
+    return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
+  }
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const distance = Math.hypot(dx, dy);
+  if (!distance) return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const sourceGap = nodeRadius(source) + 4;
+  const targetGap = nodeRadius(target) + 2;
+  return {
+    x1: source.x + ux * sourceGap,
+    y1: source.y + uy * sourceGap,
+    x2: target.x - ux * targetGap,
+    y2: target.y - uy * targetGap,
+  };
+}
+
+function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
+  return (type === "slot_next" || type === "plan_slot_next")
+    && isSlotSequenceNode(source)
+    && isSlotSequenceNode(target);
+}
+
+function isSlotSequenceNode(node: SimNode) {
+  return node.type === "slotInstance" || node.type === "slotSubtype";
+}
+
 function nodeLayerClass(node: SimNode) {
   const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
   if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
@@ -399,6 +460,16 @@ function edgeLayerClass(source: SimNode, target: SimNode) {
 
 function cssToken(value: unknown) {
   return String(value ?? "").replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+function GraphDefinitions() {
+  return (
+    <defs>
+      <marker id="slot-graph-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 1 1 L 9 5 L 1 9 z" />
+      </marker>
+    </defs>
+  );
 }
 
 function LibraryPreviewPopover({

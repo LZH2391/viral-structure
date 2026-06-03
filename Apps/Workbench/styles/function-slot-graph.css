@@ -208,6 +208,10 @@
   fill: rgba(255, 255, 255, 0.08);
 }
 
+#slot-graph-arrow path {
+  fill: rgba(255, 238, 158, 0.62);
+}
+
 .slot-graph-edge {
   stroke: rgba(151, 163, 185, 0.22);
   stroke-width: 1.1;
@@ -230,6 +234,13 @@
 .slot-graph-edge.edge-slot_instance_of_concept {
   stroke: rgba(96, 214, 164, 0.58);
   stroke-width: 1.8;
+}
+
+.slot-graph-edge.edge-slot_next,
+.slot-graph-edge.edge-plan_slot_next {
+  stroke: rgba(255, 238, 158, 0.56);
+  stroke-width: 1.9;
+  opacity: 0.48;
 }
 
 .slot-graph-edge.edge-binding_targets_slot,
@@ -293,12 +304,18 @@
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-edge {
-  opacity: 0.52;
+  opacity: 0.36;
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-edge.edge-plan_uses_slot_subtype {
   stroke: rgba(255, 238, 158, 0.82);
   stroke-width: 2.8;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.edge-plan_slot_next {
+  stroke: rgba(255, 238, 158, 0.88);
+  stroke-width: 2.6;
+  opacity: 0.68;
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-edge.edge-traced_to_source_variant {
@@ -319,7 +336,11 @@
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-edge.muted {
-  opacity: 0.2;
+  opacity: 0.08;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-node.muted {
+  opacity: 0.26;
 }
 
 .slot-graph-node {
@@ -345,6 +366,34 @@
   stroke: rgba(8, 11, 17, 0.92);
   stroke-linejoin: round;
   stroke-width: 4px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.slot-graph-canvas.structure .slot-graph-node text {
+  font-size: 15px;
+  stroke-width: 5px;
+}
+
+.slot-graph-canvas.structure .slot-graph-node.node-script text,
+.slot-graph-canvas.structure .slot-graph-node.node-rhythm text,
+.slot-graph-canvas.structure .slot-graph-node.node-packaging text {
+  font-size: 14px;
+}
+
+.slot-graph-slot-badge circle {
+  fill: rgba(17, 24, 39, 0.96);
+  stroke: rgba(255, 238, 158, 0.94);
+  stroke-width: 1.5;
+}
+
+.slot-graph-slot-badge text {
+  fill: #fff2a8;
+  font-size: 7px;
+  font-weight: 850;
+  paint-order: stroke fill;
+  stroke: rgba(8, 11, 17, 0.9);
+  stroke-width: 2px;
   text-anchor: middle;
   pointer-events: none;
 }

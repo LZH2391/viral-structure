@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,16 +15,25 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
+from storyboard_pdf_material_frames import build_material_frame_index
+
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
-LEFT_MARGIN = 36
-RIGHT_MARGIN = 36
-TOP_MARGIN = 36
-BOTTOM_MARGIN = 42
-MAX_COLS = 4
-MIN_SHOT_WIDTH = 150
-STRIP_GAP = 16
-INFO_LINE_HEIGHT = 12
+PAGE_BG = colors.HexColor("#f7f7f4")
+CARD_X = 28
+CARD_Y = 30
+CARD_WIDTH = PAGE_WIDTH - CARD_X * 2
+CARD_HEIGHT = PAGE_HEIGHT - CARD_Y * 2
+CARD_PADDING = 16
+CARD_INNER_X = CARD_X + CARD_PADDING
+CARD_INNER_WIDTH = CARD_WIDTH - CARD_PADDING * 2
+MEDIA_COLS = 3
+MEDIA_GAP = 0
+MEDIA_ROW_HEIGHT = 154
+MEDIA_TEXT_HEIGHT = 58
+MEDIA_ROW_GAP = 18
+MAX_SHOTS_PER_PAGE = 6
+INFO_LINE_HEIGHT = 11
 
 
 def main() -> None:
@@ -46,7 +54,11 @@ def main() -> None:
     output_path = Path(args.output).resolve() if args.output else shot_design_path.with_name("shot-storyboard.pdf")
     manifest = read_json(Path(args.manifest).resolve())
     crops = read_json(Path(args.crops_manifest).resolve()) if args.crops_manifest else {"crops": []}
-    material_indexes = [build_material_frame_index(read_json(Path(item).resolve()), root) for item in args.material_frame_map]
+    material_frame_dir = output_path.with_name("shot-storyboard-material-frames")
+    material_indexes = [
+        build_material_frame_index(read_json(Path(item).resolve()), root, Path(item).resolve().parent, material_frame_dir)
+        for item in args.material_frame_map
+    ]
 
     result = build_pdf({
         "restructurePath": Path(args.restructure).resolve(),
@@ -56,6 +68,8 @@ def main() -> None:
         "manifest": manifest,
         "crops": crops,
         "materialIndexes": material_indexes,
+        "materialFrameDir": material_frame_dir,
+        "materialFrameMapPaths": [str(Path(item).resolve()) for item in args.material_frame_map],
         "outputPath": output_path,
         "root": root,
     })
@@ -81,16 +95,12 @@ def build_pdf(context: dict[str, Any]) -> dict[str, Any]:
     warnings = list(context["manifest"].get("warnings") or []) + list(context["crops"].get("warnings") or [])
 
     doc = canvas.Canvas(str(output_path), pagesize=A4)
-    state = {"y": PAGE_HEIGHT - TOP_MARGIN}
-    draw_title(doc, state, context)
     for slot in slots:
-        slot_height = estimate_slot_height(slot["shots"])
-        ensure_space(doc, state, slot_height)
-        draw_slot_heading(doc, state, slot)
-        rows = chunk_shots(slot["shots"], PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN)
-        for row in rows:
-            row_media = [resolve_shot_media(shot, crop_index, context, warnings) for shot in row]
-            draw_strip(doc, state, row, row_media)
+        pages = chunk_fixed(slot["shots"], MAX_SHOTS_PER_PAGE)
+        for page_index, page_shots in enumerate(pages):
+            page_media = [resolve_shot_media(shot, crop_index, context, warnings) for shot in page_shots]
+            draw_slot_page(doc, slot, page_shots, page_media, page_index, len(pages), context)
+            doc.showPage()
     doc.save()
     result = {
         "type": "shot-storyboard-pdf",
@@ -100,6 +110,8 @@ def build_pdf(context: dict[str, Any]) -> dict[str, Any]:
         "slotCount": len(slots),
         "shotCount": sum(len(slot["shots"]) for slot in slots),
         "warnings": dedupe(warnings),
+        "materialFrameMapPaths": context.get("materialFrameMapPaths", []),
+        "materialFrameDir": str(context.get("materialFrameDir")) if context.get("materialFrameDir") and context["materialFrameDir"].exists() else None,
         "source": {
             "restructureFinalPath": str(context["restructurePath"]),
             "shotDesignFinalPath": str(context["shotDesignPath"]),
@@ -124,78 +136,85 @@ def font_name() -> str:
     return "STSong-Light" if "STSong-Light" in pdfmetrics.getRegisteredFontNames() else "Helvetica"
 
 
-def draw_title(doc: canvas.Canvas, state: dict[str, float], context: dict[str, Any]) -> None:
-    doc.setFont(font_name(), 15)
-    doc.drawString(LEFT_MARGIN, state["y"], "Shot Storyboard")
-    state["y"] -= 20
-    doc.setFont(font_name(), 8)
-    doc.setFillColor(colors.HexColor("#555555"))
-    doc.drawString(LEFT_MARGIN, state["y"], f"shot-design: {context['shotDesignPath'].name}")
-    state["y"] -= 18
-    doc.setFillColor(colors.black)
-
-
 def group_shots_by_slot(shots: list[dict[str, Any]]) -> list[dict[str, Any]]:
     slots = []
     current_key = None
     for shot in shots:
         key = shot.get("slotKey") or shot.get("slotSubtype") or "未标明 slot"
         if key != current_key:
-            slots.append({"slot": key, "slotLabel": shot.get("slotSubtype") or key, "shots": []})
+            slots.append({"index": len(slots) + 1, "slot": key, "slotLabel": shot.get("slotSubtype") or key, "shots": []})
             current_key = key
         slots[-1]["shots"].append(shot)
     return slots
 
 
-def estimate_slot_height(shots: list[dict[str, Any]]) -> float:
-    rows = chunk_shots(shots, PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN)
-    return 24 + len(rows) * (112 + 48 + STRIP_GAP)
+def chunk_fixed(shots: list[dict[str, Any]], size: int) -> list[list[dict[str, Any]]]:
+    return [shots[index : index + size] for index in range(0, len(shots), size)] or [[]]
 
 
-def ensure_space(doc: canvas.Canvas, state: dict[str, float], needed: float) -> None:
-    if state["y"] - needed < BOTTOM_MARGIN:
-        doc.showPage()
-        state["y"] = PAGE_HEIGHT - TOP_MARGIN
-
-
-def draw_slot_heading(doc: canvas.Canvas, state: dict[str, float], slot: dict[str, Any]) -> None:
+def draw_slot_page(
+    doc: canvas.Canvas,
+    slot: dict[str, Any],
+    shots: list[dict[str, Any]],
+    media: list[dict[str, Any]],
+    page_index: int,
+    page_count: int,
+    context: dict[str, Any],
+) -> None:
+    draw_page_shell(doc)
+    header_y = PAGE_HEIGHT - CARD_Y - 30
+    slot_title = slot_title_text(slot, page_index, page_count)
+    doc.setFont(font_name(), 17)
+    doc.setFillColor(colors.HexColor("#222222"))
+    doc.drawString(CARD_INNER_X, header_y, fit_text(slot_title, CARD_INNER_WIDTH, 17))
     doc.setFont(font_name(), 10)
-    doc.setFillColor(colors.HexColor("#111111"))
-    text = truncate(slot["slot"].replace("`", ""), 96)
-    doc.drawString(LEFT_MARGIN, state["y"], text)
-    state["y"] -= 14
+    doc.setFillColor(colors.HexColor("#666666"))
+    doc.drawString(CARD_INNER_X, header_y - 22, fit_text(f"链路：{slot_chain_text(shots)}", CARD_INNER_WIDTH - 90, 10))
+    doc.setFont(font_name(), 8)
+    doc.setFillColor(colors.HexColor("#888888"))
+    doc.drawRightString(CARD_X + CARD_WIDTH - CARD_PADDING, header_y - 22, context["shotDesignPath"].name)
+
+    first_row_y = header_y - 98 - MEDIA_ROW_HEIGHT
+    second_row_y = first_row_y - MEDIA_TEXT_HEIGHT - MEDIA_ROW_GAP - MEDIA_ROW_HEIGHT
+    draw_media_row(doc, shots[:3], media[:3], first_row_y)
+    if len(shots) > 3:
+        draw_media_row(doc, shots[3:6], media[3:6], second_row_y)
+
+    footer_y = CARD_Y + 86
+    doc.setStrokeColor(colors.HexColor("#e5e5df"))
+    doc.line(CARD_INNER_X, footer_y + 34, CARD_INNER_X + CARD_INNER_WIDTH, footer_y + 34)
+    doc.setFont(font_name(), 10)
+    doc.setFillColor(colors.HexColor("#444444"))
+    doc.drawString(CARD_INNER_X, footer_y + 12, fit_text(f"restructure：{slot_footer_text(slot, shots)}", CARD_INNER_WIDTH, 10))
+    doc.setFillColor(colors.HexColor("#777777"))
+    doc.drawString(CARD_INNER_X, footer_y - 8, "素材取代表帧；自设计取四格图切分帧。")
 
 
-def chunk_shots(shots: list[dict[str, Any]], available_width: float) -> list[list[dict[str, Any]]]:
+def draw_page_shell(doc: canvas.Canvas) -> None:
+    doc.setFillColor(PAGE_BG)
+    doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, stroke=0, fill=1)
+    doc.setFillColor(colors.white)
+    doc.setStrokeColor(colors.HexColor("#d8d8d0"))
+    doc.roundRect(CARD_X, CARD_Y, CARD_WIDTH, CARD_HEIGHT, radius=8, stroke=1, fill=1)
+
+
+def draw_media_row(doc: canvas.Canvas, shots: list[dict[str, Any]], media: list[dict[str, Any]], y: float) -> None:
     if not shots:
-        return []
-    if available_width / len(shots) >= MIN_SHOT_WIDTH and len(shots) <= MAX_COLS:
-        cols = len(shots)
-    else:
-        cols = max(1, min(MAX_COLS, math.floor(available_width / MIN_SHOT_WIDTH)))
-    return [shots[index : index + cols] for index in range(0, len(shots), cols)]
-
-
-def draw_strip(doc: canvas.Canvas, state: dict[str, float], shots: list[dict[str, Any]], media: list[dict[str, Any]]) -> None:
-    available_width = PAGE_WIDTH - LEFT_MARGIN - RIGHT_MARGIN
-    shot_width = math.floor(available_width / len(shots))
-    shot_height = 96
-    x = LEFT_MARGIN
-    y = state["y"] - shot_height
-    for shot, item in zip(shots, media):
-        draw_shot_image(doc, x, y, shot_width, shot_height, shot, item)
-        x += shot_width
-    state["y"] = y - 4
-    draw_info_row(doc, state, shots, media, shot_width)
-    state["y"] -= STRIP_GAP
+        return
+    cell_width = (CARD_INNER_WIDTH - MEDIA_GAP * (MEDIA_COLS - 1)) / MEDIA_COLS
+    doc.setFillColor(colors.HexColor("#111111"))
+    doc.rect(CARD_INNER_X, y, CARD_INNER_WIDTH, MEDIA_ROW_HEIGHT, stroke=0, fill=1)
+    for index, (shot, item) in enumerate(zip(shots, media)):
+        x = CARD_INNER_X + index * (cell_width + MEDIA_GAP)
+        draw_shot_image(doc, x + 2, y + 2, cell_width - 4, MEDIA_ROW_HEIGHT - 4, shot, item)
+        draw_shot_caption(doc, x, y - 18, cell_width, shot, item)
 
 
 def draw_shot_image(doc: canvas.Canvas, x: float, y: float, width: float, height: float, shot: dict[str, Any], media: dict[str, Any]) -> None:
     path = media.get("path")
     if path and Path(path).exists():
         try:
-            reader = ImageReader(path)
-            doc.drawImage(reader, x, y, width=width, height=height, preserveAspectRatio=True, anchor="c")
+            draw_contain_image(doc, str(path), x, y, width, height)
         except Exception:
             draw_placeholder(doc, x, y, width, height, "图片读取失败")
     else:
@@ -203,10 +222,24 @@ def draw_shot_image(doc: canvas.Canvas, x: float, y: float, width: float, height
     doc.setStrokeColor(colors.HexColor("#222222"))
     doc.rect(x, y, width, height, stroke=1, fill=0)
     doc.setFont(font_name(), 7)
-    doc.setFillColor(colors.white)
-    doc.setStrokeColor(colors.black)
     doc.setFillColor(colors.HexColor("#111111"))
-    doc.drawString(x + 4, y + height - 10, shot.get("shotId", ""))
+    label_width = min(width - 8, max(28, pdfmetrics.stringWidth(shot.get("shotId", ""), font_name(), 7) + 8))
+    doc.roundRect(x + 4, y + height - 15, label_width, 11, radius=3, stroke=0, fill=1)
+    doc.setFillColor(colors.white)
+    doc.drawString(x + 8, y + height - 12, shot.get("shotId", ""))
+
+
+def draw_contain_image(doc: canvas.Canvas, path: str, x: float, y: float, width: float, height: float) -> None:
+    reader = ImageReader(path)
+    image_width, image_height = reader.getSize()
+    if image_width <= 0 or image_height <= 0:
+        raise ValueError("invalid image size")
+    scale = min(width / image_width, height / image_height)
+    draw_width = image_width * scale
+    draw_height = image_height * scale
+    draw_x = x + (width - draw_width) / 2
+    draw_y = y + (height - draw_height) / 2
+    doc.drawImage(reader, draw_x, draw_y, width=draw_width, height=draw_height)
 
 
 def draw_placeholder(doc: canvas.Canvas, x: float, y: float, width: float, height: float, label: str) -> None:
@@ -217,29 +250,44 @@ def draw_placeholder(doc: canvas.Canvas, x: float, y: float, width: float, heigh
     doc.drawCentredString(x + width / 2, y + height / 2, label)
 
 
-def draw_info_row(doc: canvas.Canvas, state: dict[str, float], shots: list[dict[str, Any]], media: list[dict[str, Any]], shot_width: float) -> None:
-    max_lines = 0
-    rendered = []
-    for shot, item in zip(shots, media):
-        source_label = source_label_for_shot(shot, item)
-        text = " / ".join(part for part in [
-            shot.get("shotId", ""),
-            source_label,
-            normalize_text(shot.get("dialogue") or "无台词"),
-            normalize_text(shot.get("overlayPackaging") or ""),
-        ] if part)
-        lines = wrap_text(text, shot_width - 8, 7)
-        rendered.append(lines)
-        max_lines = max(max_lines, len(lines))
-    x = LEFT_MARGIN
-    y = state["y"]
-    doc.setFont(font_name(), 7)
+def draw_shot_caption(doc: canvas.Canvas, x: float, y: float, width: float, shot: dict[str, Any], media: dict[str, Any]) -> None:
+    doc.setFont(font_name(), 9)
     doc.setFillColor(colors.HexColor("#222222"))
-    for lines in rendered:
-        for index, line in enumerate(lines[:4]):
-            doc.drawString(x + 4, y - index * INFO_LINE_HEIGHT, line)
-        x += shot_width
-    state["y"] -= min(max_lines, 4) * INFO_LINE_HEIGHT + 4
+    doc.drawString(x + 2, y, fit_text(f"{shot_number(shot)} · {source_label_for_shot(shot, media)}", width - 6, 9))
+    doc.setFont(font_name(), 8)
+    doc.setFillColor(colors.HexColor("#555555"))
+    doc.drawString(x + 2, y - 16, fit_text(caption_detail_for_shot(shot), width - 6, 8))
+
+
+def slot_title_text(slot: dict[str, Any], page_index: int, page_count: int) -> str:
+    suffix = f" · {page_index + 1}/{page_count}" if page_count > 1 else ""
+    return f"Slot {slot['index']:02d} · {slot['slot'].replace('`', '')}{suffix}"
+
+
+def slot_chain_text(shots: list[dict[str, Any]]) -> str:
+    items = []
+    for shot in shots:
+        subtype = str(shot.get("slotSubtype") or "").replace("`", "")
+        key = str(shot.get("slotKey") or "")
+        label = normalize_text(subtype.replace(key, ""))
+        label = label or source_label_for_shot(shot, {})
+        if label and label not in items:
+            items.append(label)
+    return " → ".join(items[:5]) or "未标明"
+
+
+def slot_footer_text(slot: dict[str, Any], shots: list[dict[str, Any]]) -> str:
+    proof_items = [normalize_text(shot.get("proofFunction") or "") for shot in shots]
+    proof_items = [item for item in proof_items if item]
+    if proof_items:
+        return truncate("；".join(dedupe(proof_items)[:2]), 72)
+    return normalize_text(slot.get("slotLabel") or slot.get("slot") or "")
+
+
+def shot_number(shot: dict[str, Any]) -> str:
+    text = str(shot.get("shotId") or "")
+    digits = "".join(char for char in text if char.isdigit())
+    return digits[-2:] if digits else text
 
 
 def resolve_shot_media(shot: dict[str, Any], crop_index: dict[str, Any], context: dict[str, Any], warnings: list[str]) -> dict[str, Any]:
@@ -270,36 +318,28 @@ def source_label_for_shot(shot: dict[str, Any], media: dict[str, Any]) -> str:
     return strategy
 
 
-def build_material_frame_index(value: Any, root: Path) -> dict[str, str]:
-    index: dict[str, str] = {}
-    visit_material_node(value, root, index)
-    return index
+def caption_detail_for_shot(shot: dict[str, Any]) -> str:
+    strategy = shot.get("strategy") or ""
+    dialogue = normalize_text(shot.get("dialogue") or shot.get("imagePrompt") or "")
+    packaging = compact_packaging_text(shot.get("overlayPackaging") or "")
+    if strategy == "existing_material_packaging_caption":
+        return f"新增标签：{packaging or dialogue}"
+    if strategy == "existing_material":
+        return f"原字幕：{dialogue}"
+    if strategy == "self_designed_by_shot_design":
+        return f"台词：{dialogue}"
+    return dialogue or packaging
 
 
-def visit_material_node(value: Any, root: Path, index: dict[str, str]) -> None:
-    if isinstance(value, dict):
-        ref = value.get("shotRef") or value.get("groupId") or value.get("shotId")
-        image_path = value.get("representativeFrame") or value.get("localImagePath") or value.get("filePath") or value.get("path") or value.get("uri")
-        if ref and isinstance(image_path, str):
-            resolved = resolve_path_or_uri(image_path, root)
-            if resolved and resolved.exists():
-                index[str(ref)] = str(resolved)
-        for child in value.values():
-            visit_material_node(child, root, index)
-    elif isinstance(value, list):
-        for item in value:
-            visit_material_node(item, root, index)
-
-
-def resolve_path_or_uri(value: str, root: Path) -> Path | None:
-    text = str(value or "").strip()
+def compact_packaging_text(value: str) -> str:
+    text = normalize_text(value)
     if not text:
-        return None
-    if text.startswith("/runtime/"):
-        return (root / "Runtime" / text[len("/runtime/") :]).resolve()
-    if text.startswith("runtime/"):
-        return (root / "Runtime" / text[len("runtime/") :]).resolve()
-    return Path(text).resolve()
+        return ""
+    for separator in ("；", ";", "，", ","):
+        if separator in text:
+            return text.split(separator, 1)[0]
+    return text
+
 
 
 def wrap_text(text: str, width: float, font_size: int) -> list[str]:
@@ -317,6 +357,20 @@ def wrap_text(text: str, width: float, font_size: int) -> list[str]:
     if current:
         lines.append(current)
     return lines or [""]
+
+
+def fit_text(value: str, width: float, font_size: int) -> str:
+    text = normalize_text(value)
+    if pdfmetrics.stringWidth(text, font_name(), font_size) <= width:
+        return text
+    ellipsis = "…"
+    current = ""
+    for char in text:
+        candidate = f"{current}{char}"
+        if pdfmetrics.stringWidth(f"{candidate}{ellipsis}", font_name(), font_size) > width:
+            return f"{current}{ellipsis}" if current else ellipsis
+        current = candidate
+    return current
 
 
 def normalize_text(value: str) -> str:

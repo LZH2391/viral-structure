@@ -550,6 +550,7 @@ async function resolveStoryboardPrepInputs(body, handlers = {}) {
   const conversationId = normalizeOptionalText(body.conversationId);
   const conversation = conversationId ? await handlers.agentConversationStore?.get?.(conversationId) : null;
   const confirmed = conversation?.confirmedPlan ?? {};
+  const explicitUserMaterialPackPath = normalizeOptionalText(body.userMaterialPackPath);
   return {
     restructureFinalPath: normalizeOptionalText(body.restructureFinalPath) ?? normalizeOptionalText(confirmed.sourceRestructurePath),
     shotDesignFinalPath: normalizeOptionalText(body.shotDesignFinalPath) ?? normalizeOptionalText(confirmed.sourceShotDesignPath),
@@ -557,9 +558,50 @@ async function resolveStoryboardPrepInputs(body, handlers = {}) {
     materialFrameMap: normalizeOptionalText(body.materialFrameMap),
     visualManifest: normalizeOptionalText(body.visualManifest),
     frameMap: normalizeOptionalText(body.frameMap),
-    userMaterialPackPath: normalizeOptionalText(body.userMaterialPackPath),
+    userMaterialPackPath: explicitUserMaterialPackPath ?? inferUserMaterialPackPathFromConversation(conversation, handlers.rootDir ?? rootDir),
     conversationId,
   };
+}
+
+function inferUserMaterialPackPathFromConversation(conversation, workspaceRoot = rootDir) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  for (const message of messages) {
+    const text = normalizeOptionalText(message?.text);
+    if (!text) continue;
+    for (const candidate of extractJsonPathCandidates(text)) {
+      if (isUserMaterialPackPath(candidate, workspaceRoot)) return candidate;
+    }
+  }
+  return null;
+}
+
+function extractJsonPathCandidates(text) {
+  const matches = [];
+  const pattern = /(?:[A-Za-z]:[\\/][^\s,，'"`<>]+?\.json|(?:\.{0,2}[\\/])?[A-Za-z0-9_.\-\\/]+?\.json)/g;
+  for (const match of String(text ?? "").matchAll(pattern)) {
+    const value = normalizeOptionalText(match[0]);
+    if (value) matches.push(value);
+  }
+  return matches;
+}
+
+function isUserMaterialPackPath(candidate, workspaceRoot = rootDir) {
+  const text = normalizeOptionalText(candidate);
+  if (!text) return false;
+  const normalized = text.replaceAll("\\", "/").toLowerCase();
+  if (!normalized.includes("user_material_pack") && !normalized.includes("user-material-pack")) return false;
+  const resolved = path.isAbsolute(text) || /^[A-Za-z]:[\\/]/.test(text)
+    ? path.resolve(text)
+    : path.resolve(workspaceRoot, text);
+  const root = path.resolve(workspaceRoot);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) return false;
+  if (!fs.existsSync(resolved)) return false;
+  try {
+    const preview = fs.readFileSync(resolved, "utf8").slice(0, 2000);
+    return preview.includes('"type"') && preview.includes("user-material-pack");
+  } catch {
+    return false;
+  }
 }
 
 async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {

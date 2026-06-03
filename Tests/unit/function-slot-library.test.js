@@ -228,8 +228,13 @@ test("function slot library builder refresh route returns index and governance o
 });
 
 test("storyboard prep auto-run requires confirmed restructure source", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "bd-storyboard-auto-run-"));
   const calls = [];
+  const materialPackPath = path.join(rootDir, "Runtime", "Artifacts", "sample_1", "analysis-results", "user_material_pack", "artifact_pack.json");
+  await fs.mkdir(path.dirname(materialPackPath), { recursive: true });
+  await fs.writeFile(materialPackPath, JSON.stringify({ type: "user-material-pack", schemaVersion: "user-material-pack.stable" }), "utf8");
   const server = createServer({
+    rootDir,
     shotStoryboardAutoPipelineService: {
       enqueue: async (payload) => {
         calls.push(payload);
@@ -255,6 +260,9 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
           sourceRestructurePath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
           sourceShotDesignPath: "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md",
         },
+        messages: [
+          { role: "user", text: `${materialPackPath}, 一个素材包` },
+        ],
       }),
     },
     logger: {
@@ -294,6 +302,7 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
     assert.equal(calls[0].sampleVideoId, "sample_1");
     assert.equal(calls[0].restructureFinalPath, "Artifacts/FunctionSlotRestructure/demo/restructure.final.md");
     assert.equal(calls[0].shotDesignFinalPath, "Artifacts/FunctionSlotRestructure/demo/shot-design.final.md");
+    assert.equal(calls[0].userMaterialPackPath, materialPackPath);
     assert.equal(calls[0].parentArtifactId, "artifact_restructure");
     assert.equal(calls[0].confirmationId, "confirm_1");
   } finally {
