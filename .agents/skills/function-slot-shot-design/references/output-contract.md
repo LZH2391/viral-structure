@@ -72,8 +72,8 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 无原素材口播/字幕的现有素材 shot 是否默认写“无”，并在最终聊天摘要中列出；只有用户预授权或回复授权后才补写。
 - 每个主张是否有画面、包装或证据承载；只有口播没有证明的主张必须标为风险。
 - 分镜画面和包装说明是否分离：底图不承担小字、复杂 UI 文案和包装覆盖层。
-- 台词字段是否只包含成片口播、主字幕或屏幕文字；机器人感审查交给 `function-slot-dialogue-robotic-reviewer`。
-- 本轮若新写了非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，是否已经通过 `function-slot-dialogue-robotic-reviewer`；未通过不得交付为最终版本。
+- 台词字段是否只包含成片口播、主字幕或屏幕文字；ShotDesign 不执行台词机器人感审查。
+- 本轮若新写了非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，最终回复是否声明“本轮包含新增台词/字幕，等待平台侧外部质检”。
 - 包装说明是否写到可执行规格，而不是“轻量字幕”“极简标签”等空泛描述。
 - 字幕、标签、箭头、圈选、图卡是否避开主体细节、证据区域、关键动作、结果状态或人物表情。
 - 所有 `预计时长` 是否遵守上游 `timingBudget`；若没有 `timingBudget`，是否都是 `待估算`。
@@ -82,14 +82,14 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 ## 聊天回复
 
-完成后给可点击文件路径、一句摘要、必要的台词 review 结果，以及“无原素材台词镜头”询问。不要把输入依据、质量检查表、剩余风险或替代实现写进聊天回复。
+完成后给可点击文件路径、一句摘要、必要的台词质检状态，以及“无原素材台词镜头”询问。不要把输入依据、质量检查表、剩余风险或替代实现写进聊天回复。
 
 ```markdown
 已生成 Shot 设计：[shot-design.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md)
 
 摘要：一句话说明 Shot 设计如何承接结构方案。
 
-台词 review：通过 / 未生成需审查台词 / 无可审台词。
+台词质检状态：本轮包含新增台词/字幕，等待平台侧外部质检 / 未生成需质检台词 / 无可审台词。
 
 无原素材台词镜头：new_shot_03、new_shot_07 当前写“无”。是否需要我为这些镜头补写后期字幕/旁白？
 ```

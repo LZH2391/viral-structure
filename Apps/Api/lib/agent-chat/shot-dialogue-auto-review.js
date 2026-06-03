@@ -13,6 +13,7 @@ async function maybeAutoReviewShotDialogue({
   traceContext,
   conversationId,
   url = null,
+  activeBinding = null,
 } = {}) {
   if (!isCompleted(payload?.status)) return null;
   if (!String(payload?.finalMessage ?? "").trim()) return null;
@@ -23,29 +24,32 @@ async function maybeAutoReviewShotDialogue({
   if (!rootDir || !logger) return null;
 
   const finalMessage = String(payload.finalMessage ?? "");
-  const explicitPath = normalizeText(url?.searchParams?.get("shotDesignFinalPath"));
   const conversation = await handlers.agentConversationStore?.get?.(conversationId);
-  const currentMessagePath = explicitPath || extractShotDesignFinalPath(finalMessage);
-  const historicalPath = currentMessagePath ? null : findLatestShotDesignFinalPath(conversation);
-  const linkedShotDesignFinalPath = currentMessagePath || historicalPath;
-  if (!linkedShotDesignFinalPath) return null;
-  if (!isDialogueReviewEligibleConversation(conversation, linkedShotDesignFinalPath)) return null;
+  const currentOutputPath = extractGeneratedShotDesignFinalPath(finalMessage);
+  const rememberedPath = currentOutputPath || findLatestShotDesignFinalPath(conversation);
+  if (!rememberedPath) return null;
+  if (!isDialogueReviewEligibleConversation(conversation, rememberedPath)) return null;
 
   const stageTraceContext = nextStage(traceContext);
   const artifactId = `artifact_${randomUUID()}`;
   const parentArtifactId = normalizeText(url?.searchParams?.get("parentArtifactId")) ?? payload.turnId ?? null;
-  const sourceMode = currentMessagePath ? "linkedFile" : "conversationHistory";
+  const sourceMode = currentOutputPath ? "currentTurnOutput" : "rememberedShotDesignPath";
   const shotDesignFinalPath = resolveShotDesignFinalPath({
     rootDir,
     finalMessage,
-    explicitPath: linkedShotDesignFinalPath,
+    explicitPath: rememberedPath,
     conversationId,
     turnId: payload.turnId,
   });
+  if (currentOutputPath && !await isCurrentTurnFileOutput(shotDesignFinalPath, activeBinding)) return null;
   const reviewOutputPath = path.join(path.dirname(shotDesignFinalPath), "dialogue-robotic-review.final.json");
   const relativeShotDesignFinalPath = safeRelative(rootDir, shotDesignFinalPath);
   const previousReview = findLatestDialogueReviewSummary(conversation, relativeShotDesignFinalPath);
   const previousFingerprint = previousReview?.fileFingerprint ?? null;
+  const previousDialogueFingerprint = previousReview?.dialogueFingerprint ?? null;
+  const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
+  if (!currentOutputPath && !previousDialogueFingerprint) return null;
+  if (fingerprintsEqual(dialogueFingerprint, previousDialogueFingerprint)) return null;
   const inputSummary = {
     conversationId,
     turnId: payload.turnId ?? null,
@@ -54,6 +58,8 @@ async function maybeAutoReviewShotDialogue({
     reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
     sourceMode,
     previousFingerprint,
+    previousDialogueFingerprint,
+    dialogueFingerprint,
     role: REVIEW_ROLE,
   };
   const startedAt = Date.now();
@@ -114,6 +120,7 @@ async function maybeAutoReviewShotDialogue({
       sourceTurnId: payload.turnId,
       stageTraceContext,
       fileFingerprint,
+      dialogueFingerprint,
     });
     const outputSummary = {
       artifactId,
@@ -125,6 +132,7 @@ async function maybeAutoReviewShotDialogue({
       sourceMode,
       trigger: "file_changed",
       fileFingerprint,
+      dialogueFingerprint,
       role: REVIEW_ROLE,
       promptTemplateVersion: reviewResult.agent.promptTemplateVersion,
     };
@@ -150,6 +158,7 @@ async function maybeAutoReviewShotDialogue({
       sourceMode,
       trigger: "file_changed",
       fileFingerprint,
+      dialogueFingerprint,
       decision: reviewResult.review.decision,
       issueCount: reviewResult.review.issues.length,
       turnId: reviewResult.agent.turnId,
@@ -261,11 +270,13 @@ async function reviewShotDialogueForConversation({
     turnId: sourceTurnId,
   });
   const reviewOutputPath = path.join(path.dirname(shotDesignFinalPath), "dialogue-robotic-review.final.json");
-  const previousFingerprint = findLatestReviewFingerprint(conversation, safeRelative(rootDir, shotDesignFinalPath));
+  const relativeShotDesignFinalPath = safeRelative(rootDir, shotDesignFinalPath);
+  const previousReview = findLatestDialogueReviewSummary(conversation, relativeShotDesignFinalPath);
+  const previousFingerprint = previousReview?.fileFingerprint ?? null;
   const inputSummary = {
     conversationId,
     sourceTurnId: sourceTurnId ?? conversation.latestTurnId ?? null,
-    shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+    shotDesignFinalPath: relativeShotDesignFinalPath,
     reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
     previousFingerprint,
     role: REVIEW_ROLE,
@@ -285,14 +296,16 @@ async function reviewShotDialogueForConversation({
 
   try {
     const fileFingerprint = await readFileFingerprint(shotDesignFinalPath, rootDir);
+    const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
     if (!force && fingerprintsEqual(fileFingerprint, previousFingerprint)) {
       const outputSummary = {
         artifactId,
         status: "skipped_unchanged",
-        shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+        shotDesignFinalPath: relativeShotDesignFinalPath,
         reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
         trigger: "file_unchanged",
         fileFingerprint,
+        dialogueFingerprint,
       };
       await logger.writeStageLog({
         traceContext: stageTraceContext,
@@ -316,6 +329,7 @@ async function reviewShotDialogueForConversation({
         sourceMode: "manual",
         trigger: "file_unchanged",
         fileFingerprint,
+        dialogueFingerprint,
         decision: previousReview?.decision ?? null,
         issueCount: previousReview?.issueCount ?? 0,
         role: previousReview?.role ?? REVIEW_ROLE,
@@ -333,16 +347,18 @@ async function reviewShotDialogueForConversation({
       sourceTurnId: sourceTurnId ?? conversation.latestTurnId,
       stageTraceContext,
       fileFingerprint,
+      dialogueFingerprint,
     });
     const outputSummary = {
       artifactId,
       status: "processed",
       decision: reviewResult.review.decision,
       issueCount: reviewResult.review.issues.length,
-      shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+      shotDesignFinalPath: relativeShotDesignFinalPath,
       reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
       trigger,
       fileFingerprint,
+      dialogueFingerprint,
       role: REVIEW_ROLE,
       promptTemplateVersion: reviewResult.agent.promptTemplateVersion,
     };
@@ -363,11 +379,12 @@ async function reviewShotDialogueForConversation({
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
       stageName: AUTO_STAGE_NAME,
-      shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
+      shotDesignFinalPath: relativeShotDesignFinalPath,
       reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
       sourceMode: "manual",
       trigger,
       fileFingerprint,
+      dialogueFingerprint,
       decision: reviewResult.review.decision,
       issueCount: reviewResult.review.issues.length,
       turnId: reviewResult.agent.turnId,
@@ -422,8 +439,9 @@ async function runDialogueReviewTurn({
   sourceTurnId,
   stageTraceContext,
   fileFingerprint,
+  dialogueFingerprint,
 }) {
-  if (!handlers.threadPool?.ensureRoleReady || !handlers.threadPool?.acquireLease || !handlers.threadPool?.releaseLease || !handlers.appServer?.runTurnWithInputs) {
+  if (!handlers.threadPool?.ensureRoleReady || !handlers.threadPool?.acquireLease || !handlers.threadPool?.releaseLease || !canRunDialogueReviewTurn(handlers)) {
     const error = new Error("dialogue review requires ThreadPool lease and appServer runTurnWithInputs");
     error.code = "dialogue_robotic_review_runtime_unavailable";
     throw error;
@@ -454,12 +472,32 @@ async function runDialogueReviewTurn({
     throw error;
   }
   try {
-    const turn = await handlers.appServer.runTurnWithInputs({
+    const turn = await startAndCollectDialogueReviewTurn({
+      handlers,
       workspaceRoot: rootDir,
       threadId,
       skillPath: readiness.status?.skillPath ?? roleProfile.skillPath ?? null,
       inputs: [{ type: "text", text: prompt.text, text_elements: [] }],
       timeoutSeconds: 180,
+      binding: {
+        ownerType: "agent-chat-dialogue-review",
+        ownerId: artifactId,
+        currentAttemptId: `${artifactId}:${stageTraceContext.stageId}`,
+        stageName: AUTO_STAGE_NAME,
+        traceId: stageTraceContext.traceId,
+        runId: stageTraceContext.runId,
+        stageId: stageTraceContext.stageId,
+        artifactId,
+        parentArtifactId: parentArtifactId ?? null,
+        leaseId,
+        threadPoolOwnerId: ownerId,
+        replayRef: {
+          type: "dialogue-review-input",
+          refId: artifactId,
+          sourceTurnId: sourceTurnId ?? null,
+        },
+      },
+      traceContext: stageTraceContext,
     });
     const finalMessage = String(turn.finalMessage ?? turn.message ?? "");
     const review = parseReviewJson(finalMessage);
@@ -477,6 +515,7 @@ async function runDialogueReviewTurn({
         shotDesignFinalPath: safeRelative(rootDir, shotDesignFinalPath),
         sourceTurnId: sourceTurnId ?? null,
         fileFingerprint,
+        dialogueFingerprint,
       },
       agent: {
         role: REVIEW_ROLE,
@@ -499,6 +538,55 @@ async function runDialogueReviewTurn({
   } finally {
     await handlers.threadPool.releaseLease({ leaseId, ownerId }).catch(() => null);
   }
+}
+
+function canRunDialogueReviewTurn(handlers) {
+  if (handlers.activeTurnRuntime?.start && handlers.activeTurnRuntime?.collect) return true;
+  return Boolean(handlers.appServer?.runTurnWithInputs);
+}
+
+async function startAndCollectDialogueReviewTurn({
+  handlers,
+  workspaceRoot,
+  threadId,
+  skillPath,
+  inputs,
+  timeoutSeconds,
+  binding,
+  traceContext,
+}) {
+  if (handlers.activeTurnRuntime?.start && handlers.activeTurnRuntime?.collect) {
+    try {
+      const started = await handlers.activeTurnRuntime.start({
+        workspaceRoot,
+        threadId,
+        skillPath,
+        inputs,
+        timeoutSeconds,
+        binding,
+        enforceThreadId: true,
+      });
+      const turnId = started.turnId ?? started.turn?.id ?? null;
+      if (!turnId) return started;
+      return handlers.activeTurnRuntime.collect({
+        workspaceRoot,
+        threadId: started.threadId ?? threadId,
+        turnId,
+        timeoutSeconds,
+        traceContext,
+        skipOwnerHandler: true,
+      });
+    } catch (error) {
+      if (error?.code !== "appserver_turn_start_unavailable" || !handlers.appServer?.runTurnWithInputs) throw error;
+    }
+  }
+  return handlers.appServer.runTurnWithInputs({
+    workspaceRoot,
+    threadId,
+    skillPath,
+    inputs,
+    timeoutSeconds,
+  });
 }
 
 function parseReviewJson(value) {
@@ -565,7 +653,7 @@ function findLatestDialogueReviewSummary(conversation, shotDesignFinalPath) {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const review = messages[index]?.dialogueRoboticReview;
-    if (review?.fileFingerprint?.path === shotDesignFinalPath) return review;
+    if (review?.fileFingerprint?.path === shotDesignFinalPath || review?.dialogueFingerprint?.path === shotDesignFinalPath) return review;
   }
   return null;
 }
@@ -579,6 +667,69 @@ async function readFileFingerprint(filePath, rootDir) {
     mtimeMs: Math.trunc(stat.mtimeMs),
     sha256: createHash("sha256").update(content).digest("hex"),
   };
+}
+
+async function readDialogueFingerprint(filePath, rootDir) {
+  const content = await fs.readFile(filePath, "utf8");
+  const entries = extractDialogueEntries(content);
+  const normalized = entries.map((entry) => `${entry.shot}\t${entry.dialogue}`).join("\n");
+  return {
+    path: safeRelative(rootDir, filePath),
+    size: entries.length,
+    sha256: createHash("sha256").update(normalized).digest("hex"),
+    entryCount: entries.length,
+    nonEmptyCount: entries.filter((entry) => entry.dialogue && entry.dialogue !== "无").length,
+  };
+}
+
+function extractDialogueEntries(markdown) {
+  const lines = String(markdown ?? "").split(/\r?\n/);
+  const entries = [];
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    if (!isMarkdownTableLine(lines[index]) || !isMarkdownSeparatorLine(lines[index + 1])) continue;
+    const headers = splitMarkdownRow(lines[index]).map(normalizeTableCell);
+    const dialogueIndex = headers.findIndex(isDialogueHeader);
+    if (dialogueIndex < 0) continue;
+    const shotIndex = headers.findIndex((header) => header === "shot" || header.includes("镜头"));
+    index += 2;
+    for (; index < lines.length && isMarkdownTableLine(lines[index]); index += 1) {
+      const cells = splitMarkdownRow(lines[index]);
+      const dialogue = normalizeDialogueCell(cells[dialogueIndex]);
+      entries.push({
+        shot: normalizeTableCell(cells[shotIndex]) || `row_${entries.length + 1}`,
+        dialogue,
+      });
+    }
+    index -= 1;
+  }
+  return entries;
+}
+
+function isMarkdownTableLine(line) {
+  return /^\s*\|.*\|\s*$/.test(String(line ?? ""));
+}
+
+function isMarkdownSeparatorLine(line) {
+  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(String(line ?? ""));
+}
+
+function splitMarkdownRow(line) {
+  return String(line ?? "").trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+}
+
+function isDialogueHeader(value) {
+  return /台词|字幕|旁白|屏幕文字|口播/i.test(String(value ?? ""));
+}
+
+function normalizeTableCell(value) {
+  return String(value ?? "").replace(/<br\s*\/?>/gi, "\n").replace(/\s+/g, " ").trim();
+}
+
+function normalizeDialogueCell(value) {
+  return normalizeTableCell(value)
+    .replace(/^[-–—]+$/, "")
+    .replace(/^无(?:新增)?(?:台词|字幕|口播|旁白)?$/i, "无")
+    .trim();
 }
 
 function fingerprintsEqual(left, right) {
@@ -611,6 +762,22 @@ function extractShotDesignFinalPath(finalMessage) {
   if (artifactPath?.[1]) return artifactPath[1];
   const absolutePath = text.match(/([A-Za-z]:[\\/][^\n`)]*?shot-design\.final\.md)/i);
   return absolutePath?.[1] ?? null;
+}
+
+function extractGeneratedShotDesignFinalPath(finalMessage) {
+  const text = String(finalMessage ?? "");
+  const saved = text.match(/保存路径[：:]\s*`([^`]+shot-design\.final\.md)`/i);
+  if (saved?.[1]) return saved[1];
+  if (!/(已生成|生成并落盘|已写入|写入|已保存|保存|落盘|更新|已更新|改写|已改写|返工后|重新生成|完成 Shot 设计|Shot 设计已完成)/i.test(text)) return null;
+  return extractShotDesignFinalPath(text);
+}
+
+async function isCurrentTurnFileOutput(filePath, activeBinding) {
+  const createdAtMs = Date.parse(activeBinding?.createdAt ?? "");
+  if (!Number.isFinite(createdAtMs)) return true;
+  const stat = await fs.stat(filePath).catch(() => null);
+  if (!stat) return true;
+  return stat.mtimeMs + 1000 >= createdAtMs;
 }
 
 function normalizeRelativeArtifactPath(value, rootDir) {

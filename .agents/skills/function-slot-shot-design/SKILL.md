@@ -22,7 +22,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 无原素材口播/字幕的镜头，默认不新写台词或字幕。只有用户在发起 Shot 设计前明确说明“无台词镜头也可以写/需要补字幕/需要补口播”，或在上一轮最终摘要询问后明确回复要写，才允许为无台词素材镜头新增后期字幕、屏幕文字或旁白。新增内容必须标明为“后期字幕/包装层/旁白”，不得伪装成原素材人物口播；新增后该 shot 的策略应使用 `existing_material_packaging_caption`、`self_designed_by_shot_design` 或合适的兜底策略，而不是继续标为纯 `existing_material`。
 
-只要本轮 ShotDesign 新写了任何台词、后期字幕、屏幕文字或旁白，完成后必须把 `shot-design.final.md` 交给 `function-slot-dialogue-robotic-reviewer` 做台词自然度终审。若 reviewer 返回 `rework`，先按最小方向回修台词，再复审；最终聊天回复必须说明 review 结果。若全片没有可审台词，review 可返回 `blocked`，但必须说明是因为没有新增或可审查台词。
+只要本轮 ShotDesign 新写了任何台词、后期字幕、屏幕文字或旁白，最终聊天回复必须说明“本轮包含新增台词/字幕，等待平台侧外部质检”。ShotDesign 不持有、不调用、也不提及任何台词审查 role；如平台或用户之后返回台词质检结果，再按结果做最小返工。
 
 不要在这里重新选择 slotSubtype、slotArchetype、atoms、adapter 或 FunctionSlotLibrary evidence。若发现前序结构无法落地，只在聊天中指出阻塞项并要求回到 `function-slot-restructure` 修正，不要在 Shot 文件里偷偷改核心方案，也不要把校验、风险与修复建议写进 `shot-design.final.md`。
 
@@ -65,5 +65,5 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 8. **落独立文件并检查**
    在同一个重组目录下写入 `shot-design.final.md`，然后按 `references/output-contract.md` 的质量检查逐项自查。最终聊天回复也遵守该 reference。
 
-9. **台词自然度 review**
-   如果本轮写入了任何非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，调用 `function-slot-dialogue-robotic-reviewer` 审查 `shot-design.final.md`。通过后再回复用户；未通过时先按 reviewer 的最小方向回修并复审，不要把未审或未通过的新台词当作最终交付。
+9. **台词状态声明**
+   如果本轮写入了任何非原素材逐字来源的台词、后期字幕、屏幕文字或旁白，只在最终回复中声明“本轮包含新增台词/字幕，等待平台侧外部质检”。不要在 ShotDesign 内调用其他审查 role，不要在 `shot-design.final.md` 中写质检过程、质检结论或整版风险表。

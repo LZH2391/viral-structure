@@ -862,6 +862,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         traceContext,
         conversationId,
         url,
+        activeBinding,
       });
       if (autoDialogueRoboticReview) payload.autoDialogueRoboticReview = autoDialogueRoboticReview;
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);

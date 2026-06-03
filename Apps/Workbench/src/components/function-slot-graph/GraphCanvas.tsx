@@ -466,6 +466,7 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
         <span><i className="legend-plan" />Confirmed plan</span>
         <span><i className="legend-subtype" />Subtype</span>
         <span><i className="legend-source-variant" />SourceVariantAtom</span>
+        <span><i className="legend-source-sample" />SourceSample</span>
       </div>
     );
   }

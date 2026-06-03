@@ -199,6 +199,11 @@
   border: 1px solid rgba(196, 203, 237, 0.82);
 }
 
+.legend-source-sample {
+  background: #05070c;
+  border: 1px solid rgba(244, 246, 255, 0.94);
+}
+
 .slot-graph-bg circle {
   fill: rgba(255, 255, 255, 0.08);
 }
@@ -300,6 +305,12 @@
   stroke: rgba(178, 205, 255, 0.68);
   stroke-width: 1.9;
   stroke-dasharray: none;
+}
+
+.slot-graph-canvas.plan-trace .slot-graph-edge.edge-source_variant_to_sample {
+  stroke: rgba(235, 240, 255, 0.56);
+  stroke-width: 1.7;
+  stroke-dasharray: 5 6;
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-edge.focused {

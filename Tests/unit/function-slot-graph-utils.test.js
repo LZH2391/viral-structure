@@ -70,7 +70,7 @@ test("governance graph does not project hidden atom archetype paths into subtype
   assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
 });
 
-test("confirmed plan trace graph shows plan to subtype to source variant only", () => {
+test("confirmed plan trace graph shows plan to subtype to source variant to source sample", () => {
   const { buildVisibleGraph, reverseTracePath } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();
   const graph = {
@@ -98,9 +98,10 @@ test("confirmed plan trace graph shows plan to subtype to source variant only", 
   assert.ok(visible.nodes.some((node) => node.type === "slotSubtype"));
   assert.equal(visible.nodes.some((node) => node.type === "sourceExample"), false);
   assert.ok(visible.nodes.some((node) => node.type === "sourceVariant"));
-  assert.equal(visible.nodes.some((node) => node.type === "sourceSample"), false);
+  assert.ok(visible.nodes.some((node) => node.type === "sourceSample"));
   assert.equal(visible.edges.some((edge) => edge.type === "traced_to_source_sample"), false);
   assert.ok(visible.edges.some((edge) => edge.type === "traced_to_source_variant"));
+  assert.ok(visible.edges.some((edge) => edge.type === "source_variant_to_sample"));
   const path = reverseTracePath("plan_a:variant:sample_1:F001", visible.edges);
   assert.ok(path.nodes.has("plan_a:plan"));
   assert.ok(path.nodes.has("slotSubtype:s1"));
@@ -108,7 +109,7 @@ test("confirmed plan trace graph shows plan to subtype to source variant only", 
   assert.ok(path.edges.has("edge:variant"));
 });
 
-test("confirmed plan trace positions use three provenance levels", () => {
+test("confirmed plan trace positions keep source samples outside source variants", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();
   const graph = {
@@ -118,10 +119,12 @@ test("confirmed plan trace positions use three provenance levels", () => {
       { id: "plan:root", type: "confirmedPlan", label: "plan", group: "plan", data: {} },
       { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: {} },
       { id: "variant:v1", type: "sourceVariant", label: "source label", group: "sourceVariant", data: { label: "source label" } },
+      { id: "sample:s1", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_1" } },
     ],
     edges: [
       { id: "e1", source: "plan:root", target: "subtype:s1", type: "plan_uses_slot_subtype" },
       { id: "e2", source: "subtype:s1", target: "variant:v1", type: "traced_to_source_variant" },
+      { id: "e3", source: "variant:v1", target: "sample:s1", type: "source_variant_to_sample" },
     ],
     summary: { planCount: 1, slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 5 },
   };
@@ -135,6 +138,7 @@ test("confirmed plan trace positions use three provenance levels", () => {
   };
 
   assert.ok(distance("subtype:s1") < distance("variant:v1"));
+  assert.ok(distance("variant:v1") < distance("sample:s1"));
 });
 
 test("governance radial layout keeps root centered and keeps first layer inside its sector", () => {

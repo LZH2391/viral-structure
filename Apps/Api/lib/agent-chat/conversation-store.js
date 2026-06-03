@@ -617,6 +617,7 @@ function normalizeDialogueRoboticReview(value) {
     turnId: value.turnId ? String(value.turnId) : null,
     promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
     fileFingerprint: normalizeFileFingerprint(value.fileFingerprint),
+    dialogueFingerprint: normalizeDialogueFingerprint(value.dialogueFingerprint),
   };
 }
 
@@ -670,6 +671,17 @@ function normalizeAtomSummary(value) {
     rhythmAtom: limitText(value.rhythmAtom),
     packagingAtom: limitText(value.packagingAtom),
     handling: limitText(value.handling),
+  };
+}
+
+function normalizeDialogueFingerprint(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    path: normalizePathText(value.path),
+    size: normalizeCount(value.size),
+    sha256: value.sha256 ? String(value.sha256) : null,
+    entryCount: normalizeCount(value.entryCount),
+    nonEmptyCount: normalizeCount(value.nonEmptyCount),
   };
 }
 

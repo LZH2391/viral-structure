@@ -257,11 +257,11 @@ test("display overlay traces confirmed plan slots to source samples and variants
   assert.ok(traceGraph.nodes.some((node) => node.type === "slotSubtype" && node.label === "场景问题激活"));
   assert.equal(traceGraph.nodes.some((node) => node.type === "atomLayer"), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "atomArchetype"), false);
-  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceSample"), false);
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceSample" && node.data.sampleVideoId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"));
   assert.equal(traceGraph.nodes.some((node) => node.type === "atomPattern"), false);
   assert.ok(traceGraph.edges.some((edge) => edge.type === "plan_uses_slot_subtype"));
   assert.ok(traceGraph.edges.some((edge) => edge.type === "traced_to_source_variant"));
-  assert.equal(traceGraph.edges.some((edge) => edge.type === "source_variant_to_sample"), false);
+  assert.ok(traceGraph.edges.some((edge) => edge.type === "source_variant_to_sample"));
   assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
 });
 

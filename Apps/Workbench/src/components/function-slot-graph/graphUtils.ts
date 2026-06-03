@@ -582,7 +582,8 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "tracedSlot") return filters.slot;
   if (node.type === "slotSubtype") return filters.slotSubtype;
   if (node.type === "sourceVariant") return filters.sourceVariant;
-  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern" || node.type === "sourceSample") return false;
+  if (node.type === "sourceSample") return true;
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern") return false;
   if (node.type === "sourceExample") return false;
   return true;
 }
@@ -612,6 +613,7 @@ function buildPlanTracePositions(graph: FunctionSlotLibraryGraph) {
     levels: [
       { types: ["slotSubtype"], radius: 360 },
       { types: ["sourceVariant"], radius: 760 },
+      { types: ["sourceSample"], radius: 1040 },
     ],
   });
 }
@@ -638,6 +640,7 @@ const PLAN_TRACE_COLUMN_LEVELS = [
   { types: ["confirmedPlan"], spacing: 260 },
   { types: ["slotSubtype"], spacing: 112 },
   { types: ["sourceVariant"], spacing: 46 },
+  { types: ["sourceSample"], spacing: 54 },
 ];
 
 function planTraceColumnSort(

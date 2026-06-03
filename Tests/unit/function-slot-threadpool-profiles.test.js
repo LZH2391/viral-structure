@@ -140,6 +140,20 @@ test("function slot placeholder role profiles load init and task prompts", async
   }
 });
 
+test("shot design skill does not expose dialogue reviewer role identity", () => {
+  const root = path.resolve(__dirname, "../..");
+  const shotDesignSkillDir = path.join(root, ".agents", "skills", "function-slot-shot-design");
+  const files = [
+    path.join(shotDesignSkillDir, "SKILL.md"),
+    path.join(shotDesignSkillDir, "references", "output-contract.md"),
+    path.join(shotDesignSkillDir, "references", "dialogue-and-packaging.md"),
+  ];
+  const content = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+
+  assert.doesNotMatch(content, /function-slot-dialogue-robotic-reviewer/);
+  assert.doesNotMatch(content, /dialogue-robotic-reviewer/);
+});
+
 function defaultTemplateValues(role) {
   if (role === "function-slot-library-builder") {
     return {
