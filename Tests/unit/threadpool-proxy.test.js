@@ -154,7 +154,7 @@ test("threadpool proxy backfills ctx usage from persisted token usage cache", as
 
   const status = await proxy.roleStatus("shot-boundary-transformer");
   assert.equal(status.threads[0].latest_input_tokens, 888);
-  assert.equal(status.threads[0].threshold_input_tokens, 206720);
+  assert.equal(status.threads[0].threshold_input_tokens, 25840);
 });
 
 test("threadpool proxy reads ctx usage from role workspace runtime", async () => {
@@ -197,7 +197,7 @@ test("threadpool proxy reads ctx usage from role workspace runtime", async () =>
 
   assert.equal(status.workspaceRoot, roleWorkspace);
   assert.equal(status.threads[0].latest_input_tokens, 4321);
-  assert.equal(status.threads[0].threshold_input_tokens, 8000);
+  assert.equal(status.threads[0].threshold_input_tokens, 1000);
 });
 
 test("threadpool proxy passes role workspace to readThread fallback", async () => {
@@ -236,7 +236,7 @@ test("threadpool proxy passes role workspace to readThread fallback", async () =
   const status = await proxy.roleStatus("shot-boundary-raw-analyzer");
 
   assert.equal(status.threads[0].latest_input_tokens, 999);
-  assert.equal(status.threads[0].threshold_input_tokens, 4000);
+  assert.equal(status.threads[0].threshold_input_tokens, 500);
   assert.deepEqual(calls, [{
     threadId: "thread_raw",
     options: { workspaceRoot: "C:\\ExternalWorkspace", role: "shot-boundary-raw-analyzer" },

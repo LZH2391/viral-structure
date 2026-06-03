@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const THREAD_INPUT_TOKEN_CACHE_TTL_MS = 5000;
-const THREAD_CONTEXT_THRESHOLD_RATIO = 0.8;
+const THREAD_CONTEXT_THRESHOLD_RATIO = 0.1;
 
 async function hydrateRoleStatusContext(payload, {
   readThreadImpl,

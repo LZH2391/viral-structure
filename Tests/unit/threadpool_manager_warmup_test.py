@@ -489,7 +489,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             self.assertEqual(leased.discard_reason, "test-refresh")
             self.assertEqual(scheduled_roles, ["shot-boundary-transformer"])
 
-    def test_force_update_seeds_keeps_used_restructure_threads_when_release_persistent(self) -> None:
+    def test_force_update_seeds_keeps_used_threads_when_release_persistent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -498,7 +498,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
                 {
                   "thread_pool": { "discard_on_release": true },
                   "roles": {
-                    "function-slot-restructure": {
+                    "persistent-role": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready",
@@ -519,11 +519,11 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             configure_started_manager(manager)
             scheduled_roles: list[str] = []
             manager._schedule_ensure_min_idle = lambda role_name: scheduled_roles.append(role_name)
-            config = manager.roles["function-slot-restructure"]
+            config = manager.roles["persistent-role"]
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="seed_thread_1",
-                    role="function-slot-restructure",
+                    role="persistent-role",
                     status="idle",
                     is_seed=True,
                     init_fingerprint=manager._role_init_fingerprint(config),
@@ -535,7 +535,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="restructure_used_thread_1",
-                    role="function-slot-restructure",
+                    role="persistent-role",
                     status="idle",
                     is_seed=False,
                     lease_count=1,
@@ -548,7 +548,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             manager.store.write_thread(
                 ThreadRecord(
                     thread_id="restructure_unused_thread_1",
-                    role="function-slot-restructure",
+                    role="persistent-role",
                     status="idle",
                     is_seed=False,
                     init_fingerprint=manager._role_init_fingerprint(config),
@@ -558,7 +558,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
                 )
             )
 
-            result = manager.force_update_seeds(reason="test-refresh", roles=["function-slot-restructure"])
+            result = manager.force_update_seeds(reason="test-refresh", roles=["persistent-role"])
             used = manager.store.read_thread("restructure_used_thread_1")
             manager.close()
 
@@ -568,7 +568,7 @@ class ThreadPoolManagerWarmupTests(unittest.TestCase):
             self.assertEqual(used.status, "idle")
             self.assertIsNone(manager.store.read_thread("seed_thread_1"))
             self.assertIsNone(manager.store.read_thread("restructure_unused_thread_1"))
-            self.assertEqual(scheduled_roles, ["function-slot-restructure"])
+            self.assertEqual(scheduled_roles, ["persistent-role"])
 
     def test_force_update_seeds_invalidates_inflight_startup_recovery_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

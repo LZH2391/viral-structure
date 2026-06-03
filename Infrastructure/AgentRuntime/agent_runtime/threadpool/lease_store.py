@@ -73,7 +73,10 @@ class ThreadPoolLeaseStoreMixin:
                 if self._discard_on_release_for_role(thread.role) and self._thread_has_been_leased(thread):
                     if not self._recovery_generation_is_active(recovery_generation):
                         return False
-                    self.store.delete_thread(thread.thread_id)
+                    if self._thread_is_usable_for_recovery(thread):
+                        self.store.write_thread(self._retire_thread_for_conversation(thread))
+                    else:
+                        self.store.delete_thread(thread.thread_id)
                     continue
                 if config is not None and not self._matches_thread_fingerprint(thread, config):
                     if not self._recovery_generation_is_active(recovery_generation):
@@ -120,10 +123,14 @@ class ThreadPoolLeaseStoreMixin:
             changed = True
             if thread is None:
                 continue
-            if discard_on_release or thread.retire_on_release:
+            if thread.retire_on_release:
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
                 self.store.delete_thread(thread.thread_id)
+            elif discard_on_release:
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
+                self.store.write_thread(self._retire_thread_for_conversation(thread, now=released_at))
             elif self._thread_is_usable_for_recovery(thread):
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
@@ -163,10 +170,14 @@ class ThreadPoolLeaseStoreMixin:
                 continue
             recovered_at = _now()
             changed = True
-            if self._discard_on_release_for_role(thread.role) or thread.retire_on_release:
+            if thread.retire_on_release:
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
                 self.store.delete_thread(thread.thread_id)
+            elif self._discard_on_release_for_role(thread.role):
+                if not self._recovery_generation_is_active(recovery_generation):
+                    return False
+                self.store.write_thread(self._retire_thread_for_conversation(thread, now=recovered_at))
             elif self._thread_is_usable_for_recovery(thread):
                 if not self._recovery_generation_is_active(recovery_generation):
                     return False
@@ -216,6 +227,19 @@ class ThreadPoolLeaseStoreMixin:
             return True
         return any(lease.thread_id == thread.thread_id for lease in self.store.list_leases().values())
 
+    @staticmethod
+    def _retire_thread_for_conversation(thread: ThreadRecord, *, now: str | None = None) -> ThreadRecord:
+        retained_at = now or _now()
+        return thread.model_copy(
+            update={
+                "status": "retired",
+                "lease_id": None,
+                "retire_on_release": False,
+                "updated_at": retained_at,
+                "last_validated_at": retained_at,
+            }
+        )
+
     def _prune_inactive_leases(self, *, keep: int = MAX_INACTIVE_LEASE_RECORDS) -> None:
         inactive = [lease for lease in self.store.list_leases().values() if lease.status != "active"]
         excess = len(inactive) - max(0, int(keep))
@@ -240,12 +264,11 @@ class ThreadPoolLeaseStoreMixin:
         if thread is not None:
             if thread.is_seed:
                 raise ValueError(f"seed thread cannot be leased: {thread.thread_id}")
-            if (
-                self._discard_on_release_for_role(thread.role)
-                or thread.retire_on_release
-                or not self._client_for_thread(thread).validate_thread(thread.thread_id)
-            ):
+            if thread.retire_on_release or not self._client_for_thread(thread).validate_thread(thread.thread_id):
                 self.store.delete_thread(thread.thread_id)
+            elif self._discard_on_release_for_role(thread.role):
+                thread = self._retire_thread_for_conversation(thread, now=now)
+                returned_status = "retired"
             else:
                 thread = thread.model_copy(
                     update={
@@ -257,7 +280,7 @@ class ThreadPoolLeaseStoreMixin:
                     }
                 )
                 returned_status = "idle"
-            if returned_status == "idle":
+            if returned_status in {"idle", "retired"}:
                 self.store.write_thread(thread)
             self._schedule_ensure_min_idle(thread.role)
         self._write_catalog()

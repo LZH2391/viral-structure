@@ -207,7 +207,7 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             self.assertEqual(status["counts"]["idle"], 0)
             self.assertTrue(status["can_acquire"])
 
-    def test_discard_on_release_deletes_thread_during_same_service_lifetime(self) -> None:
+    def test_discard_on_release_retires_thread_during_same_service_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -256,11 +256,13 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             second_lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_2")
             manager.close()
 
-            self.assertEqual(first_release["thread_status"], "deleted")
-            self.assertIsNone(released_thread)
+            self.assertEqual(first_release["thread_status"], "retired")
+            self.assertIsNotNone(released_thread)
+            self.assertEqual(released_thread.status, "retired")
+            self.assertIsNone(released_thread.lease_id)
             self.assertNotEqual(second_lease["thread_id"], "idle_thread_1")
 
-    def test_discard_on_release_drops_used_idle_threads_during_recovery(self) -> None:
+    def test_discard_on_release_retires_used_idle_threads_during_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -290,11 +292,14 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             manager.store.write_thread(build_idle_thread(manager, "used_thread_1", lease_count=1))
 
             manager._recover_state()
+            thread = manager.store.read_thread("used_thread_1")
             manager.close()
 
-            self.assertIsNone(manager.store.read_thread("used_thread_1"))
+            self.assertIsNotNone(thread)
+            self.assertEqual(thread.status, "retired")
+            self.assertIsNone(thread.lease_id)
 
-    def test_role_discard_on_release_false_keeps_used_restructure_thread_during_recovery(self) -> None:
+    def test_acquire_skips_used_idle_thread_when_discard_on_release_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -303,7 +308,60 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
                 {
                   "thread_pool": { "discard_on_release": true },
                   "roles": {
-                    "function-slot-restructure": {
+                    "shot-boundary-transformer": {
+                      "min_idle": 1,
+                      "init_prompt": "ready",
+                      "init_ready_text": "ready"
+                    }
+                  }
+                }
+                """,
+                encoding="utf-8",
+            )
+            client = ReusableThreadClient()
+            manager = ThreadPoolManager(
+                workspace_root=root,
+                config_path=config_path,
+                state_root=root / "state",
+                client=client,
+                async_warmup=True,
+            )
+            configure_started_manager(manager)
+            config = manager.roles["shot-boundary-transformer"]
+            manager.store.write_thread(
+                ThreadRecord(
+                    thread_id="seed_thread_1",
+                    role="shot-boundary-transformer",
+                    status="idle",
+                    is_seed=True,
+                    init_fingerprint=manager._role_init_fingerprint(config),
+                    created_at=fresh_timestamp(),
+                    updated_at=fresh_timestamp(),
+                    last_validated_at=fresh_timestamp(),
+                )
+            )
+            manager.store.write_thread(build_idle_thread(manager, "used_thread_1", lease_count=1))
+            manager._write_catalog()
+
+            lease = manager.acquire(role="shot-boundary-transformer", owner_id="trace_1")
+            retained = manager.store.read_thread("used_thread_1")
+            manager.close()
+
+            self.assertIsNotNone(retained)
+            self.assertEqual(retained.status, "retired")
+            self.assertEqual(lease["thread_id"], "fork_1")
+            self.assertEqual(client.fork_calls, 1)
+
+    def test_role_discard_on_release_false_keeps_used_thread_during_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "thread_roles.json"
+            config_path.write_text(
+                """
+                {
+                  "thread_pool": { "discard_on_release": true },
+                  "roles": {
+                    "persistent-role": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready",
@@ -322,11 +380,11 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
                 async_warmup=True,
             )
             configure_started_manager(manager)
-            config = manager.roles["function-slot-restructure"]
+            config = manager.roles["persistent-role"]
             manager.store.write_thread(
                 ThreadRecord(
-                    thread_id="restructure_thread_1",
-                    role="function-slot-restructure",
+                    thread_id="persistent_thread_1",
+                    role="persistent-role",
                     status="idle",
                     is_seed=False,
                     lease_count=1,
@@ -338,13 +396,13 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             )
 
             manager._recover_state()
-            thread = manager.store.read_thread("restructure_thread_1")
+            thread = manager.store.read_thread("persistent_thread_1")
             manager.close()
 
             self.assertIsNotNone(thread)
             self.assertEqual(thread.status, "idle")
 
-    def test_role_discard_on_release_false_recovers_leased_restructure_thread_without_active_lease(self) -> None:
+    def test_role_discard_on_release_false_recovers_leased_thread_without_active_lease(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -353,7 +411,7 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
                 {
                   "thread_pool": { "discard_on_release": true },
                   "roles": {
-                    "function-slot-restructure": {
+                    "persistent-role": {
                       "min_idle": 1,
                       "init_prompt": "ready",
                       "init_ready_text": "ready",
@@ -372,11 +430,11 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
                 async_warmup=True,
             )
             configure_started_manager(manager)
-            config = manager.roles["function-slot-restructure"]
+            config = manager.roles["persistent-role"]
             manager.store.write_thread(
                 ThreadRecord(
-                    thread_id="restructure_leased_thread_1",
-                    role="function-slot-restructure",
+                    thread_id="persistent_leased_thread_1",
+                    role="persistent-role",
                     status="leased",
                     is_seed=False,
                     lease_id="missing_lease_1",
@@ -389,7 +447,7 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             )
 
             manager._recover_state()
-            thread = manager.store.read_thread("restructure_leased_thread_1")
+            thread = manager.store.read_thread("persistent_leased_thread_1")
             manager.close()
 
             self.assertIsNotNone(thread)
@@ -451,13 +509,16 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
 
             manager._recover_state()
             lease = manager.store.read_lease("lease_1")
+            thread = manager.store.read_thread("leased_thread_1")
             manager.close()
 
             self.assertIsNotNone(lease)
             self.assertEqual(lease.status, "released")
-            self.assertIsNone(manager.store.read_thread("leased_thread_1"))
+            self.assertIsNotNone(thread)
+            self.assertEqual(thread.status, "retired")
+            self.assertIsNone(thread.lease_id)
 
-    def test_recovery_drops_leased_thread_without_active_lease(self) -> None:
+    def test_recovery_retires_leased_thread_without_active_lease(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config_path = root / "thread_roles.json"
@@ -512,9 +573,12 @@ class ThreadPoolManagerRecoveryTests(unittest.TestCase):
             )
 
             manager._recover_state()
+            thread = manager.store.read_thread("stale_leased_thread_1")
             manager.close()
 
-            self.assertIsNone(manager.store.read_thread("stale_leased_thread_1"))
+            self.assertIsNotNone(thread)
+            self.assertEqual(thread.status, "retired")
+            self.assertIsNone(thread.lease_id)
 
     def test_recovery_drops_idle_threads_that_exist_but_cannot_be_resumed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

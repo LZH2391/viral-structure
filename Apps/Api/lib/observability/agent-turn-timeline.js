@@ -1,6 +1,6 @@
 const TEXT_PREVIEW_LIMIT = 240;
 const LONG_TEXT_PREVIEW_LIMIT = 600;
-const CONTEXT_THRESHOLD_RATIO = 0.8;
+const CONTEXT_THRESHOLD_RATIO = 0.1;
 const CONTEXT_WARNING_RATIO = 0.65;
 
 function summarizeAgentTurnTimeline(thread, turnId) {

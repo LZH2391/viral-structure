@@ -30,6 +30,12 @@ class ThreadPoolSeedPoolMixin:
             key=lambda record: record.created_at,
         )
         for thread in threads:
+            if self._discard_on_release_for_role(thread.role) and self._thread_has_been_leased(thread):
+                if self._thread_is_usable_for_recovery(thread):
+                    self.store.write_thread(self._retire_thread_for_conversation(thread))
+                else:
+                    self.store.delete_thread(thread.thread_id)
+                continue
             if not self._matches_thread_fingerprint(thread, config):
                 self.store.delete_thread(thread.thread_id)
                 continue
