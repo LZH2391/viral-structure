@@ -31,6 +31,47 @@ async function readRestructureFinalFingerprint(filePath, rootDir) {
   };
 }
 
+async function hydrateConversationSlotAtomDisplays(conversation, { rootDir } = {}) {
+  if (!conversation || !rootDir || !Array.isArray(conversation.messages)) return conversation;
+  const messages = await Promise.all(conversation.messages.map(async (message) => {
+    const hydratedDisplay = await hydrateSlotAtomDisplay(message?.slotAtomDisplay, { rootDir });
+    return hydratedDisplay === message?.slotAtomDisplay ? message : { ...message, slotAtomDisplay: hydratedDisplay };
+  }));
+  return { ...conversation, messages };
+}
+
+async function hydrateSlotAtomDisplay(display, { rootDir } = {}) {
+  if (!shouldHydrateSlotAtomDisplay(display) || !rootDir) return display;
+  const displayJsonPath = resolveWorkspacePath(rootDir, display.displayJsonPath);
+  if (!displayJsonPath) return display;
+  try {
+    const content = await fs.readFile(displayJsonPath, "utf8");
+    const displayJson = JSON.parse(content);
+    const summary = buildSlotAtomDisplaySummary(displayJson, {
+      displayJsonPath: safeRelative(rootDir, displayJsonPath),
+      fileFingerprint: display.fileFingerprint ?? null,
+    });
+    return summary.status === "available" ? summary : display;
+  } catch {
+    return display;
+  }
+}
+
+function shouldHydrateSlotAtomDisplay(display) {
+  if (!display || typeof display !== "object") return false;
+  if (!display.displayJsonPath) return false;
+  const slots = Array.isArray(display.slots) ? display.slots : [];
+  return slots.length === 0 || Number(display.slotCount ?? 0) === 0;
+}
+
+function resolveWorkspacePath(rootDir, relativePath) {
+  const text = String(relativePath ?? "").trim();
+  if (!text) return null;
+  const resolved = path.resolve(rootDir, text);
+  const root = path.resolve(rootDir);
+  return resolved === root || resolved.startsWith(`${root}${path.sep}`) ? resolved : null;
+}
+
 function fingerprintsEqual(left, right) {
   if (!left || !right) return false;
   return left.path === right.path
@@ -102,7 +143,7 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
   const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
   const slots = slotRows.map((row, index) => {
     const slotSubtype = rowValue(row, ["slotSubtype", "槽位", "slot subtype"]);
-    const archetype = rowValue(row, ["parent archetype", "archetype"]);
+    const archetype = rowValue(row, ["parent archetype", "slotArchetype", "slot archetype", "archetype"]);
     return {
       index: numberOrFallback(rowValue(row, ["顺序", "序号"]), index + 1),
       demand: rowValue(row, ["需求"]),
@@ -149,13 +190,18 @@ function tableRowsAfterHeading(section, headingNeedle) {
   const normalizedNeedle = normalizeKey(headingNeedle);
   let matchedHeading = false;
   for (const item of section?.items ?? []) {
-    if (item?.type === "heading" && normalizeKey(item.text).includes(normalizedNeedle)) {
+    if (isDisplayHeadingItem(item) && normalizeKey(item.text).includes(normalizedNeedle)) {
       matchedHeading = true;
       continue;
     }
     if (matchedHeading && item?.type === "table" && Array.isArray(item.rows)) return item.rows;
   }
   return [];
+}
+
+function isDisplayHeadingItem(item) {
+  if (item?.type === "heading") return true;
+  return item?.type === "paragraph" && /^#{1,6}\s+/.test(String(item.text ?? "").trim());
 }
 
 function rowValue(row, keys) {
@@ -213,6 +259,8 @@ module.exports = {
   findLatestDisplayFingerprint,
   findLatestRestructureFinalPath,
   fingerprintsEqual,
+  hydrateConversationSlotAtomDisplays,
+  hydrateSlotAtomDisplay,
   isCompleted,
   normalizeFinalMarkdown,
   normalizeText,

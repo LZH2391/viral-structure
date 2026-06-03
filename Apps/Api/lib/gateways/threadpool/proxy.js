@@ -27,6 +27,7 @@ function createThreadPoolProxy({
   leaseAcquireTimeoutMs = DEFAULT_LEASE_ACQUIRE_TIMEOUT_MS,
   readThreadImpl = null,
   threadTokenUsagePath = THREAD_TOKEN_USAGE_PATH,
+  codexRolloutReader = null,
 } = {}) {
   const normalizedBaseUrl = String(baseUrl || DEFAULT_THREADPOOL_URL).replace(/\/+$/, "");
   const allowedRoleSet = new Set((allowedRoles?.length ? allowedRoles : DEFAULT_ALLOWED_ROLES).map(String));
@@ -61,6 +62,7 @@ function createThreadPoolProxy({
     if (!payload.ok) return payload;
     return sanitizeRoleStatus(await hydrateRoleStatusContext(payload, {
       readThreadImpl,
+      codexRolloutReader,
       threadInputTokenCache,
       threadTokenUsageCache,
       threadTokenUsagePath,

@@ -4,6 +4,7 @@ const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { summarizeThreadConversation } = require("../observability/thread-conversation");
 const { summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
+const { findTurn: findRolloutTurn, mergeThreadWithRollout, mergeTurnItems } = require("../observability/codex-rollout-reader");
 
 async function handleThreadPoolRead(res, scope, action, handlers = {}) {
   const traceContext = createTraceContext(createTraceIds());
@@ -79,8 +80,12 @@ async function handleThreadConversation(res, threadId, handlers = {}) {
     }
     const resolvedThreadId = allowedThread.thread_id;
     const threadWorkspaceRoot = allowedThread.workspace_root ?? handlers.rootDir;
-    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId });
-    const conversation = summarizeThreadConversation(thread.thread ?? {});
+    const rollout = await handlers.codexRolloutReader?.readThread?.({ threadId: resolvedThreadId }).catch(() => null);
+    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId }).catch((error) => {
+      if (rollout?.thread) return { thread: rollout.thread, rolloutReadFallback: error };
+      throw error;
+    });
+    const conversation = summarizeThreadConversation(mergeThreadWithRollout(thread.thread ?? {}, rollout?.thread));
     await activeLogger.writeStageLog({
       traceContext,
       stageName: "threadPool.conversation.read",
@@ -147,8 +152,12 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
     }
     const resolvedThreadId = allowedThread.thread_id;
     const threadWorkspaceRoot = allowedThread.workspace_root ?? handlers.rootDir;
-    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId });
-    const threadPayload = thread.thread ?? {};
+    const rollout = await handlers.codexRolloutReader?.readThread?.({ threadId: resolvedThreadId, turnId }).catch(() => null);
+    const thread = await handlers.appServer.readThread({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId }).catch((error) => {
+      if (rollout?.thread) return { thread: rollout.thread, rolloutReadFallback: error };
+      throw error;
+    });
+    const threadPayload = mergeThreadWithRollout(thread.thread ?? {}, rollout?.thread);
     const turn = findTurn(threadPayload, turnId);
     let timeline = null;
     let source = "thread/read";
@@ -157,8 +166,11 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       try {
         const listed = await handlers.appServer.listTurnItems({ workspaceRoot: threadWorkspaceRoot, threadId: resolvedThreadId, turnId, limit: 500, sortDirection: "asc" });
         if (Array.isArray(listed?.items) && listed.items.length > 0) {
-          timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items: listed.items, turnId });
+          const rolloutTurn = findRolloutTurn(rollout?.thread, turnId);
+          const items = mergeTurnItems(listed.items, rolloutTurn?.items);
+          timeline = summarizeAgentTurnTimelineFromItems({ thread: threadPayload, turn, items, turnId });
           source = "thread/turns/items/list";
+          if (rolloutTurn?.items?.length) source = "thread/turns/items/list+codex-rollout";
         }
       } catch (error) {
         itemListFallback = {
@@ -168,6 +180,7 @@ async function handleThreadTurnTimeline(res, threadId, turnId, handlers = {}) {
       }
     }
     timeline = timeline ?? summarizeAgentTurnTimeline(threadPayload, turnId);
+    if (timeline && source === "thread/read" && rollout?.thread) source = "thread/read+codex-rollout";
     if (!timeline) {
       await activeLogger.writeStageLog({
         traceContext,

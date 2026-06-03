@@ -6,6 +6,7 @@ const THREAD_CONTEXT_THRESHOLD_RATIO = 0.1;
 
 async function hydrateRoleStatusContext(payload, {
   readThreadImpl,
+  codexRolloutReader,
   threadInputTokenCache,
   threadTokenUsageCache,
   threadTokenUsagePath,
@@ -35,13 +36,25 @@ async function hydrateRoleStatusContext(payload, {
       }
     }
     if (thread?.latest_input_tokens != null && thread?.threshold_input_tokens != null) return thread;
-    if (typeof readThreadImpl !== "function") return thread;
-    const threadSummary = await readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache, workspaceRoot: roleWorkspaceRoot, role });
-    if (thread?.latest_input_tokens == null && threadSummary.latestInputTokens != null) {
-      thread = { ...thread, latest_input_tokens: threadSummary.latestInputTokens };
+    if (typeof readThreadImpl === "function") {
+      const threadSummary = await readThreadUsageSummaryCached({ threadId, readThreadImpl, threadInputTokenCache, workspaceRoot: roleWorkspaceRoot, role });
+      if (thread?.latest_input_tokens == null && threadSummary.latestInputTokens != null) {
+        thread = { ...thread, latest_input_tokens: threadSummary.latestInputTokens };
+      }
+      if (thread?.threshold_input_tokens == null && threadSummary.modelContextWindow != null) {
+        const thresholdInputTokens = deriveThreadThresholdInputTokens(threadSummary.modelContextWindow);
+        if (thresholdInputTokens != null) {
+          thread = { ...thread, threshold_input_tokens: thresholdInputTokens };
+        }
+      }
     }
-    if (thread?.threshold_input_tokens == null && threadSummary.modelContextWindow != null) {
-      const thresholdInputTokens = deriveThreadThresholdInputTokens(threadSummary.modelContextWindow);
+    if (thread?.latest_input_tokens != null && thread?.threshold_input_tokens != null) return thread;
+    const rolloutSummary = await readRolloutUsageSummary({ threadId, codexRolloutReader });
+    if (thread?.latest_input_tokens == null && rolloutSummary.latestInputTokens != null) {
+      thread = { ...thread, latest_input_tokens: rolloutSummary.latestInputTokens };
+    }
+    if (thread?.threshold_input_tokens == null && rolloutSummary.modelContextWindow != null) {
+      const thresholdInputTokens = deriveThreadThresholdInputTokens(rolloutSummary.modelContextWindow);
       if (thresholdInputTokens != null) {
         thread = { ...thread, threshold_input_tokens: thresholdInputTokens };
       }
@@ -49,6 +62,16 @@ async function hydrateRoleStatusContext(payload, {
     return thread;
   }));
   return { ...payload, thread_entries: enrichedEntries };
+}
+
+async function readRolloutUsageSummary({ threadId, codexRolloutReader }) {
+  if (typeof codexRolloutReader?.readThread !== "function") return { latestInputTokens: null, modelContextWindow: null };
+  try {
+    const result = await codexRolloutReader.readThread({ threadId });
+    return extractThreadUsageSummary(result?.thread);
+  } catch {
+    return { latestInputTokens: null, modelContextWindow: null };
+  }
 }
 
 async function readThreadTokenUsageCached({ threadId, threadTokenUsageCache, threadTokenUsagePath }) {

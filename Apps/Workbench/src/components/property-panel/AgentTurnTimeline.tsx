@@ -229,6 +229,7 @@ function renderKind(kind: AgentTimelineItem["kind"]) {
     tool_call: "tool_call",
     tool_result: "tool_result",
     token_usage: "token_usage",
+    context_compacted: "compact",
     turn_status: "turn_status",
     unknown: "unknown",
   };

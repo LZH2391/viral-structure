@@ -94,6 +94,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         self._turn_errors: dict[str, Any] = {}
         self._turn_final_messages: dict[str, str] = {}
         self._turn_active_thread_messages: dict[str, str] = {}
+        self._turn_thread_ids: dict[str, str] = {}
         self._turn_activity_items: dict[str, list[dict[str, Any]]] = {}
         self._turn_completed_listeners: dict[int, Callable[[TurnCompletedEvent], None]] = {}
         self._thread_token_usage_listeners: dict[int, Callable[[ThreadTokenUsageEvent], None]] = {}
@@ -417,6 +418,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
             },
         )
         turn_id = str(response["turn"]["id"])
+        self._turn_thread_ids[turn_id] = str(thread_id)
         self._turn_completion_events.setdefault(turn_id, threading.Event())
         return turn_id
 
@@ -453,6 +455,7 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
             },
         )
         turn_id = str(response["turn"]["id"])
+        self._turn_thread_ids[turn_id] = str(thread_id)
         self._turn_completion_events.setdefault(turn_id, threading.Event())
         return turn_id
 
@@ -595,6 +598,54 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
         raw_turn_id = str(payload.get("turn_id") or payload.get("turnId") or params.get("turn_id") or params.get("turnId") or "")
         if raw_turn_id:
             self._latest_raw_rollout_turn_id = raw_turn_id
+        if method == "event_msg" and payload_type == "task_started":
+            turn_id = raw_turn_id
+            if not turn_id:
+                return
+            self._turn_statuses[turn_id] = "running"
+            model_context_window = payload.get("model_context_window") or payload.get("modelContextWindow")
+            if model_context_window is not None:
+                self._remember_turn_activity_item(turn_id, {
+                    "id": f"raw_task_started_{turn_id}",
+                    "type": "tokenUsage",
+                    "model_context_window": model_context_window,
+                })
+            return
+        if method == "event_msg" and payload_type == "token_count":
+            turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
+            if not turn_id:
+                return
+            info = payload.get("info") if isinstance(payload.get("info"), Mapping) else {}
+            token_usage = self._normalize_thread_token_usage({
+                "last": info.get("last_token_usage") or info.get("lastTokenUsage"),
+                "total": info.get("total_token_usage") or info.get("totalTokenUsage"),
+                "modelContextWindow": info.get("model_context_window") or info.get("modelContextWindow"),
+            })
+            if token_usage is None:
+                return
+            self._remember_turn_activity_item(turn_id, {
+                "id": f"raw_token_count_{turn_id}_{len(self._turn_activity_items.get(turn_id, []))}",
+                "type": "tokenUsage",
+                "last_token_usage": token_usage.get("last_token_usage"),
+                "total_token_usage": token_usage.get("total_token_usage"),
+                "model_context_window": token_usage.get("model_context_window"),
+            })
+            thread_id = self._turn_thread_ids.get(turn_id)
+            if thread_id:
+                self._upsert_thread_token_usage(thread_id, turn_id, token_usage)
+                self._notify_thread_token_usage(
+                    ThreadTokenUsageEvent(thread_id=thread_id, turn_id=turn_id, token_usage=dict(token_usage))
+                )
+            return
+        if method == "event_msg" and payload_type == "context_compacted":
+            turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
+            if turn_id:
+                self._remember_turn_activity_item(turn_id, {
+                    "id": f"raw_context_compacted_{turn_id}_{len(self._turn_activity_items.get(turn_id, []))}",
+                    "type": "contextCompacted",
+                    "text": "Context compacted",
+                })
+            return
         if method == "response_item" and payload_type == "message":
             turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
             if not turn_id:
@@ -612,6 +663,29 @@ class AppServerSessionClient(AppServerToolHandlerMixin, AppServerTokenUsageMixin
                     "role": "assistant",
                 })
                 self._maybe_notify_turn_completed(turn_id)
+            return
+        if method == "response_item" and payload_type in {"function_call", "custom_tool_call"}:
+            turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
+            if not turn_id:
+                return
+            self._remember_turn_activity_item(turn_id, {
+                "id": str(payload.get("id") or payload.get("call_id") or f"raw_tool_call_{turn_id}"),
+                "type": "toolCall",
+                "toolName": str(payload.get("name") or ""),
+                "arguments": payload.get("arguments") or payload.get("input"),
+                "callId": payload.get("call_id") or payload.get("callId"),
+            })
+            return
+        if method == "response_item" and payload_type in {"function_call_output", "custom_tool_call_output"}:
+            turn_id = raw_turn_id or self._latest_raw_rollout_turn_id or ""
+            if not turn_id:
+                return
+            self._remember_turn_activity_item(turn_id, {
+                "id": str(payload.get("id") or payload.get("call_id") or f"raw_tool_result_{turn_id}"),
+                "type": "toolResult",
+                "output": payload.get("output"),
+                "callId": payload.get("call_id") or payload.get("callId"),
+            })
             return
         if method == "event_msg" and payload_type == "task_complete":
             turn_id = raw_turn_id

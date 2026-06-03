@@ -231,7 +231,7 @@ function parseSectionItems(sectionLines, context) {
       continue;
     }
 
-    const heading = trimmed.match(/^(#{3,6})\s+(.+)$/);
+    const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       flushParagraph();
       flushList();

@@ -52,6 +52,52 @@ test("restructure display transformer accepts flexible heading levels", () => {
   assert.equal(result.sections.finalSlotChain.items[0].type, "table");
 });
 
+test("restructure display transformer preserves in-section markdown headings", () => {
+  const result = transformRestructureFinalMarkdown([
+    "## 1. 重组目标与假设",
+    "",
+    "- 目标",
+    "",
+    "## 2. 最终功能槽位链",
+    "",
+    "## 槽位链",
+    "",
+    "| 顺序 | slotSubtype |",
+    "|---:|---|",
+    "| 1 | `SUB_demo` 可视 hook |",
+    "",
+    "## 3. Atoms 落地表",
+    "",
+    "| 槽位 | script atom |",
+    "|---|---|",
+    "| `SUB_demo` | `A::script::S001` 脚本 |",
+    "",
+    "## 5. 脚本段落方案",
+    "",
+    "| 段落 | 任务 |",
+    "|---|---|",
+    "| 1 | hook |",
+    "",
+    "## 6. 节奏曲线",
+    "",
+    "| 阶段 | 策略 |",
+    "|---|---|",
+    "| 1 | 定睛 |",
+    "",
+    "## 7. 包装与证明方案",
+    "",
+    "| 包装块 | 证明功能 |",
+    "|---|---|",
+    "| 1 | 识别 |",
+  ].join("\n"), {
+    convertedAt: () => "2026-06-01T00:00:00.000Z",
+  });
+
+  assert.equal(result.sections.finalSlotChain.items[0].type, "heading");
+  assert.equal(result.sections.finalSlotChain.items[0].text, "槽位链");
+  assert.equal(result.sections.finalSlotChain.items[1].type, "table");
+});
+
 test("restructure display transformer fails when no target section is recognizable", () => {
   assert.throws(
     () => transformRestructureFinalMarkdown("# 完全不是重组格式\n\n没有目标章节"),

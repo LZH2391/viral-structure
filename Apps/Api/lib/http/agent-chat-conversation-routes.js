@@ -10,6 +10,7 @@ const {
   safePreview,
   withConversationLock,
 } = require("./agent-chat-route-core");
+const { hydrateConversationSlotAtomDisplays: hydrateSlotAtomDisplays } = require("../agent-chat/restructure-auto-display-utils");
 
 async function handleAgentChatConversationList(res, handlers = {}, url = null) {
   return runAgentChatStage(res, handlers, {
@@ -18,16 +19,19 @@ async function handleAgentChatConversationList(res, handlers = {}, url = null) {
       role: url?.searchParams?.get("role") ?? null,
       status: url?.searchParams?.get("status") ?? "active",
     },
-    action: async ({ traceContext }) => ({
-      ok: true,
-      conversations: await handlers.agentConversationStore.list({
+    action: async ({ traceContext }) => {
+      const conversations = await handlers.agentConversationStore.list({
         role: normalizeText(url?.searchParams?.get("role")),
         status: normalizeText(url?.searchParams?.get("status")) || "active",
-      }),
-      traceId: traceContext.traceId,
-      runId: traceContext.runId,
-      stageId: traceContext.stageId,
-    }),
+      });
+      return {
+        ok: true,
+        conversations: await Promise.all(conversations.map((conversation) => hydrateSlotAtomDisplays(conversation, { rootDir: handlers.rootDir }))),
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+      };
+    },
     summarizeOutput: (result) => ({ count: result.conversations.length }),
     successStatus: 200,
   });
@@ -63,7 +67,7 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
       }
       return {
         ok: true,
-        conversation,
+        conversation: await hydrateSlotAtomDisplays(conversation, { rootDir: handlers.rootDir }),
         refreshed,
         refreshError,
         deleted,

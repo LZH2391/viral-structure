@@ -14,6 +14,7 @@ const { sendJson, notFound } = require("./lib/http/utils");
 const { createWorkbenchStaticHandler } = require("./lib/http/static-files");
 const { sendRuntimeFile } = require("./lib/http/runtime-files");
 const { readDebugTraces, readDebugTraceDetail } = require("./lib/observability/debug-traces");
+const { createCodexRolloutReader } = require("./lib/observability/codex-rollout-reader");
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/observability/ui-debug-events");
 const { recordApiRequestFailure } = require("./lib/observability/api-request-debug");
 const { readCapabilities } = require("./lib/http/capabilities");
@@ -55,10 +56,12 @@ const agentConversationStore = createAgentConversationStore({ store });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
 const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
 const appServer = createAppServerBridge();
+const codexRolloutReader = createCodexRolloutReader();
 const activeTurnOwnerHandlers = createActiveTurnOwnerHandlers({ agentConversationStore, jobStore, workflowRunStore });
 const activeTurnRuntime = createActiveTurnRuntime({ store, appServer, ownerHandlers: activeTurnOwnerHandlers });
 const threadPool = createThreadPoolProxy({
   readThreadImpl: async (threadId, options = {}) => appServer.readThread({ workspaceRoot: options.workspaceRoot ?? rootDir, threadId }),
+  codexRolloutReader,
 });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const executorRegistry = createExecutorRegistry({ appServer, activeTurnRuntime });
@@ -124,6 +127,7 @@ function createServer(deps = {}) {
     jobStore: activeJobStore,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    codexRolloutReader: deps.codexRolloutReader ?? codexRolloutReader,
     activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeFunctionSlotReplacementCandidateService = deps.functionSlotReplacementCandidateService ?? createFunctionSlotReplacementCandidateService({
@@ -222,6 +226,7 @@ function createServer(deps = {}) {
     service: activeSampleService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    codexRolloutReader: deps.codexRolloutReader ?? codexRolloutReader,
     activeTurnRuntime: activeActiveTurnRuntime,
     shotBoundaryService: activeShotBoundaryService,
     subtitleRevisionService: deps.subtitleRevisionService ?? subtitleRevisionService,

@@ -137,6 +137,18 @@ function makeRequest(server, method, requestPath, body) {
   });
 }
 
+async function writeRollout(codexHome, threadId, lines) {
+  const dir = path.join(codexHome, "sessions", "2026", "06", "03");
+  await fsPromises.mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, `rollout-2026-06-03T21-55-17-${threadId}.jsonl`);
+  await fsPromises.writeFile(filePath, lines.join("\n"), "utf8");
+  return filePath;
+}
+
+function rolloutEvent(timestamp, type, payload) {
+  return JSON.stringify({ timestamp, type, payload });
+}
+
 function makeMultipartRequest(server, { path: requestPath, fields = {}, file }) {
   const boundary = `----test-${Date.now().toString(36)}`;
   const chunks = [];
@@ -2508,6 +2520,55 @@ test("agent chat collect ignores remembered shot design when only non-dialogue f
     assert.equal(collected.statusCode, 200);
     assert.equal(collected.body.autoDialogueRoboticReview, undefined);
     assert.equal(reviewTurns.length, 0);
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("agent chat timeline backfills token and compact events from codex rollout", async () => {
+  const { createCodexRolloutReader } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-rollout-agent-chat-"));
+  const threadId = "019e8dc4-5633-79e0-ac38-6deb9d2a9003";
+  const turnId = "019e8dc5-8b2d-7a42-b1d4-5f9dc845fa7d";
+  await writeRollout(tempRoot, threadId, [
+    rolloutEvent("2026-06-03T13:56:39.801Z", "session_meta", { id: threadId }),
+    rolloutEvent("2026-06-03T13:56:39.816Z", "event_msg", { type: "task_started", turn_id: turnId, model_context_window: 10000 }),
+    rolloutEvent("2026-06-03T13:57:22.957Z", "response_item", { type: "function_call", name: "shell_command", call_id: "call_1", arguments: JSON.stringify({ command: "Get-ChildItem" }) }),
+    rolloutEvent("2026-06-03T13:57:23.278Z", "event_msg", { type: "token_count", info: { last_token_usage: { input_tokens: 987, output_tokens: 13, total_tokens: 1000 }, model_context_window: 10000 } }),
+    rolloutEvent("2026-06-03T13:57:24.000Z", "event_msg", { type: "context_compacted" }),
+  ]);
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    codexRolloutReader: createCodexRolloutReader({ codexHome: tempRoot }),
+    appServer: {
+      readThread: async () => ({
+        thread: {
+          id: threadId,
+          turns: [{
+            id: turnId,
+            status: "running",
+            items: [{ type: "agentMessage", text: "from appserver" }],
+          }],
+        },
+      }),
+      listTurnItems: async () => ({ ok: true, items: [{ type: "agentMessage", text: "from appserver" }] }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", `/api/agent-chat/threads/${threadId}/turns/${turnId}/timeline`);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.source, "thread/turns/items/list+codex-rollout");
+    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call", "token_usage", "context_compacted"]);
+    assert.equal(response.body.activity.tokenUsage.inputTokens, 987);
+    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 1000);
   } finally {
     await closeServer(server);
   }

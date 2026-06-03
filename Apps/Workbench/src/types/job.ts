@@ -125,6 +125,7 @@ export type AgentTimelineItem = {
     | "tool_call"
     | "tool_result"
     | "token_usage"
+    | "context_compacted"
     | "turn_status"
     | "unknown";
   title: string;
@@ -145,6 +146,7 @@ export type AgentTimelineItem = {
     contextThresholdTokens?: number | null;
     contextUsageRatio?: number | null;
     contextUsageState?: "normal" | "warning" | "danger" | "unknown";
+    totalTokenUsage?: Record<string, unknown> | null;
   };
 };
 

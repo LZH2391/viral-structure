@@ -243,6 +243,45 @@ test("threadpool proxy passes role workspace to readThread fallback", async () =
   }]);
 });
 
+test("threadpool proxy backfills ctx usage from codex rollout fallback", async () => {
+  const { createCodexRolloutReader } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "threadpool-proxy-rollout-"));
+  const threadId = "019e8dc4-5633-79e0-ac38-6deb9d2a9003";
+  const turnId = "019e8dc5-8b2d-7a42-b1d4-5f9dc845fa7d";
+  const rolloutDir = path.join(tempRoot, "sessions", "2026", "06", "03");
+  await fs.mkdir(rolloutDir, { recursive: true });
+  await fs.writeFile(path.join(rolloutDir, `rollout-2026-06-03T21-55-17-${threadId}.jsonl`), [
+    JSON.stringify({ timestamp: "2026-06-03T13:56:39.801Z", type: "session_meta", payload: { id: threadId } }),
+    JSON.stringify({ timestamp: "2026-06-03T13:56:39.816Z", type: "event_msg", payload: { type: "task_started", turn_id: turnId, model_context_window: 10000 } }),
+    JSON.stringify({ timestamp: "2026-06-03T13:57:23.278Z", type: "event_msg", payload: { type: "token_count", info: { last_token_usage: { input_tokens: 777, total_tokens: 800 }, model_context_window: 10000 } } }),
+  ].join("\n"), "utf8");
+  const proxy = createThreadPoolProxy({
+    allowedRoles: ["shot-boundary-raw-analyzer"],
+    threadTokenUsagePath: path.join(os.tmpdir(), "missing-rollout-thread-token-usage.json"),
+    codexRolloutReader: createCodexRolloutReader({ codexHome: tempRoot }),
+    fetchImpl: async (url) => {
+      const pathname = new URL(url).pathname;
+      if (pathname === "/roles/shot-boundary-raw-analyzer/status") {
+        return response({
+          ok: true,
+          role: "shot-boundary-raw-analyzer",
+          min_idle: 1,
+          counts: { idle: 1, leased: 0 },
+          can_acquire: true,
+          thread_entries: [{ thread_id: threadId, thread_status: "idle", is_seed: false }],
+          active_leases: [],
+        });
+      }
+      return response({ ok: false, detail: "unexpected" }, 404);
+    },
+  });
+
+  const status = await proxy.roleStatus("shot-boundary-raw-analyzer");
+
+  assert.equal(status.threads[0].latest_input_tokens, 777);
+  assert.equal(status.threads[0].threshold_input_tokens, 1000);
+});
+
 test("threadpool proxy default allowlist follows thread role config", () => {
   assert.deepEqual(DEFAULT_ALLOWED_ROLES, [
     "script-segment-analyzer",

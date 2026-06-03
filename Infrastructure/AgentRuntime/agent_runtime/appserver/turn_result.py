@@ -467,6 +467,8 @@ class AppServerTurnResultMixin:
             "webSearch",
             "toolCall",
             "toolResult",
+            "tokenUsage",
+            "contextCompacted",
         }:
             return True
         text = item.get("text")
@@ -536,6 +538,10 @@ class AppServerTurnResultMixin:
                 exit_code = cls._safe_int(item.get("exitCode") or item.get("exit_code"))
                 preview = cls._safe_preview(text) or (f"exit {exit_code}" if exit_code is not None else "Tool result")
                 return {"kind": "tool_result", "preview": preview, "tool_name": tool_name}
+            if normalized in {"tokenusage", "tokencount"}:
+                return {"kind": "token_usage", "preview": "Token usage", "tool_name": None}
+            if normalized in {"contextcompacted", "contextcompact"}:
+                return {"kind": "context_compacted", "preview": "Context compacted", "tool_name": None}
             text = cls._extract_text_from_item(item)
             return {"kind": "unknown", "preview": cls._safe_preview(text) or (f"Item: {item_type}" if item_type else "Item"), "tool_name": cls._extract_tool_name(item)}
         return {}

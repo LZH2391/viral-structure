@@ -14,7 +14,7 @@ function summarizeAgentTurnTimeline(thread, turnId) {
     if (entry) timeline.push(entry);
   });
   const tokenUsage = normalizeTurnTokenUsage(turn);
-  if (tokenUsage) {
+  if (tokenUsage && !timeline.some((item) => item.kind === "token_usage")) {
     timeline.push({
       id: `${turnId || "turn"}:token_usage`,
       index: timeline.length,
@@ -50,7 +50,7 @@ function summarizeAgentTurnTimelineFromItems({ thread, turn, items, turnId }) {
     if (entry) timeline.push(entry);
   });
   const tokenUsage = normalizeTurnTokenUsage(mergedTurn);
-  if (tokenUsage) {
+  if (tokenUsage && !timeline.some((item) => item.kind === "token_usage")) {
     timeline.push({
       id: `${turnId || "turn"}:token_usage`,
       index: timeline.length,
@@ -139,6 +139,35 @@ function summarizeTurnItem(item, index) {
       metadata: chars ? { byteLength: chars } : {},
     };
   }
+  if (["tokenusage", "tokencount", "tokenusageevent"].includes(compactType)) {
+    const tokenUsage = normalizeTokenUsage(item.tokenUsage ?? item.token_usage ?? item.last_token_usage ?? item.lastTokenUsage, item.model_context_window ?? item.modelContextWindow);
+    const totalTokenUsage = normalizeTokenUsage(item.totalTokenUsage ?? item.total_token_usage, item.model_context_window ?? item.modelContextWindow);
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "token_usage",
+      title: "Token usage",
+      status: normalizeItemStatus(item),
+      textPreview: formatTokenUsage(tokenUsage ?? totalTokenUsage ?? {}),
+      createdAt,
+      metadata: {
+        ...(tokenUsage ?? {}),
+        totalTokenUsage,
+      },
+    };
+  }
+  if (["contextcompacted", "contextcompact", "compactcontext"].includes(compactType)) {
+    return {
+      id: item.id ?? `item_${index}`,
+      index,
+      kind: "context_compacted",
+      title: "Context compacted",
+      status: normalizeItemStatus(item),
+      textPreview: safePreview(extractText(item) ?? "Context compacted", TEXT_PREVIEW_LIMIT),
+      createdAt,
+      metadata: {},
+    };
+  }
   if (compactType === "commandexecution") {
     const text = extractText(item) ?? item.aggregatedOutput ?? item.command ?? null;
     return {
@@ -219,7 +248,7 @@ function summarizeTurnItem(item, index) {
       metadata: { toolName: "web_search" },
     };
   }
-  if (["toolcall", "functioncall", "localtoolcall", "localshellcall", "shellcall", "commandcall"].includes(compactType)) {
+  if (["toolcall", "functioncall", "customtoolcall", "localtoolcall", "localshellcall", "shellcall", "commandcall"].includes(compactType)) {
     const toolName = resolveToolName(item);
     return {
       id: item.id ?? `item_${index}`,
@@ -236,7 +265,7 @@ function summarizeTurnItem(item, index) {
       },
     };
   }
-  if (["toolresult", "functioncalloutput", "functionoutput", "toolcalloutput", "localtoolresult", "localshellresult", "shellresult", "commandresult"].includes(compactType)) {
+  if (["toolresult", "functioncalloutput", "customtoolcalloutput", "functionoutput", "toolcalloutput", "localtoolresult", "localshellresult", "shellresult", "commandresult"].includes(compactType)) {
     const toolName = resolveToolName(item);
     const text = extractText(item) ?? resolveToolPreview(item);
     return {
