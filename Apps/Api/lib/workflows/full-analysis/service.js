@@ -3,15 +3,17 @@ const { createTraceContext } = require("../../../../../Core/Workspace/sample-vid
 const { createTraceIds, nextStage } = require("../../../../../Infrastructure/Observability/trace");
 const { loadCurrentSampleArtifact } = require("../../stores/artifact-reader");
 const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR } = require("./descriptor");
+const { createWorkflowLogger } = require("./logging");
 const {
   artifactRefForStage,
   buildAggregateSummary,
   buildModuleDependencies,
   createStageState,
+  downstreamStageKeys,
   findModuleStage,
   findStage,
-  hasTerminalRunWithRunningChildren,
-  hasRunningChildren,
+  hasStage,
+  hasTerminalRunWithRunningChildren, hasRunningChildren, latestWorkflowRun,
   normalizeError,
   publicRun,
   resetStageForRun,
@@ -19,11 +21,8 @@ const {
   summarizeStageInput,
   unique,
   updateStage,
-  workflowRunTime,
 } = require("./runtime-helpers");
 
-const WORKFLOW_KEY = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.workflowId;
-const WORKFLOW_VERSION = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.version;
 const TERMINAL_JOB_STATUSES = new Set(["processed", "failed"]);
 const CACHE_WAITING_STATUS = "cache_waiting";
 
@@ -52,6 +51,7 @@ function createWorkflowService({
   const rerunnableStageKeys = new Set(workflowDescriptor.nodes.filter((node) => node.rerunnable).map((node) => node.key));
   const blockingStageKeys = new Set(stageDefinitions.filter((stage) => stage.blocking).map((stage) => stage.key));
   const advanceLocks = new Map();
+  const workflowLogger = createWorkflowLogger({ logger });
 
   async function start({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
@@ -75,7 +75,7 @@ function createWorkflowService({
       completedAt: null,
       errorSummary: null,
     });
-    await logWorkflowEvent(traceContext, "stage.start", "workflow.run", null, null, {
+    await workflowLogger.logWorkflowEvent(traceContext, "stage.start", "workflow.run", null, null, {
       workflowRunId,
       workflowKey,
       workflowVersion,
@@ -97,19 +97,12 @@ function createWorkflowService({
   }
 
   function getLatest() {
-    const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
-    const latest = runs
-      .filter((run) => run?.workflowKey === workflowKey)
-      .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
+    const latest = latestWorkflowRun(workflowRunStore, workflowKey);
     return latest ? publicRun(latest) : null;
   }
 
   function getLatestBySampleVideoId(sampleVideoId) {
-    if (!sampleVideoId) return null;
-    const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
-    const latest = runs
-      .filter((run) => run?.workflowKey === workflowKey && run.sampleVideoId === sampleVideoId)
-      .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0];
+    const latest = sampleVideoId ? latestWorkflowRun(workflowRunStore, workflowKey, sampleVideoId) : null;
     return latest ? publicRun(latest) : null;
   }
 
@@ -135,7 +128,7 @@ function createWorkflowService({
       throw error;
     }
     const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
-    const resetKeys = unique([stageKey, ...downstreamStageKeys(stageDefinitions, stageKey)]);
+    const resetKeys = unique([stageKey, ...downstreamStageKeys(stageDefinitions, stageKey, workflowDescriptor.parallelGroups)]);
     workflowRunStore.updateRun(workflowRunId, (current) => ({
       status: "running",
       currentStageKeys: [stageKey],
@@ -172,7 +165,7 @@ function createWorkflowService({
         errorSummary: null,
       })),
     }));
-    await logWorkflowEvent(stageContext, "stage.start", stage.stageName, stage.artifactId, stage.parentArtifactId, summarizeStageInput(stageKey, input));
+    await workflowLogger.logWorkflowEvent(stageContext, "stage.start", stage.stageName, stage.artifactId, stage.parentArtifactId, summarizeStageInput(stageKey, input));
     try {
       const result = await executeStage(workflowRunId, stageKey, input);
       if (result?.terminal) {
@@ -442,7 +435,7 @@ function createWorkflowService({
       })),
     }));
     const stage = findStage(workflowRunStore.getRun(workflowRunId), stageKey);
-    await logWorkflowEvent(traceContext, "stage.end", stage.stageName, stage.artifactId, stage.parentArtifactId, null, outputSummary, Date.now() - startedAt);
+    await workflowLogger.logWorkflowEvent(traceContext, "stage.end", stage.stageName, stage.artifactId, stage.parentArtifactId, null, outputSummary, Date.now() - startedAt);
   }
 
   async function markStageFailed(workflowRunId, stageKey, error, traceContext, startedAt = Date.now()) {
@@ -474,7 +467,7 @@ function createWorkflowService({
       })),
       errorSummary,
     }));
-    await logWorkflowEvent(traceContext, "stage.fail", stage.stageName, stage.artifactId, stage.parentArtifactId, null, stage.outputSummary ?? null, Date.now() - startedAt, errorSummary);
+    await workflowLogger.logWorkflowEvent(traceContext, "stage.fail", stage.stageName, stage.artifactId, stage.parentArtifactId, null, stage.outputSummary ?? null, Date.now() - startedAt, errorSummary);
   }
 
   async function finalizeIfReady(run) {
@@ -483,7 +476,7 @@ function createWorkflowService({
     const blockingFailed = Array.from(blockingStageKeys).some((key) => findStage(run, key).status === "failed");
     if (blockingFailed) {
       const completed = workflowRunStore.updateRun(run.workflowRunId, { status: "failed", completedAt: new Date().toISOString(), currentStageKeys: [] });
-      await logWorkflowRunClosed(completed, "stage.fail");
+      await workflowLogger.logWorkflowRunClosed(completed, "stage.fail");
       return;
     }
     if (aggregate.status !== "processed") return;
@@ -494,7 +487,7 @@ function createWorkflowService({
       currentStageKeys: [],
       completedAt: new Date().toISOString(),
     });
-    await logWorkflowRunClosed(completed, "stage.end");
+    await workflowLogger.logWorkflowRunClosed(completed, "stage.end");
   }
 
   function scheduleAdvance(workflowRunId, delayMs = pollIntervalMs) {
@@ -508,7 +501,7 @@ function createWorkflowService({
   }
 
   function resetProcessedDownstreamStages(workflowRunId, stageKey) {
-    const resetKeys = downstreamStageKeys(stageDefinitions, stageKey);
+    const resetKeys = downstreamStageKeys(stageDefinitions, stageKey, workflowDescriptor.parallelGroups);
     if (!resetKeys.length) return;
     workflowRunStore.updateRun(workflowRunId, (current) => ({
       stages: current.stages.map((stage) => resetKeys.includes(stage.key) && stage.status === "processed"
@@ -517,75 +510,18 @@ function createWorkflowService({
     }));
   }
 
-  function downstreamStageKeys(stages, stageKey) {
-    const result = [];
-    const pending = [stageKey];
-    while (pending.length) {
-      const currentKey = pending.shift();
-      for (const stage of stages) {
-        if (stage.key === stageKey || result.includes(stage.key)) continue;
-        if (stageDependsOn(stage, currentKey)) {
-          result.push(stage.key);
-          pending.push(stage.key);
-        }
-      }
-    }
-    return result;
-  }
-
-  function stageDependsOn(stage, dependencyKey) {
-    const dependencies = Array.isArray(stage.after) ? stage.after : [];
-    if (dependencies.includes(dependencyKey)) return true;
-    return dependencies.some((dependency) => (workflowDescriptor.parallelGroups[dependency] ?? []).includes(dependencyKey));
-  }
-
   async function readArtifact(sampleVideoId) {
     if (!sampleVideoId) return null;
     return loadSampleArtifact({ sampleVideoId, store, artifactIndex });
   }
 
-  async function logWorkflowEvent(traceContext, event, stageName, artifactId, parentArtifactId, inputSummary, outputSummary, durationMs, errorSummary) {
-    await logger.writeStageLog({
-      traceContext,
-      event,
-      stageName,
-      artifactId: artifactId ?? null,
-      parentArtifactId: parentArtifactId ?? null,
-      inputSummary: inputSummary ?? null,
-      outputSummary: outputSummary ?? null,
-      durationMs: durationMs ?? null,
-      errorSummary: errorSummary ?? null,
-    });
-  }
-
-  async function logWorkflowRunClosed(run, event) {
-    if (!run) return;
-    const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
-    const outputSummary = {
-      workflowRunId: run.workflowRunId,
-      status: run.status,
-      sampleVideoId: run.sampleVideoId ?? null,
-      processedStageCount: run.stages.filter((stage) => stage.status === "processed").length,
-      failedStageCount: run.stages.filter((stage) => stage.status === "failed").length,
-    };
-    await logWorkflowEvent(traceContext, event, "workflow.run", null, null, null, outputSummary, null, event === "stage.fail" ? run.errorSummary ?? null : null);
-  }
-
   return { start, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
 }
 
-function hasStage(run, stageKey) {
-  return Boolean(run?.stages?.some((stage) => stage.key === stageKey));
-}
-
-function createFullAnalysisWorkflowService(options) {
-  return createWorkflowService(options);
-}
-
 module.exports = {
-  WORKFLOW_KEY,
-  WORKFLOW_VERSION,
+  WORKFLOW_KEY: FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.workflowId,
+  WORKFLOW_VERSION: FULL_ANALYSIS_WORKFLOW_DESCRIPTOR.version,
   FULL_ANALYSIS_WORKFLOW_DESCRIPTOR,
   createWorkflowService,
-  createFullAnalysisWorkflowService,
+  createFullAnalysisWorkflowService: createWorkflowService,
 };

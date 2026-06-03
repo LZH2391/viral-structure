@@ -1,0 +1,51 @@
+const DEFAULT_WS_URL = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream";
+const DEFAULT_RESOURCE_ID = "volc.bigasr.sauc.duration";
+const DEFAULT_MODEL_NAME = "bigmodel";
+const DEFAULT_PROTOCOL_VERSION = 1;
+const DEFAULT_CHUNK_MS = 200;
+const RESPONSE_TIMEOUT_MS = 30000;
+const SUCCESS_CODES = new Set([1000, 20000000]);
+const HEADER_SIZE_UNITS = 1;
+const HEADER_SIZE_BYTES = HEADER_SIZE_UNITS * 4;
+const SERIALIZATION_NONE = 0;
+const SERIALIZATION_JSON = 1;
+const COMPRESSION_NONE = 0;
+const COMPRESSION_GZIP = 1;
+const MESSAGE_TYPES = {
+  fullClientRequest: 1,
+  audioOnlyRequest: 2,
+  fullServerResponse: 9,
+  errorResponse: 15,
+};
+const MESSAGE_FLAGS = {
+  none: 0,
+  sequencePositive: 1,
+  lastPacket: 2,
+  lastPacketWithSequence: 3,
+};
+const PCM_SAMPLE_RATE = 16000;
+const PCM_CHANNELS = 1;
+const PCM_BITS = 16;
+const PCM_BYTES_PER_SECOND = PCM_SAMPLE_RATE * PCM_CHANNELS * (PCM_BITS / 8);
+
+module.exports = {
+  DEFAULT_WS_URL,
+  DEFAULT_RESOURCE_ID,
+  DEFAULT_MODEL_NAME,
+  DEFAULT_PROTOCOL_VERSION,
+  DEFAULT_CHUNK_MS,
+  RESPONSE_TIMEOUT_MS,
+  SUCCESS_CODES,
+  HEADER_SIZE_UNITS,
+  HEADER_SIZE_BYTES,
+  SERIALIZATION_NONE,
+  SERIALIZATION_JSON,
+  COMPRESSION_NONE,
+  COMPRESSION_GZIP,
+  MESSAGE_TYPES,
+  MESSAGE_FLAGS,
+  PCM_SAMPLE_RATE,
+  PCM_CHANNELS,
+  PCM_BITS,
+  PCM_BYTES_PER_SECOND,
+};

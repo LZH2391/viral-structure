@@ -130,6 +130,13 @@ function workflowRunTime(run) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function latestWorkflowRun(workflowRunStore, workflowKey, sampleVideoId = null) {
+  const runs = typeof workflowRunStore.listRuns === "function" ? workflowRunStore.listRuns() : [];
+  return runs
+    .filter((run) => run?.workflowKey === workflowKey && (!sampleVideoId || run.sampleVideoId === sampleVideoId))
+    .sort((a, b) => workflowRunTime(b) - workflowRunTime(a))[0] ?? null;
+}
+
 function publicRun(run) {
   return {
     workflowRunId: run.workflowRunId,
@@ -183,15 +190,44 @@ function findModuleStage(moduleStageDefinitions, stageKey) {
   return moduleStageDefinitions.find((stage) => stage.key === stageKey) ?? null;
 }
 
+function downstreamStageKeys(stages, stageKey, parallelGroups = {}) {
+  const result = [];
+  const pending = [stageKey];
+  while (pending.length) {
+    const currentKey = pending.shift();
+    for (const stage of stages) {
+      if (stage.key === stageKey || result.includes(stage.key)) continue;
+      if (stageDependsOn(stage, currentKey, parallelGroups)) {
+        result.push(stage.key);
+        pending.push(stage.key);
+      }
+    }
+  }
+  return result;
+}
+
+function stageDependsOn(stage, dependencyKey, parallelGroups = {}) {
+  const dependencies = Array.isArray(stage.after) ? stage.after : [];
+  if (dependencies.includes(dependencyKey)) return true;
+  return dependencies.some((dependency) => (parallelGroups[dependency] ?? []).includes(dependencyKey));
+}
+
+function hasStage(run, stageKey) {
+  return Boolean(run?.stages?.some((stage) => stage.key === stageKey));
+}
+
 module.exports = {
   artifactRefForStage,
   buildAggregateSummary,
   buildModuleDependencies,
   createStageState,
+  downstreamStageKeys,
   findModuleStage,
   findStage,
+  hasStage,
   hasRunningChildren,
   hasTerminalRunWithRunningChildren,
+  latestWorkflowRun,
   normalizeError,
   publicRun,
   resetStageForRun,

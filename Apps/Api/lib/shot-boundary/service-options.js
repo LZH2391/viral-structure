@@ -1,7 +1,8 @@
 const path = require("path");
 const { contentHash } = require("../shot-boundary-analysis");
+const { codedError } = require("../shot-boundary-analysis/shared");
 
-function badRequestError(codedError, code, message) {
+function badRequestError(code, message) {
   const error = codedError(code, message, null, false);
   error.statusCode = 400;
   return error;

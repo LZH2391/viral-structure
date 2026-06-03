@@ -1,36 +1,33 @@
 const fs = require("fs/promises");
 const { randomUUID } = require("crypto");
-const { gzipSync, gunzipSync } = require("zlib");
-
-const DEFAULT_WS_URL = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_nostream";
-const DEFAULT_RESOURCE_ID = "volc.bigasr.sauc.duration";
-const DEFAULT_MODEL_NAME = "bigmodel";
-const DEFAULT_PROTOCOL_VERSION = 1;
-const DEFAULT_CHUNK_MS = 200;
-const RESPONSE_TIMEOUT_MS = 30000;
-const SUCCESS_CODES = new Set([1000, 20000000]);
-const HEADER_SIZE_UNITS = 1;
-const HEADER_SIZE_BYTES = HEADER_SIZE_UNITS * 4;
-const SERIALIZATION_NONE = 0;
-const SERIALIZATION_JSON = 1;
-const COMPRESSION_NONE = 0;
-const COMPRESSION_GZIP = 1;
-const MESSAGE_TYPES = {
-  fullClientRequest: 1,
-  audioOnlyRequest: 2,
-  fullServerResponse: 9,
-  errorResponse: 15,
-};
-const MESSAGE_FLAGS = {
-  none: 0,
-  sequencePositive: 1,
-  lastPacket: 2,
-  lastPacketWithSequence: 3,
-};
-const PCM_SAMPLE_RATE = 16000;
-const PCM_CHANNELS = 1;
-const PCM_BITS = 16;
-const PCM_BYTES_PER_SECOND = PCM_SAMPLE_RATE * PCM_CHANNELS * (PCM_BITS / 8);
+const {
+  DEFAULT_CHUNK_MS,
+  DEFAULT_MODEL_NAME,
+  DEFAULT_PROTOCOL_VERSION,
+  DEFAULT_RESOURCE_ID,
+  DEFAULT_WS_URL,
+  MESSAGE_TYPES,
+  PCM_BITS,
+  PCM_BYTES_PER_SECOND,
+  PCM_CHANNELS,
+  PCM_SAMPLE_RATE,
+} = require("./doubao-sauc-constants");
+const {
+  buildAudioOnlyPayload,
+  buildFullClientPayload,
+  decodeServerMessage,
+  encodeClientRequest,
+} = require("./doubao-sauc-protocol");
+const {
+  decodeResultSegments,
+  decodeResultText,
+  finalizeRecognition,
+  isSuccessCode,
+  normalizeTimestamp,
+  parseRecognitionPayload,
+  recognitionTimeoutMs,
+  splitUtteranceIntoSegments,
+} = require("./doubao-sauc-recognition");
 
 async function recognizeAudio({
   audioPath = null,
@@ -262,303 +259,6 @@ function sendClientRequests(ws, audioBuffer, credentials, connectId, requestId) 
   };
 
   return sendNext();
-}
-
-function encodeClientRequest({ event, connectId, requestId, credentials, audioChunk, isLast }) {
-  const payload = event === "full_client_request"
-    ? buildFullClientPayload({ connectId, requestId, credentials, audioChunk, isLast })
-    : buildAudioOnlyPayload({ audioChunk, isLast });
-  const payloadBytes = event === "full_client_request"
-    ? gzipSync(Buffer.from(JSON.stringify(payload), "utf8"))
-    : gzipSync(Buffer.from(audioChunk ?? Buffer.alloc(0)));
-  const header = buildBinaryHeader({
-    messageType: event === "full_client_request" ? MESSAGE_TYPES.fullClientRequest : MESSAGE_TYPES.audioOnlyRequest,
-    messageTypeFlags: event === "audio_only_request" && isLast ? MESSAGE_FLAGS.lastPacket : MESSAGE_FLAGS.none,
-    serializationMethod: event === "full_client_request" ? SERIALIZATION_JSON : SERIALIZATION_NONE,
-    compression: COMPRESSION_GZIP,
-  });
-  const payloadSize = Buffer.alloc(4);
-  payloadSize.writeUInt32BE(payloadBytes.length, 0);
-  return Buffer.concat([header, payloadSize, payloadBytes]);
-}
-
-function buildFullClientPayload({ connectId, requestId, credentials, audioChunk, isLast }) {
-  return {
-    user: { uid: connectId },
-    audio: {
-      format: credentials.audio.format,
-      codec: credentials.audio.codec,
-      rate: credentials.audio.rate,
-      bits: credentials.audio.bits,
-      channel: credentials.audio.channel,
-      data: Buffer.from(audioChunk ?? Buffer.alloc(0)).toString("base64"),
-    },
-    request: {
-      reqid: requestId,
-      model_name: credentials.modelName,
-      show_utterances: true,
-      enable_nonstream: false,
-      sequence: isLast ? -1 : 1,
-    },
-  };
-}
-
-function buildAudioOnlyPayload({ audioChunk, isLast }) {
-  return {
-    audioChunk: Buffer.from(audioChunk ?? Buffer.alloc(0)),
-    isLast,
-  };
-}
-
-function decodeServerMessage(buffer) {
-  const bytes = Buffer.from(buffer ?? Buffer.alloc(0));
-  if (bytes.length < HEADER_SIZE_BYTES + 8) throw new Error("server packet too short");
-  const header = decodeBinaryHeader(bytes);
-  const offset = header.headerSize;
-  if (header.messageType === MESSAGE_TYPES.errorResponse) {
-    const errorCode = bytes.readUInt32BE(offset);
-    const payloadSize = bytes.readUInt32BE(offset + 4);
-    const body = bytes.subarray(offset + 8, offset + 8 + payloadSize);
-    const payload = decodePayloadBody(body, header.serializationMethod, header.compression);
-    return {
-      payload,
-      headers: payload?.header || payload?.headers || null,
-      isFinal: true,
-      messageType: header.messageType,
-      errorCode,
-      sequence: null,
-    };
-  }
-  const sequence = bytes.readInt32BE(offset);
-  const payloadSize = bytes.readUInt32BE(offset + 4);
-  const body = bytes.subarray(offset + 8, offset + 8 + payloadSize);
-  const payload = decodePayloadBody(body, header.serializationMethod, header.compression);
-  return {
-    payload,
-    headers: payload?.header || payload?.headers || null,
-    isFinal: isFinalResponse(payload, header, sequence),
-    messageType: header.messageType,
-    errorCode: null,
-    sequence,
-  };
-}
-
-function isFinalResponse(payload, header = null, sequence = null) {
-  if (header?.messageType === MESSAGE_TYPES.fullServerResponse && header.messageTypeFlags === MESSAGE_FLAGS.lastPacketWithSequence) return true;
-  if (Number.isFinite(sequence) && sequence < 0) return true;
-  if (!payload || typeof payload !== "object") return false;
-  if (payload.is_final === true || payload.is_final === 1) return true;
-  if (payload.result?.is_final === true || payload.result?.is_final === 1) return true;
-  if (payload.result?.sequence === -1 || payload.sequence === -1) return true;
-  return false;
-}
-
-function parseRecognitionPayload(payload) {
-  const result = payload?.result ?? payload ?? {};
-  const additions = payload?.addition ?? result?.addition ?? {};
-  const rawUtterances = Array.isArray(result.utterances) ? result.utterances : Array.isArray(additions.utterances) ? additions.utterances : [];
-  const utterances = rawUtterances.map(normalizeUtterance).filter((item) => item.text);
-  const text = String(result.text ?? additions.text ?? utterances.map((item) => item.text).join("")).trim();
-  return { text, utterances };
-}
-
-function normalizeUtterance(value) {
-  const words = normalizeWords(value?.words ?? value?.word_infos ?? []);
-  return {
-    start: normalizeTimestamp(value?.start_time ?? value?.start ?? value?.begin_time),
-    end: normalizeTimestamp(value?.end_time ?? value?.end),
-    text: String(value?.text ?? value?.utterance ?? words.map((item) => item.text).join("")).trim(),
-    definite: typeof value?.definite === "boolean" ? value.definite : null,
-    words,
-  };
-}
-
-function normalizeWords(items) {
-  return (Array.isArray(items) ? items : []).map((item) => ({
-    start: normalizeTimestamp(item?.start_time ?? item?.start ?? item?.begin_time),
-    end: normalizeTimestamp(item?.end_time ?? item?.end),
-    text: String(item?.text ?? item?.word ?? item?.content ?? "").trim(),
-  })).filter((item) => item.text);
-}
-
-function normalizeTimestamp(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) return 0;
-  return number >= 100 ? number / 1000 : number;
-}
-
-function finalizeRecognition({ utterances, finalText, providerMeta }) {
-  const normalizedUtterances = utterances.map((item) => ({
-    start: roundTime(item.start),
-    end: roundTime(item.end),
-    text: item.text,
-    definite: item.definite ?? null,
-    words: (item.words ?? []).map((word) => ({
-      start: roundTime(word.start),
-      end: roundTime(word.end),
-      text: word.text,
-    })),
-  })).filter((item) => item.text);
-  return {
-    text: String(finalText ?? normalizedUtterances.map((item) => item.text).join("")).trim(),
-    segments: normalizedUtterances.flatMap((item) => splitUtteranceIntoSegments(item)),
-    timing: {
-      utterances: normalizedUtterances,
-      words: normalizedUtterances.flatMap((item) => item.words),
-    },
-    providerMeta: {
-      provider: "doubao-sauc",
-      resourceId: providerMeta?.resourceId ?? DEFAULT_RESOURCE_ID,
-      connectId: providerMeta?.connectId ?? null,
-      requestId: providerMeta?.requestId ?? null,
-      logId: providerMeta?.logId ?? null,
-    },
-  };
-}
-
-function roundTime(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) return 0;
-  return Math.round(number * 1000) / 1000;
-}
-
-function decodeResultText(value) {
-  return parseRecognitionPayload(typeof value === "string" ? JSON.parse(value) : value).text;
-}
-
-function decodeResultSegments(value) {
-  const parsed = parseRecognitionPayload(typeof value === "string" ? JSON.parse(value) : value);
-  return parsed.utterances.map((item) => ({
-    start: item.start,
-    end: item.end,
-    text: item.text,
-    confidence: null,
-  }));
-}
-
-function recognitionTimeoutMs(byteLength) {
-  const streamMs = Math.ceil(Math.max(0, byteLength) / PCM_BYTES_PER_SECOND * 1000);
-  return Math.max(RESPONSE_TIMEOUT_MS, streamMs + RESPONSE_TIMEOUT_MS);
-}
-
-function isSuccessCode(code) {
-  const normalized = Number(code);
-  return Number.isFinite(normalized) && SUCCESS_CODES.has(normalized);
-}
-
-function buildBinaryHeader({ messageType, messageTypeFlags, serializationMethod, compression }) {
-  const header = Buffer.alloc(HEADER_SIZE_BYTES);
-  header.writeUInt8(((DEFAULT_PROTOCOL_VERSION & 0x0f) << 4) | (HEADER_SIZE_UNITS & 0x0f), 0);
-  header.writeUInt8(((messageType & 0x0f) << 4) | (messageTypeFlags & 0x0f), 1);
-  header.writeUInt8(((serializationMethod & 0x0f) << 4) | (compression & 0x0f), 2);
-  header.writeUInt8(0, 3);
-  return header;
-}
-
-function decodeBinaryHeader(buffer) {
-  const first = buffer.readUInt8(0);
-  const second = buffer.readUInt8(1);
-  const third = buffer.readUInt8(2);
-  const headerSize = (first & 0x0f) * 4;
-  return {
-    protocolVersion: (first >> 4) & 0x0f,
-    headerSize,
-    messageType: (second >> 4) & 0x0f,
-    messageTypeFlags: second & 0x0f,
-    serializationMethod: (third >> 4) & 0x0f,
-    compression: third & 0x0f,
-  };
-}
-
-function decodePayloadBody(body, serializationMethod, compression) {
-  const payloadBytes = compression === COMPRESSION_GZIP ? gunzipSync(body) : body;
-  if (!payloadBytes.length) return {};
-  if (serializationMethod === SERIALIZATION_JSON) return JSON.parse(payloadBytes.toString("utf8"));
-  return { raw: payloadBytes.toString("utf8") };
-}
-
-function splitUtteranceIntoSegments(utterance) {
-  const text = String(utterance?.text ?? "").trim();
-  if (!text) return [];
-  const chunks = splitSubtitleText(text);
-  if (chunks.length <= 1) return [{ start: utterance.start, end: utterance.end, text, confidence: null }];
-  const words = Array.isArray(utterance?.words) ? utterance.words.filter((item) => item?.text) : [];
-  if (words.length >= chunks.length) return splitSegmentsByWords(chunks, words);
-  return splitSegmentsByTiming(chunks, utterance.start, utterance.end);
-}
-
-function splitSubtitleText(text) {
-  const chunks = [];
-  let current = "";
-  for (const char of String(text ?? "")) {
-    current += char;
-    if (isSubtitleBreakPunctuation(char)) {
-      const value = current.trim();
-      if (value) chunks.push(value);
-      current = "";
-    }
-  }
-  const tail = current.trim();
-  if (tail) chunks.push(tail);
-  return chunks.length ? chunks : [String(text ?? "").trim()];
-}
-
-function splitSegmentsByWords(chunks, words) {
-  const weights = chunks.map(subtitleTextWeight);
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
-  let assigned = 0;
-  let cumulativeWeight = 0;
-  return chunks.map((chunk, index) => {
-    const remainingChunks = chunks.length - index - 1;
-    const remainingWords = words.length - assigned;
-    let wordCount = remainingWords;
-    if (index < chunks.length - 1) {
-      cumulativeWeight += weights[index];
-      const desired = Math.round(words.length * (cumulativeWeight / totalWeight));
-      const minAllowed = 1;
-      const maxAllowed = Math.max(minAllowed, remainingWords - remainingChunks);
-      wordCount = Math.max(minAllowed, Math.min(maxAllowed, desired - assigned));
-    }
-    const slice = words.slice(assigned, assigned + wordCount);
-    assigned += wordCount;
-    return {
-      start: roundTime(slice[0]?.start ?? words[assigned - wordCount]?.start ?? 0),
-      end: roundTime(slice[slice.length - 1]?.end ?? words[assigned - 1]?.end ?? 0),
-      text: chunk,
-      confidence: null,
-    };
-  }).filter((item) => item.text);
-}
-
-function splitSegmentsByTiming(chunks, start, end) {
-  const safeStart = Number.isFinite(start) ? Number(start) : 0;
-  const safeEnd = Number.isFinite(end) && end > safeStart ? Number(end) : safeStart;
-  const duration = Math.max(0, safeEnd - safeStart);
-  const weights = chunks.map(subtitleTextWeight);
-  const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
-  let cursor = safeStart;
-  return chunks.map((chunk, index) => {
-    const isLast = index === chunks.length - 1;
-    const span = isLast ? safeEnd - cursor : duration * (weights[index] / totalWeight);
-    const chunkStart = cursor;
-    const chunkEnd = isLast ? safeEnd : Math.min(safeEnd, cursor + span);
-    cursor = chunkEnd;
-    return {
-      start: roundTime(chunkStart),
-      end: roundTime(chunkEnd),
-      text: chunk,
-      confidence: null,
-    };
-  }).filter((item) => item.text);
-}
-
-function subtitleTextWeight(text) {
-  const compact = String(text ?? "").replace(/[，。！？!?；;,\s]/g, "");
-  return Math.max(1, compact.length);
-}
-
-function isSubtitleBreakPunctuation(char) {
-  return /[，。！？!?；;]/.test(String(char ?? ""));
 }
 
 function configuredError(code, message, options = {}) {

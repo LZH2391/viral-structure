@@ -27,10 +27,10 @@ test("shot boundary history appends for refresh and cache reuse without overwrit
     },
     appServer: {
       startTurnWithInputs: async () => ({ ok: true, threadId: "thread_1", turnId: `turn_${Date.now()}`, status: "submitted" }),
-      collectTurnResult: async () => ({
+      collectTurnResult: async ({ threadId, turnId }) => ({
         ok: true,
-        threadId: "thread_1",
-        turnId: "turn_history_1",
+        threadId,
+        turnId,
         status: "completed",
         finalMessage: JSON.stringify({ boundaries: [{ timestamp: 1.2, confidence: 0.8, boundaryType: "hard_cut", reason: "cut", needReview: false }] }),
       }),

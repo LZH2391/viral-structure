@@ -37,7 +37,8 @@ const {
 } = require("./cache");
 const { buildCachePrompt } = require("./cache-prompt");
 const { writeCompletedAnalysis } = require("./result-writer");
-const { buildAgentActivityFromTurnResult } = require("../observability/agent-turn-timeline");
+const { createShotBoundaryCollector } = require("./service-collector");
+const { markAgentRunLeaseReleased, updateActiveThreadMessageForJob } = require("./service-state-helpers");
 const {
   ROLE,
   SKILL_PATH,
@@ -54,7 +55,6 @@ const {
   resolveSkillHash,
   safeError,
   sanitizeDebugPayload,
-  contentHash,
 } = require("../shot-boundary-analysis");
 const { codedError } = require("../shot-boundary-analysis/shared");
 const {
@@ -139,6 +139,63 @@ function createShotBoundaryService({
     isInterruptedPreAgentJob,
     codedError,
   });
+  const collectAgentRun = createShotBoundaryCollector({
+    collectingJobs,
+    jobStore,
+    sampleStatus: SAMPLE_STATUS,
+    loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
+    createRecoveredContext,
+    skillPath: SKILL_PATH,
+    rawAnalyzerRole: RAW_ANALYZER_ROLE,
+    role: ROLE,
+    reviewRole: REVIEW_ROLE,
+    reviewSkillPath: REVIEW_SKILL_PATH,
+    loadRoleProfileByRole,
+    buildTransformPromptTemplate,
+    resolveSkillHash,
+    orphanTtlMs,
+    codedError,
+    failAgentRun,
+    executorRegistry,
+    stages: STAGES,
+    rawWorkspaceRoot,
+    runStage,
+    updateActiveThreadMessage,
+    isRetryableCollectError,
+    markRetryableCollectFailure,
+    scheduleCollect,
+    finalizeLease,
+    threadPool,
+    markAgentRunLeaseReleased,
+    writeCompletedAnalysis,
+    prepareInput,
+    store,
+    buildProcessedAnalysis,
+    attachAnalysis: (sampleVideoId, analysis, traceMeta = {}) => attachAnalysis({ store, sampleVideoId, analysis, traceMeta }),
+    artifactIndex,
+    resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
+    appServer,
+    activeTurnRuntime,
+    rootDir,
+    reviewer: {
+      role: REVIEW_ROLE,
+      skillPath: REVIEW_SKILL_PATH,
+      reviewPollIntervalMs,
+      reviewCollectMaxAttempts,
+      loadRoleProfileByRole,
+      prepareShotSheets,
+      contactSheetGenerator,
+      renderTransformTurnInputs,
+      renderRepairTurnInputs,
+      renderVisualSummaryTurnInputs,
+      validateTransformResult,
+      summarizeTransformResult,
+      validateVisualSummaryResult,
+      applyVisualSummaryResult,
+      summarizeVisualSummaryResult,
+      acquireLeaseWithRetry,
+    },
+  });
 
   async function enqueue({ sampleVideoId, analysisFps = 10, cacheDecision = "ask", enableReview = true }) {
     await store.ensureRuntimeDirs();
@@ -213,7 +270,7 @@ function createShotBoundaryService({
     }
     if (decision === "reuse") {
       try {
-        await reuseCachedAnalysis(context, job.cachePrompt);
+        await reuseCachedAnalysisLocal(context, job.cachePrompt);
       } catch (error) {
         await markFailed(context, error);
       }
@@ -255,13 +312,13 @@ function createShotBoundaryService({
       context.prepared = prepared;
       if (!context.promptTemplate) context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
 
-      const cached = await runCacheLookup(context, prepared, []);
+      const cached = await runCacheLookupLocal(context, prepared, []);
       if (cached && context.cacheDecision === "ask") {
         markCacheWaiting(context, cached);
         return;
       }
       if (cached && context.cacheDecision === "reuse") {
-        await reuseCachedAnalysis(context, buildCachePrompt(context, cached));
+        await reuseCachedAnalysisLocal(context, buildCachePrompt(context, cached));
         return;
       }
 
@@ -340,141 +397,6 @@ function createShotBoundaryService({
     }
   }
 
-  async function collectAgentRun(jobId) {
-    if (collectingJobs.has(jobId)) return collectingJobs.get(jobId);
-    const task = (async () => {
-      const job = jobStore.getJob(jobId);
-      const agentRun = job?.agentRun;
-      if (job?.status === SAMPLE_STATUS.processed || job?.status === SAMPLE_STATUS.failed) return { status: job.status };
-      if (!job || !agentRun || !agentRun.threadId || !agentRun.turnId) return null;
-      const sampleArtifact = await loadSampleArtifact(store, agentRun.sampleVideoId);
-      const context = createRecoveredContext({ job, agentRun, sampleArtifact, skillPath: SKILL_PATH });
-      context.roleProfile = agentRun.role === RAW_ANALYZER_ROLE ? await loadRoleProfileByRole(RAW_ANALYZER_ROLE) : null;
-      context.reviewRoleProfile = await loadRoleProfileByRole(REVIEW_ROLE);
-      context.promptTemplate = buildTransformPromptTemplate(context.reviewRoleProfile);
-      context.reviewSkillHash = await resolveSkillHash(REVIEW_SKILL_PATH);
-      if (Date.now() - Date.parse(agentRun.startedAt) > orphanTtlMs) {
-        const error = codedError("shot_boundary_turn_orphaned", "切镜 Agent 长时间未完成，已清理遗留 lease");
-        await failAgentRun(context, error);
-        return { status: SAMPLE_STATUS.failed };
-      }
-      try {
-          jobStore.updateJob(job.jobId, {
-            agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
-            stage: STAGES.turnCollected,
-            status: SAMPLE_STATUS.processing,
-            progress: 88,
-          });
-        const turnExecution = await executorRegistry.execute("appserver-turn", {
-          action: "collect-turn",
-          stageName: STAGES.turnCollected,
-          progress: 88,
-          artifactId: agentRun.artifactId,
-          parentArtifactId: agentRun.parentArtifactId,
-          inputSummary: { role: agentRun.role ?? ROLE, threadId: agentRun.threadId, leaseId: agentRun.leaseId ?? null, turnId: agentRun.turnId, sheetCount: agentRun.contactSheets?.length ?? 0 },
-          workspaceRoot: context.roleProfile?.workspaceRoot ?? rawWorkspaceRoot,
-          threadId: agentRun.threadId,
-          turnId: agentRun.turnId,
-          timeoutSeconds: 60,
-          role: agentRun.role ?? ROLE,
-          ownerType: "processing-job",
-          ownerId: job.jobId,
-          currentAttemptId: `${job.jobId}:${STAGES.turnStarted}`,
-        }, { runStage: (stageName, progress, options) => runStage(context, stageName, progress, options) });
-        const turn = turnExecution.result;
-        updateActiveThreadMessage(context, turn, {
-          role: agentRun.role ?? ROLE,
-          fallbackMessage: "正在分析镜头边界",
-        });
-        if (turn.status !== "completed") {
-          jobStore.updateJob(job.jobId, {
-            agentRun: { ...agentRun, status: "collecting", updatedAt: new Date().toISOString() },
-            stage: STAGES.turnCollected,
-            status: SAMPLE_STATUS.processing,
-            progress: 88,
-            errorSummary: null,
-          });
-          scheduleCollect(job.jobId);
-          return turn;
-        }
-        if (!String(turn.finalMessage ?? "").trim()) {
-          throw codedError("shot_raw_video_analyze_empty_result", "原始切镜分析未返回有效结果", {
-            turnId: turn.turnId,
-            status: turn.status,
-            validation: {
-              validatorCode: "shot_raw_video_analyze_empty_result",
-            },
-          }, false);
-        }
-        if (agentRun.leaseId) {
-          await finalizeLease(threadPool, agentRun);
-          const releasedAgentRun = markAgentRunLeaseReleased(agentRun);
-          jobStore.updateJob(context.job.jobId, { agentRun: releasedAgentRun });
-          context.job.agentRun = releasedAgentRun;
-        }
-        await writeCompletedAnalysis({
-          context,
-          agentRun,
-          jobAgentRun: context.job.agentRun ?? agentRun,
-          turn,
-          runStage,
-          stages: STAGES,
-          prepareInput,
-          store,
-          buildProcessedAnalysis,
-          attachAnalysis: (sampleVideoId, analysis, traceMeta = {}) => attachAnalysis({ store, sampleVideoId, analysis, traceMeta }),
-          artifactIndex,
-          resolveExistingFileHash: (sampleVideoId) => resolveExistingFileHashImpl(sampleVideoId, artifactIndex),
-          loadSampleArtifact: (sampleVideoId) => loadSampleArtifact(store, sampleVideoId),
-          finalizeLease,
-          threadPool,
-          appServer,
-          activeTurnRuntime,
-          rootDir,
-          reviewer: {
-            role: REVIEW_ROLE,
-            skillPath: REVIEW_SKILL_PATH,
-            reviewPollIntervalMs,
-            reviewCollectMaxAttempts,
-            loadRoleProfileByRole,
-            prepareShotSheets,
-            contactSheetGenerator,
-            renderTransformTurnInputs,
-            renderRepairTurnInputs,
-            renderVisualSummaryTurnInputs,
-            validateTransformResult,
-            summarizeTransformResult,
-            validateVisualSummaryResult,
-            applyVisualSummaryResult,
-            summarizeVisualSummaryResult,
-            acquireLeaseWithRetry,
-          },
-          codedError,
-          role: agentRun.role ?? RAW_ANALYZER_ROLE,
-          jobStore,
-          sampleStatus: SAMPLE_STATUS,
-          store,
-          updateActiveThreadMessage: (threadId, turnId, message, status, options) => updateActiveThreadMessage(context, threadId, turnId, message, status, options),
-        });
-        return turn;
-        } catch (error) {
-          if (isRetryableCollectError(error)) {
-            await markRetryableCollectFailure(context, error);
-            scheduleCollect(job.jobId);
-            return { status: "retrying" };
-          }
-          await failAgentRun(context, error);
-          return { status: SAMPLE_STATUS.failed };
-        }
-      })();
-    collectingJobs.set(jobId, task);
-    try {
-      return await task;
-    } finally {
-      collectingJobs.delete(jobId);
-    }
-  }
-
   async function recoverActiveAgentRuns() {
     const modern = await serviceRuntime.recoverActiveAgentRuns({
       role: RAW_ANALYZER_ROLE,
@@ -534,14 +456,6 @@ function createShotBoundaryService({
     });
   }
 
-  async function runCacheLookup(context, prepared, contactSheets) {
-    return runCacheLookupLocal(context, prepared, contactSheets);
-  }
-
-  async function reuseCachedAnalysis(context, cachePrompt) {
-    return reuseCachedAnalysisLocal(context, cachePrompt);
-  }
-
   function markCacheWaiting(context, cached) {
     return markCacheWaitingImpl({
       context,
@@ -567,17 +481,6 @@ function createShotBoundaryService({
     return createRecoveredContextImpl(args);
   }
 
-  function markAgentRunLeaseReleased(agentRun) {
-    const now = new Date().toISOString();
-    return {
-      ...agentRun,
-      releasedLeaseId: agentRun.leaseId ?? agentRun.releasedLeaseId ?? null,
-      leaseReleasedAt: now,
-      leaseId: null,
-      updatedAt: now,
-    };
-  }
-
   function isInterruptedPreAgentJob(job) {
     return isInterruptedPreAgentJobImpl(job, SAMPLE_STATUS, STAGES);
   }
@@ -595,16 +498,7 @@ function createShotBoundaryService({
   }
 
   function updateActiveThreadMessage(context, turnOrThreadId, turnIdOrOptions, message, status, options = {}) {
-    const turn = typeof turnOrThreadId === "object" && turnOrThreadId !== null
-      ? turnOrThreadId
-      : { threadId: turnOrThreadId, turnId: turnIdOrOptions, activeThreadMessage: message, status };
-    const resolvedOptions = typeof turnOrThreadId === "object" && turnOrThreadId !== null ? (turnIdOrOptions ?? {}) : options;
-    const normalized = buildActiveThreadMessage(turn.threadId, turn.turnId, turn.activeThreadMessage ?? null, turn.status, resolvedOptions);
-    const agentActivity = buildAgentActivityFromTurnResult(turn);
-    if (normalized || agentActivity || !isPendingTurnStatus(turn.status)) {
-      jobStore.updateJob(context.job.jobId, { activeThreadMessage: normalized, agentActivity });
-    }
-    return normalized;
+    return updateActiveThreadMessageForJob({ jobStore, context, turnOrThreadId, turnIdOrOptions, message, status, options });
   }
 
   function failAgentRun(context, error) {
@@ -616,26 +510,6 @@ function createShotBoundaryService({
   }
 
   return { enqueue, resolveCacheDecision, prepareInput, buildTurnInputs, collectAgentRun, recoverActiveAgentRuns, interruptActiveAgentRuns };
-}
-
-function buildActiveThreadMessage(threadId, turnId, message, status, options = {}) {
-  const normalized = String(message ?? "").trim() || String(options.fallbackMessage ?? "").trim();
-  if (normalized || !isPendingTurnStatus(status)) {
-    return normalized
-      ? {
-          threadId: threadId ?? null,
-          turnId: turnId ?? null,
-          role: options.role ?? "thread",
-          text: normalized.length <= 1200 ? normalized : `${normalized.slice(0, 1200)}...`,
-          createdAt: new Date().toISOString(),
-        }
-      : null;
-  }
-  return null;
-}
-
-function isPendingTurnStatus(status) {
-  return ["created", "pending", "queued", "submitted", "running", "inprogress", "in_progress", "collecting"].includes(String(status ?? "").trim().toLowerCase());
 }
 
 module.exports = { ROLE, SKILL_PATH, RAW_ANALYZER_ROLE, STAGES, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs };
