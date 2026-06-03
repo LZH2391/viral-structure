@@ -29,6 +29,7 @@ export type PositionedNode = FunctionSlotGraphNode & {
   layoutRadiusMin?: number;
   layoutRadiusMax?: number;
   layoutYScale?: number;
+  layoutLevel?: number;
   shortLabel: string;
 };
 

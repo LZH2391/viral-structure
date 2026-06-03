@@ -22,6 +22,7 @@ import {
   edgeLinePoints,
   edgeMarkerEnd,
   nodeClassName,
+  nodeLabelFontSize,
   nodeLabelOpacity,
   slotOrderBadge,
 } from "./graphVisualStyles";
@@ -88,8 +89,13 @@ export function GraphCanvas({
     hoverOutTimerRef.current = null;
     setHoveredNodeId(nodeId);
   };
-  const hideHoverSoon = () => {
+  const hideHoverSoon = (nodeId: string | null = hoveredNodeId) => {
     if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+    hoverOutTimerRef.current = null;
+    if (!isSamplePreviewNode(nodesRef.current.find((node) => node.id === nodeId) ?? null)) {
+      setHoveredNodeId(null);
+      return;
+    }
     hoverOutTimerRef.current = window.setTimeout(() => setHoveredNodeId(null), 150);
   };
   const closePreview = () => {
@@ -151,6 +157,7 @@ export function GraphCanvas({
         layoutRadiusMin: node.layoutRadiusMin,
         layoutRadiusMax: node.layoutRadiusMax,
         layoutYScale: node.layoutYScale,
+        layoutLevel: node.layoutLevel,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
         fx: fixedLayout || pinnedRoot ? node.x : null,
@@ -359,17 +366,24 @@ export function GraphCanvas({
             return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} markerEnd={edgeMarkerEnd(edge.type, source, target)} />;
           })}
           {nodes.map((node) => (
+            (() => {
+              const nodeFocused = hasFocusNode && (node.id === focusNodeId || focusedIds.has(node.id));
+              return (
             <GraphNode
               key={node.id}
               node={node}
-              focused={hasFocusNode && (node.id === focusNodeId || focusedIds.has(node.id))}
+              focused={nodeFocused}
+              focusMuted={hasFocusNode && !nodeFocused}
               selected={node.id === selectedNodeId}
               pinnedPreview={node.id === pinnedPreviewNodeId}
               labelOpacity={nodeLabelOpacity(mode, node, viewport.k)}
+              labelFontSize={nodeLabelFontSize(mode, node)}
               onHover={showHover}
               onHoverOut={hideHoverSoon}
               onStartDrag={startNodeDrag}
             />
+              );
+            })()
           ))}
         </g>
       </svg>
@@ -381,7 +395,7 @@ export function GraphCanvas({
           size={previewSize}
           pinned={pinnedPreviewNodeId === previewNode.id}
           onMouseEnter={() => showHover(previewNode.id)}
-          onMouseLeave={hideHoverSoon}
+          onMouseLeave={() => hideHoverSoon(previewNode.id)}
           onClose={closePreview}
         />
       ) : null}
@@ -389,17 +403,17 @@ export function GraphCanvas({
   );
 }
 
-function GraphNode({ node, focused, selected, pinnedPreview, labelOpacity, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; labelOpacity: number; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
+function GraphNode({ node, focused, focusMuted, selected, pinnedPreview, labelOpacity, labelFontSize, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; focusMuted: boolean; selected: boolean; pinnedPreview: boolean; labelOpacity: number; labelFontSize: number; onHover: (id: string) => void; onHoverOut: (id: string) => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = nodeRadius(node);
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
   const overlayUsageCount = Number(node.data.overlayUsageCount ?? overlayColors.length);
   const slotBadge = slotOrderBadge(node);
   return (
     <g
-      className={nodeClassName(node, focused, selected, pinnedPreview)}
+      className={nodeClassName(node, focused, selected, pinnedPreview, focusMuted)}
       onPointerDown={(event) => onStartDrag(event, node)}
       onPointerEnter={() => onHover(node.id)}
-      onPointerLeave={onHoverOut}
+      onPointerLeave={() => onHoverOut(node.id)}
       tabIndex={0}
       role="button"
       aria-label={node.label}
@@ -418,10 +432,14 @@ function GraphNode({ node, focused, selected, pinnedPreview, labelOpacity, onHov
           <text x={node.x + radius - 1} y={node.y - radius + 4}>{overlayUsageCount > 1 ? overlayUsageCount : ""}</text>
         </g>
       ) : null}
-      {labelOpacity > 0.01 ? <text x={node.x} y={node.y + radius + 14} style={{ opacity: labelOpacity }}>{node.shortLabel}</text> : null}
+      {labelOpacity > 0.01 ? <text x={node.x} y={node.y + radius + 14} style={{ opacity: labelOpacity, fontSize: labelFontSize }}>{node.shortLabel}</text> : null}
       <title>{node.label}</title>
     </g>
   );
+}
+
+function isSamplePreviewNode(node: SimNode | null) {
+  return node?.type === "sourceSample" || node?.type === "libraryItem";
 }
 
 function GraphDefinitions() {

@@ -50,14 +50,18 @@ test("governance graph projects hidden atom hierarchy paths into subtype-pattern
     artifactId: "governance_test",
     nodes: [
       { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
-      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype", group: "slot", data: {} },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a" } },
+      { id: "slotSubtype:SUB_b", type: "slotSubtype", label: "Subtype B", group: "slot", data: { id: "SUB_b" } },
       { id: "atomLayer:SUB_a:script", type: "atomLayer", label: "Script", group: "script", data: { layer: "script" } },
+      { id: "atomLayer:SUB_b:script", type: "atomLayer", label: "Script", group: "script", data: { layer: "script" } },
       { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
-      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { forSlotSubtypeIds: ["SUB_a"] } },
     ],
     edges: [
       { id: "edge:sub:layer", source: "slotSubtype:SUB_a", target: "atomLayer:SUB_a:script", type: "subtype_to_atom_layer" },
+      { id: "edge:sub-b:layer", source: "slotSubtype:SUB_b", target: "atomLayer:SUB_b:script", type: "subtype_to_atom_layer" },
       { id: "edge:layer:arch", source: "atomLayer:SUB_a:script", target: "atomArchetype:ARCH_script", type: "atom_layer_to_archetype" },
+      { id: "edge:layer-b:arch", source: "atomLayer:SUB_b:script", target: "atomArchetype:ARCH_script", type: "atom_layer_to_archetype" },
       { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
     ],
     summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
@@ -66,8 +70,36 @@ test("governance graph projects hidden atom hierarchy paths into subtype-pattern
   const visible = buildVisibleGraph(graph, filters);
 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_a"));
+  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_b"));
   assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
   assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "projected_hierarchy"));
+  assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:PAT_a"), false);
+});
+
+test("governance graph never shows governance to source sample direct edges", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "sourceVariant:v1", type: "sourceVariant", label: "variant", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+      { id: "sourceSample:sample_a", type: "sourceSample", label: "sample_a", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    ],
+    edges: [
+      { id: "edge:root:sample", source: "governance:test", target: "sourceSample:sample_a", type: "governance_contains_source_sample" },
+      { id: "edge:root:variant", source: "governance:test", target: "sourceVariant:v1", type: "governance_contains_source_variant" },
+      { id: "edge:variant:sample", source: "sourceVariant:v1", target: "sourceSample:sample_a", type: "source_variant_to_sample" },
+    ],
+    summary: { slotCount: 0, atomCount: 1, bindingCount: 0, conceptCount: 2 },
+  };
+
+  const visibleWithVariant = buildVisibleGraph(graph, allFilters());
+  const visibleWithoutVariant = buildVisibleGraph(graph, { ...allFilters(), sourceVariant: false });
+
+  assert.ok(visibleWithVariant.edges.some((edge) => edge.source === "sourceVariant:v1" && edge.target === "sourceSample:sample_a"));
+  assert.equal(visibleWithVariant.edges.some((edge) => edge.source === "governance:test" && edge.target === "sourceSample:sample_a"), false);
+  assert.equal(visibleWithoutVariant.edges.some((edge) => edge.source === "governance:test" && edge.target === "sourceSample:sample_a"), false);
 });
 
 test("governance graph hides atom pattern candidate suffixes in display labels", () => {
@@ -192,8 +224,129 @@ test("governance radial layout keeps root centered and keeps first layer inside 
   assert.ok(familyNodes.every((node) => node.layoutRadiusMax > distanceFromRoot(node, root)));
 });
 
+test("governance radial layout compresses hidden layer rings and keeps source samples prominent", () => {
+  const { buildVisibleGraph, CENTER, nodeRadius } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = { ...allFilters(), slotArchetype: false, atomLayer: false, atomArchetype: false };
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance-test",
+    nodes: [
+      { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
+      { id: "archetype:a1", type: "slotArchetype", label: "arch", group: "slot", data: {} },
+      { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: { id: "s1" } },
+      { id: "atomLayer:s1:script", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom arch", group: "script", data: {} },
+      { id: "atomPattern:p1", type: "atomPattern", label: "pattern", group: "script", data: { forSlotSubtypeIds: ["s1"] } },
+      { id: "sourceVariant:v1", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
+      { id: "sourceSample:sample_a", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    ],
+    edges: [
+      { id: "e1", source: "governance:root", target: "family:f1", type: "governance_contains_family" },
+      { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
+      { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
+      { id: "e4", source: "subtype:s1", target: "atomLayer:s1:script", type: "subtype_to_atom_layer" },
+      { id: "e5", source: "atomLayer:s1:script", target: "atomArchetype:aa1", type: "atom_layer_to_archetype" },
+      { id: "e6", source: "atomArchetype:aa1", target: "atomPattern:p1", type: "atom_archetype_to_pattern" },
+      { id: "e7", source: "atomPattern:p1", target: "sourceVariant:v1", type: "pattern_to_source_variant" },
+      { id: "e8", source: "sourceVariant:v1", target: "sourceSample:sample_a", type: "source_variant_to_sample" },
+    ],
+    summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 8 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters, null, "force");
+  const byId = new Map(visible.nodes.map((node) => [node.id, node]));
+  const radiusFromCenter = (id) => {
+    const node = byId.get(id);
+    return Math.hypot(node.x - CENTER.x, (node.y - CENTER.y) / (node.layoutYScale ?? 1));
+  };
+
+  assert.equal(byId.has("archetype:a1"), false);
+  assert.equal(byId.has("atomLayer:s1:script"), false);
+  assert.equal(byId.get("governance:root").layoutLevel, 0);
+  assert.equal(byId.get("family:f1").layoutLevel, 1);
+  assert.equal(byId.get("subtype:s1").layoutLevel, 2);
+  assert.equal(byId.get("atomPattern:p1").layoutLevel, 3);
+  assert.equal(byId.get("sourceVariant:v1").layoutLevel, 4);
+  assert.equal(byId.get("sourceSample:sample_a").layoutLevel, 5);
+  assert.ok(radiusFromCenter("family:f1") < radiusFromCenter("subtype:s1"));
+  assert.ok(radiusFromCenter("subtype:s1") < radiusFromCenter("atomPattern:p1"));
+  assert.equal(nodeRadius(byId.get("sourceSample:sample_a")), nodeRadius(byId.get("governance:root")));
+});
+
+test("governance label specs follow visible layout levels from inner to outer", () => {
+  const { governanceLabelSpec } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphVisualStyles.ts");
+  const root = governanceLabelSpec({ type: "governanceRoot", layoutLevel: 0 });
+  const inner = governanceLabelSpec({ type: "slotFamily", layoutLevel: 1 });
+  const middle = governanceLabelSpec({ type: "atomPattern", layoutLevel: 3 });
+  const outer = governanceLabelSpec({ type: "sourceSample", layoutLevel: 5 });
+
+  assert.ok(root.fontSize > inner.fontSize);
+  assert.ok(inner.fontSize > middle.fontSize);
+  assert.ok(middle.fontSize > outer.fontSize);
+  assert.ok(root.start < inner.start);
+  assert.ok(inner.start < middle.start);
+  assert.ok(middle.start < outer.start);
+  assert.equal(outer.min, 0);
+});
+
+test("governance force layout bundles atoms near visible parents while samples stay distributed", () => {
+  const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false };
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance-test",
+    nodes: [
+      { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a" } },
+      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b" } },
+      { id: "layer:a", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "layer:b", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "arch:a", type: "atomArchetype", label: "arch A", group: "script", data: {} },
+      { id: "arch:b", type: "atomArchetype", label: "arch B", group: "script", data: {} },
+      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { forSlotSubtypeIds: ["a"] } },
+      { id: "pattern:b", type: "atomPattern", label: "pattern B", group: "script", data: { forSlotSubtypeIds: ["b"] } },
+      { id: "variant:a", type: "sourceVariant", label: "variant A", group: "sourceVariant", data: {} },
+      { id: "variant:b", type: "sourceVariant", label: "variant B", group: "sourceVariant", data: {} },
+      { id: "sample:a", type: "sourceSample", label: "sample A", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+      { id: "sample:b", type: "sourceSample", label: "sample B", group: "sourceSample", data: { sampleVideoId: "sample_b" } },
+    ],
+    edges: [
+      { id: "e-root-a", source: "governance:root", target: "subtype:a", type: "governance_contains_subtype" },
+      { id: "e-root-b", source: "governance:root", target: "subtype:b", type: "governance_contains_subtype" },
+      { id: "e-a-layer", source: "subtype:a", target: "layer:a", type: "subtype_to_atom_layer" },
+      { id: "e-b-layer", source: "subtype:b", target: "layer:b", type: "subtype_to_atom_layer" },
+      { id: "e-a-arch", source: "layer:a", target: "arch:a", type: "atom_layer_to_archetype" },
+      { id: "e-b-arch", source: "layer:b", target: "arch:b", type: "atom_layer_to_archetype" },
+      { id: "e-a-pattern", source: "arch:a", target: "pattern:a", type: "atom_archetype_to_pattern" },
+      { id: "e-b-pattern", source: "arch:b", target: "pattern:b", type: "atom_archetype_to_pattern" },
+      { id: "e-a-variant", source: "pattern:a", target: "variant:a", type: "pattern_to_source_variant" },
+      { id: "e-b-variant", source: "pattern:b", target: "variant:b", type: "pattern_to_source_variant" },
+      { id: "e-a-sample", source: "variant:a", target: "sample:a", type: "source_variant_to_sample" },
+      { id: "e-b-sample", source: "variant:b", target: "sample:b", type: "source_variant_to_sample" },
+    ],
+    summary: { slotCount: 2, atomCount: 2, bindingCount: 0, conceptCount: 12 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters, null, "force");
+  const byId = new Map(visible.nodes.map((node) => [node.id, node]));
+  const angle = (id) => {
+    const node = byId.get(id);
+    return Math.atan2((node.y - CENTER.y) / (node.layoutYScale ?? 1), node.x - CENTER.x);
+  };
+
+  assert.ok(angularDistance(angle("pattern:a"), angle("subtype:a")) < angularDistance(angle("pattern:a"), angle("subtype:b")));
+  assert.ok(angularDistance(angle("pattern:b"), angle("subtype:b")) < angularDistance(angle("pattern:b"), angle("subtype:a")));
+  assert.ok(angularDistance(angle("sample:a"), angle("sample:b")) > 1);
+});
+
 function distanceFromRoot(node, root) {
   return Math.hypot(node.x - root.x, (node.y - root.y) / (node.layoutYScale ?? 1));
+}
+
+function angularDistance(left, right) {
+  const diff = Math.abs(left - right) % (Math.PI * 2);
+  return Math.min(diff, Math.PI * 2 - diff);
 }
 
 function loadTsModule(relativePath) {

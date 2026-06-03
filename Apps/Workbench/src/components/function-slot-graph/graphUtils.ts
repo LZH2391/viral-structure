@@ -14,6 +14,7 @@ type LayoutPosition = {
   layoutRadiusMin?: number;
   layoutRadiusMax?: number;
   layoutYScale?: number;
+  layoutLevel?: number;
 };
 
 type ProjectedEdgesCacheEntry = {
@@ -27,23 +28,46 @@ type FocusIndex = {
   incoming: Map<string, FunctionSlotGraphEdge[]>;
 };
 
+type ParentAnchor = {
+  id: string;
+  angle: number;
+  level: number;
+  depth: number;
+};
+
 const projectedEdgesCache = new WeakMap<FunctionSlotLibraryGraph, ProjectedEdgesCacheEntry>();
 const focusIndexCache = new WeakMap<FunctionSlotGraphEdge[], FocusIndex>();
+const GOVERNANCE_RING_START_RADIUS = 260;
+const GOVERNANCE_RING_STEP = 220;
+const GOVERNANCE_COLUMN_START_X = 310;
+const GOVERNANCE_COLUMN_STEP_X = 220;
+
+const GOVERNANCE_LAYOUT_LEVELS: Array<{ types: string[]; columnSpacing: number }> = [
+  { types: ["slotFamily"], columnSpacing: 54 },
+  { types: ["slotArchetype"], columnSpacing: 54 },
+  { types: ["slotSubtype"], columnSpacing: 54 },
+  { types: ["atomLayer"], columnSpacing: 54 },
+  { types: ["atomArchetype"], columnSpacing: 54 },
+  { types: ["atomPattern"], columnSpacing: 54 },
+  { types: ["sourceVariant"], columnSpacing: 34 },
+  { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], columnSpacing: 58 },
+  { types: ["sourceSample"], columnSpacing: 34 },
+];
 
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
   const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1" && hasLegacyPlanTraceAtomNodes(graph)
     ? withAtomLayerProjection(graph)
     : graph;
+  const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
   let positions: Map<string, LayoutPosition>;
   if (projectedGraph.schemaVersion === "function_slot_governance_graph.v1") {
-    positions = buildGovernancePositions(projectedGraph, governanceLayoutMode);
+    positions = buildGovernancePositions(projectedGraph, governanceLayoutMode, visibleIds);
   } else if (projectedGraph.schemaVersion === "confirmed_plan_trace_graph.v1") {
     positions = governanceLayoutMode === "columns" ? buildPlanTraceColumnPositions(projectedGraph) : buildPlanTracePositions(projectedGraph);
   } else {
     positions = governanceLayoutMode === "columns" ? buildLibraryColumnPositions(projectedGraph) : buildPositions(projectedGraph);
   }
-  const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
   const nodes = projectedGraph.nodes
     .filter((node) => {
       if (visibleIds && !visibleIds.has(node.id)) return false;
@@ -69,6 +93,7 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
         layoutRadiusMin: position.layoutRadiusMin,
         layoutRadiusMax: position.layoutRadiusMax,
         layoutYScale: position.layoutYScale,
+        layoutLevel: position.layoutLevel,
         shortLabel: shortLabel(node),
       };
     });
@@ -161,7 +186,7 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   if (cached?.edgeSignature === edgeSignature && cached.visibleSignature === visibleSignature) return cached.edges;
 
   const incoming = new Map<string, FunctionSlotGraphEdge[]>();
-  const nodeTypeById = new Map(graph.nodes.map((node) => [node.id, node.type]));
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   for (const edge of graph.edges) {
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
   }
@@ -170,7 +195,7 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
     const ancestors = nearestVisibleAncestors(targetId, incoming, visibleNodeIds);
     for (const ancestorId of ancestors) {
       if (ancestorId === targetId) continue;
-      if (!shouldProjectHierarchyEdge(nodeTypeById, ancestorId, targetId)) continue;
+      if (!shouldProjectHierarchyEdge(nodeById, ancestorId, targetId)) continue;
       edges.push({
         id: graphId("edge", "projected", ancestorId, targetId),
         source: ancestorId,
@@ -181,6 +206,7 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
     }
   }
   for (const edge of graph.edges) {
+    if (edge.type === "governance_contains_source_sample") continue;
     if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) continue;
     edges.push(edge);
   }
@@ -193,12 +219,24 @@ function hasLegacyPlanTraceAtomNodes(graph: FunctionSlotLibraryGraph) {
   return graph.nodes.some((node) => node.type === "atomArchetype" || node.type === "atomPattern");
 }
 
-function shouldProjectHierarchyEdge(nodeTypeById: Map<string, string>, sourceId: string, targetId: string) {
-  const sourceType = nodeTypeById.get(sourceId);
-  const targetType = nodeTypeById.get(targetId);
+function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>, sourceId: string, targetId: string) {
+  const source = nodeById.get(sourceId);
+  const target = nodeById.get(targetId);
+  const sourceType = source?.type;
+  const targetType = target?.type;
+  if (sourceType === "slotSubtype" && targetType === "atomPattern") return atomPatternTargetsSubtype(target, source);
   if (targetType === "sourceVariant" && (sourceType === "slotSubtype" || sourceType === "atomLayer" || sourceType === "atomArchetype")) return false;
-  if (targetType === "sourceSample" && sourceType !== "sourceVariant" && sourceType !== "governanceRoot") return false;
+  if (targetType === "sourceSample" && sourceType !== "sourceVariant") return false;
   return true;
+}
+
+function atomPatternTargetsSubtype(pattern: FunctionSlotGraphNode | undefined, subtype: FunctionSlotGraphNode | undefined) {
+  const subtypeId = typeof subtype?.data?.id === "string" ? subtype.data.id : null;
+  if (!subtypeId) return false;
+  const targetSubtypeIds = Array.isArray(pattern?.data?.forSlotSubtypeIds)
+    ? pattern.data.forSlotSubtypeIds.map((value) => String(value)).filter(Boolean)
+    : [];
+  return targetSubtypeIds.includes(subtypeId);
 }
 
 function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>) {
@@ -274,9 +312,11 @@ export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
       if (node.type === "confirmedPlan" || node.type === "governanceRoot") return -920;
       if (node.type === "slotFamily") return -560;
       if (node.type === "slotSubtype") return -520;
-      if (node.type === "slotArchetype" || node.type === "atomArchetype") return -470;
+      if (node.type === "atomLayer") return -660;
+      if (node.type === "atomArchetype") return -640;
+      if (node.type === "atomPattern") return -620;
+      if (node.type === "slotArchetype") return -470;
       if (node.type === "sourceVariant") return -520;
-      if (node.type === "atomPattern") return -440;
       if (node.type === "libraryItem" || node.type === "slotInstance") return -220;
       if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "unmappedVariant") return -360;
       return -260;
@@ -285,7 +325,10 @@ export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
       if (node.type === "confirmedPlan" || node.type === "governanceRoot") return nodeRadius(node) + 92;
       if (node.type === "sourceVariant") return nodeRadius(node) + 82;
       if (node.type === "slotFamily" || node.type === "slotSubtype") return nodeRadius(node) + 78;
-      if (node.type === "slotArchetype" || node.type === "atomArchetype" || node.type === "atomPattern") return nodeRadius(node) + 68;
+      if (node.type === "atomLayer") return nodeRadius(node) + 104;
+      if (node.type === "atomArchetype") return nodeRadius(node) + 98;
+      if (node.type === "atomPattern") return nodeRadius(node) + 94;
+      if (node.type === "slotArchetype") return nodeRadius(node) + 68;
       return nodeRadius(node) + 58;
     }).strength(0.96).iterations(4))
     .force("link", forceLink<SimNode, D3Link>(links)
@@ -345,17 +388,18 @@ function focusIndex(edges: FunctionSlotGraphEdge[]) {
 export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type" | "data">) {
   if (node.type === "governanceRoot") return 30;
   if (node.type === "slotFamily") return 24;
-  if (node.type === "slotArchetype") return 18;
-  if (node.type === "slotSubtype") return 22;
+  if (node.type === "slotArchetype") return 20;
+  if (node.type === "slotSubtype") return 16;
   if (node.type === "sourceVariant" && typeof node.data?.planId === "string") return 16;
-  if (node.type === "atomLayer") return 18;
-  if (node.type === "atomArchetype") return 14;
-  if (node.type === "atomPattern") return 12;
-  if (node.type === "bindingPrinciple" || node.type === "recompositionPolicy") return 13;
-  if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 10;
+  if (node.type === "atomLayer") return 15;
+  if (node.type === "atomArchetype") return 13;
+  if (node.type === "atomPattern") return 11;
+  if (node.type === "sourceVariant") return 8;
+  if (node.type === "bindingPrinciple" || node.type === "recompositionPolicy") return 10;
+  if (node.type === "bindingPattern" || node.type === "rulePattern" || node.type === "implementationBundle") return 9;
   if (node.type === "unmappedVariant") return 8;
   if (node.type === "sourceExample") return 9;
-  if (node.type === "sourceSample") return 24;
+  if (node.type === "sourceSample") return 30;
   if (node.type === "confirmedPlan") return 30;
   if (node.type.startsWith("traced")) return 13;
   if (node.type === "libraryItem") return 24;
@@ -597,20 +641,17 @@ function isSourceVariantAtom(node: FunctionSlotGraphNode) {
   return kind === "script" || kind === "rhythm" || kind === "packaging" || layer === "script" || layer === "rhythm" || layer === "packaging";
 }
 
-function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: GovernanceLayoutMode) {
-  if (layoutMode === "force") return buildGovernanceForcePositions(graph);
+function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: GovernanceLayoutMode, visibleNodeIds: Set<string> | null) {
+  if (layoutMode === "force") return buildGovernanceForcePositions(graph, visibleNodeIds);
   const positions = new Map<string, LayoutPosition>();
   const root = graph.nodes.find((node) => node.type === "governanceRoot");
-  if (root) positions.set(root.id, { x: 150, y: CENTER.y });
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotFamily"), 310);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotArchetype"), 520);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "slotSubtype"), 740);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomArchetype" || node.type === "bindingPrinciple" || node.type === "recompositionPolicy"), 920);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "atomPattern" || node.type === "bindingPattern" || node.type === "rulePattern"), 1050);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "implementationBundle"), 1060, 170, 84);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceVariant"), 1180, 90, 34);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "sourceSample"), 1300, 90, 34);
-  placeColumn(positions, graph.nodes.filter((node) => node.type === "unmappedVariant"), 1180, 610, 28);
+  if (root) positions.set(root.id, { x: 150, y: CENTER.y, layoutLevel: 0 });
+  visibleGovernanceLevels(graph, visibleNodeIds).forEach((level, index) => {
+    const nodes = graph.nodes
+      .filter((node) => level.types.includes(node.type) && layoutNodeVisible(node, visibleNodeIds))
+      .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
+    placeColumn(positions, nodes, GOVERNANCE_COLUMN_START_X + (index * GOVERNANCE_COLUMN_STEP_X), CENTER.y, level.columnSpacing, index + 1);
+  });
   return positions;
 }
 
@@ -681,23 +722,27 @@ function parentColumnY(
   return parent ? positions.get(parent)?.y ?? CENTER.y : CENTER.y;
 }
 
-function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph) {
+function buildGovernanceForcePositions(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string> | null) {
+  const levels = visibleGovernanceLevels(graph, visibleNodeIds).map((level, index) => ({
+    types: level.types,
+    radius: GOVERNANCE_RING_START_RADIUS + (index * GOVERNANCE_RING_STEP),
+  }));
   return buildConcentricTypeRingPositions(graph, {
     rootTypes: ["governanceRoot"],
     center: CENTER,
     yScale: 1,
-    levels: [
-      { types: ["slotFamily"], radius: 260 },
-      { types: ["slotArchetype"], radius: 520 },
-      { types: ["slotSubtype"], radius: 820 },
-      { types: ["atomLayer"], radius: 1080 },
-      { types: ["atomArchetype"], radius: 1240 },
-      { types: ["atomPattern"], radius: 1400 },
-      { types: ["sourceVariant"], radius: 1600 },
-      { types: ["sourceSample"], radius: 1760 },
-      { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], radius: 1840 },
-    ],
+    levels,
+    visibleNodeIds,
+    parentBundled: true,
   });
+}
+
+function visibleGovernanceLevels(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string> | null) {
+  return GOVERNANCE_LAYOUT_LEVELS.filter((level) => graph.nodes.some((node) => level.types.includes(node.type) && layoutNodeVisible(node, visibleNodeIds)));
+}
+
+function layoutNodeVisible(node: FunctionSlotGraphNode, visibleNodeIds: Set<string> | null) {
+  return !visibleNodeIds || visibleNodeIds.has(node.id);
 }
 
 function buildConcentricTypeRingPositions(
@@ -707,6 +752,8 @@ function buildConcentricTypeRingPositions(
     center: { x: number; y: number };
     yScale: number;
     levels: Array<{ types: string[]; radius: number }>;
+    visibleNodeIds?: Set<string> | null;
+    parentBundled?: boolean;
   },
 ) {
   const positions = new Map<string, LayoutPosition>();
@@ -716,19 +763,19 @@ function buildConcentricTypeRingPositions(
   for (const type of options.rootTypes) levelByType.set(type, 0);
 
   const roots = graph.nodes
-    .filter((node) => options.rootTypes.includes(node.type))
+    .filter((node) => options.rootTypes.includes(node.type) && layoutNodeVisible(node, options.visibleNodeIds ?? null))
     .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
   const rootIds = new Set(roots.map((node) => node.id));
   if (roots.length <= 1) {
     roots.forEach((node) => {
       angles.set(node.id, -Math.PI / 2);
-      positions.set(node.id, options.center);
+      positions.set(node.id, { ...options.center, layoutLevel: 0 });
     });
   } else {
     roots.forEach((node, index) => {
       const angle = distributedAngle(index, roots.length);
       angles.set(node.id, angle);
-      positions.set(node.id, ringPosition(options.center, angle, 120, options.yScale, 0.22));
+      positions.set(node.id, ringPosition(options.center, angle, 120, options.yScale, 0.22, 0));
     });
   }
 
@@ -740,24 +787,99 @@ function buildConcentricTypeRingPositions(
 
   options.levels.forEach((level, levelIndex) => {
     const nodes = graph.nodes
-      .filter((node) => level.types.includes(node.type))
+      .filter((node) => level.types.includes(node.type) && layoutNodeVisible(node, options.visibleNodeIds ?? null))
       .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
-    const orderedNodes = orderNodesByParentAngle(nodes, incoming, angles, levelByType, nodeTypeById);
-    const offset = averageParentAlignmentOffset(orderedNodes, incoming, angles, levelByType, nodeTypeById);
-    orderedNodes.forEach((node, index) => {
-      const spacing = (Math.PI * 2) / Math.max(orderedNodes.length, 1);
-      const angle = distributedAngle(index, orderedNodes.length) + offset;
-      angles.set(node.id, angle);
-      positions.set(node.id, ringPosition(options.center, angle, level.radius, options.yScale, nodeAngleRange(spacing, levelIndex)));
-    });
+    if (options.parentBundled && isAtomLayoutLevel(level.types)) {
+      placeParentBundledLevel(positions, nodes, incoming, angles, levelByType, nodeTypeById, level.radius, levelIndex, options.center, options.yScale);
+    } else {
+      const orderedNodes = orderNodesByParentAngle(nodes, incoming, angles, levelByType, nodeTypeById);
+      const offset = averageParentAlignmentOffset(orderedNodes, incoming, angles, levelByType, nodeTypeById);
+      orderedNodes.forEach((node, index) => {
+        const spacing = (Math.PI * 2) / Math.max(orderedNodes.length, 1);
+        const angle = distributedAngle(index, orderedNodes.length) + offset;
+        angles.set(node.id, angle);
+        positions.set(node.id, ringPosition(options.center, angle, level.radius, options.yScale, nodeAngleRange(spacing, levelIndex), levelIndex + 1));
+      });
+    }
   });
 
   const knownTypes = new Set([...options.rootTypes, ...options.levels.flatMap((level) => level.types)]);
   const fallbackNodes = graph.nodes
-    .filter((node) => !knownTypes.has(node.type))
+    .filter((node) => !knownTypes.has(node.type) && layoutNodeVisible(node, options.visibleNodeIds ?? null))
     .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
-  placeRing(positions, fallbackNodes, 1840, options.center, options.yScale, Math.PI / 2);
+  placeRing(positions, fallbackNodes, 1840, options.center, options.yScale, Math.PI / 2, options.levels.length + 1);
   return positions;
+}
+
+function placeParentBundledLevel(
+  positions: Map<string, LayoutPosition>,
+  nodes: FunctionSlotGraphNode[],
+  incoming: Map<string, FunctionSlotGraphEdge[]>,
+  angles: Map<string, number>,
+  levelByType: Map<string, number>,
+  nodeTypeById: Map<string, string>,
+  radius: number,
+  levelIndex: number,
+  center: { x: number; y: number },
+  yScale: number,
+) {
+  const groups = new Map<string, { angle: number | null; nodes: FunctionSlotGraphNode[] }>();
+  nodes.forEach((node, index) => {
+    const anchor = nearestVisibleParentAnchor(node, incoming, angles, levelByType, nodeTypeById);
+    const key = anchor?.id ?? `__root__:${index}`;
+    const group = groups.get(key) ?? { angle: anchor?.angle ?? null, nodes: [] };
+    group.nodes.push(node);
+    groups.set(key, group);
+  });
+
+  [...groups.values()]
+    .sort((left, right) => (left.angle ?? Number.POSITIVE_INFINITY) - (right.angle ?? Number.POSITIVE_INFINITY))
+    .forEach((group, groupIndex) => {
+      const sortedNodes = group.nodes.sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
+      const parentAngle = group.angle ?? distributedAngle(groupIndex, groups.size);
+      const spacing = parentBundledSpacing(sortedNodes.length, sortedNodes[0]?.type);
+      sortedNodes.forEach((node, nodeIndex) => {
+        const angle = parentAngle + parentBundledAngleOffset(nodeIndex, sortedNodes.length, spacing);
+        angles.set(node.id, angle);
+        positions.set(node.id, ringPosition(center, angle, radius, yScale, parentBundledNodeAngleRange(spacing, levelIndex, node.type), levelIndex + 1));
+      });
+    });
+}
+
+function nearestVisibleParentAnchor(
+  node: FunctionSlotGraphNode,
+  incoming: Map<string, FunctionSlotGraphEdge[]>,
+  angles: Map<string, number>,
+  levelByType: Map<string, number>,
+  nodeTypeById: Map<string, string>,
+): ParentAnchor | null {
+  const nodeLevel = levelByType.get(node.type) ?? Number.POSITIVE_INFINITY;
+  const visited = new Set<string>([node.id]);
+  let frontier = [{ nodeId: node.id, depth: 0 }];
+  let best: ParentAnchor | null = null;
+
+  while (frontier.length) {
+    const next: Array<{ nodeId: string; depth: number }> = [];
+    for (const { nodeId, depth } of frontier) {
+      for (const edge of incoming.get(nodeId) ?? []) {
+        if (visited.has(edge.source)) continue;
+        visited.add(edge.source);
+        const sourceLevel = levelByType.get(nodeTypeById.get(edge.source) ?? "") ?? -1;
+        const sourceAngle = angles.get(edge.source);
+        if (typeof sourceAngle === "number" && sourceLevel < nodeLevel) {
+          if (!best || depth < best.depth || (depth === best.depth && sourceLevel > best.level)) {
+            best = { id: edge.source, angle: sourceAngle, level: sourceLevel, depth };
+          }
+          continue;
+        }
+        next.push({ nodeId: edge.source, depth: depth + 1 });
+      }
+    }
+    if (best) return best;
+    frontier = next;
+  }
+
+  return best;
 }
 
 function orderNodesByParentAngle(
@@ -816,7 +938,7 @@ function nodeAngleRange(spacing: number, levelIndex: number) {
   return clamp(spacing * 0.34 - levelIndex * 0.004, 0.08, 0.22);
 }
 
-function ringPosition(center: { x: number; y: number }, angle: number, radius: number, yScale: number, angleRange: number): LayoutPosition {
+function ringPosition(center: { x: number; y: number }, angle: number, radius: number, yScale: number, angleRange: number, layoutLevel?: number): LayoutPosition {
   return {
     x: clamp(center.x + Math.cos(angle) * radius, 70, VIEWBOX.width - 70),
     y: clamp(center.y + Math.sin(angle) * radius * yScale, 60, VIEWBOX.height - 60),
@@ -825,6 +947,7 @@ function ringPosition(center: { x: number; y: number }, angle: number, radius: n
     layoutRadiusMin: Math.max(0, radius - 24),
     layoutRadiusMax: radius + 24,
     layoutYScale: yScale,
+    layoutLevel,
   };
 }
 
@@ -835,11 +958,12 @@ function placeRing(
   center: { x: number; y: number },
   yScale: number,
   angleOffset: number,
+  layoutLevel?: number,
 ) {
   if (!nodes.length) return;
   nodes.forEach((node, index) => {
     const angle = angleOffset + (index / Math.max(nodes.length, 1)) * Math.PI * 2;
-    positions.set(node.id, ringPosition(center, angle, radius, yScale, Math.PI));
+    positions.set(node.id, ringPosition(center, angle, radius, yScale, Math.PI, layoutLevel));
   });
 }
 
@@ -1055,6 +1179,31 @@ function siblingAngleOffset(index: number, count: number, radius: number) {
   return (index - (count - 1) / 2) * step;
 }
 
+function parentBundledAngleOffset(index: number, count: number, spacing = parentBundledSpacing(count)) {
+  if (count <= 1) return 0;
+  const span = spacing * (count - 1);
+  return -span / 2 + index * spacing;
+}
+
+function parentBundledSpacing(count: number, nodeType?: string) {
+  if (count <= 1) return 0.12;
+  if (isAtomLayoutNodeType(nodeType)) return clamp(0.16 - Math.min(count, 18) * 0.004, 0.095, 0.15);
+  return clamp(0.055 + (count > 8 ? 0.018 : 0), 0.055, 0.09);
+}
+
+function parentBundledNodeAngleRange(spacing: number, levelIndex: number, nodeType: string) {
+  if (!isAtomLayoutNodeType(nodeType)) return nodeAngleRange(spacing, levelIndex);
+  return clamp(spacing * 0.62, 0.13, 0.24);
+}
+
+function isAtomLayoutNodeType(type: string | undefined) {
+  return type === "atomLayer" || type === "atomArchetype" || type === "atomPattern";
+}
+
+function isAtomLayoutLevel(types: string[]) {
+  return types.length > 0 && types.every((type) => isAtomLayoutNodeType(type));
+}
+
 function distributedAngle(index: number, count: number) {
   if (count <= 1) return 0.62;
   return -Math.PI / 2 + (index / Math.max(count, 1)) * Math.PI * 2;
@@ -1082,9 +1231,9 @@ function hashText(value: string) {
   return Math.abs(hash >>> 0);
 }
 
-function placeColumn(positions: Map<string, LayoutPosition>, nodes: FunctionSlotGraphNode[], x: number, centerY = CENTER.y, spacing = 54) {
+function placeColumn(positions: Map<string, LayoutPosition>, nodes: FunctionSlotGraphNode[], x: number, centerY = CENTER.y, spacing = 54, layoutLevel?: number) {
   const startY = centerY - ((nodes.length - 1) * spacing) / 2;
-  nodes.forEach((node, index) => positions.set(node.id, { x, y: clamp(startY + index * spacing, 55, VIEWBOX.height - 55) }));
+  nodes.forEach((node, index) => positions.set(node.id, { x, y: clamp(startY + index * spacing, 55, VIEWBOX.height - 55), layoutLevel }));
 }
 
 function edgeDistance(type: string) {

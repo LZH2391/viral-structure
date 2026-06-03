@@ -24,6 +24,8 @@ import {
   planTraceSummaryText,
 } from "./GraphCanvas";
 import {
+  applyPixiAlphaTween,
+  capturePixiAlphaSnapshot,
   createPixiGraphObjects,
   destroyPixiGraphObjects,
   drawPixiBackground,
@@ -33,6 +35,7 @@ import {
   syncPixiLabels,
   syncPixiLayout,
   syncPixiNodes,
+  type PixiAlphaSnapshot,
   type PixiGraphObjects,
   type PixiGraphRenderState,
 } from "./graphPixiRenderer";
@@ -55,6 +58,7 @@ type HitGridEntry = { node: SimNode; index: number };
 type HitGridIndex = { cellSize: number; cells: Map<string, HitGridEntry[]> };
 
 const ZOOM_ANIMATION_MS = 220;
+const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
 
 export function GraphPixiCanvas(props: {
@@ -107,6 +111,10 @@ function GraphPixiCanvasInner({
   const hitGridDirtyRef = useRef(true);
   const drawFrameRef = useRef<number | null>(null);
   const forceFrameRef = useRef<number | null>(null);
+  const focusTransitionFrameRef = useRef<number | null>(null);
+  const focusTransitionStartedAtRef = useRef(0);
+  const focusTransitionStartSnapshotRef = useRef<PixiAlphaSnapshot | null>(null);
+  const focusTransitionEndSnapshotRef = useRef<PixiAlphaSnapshot | null>(null);
   const viewportStateFrameRef = useRef<number | null>(null);
   const zoomAnimationFrameRef = useRef<number | null>(null);
   const zoomAnimationStartedAtRef = useRef(0);
@@ -122,7 +130,7 @@ function GraphPixiCanvasInner({
   const startPointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
   const movePointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
   const endPointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
-  const hideHoverSoonRef = useRef<() => void>(() => undefined);
+  const hideHoverSoonRef = useRef<(nodeId?: string | null) => void>(() => undefined);
   const previewTickFrameRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
   const renderFpsWindowRef = useRef({ startedAt: performance.now(), frames: 0 });
@@ -249,6 +257,7 @@ function GraphPixiCanvasInner({
       simulationRef.current = null;
       if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
       if (drawFrameRef.current) window.cancelAnimationFrame(drawFrameRef.current);
+      if (focusTransitionFrameRef.current) window.cancelAnimationFrame(focusTransitionFrameRef.current);
       if (viewportStateFrameRef.current) window.cancelAnimationFrame(viewportStateFrameRef.current);
       if (zoomAnimationFrameRef.current) window.cancelAnimationFrame(zoomAnimationFrameRef.current);
       if (previewTickFrameRef.current) window.cancelAnimationFrame(previewTickFrameRef.current);
@@ -276,6 +285,7 @@ function GraphPixiCanvasInner({
         layoutRadiusMin: node.layoutRadiusMin,
         layoutRadiusMax: node.layoutRadiusMax,
         layoutYScale: node.layoutYScale,
+        layoutLevel: node.layoutLevel,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
         fx: fixedLayout || pinnedRoot ? node.x : null,
@@ -400,6 +410,7 @@ function GraphPixiCanvasInner({
   const syncGraphObjects = () => {
     const layers = layersRef.current;
     if (!layers) return;
+    stopPixiFocusTransition();
     applyViewportTransformRef.current();
     syncPixiEdges(layers.edges, graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
     syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
@@ -428,9 +439,10 @@ function GraphPixiCanvasInner({
   syncGraphLabelsRef.current = syncGraphLabels;
 
   const syncGraphFocus = (previousState: PixiGraphRenderState, nextState: PixiGraphRenderState) => {
+    const start = capturePixiAlphaSnapshot(graphObjectsRef.current);
     const rendered = syncPixiFocus(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, previousState, nextState, viewportRef.current.k);
     if (!rendered) return false;
-    renderPixi();
+    startPixiFocusTransition(start, capturePixiAlphaSnapshot(graphObjectsRef.current));
     return true;
   };
   syncGraphFocusRef.current = syncGraphFocus;
@@ -451,6 +463,40 @@ function GraphPixiCanvasInner({
     if (!appRef.current?.renderer) return;
     appRef.current.render();
     recordRenderFrame();
+  };
+
+  const stopPixiFocusTransition = () => {
+    if (!focusTransitionFrameRef.current) return;
+    window.cancelAnimationFrame(focusTransitionFrameRef.current);
+    focusTransitionFrameRef.current = null;
+  };
+
+  const startPixiFocusTransition = (start: PixiAlphaSnapshot, end: PixiAlphaSnapshot) => {
+    stopPixiFocusTransition();
+    focusTransitionStartedAtRef.current = performance.now();
+    focusTransitionStartSnapshotRef.current = start;
+    focusTransitionEndSnapshotRef.current = end;
+    applyPixiAlphaTween(graphObjectsRef.current, start, end, 0);
+    renderPixi();
+
+    const step = (time: number) => {
+      const startSnapshot = focusTransitionStartSnapshotRef.current;
+      const endSnapshot = focusTransitionEndSnapshotRef.current;
+      if (!startSnapshot || !endSnapshot) {
+        focusTransitionFrameRef.current = null;
+        return;
+      }
+      const progress = clamp((time - focusTransitionStartedAtRef.current) / FOCUS_TRANSITION_MS, 0, 1);
+      const eased = 1 - ((1 - progress) ** 3);
+      applyPixiAlphaTween(graphObjectsRef.current, startSnapshot, endSnapshot, eased);
+      renderPixi();
+      if (progress < 1) {
+        focusTransitionFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+      focusTransitionFrameRef.current = null;
+    };
+    focusTransitionFrameRef.current = window.requestAnimationFrame(step);
   };
 
   const recordRenderFrame = () => {
@@ -520,8 +566,16 @@ function GraphPixiCanvasInner({
     setHoveredNodeId(nodeId);
   };
 
-  const hideHoverSoon = () => {
-    if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+  const hideHoverSoon = (nodeId: string | null = stateRef.current.hoveredNodeId) => {
+    if (hoverOutTimerRef.current) {
+      if (isSamplePreviewNode(nodesRef.current.find((node) => node.id === nodeId) ?? null)) return;
+      window.clearTimeout(hoverOutTimerRef.current);
+    }
+    hoverOutTimerRef.current = null;
+    if (!isSamplePreviewNode(nodesRef.current.find((node) => node.id === nodeId) ?? null)) {
+      setHoveredNodeId(null);
+      return;
+    }
     hoverOutTimerRef.current = window.setTimeout(() => setHoveredNodeId(null), 150);
   };
 
@@ -768,7 +822,7 @@ function GraphPixiCanvasInner({
           size={previewSize}
           pinned={pinnedPreviewNodeId === previewNode.id}
           onMouseEnter={() => showHover(previewNode.id)}
-          onMouseLeave={hideHoverSoon}
+          onMouseLeave={() => hideHoverSoon(previewNode.id)}
           onClose={closePreview}
         />
       ) : null}
@@ -818,4 +872,8 @@ function stageTransform(size: { width: number; height: number }): StageTransform
     offsetX: (size.width - VIEWBOX.width * scale) / 2,
     offsetY: (size.height - VIEWBOX.height * scale) / 2,
   };
+}
+
+function isSamplePreviewNode(node: SimNode | null) {
+  return node?.type === "sourceSample" || node?.type === "libraryItem";
 }

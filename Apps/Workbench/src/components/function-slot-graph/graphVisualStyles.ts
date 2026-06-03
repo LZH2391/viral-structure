@@ -38,6 +38,12 @@ export type GraphNodeDrawStyle = {
 const WHITE = 0xffffff;
 const EDGE_MARKER_COLOR = 0xffee9e;
 const EDGE_MARKER_ALPHA = 0.62;
+type GovernanceLabelSpec = {
+  start: number;
+  end: number;
+  min: number;
+  fontSize: number;
+};
 
 export function slotOrderBadge(node: SimNode) {
   if (!isSlotSequenceNode(node)) return null;
@@ -52,26 +58,28 @@ export function shouldShowNodeLabel(mode: GraphMode, node: SimNode, zoom: number
 
 export function nodeLabelOpacity(mode: GraphMode, node: SimNode, zoom: number) {
   if (mode !== "governance") return zoomFade(zoom, 0.45, 1, 0.58, 1);
-  if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") {
-    return zoomFade(zoom, 0.45, 1, 0.72, 1);
-  }
-  if (node.type === "slotSubtype") return zoomFade(zoom, 1.05, 1.45, 0.12, 1);
-  if (node.type === "sourceVariant") return zoomFade(zoom, 1.1, 1.55, 0, 1);
-  if (node.type === "slotArchetype" || node.type === "implementationBundle") return zoomFade(zoom, 1.45, 1.9, 0, 1);
-  return zoomFade(zoom, 1.9, 2.3, 0, 1);
+  const spec = governanceLabelSpec(node);
+  return zoomFade(zoom, spec.start, spec.end, spec.min, 1);
 }
 
-export function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {
-  return nodeClassTokens(node, focused, selected, pinnedPreview).join(" ");
+export function nodeLabelFontSize(mode: GraphMode, node: SimNode) {
+  if (mode === "governance") return governanceLabelSpec(node).fontSize;
+  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return 11;
+  return mode === "structure" ? 12 : 11;
 }
 
-export function nodeClassTokens(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {
+export function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean, focusMuted = false) {
+  return nodeClassTokens(node, focused, selected, pinnedPreview, focusMuted).join(" ");
+}
+
+export function nodeClassTokens(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean, focusMuted = false) {
   return [
     "slot-graph-node",
     `node-${cssToken(node.group)}`,
     `node-type-${cssToken(node.type)}`,
     nodeLayerClass(node),
     focused ? "" : "muted",
+    focusMuted ? "focus-muted" : "",
     selected ? "selected" : "",
     pinnedPreview ? "preview-pinned" : "",
   ].filter(Boolean);
@@ -184,14 +192,21 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
     || classes.has("edge-atom_archetype_to_pattern")
   ) {
     width = 1.9;
+    opacity = Math.max(opacity, 0.44);
   }
   if (classes.has("edge-layer-script")) stroke = rgba(0xe48182, 0.62);
   if (classes.has("edge-layer-rhythm")) stroke = rgba(0x69c5e8, 0.62);
   if (classes.has("edge-layer-packaging")) stroke = rgba(0xa98cff, 0.62);
-  if (classes.has("edge-pattern_to_source_variant") || classes.has("edge-traced_to_source_sample") || classes.has("edge-traced_to_source_variant")) {
-    stroke = rgba(0xc4cbed, 0.42);
+  if (
+    classes.has("edge-pattern_to_source_variant")
+    || classes.has("edge-source_variant_to_sample")
+    || classes.has("edge-traced_to_source_sample")
+    || classes.has("edge-traced_to_source_variant")
+  ) {
+    stroke = rgba(0xc4cbed, 0.5);
     width = 1.55;
     dash = [7, 7];
+    opacity = Math.max(opacity, 0.42);
   }
 
   if (mode === "planTrace") {
@@ -237,8 +252,8 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   };
 }
 
-export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: boolean, selected: boolean, pinned: boolean, hovered: boolean): GraphNodeDrawStyle {
-  const classes = classSet(nodeClassTokens(node, focused, selected, pinned));
+export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: boolean, selected: boolean, pinned: boolean, hovered: boolean, focusMuted = false): GraphNodeDrawStyle {
+  const classes = classSet(nodeClassTokens(node, focused, selected, pinned, focusMuted));
   const className = [...classes].join(" ");
   let fill = 0x000000;
   let circleOpacity = 0.78;
@@ -258,7 +273,8 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     circleOpacity = 1;
   }
   if (pinned) glow = { color: 0x8b5cf6, alpha: 0.26, radiusPad: 14 };
-  if (classes.has("muted")) groupAlpha = mode === "planTrace" ? 0.26 : 0.52;
+  if (classes.has("focus-muted")) groupAlpha = mode === "governance" ? 0.22 : mode === "planTrace" ? 0.16 : 0.32;
+  else if (classes.has("muted")) groupAlpha = mode === "planTrace" ? 0.26 : 0.52;
   if (classes.has("node-library")) {
     fill = 0x8b5cf6;
     glow = { color: 0x8b5cf6, alpha: 0.18, radiusPad: 10 };
@@ -374,12 +390,12 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
   }
   if (classes.has("node-sourceSample")) {
     fill = 0x05070c;
-    stroke = rgba(0xf4f6ff, 0.94);
+    stroke = rgba(0xf4f6ff, 0.96);
     dash = undefined;
-    strokeWidth = 2.6;
-    glow = { color: 0xbbaeff, alpha: 0.14, radiusPad: 14 };
+    strokeWidth = 3;
+    glow = { color: 0xbbaeff, alpha: 0.14, radiusPad: 18 };
     circleOpacity = 1;
-    labelFontSize = 11;
+    labelFontSize = 12;
   }
   if (classes.has("node-plan")) {
     fill = 0x05070c;
@@ -393,6 +409,8 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     fill = 0x4b5563;
     stroke = rgba(WHITE, 0.62);
   }
+
+  if (mode === "governance") labelFontSize = nodeLabelFontSize(mode, node);
 
   return {
     fill,
@@ -418,6 +436,22 @@ function zoomFade(zoom: number, start: number, end: number, min: number, max: nu
   if (zoom <= start) return min;
   if (zoom >= end) return max;
   return min + ((zoom - start) / (end - start)) * (max - min);
+}
+
+export function governanceLabelSpec(node: Pick<SimNode, "type" | "layoutLevel">): GovernanceLabelSpec {
+  const level = governanceLabelLevel(node);
+  const start = level === 0 ? 0.36 : 0.52 + (level * 0.24);
+  const end = start + 0.42;
+  const min = level === 0 ? 0.9 : level === 1 ? 0.5 : level === 2 ? 0.16 : 0;
+  const fontSize = Math.max(8, 13 - level);
+  return { start, end, min, fontSize };
+}
+
+function governanceLabelLevel(node: Pick<SimNode, "type" | "layoutLevel">) {
+  if (node.type === "governanceRoot") return 0;
+  const level = Number(node.layoutLevel);
+  if (Number.isFinite(level) && level >= 0) return Math.floor(level);
+  return 8;
 }
 
 function cssToken(value: unknown) {

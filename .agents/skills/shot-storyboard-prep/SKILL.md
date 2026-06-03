@@ -121,17 +121,12 @@ python .agents/skills/shot-storyboard-prep/scripts/crop_storyboard_groups.py --a
 
 `pdfTurn` 版式硬约束：
 
-- PDF 应以镜头图片本体为主，直接排布图片，不得给每张图套黑框、蓝底、灰底或其他装饰性占位框。
-- 图片必须按真实宽高判断 `portrait / landscape / square`，竖屏图按竖屏比例展示，横屏图按横屏比例展示，方图按方图比例展示。
-- 所有图片只能用 `contain` 方式缩放到当前可用区域，不得拉伸、不得裁切主体、不得把竖屏图塞进固定横屏框。
-- `source.referenceSvgPath` 只可作为整体页面气质、间距、字体层级的参考；不得把 SVG 内示例图片框尺寸当成固定模板。
-- 文案必须直接引用上游原字段，不得改写原内容、不得自行概括成新说法；优先通过增加页数、调整图片尺寸和换行保留全文，只有极端溢出时才允许做可追踪截断。
-- `existing_material_packaging_caption` 等包装/字幕补强镜头，必须在保留原有 `台词/字幕`、`证明功能` 等展示字段的基础上，追加引用原 `包装说明` / `overlayPackaging`。
-- `self_designed_by_shot_design` 自设计镜头，必须在保留原有 `台词/字幕`、`证明功能` 等展示字段的基础上，追加引用原 `包装说明` / `overlayPackaging`，并同时追加引用原 `动作与运镜`。
-- 每个 shot 必须标明镜头类型：`自行设计镜头`、`素材镜头` 或 `补强镜头`；该类型应同时写入 PDF 可见文案和 `layout.shots[].shotCategory`。
-- 如果 input package 的 manifest 未携带 `动作与运镜`，`pdfTurn` 可只读 `source.shotDesignFinalPath` 解析该列；不得修改 `shot-design.final.md`，不得根据图片或模型结果补写动作与运镜。
-- 避免使用 PDF 字体不稳定的装饰符号组合导致 `???`；字段内容本身应尽量保持原文。
-- `layout.shots[]` 应记录真实绘制结果：`sourceImageSize`、`imageOrientation`、`imageBox`、`textBox`；其中 `imageBox` 必须是图片实际落版区域。
+- 按 slot 分组分页，同一页不得混排不同 slot；每个 slot 应先集中展示该 slot 的镜头图片区，再集中展示该 slot 的文字说明区；文字区内部必须按镜头分块列字段，不得把多个镜头说明混成一段。
+- 图片区直接按真实宽高落版，只能使用 `contain`；同一 slot 的图片应紧贴成组排列，不留装饰性间距，不得套装饰框、拉伸、裁切或把竖屏图塞进固定横屏框。
+- 每个 shot 必须标明镜头类型：`自行设计镜头`、`素材镜头` 或 `补强镜头`，并写入 `layout.shots[].shotCategory`。
+- 文案保留原 `台词/字幕`、`证明功能`，不得改写原文；包装/字幕补强镜头追加引用原 `包装说明` / `overlayPackaging`；自设计镜头追加引用原 `包装说明` / `overlayPackaging` 和原 `动作与运镜`。
+- 如果 input package 的 manifest 未携带 `动作与运镜`，`pdfTurn` 可只读 `source.shotDesignFinalPath` 解析该列；不得修改 `shot-design.final.md` 或补写素材事实。
+- `layout.shots[]` 必须记录真实落版结果，至少包括 `sourceImageSize`、`imageOrientation`、`imageBox`、`textBox`、`imageFit: "contain"`。
 
 `pdfTurn` 禁止：
 

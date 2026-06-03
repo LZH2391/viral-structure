@@ -30,6 +30,11 @@ export type PixiGraphObjects = {
   nodes: Map<string, PixiNodeView>;
 };
 
+export type PixiAlphaSnapshot = {
+  nodes: Map<string, { container: number; label: number | null }>;
+  edges: Map<string, { line: number; arrow: number; glow: number }>;
+};
+
 type PixiEdgeView = {
   container: Container;
   glow: Graphics;
@@ -82,6 +87,31 @@ export function destroyPixiGraphObjects(objects: PixiGraphObjects) {
   objects.nodes.clear();
 }
 
+export function capturePixiAlphaSnapshot(objects: PixiGraphObjects): PixiAlphaSnapshot {
+  return {
+    nodes: new Map([...objects.nodes.entries()].map(([id, view]) => [id, { container: view.container.alpha, label: view.label?.alpha ?? null }])),
+    edges: new Map([...objects.edges.entries()].map(([id, view]) => [id, { line: view.line.alpha, arrow: view.arrow.alpha, glow: view.glow.alpha }])),
+  };
+}
+
+export function applyPixiAlphaTween(objects: PixiGraphObjects, start: PixiAlphaSnapshot, end: PixiAlphaSnapshot, progress: number) {
+  for (const [id, target] of end.nodes.entries()) {
+    const view = objects.nodes.get(id);
+    if (!view) continue;
+    const from = start.nodes.get(id);
+    view.container.alpha = mixAlpha(from?.container ?? target.container, target.container, progress);
+    if (view.label && target.label !== null) view.label.alpha = mixAlpha(from?.label ?? target.label, target.label, progress);
+  }
+  for (const [id, target] of end.edges.entries()) {
+    const view = objects.edges.get(id);
+    if (!view) continue;
+    const from = start.edges.get(id);
+    view.line.alpha = mixAlpha(from?.line ?? target.line, target.line, progress);
+    view.arrow.alpha = mixAlpha(from?.arrow ?? target.arrow, target.arrow, progress);
+    view.glow.alpha = mixAlpha(from?.glow ?? target.glow, target.glow, progress);
+  }
+}
+
 export function drawPixiBackground(graphics: Graphics) {
   graphics.clear();
   for (let index = 0; index < 110; index += 1) {
@@ -129,11 +159,12 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
   for (const node of nodes) {
     const view = getNodeView(nodeLayer, objects, node.id);
     const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
+    const focusMuted = state.hasFocusNode && !focused;
     const selected = node.id === state.selectedNodeId;
     const pinned = node.id === state.pinnedPreviewNodeId;
     const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted);
     view.container.position.set(node.x, node.y);
     view.container.alpha = style.groupAlpha;
 
@@ -187,7 +218,7 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
       const selected = node.id === state.selectedNodeId;
       const pinned = node.id === state.pinnedPreviewNodeId;
       const hovered = node.id === state.hoveredNodeId;
-      const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
+      const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, state.hasFocusNode && !focused);
       view.label.position.set(node.x, node.y + nodeLabelTopY(radius, style.labelFontSize));
     }
   }
@@ -199,11 +230,12 @@ export function syncPixiLabels(labelLayer: Container, objects: PixiGraphObjects,
     const view = objects.nodes.get(node.id);
     if (!view) return false;
     const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
+    const focusMuted = state.hasFocusNode && !focused;
     const selected = node.id === state.selectedNodeId;
     const pinned = node.id === state.pinnedPreviewNodeId;
     const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted);
     syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), style);
   }
   return true;
@@ -217,11 +249,12 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const view = objects.nodes.get(nodeId);
     if (!node || !view) return false;
     const focused = next.hasFocusNode && (node.id === next.hoveredNodeId || node.id === next.selectedNodeId || next.focusedIds.has(node.id));
+    const focusMuted = next.hasFocusNode && !focused;
     const selected = node.id === next.selectedNodeId;
     const pinned = node.id === next.pinnedPreviewNodeId;
     const hovered = node.id === next.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered);
+    const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered, focusMuted);
     view.container.alpha = style.groupAlpha;
     syncNodeGlow(view, radius, style);
     syncNodeBody(view, radius, style);
@@ -624,4 +657,8 @@ function cssColorToNumber(value: string) {
     : value;
   const parsed = Number.parseInt(normalized.slice(1), 16);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mixAlpha(start: number, end: number, progress: number) {
+  return start + ((end - start) * progress);
 }
