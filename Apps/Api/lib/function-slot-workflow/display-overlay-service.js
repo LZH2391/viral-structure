@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v9";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v10";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -336,7 +336,7 @@ async function readConfirmedPlanTraceGraph() {
         atomCount: nodes.filter((node) => node.type === "sourceVariant").length,
         bindingCount: 0,
         ruleCount: 0,
-        conceptCount: nodes.filter((node) => node.type === "sourceVariant" || node.type === "slotSubtype").length,
+        conceptCount: nodes.filter((node) => node.type === "sourceVariant" || node.type === "sourceSample" || node.type === "slotSubtype").length,
         scriptSegmentCount: 0,
         rhythmSectionCount: 0,
         packagingBlockCount: 0,
