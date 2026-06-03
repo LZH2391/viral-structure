@@ -1,4 +1,4 @@
-import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Simulation } from "d3-force";
 import { Application, Container, Graphics } from "pixi.js";
 import { getSampleArtifact } from "../../api/client";
@@ -11,6 +11,7 @@ import {
   connectedNodeIds,
   constrainNodeToLayoutSector,
   createGraphSimulation,
+  nodeRadius,
   previewPopoverSize,
   reverseTracePath,
   VIEWBOX,
@@ -23,14 +24,16 @@ import {
   planTraceSummaryText,
 } from "./GraphCanvas";
 import {
-  createPixiTextMaps,
+  createPixiGraphObjects,
+  destroyPixiGraphObjects,
   drawPixiBackground,
-  drawPixiEdges,
-  drawPixiNodes,
-  hitTestPixiNode,
   pixiScreenPoint,
+  syncPixiEdges,
+  syncPixiFocus,
+  syncPixiLayout,
+  syncPixiNodes,
+  type PixiGraphObjects,
   type PixiGraphRenderState,
-  type PixiTextMaps,
 } from "./graphPixiRenderer";
 import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } from "./types";
 
@@ -40,10 +43,17 @@ type PixiLayers = {
   root: Container;
   background: Graphics;
   world: Container;
-  edges: Graphics;
-  nodes: Graphics;
+  edges: Container;
+  nodes: Container;
   labels: Container;
 };
+
+type ViewportTransform = { x: number; y: number; k: number };
+type HitGridEntry = { node: SimNode; index: number };
+type HitGridIndex = { cellSize: number; cells: Map<string, HitGridEntry[]> };
+
+const ZOOM_ANIMATION_MS = 220;
+const HIT_GRID_CELL_SIZE = 96;
 
 export function GraphPixiCanvas(props: {
   mode?: GraphMode;
@@ -78,9 +88,11 @@ function GraphPixiCanvasInner({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const layersRef = useRef<PixiLayers | null>(null);
-  const textMapsRef = useRef<PixiTextMaps>(createPixiTextMaps());
+  const graphObjectsRef = useRef<PixiGraphObjects>(createPixiGraphObjects());
   const nodesRef = useRef<SimNode[]>([]);
   const dragRef = useRef<DragState | null>(null);
+  const forcePanRef = useRef(false);
+  const lastPointerEventAtRef = useRef(0);
   const simulationRef = useRef<Simulation<SimNode, D3Link> | null>(null);
   const visibleEdgesRef = useRef(visible.edges);
   const sampleCacheRef = useRef<Map<string, SampleArtifact | null>>(new Map());
@@ -88,9 +100,29 @@ function GraphPixiCanvasInner({
   const hoverSuppressUntilRef = useRef(0);
   const viewportRef = useRef({ x: 0, y: 0, k: 1 });
   const canvasSizeRef = useRef({ width: VIEWBOX.width, height: VIEWBOX.height });
+  const hostRectRef = useRef<DOMRectReadOnly | null>(null);
+  const hitGridRef = useRef<HitGridIndex | null>(null);
+  const hitGridDirtyRef = useRef(true);
   const drawFrameRef = useRef<number | null>(null);
-  const drawGraphRef = useRef<() => void>(() => undefined);
+  const forceFrameRef = useRef<number | null>(null);
+  const viewportStateFrameRef = useRef<number | null>(null);
+  const zoomAnimationFrameRef = useRef<number | null>(null);
+  const zoomAnimationStartedAtRef = useRef(0);
+  const zoomStartViewportRef = useRef<ViewportTransform>(viewportRef.current);
+  const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
+  const syncGraphObjectsRef = useRef<() => void>(() => undefined);
+  const syncGraphLayoutRef = useRef<() => void>(() => undefined);
+  const syncGraphFocusRef = useRef<(previous: PixiGraphRenderState, next: PixiGraphRenderState) => boolean>(() => false);
+  const applyViewportTransformRef = useRef<() => void>(() => undefined);
+  const renderViewportRef = useRef<() => void>(() => undefined);
+  const restartSimulationRef = useRef<(alpha?: number) => void>(() => undefined);
+  const startPointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
+  const movePointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
+  const endPointerRef = useRef<(event: globalThis.PointerEvent | MouseEvent) => void>(() => undefined);
+  const hideHoverSoonRef = useRef<() => void>(() => undefined);
   const previewTickFrameRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const renderFpsWindowRef = useRef({ startedAt: performance.now(), frames: 0 });
   const stateRef = useRef<PixiGraphRenderState>({
     mode,
     selectedNodeId,
@@ -109,6 +141,7 @@ function GraphPixiCanvasInner({
   const [paused, setPaused] = useState(false);
   const [resetToken, setResetToken] = useState(0);
   const [previewTick, setPreviewTick] = useState(0);
+  const [renderFps, setRenderFps] = useState(0);
   const fixedLayout = layoutMode === "columns";
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusedPath = useMemo(
@@ -119,8 +152,29 @@ function GraphPixiCanvasInner({
   );
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, button")) return;
+      forcePanRef.current = true;
+      event.preventDefault();
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") forcePanRef.current = false;
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const previousState = stateRef.current;
+    const edgesChanged = visibleEdgesRef.current !== visible.edges;
     visibleEdgesRef.current = visible.edges;
-    stateRef.current = {
+    const nextState = {
       mode,
       selectedNodeId,
       hoveredNodeId,
@@ -130,6 +184,8 @@ function GraphPixiCanvasInner({
       hasFocusNode: Boolean(focusNodeId),
       fixedLayout,
     };
+    stateRef.current = nextState;
+    if (!edgesChanged && previousState.fixedLayout === nextState.fixedLayout && syncGraphFocusRef.current(previousState, nextState)) return;
     scheduleDraw();
   }, [fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, visible.edges]);
 
@@ -143,8 +199,8 @@ function GraphPixiCanvasInner({
     const root = new Container();
     const background = new Graphics();
     const world = new Container();
-    const edges = new Graphics();
-    const nodes = new Graphics();
+    const edges = new Container();
+    const nodes = new Container();
     const labels = new Container();
     root.addChild(background);
     world.addChild(edges);
@@ -170,7 +226,7 @@ function GraphPixiCanvasInner({
       app.stage.addChild(root);
       updateCanvasSize();
       drawPixiBackground(background);
-      drawGraphRef.current();
+      syncGraphObjectsRef.current();
     }).catch((error) => {
       onPixiUnavailable(error instanceof Error ? error.message : "Pixi 初始化失败");
     });
@@ -187,10 +243,13 @@ function GraphPixiCanvasInner({
       resizeObserver.disconnect();
       simulationRef.current?.stop();
       simulationRef.current = null;
+      if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
       if (drawFrameRef.current) window.cancelAnimationFrame(drawFrameRef.current);
+      if (viewportStateFrameRef.current) window.cancelAnimationFrame(viewportStateFrameRef.current);
+      if (zoomAnimationFrameRef.current) window.cancelAnimationFrame(zoomAnimationFrameRef.current);
       if (previewTickFrameRef.current) window.cancelAnimationFrame(previewTickFrameRef.current);
       if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
-      clearTextMaps();
+      destroyPixiGraphObjects(graphObjectsRef.current);
       if (initialized) app.destroy(true);
       appRef.current = null;
       layersRef.current = null;
@@ -202,10 +261,11 @@ function GraphPixiCanvasInner({
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
       const existing = resetToken || fixedLayout ? null : previous.get(node.id);
       const pinnedRoot = node.type === "confirmedPlan" || node.type === "governanceRoot";
+      const jitter = !existing && !fixedLayout && !pinnedRoot ? nodeInitialJitter(node.id) : { x: 0, y: 0 };
       return {
         ...node,
-        x: existing?.x ?? node.x,
-        y: existing?.y ?? node.y,
+        x: existing?.x ?? node.x + jitter.x,
+        y: existing?.y ?? node.y + jitter.y,
         layoutX: node.layoutX ?? node.x,
         layoutY: node.layoutY ?? node.y,
         layoutAngleMin: node.layoutAngleMin,
@@ -221,31 +281,59 @@ function GraphPixiCanvasInner({
     });
     const nextLinks: D3Link[] = visible.edges.map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
     nodesRef.current = nextNodes;
-    pruneTextMaps(new Set(nextNodes.map((node) => node.id)));
+    markHitGridDirty();
     simulationRef.current?.stop();
+    if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
+    forceFrameRef.current = null;
     simulationRef.current = createGraphSimulation(nextNodes, nextLinks)
-      .on("tick", () => {
-        nextNodes.forEach(constrainNodeToLayoutSector);
-        nodesRef.current = nextNodes;
-        scheduleDraw();
-        schedulePreviewTick();
-      });
-    if (fixedLayout) simulationRef.current.stop();
-    drawGraphRef.current();
+      .alphaDecay(0.007)
+      .velocityDecay(0.24)
+      .stop();
+    const simulation = simulationRef.current;
+    const stepSimulation = () => {
+      forceFrameRef.current = null;
+      if (simulationRef.current !== simulation || fixedLayout || pausedRef.current) return;
+      simulation.tick();
+      nextNodes.forEach(constrainNodeToLayoutSector);
+      nodesRef.current = nextNodes;
+      markHitGridDirty();
+      syncGraphLayoutRef.current();
+      schedulePreviewTick();
+      if (simulation.alpha() > simulation.alphaMin()) {
+        forceFrameRef.current = window.requestAnimationFrame(stepSimulation);
+      }
+    };
+    const restartSimulation = (alpha = 0.65) => {
+      if (fixedLayout || pausedRef.current) return;
+      simulation.alpha(Math.max(simulation.alpha(), alpha)).alphaTarget(0);
+      if (!forceFrameRef.current) forceFrameRef.current = window.requestAnimationFrame(stepSimulation);
+    };
+    restartSimulationRef.current = restartSimulation;
+    if (fixedLayout) simulation.stop();
+    else restartSimulation(1);
+    syncGraphObjectsRef.current();
     return () => {
-      simulationRef.current?.stop();
+      if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
+      forceFrameRef.current = null;
+      simulation.stop();
       simulationRef.current = null;
+      restartSimulationRef.current = () => undefined;
     };
   }, [fixedLayout, resetToken, visible.edges, visible.nodes]);
 
   useEffect(() => {
-    if (fixedLayout || paused) simulationRef.current?.stop();
-    else simulationRef.current?.alphaTarget(0.03).restart();
+    pausedRef.current = paused;
+    if (fixedLayout || paused) {
+      if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
+      forceFrameRef.current = null;
+      return;
+    }
+    restartSimulationRef.current(0.55);
   }, [fixedLayout, paused]);
 
   useEffect(() => {
     scheduleDraw();
-  }, [canvasSize, viewport]);
+  }, [canvasSize]);
 
   const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
   const previewNode = previewNodeId ? nodesRef.current.find((entry) => entry.id === previewNodeId) ?? null : null;
@@ -274,9 +362,19 @@ function GraphPixiCanvasInner({
   const updateCanvasSize = () => {
     const rect = hostRef.current?.getBoundingClientRect();
     if (!rect) return;
+    hostRectRef.current = rect;
     const nextSize = { width: rect.width || VIEWBOX.width, height: rect.height || VIEWBOX.height };
+    if (canvasSizeRef.current.width === nextSize.width && canvasSizeRef.current.height === nextSize.height) return;
     canvasSizeRef.current = nextSize;
     setCanvasSize(nextSize);
+  };
+
+  const commitViewportState = () => {
+    if (viewportStateFrameRef.current) return;
+    viewportStateFrameRef.current = window.requestAnimationFrame(() => {
+      viewportStateFrameRef.current = null;
+      setViewport(viewportRef.current);
+    });
   };
 
   const schedulePreviewTick = () => {
@@ -292,11 +390,41 @@ function GraphPixiCanvasInner({
     if (drawFrameRef.current) return;
     drawFrameRef.current = window.requestAnimationFrame(() => {
       drawFrameRef.current = null;
-      drawGraphRef.current();
+      syncGraphObjectsRef.current();
     });
   };
 
-  const drawGraph = () => {
+  const syncGraphObjects = () => {
+    const layers = layersRef.current;
+    if (!layers) return;
+    applyViewportTransformRef.current();
+    syncPixiEdges(layers.edges, graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
+    syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k, rootScale());
+    renderPixi();
+  };
+  syncGraphObjectsRef.current = syncGraphObjects;
+
+  const syncGraphLayout = () => {
+    const rendered = syncPixiLayout(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current, rootScale());
+    if (!rendered) {
+      syncGraphObjectsRef.current();
+      return;
+    }
+    renderPixi();
+  };
+  syncGraphLayoutRef.current = syncGraphLayout;
+
+  const syncGraphFocus = (previousState: PixiGraphRenderState, nextState: PixiGraphRenderState) => {
+    const rendered = syncPixiFocus(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, previousState, nextState);
+    if (!rendered) return false;
+    renderPixi();
+    return true;
+  };
+  syncGraphFocusRef.current = syncGraphFocus;
+
+  const rootScale = () => Math.max(0.1, Math.min(canvasSizeRef.current.width / VIEWBOX.width, canvasSizeRef.current.height / VIEWBOX.height));
+
+  const applyViewportTransform = () => {
     const layers = layersRef.current;
     if (!layers) return;
     const size = canvasSizeRef.current;
@@ -305,26 +433,67 @@ function GraphPixiCanvasInner({
     layers.root.scale.set(scaleX, scaleY);
     layers.world.position.set(viewportRef.current.x, viewportRef.current.y);
     layers.world.scale.set(viewportRef.current.k);
-    drawPixiEdges(layers.edges, visibleEdgesRef.current, nodesRef.current, stateRef.current);
-    drawPixiNodes(layers.nodes, layers.labels, textMapsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k, Math.max(0.1, Math.min(scaleX, scaleY)));
   };
-  drawGraphRef.current = drawGraph;
+  applyViewportTransformRef.current = applyViewportTransform;
 
-  const clearTextMaps = () => {
-    for (const map of Object.values(textMapsRef.current)) {
-      for (const text of map.values()) text.destroy();
-      map.clear();
-    }
+  const renderPixi = () => {
+    if (!appRef.current?.renderer) return;
+    appRef.current.render();
+    recordRenderFrame();
   };
 
-  const pruneTextMaps = (nodeIds: Set<string>) => {
-    for (const map of Object.values(textMapsRef.current)) {
-      for (const [id, text] of map.entries()) {
-        if (nodeIds.has(id)) continue;
-        text.destroy();
-        map.delete(id);
-      }
+  const recordRenderFrame = () => {
+    const now = performance.now();
+    const windowState = renderFpsWindowRef.current;
+    windowState.frames += 1;
+    const elapsed = now - windowState.startedAt;
+    if (elapsed < 500) return;
+    setRenderFps(Math.round((windowState.frames * 1000) / elapsed));
+    renderFpsWindowRef.current = { startedAt: now, frames: 0 };
+  };
+
+  const renderViewport = () => {
+    applyViewportTransformRef.current();
+    renderPixi();
+  };
+  renderViewportRef.current = renderViewport;
+
+  const applyAnimatedViewport = (nextViewport: ViewportTransform) => {
+    viewportRef.current = nextViewport;
+    commitViewportState();
+    renderViewportRef.current();
+    scheduleDraw();
+    schedulePreviewTick();
+  };
+
+  const stopZoomAnimation = () => {
+    if (!zoomAnimationFrameRef.current) return;
+    window.cancelAnimationFrame(zoomAnimationFrameRef.current);
+    zoomAnimationFrameRef.current = null;
+  };
+
+  const stepZoomAnimation = (time: number) => {
+    const progress = clamp((time - zoomAnimationStartedAtRef.current) / ZOOM_ANIMATION_MS, 0, 1);
+    const eased = 1 - ((1 - progress) ** 3);
+    const start = zoomStartViewportRef.current;
+    const target = zoomTargetViewportRef.current;
+    applyAnimatedViewport({
+      x: start.x + (target.x - start.x) * eased,
+      y: start.y + (target.y - start.y) * eased,
+      k: start.k + (target.k - start.k) * eased,
+    });
+    if (progress < 1) {
+      zoomAnimationFrameRef.current = window.requestAnimationFrame(stepZoomAnimation);
+      return;
     }
+    zoomAnimationFrameRef.current = null;
+  };
+
+  const animateViewportTo = (targetViewport: ViewportTransform) => {
+    zoomStartViewportRef.current = viewportRef.current;
+    zoomTargetViewportRef.current = targetViewport;
+    zoomAnimationStartedAtRef.current = performance.now();
+    if (!zoomAnimationFrameRef.current) zoomAnimationFrameRef.current = window.requestAnimationFrame(stepZoomAnimation);
   };
 
   const showHover = (nodeId: string | null) => {
@@ -348,20 +517,37 @@ function GraphPixiCanvasInner({
   };
 
   const graphPoint = (clientX: number, clientY: number) => {
-    const rect = hostRef.current?.getBoundingClientRect();
+    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
+    hostRectRef.current = rect;
     const rawX = ((clientX - rect.left) / Math.max(rect.width, 1)) * VIEWBOX.width;
     const rawY = ((clientY - rect.top) / Math.max(rect.height, 1)) * VIEWBOX.height;
     const view = viewportRef.current;
     return { x: (rawX - view.x) / view.k, y: (rawY - view.y) / view.k };
   };
 
-  const startPointer = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+  const markHitGridDirty = () => {
+    hitGridDirtyRef.current = true;
+  };
+
+  const hitTestNode = (point: { x: number; y: number }) => {
+    if (hitGridDirtyRef.current || !hitGridRef.current) {
+      hitGridRef.current = buildHitGrid(nodesRef.current);
+      hitGridDirtyRef.current = false;
+    }
+    return hitGridRef.current ? hitTestHitGrid(hitGridRef.current, point, viewportRef.current.k) : null;
+  };
+
+  const startPointer = (event: globalThis.PointerEvent | MouseEvent) => {
+    const shouldForcePan = forcePanRef.current || event.shiftKey || event.button === 1 || event.button === 2;
+    if (event.button !== 0 && !shouldForcePan) return;
+    event.preventDefault();
+    stopZoomAnimation();
+    const host = hostRef.current;
     const point = graphPoint(event.clientX, event.clientY);
-    const hitNode = hitTestPixiNode(nodesRef.current, point, viewportRef.current.k);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    if (hitNode) {
+    const hitNode = hitTestNode(point);
+    if ("pointerId" in event) host?.setPointerCapture(event.pointerId);
+    if (hitNode && !shouldForcePan) {
       dragRef.current = { kind: "node", nodeId: hitNode.id, dx: hitNode.x - point.x, dy: hitNode.y - point.y, moved: false };
       onSelectNode(hitNode.id);
       showHover(hitNode.id);
@@ -378,10 +564,10 @@ function GraphPixiCanvasInner({
     };
   };
 
-  const movePointer = (event: PointerEvent<HTMLDivElement>) => {
+  const movePointer = (event: globalThis.PointerEvent | MouseEvent) => {
     const drag = dragRef.current;
     if (!drag) {
-      const hitNode = hitTestPixiNode(nodesRef.current, graphPoint(event.clientX, event.clientY), viewportRef.current.k);
+      const hitNode = hitTestNode(graphPoint(event.clientX, event.clientY));
       if (hitNode) showHover(hitNode.id);
       else hideHoverSoon();
       return;
@@ -396,14 +582,15 @@ function GraphPixiCanvasInner({
         draggedNode.y = draggedNode.fy;
         draggedNode.vx = 0;
         draggedNode.vy = 0;
+        markHitGridDirty();
       }
       dragRef.current = { ...drag, moved: true };
-      if (!fixedLayout) simulationRef.current?.alphaTarget(0.18).restart();
+      if (!fixedLayout) restartSimulationRef.current(0.75);
       scheduleDraw();
       schedulePreviewTick();
       return;
     }
-    const rect = hostRef.current?.getBoundingClientRect();
+    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 3;
     const scaleX = rect?.width ? VIEWBOX.width / rect.width : 1;
     const scaleY = rect?.height ? VIEWBOX.height / rect.height : 1;
@@ -414,11 +601,14 @@ function GraphPixiCanvasInner({
     };
     dragRef.current = { ...drag, moved };
     viewportRef.current = nextViewport;
-    setViewport(nextViewport);
+    commitViewportState();
+    renderViewportRef.current();
+    schedulePreviewTick();
   };
 
-  const endPointer = (event: PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.releasePointerCapture(event.pointerId);
+  const endPointer = (event: globalThis.PointerEvent | MouseEvent) => {
+    const host = hostRef.current;
+    if ("pointerId" in event && host?.hasPointerCapture(event.pointerId)) host.releasePointerCapture(event.pointerId);
     const drag = dragRef.current;
     if (drag?.kind === "node" && drag.moved) {
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
@@ -428,7 +618,7 @@ function GraphPixiCanvasInner({
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
-      if (!fixedLayout) simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
+      if (!fixedLayout) restartSimulationRef.current(paused ? 0 : 0.55);
       scheduleDraw();
     }
     if (drag?.kind === "node" && !drag.moved) {
@@ -439,19 +629,84 @@ function GraphPixiCanvasInner({
     dragRef.current = null;
   };
 
+  startPointerRef.current = startPointer;
+  movePointerRef.current = movePointer;
+  endPointerRef.current = endPointer;
+  hideHoverSoonRef.current = hideHoverSoon;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return undefined;
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    const markPointer = () => {
+      lastPointerEventAtRef.current = Date.now();
+    };
+    const hidePointerHoverSoon = () => {
+      hideHoverSoonRef.current();
+    };
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      markPointer();
+      startPointerRef.current(event);
+    };
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      markPointer();
+      movePointerRef.current(event);
+    };
+    const handlePointerEnd = (event: globalThis.PointerEvent) => {
+      markPointer();
+      endPointerRef.current(event);
+    };
+    const shouldIgnoreMouse = () => Date.now() - lastPointerEventAtRef.current < 500;
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!shouldIgnoreMouse()) movePointerRef.current(event);
+    };
+    const handleMouseUp = (event: MouseEvent) => {
+      if (!shouldIgnoreMouse()) endPointerRef.current(event);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+    const handleMouseDown = (event: MouseEvent) => {
+      if (shouldIgnoreMouse()) return;
+      startPointerRef.current(event);
+      if (!dragRef.current) return;
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    };
+    host.addEventListener("pointerdown", handlePointerDown);
+    host.addEventListener("pointermove", handlePointerMove);
+    host.addEventListener("pointerup", handlePointerEnd);
+    host.addEventListener("pointercancel", handlePointerEnd);
+    host.addEventListener("pointerleave", hidePointerHoverSoon);
+    host.addEventListener("mousemove", handleMouseMove);
+    host.addEventListener("mousedown", handleMouseDown);
+    host.addEventListener("contextmenu", preventContextMenu);
+    return () => {
+      host.removeEventListener("pointerdown", handlePointerDown);
+      host.removeEventListener("pointermove", handlePointerMove);
+      host.removeEventListener("pointerup", handlePointerEnd);
+      host.removeEventListener("pointercancel", handlePointerEnd);
+      host.removeEventListener("pointerleave", hidePointerHoverSoon);
+      host.removeEventListener("mousemove", handleMouseMove);
+      host.removeEventListener("mousedown", handleMouseDown);
+      host.removeEventListener("contextmenu", preventContextMenu);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   const zoom = useCallback((event: globalThis.WheelEvent) => {
     event.preventDefault();
-    const rect = hostRef.current?.getBoundingClientRect();
+    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     if (!rect) return;
+    hostRectRef.current = rect;
     const rawX = ((event.clientX - rect.left) / rect.width) * VIEWBOX.width;
     const rawY = ((event.clientY - rect.top) / rect.height) * VIEWBOX.height;
-    const current = viewportRef.current;
+    const current = zoomAnimationFrameRef.current ? zoomTargetViewportRef.current : viewportRef.current;
     const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 2.8);
     const worldX = (rawX - current.x) / current.k;
     const worldY = (rawY - current.y) / current.k;
     const nextViewport = { k: nextK, x: rawX - worldX * nextK, y: rawY - worldY * nextK };
-    viewportRef.current = nextViewport;
-    setViewport(nextViewport);
+    animateViewportTo(nextViewport);
   }, []);
 
   useEffect(() => {
@@ -462,10 +717,10 @@ function GraphPixiCanvasInner({
   }, [zoom]);
 
   const resetView = () => {
+    stopZoomAnimation();
     const nextViewport = { x: 0, y: 0, k: 1 };
-    viewportRef.current = nextViewport;
-    setViewport(nextViewport);
     setResetToken((value) => value + 1);
+    animateViewportTo(nextViewport);
   };
 
   return (
@@ -475,6 +730,7 @@ function GraphPixiCanvasInner({
         <span>{mode === "governance" ? governanceSummaryText(graph) : mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
       </div>
       <div className="slot-graph-controls">
+        <span className="slot-graph-fps-chip">FPS {renderFps}</span>
         <button type="button" onClick={resetView}>重置</button>
         <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "继续" : "暂停"}</button>
       </div>
@@ -485,11 +741,6 @@ function GraphPixiCanvasInner({
         className="slot-graph-pixi-stage"
         role="img"
         aria-label="FunctionSlotLibrary 结构图谱"
-        onPointerDown={startPointer}
-        onPointerMove={movePointer}
-        onPointerUp={endPointer}
-        onPointerCancel={endPointer}
-        onPointerLeave={hideHoverSoon}
       />
       {previewNode && previewPosition ? (
         <LibraryPreviewPopover
@@ -505,4 +756,49 @@ function GraphPixiCanvasInner({
       ) : null}
     </div>
   );
+}
+
+function nodeInitialJitter(id: string) {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  }
+  const angle = (hash % 360) * (Math.PI / 180);
+  const radius = 24 + (hash % 31);
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+}
+
+function buildHitGrid(nodes: SimNode[]): HitGridIndex {
+  const cells = new Map<string, HitGridEntry[]>();
+  nodes.forEach((node, index) => {
+    const key = hitGridKey(node.x, node.y, HIT_GRID_CELL_SIZE);
+    const entries = cells.get(key);
+    if (entries) entries.push({ node, index });
+    else cells.set(key, [{ node, index }]);
+  });
+  return { cellSize: HIT_GRID_CELL_SIZE, cells };
+}
+
+function hitTestHitGrid(index: HitGridIndex, point: { x: number; y: number }, zoom: number) {
+  const hitPad = clamp(10 / zoom, 4, 16);
+  const queryRadius = 42 + hitPad;
+  const minCellX = Math.floor((point.x - queryRadius) / index.cellSize);
+  const maxCellX = Math.floor((point.x + queryRadius) / index.cellSize);
+  const minCellY = Math.floor((point.y - queryRadius) / index.cellSize);
+  const maxCellY = Math.floor((point.y + queryRadius) / index.cellSize);
+  let best: HitGridEntry | null = null;
+  for (let cellY = minCellY; cellY <= maxCellY; cellY += 1) {
+    for (let cellX = minCellX; cellX <= maxCellX; cellX += 1) {
+      for (const entry of index.cells.get(`${cellX}:${cellY}`) ?? []) {
+        if (best && entry.index < best.index) continue;
+        const radius = nodeRadius(entry.node) + hitPad;
+        if (Math.hypot(point.x - entry.node.x, point.y - entry.node.y) <= radius) best = entry;
+      }
+    }
+  }
+  return best?.node ?? null;
+}
+
+function hitGridKey(x: number, y: number, cellSize: number) {
+  return `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
 }

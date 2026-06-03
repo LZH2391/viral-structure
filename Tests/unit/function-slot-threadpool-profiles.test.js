@@ -154,6 +154,20 @@ test("shot design skill does not expose dialogue reviewer role identity", () => 
   assert.doesNotMatch(content, /dialogue-robotic-reviewer/);
 });
 
+test("shot design packaging contract requires real main subtitle text", () => {
+  const root = path.resolve(__dirname, "../..");
+  const shotDesignSkillDir = path.join(root, ".agents", "skills", "function-slot-shot-design");
+  const content = [
+    path.join(shotDesignSkillDir, "SKILL.md"),
+    path.join(shotDesignSkillDir, "references", "output-contract.md"),
+    path.join(shotDesignSkillDir, "references", "dialogue-and-packaging.md"),
+  ].map((file) => fs.readFileSync(file, "utf8")).join("\n");
+
+  assert.match(content, /主字幕样式/);
+  assert.match(content, /真实会出现的主字幕文案/);
+  assert.match(content, /不能只写纯样式|没有字幕内容的样式描述/);
+});
+
 function defaultTemplateValues(role) {
   if (role === "function-slot-library-builder") {
     return {

@@ -115,7 +115,21 @@
   right: 18px;
   z-index: 1;
   display: flex;
+  align-items: center;
   gap: 6px;
+}
+
+.slot-graph-fps-chip {
+  min-width: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 6px;
+  background: rgba(12, 14, 20, 0.62);
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 7px 9px;
+  text-align: center;
 }
 
 .slot-graph-controls button {
@@ -385,25 +399,21 @@
 
 .slot-graph-node text {
   fill: rgba(226, 232, 240, 0.82);
-  font-size: 13px;
-  font-weight: 760;
-  paint-order: stroke fill;
-  stroke: rgba(8, 11, 17, 0.92);
-  stroke-linejoin: round;
-  stroke-width: 4px;
+  font-size: 11px;
+  font-weight: 700;
   text-anchor: middle;
   pointer-events: none;
+  transition: opacity 0.16s ease;
 }
 
 .slot-graph-canvas.structure .slot-graph-node text {
-  font-size: 15px;
-  stroke-width: 5px;
+  font-size: 12px;
 }
 
 .slot-graph-canvas.structure .slot-graph-node.node-script text,
 .slot-graph-canvas.structure .slot-graph-node.node-rhythm text,
 .slot-graph-canvas.structure .slot-graph-node.node-packaging text {
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .slot-graph-slot-badge circle {
@@ -414,11 +424,8 @@
 
 .slot-graph-slot-badge text {
   fill: #fff2a8;
-  font-size: 7px;
-  font-weight: 850;
-  paint-order: stroke fill;
-  stroke: rgba(8, 11, 17, 0.9);
-  stroke-width: 2px;
+  font-size: 6px;
+  font-weight: 800;
   text-anchor: middle;
   pointer-events: none;
 }
@@ -494,7 +501,7 @@
 }
 
 .slot-graph-node.node-type-atomArchetype text {
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .slot-graph-node.node-slotReview > circle:not(.slot-graph-plan-ring) {
@@ -562,8 +569,7 @@
 
 .slot-graph-node.node-type-governanceRoot text {
   fill: #f7f8ff;
-  font-size: 15px;
-  stroke-width: 5px;
+  font-size: 12px;
 }
 
 .slot-graph-node.node-policy > circle:not(.slot-graph-plan-ring),
@@ -606,8 +612,7 @@
 
 .slot-graph-canvas.plan-trace .slot-graph-node.node-sourceVariant text {
   fill: #eaf1ff;
-  font-size: 13px;
-  stroke-width: 5px;
+  font-size: 11px;
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-node.node-sourceVariant.node-layer-script > circle:not(.slot-graph-plan-ring) {
@@ -655,8 +660,7 @@
 
 .slot-graph-node.node-sourceSample text {
   fill: #f7f8ff;
-  font-size: 13px;
-  stroke-width: 5px;
+  font-size: 11px;
 }
 
 .slot-graph-node.node-plan > circle:not(.slot-graph-plan-ring) {
@@ -669,8 +673,7 @@
 
 .slot-graph-node.node-plan text {
   fill: #f7f8ff;
-  font-size: 15px;
-  stroke-width: 5px;
+  font-size: 12px;
 }
 
 .slot-graph-node .slot-graph-plan-ring {
@@ -694,9 +697,18 @@
 
 .slot-graph-plan-badge text {
   fill: #111827;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 800;
   text-anchor: middle;
+}
+
+.slot-graph-node text,
+.slot-graph-slot-badge text,
+.slot-graph-plan-badge text {
+  fill: #ffffff;
+  paint-order: normal;
+  stroke: none;
+  stroke-width: 0;
 }
 
 .slot-graph-preview-popover {

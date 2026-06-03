@@ -18,6 +18,10 @@ import {
 } from "./graphUtils";
 import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } from "./types";
 
+type ViewportTransform = { x: number; y: number; k: number };
+
+const ZOOM_ANIMATION_MS = 140;
+
 export function GraphCanvas({
   mode = "structure",
   graph,
@@ -41,6 +45,10 @@ export function GraphCanvas({
   const hoverOutTimerRef = useRef<number | null>(null);
   const hoverSuppressUntilRef = useRef(0);
   const viewportRef = useRef({ x: 0, y: 0, k: 1 });
+  const zoomAnimationFrameRef = useRef<number | null>(null);
+  const zoomAnimationStartedAtRef = useRef(0);
+  const zoomStartViewportRef = useRef<ViewportTransform>(viewportRef.current);
+  const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const [nodes, setNodes] = useState<SimNode[]>([]);
   const [viewport, setViewport] = useState(viewportRef.current);
   const [svgSize, setSvgSize] = useState({ width: VIEWBOX.width, height: VIEWBOX.height });
@@ -84,6 +92,41 @@ export function GraphCanvas({
     setHoveredNodeId(null);
   };
 
+  const stopZoomAnimation = () => {
+    if (!zoomAnimationFrameRef.current) return;
+    window.cancelAnimationFrame(zoomAnimationFrameRef.current);
+    zoomAnimationFrameRef.current = null;
+  };
+
+  const applyAnimatedViewport = (nextViewport: ViewportTransform) => {
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+  };
+
+  const stepZoomAnimation = (time: number) => {
+    const progress = clamp((time - zoomAnimationStartedAtRef.current) / ZOOM_ANIMATION_MS, 0, 1);
+    const eased = 1 - ((1 - progress) ** 3);
+    const start = zoomStartViewportRef.current;
+    const target = zoomTargetViewportRef.current;
+    applyAnimatedViewport({
+      x: start.x + (target.x - start.x) * eased,
+      y: start.y + (target.y - start.y) * eased,
+      k: start.k + (target.k - start.k) * eased,
+    });
+    if (progress < 1) {
+      zoomAnimationFrameRef.current = window.requestAnimationFrame(stepZoomAnimation);
+      return;
+    }
+    zoomAnimationFrameRef.current = null;
+  };
+
+  const animateViewportTo = (targetViewport: ViewportTransform) => {
+    zoomStartViewportRef.current = viewportRef.current;
+    zoomTargetViewportRef.current = targetViewport;
+    zoomAnimationStartedAtRef.current = performance.now();
+    if (!zoomAnimationFrameRef.current) zoomAnimationFrameRef.current = window.requestAnimationFrame(stepZoomAnimation);
+  };
+
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
@@ -120,6 +163,7 @@ export function GraphCanvas({
     return () => {
       simulationRef.current?.stop();
       simulationRef.current = null;
+      stopZoomAnimation();
       if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
     };
   }, [fixedLayout, resetToken, visible.edges, visible.nodes]);
@@ -313,7 +357,7 @@ export function GraphCanvas({
               focused={hasFocusNode && (node.id === focusNodeId || focusedIds.has(node.id))}
               selected={node.id === selectedNodeId}
               pinnedPreview={node.id === pinnedPreviewNodeId}
-              showLabel={shouldShowNodeLabel(mode, node, viewport.k)}
+              labelOpacity={nodeLabelOpacity(mode, node, viewport.k)}
               onHover={showHover}
               onHoverOut={hideHoverSoon}
               onStartDrag={startNodeDrag}
@@ -337,7 +381,7 @@ export function GraphCanvas({
   );
 }
 
-function GraphNode({ node, focused, selected, pinnedPreview, showLabel, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; showLabel: boolean; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
+function GraphNode({ node, focused, selected, pinnedPreview, labelOpacity, onHover, onHoverOut, onStartDrag }: { node: SimNode; focused: boolean; selected: boolean; pinnedPreview: boolean; labelOpacity: number; onHover: (id: string) => void; onHoverOut: () => void; onStartDrag: (event: PointerEvent<SVGGElement>, node: SimNode) => void }) {
   const radius = nodeRadius(node);
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
   const overlayUsageCount = Number(node.data.overlayUsageCount ?? overlayColors.length);
@@ -366,7 +410,7 @@ function GraphNode({ node, focused, selected, pinnedPreview, showLabel, onHover,
           <text x={node.x + radius - 1} y={node.y - radius + 4}>{overlayUsageCount > 1 ? overlayUsageCount : ""}</text>
         </g>
       ) : null}
-      {showLabel ? <text x={node.x} y={node.y + radius + 18}>{node.shortLabel}</text> : null}
+      {labelOpacity > 0.01 ? <text x={node.x} y={node.y + radius + 14} style={{ opacity: labelOpacity }}>{node.shortLabel}</text> : null}
       <title>{node.label}</title>
     </g>
   );
@@ -380,13 +424,23 @@ export function slotOrderBadge(node: SimNode) {
 }
 
 export function shouldShowNodeLabel(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
-  if (mode !== "governance") return true;
-  if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") return true;
-  if (zoom < 1.5) return node.type === "slotSubtype";
-  if (zoom < 2) {
-    return node.type === "slotArchetype" || node.type === "slotSubtype" || node.type === "implementationBundle";
+  return nodeLabelOpacity(mode, node, zoom) > 0.01;
+}
+
+export function nodeLabelOpacity(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
+  if (mode !== "governance") return zoomFade(zoom, 0.45, 1, 0.58, 1);
+  if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") {
+    return zoomFade(zoom, 0.45, 1, 0.72, 1);
   }
-  return true;
+  if (node.type === "slotSubtype") return zoomFade(zoom, 1.05, 1.45, 0.12, 1);
+  if (node.type === "slotArchetype" || node.type === "implementationBundle") return zoomFade(zoom, 1.45, 1.9, 0, 1);
+  return zoomFade(zoom, 1.9, 2.3, 0, 1);
+}
+
+function zoomFade(zoom: number, start: number, end: number, min: number, max: number) {
+  if (zoom <= start) return min;
+  if (zoom >= end) return max;
+  return min + ((zoom - start) / (end - start)) * (max - min);
 }
 
 function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean) {

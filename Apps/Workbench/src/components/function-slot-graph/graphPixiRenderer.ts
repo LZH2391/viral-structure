@@ -1,7 +1,8 @@
 import { Container, Graphics, Text } from "pixi.js";
+import type { TextStyleOptions } from "pixi.js";
 import type { FunctionSlotGraphEdge } from "../../types/library";
 import { clamp, nodeRadius, VIEWBOX } from "./graphUtils";
-import { edgeLayerClass, edgeLinePoints, shouldShowNodeLabel, slotOrderBadge } from "./GraphCanvas";
+import { edgeLayerClass, edgeLinePoints, nodeLabelOpacity, slotOrderBadge } from "./GraphCanvas";
 import type { SimNode } from "./types";
 
 type GraphMode = "structure" | "governance" | "planTrace";
@@ -17,10 +18,32 @@ export type PixiGraphRenderState = {
   fixedLayout: boolean;
 };
 
-export type PixiTextMaps = {
-  labels: Map<string, Text>;
-  slotBadges: Map<string, Text>;
-  planBadges: Map<string, Text>;
+export type PixiGraphObjects = {
+  edges: Map<string, PixiEdgeView>;
+  nodes: Map<string, PixiNodeView>;
+};
+
+type PixiEdgeView = {
+  container: Container;
+  line: Graphics;
+  arrow: Graphics;
+  lineKey: string | null;
+  arrowKey: string | null;
+};
+
+type PixiNodeView = {
+  container: Container;
+  ring: Graphics;
+  body: Graphics;
+  slotBadge: Graphics;
+  slotBadgeText: Text;
+  planBadge: Graphics;
+  planBadgeText: Text;
+  label: Text;
+  ringKey: string | null;
+  bodyKey: string | null;
+  slotBadgeKey: string | null;
+  planBadgeKey: string | null;
 };
 
 type StrokeStyle = {
@@ -29,6 +52,25 @@ type StrokeStyle = {
   width: number;
   dash?: [number, number];
 };
+
+const textStyleKeys = new WeakMap<Text, string>();
+const textStyleCache = new Map<string, TextStyleOptions>();
+const nodePositionCache = new WeakMap<SimNode[], Map<string, SimNode>>();
+const edgeByIdCache = new WeakMap<FunctionSlotGraphEdge[], Map<string, FunctionSlotGraphEdge>>();
+
+export function createPixiGraphObjects(): PixiGraphObjects {
+  return { edges: new Map(), nodes: new Map() };
+}
+
+export function destroyPixiGraphObjects(objects: PixiGraphObjects) {
+  for (const edge of objects.edges.values()) edge.container.destroy({ children: true });
+  for (const view of objects.nodes.values()) {
+    view.label.destroy();
+    view.container.destroy({ children: true });
+  }
+  objects.edges.clear();
+  objects.nodes.clear();
+}
 
 export function drawPixiBackground(graphics: Graphics) {
   graphics.clear();
@@ -39,13 +81,20 @@ export function drawPixiBackground(graphics: Graphics) {
   }
 }
 
-export function drawPixiEdges(graphics: Graphics, edges: FunctionSlotGraphEdge[], nodes: SimNode[], state: PixiGraphRenderState) {
-  graphics.clear();
-  const positions = new Map(nodes.map((node) => [node.id, node]));
+export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], state: PixiGraphRenderState) {
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  for (const [edgeId, view] of objects.edges.entries()) {
+    if (edgeIds.has(edgeId)) continue;
+    view.container.destroy({ children: true });
+    objects.edges.delete(edgeId);
+  }
+
+  const positions = nodePositionMap(nodes);
   for (const edge of edges) {
     const source = positions.get(edge.source);
     const target = positions.get(edge.target);
     if (!source || !target) continue;
+    const view = getEdgeView(edgeLayer, objects, edge.id);
     const activeId = state.hoveredNodeId ?? state.selectedNodeId;
     const focused = state.hasFocusNode
       ? (state.mode === "planTrace" ? state.focusedEdgeIds.has(edge.id) : edge.source === activeId || edge.target === activeId)
@@ -53,26 +102,34 @@ export function drawPixiEdges(graphics: Graphics, edges: FunctionSlotGraphEdge[]
     const muted = state.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
     const style = edgeStyle(edge, source, target, focused, muted, state.mode);
-    drawLine(graphics, line.x1, line.y1, line.x2, line.y2, style);
-    if (isSlotSequenceEdge(edge.type, source, target)) drawArrow(graphics, line.x1, line.y1, line.x2, line.y2, style);
+    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
   }
 }
 
-export function drawPixiNodes(graphics: Graphics, labelLayer: Container, textMaps: PixiTextMaps, nodes: SimNode[], state: PixiGraphRenderState, zoom: number, rootScale: number) {
-  graphics.clear();
+export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number, rootScale: number) {
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  for (const [nodeId, view] of objects.nodes.entries()) {
+    if (nodeIds.has(nodeId)) continue;
+    view.label.destroy();
+    view.container.destroy({ children: true });
+    objects.nodes.delete(nodeId);
+  }
+
   for (const node of nodes) {
+    const view = getNodeView(nodeLayer, labelLayer, objects, node.id);
     const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
     const selected = node.id === state.selectedNodeId;
     const pinned = node.id === state.pinnedPreviewNodeId;
     const radius = nodeRadius(node);
     const style = nodeStyle(node, focused, selected, pinned, state.mode, state.hasFocusNode);
-    if (node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample") {
-      graphics.circle(node.x, node.y, radius + 7).stroke({ color: 0xbbaeff, alpha: 0.76, width: 2 });
-    }
-    graphics.circle(node.x, node.y, radius).fill({ color: style.fill, alpha: style.alpha }).stroke({ color: style.stroke, alpha: style.strokeAlpha, width: style.strokeWidth });
-    drawSlotBadge(graphics, textMaps, labelLayer, node, radius, rootScale);
-    drawPlanBadge(graphics, textMaps, labelLayer, node, radius, rootScale);
-    syncNodeLabel(textMaps.labels, labelLayer, node, radius, shouldShowNodeLabel(state.mode, node, zoom), style.textColor, state.mode, rootScale);
+    view.container.position.set(node.x, node.y);
+
+    syncNodeRing(view, node, radius);
+    syncNodeBody(view, radius, style);
+
+    syncSlotBadge(view, node, radius, rootScale);
+    syncPlanBadge(view, node, radius, rootScale);
+    syncNodeLabel(view.label, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode, rootScale);
   }
 }
 
@@ -93,78 +150,333 @@ export function pixiScreenPoint(node: SimNode, viewport: { x: number; y: number;
   };
 }
 
-export function createPixiTextMaps(): PixiTextMaps {
-  return { labels: new Map(), slotBadges: new Map(), planBadges: new Map() };
+export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], state: PixiGraphRenderState, rootScale: number) {
+  const positions = nodePositionMap(nodes);
+  for (const edge of edges) {
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    const view = objects.edges.get(edge.id);
+    if (!source || !target || !view) return false;
+    const activeId = state.hoveredNodeId ?? state.selectedNodeId;
+    const focused = state.hasFocusNode
+      ? (state.mode === "planTrace" ? state.focusedEdgeIds.has(edge.id) : edge.source === activeId || edge.target === activeId)
+      : false;
+    const muted = state.hasFocusNode && !focused;
+    const line = edgeLinePoints(edge.type, source, target);
+    const style = edgeStyle(edge, source, target, focused, muted, state.mode);
+    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
+  }
+  for (const node of nodes) {
+    const view = objects.nodes.get(node.id);
+    if (!view) return false;
+    const radius = nodeRadius(node);
+    view.container.position.set(node.x, node.y);
+    view.label.position.set(node.x, nodeLabelY(node, radius, rootScale));
+  }
+  return true;
 }
 
-function drawSlotBadge(graphics: Graphics, textMaps: PixiTextMaps, labelLayer: Container, node: SimNode, radius: number, rootScale: number) {
+export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], previous: PixiGraphRenderState, next: PixiGraphRenderState) {
+  const positions = nodePositionMap(nodes);
+  const nodeIds = affectedFocusNodeIds(nodes, previous, next);
+  for (const nodeId of nodeIds) {
+    const node = positions.get(nodeId);
+    const view = objects.nodes.get(nodeId);
+    if (!node || !view) return false;
+    const focused = next.hasFocusNode && (node.id === next.hoveredNodeId || node.id === next.selectedNodeId || next.focusedIds.has(node.id));
+    const selected = node.id === next.selectedNodeId;
+    const pinned = node.id === next.pinnedPreviewNodeId;
+    syncNodeBody(view, nodeRadius(node), nodeStyle(node, focused, selected, pinned, next.mode, next.hasFocusNode));
+  }
+
+  const edgeIds = affectedFocusEdgeIds(edges, previous, next);
+  const edgeById = edgeByIdMap(edges);
+  for (const edgeId of edgeIds) {
+    const edge = edgeById.get(edgeId);
+    if (!edge) continue;
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    const view = objects.edges.get(edge.id);
+    if (!source || !target || !view) return false;
+    const focused = isEdgeFocused(edge, next);
+    const muted = next.hasFocusNode && !focused;
+    const line = edgeLinePoints(edge.type, source, target);
+    const style = edgeStyle(edge, source, target, focused, muted, next.mode);
+    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
+  }
+  return true;
+}
+
+function getEdgeView(edgeLayer: Container, objects: PixiGraphObjects, edgeId: string) {
+  const existing = objects.edges.get(edgeId);
+  if (existing) return existing;
+  const container = new Container();
+  const line = new Graphics();
+  const arrow = new Graphics();
+  arrow.visible = false;
+  container.addChild(line);
+  container.addChild(arrow);
+  const view = { container, line, arrow, lineKey: null, arrowKey: null };
+  objects.edges.set(edgeId, view);
+  edgeLayer.addChild(container);
+  return view;
+}
+
+function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodeId: string) {
+  const existing = objects.nodes.get(nodeId);
+  if (existing) return existing;
+
+  const container = new Container();
+  const ring = new Graphics();
+  const body = new Graphics();
+  const slotBadge = new Graphics();
+  const planBadge = new Graphics();
+  const slotBadgeText = new Text({ text: "", style: whiteTextStyle(5.5) });
+  const planBadgeText = new Text({ text: "", style: whiteTextStyle(6.5) });
+  const label = new Text({ text: "", style: whiteTextStyle(10) });
+  slotBadgeText.anchor.set(0.5);
+  planBadgeText.anchor.set(0.5);
+  label.anchor.set(0.5, 0);
+  container.addChild(ring);
+  container.addChild(body);
+  container.addChild(slotBadge);
+  container.addChild(planBadge);
+  container.addChild(slotBadgeText);
+  container.addChild(planBadgeText);
+  nodeLayer.addChild(container);
+  labelLayer.addChild(label);
+
+  const view = {
+    container,
+    ring,
+    body,
+    slotBadge,
+    slotBadgeText,
+    planBadge,
+    planBadgeText,
+    label,
+    ringKey: null,
+    bodyKey: null,
+    slotBadgeKey: null,
+    planBadgeKey: null,
+  };
+  objects.nodes.set(nodeId, view);
+  return view;
+}
+
+function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number, style: StrokeStyle, showArrow: boolean) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  view.container.visible = length > 0;
+  if (!length) return;
+  view.container.position.set(x1, y1);
+  view.container.rotation = Math.atan2(dy, dx);
+
+  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${Math.round(length)}` : "solid";
+  const lineKey = `${style.color}:${style.width}:${dashKey}`;
+  if (view.lineKey !== lineKey) {
+    view.line.clear();
+    drawLocalLine(view.line, length, style);
+    view.lineKey = lineKey;
+  }
+  if (!style.dash) view.line.scale.x = length;
+  else view.line.scale.x = 1;
+  view.line.alpha = style.alpha;
+
+  view.arrow.visible = showArrow;
+  if (!showArrow) return;
+  view.arrow.position.set(length, 0);
+  view.arrow.alpha = Math.max(style.alpha, 0.62);
+  const arrowKey = `${style.color}:11`;
+  if (view.arrowKey === arrowKey) return;
+  view.arrow.clear();
+  drawLocalArrow(view.arrow, style);
+  view.arrowKey = arrowKey;
+}
+
+function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
+  const highlighted = node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample";
+  const key = highlighted ? `ring:${radius}` : "none";
+  if (view.ringKey === key) return;
+  view.ring.clear();
+  if (highlighted) view.ring.circle(0, 0, radius + 7).stroke({ color: 0xbbaeff, alpha: 0.76, width: 2 });
+  view.ringKey = key;
+}
+
+function syncNodeBody(view: PixiNodeView, radius: number, style: ReturnType<typeof nodeStyle>) {
+  const key = `${radius}:${style.fill}:${style.alpha}:${style.stroke}:${style.strokeAlpha}:${style.strokeWidth}`;
+  if (view.bodyKey === key) return;
+  view.body
+    .clear()
+    .circle(0, 0, radius)
+    .fill({ color: style.fill, alpha: style.alpha })
+    .stroke({ color: style.stroke, alpha: style.strokeAlpha, width: style.strokeWidth });
+  view.bodyKey = key;
+}
+
+function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number, rootScale: number) {
   const badge = slotOrderBadge(node);
-  const text = syncText(textMaps.slotBadges, labelLayer, `slot:${node.id}`, {
-    fontFamily: "Inter, Arial, sans-serif",
-    fontSize: 7 / rootScale,
-    fontWeight: "800",
-    fill: "#fff2a8",
-    stroke: { color: "#080b11", width: 2 },
-  });
   if (!badge) {
-    text.visible = false;
+    if (view.slotBadgeKey !== "none") {
+      view.slotBadge.clear();
+      view.slotBadgeKey = "none";
+    }
+    view.slotBadgeText.visible = false;
     return;
   }
-  const x = node.x - radius + 2;
-  const y = node.y - radius + 2;
-  graphics.circle(x, y, 8).fill({ color: 0x111827, alpha: 0.96 }).stroke({ color: 0xffee9e, alpha: 0.94, width: 1.5 });
-  text.text = badge;
-  text.anchor.set(0.5);
-  text.position.set(x, y - (5 / rootScale));
-  text.visible = true;
+  const x = -radius + 2;
+  const y = -radius + 2;
+  const key = `${radius}`;
+  if (view.slotBadgeKey !== key) {
+    view.slotBadge
+      .clear()
+      .circle(x, y, 8)
+      .fill({ color: 0x111827, alpha: 0.96 })
+      .stroke({ color: 0xffffff, alpha: 0.8, width: 1.5 });
+    view.slotBadgeKey = key;
+  }
+  syncTextStyle(view.slotBadgeText, whiteTextStyle(5.5 / rootScale), `slot:${rootScale}`);
+  syncText(view.slotBadgeText, badge);
+  view.slotBadgeText.position.set(x, y - (3.6 / rootScale));
+  view.slotBadgeText.visible = true;
 }
 
-function drawPlanBadge(graphics: Graphics, textMaps: PixiTextMaps, labelLayer: Container, node: SimNode, radius: number, rootScale: number) {
+function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number, rootScale: number) {
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
-  const text = syncText(textMaps.planBadges, labelLayer, `plan:${node.id}`, {
-    fontFamily: "Inter, Arial, sans-serif",
-    fontSize: 8 / rootScale,
-    fontWeight: "800",
-    fill: "#111827",
-  });
   if (!overlayColors.length) {
-    text.visible = false;
+    if (view.planBadgeKey !== "none") {
+      view.planBadge.clear();
+      view.planBadgeKey = "none";
+    }
+    view.planBadgeText.visible = false;
     return;
   }
-  const x = node.x + radius - 1;
-  const y = node.y - radius + 1;
+  const x = radius - 1;
+  const y = -radius + 1;
   const count = Number(node.data.overlayUsageCount ?? overlayColors.length);
-  graphics.circle(x, y, 7).fill({ color: cssColorToNumber(overlayColors[0]) ?? 0x6ea8fe, alpha: 1 }).stroke({ color: 0xffffff, alpha: 0.86, width: 1 });
-  text.text = count > 1 ? String(count) : "";
-  text.anchor.set(0.5);
-  text.position.set(x, y - (4 / rootScale));
-  text.visible = count > 1;
-}
-
-function syncNodeLabel(textMap: Map<string, Text>, labelLayer: Container, node: SimNode, radius: number, visible: boolean, fill: string, mode: GraphMode, rootScale: number) {
-  const text = syncText(textMap, labelLayer, node.id, {
-    fontFamily: "Inter, Arial, sans-serif",
-    fontSize: (mode === "structure" ? 15 : 13) / rootScale,
-    fontWeight: "760",
-    fill,
-    stroke: { color: "#080b11", width: (mode === "structure" ? 5 : 4) / rootScale },
-  });
-  text.text = node.shortLabel;
-  text.anchor.set(0.5, 0);
-  text.position.set(node.x, node.y + radius + (18 / rootScale));
-  text.visible = visible;
-}
-
-function syncText(map: Map<string, Text>, parent: Container, id: string, style: Record<string, unknown>) {
-  const existing = map.get(id);
-  if (existing) {
-    existing.style = style;
-    return existing;
+  const badgeColor = cssColorToNumber(overlayColors[0]) ?? 0x6ea8fe;
+  const key = `${radius}:${badgeColor}`;
+  if (view.planBadgeKey !== key) {
+    view.planBadge
+      .clear()
+      .circle(x, y, 7)
+      .fill({ color: badgeColor, alpha: 1 })
+      .stroke({ color: 0xffffff, alpha: 0.86, width: 1 });
+    view.planBadgeKey = key;
   }
-  const text = new Text({ text: "", style });
-  map.set(id, text);
-  parent.addChild(text);
-  return text;
+  syncTextStyle(view.planBadgeText, whiteTextStyle(6.5 / rootScale), `plan:${rootScale}`);
+  syncText(view.planBadgeText, count > 1 ? String(count) : "");
+  view.planBadgeText.position.set(x, y - (2.8 / rootScale));
+  view.planBadgeText.visible = count > 1;
+}
+
+function syncNodeLabel(text: Text, node: SimNode, radius: number, opacity: number, mode: GraphMode, rootScale: number) {
+  const fontSize = labelFontSize(mode, node) / rootScale;
+  syncTextStyle(text, whiteTextStyle(fontSize), `label:${mode}:${rootScale}`);
+  syncText(text, node.shortLabel);
+  text.position.set(node.x, nodeLabelY(node, radius, rootScale));
+  text.alpha = opacity;
+  text.visible = opacity > 0.01;
+}
+
+function labelFontSize(mode: GraphMode, node: SimNode) {
+  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return 9.5;
+  if (mode === "structure") return 10.5;
+  if (mode === "planTrace" && node.type === "sourceVariant") return 9.5;
+  return 9.75;
+}
+
+function nodeLabelY(node: SimNode, radius: number, rootScale: number) {
+  const tightGap = node.type === "atomPattern" || node.type === "atomInstance" || node.type === "binding" || node.group === "binding";
+  return node.y + radius + ((tightGap ? 8 : 10) / rootScale);
+}
+
+function syncText(text: Text, value: string) {
+  if (text.text !== value) text.text = value;
+}
+
+function syncTextStyle(text: Text, style: TextStyleOptions, key: string) {
+  if (textStyleKeys.get(text) === key) return;
+  text.style = style;
+  textStyleKeys.set(text, key);
+}
+
+function whiteTextStyle(fontSize: number): TextStyleOptions {
+  const key = `${fontSize}`;
+  const cached = textStyleCache.get(key);
+  if (cached) return cached;
+  const style: TextStyleOptions = {
+    fontFamily: "Inter, Arial, sans-serif",
+    fontSize,
+    fontWeight: "700",
+    fill: "#ffffff",
+  };
+  textStyleCache.set(key, style);
+  return style;
+}
+
+function nodePositionMap(nodes: SimNode[]) {
+  const cached = nodePositionCache.get(nodes);
+  if (cached) return cached;
+  const positions = new Map(nodes.map((node) => [node.id, node]));
+  nodePositionCache.set(nodes, positions);
+  return positions;
+}
+
+function edgeByIdMap(edges: FunctionSlotGraphEdge[]) {
+  const cached = edgeByIdCache.get(edges);
+  if (cached) return cached;
+  const edgeById = new Map(edges.map((edge) => [edge.id, edge]));
+  edgeByIdCache.set(edges, edgeById);
+  return edgeById;
+}
+
+function affectedFocusNodeIds(nodes: SimNode[], previous: PixiGraphRenderState, next: PixiGraphRenderState) {
+  if (previous.hasFocusNode !== next.hasFocusNode || previous.mode !== next.mode) {
+    return new Set(nodes.map((node) => node.id));
+  }
+  const ids = new Set<string>();
+  addStateNodeIds(ids, previous);
+  addStateNodeIds(ids, next);
+  return ids;
+}
+
+function addStateNodeIds(ids: Set<string>, state: PixiGraphRenderState) {
+  if (state.selectedNodeId) ids.add(state.selectedNodeId);
+  if (state.hoveredNodeId) ids.add(state.hoveredNodeId);
+  if (state.pinnedPreviewNodeId) ids.add(state.pinnedPreviewNodeId);
+  for (const nodeId of state.focusedIds) ids.add(nodeId);
+}
+
+function affectedFocusEdgeIds(edges: FunctionSlotGraphEdge[], previous: PixiGraphRenderState, next: PixiGraphRenderState) {
+  if (previous.hasFocusNode !== next.hasFocusNode || previous.mode !== next.mode) {
+    return new Set(edges.map((edge) => edge.id));
+  }
+  const ids = new Set<string>();
+  addStateEdgeIds(ids, edges, previous);
+  addStateEdgeIds(ids, edges, next);
+  return ids;
+}
+
+function addStateEdgeIds(ids: Set<string>, edges: FunctionSlotGraphEdge[], state: PixiGraphRenderState) {
+  if (!state.hasFocusNode) return;
+  if (state.mode === "planTrace") {
+    for (const edgeId of state.focusedEdgeIds) ids.add(edgeId);
+    return;
+  }
+  const activeId = state.hoveredNodeId ?? state.selectedNodeId;
+  if (!activeId) return;
+  for (const edge of edges) {
+    if (edge.source === activeId || edge.target === activeId) ids.add(edge.id);
+  }
+}
+
+function isEdgeFocused(edge: FunctionSlotGraphEdge, state: PixiGraphRenderState) {
+  if (!state.hasFocusNode) return false;
+  if (state.mode === "planTrace") return state.focusedEdgeIds.has(edge.id);
+  const activeId = state.hoveredNodeId ?? state.selectedNodeId;
+  return edge.source === activeId || edge.target === activeId;
 }
 
 function edgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, focused: boolean, muted: boolean, mode: GraphMode): StrokeStyle {
@@ -188,58 +500,50 @@ function nodeStyle(node: SimNode, focused: boolean, selected: boolean, pinned: b
   const layerClass = mode === "planTrace" && node.type === "sourceVariant" ? edgeLayerClass(node, node) : "";
   let fill = 0x8b5cf6;
   let stroke = 0xffffff;
-  let textColor = "#e2e8f0";
   let strokeWidth = 1;
   if (node.type === "slotInstance" || node.group === "slot") fill = 0x56d7b1;
-  if (node.type === "slotFamily") { fill = 0x3f8f75; stroke = 0x60d6a4; strokeWidth = 2.4; textColor = "#a7f2d1"; }
-  if (node.type === "slotArchetype") { fill = 0x426c9f; stroke = 0x7fb7ff; strokeWidth = 2.2; textColor = "#c4ddff"; }
-  if (node.type === "slotSubtype") { fill = 0x9b8132; stroke = 0xf0d36d; strokeWidth = 2.3; textColor = "#ffe58f"; }
-  if (node.group === "script" || layerClass.includes("script")) { fill = 0xf07070; stroke = 0xe48182; strokeWidth = 2; textColor = "#ffc3c2"; }
-  if (node.group === "rhythm" || layerClass.includes("rhythm")) { fill = 0x58bfe7; stroke = 0x69c5e8; strokeWidth = 2; textColor = "#bdeaff"; }
-  if (node.group === "packaging" || layerClass.includes("packaging")) { fill = 0xb58cff; stroke = 0xa98cff; strokeWidth = 2; textColor = "#d8ccff"; }
+  if (node.type === "slotFamily") { fill = 0x3f8f75; stroke = 0x60d6a4; strokeWidth = 2.4; }
+  if (node.type === "slotArchetype") { fill = 0x426c9f; stroke = 0x7fb7ff; strokeWidth = 2.2; }
+  if (node.type === "slotSubtype") { fill = 0x9b8132; stroke = 0xf0d36d; strokeWidth = 2.3; }
+  if (node.group === "script" || layerClass.includes("script")) { fill = 0xf07070; stroke = 0xe48182; strokeWidth = 2; }
+  if (node.group === "rhythm" || layerClass.includes("rhythm")) { fill = 0x58bfe7; stroke = 0x69c5e8; strokeWidth = 2; }
+  if (node.group === "packaging" || layerClass.includes("packaging")) { fill = 0xb58cff; stroke = 0xa98cff; strokeWidth = 2; }
   if (node.type === "binding" || node.group === "binding") fill = 0xf0d46f;
   if (node.group === "rule" || node.group === "policy") fill = 0x7fb0ff;
   if (node.group === "unmapped" || node.group === "needReview") fill = 0xf28b82;
-  if (node.type === "sourceVariant" && !layerClass) { fill = 0x111827; stroke = 0xc4cbed; strokeWidth = 1.8; textColor = "#eaf1ff"; }
+  if (node.type === "sourceVariant" && !layerClass) { fill = 0x111827; stroke = 0xc4cbed; strokeWidth = 1.8; }
   if (node.type === "sourceSample" || node.type === "confirmedPlan" || node.type === "governanceRoot") {
     fill = 0x05070c;
     stroke = 0xf4f6ff;
     strokeWidth = 2.8;
-    textColor = "#f7f8ff";
   }
   if (selected || pinned || focused) strokeWidth = Math.max(strokeWidth, 2.4);
-  return { fill, stroke, strokeWidth, textColor, alpha: focused || !hasFocusNode ? 0.9 : 0.52, strokeAlpha: selected || pinned || focused ? 1 : 0.5 };
+  return { fill, stroke, strokeWidth, alpha: focused || !hasFocusNode ? 0.9 : 0.52, strokeAlpha: selected || pinned || focused ? 1 : 0.5 };
 }
 
-function drawLine(graphics: Graphics, x1: number, y1: number, x2: number, y2: number, style: StrokeStyle) {
+function drawLocalLine(graphics: Graphics, length: number, style: StrokeStyle) {
   if (!style.dash) {
-    graphics.moveTo(x1, y1).lineTo(x2, y2).stroke({ color: style.color, alpha: style.alpha, width: style.width });
+    graphics.moveTo(0, 0).lineTo(1, 0).stroke({ color: style.color, alpha: 1, width: style.width });
     return;
   }
   const [dash, gap] = style.dash;
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const length = Math.hypot(dx, dy);
   if (!length) return;
-  const ux = dx / length;
-  const uy = dy / length;
   for (let cursor = 0; cursor < length; cursor += dash + gap) {
     const segmentEnd = Math.min(cursor + dash, length);
-    graphics.moveTo(x1 + ux * cursor, y1 + uy * cursor).lineTo(x1 + ux * segmentEnd, y1 + uy * segmentEnd).stroke({ color: style.color, alpha: style.alpha, width: style.width });
+    graphics.moveTo(cursor, 0).lineTo(segmentEnd, 0).stroke({ color: style.color, alpha: 1, width: style.width });
   }
 }
 
-function drawArrow(graphics: Graphics, x1: number, y1: number, x2: number, y2: number, style: StrokeStyle) {
-  const angle = Math.atan2(y2 - y1, x2 - x1);
+function drawLocalArrow(graphics: Graphics, style: StrokeStyle) {
   const size = 11;
-  const left = angle + Math.PI * 0.82;
-  const right = angle - Math.PI * 0.82;
+  const left = Math.PI * 0.82;
+  const right = -Math.PI * 0.82;
   graphics
-    .moveTo(x2, y2)
-    .lineTo(x2 + Math.cos(left) * size, y2 + Math.sin(left) * size)
-    .lineTo(x2 + Math.cos(right) * size, y2 + Math.sin(right) * size)
+    .moveTo(0, 0)
+    .lineTo(Math.cos(left) * size, Math.sin(left) * size)
+    .lineTo(Math.cos(right) * size, Math.sin(right) * size)
     .closePath()
-    .fill({ color: style.color, alpha: Math.max(style.alpha, 0.62) });
+    .fill({ color: style.color, alpha: 1 });
 }
 
 function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
