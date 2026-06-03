@@ -7,7 +7,7 @@ const path = require("node:path");
 const { createHash } = require("node:crypto");
 const { server: defaultServer, createServer } = require("../../Apps/Api/server");
 const { createAgentConversationStore } = require("../../Apps/Api/lib/agent-chat/conversation-store");
-const { reviewShotDialogueForConversation } = require("../../Apps/Api/lib/agent-chat/shot-dialogue-auto-review");
+const { maybeAutoReviewShotDialogue, reviewShotDialogueForConversation } = require("../../Apps/Api/lib/agent-chat/shot-dialogue-auto-review");
 
 test.after(() => {
   if (defaultServer.listening) defaultServer.close();
@@ -231,6 +231,15 @@ function closeServer(server) {
       else resolve();
     });
   });
+}
+
+async function waitFor(predicate, { timeoutMs = 1000, intervalMs = 10 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error("waitFor timeout");
 }
 
 async function exists(filePath) {
@@ -2451,6 +2460,85 @@ test("agent chat collect ignores remembered shot design when only non-dialogue f
   } finally {
     await closeServer(server);
   }
+});
+
+test("auto dialogue review skips duplicate while same shot design review is in progress", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-dialogue-dedupe-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
+  await fsPromises.mkdir(planDir, { recursive: true });
+  await fsPromises.writeFile(path.join(planDir, "shot-design.final.md"), sampleShotDesignFinalMarkdown(), "utf8");
+
+  let finishReview;
+  const reviewTurns = [];
+  const releases = [];
+  const conversation = {
+    conversationId: "conversation_shot_design",
+    revision: 3,
+    source: "direct",
+    role: "function-slot-shot-design",
+    status: "active",
+    threadId: "thread_shot_design",
+    latestTurnId: "turn_shot_1",
+    messages: [],
+  };
+  const handlers = {
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/dialogue-review.json" }),
+    },
+    threadPool: {
+      ensureRoleReady: async (role) => ({ ok: true, status: { role, skillPath: "dialogue-reviewer/SKILL.md" } }),
+      acquireLease: async ({ role, ownerId }) => ({ ok: true, role, ownerId, thread_id: "thread_dialogue_review", lease_id: "lease_dialogue_review" }),
+      releaseLease: async (payload) => {
+        releases.push(payload);
+        return { ok: true };
+      },
+    },
+    appServer: {
+      runTurnWithInputs: async (payload) => {
+        reviewTurns.push(payload);
+        await new Promise((resolve) => { finishReview = resolve; });
+        return {
+          threadId: payload.threadId,
+          turnId: "turn_dialogue_review_1",
+          status: "completed",
+          finalMessage: JSON.stringify({ decision: "pass", reason: "台词自然", issues: [] }),
+        };
+      },
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversationId === conversation.conversationId ? conversation : null,
+    },
+  };
+  const payload = {
+    status: "completed",
+    turnId: "turn_shot_1",
+    finalMessage: "已生成并落盘：Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md",
+  };
+  const traceContext = { traceId: "trace_dialogue", runId: "run_dialogue", stageId: "stage_dialogue" };
+
+  const first = maybeAutoReviewShotDialogue({
+    payload,
+    handlers,
+    traceContext,
+    conversationId: conversation.conversationId,
+  });
+  await waitFor(() => reviewTurns.length === 1);
+  const second = await maybeAutoReviewShotDialogue({
+    payload,
+    handlers,
+    traceContext,
+    conversationId: conversation.conversationId,
+  });
+  finishReview();
+  const firstResult = await first;
+
+  assert.equal(second.status, "skipped_in_progress");
+  assert.equal(second.trigger, "review_in_progress");
+  assert.equal(firstResult.status, "processed");
+  assert.equal(reviewTurns.length, 1);
+  assert.equal(releases.length, 1);
 });
 
 test("dialogue review turn registers active binding while collecting", async () => {

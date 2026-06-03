@@ -15,6 +15,7 @@ async function runDialogueReviewTurn({
   stageTraceContext,
   fileFingerprint,
   dialogueFingerprint,
+  reviewKey = null,
 }) {
   if (!handlers.threadPool?.ensureRoleReady || !handlers.threadPool?.acquireLease || !handlers.threadPool?.releaseLease || !canRunDialogueReviewTurn(handlers)) {
     const error = new Error("dialogue review requires ThreadPool lease and appServer runTurnWithInputs");
@@ -68,7 +69,7 @@ async function runDialogueReviewTurn({
         threadPoolOwnerId: ownerId,
         replayRef: {
           type: "dialogue-review-input",
-          refId: artifactId,
+          refId: reviewKey ?? artifactId,
           sourceTurnId: sourceTurnId ?? null,
         },
       },

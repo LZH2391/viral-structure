@@ -23,6 +23,8 @@ const {
   safeRelative,
 } = require("./shot-dialogue-review-utils");
 
+const inFlightDialogueReviewKeys = new Set();
+
 async function maybeAutoReviewShotDialogue({
   payload,
   handlers,
@@ -66,6 +68,28 @@ async function maybeAutoReviewShotDialogue({
   const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
   if (!currentOutputPath && !previousDialogueFingerprint) return null;
   if (fingerprintsEqual(dialogueFingerprint, previousDialogueFingerprint)) return null;
+  const reviewKey = buildDialogueReviewKey({
+    conversationId,
+    shotDesignFinalPath: relativeShotDesignFinalPath,
+    dialogueFingerprint,
+  });
+  if (await hasActiveDialogueReview(handlers, reviewKey) || inFlightDialogueReviewKeys.has(reviewKey)) {
+    return {
+      ok: true,
+      status: "skipped_in_progress",
+      artifactId: null,
+      traceId: stageTraceContext.traceId,
+      runId: stageTraceContext.runId,
+      stageId: stageTraceContext.stageId,
+      stageName: AUTO_STAGE_NAME,
+      shotDesignFinalPath: relativeShotDesignFinalPath,
+      reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+      sourceMode,
+      trigger: "review_in_progress",
+      dialogueFingerprint,
+      role: REVIEW_ROLE,
+    };
+  }
   const inputSummary = {
     conversationId,
     turnId: payload.turnId ?? null,
@@ -76,20 +100,22 @@ async function maybeAutoReviewShotDialogue({
     previousFingerprint,
     previousDialogueFingerprint,
     dialogueFingerprint,
+    reviewKey,
     role: REVIEW_ROLE,
   };
   const startedAt = Date.now();
-
-  await logger.writeStageLog({
-    traceContext: stageTraceContext,
-    stageName: AUTO_STAGE_NAME,
-    event: "stage.start",
-    artifactId,
-    parentArtifactId,
-    inputSummary,
-  });
+  inFlightDialogueReviewKeys.add(reviewKey);
 
   try {
+    await logger.writeStageLog({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.start",
+      artifactId,
+      parentArtifactId,
+      inputSummary,
+    });
+
     const fileFingerprint = await readFileFingerprint(shotDesignFinalPath, rootDir);
     if (fingerprintsEqual(fileFingerprint, previousFingerprint)) {
       const outputSummary = {
@@ -137,6 +163,7 @@ async function maybeAutoReviewShotDialogue({
       stageTraceContext,
       fileFingerprint,
       dialogueFingerprint,
+      reviewKey,
     });
     const outputSummary = {
       artifactId,
@@ -226,6 +253,8 @@ async function maybeAutoReviewShotDialogue({
       message: safeError.message,
       debugSnapshotUri: snapshot.uri,
     };
+  } finally {
+    inFlightDialogueReviewKeys.delete(reviewKey);
   }
 }
 
@@ -300,6 +329,7 @@ async function reviewShotDialogueForConversation({
     force: Boolean(force),
   };
   const startedAt = Date.now();
+  let activeReviewKey = null;
 
   await logger.writeStageLog({
     traceContext: stageTraceContext,
@@ -313,6 +343,11 @@ async function reviewShotDialogueForConversation({
   try {
     const fileFingerprint = await readFileFingerprint(shotDesignFinalPath, rootDir);
     const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
+    const reviewKey = buildDialogueReviewKey({
+      conversationId,
+      shotDesignFinalPath: relativeShotDesignFinalPath,
+      dialogueFingerprint,
+    });
     if (!force && fingerprintsEqual(fileFingerprint, previousFingerprint)) {
       const outputSummary = {
         artifactId,
@@ -352,7 +387,46 @@ async function reviewShotDialogueForConversation({
         promptTemplateVersion: previousReview?.promptTemplateVersion ?? null,
       };
     }
+    if (!force && (await hasActiveDialogueReview(handlers, reviewKey) || inFlightDialogueReviewKeys.has(reviewKey))) {
+      const outputSummary = {
+        artifactId,
+        status: "skipped_in_progress",
+        shotDesignFinalPath: relativeShotDesignFinalPath,
+        reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+        trigger: "review_in_progress",
+        fileFingerprint,
+        dialogueFingerprint,
+        role: REVIEW_ROLE,
+      };
+      await logger.writeStageLog({
+        traceContext: stageTraceContext,
+        stageName: AUTO_STAGE_NAME,
+        event: "stage.end",
+        artifactId,
+        parentArtifactId: sourceParentArtifactId,
+        outputSummary,
+        durationMs: Date.now() - startedAt,
+      });
+      return {
+        ok: true,
+        status: "skipped_in_progress",
+        artifactId,
+        traceId: stageTraceContext.traceId,
+        runId: stageTraceContext.runId,
+        stageId: stageTraceContext.stageId,
+        stageName: AUTO_STAGE_NAME,
+        shotDesignFinalPath: relativeShotDesignFinalPath,
+        reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+        sourceMode: "manual",
+        trigger: "review_in_progress",
+        fileFingerprint,
+        dialogueFingerprint,
+        role: REVIEW_ROLE,
+      };
+    }
 
+    activeReviewKey = reviewKey;
+    inFlightDialogueReviewKeys.add(activeReviewKey);
     const reviewResult = await runDialogueReviewTurn({
       handlers,
       rootDir,
@@ -364,6 +438,7 @@ async function reviewShotDialogueForConversation({
       stageTraceContext,
       fileFingerprint,
       dialogueFingerprint,
+      reviewKey,
     });
     const outputSummary = {
       artifactId,
@@ -442,7 +517,24 @@ async function reviewShotDialogueForConversation({
     error.retryable = safeError.retryable;
     error.debugPayload = { ...safeError, debugSnapshotUri: snapshot.uri };
     throw error;
+  } finally {
+    if (activeReviewKey) inFlightDialogueReviewKeys.delete(activeReviewKey);
   }
+}
+
+function buildDialogueReviewKey({ conversationId, shotDesignFinalPath, dialogueFingerprint }) {
+  return [
+    "dialogue-review",
+    normalizeText(conversationId) ?? "conversation",
+    normalizeText(shotDesignFinalPath) ?? "shot-design",
+    normalizeText(dialogueFingerprint?.sha256) ?? "no-dialogue-fingerprint",
+  ].join(":");
+}
+
+async function hasActiveDialogueReview(handlers, reviewKey) {
+  if (!reviewKey || typeof handlers.activeTurnRuntime?.listActive !== "function") return false;
+  const active = await handlers.activeTurnRuntime.listActive({ ownerType: "agent-chat-dialogue-review" }).catch(() => []);
+  return active.some((binding) => binding?.replayRef?.refId === reviewKey);
 }
 
 module.exports = {
