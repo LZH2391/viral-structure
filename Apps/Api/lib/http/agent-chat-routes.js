@@ -351,99 +351,14 @@ async function handleAgentChatConversationDialogueRework(req, res, conversationI
       const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, {
         expectedRevision: normalizeRevision(body.expectedRevision),
       });
-      if (!conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
-      if (conversation.role !== "function-slot-restructure" && conversation.role !== "function-slot-shot-design") {
-        throw badRequestError("agent_chat_dialogue_rework_role_invalid", "台词返工只能提交给 function-slot-restructure 或 function-slot-shot-design 会话");
-      }
-      const threadId = normalizeText(body.threadId) ?? conversation.threadId;
-      if (!threadId) throw badRequestError("agent_chat_dialogue_rework_thread_missing", "当前会话缺少可返工的 thread");
-      if (conversation.threadId && conversation.threadId !== threadId) {
-        throw badRequestError("agent_chat_dialogue_rework_thread_mismatch", "返工 threadId 与会话不一致");
-      }
-      const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
-      const shotDesignFinalPath = normalizeText(body.shotDesignFinalPath) || findLatestDialogueReviewValue(conversation, "shotDesignFinalPath");
-      const reviewOutputPath = normalizeText(body.reviewOutputPath) || findLatestDialogueReviewValue(conversation, "reviewOutputPath");
-      if (!shotDesignFinalPath || !reviewOutputPath) {
-        throw badRequestError("agent_chat_dialogue_rework_review_missing", "缺少台词 review 结果，需先触发台词审查");
-      }
-      const reviewDetails = await readDialogueReviewDetails({
-        rootDir: workspaceRoot,
-        reviewOutputPath,
-      });
-      const message = buildDialogueReworkMessage({
-        shotDesignFinalPath,
-        reviewOutputPath,
-        decision: normalizeText(body.decision) || findLatestDialogueReviewValue(conversation, "decision"),
-        issueCount: nullableNumber(body.issueCount) ?? nullableNumber(findLatestDialogueReviewValue(conversation, "issueCount")),
-        reviewDetails,
-        userInstruction: normalizeText(body.userInstruction),
-      });
-      const result = await handlers.appServer.startTurnWithInputs({
-        workspaceRoot,
-        threadId,
-        inputs: buildTextInputs(message),
-        skillPath: conversation.skillPath || normalizeText(body.skillPath),
-        timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
-      });
-      assertAgentChatTurnStarted(result);
-      assertExpectedThreadResult(result, threadId, "agent_chat_dialogue_rework_thread_mismatch");
-      const turnId = result.turnId ?? result.turn?.id ?? null;
-      const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
+      return submitDialogueReworkTurn({
+        handlers,
         conversationId,
-        turnId,
-        text: message,
-        traceId: traceContext.traceId,
-        runId: traceContext.runId,
-        stageId: traceContext.stageId,
-      }) ?? conversation;
-      await registerAgentChatActiveTurn(handlers, {
-        payload: {
-          conversationId,
-          source: conversation.source ?? body.source ?? "threadpool-role",
-          role: conversation.role,
-          leaseId: conversation.leaseId ?? body.leaseId ?? null,
-          threadPoolOwnerId: conversation.ownerId ?? body.ownerId ?? null,
-          workspaceRoot,
-          threadId: result.threadId ?? threadId,
-          turnId,
-          status: result.status ?? "submitted",
-          traceId: traceContext.traceId,
-          runId: traceContext.runId,
-          stageId: traceContext.stageId,
-          parentArtifactId: normalizeText(body.parentArtifactId) ?? reviewOutputPath,
-        },
-        conversation: recorded,
-        message,
+        conversation,
+        body,
         traceContext,
         stageName: "agentChat.dialogueReview.rework",
-        sourceTurnId: conversation.latestTurnId ?? null,
       });
-      return {
-        ok: true,
-        source: conversation.source ?? body.source ?? "threadpool-role",
-        role: conversation.role,
-        conversationId,
-        conversationRevision: recorded?.revision ?? null,
-        workspaceRoot,
-        threadId: result.threadId ?? threadId,
-        turnId,
-        status: result.status ?? "submitted",
-        userTurnText: message,
-        traceId: traceContext.traceId,
-        runId: traceContext.runId,
-        stageId: traceContext.stageId,
-        actionProjection: buildAgentChatActionProjection({
-          conversation: recorded,
-          threadId: result.threadId ?? threadId,
-          turnId,
-          status: result.status ?? "submitted",
-          retryable: true,
-        }),
-        latestTurnId: recorded?.latestTurnId ?? turnId,
-        threadStopped: Boolean(recorded?.threadStopped),
-        retryable: true,
-        activeTurnStatus: normalizeTurnStatus(result.status ?? "submitted"),
-      };
     },
     summarizeOutput: (result) => ({
       role: result.role,
@@ -881,6 +796,16 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
             : null,
         });
       }
+      if (conversationId && payload.autoDialogueRoboticReview?.status === "processed" && payload.autoDialogueRoboticReview.decision === "rework" && payload.autoDialogueRoboticReview.reviewOutputPath) {
+        payload.autoDialogueRework = await maybeSubmitAutomaticDialogueRework({
+          handlers,
+          conversationId,
+          review: payload.autoDialogueRoboticReview,
+          sourceConversation: recorded ?? await handlers.agentConversationStore?.get?.(conversationId).catch(() => null),
+          traceContext,
+          sourceTurnId: payload.turnId,
+        });
+      }
       const markedActiveTurn = await handlers.activeTurnRuntime?.markCollectResult?.({
         turnId: payload.turnId,
         result: payload,
@@ -893,15 +818,21 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       payload.conversationRevision = recorded?.revision ?? null;
       payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;
       payload.threadStopped = Boolean(recorded?.threadStopped);
+      if (payload.autoDialogueRework?.ok) {
+        payload.conversationRevision = maxRevision(payload.conversationRevision, payload.autoDialogueRework.conversationRevision);
+        payload.latestTurnId = payload.autoDialogueRework.latestTurnId ?? payload.autoDialogueRework.turnId ?? payload.latestTurnId;
+        payload.threadStopped = Boolean(payload.autoDialogueRework.threadStopped);
+      }
       payload.retryable = true;
       payload.activeTurnStatus = normalizeTurnStatus(payload.status);
       payload.actionProjection = buildAgentChatActionProjection({
         conversation: recorded,
-        threadId: payload.threadId,
-        turnId: payload.turnId,
-        status: payload.status,
+        threadId: payload.autoDialogueRework?.threadId ?? payload.threadId,
+        turnId: payload.autoDialogueRework?.turnId ?? payload.turnId,
+        status: payload.autoDialogueRework?.status ?? payload.status,
         retryable: true,
       });
+      if (payload.autoDialogueRework?.actionProjection) payload.actionProjection = payload.autoDialogueRework.actionProjection;
       return payload;
     },
     summarizeOutput: (result) => ({
@@ -912,6 +843,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       activityStatus: result.activity?.status ?? null,
       autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
       autoDialogueReviewStatus: result.autoDialogueRoboticReview?.status ?? null,
+      autoDialogueReworkStatus: result.autoDialogueRework?.status ?? null,
     }),
     successStatus: 200,
   });
@@ -931,6 +863,151 @@ async function maybeMaterializeRestructureDisplay({ payload, handlers, traceCont
     confirmationId: normalizeText(url?.searchParams?.get("confirmationId")),
     traceContext,
   });
+}
+
+async function maybeSubmitAutomaticDialogueRework({ handlers, conversationId, review, sourceConversation, traceContext, sourceTurnId }) {
+  if (!conversationId || !review?.reviewOutputPath) return null;
+  try {
+    const conversation = sourceConversation ?? await handlers.agentConversationStore?.get?.(conversationId);
+    return await submitDialogueReworkTurn({
+      handlers,
+      conversationId,
+      conversation,
+      body: {
+        threadId: conversation?.threadId,
+        workspaceRoot: conversation?.workspaceRoot,
+        skillPath: conversation?.skillPath,
+        source: conversation?.source,
+        role: conversation?.role,
+        leaseId: conversation?.leaseId,
+        shotDesignFinalPath: review.shotDesignFinalPath,
+        reviewOutputPath: review.reviewOutputPath,
+        decision: review.decision,
+        issueCount: review.issueCount,
+        parentArtifactId: review.artifactId ?? review.reviewOutputPath,
+      },
+      traceContext,
+      stageName: "agentChat.dialogueReview.autoRework",
+      sourceTurnId,
+      skipExpectedRevision: true,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      status: "failed",
+      error: error?.code ?? "agent_chat_dialogue_auto_rework_failed",
+      message: safePreview(error instanceof Error ? error.message : "自动台词返工提交失败", 240),
+      retryable: error?.retryable !== false,
+      reviewOutputPath: review.reviewOutputPath ?? null,
+      shotDesignFinalPath: review.shotDesignFinalPath ?? null,
+    };
+  }
+}
+
+async function submitDialogueReworkTurn({
+  handlers,
+  conversationId,
+  conversation,
+  body = {},
+  traceContext,
+  stageName,
+  sourceTurnId = null,
+  skipExpectedRevision = false,
+}) {
+  if (!conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
+  if (conversation.role !== "function-slot-restructure" && conversation.role !== "function-slot-shot-design") {
+    throw badRequestError("agent_chat_dialogue_rework_role_invalid", "台词返工只能提交给 function-slot-restructure 或 function-slot-shot-design 会话");
+  }
+  const threadId = normalizeText(body.threadId) ?? conversation.threadId;
+  if (!threadId) throw badRequestError("agent_chat_dialogue_rework_thread_missing", "当前会话缺少可返工的 thread");
+  if (conversation.threadId && conversation.threadId !== threadId) {
+    throw badRequestError("agent_chat_dialogue_rework_thread_mismatch", "返工 threadId 与会话不一致");
+  }
+  const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
+  const shotDesignFinalPath = normalizeText(body.shotDesignFinalPath) || findLatestDialogueReviewValue(conversation, "shotDesignFinalPath");
+  const reviewOutputPath = normalizeText(body.reviewOutputPath) || findLatestDialogueReviewValue(conversation, "reviewOutputPath");
+  if (!shotDesignFinalPath || !reviewOutputPath) {
+    throw badRequestError("agent_chat_dialogue_rework_review_missing", "缺少台词 review 结果，需先触发台词审查");
+  }
+  const reviewDetails = await readDialogueReviewDetails({
+    rootDir: workspaceRoot,
+    reviewOutputPath,
+  });
+  const message = buildDialogueReworkMessage({
+    shotDesignFinalPath,
+    reviewOutputPath,
+    decision: normalizeText(body.decision) || findLatestDialogueReviewValue(conversation, "decision"),
+    issueCount: nullableNumber(body.issueCount) ?? nullableNumber(findLatestDialogueReviewValue(conversation, "issueCount")),
+    reviewDetails,
+    userInstruction: normalizeText(body.userInstruction),
+  });
+  const result = await handlers.appServer.startTurnWithInputs({
+    workspaceRoot,
+    threadId,
+    inputs: buildTextInputs(message),
+    skillPath: conversation.skillPath || normalizeText(body.skillPath),
+    timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+  });
+  assertAgentChatTurnStarted(result);
+  assertExpectedThreadResult(result, threadId, "agent_chat_dialogue_rework_thread_mismatch");
+  const turnId = result.turnId ?? result.turn?.id ?? null;
+  const recorded = await handlers.agentConversationStore?.recordUserTurn?.({
+    conversationId,
+    turnId,
+    text: message,
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+    expectedRevision: skipExpectedRevision ? null : normalizeRevision(body.expectedRevision),
+  }) ?? conversation;
+  await registerAgentChatActiveTurn(handlers, {
+    payload: {
+      conversationId,
+      source: conversation.source ?? body.source ?? "threadpool-role",
+      role: conversation.role,
+      leaseId: conversation.leaseId ?? body.leaseId ?? null,
+      threadPoolOwnerId: conversation.ownerId ?? body.ownerId ?? null,
+      workspaceRoot,
+      threadId: result.threadId ?? threadId,
+      turnId,
+      status: result.status ?? "submitted",
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      parentArtifactId: normalizeText(body.parentArtifactId) ?? reviewOutputPath,
+    },
+    conversation: recorded,
+    message,
+    traceContext,
+    stageName,
+    sourceTurnId: sourceTurnId ?? conversation.latestTurnId ?? null,
+  });
+  return {
+    ok: true,
+    source: conversation.source ?? body.source ?? "threadpool-role",
+    role: conversation.role,
+    conversationId,
+    conversationRevision: recorded?.revision ?? null,
+    workspaceRoot,
+    threadId: result.threadId ?? threadId,
+    turnId,
+    status: result.status ?? "submitted",
+    userTurnText: message,
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+    actionProjection: buildAgentChatActionProjection({
+      conversation: recorded,
+      threadId: result.threadId ?? threadId,
+      turnId,
+      status: result.status ?? "submitted",
+      retryable: true,
+    }),
+    latestTurnId: recorded?.latestTurnId ?? turnId,
+    threadStopped: Boolean(recorded?.threadStopped),
+    retryable: true,
+    activeTurnStatus: normalizeTurnStatus(result.status ?? "submitted"),
+  };
 }
 
 async function handleAgentChatConversationList(res, handlers = {}, url = null) {
@@ -1594,6 +1671,11 @@ function normalizeRevision(value) {
   if (value == null || value === "") return null;
   const revision = Number(value);
   return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+function maxRevision(...values) {
+  const revisions = values.map(normalizeRevision).filter((value) => value != null);
+  return revisions.length ? Math.max(...revisions) : null;
 }
 
 function normalizeActiveMessage(value) {

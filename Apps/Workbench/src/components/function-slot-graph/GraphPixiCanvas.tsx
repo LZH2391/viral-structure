@@ -416,7 +416,7 @@ function GraphPixiCanvasInner({
   syncGraphLayoutRef.current = syncGraphLayout;
 
   const syncGraphFocus = (previousState: PixiGraphRenderState, nextState: PixiGraphRenderState) => {
-    const rendered = syncPixiFocus(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, previousState, nextState);
+    const rendered = syncPixiFocus(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, previousState, nextState, viewportRef.current.k);
     if (!rendered) return false;
     renderPixi();
     return true;

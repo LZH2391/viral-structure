@@ -1995,6 +1995,8 @@ test("agent chat collect auto reviews completed shot design dialogue in restruct
     messages: [],
   });
   const reviewTurns = [];
+  const reworkTurns = [];
+  const activeTurns = [];
   const releases = [];
   const server = createServer({
     rootDir,
@@ -2050,12 +2052,32 @@ test("agent chat collect auto reviews completed shot design dialogue in restruct
           }),
         };
       },
+      startTurnWithInputs: async (payload) => {
+        reworkTurns.push(payload);
+        return {
+          threadId: payload.threadId,
+          turnId: "turn_dialogue_rework_auto_1",
+          status: "submitted",
+        };
+      },
+    },
+    activeTurnRuntime: {
+      register: async (binding) => {
+        activeTurns.push(binding);
+        return binding;
+      },
     },
     agentConversationStore: {
       get: async (conversationId) => conversations.get(conversationId) ?? null,
       recordAssistantTurn: async ({ conversationId, turnId, text, status, dialogueRoboticReview }) => {
         const conversation = conversations.get(conversationId);
         conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status, dialogueRoboticReview });
+        return conversation;
+      },
+      recordUserTurn: async ({ conversationId, turnId, text }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.latestTurnId = turnId;
+        conversation.messages.push({ id: `user-${turnId}`, turnId, role: "user", text, status: "completed" });
         return conversation;
       },
     },
@@ -2077,12 +2099,22 @@ test("agent chat collect auto reviews completed shot design dialogue in restruct
     assert.equal(reviewTurns[0].threadId, "thread_dialogue_review");
     assert.match(reviewTurns[0].inputs[0].text, /shot-design\.final\.md/);
     assert.match(reviewTurns[0].inputs[0].text, /finalMessage 只返回 JSON object/);
+    assert.equal(reworkTurns.length, 1);
+    assert.equal(reworkTurns[0].threadId, "thread_shot_design");
+    assert.match(reworkTurns[0].inputs[0].text, /根据台词机器人感审查结果/);
+    assert.match(reworkTurns[0].inputs[0].text, /reviewIssuesJson/);
+    assert.match(reworkTurns[0].inputs[0].text, /shot_001/);
+    assert.equal(collected.body.autoDialogueRework.ok, true);
+    assert.equal(collected.body.autoDialogueRework.turnId, "turn_dialogue_rework_auto_1");
+    assert.equal(activeTurns[0].stageName, "agentChat.dialogueReview.autoRework");
+    assert.equal(activeTurns[0].parentArtifactId, collected.body.autoDialogueRoboticReview.artifactId);
     assert.equal(releases[0].leaseId, "lease_dialogue_review");
     const artifact = JSON.parse(await fsPromises.readFile(path.join(planDir, "dialogue-robotic-review.final.json"), "utf8"));
     assert.equal(artifact.schemaVersion, "function_slot_dialogue_robotic_review.v1");
     assert.equal(artifact.review.decision, "rework");
     assert.equal(artifact.review.issues[0].shot, "shot_001");
     assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.decision, "rework");
+    assert.equal(conversations.get("conversation_shot_design").messages[1].id, "user-turn_dialogue_rework_auto_1");
     assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.fileFingerprint.path, "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md");
   } finally {
     await closeServer(server);

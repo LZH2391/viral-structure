@@ -132,7 +132,7 @@ function createAppServerBridge({
       timeoutSeconds,
       transportUrl: process.env.CODEX_APP_SERVER_WS_URL || "ws://127.0.0.1:8146",
     };
-    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: 45000 });
+    const result = await runPythonJson({ python, script: bridgePath, payload, timeoutMs: Math.max(45000, (Number(timeoutSeconds) || 60) * 1000 + 15000) });
     if (!result?.ok) throw appServerError(result, "appserver_thread_compact_failed");
     return result;
   }

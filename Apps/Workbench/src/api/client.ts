@@ -103,6 +103,25 @@ export type AgentChatTurnResponse = {
     slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   } | null;
   autoDialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
+  autoDialogueRework?: {
+    ok: boolean;
+    source?: "direct" | "threadpool-role";
+    role?: string | null;
+    conversationId?: string | null;
+    conversationRevision?: number | null;
+    workspaceRoot?: string | null;
+    threadId?: string | null;
+    turnId?: string | null;
+    status?: string | null;
+    userTurnText?: string | null;
+    latestTurnId?: string | null;
+    threadStopped?: boolean | null;
+    retryable?: boolean | null;
+    activeTurnStatus?: string | null;
+    actionProjection?: AgentChatActionProjection;
+    error?: string | null;
+    message?: string | null;
+  } | null;
 };
 
 export type AgentChatCompactResponse = {

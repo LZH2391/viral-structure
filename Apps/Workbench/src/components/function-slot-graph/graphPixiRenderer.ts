@@ -25,14 +25,17 @@ export type PixiGraphObjects = {
 
 type PixiEdgeView = {
   container: Container;
+  glow: Graphics;
   line: Graphics;
   arrow: Graphics;
+  glowKey: string | null;
   lineKey: string | null;
   arrowKey: string | null;
 };
 
 type PixiNodeView = {
   container: Container;
+  glow: Graphics;
   ring: Graphics;
   body: Graphics;
   slotBadge: Graphics;
@@ -40,6 +43,7 @@ type PixiNodeView = {
   planBadge: Graphics;
   planBadgeText: Text;
   label: Text | null;
+  glowKey: string | null;
   ringKey: string | null;
   bodyKey: string | null;
   slotBadgeKey: string | null;
@@ -51,6 +55,26 @@ type StrokeStyle = {
   alpha: number;
   width: number;
   dash?: [number, number];
+  glow?: {
+    color: number;
+    alpha: number;
+    width: number;
+  };
+};
+
+type NodeDrawStyle = {
+  fill: number;
+  stroke: number;
+  strokeWidth: number;
+  alpha: number;
+  strokeAlpha: number;
+  groupAlpha: number;
+  dash?: [number, number];
+  glow?: {
+    color: number;
+    alpha: number;
+    radiusPad: number;
+  };
 };
 
 const textStyleKeys = new WeakMap<Text, string>();
@@ -130,13 +154,15 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
     const radius = nodeRadius(node);
     const style = nodeStyle(node, focused, selected, pinned, state.mode, state.hasFocusNode);
     view.container.position.set(node.x, node.y);
+    view.container.alpha = style.groupAlpha;
 
     syncNodeRing(view, node, radius);
+    syncNodeGlow(view, radius, style);
     syncNodeBody(view, radius, style);
 
     syncSlotBadge(view, node, radius);
     syncPlanBadge(view, node, radius);
-    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode);
+    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode, style.groupAlpha);
   }
 }
 
@@ -183,7 +209,7 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
   return true;
 }
 
-export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], previous: PixiGraphRenderState, next: PixiGraphRenderState) {
+export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], previous: PixiGraphRenderState, next: PixiGraphRenderState, zoom: number) {
   const positions = nodePositionMap(nodes);
   const nodeIds = affectedFocusNodeIds(nodes, previous, next);
   for (const nodeId of nodeIds) {
@@ -193,7 +219,12 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const focused = next.hasFocusNode && (node.id === next.hoveredNodeId || node.id === next.selectedNodeId || next.focusedIds.has(node.id));
     const selected = node.id === next.selectedNodeId;
     const pinned = node.id === next.pinnedPreviewNodeId;
-    syncNodeBody(view, nodeRadius(node), nodeStyle(node, focused, selected, pinned, next.mode, next.hasFocusNode));
+    const radius = nodeRadius(node);
+    const style = nodeStyle(node, focused, selected, pinned, next.mode, next.hasFocusNode);
+    view.container.alpha = style.groupAlpha;
+    syncNodeGlow(view, radius, style);
+    syncNodeBody(view, radius, style);
+    if (view.label) view.label.alpha = nodeLabelOpacity(next.mode, node, zoom) * style.groupAlpha;
   }
 
   const edgeIds = affectedFocusEdgeIds(edges, previous, next);
@@ -218,12 +249,15 @@ function getEdgeView(edgeLayer: Container, objects: PixiGraphObjects, edgeId: st
   const existing = objects.edges.get(edgeId);
   if (existing) return existing;
   const container = new Container();
+  const glow = new Graphics();
   const line = new Graphics();
   const arrow = new Graphics();
   arrow.visible = false;
+  glow.visible = false;
+  container.addChild(glow);
   container.addChild(line);
   container.addChild(arrow);
-  const view = { container, line, arrow, lineKey: null, arrowKey: null };
+  const view = { container, glow, line, arrow, glowKey: null, lineKey: null, arrowKey: null };
   objects.edges.set(edgeId, view);
   edgeLayer.addChild(container);
   return view;
@@ -234,6 +268,7 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
   if (existing) return existing;
 
   const container = new Container();
+  const glow = new Graphics();
   const ring = new Graphics();
   const body = new Graphics();
   const slotBadge = new Graphics();
@@ -242,6 +277,7 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
   const planBadgeText = new Text({ text: "", style: whiteTextStyle(PLAN_BADGE_FONT_SIZE) });
   slotBadgeText.anchor.set(0.5);
   planBadgeText.anchor.set(0.5);
+  container.addChild(glow);
   container.addChild(ring);
   container.addChild(body);
   container.addChild(slotBadge);
@@ -252,6 +288,7 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
 
   const view = {
     container,
+    glow,
     ring,
     body,
     slotBadge,
@@ -259,6 +296,7 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
     planBadge,
     planBadgeText,
     label: null,
+    glowKey: null,
     ringKey: null,
     bodyKey: null,
     slotBadgeKey: null,
@@ -277,15 +315,32 @@ function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2
   view.container.position.set(x1, y1);
   view.container.rotation = Math.atan2(dy, dx);
 
-  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}` : "solid";
+  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${Math.round(length)}` : "solid";
   const lineKey = `${style.color}:${style.width}:${dashKey}`;
   if (view.lineKey !== lineKey) {
     view.line.clear();
-    drawLocalLine(view.line, style.dash ? 1 : length, style);
+    drawLocalLine(view.line, length, style);
     view.lineKey = lineKey;
   }
-  view.line.scale.x = style.dash ? length : length;
+  view.line.scale.x = style.dash ? 1 : length;
   view.line.alpha = style.alpha;
+
+  const glow = style.glow;
+  view.glow.visible = Boolean(glow);
+  if (glow) {
+    const glowKey = `${glow.color}:${glow.alpha}:${glow.width}:${Math.round(length)}`;
+    if (view.glowKey !== glowKey) {
+      view.glow
+        .clear()
+        .moveTo(0, 0)
+        .lineTo(length, 0)
+        .stroke({ color: glow.color, alpha: glow.alpha, width: glow.width });
+      view.glowKey = glowKey;
+    }
+  } else if (view.glowKey !== "none") {
+    view.glow.clear();
+    view.glowKey = "none";
+  }
 
   view.arrow.visible = showArrow;
   if (!showArrow) return;
@@ -303,18 +358,28 @@ function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
   const key = highlighted ? `ring:${radius}` : "none";
   if (view.ringKey === key) return;
   view.ring.clear();
-  if (highlighted) view.ring.circle(0, 0, radius + 7).stroke({ color: 0xbbaeff, alpha: 0.76, width: 2 });
+  if (highlighted) drawCircleStroke(view.ring, radius + 7, 0xbbaeff, 0.76, 2, [6, 7]);
   view.ringKey = key;
 }
 
-function syncNodeBody(view: PixiNodeView, radius: number, style: ReturnType<typeof nodeStyle>) {
-  const key = `${radius}:${style.fill}:${style.alpha}:${style.stroke}:${style.strokeAlpha}:${style.strokeWidth}`;
+function syncNodeGlow(view: PixiNodeView, radius: number, style: NodeDrawStyle) {
+  const glow = style.glow;
+  const key = glow ? `${radius}:${glow.color}:${glow.alpha}:${glow.radiusPad}` : "none";
+  if (view.glowKey === key) return;
+  view.glow.clear();
+  if (glow) view.glow.circle(0, 0, radius + glow.radiusPad).fill({ color: glow.color, alpha: glow.alpha });
+  view.glowKey = key;
+}
+
+function syncNodeBody(view: PixiNodeView, radius: number, style: NodeDrawStyle) {
+  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}` : "solid";
+  const key = `${radius}:${style.fill}:${style.alpha}:${style.stroke}:${style.strokeAlpha}:${style.strokeWidth}:${dashKey}`;
   if (view.bodyKey === key) return;
   view.body
     .clear()
     .circle(0, 0, radius)
-    .fill({ color: style.fill, alpha: style.alpha })
-    .stroke({ color: style.stroke, alpha: style.strokeAlpha, width: style.strokeWidth });
+    .fill({ color: style.fill, alpha: style.alpha });
+  drawCircleStroke(view.body, radius, style.stroke, style.strokeAlpha, style.strokeWidth, style.dash);
   view.bodyKey = key;
 }
 
@@ -336,7 +401,7 @@ function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number) {
       .clear()
       .circle(x, y, 8)
       .fill({ color: 0x111827, alpha: 0.96 })
-      .stroke({ color: 0xffffff, alpha: 0.8, width: 1.5 });
+      .stroke({ color: 0xffee9e, alpha: 0.94, width: 1.5 });
     view.slotBadgeKey = key;
   }
   syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE), "slot");
@@ -374,8 +439,9 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
   view.planBadgeText.visible = count > 1;
 }
 
-function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, mode: GraphMode) {
+function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, mode: GraphMode, groupAlpha: number) {
   const fontSize = labelFontSize(mode, node);
+  const fill = labelFill(mode, node);
   if (opacity <= 0.01) {
     if (view.label) {
       view.label.destroy();
@@ -390,10 +456,10 @@ function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode,
     labelLayer.addChild(text);
     view.label = text;
   }
-  syncTextStyle(text, whiteTextStyle(fontSize), `label:${fontSize}`);
+  syncTextStyle(text, textStyle(fontSize, fill), `label:${fontSize}:${fill}`);
   syncText(text, node.shortLabel);
   text.position.set(node.x, nodeLabelTopY(node, radius, fontSize));
-  text.alpha = opacity;
+  text.alpha = opacity * groupAlpha;
   text.visible = true;
 }
 
@@ -403,6 +469,22 @@ function labelFontSize(mode: GraphMode, node: SimNode) {
   if (mode === "planTrace" && node.type === "sourceVariant") return NODE_LABEL_FONT_SIZE;
   if (node.type === "governanceRoot" || node.type === "confirmedPlan" || node.type === "sourceVariant") return PROMINENT_NODE_LABEL_FONT_SIZE;
   return NODE_LABEL_FONT_SIZE;
+}
+
+function labelFill(mode: GraphMode, node: SimNode) {
+  const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
+  if (node.type === "governanceRoot" || node.type === "confirmedPlan" || node.type === "sourceSample") return "#f7f8ff";
+  if (node.type === "slotFamily") return "#a7f2d1";
+  if (node.type === "slotArchetype") return "#c4ddff";
+  if (node.type === "slotSubtype") return "#ffe58f";
+  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "script") return "#ffc3c2";
+  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "rhythm") return "#bdeaff";
+  if (mode === "planTrace" && node.type === "sourceVariant" && layer === "packaging") return "#d8ccff";
+  if (node.type === "sourceVariant") return mode === "planTrace" ? "#eaf1ff" : "rgba(234, 239, 255, 0.86)";
+  if (layer === "script") return "#ffc3c2";
+  if (layer === "rhythm") return "#bdeaff";
+  if (layer === "packaging") return "#d8ccff";
+  return "#ffffff";
 }
 
 function nodeLabelTopY(node: SimNode, radius: number, fontSize: number) {
@@ -420,14 +502,18 @@ function syncTextStyle(text: Text, style: TextStyleOptions, key: string) {
 }
 
 function whiteTextStyle(fontSize: number): TextStyleOptions {
-  const key = `${fontSize}`;
+  return textStyle(fontSize, "#ffffff");
+}
+
+function textStyle(fontSize: number, fill: string): TextStyleOptions {
+  const key = `${fontSize}:${fill}`;
   const cached = textStyleCache.get(key);
   if (cached) return cached;
   const style: TextStyleOptions = {
     fontFamily: "Inter, Arial, sans-serif",
     fontSize,
     fontWeight: "700",
-    fill: "#ffffff",
+    fill,
   };
   textStyleCache.set(key, style);
   return style;
@@ -497,45 +583,225 @@ function isEdgeFocused(edge: FunctionSlotGraphEdge, state: PixiGraphRenderState)
 }
 
 function edgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, focused: boolean, muted: boolean, mode: GraphMode): StrokeStyle {
-  let style: StrokeStyle = { color: 0x97a3b9, alpha: mode === "planTrace" ? 0.36 : 0.34, width: 1.1 };
-  if (edge.type === "slot_next" || edge.type === "plan_slot_next") style = { color: 0xffee9e, alpha: 0.58, width: 2.1 };
-  if (edge.type === "plan_uses_slot" || edge.type === "plan_uses_slot_family" || edge.type === "plan_uses_slot_subtype") style = { color: 0xf4f6ff, alpha: 0.78, width: 2.6 };
-  if (edge.type.includes("source_variant") || edge.type.includes("source_sample") || edge.type.startsWith("traced_to_")) style = { color: 0xc4cbed, alpha: 0.46, width: 1.6, dash: [7, 7] };
-  if (edge.type.includes("family") || edge.type.includes("archetype")) style = { color: 0x7fb7ff, alpha: 0.72, width: 2.2 };
-  if (edge.type.includes("subtype")) style = { color: 0xf0d36d, alpha: 0.78, width: 2.3 };
-  if (edge.type.startsWith("binding_")) style = { color: 0xd6c066, alpha: 0.46, width: 1.5, dash: [7, 7] };
+  let color = 0x97a3b9;
+  let strokeAlpha = 0.22;
+  let opacity = mode === "planTrace" ? 0.36 : 0.34;
+  let width = 1.1;
+  let dash: [number, number] | undefined;
+  let glow: StrokeStyle["glow"] | undefined;
+
+  if (focused) {
+    color = mode === "planTrace" ? 0xffffff : 0xc4bbff;
+    strokeAlpha = mode === "planTrace" ? 0.96 : 0.94;
+    width = mode === "planTrace" ? 3.4 : 3;
+    opacity = 1;
+    glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
+  }
+
+  if (edge.type === "slot_next" || edge.type === "slot_instance_of_concept") {
+    color = 0x60d6a4;
+    strokeAlpha = 0.58;
+    width = 1.8;
+  }
+  if (edge.type === "slot_next" || edge.type === "plan_slot_next") {
+    color = 0xffee9e;
+    strokeAlpha = 0.56;
+    width = 1.9;
+    opacity = 0.48;
+  }
+  if (edge.type === "binding_targets_slot" || edge.type === "binding_targets_atom") {
+    color = 0xd6c066;
+    strokeAlpha = 0.46;
+    width = 1.5;
+    dash = [7, 7];
+  }
+  if (edge.type === "plan_uses_slot" || edge.type === "plan_uses_slot_family" || edge.type === "plan_uses_slot_subtype") {
+    color = 0xf4f6ff;
+    strokeAlpha = 0.78;
+    width = 2.6;
+  }
+  if (edge.type === "slot_traced_to_semantic" || edge.type === "subtype_to_atom_archetype") {
+    color = 0xf0d36d;
+    strokeAlpha = 0.7;
+    width = 2.3;
+  }
+  if (edge.type === "governance_contains_family" || edge.type === "slot_family_to_archetype" || edge.type === "family_to_archetype") {
+    color = 0x7fb7ff;
+    strokeAlpha = 0.72;
+    width = 2.2;
+  }
+  if (edge.type === "slot_archetype_to_subtype" || edge.type === "archetype_to_subtype") {
+    color = 0xf0d36d;
+    strokeAlpha = 0.78;
+    width = 2.3;
+  }
+  if (
+    edge.type === "subtype_to_atom_pattern"
+    || edge.type === "slot_uses_atom_layer"
+    || edge.type === "atom_layer_to_pattern"
+    || edge.type === "atom_archetype_to_pattern"
+  ) {
+    width = 1.9;
+  }
+
   const layerClass = edgeLayerClass(source, target);
-  if (layerClass.includes("script")) style = { ...style, color: 0xe48182, alpha: Math.max(style.alpha, 0.62) };
-  if (layerClass.includes("rhythm")) style = { ...style, color: 0x69c5e8, alpha: Math.max(style.alpha, 0.62) };
-  if (layerClass.includes("packaging")) style = { ...style, color: 0xa98cff, alpha: Math.max(style.alpha, 0.62) };
-  if (focused) return { ...style, color: 0xffffff, alpha: 0.96, width: Math.max(style.width, 3.2), dash: undefined };
-  if (muted) return { ...style, alpha: mode === "planTrace" ? 0.08 : 0.18 };
-  return style;
+  if (layerClass.includes("script")) { color = 0xe48182; strokeAlpha = Math.max(strokeAlpha, 0.62); }
+  if (layerClass.includes("rhythm")) { color = 0x69c5e8; strokeAlpha = Math.max(strokeAlpha, 0.62); }
+  if (layerClass.includes("packaging")) { color = 0xa98cff; strokeAlpha = Math.max(strokeAlpha, 0.62); }
+
+  if (edge.type === "pattern_to_source_variant" || edge.type === "traced_to_source_sample" || edge.type === "traced_to_source_variant") {
+    color = 0xc4cbed;
+    strokeAlpha = 0.42;
+    width = 1.55;
+    dash = [7, 7];
+  }
+
+  if (mode === "planTrace") {
+    if (edge.type === "plan_uses_slot_subtype") {
+      color = 0xffee9e;
+      strokeAlpha = 0.82;
+      width = 2.8;
+    }
+    if (edge.type === "plan_slot_next") {
+      color = 0xffee9e;
+      strokeAlpha = 0.88;
+      width = 2.6;
+      opacity = 0.68;
+    }
+    if (edge.type === "traced_to_source_variant") {
+      color = 0xb2cdff;
+      strokeAlpha = 0.68;
+      width = 1.9;
+      dash = undefined;
+      if (layerClass.includes("script")) { color = 0xe48182; strokeAlpha = 0.72; }
+      if (layerClass.includes("rhythm")) { color = 0x69c5e8; strokeAlpha = 0.72; }
+      if (layerClass.includes("packaging")) { color = 0xa98cff; strokeAlpha = 0.72; }
+    }
+    if (edge.type === "source_variant_to_sample") {
+      color = 0xebf0ff;
+      strokeAlpha = 0.56;
+      width = 1.7;
+      dash = [5, 6];
+    }
+    if (focused) {
+      color = 0xffffff;
+      strokeAlpha = 0.96;
+      width = 3.4;
+      opacity = 1;
+      dash = undefined;
+      glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
+    }
+  }
+
+  if (muted) opacity = mode === "planTrace" ? 0.08 : 0.18;
+  return { color, alpha: strokeAlpha * opacity, width, dash, glow };
 }
 
-function nodeStyle(node: SimNode, focused: boolean, selected: boolean, pinned: boolean, mode: GraphMode, hasFocusNode: boolean) {
+function nodeStyle(node: SimNode, focused: boolean, selected: boolean, pinned: boolean, mode: GraphMode, hasFocusNode: boolean): NodeDrawStyle {
   const layerClass = mode === "planTrace" && node.type === "sourceVariant" ? edgeLayerClass(node, node) : "";
   let fill = 0x8b5cf6;
   let stroke = 0xffffff;
   let strokeWidth = 1;
-  if (node.type === "slotInstance" || node.group === "slot") fill = 0x56d7b1;
-  if (node.type === "slotFamily") { fill = 0x3f8f75; stroke = 0x60d6a4; strokeWidth = 2.4; }
-  if (node.type === "slotArchetype") { fill = 0x426c9f; stroke = 0x7fb7ff; strokeWidth = 2.2; }
-  if (node.type === "slotSubtype") { fill = 0x9b8132; stroke = 0xf0d36d; strokeWidth = 2.3; }
-  if (node.group === "script" || layerClass.includes("script")) { fill = 0xf07070; stroke = 0xe48182; strokeWidth = 2; }
-  if (node.group === "rhythm" || layerClass.includes("rhythm")) { fill = 0x58bfe7; stroke = 0x69c5e8; strokeWidth = 2; }
-  if (node.group === "packaging" || layerClass.includes("packaging")) { fill = 0xb58cff; stroke = 0xa98cff; strokeWidth = 2; }
+  let alpha = 0.78;
+  let strokeAlpha = 0.5;
+  let dash: [number, number] | undefined;
+  let glow: NodeDrawStyle["glow"] | undefined;
+
+  if (node.type === "slotInstance" || node.group === "slot") {
+    fill = 0x56d7b1;
+    glow = { color: 0x56d7b1, alpha: 0.18, radiusPad: 10 };
+  }
+  if (node.type === "slotFamily") {
+    fill = 0x3f8f75;
+    stroke = 0x60d6a4;
+    strokeWidth = 2.4;
+    glow = { color: 0x60d6a4, alpha: 0.15, radiusPad: 11 };
+  }
+  if (node.type === "slotArchetype") {
+    fill = 0x426c9f;
+    stroke = 0x7fb7ff;
+    strokeWidth = 2.2;
+    glow = { color: 0x7fb7ff, alpha: 0.14, radiusPad: 10 };
+  }
+  if (node.type === "slotSubtype") {
+    fill = 0x9b8132;
+    stroke = 0xf0d36d;
+    strokeWidth = 2.3;
+    glow = { color: 0xf0d36d, alpha: mode === "planTrace" ? 0.17 : 0.14, radiusPad: mode === "planTrace" ? 13 : 11 };
+  }
+  if (node.group === "script" || layerClass.includes("script")) {
+    fill = 0xf07070;
+    stroke = 0xe48182;
+    strokeWidth = 2;
+    glow = { color: 0xe48182, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
+  }
+  if (node.group === "rhythm" || layerClass.includes("rhythm")) {
+    fill = 0x58bfe7;
+    stroke = 0x69c5e8;
+    strokeWidth = 2;
+    glow = { color: 0x69c5e8, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
+  }
+  if (node.group === "packaging" || layerClass.includes("packaging")) {
+    fill = 0xb58cff;
+    stroke = 0xa98cff;
+    strokeWidth = 2;
+    glow = { color: 0xa98cff, alpha: 0.14, radiusPad: mode === "planTrace" ? 9 : 8 };
+  }
   if (node.type === "binding" || node.group === "binding") fill = 0xf0d46f;
   if (node.group === "rule" || node.group === "policy") fill = 0x7fb0ff;
   if (node.group === "unmapped" || node.group === "needReview") fill = 0xf28b82;
-  if (node.type === "sourceVariant" && !layerClass) { fill = 0x111827; stroke = 0xc4cbed; strokeWidth = 1.8; }
+  if (node.type === "slotConcept") {
+    fill = 0x35c98a;
+    dash = [4, 3];
+    glow = { color: 0x35c98a, alpha: 0.16, radiusPad: 8 };
+  }
+  if (node.type === "implementationBundle" || node.group === "bundle") {
+    fill = 0xf6c86b;
+    dash = [5, 3];
+  }
+  if (node.group === "unmapped" || node.group === "needReview" || node.type === "unmappedVariant") {
+    fill = 0xf28b82;
+    glow = { color: 0xf28b82, alpha: 0.16, radiusPad: 8 };
+  }
+  if (node.type === "sourceVariant" && !layerClass) {
+    fill = mode === "planTrace" ? 0x182235 : 0x111827;
+    stroke = mode === "planTrace" ? 0xb2cdff : 0xc4cbed;
+    strokeWidth = mode === "planTrace" ? 2.2 : 1.8;
+    strokeAlpha = mode === "planTrace" ? 0.95 : 0.82;
+    alpha = mode === "planTrace" ? 1 : 0.9;
+    dash = mode === "planTrace" ? undefined : [5, 4];
+    if (mode === "planTrace") glow = { color: 0x7fb7ff, alpha: 0.1, radiusPad: 9 };
+  }
   if (node.type === "sourceSample" || node.type === "confirmedPlan" || node.type === "governanceRoot") {
     fill = 0x05070c;
     stroke = 0xf4f6ff;
-    strokeWidth = 2.8;
+    strokeWidth = node.type === "sourceSample" ? 2.6 : 3;
+    strokeAlpha = node.type === "sourceSample" ? 0.94 : 0.96;
+    alpha = 1;
+    glow = { color: 0xbbaeff, alpha: 0.14, radiusPad: node.type === "sourceSample" ? 14 : 18 };
   }
-  if (selected || pinned || focused) strokeWidth = Math.max(strokeWidth, 2.4);
-  return { fill, stroke, strokeWidth, alpha: focused || !hasFocusNode ? 0.9 : 0.52, strokeAlpha: selected || pinned || focused ? 1 : 0.5 };
+  if (node.group === "projected") {
+    fill = 0x4b5563;
+    stroke = 0xffffff;
+    strokeAlpha = 0.62;
+  }
+  if (node.type === "atomArchetype") strokeWidth = Math.max(strokeWidth, 2.2);
+  if (selected || pinned || focused) {
+    stroke = 0xffffff;
+    strokeWidth = Math.max(strokeWidth, 2);
+    strokeAlpha = 1;
+  }
+  if (pinned) glow = { color: 0x8b5cf6, alpha: 0.26, radiusPad: 14 };
+  return {
+    fill,
+    stroke,
+    strokeWidth,
+    alpha,
+    strokeAlpha,
+    groupAlpha: hasFocusNode && !focused ? (mode === "planTrace" ? 0.26 : 0.52) : 1,
+    dash,
+    glow,
+  };
 }
 
 function drawLocalLine(graphics: Graphics, length: number, style: StrokeStyle) {
@@ -549,6 +815,32 @@ function drawLocalLine(graphics: Graphics, length: number, style: StrokeStyle) {
     const segmentEnd = Math.min(cursor + dash, length);
     graphics.moveTo(cursor, 0).lineTo(segmentEnd, 0).stroke({ color: style.color, alpha: 1, width: style.width });
   }
+}
+
+function drawCircleStroke(graphics: Graphics, radius: number, color: number, alpha: number, width: number, dash?: [number, number]) {
+  if (!dash) {
+    graphics.circle(0, 0, radius).stroke({ color, alpha, width });
+    return;
+  }
+  const circumference = Math.PI * 2 * radius;
+  const [dashLength, gapLength] = dash;
+  const step = dashLength + gapLength;
+  if (!step) return;
+  for (let cursor = 0; cursor < circumference; cursor += step) {
+    const start = cursor / radius;
+    const end = Math.min(cursor + dashLength, circumference) / radius;
+    drawArcSegment(graphics, radius, start, end, color, alpha, width);
+  }
+}
+
+function drawArcSegment(graphics: Graphics, radius: number, start: number, end: number, color: number, alpha: number, width: number) {
+  const segments = Math.max(3, Math.ceil((end - start) / 0.18));
+  graphics.moveTo(Math.cos(start) * radius, Math.sin(start) * radius);
+  for (let index = 1; index <= segments; index += 1) {
+    const angle = start + ((end - start) * index) / segments;
+    graphics.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+  graphics.stroke({ color, alpha, width });
 }
 
 function drawLocalArrow(graphics: Graphics, style: StrokeStyle) {

@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, reviewAgentChatDialogue, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatDialogueRework, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, reviewAgentChatDialogue, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatDialogueRework, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse, type AgentChatTurnResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -311,6 +311,34 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         if (turn.autoDisplayTransform?.slotAtomDisplay) setRightPanelTab("slotAtom");
         setStatusText(`turn ${turn.status}`);
         if (isTerminalStatus(turn.status)) {
+          const autoDialogueRework = turn.autoDialogueRework ?? null;
+          if (autoDialogueRework?.ok && autoDialogueRework.turnId) {
+            const reworkTurnId = autoDialogueRework.turnId;
+            if (autoDialogueRework.conversationRevision) setActiveConversationRevision(autoDialogueRework.conversationRevision);
+            setTurnActionProjection(autoDialogueRework.actionProjection ?? turn.actionProjection ?? null);
+            setThreadStopped(Boolean(autoDialogueRework.threadStopped));
+            setCurrentTurnId(reworkTurnId);
+            setMessages((current) => appendAutoDialogueReworkMessages(current, autoDialogueRework, reworkTurnId));
+            setStatusText("台词审查建议返工，Agent 正在返工");
+            void refreshConversations().catch(() => undefined);
+            schedulePoll({
+              ...activeSession,
+              threadId: autoDialogueRework.threadId ?? activeSession.threadId,
+              conversationId: autoDialogueRework.conversationId ?? activeSession.conversationId,
+              workspaceRoot: autoDialogueRework.workspaceRoot ?? activeSession.workspaceRoot,
+            }, reworkTurnId);
+            return;
+          }
+          if (autoDialogueRework && autoDialogueRework.ok === false) {
+            setMessages((current) => current.some((message) => message.id === `system-auto-dialogue-rework-${turnId}`)
+              ? current
+              : [...current, {
+                  id: `system-auto-dialogue-rework-${turnId}`,
+                  role: "system",
+                  text: autoDialogueRework.message ?? "台词审查建议返工，但自动提交返工失败",
+                  status: "failed",
+                }]);
+          }
           setBusy(false);
           void refreshConversations().catch(() => undefined);
           return;
@@ -1370,6 +1398,31 @@ function attachDialogueReviewToMessages(messages: ChatMessage[], currentTurnId: 
     status: "completed",
     dialogueRoboticReview: review,
   }];
+}
+
+function appendAutoDialogueReworkMessages(
+  messages: ChatMessage[],
+  rework: NonNullable<AgentChatTurnResponse["autoDialogueRework"]>,
+  turnId: string,
+): ChatMessage[] {
+  const next = [...messages];
+  if (!next.some((message) => message.id === `user-${turnId}`)) {
+    next.push({
+      id: `user-${turnId}`,
+      role: "user",
+      text: rework.userTurnText ?? "根据台词机器人感审查结果返工当前 Shot 设计台词。",
+      status: "completed",
+    });
+  }
+  if (!next.some((message) => message.id === `assistant-${turnId}`)) {
+    next.push({
+      id: `assistant-${turnId}`,
+      role: "assistant",
+      text: "生成中",
+      status: "running",
+    });
+  }
+  return next;
 }
 
 function buildConfirmationId(turnId: string | null) {

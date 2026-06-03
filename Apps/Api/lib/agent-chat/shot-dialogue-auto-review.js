@@ -568,13 +568,13 @@ async function startAndCollectDialogueReviewTurn({
       });
       const turnId = started.turnId ?? started.turn?.id ?? null;
       if (!turnId) return started;
-      return handlers.activeTurnRuntime.collect({
+      return collectDialogueReviewTurnUntilTerminal({
+        activeTurnRuntime: handlers.activeTurnRuntime,
         workspaceRoot,
         threadId: started.threadId ?? threadId,
         turnId,
         timeoutSeconds,
         traceContext,
-        skipOwnerHandler: true,
       });
     } catch (error) {
       if (error?.code !== "appserver_turn_start_unavailable" || !handlers.appServer?.runTurnWithInputs) throw error;
@@ -587,6 +587,44 @@ async function startAndCollectDialogueReviewTurn({
     inputs,
     timeoutSeconds,
   });
+}
+
+async function collectDialogueReviewTurnUntilTerminal({
+  activeTurnRuntime,
+  workspaceRoot,
+  threadId,
+  turnId,
+  timeoutSeconds,
+  traceContext,
+}) {
+  const startedAt = Date.now();
+  const timeoutMs = Math.max(1, Number(timeoutSeconds) || 180) * 1000;
+  let lastResult = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    lastResult = await activeTurnRuntime.collect({
+      workspaceRoot,
+      threadId,
+      turnId,
+      timeoutSeconds: Math.min(30, Math.max(5, Math.ceil((timeoutMs - (Date.now() - startedAt)) / 1000))),
+      traceContext,
+      skipOwnerHandler: true,
+    });
+    if (isTerminalStatus(lastResult?.status)) return lastResult;
+    await sleep(1200);
+  }
+  const error = new Error("dialogue review turn did not complete before timeout");
+  error.code = "dialogue_robotic_review_turn_timeout";
+  error.retryable = true;
+  error.debugPayload = {
+    threadId,
+    turnId,
+    lastStatus: lastResult?.status ?? null,
+  };
+  throw error;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseReviewJson(value) {
@@ -790,6 +828,10 @@ function normalizeRelativeArtifactPath(value, rootDir) {
 
 function isCompleted(status) {
   return String(status ?? "").toLowerCase() === "completed";
+}
+
+function isTerminalStatus(status) {
+  return ["completed", "complete", "failed", "error", "errored", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
 }
 
 function isDialogueReviewEligibleConversation(conversation, shotDesignPath) {
