@@ -34,6 +34,7 @@ const STRUCTURE_FILTERS: GraphFiltersState = {
 
 const GOVERNANCE_FILTERS: GraphFiltersState = {
   ...STRUCTURE_FILTERS,
+  atomArchetype: false,
 };
 
 const PLAN_TRACE_FILTERS: GraphFiltersState = {
@@ -53,7 +54,11 @@ export function FunctionSlotGraphApp() {
     planTrace: PLAN_TRACE_FILTERS,
   });
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [governanceLayoutMode, setGovernanceLayoutMode] = useState<GovernanceLayoutMode>("force");
+  const [layoutModesByMode, setLayoutModesByMode] = useState<Record<GraphMode, GovernanceLayoutMode>>({
+    structure: "force",
+    governance: "columns",
+    planTrace: "columns",
+  });
 
   const refresh = useCallback(async () => {
     setStatus("刷新中");
@@ -128,8 +133,12 @@ export function FunctionSlotGraphApp() {
   }, [mode]);
 
   const filters = filtersByMode[mode];
+  const governanceLayoutMode = layoutModesByMode[mode];
   const setActiveFilters = useCallback((nextFilters: GraphFiltersState) => {
     setFiltersByMode((current) => ({ ...current, [mode]: nextFilters }));
+  }, [mode]);
+  const setActiveLayoutMode = useCallback((nextLayoutMode: GovernanceLayoutMode) => {
+    setLayoutModesByMode((current) => ({ ...current, [mode]: nextLayoutMode }));
   }, [mode]);
   const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(graph, selectedPlanIds) : graph, [graph, mode, selectedPlanIds]);
   const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode]);
@@ -179,7 +188,7 @@ export function FunctionSlotGraphApp() {
             <option value="planTrace">确定方案溯源</option>
           </select>
           <div className="section-heading">布局模式</div>
-          <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setGovernanceLayoutMode(event.target.value as GovernanceLayoutMode)}>
+          <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
             <option value="columns">等距列排版</option>
             <option value="force">星图散点</option>
           </select>

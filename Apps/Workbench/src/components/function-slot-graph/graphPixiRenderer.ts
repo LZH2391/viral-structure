@@ -39,7 +39,7 @@ type PixiNodeView = {
   slotBadgeText: Text;
   planBadge: Graphics;
   planBadgeText: Text;
-  label: Text;
+  label: Text | null;
   ringKey: string | null;
   bodyKey: string | null;
   slotBadgeKey: string | null;
@@ -57,6 +57,12 @@ const textStyleKeys = new WeakMap<Text, string>();
 const textStyleCache = new Map<string, TextStyleOptions>();
 const nodePositionCache = new WeakMap<SimNode[], Map<string, SimNode>>();
 const edgeByIdCache = new WeakMap<FunctionSlotGraphEdge[], Map<string, FunctionSlotGraphEdge>>();
+const SVG_LABEL_BASELINE_GAP = 14;
+const SVG_BASELINE_TO_TEXT_TOP_RATIO = 0.82;
+const SLOT_BADGE_FONT_SIZE = 6;
+const PLAN_BADGE_FONT_SIZE = 7;
+const NODE_LABEL_FONT_SIZE = 11;
+const PROMINENT_NODE_LABEL_FONT_SIZE = 12;
 
 export function createPixiGraphObjects(): PixiGraphObjects {
   return { edges: new Map(), nodes: new Map() };
@@ -65,7 +71,7 @@ export function createPixiGraphObjects(): PixiGraphObjects {
 export function destroyPixiGraphObjects(objects: PixiGraphObjects) {
   for (const edge of objects.edges.values()) edge.container.destroy({ children: true });
   for (const view of objects.nodes.values()) {
-    view.label.destroy();
+    view.label?.destroy();
     view.container.destroy({ children: true });
   }
   objects.edges.clear();
@@ -106,11 +112,12 @@ export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, e
   }
 }
 
-export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number, rootScale: number) {
+export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number) {
   const nodeIds = new Set(nodes.map((node) => node.id));
   for (const [nodeId, view] of objects.nodes.entries()) {
     if (nodeIds.has(nodeId)) continue;
-    view.label.destroy();
+    view.label?.destroy();
+    view.label = null;
     view.container.destroy({ children: true });
     objects.nodes.delete(nodeId);
   }
@@ -127,9 +134,9 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
     syncNodeRing(view, node, radius);
     syncNodeBody(view, radius, style);
 
-    syncSlotBadge(view, node, radius, rootScale);
-    syncPlanBadge(view, node, radius, rootScale);
-    syncNodeLabel(view.label, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode, rootScale);
+    syncSlotBadge(view, node, radius);
+    syncPlanBadge(view, node, radius);
+    syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), state.mode);
   }
 }
 
@@ -150,7 +157,7 @@ export function pixiScreenPoint(node: SimNode, viewport: { x: number; y: number;
   };
 }
 
-export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], state: PixiGraphRenderState, rootScale: number) {
+export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGraphEdge[], nodes: SimNode[], state: PixiGraphRenderState) {
   const positions = nodePositionMap(nodes);
   for (const edge of edges) {
     const source = positions.get(edge.source);
@@ -171,7 +178,7 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
     if (!view) return false;
     const radius = nodeRadius(node);
     view.container.position.set(node.x, node.y);
-    view.label.position.set(node.x, nodeLabelY(node, radius, rootScale));
+    if (view.label) view.label.position.set(node.x, nodeLabelTopY(node, radius, labelFontSize(state.mode, node)));
   }
   return true;
 }
@@ -231,12 +238,10 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
   const body = new Graphics();
   const slotBadge = new Graphics();
   const planBadge = new Graphics();
-  const slotBadgeText = new Text({ text: "", style: whiteTextStyle(5.5) });
-  const planBadgeText = new Text({ text: "", style: whiteTextStyle(6.5) });
-  const label = new Text({ text: "", style: whiteTextStyle(10) });
+  const slotBadgeText = new Text({ text: "", style: whiteTextStyle(SLOT_BADGE_FONT_SIZE) });
+  const planBadgeText = new Text({ text: "", style: whiteTextStyle(PLAN_BADGE_FONT_SIZE) });
   slotBadgeText.anchor.set(0.5);
   planBadgeText.anchor.set(0.5);
-  label.anchor.set(0.5, 0);
   container.addChild(ring);
   container.addChild(body);
   container.addChild(slotBadge);
@@ -244,7 +249,6 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
   container.addChild(slotBadgeText);
   container.addChild(planBadgeText);
   nodeLayer.addChild(container);
-  labelLayer.addChild(label);
 
   const view = {
     container,
@@ -254,7 +258,7 @@ function getNodeView(nodeLayer: Container, labelLayer: Container, objects: PixiG
     slotBadgeText,
     planBadge,
     planBadgeText,
-    label,
+    label: null,
     ringKey: null,
     bodyKey: null,
     slotBadgeKey: null,
@@ -273,15 +277,14 @@ function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2
   view.container.position.set(x1, y1);
   view.container.rotation = Math.atan2(dy, dx);
 
-  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${Math.round(length)}` : "solid";
+  const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}` : "solid";
   const lineKey = `${style.color}:${style.width}:${dashKey}`;
   if (view.lineKey !== lineKey) {
     view.line.clear();
-    drawLocalLine(view.line, length, style);
+    drawLocalLine(view.line, style.dash ? 1 : length, style);
     view.lineKey = lineKey;
   }
-  if (!style.dash) view.line.scale.x = length;
-  else view.line.scale.x = 1;
+  view.line.scale.x = style.dash ? length : length;
   view.line.alpha = style.alpha;
 
   view.arrow.visible = showArrow;
@@ -315,7 +318,7 @@ function syncNodeBody(view: PixiNodeView, radius: number, style: ReturnType<type
   view.bodyKey = key;
 }
 
-function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number, rootScale: number) {
+function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number) {
   const badge = slotOrderBadge(node);
   if (!badge) {
     if (view.slotBadgeKey !== "none") {
@@ -336,13 +339,13 @@ function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number, rootSc
       .stroke({ color: 0xffffff, alpha: 0.8, width: 1.5 });
     view.slotBadgeKey = key;
   }
-  syncTextStyle(view.slotBadgeText, whiteTextStyle(5.5 / rootScale), `slot:${rootScale}`);
+  syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE), "slot");
   syncText(view.slotBadgeText, badge);
-  view.slotBadgeText.position.set(x, y - (3.6 / rootScale));
+  view.slotBadgeText.position.set(x, y + 0.75);
   view.slotBadgeText.visible = true;
 }
 
-function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number, rootScale: number) {
+function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
   if (!overlayColors.length) {
     if (view.planBadgeKey !== "none") {
@@ -365,31 +368,45 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number, rootSc
       .stroke({ color: 0xffffff, alpha: 0.86, width: 1 });
     view.planBadgeKey = key;
   }
-  syncTextStyle(view.planBadgeText, whiteTextStyle(6.5 / rootScale), `plan:${rootScale}`);
+  syncTextStyle(view.planBadgeText, whiteTextStyle(PLAN_BADGE_FONT_SIZE), "plan");
   syncText(view.planBadgeText, count > 1 ? String(count) : "");
-  view.planBadgeText.position.set(x, y - (2.8 / rootScale));
+  view.planBadgeText.position.set(x, y + 0.75);
   view.planBadgeText.visible = count > 1;
 }
 
-function syncNodeLabel(text: Text, node: SimNode, radius: number, opacity: number, mode: GraphMode, rootScale: number) {
-  const fontSize = labelFontSize(mode, node) / rootScale;
-  syncTextStyle(text, whiteTextStyle(fontSize), `label:${mode}:${rootScale}`);
+function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, mode: GraphMode) {
+  const fontSize = labelFontSize(mode, node);
+  if (opacity <= 0.01) {
+    if (view.label) {
+      view.label.destroy();
+      view.label = null;
+    }
+    return;
+  }
+  const existing = view.label;
+  const text = existing ?? new Text({ text: "", style: whiteTextStyle(fontSize) });
+  if (!existing) {
+    text.anchor.set(0.5, 0);
+    labelLayer.addChild(text);
+    view.label = text;
+  }
+  syncTextStyle(text, whiteTextStyle(fontSize), `label:${fontSize}`);
   syncText(text, node.shortLabel);
-  text.position.set(node.x, nodeLabelY(node, radius, rootScale));
+  text.position.set(node.x, nodeLabelTopY(node, radius, fontSize));
   text.alpha = opacity;
-  text.visible = opacity > 0.01;
+  text.visible = true;
 }
 
 function labelFontSize(mode: GraphMode, node: SimNode) {
-  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return 9.5;
-  if (mode === "structure") return 10.5;
-  if (mode === "planTrace" && node.type === "sourceVariant") return 9.5;
-  return 9.75;
+  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return NODE_LABEL_FONT_SIZE;
+  if (mode === "structure") return PROMINENT_NODE_LABEL_FONT_SIZE;
+  if (mode === "planTrace" && node.type === "sourceVariant") return NODE_LABEL_FONT_SIZE;
+  if (node.type === "governanceRoot" || node.type === "confirmedPlan" || node.type === "sourceVariant") return PROMINENT_NODE_LABEL_FONT_SIZE;
+  return NODE_LABEL_FONT_SIZE;
 }
 
-function nodeLabelY(node: SimNode, radius: number, rootScale: number) {
-  const tightGap = node.type === "atomPattern" || node.type === "atomInstance" || node.type === "binding" || node.group === "binding";
-  return node.y + radius + ((tightGap ? 8 : 10) / rootScale);
+function nodeLabelTopY(node: SimNode, radius: number, fontSize: number) {
+  return node.y + radius + SVG_LABEL_BASELINE_GAP - (fontSize * SVG_BASELINE_TO_TEXT_TOP_RATIO);
 }
 
 function syncText(text: Text, value: string) {

@@ -211,11 +211,12 @@ function GraphPixiCanvasInner({
 
     app.init({
       antialias: true,
+      autoStart: false,
       autoDensity: true,
       backgroundAlpha: 0,
       preference: "webgl",
       resizeTo: host,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      resolution: mode === "governance" ? 1 : Math.min(window.devicePixelRatio || 1, 2),
     }).then(() => {
       initialized = true;
       if (disposed) {
@@ -399,13 +400,13 @@ function GraphPixiCanvasInner({
     if (!layers) return;
     applyViewportTransformRef.current();
     syncPixiEdges(layers.edges, graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
-    syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k, rootScale());
+    syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
     renderPixi();
   };
   syncGraphObjectsRef.current = syncGraphObjects;
 
   const syncGraphLayout = () => {
-    const rendered = syncPixiLayout(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current, rootScale());
+    const rendered = syncPixiLayout(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
     if (!rendered) {
       syncGraphObjectsRef.current();
       return;
@@ -421,8 +422,6 @@ function GraphPixiCanvasInner({
     return true;
   };
   syncGraphFocusRef.current = syncGraphFocus;
-
-  const rootScale = () => Math.max(0.1, Math.min(canvasSizeRef.current.width / VIEWBOX.width, canvasSizeRef.current.height / VIEWBOX.height));
 
   const applyViewportTransform = () => {
     const layers = layersRef.current;
