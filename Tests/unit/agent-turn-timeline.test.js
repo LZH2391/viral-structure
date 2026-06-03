@@ -82,6 +82,34 @@ test("agent turn timeline treats zero model context window as unknown", () => {
   assert.equal(timeline.activity.tokenUsage.contextUsageState, "unknown");
 });
 
+test("agent turn timeline resolves unique short turn ids", () => {
+  const fullTurnId = "019e8e0d-d97b-7eb2-a74f-5c48d30609d9";
+  const timeline = summarizeAgentTurnTimeline({
+    id: "thread_short_turn",
+    turns: [{
+      id: fullTurnId,
+      status: "completed",
+      last_token_usage: { input_tokens: 29854 },
+      items: [{ type: "agentMessage", text: "done" }],
+    }],
+  }, "d30609d9");
+
+  assert.equal(timeline.turnId, fullTurnId);
+  assert.equal(timeline.activity.tokenUsage.inputTokens, 29854);
+});
+
+test("agent turn timeline rejects ambiguous short turn ids", () => {
+  const timeline = summarizeAgentTurnTimeline({
+    id: "thread_ambiguous_turn",
+    turns: [
+      { id: "019e8e0d-d97b-7eb2-a74f-5c48d30609d9", items: [{ type: "agentMessage", text: "first" }] },
+      { id: "019e8e0d-d97b-7eb2-a74f-5c48eeee09d9", items: [{ type: "agentMessage", text: "second" }] },
+    ],
+  }, "09d9");
+
+  assert.equal(timeline, null);
+});
+
 test("agent turn timeline returns null for missing turn", () => {
   const timeline = summarizeAgentTurnTimeline({ id: "thread_1", turns: [] }, "turn_missing");
   assert.equal(timeline, null);

@@ -1,5 +1,5 @@
 const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
-const { findTurn: findRolloutTurn, mergeThreadWithRollout, mergeTurnItems } = require("../observability/codex-rollout-reader");
+const { findTurn: findRolloutTurn, mergeThreadWithRollout, mergeTurnItems, resolveTurnId } = require("../observability/codex-rollout-reader");
 const { buildAgentChatActionProjection } = require("../agent-chat/actions");
 const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
 const { maybeAutoReviewShotDialogue } = require("../agent-chat/shot-dialogue-auto-review");
@@ -177,17 +177,18 @@ async function handleAgentChatTurnTimeline(res, threadId, turnId, handlers = {},
         throw error;
       });
       const thread = mergeThreadWithRollout(threadResult.thread ?? {}, rollout?.thread);
-      const turn = findTurn(thread, turnId);
+      const effectiveTurnId = resolveTurnId(rollout?.thread, turnId) ?? resolveTurnId(thread, turnId) ?? turnId;
+      const turn = findTurn(thread, effectiveTurnId);
       let timeline = null;
       let source = "thread/read";
       let itemListFallback = null;
       if (typeof handlers.appServer.listTurnItems === "function") {
         try {
-          const listed = await handlers.appServer.listTurnItems({ workspaceRoot, threadId, turnId, limit: 500, sortDirection: "asc" });
+          const listed = await handlers.appServer.listTurnItems({ workspaceRoot, threadId, turnId: effectiveTurnId, limit: 500, sortDirection: "asc" });
           if (Array.isArray(listed?.items) && listed.items.length > 0) {
-            const rolloutTurn = findRolloutTurn(rollout?.thread, turnId);
+            const rolloutTurn = findRolloutTurn(rollout?.thread, effectiveTurnId);
             const items = mergeTurnItems(listed.items, rolloutTurn?.items);
-            timeline = summarizeAgentTurnTimelineFromItems({ thread, turn, items, turnId });
+            timeline = summarizeAgentTurnTimelineFromItems({ thread, turn, items, turnId: effectiveTurnId });
             source = "thread/turns/items/list";
             if (rolloutTurn?.items?.length) source = "thread/turns/items/list+codex-rollout";
           }
@@ -198,7 +199,7 @@ async function handleAgentChatTurnTimeline(res, threadId, turnId, handlers = {},
           };
         }
       }
-      timeline = timeline ?? summarizeAgentTurnTimeline(thread, turnId);
+      timeline = timeline ?? summarizeAgentTurnTimeline(thread, effectiveTurnId);
       if (timeline && source === "thread/read" && rollout?.thread) source = "thread/read+codex-rollout";
       if (!timeline) {
         const error = new Error("未找到对应 turn");

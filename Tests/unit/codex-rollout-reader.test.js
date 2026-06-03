@@ -1,7 +1,7 @@
 const assert = require("assert/strict");
 const test = require("node:test");
 
-const { mergeThreadWithRollout, parseCodexRolloutText } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
+const { mergeThreadWithRollout, parseCodexRolloutText, resolveTurnId } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
 const { summarizeAgentTurnTimeline } = require("../../Apps/Api/lib/observability/agent-turn-timeline");
 
 test("codex rollout parser reconstructs turn activity, token usage, and compact events", () => {
@@ -48,6 +48,32 @@ test("rollout merge fills missing turn data without replacing appserver items", 
   assert.equal(merged.turns[0].items[0].text, "from appserver");
   assert.equal(merged.turns[0].items[1].type, "contextCompacted");
   assert.equal(merged.turns[0].last_token_usage.input_tokens, 9);
+});
+
+test("rollout merge accepts short turn ids from UI cards", () => {
+  const fullTurnId = "019e8e0d-d97b-7eb2-a74f-5c48d30609d9";
+  const merged = mergeThreadWithRollout(
+    { id: "019e8bc9-0fd8-7590-ae69-4f84d947255a", turns: [{ id: "d30609d9", items: [{ type: "agentMessage", text: "from appserver" }] }] },
+    { id: "019e8bc9-0fd8-7590-ae69-4f84d947255a", turns: [{ id: fullTurnId, last_token_usage: { input_tokens: 29854 }, items: [{ type: "tokenUsage", tokenUsage: { input_tokens: 29854 } }] }] },
+  );
+  assert.equal(resolveTurnId(merged, "d30609d9"), fullTurnId);
+  const timeline = summarizeAgentTurnTimeline(merged, "d30609d9");
+  assert.equal(timeline.turnId, fullTurnId);
+  assert.equal(timeline.activity.tokenUsage.inputTokens, 29854);
+  assert.deepEqual(timeline.items.map((item) => item.kind), ["agent_message", "token_usage"]);
+});
+
+test("short turn id resolution rejects ambiguous suffixes", () => {
+  const thread = {
+    id: "thread_ambiguous",
+    turns: [
+      { id: "019e8e0d-d97b-7eb2-a74f-5c48d30609d9" },
+      { id: "019e8e0d-d97b-7eb2-a74f-5c48eeee09d9" },
+    ],
+  };
+
+  assert.equal(resolveTurnId(thread, "09d9"), null);
+  assert.equal(resolveTurnId(thread, "5c48d30609d9"), "019e8e0d-d97b-7eb2-a74f-5c48d30609d9");
 });
 
 function event(timestamp, type, payload) {

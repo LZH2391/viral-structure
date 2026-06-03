@@ -354,7 +354,20 @@ function findTurn(thread, turnId) {
   const turns = Array.isArray(thread?.turns) ? thread.turns : [];
   const target = String(turnId ?? "");
   if (!target) return turns.at(-1) ?? null;
-  return turns.find((turn) => String(turn?.id ?? turn?.turnId ?? "") === target) ?? null;
+  const resolvedTurnId = resolveId(turns.map((turn) => turn?.id ?? turn?.turnId), target);
+  return turns.find((turn) => String(turn?.id ?? turn?.turnId ?? "") === resolvedTurnId) ?? null;
+}
+
+function resolveId(values, target) {
+  const requested = stringOrNull(target);
+  if (!requested) return null;
+  const candidates = (Array.isArray(values) ? values : [])
+    .map((value) => stringOrNull(value))
+    .filter(Boolean);
+  const exact = candidates.find((value) => value === requested);
+  if (exact) return exact;
+  const suffixMatches = candidates.filter((value) => value.endsWith(requested));
+  return suffixMatches.length === 1 ? suffixMatches[0] : null;
 }
 
 function latestMeaningfulItem(items) {

@@ -1390,6 +1390,68 @@ test("thread turn timeline returns summarized turn items", async () => {
   }
 });
 
+test("thread turn timeline resolves short turn ids before rollout matching", async () => {
+  const { createCodexRolloutReader } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-rollout-threadpool-"));
+  const threadId = "019e8bc9-0fd8-7590-ae69-4f84d947255a";
+  const fullTurnId = "019e8e0d-d97b-7eb2-a74f-5c48d30609d9";
+  const shortTurnId = "d30609d9";
+  const listedTurnIds = [];
+  await writeRollout(tempRoot, threadId, [
+    rolloutEvent("2026-06-03T13:56:39.801Z", "session_meta", { id: threadId }),
+    rolloutEvent("2026-06-03T13:56:39.816Z", "event_msg", { type: "task_started", turn_id: fullTurnId, model_context_window: 20000 }),
+    rolloutEvent("2026-06-03T13:57:23.278Z", "event_msg", { type: "token_count", info: { last_token_usage: { input_tokens: 1200, output_tokens: 40, total_tokens: 1240 }, model_context_window: 20000 } }),
+    rolloutEvent("2026-06-03T13:57:24.000Z", "event_msg", { type: "context_compacted" }),
+  ]);
+  const server = createServer({
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    codexRolloutReader: createCodexRolloutReader({ codexHome: tempRoot }),
+    threadPool: {
+      findAllowedThread: async () => ({
+        ok: true,
+        role: "function-slot-restructure",
+        thread_id: threadId,
+      }),
+    },
+    appServer: {
+      readThread: async () => ({
+        thread: {
+          id: threadId,
+          turns: [{
+            id: shortTurnId,
+            status: "running",
+            items: [{ type: "agentMessage", text: "from appserver" }],
+          }],
+        },
+      }),
+      listTurnItems: async ({ turnId }) => {
+        listedTurnIds.push(turnId);
+        return { ok: true, items: [{ type: "agentMessage", text: "from appserver" }] };
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", `/api/threadpool/threads/${threadId}/turns/${shortTurnId}/timeline`);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(listedTurnIds, [fullTurnId]);
+    assert.equal(response.body.turnId, fullTurnId);
+    assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "token_usage", "context_compacted"]);
+    assert.equal(response.body.activity.tokenUsage.inputTokens, 1200);
+    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 2000);
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("thread turn timeline falls back when turn item list is unsupported", async () => {
   const fullThreadId = "019e69b7-e817-79e0-9ea4-b500c6e9e7f3";
   const writes = [];
@@ -2530,6 +2592,8 @@ test("agent chat timeline backfills token and compact events from codex rollout"
   const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-rollout-agent-chat-"));
   const threadId = "019e8dc4-5633-79e0-ac38-6deb9d2a9003";
   const turnId = "019e8dc5-8b2d-7a42-b1d4-5f9dc845fa7d";
+  const shortTurnId = "c845fa7d";
+  const listedTurnIds = [];
   await writeRollout(tempRoot, threadId, [
     rolloutEvent("2026-06-03T13:56:39.801Z", "session_meta", { id: threadId }),
     rolloutEvent("2026-06-03T13:56:39.816Z", "event_msg", { type: "task_started", turn_id: turnId, model_context_window: 10000 }),
@@ -2554,7 +2618,10 @@ test("agent chat timeline backfills token and compact events from codex rollout"
           }],
         },
       }),
-      listTurnItems: async () => ({ ok: true, items: [{ type: "agentMessage", text: "from appserver" }] }),
+      listTurnItems: async ({ turnId }) => {
+        listedTurnIds.push(turnId);
+        return { ok: true, items: [{ type: "agentMessage", text: "from appserver" }] };
+      },
     },
     staticWorkbench: { handle: () => false },
   });
@@ -2563,8 +2630,10 @@ test("agent chat timeline backfills token and compact events from codex rollout"
   await once(server, "listening");
   server.unref();
   try {
-    const response = await makeRequest(server, "GET", `/api/agent-chat/threads/${threadId}/turns/${turnId}/timeline`);
+    const response = await makeRequest(server, "GET", `/api/agent-chat/threads/${threadId}/turns/${shortTurnId}/timeline`);
     assert.equal(response.statusCode, 200);
+    assert.deepEqual(listedTurnIds, [turnId]);
+    assert.equal(response.body.turnId, turnId);
     assert.equal(response.body.source, "thread/turns/items/list+codex-rollout");
     assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call", "token_usage", "context_compacted"]);
     assert.equal(response.body.activity.tokenUsage.inputTokens, 987);

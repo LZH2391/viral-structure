@@ -15,7 +15,7 @@ function createCodexRolloutReader({ codexHome = process.env.CODEX_HOME || path.j
     for (const filePath of files) {
       const parsed = await parseCodexRolloutFile(filePath).catch(() => null);
       if (!parsed?.thread?.id) continue;
-      if (parsed.thread.id !== targetThreadId && !parsed.thread.id.endsWith(targetThreadId)) continue;
+      if (!isIdMatch(parsed.thread.id, targetThreadId)) continue;
       if (turnId && !findTurn(parsed.thread, turnId)) continue;
       return parsed;
     }
@@ -197,7 +197,7 @@ function mergeThreadWithRollout(thread, rolloutThread) {
   for (const fallbackTurn of fallbackTurns) {
     const fallbackTurnId = normalizeText(fallbackTurn.id ?? fallbackTurn.turnId);
     if (!fallbackTurnId) continue;
-    const index = turns.findIndex((turn) => normalizeText(turn?.id ?? turn?.turnId) === fallbackTurnId);
+    const index = findMatchingTurnIndex(turns, fallbackTurnId);
     if (index >= 0) turns[index] = mergeTurnWithRollout(turns[index], fallbackTurn);
     else turns.push(fallbackTurn);
   }
@@ -206,9 +206,11 @@ function mergeThreadWithRollout(thread, rolloutThread) {
 
 function mergeTurnWithRollout(turn, fallbackTurn) {
   const base = turn && typeof turn === "object" ? { ...turn } : {};
+  const resolvedTurnId = chooseFullerMatchingId(base.id ?? base.turnId, fallbackTurn?.id ?? fallbackTurn?.turnId);
   return {
     ...fallbackTurn,
     ...base,
+    ...(resolvedTurnId ? { id: resolvedTurnId } : {}),
     status: base.status ?? fallbackTurn.status,
     model_context_window: base.model_context_window ?? base.modelContextWindow ?? fallbackTurn.model_context_window ?? fallbackTurn.modelContextWindow,
     last_token_usage: base.last_token_usage ?? base.lastTokenUsage ?? base.token_usage ?? base.tokenUsage ?? fallbackTurn.last_token_usage,
@@ -232,7 +234,61 @@ function mergeTurnItems(items, fallbackItems) {
 function findTurn(thread, turnId) {
   const target = normalizeText(turnId);
   const turns = Array.isArray(thread?.turns) ? thread.turns : [];
-  return turns.find((turn) => normalizeText(turn?.id ?? turn?.turnId) === target) ?? null;
+  const resolvedTurnId = resolveTurnId(thread, target);
+  return turns.find((turn) => normalizeText(turn?.id ?? turn?.turnId) === resolvedTurnId) ?? null;
+}
+
+function isIdMatch(value, target) {
+  const full = normalizeText(value);
+  const requested = normalizeText(target);
+  return Boolean(resolveId([full], requested));
+}
+
+function resolveId(values, target) {
+  const requested = normalizeText(target);
+  if (!requested) return null;
+  const candidates = (Array.isArray(values) ? values : [])
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+  const exact = candidates.find((value) => value === requested);
+  if (exact) return exact;
+  const suffixMatches = candidates.filter((value) => value.endsWith(requested));
+  return suffixMatches.length === 1 ? suffixMatches[0] : null;
+}
+
+function resolveTurnId(thread, turnId) {
+  const target = normalizeText(turnId);
+  const turns = Array.isArray(thread?.turns) ? thread.turns : [];
+  return resolveId(turns.map((turn) => turn?.id ?? turn?.turnId), target);
+}
+
+function findMatchingTurnIndex(turns, fallbackTurnId) {
+  const fallbackId = normalizeText(fallbackTurnId);
+  if (!fallbackId) return -1;
+  const ids = turns.map((turn) => normalizeText(turn?.id ?? turn?.turnId));
+  const resolvedId = resolveId(ids, fallbackId) ?? resolveShortCandidateAgainstFullTarget(ids, fallbackId);
+  return resolvedId ? ids.findIndex((id) => id === resolvedId) : -1;
+}
+
+function resolveShortCandidateAgainstFullTarget(values, target) {
+  const requested = normalizeText(target);
+  if (!requested) return null;
+  const candidates = (Array.isArray(values) ? values : [])
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+  const suffixMatches = candidates.filter((value) => requested.endsWith(value));
+  return suffixMatches.length === 1 ? suffixMatches[0] : null;
+}
+
+function chooseFullerMatchingId(first, second) {
+  const firstId = normalizeText(first);
+  const secondId = normalizeText(second);
+  if (!firstId) return secondId;
+  if (!secondId) return firstId;
+  if (firstId === secondId) return firstId;
+  if (firstId.endsWith(secondId)) return firstId;
+  if (secondId.endsWith(firstId)) return secondId;
+  return firstId;
 }
 
 function ensureTurn(turns, turnId, timestamp) {
@@ -319,4 +375,6 @@ module.exports = {
   mergeThreadWithRollout,
   mergeTurnItems,
   findTurn,
+  resolveId,
+  resolveTurnId,
 };
