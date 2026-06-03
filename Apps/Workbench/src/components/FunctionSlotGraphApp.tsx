@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getFunctionSlotConfirmedPlanTraceGraph, getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
-import { GraphCanvas } from "./function-slot-graph/GraphCanvas";
+import { GraphPixiCanvas } from "./function-slot-graph/GraphPixiCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
 import { buildVisibleGraph } from "./function-slot-graph/graphUtils";
 import type { GovernanceLayoutMode, GraphFiltersState } from "./function-slot-graph/types";
@@ -201,7 +201,7 @@ export function FunctionSlotGraphApp() {
           )}
         </aside>
         <section className="slot-graph-stage">
-          {activeGraph ? <GraphCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
+          {activeGraph ? <GraphPixiCanvas key={`${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
           <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />

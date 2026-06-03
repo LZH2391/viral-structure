@@ -1,22 +1,25 @@
 ---
 name: shot-storyboard-prep
-description: Shot Storyboard Prep 确定性流水线与 repair agent 边界说明。用于确认重组方案后由后端自动收集 restructure.final.md、shot-design.final.md、可选素材帧映射，执行 prepare/image-generation/crop/PDF，并在确定性校验失败时让 agent 只做最小格式修复。
+description: Shot Storyboard Prep 确定性流水线与 agent 边界说明。用于确认重组方案后由后端自动收集 restructure.final.md、shot-design.final.md、可选素材帧映射，执行 prepare/image-generation/crop，并在 PDF 阶段触发 agent 使用 `$pdf` skill 出最终 PDF；prepare 校验失败时仍由 repair agent 做最小格式修复。
 ---
 
 # Shot Storyboard Prep
 
 ## 定位
 
-主链路由后端确定性流水线执行，agent 只在校验失败后作为修复者介入。
+主链路由后端确定性流水线执行。agent 只承担两类受控任务：
+
+- `repairTurn`：prepare 校验失败后的最小格式修复。
+- `pdfTurn`：在 crop 完成后使用 `$pdf` skill 生成最终 PDF。
 
 目标链路：
 
 ```text
-确认方案 -> 后端自动收集输入 -> prepare -> image-generation -> crop -> material frame resolve -> PDF -> artifact
+确认方案 -> 后端自动收集输入 -> prepare -> image-generation -> crop -> material frame resolve -> pdfTurn($pdf) -> artifact
                                                \-> 校验失败 -> repair agent -> 后端重跑
 ```
 
-agent 不负责手工跑完整链路，不直接调用 image-generation、裁切或 PDF 脚本。修复完成后必须交还后端流水线继续执行。
+agent 不负责手工跑完整链路，不直接调用 image-generation 或裁切脚本。repair 完成后必须交还后端流水线继续执行；pdfTurn 只能消费后端输入包生成 PDF，不得改上游产物。
 
 ## 后端流水线输入
 
@@ -105,24 +108,32 @@ python .agents/skills/shot-storyboard-prep/scripts/crop_storyboard_groups.py --a
 
 素材代表帧缺失时进入 PDF warning，是否阻断由后端规则决定。
 
-### 6. PDF Build
+### 6. PDF Agent
 
-后端调用：
+后端写出 `shot-storyboard-pdf-input.json`，然后触发 `pdfTurn`。
 
-```powershell
-python .agents/skills/shot-storyboard-prep/scripts/build_storyboard_pdf.py --restructure <restructure.final.md> --shot-design <shot-design.final.md> --manifest <shot-storyboard-manifest.json> --crops-manifest <shot-storyboard-crops.json> --output <shot-storyboard.pdf> --root <repoRoot>
-```
+`pdfTurn` 必须：
 
-输出：
+- 使用 `$pdf` skill。
+- 读取后端输入包中的 manifest、crop manifest、素材代表帧、参考版式和输出契约。
+- 输出 `shot-storyboard.pdf`、`shot-storyboard.summary.json`、`shot-storyboard.layout.json`。
+- 对生成结果做渲染检查。
 
-- `shot-storyboard.pdf`
-- `shot-storyboard.summary.json`
+`pdfTurn` 禁止：
 
-校验：
+- 重跑 image-generation。
+- 修改 `restructure.final.md` / `shot-design.final.md`。
+- 修改 manifest 或 crop 结果。
+- 重新裁切图片。
+- 伪造缺失素材图。
 
+后端继续负责校验：
+
+- PDF、summary、layout 三个文件存在。
 - slot 数、shot 数一致。
-- 自设计/素材来源标识完整。
-- warnings 可展示。
+- layout 覆盖所有非 pad shot。
+- `imageFit === contain`。
+- 素材代表帧缺失进入 warnings。
 
 ## Repair Agent 边界
 
@@ -153,7 +164,7 @@ python .agents/skills/shot-storyboard-prep/scripts/build_storyboard_pdf.py --res
 - image-generation provider 结果。
 - 代表帧不存在的问题。
 
-修复后必须写入 `repairedPath`。不要继续手工跑 prepare、image-generation、crop 或 PDF；后端会从失败阶段或 prepare 阶段重跑。
+修复后必须写入 `repairedPath`。不要继续手工跑 prepare、image-generation、crop 或 pdfTurn；后端会从失败阶段或 prepare 阶段重跑。
 
 ## 重跑策略
 
@@ -167,8 +178,9 @@ python .agents/skills/shot-storyboard-prep/scripts/build_storyboard_pdf.py --res
 
 - `scripts/prepare_storyboard.py`
 - `scripts/crop_storyboard_groups.py`
-- `scripts/build_storyboard_pdf.py`
 - `scripts/build_image_generation_payload.py`
 - `scripts/run_image_generation_storyboard.js`
+
+`scripts/build_storyboard_pdf.py` 保留为本地 fallback/历史工具，不再是正式主链路。
 
 agent repair 场景中不要直接运行这些脚本，除非用户明确要求本地排查脚本本身。

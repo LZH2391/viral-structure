@@ -8,6 +8,7 @@ test("library page exposes local artifact index views", () => {
   const graphHtml = read(root, "Apps/Workbench/function-slot-graph.html");
   const graphEntry = read(root, "Apps/Workbench/src/function-slot-graph.tsx");
   const graphApp = read(root, "Apps/Workbench/src/components/FunctionSlotGraphApp.tsx");
+  const graphPixiCanvas = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphPixiCanvas.tsx");
   const libraryApp = read(root, "Apps/Workbench/src/components/LibraryApp.tsx");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
@@ -27,7 +28,9 @@ test("library page exposes local artifact index views", () => {
   assert.match(api, /\/api\/function-slot-library\/\$\{encodeURIComponent\(artifactId\)\}\/graph/);
   assert.match(libraryApp, /处理库/);
   assert.match(libraryApp, /\/function-slot-graph/);
-  assert.match(graphApp, /GraphCanvas/);
+  assert.match(graphApp, /GraphPixiCanvas/);
+  assert.match(graphPixiCanvas, /GraphCanvas/);
+  assert.match(graphPixiCanvas, /fallbackReason/);
   assert.match(graphApp, /\/full-analysis/);
   assert.match(graphApp, /\/threadpool/);
   assert.match(graphApp, /\/agent-chat/);

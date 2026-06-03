@@ -582,11 +582,18 @@ function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilters
   if (node.type === "confirmedPlan") return true;
   if (node.type === "tracedSlot") return filters.slot;
   if (node.type === "slotSubtype") return filters.slotSubtype;
-  if (node.type === "sourceVariant") return filters.sourceVariant;
+  if (node.type === "sourceVariant") return filters.sourceVariant && isSourceVariantAtom(node);
   if (node.type === "sourceSample") return true;
   if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern") return false;
   if (node.type === "sourceExample") return false;
   return true;
+}
+
+function isSourceVariantAtom(node: FunctionSlotGraphNode) {
+  const kind = typeof node.data?.kind === "string" ? node.data.kind : null;
+  const layer = typeof node.data?.layer === "string" ? node.data.layer : null;
+  if (!kind && !layer) return true;
+  return kind === "script" || kind === "rhythm" || kind === "packaging" || layer === "script" || layer === "rhythm" || layer === "packaging";
 }
 
 function buildGovernancePositions(graph: FunctionSlotLibraryGraph, layoutMode: GovernanceLayoutMode) {

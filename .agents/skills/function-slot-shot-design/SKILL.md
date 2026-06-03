@@ -12,7 +12,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 - 读取已确认的 `function-slot-restructure` 方案。
 - 把第 5 节脚本段落、第 6 节节奏曲线、第 7 节包装与证明方案对齐为新视频顺序 shot 或必要的 shot group。
 - 在当前 thread 中消费 `user-material-pack.stable` 或素材包路径，决定现有素材、包装字幕强化、自行设计、回重组或复用变形兜底。
-- 写具体分镜画面、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
+- 写具体分镜画面、动作与运镜、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
 
 使用素材镜头时要区分两种字段边界：
@@ -55,7 +55,8 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
    进入素材来源和处理策略判断时，读取 `references/material-strategy.md`。若有素材包，先按 compact ref schema 展开 `semanticDictionaries` 引用，再基于 `shotCards / materialGroups / proofCoverage / sequenceRecommendations / restructureInputSummary / globalConstraintRefs` 选择每个 shot 的策略。
 
 6. **写画面、包装、台词**
-   进入分镜画面、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。
+   进入分镜画面、动作与运镜、包装说明、台词/字幕写作时，读取 `references/dialogue-and-packaging.md`；需要写台词或字幕语感时，再读取 `references/dialoguePool.md`。先让画面关键帧、拍摄动作、包装强化和口播/字幕共同服务 slot 功能，不要先套固定句式。
+   `分镜画面` 会用于生图，只写单帧可见的主体、场景、构图、人物/手部当前姿态和产品状态；不要写连续运镜、后期动效或剪辑指令。`动作与运镜` 写这个 shot 怎么拍、人物/手怎么动、镜头怎么动，保持普通可拍，例如固定近景、轻推近、俯拍稳定停留、手指按压、手拿起包装、手指依次指向。`包装说明` 写覆盖层和简单出现方式，例如直接出现、淡入、随动作弹出、依次落位。`必须同步点` 只写动作、台词、证据、包装出现和节奏峰值之间的对齐关系。
    对 `existing_material` shot，跳过自行画面设计、包装设计和新台词写作，只从素材包读取原镜头画面摘要、已有包装/字幕和原字幕/口播填表；原素材没有口播/字幕时写“无”，并记录到最终摘要的“无原素材台词镜头”清单中，询问用户是否需要补写。对 `existing_material_packaging_caption` shot，画面仍只写素材镜头摘要，包装/字幕字段只写后期补强方案，不写自设计镜头画面；若补强内容来自用户授权的无台词补写，必须标明为后期新增层。
 
 7. **落表字段与预计时长**

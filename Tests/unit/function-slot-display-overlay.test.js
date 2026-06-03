@@ -222,6 +222,12 @@ test("display overlay traces confirmed plan slots to source samples and variants
       sourceId: "S001",
       label: "问题对象直冲与执行动作入口",
     }, {
+      variantId: "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
+      sampleId: "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      kind: "rhythm",
+      sourceId: "R002",
+      label: "多场景问题堆叠",
+    }, {
       variantId: "sample_other::script::S009",
       sampleId: "sample_other",
       kind: "script",
@@ -244,9 +250,9 @@ test("display overlay traces confirmed plan slots to source samples and variants
       { slotSubtype: "SUB_product_mechanism_proof", slotArchetype: "ARCH_problem_activation", name: "机制证明" },
     ],
     atoms: [
-      { id: "source aliases", name: "来源短码：`A=sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7`。" },
+      { id: "source aliases", name: "来源短码：`A=sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7`，`C=sample_fcf2e190-dbfc-478d-b327-854948b792eb`。" },
       {
-        value: "A::F001",
+        value: "A::F001` + `C::rhythm::R002",
         scriptAtom: "A::script::S001`：问题对象直冲与执行动作入口",
       },
       {
@@ -269,6 +275,8 @@ test("display overlay traces confirmed plan slots to source samples and variants
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002"), false);
   assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001" && node.label === "问题对象直冲与执行动作入口"));
+  assert.ok(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002" && node.label === "多场景问题堆叠"));
+  assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && String(node.data.variantId).includes("F001` + `C::rhythm::R002")), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && node.data.variantId === "sample_other::script::S009"), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "sourceVariant" && String(node.label).includes("::")), false);
   assert.equal(traceGraph.nodes.some((node) => node.type === "slotFamily"), false);

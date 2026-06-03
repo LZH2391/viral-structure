@@ -20,6 +20,12 @@ const {
   REPAIR_ROLE,
   createShotStoryboardRepairRunner,
 } = require("./shot-storyboard-repair");
+const {
+  PDF_STAGE_NAME,
+  buildPdfAgentInputPackage,
+  runShotStoryboardPdfTurn,
+  validatePdfAgentOutputs,
+} = require("./shot-storyboard-pdf-agent");
 const { createShotStoryboardPipelineRuntime } = require("./shot-storyboard-pipeline-runtime");
 
 const AUTO_STAGE_NAME = "function.slot.shot_storyboard_prep.pipeline";
@@ -32,6 +38,7 @@ function createShotStoryboardAutoPipelineService({
   moduleRegistry,
   threadPool = null,
   appServer = null,
+  activeTurnRuntime = null,
   now = () => new Date().toISOString(),
 } = {}) {
   if (!rootDir) throw new Error("rootDir is required for shot storyboard pipeline");
@@ -152,7 +159,7 @@ function createShotStoryboardAutoPipelineService({
 
     const image = await runImageGenerationStage({ options, prepare, traceContext, artifactId, parentArtifactId, job });
     const crop = await runCropStage({ prepare, image, resolved, traceContext, artifactId, parentArtifactId, job });
-    const pdf = await runPdfStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job });
+    const pdf = await runPdfAgentStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job });
     return await finishProcessed({
       job,
       traceContext,
@@ -168,6 +175,7 @@ function createShotStoryboardAutoPipelineService({
         cropsManifestPath: safeRelative(crop.cropsManifestPath),
         pdfPath: safeRelative(pdf.pdfPath),
         summaryPath: safeRelative(pdf.summaryPath),
+        layoutPath: safeRelative(pdf.layoutPath),
         warningCount: pdf.summary?.warnings?.length ?? 0,
         repairAttemptCount,
       },
@@ -192,6 +200,7 @@ function createShotStoryboardAutoPipelineService({
           cropsManifestPath: safeRelative(crop.cropsManifestPath),
           pdfPath: safeRelative(pdf.pdfPath),
           summaryPath: safeRelative(pdf.summaryPath),
+          layoutPath: safeRelative(pdf.layoutPath),
         },
         imageGenerationArtifact: image.artifact ? {
           artifactId: image.artifact.artifactId,
@@ -201,6 +210,9 @@ function createShotStoryboardAutoPipelineService({
         validation: {
           repairAttemptCount,
           warnings: pdf.summary?.warnings ?? [],
+        },
+        pdfTurn: {
+          agent: pdf.agent,
         },
       },
     });
@@ -350,13 +362,12 @@ function createShotStoryboardAutoPipelineService({
     });
   }
 
-  async function runPdfStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job }) {
+  async function runPdfAgentStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job }) {
     const stageTrace = nextStage(traceContext);
-    const pdfPath = path.join(resolved.baseDir, "shot-storyboard.pdf");
     const materialFrameMaps = collectMaterialFrameMaps(options, resolved.baseDir);
-    jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.pdf", progress: 88 });
+    jobStore.updateJob(job.jobId, { stage: PDF_STAGE_NAME, progress: 88 });
     return runLoggedStage({
-      stageName: "function.slot.shot_storyboard_prep.pdf",
+      stageName: PDF_STAGE_NAME,
       traceContext: stageTrace,
       artifactId,
       parentArtifactId,
@@ -365,41 +376,82 @@ function createShotStoryboardAutoPipelineService({
         shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
         cropsManifestPath: safeRelative(crop.cropsManifestPath),
         materialFrameMapCount: materialFrameMaps.length,
-        pdfPath: safeRelative(pdfPath),
       },
       action: async () => {
-        const args = [
-          "--restructure", resolved.restructureFinalPath,
-          "--shot-design", resolved.shotDesignFinalPath,
-          "--manifest", prepare.manifestPath,
-          "--crops-manifest", crop.cropsManifestPath,
-          "--output", pdfPath,
-          "--root", rootDir,
-        ];
-        for (const item of materialFrameMaps) {
-          const resolvedMap = resolveInsideRoot(item.path);
-          if (item.required) await assertFile(resolvedMap, "storyboard_prep_material_frame_map_missing", false);
-          else {
-            try {
-              await assertFile(resolvedMap, "storyboard_prep_material_frame_map_missing", false);
-            } catch {
-              continue;
-            }
+        let retryContext = null;
+        const maxRetries = 1;
+        for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+          try {
+            const inputPackage = await buildPdfAgentInputPackage({
+              rootDir,
+              resolved,
+              prepare,
+              crop,
+              options,
+              traceContext: stageTrace,
+              artifactId,
+              parentArtifactId,
+              materialFrameMaps,
+              resolveInsideRoot,
+              safeRelative,
+              now,
+              retryContext,
+            });
+            const turn = await runShotStoryboardPdfTurn({
+              rootDir,
+              threadPool,
+              appServer,
+              activeTurnRuntime,
+              jobStore,
+              jobId: job.jobId,
+              traceContext: stageTrace,
+              artifactId,
+              parentArtifactId,
+              inputPackagePath: inputPackage.inputPackagePath,
+              pdfPath: inputPackage.pdfPath,
+              summaryPath: inputPackage.summaryPath,
+              layoutPath: inputPackage.layoutPath,
+              safeRelative,
+              retryContext,
+            });
+            const validated = await validatePdfAgentOutputs({
+              manifest: prepare.manifest,
+              pdfPath: inputPackage.pdfPath,
+              summaryPath: inputPackage.summaryPath,
+              layoutPath: inputPackage.layoutPath,
+              expectedWarnings: inputPackage.inputPackage.expectedWarnings,
+            });
+            return {
+              ...validated,
+              agent: turn.agent,
+            };
+          } catch (error) {
+            if (attempt >= maxRetries) throw error;
+            retryContext = {
+              attempt: attempt + 1,
+              safeErrorSummary: {
+                code: error?.code ?? "storyboard_prep_pdf_agent_failed",
+                message: normalizeText(error?.message) ?? "PDF agent 失败",
+              },
+              validationFailures: Array.isArray(error?.validationErrors) ? error.validationErrors : [],
+            };
+            jobStore.updateJob(job.jobId, {
+              stage: PDF_STAGE_NAME,
+              status: SAMPLE_STATUS.processing,
+              progress: 88,
+              errorSummary: null,
+            });
           }
-          args.push("--material-frame-map", resolvedMap);
         }
-        const output = await runPythonScript("build_storyboard_pdf.py", args);
-        const parsed = parseJsonStdout(output.stdout, "storyboard_prep_pdf_output_invalid", false);
-        await assertFile(pdfPath, "storyboard_prep_pdf_missing", false);
-        const summaryPath = pdfPath.replace(/\.pdf$/i, ".summary.json");
-        const summary = await readJson(summaryPath).catch(() => parsed);
-        return { parsed, pdfPath, summaryPath, summary };
       },
-      outputSummary: ({ summary }) => ({
+      outputSummary: ({ pdfPath, summaryPath, layoutPath, summary, agent }) => ({
         pdfPath: safeRelative(pdfPath),
+        summaryPath: safeRelative(summaryPath),
+        layoutPath: safeRelative(layoutPath),
         slotCount: summary.slotCount ?? null,
         shotCount: summary.shotCount ?? null,
         warningCount: summary.warnings?.length ?? 0,
+        turnId: agent?.turnId ?? null,
       }),
     });
   }

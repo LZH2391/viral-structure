@@ -185,6 +185,7 @@ function createServer(deps = {}) {
     moduleRegistry: activeModuleRegistry,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
+    activeTurnRuntime: activeActiveTurnRuntime,
   });
   const activeAnalysisRegistry = deps.analysisRegistry ?? createAnalysisRoleRegistry({ moduleRegistry: activeModuleRegistry });
   const activeFullAnalysisWorkflowService = deps.fullAnalysisWorkflowService ?? createFullAnalysisWorkflowService({

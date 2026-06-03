@@ -6,7 +6,7 @@ const { normalizeDisplayForOverlay } = require("./display-overlay-adapter");
 const STAGE_NAME = "function.slot.restructure_display.materialize";
 const INDEX_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json");
 const TRACE_GRAPH_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotRestructure", "_projections", "confirmed-plan-trace.graph.json");
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v13";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v14";
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
 const REQUIRED_KEYS = ["targetAssumption", "slotChain", "atoms", "scriptSegments", "rhythmCurve", "packagingProof"];
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -472,7 +472,7 @@ function pushGraphEdge(edges, planId, source, target, type, label = null) {
 
 function pushAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex) {
   const parsed = parseVariantId(atomVariantId);
-  if (!parsed.sampleId || !parsed.variantKey) return null;
+  if (!parsed.sampleId || !parsed.variantKey || !isAtomVariantKind(parsed.variantKind)) return null;
   pushSourceVariantTrace(nodes, edges, planId, slotNodeId, atomVariantId, aliasMap, sourceIndex);
   return null;
 }
@@ -542,7 +542,7 @@ function pushLegacyAtomTrace(nodes, edges, planId, slotNodeId, atomVariantId, al
 
 function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasMap, sourceIndex) {
   const parsed = parseVariantId(variantId);
-  if (!parsed.sampleId) return;
+  if (!parsed.sampleId || !isAtomVariantKind(parsed.variantKind)) return;
   const variantMeta = sourceIndex.get(`${variantId}::sourceVariant`) ?? {};
   const sourceLabel = firstText(variantMeta.label);
   const shortVariant = variantDisplayLabel(aliasMap, variantId);
@@ -711,33 +711,25 @@ function extractSourceAliasMap(display) {
 function extractAtomSourceRows(display, aliasMap, sourceIndex = new Map()) {
   const rows = [];
   for (const atom of asArray(display?.atoms)) {
-    const direct = firstText(atom.value, atom.atomId, atom.id);
-    if (!direct || !/^[A-Z]::F\d+/i.test(direct)) continue;
-    const slotVariantIds = [expandAliasVariant(direct, aliasMap)].filter(Boolean);
     const atomVariantIds = [];
+    let hasSlotAnchor = false;
     for (const value of Object.values(atom)) {
       const text = firstText(value);
       if (!text) continue;
+      if (/(^|[`'\s])([A-Z])::F\d+/i.test(text)) hasSlotAnchor = true;
       for (const match of text.matchAll(/([A-Z])::(script|rhythm|packaging)::([A-Za-z0-9_-]+)/g)) {
         const sampleId = aliasMap.get(match[1]);
         const variantId = sampleId ? `${sampleId}::${match[2]}::${match[3]}` : null;
         if (variantId && isKnownSourceVariant(variantId, sourceIndex)) atomVariantIds.push(variantId);
       }
     }
-    rows.push({ slotVariantIds, atomVariantIds });
+    if (hasSlotAnchor || atomVariantIds.length) rows.push({ atomVariantIds });
   }
   return rows;
 }
 
 function isKnownSourceVariant(variantId, sourceIndex) {
   return Boolean(sourceIndex.get(`${variantId}::sourceVariant`) || asArray(sourceIndex.get(variantId)).length);
-}
-
-function expandAliasVariant(value, aliasMap) {
-  const match = String(value ?? "").trim().match(/^([A-Z])::(.+)$/);
-  if (!match) return null;
-  const sampleId = aliasMap.get(match[1]);
-  return sampleId ? `${sampleId}::${match[2]}` : null;
 }
 
 function parseVariantId(variantId) {
@@ -747,6 +739,10 @@ function parseVariantId(variantId) {
     variantKind: parts.length > 2 ? parts[1] : "slot",
     variantKey: parts.slice(1).join("::"),
   };
+}
+
+function isAtomVariantKind(kind) {
+  return kind === "script" || kind === "rhythm" || kind === "packaging";
 }
 
 function aliasForSample(aliasMap, sampleId) {

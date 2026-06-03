@@ -372,14 +372,14 @@ function GraphNode({ node, focused, selected, pinnedPreview, showLabel, onHover,
   );
 }
 
-function slotOrderBadge(node: SimNode) {
+export function slotOrderBadge(node: SimNode) {
   if (!isSlotSequenceNode(node)) return null;
   const order = Number(node.data.slotOrder);
   if (!Number.isFinite(order) || order <= 0) return null;
   return order < 10 ? `0${order}` : String(order);
 }
 
-function shouldShowNodeLabel(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
+export function shouldShowNodeLabel(mode: "structure" | "governance" | "planTrace", node: SimNode, zoom: number) {
   if (mode !== "governance") return true;
   if (node.type === "governanceRoot" || node.type === "slotFamily" || node.type === "sourceSample") return true;
   if (zoom < 1.5) return node.type === "slotSubtype";
@@ -415,7 +415,7 @@ function edgeMarkerEnd(type: string, source: SimNode, target: SimNode) {
   return isSlotSequenceEdge(type, source, target) ? "url(#slot-graph-arrow)" : undefined;
 }
 
-function edgeLinePoints(type: string, source: SimNode, target: SimNode) {
+export function edgeLinePoints(type: string, source: SimNode, target: SimNode) {
   if (!isSlotSequenceEdge(type, source, target)) {
     return { x1: source.x, y1: source.y, x2: target.x, y2: target.y };
   }
@@ -441,17 +441,17 @@ function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
     && isSlotSequenceNode(target);
 }
 
-function isSlotSequenceNode(node: SimNode) {
+export function isSlotSequenceNode(node: SimNode) {
   return node.type === "slotInstance" || node.type === "slotSubtype";
 }
 
-function nodeLayerClass(node: SimNode) {
+export function nodeLayerClass(node: SimNode) {
   const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
   if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
   return "";
 }
 
-function edgeLayerClass(source: SimNode, target: SimNode) {
+export function edgeLayerClass(source: SimNode, target: SimNode) {
   const layer = [source, target]
     .map((node) => typeof node.data.layer === "string" ? node.data.layer : node.group)
     .find((value) => value === "script" || value === "rhythm" || value === "packaging");
@@ -472,7 +472,7 @@ function GraphDefinitions() {
   );
 }
 
-function LibraryPreviewPopover({
+export function LibraryPreviewPopover({
   node,
   sampleArtifact,
   position,
@@ -519,7 +519,7 @@ function LibraryPreviewPopover({
   );
 }
 
-function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" }) {
+export function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" }) {
   if (mode === "governance") {
     return (
         <div className="slot-graph-legend">
@@ -552,11 +552,11 @@ function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" 
   );
 }
 
-function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
+export function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
   return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants`;
 }
 
-function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {
+export function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {
   return `${graph.summary.planCount ?? 0} plans / ${graph.summary.slotCount ?? 0} slots / ${graph.summary.atomCount ?? 0} atoms`;
 }
 

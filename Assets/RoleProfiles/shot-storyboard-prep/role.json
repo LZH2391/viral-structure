@@ -1,6 +1,6 @@
 {
   "role": "shot-storyboard-prep",
-  "profileVersion": "2026-05-29.placeholder.1",
+  "profileVersion": "2026-06-03.pdf-agent.1",
   "skillPath": "C:/ByteDanceFullStack/.agents/skills/shot-storyboard-prep/SKILL.md",
   "init": {
     "template": "init.md",
@@ -14,6 +14,10 @@
     "repairTurn": {
       "template": "prompts/repair-storyboard.v1.md",
       "version": "repair-storyboard.v1"
+    },
+    "pdfTurn": {
+      "template": "prompts/pdf-turn.v1.md",
+      "version": "pdf-turn.v1"
     }
   }
 }
