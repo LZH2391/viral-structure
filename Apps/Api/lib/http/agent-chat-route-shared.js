@@ -186,6 +186,7 @@ async function registerAgentChatActiveTurn(handlers, { payload, conversation, me
     parentArtifactId: payload.parentArtifactId ?? sourceTurnId ?? null,
     leaseId: payload.leaseId ?? conversation?.leaseId ?? null,
     threadPoolOwnerId: payload.threadPoolOwnerId ?? conversation?.ownerId ?? null,
+    workspaceRoot: payload.workspaceRoot ?? conversation?.workspaceRoot ?? null,
     replayRef: {
       type: "agent-chat-message",
       refId: `user-${payload.turnId}`,

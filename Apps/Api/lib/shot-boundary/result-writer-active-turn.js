@@ -69,6 +69,7 @@ async function startTurn({ appServer, activeTurnRuntime, workspaceRoot, threadId
   if (typeof activeTurnRuntime?.register === "function" && result?.turnId && binding) {
     await activeTurnRuntime.register({
       ...binding,
+      workspaceRoot,
       threadId: result.threadId ?? threadId,
       turnId: result.turnId,
       currentAttemptId: binding.currentAttemptId ?? result.turnId,
@@ -134,6 +135,7 @@ function buildActiveTurnBinding({ context, lease, stageName, role, prompt, sourc
     parentArtifactId: parentArtifactId ?? null,
     leaseId: lease?.lease_id ?? null,
     threadPoolOwnerId: `${context?.traceContext?.traceId ?? ownerId}:transform`,
+    workspaceRoot: context?.roleProfile?.workspaceRoot ?? context?.rawWorkspaceRoot ?? null,
     replayRef: {
       type: "processing-job-input",
       refId: ownerId,

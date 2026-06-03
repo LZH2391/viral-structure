@@ -17,6 +17,7 @@ test("active turn store lists only running bindings and redacts replay text", as
       currentAttemptId: "turn_running",
       stageName: "agentChat.turn.submit",
       replayRef: { type: "text", text: "run C:\\secret\\prompt.txt please" },
+      workspaceRoot: "C:\\workspace",
       status: "submitted",
     });
     await store.upsert({
@@ -33,6 +34,7 @@ test("active turn store lists only running bindings and redacts replay text", as
     const active = await store.listActive();
     assert.equal(active.length, 1);
     assert.equal(active[0].turnId, "turn_running");
+    assert.equal(active[0].workspaceRoot, "C:\\workspace");
     assert.equal(active[0].replayRef.textSummary.preview.includes("secret"), false);
     assert.equal(await store.getByTurnId("turn_done"), null);
   } finally {

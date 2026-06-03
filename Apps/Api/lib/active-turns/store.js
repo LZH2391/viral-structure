@@ -158,6 +158,7 @@ function normalizeBinding(value) {
     parentArtifactId: normalizeText(value.parentArtifactId),
     leaseId: normalizeText(value.leaseId),
     threadPoolOwnerId: normalizeText(value.threadPoolOwnerId),
+    workspaceRoot: normalizeText(value.workspaceRoot),
     replayRef,
     status: normalizeTurnStatus(value.status),
     activeThreadMessageSummary: summarizeText(value.activeThreadMessageSummary ?? value.activeThreadMessage),
@@ -215,6 +216,7 @@ function toSafeBinding(binding) {
     parentArtifactId: binding.parentArtifactId,
     leaseId: binding.leaseId,
     threadPoolOwnerId: binding.threadPoolOwnerId,
+    workspaceRoot: binding.workspaceRoot,
     replayRef: {
       type: binding.replayRef?.type ?? null,
       sourceTurnId: binding.replayRef?.sourceTurnId ?? null,

@@ -27,6 +27,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     if (binding && turnId) {
       await register({
         ...binding,
+        workspaceRoot,
         threadId,
         turnId,
         currentAttemptId: binding.currentAttemptId ?? turnId,
@@ -156,6 +157,74 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     return removed;
   }
 
+  async function recoverActiveBindings({ workspaceRoot = null, timeoutSeconds = 5, traceContext = null } = {}) {
+    if (!bindingStore.listActiveBindings) return { checked: 0, collected: 0, canceled: 0, kept: 0, removed: 0, failed: 0 };
+    const activeBindings = await bindingStore.listActiveBindings();
+    const summary = { checked: activeBindings.length, collected: 0, canceled: 0, kept: 0, removed: 0, failed: 0 };
+    for (const binding of activeBindings) {
+      const validation = await validateBindingForRecovery(binding);
+      if (validation?.ok === false) {
+        await bindingStore.removeByTurnId(binding.turnId);
+        summary.removed += 1;
+        continue;
+      }
+      const activeWorkspaceRoot = binding.workspaceRoot ?? workspaceRoot;
+      try {
+        const result = await collect({
+          workspaceRoot: activeWorkspaceRoot,
+          threadId: binding.threadId,
+          turnId: binding.turnId,
+          timeoutSeconds,
+          traceContext: traceContext ?? buildRecoveryTraceContext(binding),
+        });
+        if (isTerminalTurnStatus(result?.status)) summary.collected += 1;
+        else summary.kept += 1;
+      } catch (error) {
+        if (isIdempotentCancelError(`${error?.code ?? ""} ${error?.message ?? ""}`)) {
+          await markRecoveredCanceled(binding, error, traceContext);
+          summary.canceled += 1;
+          continue;
+        }
+        summary.failed += 1;
+      }
+    }
+    return summary;
+  }
+
+  async function validateBindingForRecovery(binding) {
+    if (!ownerHandlers?.validateActiveBinding) return { ok: true };
+    return ownerHandlers.validateActiveBinding(binding).catch((error) => ({
+      ok: false,
+      reason: "owner_validation_failed",
+      code: error?.code ?? null,
+    }));
+  }
+
+  async function markRecoveredCanceled(binding, error, traceContext = null) {
+    const result = {
+      ok: true,
+      threadId: binding.threadId,
+      turnId: binding.turnId,
+      status: "canceled",
+      cancelWarning: summarizeCancelError(error),
+      recoveredBy: "active_turn_startup_recovery",
+    };
+    const nextTrace = traceContext ?? buildRecoveryTraceContext(binding);
+    const marked = await bindingStore.markStatus({ turnId: binding.turnId, status: "canceled", result, traceContext: nextTrace });
+    await ownerHandlers?.onCancel?.(marked ?? binding, result);
+    await bindingStore.removeByTurnId(binding.turnId);
+    return result;
+  }
+
+  function buildRecoveryTraceContext(binding) {
+    const runId = binding.runId ?? `active_turn_recover_${Date.now()}`;
+    return {
+      runId,
+      traceId: binding.traceId ?? runId,
+      stageId: `stage_active_turn_recover_${Date.now()}`,
+    };
+  }
+
   return {
     store: bindingStore,
     register,
@@ -165,6 +234,7 @@ function createActiveTurnRuntime({ store, activeTurnStore = null, appServer = nu
     cancel,
     listActive,
     reconcileActiveBindings,
+    recoverActiveBindings,
     getByTurnId,
     getByBindingId,
   };

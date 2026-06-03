@@ -233,6 +233,76 @@ test("runtime keeps active binding when terminal collect activity regresses", as
   }
 });
 
+test("runtime startup recovery collects terminal turns, cancels missing turns, and keeps running turns", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-startup-recovery-"));
+  const store = { runtimeRoot: path.join(root, "Runtime") };
+  const collectCalls = [];
+  const ownerCalls = [];
+  try {
+    const runtime = createActiveTurnRuntime({
+      store,
+      appServer: {
+        collectTurnResult: async (payload) => {
+          collectCalls.push(payload);
+          if (payload.turnId === "turn_completed") return { status: "completed", threadId: payload.threadId, turnId: payload.turnId, finalMessage: "done" };
+          if (payload.turnId === "turn_missing") throw new Error("unknown turn");
+          return { status: "running", threadId: payload.threadId, turnId: payload.turnId };
+        },
+      },
+      ownerHandlers: {
+        validateActiveBinding: async () => ({ ok: true }),
+        onCollect: async (binding, result) => ownerCalls.push({ type: "collect", turnId: binding.turnId, status: result.status }),
+        onCancel: async (binding, result) => ownerCalls.push({ type: "cancel", turnId: binding.turnId, status: result.status }),
+      },
+    });
+    await runtime.register({
+      workspaceRoot: "C:\\role-workspace",
+      threadId: "thread_completed",
+      turnId: "turn_completed",
+      ownerType: "agent-chat",
+      ownerId: "conversation_completed",
+      currentAttemptId: "turn_completed",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_completed" },
+      status: "running",
+    });
+    await runtime.register({
+      threadId: "thread_missing",
+      turnId: "turn_missing",
+      ownerType: "agent-chat",
+      ownerId: "conversation_missing",
+      currentAttemptId: "turn_missing",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_missing" },
+      status: "running",
+    });
+    await runtime.register({
+      threadId: "thread_running",
+      turnId: "turn_running",
+      ownerType: "agent-chat",
+      ownerId: "conversation_running",
+      currentAttemptId: "turn_running",
+      stageName: "agentChat.turn.submit",
+      replayRef: { type: "agent-chat-message", refId: "user-turn_running" },
+      status: "running",
+    });
+
+    const summary = await runtime.recoverActiveBindings({ workspaceRoot: root, timeoutSeconds: 2 });
+    const active = await runtime.listActive();
+
+    assert.deepEqual(summary, { checked: 3, collected: 1, canceled: 1, kept: 1, removed: 0, failed: 0 });
+    assert.deepEqual(active.map((binding) => binding.turnId), ["turn_running"]);
+    assert.equal(collectCalls.find((call) => call.turnId === "turn_completed").workspaceRoot, "C:\\role-workspace");
+    const byCallKey = (a, b) => `${a.type}:${a.turnId}`.localeCompare(`${b.type}:${b.turnId}`);
+    assert.deepEqual([...ownerCalls].sort(byCallKey), [
+      { type: "collect", turnId: "turn_completed", status: "completed" },
+      { type: "cancel", turnId: "turn_missing", status: "canceled" },
+    ].sort(byCallKey));
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("runtime cancel falls back to terminal collect when appserver cancel errors", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-active-turn-cancel-terminal-"));
   const store = { runtimeRoot: path.join(root, "Runtime") };

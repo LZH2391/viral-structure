@@ -346,12 +346,19 @@ const server = createServer();
 async function initializeServerRuntime(runtime = {}) {
   const activeStore = runtime.store ?? store;
   const activeShotBoundaryService = runtime.shotBoundaryService ?? shotBoundaryService;
+  const activeRuntime = runtime.activeTurnRuntime ?? activeTurnRuntime;
   await activeStore.ensureRuntimeDirs();
   if (typeof activeShotBoundaryService.interruptActiveAgentRuns === "function") {
     await activeShotBoundaryService.interruptActiveAgentRuns("server-startup");
-    return;
+  } else {
+    await activeShotBoundaryService.recoverActiveAgentRuns();
   }
-  await activeShotBoundaryService.recoverActiveAgentRuns();
+  if (typeof activeRuntime?.recoverActiveBindings === "function") {
+    await activeRuntime.recoverActiveBindings({
+      workspaceRoot: rootDir,
+      timeoutSeconds: 5,
+    }).catch(() => undefined);
+  }
 }
 
 async function handleUpload(req, res, url, handlers = {}) {

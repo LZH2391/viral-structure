@@ -271,6 +271,7 @@ function buildExecutorBinding(payload, context) {
     parentArtifactId: payload.parentArtifactId ?? null,
     leaseId: payload.leaseId ?? payload.inputSummary?.leaseId ?? null,
     threadPoolOwnerId: payload.threadPoolOwnerId ?? payload.inputSummary?.ownerId ?? null,
+    workspaceRoot: payload.workspaceRoot ?? null,
     replayRef: payload.replayRef ?? buildExecutorReplayRef(payload, resultPlaceholder),
   };
 }
