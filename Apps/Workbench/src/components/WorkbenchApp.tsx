@@ -20,6 +20,7 @@ import { ActiveTurnsApp } from "./ActiveTurnsApp";
 import { AgentChatApp } from "./AgentChatApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
+import { NewUiApp } from "./NewUiApp";
 import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
 import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
@@ -48,6 +49,7 @@ export function WorkbenchApp() {
   const [propertyPanelTab, setPropertyPanelTab] = useState<PropertyPanelTab>("shot");
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
+    "new-ui": initialViewFromPath() === "new-ui",
     "full-analysis": initialViewFromPath() === "full-analysis",
     "material-recognition": initialViewFromPath() === "material-recognition",
     library: initialViewFromPath() === "library",
@@ -477,7 +479,8 @@ export function WorkbenchApp() {
   } : null;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${activeView === "new-ui" ? "new-ui-active" : ""}`}>
+      {activeView !== "new-ui" ? (
       <header className="topbar">
         <div className="project-block">
           <div className="project-name">结构迁移工作台</div>
@@ -487,32 +490,36 @@ export function WorkbenchApp() {
         </div>
         <RunStatusBar label={runStatus.label} backendTraceId={state.processingJob?.traceId ?? runStatus.backendTraceId} uiTraceId={state.uiTraceId} stageId={runStatus.stageId} />
         <div className="top-actions">
-          <button className={`tab-button ${activeView === "workspace" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
-            工作台
-          </button>
-          <button className={`tab-button ${activeView === "full-analysis" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("full-analysis", setActiveView)}>
-            完整分析
-          </button>
-          <button className={`tab-button ${activeView === "material-recognition" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("material-recognition", setActiveView)}>
-            素材识别
-          </button>
-          <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
-            处理库
-          </button>
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/function-slot-graph")}>
-            结构图谱
-          </button>
-          <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
-            ThreadPool
-          </button>
-          <button className={`tab-button ${activeView === "active-turns" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("active-turns", setActiveView)}>
-            运行面板
-          </button>
-          <button className={`tab-button ${activeView === "agent-chat" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("agent-chat", setActiveView)}>
-            Agent 对话
-          </button>
+            <button className={`tab-button ${activeView === "workspace" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
+              工作台
+            </button>
+            <button className={`tab-button ${activeView === "full-analysis" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("full-analysis", setActiveView)}>
+              完整分析
+            </button>
+            <button className={`tab-button ${activeView === "material-recognition" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("material-recognition", setActiveView)}>
+              素材识别
+            </button>
+            <button className={`tab-button ${activeView === "library" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("library", setActiveView)}>
+              处理库
+            </button>
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/function-slot-graph")}>
+              结构图谱
+            </button>
+            <button className={`tab-button ${activeView === "threadpool" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("threadpool", setActiveView)}>
+              ThreadPool
+            </button>
+            <button className={`tab-button ${activeView === "active-turns" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("active-turns", setActiveView)}>
+              运行面板
+            </button>
+            <button className={`tab-button ${activeView === "agent-chat" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("agent-chat", setActiveView)}>
+              Agent 对话
+            </button>
+            <button className="tab-button" type="button" onClick={() => setWorkbenchView("new-ui", setActiveView)}>
+              新 UI
+            </button>
         </div>
       </header>
+      ) : null}
       <WorkbenchWorkspaceView
         state={state}
         dispatch={dispatch}
@@ -564,6 +571,14 @@ export function WorkbenchApp() {
         handleUserMaterialTagger={handleUserMaterialTagger}
         handleFunctionSlotManualBoundaryEdit={handleFunctionSlotManualBoundaryEdit}
       />
+      {mountedViews["new-ui"] ? (
+        <section className={`view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "new-ui"}>
+          <button className="new-ui-view-toggle" type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
+            旧 UI
+          </button>
+          <NewUiApp />
+        </section>
+      ) : null}
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
           <FullAnalysisApp embedded activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />

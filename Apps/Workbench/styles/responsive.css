@@ -33,6 +33,12 @@
     padding: 10px 12px;
   }
 
+  .new-ui-bookmark-toggle {
+    align-self: flex-start;
+    height: 48px;
+    margin-left: -12px;
+  }
+
   .workspace-grid {
     grid-template-areas:
       "resource"

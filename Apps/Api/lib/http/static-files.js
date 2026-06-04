@@ -30,6 +30,7 @@ function resolveWorkbenchPath(workbenchRoot, pathname) {
 
 function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
+  if (pathname === "/new-ui" || pathname === "/new-ui/") return "index.html";
   if (pathname === "/threadpool" || pathname === "/threadpool/") return "index.html";
   if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "index.html";
   if (pathname === "/material-recognition" || pathname === "/material-recognition/") return "index.html";

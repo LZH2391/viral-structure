@@ -1,7 +1,8 @@
-export type WorkbenchView = "workspace" | "full-analysis" | "material-recognition" | "library" | "threadpool" | "active-turns" | "agent-chat";
+export type WorkbenchView = "workspace" | "new-ui" | "full-analysis" | "material-recognition" | "library" | "threadpool" | "active-turns" | "agent-chat";
 
 export function initialViewFromPath(): WorkbenchView {
   const pathname = window.location.pathname.replace(/\/+$/, "");
+  if (pathname === "/new-ui") return "new-ui";
   if (pathname === "/full-analysis") return "full-analysis";
   if (pathname === "/material-recognition") return "material-recognition";
   if (pathname === "/library") return "library";

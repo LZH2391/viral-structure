@@ -1,0 +1,4 @@
+interface:
+  display_name: "新 UI 后端导航"
+  short_description: "快速定位新 UI 所需平台 API、旧接口和后端代码位置"
+  default_prompt: "用新 UI 后端导航 skill 帮我定位这个 UI 能力应该调哪个接口、看哪些后端文件、怎么验证。"
