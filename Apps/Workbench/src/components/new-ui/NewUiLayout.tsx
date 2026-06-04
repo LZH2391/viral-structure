@@ -131,7 +131,6 @@ function PaneHeader({ collapsed, side, onToggle }: PaneHeaderProps) {
         <span className="new-ui-pane-toggle-icon" aria-hidden="true">
           <span className="new-ui-pane-toggle-panel" />
           <span className="new-ui-pane-toggle-rail" />
-          <span className="new-ui-pane-toggle-arrow" />
         </span>
       </button>
     </header>

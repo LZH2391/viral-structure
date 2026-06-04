@@ -131,6 +131,11 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(preferences, /window\.localStorage\.setItem\(NEW_UI_THEME_STORAGE_KEY, theme\)/);
   assert.match(app, /useState<NewUiTheme>\(\(\) => readNewUiThemePreference\(\)\)/);
   assert.match(app, /writeNewUiThemePreference\(newUiTheme\)/);
+  assert.match(app, /const switchWorkbenchView = useCallback/);
+  assert.match(app, /setWorkbenchView\(view, setActiveView\)/);
+  assert.doesNotMatch(app, /WorkbenchRouteTransitionLayer/);
+  assert.doesNotMatch(app, /viewTransition/);
+  assert.doesNotMatch(app, /WORKBENCH_VIEW_TRANSITION/);
   assert.match(newUi, /import type \{ NewUiTheme \} from "\.\.\/utils\/workbenchPreferences"/);
   assert.match(newUi, /import \{ NewUiLayout \} from "\.\/new-ui\/NewUiLayout"/);
   assert.match(newUi, /<NewUiLayout theme=\{theme\} onThemeChange=\{onThemeChange\} onLeftCollapsedChange=\{onLeftCollapsedChange\} \/>/);
@@ -143,6 +148,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiThemeCss, /--new-ui-theme-light-surface:/);
   assert.match(newUiCss, /background: var\(--new-ui-bg\)/);
   assert.match(newUiCss, /background: var\(--new-ui-control-bg\)/);
+  assert.doesNotMatch(newUiCss, /\.page-curl-route-transition/);
   assert.doesNotMatch(newUiCss, /--new-ui-gray-/);
   assert.match(newUiLayout, /useResizableThreePaneLayout/);
   assert.match(newUiLayout, /storageKey: "new-ui:three-pane-layout"/);

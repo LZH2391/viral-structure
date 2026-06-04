@@ -471,6 +471,11 @@ export function WorkbenchApp() {
     setWorkbenchView("workspace", setActiveView);
   }, []);
 
+  const switchWorkbenchView = useCallback((view: WorkbenchView) => {
+    if (view === activeView) return;
+    setWorkbenchView(view, setActiveView);
+  }, [activeView]);
+
   const fileLabel = state.isUploadingSample
     ? `${state.uploadStatusText ?? "处理中"} ${state.processingJob ? `${state.processingJob.progress}%` : ""}`.trim()
     : state.sampleVideo?.fileName ?? "未选择文件";
@@ -491,7 +496,7 @@ export function WorkbenchApp() {
     <div className={`app-shell ${activeView === "new-ui" ? "new-ui-active" : ""}`}>
       {activeView !== "new-ui" ? (
         <div className="legacy-view-toggle-layer">
-          <PageCurlViewToggle label="新 UI" ariaLabel="切换到新 UI" className={`from-legacy ${newUiThemeClass}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("new-ui", setActiveView)} />
+          <PageCurlViewToggle label="新 UI" ariaLabel="切换到新 UI" className={`from-legacy ${newUiThemeClass}`} redrawKey={newUiTheme} onClick={() => switchWorkbenchView("new-ui")} />
         </div>
       ) : null}
       {activeView !== "new-ui" ? (
@@ -528,7 +533,7 @@ export function WorkbenchApp() {
             <button className={`tab-button ${activeView === "agent-chat" ? "active" : ""}`} type="button" onClick={() => setWorkbenchView("agent-chat", setActiveView)}>
               Agent 对话
             </button>
-            <button className="tab-button" type="button" onClick={() => setWorkbenchView("new-ui", setActiveView)}>
+            <button className="tab-button" type="button" onClick={() => switchWorkbenchView("new-ui")}>
               新 UI
             </button>
         </div>
@@ -588,7 +593,7 @@ export function WorkbenchApp() {
       {mountedViews["new-ui"] ? (
         <section className={`view-shell new-ui-view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"} ${newUiLeftCollapsed ? "is-left-pane-collapsed" : ""}`} aria-hidden={activeView !== "new-ui"}>
           {newUiLeftCollapsed ? null : (
-            <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("workspace", setActiveView)} />
+            <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => switchWorkbenchView("workspace")} />
           )}
           <NewUiApp theme={newUiTheme} onThemeChange={setNewUiTheme} onLeftCollapsedChange={setNewUiLeftCollapsed} />
         </section>

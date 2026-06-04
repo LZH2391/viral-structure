@@ -40,6 +40,7 @@
 }
 
 .new-ui-pane-left {
+  position: relative;
   grid-template-rows: 56px minmax(0, 1fr) 76px;
 }
 
@@ -63,9 +64,9 @@
 
 .new-ui-pane-toggle {
   pointer-events: auto;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   border: 1px solid var(--new-ui-border);
   border-radius: 8px;
   background: transparent;
@@ -96,13 +97,12 @@
 
 .new-ui-pane-toggle-icon {
   position: relative;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .new-ui-pane-toggle-panel,
-.new-ui-pane-toggle-rail,
-.new-ui-pane-toggle-arrow {
+.new-ui-pane-toggle-rail {
   position: absolute;
   display: block;
   transition:
@@ -111,55 +111,53 @@
 }
 
 .new-ui-pane-toggle-panel {
-  inset: 3px 2px 3px 5px;
+  inset: 3px;
   border: 1.5px solid currentColor;
-  border-left-width: 4px;
-  border-radius: 3px;
+  border-left-width: 5px;
+  border-radius: 4px;
 }
 
 .new-ui-pane-toggle-rail {
-  top: 5px;
-  bottom: 5px;
-  left: 5px;
-  width: 1.5px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.66;
-}
-
-.new-ui-pane-toggle-arrow {
   top: 6px;
-  right: -2px;
-  width: 7px;
-  height: 7px;
-  border-top: 1.8px solid currentColor;
-  border-right: 1.8px solid currentColor;
-  transform: rotate(-135deg);
+  bottom: 6px;
+  left: 7.5px;
+  width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.45;
 }
 
 .new-ui-pane-toggle-right .new-ui-pane-toggle-panel {
-  inset: 3px 5px 3px 2px;
+  inset: 3px;
   border-right-width: 4px;
   border-left-width: 1.5px;
 }
 
 .new-ui-pane-toggle-right .new-ui-pane-toggle-rail {
-  right: 5px;
+  right: 7.5px;
   left: auto;
 }
 
-.new-ui-pane-toggle-right .new-ui-pane-toggle-arrow {
+.new-ui-pane-toggle.is-collapsed .new-ui-pane-toggle-panel {
+  inset: 3px 6.5px;
+  border-width: 1.5px;
+  border-radius: 4px;
+  transform: none;
+}
+
+.new-ui-pane-toggle.is-collapsed .new-ui-pane-toggle-rail {
+  top: 5px;
+  bottom: 5px;
+  left: 9px;
   right: auto;
-  left: -2px;
-  transform: rotate(45deg);
+  width: 2px;
+  opacity: 0.75;
+  transform: none;
 }
 
-.new-ui-pane-toggle-left.is-collapsed .new-ui-pane-toggle-arrow {
-  transform: translateX(3px) rotate(45deg);
-}
-
-.new-ui-pane-toggle-right.is-collapsed .new-ui-pane-toggle-arrow {
-  transform: translateX(-3px) rotate(-135deg);
+.new-ui-pane-toggle-right.is-collapsed .new-ui-pane-toggle-rail {
+  right: 9px;
+  left: auto;
 }
 
 .new-ui-pane-body {
@@ -204,24 +202,22 @@
 }
 
 .new-ui-pane-theme {
-  position: relative;
+  position: absolute;
+  left: 5px;
+  bottom: 16px;
   z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
-  padding: 12px 14px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   pointer-events: none;
-  transition: padding 220ms ease;
+  transition: none;
 }
 
 .new-ui-pane-theme .new-ui-theme-toggle {
   pointer-events: auto;
-}
-
-.new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-theme {
-  justify-content: center;
-  padding: 12px 0;
 }
 
 .new-ui-resize-handle {
@@ -307,7 +303,6 @@
   .new-ui-pane-toggle,
   .new-ui-pane-toggle-panel,
   .new-ui-pane-toggle-rail,
-  .new-ui-pane-toggle-arrow,
   .new-ui-pane-body,
   .new-ui-pane-theme,
   .new-ui-resize-handle::before,
