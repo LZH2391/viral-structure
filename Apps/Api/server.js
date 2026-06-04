@@ -18,6 +18,10 @@ const { createCodexRolloutReader } = require("./lib/observability/codex-rollout-
 const { readJsonBody, ingestUiDebugEvent } = require("./lib/observability/ui-debug-events");
 const { recordApiRequestFailure } = require("./lib/observability/api-request-debug");
 const { readCapabilities } = require("./lib/http/capabilities");
+const { handlePlatformRoute } = require("./lib/http/platform-routes");
+const { platformErrorBody } = require("./lib/http/platform-errors");
+const { handleLibraryDeleteCache, handleLibraryItem, handleLibraryItems, handleLibraryLoad } = require("./lib/http/library-routes");
+const { handleDebugTraceDetail, handleDebugTraces, handleUiDebugEvent } = require("./lib/http/debug-routes");
 const { createThreadPoolProxy } = require("./lib/gateways/threadpool/proxy");
 const { createShotBoundaryService } = require("./lib/shot-boundary/service");
 const { createAppServerBridge } = require("./lib/gateways/appserver/bridge");
@@ -45,6 +49,8 @@ const { createFunctionSlotReplacementCandidateService } = require("./lib/functio
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 const { createRestructureDisplayOverlayService } = require("./lib/function-slot-workflow/display-overlay-service");
 const { createShotStoryboardAutoPipelineService } = require("./lib/agent-chat/shot-storyboard-auto-pipeline");
+const { initializeServerRuntime: initializeServerRuntimeImpl } = require("./lib/server-runtime");
+const { createPlatformHandlers } = require("./lib/platform/factory");
 
 const rootDir = path.resolve(__dirname, "../..");
 const port = Number(process.env.PORT || 5177);
@@ -216,6 +222,20 @@ function createServer(deps = {}) {
     runtimeRoot: activeStore.runtimeRoot,
     logger: activeLogger,
   });
+  const activePlatformHandlers = createPlatformHandlers({
+    deps,
+    store: activeStore,
+    rootDir: activeRootDir ?? rootDir,
+    artifactIndex: activeArtifactIndex,
+    workflowRunStore: activeWorkflowRunStore,
+    jobStore: activeJobStore,
+    activeTurnRuntime: activeActiveTurnRuntime,
+    agentConversationStore: activeAgentConversationStore,
+    moduleRegistry: activeModuleRegistry,
+    fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
+    materialRecognitionWorkflowService: activeMaterialRecognitionWorkflowService,
+    shotBoundaryService: activeShotBoundaryService,
+  });
   const handlers = {
     logger: activeLogger,
     store: activeStore,
@@ -223,6 +243,7 @@ function createServer(deps = {}) {
     workflowRunStore: activeWorkflowRunStore,
     agentConversationStore: activeAgentConversationStore,
     artifactIndex: activeArtifactIndex,
+    ...activePlatformHandlers,
     service: activeSampleService,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
@@ -256,10 +277,12 @@ function createServer(deps = {}) {
   };
 
   const apiServer = http.createServer(async (req, res) => {
+    let url = null;
     try {
       if (req.method === "OPTIONS") return sendJson(res, 200, {});
-      const url = new URL(req.url, `http://${req.headers.host}`);
+      url = new URL(req.url, `http://${req.headers.host}`);
       if (req.method === "GET" && url.pathname === "/api/capabilities") return await handleCapabilities(res, handlers);
+      if (await handlePlatformRoute(req, res, url, handlers)) return undefined;
       if (req.method === "GET" && url.pathname === "/api/active-turns") return await handleActiveTurnsList(res, handlers, url);
       if (req.method === "POST" && /^\/api\/active-turns\/[^/]+\/stop$/.test(url.pathname)) return await handleActiveTurnStop(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/active-turns\/[^/]+\/stop-thread$/.test(url.pathname)) return await handleActiveTurnStopThread(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
@@ -316,6 +339,17 @@ function createServer(deps = {}) {
       return notFound(res);
     } catch (error) {
       const failure = await handlers.recordApiRequestFailureImpl(handlers.logger, req, error).catch(() => null);
+      if (url?.pathname?.startsWith("/api/platform/v1/")) {
+        const statusCode = error.statusCode ?? 500;
+        return sendJson(res, statusCode, platformErrorBody({
+          code: error.code ?? (statusCode === 400 ? "bad_request" : "platform_request_failed"),
+          message: statusCode >= 500 ? "平台请求处理失败" : error.message,
+          retryable: typeof error.retryable === "boolean" ? error.retryable : statusCode >= 500,
+          traceId: error.traceId ?? failure?.traceContext?.traceId ?? null,
+          debugSnapshotUri: error.debugSnapshotUri ?? failure?.snapshot?.uri ?? null,
+          stageName: error.stageName ?? failure?.errorSummary?.stageName ?? null,
+        }));
+      }
       if (error.statusCode) {
         return sendJson(res, error.statusCode, {
           error: error.code ?? (error.statusCode === 400 ? "bad_request" : "request_failed"),
@@ -349,21 +383,7 @@ function createServer(deps = {}) {
 const server = createServer();
 
 async function initializeServerRuntime(runtime = {}) {
-  const activeStore = runtime.store ?? store;
-  const activeShotBoundaryService = runtime.shotBoundaryService ?? shotBoundaryService;
-  const activeRuntime = runtime.activeTurnRuntime ?? activeTurnRuntime;
-  await activeStore.ensureRuntimeDirs();
-  if (typeof activeShotBoundaryService.interruptActiveAgentRuns === "function") {
-    await activeShotBoundaryService.interruptActiveAgentRuns("server-startup");
-  } else {
-    await activeShotBoundaryService.recoverActiveAgentRuns();
-  }
-  if (typeof activeRuntime?.recoverActiveBindings === "function") {
-    await activeRuntime.recoverActiveBindings({
-      workspaceRoot: rootDir,
-      timeoutSeconds: 5,
-    }).catch(() => undefined);
-  }
+  return initializeServerRuntimeImpl({ store: runtime.store ?? store, shotBoundaryService: runtime.shotBoundaryService ?? shotBoundaryService, activeTurnRuntime: runtime.activeTurnRuntime ?? activeTurnRuntime, rootDir: runtime.rootDir ?? rootDir });
 }
 
 async function handleUpload(req, res, url, handlers = {}) {
@@ -466,50 +486,6 @@ function inferCacheKindFromJob(job) {
   const stage = String(job?.stage ?? "");
   if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
   return null;
-}
-
-async function handleLibraryItems(res, handlers = {}) {
-  return sendJson(res, 200, { items: await (handlers.artifactIndex ?? artifactIndex).listItems() });
-}
-
-async function handleLibraryItem(res, sampleVideoId, handlers = {}) {
-  const item = await (handlers.artifactIndex ?? artifactIndex).getItem(sampleVideoId);
-  if (!item) return notFound(res);
-  return sendJson(res, 200, item);
-}
-
-async function handleLibraryLoad(res, sampleVideoId, handlers = {}) {
-  const artifact = await (handlers.artifactIndex ?? artifactIndex).loadItem(sampleVideoId);
-  if (!artifact) return notFound(res);
-  return sendJson(res, 200, { sampleArtifact: artifact });
-}
-
-async function handleLibraryDeleteCache(res, sampleVideoId, handlers = {}) {
-  const activeArtifactIndex = handlers.artifactIndex ?? artifactIndex;
-  const activeStore = handlers.store ?? store;
-  const result = await activeArtifactIndex.deleteCacheForItem(sampleVideoId);
-  if (!result) return notFound(res);
-  for (const removedId of result.removedSampleVideoIds) {
-    await fs.promises.rm(activeStore.sampleDir(removedId), { recursive: true, force: true }).catch(() => undefined);
-  }
-  return sendJson(res, 200, { ok: true, ...result });
-}
-
-async function handleDebugTraces(res, handlers = {}) {
-  const activeStore = handlers.store ?? store;
-  return sendJson(res, 200, await (handlers.readDebugTracesImpl ?? readDebugTraces)(activeStore.runtimeRoot));
-}
-
-async function handleUiDebugEvent(req, res, handlers = {}) {
-  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req);
-  return sendJson(res, 200, await (handlers.ingestUiDebugEventImpl ?? ingestUiDebugEvent)(handlers.logger ?? logger, body));
-}
-
-async function handleDebugTraceDetail(res, traceId, handlers = {}) {
-  const activeStore = handlers.store ?? store;
-  const trace = await (handlers.readDebugTraceDetailImpl ?? readDebugTraceDetail)(activeStore.runtimeRoot, traceId);
-  if (!trace) return notFound(res);
-  return sendJson(res, 200, trace);
 }
 
 if (require.main === module) {

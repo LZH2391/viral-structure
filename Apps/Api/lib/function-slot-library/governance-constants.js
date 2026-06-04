@@ -4,6 +4,8 @@ const ROLE = "function-slot-library-builder";
 const SAMPLE_VIDEO_ID = "function-slot-library";
 const ARTIFACT_TYPE = "function-slot-semantic-governance";
 const GOVERNANCE_RELATIVE_PATH = "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json";
+const GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH = "Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json";
+const GOVERNANCE_MATERIALIZED_RELATIVE_PATH = "Runtime/Temp/FunctionSlotLibrary/semantic-governance.materialized.json";
 const SLOT_INDEX_RELATIVE_PATH = "Runtime/Temp/FunctionSlotLibrary/slot_index.json";
 const VALIDATION_RELATIVE_PATH = "Runtime/Temp/FunctionSlotLibrary/validation.json";
 const STAGES = {
@@ -21,6 +23,8 @@ module.exports = {
   SAMPLE_VIDEO_ID,
   ARTIFACT_TYPE,
   GOVERNANCE_RELATIVE_PATH,
+  GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH,
+  GOVERNANCE_MATERIALIZED_RELATIVE_PATH,
   SLOT_INDEX_RELATIVE_PATH,
   VALIDATION_RELATIVE_PATH,
   STAGES,

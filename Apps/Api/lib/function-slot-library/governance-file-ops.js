@@ -2,6 +2,8 @@ const fs = require("fs/promises");
 const path = require("path");
 const {
   ARTIFACT_TYPE,
+  GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH,
+  GOVERNANCE_MATERIALIZED_RELATIVE_PATH,
   GOVERNANCE_RELATIVE_PATH,
   SLOT_INDEX_RELATIVE_PATH,
   STAGES,
@@ -15,6 +17,13 @@ const {
   safePreview,
   writeJson,
 } = require("./governance-utils");
+const { writeGovernanceLookupIndex } = require("./governance-lookup-index");
+const {
+  readGovernanceFile,
+  readGovernanceFileSnapshot,
+  restoreGovernanceFileSnapshot,
+  writeSplitGovernanceFile,
+} = require("./governance-store");
 
 function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir }) {
   async function refreshEvidence() {
@@ -32,11 +41,13 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
   async function prepareGovernanceInput() {
     const governancePath = path.join(rootDir, GOVERNANCE_RELATIVE_PATH);
     const slotIndexPath = path.join(rootDir, SLOT_INDEX_RELATIVE_PATH);
-    const [governance, slotIndex] = await Promise.all([readJson(governancePath), readJson(slotIndexPath)]);
+    const [governance, slotIndex] = await Promise.all([readGovernanceFile(governancePath), readJson(slotIndexPath)]);
+    await writeJson(path.join(rootDir, GOVERNANCE_MATERIALIZED_RELATIVE_PATH), governance);
     return {
       governance,
       slotIndex,
       governancePath: GOVERNANCE_RELATIVE_PATH,
+      materializedGovernancePath: GOVERNANCE_MATERIALIZED_RELATIVE_PATH,
       slotIndexPath: SLOT_INDEX_RELATIVE_PATH,
       semanticProtocolPath: relativeReference("semantic-governance-protocol.md"),
       atomBindingRuleProtocolPath: relativeReference("atom-binding-rule-governance.md"),
@@ -44,17 +55,16 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
     };
   }
 
-  async function readGovernanceText() {
-    return fs.readFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), "utf8");
+  async function readGovernanceSnapshot() {
+    return readGovernanceFileSnapshot(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
   }
 
   async function readGovernanceObject() {
-    return readJson(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
+    return readGovernanceFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
   }
 
-  async function restoreGovernanceText(text) {
-    if (text == null) return;
-    await fs.writeFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), text, "utf8");
+  async function restoreGovernanceSnapshot(snapshot) {
+    await restoreGovernanceFileSnapshot(snapshot);
   }
 
   async function validateGovernanceObject(governance) {
@@ -62,7 +72,7 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
       return { ok: false, code: "governance_schema_invalid", message: "schemaVersion 不支持", issues: [] };
     }
     const governancePath = path.join(rootDir, GOVERNANCE_RELATIVE_PATH);
-    await writeJson(governancePath, governance);
+    await writeSplitGovernanceFile(governancePath, governance);
     const result = await runBuilderScript("validate_governance.py", [rootDir], { allowNonZero: true });
     return {
       ok: result.exitCode === 0,
@@ -75,7 +85,8 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
   }
 
   async function writeGovernanceArtifact(context, governance, validation, agentArtifact) {
-    await writeJson(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), governance);
+    await writeSplitGovernanceFile(path.join(rootDir, GOVERNANCE_RELATIVE_PATH), governance);
+    const lookupIndex = await writeGovernanceLookupIndex(path.join(rootDir, GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH), governance);
     return {
       artifactId: context.artifactId,
       parentArtifactId: null,
@@ -88,7 +99,13 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
       governanceId: governance.governanceId ?? null,
       outputPath: GOVERNANCE_RELATIVE_PATH,
       sourceIndex: SLOT_INDEX_RELATIVE_PATH,
+      lookupIndexPath: GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH,
       coverage: governance.coverage ?? {},
+      lookupIndex: {
+        itemCount: lookupIndex.summary.itemCount,
+        variantCount: lookupIndex.summary.variantCount,
+        reviewVariantCount: lookupIndex.summary.reviewVariantCount,
+      },
       validation: {
         ok: validation.ok,
         issueCount: validation.issues.length,
@@ -119,9 +136,9 @@ function createGovernanceFileOps({ rootDir, python, skillScriptDir, referenceDir
   return {
     refreshEvidence,
     prepareGovernanceInput,
-    readGovernanceText,
+    readGovernanceSnapshot,
     readGovernanceObject,
-    restoreGovernanceText,
+    restoreGovernanceSnapshot,
     validateGovernanceObject,
     writeGovernanceArtifact,
   };

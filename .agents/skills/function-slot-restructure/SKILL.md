@@ -1,6 +1,6 @@
 ---
 name: function-slot-restructure
-description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可选 user-material-pack.stable 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险，并在存在素材包时做素材供给判断；只有素材充足时才做最佳成片顺序选择。不要用它执行库构建、入库校验或 slotType 命名治理。
+description: 基于 FunctionSlotLibrary 证据索引、语义治理入口和可选 user-material-pack.stable 进行短视频功能槽位重组。适用于已有 slot_index.json、semantic-governance.v1.json split manifest，或已先用 function-slot-library-builder / user-material-tagger 完成校验、索引和素材能力标注后，需要根据目标 brief 选 slot subtype/archetype、组槽位链、选择 script/rhythm/packaging pattern 与 variant、检查 binding principle/rule policy、判断跨样例 adapter 风险，并在存在素材包时做素材供给判断；只有素材充足时才做最佳成片顺序选择。不要用它执行库构建、入库校验或 slotType 命名治理。
 ---
 
 # 功能槽位重组
@@ -31,7 +31,7 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可�
 - 校验 `Artifacts/FunctionSlotLibrary/`
 - 构建 `slot_index.json`
 - 统计 `slotTypeSupport`
-- 生成和审查 `semantic-governance.v1.json`
+- 生成和审查 `semantic-governance.v1.json` 及 `_governance` 下的治理分文件
 - 判断 `slotType` 是否复用或新增
 
 历史兼容路径中可能保留校验/索引脚本 wrapper，但正式脚本归属和文档入口都在 `function-slot-library-builder`。重组 skill 只消费其产出的 evidence index 和 governance JSON。
@@ -52,12 +52,14 @@ description: 基于 FunctionSlotLibrary 证据索引、语义治理 JSON 和可�
 
 ### 3. FunctionSlotLibrary
 
-优先使用 `function-slot-library-builder` 生成证据索引和正式治理 JSON：
+优先使用 `function-slot-library-builder` 生成证据索引和正式治理入口：
 
 ```text
 Runtime/Temp/FunctionSlotLibrary/slot_index.json
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
+
+`semantic-governance.v1.json` 是 split manifest 入口，具体治理内容在同目录分文件中。脚本和服务必须通过统一 materialize 逻辑读取完整治理对象；不要只解析入口 manifest 后直接判断治理内容为空。可选派生索引 `Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json` 只用于快速查找，不是权威事实源。
 
 如果没有索引或治理文件，先切到构建库 skill；不要在重组过程中临时扫描原始目录。只有用户明确要求草拟方案且接受约束不足风险时，才允许只用 `slot_index.json` 重组，并必须披露“未使用治理层”。
 
@@ -83,7 +85,8 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ### 3. FunctionSlotLibrary / 结构库侧
 
 - `Runtime/Temp/FunctionSlotLibrary/slot_index.json`
-- `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`
+- `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`（split manifest 入口，需 materialize 后使用）
+- `Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json`（可选派生查询索引，不是权威事实源）
 
 ## 重组流程
 
@@ -93,7 +96,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
    明确目标产品/品类、受众、痛点、结果、平台、语气和限制，形成观众状态路径与主张需求。
 
 2. **读取 FunctionSlotLibrary / 结构库侧**  
-   将 `semantic-governance.v1.json` 中的 `slotSubtypes / slotArchetypes / atomPatterns / bindingPatterns / recompositionPolicies / implementationBundles` 映射回 `slot_index.json` 的真实 variants。治理层是选择依据，证据层是来源事实。
+   将 `semantic-governance.v1.json` 入口 materialize 成完整治理对象，再把其中的 `slotSubtypes / slotArchetypes / atomPatterns / bindingPatterns / recompositionPolicies / implementationBundles` 映射回 `slot_index.json` 的真实 variants。治理层是选择依据，证据层是来源事实。
 
 3. **规划槽位链**  
    根据观众状态路径和当前语料库证据决定需要哪些 `slotType` / `slotSubtype`。不要默认套用某条样例的完整 template，也不要把固定五槽链当默认链路。

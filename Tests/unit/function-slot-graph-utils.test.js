@@ -290,6 +290,23 @@ test("governance label specs follow visible layout levels from inner to outer", 
   assert.equal(outer.min, 0);
 });
 
+test("focused slot sequence edges stay brighter than unselected arrows", () => {
+  const { resolveGraphEdgeStyle } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphVisualStyles.ts");
+  const source = { id: "source", type: "slotSubtype", group: "slot", data: {}, x: 0, y: 0 };
+  const target = { id: "target", type: "slotSubtype", group: "slot", data: {}, x: 100, y: 0 };
+  const edge = { id: "edge", source: "source", target: "target", type: "plan_slot_next" };
+
+  const unselected = resolveGraphEdgeStyle(edge, source, target, "planTrace", false, false);
+  const focused = resolveGraphEdgeStyle(edge, source, target, "planTrace", true, false);
+  const muted = resolveGraphEdgeStyle(edge, source, target, "planTrace", false, true);
+
+  assert.ok(focused.arrowAlpha > unselected.arrowAlpha);
+  assert.ok(unselected.arrowAlpha > muted.arrowAlpha);
+  assert.ok(unselected.arrowAlpha < 0.4);
+  assert.equal(focused.arrowColor, unselected.arrowColor);
+  assert.equal(focused.width, 3);
+});
+
 test("governance force layout bundles atoms near visible parents while samples stay distributed", () => {
   const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = { ...allFilters(), atomLayer: false, atomArchetype: false };

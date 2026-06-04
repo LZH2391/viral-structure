@@ -173,6 +173,7 @@ function defaultTemplateValues(role) {
     return {
       slotIndexPath: "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
       governancePath: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
+      materializedGovernancePath: "Runtime/Temp/FunctionSlotLibrary/semantic-governance.materialized.json",
       semanticProtocolPath: "Docs/Architecture/FunctionSlotSemanticGovernance.md",
       atomBindingRuleProtocolPath: "Docs/Architecture/FunctionSlotAtomBindingRuleGovernance.md",
       outputFormatPath: "Docs/Architecture/FunctionSlotSemanticGovernanceOutput.md",

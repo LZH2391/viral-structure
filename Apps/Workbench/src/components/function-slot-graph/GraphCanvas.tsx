@@ -20,7 +20,7 @@ import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } f
 import {
   edgeClassName,
   edgeLinePoints,
-  edgeMarkerEnd,
+  isSlotSequenceNode,
   nodeClassName,
   nodeLabelFontSize,
   nodeLabelOpacity,
@@ -353,7 +353,6 @@ export function GraphCanvas({
         onPointerCancel={endPointer}
         onWheel={zoom}
       >
-        <GraphDefinitions />
         <GraphBackground />
         <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.k})`}>
           {visible.edges.map((edge) => {
@@ -363,7 +362,14 @@ export function GraphCanvas({
             const focused = focusNodeId ? (mode === "planTrace" ? focusedEdgeIds.has(edge.id) : edge.source === focusNodeId || edge.target === focusNodeId) : false;
             const muted = focusNodeId ? !focused : false;
             const line = edgeLinePoints(edge.type, source, target);
-            return <line key={edge.id} className={edgeClassName(edge.type, source, target, focused, muted)} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} markerEnd={edgeMarkerEnd(edge.type, source, target)} />;
+            const className = edgeClassName(edge.type, source, target, focused, muted);
+            const arrowPoints = edgeArrowHeadPoints(edge.type, source, target, line);
+            return (
+              <g key={edge.id}>
+                <line className={className} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
+                {arrowPoints ? <path className={className} d={arrowPoints} /> : null}
+              </g>
+            );
           })}
           {nodes.map((node) => (
             (() => {
@@ -442,14 +448,19 @@ function isSamplePreviewNode(node: SimNode | null) {
   return node?.type === "sourceSample" || node?.type === "libraryItem";
 }
 
-function GraphDefinitions() {
-  return (
-    <defs>
-      <marker id="slot-graph-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 1 1 L 9 5 L 1 9 z" />
-      </marker>
-    </defs>
-  );
+function edgeArrowHeadPoints(type: string, source: SimNode, target: SimNode, line: { x1: number; y1: number; x2: number; y2: number }) {
+  if ((type !== "slot_next" && type !== "plan_slot_next") || !isSlotSequenceNode(source) || !isSlotSequenceNode(target)) return null;
+  const dx = line.x2 - line.x1;
+  const dy = line.y2 - line.y1;
+  const angle = Math.atan2(dy, dx);
+  const size = 8;
+  const left = angle + Math.PI * 0.82;
+  const right = angle - Math.PI * 0.82;
+  const leftX = line.x2 + Math.cos(left) * size;
+  const leftY = line.y2 + Math.sin(left) * size;
+  const rightX = line.x2 + Math.cos(right) * size;
+  const rightY = line.y2 + Math.sin(right) * size;
+  return `M ${leftX} ${leftY} L ${line.x2} ${line.y2} L ${rightX} ${rightY}`;
 }
 
 export function LibraryPreviewPopover({

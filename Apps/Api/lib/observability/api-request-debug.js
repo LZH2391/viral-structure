@@ -1,7 +1,7 @@
 const { createTraceIds } = require("../../../../Infrastructure/Observability/trace");
 
 async function recordApiRequestFailure(logger, req, error) {
-  const statusCode = error.statusCode === 400 ? 400 : 500;
+  const statusCode = normalizeStatusCode(error.statusCode);
   const traceContext = createTraceIds();
   const stageName = "api.request.handle";
   const inputSummary = {
@@ -10,7 +10,7 @@ async function recordApiRequestFailure(logger, req, error) {
   };
   const errorSummary = {
     code: error.code ?? "api_request_failed",
-    message: statusCode === 400 ? safeMessage(error.message, "请求参数不合法") : "请求处理失败",
+    message: statusCode < 500 ? safeMessage(error.message, "请求参数不合法") : "请求处理失败",
     stageName,
     retryable: statusCode >= 500,
   };
@@ -47,6 +47,12 @@ async function recordApiRequestFailure(logger, req, error) {
   return { traceContext, snapshot, errorSummary: { ...errorSummary, debugSnapshotUri: snapshot.uri } };
 }
 
+function normalizeStatusCode(value) {
+  const statusCode = Number(value);
+  if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599) return statusCode;
+  return 500;
+}
+
 function summarizeDebugPayload(value) {
   if (!value || typeof value !== "object") return null;
   return {
@@ -71,4 +77,4 @@ function safeMessage(value, fallback) {
   return text.length > 160 ? `${text.slice(0, 160)}...` : text;
 }
 
-module.exports = { recordApiRequestFailure, safePathname };
+module.exports = { recordApiRequestFailure, safePathname, normalizeStatusCode };

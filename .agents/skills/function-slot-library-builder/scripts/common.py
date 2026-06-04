@@ -24,6 +24,42 @@ CANONICAL_FILENAMES = {
     "templates": "templates.json",
 }
 
+GOVERNANCE_SCHEMA_VERSION = "function_slot_semantic_governance.v1"
+GOVERNANCE_FORMAT_SPLIT = "split_manifest.v1"
+GOVERNANCE_COLLECTION_FIELDS = [
+    "sourceVariants",
+    "slotFamilies",
+    "slotArchetypes",
+    "slotSubtypes",
+    "atomArchetypes",
+    "atomPatterns",
+    "bindingPatterns",
+    "bindingPrinciples",
+    "rulePatterns",
+    "recompositionPolicies",
+    "implementationBundles",
+    "observedChainPatterns",
+    "unmappedAtomVariants",
+    "unmappedBindingVariants",
+    "unmappedRuleVariants",
+    "reviewItems",
+    "openQuestions",
+]
+GOVERNANCE_SPLIT_FILES = {
+    "source": {"path": "source-variants.v1.json", "fields": ["sourceVariants"]},
+    "slots": {"path": "slot-governance.v1.json", "fields": ["slotFamilies", "slotArchetypes", "slotSubtypes"]},
+    "atoms": {"path": "atom-governance.v1.json", "fields": ["atomArchetypes", "atomPatterns"]},
+    "bindingRules": {
+        "path": "binding-rule-governance.v1.json",
+        "fields": ["bindingPatterns", "bindingPrinciples", "rulePatterns", "recompositionPolicies"],
+    },
+    "bundles": {"path": "implementation-bundles.v1.json", "fields": ["implementationBundles", "observedChainPatterns"]},
+    "review": {
+        "path": "review-and-unmapped.v1.json",
+        "fields": ["unmappedAtomVariants", "unmappedBindingVariants", "unmappedRuleVariants", "reviewItems", "openQuestions"],
+    },
+}
+
 GLOB_PATTERNS = {
     "manifest": "manifest*.json",
     "slots": "slots*.json",
@@ -98,6 +134,70 @@ def write_json(path: Path, data: Any) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+
+def is_split_governance_manifest(data: Any) -> bool:
+    return (
+        isinstance(data, dict)
+        and data.get("schemaVersion") == GOVERNANCE_SCHEMA_VERSION
+        and data.get("governanceFormat") == GOVERNANCE_FORMAT_SPLIT
+        and isinstance(data.get("files"), dict)
+    )
+
+
+def ensure_governance_lists(data: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(data)
+    out.setdefault("schemaVersion", GOVERNANCE_SCHEMA_VERSION)
+    for field in GOVERNANCE_COLLECTION_FIELDS:
+        if not isinstance(out.get(field), list):
+            out[field] = []
+    return out
+
+
+def read_governance(path: Path) -> Dict[str, Any]:
+    data = read_json(path)
+    if not is_split_governance_manifest(data):
+        return ensure_governance_lists(data if isinstance(data, dict) else {})
+    base = path.parent
+    out = {key: value for key, value in data.items() if key != "files"}
+    out["governanceFormat"] = GOVERNANCE_FORMAT_SPLIT
+    for field in GOVERNANCE_COLLECTION_FIELDS:
+        out[field] = []
+    for section in data.get("files", {}).values():
+        rel = section.get("path") if isinstance(section, dict) else None
+        fields = section.get("fields") if isinstance(section, dict) else None
+        if not rel or not isinstance(fields, list):
+            continue
+        section_path = (base / rel).resolve()
+        if not is_relative_to(section_path, base):
+            raise ValueError(f"governance split file path escapes _governance directory: {rel}")
+        section_data = read_json(section_path)
+        for field in fields:
+            out[field] = section_data.get(field) if isinstance(section_data.get(field), list) else []
+    return ensure_governance_lists(out)
+
+
+def write_split_governance(path: Path, governance: Dict[str, Any]) -> None:
+    governance = ensure_governance_lists(governance)
+    files: Dict[str, Any] = {}
+    for section_name, section in GOVERNANCE_SPLIT_FILES.items():
+        section_data = {
+            "schemaVersion": f"{GOVERNANCE_SCHEMA_VERSION}.{section_name}",
+            "governanceId": governance.get("governanceId"),
+        }
+        for field in section["fields"]:
+            section_data[field] = governance.get(field) if isinstance(governance.get(field), list) else []
+        write_json(path.parent / section["path"], section_data)
+        files[section_name] = {"path": section["path"], "fields": section["fields"]}
+    manifest = {
+        key: value
+        for key, value in governance.items()
+        if key not in GOVERNANCE_COLLECTION_FIELDS and key not in {"_path", "_sectionVersions"}
+    }
+    manifest["schemaVersion"] = governance.get("schemaVersion") or GOVERNANCE_SCHEMA_VERSION
+    manifest["governanceFormat"] = GOVERNANCE_FORMAT_SPLIT
+    manifest["files"] = files
+    write_json(path, manifest)
 
 
 def _latest(paths: Iterable[Path]) -> Optional[Path]:

@@ -4,6 +4,9 @@ const path = require("path");
 const SCHEMA_VERSION = "function_slot_replacement_candidates.v1";
 const SLOT_INDEX_RELATIVE_PATH = path.join("Runtime", "Temp", "FunctionSlotLibrary", "slot_index.json");
 const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
+const GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH = path.join("Runtime", "Temp", "FunctionSlotLibrary", "governance_lookup_index.json");
+const { buildGovernanceLookupIndex, governanceFingerprint, readGovernanceLookupIndexIfExists } = require("./governance-lookup-index");
+const { readGovernanceFileIfExists } = require("./governance-store");
 
 function createFunctionSlotReplacementCandidateService({ rootDir }) {
   if (!rootDir) throw new Error("FunctionSlotReplacementCandidateService requires rootDir");
@@ -11,29 +14,34 @@ function createFunctionSlotReplacementCandidateService({ rootDir }) {
   async function listCandidates({ kind = "slot", atomKind = null, slotSubtypeId = null, q = null, limit = 50 } = {}) {
     const slotIndexPath = path.join(rootDir, SLOT_INDEX_RELATIVE_PATH);
     const governancePath = path.join(rootDir, GOVERNANCE_RELATIVE_PATH);
-    const [slotIndex, governance] = await Promise.all([
+    const [slotIndex, governance, storedLookupIndex] = await Promise.all([
       readJson(slotIndexPath),
-      readJson(governancePath).catch((error) => {
-        if (error.code === "ENOENT") return null;
-        throw error;
-      }),
+      readGovernanceFileIfExists(governancePath),
+      readGovernanceLookupIndexIfExists(path.join(rootDir, GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH)),
     ]);
+    const sourceFingerprint = governanceFingerprint(governance);
+    const lookupIndex = storedLookupIndex?.sourceFingerprint === sourceFingerprint
+      ? storedLookupIndex
+      : buildGovernanceLookupIndex(governance);
     const normalizedKind = String(kind ?? "slot").trim() === "atom" ? "atom" : "slot";
     const normalizedAtomKind = normalizeAtomKind(atomKind);
     const normalizedSlotSubtypeId = normalizeText(slotSubtypeId);
     const query = normalizeText(q)?.toLowerCase() ?? null;
     const max = clampLimit(limit);
     const candidates = normalizedKind === "atom"
-      ? buildAtomCandidates(slotIndex, governance, { atomKind: normalizedAtomKind, slotSubtypeId: normalizedSlotSubtypeId, query, max })
-      : buildSlotCandidates(slotIndex, governance, { query, max });
+      ? buildAtomCandidates(slotIndex, lookupIndex, { atomKind: normalizedAtomKind, slotSubtypeId: normalizedSlotSubtypeId, query, max })
+      : buildSlotCandidates(slotIndex, lookupIndex, { query, max });
     return {
       ok: true,
       schemaVersion: SCHEMA_VERSION,
       source: {
         slotIndexPath: SLOT_INDEX_RELATIVE_PATH.replaceAll(path.sep, "/"),
         governancePath: GOVERNANCE_RELATIVE_PATH.replaceAll(path.sep, "/"),
+        governanceLookupIndexPath: GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH.replaceAll(path.sep, "/"),
         slotIndexSchemaVersion: slotIndex.schemaVersion ?? null,
         governanceId: governance?.governanceId ?? null,
+        governanceLookupIndexSchemaVersion: lookupIndex?.schemaVersion ?? null,
+        governanceLookupIndexFresh: lookupIndex?.sourceFingerprint === sourceFingerprint,
       },
       kind: normalizedKind,
       atomKind: normalizedKind === "atom" ? normalizedAtomKind : null,
@@ -44,8 +52,8 @@ function createFunctionSlotReplacementCandidateService({ rootDir }) {
   return { listCandidates };
 }
 
-function buildSlotCandidates(slotIndex, governance, { query, max }) {
-  const reviewByVariant = buildReviewMap(governance);
+function buildSlotCandidates(slotIndex, lookupIndex, { query, max }) {
+  const reviewByVariant = buildReviewMap(lookupIndex);
   return (slotIndex.slotVariants ?? [])
     .map((slot) => {
       const tags = buildTags([
@@ -80,8 +88,8 @@ function buildSlotCandidates(slotIndex, governance, { query, max }) {
     .slice(0, max);
 }
 
-function buildAtomCandidates(slotIndex, governance, { atomKind, slotSubtypeId, query, max }) {
-  const reviewByVariant = buildReviewMap(governance);
+function buildAtomCandidates(slotIndex, lookupIndex, { atomKind, slotSubtypeId, query, max }) {
+  const reviewByVariant = buildReviewMap(lookupIndex);
   const kindMatched = (slotIndex.atomVariants ?? [])
     .filter((atom) => !atomKind || atom.kind === atomKind)
   const slotMatched = slotSubtypeId ? kindMatched.filter((atom) => atom.slotType === slotSubtypeId) : kindMatched;
@@ -164,6 +172,9 @@ function sameSource(left, right) {
 }
 
 function buildReviewMap(governance) {
+  if (governance?.reviewByVariantId) {
+    return new Map(Object.entries(governance.reviewByVariantId).map(([key, value]) => [key, Array.isArray(value) ? value : []]));
+  }
   const byVariant = new Map();
   for (const item of governance?.reviewItems ?? []) {
     const label = [item.severity, item.topic].filter(Boolean).join(":");

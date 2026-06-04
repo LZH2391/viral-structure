@@ -1,0 +1,2647 @@
+{
+  "schemaVersion": "function_slot_semantic_governance.v1.slots",
+  "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "slotFamilies": [
+    {
+      "id": "FAM_attention_and_need_activation",
+      "name": "观看理由与需求激活类",
+      "coreViewerTransition": "未识别对象/无需求感 -> 接受观看理由、问题或价值锚点",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002"
+      ],
+      "support": {
+        "variantCount": 11,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些槽位都承担从无关浏览或浅认知转入观看理由的任务，但进入方式分别是结果前置、痛点回补、价值锚定、场景共鸣和对象直冲。",
+      "differenceNotes": [
+        "instant_solution_preview 是先给结果，再由 pain_backfill 补回需求。",
+        "value_anchor/quantity_value_confirmation 先建立低门槛利益，再把价值主张可视化。",
+        "scene_problem_activation 和 problem_activation 同属问题激活，但一个靠生活场景和干扰源，一个靠问题对象与直接动作。"
+      ],
+      "riskIfMisclassified": "如果把这些槽位直接当同一 subtype 互换，重组时可能丢失结果前置、价格价值、场景共鸣或对象直冲的进入逻辑。"
+    },
+    {
+      "id": "FAM_solution_and_proof_build",
+      "name": "方案进入与证据建立类",
+      "coreViewerTransition": "已接受问题/价值 -> 理解解决对象、差异、机制或品质证据",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004"
+      ],
+      "support": {
+        "variantCount": 18,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些槽位都在把前置需求转成可相信的解决方案，但证明义务分化明显：有解决物识别、覆盖桥接、替代对比、机制说明、品质细节和低门槛步骤。",
+      "differenceNotes": [
+        "solution_entry 只建立后续论证对象，不应提前消耗完整卖点。",
+        "alternative_contrast 必须被后续 mechanism_proof 回应，不能作为孤立吐槽。",
+        "quality_trust_build/sensory_proof_peak 面向感官品质，mechanism_trust/mechanism_credibility/mechanism_proof 面向因果或结构可信。",
+        "low_barrier_operation 证明的是可执行门槛，不是机制可信本身。"
+      ],
+      "riskIfMisclassified": "把证明槽混用会让机制证据、品质证据、步骤证据和解决物识别互相替代，导致重组方案看似完整但说服链断裂。"
+    },
+    {
+      "id": "FAM_result_and_choice_closure",
+      "name": "结果兑现与选择收束类",
+      "coreViewerTransition": "已理解证据 -> 看到结果兑现、生活收益、长期可信或选择判断",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005"
+      ],
+      "support": {
+        "variantCount": 9,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些槽位都承担证明链闭合，但闭合对象不同：即时结果、使用场景、生活收益、长期信任和选择记忆。",
+      "differenceNotes": [
+        "usage_result_confirmation/result_confirmation 必须回到前文痛点或同一观众关切。",
+        "life_benefit_close/usage_scene_close 是低压生活化回落，不能新增复杂机制。",
+        "long_term_trust_close 额外要求时间维度或使用痕迹证据。",
+        "choice_close 是推荐和记忆锚点，不等于硬转化槽。"
+      ],
+      "riskIfMisclassified": "如果把所有结尾槽合并，容易把结果兑现、长期信任和选择建议混成泛泛收尾，削弱闭环与转化判断。"
+    }
+  ],
+  "slotArchetypes": [
+    {
+      "id": "ARCH_result_first_need_setup",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "结果前置后补需求原型",
+      "viewerStateBeforeClass": "未理解对象或需求",
+      "viewerStateAfterClass": "已看到解决后状态并补回需求理由",
+      "commonProofObligation": [
+        "前置结果必须可视化",
+        "后续痛点必须回扣同一核心关切",
+        "结果与需求之间要有反向解释关系"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 variant 的共同任务是先用可见结果建立观看理由，再要求后续链路回补同一关切；痛点回填属于结果前置链路的闭合义务，不等同于普通问题激活。",
+      "differenceNotes": [
+        "instant_solution_preview 只能承担可见结果/使用入口的前置钩子，不能吸收后续痛点、机制或结果收束。",
+        "pain_backfill 只能解释开头结果对应的同一旧状态或生活成本，不能扩展为完整问题激活 archetype。"
+      ],
+      "riskIfMisclassified": "如果把结果前置与普通痛点激活混合，重组时会漏掉结果先行后的关切回补，或把结果画面误当成完整证明链。",
+      "primaryProofObligationClass": "result_first_need_backfill",
+      "chainDependencyClass": "result_preview_then_need_backfill",
+      "excludes": [
+        "scene_problem_activation",
+        "object_action_problem_activation",
+        "mechanism_explanation",
+        "operation_barrier_reduction"
+      ]
+    },
+    {
+      "id": "ARCH_value_anchor_verification",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "价值锚定与可见兑现原型",
+      "viewerStateBeforeClass": "未识别购买对象",
+      "viewerStateAfterClass": "接受低门槛利益并看到数量或规格证据",
+      "commonProofObligation": [
+        "商品主体必须清晰可见",
+        "价值主张需要数量、规格或份量证据承接"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F002"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 archetype 只覆盖同一购买对象上的价值主张及其可见兑现：F001 建立低门槛利益，F002 用数量、规格或份量证明该利益可感。它不覆盖品质、机制、操作门槛或场景问题。",
+      "differenceNotes": [
+        "value_anchor 是第一眼利益承诺，quantity_value_confirmation 是同一利益的可见兑现；二者是价值链路中的相邻 subtype，不可反向吸收品质证明。",
+        "低门槛只描述价值承诺，不等于 low_barrier_operation 的步骤容易、等待时间或执行门槛降低。"
+      ],
+      "riskIfMisclassified": "如果把价值锚定误扩成品质或操作证明，重组会用价格、数量或口播替代真正的品质/步骤/机制证据。",
+      "primaryProofObligationClass": "low_barrier_value_claim_with_visible_evidence",
+      "chainDependencyClass": "value_anchor_then_value_verification",
+      "excludes": [
+        "problem_activation",
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction"
+      ]
+    },
+    {
+      "id": "ARCH_problem_activation",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "痛点/问题激活原型",
+      "viewerStateBeforeClass": "未进入具体使用语境",
+      "viewerStateAfterClass": "接受问题存在并准备接收解决方案",
+      "commonProofObligation": [
+        "问题对象或问题场景必须可见",
+        "观众必须知道后续解决方案为何有必要",
+        "痛点证据不能只靠抽象描述"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "这些 variant 的共同任务是让观众接受问题或需求成立；scene_problem_activation 通过生活场景和干扰源成立问题，object_action_problem_activation 通过问题对象和接触动作成立问题。二者只在问题激活任务上同 archetype，不能共享方案进入时机或证明载体。",
+      "differenceNotes": [
+        "scene_problem_activation 的方案出现延迟，必须保留场景、干扰源和受影响状态，不能提前并入 solution_entry。",
+        "object_action_problem_activation 的解决动作可立即出现，但复杂机制、操作步骤和长期信任必须后移到各自 archetype。"
+      ],
+      "riskIfMisclassified": "如果把场景共鸣、对象直冲、方案进入和机制证明混成同一原型，重组会出现方案时机错位或痛点证据不足。",
+      "primaryProofObligationClass": "problem_or_need_visibility",
+      "chainDependencyClass": "activation_before_solution_or_proof",
+      "excludes": [
+        "proof_bridge",
+        "contrast_gap_setup",
+        "mechanism_explanation",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_solution_object_entry",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "解决对象进入原型",
+      "viewerStateBeforeClass": "已接受问题但不知道解决对象",
+      "viewerStateAfterClass": "识别解决方案并准备听取证明",
+      "commonProofObligation": [
+        "解决物或识别载体必须清楚",
+        "承接前一槽位的同一核心困扰",
+        "暂不消耗完整卖点"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位只完成解决物识别和后续论证对象建立，和机制证明、结果确认不同。",
+      "differenceNotes": [
+        "当前只有单样例，是否作为独立 archetype 需后续补样确认。"
+      ],
+      "riskIfMisclassified": "如果并入机制证明，会过早要求完整证据，破坏问题到方案的轻量承接。",
+      "primaryProofObligationClass": "solution_object_identification_and_entry",
+      "chainDependencyClass": "solution_entry_after_problem_activation",
+      "excludes": [
+        "problem_activation",
+        "contrast_gap_setup",
+        "mechanism_explanation",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_mechanism_and_credibility_proof",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "机制/可信原因证明原型",
+      "viewerStateBeforeClass": "已知道方案或差异但尚未相信原因",
+      "viewerStateAfterClass": "理解方案为何有效、可靠或可持续",
+      "commonProofObligation": [
+        "需要结构、材料、机制、操作或适用范围证据",
+        "复杂主张需要降速、图文或动作停顿",
+        "证明点必须和前文缺陷或关切对应"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 variant 的共同任务是解释方案为何有效、可靠或适用；只治理机制、结构、材料、适用范围等可信原因。低门槛操作、替代方案缺陷、持续使用结论和结果收束必须留在各自 archetype 或 subtype 的前后承接中。",
+      "differenceNotes": [
+        "mechanism_proof 只在机制证明中回应前置 alternative_contrast 暴露的缺陷，替代缺陷本身仍属于 contrast_gap_setup。",
+        "mechanism_credibility 只证明机制和适用范围可信，不承载后续 low_barrier_operation 的步骤降低任务。",
+        "mechanism_trust 只使用结构、操作可执行性或复用依据作为可信原因；持续使用信任的最终结论必须由 result_closure 或 long_term_or_choice_close 承接。",
+        "hidden_mechanism_credibility proves external normality plus internal mechanism contrast; it remains a separate subtype under the mechanism credibility archetype."
+      ],
+      "riskIfMisclassified": "如果把桥接、低门槛操作、替代缺陷或长期结果吸收入机制证明，重组会用机制解释替代必要的链路铺垫、步骤兑现或收束证据。",
+      "primaryProofObligationClass": "mechanism_or_credibility_explanation",
+      "chainDependencyClass": "proof_after_solution_or_gap_definition",
+      "excludes": [
+        "coverage_bridge",
+        "alternative_contrast",
+        "low_barrier_operation",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_quality_sensory_proof",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "品质疑虑与感官证据原型",
+      "viewerStateBeforeClass": "认可价值但担心品质或体验不足",
+      "viewerStateAfterClass": "通过近景细节、动作拆解或内部证据降低疑虑",
+      "commonProofObligation": [
+        "需要近景操作、质地观察或内部细节",
+        "需要从品质疑虑缓冲转向证据峰值",
+        "数量密度不能替代品质证明"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 archetype 只处理品质疑虑和感官证据：quality_trust_build 让观众愿意观察品质，sensory_proof_peak 用细节或体验证据完成峰值证明；它不承担价值锚定、机制解释或结果收束。",
+      "differenceNotes": [
+        "quality_trust_build 是品质观察入口，不是数量价值兑现。",
+        "sensory_proof_peak 是体验/细节证明峰值，不是机制因果证明或购买收束。"
+      ],
+      "riskIfMisclassified": "如果把品质/感官证据并入价值或机制原型，重组会用数量、结构或口播替代真实质地和体验证明。",
+      "primaryProofObligationClass": "quality_or_sensory_evidence",
+      "chainDependencyClass": "quality_objection_to_sensory_peak",
+      "excludes": [
+        "mechanism_explanation",
+        "operation_barrier_reduction",
+        "value_anchor",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_result_closure",
+      "familyId": "FAM_result_and_choice_closure",
+      "name": "结果兑现闭环原型",
+      "viewerStateBeforeClass": "已理解机制、步骤或体验证据",
+      "viewerStateAfterClass": "看到同一关切被结果兑现",
+      "commonProofObligation": [
+        "结果必须回到前文问题、体验优势或核心关切",
+        "结果画面不能展示无关好处",
+        "收束节奏需要从证明峰值回落"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 archetype 只承担回收前文关切并用结果、场景或反馈完成兑现的收束任务；它依赖上游激活或证明，不生成新的机制、价值或操作主证明。",
+      "differenceNotes": [
+        "life_benefit_close、usage_scene_close、usage_result_confirmation、operation_result_confirmation 的差异在收束载体不同，但都必须回扣上游同一关切。",
+        "结果收束不能替代机制解释、品质峰值或低门槛操作步骤。"
+      ],
+      "riskIfMisclassified": "如果把收束槽当成证明槽，重组会跳过必要的因果、品质或步骤证据，只用结果画面硬收尾。",
+      "primaryProofObligationClass": "activated_concern_result_closure",
+      "chainDependencyClass": "result_closure_after_activation_or_proof",
+      "excludes": [
+        "problem_activation",
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction"
+      ]
+    },
+    {
+      "id": "ARCH_long_term_or_choice_close",
+      "familyId": "FAM_result_and_choice_closure",
+      "name": "长期信任与选择记忆原型",
+      "viewerStateBeforeClass": "已看到即时结果但仍需选择理由",
+      "viewerStateAfterClass": "获得长期可信或推荐选择判断",
+      "commonProofObligation": [
+        "长期信任需要时间证据或使用痕迹",
+        "选择收束需要简洁推荐和识别锚点",
+        "结尾不应新增未证明复杂卖点"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 archetype 只承担最终选择、记忆点或长期信任收口；长期证据可以作为选择理由，但不能回流吸收机制证明或操作步骤。",
+      "differenceNotes": [
+        "choice_close 偏推荐记忆和识别锚点，long_term_trust_close 偏时间证据和低压选择收束。",
+        "长期信任结论必须建立在前文机制或结果之上，不能替代它们。"
+      ],
+      "riskIfMisclassified": "如果把长期收口当成机制证明，重组会缺少前置可信原因，只剩结尾背书。",
+      "primaryProofObligationClass": "long_term_trust_or_choice_memory_close",
+      "chainDependencyClass": "final_choice_or_trust_close",
+      "excludes": [
+        "problem_activation",
+        "solution_entry",
+        "mechanism_explanation",
+        "operation_barrier_reduction"
+      ]
+    },
+    {
+      "id": "ARCH_proof_bridge",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "Proof bridge archetype",
+      "viewerStateBeforeClass": "观众已经看到初始结果或范围感，但尚未准备好理解机制原因",
+      "viewerStateAfterClass": "观众接受覆盖、范围或多实例提示，并准备进入后续证明",
+      "commonProofObligation": [
+        "覆盖范围、多点或多实例提示必须可见",
+        "必须为后续机制解释建立观看理由",
+        "不得替代后续机制说明、操作步骤或结果闭合"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 archetype 只承担从可见覆盖、范围或多实例感知过渡到后续机制解释的桥接任务，本身不是机制证明，也不是最终结果确认。",
+      "differenceNotes": [
+        "coverage_bridge 可以提示后续需要解释结构或原因，但不能替代 mechanism_trust。",
+        "桥接槽的 proof obligation 是范围/覆盖感和下一槽承接，不是因果机制、操作步骤或长期信任。"
+      ],
+      "riskIfMisclassified": "如果把桥接吸收入机制证明，重组会少掉从卖点感知到可信解释的过渡，或用多实例画面替代因果证据。",
+      "primaryProofObligationClass": "proof_bridge_to_later_explanation",
+      "chainDependencyClass": "bridge_before_mechanism_or_proof",
+      "excludes": [
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "operation_barrier_reduction",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_contrast_gap_setup",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "Contrast gap setup archetype",
+      "viewerStateBeforeClass": "观众已经看到问题或可选方案，但尚未理解目标方案差异",
+      "viewerStateAfterClass": "观众识别替代方案缺口，并准备接收目标方案证明",
+      "commonProofObligation": [
+        "替代方案或失败状态必须可见",
+        "缺口必须由后续目标方案证明回应",
+        "缺口设置不得替代机制解释、品质证明或结果闭合"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "alternative_contrast 只建立差异化证明的必要性；它暴露替代方案缺陷，但不是机制证明本身。",
+      "differenceNotes": [
+        "对比槽可以位于 solution_entry 前后，但位置变化不能改变其缺口设置任务。",
+        "后续 mechanism_proof 必须回应同一缺陷；不能把吐槽、机制原因和结果承诺混成同一 archetype。"
+      ],
+      "riskIfMisclassified": "如果把替代缺口吸收入机制证明，重组会把对比吐槽当作可信原因，或让后续机制卖点无法回应前置缺陷。",
+      "primaryProofObligationClass": "contrast_gap_definition",
+      "chainDependencyClass": "gap_setup_before_solution_or_mechanism_proof",
+      "excludes": [
+        "mechanism_explanation",
+        "solution_object_entry",
+        "operation_barrier_reduction",
+        "result_closure"
+      ]
+    },
+    {
+      "id": "ARCH_operation_barrier_reduction",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "Operation barrier reduction archetype",
+      "viewerStateBeforeClass": "观众已经理解机制或方案，但仍担心执行门槛、等待成本或步骤复杂度",
+      "viewerStateAfterClass": "观众相信方案容易执行，并看到步骤、等待或生效过程可完成",
+      "commonProofObligation": [
+        "操作步骤或等待过程必须可见",
+        "完成动作与结果归因必须保持连续",
+        "操作证明不得替代因果机制解释、长期信任或结果闭合"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "low_barrier_operation 证明的是可执行门槛降低；它通常承接机制可信并连接结果确认，但前后位置不是 archetype 归属依据。",
+      "differenceNotes": [
+        "该 archetype 只处理步骤、等待、生效和完成动作，不解释完整机制原因。",
+        "低门槛操作可以承接 mechanism_credibility，但不能被 mechanism_credibility 吸收，也不能替代 operation_result_confirmation。"
+      ],
+      "riskIfMisclassified": "如果把操作门槛并入机制证明或结果收束，重组会缺少可执行步骤证据，或用步骤画面硬当结果。",
+      "primaryProofObligationClass": "operation_barrier_reduction",
+      "chainDependencyClass": "operation_after_mechanism_before_result",
+      "excludes": [
+        "mechanism_explanation",
+        "contrast_gap_setup",
+        "problem_activation",
+        "long_term_trust_close"
+      ]
+    },
+    {
+      "id": "ARCH_aspirational_result_activation",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "欲望结果激活槽 archetype",
+      "viewerStateBeforeClass": "观众尚未进入具体购买语境，只可能对某类改善结果有潜在兴趣",
+      "viewerStateAfterClass": "观众看到一个强结果承诺，并愿意继续了解它如何成立",
+      "primaryProofObligationClass": "aspirational_visible_outcome_with_target_concern",
+      "chainDependencyClass": "outcome_promise_before_mechanism_and_value_proof",
+      "excludes": [
+        "result_first_need_backfill",
+        "problem_activation",
+        "value_anchor_verification",
+        "mechanism_explanation"
+      ],
+      "commonProofObligation": [
+        "aspirational_outcome_activation: 先把目标人群的核心欲望推到前台，用可见结果和生活反馈建立观看动机"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001"
+      ],
+      "judgementReason": "该 archetype 只治理“先给欲望结果再解释成立方式”的入口结构：观众从潜在兴趣进入强结果承诺，后续必须补机制、体验和价值证据。当前只有单样例，保留为候选，但证明义务已经清晰。",
+      "differenceNotes": [
+        "不同于普通 pain/problem activation，它不先证明问题，而是先用可见改善结果建立观看动机。",
+        "不能被当成最终结果槽使用；开头结果只是承诺入口，后续仍需要机制可信和体验证明。"
+      ],
+      "riskIfMisclassified": "如果把它并入普通问题激活或结果收束，重组会要么缺少欲望型钩子，要么把未证明的开头结果误作最终兑现。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_interest_value_positioning",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "核心兴趣激活槽 archetype",
+      "viewerStateBeforeClass": "观众尚未进入商品语境，也没有明确关注点。",
+      "viewerStateAfterClass": "观众被一个具体核心利益点和反差表达吸引，愿意等待解释。",
+      "primaryProofObligationClass": "interest_hook_to_value_position",
+      "chainDependencyClass": "interest_or_conflict_before_trust_question_or_proof",
+      "excludes": [
+        "problem_activation",
+        "value_anchor_verification",
+        "mechanism_explanation",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "core_interest_conflict: 用冲突感和真实体验入口先建立记忆点，把普通观看状态转成卖点期待。",
+        "value_positioning: 把开场情绪转化为明确的用户利益和价值站位，为后续可信疑问做铺垫。"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002"
+      ],
+      "judgementReason": "该 archetype 治理“兴趣冲突 -> 价值站位”的连续入口：先用反差或体验动作制造停留，再把兴趣落到目标人群和基础价值承诺。它是观看理由建立，不是可信证明本身。",
+      "differenceNotes": [
+        "core_interest_conflict 负责抢注意力和建立核心利益点，value_positioning 负责把利益解释成目标人群可理解的价值。",
+        "两个 subtype 可以相邻出现，但不能互相替代；缺少后者会只剩情绪钩子，缺少前者会入口不够聚焦。"
+      ],
+      "riskIfMisclassified": "如果把兴趣冲突和价值站位强合成单槽，后续可信疑问和客观证明会失去明确承接对象。",
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_familiarity_to_combination_claim",
+      "familyId": "FAM_attention_and_need_activation",
+      "name": "熟悉经验钩子槽 archetype",
+      "viewerStateBeforeClass": "观众尚未进入商品语境，只可能对熟悉使用或体验场景有基础认知",
+      "viewerStateAfterClass": "观众知道这是一个由熟悉体验组合出的新卖点，并愿意继续看证明",
+      "primaryProofObligationClass": "familiarity_bridge_to_combination_claim",
+      "chainDependencyClass": "familiarity_entry_then_combination_peak_before_sensory_proof",
+      "excludes": [
+        "value_anchor_verification",
+        "problem_activation",
+        "mechanism_explanation",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "familiarity_bridge_hook: 用熟悉经验降低新品理解成本，同时快速建立商品对象和观看动机",
+        "combination_claim_peak: 把组合卖点压缩到第一轮注意力峰值，并用包装与实物互证避免只记住概念"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002"
+      ],
+      "judgementReason": "该 archetype 治理“熟悉经验降低理解成本 -> 组合卖点形成记忆峰值”的入口链。它适合新品或组合卖点，需要先让观众知道对象，再把组合关系和感官承诺压成一个可记忆判断。",
+      "differenceNotes": [
+        "familiarity_bridge_hook 借熟悉场景建立对象和观看理由；combination_claim_peak 把对象、组合关系和第一轮感官承诺绑定。",
+        "它不同于单纯商品识别或感官证明；组合 claim 仍需后续 sensory evidence 深化。"
+      ],
+      "riskIfMisclassified": "如果当成普通商品入口，组合卖点会被拆散；如果当成感官证明峰值，后续细节证据会被提前消耗。",
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_usage_experience_reassurance",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "使用顾虑解除槽 archetype",
+      "viewerStateBeforeClass": "观众理解机制，但可能担心核心功能会牺牲日常体验",
+      "viewerStateAfterClass": "观众获得可感知的体验证明，认为产品可以正常、舒适或低负担使用",
+      "primaryProofObligationClass": "usage_cost_reassurance_with_tactile_or_wearable_evidence",
+      "chainDependencyClass": "after_mechanism_before_scenario_or_value_expansion",
+      "excludes": [
+        "mechanism_explanation",
+        "quality_objection_to_sensory_peak",
+        "operation_barrier_reduction",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "wearability_reassurance: 把功能带来的潜在负担转化为可见体验细节，补足日常使用安全感"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003"
+      ],
+      "judgementReason": "该 archetype 治理机制成立后的使用顾虑解除：观众已经理解功能，但担心功能牺牲日常体验，因此需要触感、佩戴、操作负担或舒适度等可感知细节证明。",
+      "differenceNotes": [
+        "它承接 mechanism credibility，但证明对象是日常体验成本，不是机制因果本身。",
+        "适合中速停留和细节观察；如果全程快切，会削弱顾虑解除。"
+      ],
+      "riskIfMisclassified": "如果并入机制证明，日常使用阻力会没有被单独回应；如果并入场景扩展，会缺少体验细节证据。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_scenario_value_expansion",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "场景价值扩展槽 archetype",
+      "viewerStateBeforeClass": "观众已相信功能和体验，但仍可能把产品视为单一用途选择",
+      "viewerStateAfterClass": "观众把核心收益迁移到多个日常场景，形成更高使用频率想象",
+      "primaryProofObligationClass": "core_benefit_to_daily_scenario_utility",
+      "chainDependencyClass": "after_function_or_experience_before_value_or_close",
+      "excludes": [
+        "result_closure",
+        "mechanism_explanation",
+        "problem_activation",
+        "hard_conversion_close"
+      ],
+      "commonProofObligation": [
+        "scenario_value_expansion: 用多场景或整体状态展示扩展产品的日常可用性，提升购买理由的覆盖面"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004"
+      ],
+      "judgementReason": "该 archetype 治理“已被证明的核心收益如何迁移到更多日常场景”。它扩展使用频率和适配想象，但不新增机制或品质主证明。",
+      "differenceNotes": [
+        "多场景不是装饰，而是把同一核心收益放入不同情境中保持可见。",
+        "它应位于功能/体验证明之后，转化收束之前；提前使用会像泛生活氛围。"
+      ],
+      "riskIfMisclassified": "如果把场景扩展当成结果证明或转化槽，重组会用场景情绪替代必要的功能/体验证据。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_value_trust_reinforcement",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "质价信任补强槽 archetype",
+      "viewerStateBeforeClass": "观众认可功能和场景价值，但还需要判断是否值得买、是否可靠",
+      "viewerStateAfterClass": "观众获得价值反差和信任证据，购买阻力进一步降低",
+      "primaryProofObligationClass": "perceived_value_plus_trust_support",
+      "chainDependencyClass": "after_scenario_or_proof_before_conversion_close",
+      "excludes": [
+        "value_anchor_verification",
+        "mechanism_explanation",
+        "result_closure",
+        "operation_barrier_reduction"
+      ],
+      "commonProofObligation": [
+        "value_trust_reinforcement: 用外部感知、低门槛成本、背书和细节证明把产品从可用推进到值得买"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005"
+      ],
+      "judgementReason": "该 archetype 治理“可用之后是否值得买、是否可靠”的补强判断：用价值反差、信任来源和质量细节共同降低购买阻力。",
+      "differenceNotes": [
+        "它不是开场 value_anchor；value_anchor 建立利益，value_trust_reinforcement 在证据链后补“值不值/靠不靠谱”。",
+        "低门槛成本不能单独承担该 archetype，必须和质量或信任证据配对。"
+      ],
+      "riskIfMisclassified": "如果只按低价/优惠理解，会让可靠性证明缺席；如果并入机制证明，会把购买阻力和因果可信混在一起。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_trust_question_to_objective_proof",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "可信疑问加压槽 archetype",
+      "viewerStateBeforeClass": "观众听到了低门槛或高利益承诺，但可能产生可靠性疑问。",
+      "viewerStateAfterClass": "观众的疑虑被显性化，并期待后续证据回应。",
+      "primaryProofObligationClass": "explicit_trust_question_answered_by_objective_evidence",
+      "chainDependencyClass": "question_pressure_before_objective_proof_and_sensory_stack",
+      "excludes": [
+        "interest_value_positioning",
+        "mechanism_explanation",
+        "quality_sensory_peak",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "credibility_question: 主动抛出可信度问题，并把问题落到可见对象上，制造证据释放的必要性。",
+        "objective_proof_release: 用可见、可核查的信息回应前一槽位疑问，完成从追问压力到证据释放的转换。"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004"
+      ],
+      "judgementReason": "该 archetype 治理“主动提出可信疑问 -> 用客观证据释放疑问”的双槽关系。它的关键不是质疑本身，而是质疑必须指向后续可核查证据。",
+      "differenceNotes": [
+        "credibility_question 负责显性化疑问和前置证明对象，objective_proof_release 负责用标签、参数、记录或认证等客观证据回应。",
+        "该 archetype 不等于机制证明；它可以服务机制、价值或品质承诺的可信修复。"
+      ],
+      "riskIfMisclassified": "如果只保留质疑不保留证据释放，会制造不信任；如果只保留客观证据不保留疑问压力，证据出现会显得突兀。",
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_sensory_evidence_progression",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "感官证据堆叠槽 archetype",
+      "viewerStateBeforeClass": "观众已获得基础信任，但还需要判断真实吸引力和体验价值。",
+      "viewerStateAfterClass": "观众通过多维实拍细节和体验反馈形成感官确认。",
+      "primaryProofObligationClass": "sensory_claim_to_visible_detail_evidence",
+      "chainDependencyClass": "after_claim_or_objective_proof_before_trust_or_close",
+      "excludes": [
+        "mechanism_explanation",
+        "objective_proof_release",
+        "value_anchor_verification",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "sensory_proof_stack: 把商品好不好、值不值得的判断从客观可信推进到可感知、可想象的体验欲望。",
+        "sensory_evidence_deepening: 把体验卖点从抽象形容推进到连续可见证据，并形成第二轮体验峰值"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003"
+      ],
+      "judgementReason": "该 archetype 治理感官承诺从“被吸引”推进到“被看见、被想象、被确认”的证据递进。它可承接客观可信或组合 claim，但必须落到连续可见细节与体验反馈。",
+      "differenceNotes": [
+        "sensory_proof_stack 偏多维证据堆叠，sensory_evidence_deepening 偏从状态展示到体验确认的递进。",
+        "它不能由单一美观画面替代；至少要有状态、细节、反馈或结果中的互补证据。"
+      ],
+      "riskIfMisclassified": "如果并入品质信任或转化收束，感官证据会变成泛好看展示，无法支撑体验欲望。",
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_post_sensory_trust_assurance",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "品质放心背书槽 archetype",
+      "viewerStateBeforeClass": "观众已产生体验兴趣，但仍可能担心品质、安全或可靠性",
+      "viewerStateAfterClass": "观众获得理性信任补充，前面的感官兴趣被转化为更放心的购买判断",
+      "primaryProofObligationClass": "post_sensory_quality_or_safety_assurance",
+      "chainDependencyClass": "after_sensory_interest_before_conversion_reason_close",
+      "excludes": [
+        "sensory_evidence_progression",
+        "value_trust_reinforcement",
+        "mechanism_explanation",
+        "result_closure"
+      ],
+      "commonProofObligation": [
+        "trust_assurance_shift: 在感官证明之后补上信任背书，并用稳定节奏和标题化包装承载理性信息"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004"
+      ],
+      "judgementReason": "该 archetype 治理感官兴趣之后的理性放心背书：观众已经被体验吸引，但还需要品质、安全、工艺或可靠性信息把兴趣转成放心判断。",
+      "differenceNotes": [
+        "它必须位于感官证明之后，避免一开始就用理性说明压低兴趣。",
+        "背书可以是包装信息、真实资质、工艺细节或使用说明，但必须有可见支撑，不能只靠口播。"
+      ],
+      "riskIfMisclassified": "如果把它写成预期管理或泛安全提示，会丢失信任背书功能；如果前置太早，会打断感官卖点建立。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_conversion_motivation_close",
+      "familyId": "FAM_result_and_choice_closure",
+      "name": "身份转化收束槽 archetype",
+      "viewerStateBeforeClass": "观众已获得功能、体验、场景和价值理由，但尚未被推向行动",
+      "viewerStateAfterClass": "观众把前置核心关切转化为身份收益，并接收到立即行动触发",
+      "primaryProofObligationClass": "purchase_or_action_reason_close_after_proof",
+      "chainDependencyClass": "final_conversion_motivation_after_value_and_trust",
+      "excludes": [
+        "result_closure",
+        "long_term_trust_or_choice_memory_close",
+        "mechanism_explanation",
+        "value_anchor_verification"
+      ],
+      "commonProofObligation": [
+        "identity_conversion_close: 回扣开头关切形成情绪闭环，再用稀缺或库存风险完成转化收尾",
+        "conversion_reason_close: 用便利性、数量感或优惠感完成购买理由收口，并在终屏回到商品身份"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005"
+      ],
+      "judgementReason": "该 archetype 治理最终购买动机收束：在前置证明完成后，用身份收益、便利/利益、规格数量或稀缺行动提示把观众推向记住购买对象。",
+      "differenceNotes": [
+        "identity_conversion_close 更偏回扣目标人群身份和行动触发，conversion_reason_close 更偏便利、数量感或购买利益收口。",
+        "它是转化动机收束，不应在尾段新增复杂机制或未证明卖点。"
+      ],
+      "riskIfMisclassified": "如果并入普通结果收束，会缺少行动理由；如果当成硬促销槽，会越过素材/证据边界。",
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      }
+    },
+    {
+      "id": "ARCH_scenario_value_memory_close",
+      "familyId": "FAM_result_and_choice_closure",
+      "name": "场景价值收束槽 archetype",
+      "viewerStateBeforeClass": "观众认可商品有可信证据和感官吸引力，但购买场景和最终理由还需要收束。",
+      "viewerStateAfterClass": "观众把商品与高频使用场景、用户利益和末尾记忆点连接起来。",
+      "primaryProofObligationClass": "usage_scene_value_memory_close",
+      "chainDependencyClass": "after_objective_and_sensory_proof_before_memory_rest",
+      "excludes": [
+        "scenario_value_expansion",
+        "hard_conversion_close",
+        "mechanism_explanation",
+        "sensory_evidence_progression"
+      ],
+      "commonProofObligation": [
+        "scenario_value_close: 补足使用场景和价值态度，并通过节奏峰值后的停留保留商品印象。"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006"
+      ],
+      "judgementReason": "该 archetype 治理证明链后的场景价值记忆：用高频使用场景、利益态度和末尾停留把商品从“已被证明”转成“我会在哪用/为什么记住”。",
+      "differenceNotes": [
+        "它不同于中段 scenario_value_expansion；这里的场景用于收束记忆，不用于扩展证明。",
+        "末尾应停止追加新信息，把注意力留给商品、场景和已证明的核心利益。"
+      ],
+      "riskIfMisclassified": "如果当成中段场景扩展，会拖慢收尾；如果当成硬转化，会破坏低压记忆闭合。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      }
+    }
+  ],
+  "slotSubtypes": [
+    {
+      "id": "SUB_visible_result_first_hook",
+      "archetypeId": "ARCH_result_first_need_setup",
+      "name": "可视结果前置钩子",
+      "sourceSlotTypes": [
+        "instant_solution_preview"
+      ],
+      "viewerTransition": "未理解对象与价值 -> 快速看到使用入口和可验证结果",
+      "proofObligation": [
+        "基础使用动作和结果状态同屏或连续可见",
+        "压力或强动作证明必须和结果字幕同步"
+      ],
+      "solutionVisibility": "immediate_visible_solution",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该槽位把解决方案和结果先抛出，观看理由来自可视结果而非完整痛点铺陈。",
+      "differenceNotes": [
+        "只能前置可见结果和使用入口；痛点回填、机制解释和结果收束必须由后续槽位完成。"
+      ],
+      "riskIfMisclassified": "误作普通展示或完整证明，会遗漏结果先行后必须回补的同一关切。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "素材对象/使用动作选择",
+          "结果状态呈现强度",
+          "开头节奏峰值形态",
+          "结果字幕或视觉锚点样式"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_result_backfilled_pain",
+      "archetypeId": "ARCH_result_first_need_setup",
+      "name": "结果后补痛点",
+      "sourceSlotTypes": [
+        "pain_backfill"
+      ],
+      "viewerTransition": "已见结果但需求不充分 -> 把结果连接到日常困扰",
+      "proofObligation": [
+        "旧状态或生活成本必须可见",
+        "必须回扣开头结果的同一关切"
+      ],
+      "solutionVisibility": "solution_seen_before_problem",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该槽位不是新开痛点，而是给前置结果补动机。",
+      "differenceNotes": [
+        "只能回填开头结果对应的旧状态或生活成本；不能扩展为全新的问题激活链。"
+      ],
+      "riskIfMisclassified": "误吸收普通问题激活会让结果前置链路失去前后同一关切约束。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "旧状态素材",
+          "生活成本表达方式",
+          "回填节奏长短",
+          "同一关切回扣包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_low_barrier_value_anchor",
+      "archetypeId": "ARCH_value_anchor_verification",
+      "name": "低门槛价值锚点",
+      "sourceSlotTypes": [
+        "value_anchor"
+      ],
+      "viewerTransition": "未识别购买对象 -> 识别低门槛利益对象",
+      "proofObligation": [
+        "商品主体清晰可见",
+        "低门槛利益有可感知提示"
+      ],
+      "solutionVisibility": "object_and_value_immediate",
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该槽位先解决为什么值得继续看，而不是先证明品质。",
+      "differenceNotes": [
+        "只建立低门槛价值承诺；数量兑现、品质证明和操作门槛降低必须留给后续 subtype。"
+      ],
+      "riskIfMisclassified": "误当操作门槛证明会用价格或利益提示替代步骤可执行证据。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "商品主体呈现方式",
+          "低门槛利益表达",
+          "入口节奏强度",
+          "价值提示包装样式"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_visible_quantity_value",
+      "archetypeId": "ARCH_value_anchor_verification",
+      "name": "数量规格价值兑现",
+      "sourceSlotTypes": [
+        "quantity_value_confirmation"
+      ],
+      "viewerTransition": "已收到低门槛利益 -> 通过数量或规格感到价值具体",
+      "proofObligation": [
+        "多单位实物、规格或份量同框",
+        "承接同一购买对象或利益锚点"
+      ],
+      "solutionVisibility": "value_evidence_after_anchor",
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该槽位把价值锚点从主张推进为可见证据。",
+      "differenceNotes": [
+        "只兑现同一价值锚点的数量/规格/份量证据；不承担品质、机制或感官峰值证明。"
+      ],
+      "riskIfMisclassified": "误作品质证明会把“多/划算”当成“好/可信”。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "数量/规格/份量证据载体",
+          "同框或连续展示方式",
+          "价值兑现节奏",
+          "规格标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_scene_problem_activation",
+      "archetypeId": "ARCH_problem_activation",
+      "name": "场景共鸣型问题激活",
+      "sourceSlotTypes": [
+        "scene_problem_activation"
+      ],
+      "viewerTransition": "未进入具体使用语境 -> 识别高频困扰并接受方案必要性",
+      "proofObligation": [
+        "生活场景、干扰来源和受影响状态共同出现",
+        "包装强度保持低位以保留真实感"
+      ],
+      "solutionVisibility": "delayed_solution_after_scene_problem",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "问题成立依赖场景和干扰源，不依赖开头直接执行动作。",
+      "differenceNotes": [
+        "和对象直冲型同属问题激活 archetype，但方案出现延迟，必须保留场景与干扰源。"
+      ],
+      "riskIfMisclassified": "过早露出解决物或机制包装会削弱场景问题成立。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "生活场景素材",
+          "干扰来源表达",
+          "真实感节奏强度",
+          "低包装或环境音呈现"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_object_action_problem_activation",
+      "archetypeId": "ARCH_problem_activation",
+      "name": "对象直冲动作型问题激活",
+      "sourceSlotTypes": [
+        "problem_activation"
+      ],
+      "viewerTransition": "未进入解决语境 -> 看见问题对象和直接作用路径",
+      "proofObligation": [
+        "问题对象、定位提示和解决方案接触动作同拍出现",
+        "复杂机制应后移"
+      ],
+      "solutionVisibility": "action_entry_visible_immediately",
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该槽位靠问题对象和动作示范抢占第一视线，方案可见性明显早于场景共鸣型。",
+      "differenceNotes": [
+        "问题对象和接触动作可立即出现，但只负责激活，不解释机制或步骤。"
+      ],
+      "riskIfMisclassified": "误作机制证明会把开头动作卖点当成可信原因。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "问题对象选择",
+          "接触动作呈现",
+          "开头快入节奏",
+          "定位提示包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_solution_object_entry",
+      "archetypeId": "ARCH_solution_object_entry",
+      "name": "解决物识别进入",
+      "sourceSlotTypes": [
+        "solution_entry"
+      ],
+      "viewerTransition": "已接受问题 -> 识别解决方案对象",
+      "proofObligation": [
+        "解决物或识别载体清楚",
+        "承接前一痛点但不展开完整证明"
+      ],
+      "solutionVisibility": "solution_object_introduced_after_problem",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位只建立论证对象，是后续对比和机制证明的前置锚点。",
+      "differenceNotes": [
+        "当前缺少第二样例验证。"
+      ],
+      "riskIfMisclassified": "缺少解决物识别会让后续证明对象不稳定。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "解决物识别载体",
+          "承接痛点的入口动作",
+          "进入节奏",
+          "对象标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_coverage_to_mechanism_bridge",
+      "archetypeId": "ARCH_proof_bridge",
+      "name": "覆盖感到机制桥接",
+      "sourceSlotTypes": [
+        "coverage_bridge"
+      ],
+      "viewerTransition": "理解痛点和初步结果 -> 看到覆盖感并准备接受结构解释",
+      "proofObligation": [
+        "多点或多实例可见",
+        "下一槽必须降低节奏并解释结构"
+      ],
+      "solutionVisibility": "coverage_before_mechanism",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该槽位是从痛点到机制的高密度过渡，不是独立证明峰值。",
+      "differenceNotes": [
+        "只负责从覆盖感过渡到机制解释；不能替代后续结构、材料或因果证明。"
+      ],
+      "riskIfMisclassified": "误并入机制证明会用多点画面替代真正的可信原因。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "覆盖范围素材",
+          "多点/多实例展示方式",
+          "从快入到解释的过渡节奏",
+          "桥接提示包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_alternative_gap_contrast",
+      "archetypeId": "ARCH_contrast_gap_setup",
+      "name": "替代方案缺口对比",
+      "sourceSlotTypes": [
+        "alternative_contrast"
+      ],
+      "viewerTransition": "知道方案类别但认为替代方案也可用 -> 意识到关键场景存在适配门槛",
+      "proofObligation": [
+        "替代方案实物或使用状态可见",
+        "失败体验必须被后续机制证明回应"
+      ],
+      "solutionVisibility": "target_solution_delayed_until_gap_defined",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位建立差异化证明必要性，关系上依赖后续 mechanism_proof。",
+      "differenceNotes": [
+        "只定义替代方案缺口；后续机制证明必须回应该缺口，但缺口本身不是机制。"
+      ],
+      "riskIfMisclassified": "误并入机制证明会让对比吐槽替代差异化原因。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "替代方案素材",
+          "缺陷呈现方式",
+          "对比节奏位置",
+          "差距标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_structure_reuse_mechanism_trust",
+      "archetypeId": "ARCH_mechanism_and_credibility_proof",
+      "name": "结构复用可信证明",
+      "sourceSlotTypes": [
+        "mechanism_trust"
+      ],
+      "viewerTransition": "已看到结果和覆盖感 -> 获得结构、操作和持续使用可信理由",
+      "proofObligation": [
+        "近距离结构证据",
+        "可执行操作证据",
+        "重复或持续使用依据"
+      ],
+      "solutionVisibility": "mechanism_after_result_and_coverage",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该槽位补足低门槛和可持续使用信任，证明对象包括结构和操作。",
+      "differenceNotes": [
+        "只用结构、复用或可执行证据解释可信原因；低门槛操作和长期收束必须分别后移。"
+      ],
+      "riskIfMisclassified": "误吸收操作或长期信任，会让机制槽承担步骤兑现和结尾背书。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "结构细节素材",
+          "复用/可执行证据呈现",
+          "解释节奏和停顿",
+          "结构证明包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_causal_mechanism_proof",
+      "archetypeId": "ARCH_mechanism_and_credibility_proof",
+      "name": "差异化因果机制证明",
+      "sourceSlotTypes": [
+        "mechanism_proof"
+      ],
+      "viewerTransition": "已知道替代方案缺陷 -> 理解目标方案如何解决缺陷",
+      "proofObligation": [
+        "实物细节、图文说明和演示形成对应关系",
+        "回应前置对比缺陷"
+      ],
+      "solutionVisibility": "mechanism_after_contrast",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位的 proof obligation 是复杂因果解释，与单纯结构展示或品质特写不同。",
+      "differenceNotes": [
+        "节奏可以高密度，但必须留出视觉锚点和理解停顿。"
+      ],
+      "riskIfMisclassified": "机制证据会被快切和字幕吞掉。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "机制细节素材",
+          "因果演示方式",
+          "解释节奏密度",
+          "机制图文或指向包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_mechanism_scope_credibility",
+      "archetypeId": "ARCH_mechanism_and_credibility_proof",
+      "name": "机制与适用范围可信",
+      "sourceSlotTypes": [
+        "mechanism_credibility"
+      ],
+      "viewerTransition": "知道作用对象和执行方式 -> 理解为什么可信以及适用范围",
+      "proofObligation": [
+        "机制说明载体",
+        "持续执行实拍",
+        "适用范围说明"
+      ],
+      "solutionVisibility": "mechanism_explained_after_action_entry",
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该槽位依赖实拍绑定机制说明，不应脱离执行动作做空泛科普。",
+      "differenceNotes": [
+        "只证明机制与适用范围可信；持续执行实拍是可信原因证据，不是长期收口。"
+      ],
+      "riskIfMisclassified": "误作长期信任收束会缺少结尾选择和结果回扣。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "机制说明载体",
+          "适用范围素材",
+          "持续执行观察节奏",
+          "范围/可信标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_operation_barrier_reduction",
+      "archetypeId": "ARCH_operation_barrier_reduction",
+      "name": "低门槛操作闭环",
+      "sourceSlotTypes": [
+        "low_barrier_operation"
+      ],
+      "viewerTransition": "理解方案逻辑但担心复杂 -> 知道最小步骤闭环",
+      "proofObligation": [
+        "等待或生效时间可视化",
+        "完成动作实拍",
+        "步骤提示和结果归因连续"
+      ],
+      "solutionVisibility": "operation_after_mechanism",
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该槽位证明使用门槛低，不负责解释完整机制。",
+      "differenceNotes": [
+        "可与 result_confirmation 形成跨槽节奏兑现链。"
+      ],
+      "riskIfMisclassified": "只保留文字步骤会增加执行顾虑。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "操作步骤素材",
+          "等待或生效时间表达",
+          "步骤节奏与停顿",
+          "步骤提示包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_quality_objection_reframe",
+      "archetypeId": "ARCH_quality_sensory_proof",
+      "name": "品质疑虑转向",
+      "sourceSlotTypes": [
+        "quality_trust_build"
+      ],
+      "viewerTransition": "认可价值但担心低质 -> 开始观察产品本身是否可靠",
+      "proofObligation": [
+        "近距离质地观察或可操作证据",
+        "节奏从数量密度压到稳定观察"
+      ],
+      "solutionVisibility": "quality_observation_after_value",
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该槽位承接低门槛可能带来的品质疑虑，为后续细节峰值建立观察入口。",
+      "differenceNotes": [
+        "不是最终体验证明峰值。"
+      ],
+      "riskIfMisclassified": "会缺少从价值到品质的缓冲转向。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "质地/品质观察素材",
+          "疑虑转向表达",
+          "稳定观察节奏",
+          "品质锚点包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_sensory_detail_proof_peak",
+      "archetypeId": "ARCH_quality_sensory_proof",
+      "name": "感官细节证明峰值",
+      "sourceSlotTypes": [
+        "sensory_proof_peak"
+      ],
+      "viewerTransition": "进入品质判断 -> 通过细节证据降低关键顾虑",
+      "proofObligation": [
+        "动作拆解、内部结构或细节特写",
+        "体验主张与证据同一注意力高点"
+      ],
+      "solutionVisibility": "proof_peak_after_quality_reframe",
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该槽位以可见细节完成品质与体验兑现，是注意力峰值。",
+      "differenceNotes": [
+        "不能用数量密度抬升替代。"
+      ],
+      "riskIfMisclassified": "观众看见细节但无法理解为体验证明。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "感官细节素材",
+          "动作拆解或内部结构呈现",
+          "证明峰值节奏",
+          "细节放大/指向包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_life_benefit_close",
+      "archetypeId": "ARCH_result_closure",
+      "name": "生活状态利益收束",
+      "sourceSlotTypes": [
+        "life_benefit_close"
+      ],
+      "viewerTransition": "理解功能和可信理由 -> 记住稳定轻松生活状态",
+      "proofObligation": [
+        "回收前文核心关切",
+        "用低负荷生活化画面兑现"
+      ],
+      "solutionVisibility": "benefit_close_after_proof",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该槽位从功能证明回落到生活利益。",
+      "differenceNotes": [
+        "不适合新增复杂机制或强转化。"
+      ],
+      "riskIfMisclassified": "结尾会打断生活利益回落。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "生活化结果素材",
+          "利益收束表达",
+          "低负荷收尾节奏",
+          "回扣字幕或轻包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_usage_scene_conversion_close",
+      "archetypeId": "ARCH_result_closure",
+      "name": "使用场景与购买对象收束",
+      "sourceSlotTypes": [
+        "usage_scene_close"
+      ],
+      "viewerTransition": "相信体验卖点 -> 把体验优势、场景和购买对象绑定",
+      "proofObligation": [
+        "成品状态或使用场景",
+        "购买对象重新同框"
+      ],
+      "solutionVisibility": "usage_scene_after_sensory_proof",
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该槽位把前面的体验证据转入日常使用理由和软转化。",
+      "differenceNotes": [
+        "如果只保留场景情绪不回到商品，会断开证明与转化。"
+      ],
+      "riskIfMisclassified": "会削弱购买对象记忆。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "使用场景素材",
+          "购买对象回收方式",
+          "场景收尾节奏",
+          "对象/场景同框包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_usage_result_confirmation",
+      "archetypeId": "ARCH_result_closure",
+      "name": "使用结果回扣确认",
+      "sourceSlotTypes": [
+        "usage_result_confirmation"
+      ],
+      "viewerTransition": "理解机制证据 -> 把机制与实际结果连接",
+      "proofObligation": [
+        "回到前文同一关切或使用场景",
+        "呈现使用状态与结果感受的连接"
+      ],
+      "solutionVisibility": "result_after_mechanism",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位负责将复杂机制兑现到真实使用状态。",
+      "differenceNotes": [
+        "和 result_confirmation 同 archetype，但上游通常是机制证明而非步骤闭环。"
+      ],
+      "riskIfMisclassified": "机制证明无法兑现到最初痛点。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "使用结果素材",
+          "前文关切回扣方式",
+          "结果确认节奏",
+          "反馈或结果标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_operation_result_confirmation",
+      "archetypeId": "ARCH_result_closure",
+      "name": "操作后结果确认",
+      "sourceSlotTypes": [
+        "result_confirmation"
+      ],
+      "viewerTransition": "刚看到使用步骤完成 -> 看到局部结果与生活收益",
+      "proofObligation": [
+        "回到前面问题对象或同类关切",
+        "结果近景、指向动作和生活化反馈"
+      ],
+      "solutionVisibility": "result_after_operation",
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该槽位直接承接 low_barrier_operation 的等待和完成动作。",
+      "differenceNotes": [
+        "允许节奏从步骤槽跨到结果槽。"
+      ],
+      "riskIfMisclassified": "步骤和结果脱节，功能结果无法归因到刚才动作。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "操作后结果素材",
+          "问题对象回看方式",
+          "结果确认节奏",
+          "指向动作/结果包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_recommendation_memory_close",
+      "archetypeId": "ARCH_long_term_or_choice_close",
+      "name": "推荐记忆收束",
+      "sourceSlotTypes": [
+        "choice_close"
+      ],
+      "viewerTransition": "接受证明链 -> 获得推荐结论和记忆锚点",
+      "proofObligation": [
+        "推荐场景",
+        "解决物识别锚点",
+        "极简结尾信息"
+      ],
+      "solutionVisibility": "choice_after_result",
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该槽位是记忆和选择收束，不是硬转化。",
+      "differenceNotes": [
+        "如果目标是直接转化，需要新增受控转化证明。"
+      ],
+      "riskIfMisclassified": "新增复杂信息会稀释已完成证明链。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "推荐场景素材",
+          "识别锚点表达",
+          "极简结尾节奏",
+          "记忆点包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_long_term_trust_choice_close",
+      "archetypeId": "ARCH_long_term_or_choice_close",
+      "name": "长期物证信任收束",
+      "sourceSlotTypes": [
+        "long_term_trust_close"
+      ],
+      "viewerTransition": "看到即时结果但需要长期可信 -> 获得持续使用证据和选择落点",
+      "proofObligation": [
+        "时间证据",
+        "使用痕迹或持续记录",
+        "解决方案归因和低压选择收束"
+      ],
+      "solutionVisibility": "long_term_evidence_after_result",
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该槽位把一次性效果升级为长期可信体验。",
+      "differenceNotes": [
+        "不能只靠正面口播。"
+      ],
+      "riskIfMisclassified": "长期背书会退化成空泛夸赞。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "时间证据素材",
+          "使用痕迹/记录呈现",
+          "低压选择收尾节奏",
+          "长期信任标注包装"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "solutionVisibility",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_aspirational_visible_outcome_hook",
+      "archetypeId": "ARCH_aspirational_result_activation",
+      "name": "欲望结果激活槽",
+      "sourceSlotTypes": [
+        "aspirational_outcome_activation"
+      ],
+      "viewerTransition": "观众尚未进入具体购买语境，只可能对某类改善结果有潜在兴趣 -> 观众看到一个强结果承诺，并愿意继续了解它如何成立",
+      "proofObligation": [
+        "先把目标人群的核心欲望推到前台，用可见结果和生活反馈建立观看动机"
+      ],
+      "solutionVisibility": "result_promise_before_explanation",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 aspirational_outcome_activation，治理的是“先把目标人群的核心欲望推到前台，用可见结果和生活反馈建立观看动机”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众尚未进入具体购买语境，只可能对某类改善结果有潜在兴趣 -> 观众看到一个强结果承诺，并愿意继续了解它如何成立",
+        "必要同步点：核心收益提出、可见结果展示、生活反馈补强",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 aspirational_outcome_activation 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：先把目标人群的核心欲望推到前台，用可见结果和生活反馈建立观看动机",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_core_interest_conflict_hook",
+      "archetypeId": "ARCH_interest_value_positioning",
+      "name": "核心兴趣激活槽",
+      "sourceSlotTypes": [
+        "core_interest_conflict"
+      ],
+      "viewerTransition": "观众尚未进入商品语境，也没有明确关注点。 -> 观众被一个具体核心利益点和反差表达吸引，愿意等待解释。",
+      "proofObligation": [
+        "用冲突感和真实体验入口先建立记忆点，把普通观看状态转成卖点期待。"
+      ],
+      "solutionVisibility": "interest_conflict_before_value_position",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 core_interest_conflict，治理的是“用冲突感和真实体验入口先建立记忆点，把普通观看状态转成卖点期待。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众尚未进入商品语境，也没有明确关注点。 -> 观众被一个具体核心利益点和反差表达吸引，愿意等待解释。",
+        "必要同步点：核心利益点出现、体验动作出现、商品识别成立",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 core_interest_conflict 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用冲突感和真实体验入口先建立记忆点，把普通观看状态转成卖点期待。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_value_positioning_bridge",
+      "archetypeId": "ARCH_interest_value_positioning",
+      "name": "价值立场承接槽",
+      "sourceSlotTypes": [
+        "value_positioning"
+      ],
+      "viewerTransition": "观众记住了核心利益点，但还不清楚利益服务谁、为什么成立。 -> 观众理解该利益对应的目标人群和基础价值承诺。",
+      "proofObligation": [
+        "把开场情绪转化为明确的用户利益和价值站位，为后续可信疑问做铺垫。"
+      ],
+      "solutionVisibility": "value_position_after_interest_hook",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 value_positioning，治理的是“把开场情绪转化为明确的用户利益和价值站位，为后续可信疑问做铺垫。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众记住了核心利益点，但还不清楚利益服务谁、为什么成立。 -> 观众理解该利益对应的目标人群和基础价值承诺。",
+        "必要同步点：目标人群被点明、价值承诺出现、商品保持可见",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 value_positioning 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：把开场情绪转化为明确的用户利益和价值站位，为后续可信疑问做铺垫。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_familiarity_bridge_hook",
+      "archetypeId": "ARCH_familiarity_to_combination_claim",
+      "name": "熟悉经验钩子槽",
+      "sourceSlotTypes": [
+        "familiarity_bridge_hook"
+      ],
+      "viewerTransition": "观众尚未进入商品语境，只可能对熟悉使用或体验场景有基础认知 -> 观众知道这是一个由熟悉体验组合出的新卖点，并愿意继续看证明",
+      "proofObligation": [
+        "用熟悉经验降低新品理解成本，同时快速建立商品对象和观看动机"
+      ],
+      "solutionVisibility": "familiarity_before_combination_claim",
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 familiarity_bridge_hook，治理的是“用熟悉经验降低新品理解成本，同时快速建立商品对象和观看动机”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众尚未进入商品语境，只可能对熟悉使用或体验场景有基础认知 -> 观众知道这是一个由熟悉体验组合出的新卖点，并愿意继续看证明",
+        "必要同步点：入口话题出现、使用状态出现、商品身份露出",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 familiarity_bridge_hook 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用熟悉经验降低新品理解成本，同时快速建立商品对象和观看动机",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_combination_claim_peak",
+      "archetypeId": "ARCH_familiarity_to_combination_claim",
+      "name": "组合承诺峰值槽",
+      "sourceSlotTypes": [
+        "combination_claim_peak"
+      ],
+      "viewerTransition": "观众已知道商品对象，但组合卖点还没有形成强记忆点 -> 观众把商品身份、组合关系和感官承诺绑定成一个清晰卖点",
+      "proofObligation": [
+        "把组合卖点压缩到第一轮注意力峰值，并用包装与实物互证避免只记住概念"
+      ],
+      "solutionVisibility": "combination_peak_before_sensory_deepening",
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 combination_claim_peak，治理的是“把组合卖点压缩到第一轮注意力峰值，并用包装与实物互证避免只记住概念”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已知道商品对象，但组合卖点还没有形成强记忆点 -> 观众把商品身份、组合关系和感官承诺绑定成一个清晰卖点",
+        "必要同步点：组合关系被明确、商品身份被强化、感官承诺形成峰值",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 combination_claim_peak 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：把组合卖点压缩到第一轮注意力峰值，并用包装与实物互证避免只记住概念",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_hidden_mechanism_credibility",
+      "archetypeId": "ARCH_mechanism_and_credibility_proof",
+      "name": "机制可信槽",
+      "sourceSlotTypes": [
+        "mechanism_credibility"
+      ],
+      "viewerTransition": "观众已被结果吸引，但仍需要知道承诺为什么可信且是否会带来突兀感 -> 观众理解结果背后的实现方式，并初步相信它能在正常使用状态中成立",
+      "proofObligation": [
+        "用外部正常性和内部机制揭示承接结果承诺，降低对夸张、突兀或不真实的担心"
+      ],
+      "solutionVisibility": "mechanism_after_aspirational_outcome",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 mechanism_credibility，治理的是“用外部正常性和内部机制揭示承接结果承诺，降低对夸张、突兀或不真实的担心”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已被结果吸引，但仍需要知道承诺为什么可信且是否会带来突兀感 -> 观众理解结果背后的实现方式，并初步相信它能在正常使用状态中成立",
+        "必要同步点：外部正常性出现、内部机制揭示、关键结构被指示或停留",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 mechanism_credibility 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用外部正常性和内部机制揭示承接结果承诺，降低对夸张、突兀或不真实的担心",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_usage_experience_reassurance",
+      "archetypeId": "ARCH_usage_experience_reassurance",
+      "name": "使用顾虑解除槽",
+      "sourceSlotTypes": [
+        "wearability_reassurance"
+      ],
+      "viewerTransition": "观众理解机制，但可能担心核心功能会牺牲日常体验 -> 观众获得可感知的体验证明，认为产品可以正常、舒适或低负担使用",
+      "proofObligation": [
+        "把功能带来的潜在负担转化为可见体验细节，补足日常使用安全感"
+      ],
+      "solutionVisibility": "experience_reassurance_after_mechanism",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 wearability_reassurance，治理的是“把功能带来的潜在负担转化为可见体验细节，补足日常使用安全感”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众理解机制，但可能担心核心功能会牺牲日常体验 -> 观众获得可感知的体验证明，认为产品可以正常、舒适或低负担使用",
+        "必要同步点：体验顾虑被提出、细节证明出现、动作或触感证据落点",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 wearability_reassurance 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：把功能带来的潜在负担转化为可见体验细节，补足日常使用安全感",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_scenario_value_expansion",
+      "archetypeId": "ARCH_scenario_value_expansion",
+      "name": "场景价值扩展槽",
+      "sourceSlotTypes": [
+        "scenario_value_expansion"
+      ],
+      "viewerTransition": "观众已相信功能和体验，但仍可能把产品视为单一用途选择 -> 观众把核心收益迁移到多个日常场景，形成更高使用频率想象",
+      "proofObligation": [
+        "用多场景或整体状态展示扩展产品的日常可用性，提升购买理由的覆盖面"
+      ],
+      "solutionVisibility": "scenario_expansion_before_value_trust",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 scenario_value_expansion，治理的是“用多场景或整体状态展示扩展产品的日常可用性，提升购买理由的覆盖面”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已相信功能和体验，但仍可能把产品视为单一用途选择 -> 观众把核心收益迁移到多个日常场景，形成更高使用频率想象",
+        "必要同步点：场景切换、整体效果可见、日常价值评价",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 scenario_value_expansion 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用多场景或整体状态展示扩展产品的日常可用性，提升购买理由的覆盖面",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_value_trust_reinforcement",
+      "archetypeId": "ARCH_value_trust_reinforcement",
+      "name": "质价信任补强槽",
+      "sourceSlotTypes": [
+        "value_trust_reinforcement"
+      ],
+      "viewerTransition": "观众认可功能和场景价值，但还需要判断是否值得买、是否可靠 -> 观众获得价值反差和信任证据，购买阻力进一步降低",
+      "proofObligation": [
+        "用外部感知、低门槛成本、背书和细节证明把产品从可用推进到值得买"
+      ],
+      "solutionVisibility": "value_and_trust_before_conversion",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 value_trust_reinforcement，治理的是“用外部感知、低门槛成本、背书和细节证明把产品从可用推进到值得买”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众认可功能和场景价值，但还需要判断是否值得买、是否可靠 -> 观众获得价值反差和信任证据，购买阻力进一步降低",
+        "必要同步点：价值反差出现、信任背书补强、质量细节证明",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 value_trust_reinforcement 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用外部感知、低门槛成本、背书和细节证明把产品从可用推进到值得买",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_credibility_question_pressure",
+      "archetypeId": "ARCH_trust_question_to_objective_proof",
+      "name": "可信疑问加压槽",
+      "sourceSlotTypes": [
+        "credibility_question"
+      ],
+      "viewerTransition": "观众听到了低门槛或高利益承诺，但可能产生可靠性疑问。 -> 观众的疑虑被显性化，并期待后续证据回应。",
+      "proofObligation": [
+        "主动抛出可信度问题，并把问题落到可见对象上，制造证据释放的必要性。"
+      ],
+      "solutionVisibility": "question_before_objective_proof",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 credibility_question，治理的是“主动抛出可信度问题，并把问题落到可见对象上，制造证据释放的必要性。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众听到了低门槛或高利益承诺，但可能产生可靠性疑问。 -> 观众的疑虑被显性化，并期待后续证据回应。",
+        "必要同步点：低门槛利益出现、可信疑问提出、证明对象前置",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 credibility_question 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：主动抛出可信度问题，并把问题落到可见对象上，制造证据释放的必要性。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_objective_proof_release",
+      "archetypeId": "ARCH_trust_question_to_objective_proof",
+      "name": "客观证明释放槽",
+      "sourceSlotTypes": [
+        "objective_proof_release"
+      ],
+      "viewerTransition": "观众带着低门槛是否可信的疑问等待解释。 -> 观众看到可核查证据，基础信任被修复，可以继续接受感官证明。",
+      "proofObligation": [
+        "用可见、可核查的信息回应前一槽位疑问，完成从追问压力到证据释放的转换。"
+      ],
+      "solutionVisibility": "objective_proof_after_question",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 objective_proof_release，治理的是“用可见、可核查的信息回应前一槽位疑问，完成从追问压力到证据释放的转换。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众带着低门槛是否可信的疑问等待解释。 -> 观众看到可核查证据，基础信任被修复，可以继续接受感官证明。",
+        "必要同步点：疑问回应开始、客观证据出现、标注动作与说明同步",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 objective_proof_release 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用可见、可核查的信息回应前一槽位疑问，完成从追问压力到证据释放的转换。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_sensory_proof_stack",
+      "archetypeId": "ARCH_sensory_evidence_progression",
+      "name": "感官证据堆叠槽",
+      "sourceSlotTypes": [
+        "sensory_proof_stack"
+      ],
+      "viewerTransition": "观众已获得基础信任，但还需要判断真实吸引力和体验价值。 -> 观众通过多维实拍细节和体验反馈形成感官确认。",
+      "proofObligation": [
+        "把商品好不好、值不值得的判断从客观可信推进到可感知、可想象的体验欲望。"
+      ],
+      "solutionVisibility": "sensory_stack_after_objective_proof",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 sensory_proof_stack，治理的是“把商品好不好、值不值得的判断从客观可信推进到可感知、可想象的体验欲望。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已获得基础信任，但还需要判断真实吸引力和体验价值。 -> 观众通过多维实拍细节和体验反馈形成感官确认。",
+        "必要同步点：外观细节与字幕对应、结构或质地展示与卖点对应、体验反馈回收前面证明",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 sensory_proof_stack 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：把商品好不好、值不值得的判断从客观可信推进到可感知、可想象的体验欲望。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_sensory_evidence_deepening",
+      "archetypeId": "ARCH_sensory_evidence_progression",
+      "name": "感官证据深化槽",
+      "sourceSlotTypes": [
+        "sensory_evidence_deepening"
+      ],
+      "viewerTransition": "观众已被感官承诺吸引，但仍需要看到承诺如何成立 -> 观众通过细节状态和使用反馈相信体验或效果承诺有可见依据",
+      "proofObligation": [
+        "把体验卖点从抽象形容推进到连续可见证据，并形成第二轮体验峰值"
+      ],
+      "solutionVisibility": "sensory_deepening_after_combination_peak",
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 sensory_evidence_deepening，治理的是“把体验卖点从抽象形容推进到连续可见证据，并形成第二轮体验峰值”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已被感官承诺吸引，但仍需要看到承诺如何成立 -> 观众通过细节状态和使用反馈相信体验或效果承诺有可见依据",
+        "必要同步点：细节证据出现、动作揭示状态、真人体验或结果反馈出现",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 sensory_evidence_deepening 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：把体验卖点从抽象形容推进到连续可见证据，并形成第二轮体验峰值",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_post_sensory_trust_assurance",
+      "archetypeId": "ARCH_post_sensory_trust_assurance",
+      "name": "品质放心背书槽",
+      "sourceSlotTypes": [
+        "trust_assurance_shift"
+      ],
+      "viewerTransition": "观众已产生体验兴趣，但仍可能担心品质、安全或可靠性 -> 观众获得理性信任补充，前面的感官兴趣被转化为更放心的购买判断",
+      "proofObligation": [
+        "在感官证明之后补上信任背书，并用稳定节奏和标题化包装承载理性信息"
+      ],
+      "solutionVisibility": "trust_assurance_after_sensory_interest",
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 trust_assurance_shift，治理的是“在感官证明之后补上信任背书，并用稳定节奏和标题化包装承载理性信息”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已产生体验兴趣，但仍可能担心品质、安全或可靠性 -> 观众获得理性信任补充，前面的感官兴趣被转化为更放心的购买判断",
+        "必要同步点：信任主张出现、背书信息被抬升、实物证据同步补充",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 trust_assurance_shift 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：在感官证明之后补上信任背书，并用稳定节奏和标题化包装承载理性信息",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_identity_conversion_close",
+      "archetypeId": "ARCH_conversion_motivation_close",
+      "name": "身份转化收束槽",
+      "sourceSlotTypes": [
+        "identity_conversion_close"
+      ],
+      "viewerTransition": "观众已获得功能、体验、场景和价值理由，但尚未被推向行动 -> 观众把前置核心关切转化为身份收益，并接收到立即行动触发",
+      "proofObligation": [
+        "回扣开头关切形成情绪闭环，再用稀缺或库存风险完成转化收尾"
+      ],
+      "solutionVisibility": "identity_action_close_after_value_trust",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 identity_conversion_close，治理的是“回扣开头关切形成情绪闭环，再用稀缺或库存风险完成转化收尾”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已获得功能、体验、场景和价值理由，但尚未被推向行动 -> 观众把前置核心关切转化为身份收益，并接收到立即行动触发",
+        "必要同步点：核心关切回扣、身份收益出现、稀缺行动提示",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 identity_conversion_close 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：回扣开头关切形成情绪闭环，再用稀缺或库存风险完成转化收尾",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_conversion_reason_close",
+      "archetypeId": "ARCH_conversion_motivation_close",
+      "name": "转化利益收束槽",
+      "sourceSlotTypes": [
+        "conversion_reason_close"
+      ],
+      "viewerTransition": "观众已理解卖点和可信理由，但还缺少立即购买的现实动机 -> 观众把商品对象、便利或利益点与购买理由合并记住",
+      "proofObligation": [
+        "用便利性、数量感或优惠感完成购买理由收口，并在终屏回到商品身份"
+      ],
+      "solutionVisibility": "purchase_reason_close_after_trust",
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 conversion_reason_close，治理的是“用便利性、数量感或优惠感完成购买理由收口，并在终屏回到商品身份”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众已理解卖点和可信理由，但还缺少立即购买的现实动机 -> 观众把商品对象、便利或利益点与购买理由合并记住",
+        "必要同步点：购买利益出现、规格或数量感被看见、终屏商品身份锚定",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 conversion_reason_close 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：用便利性、数量感或优惠感完成购买理由收口，并在终屏回到商品身份",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    },
+    {
+      "id": "SUB_scenario_value_memory_close",
+      "archetypeId": "ARCH_scenario_value_memory_close",
+      "name": "场景价值收束槽",
+      "sourceSlotTypes": [
+        "scenario_value_close"
+      ],
+      "viewerTransition": "观众认可商品有可信证据和感官吸引力，但购买场景和最终理由还需要收束。 -> 观众把商品与高频使用场景、用户利益和末尾记忆点连接起来。",
+      "proofObligation": [
+        "补足使用场景和价值态度，并通过节奏峰值后的停留保留商品印象。"
+      ],
+      "solutionVisibility": "scenario_memory_close_after_proof",
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 subtype 来自 scenario_value_close，治理的是“补足使用场景和价值态度，并通过节奏峰值后的停留保留商品印象。”这一实现差异；它不改变父 archetype 的主证明义务，只限定此类实现必须保留的观众状态变化和证明路径。",
+      "differenceNotes": [
+        "观众状态变化：观众认可商品有可信证据和感官吸引力，但购买场景和最终理由还需要收束。 -> 观众把商品与高频使用场景、用户利益和末尾记忆点连接起来。",
+        "必要同步点：使用场景出现、利益态度收束、商品保持可见、末尾停止追加新信息",
+        "当前按来源 variant 保持候选，不因 slotType 名称相近而自动合并。"
+      ],
+      "riskIfMisclassified": "如果把 scenario_value_close 当成稳定通用 subtype 直接复用，可能只复制表层表达，漏掉其证明义务：补足使用场景和价值态度，并通过节奏峰值后的停留保留商品印象。",
+      "subtypeBoundary": {
+        "implementationDifferenceScope": [
+          "material",
+          "expression",
+          "rhythm",
+          "packaging"
+        ],
+        "mustNotChange": [
+          "primaryProofObligationClass",
+          "chainDependencyClass",
+          "slotArchetype task",
+          "viewerTransition",
+          "proofObligation"
+        ]
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ const os = require("os");
 const path = require("path");
 const { createLocalStore } = require("../../Infrastructure/Storage/local-store");
 const { createStageLogger, expandStageLogLines } = require("../../Infrastructure/Observability/stage-logger");
-const { recordApiRequestFailure } = require("../../Apps/Api/lib/observability/api-request-debug");
+const { normalizeStatusCode, recordApiRequestFailure } = require("../../Apps/Api/lib/observability/api-request-debug");
 
 test("records top-level API request failures as request trace", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-api-request-"));
@@ -35,4 +35,13 @@ test("records top-level API request failures as request trace", async () => {
   assert.equal(snapshot.debugPayload.statusCode, 400);
   assert.equal(snapshot.debugPayload.pathname, "/api/debug/ui-events");
   assert.equal(snapshot.debugPayload.retryable, false);
+});
+
+test("normalizes API request failure status codes", () => {
+  assert.equal(normalizeStatusCode(400), 400);
+  assert.equal(normalizeStatusCode(404), 404);
+  assert.equal(normalizeStatusCode(409), 409);
+  assert.equal(normalizeStatusCode(503), 503);
+  assert.equal(normalizeStatusCode(200), 500);
+  assert.equal(normalizeStatusCode("nope"), 500);
 });

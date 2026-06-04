@@ -25,7 +25,7 @@ description: 构建、校验、索引、审查和语义治理 FunctionSlotLibrar
 - agent 负责治理层：slot family/archetype/subtype、atom archetype/pattern、binding pattern/principle、rule pattern/recomposition policy。
 - 禁止用字段完全一致、文本相似度、`slotType` 名称相似或 script atom 归并结果自动合并 pattern。
 - 原始 variant 永远是事实来源，治理结论必须保留来源 variant、判断理由、差异点和误分风险。
-- 治理完成后将结果保存到 `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`。
+- 治理完成后将权威入口保存到 `Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json`；该文件是 split manifest，治理内容按领域拆到同目录分文件。运行时查询索引生成到 `Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json`，不入库。
 
 ## 项目语料库
 
@@ -166,7 +166,26 @@ python .agents/skills/function-slot-library-builder/scripts/build_governance_ske
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
-该文件必须记录 `sourceSnapshot` 和治理结果。`sourceSnapshot` 用每个 library artifact 的 `contentHash` 判断治理结果是否过期。
+该文件是可入库的 split manifest，必须记录 `sourceSnapshot / coverage / files` 等入口信息。具体治理结果拆分到：
+
+```text
+Artifacts/FunctionSlotLibrary/_governance/source-variants.v1.json
+Artifacts/FunctionSlotLibrary/_governance/slot-governance.v1.json
+Artifacts/FunctionSlotLibrary/_governance/atom-governance.v1.json
+Artifacts/FunctionSlotLibrary/_governance/binding-rule-governance.v1.json
+Artifacts/FunctionSlotLibrary/_governance/implementation-bundles.v1.json
+Artifacts/FunctionSlotLibrary/_governance/review-and-unmapped.v1.json
+```
+
+读取方必须通过统一 materialize 逻辑把 manifest 和分文件展开成完整治理对象。`sourceSnapshot` 用每个 library artifact 的 `contentHash` 判断治理结果是否过期。
+
+运行时派生索引写入：
+
+```text
+Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json
+```
+
+该索引用于 API 查询、replacement candidates、展示溯源等快速查找；它由权威治理文件确定性生成，带 `sourceFingerprint` 判断新鲜度，默认不入库。
 
 ### 6. atom / binding / rule 治理
 
@@ -243,9 +262,13 @@ python .agents/skills/function-slot-library-builder/scripts/validate_governance.
 Runtime/Temp/FunctionSlotLibrary/validation.json
 Runtime/Temp/FunctionSlotLibrary/slot_index.json
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
+Artifacts/FunctionSlotLibrary/_governance/*-governance.v1.json
+Artifacts/FunctionSlotLibrary/_governance/source-variants.v1.json
+Artifacts/FunctionSlotLibrary/_governance/review-and-unmapped.v1.json
+Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json
 ```
 
-`semantic-governance.v1.json` 是可入库的治理层索引。`function-slot-restructure` 消费证据层和已确认的治理结论，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
+`semantic-governance.v1.json` 和同目录治理分文件是可入库的权威治理层。`governance_lookup_index.json` 是运行时派生索引，不入库。`function-slot-restructure` 消费证据层和已确认的治理结论，用于后续选槽、组链、检查 binding/rule 和输出重组方案。
 
 ## 参考文档
 

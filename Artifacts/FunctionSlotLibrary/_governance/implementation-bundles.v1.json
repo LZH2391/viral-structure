@@ -1,0 +1,621 @@
+{
+  "schemaVersion": "function_slot_semantic_governance.v1.bundles",
+  "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "implementationBundles": [
+    {
+      "id": "BUNDLE_result_first_reverse_need",
+      "name": "结果前置反向补需求组合",
+      "slotSubtypeIds": [
+        "SUB_visible_result_first_hook",
+        "SUB_result_backfilled_pain",
+        "SUB_coverage_to_mechanism_bridge",
+        "SUB_structure_reuse_mechanism_trust",
+        "SUB_life_benefit_close"
+      ],
+      "scriptPatternIds": [
+        "SCRIPT_pattern_problem_to_need",
+        "SCRIPT_pattern_mechanism_requires_visual_causality",
+        "SCRIPT_pattern_result_closure_to_prior_concern"
+      ],
+      "rhythmPatternIds": [
+        "RHYTHM_pattern_fast_activation_or_peak",
+        "RHYTHM_pattern_slow_explanation_or_observation",
+        "RHYTHM_pattern_result_release_or_close"
+      ],
+      "packagingPatternIds": [
+        "PACK_pattern_visual_identity_and_entry",
+        "PACK_pattern_mechanism_visual_proof",
+        "PACK_pattern_result_evidence_close"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005"
+      ],
+      "judgementReason": "该组合描述一条完整样例链，但 bundle 只记录常见实现组合，不替代各 atom pattern。",
+      "riskIfMisclassified": "可能把该链路误当通用顺序模板。",
+      "support": {
+        "variantCount": 5,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "与普通问题激活链不同，该组合先展示可见结果，再回填痛点和机制信任。",
+        "只可作为检索先验，不能要求重组时固定保留完整顺序。"
+      ]
+    },
+    {
+      "id": "BUNDLE_value_quality_scene_close",
+      "name": "低门槛价值到品质峰值组合",
+      "slotSubtypeIds": [
+        "SUB_low_barrier_value_anchor",
+        "SUB_visible_quantity_value",
+        "SUB_quality_objection_reframe",
+        "SUB_sensory_detail_proof_peak",
+        "SUB_usage_scene_conversion_close"
+      ],
+      "scriptPatternIds": [
+        "SCRIPT_pattern_value_to_visible_evidence",
+        "SCRIPT_pattern_quality_detail_proof",
+        "SCRIPT_pattern_result_closure_to_prior_concern"
+      ],
+      "rhythmPatternIds": [
+        "RHYTHM_pattern_slow_explanation_or_observation",
+        "RHYTHM_pattern_result_release_or_close"
+      ],
+      "packagingPatternIds": [
+        "PACK_pattern_visual_identity_and_entry",
+        "PACK_pattern_result_evidence_close"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005"
+      ],
+      "judgementReason": "该组合突出价值锚定、品质疑虑、细节峰值和场景收束。",
+      "riskIfMisclassified": "可能把数量密度误用于品质证明。",
+      "support": {
+        "variantCount": 5,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合以低门槛价值锚定开场，随后用数量、品质细节和使用场景逐步补足信任。",
+        "价值证明、品质证明和场景收束分别依赖不同 slot subtype 与 atom pattern，不能合并成单一价值证明 pattern。"
+      ]
+    },
+    {
+      "id": "BUNDLE_problem_contrast_mechanism_choice",
+      "name": "场景痛点到对比机制选择组合",
+      "slotSubtypeIds": [
+        "SUB_scene_problem_activation",
+        "SUB_solution_object_entry",
+        "SUB_alternative_gap_contrast",
+        "SUB_causal_mechanism_proof",
+        "SUB_usage_result_confirmation",
+        "SUB_recommendation_memory_close"
+      ],
+      "scriptPatternIds": [
+        "SCRIPT_pattern_problem_to_need",
+        "SCRIPT_pattern_mechanism_requires_visual_causality",
+        "SCRIPT_pattern_result_closure_to_prior_concern"
+      ],
+      "rhythmPatternIds": [
+        "RHYTHM_pattern_slow_explanation_or_observation",
+        "RHYTHM_pattern_result_release_or_close"
+      ],
+      "packagingPatternIds": [
+        "PACK_pattern_visual_identity_and_entry",
+        "PACK_pattern_mechanism_visual_proof",
+        "PACK_pattern_result_evidence_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006"
+      ],
+      "judgementReason": "该组合依赖替代方案缺陷与机制证明逐项回应。",
+      "riskIfMisclassified": "对比槽可能变成孤立吐槽。",
+      "support": {
+        "variantCount": 6,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合把场景痛点、替代方案差距、机制证明和选择收束串成同一样例链。",
+        "替代方案对比只是链路中的承接证据，不能反向决定机制证明 archetype。"
+      ]
+    },
+    {
+      "id": "BUNDLE_object_action_mechanism_operation_long_trust",
+      "name": "对象动作到机制步骤长期信任组合",
+      "slotSubtypeIds": [
+        "SUB_object_action_problem_activation",
+        "SUB_mechanism_scope_credibility",
+        "SUB_operation_barrier_reduction",
+        "SUB_operation_result_confirmation",
+        "SUB_long_term_trust_choice_close"
+      ],
+      "scriptPatternIds": [
+        "SCRIPT_pattern_problem_to_need",
+        "SCRIPT_pattern_mechanism_requires_visual_causality",
+        "SCRIPT_pattern_result_closure_to_prior_concern"
+      ],
+      "rhythmPatternIds": [
+        "RHYTHM_pattern_fast_activation_or_peak",
+        "RHYTHM_pattern_slow_explanation_or_observation",
+        "RHYTHM_pattern_result_release_or_close"
+      ],
+      "packagingPatternIds": [
+        "PACK_pattern_mechanism_visual_proof",
+        "PACK_pattern_result_evidence_close"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005"
+      ],
+      "judgementReason": "该组合从问题对象直冲进入机制解释和低门槛步骤，最后用长期物证收束。",
+      "riskIfMisclassified": "可能把步骤槽和机制槽互换，导致执行门槛或可信原因缺失。",
+      "support": {
+        "variantCount": 5,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "differenceNotes": [
+        "该组合先用对象动作激活问题，再进入机制可信、低门槛操作、结果确认和长期信任。",
+        "机制说明与操作门槛降低是相邻但不同的证明任务，不能互相替代。"
+      ]
+    },
+    {
+      "id": "BUNDLE_aspirational_mechanism_value_conversion",
+      "name": "BUNDLE_aspirational_mechanism_value_conversion observed bundle",
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "slotSubtypeIds": [
+        "SUB_aspirational_visible_outcome_hook",
+        "SUB_hidden_mechanism_credibility",
+        "SUB_usage_experience_reassurance",
+        "SUB_scenario_value_expansion",
+        "SUB_value_trust_reinforcement",
+        "SUB_identity_conversion_close"
+      ],
+      "scriptPatternIds": [],
+      "rhythmPatternIds": [],
+      "packagingPatternIds": [],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006"
+      ],
+      "support": {
+        "variantCount": 6,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "Observed sample-chain bundle used as retrieval prior only. It records a common co-occurrence of slot subtypes and atom patterns, not a fixed template.",
+      "differenceNotes": [
+        "Source variants: sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001, sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002, sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003, sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004, sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005, sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
+        "Use only as retrieval prior; slot and atom governance still decide reuse."
+      ],
+      "riskIfMisclassified": "If treated as a fixed template, downstream recomposition may copy sample order instead of adapting proof obligations."
+    },
+    {
+      "id": "BUNDLE_interest_question_objective_sensory_close",
+      "name": "BUNDLE_interest_question_objective_sensory_close observed bundle",
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "slotSubtypeIds": [
+        "SUB_core_interest_conflict_hook",
+        "SUB_value_positioning_bridge",
+        "SUB_credibility_question_pressure",
+        "SUB_objective_proof_release",
+        "SUB_sensory_proof_stack",
+        "SUB_scenario_value_memory_close"
+      ],
+      "scriptPatternIds": [],
+      "rhythmPatternIds": [],
+      "packagingPatternIds": [],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006"
+      ],
+      "support": {
+        "variantCount": 6,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "Observed sample-chain bundle used as retrieval prior only. It records a common co-occurrence of slot subtypes and atom patterns, not a fixed template.",
+      "differenceNotes": [
+        "Source variants: sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001, sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002, sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003, sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004, sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005, sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006",
+        "Use only as retrieval prior; slot and atom governance still decide reuse."
+      ],
+      "riskIfMisclassified": "If treated as a fixed template, downstream recomposition may copy sample order instead of adapting proof obligations."
+    },
+    {
+      "id": "BUNDLE_familiarity_combination_sensory_trust_conversion",
+      "name": "BUNDLE_familiarity_combination_sensory_trust_conversion observed bundle",
+      "bundleType": "observed_chain_bundle",
+      "useAs": "retrieval_prior_only",
+      "notUseAs": "fixed_template",
+      "slotSubtypeIds": [
+        "SUB_familiarity_bridge_hook",
+        "SUB_combination_claim_peak",
+        "SUB_sensory_evidence_deepening",
+        "SUB_post_sensory_trust_assurance",
+        "SUB_conversion_reason_close"
+      ],
+      "scriptPatternIds": [],
+      "rhythmPatternIds": [],
+      "packagingPatternIds": [],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005"
+      ],
+      "support": {
+        "variantCount": 5,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "Observed sample-chain bundle used as retrieval prior only. It records a common co-occurrence of slot subtypes and atom patterns, not a fixed template.",
+      "differenceNotes": [
+        "Source variants: sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001, sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002, sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003, sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004, sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005",
+        "Use only as retrieval prior; slot and atom governance still decide reuse."
+      ],
+      "riskIfMisclassified": "If treated as a fixed template, downstream recomposition may copy sample order instead of adapting proof obligations."
+    }
+  ],
+  "observedChainPatterns": [
+    {
+      "id": "OBS_CHAIN_001",
+      "name": "观察链路 001",
+      "chainKey": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close",
+      "sequence": [
+        "instant_solution_preview",
+        "pain_backfill",
+        "coverage_bridge",
+        "mechanism_trust",
+        "life_benefit_close"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到完整五段顺序：结果预览、痛点回填、覆盖桥接、机制信任、生活收益收束。",
+        "同一样例还存在少一段覆盖桥接的 T002，说明该顺序不是固定模板。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_002",
+      "name": "观察链路 002",
+      "chainKey": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close",
+      "sequence": [
+        "instant_solution_preview",
+        "pain_backfill",
+        "mechanism_trust",
+        "life_benefit_close"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到四段顺序：结果预览、痛点回填、机制信任、生活收益收束。",
+        "与 OBS_CHAIN_001 的差异在覆盖桥接是否显式出现，只能作为链路变体证据。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_003",
+      "name": "观察链路 003",
+      "chainKey": "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close",
+      "sequence": [
+        "value_anchor",
+        "quantity_value_confirmation",
+        "quality_trust_build",
+        "sensory_proof_peak",
+        "usage_scene_close"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到价值锚点、数量价值确认、品质信任、感官峰值、使用场景收束的顺序。",
+        "该链路体现价值到品质的递进，但不能把价值槽和品质槽合并为同一 archetype。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_004",
+      "name": "观察链路 004",
+      "chainKey": "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close",
+      "sequence": [
+        "scene_problem_activation",
+        "solution_entry",
+        "alternative_contrast",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到场景问题、方案进入、替代对比、机制证明、使用结果、选择收束的顺序。",
+        "替代对比位于方案进入之后，是该样例的一种顺序安排。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_005",
+      "name": "观察链路 005",
+      "chainKey": "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close",
+      "sequence": [
+        "scene_problem_activation",
+        "alternative_contrast",
+        "solution_entry",
+        "mechanism_proof",
+        "usage_result_confirmation",
+        "choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到场景问题、替代对比、方案进入、机制证明、使用结果、选择收束的顺序。",
+        "与 OBS_CHAIN_004 的差异在替代对比和方案进入的先后，说明 template 只能记录历史链路样本。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_006",
+      "name": "观察链路 006",
+      "chainKey": "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close",
+      "sequence": [
+        "problem_activation",
+        "mechanism_credibility",
+        "low_barrier_operation",
+        "result_confirmation",
+        "long_term_trust_close"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "该链路只记录样例中观察到的槽位顺序与承接证据，不参与 slot archetype 合并判断。",
+      "riskIfMisclassified": "如果把观察链路误当成 archetype 或固定模板，会把相邻但证明任务不同的槽位重新合并，降低后续重组的可替换性。",
+      "differenceNotes": [
+        "观察到问题激活、机制可信、低门槛操作、结果确认、长期信任收束的顺序。",
+        "该链路需要保留机制与操作的承接关系，但不能作为 slot subtype 合并依据。"
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_007",
+      "name": "OBS_CHAIN_007 observed chain",
+      "chainKey": "aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close",
+      "sequence": [
+        "aspirational_outcome_activation",
+        "mechanism_credibility",
+        "wearability_reassurance",
+        "scenario_value_expansion",
+        "value_trust_reinforcement",
+        "identity_conversion_close"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "Observed chain only records source sample order and carryover evidence. It must not be used as archetype merge basis or fixed template.",
+      "riskIfMisclassified": "If treated as a fixed chain, adjacent slots with different proof tasks may be incorrectly merged or forced into every rewrite.",
+      "differenceNotes": [
+        "Sequence: aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close",
+        "Order evidence only; not a required recomposition template."
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_008",
+      "name": "OBS_CHAIN_008 observed chain",
+      "chainKey": "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close",
+      "sequence": [
+        "aspirational_outcome_activation",
+        "mechanism_credibility",
+        "scenario_value_expansion",
+        "wearability_reassurance",
+        "value_trust_reinforcement",
+        "identity_conversion_close"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "Observed chain only records source sample order and carryover evidence. It must not be used as archetype merge basis or fixed template.",
+      "riskIfMisclassified": "If treated as a fixed chain, adjacent slots with different proof tasks may be incorrectly merged or forced into every rewrite.",
+      "differenceNotes": [
+        "Sequence: aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close",
+        "Order evidence only; not a required recomposition template."
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_009",
+      "name": "OBS_CHAIN_009 observed chain",
+      "chainKey": "core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close",
+      "sequence": [
+        "core_interest_conflict",
+        "value_positioning",
+        "credibility_question",
+        "objective_proof_release",
+        "sensory_proof_stack",
+        "scenario_value_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "Observed chain only records source sample order and carryover evidence. It must not be used as archetype merge basis or fixed template.",
+      "riskIfMisclassified": "If treated as a fixed chain, adjacent slots with different proof tasks may be incorrectly merged or forced into every rewrite.",
+      "differenceNotes": [
+        "Sequence: core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close",
+        "Order evidence only; not a required recomposition template."
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_010",
+      "name": "OBS_CHAIN_010 observed chain",
+      "chainKey": "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close",
+      "sequence": [
+        "familiarity_bridge_hook",
+        "combination_claim_peak",
+        "sensory_evidence_deepening",
+        "trust_assurance_shift",
+        "conversion_reason_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::template::T001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "Observed chain only records source sample order and carryover evidence. It must not be used as archetype merge basis or fixed template.",
+      "riskIfMisclassified": "If treated as a fixed chain, adjacent slots with different proof tasks may be incorrectly merged or forced into every rewrite.",
+      "differenceNotes": [
+        "Sequence: familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close",
+        "Order evidence only; not a required recomposition template."
+      ]
+    }
+  ]
+}

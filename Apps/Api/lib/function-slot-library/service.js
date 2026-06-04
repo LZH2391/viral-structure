@@ -4,6 +4,7 @@ const path = require("path");
 const { createTraceContext } = require("../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../../../Infrastructure/Observability/trace");
 const { createFunctionSlotProjectionService } = require("../function-slot-projection/service");
+const { readGovernanceFileIfExists } = require("./governance-store");
 
 const SCHEMA_VERSION = "function_slot_library.v1";
 const FILES = {
@@ -151,10 +152,7 @@ function createFunctionSlotLibraryService({
       stageName: "function_slot_library.governance_read",
       inputSummary: { path: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json" },
       action: async () => {
-        const governance = await readJson(path.join(activeLibraryRoot, "_governance", "semantic-governance.v1.json")).catch((error) => {
-          if (error.code === "ENOENT") return null;
-          throw error;
-        });
+        const governance = await readGovernanceFileIfExists(path.join(activeLibraryRoot, "_governance", "semantic-governance.v1.json"));
         if (!governance) return null;
         if (governance.schemaVersion !== "function_slot_semantic_governance.v1") {
           throwHttpError(400, "function_slot_governance_schema_unsupported", "semantic-governance schemaVersion 不支持");

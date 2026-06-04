@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-from common import read_json
+from common import read_governance
 
 DEFAULT_GOVERNANCE_RELATIVE = (
     Path("Artifacts")
@@ -36,7 +36,7 @@ def load_governance(path: Optional[str | Path]) -> Optional[Dict[str, Any]]:
     p = Path(path)
     if not p.exists():
         return None
-    data = read_json(p)
+    data = read_governance(p)
     if isinstance(data, dict):
         data["_path"] = str(p)
         return data

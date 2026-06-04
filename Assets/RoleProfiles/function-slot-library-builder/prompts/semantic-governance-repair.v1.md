@@ -4,7 +4,8 @@
 
 输入证据：
 - slot_index: `{{slotIndexPath}}`
-- 当前治理文件: `{{governancePath}}`
+- 当前治理完整快照: `{{materializedGovernancePath}}`
+- 权威治理写回路径: `{{governancePath}}`
 - 治理协议: `{{semanticProtocolPath}}`
 - atom/binding/rule 治理规则: `{{atomBindingRuleProtocolPath}}`
 - 输出格式: `{{outputFormatPath}}`
@@ -16,7 +17,7 @@
 {{priorOutputSummaryJson}}
 
 修复要求：
-1. 直接修复并写回 `{{governancePath}}`。
+1. 直接修复完整 `function_slot_semantic_governance.v1` 对象并写回权威治理路径 `{{governancePath}}`；不要只写 manifest 或局部分文件。
 2. 保留 sourceSnapshot / coverage / sourceVariants 证据层字段。
 3. 修复所有校验错误，包括父子覆盖、引用闭合、support 统计、unmapped 覆盖。
 4. 不要用字段相似或名称相似新增自动合并；但语义功能清晰、可命名的单样例 atom variant 可以修复为 candidate atomPattern，并在 judgementReason / differenceNotes / riskIfMisclassified 中说明单例风险。

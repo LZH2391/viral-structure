@@ -1,0 +1,2071 @@
+{
+  "schemaVersion": "function_slot_semantic_governance.v1.source",
+  "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "sourceVariants": [
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "欲望结果激活槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "机制可信槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "使用顾虑解除槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "场景价值扩展槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "质价信任补强槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "身份转化收束槽"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B007",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B008",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B009",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B010",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "binding",
+      "sourceId": "B010",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "实拍结果钩子包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "内外反差机制包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "体验细节证明包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "多场景实用价值包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "质价信任包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "稀缺行动收尾包装"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "高密度结果抛点"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "由外到内的揭示加速"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "体验证明放缓"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "场景展示舒展回落"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "价值信息二次堆叠"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rhythm",
+      "sourceId": "R006",
+      "label": "紧迫收尾抬升"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "机制可信槽包含实现逻辑和顾虑降低，不适合直接使用开场高密结果抛点节奏"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "体验顾虑解除需要可感知证明，不适合和价值信息二次堆叠节奏混用"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "低门槛成本如果缺少质量或信任证据，会和质价信任任务冲突"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "转化收尾不适合引入新的复杂机制或新卖点，否则会打断行动峰值"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "强欲望开场后，后续必须至少安排一个机制或证明槽位承接结果承诺，避免开头收益悬空"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "机制可信槽可以跨越脚本边界吸收部分效果证明，但关键机制揭示必须有可见结构锚点和节奏停留"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "体验顾虑解除槽应放在核心机制之后、日常场景扩展之前，优先证明不会牺牲使用体验"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "日常场景扩展槽可以移动或压缩，但不能早于观众理解核心收益和基本可信证据"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "质价信任槽中的低门槛信息必须和质量、背书或细节证明绑定，不能单独作为购买理由"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "转化收尾必须回扣开头同一核心关切或同一身份收益，再叠加稀缺、库存或行动提示"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE007",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "rule",
+      "sourceId": "RULE007",
+      "label": "重组优先保证脚本逻辑完整性和证明匹配度；节奏曲线和包装风格只能在不破坏证明关系的前提下替换"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "强欲望结果先抛"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "隐藏机制可信化"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "使用顾虑解除"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "日常场景价值扩展"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "质价信任补强"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "script",
+      "sourceId": "S006",
+      "label": "身份回扣与稀缺收束"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T001",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close"
+    },
+    {
+      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::template::T002",
+      "sampleId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+      "kind": "template",
+      "sourceId": "T002",
+      "label": "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "场景痛点激活槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "解决方案进入槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "替代方案反衬槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "机制可信证明槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "使用结果确认槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "选择收束记忆槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B009",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "低包装生活痛点呈现"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "解决物识别锚点"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "替代方案反面实拍"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "机制可视化证据堆叠"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "使用状态结果证明"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "推荐记忆锚点包装"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "短促打断后拉长共鸣"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "解决物出现加密"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "对比打点后体验回落"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "插入式证明加速"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "峰值后结果回落"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rhythm",
+      "sourceId": "R006",
+      "label": "重复识别与断句收尾"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "机制可信槽承载复杂因果解释，不适合只用连续快切和密集字幕承载"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "结果展示如果不回到开头同一关切，会让问题激活和结果兑现断开"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "选择收束槽缺少强下单元素时，不应被误配为硬转化槽"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "替代方案缺陷与后续机制卖点不能错配，否则对比无法支持目标方案"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "脚本逻辑完整性优先于证明匹配、节奏曲线和包装风格"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "对比槽服务的是建立适配门槛，不是固定镜头顺序"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "节奏层可以比脚本层更细，但不能让复杂信息失去可理解性"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "结果兑现负责闭合说服链，不能只作为漂亮画面或泛泛好处"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "结尾承担记忆和选择收束，新增复杂信息会稀释已完成的证明链"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "全程高包装会削弱真实感和信息层级，低包装又不足以支撑机制证明"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "高频场景痛点激活"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "解决方案具象亮相"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "替代方案缺陷反衬"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S004",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "结构机制可信证明"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "使用结果回扣确认"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "script",
+      "sourceId": "S006",
+      "label": "节点化选择收束"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T001",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close"
+    },
+    {
+      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::template::T002",
+      "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+      "kind": "template",
+      "sourceId": "T002",
+      "label": "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "核心兴趣激活槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "价值立场承接槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "可信疑问加压槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "客观证明释放槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "感官证据堆叠槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "场景价值收束槽"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B007",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B008",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B009",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "商品识别与体验入口"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "价值口播同框"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "低门槛证明对象前置"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "客观标签标注证明"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "多维实拍质感证明"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "场景利益与态度收束包装"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "密集体验起手"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "短顿解释承接"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "追问加压节奏"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "展示释放节奏"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "细节堆叠推进"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R006",
+      "label": "对话二次加压"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rhythm",
+      "sourceId": "R007",
+      "label": "静止记忆回落"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "客观证明释放需要看清证据，不适合承载过快短切或连续追问节奏。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "感官证据堆叠不能只列卖点形容，必须让每个关键感官判断对应可见细节或体验反馈。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "收尾槽不适合继续启动新的复杂主张，否则会破坏峰值后的记忆回落。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "低门槛利益如果只加压不证明，会放大不信任。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "开场拎出的核心利益点，末段必须回到同一利益或同一观众关切完成收束。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "低门槛、高规格或高利益主张后，必须主动处理可信疑问，并用可核查证据释放压力。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "客观证明类信息应放在节奏减速或视觉稳定点，并让标注、字幕和证据区域同步。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "感官证明可以移动或增删具体维度，但必须保持从可见细节到体验反馈的递进关系。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "末段允许节奏跨越脚本收束边界：先二次加压回应价值问题，再低密度停留保留商品记忆。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装替换优先保留证明功能：疑问槽需要证明对象，客观证明槽需要可核查依据，感官槽需要实拍细节或动作反馈。"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "核心利益反差钩子"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "利益立场承接"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "低门槛可信质疑"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "客观指标回应"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "感官证据堆叠"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "script",
+      "sourceId": "S006",
+      "label": "场景利益收束"
+    },
+    {
+      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::template::T001",
+      "sampleId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "熟悉经验钩子槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "组合承诺峰值槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "感官证据深化槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "品质放心背书槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "转化利益收束槽"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B006",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B007",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B008",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B009",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "首屏使用状态加品类入口"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "包装身份与实物组合绑定"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "细节动作证明体验"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "标题化背书加实物支撑"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "多件视觉与终屏商品锚定"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "高密度快速入场"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "短促压缩到首轮峰值"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "中速细节停留"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "稳定说明平台"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "放慢定格式收束"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "信任背书类信息不适合承载在开场高密度快切或短促峰值中"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "感官承诺如果只保留字幕表达而缺少细节动作证明，会削弱可信度"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "转化利益不能脱离最终商品锚点单独出现"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "入口钩子如果只展示熟悉经验但不及时转到新组合关系，会导致新品定位不清"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "熟悉经验入口的作用是降低理解成本，不是替代核心卖点"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "感官卖点需要从承诺进入证明，否则只能形成短暂刺激"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "节奏 section 可以跨越脚本边界，但不能破坏注意力功能"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "信任信息属于理性补强，过早出现会打断体验兴趣建立"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "转化槽负责把证明转成购买理由，不能继续引入新的复杂卖点"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE006",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装功能比包装载体更重要，表面形式可迁移但证明任务不可丢"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "熟悉经验转新组合入口"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "组合卖点压缩成峰值"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "体验状态与效果证明"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "从体验兴趣转向放心背书"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "便利与利益收束"
+    },
+    {
+      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::template::T001",
+      "sampleId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "痛点激活槽"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "机制可信槽"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "低门槛步骤槽"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "结果兑现槽"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "长期信任与选择收束槽"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B007",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "对象圈定加动作示范"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "实拍绑定机制说明载体"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "时间提示加完成动作演示"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "结果近景加生活反馈"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "长期物证加选择对象收束"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "近距连击起手"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "稳推压信息解释段"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "步骤刹车与动作落地"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "兑现后结果放大"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "回落证言与平稳收口"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "痛点激活槽不适合承载复杂机制解释或长主张"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "机制可信槽如果使用超快切和重包装，会压缩理解时间"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "步骤槽如果缺少动作实拍，只保留文字提示，会提高使用顾虑"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "结果槽不能展示与开头痛点无关的泛化状态"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "C005",
+      "label": "长期信任槽不能只靠正面口播，必须有时间证据、使用痕迹、记录或持续反馈"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "开头使用问题对象直冲时，结果槽必须回到同一问题对象或同一观众关切，不能只展示泛化好状态"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "机制解释可以替换具体机制命名、说明载体样式和口播表述，但必须保留可理解的机制拆解、适用范围和至少一种视觉证明"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "步骤信息最好放在节奏减速或短暂停顿点，并配合步骤提示、图标或动作实拍降低执行门槛"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "节奏允许从步骤槽跨到结果槽：先用等待或生效提示制造期待，再用完成动作和结果近景完成兑现，不必强行按脚本段落切齐"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "长期背书必须保留时间维度或使用痕迹证据，证据载体可替换为持续记录、历史对照、复购、消耗痕迹、持续反馈等"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装重组时优先保留包装功能而非具体样式：问题定位、机制证明、步骤提示、结果确认、长期物证和选择记忆落点必须各自服务对应主张"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "问题对象直冲与执行动作入口"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S002",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "作用机制与适用范围解释"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "等待与完成动作闭环"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "结果状态与生活收益兑现"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "长期使用证据与简化选择收束"
+    },
+    {
+      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::template::T001",
+      "sampleId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "价值锚定槽"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "价值兑现槽"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "品质转向槽"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "感官证明槽"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "场景收束槽"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B008",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "实物价值首屏"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "多单位价值具象"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "质地疑虑回应包装"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "内部细节证明包装"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P005",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "场景同框记忆包装"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "慢速定睛入口"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "数量密度抬升"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "质感缓冲转向"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "细节证明峰值"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R005",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "完整同框回落"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "品质解释和感官证明需要观察时间，不适合只用数量密度抬升承载"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "结尾如果只保留场景情绪，不回到购买对象，会断开证明与转化的关系"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "低门槛价值主张如果缺少实物或规格证据，容易变成不可验证的价格话术"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "低门槛价值需要先被识别，再被可视化兑现"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "品质信任需要从疑虑转向进入强证据峰值，不能直接堆叠抽象描述"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "结果或场景收束必须回到前面已经证明的同一观众关切"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "该结构的注意力曲线依赖从低密度识别、数量抬升、质量减速、细节峰值到稳定收口的变化"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "低门槛利益锚定"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S002",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "数量规格兑现"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S003",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "品质疑虑转向"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S004",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "内部证据峰值"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "场景化收束"
+    },
+    {
+      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::template::T001",
+      "sampleId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "即时解决预览槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "旧痛点回补槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F003",
+      "label": "覆盖可信桥接槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F004",
+      "label": "机制便利可信槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F005",
+      "label": "生活利益收束槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "support"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B006",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B007",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B007",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B008",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B008",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "binding",
+      "sourceId": "B009",
+      "label": "conflict"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "实物入口加即时使用包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "动态压力证明包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P003",
+      "label": "旧状态生活成本包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P004",
+      "label": "覆盖感和使用关系包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P005",
+      "label": "结构开合证据包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "packaging",
+      "sourceId": "P006",
+      "label": "多场景结果收束包装"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "快入加动作爆点"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "多场景问题堆叠"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R003",
+      "label": "长镜头信息峰值"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R004",
+      "label": "操作细节减速"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R005",
+      "label": "轻动作回落收束"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "机制便利可信槽承载结构和持续使用理由，不适合直接配快入动作爆点节奏"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "结果先行结构必须在后续补回同一核心关切，否则开头结果缺少问题动机"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "C003",
+      "label": "结果收束槽不适合新增复杂机制、价格福利或新承诺，否则会打断生活利益回落"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "C004",
+      "label": "高信息密度桥接槽如果没有清晰的机制落点，容易变成单纯堆料"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "结果先行开头可以成立，但后续必须补回同一核心痛点或同一观众关切，形成结果到需求的反向解释"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "动态压力证明可以替换为其他强动作或强对比证明，但必须让压力动作、结果状态和字幕结论同步出现"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "痛点回补槽可使用多场景堆叠，也可使用单个强对比场景；不可只描述痛点而缺少可见旧状态或成本证据"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE004",
+      "label": "覆盖桥接槽允许节奏跨越脚本边界，用高信息密度承接痛点并转入机制，但必须在下一槽位降低节奏并解释结构"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE005",
+      "label": "结构、低门槛和可持续使用类主张必须配近距离结构证据、操作完成点或重复使用证据，不能只靠结果画面替代"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE006",
+      "label": "包装风格可以低图形化，但每个槽位都要保留对应证明功能；字幕只能辅助解释，不能替代关键视觉证据"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rule",
+      "sourceId": "RULE007",
+      "label": "最终收束必须回到前文核心关切或同一结果承诺，并用低负荷画面把功能价值转译为生活状态"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "即用结果预览"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "旧状态痛点回补"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S003",
+      "label": "适用范围桥接"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S004",
+      "label": "结构便利可信"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S005",
+      "label": "生活状态利益收束"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T001",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T002",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "template",
+      "sourceId": "T002",
+      "label": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close"
+    }
+  ]
+}

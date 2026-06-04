@@ -116,7 +116,7 @@ function createFunctionSlotGovernanceService({
       }
 
       const input = await fileOps.prepareGovernanceInput();
-      const originalGovernanceText = await fileOps.readGovernanceText();
+      const originalGovernanceSnapshot = await fileOps.readGovernanceSnapshot();
       context.roleProfile = await loadRoleProfileByRole(ROLE);
       context.skillHash = await resolveSkillHash(context.roleProfile.skillPath);
       const analyzeTurn = renderGovernanceTurn(context.roleProfile, "semanticGovernance", input);
@@ -232,7 +232,7 @@ function createFunctionSlotGovernanceService({
         validation = await validateCandidate(context, governance, { repairAttemptCount });
       }
       if (!validation.ok) {
-        await fileOps.restoreGovernanceText(originalGovernanceText);
+        await fileOps.restoreGovernanceSnapshot(originalGovernanceSnapshot);
         throw codedError("function_slot_governance_validation_failed", "语义治理结果未通过校验", {
           validation,
           stageName: STAGES.validate,
@@ -279,6 +279,7 @@ function createFunctionSlotGovernanceService({
     const prompt = renderTurnTemplate(roleProfile, templateId, {
       slotIndexPath: input.slotIndexPath,
       governancePath: input.governancePath,
+      materializedGovernancePath: input.materializedGovernancePath,
       semanticProtocolPath: input.semanticProtocolPath,
       atomBindingRuleProtocolPath: input.atomBindingRuleProtocolPath,
       outputFormatPath: input.outputFormatPath,
@@ -294,6 +295,7 @@ function createFunctionSlotGovernanceService({
     const prompt = renderTurnTemplate(roleProfile, "semanticGovernanceRepair", {
       slotIndexPath: input.slotIndexPath,
       governancePath: input.governancePath,
+      materializedGovernancePath: input.materializedGovernancePath,
       semanticProtocolPath: input.semanticProtocolPath,
       atomBindingRuleProtocolPath: input.atomBindingRuleProtocolPath,
       outputFormatPath: input.outputFormatPath,

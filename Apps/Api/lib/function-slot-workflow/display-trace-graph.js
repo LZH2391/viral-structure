@@ -1,4 +1,5 @@
 const path = require("path");
+const { readGovernanceFileIfExists } = require("../function-slot-library/governance-store");
 
 const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v14";
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
@@ -7,7 +8,7 @@ async function buildAndWriteTraceGraph({ rootDir, index, now, readJsonIfExists, 
   const nodes = [];
   const edges = [];
   const plans = Array.isArray(index.plans) ? index.plans : [];
-  const governance = await readJsonIfExists(path.join(rootDir, governanceRelativePath));
+  const governance = await readGovernanceFileIfExists(path.join(rootDir, governanceRelativePath));
   const sourceIndex = buildGovernanceSourceIndex(governance);
   for (let indexPosition = 0; indexPosition < plans.length; indexPosition += 1) {
     const plan = plans[indexPosition];

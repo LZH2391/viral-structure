@@ -8,14 +8,36 @@
 Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 ```
 
+`semantic-governance.v1.json` 是权威入口 manifest，不再承载所有治理数组。完整治理对象由该 manifest 和同目录分文件 materialize 得到：
+
+```text
+source-variants.v1.json
+slot-governance.v1.json
+atom-governance.v1.json
+binding-rule-governance.v1.json
+implementation-bundles.v1.json
+review-and-unmapped.v1.json
+```
+
+运行时可生成派生查询索引：
+
+```text
+Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json
+```
+
+该索引不作为权威事实源，不入库；它带 `sourceFingerprint`，用于判断是否和当前治理内容一致。
+
 不要在 `_governance` 目录中放 `manifest.json`，避免被样例库扫描逻辑误认为一个 sample library。
 
-## JSON 顶层结构
+## Materialized JSON 顶层结构
+
+下列结构是完整治理对象的 materialized 形态。Agent 可以按这个结构生成完整结果；后端和脚本会将正式产物拆分写回。
 
 ```json
 {
   "schemaVersion": "function_slot_semantic_governance.v1",
   "governanceId": "governance_...",
+  "governanceFormat": "split_manifest.v1",
   "outputPath": "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
   "sourceRoot": "Artifacts/FunctionSlotLibrary",
   "sourceIndex": "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
@@ -38,6 +60,28 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
   "unmappedRuleVariants": [],
   "reviewItems": [],
   "openQuestions": []
+}
+```
+
+正式 manifest 只保留入口元信息和 `files` 映射：
+
+```json
+{
+  "schemaVersion": "function_slot_semantic_governance.v1",
+  "governanceId": "governance_...",
+  "governanceFormat": "split_manifest.v1",
+  "outputPath": "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
+  "sourceRoot": "Artifacts/FunctionSlotLibrary",
+  "sourceIndex": "Runtime/Temp/FunctionSlotLibrary/slot_index.json",
+  "createdAt": "ISO-8601",
+  "sourceSnapshot": [],
+  "coverage": {},
+  "files": {
+    "slots": {
+      "path": "slot-governance.v1.json",
+      "fields": ["slotFamilies", "slotArchetypes", "slotSubtypes"]
+    }
+  }
 }
 ```
 

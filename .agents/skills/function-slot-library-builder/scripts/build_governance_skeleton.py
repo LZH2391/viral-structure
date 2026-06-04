@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 
-from common import write_json
+from common import read_governance, write_json, write_split_governance
 
 
 DEFAULT_SOURCE_INDEX = Path("Runtime") / "Temp" / "FunctionSlotLibrary" / "slot_index.json"
@@ -331,12 +332,15 @@ def main() -> int:
 
     skeleton = build_skeleton(root, source_index.resolve(), output_path.resolve())
     if output_path.exists() and args.update_existing:
-        existing = read_json_file(output_path.resolve())
+        existing = read_governance(output_path.resolve())
         skeleton = merge_existing(existing, skeleton)
         action = "updated governance skeleton"
     else:
         action = "wrote governance skeleton"
-    write_json(output_path.resolve(), skeleton)
+    if args.formal_out:
+        write_split_governance(output_path.resolve(), skeleton)
+    else:
+        write_json(output_path.resolve(), skeleton)
     print(f"{action}: {repo_relative(output_path, root)}")
     return 0
 

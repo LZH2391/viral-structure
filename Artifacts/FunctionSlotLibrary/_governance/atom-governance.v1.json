@@ -1,0 +1,3873 @@
+{
+  "schemaVersion": "function_slot_semantic_governance.v1.atoms",
+  "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "atomArchetypes": [
+    {
+      "id": "ATOM_ARCH_script_demand_establishment",
+      "name": "需求与观看理由建立脚本原型",
+      "atomLayer": "script",
+      "sourcePatternIds": [
+        "SCRIPT_pattern_problem_to_need",
+        "SCRIPT_pattern_value_to_visible_evidence",
+        "SCRIPT_candidate_aspirational_outcome_activation_aspiration_to_visible_outcome",
+        "SCRIPT_candidate_scenario_value_expansion_core_benefit_to_daily_utility",
+        "SCRIPT_candidate_solution_entry_problem_to_solution_entry",
+        "SCRIPT_candidate_core_interest_conflict_conflict_to_interest",
+        "SCRIPT_candidate_value_positioning_interest_to_value_position",
+        "SCRIPT_candidate_familiarity_bridge_hook_familiarity_to_new_combination",
+        "SCRIPT_candidate_instant_solution_preview_solution_to_visible_outcome",
+        "SCRIPT_candidate_coverage_bridge_coverage_to_reliability"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003"
+      ],
+      "support": {
+        "variantCount": 13,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 script pattern 都负责把观众从无关浏览转入观看理由、需求或价值感知，但具体证明方式可以是问题可见、结果回补或低门槛价值锚定。",
+      "differenceNotes": [
+        "problem_to_need 依赖问题或成本可见。",
+        "value_to_visible_evidence 依赖价值主张和可视证据同步。"
+      ],
+      "riskIfMisclassified": "如果把该原型当作单一脚本模板使用，会混淆痛点激活、结果回补和价值锚定的不同证明义务。"
+    },
+    {
+      "id": "ATOM_ARCH_script_evidence_explanation",
+      "name": "机制与品质证据解释脚本原型",
+      "atomLayer": "script",
+      "sourcePatternIds": [
+        "SCRIPT_pattern_mechanism_requires_visual_causality",
+        "SCRIPT_pattern_quality_detail_proof",
+        "SCRIPT_candidate_mechanism_credibility_outcome_mechanism_with_concern_reduction",
+        "SCRIPT_candidate_wearability_reassurance_functional_benefit_without_usage_cost",
+        "SCRIPT_candidate_value_trust_reinforcement_perceived_value_with_trust_support",
+        "SCRIPT_candidate_alternative_contrast_alternative_gap_claim",
+        "SCRIPT_candidate_credibility_question_value_to_trust_question",
+        "SCRIPT_candidate_objective_proof_release_trust_question_to_objective_proof",
+        "SCRIPT_candidate_sensory_proof_stack_objective_proof_to_sensory_confirmation",
+        "SCRIPT_candidate_combination_claim_peak_combination_sensory_promise",
+        "SCRIPT_candidate_sensory_evidence_deepening_sensory_claim_to_visible_evidence",
+        "SCRIPT_candidate_trust_assurance_shift_sensory_to_trust_assurance",
+        "SCRIPT_candidate_low_barrier_operation_operation_simplification"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003"
+      ],
+      "support": {
+        "variantCount": 16,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "机制证明和品质细节都要求把抽象主张变成可理解证据，但机制偏因果解释，品质偏感官或材料细节观察。",
+      "differenceNotes": [
+        "mechanism pattern 要保留因果链或作用路径。",
+        "quality pattern 要保留细节、质感或缺陷反转证据。"
+      ],
+      "riskIfMisclassified": "如果把机制解释和品质观察硬合并，重组时可能用质感镜头替代机制证明，或用机制口播替代品质证据。"
+    },
+    {
+      "id": "ATOM_ARCH_script_concern_closure",
+      "name": "前置关切闭合脚本原型",
+      "atomLayer": "script",
+      "sourcePatternIds": [
+        "SCRIPT_pattern_result_closure_to_prior_concern",
+        "SCRIPT_candidate_identity_conversion_close_identity_shift_to_action",
+        "SCRIPT_candidate_choice_close_recommendation_close_claim",
+        "SCRIPT_candidate_scenario_value_close_proof_to_usage_and_value_close",
+        "SCRIPT_candidate_conversion_reason_close_proof_to_purchase_reason",
+        "SCRIPT_candidate_long_term_trust_close_trust_to_choice"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005"
+      ],
+      "support": {
+        "variantCount": 9,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "四个样例都出现了结果、收束或生活收益对前文核心关切的回收，是当前最稳定的脚本原型之一。",
+      "differenceNotes": [
+        "不同样例回收的对象可以是问题、价值、使用场景或选择理由。"
+      ],
+      "riskIfMisclassified": "结果或收尾会脱离开头承诺，形成卖点堆叠。"
+    },
+    {
+      "id": "ATOM_ARCH_rhythm_attention_load_control",
+      "name": "注意力与信息负载控制节奏原型",
+      "atomLayer": "rhythm",
+      "sourcePatternIds": [
+        "RHYTHM_pattern_fast_activation_or_peak",
+        "RHYTHM_pattern_slow_explanation_or_observation",
+        "RHYTHM_pattern_result_release_or_close",
+        "RHYTHM_candidate_aspirational_outcome_activation_fast_result_stack",
+        "RHYTHM_candidate_mechanism_credibility_progressive_reveal",
+        "RHYTHM_candidate_wearability_reassurance_moderate_proof_hold",
+        "RHYTHM_candidate_scenario_value_expansion_steady_scenario_hold",
+        "RHYTHM_candidate_value_trust_reinforcement_compressed_value_stack",
+        "RHYTHM_candidate_identity_conversion_close_urgent_close_with_hold",
+        "RHYTHM_candidate_scene_problem_activation_fast_to_slow_setup",
+        "RHYTHM_candidate_solution_entry_medium_fast_entry",
+        "RHYTHM_candidate_alternative_contrast_medium_fast_to_slow_contrast",
+        "RHYTHM_candidate_mechanism_proof_compressed_explain_with_insert_beats",
+        "RHYTHM_candidate_usage_result_confirmation_slow_result_release",
+        "RHYTHM_candidate_choice_close_medium_close_with_hard_stop",
+        "RHYTHM_candidate_core_interest_conflict_fast_tight_opening",
+        "RHYTHM_candidate_value_positioning_brief_pause_then_explain",
+        "RHYTHM_candidate_credibility_question_fast_interrogative_pressure",
+        "RHYTHM_candidate_objective_proof_release_slower_visual_release",
+        "RHYTHM_candidate_sensory_proof_stack_medium_dense_showcase",
+        "RHYTHM_candidate_scenario_value_close_long_dialogue_pressure",
+        "RHYTHM_candidate_scenario_value_close_static_cooldown",
+        "RHYTHM_candidate_familiarity_bridge_hook_fast_dense_opening",
+        "RHYTHM_candidate_combination_claim_peak_compressed_fast_peak",
+        "RHYTHM_candidate_sensory_evidence_deepening_medium_detail_hold",
+        "RHYTHM_candidate_trust_assurance_shift_steady_explanation_platform",
+        "RHYTHM_candidate_conversion_reason_close_slow_closing_hold",
+        "RHYTHM_candidate_low_barrier_operation_pause_then_action",
+        "RHYTHM_candidate_value_anchor_slow_hold",
+        "RHYTHM_candidate_quantity_value_confirmation_moderate_density_rise",
+        "RHYTHM_candidate_sensory_proof_peak_dense_detail_peak",
+        "RHYTHM_candidate_pain_backfill_compact_montage",
+        "RHYTHM_candidate_coverage_bridge_held_dense_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 39,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 rhythm pattern 都服务注意力分配和信息负载控制，但快入、减速解释和结果回落不能互相替代。",
+      "differenceNotes": [
+        "fast activation 适合抢占和峰值。",
+        "slow explanation 适合机制、品质或步骤理解。",
+        "result release 适合兑现和收束。"
+      ],
+      "riskIfMisclassified": "会把复杂证明塞进快节奏，或把结果兑现拖成解释段。"
+    },
+    {
+      "id": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "name": "视觉证明载体包装原型",
+      "atomLayer": "packaging",
+      "sourcePatternIds": [
+        "PACK_pattern_visual_identity_and_entry",
+        "PACK_pattern_mechanism_visual_proof",
+        "PACK_pattern_result_evidence_close",
+        "PACK_candidate_aspirational_outcome_activation_visible_outcome_and_social_feedback",
+        "PACK_candidate_mechanism_credibility_mechanism_visual_proof",
+        "PACK_candidate_wearability_reassurance_usage_experience_proof",
+        "PACK_candidate_scenario_value_expansion_scenario_fit_proof",
+        "PACK_candidate_value_trust_reinforcement_value_and_trust_proof",
+        "PACK_candidate_identity_conversion_close_scarcity_conversion_wrap",
+        "PACK_candidate_scene_problem_activation_scene_reality_proof",
+        "PACK_candidate_alternative_contrast_contrast_experience_proof",
+        "PACK_candidate_choice_close_soft_conversion_memory_proof",
+        "PACK_candidate_core_interest_conflict_direct_experience_proof",
+        "PACK_candidate_value_positioning_contextual_value_support",
+        "PACK_candidate_credibility_question_threshold_claim_setup",
+        "PACK_candidate_objective_proof_release_objective_label_proof",
+        "PACK_candidate_sensory_proof_stack_sensory_detail_proof_stack",
+        "PACK_candidate_scenario_value_close_usage_context_and_trust_close",
+        "PACK_candidate_familiarity_bridge_hook_category_and_appetite_entry_proof",
+        "PACK_candidate_combination_claim_peak_product_identity_and_combination_proof",
+        "PACK_candidate_sensory_evidence_deepening_sensory_texture_experience_proof",
+        "PACK_candidate_trust_assurance_shift_trust_assurance_proof",
+        "PACK_candidate_conversion_reason_close_conversion_benefit_proof",
+        "PACK_candidate_problem_activation_pattern",
+        "PACK_candidate_low_barrier_operation_pattern",
+        "PACK_candidate_long_term_trust_close_pattern",
+        "PACK_candidate_quantity_value_confirmation_visible_quantity_proof",
+        "PACK_candidate_quality_trust_build_texture_objection_proof",
+        "PACK_candidate_sensory_proof_peak_sensory_detail_proof",
+        "PACK_candidate_instant_solution_preview_stress_test_result_proof",
+        "PACK_candidate_pain_backfill_old_state_problem_proof",
+        "PACK_candidate_coverage_bridge_coverage_reliability_proof"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 39,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 packaging pattern 都把脚本主张转成视觉证据载体，差异在于入口识别、机制证明和结果闭合的视觉层级不同。",
+      "differenceNotes": [
+        "入口包装强调识别和进入。",
+        "机制包装强调可解释证明载体。",
+        "结果包装强调兑现状态和收束。"
+      ],
+      "riskIfMisclassified": "会按表面样式迁移包装，而不是按证明功能迁移。"
+    }
+  ],
+  "atomPatterns": [
+    {
+      "id": "SCRIPT_pattern_problem_to_need",
+      "name": "可见问题建立需求脚本模式",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "claimPattern": "通过场景、对象或旧状态证明问题存在并需要解决",
+      "proofNeedClass": "visible_problem_or_cost",
+      "mustKeepClasses": [
+        "问题对象或问题场景",
+        "可见成本或受影响状态",
+        "后续方案必要性"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "三者都要求问题可见，但进入方式不同，因此作为 pattern 可复用，具体 subtype 不合并。",
+      "differenceNotes": [
+        "旧状态痛点回补必须承接已出现结果；场景激活要求真实感；对象直冲要求动作入口。"
+      ],
+      "riskIfMisclassified": "会把问题证据做成泛泛口播或错过方案出现时机。",
+      "forSlotSubtypeIds": [
+        "SUB_scene_problem_activation",
+        "SUB_object_action_problem_activation",
+        "SUB_result_backfilled_pain"
+      ]
+    },
+    {
+      "id": "SCRIPT_pattern_value_to_visible_evidence",
+      "name": "价值主张可视兑现脚本模式",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "claimPattern": "同一购买对象上的价值承诺需要被数量、规格、份量或可见利益兑现。",
+      "proofNeedClass": "object_identity_and_quantity_spec",
+      "mustKeepClasses": [
+        "购买对象主体",
+        "利益锚点",
+        "数量/规格/份量证据"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S002"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "两个 atom 共同形成价值锚定链，但一个是锚点，一个是兑现证据。",
+      "differenceNotes": [
+        "仅适用于 SUB_low_barrier_value_anchor 与 SUB_visible_quantity_value 的价值链路。",
+        "不能用于品质、机制、步骤或长期信任证明；数量密度不是品质证据。"
+      ],
+      "riskIfMisclassified": "如果误用于品质或机制证明，重组会把价格、数量或口播当成可信原因。",
+      "forSlotSubtypeIds": [
+        "SUB_low_barrier_value_anchor",
+        "SUB_visible_quantity_value"
+      ]
+    },
+    {
+      "id": "SCRIPT_pattern_mechanism_requires_visual_causality",
+      "name": "机制因果证明脚本模式",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "claimPattern": "机制或可信原因主张必须有结构、材料、动作、因果演示或适用范围证据，并回扣前置关切。",
+      "proofNeedClass": "visual_causality_and_scope",
+      "mustKeepClasses": [
+        "机制或结构证据",
+        "因果/适用范围/可执行性说明",
+        "和前置关切的对应关系"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S002"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "三者都不能只靠结果画面替代，需要观众理解因果或作用范围。",
+      "differenceNotes": [
+        "mechanism_proof 回应替代缺陷，但替代缺陷本身不是机制 pattern。",
+        "mechanism_credibility 证明机制与适用范围，不承载低门槛操作步骤。",
+        "mechanism_trust 可使用复用或可执行性作为可信原因，但长期信任结论必须由收束槽承接。"
+      ],
+      "riskIfMisclassified": "如果把桥接、操作或长期收束并入该 pattern，机制主张会变成卖点堆叠或步骤说明。",
+      "forSlotSubtypeIds": [
+        "SUB_structure_reuse_mechanism_trust",
+        "SUB_causal_mechanism_proof",
+        "SUB_mechanism_scope_credibility"
+      ]
+    },
+    {
+      "id": "SCRIPT_pattern_quality_detail_proof",
+      "name": "品质细节证明脚本模式",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "claimPattern": "品质疑虑需要先建立可观察入口，再用细节、质地、动作拆解或内部结构形成感官证明峰值。",
+      "proofNeedClass": "observable_quality_detail",
+      "mustKeepClasses": [
+        "可操作或可观察细节",
+        "体验主张对应证据",
+        "从疑虑到峰值的推进"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S004"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "两个 atom 都服务品质证明，但一个是疑虑转向，一个是证据峰值。",
+      "differenceNotes": [
+        "该 pattern 只覆盖品质/感官证据，不覆盖价值兑现、机制因果或结果收束。",
+        "quality_objection_reframe 与 sensory_detail_proof_peak 仍是不同 subtype，不能因同属品质链路而合并。"
+      ],
+      "riskIfMisclassified": "如果误用于机制或价值证明，会直接堆细节而缺少对应主张和观察入口。",
+      "forSlotSubtypeIds": [
+        "SUB_quality_objection_reframe",
+        "SUB_sensory_detail_proof_peak"
+      ]
+    },
+    {
+      "id": "SCRIPT_pattern_result_closure_to_prior_concern",
+      "name": "结果回扣前置关切脚本模式",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "claimPattern": "把已证明功能回到前文关切、使用场景或生活收益",
+      "proofNeedClass": "same_concern_result_evidence",
+      "mustKeepClasses": [
+        "前文同一关切",
+        "结果状态",
+        "低负荷收束或场景绑定"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "四者共同要求结果不能脱离上游关切，是当前证据中最稳定的脚本治理模式。",
+      "differenceNotes": [
+        "购买对象绑定、生活利益和操作结果的证明对象不同。"
+      ],
+      "riskIfMisclassified": "收尾会变成泛泛好处。",
+      "forSlotSubtypeIds": [
+        "SUB_life_benefit_close",
+        "SUB_usage_scene_conversion_close",
+        "SUB_usage_result_confirmation",
+        "SUB_operation_result_confirmation"
+      ]
+    },
+    {
+      "id": "RHYTHM_pattern_fast_activation_or_peak",
+      "name": "快入激活/峰值节奏模式",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "rhythmFunction": "快速建立注意力、问题对象或结果峰值，不承载复杂解释。",
+      "paceClass": "fast_to_peak_or_fast_staccato",
+      "densityClass": "action_cut_density",
+      "syncPointClasses": [
+        "动作",
+        "结果",
+        "简短结论"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "两者都用快节奏打开注意力，但一个服务结果验证，一个服务问题对象动作入口。",
+      "differenceNotes": [
+        "candidate：仅适用于 SUB_visible_result_first_hook 或 SUB_object_action_problem_activation 的开头/动作抢占。",
+        "不能用于机制解释、操作步骤、品质观察、长期信任或结果回落；这些场景需要慢解释、观察或收束节奏。"
+      ],
+      "riskIfMisclassified": "复杂机制、步骤或长期证据会来不及被理解，且可能被误当成开头爆点。",
+      "forSlotSubtypeIds": [
+        "SUB_visible_result_first_hook",
+        "SUB_object_action_problem_activation"
+      ]
+    },
+    {
+      "id": "RHYTHM_pattern_slow_explanation_or_observation",
+      "name": "减速解释/观察节奏模式",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "rhythmFunction": "为机制、结构或品质观察留出理解时间",
+      "paceClass": "slow_confirming|steady_dense|measured_hold",
+      "densityClass": "operation_or_explanation_density",
+      "syncPointClasses": [
+        "结构细节",
+        "说明载体",
+        "操作完成点"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些节奏都服务理解而不是刺激，和快入峰值节奏边界清楚。",
+      "differenceNotes": [
+        "机制解释可以有信息密度，但需要稳定锚点；品质观察更强调近景停留。"
+      ],
+      "riskIfMisclassified": "证明会变成看得见但理解不了。",
+      "forSlotSubtypeIds": [
+        "SUB_structure_reuse_mechanism_trust",
+        "SUB_mechanism_scope_credibility",
+        "SUB_quality_objection_reframe"
+      ]
+    },
+    {
+      "id": "RHYTHM_pattern_result_release_or_close",
+      "name": "结果兑现与回落收束节奏模式",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "rhythmFunction": "从证明峰值转向结果确认、生活收益或选择信任",
+      "paceClass": "soft_release|stable_scene_hold|peak_with_tail|slow_testimonial",
+      "densityClass": "low_action_or_result_density",
+      "syncPointClasses": [
+        "结果近景",
+        "生活反馈",
+        "选择落点"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R005"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些 rhythm atom 都承担兑现或回落，不适合继续展开复杂新主张。",
+      "differenceNotes": [
+        "长期信任的回落还需要物证展示；即时结果确认仍可保留短峰值尾巴。"
+      ],
+      "riskIfMisclassified": "结尾会拖慢、发散或冲掉已完成的证明。",
+      "forSlotSubtypeIds": [
+        "SUB_life_benefit_close",
+        "SUB_usage_scene_conversion_close",
+        "SUB_operation_result_confirmation",
+        "SUB_long_term_trust_choice_close"
+      ]
+    },
+    {
+      "id": "PACK_pattern_visual_identity_and_entry",
+      "name": "对象识别与入口包装模式",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "proofType": "对象识别或入口定位证明",
+      "visualHierarchyClass": "对象/解决物第一，动作或利益第二，字幕辅助",
+      "replaceableFormClasses": [
+        "近景实物",
+        "外观载体",
+        "商品主体同框"
+      ],
+      "riskClass": "对象不清会导致后续证明缺少稳定落点",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "这些包装都负责建立对象识别，不是单纯美化。",
+      "differenceNotes": [
+        "candidate：仅适用于购买对象、使用入口或解决物进入的视觉识别。",
+        "不能用于机制、品质、结果或长期信任证明；不同 subtype 的入口锚点不可相互替代。"
+      ],
+      "riskIfMisclassified": "如果误用于机制或结果证明，重组会保留视觉形式但丢失真正证明对象。",
+      "forSlotSubtypeIds": [
+        "SUB_visible_result_first_hook",
+        "SUB_low_barrier_value_anchor",
+        "SUB_solution_object_entry"
+      ]
+    },
+    {
+      "id": "PACK_pattern_mechanism_visual_proof",
+      "name": "机制可视证明包装模式",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "proofType": "mechanism_visualization",
+      "visualHierarchyClass": "结构/机制证据抢占解释焦点，实拍或字幕托底",
+      "replaceableFormClasses": [
+        "局部结构特写",
+        "图文说明",
+        "实拍动作陪伴",
+        "可观察演示"
+      ],
+      "riskClass": "说明载体过重会压掉真实感；证据过快会丢失因果理解",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 3,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "三者都是机制证明包装，判断依据是证明功能而非具体字幕或图形样式。",
+      "differenceNotes": [
+        "包装必须服务结构、因果、适用范围或可执行性证明。",
+        "artifact_ee6a1aa7 的 P002 needReview 只提示机制说明载体强度需复查，不允许把操作步骤或长期收口并入机制包装。"
+      ],
+      "riskIfMisclassified": "会把机制证明替换成纯字幕、入口标识或结果画面。",
+      "forSlotSubtypeIds": [
+        "SUB_structure_reuse_mechanism_trust",
+        "SUB_causal_mechanism_proof",
+        "SUB_mechanism_scope_credibility"
+      ]
+    },
+    {
+      "id": "PACK_pattern_result_evidence_close",
+      "name": "结果证据与收束包装模式",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "proofType": "result_or_benefit_closure",
+      "visualHierarchyClass": "结果状态第一，生活动作或购买对象第二，字幕短句收束",
+      "replaceableFormClasses": [
+        "结果近景",
+        "生活化最终状态",
+        "使用状态",
+        "购买对象同框"
+      ],
+      "riskClass": "不回扣前置关切会让收尾成为泛化好处",
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P005",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "四者都用视觉结果闭合上游证明，是当前最可复用的 packaging pattern。",
+      "differenceNotes": [
+        "usage_scene_close 还承担购买对象绑定；life_benefit_close 更偏生活状态回落。"
+      ],
+      "riskIfMisclassified": "结果证明会失去闭环功能。",
+      "forSlotSubtypeIds": [
+        "SUB_life_benefit_close",
+        "SUB_usage_scene_conversion_close",
+        "SUB_usage_result_confirmation",
+        "SUB_operation_result_confirmation"
+      ]
+    },
+    {
+      "id": "PACK_candidate_aspirational_outcome_activation_visible_outcome_and_social_feedback",
+      "name": "实拍结果钩子包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_aspirational_visible_outcome_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 aspirational_outcome_activation 的视觉证明功能：用真人口播、前景展示、试用状态和统一字幕把抽象收益变成首屏可感知结果。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/aspirational_outcome_activation: 实拍结果钩子包装",
+        "Source slotType: aspirational_outcome_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用真人口播、前景展示、试用状态和统一字幕把抽象收益变成首屏可感知结果",
+      "visualHierarchyClass": "收益结果第一，主体对象第二，人物反馈和字幕辅助解释",
+      "replaceableFormClasses": [
+        "手持展示",
+        "镜前展示",
+        "前后状态展示",
+        "第三方评价字幕"
+      ],
+      "riskClass": "如果首屏只讲收益没有可见结果，强欲望钩子会变成空口承诺"
+    },
+    {
+      "id": "PACK_candidate_mechanism_credibility_mechanism_visual_proof",
+      "name": "内外反差机制包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_hidden_mechanism_credibility"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 mechanism_credibility 的视觉证明功能：用外部正常性展示与内部结构揭示形成反差，把结果承诺落到可见机制证据上。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/mechanism_credibility: 内外反差机制包装",
+        "Source slotType: mechanism_credibility",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用外部正常性展示与内部结构揭示形成反差，把结果承诺落到可见机制证据上",
+      "visualHierarchyClass": "外部正常性先建立，内部关键结构随后成为第一视线，字幕补足机制逻辑",
+      "replaceableFormClasses": [
+        "拆开展示",
+        "局部拉出",
+        "剖面展示",
+        "指示近景"
+      ],
+      "riskClass": "如果只保留机制口播而缺少内部可见证据，隐藏性与可信度都会下降"
+    },
+    {
+      "id": "PACK_candidate_wearability_reassurance_usage_experience_proof",
+      "name": "体验细节证明包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_usage_experience_reassurance"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 wearability_reassurance 的视觉证明功能：用近景细节、触碰或使用动作把潜在体验顾虑转化为可感知的功能证明。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/wearability_reassurance: 体验细节证明包装",
+        "Source slotType: wearability_reassurance",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用近景细节、触碰或使用动作把潜在体验顾虑转化为可感知的功能证明",
+      "visualHierarchyClass": "体验证据主体第一，动作第二，字幕解释具体感受和功能",
+      "replaceableFormClasses": [
+        "按压展示",
+        "触摸展示",
+        "穿用展示",
+        "局部近景"
+      ],
+      "riskClass": "如果体验主张放在高密快切中，观众可能看不到证明细节，只记住口播结论"
+    },
+    {
+      "id": "PACK_candidate_scenario_value_expansion_scenario_fit_proof",
+      "name": "多场景实用价值包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_expansion"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 scenario_value_expansion 的视觉证明功能：用多个日常状态或场景展示证明核心收益可以融入真实使用，而不是孤立功能演示。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/scenario_value_expansion: 多场景实用价值包装",
+        "Source slotType: scenario_value_expansion",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用多个日常状态或场景展示证明核心收益可以融入真实使用，而不是孤立功能演示",
+      "visualHierarchyClass": "整体使用效果第一，主体对象作为稳定视觉锚点，字幕补充风格或日常价值判断",
+      "replaceableFormClasses": [
+        "不同场景切换",
+        "不同人群状态",
+        "不同搭配状态",
+        "日常动作展示"
+      ],
+      "riskClass": "如果场景展示缺少核心收益的视觉锚点，会变成泛泛生活片段，削弱说服链路"
+    },
+    {
+      "id": "PACK_candidate_value_trust_reinforcement_value_and_trust_proof",
+      "name": "质价信任包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_value_trust_reinforcement"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 value_trust_reinforcement 的视觉证明功能：用外部评价、低门槛信息、品牌感和细节近景共同包装值得买的判断。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/value_trust_reinforcement: 质价信任包装",
+        "Source slotType: value_trust_reinforcement",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用外部评价、低门槛信息、品牌感和细节近景共同包装值得买的判断",
+      "visualHierarchyClass": "价值判断由字幕提出，实物细节和使用状态提供支撑，指示动作引导看见质量证据",
+      "replaceableFormClasses": [
+        "第三方评价",
+        "价格反差表达",
+        "品牌背书",
+        "工艺细节近景"
+      ],
+      "riskClass": "如果只强调低门槛成本而没有质量或信任证据，容易降低感知价值"
+    },
+    {
+      "id": "PACK_candidate_identity_conversion_close_scarcity_conversion_wrap",
+      "name": "稀缺行动收尾包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_identity_conversion_close"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 identity_conversion_close 的视觉证明功能：用正面收束展示、情绪动作和口播字幕把身份收益、稀缺理由与行动提示合并到最后落点。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/identity_conversion_close: 稀缺行动收尾包装",
+        "Source slotType: identity_conversion_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用正面收束展示、情绪动作和口播字幕把身份收益、稀缺理由与行动提示合并到最后落点",
+      "visualHierarchyClass": "收尾主体对象第一，身份情绪第二，稀缺和行动字幕负责转化闭环",
+      "replaceableFormClasses": [
+        "正面展示",
+        "结果回扣动作",
+        "库存稀缺字幕",
+        "行动口播字幕"
+      ],
+      "riskClass": "如果尾段只做稀缺催促而不回扣前面核心关切，行动理由会显得割裂"
+    },
+    {
+      "id": "RHYTHM_candidate_aspirational_outcome_activation_fast_result_stack",
+      "name": "高密度结果抛点 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_aspirational_visible_outcome_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 aspirational_outcome_activation 的注意力功能：用快速切换和短促信息堆叠把观众直接拉入结果期待。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/aspirational_outcome_activation: 高密度结果抛点",
+        "Source slotType: aspirational_outcome_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用快速切换和短促信息堆叠把观众直接拉入结果期待",
+      "paceClass": "fast_result_stack",
+      "densityClass": "cut_and_claim_density",
+      "syncPointClasses": [
+        "结果主张出现",
+        "可见结果展示",
+        "外部反馈落点"
+      ],
+      "avoidFor": [
+        "complex_mechanism",
+        "multi_step_instruction"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_mechanism_credibility_progressive_reveal",
+      "name": "由外到内的揭示加速 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_hidden_mechanism_credibility"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 mechanism_credibility 的注意力功能：先稳定展示外部正常性，再通过细节插入把注意力推进到内部机制。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/mechanism_credibility: 由外到内的揭示加速",
+        "Source slotType: mechanism_credibility",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "先稳定展示外部正常性，再通过细节插入把注意力推进到内部机制",
+      "paceClass": "progressive_reveal",
+      "densityClass": "detail_insert_density",
+      "syncPointClasses": [
+        "外部正常性铺垫",
+        "内部结构出现",
+        "关键细节指示"
+      ],
+      "avoidFor": [
+        "pure_emotional_hook",
+        "long_price_push"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_wearability_reassurance_moderate_proof_hold",
+      "name": "体验证明放缓 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_usage_experience_reassurance"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 wearability_reassurance 的注意力功能：把前段机制密度放慢，让观众看清体验细节并消化顾虑回应。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/wearability_reassurance: 体验证明放缓",
+        "Source slotType: wearability_reassurance",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "把前段机制密度放慢，让观众看清体验细节并消化顾虑回应",
+      "paceClass": "moderate_proof_hold",
+      "densityClass": "detail_hold_density",
+      "syncPointClasses": [
+        "体验细节出现",
+        "触感或使用动作",
+        "顾虑回应字幕"
+      ],
+      "avoidFor": [
+        "urgent_conversion",
+        "large_claim_without_visual_anchor"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_scenario_value_expansion_steady_scenario_hold",
+      "name": "场景展示舒展回落 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_expansion"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 scenario_value_expansion 的注意力功能：从功能解释转向整体场景感，用更平稳的停留降低理解负担并扩展使用想象。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/scenario_value_expansion: 场景展示舒展回落",
+        "Source slotType: scenario_value_expansion",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "从功能解释转向整体场景感，用更平稳的停留降低理解负担并扩展使用想象",
+      "paceClass": "steady_scenario_hold",
+      "densityClass": "scene_variation_density",
+      "syncPointClasses": [
+        "场景切换",
+        "整体效果展示",
+        "日常价值评价"
+      ],
+      "avoidFor": [
+        "high_urgency_close",
+        "technical_detail_explain"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_value_trust_reinforcement_compressed_value_stack",
+      "name": "价值信息二次堆叠 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_value_trust_reinforcement"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 value_trust_reinforcement 的注意力功能：在场景回落后重新压缩信息，用价值反差与细节证明抬高购买判断。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/value_trust_reinforcement: 价值信息二次堆叠",
+        "Source slotType: value_trust_reinforcement",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "在场景回落后重新压缩信息，用价值反差与细节证明抬高购买判断",
+      "paceClass": "compressed_value_stack",
+      "densityClass": "claim_and_detail_density",
+      "syncPointClasses": [
+        "价值反差出现",
+        "背书信息出现",
+        "质量细节停留"
+      ],
+      "avoidFor": [
+        "slow_emotional_resolution",
+        "complex_step_instruction"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_identity_conversion_close_urgent_close_with_hold",
+      "name": "紧迫收尾抬升 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_identity_conversion_close"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 identity_conversion_close 的注意力功能：用情绪回扣和紧迫信息形成最后峰值，再用较完整收尾画面给行动提示落点。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/identity_conversion_close: 紧迫收尾抬升",
+        "Source slotType: identity_conversion_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用情绪回扣和紧迫信息形成最后峰值，再用较完整收尾画面给行动提示落点",
+      "paceClass": "urgent_close_with_hold",
+      "densityClass": "conversion_density",
+      "syncPointClasses": [
+        "身份收益回扣",
+        "稀缺信息出现",
+        "行动提示落点"
+      ],
+      "avoidFor": [
+        "new_feature_explain",
+        "unresolved_mechanism"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_aspirational_outcome_activation_aspiration_to_visible_outcome",
+      "name": "强欲望结果先抛 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_aspirational_visible_outcome_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 aspirational_outcome_activation 中的“aspiration_to_visible_outcome”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/aspirational_outcome_activation: 强欲望结果先抛",
+        "Source slotType: aspirational_outcome_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "aspiration_to_visible_outcome",
+      "proofNeedClass": "需要可见的结果状态、目标人群关切和生活化反馈共同支撑",
+      "mustKeepClasses": [
+        "目标人群强欲望",
+        "结果先行",
+        "生活化反馈"
+      ],
+      "replaceableVariableClasses": [
+        "目标人群",
+        "核心收益",
+        "反馈来源",
+        "结果表达方式"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_mechanism_credibility_outcome_mechanism_with_concern_reduction",
+      "name": "隐藏机制可信化 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_hidden_mechanism_credibility"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 mechanism_credibility 中的“outcome_mechanism_with_concern_reduction”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/mechanism_credibility: 隐藏机制可信化",
+        "Source slotType: mechanism_credibility",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "outcome_mechanism_with_concern_reduction",
+      "proofNeedClass": "需要外观正常性、内部结构揭示和使用后不被识别的证明组合",
+      "mustKeepClasses": [
+        "机制解释",
+        "隐藏性证明",
+        "顾虑降低"
+      ],
+      "replaceableVariableClasses": [
+        "实现机制",
+        "隐藏方式",
+        "外观参照",
+        "顾虑表达"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_wearability_reassurance_functional_benefit_without_usage_cost",
+      "name": "使用顾虑解除 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_usage_experience_reassurance"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 wearability_reassurance 中的“functional_benefit_without_usage_cost”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/wearability_reassurance: 使用顾虑解除",
+        "Source slotType: wearability_reassurance",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "functional_benefit_without_usage_cost",
+      "proofNeedClass": "需要材料、触感、穿用过程或体验细节等可感知证明",
+      "mustKeepClasses": [
+        "体验顾虑回应",
+        "可感知细节证明",
+        "不牺牲日常使用"
+      ],
+      "replaceableVariableClasses": [
+        "体验顾虑",
+        "功能细节",
+        "证明动作",
+        "使用场景"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_scenario_value_expansion_core_benefit_to_daily_utility",
+      "name": "日常场景价值扩展 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_expansion"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 scenario_value_expansion 中的“core_benefit_to_daily_utility”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/scenario_value_expansion: 日常场景价值扩展",
+        "Source slotType: scenario_value_expansion",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "core_benefit_to_daily_utility",
+      "proofNeedClass": "需要多场景展示、风格适配或日常使用理由支撑",
+      "mustKeepClasses": [
+        "日常可用性",
+        "多场景适配",
+        "核心收益不突兀"
+      ],
+      "replaceableVariableClasses": [
+        "使用场景",
+        "搭配语境",
+        "审美评价",
+        "展示角度"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_value_trust_reinforcement_perceived_value_with_trust_support",
+      "name": "质价信任补强 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_value_trust_reinforcement"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 value_trust_reinforcement 中的“perceived_value_with_trust_support”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/value_trust_reinforcement: 质价信任补强",
+        "Source slotType: value_trust_reinforcement",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "perceived_value_with_trust_support",
+      "proofNeedClass": "需要价格反差、第三方感知、品牌信任或细节质量证明中至少两类支撑",
+      "mustKeepClasses": [
+        "价值反差",
+        "信任背书",
+        "细节证明"
+      ],
+      "replaceableVariableClasses": [
+        "价值参照",
+        "背书来源",
+        "质量细节",
+        "成本门槛"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_identity_conversion_close_identity_shift_to_action",
+      "name": "身份回扣与稀缺收束 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "forSlotSubtypeIds": [
+        "SUB_identity_conversion_close"
+      ],
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 identity_conversion_close 中的“identity_shift_to_action”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/identity_conversion_close: 身份回扣与稀缺收束",
+        "Source slotType: identity_conversion_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "identity_shift_to_action",
+      "proofNeedClass": "需要回到前置核心关切，并提供清晰的行动理由或稀缺触发",
+      "mustKeepClasses": [
+        "前置关切回扣",
+        "身份或情绪收益",
+        "明确行动触发"
+      ],
+      "replaceableVariableClasses": [
+        "身份表达",
+        "稀缺理由",
+        "行动提示",
+        "收尾展示方式"
+      ]
+    },
+    {
+      "id": "PACK_candidate_scene_problem_activation_scene_reality_proof",
+      "name": "低包装生活痛点呈现 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_scene_problem_activation"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 scene_problem_activation 的视觉证明功能：用生活化画面和简洁字幕降低广告感，让问题先显得真实可信。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/scene_problem_activation: 低包装生活痛点呈现",
+        "Source slotType: scene_problem_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用生活化画面和简洁字幕降低广告感，让问题先显得真实可信",
+      "visualHierarchyClass": "场景和人物状态优先，字幕辅助解释干扰来源，包装强度保持低位",
+      "replaceableFormClasses": [
+        "自拍视频",
+        "场景插入",
+        "环境细节",
+        "短字幕",
+        "轻量符号"
+      ],
+      "riskClass": "如果过早加入强商品包装，会削弱痛点真实性并让观众跳过共鸣建立"
+    },
+    {
+      "id": "PACK_candidate_alternative_contrast_contrast_experience_proof",
+      "name": "替代方案反面实拍 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_alternative_gap_contrast"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 alternative_contrast 的视觉证明功能：用替代方案的可见使用状态和体验字幕，为目标方案制造可信对照基准。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/alternative_contrast: 替代方案反面实拍",
+        "Source slotType: alternative_contrast",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用替代方案的可见使用状态和体验字幕，为目标方案制造可信对照基准",
+      "visualHierarchyClass": "替代方案实物和使用状态优先，字幕负责解释失败体验",
+      "replaceableFormClasses": [
+        "替代物手持",
+        "替代物佩戴",
+        "失败状态演示",
+        "体验字幕",
+        "对比近景"
+      ],
+      "riskClass": "如果只贬低替代方案而没有可见对照，会降低后续差异化证明的可信度"
+    },
+    {
+      "id": "PACK_candidate_choice_close_soft_conversion_memory_proof",
+      "name": "推荐记忆锚点包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_recommendation_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 choice_close 的视觉证明功能：把功能证明转成选择建议，并通过反复识别和结尾极简信息强化记忆。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/choice_close: 推荐记忆锚点包装",
+        "Source slotType: choice_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把功能证明转成选择建议，并通过反复识别和结尾极简信息强化记忆",
+      "visualHierarchyClass": "推荐者、识别锚点和结论字幕共同主导，末尾只保留记忆信息",
+      "replaceableFormClasses": [
+        "手持推荐",
+        "贴近展示",
+        "品牌色强调",
+        "黑场大字",
+        "总结字幕"
+      ],
+      "riskClass": "如果没有前置证明就直接使用推荐包装，容易变成空泛口号；如果结尾信息过多，会削弱记忆落点"
+    },
+    {
+      "id": "RHYTHM_candidate_scene_problem_activation_fast_to_slow_setup",
+      "name": "短促打断后拉长共鸣 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_scene_problem_activation"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 scene_problem_activation 的注意力功能：先用快速场景切换制造干扰感，再用较长讲述让观众进入共鸣和判断。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/scene_problem_activation: 短促打断后拉长共鸣",
+        "Source slotType: scene_problem_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "先用快速场景切换制造干扰感，再用较长讲述让观众进入共鸣和判断",
+      "paceClass": "fast_to_slow_setup",
+      "densityClass": "scene_switch_then_talk_density",
+      "syncPointClasses": [
+        "干扰源出现",
+        "困扰状态说明",
+        "矛盾判断落点"
+      ],
+      "avoidFor": [
+        "complex_mechanism",
+        "multi_step_instruction",
+        "dense_claim_stack"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_solution_entry_medium_fast_entry",
+      "name": "解决物出现加密 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_solution_object_entry"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 solution_entry 的注意力功能：用物件露出和镜头缩短制造从问题到方案的注意力转折。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/solution_entry: 解决物出现加密",
+        "Source slotType: solution_entry",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用物件露出和镜头缩短制造从问题到方案的注意力转折",
+      "paceClass": "medium_fast_entry",
+      "densityClass": "object_frequency_density",
+      "syncPointClasses": [
+        "解决物首次出现",
+        "识别载体清楚露出",
+        "问题语境转向方案语境"
+      ],
+      "avoidFor": [
+        "long_background_explain",
+        "subtle_emotional_build"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_alternative_contrast_medium_fast_to_slow_contrast",
+      "name": "对比打点后体验回落 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_alternative_gap_contrast"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 alternative_contrast 的注意力功能：先用多物件切换建立对比，再放慢给失败体验留出感知时间。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/alternative_contrast: 对比打点后体验回落",
+        "Source slotType: alternative_contrast",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "先用多物件切换建立对比，再放慢给失败体验留出感知时间",
+      "paceClass": "medium_fast_to_slow_contrast",
+      "densityClass": "contrast_cut_then_hold_density",
+      "syncPointClasses": [
+        "替代方案露出",
+        "缺陷体验出现",
+        "对比结论落下"
+      ],
+      "avoidFor": [
+        "positive_result_burst",
+        "dense_parameter_explain"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_mechanism_proof_compressed_explain_with_insert_beats",
+      "name": "插入式证明加速 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_causal_mechanism_proof"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 mechanism_proof 的注意力功能：在连续解释中插入短镜头、动作演示和信息卡，使抽象机制被分段看见并保持推进感。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/mechanism_proof: 插入式证明加速",
+        "Source slotType: mechanism_proof",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "在连续解释中插入短镜头、动作演示和信息卡，使抽象机制被分段看见并保持推进感",
+      "paceClass": "compressed_explain_with_insert_beats",
+      "densityClass": "proof_insert_density",
+      "syncPointClasses": [
+        "机制名出现",
+        "实物细节出现",
+        "动态演示峰值",
+        "图文化证据进入"
+      ],
+      "avoidFor": [
+        "opening_empathy",
+        "simple_recommendation",
+        "unproven_long_claim"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_usage_result_confirmation_slow_result_release",
+      "name": "峰值后结果回落 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_usage_result_confirmation"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 usage_result_confirmation 的注意力功能：从高密度证明回到较安静的使用状态，让观众消化前面证据并感知结果。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/usage_result_confirmation: 峰值后结果回落",
+        "Source slotType: usage_result_confirmation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "从高密度证明回到较安静的使用状态，让观众消化前面证据并感知结果",
+      "paceClass": "slow_result_release",
+      "densityClass": "state_hold_density",
+      "syncPointClasses": [
+        "使用状态稳定",
+        "结果感受落点",
+        "前文关切回扣"
+      ],
+      "avoidFor": [
+        "new_mechanism_stack",
+        "rapid_comparison",
+        "multi_claim_launch"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_choice_close_medium_close_with_hard_stop",
+      "name": "重复识别与断句收尾 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_recommendation_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 choice_close 的注意力功能：用中等节奏的重复露出完成推荐收束，再用极简断句形成结尾记忆点。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/choice_close: 重复识别与断句收尾",
+        "Source slotType: choice_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用中等节奏的重复露出完成推荐收束，再用极简断句形成结尾记忆点",
+      "paceClass": "medium_close_with_hard_stop",
+      "densityClass": "recognition_repetition_density",
+      "syncPointClasses": [
+        "推荐判断出现",
+        "识别锚点重复",
+        "结尾记忆点落下"
+      ],
+      "avoidFor": [
+        "new_complex_evidence",
+        "unfinished_problem_setup"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_solution_entry_problem_to_solution_entry",
+      "name": "解决方案具象亮相 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_solution_object_entry"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 solution_entry 中的“problem_to_solution_entry”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/solution_entry: 解决方案具象亮相",
+        "Source slotType: solution_entry",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "problem_to_solution_entry",
+      "proofNeedClass": "需要清晰可见的解决物或其识别载体，证明后续论证对象已经出现",
+      "mustKeepClasses": [
+        "痛点承接",
+        "解决物首次识别",
+        "后续解释空间"
+      ],
+      "replaceableVariableClasses": [
+        "解决物类别",
+        "首次露出方式",
+        "承接口播",
+        "识别载体"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_alternative_contrast_alternative_gap_claim",
+      "name": "替代方案缺陷反衬 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_alternative_gap_contrast"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 alternative_contrast 中的“alternative_gap_claim”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/alternative_contrast: 替代方案缺陷反衬",
+        "Source slotType: alternative_contrast",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "alternative_gap_claim",
+      "proofNeedClass": "需要替代方案实物或使用状态，以及失败体验与关键场景的明确关联",
+      "mustKeepClasses": [
+        "替代方案基础认可",
+        "关键场景缺陷",
+        "对比基准",
+        "适配性问题"
+      ],
+      "replaceableVariableClasses": [
+        "替代方案",
+        "缺陷类型",
+        "关键场景",
+        "体验描述",
+        "对比对象"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_choice_close_recommendation_close_claim",
+      "name": "节点化选择收束 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "forSlotSubtypeIds": [
+        "SUB_recommendation_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 choice_close 中的“recommendation_close_claim”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/choice_close: 节点化选择收束",
+        "Source slotType: choice_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "recommendation_close_claim",
+      "proofNeedClass": "需要推荐场景、解决物识别锚点和结尾记忆点支撑转化导向",
+      "mustKeepClasses": [
+        "人群节点",
+        "推荐判断",
+        "识别锚点",
+        "结尾记忆强化"
+      ],
+      "replaceableVariableClasses": [
+        "推荐节点",
+        "收束话术",
+        "识别锚点",
+        "结尾形式"
+      ]
+    },
+    {
+      "id": "PACK_candidate_core_interest_conflict_direct_experience_proof",
+      "name": "商品识别与体验入口 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_core_interest_conflict_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 core_interest_conflict 的视觉证明功能：用商品近景、体验动作和轻字幕快速建立卖点讨论对象，并让开场冲突有真实体验支撑。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/core_interest_conflict: 商品识别与体验入口",
+        "Source slotType: core_interest_conflict",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用商品近景、体验动作和轻字幕快速建立卖点讨论对象，并让开场冲突有真实体验支撑。",
+      "visualHierarchyClass": "核心可体验对象优先，体验者反应第二，字幕辅助推进观点。",
+      "replaceableFormClasses": [
+        "开场商品特写",
+        "体验者试用同框",
+        "短标签式提示",
+        "实物前景露出"
+      ],
+      "riskClass": "如果只保留冲突口播而缺少体验或实物支撑，开场会变成空泛噱头。"
+    },
+    {
+      "id": "PACK_candidate_value_positioning_contextual_value_support",
+      "name": "价值口播同框 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_value_positioning_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 value_positioning 的视觉证明功能：用人物、使用对象和字幕的稳定同框承接价值解释，使利益立场保持在可体验、可感知的实物语境中。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/value_positioning: 价值口播同框",
+        "Source slotType: value_positioning",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用人物、使用对象和字幕的稳定同框承接价值解释，使利益立场保持在可体验、可感知的实物语境中。",
+      "visualHierarchyClass": "人物解释与手中对象并列，背景商品露出作为持续锚点，字幕承担利益压缩。",
+      "replaceableFormClasses": [
+        "手持讲解",
+        "桌面商品露出",
+        "短字幕利益点",
+        "体验后讲述"
+      ],
+      "riskClass": "如果此处包装过重，会打断从冲突到价值解释的承接，降低可信感。"
+    },
+    {
+      "id": "PACK_candidate_credibility_question_threshold_claim_setup",
+      "name": "低门槛证明对象前置 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_credibility_question_pressure"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 credibility_question 的视觉证明功能：把低门槛利益对应的规格、数量或外部信息推到前景，让观众的信任疑问有明确视觉对象。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/credibility_question: 低门槛证明对象前置",
+        "Source slotType: credibility_question",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把低门槛利益对应的规格、数量或外部信息推到前景，让观众的信任疑问有明确视觉对象。",
+      "visualHierarchyClass": "可核查对象优先，指向动作第二，人物反应和字幕制造追问压力。",
+      "replaceableFormClasses": [
+        "外包装特写",
+        "规格陈列",
+        "数量展示",
+        "指向标注"
+      ],
+      "riskClass": "如果低门槛利益没有可视对象，后续证明会显得突然，质疑也不够具体。"
+    },
+    {
+      "id": "PACK_candidate_objective_proof_release_objective_label_proof",
+      "name": "客观标签标注证明 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_objective_proof_release"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 objective_proof_release 的视觉证明功能：用可核查信息区域和标注动作把客观证明视觉化，完成从反问到可信证据的转换。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/objective_proof_release: 客观标签标注证明",
+        "Source slotType: objective_proof_release",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用可核查信息区域和标注动作把客观证明视觉化，完成从反问到可信证据的转换。",
+      "visualHierarchyClass": "可核查信息第一，标注动作第二，字幕解释第三，商品状态作为旁证。",
+      "replaceableFormClasses": [
+        "标签特写",
+        "检测记录截图",
+        "参数图卡",
+        "手势或箭头标注"
+      ],
+      "riskClass": "如果标注和说明不同步，观众会听到证明但无法确认依据来源。"
+    },
+    {
+      "id": "PACK_candidate_sensory_proof_stack_sensory_detail_proof_stack",
+      "name": "多维实拍质感证明 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_proof_stack"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 sensory_proof_stack 的视觉证明功能：通过外观、结构、内部状态和体验反馈的连续实拍，把抽象感官卖点转换成可见证据链。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/sensory_proof_stack: 多维实拍质感证明",
+        "Source slotType: sensory_proof_stack",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "通过外观、结构、内部状态和体验反馈的连续实拍，把抽象感官卖点转换成可见证据链。",
+      "visualHierarchyClass": "商品细节为第一视线，动作演示增强可信度，体验者回收主观评价。",
+      "replaceableFormClasses": [
+        "表面细节展示",
+        "结构层次展示",
+        "内部状态展示",
+        "试用反馈",
+        "对比式细节镜头"
+      ],
+      "riskClass": "如果细节维度堆叠但没有递进顺序，观众会看到很多画面却难以形成明确购买理由。"
+    },
+    {
+      "id": "PACK_candidate_scenario_value_close_usage_context_and_trust_close",
+      "name": "场景利益与态度收束包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 scenario_value_close 的视觉证明功能：用持续体验、手势互动、商品露出和字幕态度，把使用场景与用户利益压缩成末段购买理由。。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/scenario_value_close: 场景利益与态度收束包装",
+        "Source slotType: scenario_value_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用持续体验、手势互动、商品露出和字幕态度，把使用场景与用户利益压缩成末段购买理由。",
+      "visualHierarchyClass": "人物态度和体验状态优先，商品锚点持续保留，末尾降低包装密度形成记忆停留。",
+      "replaceableFormClasses": [
+        "场景字幕",
+        "体验后推荐",
+        "商品静态同框",
+        "轻量利益提示"
+      ],
+      "riskClass": "如果末段只强调态度而商品不再可见，购买理由会和具体对象脱节；如果强加行动按钮，可能破坏当前样例的信任收束风格。"
+    },
+    {
+      "id": "RHYTHM_candidate_core_interest_conflict_fast_tight_opening",
+      "name": "密集体验起手 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_core_interest_conflict_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 core_interest_conflict 的注意力功能：用真实体验动作和短句连续推进快速抓住注意力，并把观众压入核心卖点讨论。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/core_interest_conflict: 密集体验起手",
+        "Source slotType: core_interest_conflict",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用真实体验动作和短句连续推进快速抓住注意力，并把观众压入核心卖点讨论。",
+      "paceClass": "fast_tight_opening",
+      "densityClass": "speech_action_density",
+      "syncPointClasses": [
+        "核心利益被点出",
+        "体验动作出现",
+        "字幕质疑推进"
+      ],
+      "avoidFor": [
+        "complex_mechanism",
+        "long_parameter_explain"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_value_positioning_brief_pause_then_explain",
+      "name": "短顿解释承接 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_value_positioning_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 value_positioning 的注意力功能：从开场紧压中稍微放松，用短暂停顿承接价值解释，让观众从情绪冲突转向理解利益。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/value_positioning: 短顿解释承接",
+        "Source slotType: value_positioning",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "从开场紧压中稍微放松，用短暂停顿承接价值解释，让观众从情绪冲突转向理解利益。",
+      "paceClass": "brief_pause_then_explain",
+      "densityClass": "speech_density",
+      "syncPointClasses": [
+        "价值立场出现",
+        "目标人群被点明",
+        "商品保持同框"
+      ],
+      "avoidFor": [
+        "major_emotional_peak",
+        "dense_evidence_stack"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_credibility_question_fast_interrogative_pressure",
+      "name": "追问加压节奏 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_credibility_question_pressure"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 credibility_question 的注意力功能：通过短镜头、对象切换和连续追问把低门槛利益转成可信压力，迫使观众等待证据释放。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/credibility_question: 追问加压节奏",
+        "Source slotType: credibility_question",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "通过短镜头、对象切换和连续追问把低门槛利益转成可信压力，迫使观众等待证据释放。",
+      "paceClass": "fast_interrogative_pressure",
+      "densityClass": "cut_and_question_density",
+      "syncPointClasses": [
+        "低门槛信息出现",
+        "质疑句推进",
+        "证明对象被推到前景"
+      ],
+      "avoidFor": [
+        "calm_instruction",
+        "detailed_parameter_reading"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_objective_proof_release_slower_visual_release",
+      "name": "展示释放节奏 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_objective_proof_release"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 objective_proof_release 的注意力功能：把前段追问压力转换为较长的视觉证明时间，让观众有机会看清客观证据。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/objective_proof_release: 展示释放节奏",
+        "Source slotType: objective_proof_release",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "把前段追问压力转换为较长的视觉证明时间，让观众有机会看清客观证据。",
+      "paceClass": "slower_visual_release",
+      "densityClass": "visual_proof_density",
+      "syncPointClasses": [
+        "疑问被回应",
+        "证据区域出现",
+        "标注动作与说明同步"
+      ],
+      "avoidFor": [
+        "pure_emotional_punchline",
+        "rapid_multi_claim_switch"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_sensory_proof_stack_medium_dense_showcase",
+      "name": "细节堆叠推进 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_proof_stack"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 sensory_proof_stack 的注意力功能：用连续细节切换维持中段注意力，把观众从信任判断带到感官确认。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/sensory_proof_stack: 细节堆叠推进",
+        "Source slotType: sensory_proof_stack",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用连续细节切换维持中段注意力，把观众从信任判断带到感官确认。",
+      "paceClass": "medium_dense_showcase",
+      "densityClass": "visual_detail_density",
+      "syncPointClasses": [
+        "外观细节出现",
+        "结构细节出现",
+        "体验反馈回收"
+      ],
+      "avoidFor": [
+        "new_trust_question",
+        "long_scene_expansion"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_scenario_value_close_long_dialogue_pressure",
+      "name": "对话二次加压 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 scenario_value_close 的注意力功能：在证明完成后回到人物对话，用场景补充和价值反问制造末段情绪峰值。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/scenario_value_close: 对话二次加压",
+        "Source slotType: scenario_value_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "在证明完成后回到人物对话，用场景补充和价值反问制造末段情绪峰值。",
+      "paceClass": "long_dialogue_pressure",
+      "densityClass": "speech_and_gesture_density",
+      "syncPointClasses": [
+        "使用场景出现",
+        "价值质疑被回应",
+        "体验状态延续"
+      ],
+      "avoidFor": [
+        "new_objective_proof",
+        "multi_step_instruction"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_scenario_value_close_static_cooldown",
+      "name": "静止记忆回落 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 scenario_value_close 的注意力功能：在情绪峰值后降低动作和信息密度，让商品印象停留而不是继续追加新主张。。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/scenario_value_close: 静止记忆回落",
+        "Source slotType: scenario_value_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "在情绪峰值后降低动作和信息密度，让商品印象停留而不是继续追加新主张。",
+      "paceClass": "static_cooldown",
+      "densityClass": "low_information_density",
+      "syncPointClasses": [
+        "新信息停止",
+        "商品保持可见",
+        "人物动作放缓"
+      ],
+      "avoidFor": [
+        "new_claim_launch",
+        "urgent_conversion_push"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_core_interest_conflict_conflict_to_interest",
+      "name": "核心利益反差钩子 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_core_interest_conflict_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 core_interest_conflict 中的“conflict_to_interest”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/core_interest_conflict: 核心利益反差钩子",
+        "Source slotType: core_interest_conflict",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "conflict_to_interest",
+      "proofNeedClass": "需要可见的商品状态或真实使用反应支撑开场判断，避免只停留在口头夸张。",
+      "mustKeepClasses": [
+        "开场冲突",
+        "核心利益点前置",
+        "真实体验入口"
+      ],
+      "replaceableVariableClasses": [
+        "核心利益点",
+        "冲突表达方式",
+        "体验者角色",
+        "开场口播语气"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_value_positioning_interest_to_value_position",
+      "name": "利益立场承接 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_value_positioning_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 value_positioning 中的“interest_to_value_position”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/value_positioning: 利益立场承接",
+        "Source slotType: value_positioning",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "interest_to_value_position",
+      "proofNeedClass": "需要商品持续同框或体验动作维持可信入口，同时用简短解释完成价值转向。",
+      "mustKeepClasses": [
+        "目标人群站位",
+        "核心利益解释",
+        "从情绪钩子转向价值承诺"
+      ],
+      "replaceableVariableClasses": [
+        "目标人群",
+        "利益表述",
+        "价值承诺角度"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_credibility_question_value_to_trust_question",
+      "name": "低门槛可信质疑 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_credibility_question_pressure"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 credibility_question 中的“value_to_trust_question”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/credibility_question: 低门槛可信质疑",
+        "Source slotType: credibility_question",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "value_to_trust_question",
+      "proofNeedClass": "需要可见规格、外部标识或可核查信息作为质疑对象，不能只用抽象反问。",
+      "mustKeepClasses": [
+        "低门槛利益",
+        "可信度疑问",
+        "后续证明入口"
+      ],
+      "replaceableVariableClasses": [
+        "门槛类型",
+        "质疑角度",
+        "可视化承接对象"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_objective_proof_release_trust_question_to_objective_proof",
+      "name": "客观指标回应 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_objective_proof_release"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 objective_proof_release 中的“trust_question_to_objective_proof”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/objective_proof_release: 客观指标回应",
+        "Source slotType: objective_proof_release",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "trust_question_to_objective_proof",
+      "proofNeedClass": "需要包装信息、标签信息、参数、记录或其他可回看的客观证据与口播同步出现。",
+      "mustKeepClasses": [
+        "前置疑问回应",
+        "可核查证据",
+        "证明从口播落到视觉"
+      ],
+      "replaceableVariableClasses": [
+        "客观指标",
+        "证据载体",
+        "标注方式"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_sensory_proof_stack_objective_proof_to_sensory_confirmation",
+      "name": "感官证据堆叠 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_proof_stack"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 sensory_proof_stack 中的“objective_proof_to_sensory_confirmation”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/sensory_proof_stack: 感官证据堆叠",
+        "Source slotType: sensory_proof_stack",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "objective_proof_to_sensory_confirmation",
+      "proofNeedClass": "需要多层次实拍细节、动作演示或体验反应形成递进证据链。",
+      "mustKeepClasses": [
+        "多维感官证据",
+        "细节递进",
+        "体验反馈回收"
+      ],
+      "replaceableVariableClasses": [
+        "外观维度",
+        "结构维度",
+        "体验反馈方式",
+        "细节展示顺序"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_scenario_value_close_proof_to_usage_and_value_close",
+      "name": "场景利益收束 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "forSlotSubtypeIds": [
+        "SUB_scenario_value_memory_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 scenario_value_close 中的“proof_to_usage_and_value_close”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/scenario_value_close: 场景利益收束",
+        "Source slotType: scenario_value_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "proof_to_usage_and_value_close",
+      "proofNeedClass": "需要商品继续可见、体验状态延续，并尽量保留前面核心利益或可信问题的回扣。",
+      "mustKeepClasses": [
+        "使用场景",
+        "用户利益收束",
+        "商品记忆停留"
+      ],
+      "replaceableVariableClasses": [
+        "消费场景",
+        "收束态度",
+        "利益重申方式",
+        "末尾停留形式"
+      ]
+    },
+    {
+      "id": "PACK_candidate_familiarity_bridge_hook_category_and_appetite_entry_proof",
+      "name": "首屏使用状态加品类入口 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_familiarity_bridge_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 familiarity_bridge_hook 的视觉证明功能：用强主体、使用状态和入口标题把商品类别与观看动机同时推到第一视线。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/familiarity_bridge_hook: 首屏使用状态加品类入口",
+        "Source slotType: familiarity_bridge_hook",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用强主体、使用状态和入口标题把商品类别与观看动机同时推到第一视线",
+      "visualHierarchyClass": "入口标题先解释对象，使用状态制造停留，商品露出确认购买对象",
+      "replaceableFormClasses": [
+        "首屏标题",
+        "使用状态近景",
+        "手持商品露出",
+        "主体特写开场"
+      ],
+      "riskClass": "如果首屏只强调体验刺激而商品身份不清，后续组合卖点需要额外补认知成本"
+    },
+    {
+      "id": "PACK_candidate_combination_claim_peak_product_identity_and_combination_proof",
+      "name": "包装身份与实物组合绑定 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_combination_claim_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 combination_claim_peak 的视觉证明功能：让商品包装、内容物和组合关系连续互证，把新品认知转成可记住的卖点对象。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/combination_claim_peak: 包装身份与实物组合绑定",
+        "Source slotType: combination_claim_peak",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "让商品包装、内容物和组合关系连续互证，把新品认知转成可记住的卖点对象",
+      "visualHierarchyClass": "商品身份和实物内容并列为主层，字幕只补充组合关系和感官承诺",
+      "replaceableFormClasses": [
+        "包装正面特写",
+        "包装与实物同框",
+        "内容物俯拍",
+        "组合陈列"
+      ],
+      "riskClass": "如果包装露出与内容物证明分离太远，观众可能记住口感但不能稳定回到购买对象"
+    },
+    {
+      "id": "PACK_candidate_sensory_evidence_deepening_sensory_texture_experience_proof",
+      "name": "细节动作证明体验 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_evidence_deepening"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 sensory_evidence_deepening 的视觉证明功能：把体验形容转成可见的关键细节、内部或结果状态和使用者反馈，增强效果承诺可信度。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/sensory_evidence_deepening: 细节动作证明体验",
+        "Source slotType: sensory_evidence_deepening",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把体验形容转成可见的关键细节、内部或结果状态和使用者反馈，增强效果承诺可信度",
+      "visualHierarchyClass": "细节动作和使用反馈为第一层，字幕解释体验结果，商品露出作为背景锚点",
+      "replaceableFormClasses": [
+        "操作展示",
+        "揭示展示",
+        "使用反馈",
+        "内部或结果状态特写",
+        "连续细节对比"
+      ],
+      "riskClass": "如果只保留字幕感官词而缺少细节动作，体验承诺会变弱且难以迁移复用"
+    },
+    {
+      "id": "PACK_candidate_trust_assurance_shift_trust_assurance_proof",
+      "name": "标题化背书加实物支撑 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_post_sensory_trust_assurance"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 trust_assurance_shift 的视觉证明功能：把品质或安全信息从普通口播抬升为可见背书，并用实物状态减轻文字背书的空泛感。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/trust_assurance_shift: 标题化背书加实物支撑",
+        "Source slotType: trust_assurance_shift",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把品质或安全信息从普通口播抬升为可见背书，并用实物状态减轻文字背书的空泛感",
+      "visualHierarchyClass": "背书标题临时升为最高层级，实物证明居中承接，字幕补足解释",
+      "replaceableFormClasses": [
+        "顶部标题条",
+        "重点信息横条",
+        "认证式图卡",
+        "实物细节补证"
+      ],
+      "riskClass": "如果背书标题强度过高但没有实物支撑，容易从可信证明变成硬广感"
+    },
+    {
+      "id": "PACK_candidate_conversion_reason_close_conversion_benefit_proof",
+      "name": "多件视觉与终屏商品锚定 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_conversion_reason_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 conversion_reason_close 的视觉证明功能：用数量感、商品正面和利益字幕把观看兴趣转成购买理由，并在最后稳定记住购买对象。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/conversion_reason_close: 多件视觉与终屏商品锚定",
+        "Source slotType: conversion_reason_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用数量感、商品正面和利益字幕把观看兴趣转成购买理由，并在最后稳定记住购买对象",
+      "visualHierarchyClass": "商品包装为最终主视觉，利益信息贴近商品出现，画面变化减少以服务记忆锚定",
+      "replaceableFormClasses": [
+        "多件陈列",
+        "终屏包装正面",
+        "利益字幕",
+        "规格图卡",
+        "购买对象定格"
+      ],
+      "riskClass": "如果终段只讲优惠但没有商品锚定，转化利益会脱离前面的卖点证明"
+    },
+    {
+      "id": "RHYTHM_candidate_familiarity_bridge_hook_fast_dense_opening",
+      "name": "高密度快速入场 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_familiarity_bridge_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 familiarity_bridge_hook 的注意力功能：用快速主体变化和使用状态把观众从未进入语境拉到商品关注状态。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/familiarity_bridge_hook: 高密度快速入场",
+        "Source slotType: familiarity_bridge_hook",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用快速主体变化和使用状态把观众从未进入语境拉到商品关注状态",
+      "paceClass": "fast_dense_opening",
+      "densityClass": "scene_subject_density",
+      "syncPointClasses": [
+        "入口主张出现",
+        "商品身份露出",
+        "使用状态被看见"
+      ],
+      "avoidFor": [
+        "complex_mechanism",
+        "multi_step_instruction",
+        "long_trust_claim"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_combination_claim_peak_compressed_fast_peak",
+      "name": "短促压缩到首轮峰值 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_combination_claim_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 combination_claim_peak 的注意力功能：把组合信息用短镜头压缩推进，并在结果性表达处形成第一轮记忆点。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/combination_claim_peak: 短促压缩到首轮峰值",
+        "Source slotType: combination_claim_peak",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "把组合信息用短镜头压缩推进，并在结果性表达处形成第一轮记忆点",
+      "paceClass": "compressed_fast_peak",
+      "densityClass": "claim_and_object_density",
+      "syncPointClasses": [
+        "组合关系明确",
+        "包装身份强化",
+        "感官承诺落点"
+      ],
+      "avoidFor": [
+        "detailed_quality_explanation",
+        "price_rule_explanation",
+        "long_reasoning"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_sensory_evidence_deepening_medium_detail_hold",
+      "name": "中速细节停留 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_evidence_deepening"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 sensory_evidence_deepening 的注意力功能：从快速换景转为中速细节观看，让观众停在可验证的关键细节、对象状态和使用反馈上。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/sensory_evidence_deepening: 中速细节停留",
+        "Source slotType: sensory_evidence_deepening",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "从快速换景转为中速细节观看，让观众停在可验证的关键细节、对象状态和使用反馈上",
+      "paceClass": "medium_detail_hold",
+      "densityClass": "action_detail_density",
+      "syncPointClasses": [
+        "细节被揭示",
+        "使用反馈出现",
+        "第二体验峰值"
+      ],
+      "avoidFor": [
+        "new_topic_intro",
+        "dense_price_conversion",
+        "abstract_brand_claim_only"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_trust_assurance_shift_steady_explanation_platform",
+      "name": "稳定说明平台 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_post_sensory_trust_assurance"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 trust_assurance_shift 的注意力功能：降低动作冲击，给品质、安全或工艺信息留出稳定理解空间。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/trust_assurance_shift: 稳定说明平台",
+        "Source slotType: trust_assurance_shift",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "降低动作冲击，给品质、安全或工艺信息留出稳定理解空间",
+      "paceClass": "steady_explanation_platform",
+      "densityClass": "subtitle_and_label_density",
+      "syncPointClasses": [
+        "背书信息出现",
+        "实物证明补充",
+        "信任结论落回商品形态"
+      ],
+      "avoidFor": [
+        "first_second_hook",
+        "pure_sensory_peak",
+        "urgent_conversion_push"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_conversion_reason_close_slow_closing_hold",
+      "name": "放慢定格式收束 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_conversion_reason_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 conversion_reason_close 的注意力功能：用明显降速和稳定终屏把观众注意力从体验刺激收回到购买对象和利益点。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/conversion_reason_close: 放慢定格式收束",
+        "Source slotType: conversion_reason_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用明显降速和稳定终屏把观众注意力从体验刺激收回到购买对象和利益点",
+      "paceClass": "slow_closing_hold",
+      "densityClass": "conversion_information_density",
+      "syncPointClasses": [
+        "利益信息出现",
+        "数量或规格感建立",
+        "终屏商品锚定"
+      ],
+      "avoidFor": [
+        "new_sensory_claim",
+        "complex_new_proof",
+        "unresolved_objection"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_familiarity_bridge_hook_familiarity_to_new_combination",
+      "name": "熟悉经验转新组合入口 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_familiarity_bridge_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 familiarity_bridge_hook 中的“familiarity_to_new_combination”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/familiarity_bridge_hook: 熟悉经验转新组合入口",
+        "Source slotType: familiarity_bridge_hook",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "familiarity_to_new_combination",
+      "proofNeedClass": "需要同时出现可识别的使用或体验状态、商品身份和组合关系，避免新品信息只停留在口播",
+      "mustKeepClasses": [
+        "熟悉经验前置",
+        "新组合关系明确",
+        "商品对象快速可见"
+      ],
+      "replaceableVariableClasses": [
+        "熟悉经验类型",
+        "组合对象",
+        "新品表达方式",
+        "入口话题表达"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_combination_claim_peak_combination_sensory_promise",
+      "name": "组合卖点压缩成峰值 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_combination_claim_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 combination_claim_peak 中的“combination_sensory_promise”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/combination_claim_peak: 组合卖点压缩成峰值",
+        "Source slotType: combination_claim_peak",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "combination_sensory_promise",
+      "proofNeedClass": "需要组合关系、商品包装和内容物同屏或连续互证，并用结果性表达承接前段入口",
+      "mustKeepClasses": [
+        "组合承诺被明确说清",
+        "包装身份与内容物绑定",
+        "第一轮感官峰值"
+      ],
+      "replaceableVariableClasses": [
+        "组合卖点名称",
+        "峰值表达",
+        "展示角度",
+        "商品露出形式"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_sensory_evidence_deepening_sensory_claim_to_visible_evidence",
+      "name": "体验状态与效果证明 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_evidence_deepening"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 sensory_evidence_deepening 中的“sensory_claim_to_visible_evidence”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/sensory_evidence_deepening: 体验状态与效果证明",
+        "Source slotType: sensory_evidence_deepening",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "sensory_claim_to_visible_evidence",
+      "proofNeedClass": "需要对象细节、内部或结果状态展示和使用者反馈连续出现，证明体验承诺不是单纯形容词",
+      "mustKeepClasses": [
+        "体验承诺回到可见证据",
+        "细节证明逐步加深",
+        "体验反馈形成第二峰值"
+      ],
+      "replaceableVariableClasses": [
+        "质地证明对象",
+        "细节展示方式",
+        "体验反馈表达",
+        "感官结果词"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_trust_assurance_shift_sensory_to_trust_assurance",
+      "name": "从体验兴趣转向放心背书 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_post_sensory_trust_assurance"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 trust_assurance_shift 中的“sensory_to_trust_assurance”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/trust_assurance_shift: 从体验兴趣转向放心背书",
+        "Source slotType: trust_assurance_shift",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "sensory_to_trust_assurance",
+      "proofNeedClass": "需要背书信息被显性化，同时保留实物细节支撑，避免信任主张变成空泛口播",
+      "mustKeepClasses": [
+        "信任主张在体验证明之后出现",
+        "背书信息清晰抬升",
+        "实物状态辅助背书"
+      ],
+      "replaceableVariableClasses": [
+        "背书来源",
+        "工艺或安全表述",
+        "质量证明角度",
+        "信任标题样式"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_conversion_reason_close_proof_to_purchase_reason",
+      "name": "便利与利益收束 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "forSlotSubtypeIds": [
+        "SUB_conversion_reason_close"
+      ],
+      "sourceVariantIds": [
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 conversion_reason_close 中的“proof_to_purchase_reason”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/conversion_reason_close: 便利与利益收束",
+        "Source slotType: conversion_reason_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "proof_to_purchase_reason",
+      "proofNeedClass": "需要清楚呈现购买对象、数量或规格利益，并让最终画面回到商品身份",
+      "mustKeepClasses": [
+        "购买理由后置",
+        "商品身份最终锚定",
+        "利益点集中收口"
+      ],
+      "replaceableVariableClasses": [
+        "便利利益",
+        "促销利益",
+        "规格呈现",
+        "终屏商品锚点"
+      ]
+    },
+    {
+      "id": "PACK_candidate_problem_activation_pattern",
+      "name": "对象圈定加动作示范 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_object_action_problem_activation"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 problem_activation 的视觉证明功能：把问题对象和执行动作压到第一视线，形成极简教程式入口。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/problem_activation: 对象圈定加动作示范",
+        "Source slotType: problem_activation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把问题对象和执行动作压到第一视线，形成极简教程式入口",
+      "visualHierarchyClass": "问题对象第一，解决方案接触动作第二，字幕只做动作命名",
+      "replaceableFormClasses": [],
+      "riskClass": "如果开场加入过多机制或长字幕，会削弱问题对象和动作的第一视线"
+    },
+    {
+      "id": "PACK_candidate_low_barrier_operation_pattern",
+      "name": "时间提示加完成动作演示 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_operation_barrier_reduction"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 low_barrier_operation 的视觉证明功能：把等待和完成动作包装成容易记住、容易接受的低门槛步骤。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/low_barrier_operation: 时间提示加完成动作演示",
+        "Source slotType: low_barrier_operation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把等待和完成动作包装成容易记住、容易接受的低门槛步骤",
+      "visualHierarchyClass": "等待阶段由时间提示和步骤提示主导，完成阶段由场景切换和动作兑现主导，字幕辅助",
+      "replaceableFormClasses": [],
+      "riskClass": "只说步骤不展示动作会增加执行顾虑；只展示完成动作不提示等待或生效时间会丢失操作闭环"
+    },
+    {
+      "id": "PACK_candidate_long_term_trust_close_pattern",
+      "name": "长期物证加选择对象收束 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_long_term_trust_choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 long_term_trust_close 的视觉证明功能：用持续记录、历史对照、使用痕迹和选择对象近景把即时效果沉淀为可信选择。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/long_term_trust_close: 长期物证加选择对象收束",
+        "Source slotType: long_term_trust_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用持续记录、历史对照、使用痕迹和选择对象近景把即时效果沉淀为可信选择",
+      "visualHierarchyClass": "长期证据先主导可信度，口播再收束观点，最终选择对象近景成为记忆落点",
+      "replaceableFormClasses": [],
+      "riskClass": "长期背书不能只靠口播，缺少时间证据或使用痕迹会削弱可信度；转化包装过重会破坏低压收束"
+    },
+    {
+      "id": "RHYTHM_candidate_low_barrier_operation_pause_then_action",
+      "name": "步骤刹车与动作落地 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_operation_barrier_reduction"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 low_barrier_operation 的注意力功能：用等待或生效提示制造短暂停顿，再切到完成动作，帮助观众记住低门槛步骤。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/low_barrier_operation: 步骤刹车与动作落地",
+        "Source slotType: low_barrier_operation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用等待或生效提示制造短暂停顿，再切到完成动作，帮助观众记住低门槛步骤",
+      "paceClass": "pause_then_action",
+      "densityClass": "step_density",
+      "syncPointClasses": [
+        "等待或生效时间提示",
+        "步骤提示动作",
+        "时间可视化锚点",
+        "完成动作开始"
+      ],
+      "avoidFor": [
+        "long_mechanism_explain",
+        "new_claim_stack"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_low_barrier_operation_operation_simplification",
+      "name": "等待与完成动作闭环 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_operation_barrier_reduction"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 low_barrier_operation 中的“operation_simplification”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/low_barrier_operation: 等待与完成动作闭环",
+        "Source slotType: low_barrier_operation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "operation_simplification",
+      "proofNeedClass": "需要等待或生效时间可视化，以及完成动作实拍证明操作门槛低",
+      "mustKeepClasses": [
+        "等待或生效时间",
+        "完成动作",
+        "步骤闭环"
+      ],
+      "replaceableVariableClasses": [
+        "等待提示形式",
+        "手势表达",
+        "完成动作场景",
+        "步骤字幕表达"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_long_term_trust_close_trust_to_choice",
+      "name": "长期使用证据与简化选择收束 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_concern_closure",
+      "forSlotSubtypeIds": [
+        "SUB_long_term_trust_choice_close"
+      ],
+      "sourceVariantIds": [
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 long_term_trust_close 中的“trust_to_choice”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/long_term_trust_close: 长期使用证据与简化选择收束",
+        "Source slotType: long_term_trust_close",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "trust_to_choice",
+      "proofNeedClass": "需要时间证据、使用痕迹、解决方案归因和稳定结论支撑",
+      "mustKeepClasses": [
+        "长期使用证据",
+        "真实消耗痕迹",
+        "简化选择结论",
+        "选择记忆落点"
+      ],
+      "replaceableVariableClasses": [
+        "持续证据形式",
+        "使用痕迹载体",
+        "收束观点",
+        "选择落点构图"
+      ]
+    },
+    {
+      "id": "PACK_candidate_quantity_value_confirmation_visible_quantity_proof",
+      "name": "多单位价值具象 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_visible_quantity_value"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 quantity_value_confirmation 的视觉证明功能：把数量、规格或份量从抽象描述转成可见同框证据。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/quantity_value_confirmation: 多单位价值具象",
+        "Source slotType: quantity_value_confirmation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把数量、规格或份量从抽象描述转成可见同框证据",
+      "visualHierarchyClass": "数量证据第一，规格识别第二，字幕负责解释价值关系",
+      "replaceableFormClasses": [
+        "倒出展示",
+        "并排展示",
+        "堆叠展示",
+        "开箱展示"
+      ],
+      "riskClass": "如果只展示规格文字而没有多单位证据，低门槛价值会显得像口播承诺"
+    },
+    {
+      "id": "PACK_candidate_quality_trust_build_texture_objection_proof",
+      "name": "质地疑虑回应包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_quality_objection_reframe"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 quality_trust_build 的视觉证明功能：用近景操作和克制字幕把品质疑虑转成可观察对象。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/quality_trust_build: 质地疑虑回应包装",
+        "Source slotType: quality_trust_build",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用近景操作和克制字幕把品质疑虑转成可观察对象",
+      "visualHierarchyClass": "质地观察第一，手部操作第二，购买识别退为背景线索",
+      "replaceableFormClasses": [
+        "按压展示",
+        "弯折展示",
+        "拉伸展示",
+        "切开展示"
+      ],
+      "riskClass": "如果此处继续强化数量和价格，会削弱品质转向并延迟疑虑解除"
+    },
+    {
+      "id": "PACK_candidate_sensory_proof_peak_sensory_detail_proof",
+      "name": "内部细节证明包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_detail_proof_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 sensory_proof_peak 的视觉证明功能：把体验主张、用料可信度和顾虑解除集中落到可见细节上。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/sensory_proof_peak: 内部细节证明包装",
+        "Source slotType: sensory_proof_peak",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "把体验主张、用料可信度和顾虑解除集中落到可见细节上",
+      "visualHierarchyClass": "细节证据第一，动作过程第二，字幕只负责命名证明点",
+      "replaceableFormClasses": [
+        "拆开特写",
+        "截面特写",
+        "纹理特写",
+        "结构展开"
+      ],
+      "riskClass": "如果细节特写和主张不同步，观众会看到质感但无法理解它证明了什么"
+    },
+    {
+      "id": "RHYTHM_candidate_value_anchor_slow_hold",
+      "name": "慢速定睛入口 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_low_barrier_value_anchor"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 value_anchor 的注意力功能：用低变化近景让观众先看清对象和核心利益，降低开场信息负担。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/value_anchor: 慢速定睛入口",
+        "Source slotType: value_anchor",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用低变化近景让观众先看清对象和核心利益，降低开场信息负担",
+      "paceClass": "slow_hold",
+      "densityClass": "low_visual_density",
+      "syncPointClasses": [
+        "主体出现",
+        "价值提示出现",
+        "购买对象识别"
+      ],
+      "avoidFor": [
+        "multi_step_explanation",
+        "high_emotion_peak"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_quantity_value_confirmation_moderate_density_rise",
+      "name": "数量密度抬升 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_visible_quantity_value"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 quantity_value_confirmation 的注意力功能：通过画面元素增加把价值锚点转成可感知的丰富感和满足感。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/quantity_value_confirmation: 数量密度抬升",
+        "Source slotType: quantity_value_confirmation",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "通过画面元素增加把价值锚点转成可感知的丰富感和满足感",
+      "paceClass": "moderate_density_rise",
+      "densityClass": "object_count_density",
+      "syncPointClasses": [
+        "数量增加",
+        "规格露出",
+        "价值字幕承接"
+      ],
+      "avoidFor": [
+        "delicate_quality_explanation",
+        "complex_mechanism"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_sensory_proof_peak_dense_detail_peak",
+      "name": "细节证明峰值 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_sensory_detail_proof_peak"
+      ],
+      "sourceVariantIds": [
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 sensory_proof_peak 的注意力功能：用动作完成和近距离细节堆叠形成主要注意力峰值，让证明点获得最高可信感。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/sensory_proof_peak: 细节证明峰值",
+        "Source slotType: sensory_proof_peak",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用动作完成和近距离细节堆叠形成主要注意力峰值，让证明点获得最高可信感",
+      "paceClass": "dense_detail_peak",
+      "densityClass": "sensory_detail_density",
+      "syncPointClasses": [
+        "拆解动作完成",
+        "内部证据露出",
+        "关键体验主张出现"
+      ],
+      "avoidFor": [
+        "long_price_explanation",
+        "abstract_brand_claim"
+      ]
+    },
+    {
+      "id": "PACK_candidate_instant_solution_preview_stress_test_result_proof",
+      "name": "动态压力证明包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_visible_result_first_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 instant_solution_preview 的视觉证明功能：用可见压力动作把核心结果包装成可验证的稳定性证明。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/instant_solution_preview: 动态压力证明包装",
+        "Source slotType: instant_solution_preview",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用可见压力动作把核心结果包装成可验证的稳定性证明",
+      "visualHierarchyClass": "压力验证第一，稳定参照第二，字幕点明结果",
+      "replaceableFormClasses": [
+        "强动作压力测试",
+        "重复动作验证",
+        "多场景稳定性验证",
+        "结果短字幕"
+      ],
+      "riskClass": "压力动作过强但稳定参照不清楚时，会只剩热闹动作而削弱结果证明"
+    },
+    {
+      "id": "PACK_candidate_pain_backfill_old_state_problem_proof",
+      "name": "旧状态生活成本包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_result_backfilled_pain"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 pain_backfill 的视觉证明功能：用未解决状态和整理成本呈现问题必要性，为前置结果补充购买理由。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/pain_backfill: 旧状态生活成本包装",
+        "Source slotType: pain_backfill",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "用未解决状态和整理成本呈现问题必要性，为前置结果补充购买理由",
+      "visualHierarchyClass": "问题状态第一，人物成本第二，字幕解释需求",
+      "replaceableFormClasses": [
+        "使用前状态",
+        "重复困扰场景",
+        "整理或补救动作",
+        "隐性对照"
+      ],
+      "riskClass": "痛点包装如果持续过久，会拖慢已经建立的结果兴趣"
+    },
+    {
+      "id": "PACK_candidate_coverage_bridge_coverage_reliability_proof",
+      "name": "覆盖感和使用关系包装 candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_visual_proof_carrier",
+      "forSlotSubtypeIds": [
+        "SUB_coverage_to_mechanism_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 packaging pattern 治理 coverage_bridge 的视觉证明功能：通过多实例呈现和使用关系演示，把单点结果扩展为可持续、可覆盖的解决感。它允许替换表面载体，但必须保留证明类型和视觉层级。",
+      "differenceNotes": [
+        "Source atom: packaging/coverage_bridge: 覆盖感和使用关系包装",
+        "Source slotType: coverage_bridge",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
+      "proofType": "通过多实例呈现和使用关系演示，把单点结果扩展为可持续、可覆盖的解决感",
+      "visualHierarchyClass": "覆盖数量第一，使用关系第二，功能说明第三",
+      "replaceableFormClasses": [
+        "多点铺陈",
+        "数量展示",
+        "场景覆盖展示",
+        "同镜头内转操作"
+      ],
+      "riskClass": "多实例堆叠容易造成信息拥挤，需要明确转向机制说明的视觉落点"
+    },
+    {
+      "id": "RHYTHM_candidate_pain_backfill_compact_montage",
+      "name": "多场景问题堆叠 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_result_backfilled_pain"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 pain_backfill 的注意力功能：用连续场景更新维持紧凑感，把问题从单一现象累积成日常困扰。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/pain_backfill: 多场景问题堆叠",
+        "Source slotType: pain_backfill",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用连续场景更新维持紧凑感，把问题从单一现象累积成日常困扰",
+      "paceClass": "compact_montage",
+      "densityClass": "scene_change_density",
+      "syncPointClasses": [
+        "旧状态出现",
+        "困扰动作出现",
+        "成本后果出现"
+      ],
+      "avoidFor": [
+        "detailed_operation",
+        "precise_mechanism",
+        "single_claim_explanation"
+      ]
+    },
+    {
+      "id": "RHYTHM_candidate_coverage_bridge_held_dense_peak",
+      "name": "长镜头信息峰值 candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_attention_load_control",
+      "forSlotSubtypeIds": [
+        "SUB_coverage_to_mechanism_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 rhythm pattern 治理 coverage_bridge 的注意力功能：用单个高信息密度段落承接痛点并转向产品可信性，形成方向切换点。它保留节奏作用和信息负载约束，不保留具体镜头秒数。",
+      "differenceNotes": [
+        "Source atom: rhythm/coverage_bridge: 长镜头信息峰值",
+        "Source slotType: coverage_bridge",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只复制快慢或镜头密度，会让复杂主张缺少理解时间，或让结果/动作峰值失去同步点。",
+      "rhythmFunction": "用单个高信息密度段落承接痛点并转向产品可信性，形成方向切换点",
+      "paceClass": "held_dense_peak",
+      "densityClass": "internal_event_density",
+      "syncPointClasses": [
+        "覆盖感建立",
+        "使用关系出现",
+        "机制说明引出"
+      ],
+      "avoidFor": [
+        "emotional_close",
+        "single_step_instruction",
+        "low_load_result"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_instant_solution_preview_solution_to_visible_outcome",
+      "name": "即用结果预览 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_visible_result_first_hook"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 instant_solution_preview 中的“solution_to_visible_outcome”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/instant_solution_preview: 即用结果预览",
+        "Source slotType: instant_solution_preview",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "solution_to_visible_outcome",
+      "proofNeedClass": "需要基础使用动作和动态压力结果同时可见",
+      "mustKeepClasses": [
+        "使用入口",
+        "即时结果",
+        "动态验证"
+      ],
+      "replaceableVariableClasses": [
+        "使用对象",
+        "安装或启用动作",
+        "压力测试方式",
+        "结果表述"
+      ]
+    },
+    {
+      "id": "SCRIPT_candidate_coverage_bridge_coverage_to_reliability",
+      "name": "适用范围桥接 candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_demand_establishment",
+      "forSlotSubtypeIds": [
+        "SUB_coverage_to_mechanism_bridge"
+      ],
+      "sourceVariantIds": [
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      },
+      "judgementReason": "该 script pattern 治理 coverage_bridge 中的“coverage_to_reliability”脚本任务；它可作为候选证据进入重组检索，但复用时必须匹配同类 claim 和 proof need。",
+      "differenceNotes": [
+        "Source atom: script/coverage_bridge: 适用范围桥接",
+        "Source slotType: coverage_bridge",
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+      ],
+      "riskIfMisclassified": "如果只按脚本标签复用，会把当前样例的话术任务误当成跨品类证明逻辑，导致主张和证据不匹配。",
+      "claimPattern": "coverage_to_reliability",
+      "proofNeedClass": "需要多点或多实例的可见呈现，并与实际使用位置形成连接",
+      "mustKeepClasses": [
+        "覆盖感",
+        "使用位置连接",
+        "可靠性引出"
+      ],
+      "replaceableVariableClasses": [
+        "数量呈现方式",
+        "使用范围",
+        "承接话术",
+        "场景载体"
+      ]
+    }
+  ]
+}

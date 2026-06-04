@@ -4,7 +4,8 @@
 
 输入证据：
 - slot_index: `{{slotIndexPath}}`
-- 当前治理文件: `{{governancePath}}`
+- 当前治理完整快照: `{{materializedGovernancePath}}`
+- 权威治理写回路径: `{{governancePath}}`
 - 治理协议: `{{semanticProtocolPath}}`
 - atom/binding/rule 治理规则: `{{atomBindingRuleProtocolPath}}`
 - 输出格式: `{{outputFormatPath}}`
@@ -13,7 +14,7 @@
 {{coverageSummaryJson}}
 
 任务：
-1. 读取 slot_index 和当前治理文件。
+1. 读取 slot_index 和当前治理完整快照。
 2. 对 slot family / archetype / subtype 做语义治理判断。
 3. 对 script / rhythm / packaging atom 分层治理，不能混成一个 pattern。
 4. 对 binding pattern / principle、rule pattern / recomposition policy 做治理。
@@ -32,6 +33,6 @@
 - 不要在 final 里输出完整治理 JSON。
 
 输出要求：
-1. 将完整 `function_slot_semantic_governance.v1` 治理结果直接写回 `{{governancePath}}`。
+1. 将完整 `function_slot_semantic_governance.v1` 治理结果直接写回权威治理路径 `{{governancePath}}`；不要只写 manifest 或局部分文件。
 2. final 只返回简要总结，不要输出 Markdown，不要输出完整 JSON。
 3. 总结必须包含：是否已写回、治理文件路径、主要治理变化、reviewItems / openQuestions 数量、主要风险。

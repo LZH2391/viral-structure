@@ -7,6 +7,7 @@ const { createLocalStore } = require("../../Infrastructure/Storage/local-store")
 const { createStageLogger } = require("../../Infrastructure/Observability/stage-logger");
 const { createJobStore } = require("../../Apps/Api/lib/stores/job-store");
 const { createFunctionSlotGovernanceService } = require("../../Apps/Api/lib/function-slot-library/governance-service");
+const { readGovernanceFile } = require("../../Apps/Api/lib/function-slot-library/governance-store");
 
 test("function slot governance service runs evidence refresh, agent turn, validation, and materialize", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-function-slot-governance-"));
@@ -28,7 +29,10 @@ test("function slot governance service runs evidence refresh, agent turn, valida
 
   const started = await service.enqueue();
   const job = await waitForJob(jobStore, started.processingJobId);
-  const governance = JSON.parse(await fs.readFile(path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), "utf8"));
+  const governancePath = path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
+  const governance = await readGovernanceFile(governancePath);
+  const manifest = JSON.parse(await fs.readFile(governancePath, "utf8"));
+  const lookupIndex = JSON.parse(await fs.readFile(path.join(root, "Runtime", "Temp", "FunctionSlotLibrary", "governance_lookup_index.json"), "utf8"));
   const logText = await fs.readFile(path.join(root, "Runtime", "DebugSnapshots", `${started.traceId}.log.jsonl`), "utf8");
 
   assert.equal(job.status, "processed");
@@ -36,6 +40,9 @@ test("function slot governance service runs evidence refresh, agent turn, valida
   assert.equal(job.agentRun.role, "function-slot-library-builder");
   assert.equal(job.agentTraceCards[0].turnId, "turn_semantic_governance");
   assert.equal(governance.coverage.sampleCount, 1);
+  assert.equal(manifest.governanceFormat, "split_manifest.v1");
+  assert.ok(manifest.files.slots.path);
+  assert.equal(lookupIndex.schemaVersion, "function_slot_governance_lookup_index.v1");
   assert.equal(governance.unmappedAtomVariants.length, 3);
   assert.equal(governance.unmappedBindingVariants.length, 1);
   assert.equal(governance.unmappedRuleVariants.length, 1);
@@ -64,7 +71,7 @@ test("function slot governance service restores previous governance when validat
 
   const started = await service.enqueue();
   const job = await waitForJob(jobStore, started.processingJobId);
-  const governance = JSON.parse(await fs.readFile(path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), "utf8"));
+  const governance = await readGovernanceFile(path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"));
   const logText = await fs.readFile(path.join(root, "Runtime", "DebugSnapshots", `${started.traceId}.log.jsonl`), "utf8");
 
   assert.equal(job.status, "failed");
@@ -161,7 +168,7 @@ async function writeGovernanceFile(root, governance) {
 async function buildValidGovernance(root) {
   const governancePath = path.join(root, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
   const indexPath = path.join(root, "Runtime", "Temp", "FunctionSlotLibrary", "slot_index.json");
-  const governance = JSON.parse(await fs.readFile(governancePath, "utf8"));
+  const governance = await readGovernanceFile(governancePath);
   const index = JSON.parse(await fs.readFile(indexPath, "utf8"));
   governance.unmappedAtomVariants = index.atomVariants.map((item) => unmapped(item.variantId, "test_pending_atom_governance"));
   governance.unmappedBindingVariants = index.bindings.map((item) => unmapped(item.variantId, "test_pending_binding_governance"));

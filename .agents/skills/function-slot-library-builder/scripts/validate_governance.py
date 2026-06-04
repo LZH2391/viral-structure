@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from common import read_governance
 
 DEFAULT_GOVERNANCE = (
     Path("Artifacts")
@@ -410,7 +411,7 @@ def main() -> int:
     root = Path(args.root).expanduser().resolve()
     governance_path = resolve_cli_path(args.governance, root) if args.governance else root / DEFAULT_GOVERNANCE
     source_index_path = resolve_cli_path(args.source_index, root) if args.source_index else root / DEFAULT_SOURCE_INDEX
-    governance = read_json(governance_path)
+    governance = read_governance(governance_path)
     source_index = read_json(source_index_path) if source_index_path.exists() else None
     issues = validate_governance(governance, source_index)
 

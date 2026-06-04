@@ -36,8 +36,6 @@ export type GraphNodeDrawStyle = {
 };
 
 const WHITE = 0xffffff;
-const EDGE_MARKER_COLOR = 0xffee9e;
-const EDGE_MARKER_ALPHA = 0.62;
 type GovernanceLabelSpec = {
   start: number;
   end: number;
@@ -99,8 +97,12 @@ export function edgeClassTokens(type: string, source: SimNode, target: SimNode, 
   ].filter(Boolean);
 }
 
-export function edgeMarkerEnd(type: string, source: SimNode, target: SimNode) {
-  return isSlotSequenceEdge(type, source, target) ? "url(#slot-graph-arrow)" : undefined;
+export function edgeMarkerEnd(type: string, source: SimNode, target: SimNode, mode: GraphMode = "structure", muted = false) {
+  if (!isSlotSequenceEdge(type, source, target)) return undefined;
+  if (mode === "planTrace" && muted) return "url(#slot-graph-arrow-plan-trace-muted)";
+  if (mode === "planTrace") return "url(#slot-graph-arrow-plan-trace)";
+  if (muted) return "url(#slot-graph-arrow-muted)";
+  return "url(#slot-graph-arrow)";
 }
 
 export function edgeLinePoints(type: string, source: SimNode, target: SimNode) {
@@ -148,13 +150,6 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   let dash: [number, number] | undefined;
   let glow: GraphStrokeStyle["glow"] | undefined;
 
-  if (classes.has("focused")) {
-    stroke = rgba(0xc4bbff, 0.94);
-    width = 3;
-    glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
-    opacity = 1;
-  }
-  if (classes.has("muted")) opacity = 0.18;
   if (classes.has("edge-slot_next") || classes.has("edge-slot_instance_of_concept")) {
     stroke = rgba(0x60d6a4, 0.58);
     width = 1.8;
@@ -217,8 +212,8 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
     }
     if (classes.has("edge-plan_slot_next")) {
       stroke = rgba(0xffee9e, 0.88);
-      width = 2.6;
-      opacity = 0.68;
+      width = 2.2;
+      opacity = 0.36;
     }
     if (classes.has("edge-traced_to_source_variant")) {
       stroke = rgba(0xb2cdff, 0.68);
@@ -233,22 +228,26 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
       width = 1.7;
       dash = [5, 6];
     }
-    if (classes.has("focused")) {
-      stroke = rgba(WHITE, 0.96);
-      width = 3.4;
-      glow = { color: 0xbbaeff, alpha: 0.42, width: 10 };
-    }
     if (classes.has("muted")) opacity = 0.08;
   }
+  if (mode !== "planTrace" && classes.has("muted")) opacity = 0.18;
+  if (classes.has("focused")) {
+    stroke = rgba(stroke.color, Math.max(stroke.alpha, 0.94));
+    width = Math.max(width, 3);
+    glow = { color: stroke.color, alpha: 0.42, width: 10 };
+    opacity = 1;
+  }
+
+  const alpha = stroke.alpha * opacity;
 
   return {
     color: stroke.color,
-    alpha: stroke.alpha * opacity,
+    alpha,
     width,
     dash,
     glow,
-    arrowColor: EDGE_MARKER_COLOR,
-    arrowAlpha: EDGE_MARKER_ALPHA,
+    arrowColor: stroke.color,
+    arrowAlpha: alpha,
   };
 }
 

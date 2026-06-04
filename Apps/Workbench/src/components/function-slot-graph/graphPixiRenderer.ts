@@ -382,7 +382,7 @@ function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number
   if (!view.showArrow) return true;
   view.arrow.position.set(length, 0);
   view.arrow.alpha = style.arrowAlpha;
-  const arrowKey = `${style.arrowColor}:11`;
+  const arrowKey = `${style.arrowColor}:11:${style.width}`;
   if (view.arrowKey === arrowKey) return true;
   view.arrow.clear();
   drawLocalArrow(view.arrow, style);
@@ -633,15 +633,15 @@ function drawArcSegment(graphics: Graphics, radius: number, start: number, end: 
 }
 
 function drawLocalArrow(graphics: Graphics, style: GraphStrokeStyle) {
-  const size = 11;
+  const size = 8;
   const left = Math.PI * 0.82;
   const right = -Math.PI * 0.82;
   graphics
     .moveTo(0, 0)
     .lineTo(Math.cos(left) * size, Math.sin(left) * size)
+    .moveTo(0, 0)
     .lineTo(Math.cos(right) * size, Math.sin(right) * size)
-    .closePath()
-    .fill({ color: style.arrowColor, alpha: 1 });
+    .stroke({ color: style.arrowColor, alpha: 1, width: style.width, cap: "round", join: "round" });
 }
 
 function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {

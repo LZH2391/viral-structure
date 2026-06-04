@@ -3,9 +3,13 @@ const fs = require("fs/promises");
 const path = require("path");
 const { createTraceContext } = require("../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds } = require("../../../../Infrastructure/Observability/trace");
+const { writeGovernanceLookupIndex } = require("./governance-lookup-index");
+const { readGovernanceFileIfExists } = require("./governance-store");
 
 const STAGE_NAME = "function_slot_library.builder_refresh";
 const DEFAULT_SKILL_SCRIPT_DIR = path.join(process.cwd(), ".agents", "skills", "function-slot-library-builder", "scripts");
+const GOVERNANCE_RELATIVE_PATH = path.join("Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json");
+const GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH = path.join("Runtime", "Temp", "FunctionSlotLibrary", "governance_lookup_index.json");
 
 function createFunctionSlotLibraryBuilderService({
   rootDir,
@@ -32,6 +36,7 @@ function createFunctionSlotLibraryBuilderService({
       const governance = updateGovernance
         ? await runBuilderScript("build_governance_skeleton.py", [rootDir, "--formal-out", "--update-existing"])
         : null;
+      const governanceLookupIndex = updateGovernance ? await refreshGovernanceLookupIndex() : null;
       const result = {
         ok: validation.exitCode === 0,
         traceId: traceContext.traceId,
@@ -49,9 +54,10 @@ function createFunctionSlotLibraryBuilderService({
           stdout: safePreview(slotIndex.stdout, 500),
         },
         governance: governance ? {
-          path: "Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json",
+          path: GOVERNANCE_RELATIVE_PATH.replaceAll(path.sep, "/"),
           stdout: safePreview(governance.stdout, 500),
         } : null,
+        governanceLookupIndex,
       };
       await logger?.writeStageLog?.({
         traceContext,
@@ -134,6 +140,18 @@ function createFunctionSlotLibraryBuilderService({
 
   function runtimeTempPath(filename) {
     return path.join(rootDir, "Runtime", "Temp", "FunctionSlotLibrary", filename);
+  }
+
+  async function refreshGovernanceLookupIndex() {
+    const governance = await readGovernanceFileIfExists(path.join(rootDir, GOVERNANCE_RELATIVE_PATH));
+    if (!governance) return null;
+    const lookupIndex = await writeGovernanceLookupIndex(path.join(rootDir, GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH), governance);
+    return {
+      path: GOVERNANCE_LOOKUP_INDEX_RELATIVE_PATH.replaceAll(path.sep, "/"),
+      itemCount: lookupIndex.summary.itemCount,
+      variantCount: lookupIndex.summary.variantCount,
+      reviewVariantCount: lookupIndex.summary.reviewVariantCount,
+    };
   }
 
   async function runBuilderScript(scriptName, args, { allowNonZero = false } = {}) {
