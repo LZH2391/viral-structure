@@ -14,8 +14,8 @@
   top: 0;
   left: 0;
   z-index: 2;
-  width: 150px;
-  height: 118px;
+  width: 104px;
+  height: 82px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -39,8 +39,8 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  width: 150px;
-  height: 118px;
+  width: 104px;
+  height: 82px;
   pointer-events: none;
 }
 
@@ -190,6 +190,17 @@
     transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.new-ui-theme-icon-core,
+.new-ui-theme-icon-rays,
+.new-ui-theme-icon-crescent {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    stroke-width 180ms ease;
+}
+
 .new-ui-theme-icon-sun {
   opacity: 0;
   transform: translateY(18px) rotate(-70deg) scale(0.7);
@@ -210,9 +221,35 @@
   transform: translateY(-18px) rotate(70deg) scale(0.7);
 }
 
+.new-ui-theme-toggle:hover .new-ui-theme-icon-rays,
+.new-ui-theme-toggle:focus-visible .new-ui-theme-icon-rays {
+  opacity: 0.35;
+  transform: scale(0.72);
+}
+
+.new-ui-theme-toggle:hover .new-ui-theme-icon-core,
+.new-ui-theme-toggle:focus-visible .new-ui-theme-icon-core {
+  transform: scale(1.12);
+  stroke-width: 2.2;
+}
+
+.new-ui-theme-toggle:hover .new-ui-theme-icon-crescent,
+.new-ui-theme-toggle:focus-visible .new-ui-theme-icon-crescent {
+  transform: translateX(1.6px);
+  stroke-width: 2.2;
+}
+
+.new-ui-theme-toggle:active .new-ui-theme-icon-core,
+.new-ui-theme-toggle:active .new-ui-theme-icon-crescent {
+  transform: scale(0.92);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .new-ui-theme-toggle,
   .new-ui-shell,
+  .new-ui-theme-icon-core,
+  .new-ui-theme-icon-rays,
+  .new-ui-theme-icon-crescent,
   .new-ui-theme-icon {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;

@@ -19,10 +19,10 @@ type CurlConfig = {
   edgeHiB: string;
 };
 
-const WIDTH = 150;
-const HEIGHT = 118;
-const TOP_CURL = 112;
-const LEFT_CURL = 104;
+const WIDTH = 104;
+const HEIGHT = 82;
+const TOP_CURL = 82;
+const LEFT_CURL = 70;
 const ANIMATION_MS = 260;
 
 export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled = false, redrawKey = "", onClick }: PageCurlViewToggleProps) {

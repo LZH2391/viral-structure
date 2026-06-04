@@ -113,6 +113,7 @@ function SidebarNav({ activeSection, collapsed, onSectionChange }: SidebarNavPro
           <button
             key={section.id}
             className={`new-ui-sidebar-nav-item ${isActive ? "is-active" : ""}`.trim()}
+            data-section={section.id}
             type="button"
             aria-current={isActive ? "page" : undefined}
             aria-label={collapsed ? section.label : undefined}
@@ -142,13 +143,13 @@ function SectionIcon({ section }: SectionIconProps) {
   if (section === "analysis") {
     return (
       <svg viewBox="0 0 24 24" focusable="false">
-        <circle cx="10.2" cy="10.2" r="5.7" />
-        <path d="M14.4 14.4 19.2 19.2" />
-        <path d="M7.3 11.1 9.1 9.3 11.2 11.2 13.4 8.2" />
-        <circle cx="7.3" cy="11.1" r="0.55" />
-        <circle cx="9.1" cy="9.3" r="0.55" />
-        <circle cx="11.2" cy="11.2" r="0.55" />
-        <circle cx="13.4" cy="8.2" r="0.55" />
+        <circle className="new-ui-section-icon-main" cx="10.2" cy="10.2" r="5.7" />
+        <path className="new-ui-section-icon-main" d="M14.4 14.4 19.2 19.2" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-analysis-line" d="M7.3 11.1 9.1 9.3 11.2 11.2 13.4 8.2" />
+        <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="7.3" cy="11.1" r="0.55" />
+        <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="9.1" cy="9.3" r="0.55" />
+        <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="11.2" cy="11.2" r="0.55" />
+        <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="13.4" cy="8.2" r="0.55" />
       </svg>
     );
   }
@@ -156,23 +157,23 @@ function SectionIcon({ section }: SectionIconProps) {
   if (section === "library") {
     return (
       <svg viewBox="0 0 24 24" focusable="false">
-        <path d="M6.2 6.4h11.6a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 16V8a1.6 1.6 0 0 1 1.6-1.6Z" />
-        <path d="M7.2 4.2h9.6" />
-        <path d="M7.2 19.8h9.6" />
-        <path d="M8.1 10h7.8" />
-        <path d="M8.1 13.8h5.1" />
+        <path className="new-ui-section-icon-main" d="M6.2 6.4h11.6a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 16V8a1.6 1.6 0 0 1 1.6-1.6Z" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-top" d="M7.2 4.2h9.6" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-bottom" d="M7.2 19.8h9.6" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 10h7.8" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 13.8h5.1" />
       </svg>
     );
   }
 
   return (
     <svg viewBox="0 0 24 24" focusable="false">
-      <rect x="4.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
-      <rect x="14.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
-      <rect x="9.4" y="14.4" width="5.2" height="5.2" rx="1.4" />
-      <path d="M9.6 7h4.8" />
-      <path d="M7 9.6c0.4 2.3 1.8 3.9 3.8 5.1" />
-      <path d="M17 9.6c-0.4 2.3-1.8 3.9-3.8 5.1" />
+      <rect className="new-ui-section-icon-main new-ui-section-icon-node" x="4.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
+      <rect className="new-ui-section-icon-main new-ui-section-icon-node" x="14.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
+      <rect className="new-ui-section-icon-main new-ui-section-icon-node" x="9.4" y="14.4" width="5.2" height="5.2" rx="1.4" />
+      <path className="new-ui-section-icon-detail new-ui-section-icon-link-top" d="M9.6 7h4.8" />
+      <path className="new-ui-section-icon-detail new-ui-section-icon-link-left" d="M7 9.6c0.4 2.3 1.8 3.9 3.8 5.1" />
+      <path className="new-ui-section-icon-detail new-ui-section-icon-link-right" d="M17 9.6c-0.4 2.3-1.8 3.9-3.8 5.1" />
     </svg>
   );
 }
@@ -196,11 +197,11 @@ function ThemeToggle({ theme, onThemeChange }: ThemeToggleProps) {
       >
         <span className="new-ui-theme-icon-wrap" aria-hidden="true">
           <svg className="new-ui-theme-icon new-ui-theme-icon-sun" viewBox="0 0 24 24" focusable="false">
-            <path d="M12 4.5V2m0 20v-2.5M4.5 12H2m20 0h-2.5M5.64 5.64 3.86 3.86m16.28 16.28-1.78-1.78m0-12.72 1.78-1.78M3.86 20.14l1.78-1.78" />
-            <circle cx="12" cy="12" r="4.2" />
+            <path className="new-ui-theme-icon-rays" d="M12 4.5V2m0 20v-2.5M4.5 12H2m20 0h-2.5M5.64 5.64 3.86 3.86m16.28 16.28-1.78-1.78m0-12.72 1.78-1.78M3.86 20.14l1.78-1.78" />
+            <circle className="new-ui-theme-icon-core" cx="12" cy="12" r="4.2" />
           </svg>
           <svg className="new-ui-theme-icon new-ui-theme-icon-moon" viewBox="0 0 24 24" focusable="false">
-            <path d="M20.2 14.6A7.7 7.7 0 0 1 9.4 3.8 8.8 8.8 0 1 0 20.2 14.6Z" />
+            <path className="new-ui-theme-icon-crescent" d="M20.2 14.6A7.7 7.7 0 0 1 9.4 3.8 8.8 8.8 0 1 0 20.2 14.6Z" />
           </svg>
         </span>
       </button>
