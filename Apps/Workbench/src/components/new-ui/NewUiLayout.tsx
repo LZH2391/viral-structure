@@ -150,6 +150,9 @@ function SectionIcon({ section }: SectionIconProps) {
         <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="9.1" cy="9.3" r="0.55" />
         <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="11.2" cy="11.2" r="0.55" />
         <circle className="new-ui-section-icon-detail new-ui-section-icon-dot" cx="13.4" cy="8.2" r="0.55" />
+        <path className="new-ui-section-icon-alt new-ui-section-icon-analysis-scan" d="M7.2 10.2h6" />
+        <path className="new-ui-section-icon-alt new-ui-section-icon-analysis-focus" d="M10.2 7.2v6" />
+        <circle className="new-ui-section-icon-alt new-ui-section-icon-analysis-center" cx="10.2" cy="10.2" r="1" />
       </svg>
     );
   }
@@ -162,6 +165,8 @@ function SectionIcon({ section }: SectionIconProps) {
         <path className="new-ui-section-icon-detail new-ui-section-icon-library-bottom" d="M7.2 19.8h9.6" />
         <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 10h7.8" />
         <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 13.8h5.1" />
+        <path className="new-ui-section-icon-alt new-ui-section-icon-library-handle" d="M9.2 10.1h5.6" />
+        <path className="new-ui-section-icon-alt new-ui-section-icon-library-drawer" d="M7.4 13.9h9.2" />
       </svg>
     );
   }
@@ -174,6 +179,8 @@ function SectionIcon({ section }: SectionIconProps) {
       <path className="new-ui-section-icon-detail new-ui-section-icon-link-top" d="M9.6 7h4.8" />
       <path className="new-ui-section-icon-detail new-ui-section-icon-link-left" d="M7 9.6c0.4 2.3 1.8 3.9 3.8 5.1" />
       <path className="new-ui-section-icon-detail new-ui-section-icon-link-right" d="M17 9.6c-0.4 2.3-1.8 3.9-3.8 5.1" />
+      <path className="new-ui-section-icon-alt new-ui-section-icon-link-swap-a" d="M9.4 7.2c2.6 0.8 4.2 2.6 5.2 7.2" />
+      <path className="new-ui-section-icon-alt new-ui-section-icon-link-swap-b" d="M14.6 7.2c-2.6 0.8-4.2 2.6-5.2 7.2" />
     </svg>
   );
 }
@@ -202,6 +209,8 @@ function ThemeToggle({ theme, onThemeChange }: ThemeToggleProps) {
           </svg>
           <svg className="new-ui-theme-icon new-ui-theme-icon-moon" viewBox="0 0 24 24" focusable="false">
             <path className="new-ui-theme-icon-crescent" d="M20.2 14.6A7.7 7.7 0 0 1 9.4 3.8 8.8 8.8 0 1 0 20.2 14.6Z" />
+            <path className="new-ui-theme-icon-star new-ui-theme-icon-star-a" d="M6.4 5.2v2M5.4 6.2h2" />
+            <path className="new-ui-theme-icon-star new-ui-theme-icon-star-b" d="M17 4.5v1.8M16.1 5.4h1.8" />
           </svg>
         </span>
       </button>

@@ -192,7 +192,8 @@
 
 .new-ui-theme-icon-core,
 .new-ui-theme-icon-rays,
-.new-ui-theme-icon-crescent {
+.new-ui-theme-icon-crescent,
+.new-ui-theme-icon-star {
   transform-box: fill-box;
   transform-origin: center;
   transition:
@@ -235,8 +236,24 @@
 
 .new-ui-theme-toggle:hover .new-ui-theme-icon-crescent,
 .new-ui-theme-toggle:focus-visible .new-ui-theme-icon-crescent {
-  transform: translateX(1.6px);
   stroke-width: 2.2;
+}
+
+.new-ui-theme-icon-star {
+  opacity: 0.55;
+  stroke-width: 1.8;
+  transform: scale(0.82);
+}
+
+.new-ui-theme-toggle:hover .new-ui-theme-icon-star,
+.new-ui-theme-toggle:focus-visible .new-ui-theme-icon-star {
+  opacity: 1;
+  transform: scale(1.14);
+}
+
+.new-ui-theme-toggle:hover .new-ui-theme-icon-star-b,
+.new-ui-theme-toggle:focus-visible .new-ui-theme-icon-star-b {
+  transition-delay: 40ms;
 }
 
 .new-ui-theme-toggle:active .new-ui-theme-icon-core,
@@ -250,6 +267,7 @@
   .new-ui-theme-icon-core,
   .new-ui-theme-icon-rays,
   .new-ui-theme-icon-crescent,
+  .new-ui-theme-icon-star,
   .new-ui-theme-icon {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;

@@ -289,6 +289,8 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .new-ui-sidebar-nav-icon circle:not(:first-child) {
@@ -296,6 +298,7 @@
   stroke: none;
 }
 
+.new-ui-section-icon-alt,
 .new-ui-section-icon-detail,
 .new-ui-section-icon-main {
   transform-box: fill-box;
@@ -306,10 +309,20 @@
     stroke-width 180ms ease;
 }
 
+.new-ui-section-icon-alt {
+  opacity: 0;
+  transform: scale(0.86);
+}
+
+.new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-sidebar-nav-icon svg,
+.new-ui-sidebar-nav-item[data-section="analysis"]:focus-visible .new-ui-sidebar-nav-icon svg {
+  transform: rotate(-6deg) scale(1.08);
+}
+
 .new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-section-icon-analysis-line,
 .new-ui-sidebar-nav-item[data-section="analysis"]:focus-visible .new-ui-section-icon-analysis-line {
-  opacity: 0.35;
-  transform: translateY(1.5px);
+  opacity: 0;
+  transform: scaleX(0.72);
 }
 
 .new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-section-icon-dot,
@@ -318,21 +331,40 @@
   transform: scale(0.3);
 }
 
+.new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-section-icon-analysis-scan,
+.new-ui-sidebar-nav-item[data-section="analysis"]:focus-visible .new-ui-section-icon-analysis-scan,
+.new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-section-icon-analysis-focus,
+.new-ui-sidebar-nav-item[data-section="analysis"]:focus-visible .new-ui-section-icon-analysis-focus,
+.new-ui-sidebar-nav-item[data-section="analysis"]:hover .new-ui-section-icon-analysis-center,
+.new-ui-sidebar-nav-item[data-section="analysis"]:focus-visible .new-ui-section-icon-analysis-center {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .new-ui-sidebar-nav-item[data-section="library"]:hover .new-ui-section-icon-library-top,
 .new-ui-sidebar-nav-item[data-section="library"]:focus-visible .new-ui-section-icon-library-top {
-  transform: translateY(2.4px) scaleX(0.48);
+  opacity: 0;
+  transform: translateY(2px) scaleX(0.7);
 }
 
 .new-ui-sidebar-nav-item[data-section="library"]:hover .new-ui-section-icon-library-bottom,
 .new-ui-sidebar-nav-item[data-section="library"]:focus-visible .new-ui-section-icon-library-bottom {
   opacity: 0;
-  transform: translateY(-1.8px) scaleX(0.72);
+  transform: translateY(-1px) scaleX(0.7);
 }
 
 .new-ui-sidebar-nav-item[data-section="library"]:hover .new-ui-section-icon-library-row,
 .new-ui-sidebar-nav-item[data-section="library"]:focus-visible .new-ui-section-icon-library-row {
-  opacity: 0.28;
-  transform: translateY(1px);
+  opacity: 0;
+  transform: translateY(1px) scaleX(0.78);
+}
+
+.new-ui-sidebar-nav-item[data-section="library"]:hover .new-ui-section-icon-library-handle,
+.new-ui-sidebar-nav-item[data-section="library"]:focus-visible .new-ui-section-icon-library-handle,
+.new-ui-sidebar-nav-item[data-section="library"]:hover .new-ui-section-icon-library-drawer,
+.new-ui-sidebar-nav-item[data-section="library"]:focus-visible .new-ui-section-icon-library-drawer {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .new-ui-sidebar-nav-item[data-section="restructure"]:hover .new-ui-section-icon-link-top,
@@ -343,12 +375,22 @@
 
 .new-ui-sidebar-nav-item[data-section="restructure"]:hover .new-ui-section-icon-link-left,
 .new-ui-sidebar-nav-item[data-section="restructure"]:focus-visible .new-ui-section-icon-link-left {
-  transform: translate(1px, -0.8px);
+  opacity: 0;
+  transform: scale(0.7);
 }
 
 .new-ui-sidebar-nav-item[data-section="restructure"]:hover .new-ui-section-icon-link-right,
 .new-ui-sidebar-nav-item[data-section="restructure"]:focus-visible .new-ui-section-icon-link-right {
-  transform: translate(-1px, -0.8px);
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.new-ui-sidebar-nav-item[data-section="restructure"]:hover .new-ui-section-icon-link-swap-a,
+.new-ui-sidebar-nav-item[data-section="restructure"]:focus-visible .new-ui-section-icon-link-swap-a,
+.new-ui-sidebar-nav-item[data-section="restructure"]:hover .new-ui-section-icon-link-swap-b,
+.new-ui-sidebar-nav-item[data-section="restructure"]:focus-visible .new-ui-section-icon-link-swap-b {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .new-ui-sidebar-nav-item:active .new-ui-section-icon-detail {
