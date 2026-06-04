@@ -2,19 +2,14 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
-.app-shell {
-  --new-ui-dark-bg: #070707;
-  --new-ui-light-bg: #ffffff;
-}
-
 .page-curl-view-toggle {
   --page-curl-current-bg: var(--bg-elevated);
   --page-curl-target-bg: var(--bg);
   --page-curl-target-text: var(--text-soft);
-  --page-curl-shadow: rgba(0, 0, 0, 0.12);
-  --page-curl-curl-shadow: rgba(0, 0, 0, 0.14);
-  --page-curl-edge-a: rgba(255, 255, 255, 0.04);
-  --page-curl-edge-b: rgba(255, 255, 255, 0.14);
+  --page-curl-shadow: rgba(5, 8, 10, 0.12);
+  --page-curl-curl-shadow: rgba(5, 8, 10, 0.14);
+  --page-curl-edge-a: rgba(244, 246, 242, 0.04);
+  --page-curl-edge-b: rgba(244, 246, 242, 0.14);
   position: absolute;
   top: 0;
   left: 0;
@@ -50,55 +45,75 @@
 
 .page-curl-view-toggle.from-legacy {
   --page-curl-current-bg: var(--bg-elevated);
-  --page-curl-shadow: rgba(0, 0, 0, 0.1);
-  --page-curl-curl-shadow: rgba(0, 0, 0, 0.12);
+  --page-curl-shadow: rgba(5, 8, 10, 0.1);
+  --page-curl-curl-shadow: rgba(5, 8, 10, 0.12);
 }
 
 .page-curl-view-toggle.target-new-ui-dark {
-  --page-curl-target-bg: var(--new-ui-dark-bg);
-  --page-curl-target-text: rgba(238, 242, 246, 0.72);
+  --page-curl-target-bg: var(--new-ui-theme-dark-bg);
+  --page-curl-target-text: var(--new-ui-theme-dark-text-muted);
+  --page-curl-edge-a: var(--new-ui-theme-dark-curl-edge-a);
+  --page-curl-edge-b: var(--new-ui-theme-dark-curl-edge-b);
 }
 
 .page-curl-view-toggle.target-new-ui-light {
-  --page-curl-target-bg: var(--new-ui-light-bg);
-  --page-curl-target-text: rgba(5, 5, 5, 0.72);
-  --page-curl-shadow: rgba(0, 0, 0, 0.06);
-  --page-curl-curl-shadow: rgba(0, 0, 0, 0.07);
-  --page-curl-edge-a: rgba(0, 0, 0, 0.02);
-  --page-curl-edge-b: rgba(0, 0, 0, 0.08);
+  --page-curl-target-bg: var(--new-ui-theme-light-bg);
+  --page-curl-target-text: var(--new-ui-theme-light-text-muted);
+  --page-curl-shadow: rgba(31, 38, 43, 0.08);
+  --page-curl-curl-shadow: rgba(31, 38, 43, 0.09);
+  --page-curl-edge-a: var(--new-ui-theme-light-curl-edge-a);
+  --page-curl-edge-b: var(--new-ui-theme-light-curl-edge-b);
 }
 
 .page-curl-view-toggle.from-new-ui-dark {
-  --page-curl-current-bg: var(--new-ui-dark-bg);
+  --page-curl-current-bg: var(--new-ui-theme-dark-bg);
   --page-curl-target-bg: var(--bg-elevated);
-  --page-curl-target-text: rgba(238, 242, 246, 0.72);
+  --page-curl-target-text: var(--new-ui-theme-dark-text-muted);
+  --page-curl-edge-a: var(--new-ui-theme-dark-curl-edge-a);
+  --page-curl-edge-b: var(--new-ui-theme-dark-curl-edge-b);
 }
 
 .page-curl-view-toggle.from-new-ui-light {
-  --page-curl-current-bg: var(--new-ui-light-bg);
+  --page-curl-current-bg: var(--new-ui-theme-light-bg);
   --page-curl-target-bg: var(--bg-elevated);
-  --page-curl-target-text: rgba(238, 242, 246, 0.72);
-  --page-curl-shadow: rgba(0, 0, 0, 0.06);
-  --page-curl-curl-shadow: rgba(0, 0, 0, 0.07);
-  --page-curl-edge-a: rgba(0, 0, 0, 0.02);
-  --page-curl-edge-b: rgba(0, 0, 0, 0.08);
+  --page-curl-target-text: var(--new-ui-theme-dark-text-muted);
+  --page-curl-shadow: rgba(31, 38, 43, 0.08);
+  --page-curl-curl-shadow: rgba(31, 38, 43, 0.09);
+  --page-curl-edge-a: var(--new-ui-theme-light-curl-edge-a);
+  --page-curl-edge-b: var(--new-ui-theme-light-curl-edge-b);
 }
 
 .page-curl-view-toggle:focus-visible {
-  outline: 2px solid rgba(17, 207, 224, 0.78);
+  outline: 2px solid var(--new-ui-focus-ring);
 }
 
 .new-ui-shell {
+  --new-ui-bg: var(--new-ui-theme-dark-bg);
+  --new-ui-text: var(--new-ui-theme-dark-text);
+  --new-ui-text-muted: var(--new-ui-theme-dark-text-muted);
+  --new-ui-control-bg: var(--new-ui-theme-dark-control-bg);
+  --new-ui-control-text: var(--new-ui-theme-dark-control-text);
+  --new-ui-control-border: var(--new-ui-theme-dark-control-border);
+  --new-ui-control-shadow: var(--new-ui-theme-dark-control-shadow);
+  --new-ui-control-shadow-hover: var(--new-ui-theme-dark-control-shadow-hover);
   position: relative;
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  background: var(--new-ui-dark-bg);
+  background: var(--new-ui-bg);
+  color: var(--new-ui-text);
   transition: background-color 360ms ease;
 }
 
 .new-ui-shell[data-theme="light"] {
-  background: var(--new-ui-light-bg);
+  --new-ui-bg: var(--new-ui-theme-light-bg);
+  --new-ui-text: var(--new-ui-theme-light-text);
+  --new-ui-text-muted: var(--new-ui-theme-light-text-muted);
+  --new-ui-control-bg: var(--new-ui-theme-light-control-bg);
+  --new-ui-control-text: var(--new-ui-theme-light-control-text);
+  --new-ui-control-border: var(--new-ui-theme-light-control-border);
+  --new-ui-control-shadow: var(--new-ui-theme-light-control-shadow);
+  --new-ui-control-shadow-hover: var(--new-ui-theme-light-control-shadow-hover);
 }
 
 .new-ui-theme-toggle {
@@ -107,15 +122,15 @@
   bottom: 24px;
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--new-ui-control-border);
   border-radius: 999px;
-  background: #ffffff;
-  color: #050505;
+  background: var(--new-ui-control-bg);
+  color: var(--new-ui-control-text);
   cursor: pointer;
   display: inline-grid;
   place-items: center;
   overflow: hidden;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 14px 34px var(--new-ui-control-shadow);
   transition:
     background-color 280ms ease,
     border-color 280ms ease,
@@ -128,18 +143,11 @@
 .new-ui-theme-toggle:focus-visible {
   transform: translateY(-2px);
   outline: 0;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  box-shadow: 0 18px 42px var(--new-ui-control-shadow-hover);
 }
 
 .new-ui-theme-toggle:active {
   transform: translateY(0) scale(0.96);
-}
-
-.new-ui-shell[data-theme="light"] .new-ui-theme-toggle {
-  border-color: rgba(0, 0, 0, 0.14);
-  background: #050505;
-  color: #ffffff;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
 }
 
 .new-ui-theme-icon-wrap {

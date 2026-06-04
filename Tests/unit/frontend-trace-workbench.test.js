@@ -115,6 +115,9 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
   const preferences = read(root, "Apps/Workbench/src/utils/workbenchPreferences.ts");
   const newUi = read(root, "Apps/Workbench/src/components/NewUiApp.tsx");
+  const styles = read(root, "Apps/Workbench/styles.css");
+  const newUiThemeCss = read(root, "Apps/Workbench/styles/new-ui-theme.css");
+  const newUiCss = read(root, "Apps/Workbench/styles/new-ui.css");
   const vite = read(root, "vite.config.ts");
   const staticFiles = read(root, "Apps/Api/lib/http/static-files.js");
 
@@ -127,6 +130,16 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(app, /useState<NewUiTheme>\(\(\) => readNewUiThemePreference\(\)\)/);
   assert.match(app, /writeNewUiThemePreference\(newUiTheme\)/);
   assert.match(newUi, /import type \{ NewUiTheme \} from "\.\.\/utils\/workbenchPreferences"/);
+  assert.match(styles, /new-ui-theme\.css[\s\S]*new-ui\.css/);
+  assert.match(newUiThemeCss, /--new-ui-ink-950: #101316/);
+  assert.match(newUiThemeCss, /--new-ui-fog-050: #f4f6f2/);
+  assert.match(newUiThemeCss, /--new-ui-theme-dark-bg: var\(--new-ui-ink-950\)/);
+  assert.match(newUiThemeCss, /--new-ui-theme-light-bg: var\(--new-ui-fog-050\)/);
+  assert.match(newUiCss, /background: var\(--new-ui-bg\)/);
+  assert.match(newUiCss, /background: var\(--new-ui-control-bg\)/);
+  assert.doesNotMatch(newUiCss, /--new-ui-(?:ink|fog)-/);
+  assert.doesNotMatch(newUiThemeCss, /--new-ui-theme-(?:dark|light)-bg: #(?:000|000000|fff|ffffff)\b/i);
+  assert.doesNotMatch(newUiCss, /background: #(?:000|000000|fff|ffffff)\b/i);
   assert.match(view, /if \(pathname === ""\) return "new-ui"/);
   assert.match(view, /if \(pathname === "\/workspace"\) return "workspace"/);
   assert.match(view, /return view === "workspace" \? "\/workspace" : `\/\$\{view\}`/);

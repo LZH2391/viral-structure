@@ -1,0 +1,35 @@
+.app-shell {
+  --new-ui-ink-950: #101316;
+  --new-ui-ink-900: #14181b;
+  --new-ui-ink-800: #20262a;
+  --new-ui-fog-050: #f4f6f2;
+  --new-ui-fog-100: #ecefeb;
+  --new-ui-fog-200: #d8ddd7;
+  --new-ui-aqua-500: #26b0be;
+
+  --new-ui-theme-dark-bg: var(--new-ui-ink-950);
+  --new-ui-theme-dark-text: #eef3f4;
+  --new-ui-theme-dark-text-muted: rgba(232, 239, 240, 0.72);
+  --new-ui-theme-dark-control-bg: var(--new-ui-fog-100);
+  --new-ui-theme-dark-control-text: #15191c;
+  --new-ui-theme-dark-control-border: rgba(232, 239, 240, 0.2);
+  --new-ui-theme-dark-control-shadow: rgba(5, 8, 10, 0.32);
+  --new-ui-theme-dark-control-shadow-hover: rgba(5, 8, 10, 0.4);
+  --new-ui-theme-dark-curl-edge-a: rgba(244, 246, 242, 0.04);
+  --new-ui-theme-dark-curl-edge-b: rgba(244, 246, 242, 0.16);
+
+  --new-ui-theme-light-bg: var(--new-ui-fog-050);
+  --new-ui-theme-light-text: #15191c;
+  --new-ui-theme-light-text-muted: rgba(21, 25, 28, 0.7);
+  --new-ui-theme-light-control-bg: var(--new-ui-ink-900);
+  --new-ui-theme-light-control-text: #f1f4ef;
+  --new-ui-theme-light-control-border: rgba(21, 25, 28, 0.14);
+  --new-ui-theme-light-control-shadow: rgba(31, 38, 43, 0.18);
+  --new-ui-theme-light-control-shadow-hover: rgba(31, 38, 43, 0.24);
+  --new-ui-theme-light-curl-edge-a: rgba(21, 25, 28, 0.03);
+  --new-ui-theme-light-curl-edge-b: rgba(21, 25, 28, 0.1);
+
+  --new-ui-focus-ring: rgba(38, 176, 190, 0.78);
+  --new-ui-dark-bg: var(--new-ui-theme-dark-bg);
+  --new-ui-light-bg: var(--new-ui-theme-light-bg);
+}
