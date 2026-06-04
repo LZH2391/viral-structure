@@ -89,8 +89,11 @@
 
 .new-ui-shell {
   --new-ui-bg: var(--new-ui-theme-dark-bg);
+  --new-ui-surface: var(--new-ui-theme-dark-surface);
+  --new-ui-surface-soft: var(--new-ui-theme-dark-surface-soft);
   --new-ui-text: var(--new-ui-theme-dark-text);
   --new-ui-text-muted: var(--new-ui-theme-dark-text-muted);
+  --new-ui-border: var(--new-ui-theme-dark-border);
   --new-ui-control-bg: var(--new-ui-theme-dark-control-bg);
   --new-ui-control-text: var(--new-ui-theme-dark-control-text);
   --new-ui-control-border: var(--new-ui-theme-dark-control-border);
@@ -107,8 +110,11 @@
 
 .new-ui-shell[data-theme="light"] {
   --new-ui-bg: var(--new-ui-theme-light-bg);
+  --new-ui-surface: var(--new-ui-theme-light-surface);
+  --new-ui-surface-soft: var(--new-ui-theme-light-surface-soft);
   --new-ui-text: var(--new-ui-theme-light-text);
   --new-ui-text-muted: var(--new-ui-theme-light-text-muted);
+  --new-ui-border: var(--new-ui-theme-light-border);
   --new-ui-control-bg: var(--new-ui-theme-light-control-bg);
   --new-ui-control-text: var(--new-ui-theme-light-control-text);
   --new-ui-control-border: var(--new-ui-theme-light-control-border);

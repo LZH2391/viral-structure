@@ -8,8 +8,11 @@
   --new-ui-aqua-500: #26b0be;
 
   --new-ui-theme-dark-bg: var(--new-ui-ink-950);
+  --new-ui-theme-dark-surface: var(--new-ui-ink-900);
+  --new-ui-theme-dark-surface-soft: var(--new-ui-ink-800);
   --new-ui-theme-dark-text: #eef3f4;
   --new-ui-theme-dark-text-muted: rgba(232, 239, 240, 0.72);
+  --new-ui-theme-dark-border: rgba(232, 239, 240, 0.1);
   --new-ui-theme-dark-control-bg: var(--new-ui-fog-100);
   --new-ui-theme-dark-control-text: #15191c;
   --new-ui-theme-dark-control-border: rgba(232, 239, 240, 0.2);
@@ -19,8 +22,11 @@
   --new-ui-theme-dark-curl-edge-b: rgba(244, 246, 242, 0.16);
 
   --new-ui-theme-light-bg: var(--new-ui-fog-050);
+  --new-ui-theme-light-surface: #e9ede7;
+  --new-ui-theme-light-surface-soft: #dde3da;
   --new-ui-theme-light-text: #15191c;
   --new-ui-theme-light-text-muted: rgba(21, 25, 28, 0.7);
+  --new-ui-theme-light-border: rgba(21, 25, 28, 0.12);
   --new-ui-theme-light-control-bg: var(--new-ui-ink-900);
   --new-ui-theme-light-control-text: #f1f4ef;
   --new-ui-theme-light-control-border: rgba(21, 25, 28, 0.14);

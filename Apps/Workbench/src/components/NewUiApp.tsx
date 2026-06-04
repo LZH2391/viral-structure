@@ -1,4 +1,5 @@
 import type { NewUiTheme } from "../utils/workbenchPreferences";
+import { NewUiLayout } from "./new-ui/NewUiLayout";
 
 type NewUiAppProps = {
   theme: NewUiTheme;
@@ -10,6 +11,7 @@ export function NewUiApp({ theme, onThemeChange }: NewUiAppProps) {
 
   return (
     <main className="new-ui-shell" data-theme={theme} aria-label="新工作台">
+      <NewUiLayout />
       <button
         className="new-ui-theme-toggle"
         type="button"
