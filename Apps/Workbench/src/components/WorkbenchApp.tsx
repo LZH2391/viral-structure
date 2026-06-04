@@ -49,6 +49,7 @@ export function WorkbenchApp() {
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
   const [newUiTheme, setNewUiTheme] = useState<NewUiTheme>(() => readNewUiThemePreference());
+  const [newUiLeftCollapsed, setNewUiLeftCollapsed] = useState(false);
   const [propertyPanelTab, setPropertyPanelTab] = useState<PropertyPanelTab>("shot");
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
@@ -585,9 +586,11 @@ export function WorkbenchApp() {
         handleFunctionSlotManualBoundaryEdit={handleFunctionSlotManualBoundaryEdit}
       />
       {mountedViews["new-ui"] ? (
-        <section className={`view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "new-ui"}>
-          <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("workspace", setActiveView)} />
-          <NewUiApp theme={newUiTheme} onThemeChange={setNewUiTheme} />
+        <section className={`view-shell new-ui-view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"} ${newUiLeftCollapsed ? "is-left-pane-collapsed" : ""}`} aria-hidden={activeView !== "new-ui"}>
+          {newUiLeftCollapsed ? null : (
+            <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("workspace", setActiveView)} />
+          )}
+          <NewUiApp theme={newUiTheme} onThemeChange={setNewUiTheme} onLeftCollapsedChange={setNewUiLeftCollapsed} />
         </section>
       ) : null}
       {mountedViews["full-analysis"] ? (

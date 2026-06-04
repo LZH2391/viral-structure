@@ -24,6 +24,17 @@
   outline-offset: -10px;
 }
 
+.page-curl-view-toggle:disabled,
+.page-curl-view-toggle[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+.new-ui-view-shell.is-left-pane-collapsed > .page-curl-view-toggle {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
 .page-curl-view-toggle__canvas {
   position: absolute;
   inset: 0;
@@ -90,7 +101,6 @@
 .new-ui-shell {
   --new-ui-bg: var(--new-ui-theme-dark-bg);
   --new-ui-surface: var(--new-ui-theme-dark-surface);
-  --new-ui-surface-soft: var(--new-ui-theme-dark-surface-soft);
   --new-ui-text: var(--new-ui-theme-dark-text);
   --new-ui-text-muted: var(--new-ui-theme-dark-text-muted);
   --new-ui-border: var(--new-ui-theme-dark-border);
@@ -111,7 +121,6 @@
 .new-ui-shell[data-theme="light"] {
   --new-ui-bg: var(--new-ui-theme-light-bg);
   --new-ui-surface: var(--new-ui-theme-light-surface);
-  --new-ui-surface-soft: var(--new-ui-theme-light-surface-soft);
   --new-ui-text: var(--new-ui-theme-light-text);
   --new-ui-text-muted: var(--new-ui-theme-light-text-muted);
   --new-ui-border: var(--new-ui-theme-light-border);
@@ -123,11 +132,9 @@
 }
 
 .new-ui-theme-toggle {
-  position: absolute;
-  left: 24px;
-  bottom: 24px;
-  width: 52px;
-  height: 52px;
+  position: relative;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--new-ui-control-border);
   border-radius: 999px;
   background: var(--new-ui-control-bg);
@@ -136,7 +143,8 @@
   display: inline-grid;
   place-items: center;
   overflow: hidden;
-  box-shadow: 0 14px 34px var(--new-ui-control-shadow);
+  box-shadow: 0 10px 24px var(--new-ui-control-shadow);
+  backdrop-filter: blur(10px);
   transition:
     background-color 280ms ease,
     border-color 280ms ease,
@@ -145,11 +153,15 @@
     transform 180ms ease;
 }
 
+.new-ui-shell[data-theme="light"] .new-ui-theme-toggle {
+  box-shadow: 0 10px 24px var(--new-ui-control-shadow);
+}
+
 .new-ui-theme-toggle:hover,
 .new-ui-theme-toggle:focus-visible {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   outline: 0;
-  box-shadow: 0 18px 42px var(--new-ui-control-shadow-hover);
+  box-shadow: 0 12px 28px var(--new-ui-control-shadow-hover);
 }
 
 .new-ui-theme-toggle:active {
@@ -200,6 +212,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .new-ui-theme-toggle,
+  .new-ui-shell,
   .new-ui-theme-icon {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;

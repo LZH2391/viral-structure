@@ -4,6 +4,7 @@ type PageCurlViewToggleProps = {
   label: string;
   ariaLabel: string;
   className?: string;
+  disabled?: boolean;
   redrawKey?: string;
   onClick: () => void;
 };
@@ -24,7 +25,7 @@ const TOP_CURL = 112;
 const LEFT_CURL = 104;
 const ANIMATION_MS = 260;
 
-export function PageCurlViewToggle({ label, ariaLabel, className = "", redrawKey = "", onClick }: PageCurlViewToggleProps) {
+export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled = false, redrawKey = "", onClick }: PageCurlViewToggleProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const progressRef = useRef(0);
   const targetRef = useRef(0);
@@ -106,7 +107,7 @@ export function PageCurlViewToggle({ label, ariaLabel, className = "", redrawKey
   }, [redrawKey]);
 
   return (
-    <button className={`page-curl-view-toggle ${className}`.trim()} type="button" aria-label={ariaLabel} onClick={onClick}>
+    <button className={`page-curl-view-toggle ${className}`.trim()} type="button" aria-label={ariaLabel} disabled={disabled} aria-disabled={disabled} onClick={onClick}>
       <canvas ref={canvasRef} className="page-curl-view-toggle__canvas" aria-hidden="true" />
       <span className="page-curl-view-toggle__label">{label}</span>
     </button>
