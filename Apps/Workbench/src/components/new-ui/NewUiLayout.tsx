@@ -3,6 +3,19 @@ import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLa
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
 
+type NewUiSectionId = "analysis" | "library" | "restructure";
+
+type NewUiSection = {
+  id: NewUiSectionId;
+  label: string;
+};
+
+const NEW_UI_SECTIONS: NewUiSection[] = [
+  { id: "analysis", label: "分析" },
+  { id: "library", label: "库" },
+  { id: "restructure", label: "重组" },
+];
+
 type NewUiLayoutProps = {
   theme: NewUiTheme;
   onThemeChange: (theme: NewUiTheme) => void;
@@ -13,6 +26,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const layoutRef = useRef<HTMLElement>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: "new-ui:three-pane-layout",
@@ -49,7 +63,9 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     >
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
         <PaneHeader collapsed={leftCollapsed} onToggle={toggleLeftCollapsed} side="left" />
-        <div className="new-ui-pane-body" aria-hidden={leftCollapsed} />
+        <div className="new-ui-pane-body">
+          <SidebarNav activeSection={activeSection} collapsed={leftCollapsed} onSectionChange={setActiveSection} />
+        </div>
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
       </aside>
       {!leftCollapsed ? (
@@ -62,7 +78,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
           onNudge={(direction) => layout.nudgeSize("left", direction)}
         />
       ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
-      <main className="new-ui-center" aria-label="中间工作区" />
+      <main className="new-ui-center" aria-label={`${resolveSectionLabel(activeSection)}工作区`} data-active-section={activeSection} />
       {!rightCollapsed ? (
         <SplitResizeHandle
           className="new-ui-resize-handle new-ui-resize-handle-right"
@@ -78,6 +94,86 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         <div className="new-ui-pane-body" aria-hidden={rightCollapsed} />
       </aside>
     </section>
+  );
+}
+
+type SidebarNavProps = {
+  activeSection: NewUiSectionId;
+  collapsed: boolean;
+  onSectionChange: (section: NewUiSectionId) => void;
+};
+
+function SidebarNav({ activeSection, collapsed, onSectionChange }: SidebarNavProps) {
+  return (
+    <nav className="new-ui-sidebar-nav" aria-label="新 UI 功能导航">
+      {NEW_UI_SECTIONS.map((section) => {
+        const isActive = section.id === activeSection;
+
+        return (
+          <button
+            key={section.id}
+            className={`new-ui-sidebar-nav-item ${isActive ? "is-active" : ""}`.trim()}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            aria-label={collapsed ? section.label : undefined}
+            title={collapsed ? section.label : undefined}
+            onClick={() => onSectionChange(section.id)}
+          >
+            <span className="new-ui-sidebar-nav-icon" aria-hidden="true">
+              <SectionIcon section={section.id} />
+            </span>
+            <span className="new-ui-sidebar-nav-label">{section.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function resolveSectionLabel(section: NewUiSectionId) {
+  return NEW_UI_SECTIONS.find((item) => item.id === section)?.label ?? "分析";
+}
+
+type SectionIconProps = {
+  section: NewUiSectionId;
+};
+
+function SectionIcon({ section }: SectionIconProps) {
+  if (section === "analysis") {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false">
+        <circle cx="10.2" cy="10.2" r="5.7" />
+        <path d="M14.4 14.4 19.2 19.2" />
+        <path d="M7.3 11.1 9.1 9.3 11.2 11.2 13.4 8.2" />
+        <circle cx="7.3" cy="11.1" r="0.55" />
+        <circle cx="9.1" cy="9.3" r="0.55" />
+        <circle cx="11.2" cy="11.2" r="0.55" />
+        <circle cx="13.4" cy="8.2" r="0.55" />
+      </svg>
+    );
+  }
+
+  if (section === "library") {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M6.2 6.4h11.6a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 16V8a1.6 1.6 0 0 1 1.6-1.6Z" />
+        <path d="M7.2 4.2h9.6" />
+        <path d="M7.2 19.8h9.6" />
+        <path d="M8.1 10h7.8" />
+        <path d="M8.1 13.8h5.1" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" focusable="false">
+      <rect x="4.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
+      <rect x="14.4" y="4.4" width="5.2" height="5.2" rx="1.4" />
+      <rect x="9.4" y="14.4" width="5.2" height="5.2" rx="1.4" />
+      <path d="M9.6 7h4.8" />
+      <path d="M7 9.6c0.4 2.3 1.8 3.9 3.8 5.1" />
+      <path d="M17 9.6c-0.4 2.3-1.8 3.9-3.8 5.1" />
+    </svg>
   );
 }
 

@@ -157,6 +157,13 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /onLeftCollapsedChange\?\.\(leftCollapsed\)/);
   assert.match(newUiLayout, /<ThemeToggle theme=\{theme\} onThemeChange=\{onThemeChange\} \/>/);
   assert.match(newUiLayout, /className="new-ui-pane-theme"/);
+  assert.match(newUiLayout, /type NewUiSectionId = "analysis" \| "library" \| "restructure"/);
+  assert.match(newUiLayout, /label: "分析"/);
+  assert.match(newUiLayout, /label: "库"/);
+  assert.match(newUiLayout, /label: "重组"/);
+  assert.match(newUiLayout, /<SidebarNav activeSection=\{activeSection\} collapsed=\{leftCollapsed\} onSectionChange=\{setActiveSection\} \/>/);
+  assert.match(newUiLayout, /aria-current=\{isActive \? "page" : undefined\}/);
+  assert.match(newUiLayout, /data-active-section=\{activeSection\}/);
   assert.match(newUiLayout, /setLeftCollapsed/);
   assert.match(newUiLayout, /setRightCollapsed/);
   assert.match(newUiLayout, /SplitResizeHandle/);
@@ -164,6 +171,10 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayoutCss, /\.new-ui-layout\.is-left-collapsed/);
   assert.match(newUiLayoutCss, /\.new-ui-layout\.is-right-collapsed/);
   assert.match(newUiLayoutCss, /background: var\(--new-ui-surface\)/);
+  assert.match(newUiLayoutCss, /\.new-ui-sidebar-nav/);
+  assert.match(newUiLayoutCss, /\.new-ui-sidebar-nav-item\.is-active/);
+  assert.match(newUiLayoutCss, /\.new-ui-layout\.is-left-collapsed \.new-ui-sidebar-nav-item/);
+  assert.match(newUiLayoutCss, /\.new-ui-pane-right \.new-ui-pane-body \{[\s\S]*opacity: 0;[\s\S]*pointer-events: none;/);
   assert.doesNotMatch(newUiLayoutCss, /\.new-ui-pane-(?:left|right)[\s\S]*border-(?:left|right): 1px solid var\(--new-ui-border\)/);
   assert.match(newUiCss, /\.page-curl-view-toggle:disabled/);
   assert.match(app, /newUiLeftCollapsed \? null : \(/);

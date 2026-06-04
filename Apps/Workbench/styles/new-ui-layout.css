@@ -162,7 +162,7 @@
 
 .new-ui-pane-body {
   min-height: 0;
-  padding: 16px 14px;
+  padding: 18px 14px;
   overflow: hidden;
   opacity: 1;
   transform: translateX(0);
@@ -186,7 +186,6 @@
   padding: 0;
 }
 
-.new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-body,
 .new-ui-layout.is-right-collapsed .new-ui-pane-right .new-ui-pane-body {
   padding-inline: 0;
   opacity: 0;
@@ -194,11 +193,147 @@
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-body {
-  transform: translateX(-8px);
+  padding: 18px 9px;
 }
 
 .new-ui-layout.is-right-collapsed .new-ui-pane-right .new-ui-pane-body {
   transform: translateX(8px);
+}
+
+.new-ui-sidebar-nav {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-ui-sidebar-nav-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--new-ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-align: left;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    padding 220ms ease,
+    width 220ms ease;
+}
+
+.new-ui-sidebar-nav-item::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  width: 3px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--new-ui-control-text);
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    background-color 180ms ease,
+    height 220ms ease,
+    top 220ms ease;
+}
+
+.new-ui-sidebar-nav-item:hover,
+.new-ui-sidebar-nav-item:focus-visible {
+  color: var(--new-ui-text);
+  background: color-mix(in srgb, var(--new-ui-text) 5%, transparent);
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  outline: 0;
+}
+
+.new-ui-sidebar-nav-item:focus-visible {
+  box-shadow: 0 0 0 2px var(--new-ui-focus-ring);
+}
+
+.new-ui-sidebar-nav-item.is-active {
+  color: var(--new-ui-text);
+  background: color-mix(in srgb, var(--new-ui-text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 72%, transparent);
+}
+
+.new-ui-sidebar-nav-item.is-active::before {
+  opacity: 1;
+}
+
+.new-ui-sidebar-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+.new-ui-sidebar-nav-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-sidebar-nav-icon circle:not(:first-child) {
+  fill: currentColor;
+  stroke: none;
+}
+
+.new-ui-sidebar-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 1;
+  transition:
+    opacity 160ms ease,
+    transform 220ms ease;
+}
+
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav {
+  justify-items: center;
+}
+
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-item {
+  grid-template-columns: 1fr;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  gap: 0;
+  text-align: center;
+}
+
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-item::before {
+  top: 8px;
+  height: 20px;
+}
+
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-6px);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .new-ui-pane-theme {
@@ -285,9 +420,46 @@
     padding: 0;
   }
 
-  .new-ui-pane-body {
+  .new-ui-pane-right .new-ui-pane-body {
     opacity: 0;
     pointer-events: none;
+  }
+
+  .new-ui-pane-left .new-ui-pane-body,
+  .new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-body {
+    padding: 18px 9px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .new-ui-pane-left .new-ui-sidebar-nav {
+    justify-items: center;
+  }
+
+  .new-ui-pane-left .new-ui-sidebar-nav-item {
+    grid-template-columns: 1fr;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    gap: 0;
+    text-align: center;
+  }
+
+  .new-ui-pane-left .new-ui-sidebar-nav-item::before {
+    top: 8px;
+    height: 20px;
+  }
+
+  .new-ui-pane-left .new-ui-sidebar-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateX(-6px);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .new-ui-pane-theme {
