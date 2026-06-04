@@ -30,11 +30,14 @@ function resolveWorkbenchPath(workbenchRoot, pathname) {
 
 function routeToFile(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "index.html";
+  if (pathname === "/workspace" || pathname === "/workspace/") return "index.html";
   if (pathname === "/new-ui" || pathname === "/new-ui/") return "index.html";
   if (pathname === "/threadpool" || pathname === "/threadpool/") return "index.html";
   if (pathname === "/full-analysis" || pathname === "/full-analysis/") return "index.html";
   if (pathname === "/material-recognition" || pathname === "/material-recognition/") return "index.html";
   if (pathname === "/library" || pathname === "/library/") return "index.html";
+  if (pathname === "/active-turns" || pathname === "/active-turns/") return "index.html";
+  if (pathname === "/agent-chat" || pathname === "/agent-chat/") return "index.html";
   if (pathname === "/function-slot-graph" || pathname === "/function-slot-graph/") return "function-slot-graph.html";
   if (pathname === "/debug" || pathname === "/debug/") return "debug.html";
   if (pathname === "/full-analysis.html") return "full-analysis.html";

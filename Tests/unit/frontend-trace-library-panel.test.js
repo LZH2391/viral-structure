@@ -222,7 +222,12 @@ test("workbench removes create input view entry", () => {
   const property = read(root, "Apps/Workbench/src/components/PropertyPanel.tsx");
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
 
-  assert.match(view, /"workspace" \| "full-analysis" \| "material-recognition" \| "library" \| "threadpool"/);
+  assert.match(view, /"workspace"/);
+  assert.match(view, /"new-ui"/);
+  assert.match(view, /"full-analysis"/);
+  assert.match(view, /"material-recognition"/);
+  assert.match(view, /"library"/);
+  assert.match(view, /"threadpool"/);
   assert.doesNotMatch(view, /\/create/);
   assert.doesNotMatch(app, /创作输入/);
   assert.doesNotMatch(app, /CreateInputApp/);

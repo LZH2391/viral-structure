@@ -109,6 +109,31 @@ test("React pages replace legacy runtime scripts", () => {
   assert.match(debugEntry, /<DebugApp \/>/);
 });
 
+test("workbench defaults to new UI and persists new UI theme preference", () => {
+  const root = path.resolve(__dirname, "../..");
+  const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
+  const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
+  const preferences = read(root, "Apps/Workbench/src/utils/workbenchPreferences.ts");
+  const newUi = read(root, "Apps/Workbench/src/components/NewUiApp.tsx");
+  const vite = read(root, "vite.config.ts");
+  const staticFiles = read(root, "Apps/Api/lib/http/static-files.js");
+
+  assert.match(preferences, /NEW_UI_THEME_STORAGE_KEY = "workbench:new-ui-theme"/);
+  assert.match(preferences, /export type NewUiTheme = "dark" \| "light"/);
+  assert.match(preferences, /readNewUiThemePreference/);
+  assert.match(preferences, /writeNewUiThemePreference/);
+  assert.match(preferences, /window\.localStorage\.getItem\(NEW_UI_THEME_STORAGE_KEY\)/);
+  assert.match(preferences, /window\.localStorage\.setItem\(NEW_UI_THEME_STORAGE_KEY, theme\)/);
+  assert.match(app, /useState<NewUiTheme>\(\(\) => readNewUiThemePreference\(\)\)/);
+  assert.match(app, /writeNewUiThemePreference\(newUiTheme\)/);
+  assert.match(newUi, /import type \{ NewUiTheme \} from "\.\.\/utils\/workbenchPreferences"/);
+  assert.match(view, /if \(pathname === ""\) return "new-ui"/);
+  assert.match(view, /if \(pathname === "\/workspace"\) return "workspace"/);
+  assert.match(view, /return view === "workspace" \? "\/workspace" : `\/\$\{view\}`/);
+  assert.match(vite, /"\/workspace", "\/workspace\/"/);
+  assert.match(staticFiles, /pathname === "\/workspace" \|\| pathname === "\/workspace\/"/);
+});
+
 test("workbench upload cancels stale polling and restores local draft", () => {
   const root = path.resolve(__dirname, "../..");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");

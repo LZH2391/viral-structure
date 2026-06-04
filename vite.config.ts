@@ -44,5 +44,5 @@ function workbenchRoutePlugin(): Plugin {
 }
 
 function isWorkbenchRoute(pathname: string) {
-  return ["/new-ui", "/new-ui/", "/full-analysis", "/full-analysis/", "/library", "/library/", "/function-slot-graph", "/function-slot-graph/", "/threadpool", "/threadpool/", "/agent-chat", "/agent-chat/"].includes(pathname);
+  return ["/workspace", "/workspace/", "/new-ui", "/new-ui/", "/full-analysis", "/full-analysis/", "/material-recognition", "/material-recognition/", "/library", "/library/", "/function-slot-graph", "/function-slot-graph/", "/threadpool", "/threadpool/", "/active-turns", "/active-turns/", "/agent-chat", "/agent-chat/"].includes(pathname);
 }

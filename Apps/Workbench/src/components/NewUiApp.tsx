@@ -1,4 +1,4 @@
-export type NewUiTheme = "dark" | "light";
+import type { NewUiTheme } from "../utils/workbenchPreferences";
 
 type NewUiAppProps = {
   theme: NewUiTheme;

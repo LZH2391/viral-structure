@@ -2,6 +2,8 @@ export type WorkbenchView = "workspace" | "new-ui" | "full-analysis" | "material
 
 export function initialViewFromPath(): WorkbenchView {
   const pathname = window.location.pathname.replace(/\/+$/, "");
+  if (pathname === "") return "new-ui";
+  if (pathname === "/workspace") return "workspace";
   if (pathname === "/new-ui") return "new-ui";
   if (pathname === "/full-analysis") return "full-analysis";
   if (pathname === "/material-recognition") return "material-recognition";
@@ -13,7 +15,7 @@ export function initialViewFromPath(): WorkbenchView {
 }
 
 export function workbenchViewPath(view: WorkbenchView) {
-  return view === "workspace" ? "/" : `/${view}`;
+  return view === "workspace" ? "/workspace" : `/${view}`;
 }
 
 export function setWorkbenchView(view: WorkbenchView, setActiveView: (view: WorkbenchView) => void, mode: "push" | "replace" = "push") {

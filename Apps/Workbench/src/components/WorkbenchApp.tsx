@@ -6,6 +6,7 @@ import { getModules, saveFunctionSlotAtomizationManualBoundaryEdit } from "../ap
 import { resolveAudioFeatureSourceId } from "../utils/workbenchHelpers";
 import { setAnalysisRoleModules } from "../utils/analysisRoles";
 import { readWorkbenchDraft, writeActiveAgentJob, writeActiveAnalysisJob, writeWorkbenchDraft } from "../utils/workbenchDraft";
+import { readNewUiThemePreference, writeNewUiThemePreference, type NewUiTheme } from "../utils/workbenchPreferences";
 import { initialViewFromPath, setWorkbenchView, type WorkbenchView } from "../utils/workbenchView";
 import { useWorkbenchPlaybackSync } from "../hooks/useWorkbenchPlaybackSync";
 import { useAnalysisJobFlow } from "../hooks/useAnalysisJobFlow";
@@ -20,7 +21,7 @@ import { ActiveTurnsApp } from "./ActiveTurnsApp";
 import { AgentChatApp } from "./AgentChatApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
-import { NewUiApp, type NewUiTheme } from "./NewUiApp";
+import { NewUiApp } from "./NewUiApp";
 import { PageCurlViewToggle } from "./PageCurlViewToggle";
 import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
 import { RunStatusBar } from "./RunStatusBar";
@@ -47,7 +48,7 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(DEFAULT_ANALYSIS_FPS);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
-  const [newUiTheme, setNewUiTheme] = useState<NewUiTheme>("dark");
+  const [newUiTheme, setNewUiTheme] = useState<NewUiTheme>(() => readNewUiThemePreference());
   const [propertyPanelTab, setPropertyPanelTab] = useState<PropertyPanelTab>("shot");
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
@@ -184,6 +185,10 @@ export function WorkbenchApp() {
   useEffect(() => {
     setMountedViews((current) => (current[activeView] ? current : { ...current, [activeView]: true }));
   }, [activeView]);
+
+  useEffect(() => {
+    writeNewUiThemePreference(newUiTheme);
+  }, [newUiTheme]);
 
   useEffect(() => {
     void getModules()
