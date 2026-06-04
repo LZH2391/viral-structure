@@ -432,6 +432,9 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(chat, /activeConversationRevision/);
   assert.match(chat, /syncActiveConversationForRetry/);
   assert.match(chat, /会话已更新，自动同步中/);
+  assert.match(chat, /isAssistantTurnRunning/);
+  assert.match(chat, /恢复 turn 状态中/);
+  assert.match(chat, /schedulePoll\(session, currentTurnId\)/);
 
   const workbench = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const activeTurns = read(root, "Apps/Workbench/src/components/ActiveTurnsApp.tsx");

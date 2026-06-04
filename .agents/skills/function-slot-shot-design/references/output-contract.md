@@ -54,6 +54,18 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 ## 素材策略字段约束
 
+### 素材充足路径
+
+当上游 `materialSupplyType` 为 `material_sufficient_specific_path` 或 `material_oversupply_selectable`，且存在 `recommendedMaterialPath` / 推荐素材顺序时：
+
+- Shot 表必须逐项对应推荐路径中的 `shotRef/groupId`，并保持推荐成片顺序。
+- 不得跳过推荐路径直接生成新的自设计主路径。
+- `素材来源/处理策略` 通常写 `existing_material`；需要后期标签、圈选或字幕补清理解时写 `existing_material_packaging_caption`。
+- 推荐素材有原字幕/口播时，`台词/字幕（若有）` 使用原素材字幕/口播。
+- 推荐素材无原字幕/口播时，若用户已在重组完成后的询问中明确授权补写，则可写后期字幕/旁白并标明来源；若未授权，必须写“无”。
+- 素材充足路径仍必须输出 `## 封面生图提示词`；封面不改变普通 Shot 表主路径。
+- 只有推荐素材存在明确 shot 级致命问题时，才允许偏离推荐路径；偏离导致主路径失效时，不写低质量 Shot 表，应声明 `return_to_restructure_required`。
+
 当 `素材来源/处理策略` 为 `existing_material`：
 
 - 只能使用本版尚未作为主承载的 `shotRef/groupId`。
@@ -93,6 +105,7 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 - 是否没有改变第 2-7 节已确认的核心结构。
 - 每个 shot 是否至少对齐一个槽位或 adapter。
 - 如果有素材包，是否消费了素材包并为每个 shot 写明素材来源/处理策略。
+- 若上游为素材充足路径，是否逐项承接 `recommendedMaterialPath`，没有重新选主路径或大比例自设计替换推荐素材。
 - 是否没有把同一 `shotRef/groupId` 标为 `existing_material` 或 `existing_material_packaging_caption` 后又用于另一个主承载；凡是已占用素材再次主承载，是否一律标为 `reuse_transformed_fallback`。
 - 所有 `reuse_transformed_fallback` 是否写明裁切、放大、冻结帧、局部特写、变速、错位重入等变形处理。
 - 是否优先使用未占用现有素材，其次包装/字幕强化，再自行设计，最后才复用变形兜底。

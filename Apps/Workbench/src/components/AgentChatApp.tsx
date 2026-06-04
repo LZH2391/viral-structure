@@ -391,6 +391,14 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
   }, [activeConversationId, refreshConversations]);
 
+  useEffect(() => {
+    if (!session?.threadId || !currentTurnId || busy || activeConversationInvalidated) return;
+    if (!isAssistantTurnRunning(messages, currentTurnId)) return;
+    setBusy(true);
+    setStatusText("恢复 turn 状态中");
+    schedulePoll(session, currentTurnId);
+  }, [activeConversationInvalidated, busy, currentTurnId, messages, schedulePoll, session]);
+
   const beginConversationAction = useCallback(() => {
     const actionGeneration = conversationActionGenerationRef.current + 1;
     conversationActionGenerationRef.current = actionGeneration;
@@ -1364,6 +1372,15 @@ function messagesFromConversation(conversation: AgentChatConversation): ChatMess
     slotAtomDisplay: message.slotAtomDisplay ?? null,
     dialogueRoboticReview: message.dialogueRoboticReview ?? null,
   }));
+}
+
+function isAssistantTurnRunning(messages: ChatMessage[], turnId: string | null) {
+  if (!turnId) return false;
+  return messages.some((message) => (
+    message.id === `assistant-${turnId}`
+    && message.role === "assistant"
+    && message.status === "running"
+  ));
 }
 
 function messagesFromThreadConversation(conversation: ThreadConversation): ChatMessage[] {

@@ -37,7 +37,7 @@ test("codex rollout parser reconstructs turn activity, token usage, and compact 
     "context_compacted",
   ]);
   assert.equal(timeline.activity.tokenUsage.inputTokens, 1234);
-  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, 25840);
+  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, 206720);
 });
 
 test("rollout merge fills missing turn data without replacing appserver items", () => {

@@ -37,7 +37,9 @@
 
 ## proofNeedClass
 
-证明能力类型：
+`proofNeedClass` 是稳定的粗粒度素材能力枚举，用于让下游把素材供给映射到结构库 atoms 的 proof need。它不是完整语义分类，细分能力、边界和禁止误用必须写进 `reason / safeUsageRefs / gapAdviceRefs / limitRefs / constraintRefs`。
+
+证明/支撑能力类型：
 
 - `problem_visibility`：能否让观众看见问题对象或需求场景。
 - `product_identity`：能否让观众识别商品/服务/界面是什么。
@@ -46,7 +48,16 @@
 - `result_evidence`：能否支撑结果、完成态、收益或状态改善。
 - `comparison_evidence`：能否支撑对比判断。
 - `trust_evidence`：能否支撑信任、长期性、第三方、记录或资质。
-- `conversion_support`：能否支撑结尾行动、购买/咨询/下一步。
+- `conversion_support`：能否支撑结尾行动、购买/咨询/下一步。注意它包含行动触发能力，不等于价格、优惠、库存或购买入口事实已经被证明。
+
+### conversion_support 细分边界
+
+`conversion_support` 必须在理由或限制中区分两类语义：
+
+- **转化钩子 / 行动触发**：例如价格悬念、点击查看、进店看看、备货提醒、数量感、购买对象记忆。只要字幕或画面能触发下一步行动，可以标为 `conversion_support`，但理由要说明它支撑的是 CTA / 悬念 / 备货语境。
+- **转化事实证明**：例如低价、活动价、马上涨价、库存不足、优惠规则、购买入口、历史价格对比。只有画面或输入材料出现可核查证据时，才能写成价格/优惠/库存/入口证明；否则必须在 `limitRefs / constraintRefs / gapAdviceRefs` 中说明“不能证明价格/优惠/库存事实”。
+
+不要因为缺少价格页、活动规则或购买入口，就把价格悬念型 CTA 判为不可用；也不要因为字幕提到“这个价/活动价”，就把它升级成价格优势证明。
 
 `shotCards[].proofAffordances[].strength` 只能是：
 

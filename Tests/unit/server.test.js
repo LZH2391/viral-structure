@@ -1445,7 +1445,7 @@ test("thread turn timeline resolves short turn ids before rollout matching", asy
     assert.equal(response.body.turnId, fullTurnId);
     assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "token_usage", "context_compacted"]);
     assert.equal(response.body.activity.tokenUsage.inputTokens, 1200);
-    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 2000);
+    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 16000);
   } finally {
     await closeServer(server);
     await fsPromises.rm(tempRoot, { recursive: true, force: true });
@@ -2637,7 +2637,7 @@ test("agent chat timeline backfills token and compact events from codex rollout"
     assert.equal(response.body.source, "thread/turns/items/list+codex-rollout");
     assert.deepEqual(response.body.items.map((item) => item.kind), ["agent_message", "tool_call", "token_usage", "context_compacted"]);
     assert.equal(response.body.activity.tokenUsage.inputTokens, 987);
-    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 1000);
+    assert.equal(response.body.activity.tokenUsage.contextThresholdTokens, 8000);
   } finally {
     await closeServer(server);
   }

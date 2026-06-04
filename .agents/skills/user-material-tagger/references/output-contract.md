@@ -83,7 +83,7 @@
 - `needsRestructureAttention`
 - `semanticReuse`
 
-标准枚举不要编码：`proofNeedClass / shotClass / shotFunctions / groupType / fit / coverage / strength / quality` 必须保持原枚举字符串。
+标准枚举不要编码：`proofNeedClass / shotClass / shotFunctions / groupType / fit / coverage / strength / quality` 必须保持原枚举字符串。枚举只表达粗粒度能力，细分语义必须写入 `reason` 和 ref 文本。
 
 ## shotCards
 
@@ -152,6 +152,8 @@
 ## proofCoverage
 
 必须覆盖全部 proofNeedClass，每类一个对象。允许判断为 `missing`，但不能缺字段。
+
+`conversion_support` 需要特别写清支撑的是哪一种转化语义：价格悬念、点击查看、进店引导、备货提醒、数量感、购买对象记忆，还是价格/优惠/库存/入口事实证明。缺少价格页、活动规则或购买入口时，不得证明低价、涨价、优惠真实性、库存或入口事实；但如果字幕/画面能触发下一步行动，可以保留 CTA / 悬念型 `conversion_support`，并在 `safeUsageRefs` 与 `gapAdviceRefs` 中写清边界。
 
 ```json
 {

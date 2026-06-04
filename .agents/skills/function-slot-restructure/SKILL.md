@@ -205,12 +205,24 @@ adapter 只在重组时出现，用来提出桥接要求。
 
 若本轮使用了 `user-material-pack.stable`，摘要必须简要提一句素材供给判断，例如“素材冗余，已筛选主路径”“素材刚好支持特定方案”“素材不足，已输出完整理想链路”。不要在聊天回复里展开素材评分、候选列表或逐 slot 处理。
 
+当素材供给类型为 `material_sufficient_specific_path` 或 `material_oversupply_selectable`，且第 2 节输出了推荐素材路径时，重组阶段必须检查推荐路径中的 `shotRef/groupId` 是否存在原字幕/口播。判断依据优先使用素材包中每个 `shotCard` 的 `spokenOrSubtitleSummary`、字幕/口播摘要或等价字段；若字段明确为空、无、未识别，则视为无原字幕/口播。
+
+若推荐路径中存在无原字幕/口播的素材，完成回复允许在 Shot 后续确认话术前增加一句询问，且只问这一件事：
+
+```markdown
+推荐素材路径中 `<shotRef...>` 无原字幕/口播；Shot 阶段是否需要我为这些镜头补后期字幕/旁白？
+```
+
+若推荐路径中的素材都有原字幕/口播，不增加这句询问。若素材供给类型为 `material_insufficient_for_full_video`，不做这句询问。
+
 路径必须用 Markdown 文件链接，目标使用绝对路径，保证 UI 可点击打开：
 
 ```markdown
 已生成并落盘：[restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md)
 
 摘要：一句话说明槽位链路或核心方案。
+
+[仅当推荐路径存在无原字幕/口播素材时增加] 推荐素材路径中 `<shotRef...>` 无原字幕/口播；Shot 阶段是否需要我为这些镜头补后期字幕/旁白？
 
 若认可此方案，我接下来完善具体 Shot 设计。
 ```

@@ -56,7 +56,7 @@ test("agent turn timeline enriches context usage from model context window", () 
   const timeline = summarizeAgentTurnTimeline(thread, "turn_context");
 
   assert.equal(timeline.activity.tokenUsage.modelContextWindow, 1000);
-  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, 100);
+  assert.equal(timeline.activity.tokenUsage.contextThresholdTokens, 800);
   assert.equal(timeline.activity.tokenUsage.contextUsageRatio, 0.82);
   assert.equal(timeline.activity.tokenUsage.contextUsageState, "danger");
   assert.equal(timeline.items.find((item) => item.kind === "token_usage").metadata.contextUsageState, "danger");

@@ -10,7 +10,7 @@
 - `semanticDictionaries`：实体、所需支持、限制/缺口/安全边界字典。下游展示或推理前必须展开 `*Refs`。
 - `shotCards`：逐镜头素材卡，说明每个 shot 的素材形态、功能标签、实体引用、质量、位置适配。
 - `materialGroups`：可连续取材的素材组，例如商品展示组、过程组、结果组、桥接组。
-- `proofCoverage`：对全部 proofNeedClass 的覆盖判断，是下游判断主张能否成立的关键字段。
+- `proofCoverage`：对全部 proofNeedClass 的覆盖判断，是下游判断主张能否成立的关键字段。`proofNeedClass` 是粗粒度桥接枚举，下游必须同时读取 `reason` 和展开后的 `safeUsageRefs / gapAdviceRefs / limitRefs / constraintRefs`，不要只凭枚举名推断细分主张。
 - `sequenceRecommendations`：开头、中段、结尾候选，只表示位置适配，不表示最终成片顺序。
 - `globalConstraintRefs`：全局不可误用边界引用。
 - `restructureInputSummary`：素材强项、弱项、缺口和重组/shotDesign 注意事项，其中禁用边界和重组注意使用 `*Refs`。
@@ -41,13 +41,14 @@
 - 有人物反应但无因果证据，不可支撑强效果主张。
 - 有结果画面但缺少前态，不可单独承担对比证明。
 - 有字幕主张但画面没有对应证据，只能标记限制或弱证明。
+- 字幕也可能是 CTA、悬念或行动引导，不一定都是事实证明主张。尤其价格相关字幕要拆开判断：可用作点击查看/价格悬念/备货提醒，不代表能证明低价、涨价、优惠真实性、库存或购买入口。
 - 有视觉吸引力但无证明能力，只能帮助 `attention_entry`，不能提高证明强度。
 
 ## 与槽位/原子/Shot 设计的关系
 
 - 标签不是槽位。
 - shot 不是原子。
-- `proofNeedClass` 是连接素材供给和 atoms proof need 的中间层。
+- `proofNeedClass` 是连接素材供给和 atoms proof need 的中间层，只能表达粗粒度能力；具体是“CTA 悬念”“数量感收束”“价格事实证明”“信任证据”等细语义，必须从理由和 ref 字典中读取。
 - `sequenceRecommendations` 是位置适配，不是最终槽位链，也不是最终成片顺序。
 - `materialGroups` 是可取材组合，不是新视频 shot 设计。
 - `shotCards` 必须保持原始输入顺序，但下游重组会按说服逻辑选择成片顺序；该顺序可以重排，也可以合理沿用输入顺序。

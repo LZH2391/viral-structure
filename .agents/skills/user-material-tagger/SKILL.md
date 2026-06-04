@@ -46,6 +46,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
    - 在每个 shot 的 `proofAffordances` 中写该镜头能支撑哪些 proofNeedClass、强度、理由和限制。
    - 在顶层 `proofCoverage` 中覆盖全部 proofNeedClass，说明整体素材对每类证明需求的覆盖程度、候选镜头/素材组、安全用法和缺口建议。
    - 证明能力只看证据责任，不看镜头是否“好看”。
+   - `proofNeedClass` 只是粗粒度枚举；必须在 `reason` 和 ref 文本里写清细分能力。特别是 `conversion_support` 要区分“可触发点击/进店/价格悬念/备货提醒”和“可证明低价、涨价、优惠、库存、购买入口事实”。缺少价格页或活动证据时，可以保留价格悬念 CTA 能力，但必须限制其不能作为价格事实证明。
 
 4. **推荐结构位置候选**
    - 在每个 shot 的 `sequenceFit` 中按 `opening / middle / ending` 写适配判断。
@@ -61,6 +62,7 @@ description: 将用户上传视频的 shot-boundary 切镜结果转成可供 fun
 6. **汇总覆盖与缺口**
    - 每个 `proofCoverage` 都要写清 `safeUsageRefs` 和 `gapAdviceRefs`，对应文本写入 `semanticDictionaries.guardrailDict`，避免下游把弱素材包装成强证明。
    - 不足以形成能力池条目的缺失项，不要硬造 capability；可在相关能力的 `gapAdviceRefs` 或 shot 的 `needReview` 中说明。
+   - 写缺口时不要把“不能证明某事实”扩大成“不能做相关转化表达”。例如缺少价格真实性证据时，应写“不能证明低价/涨价/优惠真实性；仍可作为价格悬念或点击查看 CTA 使用”，除非画面/字幕本身也无法触发行动。
 
 7. **去重复与去重叠**
    - 当同一实体、所需支持、限制、缺口或安全边界在多个字段中重复出现时，必须直接写入顶层 `semanticDictionaries`，再在正文的 `*Refs` 字段中引用对应 ID。
