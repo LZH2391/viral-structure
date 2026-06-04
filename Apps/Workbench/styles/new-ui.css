@@ -2,6 +2,11 @@
   grid-template-rows: minmax(0, 1fr);
 }
 
+.new-ui-view-shell {
+  position: relative;
+  overflow: hidden;
+}
+
 .page-curl-view-toggle {
   --page-curl-current-bg: var(--bg-elevated);
   --page-curl-target-bg: var(--bg);
@@ -111,10 +116,14 @@
   --new-ui-control-shadow-hover: var(--new-ui-theme-dark-control-shadow-hover);
   position: relative;
   min-height: 0;
+  width: 125%;
   height: 100%;
+  min-height: 125%;
   overflow: hidden;
   background: var(--new-ui-bg);
   color: var(--new-ui-text);
+  transform: scale(0.8);
+  transform-origin: top left;
   transition: background-color 360ms ease;
 }
 
