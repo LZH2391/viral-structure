@@ -20,7 +20,8 @@ import { ActiveTurnsApp } from "./ActiveTurnsApp";
 import { AgentChatApp } from "./AgentChatApp";
 import { FullAnalysisApp } from "./FullAnalysisApp";
 import { LibraryApp } from "./LibraryApp";
-import { NewUiApp } from "./NewUiApp";
+import { NewUiApp, type NewUiTheme } from "./NewUiApp";
+import { PageCurlViewToggle } from "./PageCurlViewToggle";
 import { PropertyPanel, type PropertyPanelTab } from "./PropertyPanel";
 import { RunStatusBar } from "./RunStatusBar";
 import { ThreadPoolApp } from "./ThreadPoolApp";
@@ -46,6 +47,7 @@ export function WorkbenchApp() {
   const [agentAnalysisFps, setAgentAnalysisFps] = useState(DEFAULT_ANALYSIS_FPS);
   const [enableShotBoundaryReview, setEnableShotBoundaryReview] = useState(true);
   const [activeView, setActiveView] = useState<WorkbenchView>(() => initialViewFromPath());
+  const [newUiTheme, setNewUiTheme] = useState<NewUiTheme>("dark");
   const [propertyPanelTab, setPropertyPanelTab] = useState<PropertyPanelTab>("shot");
   const [mountedViews, setMountedViews] = useState<Record<WorkbenchView, boolean>>(() => ({
     workspace: true,
@@ -477,9 +479,15 @@ export function WorkbenchApp() {
     activeSampleRevision: state.activeSampleRevision,
     activeSampleSource: state.activeSampleSource,
   } : null;
+  const newUiThemeClass = newUiTheme === "light" ? "target-new-ui-light" : "target-new-ui-dark";
 
   return (
     <div className={`app-shell ${activeView === "new-ui" ? "new-ui-active" : ""}`}>
+      {activeView !== "new-ui" ? (
+        <div className="legacy-view-toggle-layer">
+          <PageCurlViewToggle label="新 UI" ariaLabel="切换到新 UI" className={`from-legacy ${newUiThemeClass}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("new-ui", setActiveView)} />
+        </div>
+      ) : null}
       {activeView !== "new-ui" ? (
       <header className="topbar">
         <div className="project-block">
@@ -573,10 +581,8 @@ export function WorkbenchApp() {
       />
       {mountedViews["new-ui"] ? (
         <section className={`view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "new-ui"}>
-          <button className="new-ui-view-toggle" type="button" onClick={() => setWorkbenchView("workspace", setActiveView)}>
-            旧 UI
-          </button>
-          <NewUiApp />
+          <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => setWorkbenchView("workspace", setActiveView)} />
+          <NewUiApp theme={newUiTheme} onThemeChange={setNewUiTheme} />
         </section>
       ) : null}
       {mountedViews["full-analysis"] ? (

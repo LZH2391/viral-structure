@@ -30,13 +30,12 @@
   .topbar {
     flex-wrap: wrap;
     height: auto;
-    padding: 10px 12px;
+    padding: 10px 12px 10px 104px;
   }
 
-  .new-ui-bookmark-toggle {
-    align-self: flex-start;
-    height: 48px;
-    margin-left: -12px;
+  .page-curl-view-toggle {
+    transform: none;
+    transform-origin: top left;
   }
 
   .workspace-grid {

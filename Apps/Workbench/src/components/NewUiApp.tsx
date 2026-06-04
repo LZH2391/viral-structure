@@ -1,9 +1,11 @@
-import { useState } from "react";
+export type NewUiTheme = "dark" | "light";
 
-type NewUiTheme = "dark" | "light";
+type NewUiAppProps = {
+  theme: NewUiTheme;
+  onThemeChange: (theme: NewUiTheme) => void;
+};
 
-export function NewUiApp() {
-  const [theme, setTheme] = useState<NewUiTheme>("dark");
+export function NewUiApp({ theme, onThemeChange }: NewUiAppProps) {
   const isLight = theme === "light";
 
   return (
@@ -13,7 +15,7 @@ export function NewUiApp() {
         type="button"
         aria-label={isLight ? "切换到黑夜主题" : "切换到白天主题"}
         aria-pressed={isLight}
-        onClick={() => setTheme(isLight ? "dark" : "light")}
+        onClick={() => onThemeChange(isLight ? "dark" : "light")}
       >
         <span className="new-ui-theme-icon-wrap" aria-hidden="true">
           <svg className="new-ui-theme-icon new-ui-theme-icon-sun" viewBox="0 0 24 24" focusable="false">
