@@ -3,6 +3,7 @@ import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLa
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
 import { AnalysisHome } from "./AnalysisHome";
+import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -51,6 +52,11 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const [rightCollapsed, setRightCollapsed] = useState(() => readStoredBooleanPreference("rightCollapsed", false));
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
+  const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
+    visible: false,
+    title: "新建分析",
+    item: null,
+  });
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: NEW_UI_THREE_PANE_STORAGE_KEY,
@@ -75,9 +81,17 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     writeStoredLayoutPreference({ leftCollapsed, rightCollapsed });
   }, [leftCollapsed, rightCollapsed]);
 
+  useEffect(() => {
+    if (activeSection !== "analysis") {
+      setAnalysisDetail((current) => current.visible ? { ...current, visible: false } : current);
+    }
+  }, [activeSection]);
+
   const toggleLeftCollapsed = () => {
     setLeftCollapsed((value) => !value);
   };
+
+  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible;
 
   return (
     <section
@@ -114,7 +128,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
         data-active-section={activeSection}
       >
-        {activeSection === "analysis" ? <AnalysisHome /> : null}
+        {activeSection === "analysis" ? <AnalysisHome onDetailStateChange={setAnalysisDetail} /> : null}
       </main>
       {!rightCollapsed ? (
         <SplitResizeHandle
@@ -128,7 +142,9 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
       <aside className="new-ui-pane new-ui-pane-right" aria-label="右侧栏">
         <PaneHeader collapsed={rightCollapsed} onToggle={() => setRightCollapsed((value) => !value)} side="right" />
-        <div className="new-ui-pane-body" aria-hidden={rightCollapsed} />
+        <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showAnalysisWorkflow}>
+          {showAnalysisWorkflow ? <AnalysisWorkflowSidebar detail={analysisDetail} /> : null}
+        </div>
       </aside>
     </section>
   );

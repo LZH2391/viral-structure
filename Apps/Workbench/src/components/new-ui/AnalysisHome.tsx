@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
+import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
-export function AnalysisHome() {
+type AnalysisHomeProps = {
+  onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
+};
+
+export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
   const [view, setView] = useState<"home" | "detail">("home");
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
+  const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
 
   const openUploadDetail = () => {
     setDetailTitle("新建分析");
     setDetailMedia(null);
+    setDetailItem(null);
     setView("detail");
   };
 
@@ -17,8 +24,17 @@ export function AnalysisHome() {
     const media = resolveAnalysisHistoryMedia(item);
     setDetailTitle(media.title);
     setDetailMedia(media);
+    setDetailItem(item);
     setView("detail");
   };
+
+  useEffect(() => {
+    onDetailStateChange?.({
+      visible: view === "detail",
+      title: detailTitle,
+      item: detailItem,
+    });
+  }, [detailItem, detailTitle, onDetailStateChange, view]);
 
   return (
     <>
