@@ -24,7 +24,7 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
     id: "library",
     label: "库",
     children: [
-      { id: "sampleStructure", label: "旧UI样例结构图" },
+      { id: "sampleStructure", label: "样例结构图" },
       { id: "semanticGovernance", label: "语义治理库" },
       { id: "planTrace", label: "方案溯源图" },
     ],
@@ -143,7 +143,7 @@ function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChi
       {NEW_UI_SECTIONS.map((section) => {
         const isActive = section.id === activeSection;
         const hasChildren = Boolean(section.children?.length);
-        const isExpanded = hasChildren && !collapsed && (expandedSection === section.id || isActive);
+        const isExpanded = hasChildren && !collapsed && expandedSection === section.id;
         const navButton = (
           <button
             key={hasChildren ? undefined : section.id}
@@ -154,13 +154,18 @@ function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChi
             aria-expanded={hasChildren ? isExpanded : undefined}
             aria-label={collapsed ? section.label : undefined}
             title={collapsed ? section.label : undefined}
-            onClick={() => onSectionChange(section.id)}
+            onClick={() => {
+              onSectionChange(section.id);
+              if (hasChildren && !collapsed) {
+                setExpandedSection((current) => current === section.id ? null : section.id);
+              }
+            }}
           >
             <span className="new-ui-sidebar-nav-icon" aria-hidden="true">
               <SectionIcon section={section.id} />
             </span>
             <span className="new-ui-sidebar-nav-label">{section.label}</span>
-            {hasChildren ? <ExpandIcon expanded={isExpanded} /> : null}
+            {hasChildren ? <ExpandIndicator expanded={isExpanded} /> : null}
           </button>
         );
 
@@ -173,13 +178,6 @@ function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChi
             key={section.id}
             className={`new-ui-sidebar-nav-group ${isExpanded ? "is-expanded" : ""}`.trim()}
             data-section={section.id}
-            onBlur={(event) => {
-              const nextTarget = event.relatedTarget;
-              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) setExpandedSection(null);
-            }}
-            onFocus={() => setExpandedSection(section.id)}
-            onPointerEnter={() => setExpandedSection(section.id)}
-            onPointerLeave={() => setExpandedSection(null)}
           >
             {navButton}
             <div className="new-ui-sidebar-subnav" aria-label={`${section.label}子类`}>
@@ -266,11 +264,11 @@ function SectionIcon({ section }: SectionIconProps) {
   );
 }
 
-function ExpandIcon({ expanded }: { expanded: boolean }) {
+function ExpandIndicator({ expanded }: { expanded: boolean }) {
   return (
-    <span className={`new-ui-sidebar-expand-icon ${expanded ? "is-expanded" : ""}`} aria-hidden="true">
+    <span className="new-ui-sidebar-expand-indicator" aria-hidden="true">
       <svg viewBox="0 0 16 16" focusable="false">
-        <path d="M5.6 3.8 9.8 8l-4.2 4.2" />
+        {expanded ? <path d="M4.4 9.7 8 6.1l3.6 3.6" /> : <path d="M6.1 4.4 9.7 8l-3.6 3.6" />}
       </svg>
     </span>
   );

@@ -160,7 +160,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /type NewUiSectionId = "analysis" \| "library" \| "restructure"/);
   assert.match(newUiLayout, /label: "分析"/);
   assert.match(newUiLayout, /label: "库"/);
-  assert.match(newUiLayout, /label: "旧UI样例结构图"/);
+  assert.match(newUiLayout, /label: "样例结构图"/);
   assert.match(newUiLayout, /label: "语义治理库"/);
   assert.match(newUiLayout, /label: "方案溯源图"/);
   assert.match(newUiLayout, /label: "重组"/);
@@ -168,7 +168,10 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /onLibraryChildChange=\{setActiveLibraryChild\}/);
   assert.match(newUiLayout, /new-ui-sidebar-subnav/);
   assert.match(newUiLayout, /new-ui-sidebar-subnav-item/);
-  assert.match(newUiLayout, /<ExpandIcon expanded=\{isExpanded\} \/>/);
+  assert.match(newUiLayout, /<ExpandIndicator expanded=\{isExpanded\} \/>/);
+  assert.match(newUiLayout, /setExpandedSection\(\(current\) => current === section\.id \? null : section\.id\)/);
+  assert.match(newUiLayout, /expanded \? <path d="M4\.4 9\.7 8 6\.1l3\.6 3\.6" \/> : <path d="M6\.1 4\.4 9\.7 8l-3\.6 3\.6" \/>/);
+  assert.doesNotMatch(newUiLayout, /onPointerEnter=\{\(\) => setExpandedSection/);
   assert.match(newUiLayout, /aria-current=\{isActive \? "page" : undefined\}/);
   assert.match(newUiLayout, /aria-current=\{isChildActive \? "page" : undefined\}/);
   assert.match(newUiLayout, /data-active-section=\{activeSection\}/);
@@ -183,7 +186,8 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayoutCss, /\.new-ui-sidebar-nav/);
   assert.match(newUiLayoutCss, /\.new-ui-sidebar-nav-group/);
   assert.match(newUiLayoutCss, /\.new-ui-sidebar-nav-item\.is-active/);
-  assert.match(newUiLayoutCss, /\.new-ui-sidebar-expand-icon/);
+  assert.match(newUiLayoutCss, /\.new-ui-sidebar-expand-indicator/);
+  assert.match(newUiLayoutCss, /\.new-ui-sidebar-expand-indicator svg/);
   assert.match(newUiLayoutCss, /\.new-ui-sidebar-subnav/);
   assert.match(newUiLayoutCss, /\.new-ui-sidebar-subnav-item/);
   assert.doesNotMatch(newUiLayoutCss, /\.new-ui-sidebar-subnav-icon/);
