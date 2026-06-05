@@ -182,7 +182,7 @@ export function TimelinePlayhead(props: TimelinePlayheadProps) {
           onPointerCancel={finishScrub}
         >
           <span ref={labelRef} className="timeline-playhead-time">
-            00:00
+            0s
           </span>
         </button>
         <span className="timeline-playhead-line" aria-hidden="true" />

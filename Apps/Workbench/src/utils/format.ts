@@ -6,11 +6,7 @@ export function createId(prefix: string): string {
 }
 
 export function formatTime(value: number | undefined | null): string {
-  if (!Number.isFinite(value)) return "00:00";
-  const safeValue = Number(value);
-  const minutes = Math.floor(safeValue / 60).toString().padStart(2, "0");
-  const seconds = Math.floor(safeValue % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
+  return formatSecondsCompact(value);
 }
 
 export function formatSecondsCompact(value: number | undefined | null): string {

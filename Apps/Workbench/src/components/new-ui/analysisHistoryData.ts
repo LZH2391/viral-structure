@@ -1,6 +1,7 @@
 import { getSampleArtifact, runtimeUrl } from "../../api/client";
 import { listPlatformResources, type PlatformResourceSummary } from "../../api/platformClient";
 import type { SampleArtifact } from "../../types";
+import { formatSecondsCompact } from "../../utils/format";
 
 export type AnalysisHistoryArtifactStatus = "pending" | "ready" | "failed";
 
@@ -75,7 +76,7 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
     coverUrl: runtimeUrl(coverUri),
     videoUrl: runtimeUrl(videoUri),
     ratioLabel,
-    durationLabel: formatDuration(duration) ?? "0:00",
+    durationLabel: formatDuration(duration),
     relativeDateLabel: formatRelativeDate(item.sample.updatedAt ?? item.sample.createdAt),
     badgeLabel,
   };
@@ -92,11 +93,7 @@ function timestampValue(value: string | null | undefined) {
 }
 
 function formatDuration(seconds: number | null) {
-  if (!seconds) return null;
-  const total = Math.max(1, Math.round(seconds));
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
+  return formatSecondsCompact(seconds);
 }
 
 function formatRelativeDate(value: string | null | undefined) {

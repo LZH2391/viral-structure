@@ -197,18 +197,30 @@
   --new-ui-timeline-border-strong: color-mix(in srgb, var(--new-ui-text-muted) 34%, var(--new-ui-border));
   --new-ui-timeline-border: color-mix(in srgb, var(--new-ui-text-muted) 26%, var(--new-ui-border));
   --new-ui-timeline-grid: color-mix(in srgb, var(--new-ui-text-muted) 18%, transparent);
-  --new-ui-timeline-nav: color-mix(in srgb, #7aa8ff 82%, var(--new-ui-text));
+  --new-ui-timeline-nav: color-mix(in srgb, var(--new-ui-text) 78%, var(--new-ui-bg));
+  --new-ui-analysis-nav-left: 0%;
+  --new-ui-analysis-lane-edge-gap: 12px;
+  --new-ui-analysis-block-gap: 2px;
   align-self: stretch;
   width: 100%;
   height: 100%;
   display: grid;
-  grid-template-rows: 58px 34px minmax(0, 1fr);
+  grid-template-rows: 58px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--new-ui-timeline-border-strong);
   border-radius: 8px;
   background: var(--new-ui-timeline-panel);
+}
+
+.new-ui-analysis-timeline-body {
+  position: relative;
+  display: grid;
+  grid-template-rows: 34px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .new-ui-analysis-timeline-header {
@@ -257,6 +269,12 @@
   overflow: hidden;
   background: var(--new-ui-timeline-panel-muted);
   cursor: crosshair;
+}
+
+.new-ui-analysis-timeline-lane-scale {
+  position: absolute;
+  inset: 0 var(--new-ui-analysis-lane-edge-gap);
+  min-width: 0;
 }
 
 .new-ui-analysis-timeline-ruler-lane span {
@@ -339,14 +357,6 @@
   cursor: crosshair;
 }
 
-.new-ui-analysis-timeline-lane::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to right, transparent 0 calc(20% - 1px), var(--new-ui-timeline-grid) calc(20% - 1px) 20%, transparent 20% calc(40% - 1px), var(--new-ui-timeline-grid) calc(40% - 1px) 40%, transparent 40% calc(60% - 1px), var(--new-ui-timeline-grid) calc(60% - 1px) 60%, transparent 60% calc(80% - 1px), var(--new-ui-timeline-grid) calc(80% - 1px) 80%, transparent 80%);
-  pointer-events: none;
-}
-
 .new-ui-analysis-timeline-block {
   position: absolute;
   top: 9px;
@@ -354,7 +364,8 @@
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  min-width: 32px;
+  max-width: calc(100% - var(--new-ui-analysis-block-gap));
+  min-width: min(32px, calc(100% - var(--new-ui-analysis-block-gap)));
   overflow: hidden;
   border-radius: 4px;
   color: color-mix(in srgb, var(--new-ui-text) 84%, white);
@@ -366,55 +377,105 @@
   white-space: nowrap;
 }
 
-.new-ui-analysis-timeline-nav-line {
+.new-ui-analysis-timeline-playhead-layer {
   position: absolute;
-  left: 0;
   top: 0;
+  right: 0;
   bottom: 0;
+  left: 94px;
   z-index: 4;
-  width: 0;
   pointer-events: none;
-  transform: translateX(-0.5px);
 }
 
-.new-ui-analysis-timeline-nav-line::before {
-  content: "";
+.new-ui-analysis-timeline-playhead-scale {
   position: absolute;
-  left: 0;
+  inset: 0 var(--new-ui-analysis-lane-edge-gap);
+  min-width: 0;
+}
+
+.new-ui-analysis-timeline-playhead {
+  position: absolute;
+  left: var(--new-ui-analysis-nav-left);
   top: 0;
   bottom: 0;
-  width: 1px;
-  background: var(--new-ui-timeline-nav);
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--new-ui-timeline-nav);
+  cursor: grab;
+  pointer-events: auto;
+  transform: translateX(-9px);
+  transition:
+    color 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
 }
 
-.new-ui-analysis-timeline-nav-line::after {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 7px;
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--new-ui-timeline-nav);
-  border-radius: 50%;
-  background: var(--new-ui-timeline-panel);
-  box-shadow: 0 0 0 2px color-mix(in srgb, #7aa8ff 18%, transparent);
-}
-
-.new-ui-analysis-timeline-ruler-lane .new-ui-analysis-timeline-nav-line {
-  top: 0;
-  transform: translateX(-0.5px);
-}
-
-.new-ui-analysis-timeline-ruler-lane .new-ui-analysis-timeline-nav-line::before {
-  top: 0;
+.new-ui-analysis-timeline-playhead-line-svg {
+  display: block;
+  width: 18px;
   height: 100%;
-  background: var(--new-ui-timeline-nav);
+  overflow: visible;
 }
 
-.new-ui-analysis-timeline-ruler-lane .new-ui-analysis-timeline-nav-line::after {
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--new-ui-timeline-panel-muted);
+.new-ui-analysis-timeline-playhead-handle-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: block;
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+}
+
+.new-ui-analysis-timeline-playhead-handle {
+  fill: color-mix(in srgb, var(--new-ui-timeline-panel) 72%, transparent);
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.new-ui-analysis-timeline-playhead-line {
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.new-ui-analysis-timeline-playhead:hover,
+.new-ui-analysis-timeline-playhead:focus-visible {
+  outline: 0;
+  transform: translateX(-9px) scaleX(1.08);
+}
+
+.new-ui-analysis-timeline-playhead:hover .new-ui-analysis-timeline-playhead-line,
+.new-ui-analysis-timeline-playhead:focus-visible .new-ui-analysis-timeline-playhead-line {
+  stroke-width: 2.8;
+}
+
+.new-ui-analysis-timeline-playhead:hover .new-ui-analysis-timeline-playhead-handle,
+.new-ui-analysis-timeline-playhead:focus-visible .new-ui-analysis-timeline-playhead-handle {
+  stroke-width: 2.8;
+}
+
+.new-ui-analysis-timeline-playhead:active {
+  cursor: grabbing;
+  transform: translateX(-9px) scaleX(1.08);
+}
+
+.new-ui-analysis-timeline-playhead.is-dragging {
+  cursor: grabbing;
+  transform: translateX(-9px) scaleX(1.08);
+}
+
+.new-ui-analysis-timeline-playhead:active .new-ui-analysis-timeline-playhead-line,
+.new-ui-analysis-timeline-playhead:active .new-ui-analysis-timeline-playhead-handle,
+.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-line,
+.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-handle {
+  stroke-width: 2.8;
 }
 
 .new-ui-analysis-timeline-row.is-shot .new-ui-analysis-timeline-block {
@@ -819,6 +880,10 @@
 .new-ui-analysis-workflow {
   --new-ui-analysis-divider-strong: color-mix(in srgb, var(--new-ui-text-muted) 34%, var(--new-ui-border));
   --new-ui-analysis-divider: color-mix(in srgb, var(--new-ui-text-muted) 26%, var(--new-ui-border));
+  --new-ui-analysis-workflow-active-bg: color-mix(in srgb, var(--new-ui-text) 13%, var(--new-ui-surface));
+  --new-ui-analysis-workflow-active-border: color-mix(in srgb, var(--new-ui-control-border) 92%, transparent);
+  --new-ui-analysis-workflow-active-subtle-bg: color-mix(in srgb, var(--new-ui-text) 9%, var(--new-ui-surface));
+  --new-ui-analysis-workflow-active-subtle-border: color-mix(in srgb, var(--new-ui-control-border) 72%, transparent);
   display: grid;
   grid-template-rows: auto minmax(260px, 1fr);
   align-content: start;
@@ -932,9 +997,9 @@
   grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  width: min(100%, 420px);
   min-width: 0;
-  padding: 8px 8px 9px 0;
+  padding: 8px 10px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
@@ -964,8 +1029,11 @@
 }
 
 .new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-step-button {
-  background: color-mix(in srgb, #75a9e8 8%, var(--new-ui-surface));
-  border-color: color-mix(in srgb, #75a9e8 34%, var(--new-ui-border));
+  background: var(--new-ui-analysis-workflow-active-bg);
+  border-color: var(--new-ui-analysis-workflow-active-border);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--new-ui-control-text) 10%, transparent),
+    0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 46%, transparent);
 }
 
 .new-ui-analysis-workflow-step-copy {
@@ -1050,7 +1118,7 @@
 .new-ui-analysis-workflow-step-button:hover .new-ui-analysis-workflow-affordance,
 .new-ui-analysis-workflow-step-button:focus-visible .new-ui-analysis-workflow-affordance,
 .new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-affordance {
-  color: color-mix(in srgb, #75a9e8 86%, var(--new-ui-text));
+  color: var(--new-ui-text);
   opacity: 1;
   transform: translateX(0);
 }
@@ -1059,6 +1127,7 @@
   display: flex;
   gap: 8px;
   min-width: 0;
+  max-width: 510px;
   margin-top: 6px;
 }
 
@@ -1098,8 +1167,8 @@
 .new-ui-analysis-workflow-parallel-item:focus-visible,
 .new-ui-analysis-workflow-parallel-item.is-selected {
   opacity: 1;
-  border-color: color-mix(in srgb, #75a9e8 38%, var(--new-ui-border));
-  background: color-mix(in srgb, #75a9e8 9%, var(--new-ui-surface));
+  border-color: var(--new-ui-analysis-workflow-active-subtle-border);
+  background: var(--new-ui-analysis-workflow-active-subtle-bg);
   transform: translateY(-1px);
 }
 

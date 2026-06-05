@@ -274,7 +274,7 @@ export function PreviewPanel(props: PreviewPanelProps) {
 }
 
 function AudioTime({ audioRef }: { audioRef: RefObject<HTMLAudioElement> }) {
-  const [time, setTime] = useState("00:00 / 00:00");
+  const [time, setTime] = useState("0s / 0s");
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return undefined;
