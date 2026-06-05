@@ -2,6 +2,15 @@ import { useState, type ReactNode } from "react";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 
 type WorkflowStageStatus = "done" | "running" | "waiting" | "blocked";
+type WorkflowStageKey =
+  | "upload"
+  | "shotBoundary"
+  | "structureAnalysis"
+  | "scriptSegment"
+  | "rhythmStructure"
+  | "packagingStructure"
+  | "functionSlotAtomization"
+  | "aggregate";
 
 export type AnalysisDetailSidebarState = {
   visible: boolean;
@@ -14,7 +23,7 @@ type AnalysisWorkflowSidebarProps = {
 };
 
 type WorkflowStage = {
-  key: string;
+  key: WorkflowStageKey;
   label: string;
   moduleLabel: string;
   dependencyLabel: string;
@@ -35,35 +44,38 @@ export function AnalysisWorkflowSidebar({ detail }: AnalysisWorkflowSidebarProps
   const stages = resolveWorkflowStages(detail.item);
   const [upload, shotBoundary, scriptSegment, rhythmStructure, packagingStructure, atomization, aggregate] = stages;
   const structureStatus = resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
-  const [selectedStageKey, setSelectedStageKey] = useState<string | null>(null);
+  const [selectedStageKey, setSelectedStageKey] = useState<WorkflowStageKey>("upload");
 
   return (
     <section className="new-ui-analysis-workflow" aria-label="完整分析总览">
-      <div className="new-ui-analysis-workflow-title">分析流程</div>
-      <ol className="new-ui-analysis-workflow-list">
-        <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedStageKey === upload.key} onSelect={setSelectedStageKey} />
-        <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedStageKey === shotBoundary.key} onSelect={setSelectedStageKey} />
-        <WorkflowStep
-          stage={{
-            key: "structureAnalysis",
-            label: "结构分析",
-            moduleLabel: "",
-            dependencyLabel: "",
-            status: structureStatus,
-          }}
-          connectorDone={structureStatus === "done"}
-          selected={selectedStageKey === "structureAnalysis"}
-          onSelect={setSelectedStageKey}
-        >
-          <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
-            <ParallelStage stage={scriptSegment} selected={selectedStageKey === scriptSegment.key} onSelect={setSelectedStageKey} />
-            <ParallelStage stage={rhythmStructure} selected={selectedStageKey === rhythmStructure.key} onSelect={setSelectedStageKey} />
-            <ParallelStage stage={packagingStructure} selected={selectedStageKey === packagingStructure.key} onSelect={setSelectedStageKey} />
-          </div>
-        </WorkflowStep>
-        <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedStageKey === atomization.key} onSelect={setSelectedStageKey} />
-        <WorkflowStep stage={aggregate} isLast selected={selectedStageKey === aggregate.key} onSelect={setSelectedStageKey} />
-      </ol>
+      <div className="new-ui-analysis-workflow-flow">
+        <h2 className="new-ui-analysis-workflow-title">分析流程</h2>
+        <ol className="new-ui-analysis-workflow-list">
+          <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedStageKey === upload.key} onSelect={setSelectedStageKey} />
+          <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedStageKey === shotBoundary.key} onSelect={setSelectedStageKey} />
+          <WorkflowStep
+            stage={{
+              key: "structureAnalysis",
+              label: "结构分析",
+              moduleLabel: "",
+              dependencyLabel: "",
+              status: structureStatus,
+            }}
+            connectorDone={structureStatus === "done"}
+            selected={selectedStageKey === "structureAnalysis"}
+            onSelect={setSelectedStageKey}
+          >
+            <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
+              <ParallelStage stage={scriptSegment} selected={selectedStageKey === scriptSegment.key} onSelect={setSelectedStageKey} />
+              <ParallelStage stage={rhythmStructure} selected={selectedStageKey === rhythmStructure.key} onSelect={setSelectedStageKey} />
+              <ParallelStage stage={packagingStructure} selected={selectedStageKey === packagingStructure.key} onSelect={setSelectedStageKey} />
+            </div>
+          </WorkflowStep>
+          <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedStageKey === atomization.key} onSelect={setSelectedStageKey} />
+          <WorkflowStep stage={aggregate} isLast selected={selectedStageKey === aggregate.key} onSelect={setSelectedStageKey} />
+        </ol>
+      </div>
+      <WorkflowDetailPanel selectedStageKey={selectedStageKey} />
     </section>
   );
 }
@@ -80,7 +92,7 @@ function WorkflowStep({
   connectorDone?: boolean;
   isLast?: boolean;
   selected: boolean;
-  onSelect: (stageKey: string) => void;
+  onSelect: (stageKey: WorkflowStageKey) => void;
   children?: ReactNode;
 }) {
   return (
@@ -113,7 +125,7 @@ function WorkflowStep({
   );
 }
 
-function ParallelStage({ stage, selected, onSelect }: { stage: WorkflowStage; selected: boolean; onSelect: (stageKey: string) => void }) {
+function ParallelStage({ stage, selected, onSelect }: { stage: WorkflowStage; selected: boolean; onSelect: (stageKey: WorkflowStageKey) => void }) {
   return (
     <button
       className={`new-ui-analysis-workflow-parallel-item is-${stage.status} ${selected ? "is-selected" : ""}`.trim()}
@@ -127,6 +139,15 @@ function ParallelStage({ stage, selected, onSelect }: { stage: WorkflowStage; se
         <span>{stage.label}</span>
       </span>
     </button>
+  );
+}
+
+function WorkflowDetailPanel({ selectedStageKey }: { selectedStageKey: WorkflowStageKey }) {
+  return (
+    <section className="new-ui-analysis-workflow-detail" aria-label={`${stageTitle(selectedStageKey)}详情区域`} data-selected-stage={selectedStageKey}>
+      <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
+      <div className="new-ui-analysis-workflow-detail-content" />
+    </section>
   );
 }
 
@@ -212,6 +233,17 @@ function statusLabel(status: WorkflowStageStatus) {
   if (status === "running") return "处理中";
   if (status === "blocked") return "等待依赖";
   return "等待中";
+}
+
+function stageTitle(stageKey: WorkflowStageKey) {
+  if (stageKey === "upload") return "上传素材";
+  if (stageKey === "shotBoundary") return "切镜";
+  if (stageKey === "structureAnalysis") return "结构分析";
+  if (stageKey === "scriptSegment") return "脚本段落";
+  if (stageKey === "rhythmStructure") return "节奏结构";
+  if (stageKey === "packagingStructure") return "包装结构";
+  if (stageKey === "functionSlotAtomization") return "功能槽位原子化";
+  return "汇总";
 }
 
 function isRunningStatus(status: string | null | undefined) {

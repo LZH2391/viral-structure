@@ -57,20 +57,21 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     title: "新建分析",
     item: null,
   });
+  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible;
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: NEW_UI_THREE_PANE_STORAGE_KEY,
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
-    defaultRight: 320,
+    defaultRight: showAnalysisWorkflow ? 420 : 320,
     minLeft: 0,
     maxLeft: Number.POSITIVE_INFINITY,
     minCenter: 420,
-    minRight: 0,
+    minRight: showAnalysisWorkflow ? 420 : 0,
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
-    rightRatio: { min: 0.1, max: 0.3 },
+    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : { min: 0.1, max: 0.3 },
   });
 
   useEffect(() => {
@@ -90,8 +91,6 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const toggleLeftCollapsed = () => {
     setLeftCollapsed((value) => !value);
   };
-
-  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible;
 
   return (
     <section

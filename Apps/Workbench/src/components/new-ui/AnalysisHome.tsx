@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
@@ -76,6 +76,7 @@ function AnalysisDetailPage({
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [timelineCurrentTime, setTimelineCurrentTime] = useState(0);
   const orientation = media?.orientation ?? "landscape";
 
   useEffect(() => {
@@ -83,6 +84,21 @@ function AnalysisDetailPage({
       videoRef.current?.pause();
     }
   }, [hidden]);
+
+  useEffect(() => {
+    setTimelineCurrentTime(0);
+  }, [item?.sample.resourceId, media?.videoUrl]);
+
+  const seekTimeline = (time: number) => {
+    const nextTime = Math.max(0, time);
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = Math.min(nextTime, Number.isFinite(video.duration) ? video.duration : nextTime);
+      setTimelineCurrentTime(video.currentTime);
+      return;
+    }
+    setTimelineCurrentTime(nextTime);
+  };
 
   return (
     <section className={`new-ui-analysis-detail ${hidden ? "is-hidden" : ""}`.trim()} aria-hidden={hidden} aria-label="分析详情">
@@ -106,13 +122,16 @@ function AnalysisDetailPage({
                 controls
                 playsInline
                 preload="metadata"
+                onLoadedMetadata={(event) => setTimelineCurrentTime(event.currentTarget.currentTime)}
+                onSeeking={(event) => setTimelineCurrentTime(event.currentTarget.currentTime)}
+                onTimeUpdate={(event) => setTimelineCurrentTime(event.currentTarget.currentTime)}
               />
             ) : (
               <div className="new-ui-analysis-player-empty" aria-hidden="true" />
             )}
           </div>
         </div>
-        <AnalysisTimelineTracks item={item} />
+        <AnalysisTimelineTracks item={item} currentTime={timelineCurrentTime} onSeek={seekTimeline} />
       </div>
     </section>
   );
@@ -134,32 +153,57 @@ type AnalysisTimelineTrack = {
   blocks: AnalysisTimelineBlock[];
 };
 
-function AnalysisTimelineTracks({ item }: { item: AnalysisHistoryItem | null }) {
+function AnalysisTimelineTracks({ item, currentTime, onSeek }: { item: AnalysisHistoryItem | null; currentTime: number; onSeek: (time: number) => void }) {
   const { duration, tracks } = resolveAnalysisTimelineTracks(item);
+  const ticks = resolveTimelineTicks(duration);
+  const shotCount = tracks.find((track) => track.key === "shot")?.blocks.length ?? 0;
+  const navigationLineStyle = timelineNavigationLineStyle(currentTime, duration);
+
+  const seekFromLane = (event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const time = resolveTimelinePointerTime(event, duration);
+    onSeek(time);
+  };
 
   return (
     <section className="new-ui-analysis-timeline" aria-label="分析轨道">
-      {tracks.map((track) => (
-        <div key={track.key} className={`new-ui-analysis-timeline-row is-${track.key}`}>
-          <div className="new-ui-analysis-timeline-label">{track.label}</div>
-          <div className="new-ui-analysis-timeline-lane">
-            {track.blocks.length ? (
-              track.blocks.map((block) => (
-                <span
-                  key={block.id}
-                  className="new-ui-analysis-timeline-block"
-                  style={timelineBlockStyle(block, duration)}
-                  title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
-                >
-                  {block.label}
-                </span>
-              ))
-            ) : (
-              <span className="new-ui-analysis-timeline-empty">{track.emptyLabel}</span>
-            )}
-          </div>
+      <header className="new-ui-analysis-timeline-header">
+        <h2>时间轴</h2>
+        <span>{formatTimelineTime(duration)} · {shotCount} 镜头</span>
+      </header>
+      <div className="new-ui-analysis-timeline-ruler" aria-hidden="true">
+        <div className="new-ui-analysis-timeline-ruler-label">时间轨</div>
+        <div className="new-ui-analysis-timeline-ruler-lane" onPointerDown={seekFromLane}>
+          {ticks.map((tick) => (
+            <span key={tick} style={timelineTickStyle(tick, duration)}>{formatTimelineTick(tick)}</span>
+          ))}
+          <span className="new-ui-analysis-timeline-nav-line" style={navigationLineStyle} />
         </div>
-      ))}
+      </div>
+      <div className="new-ui-analysis-timeline-rows">
+        {tracks.map((track) => (
+          <div key={track.key} className={`new-ui-analysis-timeline-row is-${track.key}`}>
+            <div className="new-ui-analysis-timeline-label">{track.label}</div>
+            <div className="new-ui-analysis-timeline-lane" onPointerDown={seekFromLane}>
+              {track.blocks.length ? (
+                track.blocks.map((block) => (
+                  <span
+                    key={block.id}
+                    className="new-ui-analysis-timeline-block"
+                    style={timelineBlockStyle(block, duration)}
+                    title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+                  >
+                    {block.label}
+                  </span>
+                ))
+              ) : (
+                <span className="new-ui-analysis-timeline-empty">{track.emptyLabel}</span>
+              )}
+              <span className="new-ui-analysis-timeline-nav-line" style={navigationLineStyle} />
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -255,6 +299,25 @@ function timelineBlockStyle(block: AnalysisTimelineBlock, duration: number): CSS
   };
 }
 
+function timelineTickStyle(tick: number, duration: number): CSSProperties {
+  return {
+    left: `${clampTimelinePercent((tick / duration) * 100)}%`,
+  };
+}
+
+function timelineNavigationLineStyle(currentTime: number, duration: number): CSSProperties {
+  return {
+    left: `${clampTimelinePercent((positiveTimelineNumber(currentTime) / duration) * 100)}%`,
+  };
+}
+
+function resolveTimelinePointerTime(event: PointerEvent<HTMLElement>, duration: number) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (!rect.width) return 0;
+  const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  return duration * ratio;
+}
+
 function maxTimelineEnd(blocks: AnalysisTimelineBlock[]) {
   return blocks.reduce((max, block) => Math.max(max, positiveTimelineNumber(block.end)), 0);
 }
@@ -268,8 +331,21 @@ function clampTimelinePercent(value: number) {
   return Math.min(100, Math.max(0, value));
 }
 
+function resolveTimelineTicks(duration: number) {
+  const end = Math.max(5, Math.ceil(duration / 5) * 5);
+  const ticks: number[] = [];
+  for (let second = 0; second <= end; second += 5) {
+    ticks.push(second);
+  }
+  return ticks;
+}
+
 function formatTimelineTime(value: number) {
   const seconds = Math.max(0, Math.round(value));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function formatTimelineTick(value: number) {
+  return `${Math.max(0, Math.round(value))}s`;
 }
