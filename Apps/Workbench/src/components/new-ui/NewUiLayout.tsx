@@ -32,6 +32,13 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
   { id: "restructure", label: "重组" },
 ];
 
+const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
+
+type NewUiThreePanePreference = {
+  leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+};
+
 type NewUiLayoutProps = {
   theme: NewUiTheme;
   onThemeChange: (theme: NewUiTheme) => void;
@@ -40,13 +47,13 @@ type NewUiLayoutProps = {
 
 export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
   const layoutRef = useRef<HTMLElement>(null);
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
+  const [rightCollapsed, setRightCollapsed] = useState(() => readStoredBooleanPreference("rightCollapsed", false));
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
-    storageKey: "new-ui:three-pane-layout",
+    storageKey: NEW_UI_THREE_PANE_STORAGE_KEY,
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
@@ -64,12 +71,12 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     onLeftCollapsedChange?.(leftCollapsed);
   }, [leftCollapsed, onLeftCollapsedChange]);
 
+  useEffect(() => {
+    writeStoredLayoutPreference({ leftCollapsed, rightCollapsed });
+  }, [leftCollapsed, rightCollapsed]);
+
   const toggleLeftCollapsed = () => {
-    setLeftCollapsed((value) => {
-      const next = !value;
-      onLeftCollapsedChange?.(next);
-      return next;
-    });
+    setLeftCollapsed((value) => !value);
   };
 
   return (
@@ -125,6 +132,25 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       </aside>
     </section>
   );
+}
+
+function readStoredBooleanPreference(key: keyof NewUiThreePanePreference, fallback: boolean) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(NEW_UI_THREE_PANE_STORAGE_KEY) ?? "null");
+    return typeof parsed?.[key] === "boolean" ? parsed[key] : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredLayoutPreference(preference: NewUiThreePanePreference) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(NEW_UI_THREE_PANE_STORAGE_KEY) ?? "null");
+    const current = parsed && typeof parsed === "object" ? parsed : {};
+    window.localStorage.setItem(NEW_UI_THREE_PANE_STORAGE_KEY, JSON.stringify({ ...current, ...preference }));
+  } catch {
+    // Local layout preference is non-critical.
+  }
 }
 
 type SidebarNavProps = {

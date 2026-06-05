@@ -93,12 +93,20 @@ function AnalysisHistoryCard({ item }: { item: AnalysisHistoryItem }) {
       <div className="new-ui-analysis-history-media">
         {media.coverUrl ? <img src={media.coverUrl} alt="" loading="lazy" decoding="async" /> : <div className="new-ui-analysis-history-placeholder" aria-hidden="true" />}
         {previewing && media.videoUrl ? <video ref={videoRef} src={media.videoUrl} muted loop playsInline preload="none" aria-hidden="true" /> : null}
+        <span className={`new-ui-analysis-history-badge new-ui-analysis-history-badge-${badgeClass(media.badgeLabel)}`}>{media.badgeLabel}</span>
+        <span className="new-ui-analysis-history-duration">{media.durationLabel}</span>
         <span className="new-ui-analysis-history-ratio">{media.ratioLabel}</span>
       </div>
       <div className="new-ui-analysis-history-meta">
         <span className="new-ui-analysis-history-name">{media.title}</span>
-        <span className="new-ui-analysis-history-detail">{media.detail}</span>
+        <span className="new-ui-analysis-history-detail">{media.relativeDateLabel}</span>
       </div>
     </article>
   );
+}
+
+function badgeClass(label: "素材识别" | "样例分析" | "分析中") {
+  if (label === "素材识别") return "material";
+  if (label === "样例分析") return "sample";
+  return "pending";
 }

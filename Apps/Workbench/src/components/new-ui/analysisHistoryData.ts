@@ -16,7 +16,9 @@ export type AnalysisHistoryMedia = {
   coverUrl: string | null;
   videoUrl: string | null;
   ratioLabel: "16:9" | "9:16";
-  detail: string;
+  durationLabel: string;
+  relativeDateLabel: string;
+  badgeLabel: "素材识别" | "样例分析" | "分析中";
 };
 
 export async function listAnalysisHistorySamples(limit = 12): Promise<AnalysisHistoryItem[]> {
@@ -53,10 +55,11 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
   const height = positiveNumber(artifact?.metadata.height ?? item.sample.summary?.height);
   const duration = positiveNumber(artifact?.metadata.durationSeconds ?? item.sample.summary?.durationSeconds);
   const orientation = width && height && height > width ? "portrait" : "landscape";
-  const title = artifact?.sampleVideo.original.summary ?? item.sample.label ?? item.sample.resourceId;
+  const title = normalizeMediaTitle(artifact?.sampleVideo.original.summary ?? item.sample.label ?? item.sample.resourceId);
   const coverUri = artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null;
   const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null;
   const ratioLabel = orientation === "portrait" ? "9:16" : "16:9";
+  const badgeLabel = resolveHistoryBadge(item);
 
   return {
     title,
@@ -64,7 +67,9 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
     coverUrl: runtimeUrl(coverUri),
     videoUrl: runtimeUrl(videoUri),
     ratioLabel,
-    detail: [formatDuration(duration), ratioLabel, item.artifactStatus === "pending" ? "封面加载中" : null].filter(Boolean).join(" / "),
+    durationLabel: formatDuration(duration) ?? "0:00",
+    relativeDateLabel: formatRelativeDate(item.sample.updatedAt ?? item.sample.createdAt),
+    badgeLabel,
   };
 }
 
@@ -84,4 +89,32 @@ function formatDuration(seconds: number | null) {
   const minutes = Math.floor(total / 60);
   const rest = total % 60;
   return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
+function formatRelativeDate(value: string | null | undefined) {
+  const timestamp = Date.parse(value ?? "");
+  if (!Number.isFinite(timestamp)) return "时间未知";
+  const diffDays = dayDiff(new Date(), new Date(timestamp));
+  if (diffDays <= 0) return "今天";
+  if (diffDays === 1) return "昨天";
+  return `${diffDays}天前`;
+}
+
+function dayDiff(a: Date, b: Date) {
+  const startA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const startB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((startA - startB) / 86400000);
+}
+
+function normalizeMediaTitle(value: string) {
+  return value
+    .replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, "")
+    .trim();
+}
+
+function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "样例分析" | "分析中" {
+  if (item.artifactStatus !== "ready") return "分析中";
+  if (item.artifact?.functionSlotAtomizationAnalysis) return "样例分析";
+  if (item.artifact?.userMaterialPack) return "素材识别";
+  return "样例分析";
 }

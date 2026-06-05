@@ -9,6 +9,11 @@ type ThreePaneLayout = {
   right: number;
 };
 
+type StoredThreePaneLayout = Partial<ThreePaneLayout> & {
+  leftRatio?: number;
+  rightRatio?: number;
+};
+
 type ResizeKind = "left" | "right";
 
 type DragState = {
@@ -96,11 +101,15 @@ export function useResizableThreePaneLayout({
 
   const saveLayout = useCallback((layout: ThreePaneLayout) => {
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify(layout));
+      window.localStorage.setItem(storageKey, JSON.stringify({
+        ...readStoredLayoutPreference(storageKey),
+        ...layout,
+        ...layoutRatios(containerRef.current, layout),
+      }));
     } catch {
       // Local layout preference is non-critical.
     }
-  }, [storageKey]);
+  }, [containerRef, storageKey]);
 
   const resetSize = useCallback((kind: ResizeKind) => {
     const current = layoutRef.current;
@@ -131,8 +140,8 @@ export function useResizableThreePaneLayout({
   }, []);
 
   useEffect(() => {
-    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight));
-  }, [applyLayout, defaultLeft, defaultRight, storageKey]);
+    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight, containerRef.current));
+  }, [applyLayout, containerRef, defaultLeft, defaultRight, storageKey]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
@@ -176,20 +185,47 @@ export function useResizableThreePaneLayout({
   return { startResize, resetSize, nudgeSize };
 }
 
-function readStoredLayout(storageKey: string, defaultLeft: number, defaultRight: number): ThreePaneLayout {
+function readStoredLayout(storageKey: string, defaultLeft: number, defaultRight: number, container: HTMLElement | null): ThreePaneLayout {
+  const stored = readStoredLayoutPreference(storageKey);
+  const availableWidth = availableContentWidth(container);
+  const leftFromRatio = ratioPixels(availableWidth, stored.leftRatio, Number.NaN);
+  const rightFromRatio = ratioPixels(availableWidth, stored.rightRatio, Number.NaN);
+  return {
+    left: finiteNumber(leftFromRatio) ?? finiteNumber(stored.left) ?? defaultLeft,
+    right: finiteNumber(rightFromRatio) ?? finiteNumber(stored.right) ?? defaultRight,
+  };
+}
+
+function readStoredLayoutPreference(storageKey: string): StoredThreePaneLayout {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "null");
-    return {
-      left: Number(parsed?.left ?? defaultLeft),
-      right: Number(parsed?.right ?? defaultRight),
-    };
+    return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
-    return { left: defaultLeft, right: defaultRight };
+    return {};
   }
 }
 
 function ratioPixels(width: number, ratio: number | undefined, fallback: number) {
   return ratio && width > 0 ? width * ratio : fallback;
+}
+
+function layoutRatios(container: HTMLElement | null, layout: ThreePaneLayout) {
+  const availableWidth = availableContentWidth(container);
+  if (availableWidth <= 0) return {};
+  return {
+    leftRatio: layout.left / availableWidth,
+    rightRatio: layout.right / availableWidth,
+  };
+}
+
+function availableContentWidth(container: HTMLElement | null) {
+  const containerWidth = container?.getBoundingClientRect().width ?? 0;
+  return Math.max(0, containerWidth - TOTAL_SPLITTER_WIDTH);
+}
+
+function finiteNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function clamp(value: number, min: number, max: number) {
