@@ -58,6 +58,32 @@ export type PlatformResourceSummary = {
   };
 };
 
+export type AnalysisHistoryProjectionItem = {
+  sampleVideoId: string;
+  title: string | null;
+  status: string | null;
+  updatedAt: string | null;
+  createdAt: string | null;
+  artifactId: string | null;
+  traceId: string | null;
+  runId: string | null;
+  stageId: string | null;
+  durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
+  coverUri: string | null;
+  videoUri: string | null;
+  hasFunctionSlotAtomization: boolean;
+  hasUserMaterialPack: boolean;
+  isRunning: boolean;
+};
+
+export type AnalysisHistoryProjectionSummary = {
+  schemaVersion: "analysis_history_projection.v1" | string;
+  generatedAt: string | null;
+  items: AnalysisHistoryProjectionItem[];
+};
+
 export type PlatformResourceListResponse = {
   schemaVersion: "platform_resource_list.v1" | string;
   resourceKind: PlatformResourceKind;
@@ -243,6 +269,12 @@ export async function listPlatformResources(resourceKind: PlatformResourceKind) 
 export async function getPlatformResource(resourceKind: PlatformResourceKind, resourceId: string) {
   return readJsonResponse<PlatformResourceSummary>(
     await fetch(`${API_BASE_URL}/api/platform/v1/resources/${encodeURIComponent(resourceKind)}/${encodeURIComponent(resourceId)}`, { cache: "no-store" }),
+  );
+}
+
+export async function getAnalysisHistoryProjection() {
+  return readJsonResponse<PlatformResourceSummary & { summary: AnalysisHistoryProjectionSummary }>(
+    await fetch(`${API_BASE_URL}/api/platform/v1/resources/projection/analysis-history`, { cache: "no-store" }),
   );
 }
 

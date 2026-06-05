@@ -151,6 +151,7 @@ export type ShotBoundaryAnalysisArtifact = {
     representativeFrameId: string;
     confidence: number;
     reason: string | null;
+    needReview?: boolean | null;
     summary?: string | null;
     endBoundaryReason?: string | null;
   }>;

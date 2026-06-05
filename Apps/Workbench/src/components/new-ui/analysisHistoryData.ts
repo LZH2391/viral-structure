@@ -1,14 +1,10 @@
-import { getSampleArtifact, runtimeUrl } from "../../api/client";
-import { listPlatformResources, type PlatformResourceSummary } from "../../api/platformClient";
+import { runtimeUrl } from "../../api/client";
+import { getAnalysisHistoryProjection, type AnalysisHistoryProjectionItem } from "../../api/platformClient";
 import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 
-export type AnalysisHistoryArtifactStatus = "pending" | "ready" | "failed";
-
-export type AnalysisHistoryItem = {
-  sample: PlatformResourceSummary;
-  artifact: SampleArtifact | null;
-  artifactStatus: AnalysisHistoryArtifactStatus;
+export type AnalysisHistoryItem = AnalysisHistoryProjectionItem & {
+  artifact?: SampleArtifact | null;
 };
 
 export type AnalysisHistoryMedia = {
@@ -22,51 +18,55 @@ export type AnalysisHistoryMedia = {
   badgeLabel: "素材识别" | "样例分析" | "分析中";
 };
 
-export async function listAnalysisHistorySamples(limit?: number): Promise<AnalysisHistoryItem[]> {
-  const response = await listPlatformResources("sample");
-  const samples: AnalysisHistoryItem[] = [...response.resources]
+export async function listAnalysisHistorySamples(): Promise<AnalysisHistoryItem[]> {
+  const response = await getAnalysisHistoryProjection();
+  return [...(response.summary?.items ?? [])]
     .sort((a, b) => timestampValue(b.updatedAt ?? b.createdAt) - timestampValue(a.updatedAt ?? a.createdAt))
-    .map((sample) => ({
-      sample,
-      artifact: null,
-      artifactStatus: "pending",
-    }));
-  return typeof limit === "number" ? samples.slice(0, limit) : samples;
-}
-
-export async function hydrateAnalysisHistoryArtifacts(
-  samples: PlatformResourceSummary[],
-  onItem: (sampleVideoId: string, artifact: SampleArtifact | null) => void,
-) {
-  const queue = [...samples];
-  const workerCount = Math.min(2, queue.length);
-  await Promise.all(Array.from({ length: workerCount }, async () => {
-    while (queue.length) {
-      const sample = queue.shift();
-      if (!sample) return;
-      const artifact = await getSampleArtifact(sample.resourceId).catch(() => null);
-      onItem(sample.resourceId, artifact);
-    }
-  }));
+    .map((item) => ({ ...item, artifact: null }));
 }
 
 export function shouldShowAnalysisHistoryItem(item: AnalysisHistoryItem) {
-  return Boolean(
-    item.artifact?.functionSlotAtomizationAnalysis
-    || item.artifact?.userMaterialPack
-    || isRunningStatus(item.sample.status),
-  );
+  return Boolean(item.hasFunctionSlotAtomization || item.hasUserMaterialPack || item.isRunning);
+}
+
+export function withLoadedAnalysisHistoryArtifact(item: AnalysisHistoryItem, artifact: SampleArtifact | null): AnalysisHistoryItem {
+  if (!artifact) return item;
+  const latestAnalysis = artifact.functionSlotAtomizationAnalysis
+    ?? artifact.userMaterialPack
+    ?? artifact.packagingStructureAnalysis
+    ?? artifact.rhythmStructureAnalysis
+    ?? artifact.scriptSegmentAnalysis
+    ?? artifact.shotBoundaryAnalysis
+    ?? null;
+  return {
+    ...item,
+    artifact,
+    title: normalizeMediaTitle(artifact.sampleVideo.original.summary ?? item.title ?? item.sampleVideoId),
+    status: artifact.status ?? item.status,
+    artifactId: latestAnalysis?.artifactId ?? item.artifactId,
+    traceId: analysisTraceField(latestAnalysis, "traceId") ?? artifact.trace?.traceId ?? item.traceId,
+    runId: analysisTraceField(latestAnalysis, "runId") ?? artifact.trace?.runId ?? item.runId,
+    stageId: analysisTraceField(latestAnalysis, "stageId") ?? artifact.trace?.stageId ?? item.stageId,
+    durationSeconds: positiveNumber(artifact.metadata.durationSeconds) ?? item.durationSeconds,
+    width: positiveNumber(artifact.metadata.width) ?? item.width,
+    height: positiveNumber(artifact.metadata.height) ?? item.height,
+    coverUri: artifact.cover?.uri ?? artifact.frames?.[0]?.imageUri ?? item.coverUri,
+    videoUri: artifact.sampleVideo.normalized.uri ?? artifact.sampleVideo.original.uri ?? item.videoUri,
+    hasFunctionSlotAtomization: Boolean(artifact.functionSlotAtomizationAnalysis),
+    hasUserMaterialPack: Boolean(artifact.userMaterialPack),
+    isRunning: isRunningStatus(artifact.status),
+  };
 }
 
 export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): AnalysisHistoryMedia {
   const artifact = item.artifact;
-  const width = positiveNumber(artifact?.metadata.width ?? item.sample.summary?.width);
-  const height = positiveNumber(artifact?.metadata.height ?? item.sample.summary?.height);
-  const duration = positiveNumber(artifact?.metadata.durationSeconds ?? item.sample.summary?.durationSeconds);
+  const width = positiveNumber(artifact?.metadata.width ?? item.width);
+  const height = positiveNumber(artifact?.metadata.height ?? item.height);
+  const duration = positiveNumber(artifact?.metadata.durationSeconds ?? item.durationSeconds);
   const orientation = width && height && height > width ? "portrait" : "landscape";
-  const title = normalizeMediaTitle(artifact?.sampleVideo.original.summary ?? item.sample.label ?? item.sample.resourceId);
-  const coverUri = artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null;
-  const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null;
+  const title = normalizeMediaTitle(artifact?.sampleVideo.original.summary ?? item.title ?? item.sampleVideoId);
+  const coverUri = artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? item.coverUri;
+  const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? item.videoUri;
   const ratioLabel = orientation === "portrait" ? "9:16" : "16:9";
   const badgeLabel = resolveHistoryBadge(item);
 
@@ -77,7 +77,7 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
     videoUrl: runtimeUrl(videoUri),
     ratioLabel,
     durationLabel: formatDuration(duration),
-    relativeDateLabel: formatRelativeDate(item.sample.updatedAt ?? item.sample.createdAt),
+    relativeDateLabel: formatRelativeDate(item.updatedAt ?? item.createdAt),
     badgeLabel,
   };
 }
@@ -118,12 +118,27 @@ export function normalizeMediaTitle(value: string) {
 }
 
 function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "样例分析" | "分析中" {
-  if (isRunningStatus(item.sample.status)) return "分析中";
-  if (item.artifact?.functionSlotAtomizationAnalysis) return "样例分析";
-  if (item.artifact?.userMaterialPack) return "素材识别";
+  if (item.isRunning) return "分析中";
+  if (item.hasFunctionSlotAtomization) return "样例分析";
+  if (item.hasUserMaterialPack) return "素材识别";
   return "分析中";
 }
 
 function isRunningStatus(status: string | null | undefined) {
   return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
+}
+
+function analysisTraceField(analysis: unknown, key: "traceId" | "runId" | "stageId") {
+  if (!analysis || typeof analysis !== "object") return null;
+  const record = analysis as Record<string, unknown>;
+  const direct = stringOrNull(record[key]);
+  if (direct) return direct;
+  const agent = record.agent;
+  if (!agent || typeof agent !== "object") return null;
+  return stringOrNull((agent as Record<string, unknown>)[key]);
+}
+
+function stringOrNull(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }

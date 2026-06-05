@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
-  hydrateAnalysisHistoryArtifacts,
   listAnalysisHistorySamples,
   resolveAnalysisHistoryMedia,
   shouldShowAnalysisHistoryItem,
@@ -18,7 +17,6 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
   const [historyWidth, setHistoryWidth] = useState(0);
   const visibleItems = items.filter(shouldShowAnalysisHistoryItem);
   const dominoLayout = useMemo(() => buildDominoLayout(visibleItems, historyWidth), [visibleItems, historyWidth]);
-  const hydrating = items.some((item) => item.artifactStatus === "pending" && !shouldShowAnalysisHistoryItem(item));
 
   useEffect(() => {
     const element = sectionRef.current;
@@ -38,15 +36,6 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
         if (!mounted) return;
         setItems(nextItems);
         setStatus("ready");
-
-        hydrateAnalysisHistoryArtifacts(nextItems.map((item) => item.sample), (sampleVideoId, artifact) => {
-          if (!mounted) return;
-          setItems((current) => current.map((item) => (
-            item.sample.resourceId === sampleVideoId
-              ? { ...item, artifact, artifactStatus: artifact ? "ready" : "failed" }
-              : item
-          )));
-        });
       })
       .catch(() => {
         if (!mounted) return;
@@ -66,8 +55,7 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
       </div>
       {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
       {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
-      {status === "ready" && !visibleItems.length && hydrating ? <div className="new-ui-analysis-history-state">加载中</div> : null}
-      {status === "ready" && !visibleItems.length && !hydrating ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
+      {status === "ready" && !visibleItems.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
       {visibleItems.length ? (
         <div
           className="new-ui-analysis-history-domino"
@@ -75,7 +63,7 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
         >
           {dominoLayout.placements.map((placement) => (
             <AnalysisHistoryCard
-              key={placement.item.sample.resourceId}
+              key={placement.item.sampleVideoId}
               placement={placement}
               onOpen={onOpenItem}
             />

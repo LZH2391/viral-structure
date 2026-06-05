@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
+import { getSampleArtifact, runtimeUrl } from "../../api/client";
 import { formatSecondsCompact } from "../../utils/format";
 import { AnalysisHistory } from "./AnalysisHistory";
-import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
+import { resolveAnalysisHistoryMedia, withLoadedAnalysisHistoryArtifact, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
 type AnalysisHomeProps = {
@@ -13,11 +14,13 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
   const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
+  const [detailArtifactStatus, setDetailArtifactStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
   const openUploadDetail = () => {
     setDetailTitle("新建分析");
     setDetailMedia(null);
     setDetailItem(null);
+    setDetailArtifactStatus("idle");
     setView("detail");
   };
 
@@ -26,8 +29,32 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
     setDetailTitle(media.title);
     setDetailMedia(media);
     setDetailItem(item);
+    setDetailArtifactStatus(item.artifact ? "ready" : "loading");
     setView("detail");
   };
+
+  useEffect(() => {
+    if (view !== "detail" || !detailItem?.sampleVideoId || detailItem.artifact) return undefined;
+    let mounted = true;
+    setDetailArtifactStatus("loading");
+    getSampleArtifact(detailItem.sampleVideoId)
+      .then((artifact) => {
+        if (!mounted) return;
+        const nextItem = withLoadedAnalysisHistoryArtifact(detailItem, artifact);
+        const nextMedia = resolveAnalysisHistoryMedia(nextItem);
+        setDetailItem(nextItem);
+        setDetailMedia(nextMedia);
+        setDetailTitle(nextMedia.title);
+        setDetailArtifactStatus("ready");
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setDetailArtifactStatus("error");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [detailItem, view]);
 
   useEffect(() => {
     onDetailStateChange?.({
@@ -58,7 +85,7 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
         </button>
         <AnalysisHistory onOpenItem={openHistoryDetail} />
       </section>
-      <AnalysisDetailPage hidden={view !== "detail"} title={detailTitle} media={detailMedia} item={detailItem} onBack={() => setView("home")} />
+      <AnalysisDetailPage hidden={view !== "detail"} title={detailTitle} media={detailMedia} item={detailItem} artifactStatus={detailArtifactStatus} onBack={() => setView("home")} />
     </>
   );
 }
@@ -68,12 +95,14 @@ function AnalysisDetailPage({
   title,
   media,
   item,
+  artifactStatus,
   onBack,
 }: {
   hidden: boolean;
   title: string;
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
+  artifactStatus: "idle" | "loading" | "ready" | "error";
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -121,8 +150,10 @@ function AnalysisDetailPage({
               <div className="new-ui-analysis-player-empty" aria-hidden="true" />
             )}
           </div>
+          {artifactStatus === "loading" ? <div className="new-ui-analysis-detail-status">正在加载完整分析结果</div> : null}
+          {artifactStatus === "error" ? <div className="new-ui-analysis-detail-status">完整分析结果暂时无法读取</div> : null}
         </div>
-        <AnalysisTimelineTracks item={item} mediaKey={media?.videoUrl ?? item?.sample.resourceId ?? "empty"} videoRef={videoRef} onSeek={seekTimeline} />
+        <AnalysisTimelineTracks item={item?.artifact ? item : null} mediaKey={media?.videoUrl ?? item?.sampleVideoId ?? "empty"} videoRef={videoRef} onSeek={seekTimeline} />
       </div>
     </section>
   );
@@ -135,6 +166,7 @@ type AnalysisTimelineBlock = {
   label: string;
   start: number;
   end: number;
+  frameUrls?: string[];
 };
 
 type AnalysisTimelineTrack = {
@@ -144,7 +176,7 @@ type AnalysisTimelineTrack = {
   blocks: AnalysisTimelineBlock[];
 };
 
-type VideoFrameCallbackVideo = HTMLVideoElement & {
+type VideoFrameCallbackVideo = {
   requestVideoFrameCallback: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
   cancelVideoFrameCallback?: (handle: number) => void;
 };
@@ -158,18 +190,36 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
   const ticks = resolveTimelineTicks(duration);
   const shotCount = tracks.find((track) => track.key === "shot")?.blocks.length ?? 0;
 
-  const seekFromLane = (event: PointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return;
-    const time = resolveTimelinePointerTime(event, duration);
-    onSeek(time);
-  };
-
   const seekFromPlayheadClientX = (clientX: number) => {
     const scale = playheadScaleRef.current;
     if (!scale) return;
     const time = resolveTimelinePointerTimeFromScale(scale, clientX, duration);
     timelineRef.current?.style.setProperty("--new-ui-analysis-nav-left", `${timelineTimePercent(time, duration)}%`);
     onSeek(time);
+  };
+
+  const startTimelineDrag = (event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    draggingPlayheadRef.current = true;
+    setDraggingPlayhead(true);
+    seekFromPlayheadClientX(event.clientX);
+  };
+
+  const moveTimelineDrag = (event: PointerEvent<HTMLElement>) => {
+    if (!draggingPlayheadRef.current) return;
+    event.preventDefault();
+    seekFromPlayheadClientX(event.clientX);
+  };
+
+  const finishTimelineDrag = (event: PointerEvent<HTMLElement>) => {
+    if (!draggingPlayheadRef.current) return;
+    event.preventDefault();
+    draggingPlayheadRef.current = false;
+    setDraggingPlayhead(false);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    seekFromPlayheadClientX(event.clientX);
   };
 
   const startPlayheadDrag = (event: PointerEvent<HTMLButtonElement>) => {
@@ -210,7 +260,8 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
     let animationHandle = 0;
     const scheduleFrame = () => {
       if (hasVideoFrameCallback(video)) {
-        frameHandle = video.requestVideoFrameCallback((_now, metadata) => {
+        const frameCallbackVideo = video as HTMLVideoElement & VideoFrameCallbackVideo;
+        frameHandle = frameCallbackVideo.requestVideoFrameCallback((_now, metadata) => {
           updateNavigationLine(metadata.mediaTime);
           scheduleFrame();
         });
@@ -229,7 +280,7 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
     video.addEventListener("seeked", sync);
 
     return () => {
-      if (frameHandle && hasVideoFrameCallback(video)) video.cancelVideoFrameCallback?.(frameHandle);
+      if (frameHandle && hasVideoFrameCallback(video)) (video as HTMLVideoElement & VideoFrameCallbackVideo).cancelVideoFrameCallback?.(frameHandle);
       if (animationHandle) window.cancelAnimationFrame(animationHandle);
       video.removeEventListener("loadedmetadata", sync);
       video.removeEventListener("seeking", sync);
@@ -246,7 +297,13 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
       <div className="new-ui-analysis-timeline-body">
         <div className="new-ui-analysis-timeline-ruler" aria-hidden="true">
           <div className="new-ui-analysis-timeline-ruler-label">时间轨</div>
-          <div className="new-ui-analysis-timeline-ruler-lane" onPointerDown={seekFromLane}>
+          <div
+            className="new-ui-analysis-timeline-ruler-lane"
+            onPointerDown={startTimelineDrag}
+            onPointerMove={moveTimelineDrag}
+            onPointerUp={finishTimelineDrag}
+            onPointerCancel={finishTimelineDrag}
+          >
             <div className="new-ui-analysis-timeline-lane-scale">
               {ticks.map((tick) => (
                 <span key={tick} style={timelineTickStyle(tick, duration)}>{formatTimelineTick(tick)}</span>
@@ -258,17 +315,27 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
           {tracks.map((track) => (
             <div key={track.key} className={`new-ui-analysis-timeline-row is-${track.key}`}>
               <div className="new-ui-analysis-timeline-label">{track.label}</div>
-              <div className="new-ui-analysis-timeline-lane" onPointerDown={seekFromLane}>
+              <div
+                className="new-ui-analysis-timeline-lane"
+                onPointerDown={startTimelineDrag}
+                onPointerMove={moveTimelineDrag}
+                onPointerUp={finishTimelineDrag}
+                onPointerCancel={finishTimelineDrag}
+              >
                 <div className="new-ui-analysis-timeline-lane-scale">
                   {track.blocks.map((block) => (
-                    <span
-                      key={block.id}
-                      className="new-ui-analysis-timeline-block"
-                      style={timelineBlockStyle(block, duration)}
-                      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
-                    >
-                      {block.label}
-                    </span>
+                    track.key === "shot" ? (
+                      <ShotTimelineBlock key={block.id} block={block} duration={duration} />
+                    ) : (
+                      <span
+                        key={block.id}
+                        className="new-ui-analysis-timeline-block"
+                        style={timelineBlockStyle(block, duration)}
+                        title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+                      >
+                        {block.label}
+                      </span>
+                    )
                   ))}
                 </div>
                 {!track.blocks.length && <span className="new-ui-analysis-timeline-empty">{track.emptyLabel}</span>}
@@ -302,7 +369,27 @@ function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: An
   );
 }
 
-function hasVideoFrameCallback(video: HTMLVideoElement): video is VideoFrameCallbackVideo {
+function ShotTimelineBlock({ block, duration }: { block: AnalysisTimelineBlock; duration: number }) {
+  const frameUrls = block.frameUrls ?? [];
+  return (
+    <span
+      className={`new-ui-analysis-timeline-block new-ui-analysis-shot-block ${frameUrls.length ? "has-frames" : ""}`.trim()}
+      style={timelineBlockStyle(block, duration)}
+      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+    >
+      <span className="new-ui-analysis-shot-label">{formatShotLabel(block.label)}</span>
+      {frameUrls.length ? (
+        <span className="new-ui-analysis-shot-frames" aria-hidden="true">
+          {frameUrls.map((url, index) => (
+            <img key={`${block.id}-${index}-${url}`} className="new-ui-analysis-shot-frame" alt="" src={url} loading="lazy" />
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function hasVideoFrameCallback(video: HTMLVideoElement) {
   return typeof (video as Partial<VideoFrameCallbackVideo>).requestVideoFrameCallback === "function";
 }
 
@@ -313,11 +400,13 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { dura
   const rhythmSections = artifact?.rhythmStructureAnalysis?.sections ?? [];
   const packagingBlocks = artifact?.packagingStructureAnalysis?.packagingBlocks ?? [];
   const atomSlots = artifact?.functionSlotAtomizationAnalysis?.slotMap?.slots ?? [];
+  const frames = artifact?.frames ?? [];
   const shotBlocks = shots.map((shot) => ({
     id: shot.id,
-    label: shot.shotNo ?? `镜头 ${shot.index + 1}`,
+    label: formatShotNo(shot.shotNo, shot.index),
     start: shot.start,
     end: shot.end,
+    frameUrls: resolveShotFrameUrls(shot.start, shot.end, frames),
   }));
   const scriptBlocks = scriptSegments.map((segment) => ({
     id: segment.segmentId,
@@ -397,6 +486,49 @@ function timelineBlockStyle(block: AnalysisTimelineBlock, duration: number): CSS
   };
 }
 
+function resolveShotFrameUrls(start: number, end: number, frames: NonNullable<AnalysisHistoryItem["artifact"]>["frames"]) {
+  const startTime = positiveTimelineNumber(start);
+  const endTime = positiveTimelineNumber(end);
+  const matched = frames
+    .filter((frame) => {
+      const timestamp = Number(frame.timestamp);
+      if (!Number.isFinite(timestamp)) return false;
+      return timestamp >= startTime && (timestamp < endTime || Math.abs(timestamp - endTime) < 0.001);
+    })
+    .map((frame) => runtimeUrl(frame.imageUri))
+    .filter((url): url is string => Boolean(url));
+
+  if (matched.length) return sampleShotFrameUrls(matched, 6);
+
+  const middle = startTime + Math.max(0, endTime - startTime) / 2;
+  let closest: { url: string; distance: number } | null = null;
+  for (const frame of frames) {
+    const timestamp = Number(frame.timestamp);
+    const url = runtimeUrl(frame.imageUri);
+    if (!Number.isFinite(timestamp) || !url) continue;
+    const distance = Math.abs(timestamp - middle);
+    if (!closest || distance < closest.distance) closest = { url, distance };
+  }
+  return closest ? [closest.url] : [];
+}
+
+function sampleShotFrameUrls(urls: string[], maxCount: number) {
+  if (urls.length <= maxCount) return urls;
+  if (maxCount <= 1) return [urls[Math.floor(urls.length / 2)]];
+  return Array.from({ length: maxCount }, (_item, index) => urls[Math.round((index / (maxCount - 1)) * (urls.length - 1))]);
+}
+
+function formatShotNo(value: string | null | undefined, index: number) {
+  const text = String(value ?? "").trim();
+  const shotNoMatch = /^S(\d+)$/i.exec(text);
+  if (shotNoMatch) return `S${String(Number(shotNoMatch[1])).padStart(2, "0")}`;
+  return `S${String(index + 1).padStart(2, "0")}`;
+}
+
+function formatShotLabel(value: string) {
+  return formatShotNo(value, 0);
+}
+
 function timelineTickStyle(tick: number, duration: number): CSSProperties {
   return {
     left: `${clampTimelinePercent((tick / duration) * 100)}%`,
@@ -407,25 +539,11 @@ function timelineTimePercent(time: number, duration: number) {
   return clampTimelinePercent((positiveTimelineNumber(time) / duration) * 100);
 }
 
-function resolveTimelinePointerTime(event: PointerEvent<HTMLElement>, duration: number) {
-  const rect = event.currentTarget.getBoundingClientRect();
-  if (!rect.width) return 0;
-  const laneEdgeGap = parseCssPixelValue(window.getComputedStyle(event.currentTarget).getPropertyValue("--new-ui-analysis-lane-edge-gap"));
-  const scaleWidth = Math.max(1, rect.width - laneEdgeGap * 2);
-  const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left - laneEdgeGap) / scaleWidth));
-  return duration * ratio;
-}
-
 function resolveTimelinePointerTimeFromScale(element: HTMLElement, clientX: number, duration: number) {
   const rect = element.getBoundingClientRect();
   if (!rect.width) return 0;
   const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
   return duration * ratio;
-}
-
-function parseCssPixelValue(value: string) {
-  const number = Number.parseFloat(value);
-  return Number.isFinite(number) ? number : 0;
 }
 
 function maxTimelineEnd(blocks: AnalysisTimelineBlock[]) {

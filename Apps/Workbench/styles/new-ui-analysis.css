@@ -150,7 +150,16 @@
 .new-ui-analysis-detail-media {
   display: grid;
   justify-items: center;
+  gap: 8px;
   min-width: 0;
+}
+
+.new-ui-analysis-detail-status {
+  max-width: min(896px, 80%);
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 620;
+  line-height: 1.35;
 }
 
 .new-ui-analysis-player {
@@ -221,6 +230,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  user-select: none;
 }
 
 .new-ui-analysis-timeline-header {
@@ -472,14 +482,75 @@
 }
 
 .new-ui-analysis-timeline-playhead:active .new-ui-analysis-timeline-playhead-line,
-.new-ui-analysis-timeline-playhead:active .new-ui-analysis-timeline-playhead-handle,
-.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-line,
-.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-handle {
+.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-line {
   stroke-width: 2.8;
 }
 
+.new-ui-analysis-timeline-playhead:active .new-ui-analysis-timeline-playhead-handle,
+.new-ui-analysis-timeline-playhead.is-dragging .new-ui-analysis-timeline-playhead-handle {
+  fill: currentColor;
+  stroke-width: 2.2;
+}
+
 .new-ui-analysis-timeline-row.is-shot .new-ui-analysis-timeline-block {
-  background: color-mix(in srgb, #7aa8ff 58%, transparent);
+  top: 5px;
+  bottom: 5px;
+  display: grid;
+  grid-template-rows: 16px minmax(0, 1fr);
+  align-items: stretch;
+  min-width: min(38px, calc(100% - var(--new-ui-analysis-block-gap)));
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--new-ui-text) 26%, transparent);
+  background: color-mix(in srgb, var(--new-ui-bg) 34%, var(--new-ui-timeline-panel));
+}
+
+.new-ui-analysis-timeline-row.is-shot .new-ui-analysis-timeline-block:nth-child(odd) {
+  background: color-mix(in srgb, var(--new-ui-bg) 58%, var(--new-ui-timeline-panel));
+}
+
+.new-ui-analysis-timeline-row.is-shot .new-ui-analysis-timeline-block:nth-child(even) {
+  background: color-mix(in srgb, var(--new-ui-text) 10%, var(--new-ui-timeline-panel));
+}
+
+.new-ui-analysis-shot-label {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 16px;
+  padding: 0 5px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--new-ui-text) 78%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.new-ui-analysis-shot-frames {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--new-ui-text) 18%, var(--new-ui-bg));
+}
+
+.new-ui-analysis-shot-frame {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  height: 100%;
+  min-width: 0;
+  object-fit: cover;
+  border-right: 1px solid color-mix(in srgb, var(--new-ui-bg) 48%, transparent);
+}
+
+.new-ui-analysis-shot-frame:last-child {
+  border-right: 0;
 }
 
 .new-ui-analysis-timeline-row.is-script .new-ui-analysis-timeline-block {
@@ -884,6 +955,8 @@
   --new-ui-analysis-workflow-active-border: color-mix(in srgb, var(--new-ui-control-border) 92%, transparent);
   --new-ui-analysis-workflow-active-subtle-bg: color-mix(in srgb, var(--new-ui-text) 9%, var(--new-ui-surface));
   --new-ui-analysis-workflow-active-subtle-border: color-mix(in srgb, var(--new-ui-control-border) 72%, transparent);
+  --new-ui-analysis-workflow-status-done: #8fc89a;
+  --new-ui-analysis-workflow-status-running: #7fb7ff;
   display: grid;
   grid-template-rows: auto minmax(260px, 1fr);
   align-content: start;
@@ -955,7 +1028,7 @@
 }
 
 .new-ui-analysis-workflow-vline.is-done {
-  background: color-mix(in srgb, #77b58a 44%, transparent);
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 36%, transparent);
 }
 
 .new-ui-analysis-workflow-vline.is-hidden {
@@ -963,20 +1036,14 @@
 }
 
 .new-ui-analysis-workflow-step.is-done .new-ui-analysis-workflow-status-dot {
-  border-color: #77b58a;
-  background: #77b58a;
+  border-color: var(--new-ui-analysis-workflow-status-done);
+  background: var(--new-ui-analysis-workflow-status-done);
 }
 
 .new-ui-analysis-workflow-step.is-running .new-ui-analysis-workflow-status-dot {
-  border-color: #75a9e8;
-  background: #75a9e8;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #75a9e8 18%, transparent);
-}
-
-.new-ui-analysis-workflow-step.is-blocked .new-ui-analysis-workflow-status-dot {
-  border-color: #c7a56b;
-  background: #c7a56b;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #c7a56b 13%, transparent);
+  border-color: var(--new-ui-analysis-workflow-status-running);
+  background: var(--new-ui-analysis-workflow-status-running);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
 }
 
 .new-ui-analysis-workflow-step-body {
@@ -1013,8 +1080,7 @@
 }
 
 .new-ui-analysis-workflow-step-button:hover,
-.new-ui-analysis-workflow-step-button:focus-visible,
-.new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-step-button {
+.new-ui-analysis-workflow-step-button:focus-visible {
   background: color-mix(in srgb, var(--new-ui-surface) 66%, transparent);
   border-color: color-mix(in srgb, var(--new-ui-border) 64%, transparent);
 }
@@ -1034,6 +1100,17 @@
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--new-ui-control-text) 10%, transparent),
     0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 46%, transparent);
+}
+
+.new-ui-analysis-workflow-step.is-selected.is-done .new-ui-analysis-workflow-step-button {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 38%, var(--new-ui-analysis-workflow-active-border));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 12%, transparent),
+      transparent 48px
+    ),
+    var(--new-ui-analysis-workflow-active-bg);
 }
 
 .new-ui-analysis-workflow-step-copy {
@@ -1074,18 +1151,13 @@
 }
 
 .new-ui-analysis-workflow-step.is-done .new-ui-analysis-workflow-badge {
-  background: color-mix(in srgb, #77b58a 15%, transparent);
-  color: color-mix(in srgb, #77b58a 84%, var(--new-ui-text));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 15%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 84%, var(--new-ui-text));
 }
 
 .new-ui-analysis-workflow-step.is-running .new-ui-analysis-workflow-badge {
-  background: color-mix(in srgb, #75a9e8 16%, transparent);
-  color: color-mix(in srgb, #75a9e8 86%, var(--new-ui-text));
-}
-
-.new-ui-analysis-workflow-step.is-blocked .new-ui-analysis-workflow-badge {
-  background: color-mix(in srgb, #c7a56b 14%, transparent);
-  color: color-mix(in srgb, #c7a56b 84%, var(--new-ui-text));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 86%, var(--new-ui-text));
 }
 
 .new-ui-analysis-workflow-affordance {
@@ -1149,16 +1221,15 @@
 }
 
 .new-ui-analysis-workflow-parallel-item.is-done {
-  border-color: color-mix(in srgb, #77b58a 30%, var(--new-ui-border));
-  background: color-mix(in srgb, #77b58a 7%, var(--new-ui-surface));
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 30%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 7%, var(--new-ui-surface));
 }
 
 .new-ui-analysis-workflow-parallel-item.is-running {
-  border-color: color-mix(in srgb, #75a9e8 40%, var(--new-ui-border));
-  background: color-mix(in srgb, #75a9e8 10%, var(--new-ui-surface));
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 40%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 10%, var(--new-ui-surface));
 }
 
-.new-ui-analysis-workflow-parallel-item.is-blocked,
 .new-ui-analysis-workflow-parallel-item.is-waiting {
   opacity: 0.62;
 }
@@ -1170,6 +1241,17 @@
   border-color: var(--new-ui-analysis-workflow-active-subtle-border);
   background: var(--new-ui-analysis-workflow-active-subtle-bg);
   transform: translateY(-1px);
+}
+
+.new-ui-analysis-workflow-parallel-item.is-selected.is-done {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 42%, var(--new-ui-analysis-workflow-active-subtle-border));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 10%, transparent),
+      transparent 34px
+    ),
+    var(--new-ui-analysis-workflow-active-subtle-bg);
 }
 
 .new-ui-analysis-workflow-parallel-item:focus-visible {
@@ -1214,6 +1296,16 @@
   opacity: 0.7;
 }
 
+.new-ui-analysis-workflow-parallel-item.is-done .new-ui-analysis-workflow-mini-dot {
+  background: var(--new-ui-analysis-workflow-status-done);
+  opacity: 1;
+}
+
+.new-ui-analysis-workflow-parallel-item.is-running .new-ui-analysis-workflow-mini-dot {
+  background: var(--new-ui-analysis-workflow-status-running);
+  opacity: 1;
+}
+
 .new-ui-analysis-workflow-spinner {
   flex: 0 0 auto;
   width: 8px;
@@ -1243,9 +1335,192 @@
   border-top: 1px solid var(--new-ui-analysis-divider-strong);
 }
 
+.new-ui-analysis-workflow-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.new-ui-analysis-workflow-detail-status {
+  flex: 0 0 auto;
+  max-width: 42%;
+  padding: 2px 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 11%, transparent);
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 730;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-workflow-detail-status.is-done {
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 15%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 84%, var(--new-ui-text));
+}
+
+.new-ui-analysis-workflow-detail-status.is-running {
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 86%, var(--new-ui-text));
+}
+
 .new-ui-analysis-workflow-detail-content {
+  display: grid;
+  align-content: start;
+  gap: 12px;
   min-width: 0;
   min-height: 0;
+}
+
+.new-ui-analysis-workflow-detail-summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.new-ui-analysis-workflow-detail-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--new-ui-text) 86%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-md);
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-workflow-detail-summary p {
+  display: -webkit-box;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--new-ui-text) 58%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 610;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.new-ui-analysis-workflow-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-ui-analysis-workflow-detail-metric {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 9px 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 44%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 72%, var(--new-ui-surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--new-ui-text) 5%, transparent);
+}
+
+.new-ui-analysis-workflow-detail-metric span,
+.new-ui-analysis-workflow-detail-metric strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-workflow-detail-metric span {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 660;
+  line-height: 1.2;
+}
+
+.new-ui-analysis-workflow-detail-metric strong {
+  color: color-mix(in srgb, var(--new-ui-text) 88%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-lg);
+  font-weight: 720;
+  line-height: 1.15;
+}
+
+.new-ui-analysis-workflow-detail-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-ui-analysis-workflow-detail-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 74%, var(--new-ui-surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--new-ui-text) 5%, transparent),
+    0 6px 14px color-mix(in srgb, var(--new-ui-control-shadow) 26%, transparent);
+}
+
+.new-ui-analysis-workflow-detail-card strong,
+.new-ui-analysis-workflow-detail-card span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-workflow-detail-card strong {
+  color: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.new-ui-analysis-workflow-detail-card span {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 640;
+  line-height: 1.25;
+}
+
+.new-ui-analysis-workflow-detail-card p {
+  display: -webkit-box;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--new-ui-text) 58%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 590;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.new-ui-analysis-workflow-detail-empty {
+  min-width: 0;
+  padding: 14px 12px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 68%, var(--new-ui-surface));
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 620;
+  line-height: 1.45;
+}
+
+.new-ui-analysis-workflow-detail-next {
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--new-ui-analysis-workflow-status-running);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 76%, var(--new-ui-text));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 620;
+  line-height: 1.45;
 }
 
 @keyframes new-ui-workflow-spin {

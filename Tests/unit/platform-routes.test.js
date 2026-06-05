@@ -163,6 +163,62 @@ test("platform resources route reads one resource", async () => {
   }
 });
 
+test("platform resources route reads analysis history projection", async () => {
+  const server = createServer({
+    resourceResolver: {
+      read: async ({ resourceKind, resourceId }) => resourceKind === "projection" && resourceId === "analysis-history"
+        ? {
+            schemaVersion: "platform_resource_summary.v1",
+            resourceKind,
+            resourceId,
+            label: "历史结果",
+            status: "ready",
+            summary: {
+              schemaVersion: "analysis_history_projection.v1",
+              generatedAt: "2026-06-01T00:00:00.000Z",
+              items: [{ sampleVideoId: "sample_1", title: "sample", videoUri: "/runtime/video.mp4" }],
+            },
+            source: { sourceOfTruth: "Runtime/Artifacts/<sampleVideoId>/artifact.json", indexSource: "Infrastructure/ArtifactIndex" },
+          }
+        : null,
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "/api/platform/v1/resources/projection/analysis-history");
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.resourceKind, "projection");
+    assert.equal(response.body.resourceId, "analysis-history");
+    assert.equal(response.body.summary.schemaVersion, "analysis_history_projection.v1");
+  } finally {
+    await closeServer(server);
+  }
+});
+
+test("platform resources route returns 404 for unknown projection", async () => {
+  const server = createServer({
+    resourceResolver: {
+      read: async () => null,
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "/api/platform/v1/resources/projection/unknown");
+
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.body.code, "resource_not_found");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("platform resources route returns structured 404 for missing resources", async () => {
   const server = createServer({
     resourceResolver: {
