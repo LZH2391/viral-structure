@@ -36,21 +36,14 @@ export function AnalysisWorkflowSidebar({ detail }: AnalysisWorkflowSidebarProps
 
   return (
     <section className="new-ui-analysis-workflow" aria-label="完整分析步骤">
-      <header className="new-ui-analysis-workflow-header">
-        <span className="new-ui-analysis-workflow-eyebrow">完整分析</span>
-        <h2 className="new-ui-analysis-workflow-title">依赖流程</h2>
-        <p className="new-ui-analysis-workflow-subtitle">{detail.title}</p>
-      </header>
-
       <div className="new-ui-analysis-workflow-flow">
         <WorkflowStageCard stage={upload} />
         <WorkflowConnector />
         <WorkflowStageCard stage={shotBoundary} />
-        <WorkflowConnector />
+        <WorkflowSplitConnector />
 
         <section className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行组">
           <div className="new-ui-analysis-workflow-parallel-header">
-            <span>同时处理</span>
             <strong>structure-analysis</strong>
           </div>
           <div className="new-ui-analysis-workflow-parallel-grid">
@@ -87,6 +80,14 @@ function WorkflowStageCard({ stage, compact = false }: { stage: WorkflowStage; c
 
 function WorkflowConnector() {
   return <div className="new-ui-analysis-workflow-connector" aria-hidden="true" />;
+}
+
+function WorkflowSplitConnector() {
+  return (
+    <div className="new-ui-analysis-workflow-split" aria-hidden="true">
+      <span />
+    </div>
+  );
 }
 
 function WorkflowMergeConnector() {
