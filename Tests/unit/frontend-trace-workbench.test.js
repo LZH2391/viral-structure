@@ -170,7 +170,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /new-ui-sidebar-subnav-item/);
   assert.match(newUiLayout, /<ExpandIndicator expanded=\{isExpanded\} \/>/);
   assert.match(newUiLayout, /setExpandedSection\(\(current\) => current === section\.id \? null : section\.id\)/);
-  assert.match(newUiLayout, /expanded \? <path d="M4\.4 9\.7 8 6\.1l3\.6 3\.6" \/> : <path d="M6\.1 4\.4 9\.7 8l-3\.6 3\.6" \/>/);
+  assert.match(newUiLayout, /expanded \? <path d="M4\.4 6\.3 8 9\.9l3\.6-3\.6" \/> : <path d="M6\.1 4\.4 9\.7 8l-3\.6 3\.6" \/>/);
   assert.doesNotMatch(newUiLayout, /onPointerEnter=\{\(\) => setExpandedSection/);
   assert.match(newUiLayout, /aria-current=\{isActive \? "page" : undefined\}/);
   assert.match(newUiLayout, /aria-current=\{isChildActive \? "page" : undefined\}/);

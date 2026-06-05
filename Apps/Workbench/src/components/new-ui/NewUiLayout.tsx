@@ -268,7 +268,7 @@ function ExpandIndicator({ expanded }: { expanded: boolean }) {
   return (
     <span className="new-ui-sidebar-expand-indicator" aria-hidden="true">
       <svg viewBox="0 0 16 16" focusable="false">
-        {expanded ? <path d="M4.4 9.7 8 6.1l3.6 3.6" /> : <path d="M6.1 4.4 9.7 8l-3.6 3.6" />}
+        {expanded ? <path d="M4.4 6.3 8 9.9l3.6-3.6" /> : <path d="M6.1 4.4 9.7 8l-3.6 3.6" />}
       </svg>
     </span>
   );
