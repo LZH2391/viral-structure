@@ -8,6 +8,10 @@
   --new-ui-gray-100: #ecebe7;
   --new-ui-gray-050: #f4f3ef;
 
+  --new-ui-font-size-sm: 14px;
+  --new-ui-font-size-md: 15px;
+  --new-ui-font-size-lg: 16px;
+
   --new-ui-theme-dark-bg: var(--new-ui-gray-950);
   --new-ui-theme-dark-surface: var(--new-ui-gray-900);
   --new-ui-theme-dark-text: #eeeeea;
