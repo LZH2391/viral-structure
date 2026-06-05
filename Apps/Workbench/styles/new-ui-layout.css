@@ -39,6 +39,10 @@
     opacity 220ms ease;
 }
 
+.new-ui-shell[data-theme="light"] .new-ui-pane {
+  background: var(--new-ui-bg);
+}
+
 .new-ui-pane-left {
   position: relative;
   grid-template-rows: 56px minmax(0, 1fr) 76px;
@@ -655,6 +659,10 @@
   overflow: auto;
   scrollbar-color: color-mix(in srgb, var(--new-ui-text-muted) 44%, transparent) transparent;
   transition: background-color 360ms ease;
+}
+
+.new-ui-shell[data-theme="light"] .new-ui-center {
+  background: var(--new-ui-surface);
 }
 
 .new-ui-center::-webkit-scrollbar-thumb {
