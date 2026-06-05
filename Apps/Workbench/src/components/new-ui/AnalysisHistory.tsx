@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   hydrateAnalysisHistoryArtifacts,
   listAnalysisHistorySamples,
@@ -6,7 +6,11 @@ import {
   type AnalysisHistoryItem,
 } from "./analysisHistoryData";
 
-export function AnalysisHistory() {
+type AnalysisHistoryProps = {
+  onOpenItem: (item: AnalysisHistoryItem) => void;
+};
+
+export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -49,17 +53,27 @@ export function AnalysisHistory() {
       {status === "ready" && !items.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
       {items.length ? (
         <div className="new-ui-analysis-history-grid">
-          {items.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} />)}
+          {items.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} onOpen={onOpenItem} />)}
         </div>
       ) : null}
     </section>
   );
 }
 
-function AnalysisHistoryCard({ item }: { item: AnalysisHistoryItem }) {
+function AnalysisHistoryCard({ item, onOpen }: { item: AnalysisHistoryItem; onOpen: (item: AnalysisHistoryItem) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [previewing, setPreviewing] = useState(false);
   const media = resolveAnalysisHistoryMedia(item);
+
+  const openItem = () => {
+    onOpen(item);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openItem();
+  };
 
   const playPreview = () => {
     if (!media.videoUrl) return;
@@ -83,8 +97,11 @@ function AnalysisHistoryCard({ item }: { item: AnalysisHistoryItem }) {
   return (
     <article
       className={`new-ui-analysis-history-card is-${media.orientation}`}
+      role="button"
       tabIndex={0}
       aria-label={media.title}
+      onClick={openItem}
+      onKeyDown={handleKeyDown}
       onPointerEnter={playPreview}
       onPointerLeave={pausePreview}
       onFocus={playPreview}

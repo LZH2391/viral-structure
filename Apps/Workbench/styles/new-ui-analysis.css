@@ -53,6 +53,59 @@
   transform: scale(0.995);
 }
 
+.new-ui-analysis-detail {
+  position: relative;
+  min-height: 100%;
+  padding: 24px;
+}
+
+.new-ui-analysis-back-button {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-surface) 82%, var(--new-ui-bg));
+  color: var(--new-ui-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.new-ui-analysis-back-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-analysis-back-button:hover,
+.new-ui-analysis-back-button:focus-visible {
+  border-color: var(--new-ui-control-border);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 76%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+  outline: 0;
+}
+
+.new-ui-analysis-back-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--new-ui-focus-ring);
+}
+
+.new-ui-analysis-back-button:active {
+  transform: scale(0.96);
+}
+
 .new-ui-analysis-upload-icon {
   width: clamp(88px, 10vw, 112px);
   height: clamp(66px, 7.5vw, 84px);
@@ -220,7 +273,7 @@
   background: color-mix(in srgb, var(--new-ui-surface) 72%, var(--new-ui-bg));
   color: var(--new-ui-text);
   outline: 0;
-  cursor: default;
+  cursor: pointer;
   opacity: 0.72;
   transition:
     border-color 180ms ease,
@@ -396,6 +449,15 @@
     padding: 42px 16px 36px;
   }
 
+  .new-ui-analysis-detail {
+    padding: 18px;
+  }
+
+  .new-ui-analysis-back-button {
+    top: 18px;
+    left: 18px;
+  }
+
   .new-ui-analysis-history-grid {
     grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
   }
@@ -415,6 +477,7 @@
   .new-ui-analysis-upload-cloud-line,
   .new-ui-analysis-upload-arrow,
   .new-ui-analysis-upload-base,
+  .new-ui-analysis-back-button,
   .new-ui-analysis-history-card,
   .new-ui-analysis-history-media video,
   .new-ui-analysis-history-placeholder::before {
