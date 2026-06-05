@@ -1,21 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import { getSampleArtifact, runtimeUrl } from "../../api/client";
-import { listPlatformResources, type PlatformResourceSummary } from "../../api/platformClient";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { SampleArtifact } from "../../types";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
+import { AnalysisHome } from "./AnalysisHome";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
+type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
 
 type NewUiSection = {
   id: NewUiSectionId;
+  label: string;
+  children?: NewUiNavChild[];
+};
+
+type NewUiNavChild = {
+  id: NewUiLibraryChildId;
   label: string;
 };
 
 const NEW_UI_SECTIONS: NewUiSection[] = [
   { id: "analysis", label: "分析" },
-  { id: "library", label: "库" },
+  {
+    id: "library",
+    label: "库",
+    children: [
+      { id: "sampleStructure", label: "样例结构图" },
+      { id: "semanticGovernance", label: "语义治理库" },
+      { id: "planTrace", label: "方案溯源图" },
+    ],
+  },
   { id: "restructure", label: "重组" },
 ];
 
@@ -30,6 +43,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
+  const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: "new-ui:three-pane-layout",
@@ -67,7 +81,13 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
         <PaneHeader collapsed={leftCollapsed} onToggle={toggleLeftCollapsed} side="left" />
         <div className="new-ui-pane-body">
-          <SidebarNav activeSection={activeSection} collapsed={leftCollapsed} onSectionChange={setActiveSection} />
+          <SidebarNav
+            activeLibraryChild={activeLibraryChild}
+            activeSection={activeSection}
+            collapsed={leftCollapsed}
+            onLibraryChildChange={setActiveLibraryChild}
+            onSectionChange={setActiveSection}
+          />
         </div>
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
       </aside>
@@ -81,7 +101,12 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
           onNudge={(direction) => layout.nudgeSize("left", direction)}
         />
       ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
-      <main className="new-ui-center" aria-label={`${resolveSectionLabel(activeSection)}工作区`} data-active-section={activeSection}>
+      <main
+        className="new-ui-center"
+        aria-label={`${resolveSectionLabel(activeSection, activeLibraryChild)}工作区`}
+        data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
+        data-active-section={activeSection}
+      >
         {activeSection === "analysis" ? <AnalysisHome /> : null}
       </main>
       {!rightCollapsed ? (
@@ -102,181 +127,31 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   );
 }
 
-function AnalysisHome() {
-  return (
-    <section className="new-ui-analysis-home" aria-label="分析首页">
-      <button className="new-ui-analysis-upload-frame" type="button" aria-label="上传视频开始分析">
-        <span className="new-ui-analysis-upload-icon-tile">
-          <svg className="new-ui-analysis-upload-icon" viewBox="0 0 128 96" focusable="false" aria-hidden="true">
-            <path className="new-ui-analysis-upload-cloud-fill" d="M38 70c-10.6 0-19-8.2-19-18.5 0-9.8 7.3-17.6 17.1-19.1 3.6-10.9 13.1-17.9 24.4-17.9 12.6 0 23 9 25.1 20.9 10.1 1.3 17.9 9 17.9 18.8 0 8.9-6.7 15.8-16.1 15.8H38Z" />
-            <path className="new-ui-analysis-upload-cloud-line" d="M38 70c-10.6 0-19-8.2-19-18.5 0-9.8 7.3-17.6 17.1-19.1 3.6-10.9 13.1-17.9 24.4-17.9 12.6 0 23 9 25.1 20.9 10.1 1.3 17.9 9 17.9 18.8 0 8.9-6.7 15.8-16.1 15.8H38Z" />
-            <path className="new-ui-analysis-upload-arrow" d="M61 71V42" />
-            <path className="new-ui-analysis-upload-arrow" d="M46 56 61 41l15 15" />
-            <path className="new-ui-analysis-upload-base" d="M49 82h24" />
-          </svg>
-        </span>
-        <span className="new-ui-analysis-upload-copy">
-          <span className="new-ui-analysis-upload-primary">拖拽视频到此处</span>
-          <span className="new-ui-analysis-upload-secondary">或点击选择文件</span>
-        </span>
-        <span className="new-ui-analysis-upload-limit" aria-hidden="true">MP4/MOV 最多 5 个 最大 2GB</span>
-      </button>
-      <AnalysisHistory />
-    </section>
-  );
-}
-
-type AnalysisHistoryItem = {
-  sample: PlatformResourceSummary;
-  artifact: SampleArtifact | null;
-};
-
-function AnalysisHistory() {
-  const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-
-  useEffect(() => {
-    let mounted = true;
-
-    listPlatformResources("sample")
-      .then(async (response) => {
-        const samples = [...response.resources]
-          .sort((a, b) => timestampValue(b.updatedAt ?? b.createdAt) - timestampValue(a.updatedAt ?? a.createdAt))
-          .slice(0, 18);
-        const nextItems = await Promise.all(samples.map(async (sample) => ({
-          sample,
-          artifact: await getSampleArtifact(sample.resourceId).catch(() => null),
-        })));
-        if (!mounted) return;
-        setItems(nextItems);
-        setStatus("ready");
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setItems([]);
-        setStatus("error");
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return (
-    <section className="new-ui-analysis-history" aria-label="历史结果">
-      <div className="new-ui-analysis-history-header">
-        <h2 className="new-ui-analysis-history-title">历史结果</h2>
-      </div>
-      {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
-      {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
-      {status === "ready" && !items.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
-      {items.length ? (
-        <div className="new-ui-analysis-history-grid">
-          {items.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} />)}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function AnalysisHistoryCard({ item }: { item: AnalysisHistoryItem }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const media = resolveHistoryMedia(item);
-
-  const playPreview = () => {
-    const video = videoRef.current;
-    if (!video || !media.videoUrl) return;
-    video.play().catch(() => undefined);
-  };
-
-  const pausePreview = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.pause();
-    video.currentTime = 0;
-  };
-
-  return (
-    <article
-      className={`new-ui-analysis-history-card is-${media.orientation}`}
-      tabIndex={0}
-      aria-label={media.title}
-      onPointerEnter={playPreview}
-      onPointerLeave={pausePreview}
-      onFocus={playPreview}
-      onBlur={pausePreview}
-    >
-      <div className="new-ui-analysis-history-media">
-        {media.coverUrl ? <img src={media.coverUrl} alt="" loading="lazy" /> : <div className="new-ui-analysis-history-placeholder" aria-hidden="true" />}
-        {media.videoUrl ? <video ref={videoRef} src={media.videoUrl} muted loop playsInline preload="metadata" aria-hidden="true" /> : null}
-        <span className="new-ui-analysis-history-ratio">{media.ratioLabel}</span>
-      </div>
-      <div className="new-ui-analysis-history-meta">
-        <span className="new-ui-analysis-history-name">{media.title}</span>
-        <span className="new-ui-analysis-history-detail">{media.detail}</span>
-      </div>
-    </article>
-  );
-}
-
-function resolveHistoryMedia(item: AnalysisHistoryItem) {
-  const artifact = item.artifact;
-  const width = positiveNumber(artifact?.metadata.width ?? item.sample.summary?.width);
-  const height = positiveNumber(artifact?.metadata.height ?? item.sample.summary?.height);
-  const duration = positiveNumber(artifact?.metadata.durationSeconds ?? item.sample.summary?.durationSeconds);
-  const orientation = width && height && height > width ? "portrait" : "landscape";
-  const title = artifact?.sampleVideo.original.summary ?? item.sample.label ?? item.sample.resourceId;
-  const coverUri = artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null;
-  const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null;
-  const orientationLabel = orientation === "portrait" ? "9:16" : "16:9";
-
-  return {
-    title,
-    orientation,
-    coverUrl: runtimeUrl(coverUri),
-    videoUrl: runtimeUrl(videoUri),
-    ratioLabel: orientationLabel,
-    detail: [formatDuration(duration), orientationLabel].filter(Boolean).join(" / "),
-  };
-}
-
-function positiveNumber(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-function timestampValue(value: string | null | undefined) {
-  const timestamp = Date.parse(value ?? "");
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function formatDuration(seconds: number | null) {
-  if (!seconds) return null;
-  const total = Math.max(1, Math.round(seconds));
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
-}
-
 type SidebarNavProps = {
+  activeLibraryChild: NewUiLibraryChildId;
   activeSection: NewUiSectionId;
   collapsed: boolean;
+  onLibraryChildChange: (child: NewUiLibraryChildId) => void;
   onSectionChange: (section: NewUiSectionId) => void;
 };
 
-function SidebarNav({ activeSection, collapsed, onSectionChange }: SidebarNavProps) {
+function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChildChange, onSectionChange }: SidebarNavProps) {
+  const [expandedSection, setExpandedSection] = useState<NewUiSectionId | null>(null);
+
   return (
     <nav className="new-ui-sidebar-nav" aria-label="新 UI 功能导航">
       {NEW_UI_SECTIONS.map((section) => {
         const isActive = section.id === activeSection;
-
-        return (
+        const hasChildren = Boolean(section.children?.length);
+        const isExpanded = hasChildren && !collapsed && (expandedSection === section.id || isActive);
+        const navButton = (
           <button
-            key={section.id}
-            className={`new-ui-sidebar-nav-item ${isActive ? "is-active" : ""}`.trim()}
+            key={hasChildren ? undefined : section.id}
+            className={`new-ui-sidebar-nav-item ${isActive ? "is-active" : ""} ${hasChildren ? "has-children" : ""}`.trim()}
             data-section={section.id}
             type="button"
             aria-current={isActive ? "page" : undefined}
+            aria-expanded={hasChildren ? isExpanded : undefined}
             aria-label={collapsed ? section.label : undefined}
             title={collapsed ? section.label : undefined}
             onClick={() => onSectionChange(section.id)}
@@ -285,15 +160,60 @@ function SidebarNav({ activeSection, collapsed, onSectionChange }: SidebarNavPro
               <SectionIcon section={section.id} />
             </span>
             <span className="new-ui-sidebar-nav-label">{section.label}</span>
+            {hasChildren ? <ExpandIcon expanded={isExpanded} /> : null}
           </button>
+        );
+
+        if (!hasChildren) {
+          return navButton;
+        }
+
+        return (
+          <div
+            key={section.id}
+            className={`new-ui-sidebar-nav-group ${isExpanded ? "is-expanded" : ""}`.trim()}
+            data-section={section.id}
+            onBlur={(event) => {
+              const nextTarget = event.relatedTarget;
+              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) setExpandedSection(null);
+            }}
+            onFocus={() => setExpandedSection(section.id)}
+            onPointerEnter={() => setExpandedSection(section.id)}
+            onPointerLeave={() => setExpandedSection(null)}
+          >
+            {navButton}
+            <div className="new-ui-sidebar-subnav" aria-label={`${section.label}子类`}>
+              {section.children?.map((child) => {
+                const isChildActive = isActive && activeLibraryChild === child.id;
+                return (
+                  <button
+                    key={child.id}
+                    className={`new-ui-sidebar-subnav-item ${isChildActive ? "is-active" : ""}`.trim()}
+                    type="button"
+                    aria-current={isChildActive ? "page" : undefined}
+                    onClick={() => {
+                      onSectionChange(section.id);
+                      onLibraryChildChange(child.id);
+                    }}
+                  >
+                    {child.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </nav>
   );
 }
 
-function resolveSectionLabel(section: NewUiSectionId) {
-  return NEW_UI_SECTIONS.find((item) => item.id === section)?.label ?? "分析";
+function resolveSectionLabel(section: NewUiSectionId, libraryChild: NewUiLibraryChildId) {
+  const active = NEW_UI_SECTIONS.find((item) => item.id === section);
+  if (section === "library") {
+    return active?.children?.find((child) => child.id === libraryChild)?.label ?? active?.label ?? "库";
+  }
+  return active?.label ?? "分析";
 }
 
 type SectionIconProps = {
@@ -343,6 +263,16 @@ function SectionIcon({ section }: SectionIconProps) {
       <path className="new-ui-section-icon-alt new-ui-section-icon-link-swap-a" d="M9.4 7.2c2.6 0.8 4.2 2.6 5.2 7.2" />
       <path className="new-ui-section-icon-alt new-ui-section-icon-link-swap-b" d="M14.6 7.2c-2.6 0.8-4.2 2.6-5.2 7.2" />
     </svg>
+  );
+}
+
+function ExpandIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <span className={`new-ui-sidebar-expand-icon ${expanded ? "is-expanded" : ""}`} aria-hidden="true">
+      <svg viewBox="0 0 16 16" focusable="false">
+        <path d="M5.6 3.8 9.8 8l-4.2 4.2" />
+      </svg>
+    </span>
   );
 }
 
