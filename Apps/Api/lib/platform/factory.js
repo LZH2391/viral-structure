@@ -3,6 +3,7 @@ const { createActionRegistry } = require("./action-registry");
 const { createArtifactResolver } = require("./artifact-resolver");
 const { createCommandDispatcher } = require("./command-dispatcher");
 const { createLineageResolver } = require("./lineage-resolver");
+const { createProjectionResolver } = require("./projection-resolver");
 const { createResourceCatalog } = require("./resource-catalog");
 const { createResourceResolver } = require("./resource-resolver");
 const { createRuntimeStateResolver } = require("./runtime-state-resolver");
@@ -25,6 +26,7 @@ function createPlatformHandlers({
   const resourceCatalog = deps.resourceCatalog ?? createResourceCatalog();
   const artifactResolver = deps.artifactResolver ?? createArtifactResolver({ artifactIndex });
   const lineageResolver = deps.lineageResolver ?? createLineageResolver({ artifactIndex });
+  const projectionResolver = deps.projectionResolver ?? createProjectionResolver({ artifactIndex, workflowRunStore });
   const runtimeStateResolver = deps.runtimeStateResolver ?? createRuntimeStateResolver({
     workflowRunStore,
     jobStore,
@@ -68,6 +70,7 @@ function createPlatformHandlers({
     resourceCatalog,
     artifactResolver,
     lineageResolver,
+    projectionResolver,
     resourceResolver,
     traceResolver,
     runtimeStateResolver,

@@ -1,4 +1,5 @@
 import { getSampleArtifact } from "../../api/client";
+import { getPlatformRuntimeState } from "../../api/platformClient";
 import {
   resolveAnalysisHistoryMedia,
   withLoadedAnalysisHistoryArtifact,
@@ -12,8 +13,14 @@ export type AnalysisDetailLoadResult = {
 };
 
 export async function loadAnalysisDetailItem(item: AnalysisHistoryItem): Promise<AnalysisDetailLoadResult> {
-  const artifact = item.sampleVideoId ? await getSampleArtifact(item.sampleVideoId) : null;
-  const nextItem = withLoadedAnalysisHistoryArtifact(item, artifact);
+  const [artifact, runtimeState] = await Promise.all([
+    item.sampleVideoId ? getSampleArtifact(item.sampleVideoId) : null,
+    item.workflowRunId ? getPlatformRuntimeState("workflowRun", item.workflowRunId).catch(() => null) : null,
+  ]);
+  const nextItem = {
+    ...withLoadedAnalysisHistoryArtifact(item, artifact),
+    runtimeState,
+  };
   return {
     item: nextItem,
     media: resolveAnalysisHistoryMedia(nextItem),

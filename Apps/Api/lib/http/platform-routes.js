@@ -76,7 +76,9 @@ async function handleResourceList(res, url, handlers = {}) {
 }
 
 async function handleResourceRead(res, resourceKind, resourceId, handlers = {}) {
-  const resource = await handlers.resourceResolver.read({ resourceKind, resourceId });
+  const resource = resourceKind === "projection"
+    ? await handlers.projectionResolver.read({ projectionId: resourceId })
+    : await handlers.resourceResolver.read({ resourceKind, resourceId });
   if (!resource) {
     return sendJson(res, 404, platformErrorBody({
       code: "resource_not_found",

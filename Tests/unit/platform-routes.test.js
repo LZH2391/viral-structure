@@ -165,12 +165,12 @@ test("platform resources route reads one resource", async () => {
 
 test("platform resources route reads analysis history projection", async () => {
   const server = createServer({
-    resourceResolver: {
-      read: async ({ resourceKind, resourceId }) => resourceKind === "projection" && resourceId === "analysis-history"
+    projectionResolver: {
+      read: async ({ projectionId }) => projectionId === "analysis-history"
         ? {
             schemaVersion: "platform_resource_summary.v1",
-            resourceKind,
-            resourceId,
+            resourceKind: "projection",
+            resourceId: projectionId,
             label: "历史结果",
             status: "ready",
             summary: {
@@ -201,7 +201,7 @@ test("platform resources route reads analysis history projection", async () => {
 
 test("platform resources route returns 404 for unknown projection", async () => {
   const server = createServer({
-    resourceResolver: {
+    projectionResolver: {
       read: async () => null,
     },
     staticWorkbench: { handle: () => false },

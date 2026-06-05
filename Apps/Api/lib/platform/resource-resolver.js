@@ -30,7 +30,6 @@ function createResourceResolver({
     const id = normalizeText(resourceId);
     if (!kind || !id) return null;
     if (kind === "sample") return readSample(id, artifactIndex);
-    if (kind === "projection") return readProjection(id, artifactIndex);
     if (kind === "workflowRun") return workflowRunSummary(workflowRunStore?.getRun?.(id));
     if (kind === "job") return jobSummary(jobStore?.getJob?.(id) ?? jobStore?.getArchivedJob?.(id));
     if (kind === "activeTurn") return activeTurnSummary(await activeTurnRuntime?.getByBindingId?.(id) ?? await activeTurnRuntime?.getByTurnId?.(id));
@@ -55,28 +54,6 @@ async function readSample(sampleVideoId, artifactIndex) {
     ...detail,
     artifactId: detail.artifact?.sampleVideo?.artifactId ?? detail.sourceArtifactId ?? null,
     status: detail.artifact?.status ?? null,
-  });
-}
-
-async function readProjection(projectionId, artifactIndex) {
-  if (projectionId !== "analysis-history") return null;
-  const items = await Promise.all((await artifactIndex?.listItems?.() ?? []).map(async (item) => {
-    const detail = await artifactIndex?.getItem?.(item.sampleVideoId).catch(() => null);
-    return analysisHistoryProjectionItem(item, detail?.artifact ?? null);
-  }));
-  return baseSummary({
-    resourceKind: "projection",
-    resourceId: projectionId,
-    label: "历史结果",
-    status: "ready",
-    updatedAt: latestUpdatedAt(items),
-    summary: {
-      schemaVersion: "analysis_history_projection.v1",
-      generatedAt: new Date().toISOString(),
-      items: items.filter(Boolean),
-    },
-    sourceOfTruth: "Runtime/Artifacts/<sampleVideoId>/artifact.json",
-    indexSource: "Infrastructure/ArtifactIndex",
   });
 }
 
@@ -269,53 +246,6 @@ function traceSummary(trace) {
     sourceOfTruth: "Runtime/DebugSnapshots/<traceId>.log.jsonl",
     indexSource: "Apps/Api/lib/observability/debug-traces.js",
   });
-}
-
-function analysisHistoryProjectionItem(item, artifact) {
-  if (!item?.sampleVideoId) return null;
-  const latestAnalysis = artifact?.functionSlotAtomizationAnalysis
-    ?? artifact?.userMaterialPack
-    ?? artifact?.packagingStructureAnalysis
-    ?? artifact?.rhythmStructureAnalysis
-    ?? artifact?.scriptSegmentAnalysis
-    ?? artifact?.shotBoundaryAnalysis
-    ?? null;
-  return {
-    sampleVideoId: item.sampleVideoId,
-    title: normalizeText(artifact?.sampleVideo?.original?.summary ?? item.filename ?? item.sampleVideoId),
-    status: normalizeText(artifact?.status ?? item.status ?? "indexed"),
-    updatedAt: normalizeText(item.updatedAt),
-    createdAt: normalizeText(item.createdAt),
-    artifactId: normalizeText(latestAnalysis?.artifactId ?? item.sourceArtifactId ?? artifact?.sampleVideo?.artifactId),
-    traceId: normalizeText(latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? item.sourceTraceId ?? item.traceId ?? artifact?.trace?.traceId),
-    runId: normalizeText(latestAnalysis?.runId ?? latestAnalysis?.agent?.runId ?? item.runId ?? artifact?.trace?.runId),
-    stageId: normalizeText(latestAnalysis?.stageId ?? latestAnalysis?.agent?.stageId ?? item.stageId ?? artifact?.trace?.stageId),
-    durationSeconds: numberOrNull(artifact?.metadata?.durationSeconds ?? item.durationSeconds),
-    width: numberOrNull(artifact?.metadata?.width ?? item.width),
-    height: numberOrNull(artifact?.metadata?.height ?? item.height),
-    coverUri: safeRuntimeUri(artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri),
-    videoUri: safeRuntimeUri(artifact?.sampleVideo?.normalized?.uri ?? artifact?.sampleVideo?.original?.uri),
-    hasFunctionSlotAtomization: Boolean(artifact?.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: Boolean(artifact?.userMaterialPack),
-    isRunning: isRunningStatus(artifact?.status ?? item.status),
-  };
-}
-
-function latestUpdatedAt(items) {
-  return items.reduce((latest, item) => {
-    const value = normalizeText(item?.updatedAt ?? item?.createdAt);
-    if (!value) return latest;
-    return !latest || String(value).localeCompare(latest) > 0 ? value : latest;
-  }, null);
-}
-
-function numberOrNull(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function isRunningStatus(status) {
-  return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
 }
 
 function baseSummary({
