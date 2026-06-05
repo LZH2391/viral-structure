@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
@@ -57,7 +57,7 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
         </button>
         <AnalysisHistory onOpenItem={openHistoryDetail} />
       </section>
-      <AnalysisDetailPage hidden={view !== "detail"} title={detailTitle} media={detailMedia} onBack={() => setView("home")} />
+      <AnalysisDetailPage hidden={view !== "detail"} title={detailTitle} media={detailMedia} item={detailItem} onBack={() => setView("home")} />
     </>
   );
 }
@@ -66,11 +66,13 @@ function AnalysisDetailPage({
   hidden,
   title,
   media,
+  item,
   onBack,
 }: {
   hidden: boolean;
   title: string;
   media: AnalysisHistoryMedia | null;
+  item: AnalysisHistoryItem | null;
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -93,22 +95,181 @@ function AnalysisDetailPage({
         </button>
       </header>
       <div className="new-ui-analysis-detail-body">
-        <div className={`new-ui-analysis-player is-${orientation}`}>
-          {media?.videoUrl ? (
-            <video
-              ref={videoRef}
-              key={media.videoUrl}
-              src={media.videoUrl}
-              poster={media.coverUrl ?? undefined}
-              controls
-              playsInline
-              preload="metadata"
-            />
-          ) : (
-            <div className="new-ui-analysis-player-empty" aria-hidden="true" />
-          )}
+        <div className="new-ui-analysis-detail-media">
+          <div className={`new-ui-analysis-player is-${orientation}`}>
+            {media?.videoUrl ? (
+              <video
+                ref={videoRef}
+                key={media.videoUrl}
+                src={media.videoUrl}
+                poster={media.coverUrl ?? undefined}
+                controls
+                playsInline
+                preload="metadata"
+              />
+            ) : (
+              <div className="new-ui-analysis-player-empty" aria-hidden="true" />
+            )}
+          </div>
         </div>
+        <AnalysisTimelineTracks item={item} />
       </div>
     </section>
   );
+}
+
+type AnalysisTimelineTrackTone = "shot" | "script" | "rhythm" | "packaging" | "atom";
+
+type AnalysisTimelineBlock = {
+  id: string;
+  label: string;
+  start: number;
+  end: number;
+};
+
+type AnalysisTimelineTrack = {
+  key: AnalysisTimelineTrackTone;
+  label: string;
+  emptyLabel: string;
+  blocks: AnalysisTimelineBlock[];
+};
+
+function AnalysisTimelineTracks({ item }: { item: AnalysisHistoryItem | null }) {
+  const { duration, tracks } = resolveAnalysisTimelineTracks(item);
+
+  return (
+    <section className="new-ui-analysis-timeline" aria-label="分析轨道">
+      {tracks.map((track) => (
+        <div key={track.key} className={`new-ui-analysis-timeline-row is-${track.key}`}>
+          <div className="new-ui-analysis-timeline-label">{track.label}</div>
+          <div className="new-ui-analysis-timeline-lane">
+            {track.blocks.length ? (
+              track.blocks.map((block) => (
+                <span
+                  key={block.id}
+                  className="new-ui-analysis-timeline-block"
+                  style={timelineBlockStyle(block, duration)}
+                  title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+                >
+                  {block.label}
+                </span>
+              ))
+            ) : (
+              <span className="new-ui-analysis-timeline-empty">{track.emptyLabel}</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { duration: number; tracks: AnalysisTimelineTrack[] } {
+  const artifact = item?.artifact;
+  const shots = artifact?.shotBoundaryAnalysis?.shots ?? [];
+  const scriptSegments = artifact?.scriptSegmentAnalysis?.segments ?? [];
+  const rhythmSections = artifact?.rhythmStructureAnalysis?.sections ?? [];
+  const packagingBlocks = artifact?.packagingStructureAnalysis?.packagingBlocks ?? [];
+  const atomSlots = artifact?.functionSlotAtomizationAnalysis?.slotMap?.slots ?? [];
+  const shotBlocks = shots.map((shot) => ({
+    id: shot.id,
+    label: shot.shotNo ?? `镜头 ${shot.index + 1}`,
+    start: shot.start,
+    end: shot.end,
+  }));
+  const scriptBlocks = scriptSegments.map((segment) => ({
+    id: segment.segmentId,
+    label: segment.label,
+    start: segment.start,
+    end: segment.end,
+  }));
+  const rhythmBlocks = rhythmSections.map((section) => ({
+    id: section.sectionId,
+    label: section.label,
+    start: section.start,
+    end: section.end,
+  }));
+  const packagingTimelineBlocks = packagingBlocks.map((block) => ({
+    id: block.blockId,
+    label: block.label,
+    start: block.start,
+    end: block.end,
+  }));
+  const atomBlocks = resolveAtomTimelineBlocks(atomSlots, shots);
+  const duration = Math.max(
+    positiveTimelineNumber(artifact?.metadata.durationSeconds),
+    maxTimelineEnd(shotBlocks),
+    maxTimelineEnd(scriptBlocks),
+    maxTimelineEnd(rhythmBlocks),
+    maxTimelineEnd(packagingTimelineBlocks),
+    maxTimelineEnd(atomBlocks),
+    1,
+  );
+
+  return {
+    duration,
+    tracks: [
+      { key: "shot", label: "镜头轨", emptyLabel: "暂无切镜", blocks: shotBlocks },
+      { key: "script", label: "脚本段", emptyLabel: "暂无脚本段", blocks: scriptBlocks },
+      { key: "rhythm", label: "节奏段", emptyLabel: "暂无节奏段", blocks: rhythmBlocks },
+      { key: "packaging", label: "包装段", emptyLabel: "暂无包装段", blocks: packagingTimelineBlocks },
+      { key: "atom", label: "原子段", emptyLabel: "暂无原子段", blocks: atomBlocks },
+    ],
+  };
+}
+
+function resolveAtomTimelineBlocks(
+  slots: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["functionSlotAtomizationAnalysis"]>["slotMap"]["slots"],
+  shots: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["shotBoundaryAnalysis"]>["shots"],
+): AnalysisTimelineBlock[] {
+  const shotByRef = new Map<string, { start: number; end: number }>();
+  shots.forEach((shot) => {
+    shotByRef.set(shot.id, shot);
+    if (shot.shotNo) shotByRef.set(shot.shotNo, shot);
+    shotByRef.set(String(shot.index + 1), shot);
+  });
+
+  return slots.map((slot, index) => {
+    const ranges = slot.sourceRefs.shotRefs
+      .map((ref) => shotByRef.get(ref))
+      .filter((range): range is { start: number; end: number } => Boolean(range));
+    const start = ranges.length ? Math.min(...ranges.map((range) => range.start)) : index;
+    const end = ranges.length ? Math.max(...ranges.map((range) => range.end)) : index + 1;
+
+    return {
+      id: slot.slotId,
+      label: slot.slotName,
+      start,
+      end,
+    };
+  });
+}
+
+function timelineBlockStyle(block: AnalysisTimelineBlock, duration: number): CSSProperties {
+  const start = clampTimelinePercent((block.start / duration) * 100);
+  const end = clampTimelinePercent((block.end / duration) * 100);
+  const width = Math.max(1.2, end - start);
+  return {
+    left: `${start}%`,
+    width: `${width}%`,
+  };
+}
+
+function maxTimelineEnd(blocks: AnalysisTimelineBlock[]) {
+  return blocks.reduce((max, block) => Math.max(max, positiveTimelineNumber(block.end)), 0);
+}
+
+function positiveTimelineNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function clampTimelinePercent(value: number) {
+  return Math.min(100, Math.max(0, value));
+}
+
+function formatTimelineTime(value: number) {
+  const seconds = Math.max(0, Math.round(value));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }

@@ -23,7 +23,7 @@ export type AnalysisHistoryMedia = {
 
 export async function listAnalysisHistorySamples(limit?: number): Promise<AnalysisHistoryItem[]> {
   const response = await listPlatformResources("sample");
-  const samples = [...response.resources]
+  const samples: AnalysisHistoryItem[] = [...response.resources]
     .sort((a, b) => timestampValue(b.updatedAt ?? b.createdAt) - timestampValue(a.updatedAt ?? a.createdAt))
     .map((sample) => ({
       sample,

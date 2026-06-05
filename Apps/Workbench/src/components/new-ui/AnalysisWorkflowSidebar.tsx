@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 
 type WorkflowStageStatus = "done" | "running" | "waiting" | "blocked";
@@ -33,68 +34,76 @@ type WorkflowStages = [
 export function AnalysisWorkflowSidebar({ detail }: AnalysisWorkflowSidebarProps) {
   const stages = resolveWorkflowStages(detail.item);
   const [upload, shotBoundary, scriptSegment, rhythmStructure, packagingStructure, atomization, aggregate] = stages;
+  const structureStatus = resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
 
   return (
-    <section className="new-ui-analysis-workflow" aria-label="完整分析步骤">
-      <div className="new-ui-analysis-workflow-flow">
-        <WorkflowStageCard stage={upload} />
-        <WorkflowConnector />
-        <WorkflowStageCard stage={shotBoundary} />
-        <WorkflowSplitConnector />
-
-        <section className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行组">
-          <div className="new-ui-analysis-workflow-parallel-header">
-            <strong>structure-analysis</strong>
+    <section className="new-ui-analysis-workflow" aria-label="完整分析总览">
+      <div className="new-ui-analysis-workflow-title">分析流程</div>
+      <ol className="new-ui-analysis-workflow-list">
+        <WorkflowStep stage={upload} connectorDone={upload.status === "done"} />
+        <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} />
+        <WorkflowStep
+          stage={{
+            key: "structureAnalysis",
+            label: "结构分析",
+            moduleLabel: "三路并行",
+            dependencyLabel: "依赖：切镜",
+            status: structureStatus,
+          }}
+          connectorDone={structureStatus === "done"}
+        >
+          <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
+            <ParallelStage stage={scriptSegment} />
+            <ParallelStage stage={rhythmStructure} />
+            <ParallelStage stage={packagingStructure} />
           </div>
-          <div className="new-ui-analysis-workflow-parallel-grid">
-            <WorkflowStageCard compact stage={scriptSegment} />
-            <WorkflowStageCard compact stage={rhythmStructure} />
-            <WorkflowStageCard compact stage={packagingStructure} />
-          </div>
-        </section>
-
-        <WorkflowMergeConnector />
-        <WorkflowStageCard stage={atomization} />
-        <WorkflowConnector />
-        <WorkflowStageCard stage={aggregate} />
-      </div>
+        </WorkflowStep>
+        <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} />
+        <WorkflowStep stage={aggregate} isLast />
+      </ol>
     </section>
   );
 }
 
-function WorkflowStageCard({ stage, compact = false }: { stage: WorkflowStage; compact?: boolean }) {
+function WorkflowStep({
+  stage,
+  connectorDone = false,
+  isLast = false,
+  children,
+}: {
+  stage: WorkflowStage;
+  connectorDone?: boolean;
+  isLast?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <article className={`new-ui-analysis-workflow-stage is-${stage.status} ${compact ? "is-compact" : ""}`.trim()}>
-      <span className="new-ui-analysis-workflow-status-dot" aria-hidden="true" />
-      <div className="new-ui-analysis-workflow-stage-main">
-        <div className="new-ui-analysis-workflow-stage-topline">
-          <h3>{stage.label}</h3>
-          <span>{statusLabel(stage.status)}</span>
-        </div>
-        <p>{stage.moduleLabel}</p>
-        <small>{stage.dependencyLabel}</small>
+    <li className={`new-ui-analysis-workflow-step is-${stage.status}`}>
+      <div className="new-ui-analysis-workflow-connector" aria-hidden="true">
+        <span className="new-ui-analysis-workflow-status-dot" />
+        <span className={`new-ui-analysis-workflow-vline ${connectorDone ? "is-done" : ""} ${isLast ? "is-hidden" : ""}`.trim()} />
       </div>
+      <div className="new-ui-analysis-workflow-step-body">
+        <div className="new-ui-analysis-workflow-step-label">{stage.label}</div>
+        <div className="new-ui-analysis-workflow-step-sub">
+          {stage.moduleLabel}
+          {stage.dependencyLabel ? <span> · {stage.dependencyLabel}</span> : null}
+        </div>
+        <span className="new-ui-analysis-workflow-badge">{statusLabel(stage.status)}</span>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function ParallelStage({ stage }: { stage: WorkflowStage }) {
+  return (
+    <article className={`new-ui-analysis-workflow-parallel-item is-${stage.status}`}>
+      <div className="new-ui-analysis-workflow-parallel-label">
+        {stage.status === "running" ? <span className="new-ui-analysis-workflow-spinner" aria-hidden="true" /> : <span className="new-ui-analysis-workflow-mini-dot" aria-hidden="true" />}
+        <span>{stage.label}</span>
+      </div>
+      <div className="new-ui-analysis-workflow-parallel-sub">{stage.moduleLabel}</div>
     </article>
-  );
-}
-
-function WorkflowConnector() {
-  return <div className="new-ui-analysis-workflow-connector" aria-hidden="true" />;
-}
-
-function WorkflowSplitConnector() {
-  return (
-    <div className="new-ui-analysis-workflow-split" aria-hidden="true">
-      <span />
-    </div>
-  );
-}
-
-function WorkflowMergeConnector() {
-  return (
-    <div className="new-ui-analysis-workflow-merge" aria-hidden="true">
-      <span />
-    </div>
   );
 }
 
@@ -168,10 +177,17 @@ function statusFor({ done, dependenciesDone, running }: { done: boolean; depende
   return running ? "running" : "waiting";
 }
 
+function resolveGroupStatus(stages: WorkflowStage[]): WorkflowStageStatus {
+  if (stages.every((stage) => stage.status === "done")) return "done";
+  if (stages.some((stage) => stage.status === "running")) return "running";
+  if (stages.every((stage) => stage.status === "blocked")) return "blocked";
+  return "waiting";
+}
+
 function statusLabel(status: WorkflowStageStatus) {
   if (status === "done") return "已完成";
   if (status === "running") return "处理中";
-  if (status === "blocked") return "等依赖";
+  if (status === "blocked") return "等待依赖";
   return "等待中";
 }
 
