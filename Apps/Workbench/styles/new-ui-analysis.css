@@ -4,22 +4,22 @@
   align-content: start;
   gap: 28px;
   min-height: 100%;
-  padding: clamp(54px, 8vh, 82px) clamp(24px, 6vw, 72px) 48px;
+  padding: clamp(46px, 7vh, 72px) clamp(18px, 4vw, 40px) 48px;
 }
 
 .new-ui-analysis-upload-frame {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 18px;
-  width: min(760px, 100%);
-  aspect-ratio: 16 / 9;
+  gap: 16px;
+  width: min(1120px, 100%);
+  min-height: clamp(260px, 30vh, 320px);
   border: 1.5px dashed color-mix(in srgb, var(--new-ui-text-muted) 42%, transparent);
   border-radius: 18px;
   background: color-mix(in srgb, var(--new-ui-surface) 72%, var(--new-ui-bg));
   color: var(--new-ui-text-muted);
   cursor: pointer;
-  padding: 0;
+  padding: 28px 24px;
   transition:
     background-color 180ms ease,
     border-color 180ms ease,
@@ -44,8 +44,8 @@
 }
 
 .new-ui-analysis-upload-icon {
-  width: clamp(92px, 13vw, 126px);
-  height: clamp(69px, 9.75vw, 94px);
+  width: clamp(88px, 10vw, 112px);
+  height: clamp(66px, 7.5vw, 84px);
   overflow: visible;
 }
 
@@ -161,7 +161,7 @@
 }
 
 .new-ui-analysis-history {
-  width: min(760px, 100%);
+  width: min(1120px, 100%);
   display: grid;
   gap: 14px;
   justify-self: center;
@@ -194,15 +194,13 @@
 
 .new-ui-analysis-history-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  grid-auto-flow: dense;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   gap: 12px;
   align-items: start;
 }
 
 .new-ui-analysis-history-card {
   --new-ui-history-media-height: clamp(104px, 11vw, 136px);
-  grid-column: span 4;
   min-width: 0;
   display: grid;
   gap: 8px;
@@ -221,7 +219,7 @@
 }
 
 .new-ui-analysis-history-card.is-portrait {
-  grid-column: span 2;
+  max-width: 184px;
 }
 
 .new-ui-analysis-history-card:hover,
@@ -343,19 +341,15 @@
 
 @media (max-width: 980px) {
   .new-ui-analysis-home {
-    padding: 56px 18px 36px;
+    padding: 42px 16px 36px;
   }
 
   .new-ui-analysis-history-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .new-ui-analysis-history-card {
-    grid-column: span 4;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 
   .new-ui-analysis-history-card.is-portrait {
-    grid-column: span 2;
+    max-width: none;
   }
 }
 
