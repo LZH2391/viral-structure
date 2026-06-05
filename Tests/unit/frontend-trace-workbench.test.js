@@ -160,7 +160,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /type NewUiSectionId = "analysis" \| "library" \| "restructure"/);
   assert.match(newUiLayout, /label: "分析"/);
   assert.match(newUiLayout, /label: "库"/);
-  assert.match(newUiLayout, /label: "样例结构图"/);
+  assert.match(newUiLayout, /label: "旧UI样例结构图"/);
   assert.match(newUiLayout, /label: "语义治理库"/);
   assert.match(newUiLayout, /label: "方案溯源图"/);
   assert.match(newUiLayout, /label: "重组"/);

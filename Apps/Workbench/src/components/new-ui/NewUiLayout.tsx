@@ -24,7 +24,7 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
     id: "library",
     label: "库",
     children: [
-      { id: "sampleStructure", label: "样例结构图" },
+      { id: "sampleStructure", label: "旧UI样例结构图" },
       { id: "semanticGovernance", label: "语义治理库" },
       { id: "planTrace", label: "方案溯源图" },
     ],
