@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { getSampleArtifact, runtimeUrl } from "../../api/client";
+import { listPlatformResources, type PlatformResourceSummary } from "../../api/platformClient";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
+import type { SampleArtifact } from "../../types";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
 
@@ -118,8 +121,141 @@ function AnalysisHome() {
         </span>
         <span className="new-ui-analysis-upload-limit" aria-hidden="true">MP4/MOV 最多 5 个 最大 2GB</span>
       </button>
+      <AnalysisHistory />
     </section>
   );
+}
+
+type AnalysisHistoryItem = {
+  sample: PlatformResourceSummary;
+  artifact: SampleArtifact | null;
+};
+
+function AnalysisHistory() {
+  const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let mounted = true;
+
+    listPlatformResources("sample")
+      .then(async (response) => {
+        const samples = [...response.resources]
+          .sort((a, b) => timestampValue(b.updatedAt ?? b.createdAt) - timestampValue(a.updatedAt ?? a.createdAt))
+          .slice(0, 18);
+        const nextItems = await Promise.all(samples.map(async (sample) => ({
+          sample,
+          artifact: await getSampleArtifact(sample.resourceId).catch(() => null),
+        })));
+        if (!mounted) return;
+        setItems(nextItems);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setItems([]);
+        setStatus("error");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return (
+    <section className="new-ui-analysis-history" aria-label="历史结果">
+      <div className="new-ui-analysis-history-header">
+        <h2 className="new-ui-analysis-history-title">历史结果</h2>
+      </div>
+      {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
+      {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
+      {status === "ready" && !items.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
+      {items.length ? (
+        <div className="new-ui-analysis-history-grid">
+          {items.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} />)}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AnalysisHistoryCard({ item }: { item: AnalysisHistoryItem }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const media = resolveHistoryMedia(item);
+
+  const playPreview = () => {
+    const video = videoRef.current;
+    if (!video || !media.videoUrl) return;
+    video.play().catch(() => undefined);
+  };
+
+  const pausePreview = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.pause();
+    video.currentTime = 0;
+  };
+
+  return (
+    <article
+      className={`new-ui-analysis-history-card is-${media.orientation}`}
+      tabIndex={0}
+      aria-label={media.title}
+      onPointerEnter={playPreview}
+      onPointerLeave={pausePreview}
+      onFocus={playPreview}
+      onBlur={pausePreview}
+    >
+      <div className="new-ui-analysis-history-media">
+        {media.coverUrl ? <img src={media.coverUrl} alt="" loading="lazy" /> : <div className="new-ui-analysis-history-placeholder" aria-hidden="true" />}
+        {media.videoUrl ? <video ref={videoRef} src={media.videoUrl} muted loop playsInline preload="metadata" aria-hidden="true" /> : null}
+        <span className="new-ui-analysis-history-ratio">{media.ratioLabel}</span>
+      </div>
+      <div className="new-ui-analysis-history-meta">
+        <span className="new-ui-analysis-history-name">{media.title}</span>
+        <span className="new-ui-analysis-history-detail">{media.detail}</span>
+      </div>
+    </article>
+  );
+}
+
+function resolveHistoryMedia(item: AnalysisHistoryItem) {
+  const artifact = item.artifact;
+  const width = positiveNumber(artifact?.metadata.width ?? item.sample.summary?.width);
+  const height = positiveNumber(artifact?.metadata.height ?? item.sample.summary?.height);
+  const duration = positiveNumber(artifact?.metadata.durationSeconds ?? item.sample.summary?.durationSeconds);
+  const orientation = width && height && height > width ? "portrait" : "landscape";
+  const title = artifact?.sampleVideo.original.summary ?? item.sample.label ?? item.sample.resourceId;
+  const coverUri = artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null;
+  const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null;
+  const orientationLabel = orientation === "portrait" ? "9:16" : "16:9";
+
+  return {
+    title,
+    orientation,
+    coverUrl: runtimeUrl(coverUri),
+    videoUrl: runtimeUrl(videoUri),
+    ratioLabel: orientationLabel,
+    detail: [formatDuration(duration), orientationLabel].filter(Boolean).join(" / "),
+  };
+}
+
+function positiveNumber(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function timestampValue(value: string | null | undefined) {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function formatDuration(seconds: number | null) {
+  if (!seconds) return null;
+  const total = Math.max(1, Math.round(seconds));
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 type SidebarNavProps = {
