@@ -3,6 +3,7 @@ import {
   hydrateAnalysisHistoryArtifacts,
   listAnalysisHistorySamples,
   resolveAnalysisHistoryMedia,
+  shouldShowAnalysisHistoryItem,
   type AnalysisHistoryItem,
 } from "./analysisHistoryData";
 
@@ -13,6 +14,10 @@ type AnalysisHistoryProps = {
 export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const visibleItems = items.filter(shouldShowAnalysisHistoryItem);
+  const landscapeItems = visibleItems.filter((item) => resolveAnalysisHistoryMedia(item).orientation === "landscape");
+  const portraitItems = visibleItems.filter((item) => resolveAnalysisHistoryMedia(item).orientation === "portrait");
+  const hydrating = items.some((item) => item.artifactStatus === "pending" && !shouldShowAnalysisHistoryItem(item));
 
   useEffect(() => {
     let mounted = true;
@@ -50,10 +55,20 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
       </div>
       {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
       {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
-      {status === "ready" && !items.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
-      {items.length ? (
-        <div className="new-ui-analysis-history-grid">
-          {items.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} onOpen={onOpenItem} />)}
+      {status === "ready" && !visibleItems.length && hydrating ? <div className="new-ui-analysis-history-state">加载中</div> : null}
+      {status === "ready" && !visibleItems.length && !hydrating ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
+      {visibleItems.length ? (
+        <div className="new-ui-analysis-history-groups">
+          {landscapeItems.length ? (
+            <div className="new-ui-analysis-history-grid new-ui-analysis-history-grid-landscape">
+              {landscapeItems.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} onOpen={onOpenItem} />)}
+            </div>
+          ) : null}
+          {portraitItems.length ? (
+            <div className="new-ui-analysis-history-grid new-ui-analysis-history-grid-portrait">
+              {portraitItems.map((item) => <AnalysisHistoryCard key={item.sample.resourceId} item={item} onOpen={onOpenItem} />)}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

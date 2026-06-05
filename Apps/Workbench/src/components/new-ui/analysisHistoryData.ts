@@ -21,16 +21,16 @@ export type AnalysisHistoryMedia = {
   badgeLabel: "素材识别" | "样例分析" | "分析中";
 };
 
-export async function listAnalysisHistorySamples(limit = 12): Promise<AnalysisHistoryItem[]> {
+export async function listAnalysisHistorySamples(limit?: number): Promise<AnalysisHistoryItem[]> {
   const response = await listPlatformResources("sample");
-  return [...response.resources]
+  const samples = [...response.resources]
     .sort((a, b) => timestampValue(b.updatedAt ?? b.createdAt) - timestampValue(a.updatedAt ?? a.createdAt))
-    .slice(0, limit)
     .map((sample) => ({
       sample,
       artifact: null,
       artifactStatus: "pending",
     }));
+  return typeof limit === "number" ? samples.slice(0, limit) : samples;
 }
 
 export async function hydrateAnalysisHistoryArtifacts(
@@ -47,6 +47,14 @@ export async function hydrateAnalysisHistoryArtifacts(
       onItem(sample.resourceId, artifact);
     }
   }));
+}
+
+export function shouldShowAnalysisHistoryItem(item: AnalysisHistoryItem) {
+  return Boolean(
+    item.artifact?.functionSlotAtomizationAnalysis
+    || item.artifact?.userMaterialPack
+    || isRunningStatus(item.sample.status),
+  );
 }
 
 export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): AnalysisHistoryMedia {
@@ -106,15 +114,19 @@ function dayDiff(a: Date, b: Date) {
   return Math.round((startA - startB) / 86400000);
 }
 
-function normalizeMediaTitle(value: string) {
+export function normalizeMediaTitle(value: string) {
   return value
     .replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, "")
     .trim();
 }
 
 function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "样例分析" | "分析中" {
-  if (item.artifactStatus !== "ready") return "分析中";
+  if (isRunningStatus(item.sample.status)) return "分析中";
   if (item.artifact?.functionSlotAtomizationAnalysis) return "样例分析";
   if (item.artifact?.userMaterialPack) return "素材识别";
-  return "样例分析";
+  return "分析中";
+}
+
+function isRunningStatus(status: string | null | undefined) {
+  return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
 }
