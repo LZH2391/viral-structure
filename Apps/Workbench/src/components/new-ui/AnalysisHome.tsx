@@ -408,7 +408,7 @@ function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
   if (!runtimeStatus) return null;
   if (["queued", "pending"].includes(runtimeStatus)) return "分析任务已排队";
   if (["running", "processing"].includes(runtimeStatus)) return "正在分析";
-  if (["waiting", "blocked", "cache_waiting"].includes(runtimeStatus)) return "等待处理决策";
+  if (["waiting", "blocked", "cache_waiting"].includes(runtimeStatus)) return null;
   if (runtimeStatus === "processed") return "分析完成";
   if (runtimeStatus === "partial_failed") return "部分分析失败";
   if (runtimeStatus === "failed") return "分析失败";

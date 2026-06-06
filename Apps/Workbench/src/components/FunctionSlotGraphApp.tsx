@@ -94,50 +94,71 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   }, [fixedMode]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) return undefined;
     if (mode !== "structure") return;
     if (!selectedArtifactId) {
       setGraph(null);
-      return;
+      return undefined;
     }
+    let cancelled = false;
     setStatus("读取图谱");
     setGraph(null);
     getFunctionSlotLibraryGraph(selectedArtifactId)
       .then((nextGraph) => {
+        if (cancelled) return;
         setGraph(nextGraph);
         setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "libraryItem")?.id ?? nextGraph.nodes[0]?.id ?? null);
         setStatus("已同步");
       })
-      .catch((error) => setStatus(error instanceof Error ? error.message : "读取图谱失败"));
+      .catch((error) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取图谱失败");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [active, mode, selectedArtifactId]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) return undefined;
     if (mode !== "governance") return;
+    let cancelled = false;
     setStatus("读取语义治理图");
     setGraph(null);
     getFunctionSlotGovernanceGraph()
       .then((nextGraph) => {
+        if (cancelled) return;
         setGraph(nextGraph);
         setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "slotFamily")?.id ?? nextGraph.nodes[0]?.id ?? null);
         setStatus("已同步");
       })
-      .catch((error) => setStatus(error instanceof Error ? error.message : "读取语义治理图失败"));
+      .catch((error) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取语义治理图失败");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [active, mode]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) return undefined;
     if (mode !== "planTrace") return;
+    let cancelled = false;
     setStatus("读取确定方案溯源");
     setGraph(null);
     getFunctionSlotConfirmedPlanTraceGraph()
       .then((nextGraph) => {
+        if (cancelled) return;
         setGraph(nextGraph);
         setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
         setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "confirmedPlan")?.id ?? nextGraph.nodes[0]?.id ?? null);
         setStatus("已同步");
       })
-      .catch((error) => setStatus(error instanceof Error ? error.message : "读取确定方案溯源失败"));
+      .catch((error) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取确定方案溯源失败");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [active, mode]);
 
   useEffect(() => {

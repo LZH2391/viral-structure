@@ -35,11 +35,7 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 ];
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
-
-type IdleWindow = Window & {
-  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-  cancelIdleCallback?: (handle: number) => void;
-};
+const LIBRARY_GRAPH_MOUNT_DELAY_MS = 320;
 
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
@@ -101,21 +97,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       return undefined;
     }
     let cancelled = false;
-    let timeoutId: number | null = null;
-    let idleId: number | null = null;
-    const mountGraph = () => {
+    const timeoutId = window.setTimeout(() => {
       if (!cancelled) setLibraryGraphMounted(true);
-    };
-    const idleWindow = window as IdleWindow;
-    if (idleWindow.requestIdleCallback) {
-      idleId = idleWindow.requestIdleCallback(mountGraph, { timeout: 360 });
-    } else {
-      timeoutId = window.setTimeout(mountGraph, 180);
-    }
+    }, LIBRARY_GRAPH_MOUNT_DELAY_MS);
     return () => {
       cancelled = true;
-      if (idleId != null) idleWindow.cancelIdleCallback?.(idleId);
-      if (timeoutId != null) window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
     };
   }, [active, activeSection, activeLibraryChild]);
 
