@@ -31,8 +31,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
   const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
-  const [detailArtifactStatus, setDetailArtifactStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [taskStatusText, setTaskStatusText] = useState<string | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [selectedTimelineSegment, setSelectedTimelineSegment] = useState<AnalysisTimelineSegmentDetail | null>(null);
   const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
@@ -71,8 +69,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         setDetailItem(nextItem);
         setDetailMedia(nextMedia);
         setDetailTitle(nextMedia.title);
-        setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
-        setTaskStatusText(statusTextForAnalysisItem(nextItem));
         setHistoryRefreshKey((value) => value + 1);
         if (isAnalysisItemRunning(nextItem)) {
           terminalPollsRemaining = 4;
@@ -82,8 +78,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         if (terminalPollsRemaining <= 0) stopPolling();
       } catch {
         if (token !== operationTokenRef.current) return;
-        setDetailArtifactStatus("error");
-        setTaskStatusText("刷新分析状态失败");
       }
     };
     void poll();
@@ -109,8 +103,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setDetailTitle(media.title);
     setDetailMedia(media);
     setDetailItem(item);
-    setDetailArtifactStatus(item.artifact ? "ready" : "loading");
-    setTaskStatusText(statusTextForAnalysisItem(item));
     setSelectedTimelineSegment(null);
     setRerunnableStageKeys([]);
     setRerunningStageKey(null);
@@ -132,8 +124,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setDetailTitle(file.name.replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, ""));
     setDetailMedia(null);
     setDetailItem(null);
-    setDetailArtifactStatus("loading");
-    setTaskStatusText("正在启动完整分析");
     setSelectedTimelineSegment(null);
     setRerunnableStageKeys([]);
     setRerunningStageKey(null);
@@ -144,13 +134,9 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       setDetailItem(item);
       setDetailMedia(media);
       setDetailTitle(media.title);
-      setDetailArtifactStatus(item.artifact ? "ready" : "loading");
-      setTaskStatusText(statusTextForAnalysisItem(item));
       setHistoryRefreshKey((value) => value + 1);
-    } catch (error) {
+    } catch {
       if (token !== operationTokenRef.current) return;
-      setDetailArtifactStatus("error");
-      setTaskStatusText(error instanceof Error ? error.message : "启动完整分析失败");
     } finally {
       if (token === operationTokenRef.current) setIsUploading(false);
     }
@@ -171,7 +157,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     stopPolling();
     detailPollingKeyRef.current = null;
     setRerunningStageKey(statusKey);
-    setTaskStatusText(`正在重跑${stageLabelForStatus(statusKey)}`);
     setSelectedTimelineSegment(null);
     try {
       const { item: nextItem, media: nextMedia } = await rerunAnalysisWorkflowStage(detailItem, stageKeys);
@@ -179,13 +164,10 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       setDetailItem(nextItem);
       setDetailMedia(nextMedia);
       setDetailTitle(nextMedia.title);
-      setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
-      setTaskStatusText(statusTextForAnalysisItem(nextItem));
       setHistoryRefreshKey((value) => value + 1);
       startDetailPolling(nextItem, token);
-    } catch (error) {
+    } catch {
       if (token !== operationTokenRef.current) return;
-      setTaskStatusText(error instanceof Error ? error.message : "重跑分析步骤失败");
     } finally {
       if (token === operationTokenRef.current) setRerunningStageKey(null);
     }
@@ -248,20 +230,15 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     if (detailLoadKeyRef.current === loadKey) return undefined;
     detailLoadKeyRef.current = loadKey;
     let mounted = true;
-    setDetailArtifactStatus("loading");
     loadAnalysisDetailItem(detailItem)
       .then(({ item: nextItem, media: nextMedia }) => {
         if (!mounted) return;
         setDetailItem(nextItem);
         setDetailMedia(nextMedia);
         setDetailTitle(nextMedia.title);
-        setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
-        setTaskStatusText(statusTextForAnalysisItem(nextItem));
       })
       .catch(() => {
         if (!mounted) return;
-        setDetailArtifactStatus("error");
-        setTaskStatusText("完整分析结果暂时无法读取");
       });
     return () => {
       mounted = false;
@@ -355,8 +332,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         media={detailMedia}
         item={detailItem}
         heavyReady={detailHeavyReady}
-        artifactStatus={detailArtifactStatus}
-        taskStatusText={taskStatusText}
         selectedTimelineSegment={selectedTimelineSegment}
         onTimelineReady={handleTimelineReady}
         onSelectTimelineSegment={selectTimelineSegment}
@@ -367,7 +342,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
           setDetailTimelineReady(false);
           setView("home");
         }}
-        onUpload={openUploadDetail}
       />
     </>
   );
@@ -379,26 +353,20 @@ function AnalysisDetailPage({
   media,
   item,
   heavyReady,
-  artifactStatus,
-  taskStatusText,
   selectedTimelineSegment,
   onTimelineReady,
   onSelectTimelineSegment,
   onBack,
-  onUpload,
 }: {
   hidden: boolean;
   title: string;
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
   heavyReady: boolean;
-  artifactStatus: "idle" | "loading" | "ready" | "error";
-  taskStatusText: string | null;
   selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
   onTimelineReady: () => void;
   onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
   onBack: () => void;
-  onUpload: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const orientation = media?.orientation ?? "landscape";
@@ -449,12 +417,7 @@ function AnalysisDetailPage({
               <div className="new-ui-analysis-player-empty" aria-hidden="true" />
             )}
           </div>
-          {artifactStatus === "loading" ? <div className="new-ui-analysis-detail-status">正在加载完整分析结果</div> : null}
-          {artifactStatus === "error" ? <div className="new-ui-analysis-detail-status">完整分析结果暂时无法读取</div> : null}
-          {taskStatusText ? <div className="new-ui-analysis-detail-status">{taskStatusText}</div> : null}
-          {!item && artifactStatus === "idle" ? (
-            <button className="new-ui-analysis-detail-status" type="button" onClick={onUpload}>选择视频开始分析</button>
-          ) : null}
+          <div className="new-ui-analysis-detail-status-spacer" aria-hidden="true" />
         </div>
         <AnalysisTimelineTracks
           item={heavyReady && item?.artifact ? item : null}
@@ -478,29 +441,6 @@ function resolveTimelineModeHint(media: AnalysisHistoryMedia | null): "material"
   return null;
 }
 
-function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
-  const runtimeStatus = String(item?.runtimeState?.status ?? item?.workflowRun?.status ?? item?.status ?? "").toLowerCase();
-  if (!runtimeStatus) return null;
-  if (["queued", "pending"].includes(runtimeStatus)) return "分析任务已排队";
-  if (["running", "processing"].includes(runtimeStatus)) return "正在分析";
-  if (["waiting", "blocked", "cache_waiting"].includes(runtimeStatus)) return null;
-  if (runtimeStatus === "processed") return "分析完成";
-  if (runtimeStatus === "partial_failed") return "部分分析失败";
-  if (runtimeStatus === "failed") return "分析失败";
-  return `状态：${runtimeStatus}`;
-}
-
 function analysisDetailPollingKey(item: AnalysisHistoryItem) {
   return `${item.sampleVideoId ?? ""}:${item.workflowRunId ?? ""}:${item.artifactId ?? ""}`;
-}
-
-function stageLabelForStatus(stageKey: string) {
-  if (stageKey === "structureAnalysis") return "结构分析";
-  if (stageKey === "shotBoundary") return "切镜";
-  if (stageKey === "scriptSegment") return "脚本段落";
-  if (stageKey === "rhythmStructure") return "节奏结构";
-  if (stageKey === "packagingStructure") return "包装结构";
-  if (stageKey === "functionSlotAtomization") return "功能槽位原子化";
-  if (stageKey === "userMaterialTagger") return "素材识别";
-  return "分析步骤";
 }

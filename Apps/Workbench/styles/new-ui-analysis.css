@@ -160,20 +160,10 @@
   min-width: 0;
 }
 
-.new-ui-analysis-detail-status {
+.new-ui-analysis-detail-status-spacer {
   max-width: min(896px, 80%);
-  color: var(--new-ui-text-muted);
-  font-size: var(--new-ui-font-size-xs);
-  font-weight: 620;
-  line-height: 1.35;
-}
-
-button.new-ui-analysis-detail-status {
-  padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, var(--new-ui-surface));
-  cursor: pointer;
+  min-height: calc(var(--new-ui-font-size-xs) * 1.35);
+  visibility: hidden;
 }
 
 .new-ui-analysis-player {
