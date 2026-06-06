@@ -1,26 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
 import { loadAnalysisDetailItem } from "./analysisDetailData";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
+import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
 type AnalysisHomeProps = {
   onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
+  timelineSelectionClearRequest?: number;
 };
 
-export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
+export function AnalysisHome({ onDetailStateChange, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
+  const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
   const [view, setView] = useState<"home" | "detail">("home");
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
   const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
   const [detailArtifactStatus, setDetailArtifactStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [selectedTimelineSegment, setSelectedTimelineSegment] = useState<AnalysisTimelineSegmentDetail | null>(null);
 
   const openUploadDetail = () => {
     setDetailTitle("新建分析");
     setDetailMedia(null);
     setDetailItem(null);
     setDetailArtifactStatus("idle");
+    setSelectedTimelineSegment(null);
     setView("detail");
   };
 
@@ -30,6 +35,7 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
     setDetailMedia(media);
     setDetailItem(item);
     setDetailArtifactStatus(item.artifact ? "ready" : "loading");
+    setSelectedTimelineSegment(null);
     setView("detail");
   };
 
@@ -59,6 +65,23 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
       visible: view === "detail",
       title: detailTitle,
       item: detailItem,
+      selectedTimelineSegment,
+    });
+  }, [detailItem, detailTitle, onDetailStateChange, selectedTimelineSegment, view]);
+
+  useEffect(() => {
+    if (lastTimelineSelectionClearRequestRef.current === timelineSelectionClearRequest) return;
+    lastTimelineSelectionClearRequestRef.current = timelineSelectionClearRequest;
+    setSelectedTimelineSegment(null);
+  }, [timelineSelectionClearRequest]);
+
+  const selectTimelineSegment = useCallback((segment: AnalysisTimelineSegmentDetail) => {
+    setSelectedTimelineSegment(segment);
+    onDetailStateChange?.({
+      visible: view === "detail",
+      title: detailTitle,
+      item: detailItem,
+      selectedTimelineSegment: segment,
     });
   }, [detailItem, detailTitle, onDetailStateChange, view]);
 
@@ -83,7 +106,16 @@ export function AnalysisHome({ onDetailStateChange }: AnalysisHomeProps = {}) {
         </button>
         <AnalysisHistory onOpenItem={openHistoryDetail} />
       </section>
-      <AnalysisDetailPage hidden={view !== "detail"} title={detailTitle} media={detailMedia} item={detailItem} artifactStatus={detailArtifactStatus} onBack={() => setView("home")} />
+      <AnalysisDetailPage
+        hidden={view !== "detail"}
+        title={detailTitle}
+        media={detailMedia}
+        item={detailItem}
+        artifactStatus={detailArtifactStatus}
+        selectedTimelineSegment={selectedTimelineSegment}
+        onSelectTimelineSegment={selectTimelineSegment}
+        onBack={() => setView("home")}
+      />
     </>
   );
 }
@@ -94,6 +126,8 @@ function AnalysisDetailPage({
   media,
   item,
   artifactStatus,
+  selectedTimelineSegment,
+  onSelectTimelineSegment,
   onBack,
 }: {
   hidden: boolean;
@@ -101,6 +135,8 @@ function AnalysisDetailPage({
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
   artifactStatus: "idle" | "loading" | "ready" | "error";
+  selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
+  onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
   onBack: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -151,7 +187,14 @@ function AnalysisDetailPage({
           {artifactStatus === "loading" ? <div className="new-ui-analysis-detail-status">正在加载完整分析结果</div> : null}
           {artifactStatus === "error" ? <div className="new-ui-analysis-detail-status">完整分析结果暂时无法读取</div> : null}
         </div>
-        <AnalysisTimelineTracks item={item?.artifact ? item : null} mediaKey={media?.videoUrl ?? item?.sampleVideoId ?? "empty"} videoRef={videoRef} onSeek={seekTimeline} />
+        <AnalysisTimelineTracks
+          item={item?.artifact ? item : null}
+          mediaKey={media?.videoUrl ?? item?.sampleVideoId ?? "empty"}
+          videoRef={videoRef}
+          selectedSegmentId={selectedTimelineSegment?.id ?? null}
+          onSeek={seekTimeline}
+          onSelectSegment={onSelectTimelineSegment}
+        />
       </div>
     </section>
   );

@@ -1,13 +1,10 @@
 const { RESOURCE_SUMMARY_SCHEMA_VERSION } = require("./resource-resolver");
 
-function createProjectionResolver({ artifactIndex = null, workflowRunStore = null } = {}) {
+function createProjectionResolver({ artifactIndex = null } = {}) {
   async function read({ projectionId } = {}) {
     const id = normalizeText(projectionId);
     if (id !== "analysis-history") return null;
-    const items = await Promise.all((await artifactIndex?.listItems?.() ?? []).map(async (item) => {
-      const detail = await artifactIndex?.getItem?.(item.sampleVideoId).catch(() => null);
-      return analysisHistoryProjectionItem(item, detail?.artifact ?? null, latestWorkflowRun(workflowRunStore, item.sampleVideoId));
-    }));
+    const items = (await artifactIndex?.listItems?.() ?? []).map((item) => analysisHistoryProjectionItem(item));
     return baseSummary({
       resourceKind: "projection",
       resourceId: id,
@@ -27,48 +24,28 @@ function createProjectionResolver({ artifactIndex = null, workflowRunStore = nul
   return { read };
 }
 
-function analysisHistoryProjectionItem(item, artifact, workflowRun) {
+function analysisHistoryProjectionItem(item) {
   if (!item?.sampleVideoId) return null;
-  const latestAnalysis = artifact?.functionSlotAtomizationAnalysis
-    ?? artifact?.userMaterialPack
-    ?? artifact?.packagingStructureAnalysis
-    ?? artifact?.rhythmStructureAnalysis
-    ?? artifact?.scriptSegmentAnalysis
-    ?? artifact?.shotBoundaryAnalysis
-    ?? null;
   return {
     sampleVideoId: item.sampleVideoId,
-    workflowRunId: normalizeText(workflowRun?.workflowRunId),
-    workflowKey: normalizeText(workflowRun?.workflowKey),
-    title: normalizeText(artifact?.sampleVideo?.original?.summary ?? item.filename ?? item.sampleVideoId),
-    status: normalizeText(artifact?.status ?? item.status ?? "indexed"),
+    title: normalizeText(item.filename ?? item.title ?? item.sampleVideoId),
+    status: normalizeText(item.status ?? "indexed"),
     updatedAt: normalizeText(item.updatedAt),
     createdAt: normalizeText(item.createdAt),
-    artifactId: normalizeText(latestAnalysis?.artifactId ?? item.sourceArtifactId ?? artifact?.sampleVideo?.artifactId),
-    traceId: normalizeText(latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? item.sourceTraceId ?? item.traceId ?? artifact?.trace?.traceId),
-    runId: normalizeText(latestAnalysis?.runId ?? latestAnalysis?.agent?.runId ?? item.runId ?? artifact?.trace?.runId),
-    stageId: normalizeText(latestAnalysis?.stageId ?? latestAnalysis?.agent?.stageId ?? item.stageId ?? artifact?.trace?.stageId),
-    durationSeconds: numberOrNull(artifact?.metadata?.durationSeconds ?? item.durationSeconds),
-    width: numberOrNull(artifact?.metadata?.width ?? item.width),
-    height: numberOrNull(artifact?.metadata?.height ?? item.height),
-    coverUri: safeRuntimeUri(artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri),
-    videoUri: safeRuntimeUri(artifact?.sampleVideo?.normalized?.uri ?? artifact?.sampleVideo?.original?.uri),
-    hasFunctionSlotAtomization: Boolean(artifact?.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: Boolean(artifact?.userMaterialPack),
-    isRunning: isRunningStatus(artifact?.status ?? item.status),
+    artifactId: normalizeText(item.sourceArtifactId ?? item.artifactId),
+    traceId: normalizeText(item.sourceTraceId ?? item.traceId),
+    runId: normalizeText(item.runId),
+    stageId: normalizeText(item.stageId),
+    durationSeconds: numberOrNull(item.durationSeconds),
+    width: numberOrNull(item.width),
+    height: numberOrNull(item.height),
+    coverUri: safeRuntimeUri(item.coverUri),
+    videoUri: safeRuntimeUri(item.videoUri),
+    hasFunctionSlotAtomization: Boolean(item.hasFunctionSlotAtomization),
+    hasUserMaterialPack: Boolean(item.hasUserMaterialPack),
+    isIncomplete: Boolean(item.isIncomplete),
+    isRunning: isRunningStatus(item.status),
   };
-}
-
-function latestWorkflowRun(workflowRunStore, sampleVideoId) {
-  if (!sampleVideoId || typeof workflowRunStore?.listRuns !== "function") return null;
-  return workflowRunStore.listRuns()
-    .filter((run) => run?.sampleVideoId === sampleVideoId)
-    .sort((a, b) => timestampValue(b?.updatedAt ?? b?.createdAt) - timestampValue(a?.updatedAt ?? a?.createdAt))[0] ?? null;
-}
-
-function timestampValue(value) {
-  const timestamp = Date.parse(value ?? "");
-  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function latestUpdatedAt(items) {

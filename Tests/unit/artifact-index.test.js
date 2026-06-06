@@ -31,6 +31,9 @@ test("artifact index registers list, detail, load and cache entries", async () =
   const items = await index.listItems();
   assert.equal(items.length, 1);
   assert.equal(items[0].sampleVideoId, "sample_1");
+  assert.equal(items[0].status, "processed");
+  assert.equal(items[0].coverUri, "/runtime/cover.jpg");
+  assert.equal(items[0].videoUri, "/runtime/source.mp4");
   assert.ok(items[0].tags.includes("抽帧"));
 
   const detail = await index.getItem("sample_1");
@@ -123,6 +126,7 @@ test("artifact index registers packaging structure analysis node, tag and cache 
   assert.equal(node.artifactType, "packaging-structure-analysis");
   assert.equal(detail.tags.includes("包装结构"), true);
   assert.equal(detail.sourceArtifactId, "artifact_packaging_1");
+  assert.equal((await index.listItems())[0].isIncomplete, true);
   assert.equal(cache.sampleVideoId, "sample_1");
 });
 

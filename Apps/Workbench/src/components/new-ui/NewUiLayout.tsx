@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
@@ -48,16 +48,21 @@ type NewUiLayoutProps = {
 
 export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
   const layoutRef = useRef<HTMLElement>(null);
+  const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(() => readStoredBooleanPreference("rightCollapsed", false));
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
+  const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
     title: "新建分析",
     item: null,
   });
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible;
+  const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
+    ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.selectedTimelineSegment?.id ?? "workflow"}`
+    : null;
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
     storageKey: NEW_UI_THREE_PANE_STORAGE_KEY,
@@ -87,6 +92,30 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       setAnalysisDetail((current) => current.visible ? { ...current, visible: false } : current);
     }
   }, [activeSection]);
+
+  useEffect(() => {
+    if (!analysisWorkflowRevealKey) {
+      lastAnalysisWorkflowRevealKeyRef.current = null;
+      return;
+    }
+    if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
+    lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
+    setRightCollapsed(false);
+  }, [analysisWorkflowRevealKey]);
+
+  const handleAnalysisDetailStateChange = useCallback((nextDetail: AnalysisDetailSidebarState) => {
+    setAnalysisDetail((current) => {
+      if (
+        current.visible === nextDetail.visible
+        && current.title === nextDetail.title
+        && current.item === nextDetail.item
+        && current.selectedTimelineSegment === nextDetail.selectedTimelineSegment
+      ) {
+        return current;
+      }
+      return nextDetail;
+    });
+  }, []);
 
   const toggleLeftCollapsed = () => {
     setLeftCollapsed((value) => !value);
@@ -127,7 +156,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
         data-active-section={activeSection}
       >
-        {activeSection === "analysis" ? <AnalysisHome onDetailStateChange={setAnalysisDetail} /> : null}
+        {activeSection === "analysis" ? <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} /> : null}
       </main>
       {!rightCollapsed ? (
         <SplitResizeHandle
@@ -142,7 +171,12 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       <aside className="new-ui-pane new-ui-pane-right" aria-label="右侧栏">
         <PaneHeader collapsed={rightCollapsed} onToggle={() => setRightCollapsed((value) => !value)} side="right" />
         <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showAnalysisWorkflow}>
-          {showAnalysisWorkflow ? <AnalysisWorkflowSidebar detail={analysisDetail} /> : null}
+          {showAnalysisWorkflow ? (
+            <AnalysisWorkflowSidebar
+              detail={analysisDetail}
+              onWorkflowStageSelect={() => setTimelineSelectionClearRequest((value) => value + 1)}
+            />
+          ) : null}
         </div>
       </aside>
     </section>

@@ -113,6 +113,7 @@ const DOMINO_MIN_COLUMNS = 2;
 function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement; onOpen: (item: AnalysisHistoryItem) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const { item, media } = placement;
   const style: CSSProperties = {
     left: placement.x,
@@ -121,6 +122,11 @@ function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement
     height: placement.height,
   };
   const displayRatioLabel = media.orientation === "portrait" ? "1:2" : "2:1";
+  const showCover = Boolean(media.coverUrl && !coverFailed);
+
+  useEffect(() => {
+    setCoverFailed(false);
+  }, [media.coverUrl]);
 
   const openItem = () => {
     onOpen(item);
@@ -166,7 +172,7 @@ function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement
       onBlur={pausePreview}
     >
       <div className="new-ui-analysis-history-media">
-        {media.coverUrl ? <img src={media.coverUrl} alt="" loading="lazy" decoding="async" /> : <div className="new-ui-analysis-history-placeholder" aria-hidden="true" />}
+        {showCover ? <img src={media.coverUrl ?? ""} alt="" loading="lazy" decoding="async" onError={() => setCoverFailed(true)} /> : <HistoryCoverPlaceholder />}
         {previewing && media.videoUrl ? <video ref={videoRef} src={media.videoUrl} muted loop playsInline preload="none" aria-hidden="true" /> : null}
         <span className={`new-ui-analysis-history-badge new-ui-analysis-history-badge-${badgeClass(media.badgeLabel)}`}>{media.badgeLabel}</span>
         <span className="new-ui-analysis-history-duration">{media.durationLabel}</span>
@@ -177,6 +183,23 @@ function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement
         <span className="new-ui-analysis-history-detail">{media.relativeDateLabel}</span>
       </div>
     </article>
+  );
+}
+
+function HistoryCoverPlaceholder() {
+  return (
+    <div className="new-ui-analysis-history-placeholder" aria-hidden="true">
+      <svg viewBox="0 0 96 96" focusable="false">
+        <g transform="translate(-4 0) rotate(-8 37 52)">
+          <path className="new-ui-analysis-history-placeholder-frame" d="M22 32h29l-6 12 8 6-6 20H22Z" />
+          <path className="new-ui-analysis-history-placeholder-mountain" d="M28 61 36 52l9 11" />
+        </g>
+        <g transform="translate(4 0) rotate(8 59 52)">
+          <path className="new-ui-analysis-history-placeholder-frame" d="M47 32h27v38H48l6-15-9-7 7-16" />
+          <path className="new-ui-analysis-history-placeholder-mountain" d="M55 62 63 53l8 10" />
+        </g>
+      </svg>
+    </div>
   );
 }
 
@@ -335,8 +358,9 @@ function dominoCellKey(x: number, y: number) {
   return `${x}:${y}`;
 }
 
-function badgeClass(label: "素材识别" | "样例分析" | "分析中") {
+function badgeClass(label: "素材识别" | "结构分析" | "分析中" | "未完成") {
   if (label === "素材识别") return "material";
-  if (label === "样例分析") return "sample";
+  if (label === "结构分析") return "structure";
+  if (label === "未完成") return "incomplete";
   return "pending";
 }

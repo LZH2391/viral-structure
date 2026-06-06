@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
+import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import {
   resolveGroupStatus,
   resolveWorkflowDetail,
@@ -16,25 +17,33 @@ export type AnalysisDetailSidebarState = {
   visible: boolean;
   title: string;
   item: AnalysisHistoryItem | null;
+  selectedTimelineSegment?: AnalysisTimelineSegmentDetail | null;
 };
 
 type AnalysisWorkflowSidebarProps = {
   detail: AnalysisDetailSidebarState;
+  onWorkflowStageSelect?: () => void;
 };
 
-export function AnalysisWorkflowSidebar({ detail }: AnalysisWorkflowSidebarProps) {
+export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: AnalysisWorkflowSidebarProps) {
   const stages = resolveWorkflowStages(detail.item);
   const [upload, shotBoundary, scriptSegment, rhythmStructure, packagingStructure, atomization, aggregate] = stages;
   const structureStatus = resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
   const [selectedStageKey, setSelectedStageKey] = useState<WorkflowStageKey>("upload");
+  const selectedTimelineSegment = detail.selectedTimelineSegment ?? null;
+  const selectedWorkflowStageKey = selectedTimelineSegment ? null : selectedStageKey;
+  const selectWorkflowStage = (stageKey: WorkflowStageKey) => {
+    setSelectedStageKey(stageKey);
+    onWorkflowStageSelect?.();
+  };
 
   return (
     <section className="new-ui-analysis-workflow" aria-label="完整分析总览">
       <div className="new-ui-analysis-workflow-flow">
         <h2 className="new-ui-analysis-workflow-title">分析流程</h2>
         <ol className="new-ui-analysis-workflow-list">
-          <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedStageKey === upload.key} onSelect={setSelectedStageKey} />
-          <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedStageKey === shotBoundary.key} onSelect={setSelectedStageKey} />
+          <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
+          <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
           <WorkflowStep
             stage={{
               key: "structureAnalysis",
@@ -44,20 +53,24 @@ export function AnalysisWorkflowSidebar({ detail }: AnalysisWorkflowSidebarProps
               status: structureStatus,
             }}
             connectorDone={structureStatus === "done"}
-            selected={selectedStageKey === "structureAnalysis"}
-            onSelect={setSelectedStageKey}
+            selected={selectedWorkflowStageKey === "structureAnalysis"}
+            onSelect={selectWorkflowStage}
           >
             <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
-              <ParallelStage stage={scriptSegment} selected={selectedStageKey === scriptSegment.key} onSelect={setSelectedStageKey} />
-              <ParallelStage stage={rhythmStructure} selected={selectedStageKey === rhythmStructure.key} onSelect={setSelectedStageKey} />
-              <ParallelStage stage={packagingStructure} selected={selectedStageKey === packagingStructure.key} onSelect={setSelectedStageKey} />
+              <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} onSelect={selectWorkflowStage} />
+              <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} onSelect={selectWorkflowStage} />
+              <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} onSelect={selectWorkflowStage} />
             </div>
           </WorkflowStep>
-          <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedStageKey === atomization.key} onSelect={setSelectedStageKey} />
-          <WorkflowStep stage={aggregate} isLast selected={selectedStageKey === aggregate.key} onSelect={setSelectedStageKey} />
+          <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} onSelect={selectWorkflowStage} />
+          <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
         </ol>
       </div>
-      <WorkflowDetailPanel selectedStageKey={selectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
+      {selectedTimelineSegment ? (
+        <TimelineSegmentDetailPanel segment={selectedTimelineSegment} />
+      ) : (
+        <WorkflowDetailPanel selectedStageKey={selectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
+      )}
     </section>
   );
 }
@@ -169,4 +182,55 @@ function WorkflowDetailPanel({
       </div>
     </section>
   );
+}
+
+function TimelineSegmentDetailPanel({ segment }: { segment: AnalysisTimelineSegmentDetail }) {
+  const metrics = [
+    { label: "类型", value: segmentKindLabel(segment.tone) },
+    { label: "时间", value: segment.timeLabel },
+    segment.shotRangeLabel ? { label: "镜头", value: segment.shotRangeLabel } : null,
+  ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
+
+  return (
+    <section className="new-ui-analysis-workflow-detail" aria-label="时间轴选中段详情" data-selected-stage={`timeline-${segment.tone}`}>
+      <div className="new-ui-analysis-workflow-detail-header">
+        <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
+        <span className="new-ui-analysis-workflow-detail-status">{segmentKindLabel(segment.tone)}</span>
+      </div>
+      <div className="new-ui-analysis-workflow-detail-content">
+        <div className="new-ui-analysis-workflow-detail-summary">
+          <strong>{segment.title}</strong>
+          <p>{segment.summary}</p>
+        </div>
+        <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${segment.title}段落信息`}>
+          {metrics.map((metric) => (
+            <div key={metric.label} className="new-ui-analysis-workflow-detail-metric">
+              <span>{metric.label}</span>
+              <strong>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+        {segment.fields.length ? (
+          <div className="new-ui-analysis-workflow-detail-list">
+            {segment.fields.slice(0, 4).map((field) => (
+              <article key={`${field.label}_${field.value}`} className="new-ui-analysis-workflow-detail-card">
+                <strong>{field.label}</strong>
+                <p>{field.value}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="new-ui-analysis-workflow-detail-empty">这个段落还没有更多字段。</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function segmentKindLabel(tone: AnalysisTimelineSegmentDetail["tone"]) {
+  if (tone === "subtitle") return "字幕段";
+  if (tone === "script") return "脚本段";
+  if (tone === "rhythm") return "节奏段";
+  if (tone === "packaging") return "包装段";
+  return "槽位段";
 }

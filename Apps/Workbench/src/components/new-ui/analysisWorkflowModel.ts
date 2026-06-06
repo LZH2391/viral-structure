@@ -340,9 +340,7 @@ function normalizeTitle(value: string | null | undefined) {
 
 export function resolveWorkflowStages(item: AnalysisHistoryItem | null): WorkflowStages {
   const artifact = item?.artifact;
-  const runtimeStageKeys = new Set((item?.runtimeState?.currentStages ?? []).map((stage) => stage.key).filter(Boolean));
-  const runtimeRunning = isRunningStatus(item?.runtimeState?.status) || Boolean(runtimeStageKeys.size);
-  const sampleRunning = runtimeRunning || Boolean(item?.isRunning) || isRunningStatus(item?.status);
+  const sampleRunning = Boolean(item?.isRunning) || isRunningStatus(item?.status);
   const uploadDone = Boolean(item);
   const shotDone = Boolean(artifact?.shotBoundaryAnalysis);
   const scriptDone = Boolean(artifact?.scriptSegmentAnalysis);
@@ -357,56 +355,55 @@ export function resolveWorkflowStages(item: AnalysisHistoryItem | null): Workflo
       label: "上传素材",
       moduleLabel: "sample-ingest",
       dependencyLabel: "起点",
-      status: statusFor({ done: uploadDone, dependenciesDone: true, running: sampleRunning, stageRunning: runtimeStageKeys.has("upload") }),
+      status: statusFor({ done: uploadDone, dependenciesDone: true, running: sampleRunning }),
     },
     {
       key: "shotBoundary",
       label: "切镜",
       moduleLabel: "shot-boundary",
       dependencyLabel: "依赖：上传素材",
-      status: statusFor({ done: shotDone, dependenciesDone: uploadDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("shotBoundary") }),
+      status: statusFor({ done: shotDone, dependenciesDone: uploadDone, running: sampleRunning }),
     },
     {
       key: "scriptSegment",
       label: "脚本段落",
       moduleLabel: "script-segments",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: scriptDone, dependenciesDone: shotDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("scriptSegment") }),
+      status: statusFor({ done: scriptDone, dependenciesDone: shotDone, running: sampleRunning }),
     },
     {
       key: "rhythmStructure",
       label: "节奏结构",
       moduleLabel: "rhythm-structure",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: rhythmDone, dependenciesDone: shotDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("rhythmStructure") }),
+      status: statusFor({ done: rhythmDone, dependenciesDone: shotDone, running: sampleRunning }),
     },
     {
       key: "packagingStructure",
       label: "包装结构",
       moduleLabel: "packaging-structure",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: packagingDone, dependenciesDone: shotDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("packagingStructure") }),
+      status: statusFor({ done: packagingDone, dependenciesDone: shotDone, running: sampleRunning }),
     },
     {
       key: "functionSlotAtomization",
       label: "功能槽位原子化",
       moduleLabel: "function-slot-atomization",
       dependencyLabel: "依赖：脚本 + 节奏 + 包装",
-      status: statusFor({ done: atomizationDone, dependenciesDone: structureDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("functionSlotAtomization") }),
+      status: statusFor({ done: atomizationDone, dependenciesDone: structureDone, running: sampleRunning }),
     },
     {
       key: "aggregate",
       label: "汇总",
       moduleLabel: "workflow.aggregate",
       dependencyLabel: "依赖：功能槽位原子化",
-      status: statusFor({ done: atomizationDone, dependenciesDone: atomizationDone, running: sampleRunning, stageRunning: runtimeStageKeys.has("aggregate") }),
+      status: statusFor({ done: atomizationDone, dependenciesDone: atomizationDone, running: sampleRunning }),
     },
   ];
 }
 
-function statusFor({ done, dependenciesDone, running, stageRunning = false }: { done: boolean; dependenciesDone: boolean; running: boolean; stageRunning?: boolean }): WorkflowStageStatus {
+function statusFor({ done, dependenciesDone, running }: { done: boolean; dependenciesDone: boolean; running: boolean }): WorkflowStageStatus {
   if (done) return "done";
-  if (stageRunning) return "running";
   if (!dependenciesDone) return "waiting";
   return running ? "running" : "waiting";
 }

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from "react";
 import { runtimeUrl } from "../../api/client";
-import { formatSecondsCompact } from "../../utils/format";
+import { formatSecondsCompact, sanitizeText } from "../../utils/format";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
+import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 
 type AnalysisTimelineTrackTone = "shot" | "script" | "rhythm" | "packaging" | "slot";
 
@@ -13,6 +14,7 @@ type AnalysisTimelineBlock = {
   frameUrls?: string[];
   shotBoundaryPercents?: number[];
   shotRangeLabel?: string | null;
+  detail?: AnalysisTimelineSegmentDetail;
 };
 
 type AnalysisTimelineTrack = {
@@ -27,13 +29,27 @@ type VideoFrameCallbackVideo = {
   cancelVideoFrameCallback?: (handle: number) => void;
 };
 
-export function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { item: AnalysisHistoryItem | null; mediaKey: string; videoRef: RefObject<HTMLVideoElement>; onSeek: (time: number) => void }) {
+export function AnalysisTimelineTracks({
+  item,
+  mediaKey,
+  videoRef,
+  selectedSegmentId,
+  onSeek,
+  onSelectSegment,
+}: {
+  item: AnalysisHistoryItem | null;
+  mediaKey: string;
+  videoRef: RefObject<HTMLVideoElement>;
+  selectedSegmentId?: string | null;
+  onSeek: (time: number) => void;
+  onSelectSegment?: (segment: AnalysisTimelineSegmentDetail) => void;
+}) {
   const timelineRef = useRef<HTMLElement>(null);
   const playheadScaleRef = useRef<HTMLDivElement>(null);
   const draggingPlayheadRef = useRef(false);
   const [draggingPlayhead, setDraggingPlayhead] = useState(false);
-  const { duration, tracks } = resolveAnalysisTimelineTracks(item);
-  const ticks = resolveTimelineTicks(duration);
+  const { duration, subtitleBlocks, tracks } = useMemo(() => resolveAnalysisTimelineTracks(item), [item]);
+  const ticks = useMemo(() => resolveTimelineTicks(duration), [duration]);
   const shotCount = tracks.find((track) => track.key === "shot")?.blocks.length ?? 0;
 
   const seekFromPlayheadClientX = (clientX: number) => {
@@ -142,7 +158,9 @@ export function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { i
       </header>
       <div className="new-ui-analysis-timeline-body">
         <div className="new-ui-analysis-timeline-ruler" aria-hidden="true">
-          <div className="new-ui-analysis-timeline-ruler-label">时间轨</div>
+          <div className="new-ui-analysis-timeline-ruler-label">
+            <span className="new-ui-analysis-timeline-label-text">时间轨</span>
+          </div>
           <div
             className="new-ui-analysis-timeline-ruler-lane"
             onPointerDown={startTimelineDrag}
@@ -157,10 +175,31 @@ export function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { i
             </div>
           </div>
         </div>
+        <div className="new-ui-analysis-timeline-subtitle-row">
+          <div className="new-ui-analysis-timeline-label">
+            <span className="new-ui-analysis-timeline-label-text">字幕轨</span>
+          </div>
+          <div
+            className="new-ui-analysis-timeline-lane"
+            onPointerDown={startTimelineDrag}
+            onPointerMove={moveTimelineDrag}
+            onPointerUp={finishTimelineDrag}
+            onPointerCancel={finishTimelineDrag}
+          >
+            <div className="new-ui-analysis-timeline-lane-scale">
+              {subtitleBlocks.map((block) => (
+                <SubtitleTimelineBlock key={block.id} block={block} duration={duration} selected={selectedSegmentId === block.detail?.id} onSeek={onSeek} onSelect={onSelectSegment} />
+              ))}
+            </div>
+            {!subtitleBlocks.length && <span className="new-ui-analysis-timeline-empty">暂无字幕</span>}
+          </div>
+        </div>
         <div className="new-ui-analysis-timeline-rows">
           {tracks.map((track) => (
             <div key={track.key} className={`new-ui-analysis-timeline-row is-${track.key}`}>
-              <div className="new-ui-analysis-timeline-label">{track.label}</div>
+              <div className="new-ui-analysis-timeline-label">
+                <span className="new-ui-analysis-timeline-label-text">{track.label}</span>
+              </div>
               <div
                 className="new-ui-analysis-timeline-lane"
                 onPointerDown={startTimelineDrag}
@@ -171,18 +210,23 @@ export function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { i
                 <div className="new-ui-analysis-timeline-lane-scale">
                   {track.blocks.map((block) => (
                     track.key === "shot" ? (
-                      <ShotTimelineBlock key={block.id} block={block} duration={duration} />
-                    ) : track.key === "script" || track.key === "rhythm" || track.key === "packaging" ? (
-                      <StructureTimelineBlock key={block.id} block={block} duration={duration} />
+                      <ShotTimelineBlock key={block.id} block={block} duration={duration} onSeek={onSeek} />
+                    ) : track.key === "script" || track.key === "rhythm" || track.key === "packaging" || track.key === "slot" ? (
+                      <StructureTimelineBlock key={block.id} block={block} duration={duration} selected={selectedSegmentId === block.detail?.id} onSelect={onSelectSegment} />
                     ) : (
-                      <span
+                      <button
                         key={block.id}
-                        className="new-ui-analysis-timeline-block"
+                        className={`new-ui-analysis-timeline-block ${selectedSegmentId === block.detail?.id ? "is-selected" : ""}`.trim()}
+                        type="button"
                         style={timelineBlockStyle(block, duration)}
                         title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+                        onPointerDown={stopTimelineBlockPointerDown}
+                        onClick={() => {
+                          if (block.detail) onSelectSegment?.(block.detail);
+                        }}
                       >
                         {block.label}
-                      </span>
+                      </button>
                     )
                   ))}
                 </div>
@@ -217,12 +261,27 @@ export function AnalysisTimelineTracks({ item, mediaKey, videoRef, onSeek }: { i
   );
 }
 
-function StructureTimelineBlock({ block, duration }: { block: AnalysisTimelineBlock; duration: number }) {
+function StructureTimelineBlock({
+  block,
+  duration,
+  selected,
+  onSelect,
+}: {
+  block: AnalysisTimelineBlock;
+  duration: number;
+  selected: boolean;
+  onSelect?: (segment: AnalysisTimelineSegmentDetail) => void;
+}) {
   return (
-    <span
-      className="new-ui-analysis-timeline-block new-ui-analysis-structure-block"
+    <button
+      className={`new-ui-analysis-timeline-block new-ui-analysis-structure-block ${selected ? "is-selected" : ""}`.trim()}
+      type="button"
       style={timelineBlockStyle(block, duration)}
       title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}${block.shotRangeLabel ? ` · ${block.shotRangeLabel}` : ""}`}
+      onPointerDown={stopTimelineBlockPointerDown}
+      onClick={() => {
+        if (block.detail) onSelect?.(block.detail);
+      }}
     >
       <span className="new-ui-analysis-structure-ticks" aria-hidden="true">
         {(block.shotBoundaryPercents ?? []).map((left, index) => (
@@ -231,17 +290,20 @@ function StructureTimelineBlock({ block, duration }: { block: AnalysisTimelineBl
       </span>
       <span className="new-ui-analysis-structure-label">{block.label}</span>
       {block.shotRangeLabel ? <span className="new-ui-analysis-structure-range">{block.shotRangeLabel}</span> : null}
-    </span>
+    </button>
   );
 }
 
-function ShotTimelineBlock({ block, duration }: { block: AnalysisTimelineBlock; duration: number }) {
+function ShotTimelineBlock({ block, duration, onSeek }: { block: AnalysisTimelineBlock; duration: number; onSeek: (time: number) => void }) {
   const frameUrls = block.frameUrls ?? [];
   return (
-    <span
+    <button
       className={`new-ui-analysis-timeline-block new-ui-analysis-shot-block ${frameUrls.length ? "has-frames" : ""}`.trim()}
+      type="button"
       style={timelineBlockStyle(block, duration)}
       title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+      onPointerDown={stopTimelineBlockPointerDown}
+      onClick={() => onSeek(block.start)}
     >
       <span className="new-ui-analysis-shot-label">{formatShotLabel(block.label)}</span>
       {frameUrls.length ? (
@@ -251,17 +313,52 @@ function ShotTimelineBlock({ block, duration }: { block: AnalysisTimelineBlock; 
           ))}
         </span>
       ) : null}
-    </span>
+    </button>
   );
+}
+
+function SubtitleTimelineBlock({
+  block,
+  duration,
+  selected,
+  onSeek,
+  onSelect,
+}: {
+  block: AnalysisTimelineBlock;
+  duration: number;
+  selected: boolean;
+  onSeek: (time: number) => void;
+  onSelect?: (segment: AnalysisTimelineSegmentDetail) => void;
+}) {
+  return (
+    <button
+      className={`new-ui-analysis-timeline-block new-ui-analysis-subtitle-block ${selected ? "is-selected" : ""}`.trim()}
+      type="button"
+      style={timelineBlockStyle(block, duration)}
+      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+      onPointerDown={stopTimelineBlockPointerDown}
+      onClick={() => {
+        onSeek(block.start);
+        if (block.detail) onSelect?.(block.detail);
+      }}
+    >
+      <span>{block.label}</span>
+    </button>
+  );
+}
+
+function stopTimelineBlockPointerDown(event: PointerEvent<HTMLButtonElement>) {
+  event.stopPropagation();
 }
 
 function hasVideoFrameCallback(video: HTMLVideoElement) {
   return typeof (video as Partial<VideoFrameCallbackVideo>).requestVideoFrameCallback === "function";
 }
 
-function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { duration: number; tracks: AnalysisTimelineTrack[] } {
+function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { duration: number; subtitleBlocks: AnalysisTimelineBlock[]; tracks: AnalysisTimelineTrack[] } {
   const artifact = item?.artifact;
   const shots = artifact?.shotBoundaryAnalysis?.shots ?? [];
+  const subtitles = artifact?.subtitles ?? null;
   const scriptSegments = artifact?.scriptSegmentAnalysis?.segments ?? [];
   const rhythmSections = artifact?.rhythmStructureAnalysis?.sections ?? [];
   const packagingBlocks = artifact?.packagingStructureAnalysis?.packagingBlocks ?? [];
@@ -275,31 +372,70 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { dura
     end: shot.end,
     frameUrls: resolveShotFrameUrls(shot.start, shot.end, frames),
   }));
+  const subtitleBlocks = resolveSubtitleTimelineBlocks(subtitles);
   const scriptBlocks = scriptSegments.map((segment) => ({
     id: segment.segmentId,
     label: segment.label,
     start: segment.start,
     end: segment.end,
-    ...resolveStructureBlockShotMeta(segment.shotRefs, shotMeta),
+    ...withStructureDetailMeta({
+      id: segment.segmentId,
+      tone: "script",
+      label: segment.label,
+      start: segment.start,
+      end: segment.end,
+      shotRefs: segment.shotRefs,
+      shotMeta,
+      summary: segment.roleInScript || segment.transferableRule || "这个脚本段还没有摘要。",
+      fields: [
+        { label: "脚本作用", value: segment.roleInScript },
+        { label: "迁移规则", value: segment.transferableRule },
+        { label: "证据", value: segment.evidence.join(" / ") },
+      ],
+    }),
   }));
   const rhythmBlocks = rhythmSections.map((section) => ({
     id: section.sectionId,
     label: section.label,
     start: section.start,
     end: section.end,
-    ...resolveStructureBlockShotMeta(section.shotRefs, shotMeta),
+    ...withStructureDetailMeta({
+      id: section.sectionId,
+      tone: "rhythm",
+      label: section.label,
+      start: section.start,
+      end: section.end,
+      shotRefs: section.shotRefs,
+      shotMeta,
+      summary: fieldPreview(section.fields) || "这个节奏段还没有摘要。",
+      fields: section.fields,
+    }),
   }));
   const packagingTimelineBlocks = packagingBlocks.map((block) => ({
     id: block.blockId,
     label: block.label,
     start: block.start,
     end: block.end,
-    ...resolveStructureBlockShotMeta(block.shotRefs, shotMeta),
+    ...withStructureDetailMeta({
+      id: block.blockId,
+      tone: "packaging",
+      label: block.label,
+      start: block.start,
+      end: block.end,
+      shotRefs: block.shotRefs,
+      shotMeta,
+      summary: block.packagingFunction || fieldPreview(block.fields) || "这个包装段还没有摘要。",
+      fields: [
+        { label: "包装作用", value: block.packagingFunction },
+        ...block.fields,
+      ],
+    }),
   }));
   const slotBlocks = resolveSlotTimelineBlocks(slots, shots);
   const duration = Math.max(
     positiveTimelineNumber(artifact?.metadata.durationSeconds),
     maxTimelineEnd(shotBlocks),
+    maxTimelineEnd(subtitleBlocks),
     maxTimelineEnd(scriptBlocks),
     maxTimelineEnd(rhythmBlocks),
     maxTimelineEnd(packagingTimelineBlocks),
@@ -309,6 +445,7 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { dura
 
   return {
     duration,
+    subtitleBlocks,
     tracks: [
       { key: "shot", label: "镜头轨", emptyLabel: "暂无切镜", blocks: shotBlocks },
       { key: "script", label: "脚本段", emptyLabel: "暂无脚本段", blocks: scriptBlocks },
@@ -319,31 +456,166 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { dura
   };
 }
 
+function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryItem["artifact"]>["subtitles"] | null | undefined): AnalysisTimelineBlock[] {
+  const sourceSegments = subtitles?.segments?.length
+    ? subtitles.segments
+    : subtitles?.utterances?.map((utterance, index) => ({
+      id: `utterance_${index}_${utterance.start}`,
+      start: utterance.start,
+      end: utterance.end,
+      text: utterance.text,
+    })) ?? [];
+
+  return sourceSegments
+    .map((segment, index) => {
+      const start = positiveTimelineNumber(segment.start);
+      const rawEnd = positiveTimelineNumber(segment.end);
+      const text = sanitizeText(segment.text, 96);
+      const end = rawEnd > start ? rawEnd : start + estimateSubtitleDuration(text);
+      const confidence = "confidence" in segment ? segment.confidence : null;
+      return {
+        id: String(segment.id ?? `subtitle_${index}`),
+        label: text || `字幕 ${index + 1}`,
+        start,
+        end,
+        detail: {
+          id: `subtitle:${String(segment.id ?? `subtitle_${index}`)}`,
+          tone: "subtitle",
+          title: text || `字幕 ${index + 1}`,
+          timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
+          shotRangeLabel: null,
+          summary: text || "这条字幕没有文本内容。",
+          fields: compactTimelineDetailFields([
+            { label: "字幕文本", value: text },
+            { label: "识别来源", value: subtitles?.source ?? subtitles?.provider ?? null },
+            { label: "置信度", value: formatSubtitleConfidence(confidence) },
+            { label: "字幕版本", value: subtitles?.revisionIndex != null ? `v${subtitles.revisionIndex}` : null },
+          ]),
+        },
+      };
+    })
+    .filter((block) => block.end > block.start)
+    .sort((a, b) => a.start - b.start);
+}
+
+function estimateSubtitleDuration(text: string) {
+  const length = Math.max(1, text.length);
+  return Math.min(4, Math.max(1.2, length / 8));
+}
+
+function formatSubtitleConfidence(value: unknown) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return `${Math.round(number * 100)}%`;
+}
+
 function resolveSlotTimelineBlocks(
   slots: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["functionSlotAtomizationAnalysis"]>["slotMap"]["slots"],
   shots: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["shotBoundaryAnalysis"]>["shots"],
 ): AnalysisTimelineBlock[] {
-  const shotByRef = new Map<string, { start: number; end: number }>();
+  const shotByRef = new Map<string, { label: string; start: number; end: number }>();
   shots.forEach((shot) => {
-    shotByRef.set(shot.id, shot);
-    if (shot.shotNo) shotByRef.set(shot.shotNo, shot);
-    shotByRef.set(String(shot.index + 1), shot);
+    const value = { label: formatShotNo(shot.shotNo, shot.index), start: shot.start, end: shot.end };
+    shotByRef.set(shot.id, value);
+    if (shot.shotNo) shotByRef.set(shot.shotNo, value);
+    shotByRef.set(value.label, value);
+    shotByRef.set(String(shot.index + 1), value);
   });
 
   return slots.map((slot, index) => {
     const ranges = slot.sourceRefs.shotRefs
       .map((ref) => shotByRef.get(ref))
-      .filter((range): range is { start: number; end: number } => Boolean(range));
+      .filter((range): range is { label: string; start: number; end: number } => Boolean(range));
     const start = ranges.length ? Math.min(...ranges.map((range) => range.start)) : index;
     const end = ranges.length ? Math.max(...ranges.map((range) => range.end)) : index + 1;
+    const duration = Math.max(end - start, 0);
+    const shotBoundaryPercents = ranges
+      .sort((a, b) => a.start - b.start)
+      .slice(1)
+      .map((range) => duration ? clampTimelinePercent(((range.start - start) / duration) * 100) : 0)
+      .filter((left) => left > 0 && left < 100);
+    const shotRangeLabel = ranges.length ? formatShotRangeLabel(ranges.map((range) => range.label)) : formatShotRangeLabel(slot.sourceRefs.shotRefs);
 
     return {
       id: slot.slotId,
       label: slot.slotName,
       start,
       end,
+      shotBoundaryPercents,
+      shotRangeLabel,
+      detail: {
+        id: `slot:${slot.slotId}`,
+        tone: "slot",
+        title: slot.slotName,
+        timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
+        shotRangeLabel,
+        summary: slot.persuasionTask || slot.slotType || "这个槽位还没有摘要。",
+        fields: compactTimelineDetailFields([
+          { label: "槽位类型", value: slot.slotType },
+          { label: "说服任务", value: slot.persuasionTask },
+          { label: "观众状态前", value: slot.viewerStateBefore },
+          { label: "观众状态后", value: slot.viewerStateAfter },
+          { label: "同步点", value: slot.requiredSyncPoints.join(" / ") },
+          { label: "替换规则", value: slot.substitutionRules.join(" / ") },
+        ]),
+      },
     };
   });
+}
+
+function withStructureDetailMeta({
+  id,
+  tone,
+  label,
+  start,
+  end,
+  shotRefs,
+  shotMeta,
+  summary,
+  fields,
+}: {
+  id: string;
+  tone: Exclude<AnalysisTimelineTrackTone, "shot" | "slot">;
+  label: string;
+  start: number;
+  end: number;
+  shotRefs: string[];
+  shotMeta: Map<string, { index: number; label: string; start: number; end: number }>;
+  summary: string;
+  fields: Array<{ label: string; value: string }>;
+}) {
+  const shotRange = resolveStructureBlockShotMeta(shotRefs, shotMeta);
+  return {
+    ...shotRange,
+    detail: {
+      id: `${tone}:${id}`,
+      tone,
+      title: label,
+      timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
+      shotRangeLabel: shotRange.shotRangeLabel,
+      summary: sanitizeText(summary, 120),
+      fields: compactTimelineDetailFields(fields),
+    },
+  };
+}
+
+function compactTimelineDetailFields(fields: Array<{ label: string; value: string | null | undefined }>) {
+  return fields
+    .map((field) => ({
+      label: field.label,
+      value: sanitizeText(field.value, 120),
+    }))
+    .filter((field) => field.value);
+}
+
+function fieldPreview(fields: Array<{ label: string; value: string }> | null | undefined) {
+  return fields?.map((field) => field.value).filter(Boolean).slice(0, 2).join(" / ") ?? "";
+}
+
+function formatShotRangeLabel(shotRefs: string[]) {
+  const labels = shotRefs.map((ref, index) => formatShotNo(ref, index)).filter(Boolean);
+  if (!labels.length) return null;
+  return labels[0] === labels[labels.length - 1] ? labels[0] : `${labels[0]}-${labels[labels.length - 1]}`;
 }
 
 function timelineBlockStyle(block: AnalysisTimelineBlock, duration: number): CSSProperties {

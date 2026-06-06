@@ -6,6 +6,12 @@ export type LibraryItemSummary = {
   durationSeconds?: number | null;
   width?: number | null;
   height?: number | null;
+  status?: string | null;
+  coverUri?: string | null;
+  videoUri?: string | null;
+  hasFunctionSlotAtomization?: boolean;
+  hasUserMaterialPack?: boolean;
+  isIncomplete?: boolean;
   updatedAt?: string | null;
   tags: string[];
   cacheAvailable: boolean;

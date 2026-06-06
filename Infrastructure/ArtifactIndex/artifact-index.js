@@ -157,9 +157,15 @@ function buildLibraryItem({ artifact, fileHash, traceId, processorVersion, cache
     workspaceId: artifact.workspaceId,
     fileHash,
     filename: artifact.sampleVideo?.original?.summary ?? "样例视频",
+    status: artifact.status ?? null,
     durationSeconds: artifact.metadata?.durationSeconds ?? null,
     width: artifact.metadata?.width ?? null,
     height: artifact.metadata?.height ?? null,
+    coverUri: artifact.cover?.uri ?? artifact.frames?.[0]?.imageUri ?? null,
+    videoUri: artifact.sampleVideo?.normalized?.uri ?? artifact.sampleVideo?.original?.uri ?? null,
+    hasFunctionSlotAtomization: Boolean(artifact.functionSlotAtomizationAnalysis),
+    hasUserMaterialPack: Boolean(artifact.userMaterialPack),
+    isIncomplete: isIncompleteAnalysisArtifact(artifact),
     traceId: traceId ?? artifact.trace?.traceId ?? null,
     sourceTraceId: latestAnalysis?.traceId ?? latestAnalysis?.agent?.traceId ?? null,
     sourceTurnId: latestAnalysis?.sourceTurnId ?? latestAnalysis?.agent?.turnId ?? null,
@@ -291,12 +297,19 @@ function pushAnalysisNode(nodes, ref, current, stageName, artifact, cacheParamBu
 }
 
 function summarizeLibraryItem(item) {
+  const artifact = item.artifact ?? null;
   return {
     sampleVideoId: item.sampleVideoId,
     filename: item.filename,
+    status: item.status ?? artifact?.status ?? null,
     durationSeconds: item.durationSeconds,
     width: item.width,
     height: item.height,
+    coverUri: item.coverUri ?? artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null,
+    videoUri: item.videoUri ?? artifact?.sampleVideo?.normalized?.uri ?? artifact?.sampleVideo?.original?.uri ?? null,
+    hasFunctionSlotAtomization: Boolean(item.hasFunctionSlotAtomization ?? artifact?.functionSlotAtomizationAnalysis),
+    hasUserMaterialPack: Boolean(item.hasUserMaterialPack ?? artifact?.userMaterialPack),
+    isIncomplete: Boolean(item.isIncomplete ?? (artifact ? isIncompleteAnalysisArtifact(artifact) : false)),
     updatedAt: item.updatedAt,
     tags: item.tags,
     cacheAvailable: item.cacheAvailable,
@@ -320,6 +333,21 @@ function buildTags(artifact) {
     artifact.packagingStructureAnalysis ? "包装结构" : null,
     artifact.functionSlotAtomizationAnalysis ? "功能槽位原子化" : null,
   ].filter(Boolean);
+}
+
+function isIncompleteAnalysisArtifact(artifact) {
+  const hasCompleteResult = Boolean(artifact.functionSlotAtomizationAnalysis || artifact.userMaterialPack);
+  const hasIntermediateResult = Boolean(
+    artifact.packagingStructureAnalysis
+      || artifact.rhythmStructureAnalysis
+      || artifact.scriptSegmentAnalysis
+      || artifact.shotBoundaryAnalysis,
+  );
+  return hasIntermediateResult && !hasCompleteResult && !isRunningStatus(artifact.status);
+}
+
+function isRunningStatus(status) {
+  return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
 }
 
 function stageParams(artifact, stageName, cacheParamBuilders = {}) {

@@ -1,4 +1,5 @@
 .app-shell {
+  --new-ui-white: #ffffff;
   --new-ui-gray-950: #1c1c1b;
   --new-ui-gray-900: #20201f;
   --new-ui-gray-850: #262625;
@@ -7,6 +8,8 @@
   --new-ui-gray-300: #8a8a86;
   --new-ui-gray-100: #ecebe7;
   --new-ui-gray-050: #f4f3ef;
+  --new-ui-blue-400: #7fb7ff;
+  --new-ui-green-400: #8fc89a;
 
   --new-ui-font-size-xxs: 11px;
   --new-ui-font-size-xs: 12px;

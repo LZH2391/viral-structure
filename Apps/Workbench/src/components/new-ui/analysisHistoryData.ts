@@ -1,11 +1,10 @@
 import { runtimeUrl } from "../../api/client";
-import { getAnalysisHistoryProjection, type AnalysisHistoryProjectionItem, type PlatformRuntimeState } from "../../api/platformClient";
+import { getAnalysisHistoryProjection, type AnalysisHistoryProjectionItem } from "../../api/platformClient";
 import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 
 export type AnalysisHistoryItem = AnalysisHistoryProjectionItem & {
   artifact?: SampleArtifact | null;
-  runtimeState?: PlatformRuntimeState | null;
 };
 
 export type AnalysisHistoryMedia = {
@@ -16,7 +15,7 @@ export type AnalysisHistoryMedia = {
   ratioLabel: "16:9" | "9:16";
   durationLabel: string;
   relativeDateLabel: string;
-  badgeLabel: "素材识别" | "样例分析" | "分析中";
+  badgeLabel: "素材识别" | "结构分析" | "分析中" | "未完成";
 };
 
 export async function listAnalysisHistorySamples(): Promise<AnalysisHistoryItem[]> {
@@ -27,7 +26,7 @@ export async function listAnalysisHistorySamples(): Promise<AnalysisHistoryItem[
 }
 
 export function shouldShowAnalysisHistoryItem(item: AnalysisHistoryItem) {
-  return Boolean(item.hasFunctionSlotAtomization || item.hasUserMaterialPack || item.isRunning);
+  return Boolean(item.hasFunctionSlotAtomization || item.hasUserMaterialPack || item.isRunning || item.isIncomplete);
 }
 
 export function withLoadedAnalysisHistoryArtifact(item: AnalysisHistoryItem, artifact: SampleArtifact | null): AnalysisHistoryItem {
@@ -55,6 +54,7 @@ export function withLoadedAnalysisHistoryArtifact(item: AnalysisHistoryItem, art
     videoUri: artifact.sampleVideo.normalized.uri ?? artifact.sampleVideo.original.uri ?? item.videoUri,
     hasFunctionSlotAtomization: Boolean(artifact.functionSlotAtomizationAnalysis),
     hasUserMaterialPack: Boolean(artifact.userMaterialPack),
+    isIncomplete: isIncompleteAnalysisArtifact(artifact),
     isRunning: isRunningStatus(artifact.status),
   };
 }
@@ -118,11 +118,23 @@ export function normalizeMediaTitle(value: string) {
     .trim();
 }
 
-function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "样例分析" | "分析中" {
+function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "结构分析" | "分析中" | "未完成" {
   if (item.isRunning) return "分析中";
-  if (item.hasFunctionSlotAtomization) return "样例分析";
+  if (item.hasFunctionSlotAtomization) return "结构分析";
   if (item.hasUserMaterialPack) return "素材识别";
+  if (item.isIncomplete) return "未完成";
   return "分析中";
+}
+
+function isIncompleteAnalysisArtifact(artifact: SampleArtifact) {
+  const hasCompleteResult = Boolean(artifact.functionSlotAtomizationAnalysis || artifact.userMaterialPack);
+  const hasIntermediateResult = Boolean(
+    artifact.packagingStructureAnalysis
+      || artifact.rhythmStructureAnalysis
+      || artifact.scriptSegmentAnalysis
+      || artifact.shotBoundaryAnalysis,
+  );
+  return hasIntermediateResult && !hasCompleteResult && !isRunningStatus(artifact.status);
 }
 
 function isRunningStatus(status: string | null | undefined) {
