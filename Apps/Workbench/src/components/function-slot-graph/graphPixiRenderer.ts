@@ -13,6 +13,7 @@ import {
   type GraphMode,
   type GraphNodeDrawStyle,
   type GraphStrokeStyle,
+  type GraphVisualTheme,
 } from "./graphVisualStyles";
 
 export type PixiGraphRenderState = {
@@ -24,6 +25,7 @@ export type PixiGraphRenderState = {
   focusedEdgeIds: Set<string>;
   hasFocusNode: boolean;
   fixedLayout: boolean;
+  theme: GraphVisualTheme;
 };
 
 export type PixiGraphObjects = {
@@ -113,12 +115,12 @@ export function applyPixiAlphaTween(objects: PixiGraphObjects, start: PixiAlphaS
   }
 }
 
-export function drawPixiBackground(graphics: Graphics) {
+export function drawPixiBackground(graphics: Graphics, theme: GraphVisualTheme = GRAPH_VISUAL_THEME) {
   graphics.clear();
   for (let index = 0; index < 72; index += 1) {
     const x = 50 + ((index * 157) % (VIEWBOX.width - 100));
     const y = 38 + ((index * 89) % (VIEWBOX.height - 76));
-    graphics.circle(x, y, 1.5 + (index % 3)).fill({ color: GRAPH_VISUAL_THEME.edge.default, alpha: 0.045 });
+    graphics.circle(x, y, 1.5 + (index % 3)).fill({ color: theme.edge.default, alpha: 0.045 });
   }
 }
 
@@ -142,7 +144,7 @@ export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, e
       : false;
     const muted = state.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
-    const style = resolveGraphEdgeStyle(edge, source, target, state.mode, focused, muted);
+    const style = resolveGraphEdgeStyle(edge, source, target, state.mode, focused, muted, state.theme);
     syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
   }
 }
@@ -165,16 +167,16 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
     const pinned = node.id === state.pinnedPreviewNodeId;
     const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted, state.theme);
     view.container.position.set(node.x, node.y);
     view.container.alpha = style.groupAlpha;
 
-    syncNodeRing(view, node, radius);
+    syncNodeRing(view, node, radius, state.theme);
     syncNodeGlow(view, radius, style);
     syncNodeBody(view, radius, style);
 
-    syncSlotBadge(view, node, radius);
-    syncPlanBadge(view, node, radius);
+    syncSlotBadge(view, node, radius, state.theme);
+    syncPlanBadge(view, node, radius, state.theme);
     syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), style);
   }
 }
@@ -219,7 +221,7 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
       const selected = node.id === state.selectedNodeId;
       const pinned = node.id === state.pinnedPreviewNodeId;
       const hovered = node.id === state.hoveredNodeId;
-      const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, state.hasFocusNode && !focused);
+      const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, state.hasFocusNode && !focused, state.theme);
       view.label.position.set(node.x, node.y + nodeLabelTopY(radius, style.labelFontSize));
     }
   }
@@ -236,7 +238,7 @@ export function syncPixiLabels(labelLayer: Container, objects: PixiGraphObjects,
     const pinned = node.id === state.pinnedPreviewNodeId;
     const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted);
+    const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted, state.theme);
     syncNodeLabel(labelLayer, view, node, radius, nodeLabelOpacity(state.mode, node, zoom), style);
   }
   return true;
@@ -255,7 +257,7 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const pinned = node.id === next.pinnedPreviewNodeId;
     const hovered = node.id === next.hoveredNodeId;
     const radius = nodeRadius(node);
-    const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered, focusMuted);
+    const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered, focusMuted, next.theme);
     view.container.alpha = style.groupAlpha;
     syncNodeGlow(view, radius, style);
     syncNodeBody(view, radius, style);
@@ -278,7 +280,7 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const focused = isEdgeFocused(edge, next);
     const muted = next.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
-    const style = resolveGraphEdgeStyle(edge, source, target, next.mode, focused, muted);
+    const style = resolveGraphEdgeStyle(edge, source, target, next.mode, focused, muted, next.theme);
     syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
   }
   return true;
@@ -391,12 +393,12 @@ function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number
   return true;
 }
 
-function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
+function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number, theme: GraphVisualTheme) {
   const highlighted = node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample";
-  const key = highlighted ? `ring:${radius}` : "none";
+  const key = highlighted ? `ring:${radius}:${theme.node.landmarkGlow}` : "none";
   if (view.ringKey === key) return;
   view.ring.clear();
-  if (highlighted) drawCircleStroke(view.ring, radius + 7, GRAPH_VISUAL_THEME.node.landmarkGlow, 0.58, 2, [6, 7]);
+  if (highlighted) drawCircleStroke(view.ring, radius + 7, theme.node.landmarkGlow, 0.58, 2, [6, 7]);
   view.ringKey = key;
 }
 
@@ -420,7 +422,7 @@ function syncNodeBody(view: PixiNodeView, radius: number, style: GraphNodeDrawSt
   view.bodyKey = key;
 }
 
-function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number) {
+function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number, theme: GraphVisualTheme) {
   const badge = slotOrderBadge(node);
   if (!badge) {
     if (view.slotBadgeKey !== "none") {
@@ -432,22 +434,22 @@ function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number) {
   }
   const x = -radius + 2;
   const y = -radius + 2;
-  const key = `${radius}`;
+  const key = `${radius}:${theme.node.neutral}:${theme.node.slotSubtypeStroke}`;
   if (view.slotBadgeKey !== key) {
     view.slotBadge
       .clear()
       .circle(x, y, 8)
-      .fill({ color: GRAPH_VISUAL_THEME.node.neutral, alpha: 0.96 })
-      .stroke({ color: GRAPH_VISUAL_THEME.node.slotSubtypeStroke, alpha: 0.94, width: 1.5 });
+      .fill({ color: theme.node.neutral, alpha: 0.96 })
+      .stroke({ color: theme.node.slotSubtypeStroke, alpha: 0.94, width: 1.5 });
     view.slotBadgeKey = key;
   }
-  syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE), "slot");
+  syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE, theme), `slot:${theme.text.label}`);
   syncText(view.slotBadgeText, badge);
   view.slotBadgeText.position.set(x, y + 0.75);
   view.slotBadgeText.visible = true;
 }
 
-function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
+function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number, theme: GraphVisualTheme) {
   const overlayColors = Array.isArray(node.data.overlayColors) ? node.data.overlayColors.filter((value): value is string => typeof value === "string") : [];
   if (!overlayColors.length) {
     if (view.planBadgeKey !== "none") {
@@ -461,16 +463,16 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
   const y = -radius + 1;
   const count = Number(node.data.overlayUsageCount ?? overlayColors.length);
   const badgeColor = cssColorToNumber(overlayColors[0]) ?? 0x6ea8fe;
-  const key = `${radius}:${badgeColor}`;
+  const key = `${radius}:${badgeColor}:${theme.node.selectedStroke}`;
   if (view.planBadgeKey !== key) {
     view.planBadge
       .clear()
       .circle(x, y, 7)
       .fill({ color: badgeColor, alpha: 1 })
-      .stroke({ color: GRAPH_VISUAL_THEME.node.selectedStroke, alpha: 0.86, width: 1 });
+      .stroke({ color: theme.node.selectedStroke, alpha: 0.86, width: 1 });
     view.planBadgeKey = key;
   }
-  syncTextStyle(view.planBadgeText, whiteTextStyle(PLAN_BADGE_FONT_SIZE), "plan");
+  syncTextStyle(view.planBadgeText, whiteTextStyle(PLAN_BADGE_FONT_SIZE, theme), `plan:${theme.text.label}`);
   syncText(view.planBadgeText, count > 1 ? String(count) : "");
   view.planBadgeText.position.set(x, y + 0.75);
   view.planBadgeText.visible = count > 1;
@@ -513,8 +515,8 @@ function syncTextStyle(text: Text, style: TextStyleOptions, key: string) {
   textStyleKeys.set(text, key);
 }
 
-function whiteTextStyle(fontSize: number): TextStyleOptions {
-  return textStyle(fontSize, GRAPH_VISUAL_THEME.text.label);
+function whiteTextStyle(fontSize: number, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): TextStyleOptions {
+  return textStyle(fontSize, theme.text.label);
 }
 
 function textStyle(fontSize: number, fill: string): TextStyleOptions {

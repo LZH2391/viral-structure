@@ -141,6 +141,115 @@ export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
   },
 };
 
+const GRAPH_VISUAL_THEME_TOKEN_MAP = {
+  edge: {
+    default: "--slot-graph-edge-default",
+    slot: "--slot-graph-edge-slot",
+    sequence: "--slot-graph-edge-sequence",
+    binding: "--slot-graph-edge-binding",
+    plan: "--slot-graph-edge-plan",
+    semantic: "--slot-graph-edge-semantic",
+    hierarchy: "--slot-graph-edge-hierarchy",
+    sourceTrace: "--slot-graph-edge-source-trace",
+    script: "--slot-graph-edge-script",
+    rhythm: "--slot-graph-edge-rhythm",
+    packaging: "--slot-graph-edge-packaging",
+  },
+  node: {
+    neutral: "--slot-graph-node-neutral",
+    neutralStroke: "--slot-graph-node-neutral-stroke",
+    selectedStroke: "--slot-graph-node-selected-stroke",
+    library: "--slot-graph-node-library",
+    slot: "--slot-graph-node-slot",
+    slotFamily: "--slot-graph-node-slot-family",
+    slotFamilyStroke: "--slot-graph-node-slot-family-stroke",
+    slotArchetype: "--slot-graph-node-slot-archetype",
+    slotArchetypeStroke: "--slot-graph-node-slot-archetype-stroke",
+    slotSubtype: "--slot-graph-node-slot-subtype",
+    slotSubtypeStroke: "--slot-graph-node-slot-subtype-stroke",
+    tracedSlot: "--slot-graph-node-traced-slot",
+    tracedSlotStroke: "--slot-graph-node-traced-slot-stroke",
+    script: "--slot-graph-node-script",
+    scriptStroke: "--slot-graph-node-script-stroke",
+    rhythm: "--slot-graph-node-rhythm",
+    rhythmStroke: "--slot-graph-node-rhythm-stroke",
+    packaging: "--slot-graph-node-packaging",
+    packagingStroke: "--slot-graph-node-packaging-stroke",
+    concept: "--slot-graph-node-concept",
+    binding: "--slot-graph-node-binding",
+    governance: "--slot-graph-node-governance",
+    governanceStroke: "--slot-graph-node-governance-stroke",
+    policy: "--slot-graph-node-policy",
+    bundle: "--slot-graph-node-bundle",
+    review: "--slot-graph-node-review",
+    sourceVariant: "--slot-graph-node-source-variant",
+    sourceVariantTrace: "--slot-graph-node-source-variant-trace",
+    projected: "--slot-graph-node-projected",
+    pinnedGlow: "--slot-graph-node-pinned-glow",
+    landmarkGlow: "--slot-graph-node-landmark-glow",
+  },
+  text: {
+    label: "--slot-graph-text-label",
+  },
+} as const;
+
+export function readGraphVisualTheme(element: Element | null): GraphVisualTheme {
+  if (!element || typeof window === "undefined") return GRAPH_VISUAL_THEME;
+  const style = window.getComputedStyle(element);
+  return {
+    edge: {
+      default: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.default, GRAPH_VISUAL_THEME.edge.default),
+      slot: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.slot, GRAPH_VISUAL_THEME.edge.slot),
+      sequence: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.sequence, GRAPH_VISUAL_THEME.edge.sequence),
+      binding: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.binding, GRAPH_VISUAL_THEME.edge.binding),
+      plan: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.plan, GRAPH_VISUAL_THEME.edge.plan),
+      semantic: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.semantic, GRAPH_VISUAL_THEME.edge.semantic),
+      hierarchy: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.hierarchy, GRAPH_VISUAL_THEME.edge.hierarchy),
+      sourceTrace: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.sourceTrace, GRAPH_VISUAL_THEME.edge.sourceTrace),
+      script: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.script, GRAPH_VISUAL_THEME.edge.script),
+      rhythm: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.rhythm, GRAPH_VISUAL_THEME.edge.rhythm),
+      packaging: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.packaging, GRAPH_VISUAL_THEME.edge.packaging),
+      focusGlowAlpha: readNumberToken(style, "--slot-graph-edge-focus-glow-alpha", GRAPH_VISUAL_THEME.edge.focusGlowAlpha),
+    },
+    node: {
+      neutral: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.neutral, GRAPH_VISUAL_THEME.node.neutral),
+      neutralStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.neutralStroke, GRAPH_VISUAL_THEME.node.neutralStroke),
+      selectedStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.selectedStroke, GRAPH_VISUAL_THEME.node.selectedStroke),
+      library: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.library, GRAPH_VISUAL_THEME.node.library),
+      slot: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slot, GRAPH_VISUAL_THEME.node.slot),
+      slotFamily: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotFamily, GRAPH_VISUAL_THEME.node.slotFamily),
+      slotFamilyStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotFamilyStroke, GRAPH_VISUAL_THEME.node.slotFamilyStroke),
+      slotArchetype: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotArchetype, GRAPH_VISUAL_THEME.node.slotArchetype),
+      slotArchetypeStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotArchetypeStroke, GRAPH_VISUAL_THEME.node.slotArchetypeStroke),
+      slotSubtype: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotSubtype, GRAPH_VISUAL_THEME.node.slotSubtype),
+      slotSubtypeStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.slotSubtypeStroke, GRAPH_VISUAL_THEME.node.slotSubtypeStroke),
+      tracedSlot: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.tracedSlot, GRAPH_VISUAL_THEME.node.tracedSlot),
+      tracedSlotStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.tracedSlotStroke, GRAPH_VISUAL_THEME.node.tracedSlotStroke),
+      script: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.script, GRAPH_VISUAL_THEME.node.script),
+      scriptStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.scriptStroke, GRAPH_VISUAL_THEME.node.scriptStroke),
+      rhythm: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.rhythm, GRAPH_VISUAL_THEME.node.rhythm),
+      rhythmStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.rhythmStroke, GRAPH_VISUAL_THEME.node.rhythmStroke),
+      packaging: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.packaging, GRAPH_VISUAL_THEME.node.packaging),
+      packagingStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.packagingStroke, GRAPH_VISUAL_THEME.node.packagingStroke),
+      concept: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.concept, GRAPH_VISUAL_THEME.node.concept),
+      binding: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.binding, GRAPH_VISUAL_THEME.node.binding),
+      governance: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.governance, GRAPH_VISUAL_THEME.node.governance),
+      governanceStroke: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.governanceStroke, GRAPH_VISUAL_THEME.node.governanceStroke),
+      policy: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.policy, GRAPH_VISUAL_THEME.node.policy),
+      bundle: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.bundle, GRAPH_VISUAL_THEME.node.bundle),
+      review: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.review, GRAPH_VISUAL_THEME.node.review),
+      sourceVariant: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.sourceVariant, GRAPH_VISUAL_THEME.node.sourceVariant),
+      sourceVariantTrace: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.sourceVariantTrace, GRAPH_VISUAL_THEME.node.sourceVariantTrace),
+      projected: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.projected, GRAPH_VISUAL_THEME.node.projected),
+      pinnedGlow: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.pinnedGlow, GRAPH_VISUAL_THEME.node.pinnedGlow),
+      landmarkGlow: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.node.landmarkGlow, GRAPH_VISUAL_THEME.node.landmarkGlow),
+    },
+    text: {
+      label: readTextToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.text.label, GRAPH_VISUAL_THEME.text.label),
+    },
+  };
+}
+
 type GovernanceLabelSpec = {
   start: number;
   end: number;
@@ -247,8 +356,7 @@ export function edgeLayerClass(source: SimNode, target: SimNode) {
   return layer ? `edge-layer-${layer}` : "";
 }
 
-export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, mode: GraphMode, focused: boolean, muted: boolean): GraphStrokeStyle {
-  const theme = GRAPH_VISUAL_THEME;
+export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, mode: GraphMode, focused: boolean, muted: boolean, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): GraphStrokeStyle {
   const classes = classSet(edgeClassTokens(edge.type, source, target, focused, muted));
   let stroke = rgba(theme.edge.default, 0.22);
   let opacity = 0.34;
@@ -357,8 +465,7 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   };
 }
 
-export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: boolean, selected: boolean, pinned: boolean, hovered: boolean, focusMuted = false): GraphNodeDrawStyle {
-  const theme = GRAPH_VISUAL_THEME;
+export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: boolean, selected: boolean, pinned: boolean, hovered: boolean, focusMuted = false, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): GraphNodeDrawStyle {
   const classes = classSet(nodeClassTokens(node, focused, selected, pinned, focusMuted));
   const className = [...classes].join(" ");
   let fill = theme.node.neutral;
@@ -570,4 +677,42 @@ function classSet(tokens: string[]) {
 
 function rgba(color: number, alpha: number) {
   return { color, alpha };
+}
+
+function readTextToken(style: CSSStyleDeclaration, token: string, fallback: string) {
+  return resolveCssToken(style, token) || fallback;
+}
+
+function readNumberToken(style: CSSStyleDeclaration, token: string, fallback: number) {
+  const value = Number(resolveCssToken(style, token));
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function readColorToken(style: CSSStyleDeclaration, token: string, fallback: number) {
+  return cssColorToNumber(resolveCssToken(style, token)) ?? fallback;
+}
+
+function resolveCssToken(style: CSSStyleDeclaration, token: string, seen = new Set<string>()): string {
+  if (seen.has(token)) return "";
+  seen.add(token);
+  const raw = style.getPropertyValue(token).trim();
+  const variable = raw.match(/^var\(\s*(--[A-Za-z0-9_-]+)(?:\s*,\s*(.+))?\)$/);
+  if (!variable) return raw;
+  return resolveCssToken(style, variable[1], seen) || variable[2]?.trim() || "";
+}
+
+function cssColorToNumber(value: string) {
+  if (!value) return null;
+  if (value.startsWith("#")) {
+    const normalized = value.length === 4
+      ? `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`
+      : value;
+    const parsed = Number.parseInt(normalized.slice(1, 7), 16);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const rgb = value.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.slice(1, 4).map((channel) => Math.max(0, Math.min(255, Math.round(Number(channel)))));
+  if (![r, g, b].every(Number.isFinite)) return null;
+  return (r << 16) + (g << 8) + b;
 }

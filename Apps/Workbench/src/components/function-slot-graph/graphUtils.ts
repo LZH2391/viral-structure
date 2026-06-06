@@ -60,9 +60,15 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
     ? withAtomLayerProjection(graph)
     : graph;
   const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
+  const effectiveGovernanceEdges = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" && visibleIds
+    ? projectVisibleEdges(projectedGraph, visibleIds)
+    : null;
+  const layoutGraph = effectiveGovernanceEdges
+    ? { ...projectedGraph, edges: effectiveGovernanceEdges }
+    : projectedGraph;
   let positions: Map<string, LayoutPosition>;
   if (projectedGraph.schemaVersion === "function_slot_governance_graph.v1") {
-    positions = buildGovernancePositions(projectedGraph, governanceLayoutMode, visibleIds);
+    positions = buildGovernancePositions(layoutGraph, governanceLayoutMode, visibleIds);
   } else if (projectedGraph.schemaVersion === "confirmed_plan_trace_graph.v1") {
     positions = governanceLayoutMode === "columns" ? buildPlanTraceColumnPositions(projectedGraph) : buildPlanTracePositions(projectedGraph);
   } else {
@@ -100,7 +106,9 @@ export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filter
   const nodeIds = new Set(nodes.map((node) => node.id));
   return {
     nodes,
-    edges: projectedGraph.schemaVersion === "function_slot_governance_graph.v1" || projectedGraph.schemaVersion === "confirmed_plan_trace_graph.v1"
+    edges: effectiveGovernanceEdges
+      ? effectiveGovernanceEdges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+      : projectedGraph.schemaVersion === "confirmed_plan_trace_graph.v1"
       ? projectVisibleEdges(projectedGraph, nodeIds)
       : projectedGraph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)),
   };

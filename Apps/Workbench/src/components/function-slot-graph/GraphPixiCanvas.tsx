@@ -38,6 +38,7 @@ import {
   type PixiGraphObjects,
   type PixiGraphRenderState,
 } from "./graphPixiRenderer";
+import { GRAPH_VISUAL_THEME, readGraphVisualTheme, type GraphVisualTheme } from "./graphVisualStyles";
 import type { D3Link, DragState, GovernanceLayoutMode, SimNode, VisibleGraph } from "./types";
 
 type GraphMode = "structure" | "governance" | "planTrace";
@@ -93,6 +94,7 @@ function GraphPixiCanvasInner({
   const appRef = useRef<Application | null>(null);
   const layersRef = useRef<PixiLayers | null>(null);
   const graphObjectsRef = useRef<PixiGraphObjects>(createPixiGraphObjects());
+  const graphThemeRef = useRef<GraphVisualTheme>(GRAPH_VISUAL_THEME);
   const nodesRef = useRef<SimNode[]>([]);
   const dragRef = useRef<DragState | null>(null);
   const forcePanRef = useRef(false);
@@ -122,6 +124,7 @@ function GraphPixiCanvasInner({
   const syncGraphLayoutRef = useRef<() => void>(() => undefined);
   const syncGraphLabelsRef = useRef<() => boolean>(() => false);
   const syncGraphFocusRef = useRef<(previous: PixiGraphRenderState, next: PixiGraphRenderState) => boolean>(() => false);
+  const syncGraphThemeRef = useRef<() => void>(() => undefined);
   const applyViewportTransformRef = useRef<() => void>(() => undefined);
   const renderViewportRef = useRef<() => void>(() => undefined);
   const restartSimulationRef = useRef<(alpha?: number) => void>(() => undefined);
@@ -141,6 +144,7 @@ function GraphPixiCanvasInner({
     focusedEdgeIds: new Set<string>(),
     hasFocusNode: false,
     fixedLayout: layoutMode === "columns",
+    theme: GRAPH_VISUAL_THEME,
   });
   const [viewport, setViewport] = useState(viewportRef.current);
   const [canvasSize, setCanvasSize] = useState({ width: VIEWBOX.width, height: VIEWBOX.height });
@@ -228,6 +232,7 @@ function GraphPixiCanvasInner({
       focusedEdgeIds: focusedPath.edges,
       hasFocusNode: Boolean(focusNodeId),
       fixedLayout,
+      theme: graphThemeRef.current,
     };
     stateRef.current = nextState;
     if (!edgesChanged && previousState.fixedLayout === nextState.fixedLayout && syncGraphFocusRef.current(previousState, nextState)) return;
@@ -271,7 +276,8 @@ function GraphPixiCanvasInner({
       host.appendChild(app.canvas);
       app.stage.addChild(root);
       updateCanvasSize();
-      drawPixiBackground(background);
+      syncGraphThemeRef.current();
+      drawPixiBackground(background, graphThemeRef.current);
       syncGraphObjectsRef.current();
     }).catch((error) => {
       setPixiError(error instanceof Error ? error.message : "Pixi 初始化失败");
@@ -279,7 +285,7 @@ function GraphPixiCanvasInner({
 
     const resizeObserver = new ResizeObserver(() => {
       updateCanvasSize();
-      drawPixiBackground(background);
+      drawPixiBackground(background, graphThemeRef.current);
       scheduleDraw();
     });
     resizeObserver.observe(host);
@@ -302,6 +308,18 @@ function GraphPixiCanvasInner({
       layersRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!active) return undefined;
+    syncGraphThemeRef.current();
+    const host = hostRef.current;
+    const shell = host?.closest(".slot-graph-shell");
+    const themeRoot = host?.closest(".new-ui-shell");
+    const observer = new MutationObserver(() => syncGraphThemeRef.current());
+    if (shell) observer.observe(shell, { attributes: true, attributeFilter: ["class", "style"] });
+    if (themeRoot) observer.observe(themeRoot, { attributes: true, attributeFilter: ["data-theme", "class", "style"] });
+    return () => observer.disconnect();
+  }, [active]);
 
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
@@ -454,11 +472,25 @@ function GraphPixiCanvasInner({
     if (!layers) return;
     stopPixiFocusTransition();
     applyViewportTransformRef.current();
+    drawPixiBackground(layers.background, graphThemeRef.current);
     syncPixiEdges(layers.edges, graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
     syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
     renderPixi();
   };
   syncGraphObjectsRef.current = syncGraphObjects;
+
+  const syncGraphTheme = () => {
+    const host = hostRef.current;
+    const tokenSource = host?.closest(".slot-graph-shell") ?? host;
+    const nextTheme = readGraphVisualTheme(tokenSource);
+    graphThemeRef.current = nextTheme;
+    stateRef.current = { ...stateRef.current, theme: nextTheme };
+    if (layersRef.current) drawPixiBackground(layersRef.current.background, nextTheme);
+    destroyPixiGraphObjects(graphObjectsRef.current);
+    graphObjectsRef.current = createPixiGraphObjects();
+    scheduleDraw();
+  };
+  syncGraphThemeRef.current = syncGraphTheme;
 
   const syncGraphLayout = () => {
     const rendered = syncPixiLayout(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);

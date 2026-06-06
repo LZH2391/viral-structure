@@ -59,6 +59,27 @@ test("pixi graph keeps source variant labels synced during zoom", () => {
   assert.match(graphPixiRenderer, /syncNodeLabel\(labelLayer, view, node, radius, nodeLabelOpacity\(state\.mode, node, zoom\), style\)/);
 });
 
+test("pixi graph colors are sourced from css graph tokens", () => {
+  const root = path.resolve(__dirname, "../..");
+  const graphCss = read(root, "Apps/Workbench/styles/function-slot-graph.css");
+  const graphVisualStyles = read(root, "Apps/Workbench/src/components/function-slot-graph/graphVisualStyles.ts");
+  const graphPixiCanvas = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphPixiCanvas.tsx");
+  const graphPixiRenderer = read(root, "Apps/Workbench/src/components/function-slot-graph/graphPixiRenderer.ts");
+
+  assert.match(graphCss, /--slot-graph-node-slot-family-stroke:/);
+  assert.match(graphCss, /--slot-graph-edge-hierarchy:/);
+  assert.match(graphCss, /\.new-ui-shell\[data-theme="light"\] \.slot-graph-shell\.embedded/);
+  assert.match(graphVisualStyles, /export function readGraphVisualTheme/);
+  assert.match(graphVisualStyles, /--slot-graph-node-slot-family-stroke/);
+  assert.match(graphVisualStyles, /resolveCssToken/);
+  assert.match(graphPixiCanvas, /readGraphVisualTheme/);
+  assert.match(graphPixiCanvas, /graphThemeRef/);
+  assert.match(graphPixiCanvas, /theme: graphThemeRef\.current/);
+  assert.match(graphPixiRenderer, /type GraphVisualTheme/);
+  assert.match(graphPixiRenderer, /resolveGraphNodeStyle\(node, state\.mode[\s\S]*state\.theme\)/);
+  assert.match(graphPixiRenderer, /drawPixiBackground\(graphics: Graphics, theme: GraphVisualTheme/);
+});
+
 test("threadpool page and shot boundary agent use proxied API surface", () => {
   const root = path.resolve(__dirname, "../..");
   const vite = read(root, "vite.config.ts");

@@ -1,4 +1,48 @@
 .slot-graph-shell {
+  --slot-graph-edge-default: #8a8a86;
+  --slot-graph-edge-slot: #8fc89a;
+  --slot-graph-edge-sequence: #c8b46a;
+  --slot-graph-edge-binding: #b7a45c;
+  --slot-graph-edge-plan: #eeeeea;
+  --slot-graph-edge-semantic: #c8b46a;
+  --slot-graph-edge-hierarchy: #7fb7ff;
+  --slot-graph-edge-source-trace: #aeb3ad;
+  --slot-graph-edge-script: #d86a5d;
+  --slot-graph-edge-rhythm: #6fa9d8;
+  --slot-graph-edge-packaging: #9b8ad8;
+  --slot-graph-edge-focus-glow-alpha: 0.28;
+  --slot-graph-node-neutral: #20201f;
+  --slot-graph-node-neutral-stroke: #8a8a86;
+  --slot-graph-node-selected-stroke: #f4f3ef;
+  --slot-graph-node-library: #6f6a86;
+  --slot-graph-node-slot: #6fa77a;
+  --slot-graph-node-slot-family: #587b60;
+  --slot-graph-node-slot-family-stroke: #8fc89a;
+  --slot-graph-node-slot-archetype: #4e6f94;
+  --slot-graph-node-slot-archetype-stroke: #7fb7ff;
+  --slot-graph-node-slot-subtype: #8b7742;
+  --slot-graph-node-slot-subtype-stroke: #c8b46a;
+  --slot-graph-node-traced-slot: #74b89f;
+  --slot-graph-node-traced-slot-stroke: #b8ded1;
+  --slot-graph-node-script: #c9655a;
+  --slot-graph-node-script-stroke: #d88376;
+  --slot-graph-node-rhythm: #5d99bd;
+  --slot-graph-node-rhythm-stroke: #81b9da;
+  --slot-graph-node-packaging: #8d7ac8;
+  --slot-graph-node-packaging-stroke: #a998d8;
+  --slot-graph-node-concept: #5f9d78;
+  --slot-graph-node-binding: #b9a85f;
+  --slot-graph-node-governance: #20201f;
+  --slot-graph-node-governance-stroke: #eeeeea;
+  --slot-graph-node-policy: #7f9fcf;
+  --slot-graph-node-bundle: #b99655;
+  --slot-graph-node-review: #c77566;
+  --slot-graph-node-source-variant: #262625;
+  --slot-graph-node-source-variant-trace: #303846;
+  --slot-graph-node-projected: #5e5e5a;
+  --slot-graph-node-pinned-glow: #8f879f;
+  --slot-graph-node-landmark-glow: #b8adc8;
+  --slot-graph-text-label: #eeeeea;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr);
   height: 100vh;
@@ -25,8 +69,34 @@
 }
 
 .new-ui-shell .slot-graph-shell.embedded {
+  --slot-graph-edge-default: var(--new-ui-gray-300);
+  --slot-graph-edge-slot: var(--new-ui-green-400);
+  --slot-graph-edge-hierarchy: var(--new-ui-blue-400);
+  --slot-graph-node-neutral: var(--new-ui-gray-900);
+  --slot-graph-node-neutral-stroke: var(--new-ui-gray-300);
+  --slot-graph-node-selected-stroke: var(--new-ui-gray-050);
+  --slot-graph-node-slot-family-stroke: var(--new-ui-green-400);
+  --slot-graph-node-slot-archetype-stroke: var(--new-ui-blue-400);
+  --slot-graph-node-governance: var(--new-ui-gray-900);
+  --slot-graph-node-governance-stroke: var(--new-ui-theme-dark-text);
+  --slot-graph-node-source-variant: var(--new-ui-gray-850);
+  --slot-graph-text-label: var(--new-ui-theme-dark-text);
   color: var(--new-ui-text);
   background: var(--new-ui-bg);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded {
+  --slot-graph-edge-default: var(--new-ui-gray-700);
+  --slot-graph-edge-plan: var(--new-ui-gray-900);
+  --slot-graph-node-neutral: var(--new-ui-gray-100);
+  --slot-graph-node-neutral-stroke: var(--new-ui-gray-700);
+  --slot-graph-node-selected-stroke: var(--new-ui-gray-950);
+  --slot-graph-node-governance: var(--new-ui-gray-050);
+  --slot-graph-node-governance-stroke: var(--new-ui-gray-900);
+  --slot-graph-node-source-variant: var(--new-ui-gray-100);
+  --slot-graph-node-source-variant-trace: var(--new-ui-gray-100);
+  --slot-graph-node-projected: var(--new-ui-gray-300);
+  --slot-graph-text-label: var(--new-ui-theme-light-text);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-layout {

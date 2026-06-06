@@ -357,6 +357,45 @@ test("governance force layout bundles atoms near visible parents while samples s
   assert.ok(angularDistance(angle("sample:a"), angle("sample:b")) > 1);
 });
 
+test("governance layout ignores hidden atom hierarchy when anchoring projected pattern links", () => {
+  const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false, sourceVariant: false };
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance-test",
+    nodes: [
+      { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a" } },
+      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b" } },
+      { id: "layer:a", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "layer:b", type: "atomLayer", label: "script", group: "script", data: { layer: "script" } },
+      { id: "arch:shared", type: "atomArchetype", label: "shared arch", group: "script", data: {} },
+      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { forSlotSubtypeIds: ["a"] } },
+    ],
+    edges: [
+      { id: "e-root-a", source: "governance:root", target: "subtype:a", type: "governance_contains_subtype" },
+      { id: "e-root-b", source: "governance:root", target: "subtype:b", type: "governance_contains_subtype" },
+      { id: "e-a-layer", source: "subtype:a", target: "layer:a", type: "subtype_to_atom_layer" },
+      { id: "e-b-layer", source: "subtype:b", target: "layer:b", type: "subtype_to_atom_layer" },
+      { id: "e-b-arch", source: "layer:b", target: "arch:shared", type: "atom_layer_to_archetype" },
+      { id: "e-a-arch", source: "layer:a", target: "arch:shared", type: "atom_layer_to_archetype" },
+      { id: "e-pattern", source: "arch:shared", target: "pattern:a", type: "atom_archetype_to_pattern" },
+    ],
+    summary: { slotCount: 2, atomCount: 1, bindingCount: 0, conceptCount: 7 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters, null, "force");
+  const byId = new Map(visible.nodes.map((node) => [node.id, node]));
+  const angle = (id) => {
+    const node = byId.get(id);
+    return Math.atan2((node.y - CENTER.y) / (node.layoutYScale ?? 1), node.x - CENTER.x);
+  };
+
+  assert.ok(visible.edges.some((edge) => edge.source === "subtype:a" && edge.target === "pattern:a" && edge.type === "projected_hierarchy"));
+  assert.equal(visible.edges.some((edge) => edge.source === "subtype:b" && edge.target === "pattern:a"), false);
+  assert.ok(angularDistance(angle("pattern:a"), angle("subtype:a")) < angularDistance(angle("pattern:a"), angle("subtype:b")));
+});
+
 function distanceFromRoot(node, root) {
   return Math.hypot(node.x - root.x, (node.y - root.y) / (node.layoutYScale ?? 1));
 }
