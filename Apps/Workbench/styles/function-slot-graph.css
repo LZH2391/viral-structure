@@ -518,6 +518,8 @@
   fill: rgba(255, 255, 255, 0.08);
 }
 
+/* Deprecated SVG renderer styles.
+   Runtime graph rendering is Pixi-only; keep this block only until GraphCanvas.tsx is removed. */
 .slot-graph-edge {
   fill: none;
   stroke: rgba(151, 163, 185, 0.22);

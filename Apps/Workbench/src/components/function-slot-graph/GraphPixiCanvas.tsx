@@ -17,12 +17,11 @@ import {
   VIEWBOX,
 } from "./graphUtils";
 import {
-  GraphCanvas,
   GraphLegend,
   governanceSummaryText,
   LibraryPreviewPopover,
   planTraceSummaryText,
-} from "./GraphCanvas";
+} from "./GraphSharedPanels";
 import {
   applyPixiAlphaTween,
   capturePixiAlphaSnapshot,
@@ -70,9 +69,7 @@ export function GraphPixiCanvas(props: {
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
 }) {
-  const [fallbackReason, setFallbackReason] = useState<string | null>(null);
-  if (fallbackReason) return <GraphCanvas {...props} />;
-  return <GraphPixiCanvasInner {...props} onPixiUnavailable={setFallbackReason} />;
+  return <GraphPixiCanvasInner {...props} />;
 }
 
 function GraphPixiCanvasInner({
@@ -83,7 +80,6 @@ function GraphPixiCanvasInner({
   layoutMode = "force",
   selectedNodeId,
   onSelectNode,
-  onPixiUnavailable,
 }: {
   active?: boolean;
   mode?: GraphMode;
@@ -92,7 +88,6 @@ function GraphPixiCanvasInner({
   layoutMode?: GovernanceLayoutMode;
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
-  onPixiUnavailable: (reason: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
@@ -156,6 +151,7 @@ function GraphPixiCanvasInner({
   const [resetToken, setResetToken] = useState(0);
   const [previewTick, setPreviewTick] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
+  const [pixiError, setPixiError] = useState<string | null>(null);
   const fixedLayout = layoutMode === "columns";
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusedPath = useMemo(
@@ -278,7 +274,7 @@ function GraphPixiCanvasInner({
       drawPixiBackground(background);
       syncGraphObjectsRef.current();
     }).catch((error) => {
-      onPixiUnavailable(error instanceof Error ? error.message : "Pixi 初始化失败");
+      setPixiError(error instanceof Error ? error.message : "Pixi 初始化失败");
     });
 
     const resizeObserver = new ResizeObserver(() => {
@@ -305,7 +301,7 @@ function GraphPixiCanvasInner({
       appRef.current = null;
       layersRef.current = null;
     };
-  }, [onPixiUnavailable]);
+  }, []);
 
   useEffect(() => {
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
@@ -874,6 +870,7 @@ function GraphPixiCanvasInner({
       </div>
       <GraphLegend mode={mode} />
       <div className="slot-graph-zoom-chip">{Math.round(viewport.k * 100)}%</div>
+      {pixiError ? <div className="slot-graph-pixi-error">Pixi 图谱初始化失败：{pixiError}</div> : null}
       <div
         ref={hostRef}
         className="slot-graph-pixi-stage"

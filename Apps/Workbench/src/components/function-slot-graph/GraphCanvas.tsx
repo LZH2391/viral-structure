@@ -1,3 +1,5 @@
+// Deprecated: SVG graph renderer kept only as historical reference.
+// Runtime graph rendering must use GraphPixiCanvas; do not add new imports to this file.
 import { PointerEvent, WheelEvent, type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import type { Simulation } from "d3-force";
 import { getSampleArtifact, runtimeUrl } from "../../api/client";

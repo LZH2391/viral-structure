@@ -121,11 +121,11 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     let cancelled = false;
     setStatus("读取语义治理图");
     setGraph(null);
+    setSelectedNodeId(null);
     getFunctionSlotGovernanceGraph()
       .then((nextGraph) => {
         if (cancelled) return;
         setGraph(nextGraph);
-        setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "slotFamily")?.id ?? nextGraph.nodes[0]?.id ?? null);
         setStatus("已同步");
       })
       .catch((error) => {
@@ -142,12 +142,12 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     let cancelled = false;
     setStatus("读取确定方案溯源");
     setGraph(null);
+    setSelectedNodeId(null);
     getFunctionSlotConfirmedPlanTraceGraph()
       .then((nextGraph) => {
         if (cancelled) return;
         setGraph(nextGraph);
         setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
-        setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "confirmedPlan")?.id ?? nextGraph.nodes[0]?.id ?? null);
         setStatus("已同步");
       })
       .catch((error) => {

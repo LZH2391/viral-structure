@@ -9,6 +9,8 @@ test("library page exposes local artifact index views", () => {
   const graphEntry = read(root, "Apps/Workbench/src/function-slot-graph.tsx");
   const graphApp = read(root, "Apps/Workbench/src/components/FunctionSlotGraphApp.tsx");
   const graphPixiCanvas = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphPixiCanvas.tsx");
+  const graphSvgCanvas = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphCanvas.tsx");
+  const graphSharedPanels = read(root, "Apps/Workbench/src/components/function-slot-graph/GraphSharedPanels.tsx");
   const libraryApp = read(root, "Apps/Workbench/src/components/LibraryApp.tsx");
   const app = read(root, "Apps/Workbench/src/components/WorkbenchApp.tsx");
   const api = read(root, "Apps/Workbench/src/api/client.ts");
@@ -29,8 +31,13 @@ test("library page exposes local artifact index views", () => {
   assert.match(libraryApp, /处理库/);
   assert.match(libraryApp, /\/function-slot-graph/);
   assert.match(graphApp, /GraphPixiCanvas/);
-  assert.match(graphPixiCanvas, /GraphCanvas/);
-  assert.match(graphPixiCanvas, /fallbackReason/);
+  assert.doesNotMatch(graphPixiCanvas, /GraphCanvas/);
+  assert.doesNotMatch(graphPixiCanvas, /fallbackReason/);
+  assert.match(graphPixiCanvas, /GraphSharedPanels/);
+  assert.match(graphPixiCanvas, /Pixi 图谱初始化失败/);
+  assert.match(graphSvgCanvas, /Deprecated: SVG graph renderer/);
+  assert.match(graphSharedPanels, /export function GraphLegend/);
+  assert.match(graphSharedPanels, /export function LibraryPreviewPopover/);
   assert.match(graphApp, /\/full-analysis/);
   assert.match(graphApp, /\/threadpool/);
   assert.match(graphApp, /\/agent-chat/);
