@@ -37,7 +37,6 @@ const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
-  rightCollapsed?: boolean;
 };
 
 type NewUiLayoutProps = {
@@ -50,7 +49,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const layoutRef = useRef<HTMLElement>(null);
   const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
-  const [rightCollapsed, setRightCollapsed] = useState(() => readStoredBooleanPreference("rightCollapsed", false));
+  const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
@@ -59,7 +58,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     title: "新建分析",
     item: null,
   });
-  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible;
+  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.selectedTimelineSegment?.id ?? "workflow"}`
     : null;
@@ -77,6 +76,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
     rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : { min: 0.1, max: 0.3 },
+    persistedSides: { left: true, right: false },
   });
 
   useEffect(() => {
@@ -84,18 +84,13 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   }, [leftCollapsed, onLeftCollapsedChange]);
 
   useEffect(() => {
-    writeStoredLayoutPreference({ leftCollapsed, rightCollapsed });
-  }, [leftCollapsed, rightCollapsed]);
-
-  useEffect(() => {
-    if (activeSection !== "analysis") {
-      setAnalysisDetail((current) => current.visible ? { ...current, visible: false } : current);
-    }
-  }, [activeSection]);
+    writeStoredLayoutPreference({ leftCollapsed });
+  }, [leftCollapsed]);
 
   useEffect(() => {
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
+      setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
@@ -156,7 +151,9 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
         data-active-section={activeSection}
       >
-        {activeSection === "analysis" ? <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} /> : null}
+        <div className="new-ui-center-section" hidden={activeSection !== "analysis"} aria-hidden={activeSection !== "analysis"}>
+          <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
+        </div>
       </main>
       {!rightCollapsed ? (
         <SplitResizeHandle
@@ -195,8 +192,12 @@ function readStoredBooleanPreference(key: keyof NewUiThreePanePreference, fallba
 function writeStoredLayoutPreference(preference: NewUiThreePanePreference) {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(NEW_UI_THREE_PANE_STORAGE_KEY) ?? "null");
-    const current = parsed && typeof parsed === "object" ? parsed : {};
-    window.localStorage.setItem(NEW_UI_THREE_PANE_STORAGE_KEY, JSON.stringify({ ...current, ...preference }));
+    const current: Record<string, unknown> = parsed && typeof parsed === "object" ? parsed : {};
+    const next = { ...current, ...preference };
+    delete next.rightCollapsed;
+    delete next.right;
+    delete next.rightRatio;
+    window.localStorage.setItem(NEW_UI_THREE_PANE_STORAGE_KEY, JSON.stringify(next));
   } catch {
     // Local layout preference is non-critical.
   }

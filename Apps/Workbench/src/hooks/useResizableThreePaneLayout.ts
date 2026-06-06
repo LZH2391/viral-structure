@@ -14,6 +14,11 @@ type StoredThreePaneLayout = Partial<ThreePaneLayout> & {
   rightRatio?: number;
 };
 
+type PersistedResizeSides = {
+  left?: boolean;
+  right?: boolean;
+};
+
 type ResizeKind = "left" | "right";
 
 type DragState = {
@@ -41,6 +46,7 @@ type UseResizableThreePaneLayoutOptions = {
   maxRight: number;
   leftRatio?: RatioLimit;
   rightRatio?: RatioLimit;
+  persistedSides?: PersistedResizeSides;
 };
 
 export function useResizableThreePaneLayout({
@@ -57,9 +63,12 @@ export function useResizableThreePaneLayout({
   maxRight,
   leftRatio,
   rightRatio,
+  persistedSides,
 }: UseResizableThreePaneLayoutOptions) {
   const layoutRef = useRef<ThreePaneLayout>({ left: defaultLeft, right: defaultRight });
   const dragRef = useRef<DragState | null>(null);
+  const persistLeft = persistedSides?.left !== false;
+  const persistRight = persistedSides?.right !== false;
 
   const writeLayout = useCallback((layout: ThreePaneLayout) => {
     const container = containerRef.current;
@@ -101,15 +110,29 @@ export function useResizableThreePaneLayout({
 
   const saveLayout = useCallback((layout: ThreePaneLayout) => {
     try {
+      const current = readStoredLayoutPreference(storageKey);
+      const ratios = layoutRatios(containerRef.current, layout, { left: persistLeft, right: persistRight });
+      const next = {
+        ...current,
+        ...(persistLeft ? { left: layout.left } : {}),
+        ...(persistRight ? { right: layout.right } : {}),
+        ...ratios,
+      };
+      if (!persistLeft) {
+        delete next.left;
+        delete next.leftRatio;
+      }
+      if (!persistRight) {
+        delete next.right;
+        delete next.rightRatio;
+      }
       window.localStorage.setItem(storageKey, JSON.stringify({
-        ...readStoredLayoutPreference(storageKey),
-        ...layout,
-        ...layoutRatios(containerRef.current, layout),
+        ...next,
       }));
     } catch {
       // Local layout preference is non-critical.
     }
-  }, [containerRef, storageKey]);
+  }, [containerRef, persistLeft, persistRight, storageKey]);
 
   const resetSize = useCallback((kind: ResizeKind) => {
     const current = layoutRef.current;
@@ -140,8 +163,8 @@ export function useResizableThreePaneLayout({
   }, []);
 
   useEffect(() => {
-    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight, containerRef.current));
-  }, [applyLayout, containerRef, defaultLeft, defaultRight, storageKey]);
+    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight, containerRef.current, { left: persistLeft, right: persistRight }));
+  }, [applyLayout, containerRef, defaultLeft, defaultRight, persistLeft, persistRight, storageKey]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
@@ -185,14 +208,14 @@ export function useResizableThreePaneLayout({
   return { startResize, resetSize, nudgeSize };
 }
 
-function readStoredLayout(storageKey: string, defaultLeft: number, defaultRight: number, container: HTMLElement | null): ThreePaneLayout {
+function readStoredLayout(storageKey: string, defaultLeft: number, defaultRight: number, container: HTMLElement | null, persistedSides: Required<PersistedResizeSides>): ThreePaneLayout {
   const stored = readStoredLayoutPreference(storageKey);
   const availableWidth = availableContentWidth(container);
   const leftFromRatio = ratioPixels(availableWidth, stored.leftRatio, Number.NaN);
   const rightFromRatio = ratioPixels(availableWidth, stored.rightRatio, Number.NaN);
   return {
-    left: finiteNumber(leftFromRatio) ?? finiteNumber(stored.left) ?? defaultLeft,
-    right: finiteNumber(rightFromRatio) ?? finiteNumber(stored.right) ?? defaultRight,
+    left: persistedSides.left ? finiteNumber(leftFromRatio) ?? finiteNumber(stored.left) ?? defaultLeft : defaultLeft,
+    right: persistedSides.right ? finiteNumber(rightFromRatio) ?? finiteNumber(stored.right) ?? defaultRight : defaultRight,
   };
 }
 
@@ -209,12 +232,12 @@ function ratioPixels(width: number, ratio: number | undefined, fallback: number)
   return ratio && width > 0 ? width * ratio : fallback;
 }
 
-function layoutRatios(container: HTMLElement | null, layout: ThreePaneLayout) {
+function layoutRatios(container: HTMLElement | null, layout: ThreePaneLayout, persistedSides: Required<PersistedResizeSides>) {
   const availableWidth = availableContentWidth(container);
   if (availableWidth <= 0) return {};
   return {
-    leftRatio: layout.left / availableWidth,
-    rightRatio: layout.right / availableWidth,
+    ...(persistedSides.left ? { leftRatio: layout.left / availableWidth } : {}),
+    ...(persistedSides.right ? { rightRatio: layout.right / availableWidth } : {}),
   };
 }
 
