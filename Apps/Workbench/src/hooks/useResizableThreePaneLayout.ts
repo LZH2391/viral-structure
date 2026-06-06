@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { RefObject, useCallback, useEffect, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 
 const SPLITTER_SIZE = 10;
 const TOTAL_SPLITTER_WIDTH = SPLITTER_SIZE * 2;
@@ -152,18 +152,30 @@ export function useResizableThreePaneLayout({
 
   const startResize = useCallback((kind: ResizeKind, event: ReactPointerEvent<HTMLElement>) => {
     if (window.matchMedia(SMALL_SCREEN_QUERY).matches) return;
+    const container = containerRef.current;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+    container?.classList.add("is-drag-resizing-layout");
     dragRef.current = {
       kind,
       startX: event.clientX,
       startLayout: layoutRef.current,
     };
     document.body.classList.add("is-resizing-workspace", "is-resizing-workspace-col");
-  }, []);
+  }, [containerRef]);
 
-  useEffect(() => {
-    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight, containerRef.current, { left: persistLeft, right: persistRight }));
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return undefined;
+    container.classList.add("is-restoring-layout");
+    applyLayout(readStoredLayout(storageKey, defaultLeft, defaultRight, container, { left: persistLeft, right: persistRight }));
+    const animationFrameId = window.requestAnimationFrame(() => {
+      container.classList.remove("is-restoring-layout");
+    });
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      container.classList.remove("is-restoring-layout");
+    };
   }, [applyLayout, containerRef, defaultLeft, defaultRight, persistLeft, persistRight, storageKey]);
 
   useEffect(() => {
@@ -179,6 +191,7 @@ export function useResizableThreePaneLayout({
     const onPointerUp = () => {
       if (!dragRef.current) return;
       dragRef.current = null;
+      containerRef.current?.classList.remove("is-drag-resizing-layout");
       document.body.classList.remove("is-resizing-workspace", "is-resizing-workspace-col", "is-resizing-workspace-row");
       saveLayout(layoutRef.current);
     };
@@ -189,9 +202,10 @@ export function useResizableThreePaneLayout({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      containerRef.current?.classList.remove("is-drag-resizing-layout");
       document.body.classList.remove("is-resizing-workspace", "is-resizing-workspace-col", "is-resizing-workspace-row");
     };
-  }, [applyLayout, saveLayout]);
+  }, [applyLayout, containerRef, saveLayout]);
 
   useEffect(() => {
     const container = containerRef.current;

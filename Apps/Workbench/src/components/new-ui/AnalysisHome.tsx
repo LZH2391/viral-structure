@@ -17,13 +17,17 @@ type AnalysisHomeProps = {
   timelineSelectionClearRequest?: number;
 };
 
+const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
+
 export function AnalysisHome({ onDetailStateChange, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<number | null>(null);
   const operationTokenRef = useRef(0);
   const detailLoadKeyRef = useRef<string | null>(null);
+  const detailPollingKeyRef = useRef<string | null>(null);
   const [view, setView] = useState<"home" | "detail">("home");
+  const [detailTransitionKey, setDetailTransitionKey] = useState(0);
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
   const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
@@ -34,6 +38,8 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
   const [rerunningStageKey, setRerunningStageKey] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [detailHeavyReady, setDetailHeavyReady] = useState(false);
+  const [detailTimelineReady, setDetailTimelineReady] = useState(false);
   const workflowStageKeySignature = detailItem?.workflowRun?.stages?.map((stage) => stage.key).join("|") ?? "";
   const detailArtifactSignature = [
     detailItem?.artifact?.sampleVideo?.artifactId,
@@ -53,6 +59,7 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
 
   const startDetailPolling = useCallback((initialItem: AnalysisHistoryItem, token = operationTokenRef.current) => {
     stopPolling();
+    detailPollingKeyRef.current = analysisDetailPollingKey(initialItem);
     let currentItem = initialItem;
     let terminalPollsRemaining = 4;
     const poll = async () => {
@@ -94,7 +101,11 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     operationTokenRef.current = token;
     stopPolling();
     detailLoadKeyRef.current = null;
+    detailPollingKeyRef.current = null;
     const media = resolveAnalysisHistoryMedia(item);
+    setDetailHeavyReady(false);
+    setDetailTimelineReady(false);
+    setDetailTransitionKey((value) => value + 1);
     setDetailTitle(media.title);
     setDetailMedia(media);
     setDetailItem(item);
@@ -104,7 +115,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setRerunnableStageKeys([]);
     setRerunningStageKey(null);
     setView("detail");
-    if (isAnalysisItemRunning(item)) startDetailPolling(item, token);
   };
 
   const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
@@ -114,7 +124,11 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     operationTokenRef.current = token;
     stopPolling();
     detailLoadKeyRef.current = null;
+    detailPollingKeyRef.current = null;
     setIsUploading(true);
+    setDetailHeavyReady(false);
+    setDetailTimelineReady(false);
+    setDetailTransitionKey((value) => value + 1);
     setDetailTitle(file.name.replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, ""));
     setDetailMedia(null);
     setDetailItem(null);
@@ -133,7 +147,6 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       setDetailArtifactStatus(item.artifact ? "ready" : "loading");
       setTaskStatusText(statusTextForAnalysisItem(item));
       setHistoryRefreshKey((value) => value + 1);
-      if (isAnalysisItemRunning(item)) startDetailPolling(item, token);
     } catch (error) {
       if (token !== operationTokenRef.current) return;
       setDetailArtifactStatus("error");
@@ -141,7 +154,7 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     } finally {
       if (token === operationTokenRef.current) setIsUploading(false);
     }
-  }, [startDetailPolling, stopPolling]);
+  }, [stopPolling]);
 
   const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -156,6 +169,7 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     const token = operationTokenRef.current + 1;
     operationTokenRef.current = token;
     stopPolling();
+    detailPollingKeyRef.current = null;
     setRerunningStageKey(statusKey);
     setTaskStatusText(`正在重跑${stageLabelForStatus(statusKey)}`);
     setSelectedTimelineSegment(null);
@@ -178,7 +192,36 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   }, [detailItem, rerunningStageKey, startDetailPolling, stopPolling]);
 
   useEffect(() => {
-    if (view !== "detail" || !detailItem?.sampleVideoId) {
+    if (view !== "detail") {
+      setDetailHeavyReady(false);
+      setDetailTimelineReady(false);
+      return undefined;
+    }
+    setDetailHeavyReady(false);
+    setDetailTimelineReady(false);
+    const timeoutId = window.setTimeout(() => {
+      setDetailHeavyReady(true);
+    }, ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [detailTransitionKey, view]);
+
+  useEffect(() => {
+    if (view !== "detail" || !detailHeavyReady) return;
+    setDetailTimelineReady(false);
+  }, [detailArtifactSignature, detailHeavyReady, detailItem?.sampleVideoId, detailItem?.workflowRunId, view]);
+
+  useEffect(() => {
+    if (!detailHeavyReady || view !== "detail" || !detailItem || !isAnalysisItemRunning(detailItem)) return undefined;
+    const pollingKey = analysisDetailPollingKey(detailItem);
+    if (detailPollingKeyRef.current === pollingKey) return undefined;
+    startDetailPolling(detailItem);
+    return undefined;
+  }, [detailHeavyReady, detailItem, startDetailPolling, view]);
+
+  useEffect(() => {
+    if (!detailHeavyReady || view !== "detail" || !detailItem?.sampleVideoId) {
       setRerunnableStageKeys([]);
       return undefined;
     }
@@ -193,10 +236,10 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     return () => {
       mounted = false;
     };
-  }, [detailItem?.sampleVideoId, detailItem?.workflowRunId, detailArtifactSignature, view, workflowStageKeySignature]);
+  }, [detailHeavyReady, detailItem?.sampleVideoId, detailItem?.workflowRunId, detailArtifactSignature, view, workflowStageKeySignature]);
 
   useEffect(() => {
-    if (view !== "detail" || !detailItem?.sampleVideoId || detailItem.artifact) return undefined;
+    if (!detailHeavyReady || view !== "detail" || !detailItem?.sampleVideoId || detailItem.artifact) return undefined;
     const loadKey = `${detailItem.sampleVideoId}:${detailItem.workflowRunId ?? ""}:${detailItem.artifactId ?? ""}`;
     if (detailLoadKeyRef.current === loadKey) return undefined;
     detailLoadKeyRef.current = loadKey;
@@ -219,19 +262,20 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     return () => {
       mounted = false;
     };
-  }, [detailItem, view]);
+  }, [detailHeavyReady, detailItem, view]);
 
   useEffect(() => {
+    const sidebarItem = detailTimelineReady ? detailItem : null;
     onDetailStateChange?.({
       visible: view === "detail",
       title: detailTitle,
-      item: detailItem,
-      selectedTimelineSegment,
-      rerunnableStageKeys,
-      rerunningStageKey,
+      item: sidebarItem,
+      selectedTimelineSegment: detailTimelineReady ? selectedTimelineSegment : null,
+      rerunnableStageKeys: detailTimelineReady ? rerunnableStageKeys : [],
+      rerunningStageKey: detailTimelineReady ? rerunningStageKey : null,
       onWorkflowStageRerun: handleWorkflowStageRerun,
     });
-  }, [detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
+  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
 
   useEffect(() => () => {
     stopPolling();
@@ -244,6 +288,7 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   }, [timelineSelectionClearRequest]);
 
   const selectTimelineSegment = useCallback((segment: AnalysisTimelineSegmentDetail) => {
+    if (!detailHeavyReady) return;
     setSelectedTimelineSegment(segment);
     onDetailStateChange?.({
       visible: view === "detail",
@@ -254,7 +299,11 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       rerunningStageKey,
       onWorkflowStageRerun: handleWorkflowStageRerun,
     });
-  }, [detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view]);
+  }, [detailHeavyReady, detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view]);
+
+  const handleTimelineReady = useCallback(() => {
+    setDetailTimelineReady(true);
+  }, []);
 
   return (
     <>
@@ -301,12 +350,17 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         title={detailTitle}
         media={detailMedia}
         item={detailItem}
+        heavyReady={detailHeavyReady}
         artifactStatus={detailArtifactStatus}
         taskStatusText={taskStatusText}
         selectedTimelineSegment={selectedTimelineSegment}
+        onTimelineReady={handleTimelineReady}
         onSelectTimelineSegment={selectTimelineSegment}
         onBack={() => {
           stopPolling();
+          detailPollingKeyRef.current = null;
+          setDetailHeavyReady(false);
+          setDetailTimelineReady(false);
           setView("home");
         }}
         onUpload={openUploadDetail}
@@ -320,9 +374,11 @@ function AnalysisDetailPage({
   title,
   media,
   item,
+  heavyReady,
   artifactStatus,
   taskStatusText,
   selectedTimelineSegment,
+  onTimelineReady,
   onSelectTimelineSegment,
   onBack,
   onUpload,
@@ -331,9 +387,11 @@ function AnalysisDetailPage({
   title: string;
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
+  heavyReady: boolean;
   artifactStatus: "idle" | "loading" | "ready" | "error";
   taskStatusText: string | null;
   selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
+  onTimelineReady: () => void;
   onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
   onBack: () => void;
   onUpload: () => void;
@@ -370,15 +428,19 @@ function AnalysisDetailPage({
         <div className="new-ui-analysis-detail-media">
           <div className={`new-ui-analysis-player is-${orientation}`}>
             {media?.videoUrl ? (
-              <video
-                ref={videoRef}
-                key={media.videoUrl}
-                src={media.videoUrl}
-                poster={media.coverUrl ?? undefined}
-                controls
-                playsInline
-                preload="metadata"
-              />
+              heavyReady ? (
+                <video
+                  ref={videoRef}
+                  key={media.videoUrl}
+                  src={media.videoUrl}
+                  poster={media.coverUrl ?? undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                <div className="new-ui-analysis-player-empty" aria-hidden="true" />
+              )
             ) : (
               <div className="new-ui-analysis-player-empty" aria-hidden="true" />
             )}
@@ -391,10 +453,12 @@ function AnalysisDetailPage({
           ) : null}
         </div>
         <AnalysisTimelineTracks
-          item={item?.artifact ? item : null}
-          mediaKey={media?.videoUrl ?? item?.sampleVideoId ?? "empty"}
+          item={heavyReady && item?.artifact ? item : null}
+          mediaKey={heavyReady ? media?.videoUrl ?? item?.sampleVideoId ?? "empty" : "deferred"}
+          active={!hidden && heavyReady}
           videoRef={videoRef}
           selectedSegmentId={selectedTimelineSegment?.id ?? null}
+          onReady={onTimelineReady}
           onSeek={seekTimeline}
           onSelectSegment={onSelectTimelineSegment}
         />
@@ -413,6 +477,10 @@ function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
   if (runtimeStatus === "partial_failed") return "部分分析失败";
   if (runtimeStatus === "failed") return "分析失败";
   return `状态：${runtimeStatus}`;
+}
+
+function analysisDetailPollingKey(item: AnalysisHistoryItem) {
+  return `${item.sampleVideoId ?? ""}:${item.workflowRunId ?? ""}:${item.artifactId ?? ""}`;
 }
 
 function stageLabelForStatus(stageKey: string) {

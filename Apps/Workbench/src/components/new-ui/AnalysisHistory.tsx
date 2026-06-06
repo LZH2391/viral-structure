@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
   listAnalysisHistorySamples,
   resolveAnalysisHistoryMedia,
@@ -13,20 +13,42 @@ type AnalysisHistoryProps = {
 
 export function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const resizeCommitTimerRef = useRef<number | null>(null);
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [historyWidth, setHistoryWidth] = useState(0);
+  const [historyWidth, setHistoryWidth] = useState<number | null>(null);
   const visibleItems = items.filter(shouldShowAnalysisHistoryItem);
   const dominoLayout = useMemo(() => buildDominoLayout(visibleItems, historyWidth), [visibleItems, historyWidth]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = sectionRef.current;
     if (!element) return;
-    const updateWidth = () => setHistoryWidth(Math.floor(element.clientWidth));
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
+    const readWidth = () => {
+      const nextWidth = Math.floor(element.clientWidth);
+      return nextWidth > 0 ? nextWidth : null;
+    };
+    const commitWidth = (nextWidth: number) => {
+      setHistoryWidth((current) => current === nextWidth ? current : nextWidth);
+    };
+    const initialWidth = readWidth();
+    if (initialWidth) commitWidth(initialWidth);
+    const observer = new ResizeObserver(() => {
+      const nextWidth = readWidth();
+      if (!nextWidth) return;
+      if (resizeCommitTimerRef.current != null) window.clearTimeout(resizeCommitTimerRef.current);
+      resizeCommitTimerRef.current = window.setTimeout(() => {
+        resizeCommitTimerRef.current = null;
+        commitWidth(nextWidth);
+      }, HISTORY_RESIZE_COMMIT_DELAY_MS);
+    });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (resizeCommitTimerRef.current != null) {
+        window.clearTimeout(resizeCommitTimerRef.current);
+        resizeCommitTimerRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -58,7 +80,7 @@ export function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryP
       {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
       {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
       {status === "ready" && !visibleItems.length ? <div className="new-ui-analysis-history-state">暂无历史结果</div> : null}
-      {visibleItems.length ? (
+      {visibleItems.length && dominoLayout ? (
         <div
           className="new-ui-analysis-history-domino"
           style={{ width: dominoLayout.width, height: dominoLayout.height }}
@@ -111,6 +133,7 @@ const DOMINO_TARGET_CELL_SIZE = 160;
 const DOMINO_LOOKAHEAD = 14;
 const DOMINO_BEAM_WIDTH = 18;
 const DOMINO_MIN_COLUMNS = 2;
+const HISTORY_RESIZE_COMMIT_DELAY_MS = 260;
 
 function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement; onOpen: (item: AnalysisHistoryItem) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -205,8 +228,9 @@ function HistoryCoverPlaceholder() {
   );
 }
 
-function buildDominoLayout(items: AnalysisHistoryItem[], containerWidth: number): DominoLayout {
-  const availableWidth = Math.max(320, Math.floor(containerWidth || 1120));
+function buildDominoLayout(items: AnalysisHistoryItem[], containerWidth: number | null): DominoLayout | null {
+  if (!containerWidth) return null;
+  const availableWidth = Math.max(320, Math.floor(containerWidth));
   const columns = Math.max(
     DOMINO_MIN_COLUMNS,
     Math.floor(availableWidth / DOMINO_TARGET_CELL_SIZE),
