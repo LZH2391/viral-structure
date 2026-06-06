@@ -8,7 +8,7 @@ import { shortId } from "../utils/format";
 
 const THREADPOOL_REFRESH_INTERVAL_MS = 2000;
 
-export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {}) {
+export function ThreadPoolApp({ embedded = false, active = true }: { embedded?: boolean; active?: boolean } = {}) {
   const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
   const [health, setHealth] = useState<ThreadPoolHealth | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -40,6 +40,7 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
   }, []);
 
   useEffect(() => {
+    if (!active) return undefined;
     let cancelled = false;
     const sync = async (showError: boolean) => {
       try {
@@ -56,9 +57,10 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refresh]);
+  }, [active, refresh]);
 
   useEffect(() => {
+    if (!active) return undefined;
     if (!selectedRole) {
       setDetail(null);
       return;
@@ -82,7 +84,7 @@ export function ThreadPoolApp({ embedded = false }: { embedded?: boolean } = {})
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [selectedRole]);
+  }, [active, selectedRole]);
 
   const refreshDetail = useCallback(async () => {
     await refresh();

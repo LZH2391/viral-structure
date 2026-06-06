@@ -45,13 +45,14 @@ type WorkflowMode = "full-analysis" | "material-recognition";
 
 type FullAnalysisAppProps = {
   embedded?: boolean;
+  active?: boolean;
   mode?: WorkflowMode;
   activeSample?: FullAnalysisWorkbenchActiveSample | null;
   onWorkbenchSync?: (payload: FullAnalysisWorkbenchSync) => void;
   onOpenWorkbenchStage?: (stageKey: FullAnalysisStageTarget) => void;
 };
 
-export function FullAnalysisApp({ embedded = false, mode = "full-analysis", activeSample = null, onWorkbenchSync, onOpenWorkbenchStage }: FullAnalysisAppProps = {}) {
+export function FullAnalysisApp({ embedded = false, active = true, mode = "full-analysis", activeSample = null, onWorkbenchSync, onOpenWorkbenchStage }: FullAnalysisAppProps = {}) {
   const isMaterialMode = mode === "material-recognition";
   const pageTitle = isMaterialMode ? "素材识别" : "完整分析";
   const draftStorageKey = isMaterialMode ? "material-recognition:last-run" : undefined;
@@ -139,6 +140,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
   }, [childJobs, dismissedCachePromptJobIds, orderedStages]);
 
   const startPolling = useCallback((workflowRunId: string, token = operationTokenRef.current) => {
+    if (!active) return;
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
     let terminalPollsRemaining = TERMINAL_SETTLE_POLL_COUNT;
     const poll = async () => {
@@ -177,9 +179,10 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
     pollTimerRef.current = window.setInterval(() => {
       void poll();
     }, POLL_INTERVAL_MS);
-  }, [draftStorageKey, pageTitle]);
+  }, [active, draftStorageKey, pageTitle]);
 
   const startBatchPolling = useCallback((batchRunId: string, token = operationTokenRef.current) => {
+    if (!active) return;
     if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
     const poll = async () => {
       const pollSequence = batchPollSequenceRef.current + 1;
@@ -221,12 +224,30 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
     batchPollTimerRef.current = window.setInterval(() => {
       void poll();
     }, POLL_INTERVAL_MS);
-  }, [draftStorageKey]);
+  }, [active, draftStorageKey]);
 
   useEffect(() => () => {
     if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
     if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!active) {
+      runPollSequenceRef.current += 1;
+      batchPollSequenceRef.current += 1;
+      if (pollTimerRef.current != null) {
+        window.clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (batchPollTimerRef.current != null) {
+        window.clearInterval(batchPollTimerRef.current);
+        batchPollTimerRef.current = null;
+      }
+      return;
+    }
+    if (run && !NON_EXECUTING_RUN_STATUS.has(run.status) && pollTimerRef.current == null) startPolling(run.workflowRunId, operationTokenRef.current);
+    if (batchRun && !isBatchTerminal(batchRun) && batchPollTimerRef.current == null) startBatchPolling(batchRun.batchRunId, operationTokenRef.current);
+  }, [active, batchRun, run, startBatchPolling, startPolling]);
 
   useEffect(() => {
     if (restoredRunRef.current) return;
@@ -353,6 +374,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
   }, [activeSample, draftStorageKey, embedded, isMaterialMode, pageTitle, run, startPolling]);
 
   useEffect(() => {
+    if (!active) return;
     if (!childJobIds.length) return;
     let cancelled = false;
 
@@ -380,9 +402,10 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [childJobIds]);
+  }, [active, childJobIds]);
 
   useEffect(() => {
+    if (!active) return;
     if (!run || !onWorkbenchSync) return;
     const signature = buildWorkbenchSyncSignature(run, artifact, childJobs);
     if (signature === lastWorkbenchSyncSignatureRef.current) return;
@@ -390,7 +413,7 @@ export function FullAnalysisApp({ embedded = false, mode = "full-analysis", acti
     const activeSampleChanged = Boolean(artifact?.sampleVideoId && artifact.sampleVideoId !== lastSyncedSampleVideoIdRef.current);
     if (activeSampleChanged) lastSyncedSampleVideoIdRef.current = artifact?.sampleVideoId ?? null;
     onWorkbenchSync({ run, artifact, childJobs, activeSampleChanged });
-  }, [artifact, childJobs, onWorkbenchSync, run]);
+  }, [active, artifact, childJobs, onWorkbenchSync, run]);
 
   const startFullAnalysis = useCallback(async (file: File, cacheDecision: "ask" | "reuse" | "refresh") => {
     const token = operationTokenRef.current + 1;

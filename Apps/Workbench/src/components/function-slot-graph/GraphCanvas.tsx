@@ -32,6 +32,7 @@ type ViewportTransform = { x: number; y: number; k: number };
 const ZOOM_ANIMATION_MS = 140;
 
 export function GraphCanvas({
+  active = true,
   mode = "structure",
   graph,
   visible,
@@ -39,6 +40,7 @@ export function GraphCanvas({
   selectedNodeId,
   onSelectNode,
 }: {
+  active?: boolean;
   mode?: "structure" | "governance" | "planTrace";
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
@@ -142,6 +144,12 @@ export function GraphCanvas({
   };
 
   useEffect(() => {
+    if (!active) {
+      simulationRef.current?.stop();
+      stopZoomAnimation();
+      if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
+      return;
+    }
     const previous = new Map(nodesRef.current.map((node) => [node.id, node]));
     const nextNodes: SimNode[] = visible.nodes.map((node) => {
       const existing = resetToken || fixedLayout ? null : previous.get(node.id);
@@ -181,14 +189,15 @@ export function GraphCanvas({
       stopZoomAnimation();
       if (hoverOutTimerRef.current) window.clearTimeout(hoverOutTimerRef.current);
     };
-  }, [fixedLayout, resetToken, visible.edges, visible.nodes]);
+  }, [active, fixedLayout, resetToken, visible.edges, visible.nodes]);
 
   useEffect(() => {
-    if (fixedLayout || paused) simulationRef.current?.stop();
+    if (!active || fixedLayout || paused) simulationRef.current?.stop();
     else simulationRef.current?.alphaTarget(0.03).restart();
-  }, [fixedLayout, paused]);
+  }, [active, fixedLayout, paused]);
 
   useEffect(() => {
+    if (!active) return undefined;
     const svg = svgRef.current;
     if (!svg) return undefined;
     const updateSize = () => {
@@ -199,9 +208,10 @@ export function GraphCanvas({
     const observer = new ResizeObserver(updateSize);
     observer.observe(svg);
     return () => observer.disconnect();
-  }, []);
+  }, [active]);
 
   useEffect(() => {
+    if (!active) return;
     if (!previewSampleId || sampleCacheRef.current.has(previewSampleId)) return;
     sampleCacheRef.current.set(previewSampleId, null);
     getSampleArtifact(previewSampleId)
@@ -213,7 +223,7 @@ export function GraphCanvas({
         sampleCacheRef.current.set(previewSampleId, null);
         setSampleArtifacts((current) => ({ ...current, [previewSampleId]: null }));
       });
-  }, [previewSampleId]);
+  }, [active, previewSampleId]);
 
   const graphPoint = (clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -264,7 +274,7 @@ export function GraphCanvas({
         draggedNode.vy = 0;
       }
       dragRef.current = { ...drag, moved: true };
-      if (!fixedLayout) simulationRef.current?.alphaTarget(0.18).restart();
+      if (active && !fixedLayout) simulationRef.current?.alphaTarget(0.18).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
       return;
     }
@@ -293,7 +303,7 @@ export function GraphCanvas({
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
-      if (!fixedLayout) simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
+      if (active && !fixedLayout) simulationRef.current?.alphaTarget(paused ? 0 : 0.03).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
     }
     if (drag?.kind === "node" && !drag.moved) {

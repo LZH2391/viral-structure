@@ -595,17 +595,17 @@ export function WorkbenchApp() {
           {newUiLeftCollapsed ? null : (
             <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => switchWorkbenchView("workspace")} />
           )}
-          <NewUiApp theme={newUiTheme} onThemeChange={setNewUiTheme} onLeftCollapsedChange={setNewUiLeftCollapsed} />
+          <NewUiApp active={activeView === "new-ui"} theme={newUiTheme} onThemeChange={setNewUiTheme} onLeftCollapsedChange={setNewUiLeftCollapsed} />
         </section>
       ) : null}
       {mountedViews["full-analysis"] ? (
         <section className={`view-shell ${activeView === "full-analysis" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "full-analysis"}>
-          <FullAnalysisApp embedded activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
+          <FullAnalysisApp embedded active={activeView === "full-analysis"} activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleFullAnalysisWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews["material-recognition"] ? (
         <section className={`view-shell ${activeView === "material-recognition" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "material-recognition"}>
-          <FullAnalysisApp embedded mode="material-recognition" activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleMaterialRecognitionWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
+          <FullAnalysisApp embedded active={activeView === "material-recognition"} mode="material-recognition" activeSample={fullAnalysisActiveSample} onWorkbenchSync={handleMaterialRecognitionWorkbenchSync} onOpenWorkbenchStage={handleOpenWorkbenchStage} />
         </section>
       ) : null}
       {mountedViews.library ? (
@@ -615,17 +615,17 @@ export function WorkbenchApp() {
       ) : null}
       {mountedViews.threadpool ? (
         <section className={`view-shell ${activeView === "threadpool" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "threadpool"}>
-          <ThreadPoolApp embedded />
+          <ThreadPoolApp embedded active={activeView === "threadpool"} />
         </section>
       ) : null}
       {mountedViews["active-turns"] ? (
         <section className={`view-shell ${activeView === "active-turns" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "active-turns"}>
-          <ActiveTurnsApp embedded />
+          <ActiveTurnsApp embedded active={activeView === "active-turns"} />
         </section>
       ) : null}
       {mountedViews["agent-chat"] ? (
         <section className={`view-shell ${activeView === "agent-chat" ? "" : "is-hidden-view"}`} aria-hidden={activeView !== "agent-chat"}>
-          <AgentChatApp embedded />
+          <AgentChatApp embedded active={activeView === "agent-chat"} />
         </section>
       ) : null}
       {uploadFlow.cachePrompt ? <CacheDecisionDialog item={uploadFlow.cachePrompt.cachedItem} onReuse={uploadFlow.reuseCache} onRefresh={uploadFlow.refreshCache} onCancel={() => uploadFlow.setCachePrompt(null)} /> : null}

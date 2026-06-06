@@ -4,7 +4,7 @@ import { shortId } from "../utils/format";
 
 type OwnerFilter = "all" | "agent-chat" | "processing-job" | "workflow-stage";
 
-export function ActiveTurnsApp({ embedded = false }: { embedded?: boolean }) {
+export function ActiveTurnsApp({ embedded = false, active = true }: { embedded?: boolean; active?: boolean }) {
   const [turns, setTurns] = useState<ActiveTurnSummary[]>([]);
   const [filter, setFilter] = useState<OwnerFilter>("all");
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +18,7 @@ export function ActiveTurnsApp({ embedded = false }: { embedded?: boolean }) {
   }, [filter]);
 
   useEffect(() => {
+    if (!active) return undefined;
     let cancelled = false;
     let timer: number | null = null;
     const poll = async () => {
@@ -36,7 +37,7 @@ export function ActiveTurnsApp({ embedded = false }: { embedded?: boolean }) {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [filter]);
+  }, [active, filter]);
 
   const counts = useMemo(() => ({
     total: turns.length,

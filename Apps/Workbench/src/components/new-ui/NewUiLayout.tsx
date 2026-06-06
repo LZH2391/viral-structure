@@ -36,17 +36,23 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
 };
 
 type NewUiLayoutProps = {
+  active?: boolean;
   theme: NewUiTheme;
   onThemeChange: (theme: NewUiTheme) => void;
   onLeftCollapsedChange?: (collapsed: boolean) => void;
 };
 
-export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
+export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
   const layoutRef = useRef<HTMLElement>(null);
   const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
@@ -54,6 +60,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
+  const [libraryGraphMounted, setLibraryGraphMounted] = useState(false);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
     title: "新建分析",
@@ -87,6 +94,30 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
   useEffect(() => {
     writeStoredLayoutPreference({ leftCollapsed });
   }, [leftCollapsed]);
+
+  useEffect(() => {
+    if (!active || activeSection !== "library") {
+      setLibraryGraphMounted(false);
+      return undefined;
+    }
+    let cancelled = false;
+    let timeoutId: number | null = null;
+    let idleId: number | null = null;
+    const mountGraph = () => {
+      if (!cancelled) setLibraryGraphMounted(true);
+    };
+    const idleWindow = window as IdleWindow;
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(mountGraph, { timeout: 360 });
+    } else {
+      timeoutId = window.setTimeout(mountGraph, 180);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId != null) idleWindow.cancelIdleCallback?.(idleId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
+  }, [active, activeSection, activeLibraryChild]);
 
   useEffect(() => {
     if (!analysisWorkflowRevealKey) {
@@ -159,7 +190,7 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
           <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
         </div>
         <div className="new-ui-center-section" hidden={activeSection !== "library"} aria-hidden={activeSection !== "library"}>
-          {activeSection === "library" ? <FunctionSlotGraphWorkspace embedded fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
+          {activeSection === "library" && libraryGraphMounted ? <FunctionSlotGraphWorkspace embedded active={active} fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
         </div>
       </main>
       {!rightCollapsed ? (

@@ -45,6 +45,7 @@ const PLAN_TRACE_FILTERS: GraphFiltersState = {
 
 type FunctionSlotGraphWorkspaceProps = {
   embedded?: boolean;
+  active?: boolean;
   fixedMode?: GraphMode;
 };
 
@@ -52,7 +53,7 @@ export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
 
-export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: FunctionSlotGraphWorkspaceProps = {}) {
+export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode }: FunctionSlotGraphWorkspaceProps = {}) {
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [graph, setGraph] = useState<FunctionSlotLibraryGraph | null>(null);
@@ -73,17 +74,19 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
   });
 
   const refresh = useCallback(async () => {
+    if (!active) return;
     setStatus("刷新中");
     const data = await getFunctionSlotLibraryItems();
     const nextItems = data.items ?? [];
     setItems(nextItems);
     setSelectedArtifactId((current) => (current && nextItems.some((item) => item.artifactId === current) ? current : nextItems[0]?.artifactId ?? null));
     setStatus("已同步");
-  }, []);
+  }, [active]);
 
   useEffect(() => {
+    if (!active) return;
     refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
-  }, [refresh]);
+  }, [active, refresh]);
 
   const mode = fixedMode ?? uncontrolledMode;
   const setMode = useCallback((nextMode: GraphMode) => {
@@ -91,6 +94,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
   }, [fixedMode]);
 
   useEffect(() => {
+    if (!active) return;
     if (mode !== "structure") return;
     if (!selectedArtifactId) {
       setGraph(null);
@@ -105,9 +109,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
         setStatus("已同步");
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "读取图谱失败"));
-  }, [mode, selectedArtifactId]);
+  }, [active, mode, selectedArtifactId]);
 
   useEffect(() => {
+    if (!active) return;
     if (mode !== "governance") return;
     setStatus("读取语义治理图");
     setGraph(null);
@@ -118,9 +123,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
         setStatus("已同步");
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "读取语义治理图失败"));
-  }, [mode]);
+  }, [active, mode]);
 
   useEffect(() => {
+    if (!active) return;
     if (mode !== "planTrace") return;
     setStatus("读取确定方案溯源");
     setGraph(null);
@@ -132,9 +138,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
         setStatus("已同步");
       })
       .catch((error) => setStatus(error instanceof Error ? error.message : "读取确定方案溯源失败"));
-  }, [mode]);
+  }, [active, mode]);
 
   useEffect(() => {
+    if (!active) return undefined;
     if (mode !== "planTrace") return undefined;
     const refreshTraceGraph = () => {
       getFunctionSlotConfirmedPlanTraceGraph()
@@ -147,7 +154,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
     };
     window.addEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
     return () => window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
-  }, [mode]);
+  }, [active, mode]);
 
   const filters = filtersByMode[mode];
   const governanceLayoutMode = layoutModesByMode[mode];
@@ -258,9 +265,9 @@ export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: Func
         <section className="slot-graph-stage">
           {activeGraph ? (
             renderer === "svg" ? (
-              <GraphCanvas key={`svg-${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
+              <GraphCanvas key={`svg-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
             ) : (
-              <GraphPixiCanvas key={`pixi-${mode}-${governanceLayoutMode}`} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
+              <GraphPixiCanvas key={`pixi-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
             )
           ) : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>

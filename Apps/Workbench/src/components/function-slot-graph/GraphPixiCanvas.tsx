@@ -62,6 +62,7 @@ const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
 
 export function GraphPixiCanvas(props: {
+  active?: boolean;
   mode?: GraphMode;
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
@@ -75,6 +76,7 @@ export function GraphPixiCanvas(props: {
 }
 
 function GraphPixiCanvasInner({
+  active = true,
   mode = "structure",
   graph,
   visible,
@@ -83,6 +85,7 @@ function GraphPixiCanvasInner({
   onSelectNode,
   onPixiUnavailable,
 }: {
+  active?: boolean;
   mode?: GraphMode;
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
@@ -163,6 +166,40 @@ function GraphPixiCanvasInner({
   );
 
   useEffect(() => {
+    pausedRef.current = !active || paused;
+    if (!active && forceFrameRef.current) {
+      window.cancelAnimationFrame(forceFrameRef.current);
+      forceFrameRef.current = null;
+    }
+    if (!active && drawFrameRef.current) {
+      window.cancelAnimationFrame(drawFrameRef.current);
+      drawFrameRef.current = null;
+    }
+    if (!active && focusTransitionFrameRef.current) {
+      window.cancelAnimationFrame(focusTransitionFrameRef.current);
+      focusTransitionFrameRef.current = null;
+    }
+    if (!active && viewportStateFrameRef.current) {
+      window.cancelAnimationFrame(viewportStateFrameRef.current);
+      viewportStateFrameRef.current = null;
+    }
+    if (!active && zoomAnimationFrameRef.current) {
+      window.cancelAnimationFrame(zoomAnimationFrameRef.current);
+      zoomAnimationFrameRef.current = null;
+    }
+    if (!active && previewTickFrameRef.current) {
+      window.cancelAnimationFrame(previewTickFrameRef.current);
+      previewTickFrameRef.current = null;
+    }
+    if (!active) {
+      simulationRef.current?.stop();
+      return;
+    }
+    if (!fixedLayout && !paused) restartSimulationRef.current(0.55);
+    scheduleDraw();
+  }, [active, fixedLayout, paused]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== "Space") return;
       const target = event.target as HTMLElement | null;
@@ -182,6 +219,7 @@ function GraphPixiCanvasInner({
   }, []);
 
   useEffect(() => {
+    if (!active) return;
     const previousState = stateRef.current;
     const edgesChanged = visibleEdgesRef.current !== visible.edges;
     visibleEdgesRef.current = visible.edges;
@@ -198,7 +236,7 @@ function GraphPixiCanvasInner({
     stateRef.current = nextState;
     if (!edgesChanged && previousState.fixedLayout === nextState.fixedLayout && syncGraphFocusRef.current(previousState, nextState)) return;
     scheduleDraw();
-  }, [fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, visible.edges]);
+  }, [active, fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, visible.edges]);
 
   useEffect(() => {
     let disposed = false;
@@ -335,18 +373,19 @@ function GraphPixiCanvasInner({
   }, [fixedLayout, resetToken, visible.edges, visible.nodes]);
 
   useEffect(() => {
-    pausedRef.current = paused;
-    if (fixedLayout || paused) {
+    pausedRef.current = !active || paused;
+    if (!active || fixedLayout || paused) {
       if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
       forceFrameRef.current = null;
       return;
     }
     restartSimulationRef.current(0.55);
-  }, [fixedLayout, paused]);
+  }, [active, fixedLayout, paused]);
 
   useEffect(() => {
+    if (!active) return;
     scheduleDraw();
-  }, [canvasSize]);
+  }, [active, canvasSize]);
 
   const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
   const previewNode = previewNodeId ? nodesRef.current.find((entry) => entry.id === previewNodeId) ?? null : null;
@@ -359,6 +398,7 @@ function GraphPixiCanvasInner({
   void previewTick;
 
   useEffect(() => {
+    if (!active) return;
     if (!previewSampleId || sampleCacheRef.current.has(previewSampleId)) return;
     sampleCacheRef.current.set(previewSampleId, null);
     getSampleArtifact(previewSampleId)
@@ -370,7 +410,7 @@ function GraphPixiCanvasInner({
         sampleCacheRef.current.set(previewSampleId, null);
         setSampleArtifacts((current) => ({ ...current, [previewSampleId]: null }));
       });
-  }, [previewSampleId]);
+  }, [active, previewSampleId]);
 
   const updateCanvasSize = () => {
     const rect = hostRef.current?.getBoundingClientRect();
@@ -391,6 +431,7 @@ function GraphPixiCanvasInner({
   };
 
   const schedulePreviewTick = () => {
+    if (!active) return;
     if (!stateRef.current.hoveredNodeId && !stateRef.current.pinnedPreviewNodeId) return;
     if (previewTickFrameRef.current) return;
     previewTickFrameRef.current = window.requestAnimationFrame(() => {
@@ -400,6 +441,7 @@ function GraphPixiCanvasInner({
   };
 
   const scheduleDraw = () => {
+    if (!active) return;
     if (drawFrameRef.current) return;
     drawFrameRef.current = window.requestAnimationFrame(() => {
       drawFrameRef.current = null;
@@ -657,7 +699,7 @@ function GraphPixiCanvasInner({
         markHitGridDirty();
       }
       dragRef.current = { ...drag, moved: true };
-      if (!fixedLayout) restartSimulationRef.current(0.75);
+      if (active && !fixedLayout) restartSimulationRef.current(0.75);
       syncGraphLayoutRef.current();
       schedulePreviewTick();
       return;
@@ -689,7 +731,7 @@ function GraphPixiCanvasInner({
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
-      if (!fixedLayout) restartSimulationRef.current(paused ? 0 : 0.55);
+      if (active && !fixedLayout) restartSimulationRef.current(paused ? 0 : 0.55);
       syncGraphLayoutRef.current();
     }
     if (drag?.kind === "node" && !drag.moved) {

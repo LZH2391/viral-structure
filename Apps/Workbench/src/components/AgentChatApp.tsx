@@ -27,7 +27,7 @@ type PendingAgentChatSend = {
 const POLL_INTERVAL_MS = 1800;
 const WARMING_RESEND_INTERVAL_MS = 2500;
 
-export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
+export function AgentChatApp({ embedded = false, active = true }: { embedded?: boolean; active?: boolean }) {
   const [mode, setMode] = useState<ChatMode>("direct");
   const [roles, setRoles] = useState<ThreadPoolRoleSummary[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
@@ -106,6 +106,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, [selectedRole]);
 
   useEffect(() => {
+    if (!active) return;
     void getThreadPoolRoles()
       .then((payload) => {
         const nextRoles = payload.roles ?? [];
@@ -171,7 +172,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
           }
         : conversation
     )));
-  }, []);
+  }, [active]);
 
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
@@ -282,6 +283,21 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, []);
 
   useEffect(() => {
+    if (!active) {
+      pollGenerationRef.current += 1;
+      if (pollTimerRef.current) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (warmingResendTimerRef.current) {
+        window.clearTimeout(warmingResendTimerRef.current);
+        warmingResendTimerRef.current = null;
+      }
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) return;
     void refreshConversations()
       .then((items) => {
         if (!items.length || creatingDraftConversationRef.current) return;
@@ -292,9 +308,10 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       .catch(() => undefined);
   // handleResumeConversation intentionally runs from the latest closure after it is declared.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshConversations]);
+  }, [active, refreshConversations]);
 
   useEffect(() => {
+    if (!active) return;
     if (!session?.threadId || !currentTurnId) return;
     let cancelled = false;
     getAgentChatTurnTimeline(session.threadId, currentTurnId, session.workspaceRoot)
@@ -305,7 +322,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [currentTurnId, session?.threadId, session?.workspaceRoot]);
+  }, [active, currentTurnId, session?.threadId, session?.workspaceRoot]);
 
   const ensureSession = useCallback(async (forceNew = false, isCurrentAction: () => boolean = () => true) => {
     const currentSession = sessionRef.current;
@@ -335,6 +352,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
   }, [refreshConversations]);
 
   const schedulePoll = useCallback((activeSession: AgentChatSessionResponse, turnId: string) => {
+    if (!active) return;
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
     const pollGeneration = pollGenerationRef.current + 1;
     pollGenerationRef.current = pollGeneration;
@@ -408,7 +426,12 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
     };
     pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
-  }, [activeConversationId, applyConversationTitleFromTurn, refreshConversations]);
+  }, [active, activeConversationId, applyConversationTitleFromTurn, refreshConversations]);
+
+  useEffect(() => {
+    if (!active || !session?.threadId || !currentTurnId || !busy) return;
+    schedulePoll(session, currentTurnId);
+  }, [active, busy, currentTurnId, schedulePoll, session]);
 
   useEffect(() => {
     if (!session?.threadId || !currentTurnId || busy || activeConversationInvalidated) return;
