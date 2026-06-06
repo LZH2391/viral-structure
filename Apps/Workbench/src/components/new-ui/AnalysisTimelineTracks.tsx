@@ -618,7 +618,7 @@ function resolveMaterialTimelineTracks(
     const sequenceItems = sequenceByShot.get(card.shotRef) ?? [];
     const shotFunctions = asArray(card.shotFunctions);
     const materialTags = asArray(card.materialTags);
-    const materialFields = materialCardBaseFields(card, shotLabel);
+    const materialFields = materialCardBaseFields(card);
 
     classBlocks.push({
       id: `material-class:${card.shotRef}`,
@@ -763,9 +763,8 @@ function materialDetail({
   };
 }
 
-function materialCardBaseFields(card: MaterialShotCard, shotLabel: string) {
+function materialCardBaseFields(card: MaterialShotCard) {
   return [
-    { label: "镜头", value: shotLabel },
     { label: "限制引用", value: asArray(card.constraintRefs).join(" / ") },
   ];
 }
