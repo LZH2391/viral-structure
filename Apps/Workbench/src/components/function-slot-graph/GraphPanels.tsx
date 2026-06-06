@@ -91,7 +91,6 @@ function filterOptions(mode: "structure" | "governance" | "planTrace"): Array<{ 
       { key: "slotFamily", label: "槽位家族" },
       { key: "slotArchetype", label: "槽位原型" },
       { key: "slotSubtype", label: "槽位子型" },
-      { key: "atomLayer", label: "原子层级" },
       { key: "atomArchetype", label: "原子原型" },
       { key: "atomPattern", label: "原子模式" },
       { key: "sourceVariant", label: "来源变体" },

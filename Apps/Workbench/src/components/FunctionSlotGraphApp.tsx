@@ -26,7 +26,6 @@ const STRUCTURE_FILTERS: GraphFiltersState = {
   slotFamily: true,
   slotArchetype: true,
   slotSubtype: true,
-  atomLayer: false,
   atomArchetype: true,
   atomPattern: true,
   sourceVariant: true,
@@ -314,10 +313,15 @@ function sourceHeading(mode: GraphMode) {
 
 function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }) {
   const summary = graph?.summary;
+  const governanceCounts = countGovernanceNodes(graph);
   return (
     <section className="slot-graph-card governance-summary">
       <div><b>样例数</b><span>{summary?.sampleCount ?? 0}</span></div>
+      <div><b>槽位家族</b><span>{governanceCounts.slotFamily}</span></div>
+      <div><b>槽位原型</b><span>{governanceCounts.slotArchetype}</span></div>
       <div><b>槽位变体</b><span>{summary?.slotCount ?? 0}</span></div>
+      <div><b>原子原型</b><span>{governanceCounts.atomArchetype}</span></div>
+      <div><b>原子模式</b><span>{governanceCounts.atomPattern}</span></div>
       <div><b>原子变体</b><span>{summary?.atomCount ?? 0}</span></div>
       <div><b>绑定关系</b><span>{summary?.bindingCount ?? 0}</span></div>
       <div><b>规则策略</b><span>{summary?.ruleCount ?? 0}</span></div>
@@ -327,6 +331,22 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
       <div><b>未治理样例</b><span>{(summary?.ungovernedSampleCount ?? 0) > 0 ? "有" : "无"}</span></div>
     </section>
   );
+}
+
+function countGovernanceNodes(graph: FunctionSlotLibraryGraph | null) {
+  const counts = {
+    slotFamily: 0,
+    slotArchetype: 0,
+    atomArchetype: 0,
+    atomPattern: 0,
+  };
+  for (const node of graph?.nodes ?? []) {
+    if (node.type === "slotFamily") counts.slotFamily += 1;
+    if (node.type === "slotArchetype") counts.slotArchetype += 1;
+    if (node.type === "atomArchetype") counts.atomArchetype += 1;
+    if (node.type === "atomPattern") counts.atomPattern += 1;
+  }
+  return counts;
 }
 
 function PlanTracePanel({ graph, selectedPlanIds, onChange }: { graph: FunctionSlotLibraryGraph | null; selectedPlanIds: string[]; onChange: (ids: string[]) => void }) {

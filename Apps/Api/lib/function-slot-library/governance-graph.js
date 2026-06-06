@@ -42,7 +42,7 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   for (const pattern of governance.atomPatterns ?? []) {
     pushGovernanceNode(nodes, "atomPattern", groupForAtomLayer(pattern.atomLayer), pattern);
     for (const subtypeId of pattern.forSlotSubtypeIds ?? []) {
-      const layerId = pushAtomLayerNode(nodes, subtypeId, pattern.atomLayer);
+      const layerId = pushAtomLayerNode(nodes, pattern.atomLayer);
       pushEdge(edges, nodeId("slotSubtype", subtypeId), layerId, "subtype_to_atom_layer", groupForAtomLayer(pattern.atomLayer));
       if (pattern.parentAtomArchetype) {
         pushEdge(edges, layerId, nodeId("atomArchetype", pattern.parentAtomArchetype), "atom_layer_to_archetype", "archetype");
@@ -178,17 +178,15 @@ function pushGovernanceNode(nodes, type, group, item) {
   });
 }
 
-function pushAtomLayerNode(nodes, subtypeId, layer) {
-  const normalizedSubtypeId = normalizeGraphText(subtypeId);
+function pushAtomLayerNode(nodes, layer) {
   const atomLayer = groupForAtomLayer(layer);
-  const id = nodeId("atomLayer", `${normalizedSubtypeId}:${atomLayer}`);
+  const id = nodeId("atomLayer", atomLayer);
   pushNode(nodes, {
     id,
     type: "atomLayer",
     label: layerDisplayName(atomLayer),
     group: atomLayer,
     data: {
-      subtypeId: normalizedSubtypeId,
       layer: atomLayer,
     },
   });
@@ -319,6 +317,7 @@ function pushNode(nodes, node) {
 
 function pushEdge(edges, source, target, type, label) {
   if (!source || !target) return;
+  if (edges.some((edge) => edge.source === source && edge.target === target && edge.type === type)) return;
   edges.push({
     id: graphId("edge", type, source, target, String(edges.length + 1)),
     source,

@@ -15,7 +15,6 @@ function allFilters() {
     slotFamily: true,
     slotArchetype: true,
     slotSubtype: true,
-    atomLayer: true,
     atomArchetype: true,
     atomPattern: true,
     sourceVariant: true,
@@ -44,7 +43,7 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
 
 test("governance graph projects hidden atom hierarchy paths into subtype-pattern links", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false, sourceVariant: false };
+  const filters = { ...allFilters(), atomArchetype: false, sourceVariant: false };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance_test",
@@ -71,9 +70,67 @@ test("governance graph projects hidden atom hierarchy paths into subtype-pattern
 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_a"));
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_b"));
+  assert.equal(visible.nodes.some((node) => node.type === "atomLayer"), false);
   assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
   assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "projected_hierarchy"));
   assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:PAT_a"), false);
+});
+
+test("governance graph removes atom layer nodes and bridges visible neighbors", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a" } },
+      { id: "atomLayer:SUB_a:script", type: "atomLayer", label: "Script", group: "script", data: { layer: "script" } },
+      { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { forSlotSubtypeIds: ["SUB_a"] } },
+    ],
+    edges: [
+      { id: "edge:sub:layer", source: "slotSubtype:SUB_a", target: "atomLayer:SUB_a:script", type: "subtype_to_atom_layer" },
+      { id: "edge:layer:arch", source: "atomLayer:SUB_a:script", target: "atomArchetype:ARCH_script", type: "atom_layer_to_archetype" },
+      { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
+    ],
+    summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
+  };
+
+  const visible = buildVisibleGraph(graph, allFilters());
+
+  assert.equal(visible.nodes.some((node) => node.type === "atomLayer"), false);
+  assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ARCH_script" && edge.type === "subtype_to_atom_archetype"));
+  assert.ok(visible.edges.some((edge) => edge.source === "atomArchetype:ARCH_script" && edge.target === "atomPattern:PAT_a" && edge.type === "atom_archetype_to_pattern"));
+});
+
+test("governance graph does not project slot archetypes into atom patterns", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const filters = { ...allFilters(), slotSubtype: false, atomArchetype: false, sourceVariant: false };
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "slotArchetype:ARCH_a", type: "slotArchetype", label: "Archetype A", group: "slot", data: { id: "ARCH_a" } },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a" } },
+      { id: "atomLayer:script", type: "atomLayer", label: "Script", group: "script", data: { layer: "script" } },
+      { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { forSlotSubtypeIds: ["SUB_a"] } },
+    ],
+    edges: [
+      { id: "edge:slot:sub", source: "slotArchetype:ARCH_a", target: "slotSubtype:SUB_a", type: "archetype_to_subtype" },
+      { id: "edge:sub:layer", source: "slotSubtype:SUB_a", target: "atomLayer:script", type: "subtype_to_atom_layer" },
+      { id: "edge:layer:arch", source: "atomLayer:script", target: "atomArchetype:ARCH_script", type: "atom_layer_to_archetype" },
+      { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
+    ],
+    summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 4 },
+  };
+
+  const visible = buildVisibleGraph(graph, filters);
+
+  assert.ok(visible.nodes.some((node) => node.id === "slotArchetype:ARCH_a"));
+  assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
+  assert.equal(visible.edges.some((edge) => edge.source === "slotArchetype:ARCH_a" && edge.target === "atomPattern:PAT_a"), false);
 });
 
 test("governance graph never shows governance to source sample direct edges", () => {
@@ -102,6 +159,31 @@ test("governance graph never shows governance to source sample direct edges", ()
   assert.equal(visibleWithoutVariant.edges.some((edge) => edge.source === "governance:test" && edge.target === "sourceSample:sample_a"), false);
 });
 
+test("governance graph projects source samples through hidden source variants", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { id: "PAT_a" } },
+      { id: "sourceVariant:v1", type: "sourceVariant", label: "variant", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+      { id: "sourceSample:sample_a", type: "sourceSample", label: "sample_a", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    ],
+    edges: [
+      { id: "edge:pattern:variant", source: "atomPattern:PAT_a", target: "sourceVariant:v1", type: "pattern_to_source_variant" },
+      { id: "edge:variant:sample", source: "sourceVariant:v1", target: "sourceSample:sample_a", type: "source_variant_to_sample" },
+    ],
+    summary: { slotCount: 0, atomCount: 1, bindingCount: 0, conceptCount: 2 },
+  };
+
+  const visible = buildVisibleGraph(graph, { ...allFilters(), sourceVariant: false });
+
+  assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
+  assert.ok(visible.nodes.some((node) => node.id === "sourceSample:sample_a"));
+  assert.ok(visible.edges.some((edge) => edge.source === "atomPattern:PAT_a" && edge.target === "sourceSample:sample_a" && edge.type === "projected_hierarchy"));
+});
+
 test("governance graph hides atom pattern candidate suffixes in display labels", () => {
   const { buildVisibleGraph, graphNodeDisplayLabel, nodeDetailRows } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();
@@ -112,6 +194,8 @@ test("governance graph hides atom pattern candidate suffixes in display labels",
       { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
       { id: "atomPattern:PAT_a", type: "atomPattern", label: "内部细节证明包装 candidate pattern", group: "packaging", data: { id: "PAT_a" } },
       { id: "atomPattern:PAT_b", type: "atomPattern", label: "对象值 pattern", group: "script", data: { id: "PAT_b" } },
+      { id: "slotArchetype:ARCH_a", type: "slotArchetype", label: "品质疑虑与感官证据原型 archetype", group: "slot", data: { id: "ARCH_a" } },
+      { id: "atomArchetype:ARCH_b", type: "atomArchetype", label: "Proof bridge archety", group: "script", data: { id: "ARCH_b" } },
     ],
     edges: [],
     summary: { slotCount: 0, atomCount: 2, bindingCount: 0, conceptCount: 2 },
@@ -120,11 +204,17 @@ test("governance graph hides atom pattern candidate suffixes in display labels",
   const visible = buildVisibleGraph(graph, filters);
   const pattern = visible.nodes.find((node) => node.id === "atomPattern:PAT_a");
   const shortPattern = visible.nodes.find((node) => node.id === "atomPattern:PAT_b");
+  const slotArchetype = visible.nodes.find((node) => node.id === "slotArchetype:ARCH_a");
+  const atomArchetype = visible.nodes.find((node) => node.id === "atomArchetype:ARCH_b");
 
   assert.equal(pattern.shortLabel, "内部细节证明包装");
   assert.equal(graphNodeDisplayLabel(pattern), "内部细节证明包装");
   assert.equal(nodeDetailRows(pattern).find(([label]) => label === "name")?.[1], "内部细节证明包装");
   assert.equal(shortPattern.shortLabel, "对象值");
+  assert.equal(slotArchetype.shortLabel, "品质疑虑与感官证据原型");
+  assert.equal(graphNodeDisplayLabel(slotArchetype), "品质疑虑与感官证据原型");
+  assert.equal(atomArchetype.shortLabel, "Proof bridge");
+  assert.equal(graphNodeDisplayLabel(atomArchetype), "Proof bridge");
 });
 
 test("confirmed plan trace graph shows plan to subtype to source variant to source sample", () => {
@@ -226,7 +316,7 @@ test("governance radial layout keeps root centered and keeps first layer inside 
 
 test("governance radial layout compresses hidden layer rings and keeps source samples prominent", () => {
   const { buildVisibleGraph, CENTER, nodeRadius } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = { ...allFilters(), slotArchetype: false, atomLayer: false, atomArchetype: false };
+  const filters = { ...allFilters(), slotArchetype: false, atomArchetype: false };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance-test",
@@ -262,7 +352,7 @@ test("governance radial layout compresses hidden layer rings and keeps source sa
   };
 
   assert.equal(byId.has("archetype:a1"), false);
-  assert.equal(byId.has("atomLayer:s1:script"), false);
+  assert.equal(visible.nodes.some((node) => node.type === "atomLayer"), false);
   assert.equal(byId.get("governance:root").layoutLevel, 0);
   assert.equal(byId.get("family:f1").layoutLevel, 1);
   assert.equal(byId.get("subtype:s1").layoutLevel, 2);
@@ -272,6 +362,36 @@ test("governance radial layout compresses hidden layer rings and keeps source sa
   assert.ok(radiusFromCenter("family:f1") < radiusFromCenter("subtype:s1"));
   assert.ok(radiusFromCenter("subtype:s1") < radiusFromCenter("atomPattern:p1"));
   assert.equal(nodeRadius(byId.get("sourceSample:sample_a")), nodeRadius(byId.get("governance:root")));
+});
+
+test("governance column layout leaves enough vertical room for source samples", () => {
+  const { buildVisibleGraph, nodeRadius } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const samples = Array.from({ length: 6 }, (_, index) => ({
+    id: `sourceSample:sample_${index + 1}`,
+    type: "sourceSample",
+    label: `sample_${index + 1}`,
+    group: "sourceSample",
+    data: { sampleVideoId: `sample_${index + 1}` },
+  }));
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance-test",
+    nodes: [
+      { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      ...samples,
+    ],
+    edges: samples.map((sample, index) => ({ id: `e${index}`, source: "governance:root", target: sample.id, type: "governance_contains_source_sample" })),
+    summary: { slotCount: 0, atomCount: 0, bindingCount: 0, conceptCount: 6 },
+  };
+
+  const visible = buildVisibleGraph(graph, allFilters(), null, "columns");
+  const sampleNodes = visible.nodes.filter((node) => node.type === "sourceSample").sort((left, right) => left.y - right.y);
+  const minSpacing = nodeRadius(sampleNodes[0]) * 2 + 12;
+
+  assert.equal(sampleNodes.length, samples.length);
+  for (let index = 1; index < sampleNodes.length; index += 1) {
+    assert.ok(sampleNodes[index].y - sampleNodes[index - 1].y >= minSpacing);
+  }
 });
 
 test("governance label specs follow visible layout levels from inner to outer", () => {
@@ -307,9 +427,23 @@ test("focused slot sequence edges stay brighter than unselected arrows", () => {
   assert.equal(focused.width, 3);
 });
 
-test("governance force layout bundles atoms near visible parents while samples stay distributed", () => {
+test("muted graph nodes stay more visible than muted edges", () => {
+  const { resolveGraphEdgeStyle, resolveGraphNodeStyle } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphVisualStyles.ts");
+  const source = { id: "source", type: "slotSubtype", group: "slot", data: {}, x: 0, y: 0 };
+  const target = { id: "target", type: "atomPattern", group: "script", data: {}, x: 100, y: 0 };
+  const edge = { id: "edge", source: "source", target: "target", type: "subtype_to_atom_pattern" };
+
+  const mutedEdge = resolveGraphEdgeStyle(edge, source, target, "governance", false, true);
+  const mutedNode = resolveGraphNodeStyle(target, "governance", false, false, false, false, false);
+  const focusMutedNode = resolveGraphNodeStyle(target, "governance", false, false, false, false, true);
+
+  assert.ok(mutedNode.groupAlpha > mutedEdge.alpha);
+  assert.ok(focusMutedNode.groupAlpha > mutedEdge.alpha);
+});
+
+test("governance force layout bundles atoms and samples near visible parents", () => {
   const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false };
+  const filters = { ...allFilters(), atomArchetype: false };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance-test",
@@ -354,12 +488,13 @@ test("governance force layout bundles atoms near visible parents while samples s
 
   assert.ok(angularDistance(angle("pattern:a"), angle("subtype:a")) < angularDistance(angle("pattern:a"), angle("subtype:b")));
   assert.ok(angularDistance(angle("pattern:b"), angle("subtype:b")) < angularDistance(angle("pattern:b"), angle("subtype:a")));
-  assert.ok(angularDistance(angle("sample:a"), angle("sample:b")) > 1);
+  assert.ok(angularDistance(angle("sample:a"), angle("variant:a")) < angularDistance(angle("sample:a"), angle("variant:b")));
+  assert.ok(angularDistance(angle("sample:b"), angle("variant:b")) < angularDistance(angle("sample:b"), angle("variant:a")));
 });
 
 test("governance layout ignores hidden atom hierarchy when anchoring projected pattern links", () => {
   const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = { ...allFilters(), atomLayer: false, atomArchetype: false, sourceVariant: false };
+  const filters = { ...allFilters(), atomArchetype: false, sourceVariant: false };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance-test",

@@ -60,6 +60,8 @@ type HitGridIndex = { cellSize: number; cells: Map<string, HitGridEntry[]> };
 const ZOOM_ANIMATION_MS = 220;
 const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
+const MIN_ZOOM = 0.8;
+const MAX_ZOOM = 5;
 
 export function GraphPixiCanvas(props: {
   active?: boolean;
@@ -91,6 +93,7 @@ function GraphPixiCanvasInner({
   onSelectNode: (id: string | null) => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const layersRef = useRef<PixiLayers | null>(null);
   const graphObjectsRef = useRef<PixiGraphObjects>(createPixiGraphObjects());
@@ -481,7 +484,7 @@ function GraphPixiCanvasInner({
 
   const syncGraphTheme = () => {
     const host = hostRef.current;
-    const tokenSource = host?.closest(".slot-graph-shell") ?? host;
+    const tokenSource = canvasRef.current ?? host?.closest(".slot-graph-shell") ?? host;
     const nextTheme = readGraphVisualTheme(tokenSource);
     graphThemeRef.current = nextTheme;
     stateRef.current = { ...stateRef.current, theme: nextTheme };
@@ -779,8 +782,14 @@ function GraphPixiCanvasInner({
     if (drag?.kind === "node" && drag.moved) {
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (draggedNode) {
-        draggedNode.fx = fixedLayout ? draggedNode.x : null;
-        draggedNode.fy = fixedLayout ? draggedNode.y : null;
+        const anchorX = draggedNode.layoutX ?? draggedNode.x;
+        const anchorY = draggedNode.layoutY ?? draggedNode.y;
+        draggedNode.fx = fixedLayout ? anchorX : null;
+        draggedNode.fy = fixedLayout ? anchorY : null;
+        if (fixedLayout) {
+          draggedNode.x = anchorX;
+          draggedNode.y = anchorY;
+        }
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
@@ -868,7 +877,7 @@ function GraphPixiCanvasInner({
     const rawX = (localPoint.x - transform.offsetX) / transform.scale;
     const rawY = (localPoint.y - transform.offsetY) / transform.scale;
     const current = zoomAnimationFrameRef.current ? zoomTargetViewportRef.current : viewportRef.current;
-    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 5);
+    const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), MIN_ZOOM, MAX_ZOOM);
     const worldX = (rawX - current.x) / current.k;
     const worldY = (rawY - current.y) / current.k;
     const nextViewport = { k: nextK, x: rawX - worldX * nextK, y: rawY - worldY * nextK };
@@ -890,7 +899,7 @@ function GraphPixiCanvasInner({
   };
 
   return (
-    <div className={`slot-graph-canvas pixi ${mode === "planTrace" ? "plan-trace" : mode}`}>
+    <div ref={canvasRef} className={`slot-graph-canvas pixi ${mode === "planTrace" ? "plan-trace" : mode}`}>
       <div className="slot-graph-canvas-title">
         <strong>{mode === "governance" ? "Semantic Governance" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
         <span>{mode === "governance" ? governanceSummaryText(graph) : mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>

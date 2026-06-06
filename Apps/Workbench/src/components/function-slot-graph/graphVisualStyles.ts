@@ -442,9 +442,9 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
       width = 1.7;
       dash = [5, 6];
     }
-    if (classes.has("muted")) opacity = 0.08;
+    if (classes.has("muted")) opacity = 0.06;
   }
-  if (mode !== "planTrace" && classes.has("muted")) opacity = 0.18;
+  if (mode !== "planTrace" && classes.has("muted")) opacity = 0.12;
   if (classes.has("focused")) {
     stroke = rgba(stroke.color, Math.max(stroke.alpha, 0.94));
     width = Math.max(width, 3);
@@ -494,10 +494,12 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
   }
   if (classes.has("node-slot")) {
     fill = theme.node.slot;
+    circleOpacity = 1;
     glow = { color: theme.node.slot, alpha: 0.12, radiusPad: 8 };
   }
   if (classes.has("node-type-slotFamily")) {
     fill = theme.node.slotFamily;
+    circleOpacity = 1;
     stroke = rgba(theme.node.slotFamilyStroke, 1);
     strokeWidth = 2.4;
     glow = { color: theme.node.slotFamilyStroke, alpha: 0.11, radiusPad: 11 };
@@ -510,12 +512,14 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
   }
   if (classes.has("node-type-slotSubtype")) {
     fill = theme.node.slotSubtype;
+    circleOpacity = 1;
     stroke = rgba(theme.node.slotSubtypeStroke, 1);
     strokeWidth = 2.3;
     glow = { color: theme.node.slotSubtypeStroke, alpha: mode === "planTrace" ? 0.13 : 0.1, radiusPad: mode === "planTrace" ? 13 : 11 };
   }
   if (classes.has("node-type-tracedSlot")) {
     fill = theme.node.tracedSlot;
+    circleOpacity = 1;
     stroke = rgba(theme.node.tracedSlotStroke, 0.92);
     strokeWidth = 1.8;
     glow = { color: theme.node.tracedSlot, alpha: 0.1, radiusPad: 10 };

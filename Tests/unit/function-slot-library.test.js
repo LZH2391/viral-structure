@@ -394,6 +394,30 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
 });
 
+test("function slot governance graph builder uses one node per atom layer", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    slotSubtypes: [
+      { id: "SUB_a", archetypeId: "ARCH_hook", name: "A" },
+      { id: "SUB_b", archetypeId: "ARCH_hook", name: "B" },
+    ],
+    atomArchetypes: [{ id: "ATOM_ARCH_script", name: "script", atomLayer: "script" }],
+    atomPatterns: [
+      { id: "SCRIPT_pattern_a", name: "script A", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_a"], sourceVariantIds: [] },
+      { id: "SCRIPT_pattern_b", name: "script B", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_b"], sourceVariantIds: [] },
+    ],
+  });
+
+  const layerNodes = graph.nodes.filter((node) => node.type === "atomLayer" && node.group === "script");
+  const layerEdges = graph.edges.filter((edge) => edge.type === "atom_layer_to_archetype");
+
+  assert.deepEqual(layerNodes.map((node) => node.id), ["atomLayer:script"]);
+  assert.equal(layerNodes[0].data.subtypeId, undefined);
+  assert.equal(layerEdges.length, 1);
+  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomLayer:script"));
+  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomLayer:script"));
+});
+
 test("function slot governance graph builder shows source snapshot samples without requiring atom patterns", () => {
   const governance = {
     ...buildGovernance(),

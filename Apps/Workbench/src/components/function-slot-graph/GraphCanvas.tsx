@@ -300,8 +300,14 @@ export function GraphCanvas({
     if (drag?.kind === "node" && drag.moved) {
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (draggedNode) {
-        draggedNode.fx = fixedLayout ? draggedNode.x : null;
-        draggedNode.fy = fixedLayout ? draggedNode.y : null;
+        const anchorX = draggedNode.layoutX ?? draggedNode.x;
+        const anchorY = draggedNode.layoutY ?? draggedNode.y;
+        draggedNode.fx = fixedLayout ? anchorX : null;
+        draggedNode.fy = fixedLayout ? anchorY : null;
+        if (fixedLayout) {
+          draggedNode.x = anchorX;
+          draggedNode.y = anchorY;
+        }
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }

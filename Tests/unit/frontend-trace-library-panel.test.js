@@ -68,16 +68,35 @@ test("pixi graph colors are sourced from css graph tokens", () => {
 
   assert.match(graphCss, /--slot-graph-node-slot-family-stroke:/);
   assert.match(graphCss, /--slot-graph-edge-hierarchy:/);
+  assert.match(graphCss, /--slot-graph-node-script: #8f8762/);
+  assert.match(graphCss, /--slot-graph-node-rhythm: #537c9d/);
+  assert.match(graphCss, /--slot-graph-node-packaging: #74737b/);
   assert.match(graphCss, /\.new-ui-shell\[data-theme="light"\] \.slot-graph-shell\.embedded/);
+  assert.match(graphCss, /--slot-graph-node-script: #e3dcc6/);
+  assert.match(graphCss, /\.new-ui-shell \.slot-graph-shell\.embedded \.legend-script[\s\S]*var\(--slot-graph-node-script\)/);
+  assert.match(graphCss, /\.new-ui-shell \.slot-graph-shell\.embedded \.legend-source-variant[\s\S]*var\(--slot-graph-node-source-variant\)/);
   assert.match(graphVisualStyles, /export function readGraphVisualTheme/);
   assert.match(graphVisualStyles, /--slot-graph-node-slot-family-stroke/);
   assert.match(graphVisualStyles, /resolveCssToken/);
   assert.match(graphPixiCanvas, /readGraphVisualTheme/);
   assert.match(graphPixiCanvas, /graphThemeRef/);
+  assert.match(graphPixiCanvas, /const tokenSource = canvasRef\.current/);
+  assert.match(graphPixiCanvas, /ref=\{canvasRef\} className=\{`slot-graph-canvas/);
   assert.match(graphPixiCanvas, /theme: graphThemeRef\.current/);
   assert.match(graphPixiRenderer, /type GraphVisualTheme/);
   assert.match(graphPixiRenderer, /resolveGraphNodeStyle\(node, state\.mode[\s\S]*state\.theme\)/);
   assert.match(graphPixiRenderer, /drawPixiBackground\(graphics: Graphics, theme: GraphVisualTheme/);
+  assert.match(graphCss, /\.new-ui-shell \.slot-graph-shell\.embedded \.slot-graph-canvas\.structure/);
+  assert.match(graphCss, /--slot-graph-node-script: var\(--slot-graph-node-source-variant\)/);
+  assert.match(graphCss, /--slot-graph-edge-sequence: var\(--slot-graph-edge-slot\)/);
+  assert.match(graphCss, /--slot-graph-node-slot-family: var\(--slot-graph-node-slot\)/);
+  assert.match(graphCss, /--slot-graph-node-slot-subtype: var\(--slot-graph-node-slot\)/);
+  assert.match(graphCss, /--slot-graph-node-traced-slot: var\(--slot-graph-node-slot\)/);
+  assert.match(graphVisualStyles, /classes\.has\("node-type-slotSubtype"\)[\s\S]*circleOpacity = 1/);
+  assert.doesNotMatch(graphPixiRenderer, /circle\(x, y, 8\)/);
+  assert.match(graphPixiRenderer, /const key = `center:\$\{radius\}:\$\{theme\.text\.label\}`/);
+  assert.match(graphPixiRenderer, /whiteTextStyle\(SLOT_BADGE_FONT_SIZE \+ 4, theme\)/);
+  assert.match(graphPixiRenderer, /view\.slotBadgeText\.position\.set\(0, 1\)/);
 });
 
 test("threadpool page and shot boundary agent use proxied API surface", () => {

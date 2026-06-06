@@ -46,19 +46,19 @@ const GOVERNANCE_LAYOUT_LEVELS: Array<{ types: string[]; columnSpacing: number }
   { types: ["slotFamily"], columnSpacing: 54 },
   { types: ["slotArchetype"], columnSpacing: 54 },
   { types: ["slotSubtype"], columnSpacing: 54 },
-  { types: ["atomLayer"], columnSpacing: 54 },
   { types: ["atomArchetype"], columnSpacing: 54 },
   { types: ["atomPattern"], columnSpacing: 54 },
   { types: ["sourceVariant"], columnSpacing: 34 },
   { types: ["bindingPrinciple", "recompositionPolicy", "bindingPattern", "rulePattern", "implementationBundle", "unmappedVariant"], columnSpacing: 58 },
-  { types: ["sourceSample"], columnSpacing: 34 },
+  { types: ["sourceSample"], columnSpacing: 86 },
 ];
 
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
-  const projectedGraph = graph.schemaVersion === "confirmed_plan_trace_graph.v1" && hasLegacyPlanTraceAtomNodes(graph)
-    ? withAtomLayerProjection(graph)
-    : graph;
+  const normalizedGraph = graph.schemaVersion === "function_slot_governance_graph.v1" ? withoutAtomLayerNodes(graph) : graph;
+  const projectedGraph = normalizedGraph.schemaVersion === "confirmed_plan_trace_graph.v1" && hasLegacyPlanTraceAtomNodes(normalizedGraph)
+    ? withoutAtomLayerNodes(withAtomLayerProjection(normalizedGraph))
+    : normalizedGraph;
   const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
   const effectiveGovernanceEdges = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" && visibleIds
     ? projectVisibleEdges(projectedGraph, visibleIds)
@@ -124,6 +124,52 @@ function graphId(...parts: Array<string | number | null | undefined>) {
 
 function sanitizeGraphId(value: unknown) {
   return String(value ?? "").replace(/[^A-Za-z0-9_.:-]/g, "_");
+}
+
+function withoutAtomLayerNodes(graph: FunctionSlotLibraryGraph): FunctionSlotLibraryGraph {
+  if (!graph.nodes.some((node) => node.type === "atomLayer")) return graph;
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  const outgoing = new Map<string, FunctionSlotGraphEdge[]>();
+  for (const edge of graph.edges) {
+    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge]);
+  }
+  const edges: FunctionSlotGraphEdge[] = [];
+  for (const edge of graph.edges) {
+    const source = nodeById.get(edge.source);
+    const target = nodeById.get(edge.target);
+    if (source?.type === "atomLayer" || target?.type === "atomLayer") continue;
+    edges.push(edge);
+  }
+  for (const layer of graph.nodes.filter((node) => node.type === "atomLayer")) {
+    for (const sourceEdge of incoming.get(layer.id) ?? []) {
+      const source = nodeById.get(sourceEdge.source);
+      if (!source || source.type === "atomLayer") continue;
+      for (const targetEdge of outgoing.get(layer.id) ?? []) {
+        const target = nodeById.get(targetEdge.target);
+        if (!target || target.type === "atomLayer") continue;
+        edges.push({
+          id: graphId("edge", "projected_atom_layer", source.id, target.id),
+          source: source.id,
+          target: target.id,
+          type: projectedAtomLayerEdgeType(source, target),
+          label: targetEdge.label ?? sourceEdge.label,
+        });
+      }
+    }
+  }
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((node) => node.type !== "atomLayer"),
+    edges: dedupeEdges(edges),
+  };
+}
+
+function projectedAtomLayerEdgeType(source: FunctionSlotGraphNode, target: FunctionSlotGraphNode) {
+  if (source.type === "slotSubtype" && target.type === "atomArchetype") return "subtype_to_atom_archetype";
+  if (source.type === "slotSubtype" && target.type === "atomPattern") return "subtype_to_atom_pattern";
+  return "projected_atom_layer";
 }
 
 function layerDisplayName(layer: unknown) {
@@ -233,9 +279,10 @@ function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>
   const sourceType = source?.type;
   const targetType = target?.type;
   if (sourceType === "slotSubtype" && targetType === "atomPattern") return atomPatternTargetsSubtype(target, source);
-  if (targetType === "sourceVariant" && (sourceType === "slotSubtype" || sourceType === "atomLayer" || sourceType === "atomArchetype")) return false;
-  if (targetType === "sourceSample" && sourceType !== "sourceVariant") return false;
-  return true;
+  if (targetType === "atomPattern") return false;
+  if (targetType === "sourceVariant") return sourceType === "atomPattern";
+  if (targetType === "sourceSample") return sourceType === "sourceVariant" || sourceType === "atomPattern";
+  return sourceType === "governanceRoot" || sourceType === "slotFamily" || sourceType === "slotArchetype";
 }
 
 function atomPatternTargetsSubtype(pattern: FunctionSlotGraphNode | undefined, subtype: FunctionSlotGraphNode | undefined) {
@@ -320,7 +367,6 @@ export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
       if (node.type === "confirmedPlan" || node.type === "governanceRoot") return -920;
       if (node.type === "slotFamily") return -560;
       if (node.type === "slotSubtype") return -520;
-      if (node.type === "atomLayer") return -660;
       if (node.type === "atomArchetype") return -640;
       if (node.type === "atomPattern") return -620;
       if (node.type === "slotArchetype") return -470;
@@ -333,7 +379,6 @@ export function createGraphSimulation(nodes: SimNode[], links: D3Link[]) {
       if (node.type === "confirmedPlan" || node.type === "governanceRoot") return nodeRadius(node) + 92;
       if (node.type === "sourceVariant") return nodeRadius(node) + 82;
       if (node.type === "slotFamily" || node.type === "slotSubtype") return nodeRadius(node) + 78;
-      if (node.type === "atomLayer") return nodeRadius(node) + 104;
       if (node.type === "atomArchetype") return nodeRadius(node) + 98;
       if (node.type === "atomPattern") return nodeRadius(node) + 94;
       if (node.type === "slotArchetype") return nodeRadius(node) + 68;
@@ -399,7 +444,6 @@ export function nodeRadius(node: Pick<FunctionSlotGraphNode, "type" | "data">) {
   if (node.type === "slotArchetype") return 20;
   if (node.type === "slotSubtype") return 16;
   if (node.type === "sourceVariant" && typeof node.data?.planId === "string") return 16;
-  if (node.type === "atomLayer") return 15;
   if (node.type === "atomArchetype") return 13;
   if (node.type === "atomPattern") return 11;
   if (node.type === "sourceVariant") return 8;
@@ -470,7 +514,6 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", graphNodeDisplayLabel(node)], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
   if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
   if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
-  if (node.type === "atomLayer") return [["planId", data.planId], ["layer", data.layer]];
   if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)]];
   if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)]];
   if (node.type === "binding") return [["bindingId", data.bindingId], ["type", data.bindingType], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
@@ -622,7 +665,6 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
   if (node.type === "slotFamily") return filters.slotFamily;
   if (node.type === "slotArchetype") return filters.slotArchetype;
   if (node.type === "slotSubtype") return filters.slotSubtype;
-  if (node.type === "atomLayer") return filters.atomLayer;
   if (node.type === "atomArchetype") return filters.atomArchetype;
   if (node.type === "atomPattern") return filters.atomPattern;
   if (node.type.startsWith("binding")) return filters.binding;
@@ -797,7 +839,7 @@ function buildConcentricTypeRingPositions(
     const nodes = graph.nodes
       .filter((node) => level.types.includes(node.type) && layoutNodeVisible(node, options.visibleNodeIds ?? null))
       .sort((left, right) => radialSortKey(left).localeCompare(radialSortKey(right), "zh-Hans-CN"));
-    if (options.parentBundled && isAtomLayoutLevel(level.types)) {
+    if (options.parentBundled && shouldParentBundleGovernanceLevel(level.types)) {
       placeParentBundledLevel(positions, nodes, incoming, angles, levelByType, nodeTypeById, level.radius, levelIndex, options.center, options.yScale);
     } else {
       const orderedNodes = orderNodesByParentAngle(nodes, incoming, angles, levelByType, nodeTypeById);
@@ -1205,11 +1247,15 @@ function parentBundledNodeAngleRange(spacing: number, levelIndex: number, nodeTy
 }
 
 function isAtomLayoutNodeType(type: string | undefined) {
-  return type === "atomLayer" || type === "atomArchetype" || type === "atomPattern";
+  return type === "atomArchetype" || type === "atomPattern";
 }
 
 function isAtomLayoutLevel(types: string[]) {
   return types.length > 0 && types.every((type) => isAtomLayoutNodeType(type));
+}
+
+function shouldParentBundleGovernanceLevel(types: string[]) {
+  return isAtomLayoutLevel(types) || (types.length === 1 && types[0] === "sourceSample");
 }
 
 function distributedAngle(index: number, count: number) {
@@ -1314,7 +1360,6 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "sourceSample") return String(node.label ?? node.data.sampleVideoId ?? "SourceSample").slice(0, 18);
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
-  if (node.type === "atomLayer") return String(node.label ?? node.id).slice(0, 18);
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return graphNodeDisplayLabel(node).slice(0, 20);
   if (node.type === "libraryItem") return "SourceSample";
@@ -1328,12 +1373,15 @@ function shortLabel(node: FunctionSlotGraphNode) {
 export function graphNodeDisplayLabel(node: FunctionSlotGraphNode) {
   const fallback = node.type === "sourceSample" ? node.data?.sampleVideoId ?? "SourceSample" : node.id;
   const label = String(node.label ?? fallback);
-  if (node.type !== "atomPattern") return label;
-  return cleanAtomPatternDisplayLabel(label);
+  if (!isGovernanceNode(node)) return label;
+  return cleanGovernanceDisplayLabel(label);
 }
 
-function cleanAtomPatternDisplayLabel(label: string) {
+function cleanGovernanceDisplayLabel(label: string) {
   const cleaned = label
+    .replace(/\s+archetyp(?:e)?\s*$/i, "")
+    .replace(/\s+archety\s*$/i, "")
+    .replace(/\s+archet\s*$/i, "")
     .replace(/\s+(?:candidate\s+)?pattern\s*$/i, "")
     .replace(/\s+candidate\s*$/i, "")
     .trim();

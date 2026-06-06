@@ -73,7 +73,7 @@ const nodePositionCache = new WeakMap<SimNode[], Map<string, SimNode>>();
 const edgeByIdCache = new WeakMap<FunctionSlotGraphEdge[], Map<string, FunctionSlotGraphEdge>>();
 const SVG_LABEL_BASELINE_GAP = 14;
 const SVG_BASELINE_TO_TEXT_TOP_RATIO = 0.82;
-const SLOT_BADGE_FONT_SIZE = 6;
+const SLOT_BADGE_FONT_SIZE = 14;
 const PLAN_BADGE_FONT_SIZE = 7;
 
 export function createPixiGraphObjects(): PixiGraphObjects {
@@ -432,20 +432,14 @@ function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number, theme:
     view.slotBadgeText.visible = false;
     return;
   }
-  const x = -radius + 2;
-  const y = -radius + 2;
-  const key = `${radius}:${theme.node.neutral}:${theme.node.slotSubtypeStroke}`;
+  const key = `center:${radius}:${theme.text.label}`;
   if (view.slotBadgeKey !== key) {
-    view.slotBadge
-      .clear()
-      .circle(x, y, 8)
-      .fill({ color: theme.node.neutral, alpha: 0.96 })
-      .stroke({ color: theme.node.slotSubtypeStroke, alpha: 0.94, width: 1.5 });
+    view.slotBadge.clear();
     view.slotBadgeKey = key;
   }
-  syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE, theme), `slot:${theme.text.label}`);
+  syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE, theme), `slot-center:${SLOT_BADGE_FONT_SIZE}:${theme.text.label}`);
   syncText(view.slotBadgeText, badge);
-  view.slotBadgeText.position.set(x, y + 0.75);
+  view.slotBadgeText.position.set(0, 1.25);
   view.slotBadgeText.visible = true;
 }
 
