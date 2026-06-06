@@ -42,6 +42,7 @@ const TIMELINE_READY_TIMEOUT_MS = 1600;
 
 export function AnalysisTimelineTracks({
   item,
+  modeHint,
   mediaKey,
   active = true,
   videoRef,
@@ -51,6 +52,7 @@ export function AnalysisTimelineTracks({
   onSelectSegment,
 }: {
   item: AnalysisHistoryItem | null;
+  modeHint?: "material" | "structure" | null;
   mediaKey: string;
   active?: boolean;
   videoRef: RefObject<HTMLVideoElement>;
@@ -63,7 +65,7 @@ export function AnalysisTimelineTracks({
   const playheadScaleRef = useRef<HTMLDivElement>(null);
   const draggingPlayheadRef = useRef(false);
   const [draggingPlayhead, setDraggingPlayhead] = useState(false);
-  const { duration, subtitleBlocks, tracks } = useMemo(() => resolveAnalysisTimelineTracks(item), [item]);
+  const { duration, subtitleBlocks, tracks } = useMemo(() => resolveAnalysisTimelineTracks(item, modeHint), [item, modeHint]);
   const ticks = useMemo(() => resolveTimelineTicks(duration), [duration]);
   const shotCount = tracks.find((track) => track.key === "shot")?.blocks.length ?? 0;
   const timelineBlockCount = subtitleBlocks.length + tracks.reduce((sum, track) => sum + track.blocks.length, 0);
@@ -424,11 +426,16 @@ function hasVideoFrameCallback(video: HTMLVideoElement) {
   return typeof (video as Partial<VideoFrameCallbackVideo>).requestVideoFrameCallback === "function";
 }
 
-function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { duration: number; subtitleBlocks: AnalysisTimelineBlock[]; tracks: AnalysisTimelineTrack[] } {
+function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null, modeHint: "material" | "structure" | null = null): { duration: number; subtitleBlocks: AnalysisTimelineBlock[]; tracks: AnalysisTimelineTrack[] } {
   const artifact = item?.artifact;
   const shots = artifact?.shotBoundaryAnalysis?.shots ?? [];
   const subtitles = artifact?.subtitles ?? null;
   const userMaterialPack = artifact?.userMaterialPack ?? null;
+  const hasStructureResult = Boolean(artifact?.functionSlotAtomizationAnalysis || item?.hasFunctionSlotAtomization || modeHint === "structure");
+  const shouldUseMaterialTimeline = Boolean(
+    (modeHint === "material" || userMaterialPack || item?.hasUserMaterialPack)
+      && !hasStructureResult,
+  );
   const scriptSegments = artifact?.scriptSegmentAnalysis?.segments ?? [];
   const rhythmSections = artifact?.rhythmStructureAnalysis?.sections ?? [];
   const packagingBlocks = artifact?.packagingStructureAnalysis?.packagingBlocks ?? [];
@@ -443,7 +450,7 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null): { dura
     frameUrls: resolveShotFrameUrls(shot.start, shot.end, frames),
   }));
   const subtitleBlocks = resolveSubtitleTimelineBlocks(subtitles);
-  const materialTracks = userMaterialPack && !artifact?.functionSlotAtomizationAnalysis
+  const materialTracks = shouldUseMaterialTimeline
     ? resolveMaterialTimelineTracks(userMaterialPack, shotMeta, shotBlocks)
     : null;
   const scriptBlocks = scriptSegments.map((segment) => ({
@@ -574,13 +581,13 @@ function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryIte
 }
 
 function resolveMaterialTimelineTracks(
-  materialPack: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>,
+  materialPack: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]> | null,
   shotMeta: Map<string, { index: number; label: string; start: number; end: number }>,
   shotBlocks: AnalysisTimelineBlock[],
 ): AnalysisTimelineTrack[] {
-  const proofByShot = buildProofCoverageByShot(materialPack.proofCoverage ?? []);
-  const sequenceByShot = buildSequenceRecommendationByShot(materialPack.sequenceRecommendations);
-  const cards = [...(materialPack.shotCards ?? [])].sort((a, b) => {
+  const proofByShot = buildProofCoverageByShot(asArray(materialPack?.proofCoverage));
+  const sequenceByShot = buildSequenceRecommendationByShot(materialPack?.sequenceRecommendations);
+  const cards = [...asArray(materialPack?.shotCards)].sort((a, b) => {
     const left = shotMeta.get(a.shotRef)?.index ?? Number.MAX_SAFE_INTEGER;
     const right = shotMeta.get(b.shotRef)?.index ?? Number.MAX_SAFE_INTEGER;
     return left - right;
@@ -597,6 +604,8 @@ function resolveMaterialTimelineTracks(
     const shotLabel = card.shotNo || range.label || formatShotNo(card.shotRef, index);
     const proofItems = proofByShot.get(card.shotRef) ?? [];
     const sequenceItems = sequenceByShot.get(card.shotRef) ?? [];
+    const shotFunctions = asArray(card.shotFunctions);
+    const materialTags = asArray(card.materialTags);
     const materialFields = materialCardBaseFields(card, shotLabel);
 
     classBlocks.push({
@@ -624,21 +633,21 @@ function resolveMaterialTimelineTracks(
 
     functionBlocks.push({
       id: `material-function:${card.shotRef}`,
-      label: materialFunctionLabel(card.shotFunctions),
+      label: materialFunctionLabel(shotFunctions),
       start: range.start,
       end: range.end,
       shotRangeLabel: shotLabel,
       detail: materialDetail({
         id: `material-function:${card.shotRef}`,
         tone: "materialFunction",
-        title: materialFunctionLabel(card.shotFunctions),
+        title: materialFunctionLabel(shotFunctions),
         start: range.start,
         end: range.end,
         shotLabel,
-        summary: card.shotFunctions.length ? `这个镜头可用于${materialFunctionLabel(card.shotFunctions)}。` : "这个镜头还没有表达功能标签。",
+        summary: shotFunctions.length ? `这个镜头可用于${materialFunctionLabel(shotFunctions)}。` : "这个镜头还没有表达功能标签。",
         fields: [
-          { label: "表达功能", value: card.shotFunctions.map(materialFunctionLabel).join(" / ") },
-          { label: "素材标签", value: card.materialTags.join(" / ") },
+          { label: "表达功能", value: shotFunctions.map(materialFunctionLabel).join(" / ") },
+          { label: "素材标签", value: materialTags.join(" / ") },
           ...materialFields,
         ],
       }),
@@ -683,7 +692,7 @@ function resolveMaterialTimelineTracks(
         fields: [
           { label: "位置建议", value: sequenceItems.map((item) => `${materialPositionLabel(item.recommendedPosition)}：${materialFitLabel(item.fit)}`).join(" / ") },
           { label: "建议理由", value: sequenceItems.map((item) => item.reason).filter(Boolean).join(" / ") },
-          { label: "不适合", value: sequenceItems.flatMap((item) => item.doNotUseAs ?? []).join(" / ") },
+          { label: "不适合", value: sequenceItems.flatMap((item) => asArray(item.doNotUseAs)).join(" / ") },
           ...materialFields,
         ],
       }),
@@ -747,14 +756,14 @@ function materialCardBaseFields(card: MaterialShotCard, shotLabel: string) {
     { label: "镜头", value: shotLabel },
     { label: "置信度", value: formatMaterialConfidence(card.confidence) },
     { label: "需复核", value: card.needReview ? "是" : "否" },
-    { label: "限制引用", value: card.constraintRefs.join(" / ") },
+    { label: "限制引用", value: asArray(card.constraintRefs).join(" / ") },
   ];
 }
 
 function buildProofCoverageByShot(proofCoverage: MaterialProofCoverage[]) {
   const byShot = new Map<string, MaterialProofCoverage[]>();
   proofCoverage.forEach((item) => {
-    item.candidateShots.forEach((shotRef) => {
+    asArray(item.candidateShots).forEach((shotRef) => {
       const current = byShot.get(shotRef) ?? [];
       current.push(item);
       byShot.set(shotRef, current);
@@ -763,12 +772,12 @@ function buildProofCoverageByShot(proofCoverage: MaterialProofCoverage[]) {
   return byShot;
 }
 
-function buildSequenceRecommendationByShot(sequence: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["sequenceRecommendations"]) {
+function buildSequenceRecommendationByShot(sequence: NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["sequenceRecommendations"] | null | undefined) {
   const byShot = new Map<string, MaterialSequenceCandidate[]>();
   [
-    ...(sequence?.openingCandidates ?? []),
-    ...(sequence?.middleCandidates ?? []),
-    ...(sequence?.endingCandidates ?? []),
+    ...asArray(sequence?.openingCandidates),
+    ...asArray(sequence?.middleCandidates),
+    ...asArray(sequence?.endingCandidates),
   ].forEach((item) => {
     const current = byShot.get(item.shotRef) ?? [];
     current.push(item);
@@ -884,6 +893,10 @@ function materialFitLabel(value: string) {
 function formatMaterialConfidence(value: number) {
   if (!Number.isFinite(value)) return null;
   return `${Math.round(value * 100)}%`;
+}
+
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function estimateSubtitleDuration(text: string) {

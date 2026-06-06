@@ -458,6 +458,7 @@ function AnalysisDetailPage({
         </div>
         <AnalysisTimelineTracks
           item={heavyReady && item?.artifact ? item : null}
+          modeHint={resolveTimelineModeHint(media)}
           mediaKey={heavyReady ? media?.videoUrl ?? item?.sampleVideoId ?? "empty" : "deferred"}
           active={!hidden && heavyReady && Boolean(item?.artifact)}
           videoRef={videoRef}
@@ -469,6 +470,12 @@ function AnalysisDetailPage({
       </div>
     </section>
   );
+}
+
+function resolveTimelineModeHint(media: AnalysisHistoryMedia | null): "material" | "structure" | null {
+  if (media?.badgeLabel === "素材识别") return "material";
+  if (media?.badgeLabel === "结构分析") return "structure";
+  return null;
 }
 
 function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
