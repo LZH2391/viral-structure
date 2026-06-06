@@ -1,27 +1,18 @@
-const MAX_FIRST_SENTENCE_LENGTH = 160;
-const SENTENCE_END_PATTERN = /[。！？!?]+/u;
+const MAX_FIRST_MESSAGE_PREVIEW_LENGTH = 160;
 
-function extractFirstSentence(message, limit = MAX_FIRST_SENTENCE_LENGTH) {
-  const raw = String(message ?? "").trim();
-  if (!raw) return "";
-  const text = raw.replace(/[ \t]+/g, " ");
-  const newlineIndex = text.search(/\r?\n/u);
-  const punctuationMatch = SENTENCE_END_PATTERN.exec(text);
-  const candidates = [newlineIndex, punctuationMatch ? punctuationMatch.index + punctuationMatch[0].length : -1]
-    .filter((index) => index >= 0);
-  const endIndex = candidates.length ? Math.min(...candidates) : text.length;
-  return limitText(normalizeWhitespace(text.slice(0, endIndex)), limit);
+function normalizeFirstMessage(message) {
+  return String(message ?? "").trim();
 }
 
-function buildTitleInputSummary({ conversation, turnId, firstSentence }) {
+function buildTitleInputSummary({ conversation, turnId, firstMessage }) {
   return {
     conversationId: conversation?.conversationId ?? null,
     sourceTurnId: turnId ?? null,
     agentRole: conversation?.role ?? null,
     source: conversation?.source ?? null,
     sampleVideoId: conversation?.sampleVideoId ?? null,
-    firstSentenceChars: String(firstSentence ?? "").length,
-    firstSentencePreview: limitText(firstSentence, 60),
+    firstMessageChars: String(firstMessage ?? "").length,
+    firstMessagePreview: limitText(normalizeWhitespace(firstMessage), MAX_FIRST_MESSAGE_PREVIEW_LENGTH),
   };
 }
 
@@ -35,9 +26,9 @@ function limitText(value, limit) {
 }
 
 module.exports = {
-  MAX_FIRST_SENTENCE_LENGTH,
+  MAX_FIRST_MESSAGE_PREVIEW_LENGTH,
   buildTitleInputSummary,
-  extractFirstSentence,
   limitText,
+  normalizeFirstMessage,
   normalizeWhitespace,
 };

@@ -63,6 +63,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       });
       if (materializedDisplay) payload.materializedDisplay = materializedDisplay;
       const conversationId = normalizeText(url?.searchParams?.get("conversationId"));
+      if (conversationId) payload.conversationId = conversationId;
       let recorded = null;
       const autoDisplayTransform = await maybeAutoTransformRestructureResult({
         payload,
@@ -125,6 +126,8 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         Object.assign(payload, markedActiveTurn.result);
       }
       payload.conversationRevision = recorded?.revision ?? null;
+      if (recorded?.title) payload.conversationTitle = recorded.title;
+      if (recorded?.titleState) payload.conversationTitleState = recorded.titleState;
       if (titleConversation?.titleState) payload.titleGeneration = summarizeTitleState(titleConversation.titleState);
       payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;
       payload.threadStopped = Boolean(recorded?.threadStopped);

@@ -76,6 +76,14 @@ export type AgentChatTurnResponse = {
   runId: string;
   stageId: string;
   conversationRevision?: number | null;
+  conversationTitle?: string | null;
+  conversationTitleState?: AgentChatConversation["titleState"] | null;
+  titleGeneration?: {
+    ok?: boolean;
+    status?: string | null;
+    titleTurnId?: string | null;
+    error?: string | null;
+  } | null;
   latestTurnId?: string | null;
   threadStopped?: boolean | null;
   retryable?: boolean | null;

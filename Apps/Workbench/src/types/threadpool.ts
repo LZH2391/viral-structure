@@ -122,6 +122,21 @@ export type AgentChatConversation = {
   role?: string | null;
   status: "active" | "archived" | string;
   title?: string | null;
+  titleState?: {
+    status?: "idle" | "generating" | "completed" | "failed" | string;
+    source?: string | null;
+    role?: string | null;
+    sourceTurnId?: string | null;
+    titleThreadId?: string | null;
+    titleTurnId?: string | null;
+    firstMessagePreview?: string | null;
+    firstMessageChars?: number | null;
+    generatedAt?: string | null;
+    errorSummary?: {
+      code?: string | null;
+      message?: string | null;
+    } | null;
+  } | null;
   threadId?: string | null;
   parentThreadId?: string | null;
   leaseId?: string | null;

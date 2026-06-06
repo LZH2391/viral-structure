@@ -123,6 +123,8 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
         if (titleGeneration) {
           payload.titleGeneration = summarizeTitleGeneration(titleGeneration);
           payload.conversationRevision = titleGeneration.conversation?.revision ?? payload.conversationRevision ?? null;
+          payload.conversationTitle = titleGeneration.conversation?.title ?? payload.conversationTitle ?? null;
+          payload.conversationTitleState = titleGeneration.conversation?.titleState ?? null;
         }
       }
       return payload;
@@ -133,6 +135,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
       threadId: result.threadId,
       turnId: result.turnId,
       status: result.status,
+      titleStatus: result.titleGeneration?.status ?? null,
     }),
     successStatus: 202,
   });

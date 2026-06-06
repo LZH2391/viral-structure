@@ -1,10 +1,10 @@
-请根据用户第一条消息的首句生成一个中文会话标题。
+请根据用户第一条消息生成一个中文会话标题。
 
 输入摘要：
 {{inputSummaryJson}}
 
-用户第一条消息首句：
-{{firstSentence}}
+用户第一条消息：
+{{firstMessage}}
 
 输出要求：
 - 只返回 JSON object。

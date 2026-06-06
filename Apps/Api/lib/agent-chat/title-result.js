@@ -22,8 +22,8 @@ function normalizeTitle(value) {
   return title;
 }
 
-function fallbackTitleFromFirstSentence(firstSentence) {
-  const normalized = normalizeTitle(firstSentence);
+function fallbackTitleFromFirstMessage(firstMessage) {
+  const normalized = normalizeTitle(firstMessage);
   if (!normalized) return "新会话";
   return normalized.length > 18 ? normalized.slice(0, 18).trim() : normalized;
 }
@@ -57,7 +57,7 @@ function safePreview(value, limit = 160) {
 
 module.exports = {
   MAX_TITLE_LENGTH,
-  fallbackTitleFromFirstSentence,
+  fallbackTitleFromFirstMessage,
   normalizeTitle,
   parseTitleResult,
   safePreview,

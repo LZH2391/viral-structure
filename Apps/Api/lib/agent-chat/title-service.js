@@ -1,8 +1,8 @@
 const { randomUUID } = require("crypto");
 const { nextStage } = require("../../../../Infrastructure/Observability/trace");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
-const { buildTitleInputSummary, extractFirstSentence } = require("./title-input");
-const { fallbackTitleFromFirstSentence, parseTitleResult, safePreview } = require("./title-result");
+const { buildTitleInputSummary, normalizeFirstMessage } = require("./title-input");
+const { fallbackTitleFromFirstMessage, parseTitleResult, safePreview } = require("./title-result");
 
 const TITLE_ROLE = "conversation-title-generator";
 const TITLE_STAGE_NAME = "agentChat.title.generate";
@@ -15,10 +15,10 @@ async function maybeStartConversationTitleGeneration({ handlers, conversation, m
   if (!conversation?.conversationId || !isFirstUserTurn(conversation)) return null;
   if (isTitleFinal(conversation.titleState)) return null;
 
-  const firstSentence = extractFirstSentence(message);
-  if (!firstSentence) return null;
+  const firstMessage = normalizeFirstMessage(message);
+  if (!firstMessage) return null;
   const stageTraceContext = nextStage(traceContext);
-  const inputSummary = buildTitleInputSummary({ conversation, turnId, firstSentence });
+  const inputSummary = buildTitleInputSummary({ conversation, turnId, firstMessage });
   const logger = handlers.logger;
   const artifactId = `artifact_${randomUUID()}`;
   const parentArtifactId = turnId ?? null;
@@ -47,7 +47,7 @@ async function maybeStartConversationTitleGeneration({ handlers, conversation, m
     const roleProfile = await loadRoleProfileByRole(TITLE_ROLE);
     const prompt = renderTurnTemplate(roleProfile, "generate", {
       inputSummaryJson: JSON.stringify(inputSummary, null, 2),
-      firstSentence,
+      firstMessage,
     });
     const result = await handlers.appServer.startTurnWithInputs({
       workspaceRoot: readiness.status?.workspaceRoot ?? conversation.workspaceRoot ?? handlers.rootDir,
@@ -69,8 +69,8 @@ async function maybeStartConversationTitleGeneration({ handlers, conversation, m
       leaseId,
       ownerId,
       workspaceRoot: readiness.status?.workspaceRoot ?? conversation.workspaceRoot ?? handlers.rootDir,
-      firstSentencePreview: safePreview(firstSentence, 80),
-      firstSentenceChars: firstSentence.length,
+      firstMessagePreview: safePreview(firstMessage, 160),
+      firstMessageChars: firstMessage.length,
       promptTemplateVersion: prompt.promptTemplateVersion,
       generatedAt: null,
       errorSummary: null,
@@ -173,7 +173,7 @@ async function maybeCollectConversationTitle({ handlers, conversation, conversat
     if (!isSuccessfulStatus(result?.status)) {
       throw titleError(result?.error ?? result?.code ?? "title_turn_failed", result?.message ?? "标题生成 turn 未成功完成");
     }
-    const fallbackTitle = fallbackTitleFromFirstSentence(state.firstSentencePreview);
+    const fallbackTitle = fallbackTitleFromFirstMessage(state.firstMessagePreview);
     const parsed = parseTitleResult(result.finalMessage ?? result.activeThreadMessage, fallbackTitle);
     const title = parsed.title || fallbackTitle;
     const titleState = {

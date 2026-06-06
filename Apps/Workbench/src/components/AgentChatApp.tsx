@@ -155,6 +155,24 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
     return payload.conversation;
   }, [activeConversationId]);
 
+  const applyConversationTitleFromTurn = useCallback((response: AgentChatTurnResponse, fallbackConversationId?: string | null) => {
+    const conversationId = response.conversationId ?? fallbackConversationId ?? activeConversationIdRef.current;
+    const title = response.conversationTitle?.trim();
+    const titleState = response.conversationTitleState ?? null;
+    if (!conversationId || (!title && !titleState)) return;
+    const revision = normalizeConversationRevision(response.conversationRevision);
+    setConversations((current) => current.map((conversation) => (
+      conversation.conversationId === conversationId
+        ? {
+            ...conversation,
+            title: title || conversation.title,
+            titleState: titleState ?? conversation.titleState,
+            revision: revision ?? conversation.revision,
+          }
+        : conversation
+    )));
+  }, []);
+
   useEffect(() => () => {
     if (pollTimerRef.current) window.clearTimeout(pollTimerRef.current);
     if (warmingResendTimerRef.current) window.clearTimeout(warmingResendTimerRef.current);
@@ -332,6 +350,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         setTurnActionProjection(turn.actionProjection ?? null);
         setThreadStopped(Boolean(turn.threadStopped));
         if (turn.conversationRevision) setActiveConversationRevision(turn.conversationRevision);
+        applyConversationTitleFromTurn(turn, activeSession.conversationId ?? activeConversationId);
         const activeText = normalizeActiveMessage(turn.activeThreadMessage);
         const finalText = turn.finalMessage || activeText || (isTerminalStatus(turn.status) ? "" : "生成中");
         setMessages((current) => current.map((message) => message.id === `assistant-${turnId}`
@@ -389,7 +408,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       }
     };
     pollTimerRef.current = window.setTimeout(poll, POLL_INTERVAL_MS);
-  }, [activeConversationId, refreshConversations]);
+  }, [activeConversationId, applyConversationTitleFromTurn, refreshConversations]);
 
   useEffect(() => {
     if (!session?.threadId || !currentTurnId || busy || activeConversationInvalidated) return;
@@ -540,6 +559,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
         activeConversationRevisionRef.current = submitted.conversationRevision;
         setActiveConversationRevision(submitted.conversationRevision);
       }
+      applyConversationTitleFromTurn(submitted, sendSession.conversationId ?? activeConversationIdRef.current);
       setTurnActionProjection(submitted.actionProjection ?? null);
       setThreadStopped(Boolean(submitted.threadStopped));
       setCurrentTurnId(submitted.turnId);
@@ -581,7 +601,7 @@ export function AgentChatApp({ embedded = false }: { embedded?: boolean }) {
       setBusy(false);
       setStatusText("发送失败");
     }
-  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, beginConversationAction, busy, dialogueActionLocked, draft, ensureSession, maybeCompactBeforeSend, mode, refreshConversations, schedulePoll, scheduleWarmingResend, selectedRole, session?.role, sessionMeta, syncActiveConversationForRetry]);
+  }, [activeConversationId, activeConversationInvalidated, activeConversationRevision, applyConversationTitleFromTurn, beginConversationAction, busy, dialogueActionLocked, draft, ensureSession, maybeCompactBeforeSend, mode, refreshConversations, schedulePoll, scheduleWarmingResend, selectedRole, session?.role, sessionMeta, syncActiveConversationForRetry]);
 
   useEffect(() => {
     resendPendingRef.current = (pending) => {
