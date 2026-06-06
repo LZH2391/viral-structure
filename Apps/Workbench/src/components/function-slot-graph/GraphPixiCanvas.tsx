@@ -413,10 +413,14 @@ function GraphPixiCanvasInner({
   }, [active, previewSampleId]);
 
   const updateCanvasSize = () => {
-    const rect = hostRef.current?.getBoundingClientRect();
+    const host = hostRef.current;
+    const rect = host?.getBoundingClientRect();
     if (!rect) return;
     hostRectRef.current = rect;
-    const nextSize = { width: rect.width || VIEWBOX.width, height: rect.height || VIEWBOX.height };
+    const nextSize = {
+      width: host?.offsetWidth || rect.width || VIEWBOX.width,
+      height: host?.offsetHeight || rect.height || VIEWBOX.height,
+    };
     if (canvasSizeRef.current.width === nextSize.width && canvasSizeRef.current.height === nextSize.height) return;
     canvasSizeRef.current = nextSize;
     setCanvasSize(nextSize);
@@ -629,13 +633,30 @@ function GraphPixiCanvasInner({
     setHoveredNodeId(null);
   };
 
+  const currentGeometry = () => {
+    const geometry = currentHostGeometry(hostRef.current, canvasSizeRef.current);
+    if (geometry) hostRectRef.current = geometry.rect;
+    return geometry;
+  };
+
+  const screenToLayoutPoint = (clientX: number, clientY: number) => {
+    const geometry = currentGeometry();
+    if (!geometry) return null;
+    const scaleX = geometry.rect.width ? geometry.size.width / geometry.rect.width : 1;
+    const scaleY = geometry.rect.height ? geometry.size.height / geometry.rect.height : 1;
+    return {
+      x: (clientX - geometry.rect.left) * scaleX,
+      y: (clientY - geometry.rect.top) * scaleY,
+      size: geometry.size,
+    };
+  };
+
   const graphPoint = (clientX: number, clientY: number) => {
-    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    hostRectRef.current = rect;
-    const transform = stageTransform({ width: rect.width, height: rect.height });
-    const rawX = (clientX - rect.left - transform.offsetX) / transform.scale;
-    const rawY = (clientY - rect.top - transform.offsetY) / transform.scale;
+    const localPoint = screenToLayoutPoint(clientX, clientY);
+    if (!localPoint) return { x: 0, y: 0 };
+    const transform = stageTransform(localPoint.size);
+    const rawX = (localPoint.x - transform.offsetX) / transform.scale;
+    const rawY = (localPoint.y - transform.offsetY) / transform.scale;
     const view = viewportRef.current;
     return { x: (rawX - view.x) / view.k, y: (rawY - view.y) / view.k };
   };
@@ -704,13 +725,17 @@ function GraphPixiCanvasInner({
       schedulePreviewTick();
       return;
     }
-    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
     const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > 3;
-    const transform = stageTransform({ width: rect?.width || VIEWBOX.width, height: rect?.height || VIEWBOX.height });
+    const geometry = currentGeometry();
+    const size = geometry?.size ?? canvasSizeRef.current;
+    const screenRect = geometry?.rect ?? hostRectRef.current;
+    const transform = stageTransform(size);
+    const scaleX = screenRect?.width ? size.width / screenRect.width : 1;
+    const scaleY = screenRect?.height ? size.height / screenRect.height : 1;
     const nextViewport = {
       ...viewportRef.current,
-      x: drag.startX + (event.clientX - drag.clientX) / transform.scale,
-      y: drag.startY + (event.clientY - drag.clientY) / transform.scale,
+      x: drag.startX + ((event.clientX - drag.clientX) * scaleX) / transform.scale,
+      y: drag.startY + ((event.clientY - drag.clientY) * scaleY) / transform.scale,
     };
     dragRef.current = { ...drag, moved };
     viewportRef.current = nextViewport;
@@ -809,12 +834,11 @@ function GraphPixiCanvasInner({
 
   const zoom = useCallback((event: globalThis.WheelEvent) => {
     event.preventDefault();
-    const rect = hostRectRef.current ?? hostRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    hostRectRef.current = rect;
-    const transform = stageTransform({ width: rect.width, height: rect.height });
-    const rawX = (event.clientX - rect.left - transform.offsetX) / transform.scale;
-    const rawY = (event.clientY - rect.top - transform.offsetY) / transform.scale;
+    const localPoint = screenToLayoutPoint(event.clientX, event.clientY);
+    if (!localPoint) return;
+    const transform = stageTransform(localPoint.size);
+    const rawX = (localPoint.x - transform.offsetX) / transform.scale;
+    const rawY = (localPoint.y - transform.offsetY) / transform.scale;
     const current = zoomAnimationFrameRef.current ? zoomTargetViewportRef.current : viewportRef.current;
     const nextK = clamp(current.k * Math.exp(-event.deltaY * 0.0012), 0.45, 5);
     const worldX = (rawX - current.x) / current.k;
@@ -905,6 +929,18 @@ function hitTestHitGrid(index: HitGridIndex, point: { x: number; y: number }, zo
 
 function hitGridKey(x: number, y: number, cellSize: number) {
   return `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
+}
+
+function currentHostGeometry(host: HTMLDivElement | null, fallbackSize: { width: number; height: number }) {
+  const rect = host?.getBoundingClientRect() ?? null;
+  if (!rect) return null;
+  return {
+    rect,
+    size: {
+      width: host?.offsetWidth || fallbackSize.width || rect.width || VIEWBOX.width,
+      height: host?.offsetHeight || fallbackSize.height || rect.height || VIEWBOX.height,
+    },
+  };
 }
 
 function stageTransform(size: { width: number; height: number }): StageTransform {
