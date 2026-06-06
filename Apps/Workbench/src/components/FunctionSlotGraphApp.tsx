@@ -322,9 +322,9 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
       <div><b>绑定关系</b><span>{summary?.bindingCount ?? 0}</span></div>
       <div><b>规则策略</b><span>{summary?.ruleCount ?? 0}</span></div>
       <div><b>待治理原子</b><span>{summary?.unmappedAtomCount ?? 0}</span></div>
-      <div><b>待治理绑定</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
-      <div><b>待治理规则</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>
-      <div><b>校验状态</b><span>{summary?.validationOk ? "通过" : "未知"}</span></div>
+      <div><b>未归类绑定</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
+      <div><b>未归类规则</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>
+      <div><b>未治理样例</b><span>{(summary?.ungovernedSampleCount ?? 0) > 0 ? "有" : "无"}</span></div>
     </section>
   );
 }

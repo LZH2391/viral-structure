@@ -395,9 +395,12 @@ async function handleFunctionSlotLibraryGraph(res, artifactId, handlers = {}) {
 
 async function handleFunctionSlotGovernanceGraph(res, handlers = {}) {
   const service = handlers.functionSlotLibraryService;
-  const governance = await service.readSemanticGovernance();
+  const [governance, libraryItems] = await Promise.all([
+    service.readSemanticGovernance(),
+    typeof service.listLibraryItems === "function" ? service.listLibraryItems() : [],
+  ]);
   if (!governance) return notFound(res);
-  return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance));
+  return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance, { libraryItems }));
 }
 
 async function handleConfirmedPlanTraceGraph(res, handlers = {}) {

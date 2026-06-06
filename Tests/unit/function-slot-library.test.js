@@ -313,7 +313,14 @@ test("storyboard prep auto-run requires confirmed restructure source", async () 
 test("function slot library API exposes semantic governance graph route", async () => {
   const server = createServer({
     functionSlotLibraryService: {
-      readSemanticGovernance: async () => buildGovernance(),
+      readSemanticGovernance: async () => ({
+        ...buildGovernance(),
+        sourceSnapshot: [{ artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a" }],
+      }),
+      listLibraryItems: async () => [
+        { artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a", counts: { slotCount: 1, atomCount: 3 } },
+        { artifactId: "artifact_missing", sampleVideoId: "sample_missing", traceId: "trace_missing", contentHash: "hash_missing", counts: { slotCount: 1, atomCount: 3 } },
+      ],
     },
     staticWorkbench: { handle: () => false },
     logger: {
@@ -330,6 +337,10 @@ test("function slot library API exposes semantic governance graph route", async 
     assert.equal(graph.statusCode, 200);
     assert.equal(graph.body.schemaVersion, "function_slot_governance_graph.v1");
     assert.equal(graph.body.summary.sampleCount, 4);
+    assert.equal(graph.body.summary.atomizedSampleCount, 2);
+    assert.equal(graph.body.summary.governedSampleCount, 1);
+    assert.equal(graph.body.summary.ungovernedSampleCount, 1);
+    assert.equal(graph.body.summary.ungovernedSamples[0].reason, "missing_from_source_snapshot");
     assert.ok(graph.body.nodes.some((node) => node.type === "slotFamily"));
     assert.equal(graph.body.nodes.some((node) => hasGovernanceStatusFields(node.data)), false);
     assert.ok(graph.body.nodes.some((node) => node.type === "unmappedVariant" && node.data.reason === "single_sample"));
@@ -411,6 +422,34 @@ test("function slot governance graph builder shows source snapshot samples witho
   assert.ok(samples.some((node) => node.data.sampleVideoId === "sample_unpatterned"));
   assert.ok(graph.edges.some((edge) => edge.source === root.id && edge.target === "sourceSample:sample_unpatterned" && edge.type === "governance_contains_source_sample"));
   assert.ok(graph.edges.some((edge) => edge.type === "source_variant_to_sample"));
+});
+
+test("function slot governance graph builder tracks atomized samples missing semantic governance", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    sourceSnapshot: [{ artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a" }],
+  }, {
+    libraryItems: [
+      { artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a" },
+      { artifactId: "artifact_stale", sampleVideoId: "sample_stale", traceId: "trace_stale", contentHash: "hash_new" },
+      { artifactId: "artifact_missing", sampleVideoId: "sample_missing", traceId: "trace_missing", contentHash: "hash_missing" },
+    ],
+  });
+
+  assert.equal(graph.summary.atomizedSampleCount, 3);
+  assert.equal(graph.summary.governedSampleCount, 1);
+  assert.equal(graph.summary.ungovernedSampleCount, 2);
+  assert.deepEqual(graph.summary.ungovernedSamples.map((item) => item.reason), ["missing_from_source_snapshot", "missing_from_source_snapshot"]);
+
+  const staleGraph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    sourceSnapshot: [{ artifactId: "artifact_stale", sampleVideoId: "sample_stale", traceId: "trace_stale", contentHash: "hash_old" }],
+  }, {
+    libraryItems: [{ artifactId: "artifact_stale", sampleVideoId: "sample_stale", traceId: "trace_stale", contentHash: "hash_new" }],
+  });
+
+  assert.equal(staleGraph.summary.ungovernedSampleCount, 1);
+  assert.equal(staleGraph.summary.ungovernedSamples[0].reason, "content_hash_mismatch");
 });
 
 test("function slot governance graph builder normalizes value-object ids and labels", () => {

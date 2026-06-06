@@ -1,10 +1,11 @@
-function buildFunctionSlotGovernanceGraph(governance) {
+function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}) {
   if (!governance?.governanceId) throw new Error("function slot governance graph missing governanceId");
 
   const nodes = [];
   const edges = [];
   const governanceId = governance.governanceId;
   const rootId = graphId("governance", governanceId);
+  const sampleGovernanceSummary = buildSampleGovernanceSummary(governance, libraryItems);
 
   pushNode(nodes, {
     id: rootId,
@@ -105,9 +106,58 @@ function buildFunctionSlotGovernanceGraph(governance) {
       unmappedAtomCount: (governance.unmappedAtomVariants ?? []).length,
       unmappedBindingCount: (governance.unmappedBindingVariants ?? []).length,
       unmappedRuleCount: (governance.unmappedRuleVariants ?? []).length,
+      atomizedSampleCount: sampleGovernanceSummary.atomizedSampleCount,
+      governedSampleCount: sampleGovernanceSummary.governedSampleCount,
+      ungovernedSampleCount: sampleGovernanceSummary.ungovernedSampleCount,
+      ungovernedSamples: sampleGovernanceSummary.ungovernedSamples,
       validationOk: Boolean(governance.coverage?.validationOk),
       conceptCount: (governance.slotFamilies ?? []).length + (governance.slotArchetypes ?? []).length + (governance.slotSubtypes ?? []).length,
     },
+  };
+}
+
+function buildSampleGovernanceSummary(governance, libraryItems) {
+  const items = Array.isArray(libraryItems) ? libraryItems : [];
+  const snapshots = Array.isArray(governance?.sourceSnapshot) ? governance.sourceSnapshot : [];
+  const byArtifactId = new Map();
+  const bySampleId = new Map();
+  for (const snapshot of snapshots) {
+    const normalized = normalizeSampleIdentity(snapshot);
+    if (normalized.artifactId) byArtifactId.set(normalized.artifactId, normalized);
+    if (normalized.sampleVideoId) bySampleId.set(normalized.sampleVideoId, normalized);
+  }
+
+  let governedSampleCount = 0;
+  const ungovernedSamples = [];
+  for (const item of items) {
+    const identity = normalizeSampleIdentity(item);
+    const snapshot = (identity.artifactId ? byArtifactId.get(identity.artifactId) : null)
+      ?? (identity.sampleVideoId ? bySampleId.get(identity.sampleVideoId) : null);
+    if (!snapshot) {
+      ungovernedSamples.push({ ...identity, reason: "missing_from_source_snapshot" });
+      continue;
+    }
+    if (identity.contentHash && snapshot.contentHash && identity.contentHash !== snapshot.contentHash) {
+      ungovernedSamples.push({ ...identity, reason: "content_hash_mismatch" });
+      continue;
+    }
+    governedSampleCount += 1;
+  }
+
+  return {
+    atomizedSampleCount: items.length,
+    governedSampleCount,
+    ungovernedSampleCount: ungovernedSamples.length,
+    ungovernedSamples,
+  };
+}
+
+function normalizeSampleIdentity(value) {
+  return {
+    sampleVideoId: normalizeGraphText(value?.sampleVideoId ?? value?.sampleId),
+    artifactId: normalizeGraphText(value?.artifactId),
+    traceId: normalizeGraphText(value?.traceId),
+    contentHash: normalizeGraphText(value?.contentHash),
   };
 }
 

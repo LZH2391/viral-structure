@@ -103,6 +103,16 @@ export type FunctionSlotLibraryGraph = {
     unmappedAtomCount?: number;
     unmappedBindingCount?: number;
     unmappedRuleCount?: number;
+    atomizedSampleCount?: number;
+    governedSampleCount?: number;
+    ungovernedSampleCount?: number;
+    ungovernedSamples?: Array<{
+      sampleVideoId?: string | null;
+      artifactId?: string | null;
+      traceId?: string | null;
+      contentHash?: string | null;
+      reason?: string | null;
+    }>;
     validationOk?: boolean;
     conceptCount: number;
   };
