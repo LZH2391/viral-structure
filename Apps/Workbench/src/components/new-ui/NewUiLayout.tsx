@@ -4,6 +4,7 @@ import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
 import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
+import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -154,6 +155,9 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         <div className="new-ui-center-section" hidden={activeSection !== "analysis"} aria-hidden={activeSection !== "analysis"}>
           <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
         </div>
+        <div className="new-ui-center-section" hidden={activeSection !== "library"} aria-hidden={activeSection !== "library"}>
+          {activeSection === "library" ? <FunctionSlotGraphWorkspace embedded fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
+        </div>
       </main>
       {!rightCollapsed ? (
         <SplitResizeHandle
@@ -288,6 +292,12 @@ function resolveSectionLabel(section: NewUiSectionId, libraryChild: NewUiLibrary
     return active?.children?.find((child) => child.id === libraryChild)?.label ?? active?.label ?? "库";
   }
   return active?.label ?? "分析";
+}
+
+function libraryChildToGraphMode(child: NewUiLibraryChildId): GraphMode {
+  if (child === "semanticGovernance") return "governance";
+  if (child === "planTrace") return "planTrace";
+  return "structure";
 }
 
 type SectionIconProps = {

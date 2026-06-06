@@ -1,6 +1,7 @@
 .new-ui-shell {
   --new-ui-analysis-status-done: var(--new-ui-green-400);
   --new-ui-analysis-status-running: var(--new-ui-blue-400);
+  --new-ui-analysis-status-failed: #ef4444;
 }
 
 .new-ui-analysis-home {
@@ -165,6 +166,14 @@
   font-size: var(--new-ui-font-size-xs);
   font-weight: 620;
   line-height: 1.35;
+}
+
+button.new-ui-analysis-detail-status {
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, var(--new-ui-surface));
+  cursor: pointer;
 }
 
 .new-ui-analysis-player {
@@ -1265,6 +1274,7 @@
   --new-ui-analysis-workflow-active-subtle-border: color-mix(in srgb, var(--new-ui-control-border) 72%, transparent);
   --new-ui-analysis-workflow-status-done: var(--new-ui-analysis-status-done);
   --new-ui-analysis-workflow-status-running: var(--new-ui-analysis-status-running);
+  --new-ui-analysis-workflow-status-failed: var(--new-ui-analysis-status-failed);
   --new-ui-analysis-workflow-dot-size: 10px;
   --new-ui-analysis-workflow-step-button-padding-top: 8px;
   --new-ui-analysis-workflow-step-title-line-height: 22px;
@@ -1370,10 +1380,22 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
 }
 
+.new-ui-analysis-workflow-step.is-failed .new-ui-analysis-workflow-status-dot {
+  border-color: var(--new-ui-analysis-workflow-status-failed);
+  background: var(--new-ui-analysis-workflow-status-failed);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 15%, transparent);
+}
+
 .new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-status-dot {
   border-color: var(--new-ui-analysis-workflow-status-running);
   background: var(--new-ui-analysis-workflow-status-running);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 18%, transparent);
+}
+
+.new-ui-analysis-workflow-step.is-selected.is-failed .new-ui-analysis-workflow-status-dot {
+  border-color: var(--new-ui-analysis-workflow-status-failed);
+  background: var(--new-ui-analysis-workflow-status-failed);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 16%, transparent);
 }
 
 .new-ui-analysis-workflow-step-body {
@@ -1442,6 +1464,17 @@
     var(--new-ui-analysis-workflow-active-bg);
 }
 
+.new-ui-analysis-workflow-step.is-selected.is-failed .new-ui-analysis-workflow-step-button {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 36%, var(--new-ui-analysis-workflow-active-border));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 10%, transparent),
+      transparent 48px
+    ),
+    var(--new-ui-analysis-workflow-active-bg);
+}
+
 .new-ui-analysis-workflow-step-copy {
   display: block;
   min-width: 0;
@@ -1489,6 +1522,11 @@
   color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 86%, var(--new-ui-text));
 }
 
+.new-ui-analysis-workflow-step.is-failed .new-ui-analysis-workflow-badge {
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 14%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 84%, var(--new-ui-text));
+}
+
 .new-ui-analysis-workflow-parallel {
   display: flex;
   gap: 8px;
@@ -1524,6 +1562,11 @@
   background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 10%, var(--new-ui-surface));
 }
 
+.new-ui-analysis-workflow-parallel-item.is-failed {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 36%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 8%, var(--new-ui-surface));
+}
+
 .new-ui-analysis-workflow-parallel-item.is-waiting {
   opacity: 0.62;
 }
@@ -1543,6 +1586,17 @@
     linear-gradient(
       90deg,
       color-mix(in srgb, var(--new-ui-analysis-workflow-status-done) 10%, transparent),
+      transparent 34px
+    ),
+    var(--new-ui-analysis-workflow-active-subtle-bg);
+}
+
+.new-ui-analysis-workflow-parallel-item.is-selected.is-failed {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 40%, var(--new-ui-analysis-workflow-active-subtle-border));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 9%, transparent),
       transparent 34px
     ),
     var(--new-ui-analysis-workflow-active-subtle-bg);
@@ -1600,10 +1654,21 @@
   opacity: 1;
 }
 
+.new-ui-analysis-workflow-parallel-item.is-failed .new-ui-analysis-workflow-mini-dot {
+  background: var(--new-ui-analysis-workflow-status-failed);
+  opacity: 1;
+}
+
 .new-ui-analysis-workflow-parallel-item.is-selected .new-ui-analysis-workflow-mini-dot {
   background: var(--new-ui-analysis-workflow-status-running);
   opacity: 1;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
+}
+
+.new-ui-analysis-workflow-parallel-item.is-selected.is-failed .new-ui-analysis-workflow-mini-dot {
+  background: var(--new-ui-analysis-workflow-status-failed);
+  opacity: 1;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 15%, transparent);
 }
 
 .new-ui-analysis-workflow-spinner {
@@ -1666,6 +1731,11 @@
 .new-ui-analysis-workflow-detail-status.is-running {
   background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
   color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 86%, var(--new-ui-text));
+}
+
+.new-ui-analysis-workflow-detail-status.is-failed {
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 14%, transparent);
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 84%, var(--new-ui-text));
 }
 
 .new-ui-analysis-workflow-detail-content {

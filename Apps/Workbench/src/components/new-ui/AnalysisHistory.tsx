@@ -7,10 +7,11 @@ import {
 } from "./analysisHistoryData";
 
 type AnalysisHistoryProps = {
+  refreshKey?: number;
   onOpenItem: (item: AnalysisHistoryItem) => void;
 };
 
-export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
+export function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -30,6 +31,7 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
 
   useEffect(() => {
     let mounted = true;
+    setStatus("loading");
 
     listAnalysisHistorySamples()
       .then((nextItems) => {
@@ -46,7 +48,7 @@ export function AnalysisHistory({ onOpenItem }: AnalysisHistoryProps) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   return (
     <section ref={sectionRef} className="new-ui-analysis-history" aria-label="历史结果">

@@ -1,10 +1,14 @@
 import { runtimeUrl } from "../../api/client";
 import { getAnalysisHistoryProjection, type AnalysisHistoryProjectionItem } from "../../api/platformClient";
-import type { SampleArtifact } from "../../types";
+import type { PlatformRuntimeState } from "../../api/platformClient";
+import type { SampleArtifact, WorkflowRun } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 
 export type AnalysisHistoryItem = AnalysisHistoryProjectionItem & {
   artifact?: SampleArtifact | null;
+  workflowRunId?: string | null;
+  workflowRun?: WorkflowRun | null;
+  runtimeState?: PlatformRuntimeState | null;
 };
 
 export type AnalysisHistoryMedia = {

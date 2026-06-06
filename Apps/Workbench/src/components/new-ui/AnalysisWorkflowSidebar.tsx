@@ -27,52 +27,85 @@ type AnalysisWorkflowSidebarProps = {
 
 export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: AnalysisWorkflowSidebarProps) {
   const stages = resolveWorkflowStages(detail.item);
-  const [upload, shotBoundary, scriptSegment, rhythmStructure, packagingStructure, atomization, aggregate] = stages;
-  const structureStatus = resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
+  const materialWorkflow = stages.some((stage) => stage.key === "userMaterialTagger");
+  const upload = stageByKey(stages, "upload");
+  const shotBoundary = stageByKey(stages, "shotBoundary");
+  const scriptSegment = stageByKey(stages, "scriptSegment");
+  const rhythmStructure = stageByKey(stages, "rhythmStructure");
+  const packagingStructure = stageByKey(stages, "packagingStructure");
+  const userMaterialTagger = stageByKey(stages, "userMaterialTagger");
+  const atomization = stageByKey(stages, "functionSlotAtomization");
+  const aggregate = stageByKey(stages, "aggregate");
+  const structureStatus = materialWorkflow ? "waiting" : resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
   const [selectedStageKey, setSelectedStageKey] = useState<WorkflowStageKey>("upload");
   const selectedTimelineSegment = detail.selectedTimelineSegment ?? null;
-  const selectedWorkflowStageKey = selectedTimelineSegment ? null : selectedStageKey;
+  const selectedStageAvailable = selectedStageKey === "structureAnalysis"
+    ? !materialWorkflow
+    : stages.some((stage) => stage.key === selectedStageKey);
+  const activeSelectedStageKey = selectedStageAvailable ? selectedStageKey : "upload";
+  const selectedWorkflowStageKey = selectedTimelineSegment ? null : activeSelectedStageKey;
   const selectWorkflowStage = (stageKey: WorkflowStageKey) => {
     setSelectedStageKey(stageKey);
     onWorkflowStageSelect?.();
   };
 
   return (
-    <section className="new-ui-analysis-workflow" aria-label="完整分析总览">
+    <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "完整分析总览"}>
       <div className="new-ui-analysis-workflow-flow">
         <h2 className="new-ui-analysis-workflow-title">分析流程</h2>
         <ol className="new-ui-analysis-workflow-list">
-          <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
-          <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
-          <WorkflowStep
-            stage={{
-              key: "structureAnalysis",
-              label: "结构分析",
-              moduleLabel: "",
-              dependencyLabel: "",
-              status: structureStatus,
-            }}
-            connectorDone={structureStatus === "done"}
-            selected={selectedWorkflowStageKey === "structureAnalysis"}
-            onSelect={selectWorkflowStage}
-          >
-            <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
-              <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} onSelect={selectWorkflowStage} />
-              <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} onSelect={selectWorkflowStage} />
-              <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} onSelect={selectWorkflowStage} />
-            </div>
-          </WorkflowStep>
-          <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} onSelect={selectWorkflowStage} />
-          <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
+          {materialWorkflow ? (
+            <>
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
+            </>
+          ) : (
+            <>
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep
+                stage={{
+                  key: "structureAnalysis",
+                  label: "结构分析",
+                  moduleLabel: "",
+                  dependencyLabel: "",
+                  status: structureStatus,
+                }}
+                connectorDone={structureStatus === "done"}
+                selected={selectedWorkflowStageKey === "structureAnalysis"}
+                onSelect={selectWorkflowStage}
+              >
+                <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
+                  <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} onSelect={selectWorkflowStage} />
+                </div>
+              </WorkflowStep>
+              <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
+            </>
+          )}
         </ol>
       </div>
       {selectedTimelineSegment ? (
         <TimelineSegmentDetailPanel segment={selectedTimelineSegment} />
       ) : (
-        <WorkflowDetailPanel selectedStageKey={selectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
+        <WorkflowDetailPanel selectedStageKey={activeSelectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
       )}
     </section>
   );
+}
+
+function stageByKey(stages: WorkflowStages, key: WorkflowStageKey): WorkflowStage {
+  return stages.find((stage) => stage.key === key) ?? {
+    key,
+    label: stageTitle(key),
+    moduleLabel: "",
+    dependencyLabel: "",
+    status: "waiting",
+  };
 }
 
 function WorkflowStep({

@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
-import { loadAnalysisDetailItem } from "./analysisDetailData";
+import { loadAnalysisDetailItem, refreshAnalysisDetailItem } from "./analysisDetailData";
+import {
+  isAnalysisItemRunning,
+  startAnalysisUpload,
+} from "./analysisBackend";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
@@ -13,34 +17,125 @@ type AnalysisHomeProps = {
 
 export function AnalysisHome({ onDetailStateChange, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const operationTokenRef = useRef(0);
+  const detailLoadKeyRef = useRef<string | null>(null);
   const [view, setView] = useState<"home" | "detail">("home");
   const [detailTitle, setDetailTitle] = useState("新建分析");
   const [detailMedia, setDetailMedia] = useState<AnalysisHistoryMedia | null>(null);
   const [detailItem, setDetailItem] = useState<AnalysisHistoryItem | null>(null);
   const [detailArtifactStatus, setDetailArtifactStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [taskStatusText, setTaskStatusText] = useState<string | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [selectedTimelineSegment, setSelectedTimelineSegment] = useState<AnalysisTimelineSegmentDetail | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current == null) return;
+    window.clearInterval(pollTimerRef.current);
+    pollTimerRef.current = null;
+  }, []);
+
+  const startDetailPolling = useCallback((initialItem: AnalysisHistoryItem, token = operationTokenRef.current) => {
+    stopPolling();
+    let currentItem = initialItem;
+    let terminalPollsRemaining = 4;
+    const poll = async () => {
+      if (token !== operationTokenRef.current) return;
+      try {
+        const { item: nextItem, media: nextMedia } = await refreshAnalysisDetailItem(currentItem);
+        if (token !== operationTokenRef.current) return;
+        currentItem = nextItem;
+        setDetailItem(nextItem);
+        setDetailMedia(nextMedia);
+        setDetailTitle(nextMedia.title);
+        setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
+        setTaskStatusText(statusTextForAnalysisItem(nextItem));
+        setHistoryRefreshKey((value) => value + 1);
+        if (isAnalysisItemRunning(nextItem)) {
+          terminalPollsRemaining = 4;
+          return;
+        }
+        terminalPollsRemaining -= 1;
+        if (terminalPollsRemaining <= 0) stopPolling();
+      } catch {
+        if (token !== operationTokenRef.current) return;
+        setDetailArtifactStatus("error");
+        setTaskStatusText("刷新分析状态失败");
+      }
+    };
+    void poll();
+    pollTimerRef.current = window.setInterval(() => {
+      void poll();
+    }, 2000);
+  }, [stopPolling]);
 
   const openUploadDetail = () => {
-    setDetailTitle("新建分析");
-    setDetailMedia(null);
-    setDetailItem(null);
-    setDetailArtifactStatus("idle");
-    setSelectedTimelineSegment(null);
-    setView("detail");
+    uploadInputRef.current?.click();
   };
 
   const openHistoryDetail = (item: AnalysisHistoryItem) => {
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    detailLoadKeyRef.current = null;
     const media = resolveAnalysisHistoryMedia(item);
     setDetailTitle(media.title);
     setDetailMedia(media);
     setDetailItem(item);
     setDetailArtifactStatus(item.artifact ? "ready" : "loading");
+    setTaskStatusText(statusTextForAnalysisItem(item));
     setSelectedTimelineSegment(null);
     setView("detail");
+    if (isAnalysisItemRunning(item)) startDetailPolling(item, token);
   };
+
+  const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
+    const file = Array.from(files).find((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
+    if (!file) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    detailLoadKeyRef.current = null;
+    setIsUploading(true);
+    setDetailTitle(file.name.replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, ""));
+    setDetailMedia(null);
+    setDetailItem(null);
+    setDetailArtifactStatus("loading");
+    setTaskStatusText("正在启动完整分析");
+    setSelectedTimelineSegment(null);
+    setView("detail");
+    try {
+      const { item, media } = await startAnalysisUpload(file);
+      if (token !== operationTokenRef.current) return;
+      setDetailItem(item);
+      setDetailMedia(media);
+      setDetailTitle(media.title);
+      setDetailArtifactStatus(item.artifact ? "ready" : "loading");
+      setTaskStatusText(statusTextForAnalysisItem(item));
+      setHistoryRefreshKey((value) => value + 1);
+      if (isAnalysisItemRunning(item)) startDetailPolling(item, token);
+    } catch (error) {
+      if (token !== operationTokenRef.current) return;
+      setDetailArtifactStatus("error");
+      setTaskStatusText(error instanceof Error ? error.message : "启动完整分析失败");
+    } finally {
+      if (token === operationTokenRef.current) setIsUploading(false);
+    }
+  }, [startDetailPolling, stopPolling]);
+
+  const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    if (isUploading) return;
+    if (event.dataTransfer.files.length) void handleUploadFiles(event.dataTransfer.files);
+  }, [handleUploadFiles, isUploading]);
 
   useEffect(() => {
     if (view !== "detail" || !detailItem?.sampleVideoId || detailItem.artifact) return undefined;
+    const loadKey = `${detailItem.sampleVideoId}:${detailItem.workflowRunId ?? ""}:${detailItem.artifactId ?? ""}`;
+    if (detailLoadKeyRef.current === loadKey) return undefined;
+    detailLoadKeyRef.current = loadKey;
     let mounted = true;
     setDetailArtifactStatus("loading");
     loadAnalysisDetailItem(detailItem)
@@ -49,11 +144,13 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         setDetailItem(nextItem);
         setDetailMedia(nextMedia);
         setDetailTitle(nextMedia.title);
-        setDetailArtifactStatus("ready");
+        setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
+        setTaskStatusText(statusTextForAnalysisItem(nextItem));
       })
       .catch(() => {
         if (!mounted) return;
         setDetailArtifactStatus("error");
+        setTaskStatusText("完整分析结果暂时无法读取");
       });
     return () => {
       mounted = false;
@@ -68,6 +165,10 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       selectedTimelineSegment,
     });
   }, [detailItem, detailTitle, onDetailStateChange, selectedTimelineSegment, view]);
+
+  useEffect(() => () => {
+    stopPolling();
+  }, [stopPolling]);
 
   useEffect(() => {
     if (lastTimelineSelectionClearRequestRef.current === timelineSelectionClearRequest) return;
@@ -87,8 +188,27 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
 
   return (
     <>
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="video/*"
+        hidden
+        onChange={(event) => {
+          const files = event.currentTarget.files;
+          if (files?.length) void handleUploadFiles(files);
+          event.currentTarget.value = "";
+        }}
+      />
       <section className={`new-ui-analysis-home ${view === "home" ? "" : "is-hidden"}`.trim()} aria-hidden={view !== "home"} aria-label="分析首页">
-        <button className="new-ui-analysis-upload-frame" type="button" aria-label="上传视频开始分析" onClick={openUploadDetail}>
+        <button
+          className="new-ui-analysis-upload-frame"
+          type="button"
+          aria-label="上传视频开始分析"
+          disabled={isUploading}
+          onClick={openUploadDetail}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleUploadDrop}
+        >
           <span className="new-ui-analysis-upload-icon-tile">
             <svg className="new-ui-analysis-upload-icon" viewBox="0 0 128 96" focusable="false" aria-hidden="true">
               <path className="new-ui-analysis-upload-cloud-fill" d="M38 70c-10.6 0-19-8.2-19-18.5 0-9.8 7.3-17.6 17.1-19.1 3.6-10.9 13.1-17.9 24.4-17.9 12.6 0 23 9 25.1 20.9 10.1 1.3 17.9 9 17.9 18.8 0 8.9-6.7 15.8-16.1 15.8H38Z" />
@@ -99,12 +219,12 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
             </svg>
           </span>
           <span className="new-ui-analysis-upload-copy">
-            <span className="new-ui-analysis-upload-primary">拖拽视频到此处</span>
-            <span className="new-ui-analysis-upload-secondary">或点击选择文件</span>
+            <span className="new-ui-analysis-upload-primary">{isUploading ? "正在启动分析" : "拖拽视频到此处"}</span>
+            <span className="new-ui-analysis-upload-secondary">{isUploading ? "正在创建分析任务" : "或点击选择文件"}</span>
           </span>
-          <span className="new-ui-analysis-upload-limit" aria-hidden="true">MP4/MOV 最多 5 个 最大 2GB</span>
+          <span className="new-ui-analysis-upload-limit" aria-hidden="true">MP4/MOV 单个视频 最大 2GB</span>
         </button>
-        <AnalysisHistory onOpenItem={openHistoryDetail} />
+        <AnalysisHistory refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
       </section>
       <AnalysisDetailPage
         hidden={view !== "detail"}
@@ -112,9 +232,14 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
         media={detailMedia}
         item={detailItem}
         artifactStatus={detailArtifactStatus}
+        taskStatusText={taskStatusText}
         selectedTimelineSegment={selectedTimelineSegment}
         onSelectTimelineSegment={selectTimelineSegment}
-        onBack={() => setView("home")}
+        onBack={() => {
+          stopPolling();
+          setView("home");
+        }}
+        onUpload={openUploadDetail}
       />
     </>
   );
@@ -126,18 +251,22 @@ function AnalysisDetailPage({
   media,
   item,
   artifactStatus,
+  taskStatusText,
   selectedTimelineSegment,
   onSelectTimelineSegment,
   onBack,
+  onUpload,
 }: {
   hidden: boolean;
   title: string;
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
   artifactStatus: "idle" | "loading" | "ready" | "error";
+  taskStatusText: string | null;
   selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
   onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
   onBack: () => void;
+  onUpload: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const orientation = media?.orientation ?? "landscape";
@@ -186,6 +315,10 @@ function AnalysisDetailPage({
           </div>
           {artifactStatus === "loading" ? <div className="new-ui-analysis-detail-status">正在加载完整分析结果</div> : null}
           {artifactStatus === "error" ? <div className="new-ui-analysis-detail-status">完整分析结果暂时无法读取</div> : null}
+          {taskStatusText ? <div className="new-ui-analysis-detail-status">{taskStatusText}</div> : null}
+          {!item && artifactStatus === "idle" ? (
+            <button className="new-ui-analysis-detail-status" type="button" onClick={onUpload}>选择视频开始分析</button>
+          ) : null}
         </div>
         <AnalysisTimelineTracks
           item={item?.artifact ? item : null}
@@ -198,4 +331,16 @@ function AnalysisDetailPage({
       </div>
     </section>
   );
+}
+
+function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
+  const runtimeStatus = String(item?.runtimeState?.status ?? item?.workflowRun?.status ?? item?.status ?? "").toLowerCase();
+  if (!runtimeStatus) return null;
+  if (["queued", "pending"].includes(runtimeStatus)) return "分析任务已排队";
+  if (["running", "processing"].includes(runtimeStatus)) return "正在分析";
+  if (["waiting", "blocked", "cache_waiting"].includes(runtimeStatus)) return "等待处理决策";
+  if (runtimeStatus === "processed") return "分析完成";
+  if (runtimeStatus === "partial_failed") return "部分分析失败";
+  if (runtimeStatus === "failed") return "分析失败";
+  return `状态：${runtimeStatus}`;
 }

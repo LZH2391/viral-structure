@@ -2,7 +2,7 @@ import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact, sanitizeText } from "../../utils/format";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 
-export type WorkflowStageStatus = "done" | "running" | "waiting";
+export type WorkflowStageStatus = "done" | "running" | "waiting" | "failed";
 export type WorkflowStageKey =
   | "upload"
   | "shotBoundary"
@@ -10,6 +10,7 @@ export type WorkflowStageKey =
   | "scriptSegment"
   | "rhythmStructure"
   | "packagingStructure"
+  | "userMaterialTagger"
   | "functionSlotAtomization"
   | "aggregate";
 
@@ -21,15 +22,7 @@ export type WorkflowStage = {
   status: WorkflowStageStatus;
 };
 
-export type WorkflowStages = [
-  WorkflowStage,
-  WorkflowStage,
-  WorkflowStage,
-  WorkflowStage,
-  WorkflowStage,
-  WorkflowStage,
-  WorkflowStage,
-];
+export type WorkflowStages = WorkflowStage[];
 
 export type WorkflowDetailMetric = {
   label: string;
@@ -75,6 +68,7 @@ export function resolveWorkflowDetail(stageKey: WorkflowStageKey, item: Analysis
   if (stageKey === "scriptSegment") return resolveScriptSegmentDetail(base, artifact);
   if (stageKey === "rhythmStructure") return resolveRhythmStructureDetail(base, artifact);
   if (stageKey === "packagingStructure") return resolvePackagingStructureDetail(base, artifact);
+  if (stageKey === "userMaterialTagger") return resolveUserMaterialTaggerDetail(base, artifact);
   if (stageKey === "functionSlotAtomization") return resolveFunctionSlotAtomizationDetail(base, artifact);
   return resolveAggregateDetail(base, artifact);
 }
@@ -229,6 +223,28 @@ function resolvePackagingStructureDetail(base: Pick<WorkflowDetail, "title" | "s
   };
 }
 
+function resolveUserMaterialTaggerDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
+  const materialPack = artifact.userMaterialPack;
+  const shotCards = materialPack?.shotCards ?? [];
+  const proofCount = materialPack?.proofCoverage?.filter((proof) => proof.candidateShots.length || proof.candidateGroups.length).length ?? 0;
+  return {
+    ...base,
+    summary: shotCards.length ? "已经把用户素材拆成可供重组和分镜消费的素材能力包。" : "素材识别完成后会展示镜头分类、证明能力和可用限制。",
+    metrics: compactMetrics([
+      metric("素材镜头", `${formatCount(shotCards.length)} 个`),
+      metric("证明镜头", `${formatCount(proofCount)} 个`),
+      metric("能力标签", `${formatCount(uniqueCount(shotCards.flatMap((shot) => shot.materialTags ?? [])))} 个`),
+    ]),
+    cards: shotCards.slice(0, 4).map((shot, index) => card(
+      shot.shotNo ?? `素材镜头 ${String(index + 1).padStart(3, "0")}`,
+      (shot.materialTags ?? []).slice(0, 2).join(" / ") || shot.shotClass || "素材能力",
+      shot.visualSummary || shot.spokenOrSubtitleSummary || "这个素材镜头还没有摘要。",
+    )),
+    emptyText: failedText(materialPack?.status, "本步未生成有效素材包，可重试素材识别。", "素材识别完成后会展示素材能力包。"),
+    nextText: shotCards.length ? "这部分可直接供结构重组和 shot design 判断素材供给。" : "",
+  };
+}
+
 function resolveFunctionSlotAtomizationDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
   const analysis = artifact.functionSlotAtomizationAnalysis;
   const slots = analysis?.slotMap?.slots ?? [];
@@ -340,6 +356,8 @@ function normalizeTitle(value: string | null | undefined) {
 
 export function resolveWorkflowStages(item: AnalysisHistoryItem | null): WorkflowStages {
   const artifact = item?.artifact;
+  const workflowStages = item?.workflowRun?.stages ?? [];
+  const materialMode = isMaterialRecognitionItem(item);
   const sampleRunning = Boolean(item?.isRunning) || isRunningStatus(item?.status);
   const uploadDone = Boolean(item);
   const shotDone = Boolean(artifact?.shotBoundaryAnalysis);
@@ -347,7 +365,41 @@ export function resolveWorkflowStages(item: AnalysisHistoryItem | null): Workflo
   const rhythmDone = Boolean(artifact?.rhythmStructureAnalysis);
   const packagingDone = Boolean(artifact?.packagingStructureAnalysis);
   const atomizationDone = Boolean(artifact?.functionSlotAtomizationAnalysis);
+  const materialDone = Boolean(artifact?.userMaterialPack);
   const structureDone = scriptDone && rhythmDone && packagingDone;
+
+  if (materialMode) {
+    return [
+      {
+        key: "upload",
+        label: "上传素材",
+        moduleLabel: "sample-ingest",
+        dependencyLabel: "起点",
+        status: statusForStage("upload", { done: uploadDone, dependenciesDone: true, running: sampleRunning, workflowStages }),
+      },
+      {
+        key: "shotBoundary",
+        label: "切镜",
+        moduleLabel: "shot-boundary",
+        dependencyLabel: "依赖：上传素材",
+        status: statusForStage("shotBoundary", { done: shotDone, dependenciesDone: uploadDone, running: sampleRunning, workflowStages }),
+      },
+      {
+        key: "userMaterialTagger",
+        label: "素材识别",
+        moduleLabel: "user-material-tagger",
+        dependencyLabel: "依赖：切镜",
+        status: statusForStage("userMaterialTagger", { done: materialDone, dependenciesDone: shotDone, running: sampleRunning, workflowStages }),
+      },
+      {
+        key: "aggregate",
+        label: "汇总",
+        moduleLabel: "workflow.aggregate",
+        dependencyLabel: "依赖：素材识别",
+        status: statusForStage("aggregate", { done: materialDone, dependenciesDone: materialDone, running: sampleRunning, workflowStages }),
+      },
+    ];
+  }
 
   return [
     {
@@ -355,51 +407,71 @@ export function resolveWorkflowStages(item: AnalysisHistoryItem | null): Workflo
       label: "上传素材",
       moduleLabel: "sample-ingest",
       dependencyLabel: "起点",
-      status: statusFor({ done: uploadDone, dependenciesDone: true, running: sampleRunning }),
+      status: statusForStage("upload", { done: uploadDone, dependenciesDone: true, running: sampleRunning, workflowStages }),
     },
     {
       key: "shotBoundary",
       label: "切镜",
       moduleLabel: "shot-boundary",
       dependencyLabel: "依赖：上传素材",
-      status: statusFor({ done: shotDone, dependenciesDone: uploadDone, running: sampleRunning }),
+      status: statusForStage("shotBoundary", { done: shotDone, dependenciesDone: uploadDone, running: sampleRunning, workflowStages }),
     },
     {
       key: "scriptSegment",
       label: "脚本段落",
       moduleLabel: "script-segments",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: scriptDone, dependenciesDone: shotDone, running: sampleRunning }),
+      status: statusForStage("scriptSegment", { done: scriptDone, dependenciesDone: shotDone, running: sampleRunning, workflowStages }),
     },
     {
       key: "rhythmStructure",
       label: "节奏结构",
       moduleLabel: "rhythm-structure",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: rhythmDone, dependenciesDone: shotDone, running: sampleRunning }),
+      status: statusForStage("rhythmStructure", { done: rhythmDone, dependenciesDone: shotDone, running: sampleRunning, workflowStages }),
     },
     {
       key: "packagingStructure",
       label: "包装结构",
       moduleLabel: "packaging-structure",
       dependencyLabel: "依赖：切镜",
-      status: statusFor({ done: packagingDone, dependenciesDone: shotDone, running: sampleRunning }),
+      status: statusForStage("packagingStructure", { done: packagingDone, dependenciesDone: shotDone, running: sampleRunning, workflowStages }),
     },
     {
       key: "functionSlotAtomization",
       label: "功能槽位原子化",
       moduleLabel: "function-slot-atomization",
       dependencyLabel: "依赖：脚本 + 节奏 + 包装",
-      status: statusFor({ done: atomizationDone, dependenciesDone: structureDone, running: sampleRunning }),
+      status: statusForStage("functionSlotAtomization", { done: atomizationDone, dependenciesDone: structureDone, running: sampleRunning, workflowStages }),
     },
     {
       key: "aggregate",
       label: "汇总",
       moduleLabel: "workflow.aggregate",
       dependencyLabel: "依赖：功能槽位原子化",
-      status: statusFor({ done: atomizationDone, dependenciesDone: atomizationDone, running: sampleRunning }),
+      status: statusForStage("aggregate", { done: atomizationDone, dependenciesDone: atomizationDone, running: sampleRunning, workflowStages }),
     },
   ];
+}
+
+function statusForStage(
+  stageKey: WorkflowStageKey,
+  {
+    done,
+    dependenciesDone,
+    running,
+    workflowStages,
+  }: {
+    done: boolean;
+    dependenciesDone: boolean;
+    running: boolean;
+    workflowStages: NonNullable<AnalysisHistoryItem["workflowRun"]>["stages"];
+  },
+): WorkflowStageStatus {
+  const workflowStage = workflowStages.find((stage) => stage.key === stageKey);
+  const workflowStatus = workflowStageStatus(workflowStage?.status);
+  if (workflowStatus) return workflowStatus;
+  return statusFor({ done, dependenciesDone, running });
 }
 
 function statusFor({ done, dependenciesDone, running }: { done: boolean; dependenciesDone: boolean; running: boolean }): WorkflowStageStatus {
@@ -410,6 +482,7 @@ function statusFor({ done, dependenciesDone, running }: { done: boolean; depende
 
 export function resolveGroupStatus(stages: WorkflowStage[]): WorkflowStageStatus {
   if (stages.every((stage) => stage.status === "done")) return "done";
+  if (stages.some((stage) => stage.status === "failed")) return "failed";
   if (stages.some((stage) => stage.status === "running")) return "running";
   return "waiting";
 }
@@ -417,6 +490,7 @@ export function resolveGroupStatus(stages: WorkflowStage[]): WorkflowStageStatus
 export function statusLabel(status: WorkflowStageStatus) {
   if (status === "done") return "已完成";
   if (status === "running") return "处理中";
+  if (status === "failed") return "失败";
   return "等待中";
 }
 
@@ -427,10 +501,25 @@ export function stageTitle(stageKey: WorkflowStageKey) {
   if (stageKey === "scriptSegment") return "脚本段落";
   if (stageKey === "rhythmStructure") return "节奏结构";
   if (stageKey === "packagingStructure") return "包装结构";
+  if (stageKey === "userMaterialTagger") return "素材识别";
   if (stageKey === "functionSlotAtomization") return "功能槽位原子化";
   return "汇总";
 }
 
 function isRunningStatus(status: string | null | undefined) {
   return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
+}
+
+function workflowStageStatus(status: string | null | undefined): WorkflowStageStatus | null {
+  const text = String(status ?? "").toLowerCase();
+  if (!text || text === "pending") return null;
+  if (text === "processed") return "done";
+  if (text === "failed" || text === "partial_failed" || text === "canceled") return "failed";
+  if (["running", "processing", "waiting", "blocked", "cache_waiting"].includes(text)) return "running";
+  return null;
+}
+
+function isMaterialRecognitionItem(item: AnalysisHistoryItem | null) {
+  if (item?.workflowRun?.workflowKey === "material-recognition") return true;
+  return Boolean(item?.hasUserMaterialPack && !item.hasFunctionSlotAtomization);
 }

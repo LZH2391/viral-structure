@@ -15,7 +15,7 @@ type LibraryGraphSummary = {
   counts?: Record<string, number>;
 };
 
-type GraphMode = "structure" | "governance" | "planTrace";
+export type GraphMode = "structure" | "governance" | "planTrace";
 type GraphRenderer = "pixi" | "svg";
 
 const STRUCTURE_FILTERS: GraphFiltersState = {
@@ -43,11 +43,20 @@ const PLAN_TRACE_FILTERS: GraphFiltersState = {
   ...STRUCTURE_FILTERS,
 };
 
+type FunctionSlotGraphWorkspaceProps = {
+  embedded?: boolean;
+  fixedMode?: GraphMode;
+};
+
 export function FunctionSlotGraphApp() {
+  return <FunctionSlotGraphWorkspace />;
+}
+
+export function FunctionSlotGraphWorkspace({ embedded = false, fixedMode }: FunctionSlotGraphWorkspaceProps = {}) {
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [graph, setGraph] = useState<FunctionSlotLibraryGraph | null>(null);
-  const [mode, setMode] = useState<GraphMode>("structure");
+  const [uncontrolledMode, setUncontrolledMode] = useState<GraphMode>(fixedMode ?? "structure");
   const [renderer, setRenderer] = useState<GraphRenderer>(() => initialRenderer());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取结构图谱");
@@ -75,6 +84,11 @@ export function FunctionSlotGraphApp() {
   useEffect(() => {
     refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
   }, [refresh]);
+
+  const mode = fixedMode ?? uncontrolledMode;
+  const setMode = useCallback((nextMode: GraphMode) => {
+    if (!fixedMode) setUncontrolledMode(nextMode);
+  }, [fixedMode]);
 
   useEffect(() => {
     if (mode !== "structure") return;
@@ -148,54 +162,72 @@ export function FunctionSlotGraphApp() {
   const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [activeGraph, selectedNodeId, visible.nodes]);
 
   useEffect(() => {
+    if (embedded) return;
     const url = new URL(window.location.href);
     url.searchParams.set("renderer", renderer);
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [renderer]);
+  }, [embedded, renderer]);
 
   return (
-    <div className="slot-graph-shell">
-      <header className="topbar">
-        <div className="project-block">
-          <div className="project-name">结构图谱</div>
-          <div className="save-status">{status}</div>
-        </div>
-        <div className="run-strip">
-          <span className="run-pill">{items.length} library items</span>
-          <span className="trace-label">{mode === "governance" ? "SemanticGovernance" : mode === "planTrace" ? "ConfirmedPlanTrace" : "FunctionSlotLibrary"}</span>
-        </div>
-        <div className="top-actions">
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/")}>
-            工作台
-          </button>
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/full-analysis")}>
-            完整分析
-          </button>
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/library")}>
-            处理库
-          </button>
-          <button className="tab-button active" type="button">
-            结构图谱
-          </button>
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
-            ThreadPool
-          </button>
-          <button className="tab-button" type="button" onClick={() => window.location.assign("/agent-chat")}>
-            Agent 对话
-          </button>
-          <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
-            刷新
-          </button>
-        </div>
-      </header>
+    <div className={`slot-graph-shell ${embedded ? "embedded" : ""}`.trim()}>
+      {!embedded ? (
+        <header className="topbar">
+          <div className="project-block">
+            <div className="project-name">结构图谱</div>
+            <div className="save-status">{status}</div>
+          </div>
+          <div className="run-strip">
+            <span className="run-pill">{items.length} library items</span>
+            <span className="trace-label">{mode === "governance" ? "SemanticGovernance" : mode === "planTrace" ? "ConfirmedPlanTrace" : "FunctionSlotLibrary"}</span>
+          </div>
+          <div className="top-actions">
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/")}>
+              工作台
+            </button>
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/full-analysis")}>
+              完整分析
+            </button>
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/library")}>
+              处理库
+            </button>
+            <button className="tab-button active" type="button">
+              结构图谱
+            </button>
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/threadpool")}>
+              ThreadPool
+            </button>
+            <button className="tab-button" type="button" onClick={() => window.location.assign("/agent-chat")}>
+              Agent 对话
+            </button>
+            <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
+              刷新
+            </button>
+          </div>
+        </header>
+      ) : null}
       <main className="slot-graph-layout">
         <aside className="slot-graph-list">
-          <div className="section-heading">图谱模式</div>
-          <select className="slot-graph-mode-select" value={mode} onChange={(event) => setMode(event.target.value as GraphMode)}>
-            <option value="structure">样例结构图</option>
-            <option value="governance">语义治理图</option>
-            <option value="planTrace">确定方案溯源</option>
-          </select>
+          {embedded ? (
+            <>
+              <div className="section-heading">同步状态</div>
+              <div className="slot-graph-status-card">
+                <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "方案溯源图" : "样例结构图"}</strong>
+                <span>{status}</span>
+                <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
+                  刷新
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="section-heading">图谱模式</div>
+              <select className="slot-graph-mode-select" value={mode} onChange={(event) => setMode(event.target.value as GraphMode)}>
+                <option value="structure">样例结构图</option>
+                <option value="governance">语义治理图</option>
+                <option value="planTrace">确定方案溯源</option>
+              </select>
+            </>
+          )}
           <div className="section-heading">布局模式</div>
           <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
             <option value="columns">等距列排版</option>
