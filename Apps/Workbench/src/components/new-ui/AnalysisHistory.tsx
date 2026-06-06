@@ -146,7 +146,6 @@ function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement
     width: placement.width,
     height: placement.height,
   };
-  const displayRatioLabel = media.orientation === "portrait" ? "1:2" : "2:1";
   const showCover = Boolean(media.coverUrl && !coverFailed);
 
   useEffect(() => {
@@ -201,7 +200,7 @@ function AnalysisHistoryCard({ placement, onOpen }: { placement: DominoPlacement
         {previewing && media.videoUrl ? <video ref={videoRef} src={media.videoUrl} muted loop playsInline preload="none" aria-hidden="true" /> : null}
         <span className={`new-ui-analysis-history-badge new-ui-analysis-history-badge-${badgeClass(media.badgeLabel)}`}>{media.badgeLabel}</span>
         <span className="new-ui-analysis-history-duration">{media.durationLabel}</span>
-        <span className="new-ui-analysis-history-ratio">{displayRatioLabel}</span>
+        <span className="new-ui-analysis-history-ratio">{media.ratioLabel}</span>
       </div>
       <div className="new-ui-analysis-history-meta">
         <span className="new-ui-analysis-history-name">{media.title}</span>

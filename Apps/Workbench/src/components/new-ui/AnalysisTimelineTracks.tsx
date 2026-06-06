@@ -29,6 +29,8 @@ type VideoFrameCallbackVideo = {
   cancelVideoFrameCallback?: (handle: number) => void;
 };
 
+const TIMELINE_READY_TIMEOUT_MS = 1600;
+
 export function AnalysisTimelineTracks({
   item,
   mediaKey,
@@ -55,11 +57,11 @@ export function AnalysisTimelineTracks({
   const { duration, subtitleBlocks, tracks } = useMemo(() => resolveAnalysisTimelineTracks(item), [item]);
   const ticks = useMemo(() => resolveTimelineTicks(duration), [duration]);
   const shotCount = tracks.find((track) => track.key === "shot")?.blocks.length ?? 0;
+  const timelineBlockCount = subtitleBlocks.length + tracks.reduce((sum, track) => sum + track.blocks.length, 0);
   const timelineReadySignature = useMemo(() => {
     const frameCount = tracks.reduce((sum, track) => sum + track.blocks.reduce((trackSum, block) => trackSum + (block.frameUrls?.length ?? 0), 0), 0);
-    const blockCount = subtitleBlocks.length + tracks.reduce((sum, track) => sum + track.blocks.length, 0);
-    return `${mediaKey}:${blockCount}:${frameCount}`;
-  }, [mediaKey, subtitleBlocks.length, tracks]);
+    return `${mediaKey}:${timelineBlockCount}:${frameCount}`;
+  }, [mediaKey, timelineBlockCount, tracks]);
 
   const seekFromPlayheadClientX = (clientX: number) => {
     const scale = playheadScaleRef.current;
@@ -160,41 +162,32 @@ export function AnalysisTimelineTracks({
   }, [active, duration, mediaKey, videoRef]);
 
   useEffect(() => {
-    if (!active || !onReady) return undefined;
+    if (!active || !onReady || timelineBlockCount <= 0) return undefined;
     const timeline = timelineRef.current;
     if (!timeline) return undefined;
-    const imageElements = Array.from(timeline.querySelectorAll<HTMLImageElement>(".new-ui-analysis-shot-frame"));
-    const pendingImages = imageElements.filter((image) => !image.complete);
-    if (!pendingImages.length) {
-      const animationFrameId = window.requestAnimationFrame(onReady);
-      return () => window.cancelAnimationFrame(animationFrameId);
-    }
-    let settled = false;
-    let remaining = pendingImages.length;
-    const markReady = () => {
-      if (settled) return;
-      remaining -= 1;
-      if (remaining > 0) return;
-      settled = true;
-      onReady();
-    };
+    let cancelled = false;
+    const animationFrameIds: number[] = [];
     const timeoutId = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      onReady();
-    }, 800);
-    pendingImages.forEach((image) => {
-      image.addEventListener("load", markReady, { once: true });
-      image.addEventListener("error", markReady, { once: true });
-    });
-    return () => {
-      window.clearTimeout(timeoutId);
-      pendingImages.forEach((image) => {
-        image.removeEventListener("load", markReady);
-        image.removeEventListener("error", markReady);
+      if (!cancelled) signalTimelineReadyAfterPaint(onReady, animationFrameIds);
+    }, TIMELINE_READY_TIMEOUT_MS);
+    const imageElements = Array.from(timeline.querySelectorAll<HTMLImageElement>(".new-ui-analysis-shot-frame"));
+    Promise.all(imageElements.map(waitForImageDecode))
+      .then(() => {
+        if (cancelled) return;
+        window.clearTimeout(timeoutId);
+        signalTimelineReadyAfterPaint(onReady, animationFrameIds);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        window.clearTimeout(timeoutId);
+        signalTimelineReadyAfterPaint(onReady, animationFrameIds);
       });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      animationFrameIds.forEach((id) => window.cancelAnimationFrame(id));
     };
-  }, [active, onReady, timelineReadySignature]);
+  }, [active, onReady, timelineBlockCount, timelineReadySignature]);
 
   return (
     <section ref={timelineRef} className="new-ui-analysis-timeline" aria-label="分析轨道">
@@ -305,6 +298,27 @@ export function AnalysisTimelineTracks({
       </div>
     </section>
   );
+}
+
+function signalTimelineReadyAfterPaint(onReady: () => void, animationFrameIds: number[]) {
+  const firstFrameId = window.requestAnimationFrame(() => {
+    const secondFrameId = window.requestAnimationFrame(onReady);
+    animationFrameIds.push(secondFrameId);
+  });
+  animationFrameIds.push(firstFrameId);
+}
+
+function waitForImageDecode(image: HTMLImageElement) {
+  const waitForLoad = image.complete
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+      const done = () => resolve();
+      image.addEventListener("load", done, { once: true });
+      image.addEventListener("error", done, { once: true });
+    });
+  return waitForLoad
+    .then(() => image.decode?.().catch(() => undefined))
+    .then(() => undefined);
 }
 
 function StructureTimelineBlock({

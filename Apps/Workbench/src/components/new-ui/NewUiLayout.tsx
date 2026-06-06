@@ -36,6 +36,7 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const LIBRARY_GRAPH_MOUNT_DELAY_MS = 320;
+const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
@@ -57,6 +58,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [libraryGraphMounted, setLibraryGraphMounted] = useState(false);
+  const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
     title: "新建分析",
@@ -64,7 +66,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   });
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
-    ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.selectedTimelineSegment?.id ?? "workflow"}`
+    ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
@@ -109,13 +111,31 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   useEffect(() => {
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
+      setAnalysisWorkflowMounted(false);
       setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
     lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
+    setAnalysisWorkflowMounted(false);
     setRightCollapsed(false);
   }, [analysisWorkflowRevealKey]);
+
+  useEffect(() => {
+    if (!showAnalysisWorkflow) {
+      setAnalysisWorkflowMounted(false);
+      return undefined;
+    }
+    if (rightCollapsed || analysisWorkflowMounted) return undefined;
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setAnalysisWorkflowMounted(true);
+    }, ANALYSIS_WORKFLOW_MOUNT_DELAY_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [analysisWorkflowMounted, rightCollapsed, showAnalysisWorkflow]);
 
   const handleAnalysisDetailStateChange = useCallback((nextDetail: AnalysisDetailSidebarState) => {
     setAnalysisDetail((current) => {
@@ -136,6 +156,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   const toggleLeftCollapsed = () => {
     setLeftCollapsed((value) => !value);
+  };
+
+  const toggleRightCollapsed = () => {
+    setRightCollapsed((value) => !value);
   };
 
   return (
@@ -191,9 +215,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         />
       ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
       <aside className="new-ui-pane new-ui-pane-right" aria-label="右侧栏">
-        <PaneHeader collapsed={rightCollapsed} onToggle={() => setRightCollapsed((value) => !value)} side="right" />
-        <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showAnalysisWorkflow}>
-          {showAnalysisWorkflow ? (
+        <PaneHeader collapsed={rightCollapsed} onToggle={toggleRightCollapsed} side="right" />
+        <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showAnalysisWorkflow || !analysisWorkflowMounted}>
+          {showAnalysisWorkflow && analysisWorkflowMounted ? (
             <AnalysisWorkflowSidebar
               detail={analysisDetail}
               onWorkflowStageSelect={() => setTimelineSelectionClearRequest((value) => value + 1)}

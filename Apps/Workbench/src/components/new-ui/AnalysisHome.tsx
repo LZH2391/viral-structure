@@ -213,6 +213,10 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   }, [detailArtifactSignature, detailHeavyReady, detailItem?.sampleVideoId, detailItem?.workflowRunId, view]);
 
   useEffect(() => {
+    if (!detailItem?.artifact) setDetailTimelineReady(false);
+  }, [detailItem?.artifact]);
+
+  useEffect(() => {
     if (!detailHeavyReady || view !== "detail" || !detailItem || !isAnalysisItemRunning(detailItem)) return undefined;
     const pollingKey = analysisDetailPollingKey(detailItem);
     if (detailPollingKeyRef.current === pollingKey) return undefined;
@@ -455,7 +459,7 @@ function AnalysisDetailPage({
         <AnalysisTimelineTracks
           item={heavyReady && item?.artifact ? item : null}
           mediaKey={heavyReady ? media?.videoUrl ?? item?.sampleVideoId ?? "empty" : "deferred"}
-          active={!hidden && heavyReady}
+          active={!hidden && heavyReady && Boolean(item?.artifact)}
           videoRef={videoRef}
           selectedSegmentId={selectedTimelineSegment?.id ?? null}
           onReady={onTimelineReady}

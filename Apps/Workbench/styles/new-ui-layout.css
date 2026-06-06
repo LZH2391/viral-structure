@@ -174,10 +174,8 @@
   padding: 46px 14px 18px;
   overflow: hidden;
   opacity: 1;
-  transform: translateX(0);
   transition:
     opacity 180ms ease,
-    transform 220ms ease,
     padding 220ms ease;
 }
 
@@ -203,10 +201,6 @@
 
 .new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-body {
   padding: 46px 14px 18px;
-}
-
-.new-ui-layout.is-right-collapsed .new-ui-pane-right .new-ui-pane-body {
-  transform: translateX(8px);
 }
 
 .new-ui-sidebar-nav {

@@ -123,11 +123,11 @@ export function normalizeMediaTitle(value: string) {
 }
 
 function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "结构分析" | "分析中" | "未完成" {
-  if (item.isRunning) return "分析中";
   if (item.hasFunctionSlotAtomization) return "结构分析";
   if (item.hasUserMaterialPack) return "素材识别";
+  if (isHistoryItemRunning(item)) return "分析中";
   if (item.isIncomplete) return "未完成";
-  return "分析中";
+  return "未完成";
 }
 
 function isIncompleteAnalysisArtifact(artifact: SampleArtifact) {
@@ -143,6 +143,15 @@ function isIncompleteAnalysisArtifact(artifact: SampleArtifact) {
 
 function isRunningStatus(status: string | null | undefined) {
   return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
+}
+
+function isHistoryItemRunning(item: AnalysisHistoryItem) {
+  return Boolean(
+    item.isRunning
+      || isRunningStatus(item.runtimeState?.status)
+      || isRunningStatus(item.workflowRun?.status)
+      || isRunningStatus(item.status),
+  );
 }
 
 function analysisTraceField(analysis: unknown, key: "traceId" | "runId" | "stageId") {
