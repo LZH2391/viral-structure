@@ -712,6 +712,154 @@
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
         ]
       }
+    },
+    {
+      "id": "REVIEW_010",
+      "severity": "high",
+      "topic": "rhythm atomPattern 抽象层不足",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006"
+      ],
+      "evidenceFor": [
+        "当前 rhythm 治理只有 ATOM_ARCH_rhythm_attention_load_control 一个宽父类，candidate pattern 多数仍以 slotType 加节奏形态命名。",
+        "多个 rhythm candidate 的核心差异实际是注意力功能，例如快入抓取、解释降速、转向桥接、细节峰值、结果释放和收束冷却。"
+      ],
+      "evidenceAgainst": [
+        "原始 rhythm atom 字段在样例间缺少字段级 exact overlap，不能直接做机械合并。",
+        "部分节奏功能依赖前后槽位承接，必须保留来源 variant 证据，不能只按快慢归并。"
+      ],
+      "question": "下一轮 atom 治理是否应先拆 rhythm 中层 archetype，再把 candidate pattern 按注意力功能重挂或合并？",
+      "recommendedAction": "不要重建样例库；下一轮仅重审 rhythm atomPatterns，优先拆出快入抓取、解释降速、转向桥接、细节峰值、结果释放和收束冷却等功能父类，再决定 candidate 是否保留。",
+      "support": {
+        "variantCount": 12,
+        "sampleCount": 2,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_011",
+      "severity": "high",
+      "topic": "packaging atomPattern 父层过宽",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003"
+      ],
+      "evidenceFor": [
+        "当前 packaging pattern 全部挂在 ATOM_ARCH_packaging_visual_proof_carrier 下，父类同时覆盖入口识别、机制证明、体验证明、场景证明、信任证明和转化收束。",
+        "多个 packaging candidate 的 proofType 已经能看出更稳定的视觉证明功能层，但 pattern id/name 仍大量贴近来源 slotType。"
+      ],
+      "evidenceAgainst": [
+        "包装证明功能需要同时看 proofType、visualHierarchyClass、replaceableFormClasses 和 riskClass，不能按包装样式或字幕形态直接合并。",
+        "当前样例里部分包装功能只出现一次，仍需保留 candidate 风险。"
+      ],
+      "question": "下一轮 packaging 治理是否应新增入口识别、问题定位、机制/因果证明、体验证明、场景证明、价值信任和转化收束等父级？",
+      "recommendedAction": "仅重审 packaging atomPatterns；先拆视觉证明功能父层，再判断现有 candidate 是挂到新父级、并入已有 pattern，还是继续作为单例 candidate。",
+      "support": {
+        "variantCount": 12,
+        "sampleCount": 3,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_012",
+      "severity": "medium",
+      "topic": "candidate atomPattern 命名贴近 slotType",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004"
+      ],
+      "evidenceFor": [
+        "大量 candidate id 形如 SCRIPT_candidate_<slotType>_<claim>、RHYTHM_candidate_<slotType>_<pace>、PACK_candidate_<slotType>_<proof>，slotType 成为 pattern 主语。",
+        "新治理规则要求 slotType 只出现在 source / forSlotSubtypeIds / differenceNotes 中，pattern 名称应表达可迁移功能。"
+      ],
+      "evidenceAgainst": [
+        "这些 candidate 仍有清晰来源和可命名功能，不应简单移入 unmapped。",
+        "部分 slotType 本身承载了链路角色，重命名时不能丢失 forSlotSubtypeIds 和来源差异。"
+      ],
+      "question": "是否对现有 candidate atomPattern 做一次命名和定义层面的审查，把 slotType 主语改为功能主语？",
+      "recommendedAction": "下一轮不要重建 coverage；只审查 candidate pattern 的 id/name/judgementReason，把可迁移功能写成主语，并保留 slotType 在适用范围字段中。",
+      "support": {
+        "variantCount": 12,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_013",
+      "severity": "medium",
+      "topic": "功能相近 atomPattern 需要人工复审归并",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004"
+      ],
+      "evidenceFor": [
+        "多个开场 rhythm atom 都承担快入抓取、观看理由建立或高注意力入口功能，可能是同一功能 pattern 的不同 variant。",
+        "多个 packaging atom 都承担机制/可信原因的视觉证明功能，差异更多体现在品类载体和 visualHierarchy。"
+      ],
+      "evidenceAgainst": [
+        "这些 atom 所在 slot subtype、前后链路和证明义务不同，不能按名称或字段相似直接合并。",
+        "部分 packaging 证明的是机制因果，部分证明的是可信阈值或覆盖关系，误合并会导致证明载体替换风险。"
+      ],
+      "question": "这些 rhythm / packaging candidate 是否可按注意力功能或视觉证明功能归入已有 pattern，还是需要拆更准确的 parent archetype 后保留 candidate？",
+      "recommendedAction": "下一轮治理按新 skill 的三步判定复审：先尝试归入已有 pattern，再判断父类是否过宽，最后才保留 candidate。",
+      "support": {
+        "variantCount": 8,
+        "sampleCount": 6,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      }
     }
   ],
   "openQuestions": [
@@ -723,6 +871,9 @@
     "可信疑问加压与机制可信是否应合并？当前 credibility_question/objective_proof_release 是“提问-证据释放”关系，mechanism_credibility 是原因解释，暂按不同 archetype 处理。",
     "感官证据堆叠与品质放心背书是否应连续治理为固定链？当前只观察到常见相邻关系，不作为固定模板。",
     "包装 visual proof carrier 是否需要拆父层？当前先用 proofType/visualHierarchy 控制检索，待更多样例确认入口、机制、体验、转化包装是否稳定分化。",
-    "服饰/穿搭样例中的场景价值扩展和转化收束是否适合迁移到食品、清洁、个护品类？当前只作为候选 pattern 使用，跨品类时必须检查证明载体。"
+    "服饰/穿搭样例中的场景价值扩展和转化收束是否适合迁移到食品、清洁、个护品类？当前只作为候选 pattern 使用，跨品类时必须检查证明载体。",
+    "rhythm atomPattern 是否需要先拆出注意力功能父类，再决定快入抓取、解释降速、转向桥接、细节峰值、结果释放和收束冷却的 pattern 归并？",
+    "packaging atomPattern 是否需要先拆出视觉证明功能父类，再决定入口识别、机制证明、体验证明、场景证明、价值信任和转化收束的 pattern 归并？",
+    "现有 candidate atomPattern 的 id/name 是否应从 slotType 主语改为功能主语，并把 slotType 仅保留在 forSlotSubtypeIds 与 differenceNotes 中？"
   ]
 }

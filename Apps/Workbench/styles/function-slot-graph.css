@@ -1,4 +1,5 @@
 .slot-graph-shell {
+  --slot-graph-node-occlusion-fill: #121318;
   --slot-graph-edge-default: #8a8a86;
   --slot-graph-edge-slot: #8fc89a;
   --slot-graph-edge-sequence: #c8b46a;
@@ -69,6 +70,7 @@
 }
 
 .new-ui-shell .slot-graph-shell.embedded {
+  --slot-graph-node-occlusion-fill: var(--new-ui-bg);
   --slot-graph-edge-default: var(--new-ui-gray-300);
   --slot-graph-edge-slot: var(--new-ui-green-400);
   --slot-graph-edge-sequence: var(--slot-graph-edge-slot);
@@ -118,6 +120,7 @@
 }
 
 .new-ui-shell[data-theme="light"] .slot-graph-shell.embedded {
+  --slot-graph-node-occlusion-fill: var(--new-ui-surface);
   --slot-graph-edge-default: var(--new-ui-gray-700);
   --slot-graph-edge-slot: #587b60;
   --slot-graph-edge-sequence: var(--slot-graph-edge-slot);

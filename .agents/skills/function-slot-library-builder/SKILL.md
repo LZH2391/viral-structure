@@ -192,6 +192,9 @@ Runtime/Temp/FunctionSlotLibrary/governance_lookup_index.json
 读取 `references/atom-binding-rule-governance.md`。
 
 - script / rhythm / packaging 三类 atom 独立治理，不允许全部按 script pattern 并入。
+- 新增 atomPattern 前必须先判断能否归入已有 pattern，再判断 parent atomArchetype 是否准确，最后才判断是否新增 candidate pattern。
+- atomPattern 的 id/name 必须表达可迁移功能，不要以 slotType、来源样例或单个实现载体作为主要语义。
+- rhythm pattern 优先表达注意力功能；packaging pattern 优先表达视觉证明功能。pace、density、镜头载体和包装样式只能作为实现参数或 replaceable forms。
 - rhythm atom 治理可以归纳 `timingPolicy`，例如单镜范围、总段范围、口播密度和不适配场景；不要把每个来源 shot 的真实秒数搬进治理层。
 - binding pattern 看关系约束，不看文本相似。
 - rule pattern 看重组政策，不看 `reason` / `fix` 文案接近。

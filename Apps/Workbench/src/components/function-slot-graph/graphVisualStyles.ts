@@ -36,6 +36,9 @@ export type GraphNodeDrawStyle = {
 };
 
 export type GraphVisualTheme = {
+  canvas: {
+    nodeOcclusionFill: number;
+  };
   edge: {
     default: number;
     slot: number;
@@ -89,6 +92,9 @@ export type GraphVisualTheme = {
 };
 
 export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
+  canvas: {
+    nodeOcclusionFill: 0x121318,
+  },
   edge: {
     default: 0x8a8a86,
     slot: 0x8fc89a,
@@ -142,6 +148,9 @@ export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
 };
 
 const GRAPH_VISUAL_THEME_TOKEN_MAP = {
+  canvas: {
+    nodeOcclusionFill: "--slot-graph-node-occlusion-fill",
+  },
   edge: {
     default: "--slot-graph-edge-default",
     slot: "--slot-graph-edge-slot",
@@ -197,6 +206,9 @@ export function readGraphVisualTheme(element: Element | null): GraphVisualTheme 
   if (!element || typeof window === "undefined") return GRAPH_VISUAL_THEME;
   const style = window.getComputedStyle(element);
   return {
+    canvas: {
+      nodeOcclusionFill: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.canvas.nodeOcclusionFill, cssColorToNumber(style.backgroundColor) ?? GRAPH_VISUAL_THEME.canvas.nodeOcclusionFill),
+    },
     edge: {
       default: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.default, GRAPH_VISUAL_THEME.edge.default),
       slot: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.slot, GRAPH_VISUAL_THEME.edge.slot),

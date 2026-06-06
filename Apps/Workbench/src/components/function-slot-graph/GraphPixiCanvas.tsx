@@ -48,6 +48,7 @@ type PixiLayers = {
   background: Graphics;
   world: Container;
   edges: Container;
+  nodeOcclusions: Container;
   nodes: Container;
   labels: Container;
 };
@@ -253,14 +254,16 @@ function GraphPixiCanvasInner({
     const background = new Graphics();
     const world = new Container();
     const edges = new Container();
+    const nodeOcclusions = new Container();
     const nodes = new Container();
     const labels = new Container();
     root.addChild(background);
     world.addChild(edges);
+    world.addChild(nodeOcclusions);
     world.addChild(nodes);
     world.addChild(labels);
     root.addChild(world);
-    layersRef.current = { root, background, world, edges, nodes, labels };
+    layersRef.current = { root, background, world, edges, nodeOcclusions, nodes, labels };
 
     app.init({
       antialias: true,
@@ -477,7 +480,7 @@ function GraphPixiCanvasInner({
     applyViewportTransformRef.current();
     drawPixiBackground(layers.background, graphThemeRef.current);
     syncPixiEdges(layers.edges, graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
-    syncPixiNodes(layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
+    syncPixiNodes(layers.nodeOcclusions, layers.nodes, layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
     renderPixi();
   };
   syncGraphObjectsRef.current = syncGraphObjects;

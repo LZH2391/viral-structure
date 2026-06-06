@@ -54,6 +54,7 @@ type PixiNodeView = {
   container: Container;
   glow: Graphics;
   ring: Graphics;
+  occlusion: Graphics;
   body: Graphics;
   slotBadge: Graphics;
   slotBadgeText: Text;
@@ -62,6 +63,7 @@ type PixiNodeView = {
   label: Text | null;
   glowKey: string | null;
   ringKey: string | null;
+  occlusionKey: string | null;
   bodyKey: string | null;
   slotBadgeKey: string | null;
   planBadgeKey: string | null;
@@ -84,6 +86,7 @@ export function destroyPixiGraphObjects(objects: PixiGraphObjects) {
   for (const edge of objects.edges.values()) edge.container.destroy({ children: true });
   for (const view of objects.nodes.values()) {
     view.label?.destroy();
+    view.occlusion.destroy();
     view.container.destroy({ children: true });
   }
   objects.edges.clear();
@@ -149,18 +152,19 @@ export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, e
   }
 }
 
-export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number) {
+export function syncPixiNodes(nodeOcclusionLayer: Container, nodeLayer: Container, labelLayer: Container, objects: PixiGraphObjects, nodes: SimNode[], state: PixiGraphRenderState, zoom: number) {
   const nodeIds = new Set(nodes.map((node) => node.id));
   for (const [nodeId, view] of objects.nodes.entries()) {
     if (nodeIds.has(nodeId)) continue;
     view.label?.destroy();
     view.label = null;
+    view.occlusion.destroy();
     view.container.destroy({ children: true });
     objects.nodes.delete(nodeId);
   }
 
   for (const node of nodes) {
-    const view = getNodeView(nodeLayer, objects, node.id);
+    const view = getNodeView(nodeOcclusionLayer, nodeLayer, objects, node.id);
     const focused = state.hasFocusNode && (node.id === state.hoveredNodeId || node.id === state.selectedNodeId || state.focusedIds.has(node.id));
     const focusMuted = state.hasFocusNode && !focused;
     const selected = node.id === state.selectedNodeId;
@@ -168,11 +172,13 @@ export function syncPixiNodes(nodeLayer: Container, labelLayer: Container, objec
     const hovered = node.id === state.hoveredNodeId;
     const radius = nodeRadius(node);
     const style = resolveGraphNodeStyle(node, state.mode, focused, selected, pinned, hovered, focusMuted, state.theme);
+    view.occlusion.position.set(node.x, node.y);
     view.container.position.set(node.x, node.y);
     view.container.alpha = style.groupAlpha;
 
     syncNodeRing(view, node, radius, state.theme);
     syncNodeGlow(view, radius, style);
+    syncNodeOcclusion(view, radius, state.theme);
     syncNodeBody(view, radius, style);
 
     syncSlotBadge(view, node, radius, state.theme);
@@ -214,6 +220,7 @@ export function syncPixiLayout(objects: PixiGraphObjects, edges: FunctionSlotGra
   for (const node of nodes) {
     const view = objects.nodes.get(node.id);
     if (!view) return false;
+    view.occlusion.position.set(node.x, node.y);
     view.container.position.set(node.x, node.y);
     if (view.label) {
       const radius = nodeRadius(node);
@@ -260,6 +267,7 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered, focusMuted, next.theme);
     view.container.alpha = style.groupAlpha;
     syncNodeGlow(view, radius, style);
+    syncNodeOcclusion(view, radius, next.theme);
     syncNodeBody(view, radius, style);
     if (view.label) {
       view.label.alpha = nodeLabelOpacity(next.mode, node, zoom) * style.groupAlpha;
@@ -304,13 +312,14 @@ function getEdgeView(edgeLayer: Container, objects: PixiGraphObjects, edgeId: st
   return view;
 }
 
-function getNodeView(nodeLayer: Container, objects: PixiGraphObjects, nodeId: string) {
+function getNodeView(nodeOcclusionLayer: Container, nodeLayer: Container, objects: PixiGraphObjects, nodeId: string) {
   const existing = objects.nodes.get(nodeId);
   if (existing) return existing;
 
   const container = new Container();
   const glow = new Graphics();
   const ring = new Graphics();
+  const occlusion = new Graphics();
   const body = new Graphics();
   const slotBadge = new Graphics();
   const planBadge = new Graphics();
@@ -325,12 +334,14 @@ function getNodeView(nodeLayer: Container, objects: PixiGraphObjects, nodeId: st
   container.addChild(planBadge);
   container.addChild(slotBadgeText);
   container.addChild(planBadgeText);
+  nodeOcclusionLayer.addChild(occlusion);
   nodeLayer.addChild(container);
 
   const view = {
     container,
     glow,
     ring,
+    occlusion,
     body,
     slotBadge,
     slotBadgeText,
@@ -339,6 +350,7 @@ function getNodeView(nodeLayer: Container, objects: PixiGraphObjects, nodeId: st
     label: null,
     glowKey: null,
     ringKey: null,
+    occlusionKey: null,
     bodyKey: null,
     slotBadgeKey: null,
     planBadgeKey: null,
@@ -408,6 +420,16 @@ function syncNodeGlow(view: PixiNodeView, radius: number, style: GraphNodeDrawSt
   if (view.glowKey === "none") return;
   view.glow.clear();
   view.glowKey = "none";
+}
+
+function syncNodeOcclusion(view: PixiNodeView, radius: number, theme: GraphVisualTheme) {
+  const key = `${radius}:${theme.canvas.nodeOcclusionFill}`;
+  if (view.occlusionKey === key) return;
+  view.occlusion
+    .clear()
+    .circle(0, 0, radius + 1.5)
+    .fill({ color: theme.canvas.nodeOcclusionFill, alpha: 1 });
+  view.occlusionKey = key;
 }
 
 function syncNodeBody(view: PixiNodeView, radius: number, style: GraphNodeDrawStyle) {

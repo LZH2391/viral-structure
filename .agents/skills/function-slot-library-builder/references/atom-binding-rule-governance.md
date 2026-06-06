@@ -28,6 +28,14 @@ atom archetype
 
 语义功能清晰、claim/proof/rhythm/packaging function 可命名的孤例 atom 可以进入 `atomPatterns`，但必须作为 candidate pattern 处理：`support.variantCount` 可以是 1，`judgementReason` 要说明为什么当前可命名，`differenceNotes` 要写清单例证据和后续可合并/拆分空间，`riskIfMisclassified` 要写明误用风险。
 
+单例 atom 进入 candidate pattern 不是默认动作。新增 atomPattern 前必须按以下顺序判断：
+
+1. 先判断能否归入已有 atomPattern。如果 proofNeed、rhythmFunction 或 proofType 的语义功能相同，只是品类、素材、镜头载体、包装样式、slotType 或来源样例不同，应归入已有 pattern，并把该 atom variant 追加到 `sourceVariantIds`。
+2. 再判断 parent atomArchetype 是否准确。如果多个 variant 都只能挂在很宽的父类下，说明 archetype 粒度不足，应优先新增或拆分更准确的 atomArchetype，再把 pattern 挂到新父类。
+3. 最后才判断是否新增 candidate pattern。只有当该 atom 功能清晰、不能归入已有 pattern、且 parent atomArchetype 已经准确时，才新增 candidate pattern。
+
+atomPattern 的 id/name 不应以 slotType、来源样例或单个实现载体作为主要语义。slotType 可以出现在 `forSlotSubtypeIds`、`sourceVariantIds`、`differenceNotes` 中，但 pattern 名称必须表达可迁移的 claim/proof/rhythm/packaging function。
+
 `unmappedAtomVariants` 只用于字段不足、证明功能无法命名、边界冲突、或暂不适合进入检索治理层的 atom。不要把清晰单例长期堆进 unmapped；否则图谱和重组只会看到“未治理盒子”，无法使用当前样例的结构化经验。
 
 ### script pattern
@@ -55,6 +63,8 @@ atom archetype
 
 快慢只是表层。要判断节奏服务的是打断、蓄势、解释、峰值、等待、兑现还是回落。
 
+rhythm pattern 不能只按 pace、density 或 beat 形态命名。必须优先表达注意力功能，例如快入抓取、追问加压、解释降速、转向桥接、细节峰值、结果释放、收束冷却。快慢、镜头密度、停顿、长镜头或剪辑频率只能作为实现参数，不能单独构成 pattern。
+
 ### packaging pattern
 
 比较：
@@ -66,6 +76,8 @@ atom archetype
 - risk if broken
 
 不要按具体包装样式合并，例如圆圈、箭头、字幕、贴纸。要按包装证明功能判断。
+
+packaging pattern 不能只按具体视觉载体或当前槽位证明句命名。必须优先表达视觉证明功能，例如对象/入口识别、问题定位、机制/因果证明、客观可信证明、感官体验证明、场景适配证明、价值/信任证明、转化收束证明。字幕、贴纸、箭头、特写、对比框、多实例展示只能作为 `replaceableFormClasses` 或差异说明。
 
 ## Binding 治理
 
