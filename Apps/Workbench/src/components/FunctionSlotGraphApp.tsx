@@ -67,7 +67,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const [layoutModesByMode, setLayoutModesByMode] = useState<Record<GraphMode, GovernanceLayoutMode>>({
     structure: "force",
     governance: "force",
-    planTrace: "columns",
+    planTrace: "force",
   });
 
   const refresh = useCallback(async () => {
@@ -250,17 +250,17 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
           <div className="section-heading">视图布局</div>
           {embedded ? (
             <div className="slot-graph-layout-options" role="group" aria-label="切换图谱布局">
-              <button className={governanceLayoutMode === "columns" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("columns")}>
-                列排布
-              </button>
               <button className={governanceLayoutMode === "force" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("force")}>
                 自由散点
+              </button>
+              <button className={governanceLayoutMode === "columns" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("columns")}>
+                列排布
               </button>
             </div>
           ) : (
             <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
-              <option value="columns">等距列排版</option>
               <option value="force">星图散点</option>
+              <option value="columns">等距列排版</option>
             </select>
           )}
           <div className="section-heading">{sourceHeading(mode)}</div>
