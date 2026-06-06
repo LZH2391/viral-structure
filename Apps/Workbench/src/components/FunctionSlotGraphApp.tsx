@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getFunctionSlotConfirmedPlanTraceGraph, getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
-import { GraphCanvas } from "./function-slot-graph/GraphCanvas";
 import { GraphPixiCanvas } from "./function-slot-graph/GraphPixiCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
 import { buildVisibleGraph } from "./function-slot-graph/graphUtils";
@@ -16,7 +15,6 @@ type LibraryGraphSummary = {
 };
 
 export type GraphMode = "structure" | "governance" | "planTrace";
-type GraphRenderer = "pixi" | "svg";
 
 const STRUCTURE_FILTERS: GraphFiltersState = {
   slot: true,
@@ -58,7 +56,6 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [graph, setGraph] = useState<FunctionSlotLibraryGraph | null>(null);
   const [uncontrolledMode, setUncontrolledMode] = useState<GraphMode>(fixedMode ?? "structure");
-  const [renderer, setRenderer] = useState<GraphRenderer>(() => initialRenderer());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [status, setStatus] = useState("读取结构图谱");
   const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
@@ -189,13 +186,6 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode]);
   const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [activeGraph, selectedNodeId, visible.nodes]);
 
-  useEffect(() => {
-    if (embedded) return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("renderer", renderer);
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [embedded, renderer]);
-
   return (
     <div className={`slot-graph-shell ${embedded ? "embedded" : ""}`.trim()}>
       {!embedded ? (
@@ -236,16 +226,17 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
       <main className="slot-graph-layout">
         <aside className="slot-graph-list">
           {embedded ? (
-            <>
-              <div className="section-heading">同步状态</div>
-              <div className="slot-graph-status-card">
-                <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "方案溯源图" : "样例结构图"}</strong>
-                <span>{status}</span>
-                <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
-                  刷新
-                </button>
+            <section className="slot-graph-library-brief" aria-label="当前库视图">
+              <div>
+                <span>当前库视图</span>
+                <strong>{graphModeLabel(mode)}</strong>
+                <small>{graphModeDescription(mode)}</small>
               </div>
-            </>
+              <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
+                刷新
+              </button>
+              <p>{status}</p>
+            </section>
           ) : (
             <>
               <div className="section-heading">图谱模式</div>
@@ -256,17 +247,23 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
               </select>
             </>
           )}
-          <div className="section-heading">布局模式</div>
-          <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
-            <option value="columns">等距列排版</option>
-            <option value="force">星图散点</option>
-          </select>
-          <div className="section-heading">渲染器</div>
-          <select className="slot-graph-mode-select" value={renderer} onChange={(event) => setRenderer(event.target.value as GraphRenderer)}>
-            <option value="pixi">Pixi 高性能版</option>
-            <option value="svg">D3/SVG 旧版</option>
-          </select>
-          <div className="section-heading">图谱来源</div>
+          <div className="section-heading">视图布局</div>
+          {embedded ? (
+            <div className="slot-graph-layout-options" role="group" aria-label="切换图谱布局">
+              <button className={governanceLayoutMode === "columns" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("columns")}>
+                列排布
+              </button>
+              <button className={governanceLayoutMode === "force" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("force")}>
+                自由散点
+              </button>
+            </div>
+          ) : (
+            <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
+              <option value="columns">等距列排版</option>
+              <option value="force">星图散点</option>
+            </select>
+          )}
+          <div className="section-heading">{sourceHeading(mode)}</div>
           {mode === "governance" ? (
             <GovernanceSummary graph={graph} />
           ) : mode === "planTrace" ? (
@@ -274,22 +271,18 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
           ) : (
             <div className="compact-list">
               {items.length ? items.map((item) => (
-              <button key={item.artifactId} type="button" className={`library-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} onClick={() => setSelectedArtifactId(item.artifactId)}>
-                <strong>{shortId(item.artifactId)}</strong>
-                <span>sample {shortId(item.sampleVideoId ?? "")}</span>
-                <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
-              </button>
+                <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} onClick={() => setSelectedArtifactId(item.artifactId)}>
+                  <strong>样例 {shortId(item.sampleVideoId ?? item.artifactId)}</strong>
+                  <span>artifact {shortId(item.artifactId)}</span>
+                  <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
+                </button>
               )) : <EmptyState text="暂无 FunctionSlotLibrary" />}
             </div>
           )}
         </aside>
         <section className="slot-graph-stage">
           {activeGraph ? (
-            renderer === "svg" ? (
-              <GraphCanvas key={`svg-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
-            ) : (
-              <GraphPixiCanvas key={`pixi-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
-            )
+            <GraphPixiCanvas key={`pixi-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
           ) : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
@@ -301,25 +294,37 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   );
 }
 
-function initialRenderer(): GraphRenderer {
-  const renderer = new URLSearchParams(window.location.search).get("renderer");
-  return renderer === "svg" ? "svg" : "pixi";
+function graphModeLabel(mode: GraphMode) {
+  if (mode === "governance") return "语义治理库";
+  if (mode === "planTrace") return "方案溯源图";
+  return "样例结构图";
+}
+
+function graphModeDescription(mode: GraphMode) {
+  if (mode === "governance") return "查看槽位家族、原型和模式治理关系";
+  if (mode === "planTrace") return "查看确定方案回溯到库结构的证据链";
+  return "查看单个样例沉淀出的槽位、原子和绑定";
+}
+
+function sourceHeading(mode: GraphMode) {
+  if (mode === "governance") return "治理概览";
+  if (mode === "planTrace") return "方案范围";
+  return "样例来源";
 }
 
 function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }) {
   const summary = graph?.summary;
   return (
     <section className="slot-graph-card governance-summary">
-      <div className="section-heading">治理摘要</div>
-      <div><b>samples</b><span>{summary?.sampleCount ?? 0}</span></div>
-      <div><b>slot variants</b><span>{summary?.slotCount ?? 0}</span></div>
-      <div><b>atom variants</b><span>{summary?.atomCount ?? 0}</span></div>
-      <div><b>bindings</b><span>{summary?.bindingCount ?? 0}</span></div>
-      <div><b>rules</b><span>{summary?.ruleCount ?? 0}</span></div>
-      <div><b>unmapped atoms</b><span>{summary?.unmappedAtomCount ?? 0}</span></div>
-      <div><b>unmapped bindings</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
-      <div><b>unmapped rules</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>
-      <div><b>validation</b><span>{summary?.validationOk ? "ok" : "unknown"}</span></div>
+      <div><b>样例数</b><span>{summary?.sampleCount ?? 0}</span></div>
+      <div><b>槽位变体</b><span>{summary?.slotCount ?? 0}</span></div>
+      <div><b>原子变体</b><span>{summary?.atomCount ?? 0}</span></div>
+      <div><b>绑定关系</b><span>{summary?.bindingCount ?? 0}</span></div>
+      <div><b>规则策略</b><span>{summary?.ruleCount ?? 0}</span></div>
+      <div><b>待治理原子</b><span>{summary?.unmappedAtomCount ?? 0}</span></div>
+      <div><b>待治理绑定</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
+      <div><b>待治理规则</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>
+      <div><b>校验状态</b><span>{summary?.validationOk ? "通过" : "未知"}</span></div>
     </section>
   );
 }
@@ -330,9 +335,8 @@ function PlanTracePanel({ graph, selectedPlanIds, onChange }: { graph: FunctionS
     onChange(selectedPlanIds.includes(planId) ? selectedPlanIds.filter((id) => id !== planId) : [...selectedPlanIds, planId]);
   };
   return (
-    <section className="slot-graph-card">
-      <div className="section-heading">确认方案</div>
-      <div className="detail-hint">{graph?.summary.planCount ?? 0} plans / {graph?.nodes.length ?? 0} nodes</div>
+    <section className="slot-graph-card slot-graph-plan-scope">
+      <div className="detail-hint">已选 {selectedPlanIds.length} / {graph?.summary.planCount ?? 0} 个方案，{graph?.nodes.length ?? 0} 个节点</div>
       {plans.length ? plans.map((plan) => (
         <label key={plan.planId} className="plan-overlay-option">
           <input type="checkbox" checked={selectedPlanIds.includes(plan.planId)} onChange={() => toggle(plan.planId)} />

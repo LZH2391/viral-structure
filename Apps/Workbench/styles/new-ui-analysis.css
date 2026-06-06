@@ -290,7 +290,7 @@
   filter: brightness(1.08);
 }
 
-.new-ui-analysis-player-queue-thumb:not(:disabled):focus-visible {
+.new-ui-analysis-player-queue-thumb:not(:disabled):not(.is-current):focus-visible {
   z-index: 4;
   border-color: color-mix(in srgb, currentColor 62%, var(--new-ui-control-border));
   outline: 2px solid var(--new-ui-focus-ring);

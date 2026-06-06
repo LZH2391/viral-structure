@@ -452,6 +452,7 @@ function AnalysisDetailPage({
               )}
             </div>
             <PlayerQueueRail
+              currentSampleVideoId={item?.sampleVideoId ?? null}
               expanded={queueExpanded}
               items={queueItems}
               onOpenItem={onOpenItem}
@@ -492,7 +493,19 @@ type PlayerQueueItem = {
   historyItem: AnalysisHistoryItem | null;
 };
 
-function PlayerQueueRail({ expanded, items, onOpenItem, onToggle }: { expanded: boolean; items: PlayerQueueItem[]; onOpenItem: (item: AnalysisHistoryItem) => void; onToggle: () => void }) {
+function PlayerQueueRail({
+  currentSampleVideoId,
+  expanded,
+  items,
+  onOpenItem,
+  onToggle,
+}: {
+  currentSampleVideoId: string | null;
+  expanded: boolean;
+  items: PlayerQueueItem[];
+  onOpenItem: (item: AnalysisHistoryItem) => void;
+  onToggle: () => void;
+}) {
   const queueLabel = expanded ? "收起视频处理队列" : "展开视频处理队列";
   const handleQueueKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget) return;
@@ -503,6 +516,7 @@ function PlayerQueueRail({ expanded, items, onOpenItem, onToggle }: { expanded: 
   const openQueueItem = (event: MouseEvent<HTMLButtonElement>, queueItem: PlayerQueueItem) => {
     event.stopPropagation();
     if (!queueItem.historyItem) return;
+    if (queueItem.historyItem.sampleVideoId === currentSampleVideoId) return;
     onOpenItem(queueItem.historyItem);
   };
 
@@ -518,20 +532,24 @@ function PlayerQueueRail({ expanded, items, onOpenItem, onToggle }: { expanded: 
       onKeyDown={handleQueueKeyDown}
     >
       <div className="new-ui-analysis-player-queue-preview">
-        {items.map((item) => (
-          <button
-            key={item.key}
-            className={`new-ui-analysis-player-queue-thumb is-${item.status} is-${item.ratio}`}
-            type="button"
-            tabIndex={expanded && item.historyItem ? 0 : -1}
-            disabled={!item.historyItem}
-            aria-label={`打开分析详情：${item.title}`}
-            onClick={(event) => openQueueItem(event, item)}
-          >
-            {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span className="new-ui-analysis-player-queue-thumb-empty" />}
-            <span className="new-ui-analysis-player-queue-badge">{item.badgeLabel}</span>
-          </button>
-        ))}
+        {items.map((item) => {
+          const currentItem = Boolean(item.historyItem?.sampleVideoId && item.historyItem.sampleVideoId === currentSampleVideoId);
+          return (
+            <button
+              key={item.key}
+              className={`new-ui-analysis-player-queue-thumb is-${item.status} is-${item.ratio} ${currentItem ? "is-current" : ""}`.trim()}
+              type="button"
+              tabIndex={expanded && item.historyItem && !currentItem ? 0 : -1}
+              disabled={!item.historyItem}
+              aria-current={currentItem ? "true" : undefined}
+              aria-label={currentItem ? `当前视频：${item.title}` : `打开分析详情：${item.title}`}
+              onClick={(event) => openQueueItem(event, item)}
+            >
+              {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span className="new-ui-analysis-player-queue-thumb-empty" />}
+              <span className="new-ui-analysis-player-queue-badge">{item.badgeLabel}</span>
+            </button>
+          );
+        })}
       </div>
       <span
         className="new-ui-analysis-player-queue-toggle"
@@ -554,7 +572,7 @@ function QueueIcon({ expanded }: { expanded: boolean }) {
 function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, batchItems: PlayerQueueItem[] | null): PlayerQueueItem[] {
   if (batchItems?.length) return batchItems;
   if (!item && !media) return [];
-  const currentStatus = normalizePlayerQueueStatus(item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status);
+  const currentStatus = resolveCurrentQueueStatus(item);
   return [
     {
       key: "video-slot-1",
@@ -566,6 +584,13 @@ function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, medi
       historyItem: item,
     },
   ];
+}
+
+function resolveCurrentQueueStatus(item: AnalysisHistoryItem | null): PlayerQueueItem["status"] {
+  const status = normalizePlayerQueueStatus(item?.artifact?.status ?? item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status);
+  if (status === "done") return status;
+  if ((item?.hasFunctionSlotAtomization || item?.hasUserMaterialPack || item?.artifact?.functionSlotAtomizationAnalysis || item?.artifact?.userMaterialPack) && status !== "failed") return "done";
+  return status;
 }
 
 function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): PlayerQueueItem["ratio"] {
@@ -594,7 +619,7 @@ async function loadLatestVideoProcessingQueue(): Promise<PlayerQueueItem[]> {
 }
 
 function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): PlayerQueueItem {
-  const status = normalizePlayerQueueStatus(queueItem.status);
+  const status = normalizePlayerQueueStatus(artifact?.status ?? queueItem.status);
   return {
     key: queueItem.queueItemId,
     status,
@@ -669,7 +694,7 @@ function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: Fu
 }
 
 function normalizePlayerQueueStatus(status: string | null | undefined): PlayerQueueItem["status"] {
-  if (status === "processed" || status === "done") return "done";
+  if (["processed", "done", "completed", "complete", "success", "succeeded"].includes(String(status ?? "").toLowerCase())) return "done";
   if (status === "running" || status === "processing" || status === "cache_waiting") return "running";
   if (status === "failed" || status === "partial_failed") return "failed";
   return "waiting";

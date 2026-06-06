@@ -5,6 +5,7 @@ import { clamp, nodeRadius, VIEWBOX } from "./graphUtils";
 import type { SimNode } from "./types";
 import {
   edgeLinePoints,
+  GRAPH_VISUAL_THEME,
   nodeLabelOpacity,
   resolveGraphEdgeStyle,
   resolveGraphNodeStyle,
@@ -114,10 +115,10 @@ export function applyPixiAlphaTween(objects: PixiGraphObjects, start: PixiAlphaS
 
 export function drawPixiBackground(graphics: Graphics) {
   graphics.clear();
-  for (let index = 0; index < 110; index += 1) {
+  for (let index = 0; index < 72; index += 1) {
     const x = 50 + ((index * 157) % (VIEWBOX.width - 100));
     const y = 38 + ((index * 89) % (VIEWBOX.height - 76));
-    graphics.circle(x, y, 2 + (index % 4)).fill({ color: 0xffffff, alpha: 0.08 });
+    graphics.circle(x, y, 1.5 + (index % 3)).fill({ color: GRAPH_VISUAL_THEME.edge.default, alpha: 0.045 });
   }
 }
 
@@ -395,7 +396,7 @@ function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number) {
   const key = highlighted ? `ring:${radius}` : "none";
   if (view.ringKey === key) return;
   view.ring.clear();
-  if (highlighted) drawCircleStroke(view.ring, radius + 7, 0xbbaeff, 0.76, 2, [6, 7]);
+  if (highlighted) drawCircleStroke(view.ring, radius + 7, GRAPH_VISUAL_THEME.node.landmarkGlow, 0.58, 2, [6, 7]);
   view.ringKey = key;
 }
 
@@ -436,8 +437,8 @@ function syncSlotBadge(view: PixiNodeView, node: SimNode, radius: number) {
     view.slotBadge
       .clear()
       .circle(x, y, 8)
-      .fill({ color: 0x111827, alpha: 0.96 })
-      .stroke({ color: 0xffee9e, alpha: 0.94, width: 1.5 });
+      .fill({ color: GRAPH_VISUAL_THEME.node.neutral, alpha: 0.96 })
+      .stroke({ color: GRAPH_VISUAL_THEME.node.slotSubtypeStroke, alpha: 0.94, width: 1.5 });
     view.slotBadgeKey = key;
   }
   syncTextStyle(view.slotBadgeText, whiteTextStyle(SLOT_BADGE_FONT_SIZE), "slot");
@@ -466,7 +467,7 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number) {
       .clear()
       .circle(x, y, 7)
       .fill({ color: badgeColor, alpha: 1 })
-      .stroke({ color: 0xffffff, alpha: 0.86, width: 1 });
+      .stroke({ color: GRAPH_VISUAL_THEME.node.selectedStroke, alpha: 0.86, width: 1 });
     view.planBadgeKey = key;
   }
   syncTextStyle(view.planBadgeText, whiteTextStyle(PLAN_BADGE_FONT_SIZE), "plan");
@@ -513,7 +514,7 @@ function syncTextStyle(text: Text, style: TextStyleOptions, key: string) {
 }
 
 function whiteTextStyle(fontSize: number): TextStyleOptions {
-  return textStyle(fontSize, "#ffffff");
+  return textStyle(fontSize, GRAPH_VISUAL_THEME.text.label);
 }
 
 function textStyle(fontSize: number, fill: string): TextStyleOptions {

@@ -24,6 +24,253 @@
   height: 100%;
 }
 
+.new-ui-shell .slot-graph-shell.embedded {
+  color: var(--new-ui-text);
+  background: var(--new-ui-bg);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout {
+  grid-template-columns: minmax(224px, 0.22fr) minmax(440px, 1fr) minmax(276px, 0.26fr);
+  gap: 10px;
+  padding: 0;
+  background: var(--new-ui-bg);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-list,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-panel {
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  background: color-mix(in srgb, var(--new-ui-surface) 84%, var(--new-ui-bg));
+  color: var(--new-ui-text);
+  padding: 14px;
+  scrollbar-color: color-mix(in srgb, var(--new-ui-text-muted) 42%, transparent) transparent;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-list {
+  border-left: 0;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-panel {
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-stage {
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  border-top: 0;
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--new-ui-bg) 88%, var(--new-ui-surface));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas {
+  background: color-mix(in srgb, var(--new-ui-bg) 88%, var(--new-ui-surface));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas-title,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas-title span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-legend span {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas-title strong {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-zoom-chip,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-fps-chip,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-controls button {
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 72%, transparent);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 76%, transparent);
+  color: var(--new-ui-text-muted);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 30%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-controls button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-controls button:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-control-bg) 88%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-mode-select {
+  height: 34px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, transparent);
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-mode-select:focus {
+  border-color: var(--new-ui-control-border);
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .section-heading {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+  letter-spacing: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-card {
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 58%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--new-ui-control-shadow) 22%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 62%, transparent);
+  padding: 12px;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--new-ui-control-shadow) 22%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief small,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief p {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief strong {
+  overflow: hidden;
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-lg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card strong,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > strong,
+.new-ui-shell .slot-graph-shell.embedded .governance-summary span {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > small,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-detail-rows span,
+.new-ui-shell .slot-graph-shell.embedded .governance-summary div,
+.new-ui-shell .slot-graph-shell.embedded .detail-hint {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-card label,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-detail-rows b {
+  color: color-mix(in srgb, var(--new-ui-text) 80%, var(--new-ui-text-muted));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card .primary-button {
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, var(--new-ui-surface));
+  color: var(--new-ui-control-text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 28%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card .primary-button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card .primary-button:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-control-bg) 92%, var(--new-ui-surface));
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-library-brief .primary-button {
+  align-self: start;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, var(--new-ui-surface));
+  color: var(--new-ui-control-text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 28%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-bg) 30%, transparent);
+  padding: 4px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout-options button {
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--new-ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--new-ui-font-size-xs);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout-options button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout-options button:focus-visible,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-layout-options button.active {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 76%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 8%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+  outline: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .library-item {
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 54%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .library-item:hover,
+.new-ui-shell .slot-graph-shell.embedded .library-item:focus-visible,
+.new-ui-shell .slot-graph-shell.embedded .library-item.active {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 88%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 8%, var(--new-ui-surface));
+  outline: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .library-item span,
+.new-ui-shell .slot-graph-shell.embedded .library-item small,
+.new-ui-shell .slot-graph-shell.embedded .empty-state span {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .empty-state strong {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-layout,
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-canvas,
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-stage {
+  background: var(--new-ui-surface);
+}
+
 .slot-graph-list,
 .slot-graph-panel {
   min-width: 0;
@@ -870,6 +1117,32 @@
   font-size: 13px;
 }
 
+.slot-graph-filter-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.slot-graph-filter-grid label {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.slot-graph-filter-grid label.active {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.slot-graph-filter-grid input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
 .plan-overlay-option i {
   width: 10px;
   height: 10px;
@@ -916,6 +1189,76 @@
   font-size: 12px;
 }
 
+.slot-graph-inspector-head {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.slot-graph-inspector-head > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slot-graph-inspector-head strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-inspector-head div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.slot-graph-inspector-head small {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-soft);
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
+.slot-graph-inspector-summary,
+.slot-graph-inspector-section {
+  display: grid;
+  gap: 8px;
+}
+
+.slot-graph-inspector-summary > div {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.slot-graph-inspector-summary b {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.slot-graph-inspector-summary span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+}
+
+.slot-graph-inspector-more {
+  display: grid;
+  gap: 8px;
+}
+
+.slot-graph-inspector-more summary {
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 12px;
+}
+
 .slot-graph-detail-rows {
   display: grid;
   gap: 8px;
@@ -938,4 +1281,39 @@
   font-size: 12px;
   line-height: 1.45;
   text-overflow: ellipsis;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 56%, transparent);
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label:focus-within,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label.active {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 86%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 8%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head > span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more summary {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head strong {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head small {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-summary b {
+  color: color-mix(in srgb, var(--new-ui-text) 80%, var(--new-ui-text-muted));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-summary span {
+  color: var(--new-ui-text-muted);
 }
