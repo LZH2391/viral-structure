@@ -8,11 +8,21 @@ const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR, createFullAnalysisWorkflowService } =
 const { MATERIAL_RECOGNITION_WORKFLOW_DESCRIPTOR, createMaterialRecognitionWorkflowService } = require("../../Apps/Api/lib/workflows/material-recognition/service");
 
 function createHarness() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-runtime-"));
+  const runtimeRoot = path.join(tmpDir, "Runtime");
+  fs.mkdirSync(path.join(runtimeRoot, "Artifacts", "sample_1"), { recursive: true });
+  const sourcePath = path.join(runtimeRoot, "Artifacts", "sample_1", "source.mp4");
+  fs.writeFileSync(sourcePath, "sample-video");
   const jobs = new Map();
   const artifacts = new Map();
   const moduleStarts = [];
+  const uploadFiles = [];
   let loadSampleArtifactImpl = async ({ sampleVideoId }) => artifacts.get(sampleVideoId) ?? null;
   const workflowRunStore = createWorkflowRunStore();
+  const buildLocalArtifact = (options = {}) => buildArtifact({
+    ...options,
+    sourceUri: "/runtime/Artifacts/sample_1/source.mp4",
+  });
   const stageLogs = [];
   const logger = {
     writeStageLog: async (entry) => {
@@ -25,15 +35,16 @@ function createHarness() {
     getJob: (jobId) => jobs.get(jobId) ?? null,
   };
   const service = {
-    enqueueUpload: async () => {
+    enqueueUpload: async ({ file }) => {
+      uploadFiles.push(file);
       jobs.set("job_upload", { jobId: "job_upload", sampleVideoId: "sample_1", status: "processed", stage: "sample.artifact.written", progress: 100, traceId: "trace_upload" });
-      artifacts.set("sample_1", buildArtifact());
+      artifacts.set("sample_1", buildLocalArtifact());
       return { processingJobId: "job_upload", sampleVideoId: "sample_1", traceId: "trace_upload" };
     },
   };
   const shotBoundaryService = {
     enqueue: async () => {
-      const artifact = buildArtifact({ shot: true });
+      const artifact = buildLocalArtifact({ shot: true });
       artifacts.set("sample_1", artifact);
       jobs.set("job_shot", { jobId: "job_shot", sampleVideoId: "sample_1", status: "processed", stage: "shot.boundary_merge", progress: 100, traceId: "trace_shot" });
       return { processingJobId: "job_shot", sampleVideoId: "sample_1", traceId: "trace_shot" };
@@ -64,13 +75,17 @@ function createHarness() {
     moduleRegistry,
     jobStore,
     logger,
-    store: {},
+    store: { runtimeRoot },
     artifactIndex: {},
     loadSampleArtifact: (args) => loadSampleArtifactImpl(args),
     pollIntervalMs: 60_000,
   });
   return {
     workflow,
+    tmpDir,
+    runtimeRoot,
+    sourcePath,
+    uploadFiles,
     stageLogs,
     jobs,
     artifacts,
@@ -276,6 +291,34 @@ test("full analysis rerun resets aggregate and recovers completed child stage", 
   assert.equal(atomization.artifactId, "artifact_atomization");
   assert.equal(aggregate.status, "processed");
   assert.equal(aggregate.outputSummary.functionSlotCount, 1);
+});
+
+test("full analysis rerun upload refreshes source and resets downstream stages", async () => {
+  const { workflow, uploadFiles } = createHarness();
+  const started = await workflow.start({
+    workspaceId: "default-workspace",
+    file: { filename: "sample.mp4", mimeType: "video/mp4", extension: ".mp4", size: 12, buffer: Buffer.from("sample") },
+    fields: {},
+  });
+
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+  await workflow.advance(started.workflowRunId);
+
+  const rerun = await workflow.rerunStage({ workflowRunId: started.workflowRunId, stageKey: "upload" });
+  const upload = rerun.stages.find((stage) => stage.key === "upload");
+  const shot = rerun.stages.find((stage) => stage.key === "shotBoundary");
+  const aggregate = rerun.stages.find((stage) => stage.key === "aggregate");
+
+  assert.equal(rerun.status, "running");
+  assert.equal(upload.status, "running");
+  assert.equal(upload.attemptNo, 2);
+  assert.equal(shot.status, "pending");
+  assert.equal(aggregate.status, "pending");
+  assert.equal(uploadFiles.at(-1).filename, "sample.mp4");
+  assert.equal(uploadFiles.at(-1).buffer.toString(), "sample-video");
 });
 
 test("full analysis rerun waits for in-flight advance before resetting stage", async () => {
@@ -600,14 +643,14 @@ test("workflow run store treats index as rebuildable cache", () => {
   assert.deepEqual(store.listRuns().map((run) => run.workflowRunId), ["workflow_unindexed"]);
 });
 
-function buildArtifact({ shot = false, sampleVideoId = "sample_1" } = {}) {
+function buildArtifact({ shot = false, sampleVideoId = "sample_1", sourceUri = "/runtime/sample.mp4" } = {}) {
   return {
     sampleVideoId,
     sampleVideo: {
       artifactId: "artifact_video",
       parentArtifactId: null,
-      normalized: { artifactId: "artifact_video_norm", parentArtifactId: "artifact_video", type: "normalized-video", uri: "/runtime/sample.mp4" },
-      original: { artifactId: "artifact_video_raw", parentArtifactId: "artifact_video", type: "original-video", summary: "sample.mp4" },
+      normalized: { artifactId: "artifact_video_norm", parentArtifactId: "artifact_video", type: "normalized-video", uri: sourceUri },
+      original: { artifactId: "artifact_video_raw", parentArtifactId: "artifact_video", type: "original-video", uri: sourceUri, summary: "sample.mp4" },
     },
     frames: [],
     metadata: { durationSeconds: 10 },

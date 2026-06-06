@@ -1,4 +1,6 @@
 const { randomUUID } = require("crypto");
+const fs = require("fs/promises");
+const path = require("path");
 const { createTraceContext } = require("../../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../../../Infrastructure/Observability/trace");
 const { loadCurrentSampleArtifact } = require("../../stores/artifact-reader");
@@ -91,6 +93,10 @@ function createWorkflowService({
     return publicRun(workflowRunStore.getRun(workflowRunId) ?? run);
   }
 
+  async function startFromSample({ sampleVideoId }) {
+    return start(await buildUploadRerunInputForSample(sampleVideoId));
+  }
+
   function get(workflowRunId) {
     const run = workflowRunStore.getRun(workflowRunId);
     return run ? publicRun(run) : null;
@@ -120,18 +126,20 @@ function createWorkflowService({
       error.retryable = false;
       throw error;
     }
-    if (!run.sampleVideoId) {
+    if (!run.sampleVideoId && stageKey !== "upload") {
       const error = new Error("样例视频尚未生成，不能重跑后续步骤");
       error.statusCode = 400;
       error.code = "workflow_stage_not_ready";
       error.retryable = true;
       throw error;
     }
+    const uploadRerunInput = stageKey === "upload" ? await buildUploadRerunInputForSample(run.sampleVideoId) : null;
     const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
     const resetKeys = unique([stageKey, ...downstreamStageKeys(stageDefinitions, stageKey, workflowDescriptor.parallelGroups)]);
     workflowRunStore.updateRun(workflowRunId, (current) => ({
       status: "running",
       currentStageKeys: [stageKey],
+      sampleVideoId: stageKey === "upload" ? null : current.sampleVideoId,
       stages: current.stages.map((stage) => {
         if (!resetKeys.includes(stage.key)) return stage;
         const reset = resetStageForRun(stage);
@@ -143,9 +151,69 @@ function createWorkflowService({
       completedAt: null,
       errorSummary: null,
     }));
-    await startStage(workflowRunId, stageKey, { cacheDecision: "refresh" }, traceContext);
+    await startStage(workflowRunId, stageKey, uploadRerunInput ?? { cacheDecision: "refresh" }, traceContext);
     scheduleAdvance(workflowRunId);
     return publicRun(workflowRunStore.getRun(workflowRunId));
+  }
+
+  async function buildUploadRerunInputForSample(sampleVideoId) {
+    const artifact = await readArtifact(sampleVideoId);
+    const original = artifact?.sampleVideo?.original ?? null;
+    const filePath = resolveRuntimeFilePath(original?.uri);
+    if (!filePath) {
+      const error = new Error("原始视频文件不可用，不能刷新上传素材");
+      error.statusCode = 400;
+      error.code = "workflow_upload_rerun_source_unavailable";
+      error.retryable = false;
+      throw error;
+    }
+    let buffer;
+    try {
+      buffer = await fs.readFile(filePath);
+    } catch {
+      const error = new Error("原始视频文件不可读，不能刷新上传素材");
+      error.statusCode = 400;
+      error.code = "workflow_upload_rerun_source_unreadable";
+      error.retryable = false;
+      throw error;
+    }
+    const filename = path.basename(original?.summary || filePath);
+    return {
+      workspaceId: artifact?.workspaceId ?? "default-workspace",
+      file: {
+        filename,
+        name: filename,
+        mimeType: mimeTypeForVideoPath(filePath),
+        type: mimeTypeForVideoPath(filePath),
+        extension: path.extname(filePath),
+        size: buffer.length,
+        buffer,
+      },
+      fields: {
+        frameSampleRateFps: artifact?.processingOptions?.frameSampleRateFps ?? 10,
+        enableAudioSeparation: Boolean(artifact?.processingOptions?.enableAudioSeparation),
+        enableSubtitleRecognition: Boolean(artifact?.processingOptions?.enableSubtitleRecognition),
+        enableAudioFeatureAnalysis: Boolean(artifact?.processingOptions?.enableAudioFeatureAnalysis),
+        cacheDecision: "refresh",
+      },
+    };
+  }
+
+  function resolveRuntimeFilePath(uri) {
+    const text = String(uri ?? "").trim();
+    if (!text.startsWith("/runtime/") || !store?.runtimeRoot) return null;
+    const relative = text.slice("/runtime/".length).split("/").filter(Boolean);
+    const filePath = path.resolve(store.runtimeRoot, ...relative);
+    const root = path.resolve(store.runtimeRoot);
+    return filePath === root || filePath.startsWith(`${root}${path.sep}`) ? filePath : null;
+  }
+
+  function mimeTypeForVideoPath(filePath) {
+    const extension = path.extname(filePath).toLowerCase();
+    if (extension === ".mov") return "video/quicktime";
+    if (extension === ".webm") return "video/webm";
+    if (extension === ".m4v") return "video/x-m4v";
+    return "video/mp4";
   }
 
   async function startStage(workflowRunId, stageKey, input, traceContext) {
@@ -515,7 +583,7 @@ function createWorkflowService({
     return loadSampleArtifact({ sampleVideoId, store, artifactIndex });
   }
 
-  return { start, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
+  return { start, startFromSample, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
 }
 
 module.exports = {

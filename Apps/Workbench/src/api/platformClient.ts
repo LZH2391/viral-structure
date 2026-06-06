@@ -60,6 +60,8 @@ export type PlatformResourceSummary = {
 
 export type AnalysisHistoryProjectionItem = {
   sampleVideoId: string;
+  workflowRunId?: string | null;
+  workflowKey?: string | null;
   title: string | null;
   status: string | null;
   updatedAt: string | null;

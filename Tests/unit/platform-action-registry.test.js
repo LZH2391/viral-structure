@@ -22,7 +22,7 @@ test("action registry declares workflow rerun action with stage enum", async () 
 
   assert.ok(rerun);
   assert.equal(rerun.enabled, true);
-  assert.deepEqual(rerun.inputSchema.properties.stageKey.enum, ["scriptSegment", "rhythmStructure"]);
+  assert.deepEqual(rerun.inputSchema.properties.stageKey.enum, ["upload", "scriptSegment", "rhythmStructure"]);
   assert.equal(rerun.effects.createsArtifact, true);
   assert.equal(rerun.effects.mayInvalidateDownstream, true);
 });

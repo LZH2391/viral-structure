@@ -35,8 +35,36 @@ function normalizeConversation(value) {
     threadStoppedAt: value.threadStoppedAt ?? null,
     threadStopReason: value.threadStopReason ? String(value.threadStopReason) : null,
     lastResumeError: value.lastResumeError && typeof value.lastResumeError === "object" ? value.lastResumeError : null,
+    title: limitText(value.title) || buildTitle(value.role, value.createdAt),
+    titleState: normalizeTitleState(value.titleState),
     confirmedPlan: normalizeConfirmedPlan(value.confirmedPlan),
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
+  };
+}
+
+function normalizeTitleState(value) {
+  if (!value || typeof value !== "object") return null;
+  const status = String(value.status ?? "").trim();
+  return {
+    status: ["idle", "generating", "completed", "failed"].includes(status) ? status : "idle",
+    source: value.source ? String(value.source) : null,
+    role: value.role ? String(value.role) : null,
+    sourceTurnId: value.sourceTurnId ? String(value.sourceTurnId) : null,
+    titleThreadId: value.titleThreadId ? String(value.titleThreadId) : null,
+    titleTurnId: value.titleTurnId ? String(value.titleTurnId) : null,
+    leaseId: value.leaseId ? String(value.leaseId) : null,
+    ownerId: value.ownerId ? String(value.ownerId) : null,
+    workspaceRoot: value.workspaceRoot ? String(value.workspaceRoot) : null,
+    firstSentencePreview: limitText(value.firstSentencePreview),
+    firstSentenceChars: normalizeCount(value.firstSentenceChars),
+    promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
+    generatedAt: value.generatedAt ?? null,
+    confidence: normalizeNullableNumber(value.confidence),
+    rawPreview: limitText(value.rawPreview),
+    errorSummary: value.errorSummary && typeof value.errorSummary === "object" ? value.errorSummary : null,
+    traceId: value.traceId ? String(value.traceId) : null,
+    runId: value.runId ? String(value.runId) : null,
+    stageId: value.stageId ? String(value.stageId) : null,
   };
 }
 
@@ -230,6 +258,12 @@ function normalizeCount(value) {
   return Number.isFinite(number) && number >= 0 ? Math.floor(number) : 0;
 }
 
+function normalizeNullableNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function upsertMessage(conversation, message) {
   const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
   const index = messages.findIndex((item) => item.id === message.id);
@@ -285,6 +319,7 @@ module.exports = {
   normalizeSlotAtomDisplay,
   normalizeSlotSummary,
   normalizeState,
+  normalizeTitleState,
   safeConversationFileName,
   upsertMessage,
 };

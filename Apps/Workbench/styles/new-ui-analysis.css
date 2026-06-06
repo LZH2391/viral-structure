@@ -1412,9 +1412,11 @@ button.new-ui-analysis-detail-status {
 }
 
 .new-ui-analysis-workflow-step-button {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  column-gap: 8px;
   width: min(100%, 420px);
   min-width: 0;
   padding: var(--new-ui-analysis-workflow-step-button-padding-top) 10px 9px;
@@ -1423,7 +1425,6 @@ button.new-ui-analysis-detail-status {
   background: transparent;
   color: inherit;
   text-align: left;
-  cursor: pointer;
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -1431,18 +1432,93 @@ button.new-ui-analysis-detail-status {
 }
 
 .new-ui-analysis-workflow-step-button:hover,
-.new-ui-analysis-workflow-step-button:focus-visible {
+.new-ui-analysis-workflow-step-button:has(.new-ui-analysis-workflow-step-select:focus-visible),
+.new-ui-analysis-workflow-step-button:has(.new-ui-analysis-workflow-rerun-button:focus-visible) {
   background: color-mix(in srgb, var(--new-ui-surface) 66%, transparent);
   border-color: color-mix(in srgb, var(--new-ui-border) 64%, transparent);
 }
 
-.new-ui-analysis-workflow-step-button:focus-visible {
+.new-ui-analysis-workflow-step-button:has(.new-ui-analysis-workflow-step-select:focus-visible),
+.new-ui-analysis-workflow-step-button:has(.new-ui-analysis-workflow-rerun-button:focus-visible) {
   outline: 2px solid var(--new-ui-focus-ring);
   outline-offset: 2px;
 }
 
 .new-ui-analysis-workflow-step-button:active {
   transform: translateX(1px);
+}
+
+.new-ui-analysis-workflow-step-select {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-ui-analysis-workflow-step-select:focus-visible {
+  outline: 0;
+}
+
+.new-ui-analysis-workflow-rerun-button {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.new-ui-analysis-workflow-rerun-button svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-analysis-workflow-rerun-button:hover,
+.new-ui-analysis-workflow-rerun-button:focus-visible {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+  outline: 0;
+}
+
+.new-ui-analysis-workflow-rerun-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--new-ui-focus-ring);
+}
+
+.new-ui-analysis-workflow-rerun-button:active {
+  transform: translateY(1px);
+}
+
+.new-ui-analysis-workflow-rerun-button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.new-ui-analysis-workflow-rerun-button.is-rerunning svg {
+  animation: new-ui-workflow-spin 0.7s linear infinite;
 }
 
 .new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-step-button {
@@ -1528,6 +1604,7 @@ button.new-ui-analysis-detail-status {
 }
 
 .new-ui-analysis-workflow-parallel {
+  grid-column: 1 / -1;
   display: flex;
   gap: 8px;
   min-width: 0;
@@ -1536,6 +1613,10 @@ button.new-ui-analysis-detail-status {
 }
 
 .new-ui-analysis-workflow-parallel-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
   flex: 1 1 0;
   min-width: 0;
   padding: 8px 9px;
@@ -1549,7 +1630,19 @@ button.new-ui-analysis-detail-status {
     background-color 160ms ease,
     border-color 160ms ease,
     opacity 160ms ease,
-    transform 160ms ease;
+  transform 160ms ease;
+}
+
+.new-ui-analysis-workflow-parallel-button {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .new-ui-analysis-workflow-parallel-item.is-done {
@@ -1572,7 +1665,7 @@ button.new-ui-analysis-detail-status {
 }
 
 .new-ui-analysis-workflow-parallel-item:hover,
-.new-ui-analysis-workflow-parallel-item:focus-visible,
+.new-ui-analysis-workflow-parallel-button:focus-visible,
 .new-ui-analysis-workflow-parallel-item.is-selected {
   opacity: 1;
   border-color: var(--new-ui-analysis-workflow-active-subtle-border);
@@ -1602,13 +1695,24 @@ button.new-ui-analysis-detail-status {
     var(--new-ui-analysis-workflow-active-subtle-bg);
 }
 
-.new-ui-analysis-workflow-parallel-item:focus-visible {
+.new-ui-analysis-workflow-parallel-button:focus-visible {
   outline: 2px solid var(--new-ui-focus-ring);
   outline-offset: 2px;
 }
 
 .new-ui-analysis-workflow-parallel-item:active {
   transform: translateY(0);
+}
+
+.new-ui-analysis-workflow-rerun-button.is-compact {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.new-ui-analysis-workflow-rerun-button.is-compact svg {
+  width: 14px;
+  height: 14px;
 }
 
 .new-ui-analysis-workflow-parallel-label {
@@ -1891,6 +1995,104 @@ button.new-ui-analysis-detail-status {
   font-size: var(--new-ui-font-size-xs);
   font-weight: 620;
   line-height: 1.45;
+}
+
+.new-ui-analysis-rerun-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 16px 10px;
+  background: color-mix(in srgb, var(--new-ui-surface) 52%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.new-ui-analysis-rerun-confirm {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 340px);
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 76%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-surface) 96%, var(--new-ui-bg));
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--new-ui-control-shadow) 48%, transparent);
+}
+
+.new-ui-analysis-rerun-confirm h2,
+.new-ui-analysis-rerun-confirm p {
+  min-width: 0;
+  margin: 0;
+}
+
+.new-ui-analysis-rerun-confirm h2 {
+  color: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-sm);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.new-ui-analysis-rerun-confirm p {
+  color: color-mix(in srgb, var(--new-ui-text) 60%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.new-ui-analysis-rerun-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-ui-analysis-rerun-confirm-actions button {
+  min-width: 64px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.new-ui-analysis-rerun-confirm-actions button:focus-visible {
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-analysis-rerun-confirm-actions button:active {
+  transform: scale(0.98);
+}
+
+.new-ui-analysis-rerun-confirm-secondary {
+  background: transparent;
+  color: color-mix(in srgb, var(--new-ui-text) 66%, var(--new-ui-text-muted));
+}
+
+.new-ui-analysis-rerun-confirm-secondary:hover,
+.new-ui-analysis-rerun-confirm-secondary:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-control-bg) 48%, transparent);
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 90%, transparent);
+}
+
+.new-ui-analysis-rerun-confirm-primary {
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 18%, var(--new-ui-control-bg));
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 82%, var(--new-ui-text));
+}
+
+.new-ui-analysis-rerun-confirm-primary:hover,
+.new-ui-analysis-rerun-confirm-primary:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 50%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 24%, var(--new-ui-control-bg));
 }
 
 @keyframes new-ui-workflow-spin {

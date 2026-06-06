@@ -14,6 +14,7 @@ function createCommandDispatcher({
   async function execute(request = {}) {
     const command = normalizeText(request.command);
     if (command === "workflow.stage.rerun") return rerunWorkflowStage(request);
+    if (command === "sample.full_analysis.refresh") return refreshSampleFullAnalysis(request);
     if (command === "job.cache.resolve") return resolveJobCache(request);
     if (command === "agent.turn.stop") return stopActiveTurn(request);
     if (command === "conversation.archive") return archiveConversation(request);
@@ -58,6 +59,31 @@ function createCommandDispatcher({
       resourceRefs: [target],
       errorSummary: null,
     };
+  }
+
+  async function refreshSampleFullAnalysis(request) {
+    const target = normalizeTarget(request.target);
+    if (target.resourceKind !== "sample" || !target.resourceId) {
+      throw commandError("platform_command_target_invalid", "sample.full_analysis.refresh 需要 sample target", 400, false, { target });
+    }
+    if (!fullAnalysisWorkflowService?.startFromSample) {
+      throw commandError("workflow_service_unavailable", "workflow service 不可用", 503, true, { target });
+    }
+    const run = await fullAnalysisWorkflowService.startFromSample({ sampleVideoId: target.resourceId });
+    return commandResult({
+      command: "sample.full_analysis.refresh",
+      target,
+      status: run.status ?? null,
+      runId: run.runId ?? null,
+      traceId: run.traceId ?? null,
+      stageId: latestStageId(run),
+      artifactId: latestStageArtifactId(run),
+      parentArtifactId: null,
+      resourceRefs: [
+        target,
+        { resourceKind: "workflowRun", resourceId: run.workflowRunId ?? null },
+      ],
+    });
   }
 
   async function archiveConversation(request) {
@@ -193,6 +219,14 @@ function inferCacheKindFromJob(job) {
   const stage = String(job?.stage ?? "");
   if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
   return null;
+}
+
+function latestStageArtifactId(run) {
+  return [...(run?.stages ?? [])].reverse().find((stage) => normalizeText(stage?.artifactId))?.artifactId ?? null;
+}
+
+function latestStageId(run) {
+  return [...(run?.stages ?? [])].reverse().find((stage) => normalizeText(stage?.stageId))?.stageId ?? null;
 }
 
 function normalizeTarget(target) {

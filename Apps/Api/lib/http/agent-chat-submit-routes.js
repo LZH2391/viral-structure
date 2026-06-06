@@ -2,6 +2,7 @@ const path = require("path");
 const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { buildAgentChatActionProjection } = require("../agent-chat/actions");
+const { maybeStartConversationTitleGeneration } = require("../agent-chat/title-service");
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const { normalizeTurnStatus } = require("../active-turns/status");
 const {
@@ -48,7 +49,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
     },
     action: async ({ traceContext }) => {
       const conversationId = normalizeText(body.conversationId);
-      return withConversationLock(conversationId, async () => {
+      const payload = await withConversationLock(conversationId, async () => {
         const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
         const expectedRevision = normalizeRevision(body.expectedRevision);
         if (conversationId) {
@@ -105,6 +106,26 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
         attachAgentChatProjection(payload, conversation, payload.status);
         return payload;
       });
+      if (payload.conversationId) {
+        const titleSourceConversation = await handlers.agentConversationStore?.get?.(payload.conversationId).catch(() => null);
+        const titleGeneration = await maybeStartConversationTitleGeneration({
+          handlers,
+          conversation: titleSourceConversation,
+          message,
+          turnId: payload.turnId,
+          traceContext,
+        }).catch((error) => ({
+          ok: false,
+          status: "failed",
+          error: error?.code ?? "conversation_title_start_failed",
+          message: safePreview(error instanceof Error ? error.message : "标题生成启动失败", 160),
+        }));
+        if (titleGeneration) {
+          payload.titleGeneration = summarizeTitleGeneration(titleGeneration);
+          payload.conversationRevision = titleGeneration.conversation?.revision ?? payload.conversationRevision ?? null;
+        }
+      }
+      return payload;
     },
     summarizeOutput: (result) => ({
       source: result.source,
@@ -115,6 +136,16 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
     }),
     successStatus: 202,
   });
+}
+
+function summarizeTitleGeneration(value) {
+  if (!value) return null;
+  return {
+    ok: value.ok !== false,
+    status: value.status ?? value.titleState?.status ?? null,
+    titleTurnId: value.titleState?.titleTurnId ?? null,
+    error: value.errorSummary?.code ?? value.error ?? null,
+  };
 }
 
 async function handleAgentChatManualReplacementSubmit(req, res, threadId, handlers = {}) {

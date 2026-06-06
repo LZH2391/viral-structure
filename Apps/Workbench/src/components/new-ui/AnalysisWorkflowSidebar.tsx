@@ -13,11 +13,16 @@ import {
   type WorkflowStages,
 } from "./analysisWorkflowModel";
 
+type RerunTarget = string | string[];
+
 export type AnalysisDetailSidebarState = {
   visible: boolean;
   title: string;
   item: AnalysisHistoryItem | null;
   selectedTimelineSegment?: AnalysisTimelineSegmentDetail | null;
+  rerunnableStageKeys?: string[];
+  rerunningStageKey?: string | null;
+  onWorkflowStageRerun?: (stageKey: RerunTarget) => void;
 };
 
 type AnalysisWorkflowSidebarProps = {
@@ -38,12 +43,28 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
   const aggregate = stageByKey(stages, "aggregate");
   const structureStatus = materialWorkflow ? "waiting" : resolveGroupStatus([scriptSegment, rhythmStructure, packagingStructure]);
   const [selectedStageKey, setSelectedStageKey] = useState<WorkflowStageKey>("upload");
+  const [pendingRerun, setPendingRerun] = useState<{ label: string; target: RerunTarget; grouped: boolean } | null>(null);
   const selectedTimelineSegment = detail.selectedTimelineSegment ?? null;
   const selectedStageAvailable = selectedStageKey === "structureAnalysis"
     ? !materialWorkflow
     : stages.some((stage) => stage.key === selectedStageKey);
   const activeSelectedStageKey = selectedStageAvailable ? selectedStageKey : "upload";
   const selectedWorkflowStageKey = selectedTimelineSegment ? null : activeSelectedStageKey;
+  const rerunnableStageKeys = detail.rerunnableStageKeys ?? [];
+  const rerunningStageKey = detail.rerunningStageKey ?? null;
+  const rerunDisabled = Boolean(rerunningStageKey || detail.item?.isRunning);
+  const structureStageKeys = ["scriptSegment", "rhythmStructure", "packagingStructure"];
+  const canRerunStage = (stage: WorkflowStage) => Boolean(detail.onWorkflowStageRerun && rerunnableStageKeys.includes(stage.key));
+  const canRerunStructure = Boolean(detail.onWorkflowStageRerun && structureStageKeys.every((stageKey) => rerunnableStageKeys.includes(stageKey)));
+  const requestRerun = (stage: WorkflowStage, target: RerunTarget = stage.key) => {
+    setPendingRerun({ label: stage.label, target, grouped: Array.isArray(target) });
+  };
+  const confirmRerun = () => {
+    if (!pendingRerun) return;
+    const target = pendingRerun.target;
+    setPendingRerun(null);
+    detail.onWorkflowStageRerun?.(target);
+  };
   const selectWorkflowStage = (stageKey: WorkflowStageKey) => {
     setSelectedStageKey(stageKey);
     onWorkflowStageSelect?.();
@@ -56,15 +77,15 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
         <ol className="new-ui-analysis-workflow-list">
           {materialWorkflow ? (
             <>
-              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} canRerun={canRerunStage(userMaterialTagger)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === userMaterialTagger.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
             </>
           ) : (
             <>
-              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep
                 stage={{
                   key: "structureAnalysis",
@@ -75,15 +96,20 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
                 }}
                 connectorDone={structureStatus === "done"}
                 selected={selectedWorkflowStageKey === "structureAnalysis"}
+                canRerun={canRerunStructure}
+                rerunDisabled={rerunDisabled}
+                rerunning={rerunningStageKey === "structureAnalysis"}
+                rerunStageKey={structureStageKeys}
+                onRerun={requestRerun}
                 onSelect={selectWorkflowStage}
               >
                 <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
-                  <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} onSelect={selectWorkflowStage} />
-                  <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} onSelect={selectWorkflowStage} />
-                  <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} canRerun={canRerunStage(scriptSegment)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === scriptSegment.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} canRerun={canRerunStage(rhythmStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === rhythmStructure.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} canRerun={canRerunStage(packagingStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === packagingStructure.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
                 </div>
               </WorkflowStep>
-              <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} canRerun={canRerunStage(atomization)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === atomization.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
             </>
           )}
@@ -94,6 +120,7 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
       ) : (
         <WorkflowDetailPanel selectedStageKey={activeSelectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
       )}
+      {pendingRerun ? <RerunConfirmDialog pending={pendingRerun} onCancel={() => setPendingRerun(null)} onConfirm={confirmRerun} /> : null}
     </section>
   );
 }
@@ -113,6 +140,11 @@ function WorkflowStep({
   connectorDone = false,
   isLast = false,
   selected,
+  canRerun = false,
+  rerunDisabled = false,
+  rerunning = false,
+  rerunStageKey,
+  onRerun,
   onSelect,
   children,
 }: {
@@ -120,6 +152,11 @@ function WorkflowStep({
   connectorDone?: boolean;
   isLast?: boolean;
   selected: boolean;
+  canRerun?: boolean;
+  rerunDisabled?: boolean;
+  rerunning?: boolean;
+  rerunStageKey?: RerunTarget;
+  onRerun?: (stage: WorkflowStage, stageKey?: RerunTarget) => void;
   onSelect: (stageKey: WorkflowStageKey) => void;
   children?: ReactNode;
 }) {
@@ -130,38 +167,125 @@ function WorkflowStep({
         <span className={`new-ui-analysis-workflow-vline ${connectorDone ? "is-done" : ""} ${isLast ? "is-hidden" : ""}`.trim()} />
       </div>
       <div className="new-ui-analysis-workflow-step-body">
-        <button
-          className="new-ui-analysis-workflow-step-button"
-          type="button"
-          aria-pressed={selected}
-          title={`查看或调整${stage.label}详情`}
-          onClick={() => onSelect(stage.key)}
-        >
-          <span className="new-ui-analysis-workflow-step-copy">
-            <span className="new-ui-analysis-workflow-step-label">{stage.label}</span>
-            <span className="new-ui-analysis-workflow-badge">{statusLabel(stage.status)}</span>
-          </span>
-        </button>
+        <div className="new-ui-analysis-workflow-step-button">
+          <button
+            className="new-ui-analysis-workflow-step-select"
+            type="button"
+            aria-pressed={selected}
+            title={`查看或调整${stage.label}详情`}
+            onClick={() => onSelect(stage.key)}
+          >
+            <span className="new-ui-analysis-workflow-step-copy">
+              <span className="new-ui-analysis-workflow-step-label">{stage.label}</span>
+              <span className="new-ui-analysis-workflow-badge">{statusLabel(stage.status)}</span>
+            </span>
+          </button>
+          {canRerun ? (
+            <button
+              className={`new-ui-analysis-workflow-rerun-button ${rerunning ? "is-rerunning" : ""}`.trim()}
+              type="button"
+              disabled={rerunDisabled || stage.status === "running"}
+              aria-label={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+              title={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+              onClick={() => onRerun?.(stage, rerunStageKey ?? stage.key)}
+            >
+              <RerunIcon />
+            </button>
+          ) : null}
+        </div>
         {children}
       </div>
     </li>
   );
 }
 
-function ParallelStage({ stage, selected, onSelect }: { stage: WorkflowStage; selected: boolean; onSelect: (stageKey: WorkflowStageKey) => void }) {
+function ParallelStage({
+  stage,
+  selected,
+  canRerun = false,
+  rerunDisabled = false,
+  rerunning = false,
+  onRerun,
+  onSelect,
+}: {
+  stage: WorkflowStage;
+  selected: boolean;
+  canRerun?: boolean;
+  rerunDisabled?: boolean;
+  rerunning?: boolean;
+  onRerun?: (stage: WorkflowStage, stageKey?: RerunTarget) => void;
+  onSelect: (stageKey: WorkflowStageKey) => void;
+}) {
   return (
-    <button
-      className={`new-ui-analysis-workflow-parallel-item is-${stage.status} ${selected ? "is-selected" : ""}`.trim()}
-      type="button"
-      aria-pressed={selected}
-      title={`查看或调整${stage.label}详情`}
-      onClick={() => onSelect(stage.key)}
-    >
-      <span className="new-ui-analysis-workflow-parallel-label">
-        {stage.status === "running" ? <span className="new-ui-analysis-workflow-spinner" aria-hidden="true" /> : <span className="new-ui-analysis-workflow-mini-dot" aria-hidden="true" />}
-        <span>{stage.label}</span>
-      </span>
-    </button>
+    <div className={`new-ui-analysis-workflow-parallel-item is-${stage.status} ${selected ? "is-selected" : ""}`.trim()}>
+      <button
+        className="new-ui-analysis-workflow-parallel-button"
+        type="button"
+        aria-pressed={selected}
+        title={`查看或调整${stage.label}详情`}
+        onClick={() => onSelect(stage.key)}
+      >
+        <span className="new-ui-analysis-workflow-parallel-label">
+          {stage.status === "running" ? <span className="new-ui-analysis-workflow-spinner" aria-hidden="true" /> : <span className="new-ui-analysis-workflow-mini-dot" aria-hidden="true" />}
+          <span>{stage.label}</span>
+        </span>
+      </button>
+      {canRerun ? (
+        <button
+          className={`new-ui-analysis-workflow-rerun-button is-compact ${rerunning ? "is-rerunning" : ""}`.trim()}
+          type="button"
+          disabled={rerunDisabled || stage.status === "running"}
+          aria-label={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+          title={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+          onClick={() => onRerun?.(stage, stage.key)}
+        >
+          <RerunIcon />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function RerunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M18.3 8.2A7 7 0 1 0 19 13" />
+      <path d="M18.6 4.8v3.8h-3.8" />
+    </svg>
+  );
+}
+
+function RerunConfirmDialog({
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  pending: { label: string; target: RerunTarget; grouped: boolean };
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="new-ui-analysis-rerun-confirm-backdrop" role="presentation" onClick={onCancel}>
+      <section
+        className="new-ui-analysis-rerun-confirm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-ui-analysis-rerun-confirm-title"
+        aria-describedby="new-ui-analysis-rerun-confirm-desc"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="new-ui-analysis-rerun-confirm-title">确认重跑</h2>
+        <p id="new-ui-analysis-rerun-confirm-desc">
+          {pending.grouped
+            ? "结构分析会同时重跑脚本段落、节奏结构和包装结构，并刷新下游结果。"
+            : `${pending.label}会重新生成，并刷新依赖它的下游结果。`}
+        </p>
+        <div className="new-ui-analysis-rerun-confirm-actions">
+          <button className="new-ui-analysis-rerun-confirm-secondary" type="button" onClick={onCancel}>取消</button>
+          <button className="new-ui-analysis-rerun-confirm-primary" type="button" onClick={onConfirm}>确认</button>
+        </div>
+      </section>
+    </div>
   );
 }
 

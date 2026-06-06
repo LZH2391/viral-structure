@@ -1,0 +1,14 @@
+{
+  "role": "conversation-title-generator",
+  "profileVersion": "2026-06-06.title.1",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "generate": {
+      "template": "prompts/generate.v1.md",
+      "version": "generate.v1"
+    }
+  }
+}

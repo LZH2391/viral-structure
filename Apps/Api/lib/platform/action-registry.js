@@ -1,6 +1,7 @@
 const ACTIONS_RESPONSE_SCHEMA_VERSION = "platform_actions_response.v1";
 
 const RERUNNABLE_STAGE_KEYS = new Set([
+  "upload",
   "shotBoundary",
   "scriptSegment",
   "rhythmStructure",

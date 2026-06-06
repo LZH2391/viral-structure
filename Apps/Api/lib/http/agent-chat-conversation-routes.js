@@ -11,6 +11,7 @@ const {
   withConversationLock,
 } = require("./agent-chat-route-core");
 const { hydrateConversationSlotAtomDisplays: hydrateSlotAtomDisplays } = require("../agent-chat/restructure-auto-display-utils");
+const { maybeCollectConversationTitle } = require("../agent-chat/title-service");
 
 async function handleAgentChatConversationList(res, handlers = {}, url = null) {
   return runAgentChatStage(res, handlers, {
@@ -26,7 +27,7 @@ async function handleAgentChatConversationList(res, handlers = {}, url = null) {
       });
       return {
         ok: true,
-        conversations: await Promise.all(conversations.map((conversation) => hydrateSlotAtomDisplays(conversation, { rootDir: handlers.rootDir }))),
+        conversations: await Promise.all(conversations.map((conversation) => hydrateConversationForAgentChat(conversation, { handlers, traceContext }))),
         traceId: traceContext.traceId,
         runId: traceContext.runId,
         stageId: traceContext.stageId,
@@ -67,7 +68,7 @@ async function handleAgentChatConversationResume(res, conversationId, handlers =
       }
       return {
         ok: true,
-        conversation: await hydrateSlotAtomDisplays(conversation, { rootDir: handlers.rootDir }),
+        conversation: await hydrateConversationForAgentChat(conversation, { handlers, traceContext }),
         refreshed,
         refreshError,
         deleted,
@@ -220,6 +221,11 @@ async function handleAgentChatConversationArchive(req, res, conversationId, hand
     summarizeOutput: (result) => ({ conversationId: result.conversation.conversationId, status: result.conversation.status, threadDiscard: result.threadDiscard }),
     successStatus: 200,
   });
+}
+
+async function hydrateConversationForAgentChat(conversation, { handlers, traceContext } = {}) {
+  const titleRefreshed = await maybeCollectConversationTitle({ handlers, conversation, traceContext }).catch(() => conversation);
+  return hydrateSlotAtomDisplays(titleRefreshed ?? conversation, { rootDir: handlers.rootDir });
 }
 
 module.exports = {

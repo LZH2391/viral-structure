@@ -106,6 +106,9 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
         && current.title === nextDetail.title
         && current.item === nextDetail.item
         && current.selectedTimelineSegment === nextDetail.selectedTimelineSegment
+        && current.rerunningStageKey === nextDetail.rerunningStageKey
+        && current.onWorkflowStageRerun === nextDetail.onWorkflowStageRerun
+        && sameStringList(current.rerunnableStageKeys, nextDetail.rerunnableStageKeys)
       ) {
         return current;
       }
@@ -182,6 +185,13 @@ export function NewUiLayout({ theme, onThemeChange, onLeftCollapsedChange }: New
       </aside>
     </section>
   );
+}
+
+function sameStringList(a: string[] | null | undefined, b: string[] | null | undefined) {
+  const left = a ?? [];
+  const right = b ?? [];
+  if (left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
 }
 
 function readStoredBooleanPreference(key: keyof NewUiThreePanePreference, fallback: boolean) {

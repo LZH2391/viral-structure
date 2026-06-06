@@ -58,6 +58,38 @@ test("command dispatcher reruns material-recognition workflow stage", async () =
   assert.equal(result.stageId, "stage_userMaterialTagger");
 });
 
+test("command dispatcher refreshes sample by starting full-analysis workflow", async () => {
+  const calls = [];
+  const dispatcher = createCommandDispatcher({
+    fullAnalysisWorkflowService: {
+      startFromSample: async (payload) => {
+        calls.push(payload);
+        return {
+          workflowRunId: "workflow_new",
+          status: "running",
+          runId: "run_new",
+          traceId: "trace_new",
+          stages: [{ key: "upload", stageId: "stage_upload", artifactId: "artifact_upload" }],
+        };
+      },
+    },
+  });
+
+  const result = await dispatcher.execute({
+    command: "sample.full_analysis.refresh",
+    target: { resourceKind: "sample", resourceId: "sample_1" },
+  });
+
+  assert.deepEqual(calls, [{ sampleVideoId: "sample_1" }]);
+  assert.equal(result.ok, true);
+  assert.equal(result.command, "sample.full_analysis.refresh");
+  assert.equal(result.traceId, "trace_new");
+  assert.deepEqual(result.resourceRefs, [
+    { resourceKind: "sample", resourceId: "sample_1" },
+    { resourceKind: "workflowRun", resourceId: "workflow_new" },
+  ]);
+});
+
 test("command dispatcher rejects unsupported commands", async () => {
   const dispatcher = createCommandDispatcher();
 

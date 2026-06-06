@@ -43,6 +43,10 @@
       "profile_path": "Assets/RoleProfiles/function-slot-dialogue-robotic-reviewer/role.json",
       "min_idle": 3
     },
+    "conversation-title-generator": {
+      "profile_path": "Assets/RoleProfiles/conversation-title-generator/role.json",
+      "min_idle": 1
+    },
     "shot-storyboard-prep": {
       "profile_path": "Assets/RoleProfiles/shot-storyboard-prep/role.json",
       "min_idle": 3

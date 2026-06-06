@@ -4,6 +4,8 @@ import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
 import { loadAnalysisDetailItem, refreshAnalysisDetailItem } from "./analysisDetailData";
 import {
   isAnalysisItemRunning,
+  loadRerunnableWorkflowStageKeys,
+  rerunAnalysisWorkflowStage,
   startAnalysisUpload,
 } from "./analysisBackend";
 import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
@@ -29,7 +31,19 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
   const [taskStatusText, setTaskStatusText] = useState<string | null>(null);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const [selectedTimelineSegment, setSelectedTimelineSegment] = useState<AnalysisTimelineSegmentDetail | null>(null);
+  const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
+  const [rerunningStageKey, setRerunningStageKey] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const workflowStageKeySignature = detailItem?.workflowRun?.stages?.map((stage) => stage.key).join("|") ?? "";
+  const detailArtifactSignature = [
+    detailItem?.artifact?.sampleVideo?.artifactId,
+    detailItem?.artifact?.shotBoundaryAnalysis?.artifactId,
+    detailItem?.artifact?.scriptSegmentAnalysis?.artifactId,
+    detailItem?.artifact?.rhythmStructureAnalysis?.artifactId,
+    detailItem?.artifact?.packagingStructureAnalysis?.artifactId,
+    detailItem?.artifact?.functionSlotAtomizationAnalysis?.artifactId,
+    detailItem?.artifact?.userMaterialPack?.artifactId,
+  ].join("|");
 
   const stopPolling = useCallback(() => {
     if (pollTimerRef.current == null) return;
@@ -87,6 +101,8 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setDetailArtifactStatus(item.artifact ? "ready" : "loading");
     setTaskStatusText(statusTextForAnalysisItem(item));
     setSelectedTimelineSegment(null);
+    setRerunnableStageKeys([]);
+    setRerunningStageKey(null);
     setView("detail");
     if (isAnalysisItemRunning(item)) startDetailPolling(item, token);
   };
@@ -105,6 +121,8 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setDetailArtifactStatus("loading");
     setTaskStatusText("正在启动完整分析");
     setSelectedTimelineSegment(null);
+    setRerunnableStageKeys([]);
+    setRerunningStageKey(null);
     setView("detail");
     try {
       const { item, media } = await startAnalysisUpload(file);
@@ -130,6 +148,52 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     if (isUploading) return;
     if (event.dataTransfer.files.length) void handleUploadFiles(event.dataTransfer.files);
   }, [handleUploadFiles, isUploading]);
+
+  const handleWorkflowStageRerun = useCallback(async (stageKey: string | string[]) => {
+    if (!detailItem || rerunningStageKey) return;
+    const stageKeys = Array.isArray(stageKey) ? stageKey : [stageKey];
+    const statusKey = stageKeys.length > 1 ? "structureAnalysis" : stageKeys[0];
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    setRerunningStageKey(statusKey);
+    setTaskStatusText(`正在重跑${stageLabelForStatus(statusKey)}`);
+    setSelectedTimelineSegment(null);
+    try {
+      const { item: nextItem, media: nextMedia } = await rerunAnalysisWorkflowStage(detailItem, stageKeys);
+      if (token !== operationTokenRef.current) return;
+      setDetailItem(nextItem);
+      setDetailMedia(nextMedia);
+      setDetailTitle(nextMedia.title);
+      setDetailArtifactStatus(nextItem.artifact ? "ready" : "loading");
+      setTaskStatusText(statusTextForAnalysisItem(nextItem));
+      setHistoryRefreshKey((value) => value + 1);
+      startDetailPolling(nextItem, token);
+    } catch (error) {
+      if (token !== operationTokenRef.current) return;
+      setTaskStatusText(error instanceof Error ? error.message : "重跑分析步骤失败");
+    } finally {
+      if (token === operationTokenRef.current) setRerunningStageKey(null);
+    }
+  }, [detailItem, rerunningStageKey, startDetailPolling, stopPolling]);
+
+  useEffect(() => {
+    if (view !== "detail" || !detailItem?.sampleVideoId) {
+      setRerunnableStageKeys([]);
+      return undefined;
+    }
+    let mounted = true;
+    loadRerunnableWorkflowStageKeys(detailItem)
+      .then((stageKeys) => {
+        if (mounted) setRerunnableStageKeys(stageKeys);
+      })
+      .catch(() => {
+        if (mounted) setRerunnableStageKeys([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [detailItem?.sampleVideoId, detailItem?.workflowRunId, detailArtifactSignature, view, workflowStageKeySignature]);
 
   useEffect(() => {
     if (view !== "detail" || !detailItem?.sampleVideoId || detailItem.artifact) return undefined;
@@ -163,8 +227,11 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       title: detailTitle,
       item: detailItem,
       selectedTimelineSegment,
+      rerunnableStageKeys,
+      rerunningStageKey,
+      onWorkflowStageRerun: handleWorkflowStageRerun,
     });
-  }, [detailItem, detailTitle, onDetailStateChange, selectedTimelineSegment, view]);
+  }, [detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
 
   useEffect(() => () => {
     stopPolling();
@@ -183,8 +250,11 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
       title: detailTitle,
       item: detailItem,
       selectedTimelineSegment: segment,
+      rerunnableStageKeys,
+      rerunningStageKey,
+      onWorkflowStageRerun: handleWorkflowStageRerun,
     });
-  }, [detailItem, detailTitle, onDetailStateChange, view]);
+  }, [detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view]);
 
   return (
     <>
@@ -343,4 +413,15 @@ function statusTextForAnalysisItem(item: AnalysisHistoryItem | null) {
   if (runtimeStatus === "partial_failed") return "部分分析失败";
   if (runtimeStatus === "failed") return "分析失败";
   return `状态：${runtimeStatus}`;
+}
+
+function stageLabelForStatus(stageKey: string) {
+  if (stageKey === "structureAnalysis") return "结构分析";
+  if (stageKey === "shotBoundary") return "切镜";
+  if (stageKey === "scriptSegment") return "脚本段落";
+  if (stageKey === "rhythmStructure") return "节奏结构";
+  if (stageKey === "packagingStructure") return "包装结构";
+  if (stageKey === "functionSlotAtomization") return "功能槽位原子化";
+  if (stageKey === "userMaterialTagger") return "素材识别";
+  return "分析步骤";
 }

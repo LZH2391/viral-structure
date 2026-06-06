@@ -3,6 +3,7 @@ const { findTurn: findRolloutTurn, mergeThreadWithRollout, mergeTurnItems, resol
 const { buildAgentChatActionProjection } = require("../agent-chat/actions");
 const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
 const { maybeAutoReviewShotDialogue } = require("../agent-chat/shot-dialogue-auto-review");
+const { maybeCollectConversationTitle } = require("../agent-chat/title-service");
 const { normalizeTurnStatus } = require("../active-turns/status");
 const { guardUncertainTerminalResult } = require("../active-turns/runtime");
 const {
@@ -96,6 +97,14 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
             : null,
         });
       }
+      const titleConversation = conversationId
+        ? await maybeCollectConversationTitle({
+          handlers,
+          conversation: recorded ?? await handlers.agentConversationStore?.get?.(conversationId).catch(() => null),
+          traceContext,
+        }).catch(() => null)
+        : null;
+      if (titleConversation?.revision) recorded = titleConversation;
       if (conversationId && payload.autoDialogueRoboticReview?.status === "processed" && payload.autoDialogueRoboticReview.decision === "rework" && payload.autoDialogueRoboticReview.reviewOutputPath) {
         payload.autoDialogueRework = await maybeSubmitAutomaticDialogueRework({
           handlers,
@@ -116,6 +125,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         Object.assign(payload, markedActiveTurn.result);
       }
       payload.conversationRevision = recorded?.revision ?? null;
+      if (titleConversation?.titleState) payload.titleGeneration = summarizeTitleState(titleConversation.titleState);
       payload.latestTurnId = recorded?.latestTurnId ?? payload.turnId;
       payload.threadStopped = Boolean(recorded?.threadStopped);
       if (payload.autoDialogueRework?.ok) {
@@ -144,9 +154,19 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
       autoDialogueReviewStatus: result.autoDialogueRoboticReview?.status ?? null,
       autoDialogueReworkStatus: result.autoDialogueRework?.status ?? null,
+      titleStatus: result.titleGeneration?.status ?? null,
     }),
     successStatus: 200,
   });
+}
+
+function summarizeTitleState(titleState) {
+  if (!titleState) return null;
+  return {
+    status: titleState.status ?? null,
+    titleTurnId: titleState.titleTurnId ?? null,
+    error: titleState.errorSummary?.code ?? null,
+  };
 }
 
 async function maybeMaterializeRestructureDisplay({ payload, handlers, traceContext, url }) {

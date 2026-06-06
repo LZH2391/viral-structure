@@ -1,10 +1,13 @@
 const { RESOURCE_SUMMARY_SCHEMA_VERSION } = require("./resource-resolver");
 
-function createProjectionResolver({ artifactIndex = null } = {}) {
+function createProjectionResolver({ artifactIndex = null, workflowRunStore = null } = {}) {
   async function read({ projectionId } = {}) {
     const id = normalizeText(projectionId);
     if (id !== "analysis-history") return null;
-    const items = (await artifactIndex?.listItems?.() ?? []).map((item) => analysisHistoryProjectionItem(item));
+    const items = mergeWorkflowRuns(
+      (await artifactIndex?.listItems?.() ?? []).map((item) => analysisHistoryProjectionItem(item)).filter(Boolean),
+      typeof workflowRunStore?.listRuns === "function" ? workflowRunStore.listRuns() : [],
+    );
     return baseSummary({
       resourceKind: "projection",
       resourceId: id,
@@ -14,7 +17,7 @@ function createProjectionResolver({ artifactIndex = null } = {}) {
       summary: {
         schemaVersion: "analysis_history_projection.v1",
         generatedAt: new Date().toISOString(),
-        items: items.filter(Boolean),
+        items,
       },
       sourceOfTruth: "Runtime/Artifacts/<sampleVideoId>/artifact.json",
       indexSource: "Infrastructure/ArtifactIndex",
@@ -22,6 +25,49 @@ function createProjectionResolver({ artifactIndex = null } = {}) {
   }
 
   return { read };
+}
+
+function mergeWorkflowRuns(items, runs) {
+  const bySampleVideoId = new Map(items.map((item) => [item.sampleVideoId, item]));
+  for (const run of runs) {
+    if (!run?.sampleVideoId || !isRunningStatus(run.status)) continue;
+    const current = bySampleVideoId.get(run.sampleVideoId);
+    bySampleVideoId.set(run.sampleVideoId, mergeWorkflowRunItem(current, run));
+  }
+  return Array.from(bySampleVideoId.values());
+}
+
+function mergeWorkflowRunItem(item, run) {
+  return {
+    sampleVideoId: run.sampleVideoId,
+    workflowRunId: normalizeText(run.workflowRunId),
+    workflowKey: normalizeText(run.workflowKey),
+    title: item?.title ?? normalizeText(run.sampleVideoId),
+    status: normalizeText(run.status),
+    updatedAt: latestText(item?.updatedAt, run.updatedAt),
+    createdAt: item?.createdAt ?? normalizeText(run.createdAt),
+    artifactId: item?.artifactId ?? latestStageArtifactId(run),
+    traceId: normalizeText(run.traceId) ?? item?.traceId ?? null,
+    runId: normalizeText(run.runId) ?? item?.runId ?? null,
+    stageId: latestStageId(run) ?? item?.stageId ?? null,
+    durationSeconds: item?.durationSeconds ?? null,
+    width: item?.width ?? null,
+    height: item?.height ?? null,
+    coverUri: item?.coverUri ?? null,
+    videoUri: item?.videoUri ?? null,
+    hasFunctionSlotAtomization: Boolean(item?.hasFunctionSlotAtomization),
+    hasUserMaterialPack: Boolean(item?.hasUserMaterialPack || run.workflowKey === "material-recognition"),
+    isIncomplete: Boolean(item?.isIncomplete),
+    isRunning: true,
+  };
+}
+
+function latestStageArtifactId(run) {
+  return [...(run?.stages ?? [])].reverse().find((stage) => normalizeText(stage?.artifactId))?.artifactId ?? null;
+}
+
+function latestStageId(run) {
+  return [...(run?.stages ?? [])].reverse().find((stage) => normalizeText(stage?.stageId))?.stageId ?? null;
 }
 
 function analysisHistoryProjectionItem(item) {
@@ -54,6 +100,14 @@ function latestUpdatedAt(items) {
     if (!value) return latest;
     return !latest || String(value).localeCompare(latest) > 0 ? value : latest;
   }, null);
+}
+
+function latestText(left, right) {
+  const a = normalizeText(left);
+  const b = normalizeText(right);
+  if (!a) return b;
+  if (!b) return a;
+  return String(b).localeCompare(a) > 0 ? b : a;
 }
 
 function baseSummary({

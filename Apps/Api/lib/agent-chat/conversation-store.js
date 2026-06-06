@@ -20,6 +20,7 @@ const {
   normalizeRevision,
   normalizeSlotAtomDisplay,
   normalizeState,
+  normalizeTitleState,
   safeConversationFileName,
   upsertMessage,
 } = require("./conversation-normalizers");
@@ -247,6 +248,30 @@ function createAgentConversationStore({ store, filePath } = {}) {
     }, { skipArchived: true });
   }
 
+  async function updateTitleState({ conversationId, titleState = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !titleState) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.titleState = normalizeTitleState(titleState);
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    }, { skipArchived: true });
+  }
+
+  async function updateTitle({ conversationId, title = null, titleState = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      const normalizedTitle = limitText(title).trim();
+      if (normalizedTitle) conversation.title = normalizedTitle;
+      if (titleState) conversation.titleState = normalizeTitleState(titleState);
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    }, { skipArchived: true });
+  }
+
   async function stopThread({ conversationId, reason = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
@@ -471,6 +496,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordAssistantTurn,
     attachDialogueRoboticReview,
     recordTurnStopped,
+    updateTitleState,
+    updateTitle,
     stopThread,
     bindThread,
     recordSystemMessage,
