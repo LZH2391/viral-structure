@@ -1,4 +1,13 @@
-export type AnalysisTimelineSegmentTone = "subtitle" | "script" | "rhythm" | "packaging" | "slot";
+export type AnalysisTimelineSegmentTone =
+  | "subtitle"
+  | "script"
+  | "rhythm"
+  | "packaging"
+  | "slot"
+  | "materialClass"
+  | "materialFunction"
+  | "materialProof"
+  | "materialSequence";
 
 export type AnalysisTimelineSegmentDetail = {
   id: string;

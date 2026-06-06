@@ -389,5 +389,9 @@ function segmentKindLabel(tone: AnalysisTimelineSegmentDetail["tone"]) {
   if (tone === "script") return "脚本段";
   if (tone === "rhythm") return "节奏段";
   if (tone === "packaging") return "包装段";
+  if (tone === "materialClass") return "镜头类型";
+  if (tone === "materialFunction") return "表达功能";
+  if (tone === "materialProof") return "证明支撑";
+  if (tone === "materialSequence") return "成片位置";
   return "槽位段";
 }

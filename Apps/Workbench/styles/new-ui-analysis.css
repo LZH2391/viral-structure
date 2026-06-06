@@ -226,16 +226,19 @@ button.new-ui-analysis-detail-status {
   --new-ui-analysis-script-block-accent: #8398ad;
   --new-ui-analysis-rhythm-block-accent: #8398ad;
   --new-ui-analysis-packaging-block-accent: #8398ad;
+  --new-ui-analysis-material-block-accent: #8398ad;
   --new-ui-analysis-slot-block-accent: var(--new-ui-analysis-status-done);
   --new-ui-analysis-subtitle-block-bg: color-mix(in srgb, var(--new-ui-text-muted) 12%, var(--new-ui-timeline-panel-muted));
   --new-ui-analysis-script-block-bg: color-mix(in srgb, var(--new-ui-analysis-script-block-accent) 16%, transparent);
   --new-ui-analysis-rhythm-block-bg: color-mix(in srgb, var(--new-ui-analysis-rhythm-block-accent) 16%, transparent);
   --new-ui-analysis-packaging-block-bg: color-mix(in srgb, var(--new-ui-analysis-packaging-block-accent) 16%, transparent);
+  --new-ui-analysis-material-block-bg: color-mix(in srgb, var(--new-ui-analysis-material-block-accent) 16%, transparent);
   --new-ui-analysis-slot-block-bg: color-mix(in srgb, var(--new-ui-analysis-slot-block-accent) 13%, transparent);
   --new-ui-analysis-subtitle-block-text: color-mix(in srgb, var(--new-ui-text) 68%, var(--new-ui-text-muted));
   --new-ui-analysis-script-block-text: color-mix(in srgb, var(--new-ui-analysis-script-block-accent) 66%, var(--new-ui-text));
   --new-ui-analysis-rhythm-block-text: color-mix(in srgb, var(--new-ui-analysis-rhythm-block-accent) 66%, var(--new-ui-text));
   --new-ui-analysis-packaging-block-text: color-mix(in srgb, var(--new-ui-analysis-packaging-block-accent) 66%, var(--new-ui-text));
+  --new-ui-analysis-material-block-text: color-mix(in srgb, var(--new-ui-analysis-material-block-accent) 66%, var(--new-ui-text));
   --new-ui-analysis-slot-block-text: color-mix(in srgb, var(--new-ui-analysis-slot-block-accent) 64%, var(--new-ui-text));
   --new-ui-analysis-structure-border: color-mix(in srgb, var(--new-ui-analysis-rhythm-block-accent) 36%, var(--new-ui-timeline-border));
   --new-ui-analysis-nav-left: 0%;
@@ -261,6 +264,7 @@ button.new-ui-analysis-detail-status {
   --new-ui-analysis-script-block-accent: #7b90a5;
   --new-ui-analysis-rhythm-block-accent: #7b90a5;
   --new-ui-analysis-packaging-block-accent: #7b90a5;
+  --new-ui-analysis-material-block-accent: #7b90a5;
 }
 
 .new-ui-analysis-timeline-body {
@@ -692,10 +696,23 @@ button.new-ui-analysis-detail-status {
   color: var(--new-ui-analysis-slot-block-text);
 }
 
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-timeline-block,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-timeline-block,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-timeline-block,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-timeline-block {
+  border: 1px solid color-mix(in srgb, var(--new-ui-analysis-material-block-accent) 42%, var(--new-ui-timeline-border));
+  background: var(--new-ui-analysis-material-block-bg);
+  color: var(--new-ui-analysis-material-block-text);
+}
+
 .new-ui-analysis-timeline-row.is-script .new-ui-analysis-timeline-block.is-selected,
 .new-ui-analysis-timeline-row.is-rhythm .new-ui-analysis-timeline-block.is-selected,
 .new-ui-analysis-timeline-row.is-packaging .new-ui-analysis-timeline-block.is-selected,
-.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-timeline-block.is-selected {
+.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-timeline-block.is-selected,
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-timeline-block.is-selected,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-timeline-block.is-selected,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-timeline-block.is-selected,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-timeline-block.is-selected {
   box-shadow:
     inset 0 0 0 1px currentColor,
     inset 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
@@ -704,7 +721,11 @@ button.new-ui-analysis-detail-status {
 .new-ui-analysis-timeline-row.is-script .new-ui-analysis-timeline-block::before,
 .new-ui-analysis-timeline-row.is-rhythm .new-ui-analysis-timeline-block::before,
 .new-ui-analysis-timeline-row.is-packaging .new-ui-analysis-timeline-block::before,
-.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-timeline-block::before {
+.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-timeline-block::before {
   content: "";
   align-self: stretch;
   flex: 0 0 3px;
@@ -731,10 +752,21 @@ button.new-ui-analysis-detail-status {
   background: var(--new-ui-analysis-slot-block-accent);
 }
 
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-timeline-block::before,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-timeline-block::before {
+  background: var(--new-ui-analysis-material-block-accent);
+}
+
 .new-ui-analysis-timeline-row.is-script .new-ui-analysis-structure-block,
 .new-ui-analysis-timeline-row.is-rhythm .new-ui-analysis-structure-block,
 .new-ui-analysis-timeline-row.is-packaging .new-ui-analysis-structure-block,
-.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-block {
+.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-structure-block {
   top: 5px;
   bottom: 5px;
   display: grid;
@@ -770,10 +802,23 @@ button.new-ui-analysis-detail-status {
   color: var(--new-ui-analysis-slot-block-text);
 }
 
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-structure-block,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-structure-block {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-material-block-accent) 42%, var(--new-ui-timeline-border));
+  background: var(--new-ui-analysis-material-block-bg);
+  color: var(--new-ui-analysis-material-block-text);
+}
+
 .new-ui-analysis-timeline-row.is-script .new-ui-analysis-structure-block::before,
 .new-ui-analysis-timeline-row.is-rhythm .new-ui-analysis-structure-block::before,
 .new-ui-analysis-timeline-row.is-packaging .new-ui-analysis-structure-block::before,
-.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-block::before {
+.new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-structure-block::before {
   content: "";
   position: absolute;
   flex: none;
@@ -801,6 +846,13 @@ button.new-ui-analysis-detail-status {
 
 .new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-block::before {
   background: var(--new-ui-analysis-slot-block-accent);
+}
+
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-structure-block::before,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-structure-block::before {
+  background: var(--new-ui-analysis-material-block-accent);
 }
 
 .new-ui-analysis-structure-ticks {
@@ -861,6 +913,13 @@ button.new-ui-analysis-detail-status {
 
 .new-ui-analysis-timeline-row.is-slot .new-ui-analysis-structure-range {
   color: color-mix(in srgb, var(--new-ui-analysis-slot-block-text) 74%, var(--new-ui-text-muted));
+}
+
+.new-ui-analysis-timeline-row.is-materialClass .new-ui-analysis-structure-range,
+.new-ui-analysis-timeline-row.is-materialFunction .new-ui-analysis-structure-range,
+.new-ui-analysis-timeline-row.is-materialProof .new-ui-analysis-structure-range,
+.new-ui-analysis-timeline-row.is-materialSequence .new-ui-analysis-structure-range {
+  color: color-mix(in srgb, var(--new-ui-analysis-material-block-text) 74%, var(--new-ui-text-muted));
 }
 
 .new-ui-analysis-timeline-empty {
