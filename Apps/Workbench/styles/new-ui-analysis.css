@@ -166,10 +166,27 @@
   visibility: hidden;
 }
 
+.new-ui-analysis-player-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: stretch;
+  gap: 8px;
+  width: min(918px, 82%);
+  min-width: 0;
+  transition:
+    width 180ms ease,
+    grid-template-columns 180ms ease;
+}
+
+.new-ui-analysis-player-shell.is-queue-expanded {
+  grid-template-columns: minmax(0, 1fr) 220px;
+  width: min(1128px, 94%);
+}
+
 .new-ui-analysis-player {
   --new-ui-analysis-player-black: #000;
   position: relative;
-  width: min(896px, 80%);
+  width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 74%, transparent);
@@ -181,7 +198,7 @@
 }
 
 .new-ui-analysis-player.is-portrait {
-  width: min(896px, 80%);
+  width: 100%;
   aspect-ratio: 16 / 9;
 }
 
@@ -203,6 +220,225 @@
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--new-ui-text-muted) 13%, transparent), transparent),
     color-mix(in srgb, var(--new-ui-surface) 58%, var(--new-ui-bg));
+}
+
+.new-ui-analysis-player-queue {
+  display: grid;
+  grid-template-columns: 0 14px;
+  align-self: stretch;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-surface) 72%, var(--new-ui-bg));
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--new-ui-control-shadow) 30%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.new-ui-analysis-player-queue-preview {
+  display: none;
+  align-content: start;
+  gap: 3px;
+  min-height: 0;
+  padding: 6px 5px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.new-ui-analysis-player-queue-thumb {
+  appearance: none;
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--new-ui-border) 64%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--new-ui-bg) 52%, var(--new-ui-surface));
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    filter 140ms ease,
+    transform 140ms ease;
+}
+
+.new-ui-analysis-player-queue-thumb.is-wide {
+  aspect-ratio: 16 / 9;
+}
+
+.new-ui-analysis-player-queue-thumb.is-cinema {
+  aspect-ratio: 2 / 1;
+}
+
+.new-ui-analysis-player-queue-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.new-ui-analysis-player-queue-thumb:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.new-ui-analysis-player-queue-thumb:not(:disabled):focus-visible {
+  z-index: 4;
+  border-color: color-mix(in srgb, currentColor 62%, var(--new-ui-control-border));
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-analysis-player-queue-thumb:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.new-ui-analysis-player-queue-thumb:disabled {
+  cursor: default;
+}
+
+.new-ui-analysis-player-queue-thumb img,
+.new-ui-analysis-player-queue-thumb-empty {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.new-ui-analysis-player-queue-thumb img {
+  object-fit: cover;
+}
+
+.new-ui-analysis-player-queue-thumb-empty {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, currentColor 14%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--new-ui-bg) 42%, var(--new-ui-surface));
+}
+
+.new-ui-analysis-player-queue-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  z-index: 3;
+  max-width: calc(100% - 8px);
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--new-ui-bg) 72%, transparent);
+  color: color-mix(in srgb, currentColor 76%, var(--new-ui-text));
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 700;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-player-queue-thumb.is-done {
+  color: var(--new-ui-analysis-status-done);
+}
+
+.new-ui-analysis-player-queue-thumb.is-running {
+  color: var(--new-ui-analysis-status-running);
+}
+
+.new-ui-analysis-player-queue-thumb.is-failed {
+  color: var(--new-ui-analysis-status-failed);
+}
+
+.new-ui-analysis-player-queue-thumb.is-waiting {
+  color: color-mix(in srgb, var(--new-ui-text-muted) 78%, var(--new-ui-border));
+}
+
+.new-ui-analysis-player-queue-toggle {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 64%, transparent);
+  color: color-mix(in srgb, var(--new-ui-text) 72%, var(--new-ui-text-muted));
+  pointer-events: none;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.new-ui-analysis-player-queue:hover .new-ui-analysis-player-queue-toggle,
+.new-ui-analysis-player-queue:focus-visible .new-ui-analysis-player-queue-toggle {
+  background: color-mix(in srgb, var(--new-ui-control-bg) 76%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+}
+
+.new-ui-analysis-player-queue:active .new-ui-analysis-player-queue-toggle {
+  transform: translateY(1px);
+}
+
+.new-ui-analysis-player-queue-toggle svg {
+  display: block;
+  width: 12px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.new-ui-analysis-player-queue.is-expanded {
+  grid-template-columns: minmax(0, 1fr) 14px;
+}
+
+.new-ui-analysis-player-queue.is-expanded .new-ui-analysis-player-queue-preview {
+  display: grid;
+  align-content: start;
+  padding: 6px 5px;
+}
+
+.new-ui-analysis-player-queue.is-expanded .new-ui-analysis-player-queue-toggle {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.new-ui-analysis-player-queue:hover,
+.new-ui-analysis-player-queue:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 86%, var(--new-ui-text-muted));
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--new-ui-control-shadow) 38%, transparent);
+  outline: 0;
+}
+
+.new-ui-analysis-player-queue:focus-visible {
+  box-shadow:
+    0 16px 36px color-mix(in srgb, var(--new-ui-control-shadow) 38%, transparent),
+    inset 0 0 0 2px var(--new-ui-focus-ring);
+}
+
+.new-ui-analysis-player-queue:not(.is-expanded):hover .new-ui-analysis-player-queue-toggle svg,
+.new-ui-analysis-player-queue:not(.is-expanded):focus-visible .new-ui-analysis-player-queue-toggle svg {
+  transform: translateX(1px);
+}
+
+.new-ui-analysis-player-queue.is-expanded:hover .new-ui-analysis-player-queue-toggle svg,
+.new-ui-analysis-player-queue.is-expanded:focus-visible .new-ui-analysis-player-queue-toggle svg {
+  transform: translateX(-1px);
 }
 
 .new-ui-analysis-timeline {
@@ -1967,26 +2203,21 @@
 
 .new-ui-analysis-workflow-detail-summary strong {
   min-width: 0;
-  overflow: hidden;
   color: color-mix(in srgb, var(--new-ui-text) 86%, var(--new-ui-text-muted));
   font-size: var(--new-ui-font-size-md);
   font-weight: 700;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .new-ui-analysis-workflow-detail-summary p {
-  display: -webkit-box;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: color-mix(in srgb, var(--new-ui-text) 58%, var(--new-ui-text-muted));
   font-size: var(--new-ui-font-size-xs);
   font-weight: 610;
   line-height: 1.5;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .new-ui-analysis-workflow-detail-metrics {
@@ -2052,9 +2283,7 @@
 .new-ui-analysis-workflow-detail-card strong,
 .new-ui-analysis-workflow-detail-card span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .new-ui-analysis-workflow-detail-card strong {
@@ -2072,16 +2301,13 @@
 }
 
 .new-ui-analysis-workflow-detail-card p {
-  display: -webkit-box;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
   color: color-mix(in srgb, var(--new-ui-text) 58%, var(--new-ui-text-muted));
   font-size: var(--new-ui-font-size-xs);
   font-weight: 590;
   line-height: 1.45;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .new-ui-analysis-workflow-detail-empty {
@@ -2229,6 +2455,45 @@
     padding-bottom: 18px;
   }
 
+  .new-ui-analysis-player-shell,
+  .new-ui-analysis-player-shell.is-queue-expanded {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(896px, 100%);
+  }
+
+  .new-ui-analysis-player-queue {
+    grid-template-columns: 0 18px;
+    grid-template-rows: auto;
+  }
+
+  .new-ui-analysis-player-queue.is-expanded {
+    grid-template-columns: minmax(0, 1fr) 18px;
+  }
+
+  .new-ui-analysis-player-queue-preview {
+    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    align-content: stretch;
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .new-ui-analysis-player-queue.is-expanded .new-ui-analysis-player-queue-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    align-content: stretch;
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .new-ui-analysis-player-queue-toggle,
+  .new-ui-analysis-player-queue.is-expanded .new-ui-analysis-player-queue-toggle {
+    grid-row: auto;
+    grid-column: auto;
+    border-top: 0;
+    border-left: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  }
+
   .new-ui-analysis-history {
     width: 100%;
   }
@@ -2243,6 +2508,9 @@
   .new-ui-analysis-title-button,
   .new-ui-analysis-history-card,
   .new-ui-analysis-history-media video,
+  .new-ui-analysis-player-shell,
+  .new-ui-analysis-player-queue-toggle,
+  .new-ui-analysis-player-queue-toggle svg,
   .new-ui-analysis-workflow-spinner {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;

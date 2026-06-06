@@ -73,7 +73,7 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
   return (
     <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "完整分析总览"}>
       <div className="new-ui-analysis-workflow-flow">
-        <h2 className="new-ui-analysis-workflow-title">分析流程</h2>
+        <h2 className="new-ui-analysis-workflow-title">{materialWorkflow ? "识别流程" : "分析流程"}</h2>
         <ol className="new-ui-analysis-workflow-list">
           {materialWorkflow ? (
             <>
@@ -327,7 +327,7 @@ function WorkflowDetailPanel({
             {detail.cards.map((card) => (
               <article key={`${card.title}_${card.meta}`} className="new-ui-analysis-workflow-detail-card">
                 <strong>{card.title}</strong>
-                <span>{card.meta}</span>
+                {card.meta ? <span>{card.meta}</span> : null}
                 <p>{card.body}</p>
               </article>
             ))}
@@ -343,10 +343,15 @@ function WorkflowDetailPanel({
 
 function TimelineSegmentDetailPanel({ segment }: { segment: AnalysisTimelineSegmentDetail }) {
   const metrics = [
-    { label: "类型", value: segmentKindLabel(segment.tone) },
-    { label: "时间", value: segment.timeLabel },
     segment.shotRangeLabel ? { label: "镜头", value: segment.shotRangeLabel } : null,
   ].filter((metric): metric is { label: string; value: string } => Boolean(metric));
+  const isSubtitleSegment = segment.tone === "subtitle";
+  const detailFields = isSubtitleSegment
+    ? [
+      { label: "时间", value: segment.timeLabel },
+      { label: "字幕文本", value: segment.summary },
+    ]
+    : segment.fields;
 
   return (
     <section className="new-ui-analysis-workflow-detail" aria-label="时间轴选中段详情" data-selected-stage={`timeline-${segment.tone}`}>
@@ -356,20 +361,21 @@ function TimelineSegmentDetailPanel({ segment }: { segment: AnalysisTimelineSegm
       </div>
       <div className="new-ui-analysis-workflow-detail-content">
         <div className="new-ui-analysis-workflow-detail-summary">
-          <strong>{segment.title}</strong>
-          <p>{segment.summary}</p>
+          <strong>{segmentKindLabel(segment.tone)}</strong>
         </div>
-        <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${segment.title}段落信息`}>
-          {metrics.map((metric) => (
-            <div key={metric.label} className="new-ui-analysis-workflow-detail-metric">
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-            </div>
-          ))}
-        </div>
-        {segment.fields.length ? (
+        {metrics.length ? (
+          <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${segment.title}段落信息`}>
+            {metrics.map((metric) => (
+              <div key={metric.label} className="new-ui-analysis-workflow-detail-metric">
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {detailFields.length ? (
           <div className="new-ui-analysis-workflow-detail-list">
-            {segment.fields.slice(0, 4).map((field) => (
+            {detailFields.map((field) => (
               <article key={`${field.label}_${field.value}`} className="new-ui-analysis-workflow-detail-card">
                 <strong>{field.label}</strong>
                 <p>{field.value}</p>

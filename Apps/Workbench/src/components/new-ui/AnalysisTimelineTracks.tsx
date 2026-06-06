@@ -569,12 +569,12 @@ function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryIte
     .map((segment, index) => {
       const start = positiveTimelineNumber(segment.start);
       const rawEnd = positiveTimelineNumber(segment.end);
-      const text = sanitizeText(segment.text, 96);
+      const text = timelineDetailText(segment.text);
+      const labelText = sanitizeText(segment.text, 96);
       const end = rawEnd > start ? rawEnd : start + estimateSubtitleDuration(text);
-      const confidence = "confidence" in segment ? segment.confidence : null;
       return {
         id: String(segment.id ?? `subtitle_${index}`),
-        label: text || `字幕 ${index + 1}`,
+        label: labelText || `字幕 ${index + 1}`,
         start,
         end,
         detail: {
@@ -584,12 +584,7 @@ function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryIte
           timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
           shotRangeLabel: null,
           summary: text || "这条字幕没有文本内容。",
-          fields: compactTimelineDetailFields([
-            { label: "字幕文本", value: text },
-            { label: "识别来源", value: subtitles?.source ?? subtitles?.provider ?? null },
-            { label: "置信度", value: formatSubtitleConfidence(confidence) },
-            { label: "字幕版本", value: subtitles?.revisionIndex != null ? `v${subtitles.revisionIndex}` : null },
-          ]),
+          fields: [],
         },
       };
     })
@@ -763,7 +758,7 @@ function materialDetail({
     title,
     timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
     shotRangeLabel: shotLabel,
-    summary: sanitizeText(summary, 120),
+    summary: timelineDetailText(summary),
     fields: compactTimelineDetailFields(fields),
   };
 }
@@ -771,8 +766,6 @@ function materialDetail({
 function materialCardBaseFields(card: MaterialShotCard, shotLabel: string) {
   return [
     { label: "镜头", value: shotLabel },
-    { label: "置信度", value: formatMaterialConfidence(card.confidence) },
-    { label: "需复核", value: card.needReview ? "是" : "否" },
     { label: "限制引用", value: asArray(card.constraintRefs).join(" / ") },
   ];
 }
@@ -926,16 +919,9 @@ type MaterialProofCoverage = NonNullable<NonNullable<AnalysisHistoryItem["artifa
 type MaterialSequenceCandidate = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["sequenceRecommendations"]["openingCandidates"][number];
 type ShotBoundaryShot = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["shotBoundaryAnalysis"]>["shots"][number];
 
-function formatSubtitleConfidence(value: unknown) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return null;
-  return `${Math.round(number * 100)}%`;
-}
-
 function resolveShotTimelineDetail(shot: ShotBoundaryShot, materialCard: MaterialShotCard | undefined): AnalysisTimelineSegmentDetail {
   const label = formatShotNo(shot.shotNo, shot.index);
   const summary = shot.summary || shot.reason || materialCard?.visualSummary || "这个镜头还没有摘要。";
-  const duration = Math.max(0, positiveTimelineNumber(shot.end) - positiveTimelineNumber(shot.start));
   const shotFunctions = asArray(materialCard?.shotFunctions);
   return {
     id: `shot:${shot.id}`,
@@ -943,16 +929,11 @@ function resolveShotTimelineDetail(shot: ShotBoundaryShot, materialCard: Materia
     title: label,
     timeLabel: `${formatTimelineTime(shot.start)} - ${formatTimelineTime(shot.end)}`,
     shotRangeLabel: label,
-    summary: sanitizeText(summary, 120),
+    summary: timelineDetailText(summary),
     fields: compactTimelineDetailFields([
-      { label: "镜头编号", value: label },
-      { label: "时长", value: formatTimelineTime(duration) },
       { label: "镜头摘要", value: shot.summary },
       { label: "切分原因", value: shot.reason },
       { label: "边界原因", value: shot.endBoundaryReason },
-      { label: "置信度", value: formatMaterialConfidence(shot.confidence) },
-      { label: "需复核", value: shot.needReview ? "是" : "否" },
-      { label: "代表帧", value: shot.representativeFrameId },
       { label: "素材类型", value: materialCard ? materialClassLabel(materialCard.shotClass) : null },
       { label: "表达功能", value: shotFunctions.length ? shotFunctions.map(materialFunctionLabel).join(" / ") : null },
       { label: "素材摘要", value: materialCard?.visualSummary || materialCard?.spokenOrSubtitleSummary },
@@ -1054,7 +1035,7 @@ function withStructureDetailMeta({
       title: label,
       timeLabel: `${formatTimelineTime(start)} - ${formatTimelineTime(end)}`,
       shotRangeLabel: shotRange.shotRangeLabel,
-      summary: sanitizeText(summary, 120),
+      summary: timelineDetailText(summary),
       fields: compactTimelineDetailFields(fields),
     },
   };
@@ -1064,9 +1045,13 @@ function compactTimelineDetailFields(fields: Array<{ label: string; value: strin
   return fields
     .map((field) => ({
       label: field.label,
-      value: sanitizeText(field.value, 120),
+      value: timelineDetailText(field.value),
     }))
     .filter((field) => field.value);
+}
+
+function timelineDetailText(value: unknown) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
 function fieldPreview(fields: Array<{ label: string; value: string }> | null | undefined) {

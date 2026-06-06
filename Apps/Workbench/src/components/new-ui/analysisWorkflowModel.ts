@@ -1,5 +1,5 @@
 import type { SampleArtifact } from "../../types";
-import { formatSecondsCompact, sanitizeText } from "../../utils/format";
+import { formatSecondsCompact } from "../../utils/format";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 
 export type WorkflowStageStatus = "done" | "running" | "waiting" | "failed";
@@ -114,21 +114,15 @@ function resolveUploadDetail(base: Pick<WorkflowDetail, "title" | "status">, art
 function resolveShotBoundaryDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
   const analysis = artifact.shotBoundaryAnalysis;
   const shots = analysis?.shots ?? [];
-  const reviewCount = shots.filter((shot) => shot.needReview).length;
+  const commerceBrief = analysis?.commerceBrief ?? null;
   return {
     ...base,
-    summary: shots.length ? "视频已经拆分成连续镜头，后续结构分析会基于这些镜头展开。" : "切镜完成后会展示镜头数量和主要镜头摘要。",
-    metrics: compactMetrics([
-      metric("镜头", `${formatCount(shots.length)} 个`),
-      metric("覆盖", formatCoverage(shots)),
-      metric("需复核", `${formatCount(reviewCount)} 个`),
-    ]),
-    cards: shots.slice(0, 4).map((shot, index) => card(
-      shot.shotNo ?? `镜头 ${String(index + 1).padStart(3, "0")}`,
-      `${formatSecondsCompact(shot.start)} - ${formatSecondsCompact(shot.end)}`,
-      shot.summary ?? shot.reason ?? "这个镜头还没有摘要。",
-    )),
-    emptyText: failedText(analysis?.status, "本步未生成有效镜头，可重试切镜。", "切镜完成后会展示镜头列表。"),
+    summary: commerceBrief
+      ? "切镜已经完成，并提取出这条视频的带货表达重点。"
+      : "切镜完成后会展示带货总结。",
+    metrics: [],
+    cards: commerceBriefCards(commerceBrief),
+    emptyText: failedText(analysis?.status, "本步未生成有效切镜结果，可重试切镜。", "切镜完成后会展示带货总结。"),
     nextText: shots.length ? "切镜完成后，结构分析会并行拆出脚本段落、节奏结构和包装结构。" : "",
   };
 }
@@ -158,16 +152,14 @@ function resolveStructureAnalysisDetail(base: Pick<WorkflowDetail, "title" | "st
 function resolveScriptSegmentDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
   const analysis = artifact.scriptSegmentAnalysis;
   const segments = analysis?.segments ?? [];
-  const reviewCount = segments.filter((segment) => segment.needReview).length;
   return {
     ...base,
     summary: segments.length ? "脚本被拆成可迁移的表达段落，重点展示每段承担的叙事或说服任务。" : "脚本段落完成后会展示段落标题、时间段和脚本作用。",
     metrics: compactMetrics([
       metric("段落", `${formatCount(segments.length)} 段`),
       metric("关联镜头", `${formatCount(uniqueCount(segments.flatMap((segment) => segment.shotRefs)))} 个`),
-      metric("需复核", `${formatCount(reviewCount)} 段`),
     ]),
-    cards: segments.slice(0, 4).map((segment) => card(
+    cards: segments.map((segment) => card(
       segment.label,
       `${formatSecondsCompact(segment.start)} - ${formatSecondsCompact(segment.end)}`,
       segment.roleInScript || segment.transferableRule || "这个段落还没有摘要。",
@@ -180,17 +172,15 @@ function resolveScriptSegmentDetail(base: Pick<WorkflowDetail, "title" | "status
 function resolveRhythmStructureDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
   const analysis = artifact.rhythmStructureAnalysis;
   const sections = analysis?.sections ?? [];
-  const reviewCount = sections.filter((section) => section.needReview).length;
   const summary = analysis?.overview?.summary;
   return {
     ...base,
-    summary: summary ? sanitizeText(summary, 96) : "节奏结构完成后会展示整体节奏摘要和主要节奏区间。",
+    summary: summary ? detailText(summary) : "节奏结构完成后会展示整体节奏摘要和主要节奏区间。",
     metrics: compactMetrics([
       metric("区间", `${formatCount(sections.length)} 段`),
       metric("观察", `${formatCount(analysis?.overview?.fields?.length ?? 0)} 条`),
-      metric("需复核", `${formatCount(reviewCount)} 段`),
     ]),
-    cards: sections.slice(0, 4).map((section) => card(
+    cards: sections.map((section) => card(
       section.label,
       `${formatSecondsCompact(section.start)} - ${formatSecondsCompact(section.end)}`,
       fieldPreview(section.fields) || "这个节奏区间还没有摘要。",
@@ -203,17 +193,15 @@ function resolveRhythmStructureDetail(base: Pick<WorkflowDetail, "title" | "stat
 function resolvePackagingStructureDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
   const analysis = artifact.packagingStructureAnalysis;
   const blocks = analysis?.packagingBlocks ?? [];
-  const reviewCount = blocks.filter((block) => block.needReview).length;
   const summary = analysis?.overview?.summary;
   return {
     ...base,
-    summary: summary ? sanitizeText(summary, 96) : "包装结构完成后会展示标题、字幕、标注、证据和转化包装的摘要。",
+    summary: summary ? detailText(summary) : "包装结构完成后会展示标题、字幕、标注、证据和转化包装的摘要。",
     metrics: compactMetrics([
       metric("包装块", `${formatCount(blocks.length)} 个`),
       metric("逐镜观察", `${formatCount(analysis?.shotPackagingNotes?.length ?? 0)} 条`),
-      metric("需复核", `${formatCount(reviewCount)} 个`),
     ]),
-    cards: blocks.slice(0, 4).map((block) => card(
+    cards: blocks.map((block) => card(
       block.label,
       `${formatSecondsCompact(block.start)} - ${formatSecondsCompact(block.end)}`,
       block.packagingFunction || fieldPreview(block.fields) || "这个包装块还没有摘要。",
@@ -235,9 +223,9 @@ function resolveUserMaterialTaggerDetail(base: Pick<WorkflowDetail, "title" | "s
       metric("证明镜头", `${formatCount(proofCount)} 个`),
       metric("能力标签", `${formatCount(uniqueCount(shotCards.flatMap((shot) => shot.materialTags ?? [])))} 个`),
     ]),
-    cards: shotCards.slice(0, 4).map((shot, index) => card(
+    cards: shotCards.map((shot, index) => card(
       shot.shotNo ?? `素材镜头 ${String(index + 1).padStart(3, "0")}`,
-      (shot.materialTags ?? []).slice(0, 2).join(" / ") || shot.shotClass || "素材能力",
+      formatMaterialShotTimeRange(shot.timeRange),
       shot.visualSummary || shot.spokenOrSubtitleSummary || "这个素材镜头还没有摘要。",
     )),
     emptyText: failedText(materialPack?.status, "本步未生成有效素材包，可重试素材识别。", "素材识别完成后会展示素材能力包。"),
@@ -251,18 +239,16 @@ function resolveFunctionSlotAtomizationDetail(base: Pick<WorkflowDetail, "title"
   const atomCount = (analysis?.atomInventory?.scriptAtoms?.length ?? 0)
     + (analysis?.atomInventory?.rhythmAtoms?.length ?? 0)
     + (analysis?.atomInventory?.packagingAtoms?.length ?? 0);
-  const reviewCount = slots.filter((slot) => slot.needReview).length;
   return {
     ...base,
     summary: slots.length ? "已经把脚本、节奏和包装结果合并成可复用的功能槽位链。" : "原子化完成后会展示功能槽位链和每个槽位承担的任务。",
     metrics: compactMetrics([
       metric("槽位", `${formatCount(slots.length)} 个`),
       metric("原子", `${formatCount(atomCount)} 个`),
-      metric("需复核", `${formatCount(reviewCount)} 个`),
     ]),
-    cards: slots.slice(0, 4).map((slot) => card(
+    cards: slots.map((slot) => card(
       slot.slotName || slot.slotId,
-      slot.slotType || "功能槽位",
+      "",
       slot.persuasionTask || stateTransition(slot.viewerStateBefore, slot.viewerStateAfter) || "这个槽位还没有摘要。",
     )),
     emptyText: failedText(analysis?.status, "本步未生成有效槽位链，可重试原子化。", "原子化完成后会展示功能槽位。"),
@@ -300,9 +286,9 @@ function metric(label: string, value: string): WorkflowDetailMetric {
 
 function card(title: string | null | undefined, meta: string | null | undefined, body: string | null | undefined): WorkflowDetailCard {
   return {
-    title: sanitizeText(title || "未命名", 28),
-    meta: sanitizeText(meta || "结果摘要", 34),
-    body: sanitizeText(body || "暂无摘要。", 88),
+    title: detailText(title || "未命名"),
+    meta: meta == null ? "结果摘要" : detailText(meta),
+    body: detailText(body || "暂无摘要。"),
   };
 }
 
@@ -314,15 +300,30 @@ function compactCards(items: Array<WorkflowDetailCard | null | undefined>) {
   return items.filter((item): item is WorkflowDetailCard => Boolean(item));
 }
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(Math.max(0, Math.round(value)));
+function detailText(value: unknown) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
-function formatCoverage(shots: NonNullable<SampleArtifact["shotBoundaryAnalysis"]>["shots"]) {
-  if (!shots.length) return "0s";
-  const start = Math.min(...shots.map((shot) => Number(shot.start) || 0));
-  const end = Math.max(...shots.map((shot) => Number(shot.end) || 0));
-  return formatSecondsCompact(Math.max(0, end - start));
+function commerceBriefCards(brief: NonNullable<NonNullable<SampleArtifact["shotBoundaryAnalysis"]>["commerceBrief"]> | null) {
+  if (!brief) return [card("带货总结", "", "当前切镜结果还没有带货总结。")];
+  const uncertainties = brief.uncertainties?.filter(Boolean) ?? [];
+  return compactCards([
+    card("卖什么", "", brief.sellingObject || "未观察到明确商品。"),
+    card("怎么证明", "", brief.proofApproach || "未观察到明确证明方式。"),
+    card("承诺结果", "", brief.promisedOutcome || "未观察到明确承诺结果。"),
+    card("打动对象", "", brief.persuasionTarget || "未观察到明确目标人群。"),
+    card("转化动作", "", brief.conversionAction || "未观察到明确转化动作。"),
+    uncertainties.length ? card("不确定点", "", uncertainties.join("；")) : null,
+  ]);
+}
+
+function formatMaterialShotTimeRange(timeRange: { start: number; end: number } | null | undefined) {
+  if (!timeRange || !Number.isFinite(timeRange.start) || !Number.isFinite(timeRange.end)) return "";
+  return `${formatSecondsCompact(timeRange.start)} - ${formatSecondsCompact(timeRange.end)}`;
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(Math.max(0, Math.round(value)));
 }
 
 function uniqueCount(values: string[]) {
@@ -330,10 +331,10 @@ function uniqueCount(values: string[]) {
 }
 
 function fieldPreview(fields: Array<{ label: string; value: string }> | null | undefined) {
-  const first = (fields ?? []).find((field) => String(field.value ?? "").trim());
-  if (!first) return "";
-  const count = (fields ?? []).filter((field) => String(field.value ?? "").trim()).length;
-  return count > 1 ? `${first.label}：${first.value} +${formatCount(count - 1)}` : `${first.label}：${first.value}`;
+  return (fields ?? [])
+    .filter((field) => String(field.value ?? "").trim())
+    .map((field) => `${field.label}：${field.value}`)
+    .join("；");
 }
 
 function stateTransition(before: string | null | undefined, after: string | null | undefined) {
