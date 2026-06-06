@@ -260,7 +260,7 @@ export function AnalysisTimelineTracks({
                 <div className="new-ui-analysis-timeline-lane-scale">
                   {track.blocks.map((block) => (
                     track.key === "shot" ? (
-                      <ShotTimelineBlock key={block.id} block={block} duration={duration} onSeek={onSeek} />
+                      <ShotTimelineBlock key={block.id} block={block} duration={duration} selected={selectedSegmentId === block.detail?.id} onSeek={onSeek} onSelect={onSelectSegment} />
                     ) : track.key === "script" || track.key === "rhythm" || track.key === "packaging" || track.key === "slot" || track.key === "materialClass" || track.key === "materialFunction" || track.key === "materialProof" || track.key === "materialSequence" ? (
                       <StructureTimelineBlock key={block.id} block={block} duration={duration} selected={selectedSegmentId === block.detail?.id} onSelect={onSelectSegment} />
                     ) : (
@@ -365,16 +365,31 @@ function StructureTimelineBlock({
   );
 }
 
-function ShotTimelineBlock({ block, duration, onSeek }: { block: AnalysisTimelineBlock; duration: number; onSeek: (time: number) => void }) {
+function ShotTimelineBlock({
+  block,
+  duration,
+  selected,
+  onSeek,
+  onSelect,
+}: {
+  block: AnalysisTimelineBlock;
+  duration: number;
+  selected: boolean;
+  onSeek: (time: number) => void;
+  onSelect?: (segment: AnalysisTimelineSegmentDetail) => void;
+}) {
   const frameUrls = block.frameUrls ?? [];
   return (
     <button
-      className={`new-ui-analysis-timeline-block new-ui-analysis-shot-block ${frameUrls.length ? "has-frames" : ""}`.trim()}
+      className={`new-ui-analysis-timeline-block new-ui-analysis-shot-block ${frameUrls.length ? "has-frames" : ""} ${selected ? "is-selected" : ""}`.trim()}
       type="button"
       style={timelineBlockStyle(block, duration)}
       title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
       onPointerDown={stopTimelineBlockPointerDown}
-      onClick={() => onSeek(block.start)}
+      onClick={() => {
+        onSeek(block.start);
+        if (block.detail) onSelect?.(block.detail);
+      }}
     >
       <span className="new-ui-analysis-shot-label">{formatShotLabel(block.label)}</span>
       {frameUrls.length ? (
@@ -441,6 +456,7 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null, modeHin
   const packagingBlocks = artifact?.packagingStructureAnalysis?.packagingBlocks ?? [];
   const slots = artifact?.functionSlotAtomizationAnalysis?.slotMap?.slots ?? [];
   const frames = artifact?.frames ?? [];
+  const materialCardByShot = buildMaterialCardByShot(userMaterialPack?.shotCards);
   const shotMeta = buildShotTimelineMeta(shots);
   const shotBlocks = shots.map((shot) => ({
     id: shot.id,
@@ -448,6 +464,7 @@ function resolveAnalysisTimelineTracks(item: AnalysisHistoryItem | null, modeHin
     start: shot.start,
     end: shot.end,
     frameUrls: resolveShotFrameUrls(shot.start, shot.end, frames),
+    detail: resolveShotTimelineDetail(shot, materialCardByShot.get(shot.id) ?? (shot.shotNo ? materialCardByShot.get(shot.shotNo) : undefined)),
   }));
   const subtitleBlocks = resolveSubtitleTimelineBlocks(subtitles);
   const materialTracks = shouldUseMaterialTimeline
@@ -907,11 +924,50 @@ function estimateSubtitleDuration(text: string) {
 type MaterialShotCard = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["shotCards"][number];
 type MaterialProofCoverage = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["proofCoverage"][number];
 type MaterialSequenceCandidate = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["userMaterialPack"]>["sequenceRecommendations"]["openingCandidates"][number];
+type ShotBoundaryShot = NonNullable<NonNullable<AnalysisHistoryItem["artifact"]>["shotBoundaryAnalysis"]>["shots"][number];
 
 function formatSubtitleConfidence(value: unknown) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
   return `${Math.round(number * 100)}%`;
+}
+
+function resolveShotTimelineDetail(shot: ShotBoundaryShot, materialCard: MaterialShotCard | undefined): AnalysisTimelineSegmentDetail {
+  const label = formatShotNo(shot.shotNo, shot.index);
+  const summary = shot.summary || shot.reason || materialCard?.visualSummary || "这个镜头还没有摘要。";
+  const duration = Math.max(0, positiveTimelineNumber(shot.end) - positiveTimelineNumber(shot.start));
+  const shotFunctions = asArray(materialCard?.shotFunctions);
+  return {
+    id: `shot:${shot.id}`,
+    tone: "shot",
+    title: label,
+    timeLabel: `${formatTimelineTime(shot.start)} - ${formatTimelineTime(shot.end)}`,
+    shotRangeLabel: label,
+    summary: sanitizeText(summary, 120),
+    fields: compactTimelineDetailFields([
+      { label: "镜头编号", value: label },
+      { label: "时长", value: formatTimelineTime(duration) },
+      { label: "镜头摘要", value: shot.summary },
+      { label: "切分原因", value: shot.reason },
+      { label: "边界原因", value: shot.endBoundaryReason },
+      { label: "置信度", value: formatMaterialConfidence(shot.confidence) },
+      { label: "需复核", value: shot.needReview ? "是" : "否" },
+      { label: "代表帧", value: shot.representativeFrameId },
+      { label: "素材类型", value: materialCard ? materialClassLabel(materialCard.shotClass) : null },
+      { label: "表达功能", value: shotFunctions.length ? shotFunctions.map(materialFunctionLabel).join(" / ") : null },
+      { label: "素材摘要", value: materialCard?.visualSummary || materialCard?.spokenOrSubtitleSummary },
+    ]),
+  };
+}
+
+function buildMaterialCardByShot(cards: MaterialShotCard[] | null | undefined) {
+  const byShot = new Map<string, MaterialShotCard>();
+  asArray(cards).forEach((card, index) => {
+    byShot.set(card.shotRef, card);
+    if (card.shotNo) byShot.set(card.shotNo, card);
+    byShot.set(formatShotNo(card.shotNo ?? card.shotRef, index), card);
+  });
+  return byShot;
 }
 
 function resolveSlotTimelineBlocks(

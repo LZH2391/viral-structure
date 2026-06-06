@@ -385,6 +385,7 @@ function TimelineSegmentDetailPanel({ segment }: { segment: AnalysisTimelineSegm
 }
 
 function segmentKindLabel(tone: AnalysisTimelineSegmentDetail["tone"]) {
+  if (tone === "shot") return "镜头";
   if (tone === "subtitle") return "字幕段";
   if (tone === "script") return "脚本段";
   if (tone === "rhythm") return "节奏段";

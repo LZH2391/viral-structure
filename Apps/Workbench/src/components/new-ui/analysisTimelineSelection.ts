@@ -1,4 +1,5 @@
 export type AnalysisTimelineSegmentTone =
+  | "shot"
   | "subtitle"
   | "script"
   | "rhythm"
