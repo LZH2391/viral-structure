@@ -210,7 +210,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
 test("function slot graph embedded library modes start without selected graph nodes", () => {
   const root = path.resolve(__dirname, "../..");
   const graph = read(root, "Apps/Workbench/src/components/FunctionSlotGraphApp.tsx");
-  const governanceLoader = graph.match(/if \(mode !== "governance"\) return;[\s\S]*?getFunctionSlotGovernanceGraph\(\)[\s\S]*?\.catch/)?.[0] ?? "";
+  const governanceLoader = graph.match(/if \(mode !== "governance"\) return;[\s\S]*?startGovernancePrefetch\(\)[\s\S]*?\.catch/)?.[0] ?? "";
   const planTraceLoader = graph.match(/if \(mode !== "planTrace"\) return;[\s\S]*?getFunctionSlotConfirmedPlanTraceGraph\(\)[\s\S]*?\.catch/)?.[0] ?? "";
 
   assert.match(governanceLoader, /setSelectedNodeId\(null\);/);
@@ -219,6 +219,8 @@ test("function slot graph embedded library modes start without selected graph no
   assert.match(planTraceLoader, /setSelectedNodeId\(null\);/);
   assert.doesNotMatch(planTraceLoader, /setSelectedNodeId\(nextGraph\.nodes\.find/);
   assert.doesNotMatch(planTraceLoader, /nextGraph\.nodes\[0\]/);
+  assert.match(graph, /governancePrefetchPromiseRef\.current/);
+  assert.match(graph, /requestIdleCallback/);
 });
 
 test("workbench upload cancels stale polling and restores local draft", () => {

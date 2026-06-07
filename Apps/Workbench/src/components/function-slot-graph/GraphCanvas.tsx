@@ -351,8 +351,8 @@ export function GraphCanvas({
   return (
     <div className={`slot-graph-canvas ${mode === "planTrace" ? "plan-trace" : mode}`}>
       <div className="slot-graph-canvas-title">
-        <strong>{mode === "governance" ? "Semantic Governance" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
-        <span>{mode === "governance" ? governanceSummaryText(graph) : mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
+        <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
+        {mode !== "governance" ? <span>{mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span> : null}
       </div>
       <div className="slot-graph-controls">
         <button type="button" onClick={resetView}>重置</button>
@@ -564,7 +564,7 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
 }
 
 export function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
-  return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants`;
+  return `${graph.summary.sampleCount ?? 0} 个样例 / ${graph.summary.slotCount} 个槽位变体`;
 }
 
 export function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {

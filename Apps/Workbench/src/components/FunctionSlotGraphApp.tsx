@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getFunctionSlotConfirmedPlanTraceGraph, getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
 import { GraphPixiCanvas } from "./function-slot-graph/GraphPixiCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
 import { buildVisibleGraph } from "./function-slot-graph/graphUtils";
-import type { GovernanceLayoutMode, GraphFiltersState } from "./function-slot-graph/types";
+import type { GovernanceLayoutMode, GraphFiltersState, VisibleGraph } from "./function-slot-graph/types";
 
 type LibraryGraphSummary = {
   artifactId: string;
@@ -43,22 +43,33 @@ type FunctionSlotGraphWorkspaceProps = {
   embedded?: boolean;
   active?: boolean;
   fixedMode?: GraphMode;
+  panelSlot?: (panel: ReactNode) => ReactNode;
 };
 
 type GraphsByMode = Record<GraphMode, FunctionSlotLibraryGraph | null>;
 type LoadingByMode = Record<GraphMode, boolean>;
+type GovernancePrefetchResult = {
+  graph: FunctionSlotLibraryGraph;
+  visible: VisibleGraph;
+};
+type IdleCallbackHandle = number;
+type IdleCallbackApi = {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => IdleCallbackHandle;
+  cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+};
 
 export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
 
-export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode }: FunctionSlotGraphWorkspaceProps = {}) {
+export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [graphsByMode, setGraphsByMode] = useState<GraphsByMode>({ structure: null, governance: null, planTrace: null });
   const [loadingByMode, setLoadingByMode] = useState<LoadingByMode>({ structure: false, governance: false, planTrace: false });
   const [uncontrolledMode, setUncontrolledMode] = useState<GraphMode>(fixedMode ?? "structure");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [governanceSummaryCollapsed, setGovernanceSummaryCollapsed] = useState(false);
   const [status, setStatus] = useState("");
   const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
     structure: STRUCTURE_FILTERS,
@@ -71,16 +82,53 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     governance: "force",
     planTrace: "force",
   });
+  const governancePrefetchStartedRef = useRef(false);
+  const governancePrefetchGenerationRef = useRef(0);
+  const governancePrefetchPromiseRef = useRef<Promise<GovernancePrefetchResult> | null>(null);
+  const governancePrefetchVisibleRef = useRef<VisibleGraph | null>(null);
+
+  const clearGovernanceGraphCache = useCallback(() => {
+    governancePrefetchGenerationRef.current += 1;
+    governancePrefetchStartedRef.current = false;
+    governancePrefetchPromiseRef.current = null;
+    governancePrefetchVisibleRef.current = null;
+    setGraphsByMode((current) => current.governance ? { ...current, governance: null } : current);
+  }, []);
+
+  const startGovernancePrefetch = useCallback(() => {
+    if (governancePrefetchPromiseRef.current) return governancePrefetchPromiseRef.current;
+    const generation = governancePrefetchGenerationRef.current;
+    governancePrefetchStartedRef.current = true;
+    const promise = getFunctionSlotGovernanceGraph()
+      .then((nextGraph) => {
+        const nextVisible = buildVisibleGraph(nextGraph, GOVERNANCE_FILTERS, null, "force");
+        if (governancePrefetchGenerationRef.current === generation) {
+          governancePrefetchVisibleRef.current = nextVisible;
+          setGraphsByMode((current) => current.governance ? current : { ...current, governance: nextGraph });
+        }
+        return { graph: nextGraph, visible: nextVisible };
+      })
+      .catch((error) => {
+        if (governancePrefetchGenerationRef.current === generation) {
+          governancePrefetchStartedRef.current = false;
+          governancePrefetchPromiseRef.current = null;
+        }
+        throw error;
+      });
+    governancePrefetchPromiseRef.current = promise;
+    return promise;
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!active) return;
     setStatus("刷新中");
+    clearGovernanceGraphCache();
     const data = await getFunctionSlotLibraryItems();
     const nextItems = data.items ?? [];
     setItems(nextItems);
     setSelectedArtifactId((current) => (current && nextItems.some((item) => item.artifactId === current) ? current : nextItems[0]?.artifactId ?? null));
     setStatus("已同步");
-  }, [active]);
+  }, [active, clearGovernanceGraphCache]);
 
   useEffect(() => {
     if (!active) return;
@@ -101,6 +149,13 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   useEffect(() => {
     setSelectedNodeId(null);
   }, [mode]);
+
+  useEffect(() => {
+    if (!fixedMode) return;
+    setUncontrolledMode(fixedMode);
+    setSelectedNodeId(null);
+    setGovernanceSummaryCollapsed(false);
+  }, [fixedMode]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -131,12 +186,39 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
 
   useEffect(() => {
     if (!active) return undefined;
+    if (graphsByMode.governance || governancePrefetchStartedRef.current) return undefined;
+    let cancelled = false;
+    const runPrefetch = () => {
+      if (cancelled || graphsByMode.governance || governancePrefetchStartedRef.current) return;
+      startGovernancePrefetch().catch(() => undefined);
+    };
+    const idleApi = globalThis as typeof globalThis & IdleCallbackApi;
+    if (typeof idleApi.requestIdleCallback === "function") {
+      const idleId = idleApi.requestIdleCallback(runPrefetch, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        idleApi.cancelIdleCallback?.(idleId);
+      };
+    }
+    const timeoutId = globalThis.setTimeout(runPrefetch, 1200);
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [active, graphsByMode.governance, startGovernancePrefetch]);
+
+  useEffect(() => {
+    if (!active) return undefined;
     if (mode !== "governance") return;
+    if (graphsByMode.governance) {
+      setModeLoading("governance", false);
+      return undefined;
+    }
     let cancelled = false;
     setSelectedNodeId(null);
     setModeLoading("governance", true);
-    getFunctionSlotGovernanceGraph()
-      .then((nextGraph) => {
+    startGovernancePrefetch()
+      .then(({ graph: nextGraph }) => {
         if (cancelled) return;
         setModeGraph("governance", nextGraph);
         setStatus("已同步");
@@ -150,7 +232,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     return () => {
       cancelled = true;
     };
-  }, [active, mode]);
+  }, [active, graphsByMode.governance, mode, setModeGraph, setModeLoading, startGovernancePrefetch]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -208,11 +290,48 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const loadingGraph = loadingByMode[mode] || waitingForSelectedStructureGraph;
   const renderedGraph = graph ?? (loadingGraph ? rawGraph : null);
   const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(renderedGraph, selectedPlanIds) : renderedGraph, [renderedGraph, mode, selectedPlanIds]);
-  const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode]);
+  const visible = useMemo(() => {
+    if (
+      mode === "governance"
+      && activeGraph
+      && activeGraph === graphsByMode.governance
+      && filters === GOVERNANCE_FILTERS
+      && governanceLayoutMode === "force"
+      && governancePrefetchVisibleRef.current
+    ) {
+      return governancePrefetchVisibleRef.current;
+    }
+    return buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode);
+  }, [activeGraph, filters, governanceLayoutMode, graphsByMode.governance, mode]);
   const selectedNode = useMemo(() => {
     if (!graph) return null;
     return visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   }, [activeGraph, graph, selectedNodeId, visible.nodes]);
+  const graphPanel = (
+    <aside className="slot-graph-panel">
+      <GraphViewPanel
+        embedded={embedded}
+        fixedMode={Boolean(fixedMode)}
+        mode={mode}
+        status={status}
+        governanceLayoutMode={governanceLayoutMode}
+        onModeChange={setMode}
+        onLayoutModeChange={setActiveLayoutMode}
+        onRefresh={refresh}
+      />
+      <GraphSourcePanel
+        mode={mode}
+        graph={graph}
+        items={items}
+        selectedArtifactId={selectedArtifactId}
+        selectedPlanIds={selectedPlanIds}
+        onSelectArtifact={setSelectedArtifactId}
+        onSelectedPlanIdsChange={setSelectedPlanIds}
+      />
+      <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />
+      {selectedNode ? <NodeInspector node={selectedNode} graph={activeGraph} /> : null}
+    </aside>
+  );
 
   return (
     <div className={`slot-graph-shell ${embedded ? "embedded" : ""}`.trim()}>
@@ -252,75 +371,127 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         </header>
       ) : null}
       <main className="slot-graph-layout">
-        <aside className="slot-graph-list">
-          {embedded ? (
-            <section className="slot-graph-library-brief" aria-label="当前库视图">
-              <div>
-                <span>当前库视图</span>
-                <strong>{graphModeLabel(mode)}</strong>
-                <small>{graphModeDescription(mode)}</small>
-              </div>
-              <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
-                刷新
-              </button>
-              {status ? <p>{status}</p> : null}
-            </section>
-          ) : (
-            <>
-              <div className="section-heading">图谱模式</div>
-              <select className="slot-graph-mode-select" value={mode} onChange={(event) => setMode(event.target.value as GraphMode)}>
-                <option value="structure">样例结构图</option>
-                <option value="governance">语义治理图</option>
-                <option value="planTrace">确定方案溯源</option>
-              </select>
-            </>
-          )}
-          <div className="section-heading">视图布局</div>
-          {embedded ? (
-            <div className="slot-graph-layout-options" role="group" aria-label="切换图谱布局">
-              <button className={governanceLayoutMode === "force" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("force")}>
-                自由散点
-              </button>
-              <button className={governanceLayoutMode === "columns" ? "active" : ""} type="button" onClick={() => setActiveLayoutMode("columns")}>
-                列排布
-              </button>
-            </div>
-          ) : (
-            <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => setActiveLayoutMode(event.target.value as GovernanceLayoutMode)}>
-              <option value="force">星图散点</option>
-              <option value="columns">等距列排版</option>
-            </select>
-          )}
-          <div className="section-heading">{sourceHeading(mode)}</div>
-          {mode === "governance" ? (
-            <GovernanceSummary graph={graph} />
-          ) : mode === "planTrace" ? (
-            <PlanTracePanel graph={graph} selectedPlanIds={selectedPlanIds} onChange={setSelectedPlanIds} />
-          ) : (
-            <div className="compact-list">
-              {items.length ? items.map((item) => (
-                <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} onClick={() => setSelectedArtifactId(item.artifactId)}>
-                  <strong>样例 {shortId(item.sampleVideoId ?? item.artifactId)}</strong>
-                  <span>artifact {shortId(item.artifactId)}</span>
-                  <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
-                </button>
-              )) : <EmptyState text="暂无 FunctionSlotLibrary" />}
-            </div>
-          )}
-        </aside>
         <section className="slot-graph-stage">
           {activeGraph ? (
             <>
-              <GraphPixiCanvas active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={graph ? selectedNodeId : null} onSelectNode={setSelectedNodeId} />
+              <GraphPixiCanvas
+                active={active}
+                mode={mode}
+                graph={activeGraph}
+                visible={visible}
+                layoutMode={governanceLayoutMode}
+                selectedNodeId={graph ? selectedNodeId : null}
+                onSelectNode={setSelectedNodeId}
+              />
+              {mode === "governance" ? <GovernanceSummary graph={graph} variant="overlay" collapsed={governanceSummaryCollapsed} onToggleCollapsed={() => setGovernanceSummaryCollapsed((value) => !value)} /> : null}
             </>
-          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
+          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择右侧素材查看图谱"} />}
         </section>
-        <aside className="slot-graph-panel">
-          <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />
-          <NodeInspector node={selectedNode} graph={activeGraph} />
-        </aside>
+        {panelSlot ? panelSlot(graphPanel) : graphPanel}
       </main>
     </div>
+  );
+}
+
+function GraphViewPanel({
+  embedded,
+  fixedMode,
+  mode,
+  status,
+  governanceLayoutMode,
+  onModeChange,
+  onLayoutModeChange,
+  onRefresh,
+}: {
+  embedded: boolean;
+  fixedMode: boolean;
+  mode: GraphMode;
+  status: string;
+  governanceLayoutMode: GovernanceLayoutMode;
+  onModeChange: (mode: GraphMode) => void;
+  onLayoutModeChange: (mode: GovernanceLayoutMode) => void;
+  onRefresh: () => Promise<void>;
+}) {
+  return (
+    <section className="slot-graph-library-brief" aria-label={embedded ? "当前库视图" : "图谱视图设置"}>
+      <div>
+        <span>{embedded || fixedMode ? "当前库视图" : "图谱模式"}</span>
+        <strong>{graphModeLabel(mode)}</strong>
+        <small>{graphModeDescription(mode)}</small>
+      </div>
+      {!embedded ? (
+        <button className="slot-graph-refresh-button" type="button" onClick={() => onRefresh().catch(() => undefined)}>
+          刷新
+        </button>
+      ) : null}
+      {status ? <p>{status}</p> : null}
+      {!fixedMode ? (
+        <label className="slot-graph-setting-field">
+          <span>图谱模式</span>
+          <select className="slot-graph-mode-select" value={mode} onChange={(event) => onModeChange(event.target.value as GraphMode)}>
+            <option value="structure">样例结构图</option>
+            <option value="governance">语义治理图</option>
+            <option value="planTrace">确定方案溯源</option>
+          </select>
+        </label>
+      ) : null}
+      <div className="slot-graph-setting-field">
+        <span>视图布局</span>
+        {embedded ? (
+          <div className="slot-graph-layout-options" role="group" aria-label="切换图谱布局">
+            <button className={governanceLayoutMode === "force" ? "active" : ""} type="button" onClick={() => onLayoutModeChange("force")}>
+              自由散点
+            </button>
+            <button className={governanceLayoutMode === "columns" ? "active" : ""} type="button" onClick={() => onLayoutModeChange("columns")}>
+              列排布
+            </button>
+          </div>
+        ) : (
+          <select className="slot-graph-mode-select" value={governanceLayoutMode} onChange={(event) => onLayoutModeChange(event.target.value as GovernanceLayoutMode)}>
+            <option value="force">星图散点</option>
+            <option value="columns">等距列排版</option>
+          </select>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GraphSourcePanel({
+  mode,
+  graph,
+  items,
+  selectedArtifactId,
+  selectedPlanIds,
+  onSelectArtifact,
+  onSelectedPlanIdsChange,
+}: {
+  mode: GraphMode;
+  graph: FunctionSlotLibraryGraph | null;
+  items: LibraryGraphSummary[];
+  selectedArtifactId: string | null;
+  selectedPlanIds: string[];
+  onSelectArtifact: (artifactId: string) => void;
+  onSelectedPlanIdsChange: (ids: string[]) => void;
+}) {
+  if (mode === "governance") return null;
+  return (
+    <section className="slot-graph-source-panel">
+      <div className="section-heading">{sourceHeading(mode)}</div>
+      {mode === "planTrace" ? (
+        <PlanTracePanel graph={graph} selectedPlanIds={selectedPlanIds} onChange={onSelectedPlanIdsChange} />
+      ) : (
+        <div className="compact-list">
+          {items.length ? items.map((item) => (
+            <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} onClick={() => onSelectArtifact(item.artifactId)}>
+              <strong>样例 {shortId(item.sampleVideoId ?? item.artifactId)}</strong>
+              <span>artifact {shortId(item.artifactId)}</span>
+              <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
+            </button>
+          )) : <EmptyState text="暂无 FunctionSlotLibrary" />}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -346,11 +517,29 @@ function GraphLoadingState() {
   return <div className="slot-graph-loading-state" aria-busy="true" />;
 }
 
-function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }) {
+function GovernanceSummary({
+  graph,
+  variant = "panel",
+  collapsed = false,
+  onToggleCollapsed,
+}: {
+  graph: FunctionSlotLibraryGraph | null;
+  variant?: "panel" | "overlay";
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+}) {
   const summary = graph?.summary;
   const governanceCounts = countGovernanceNodes(graph);
   return (
-    <section className="slot-graph-card governance-summary">
+    <section className={`slot-graph-card governance-summary ${variant === "overlay" ? "governance-summary-overlay" : ""}`.trim()}>
+      {variant === "overlay" ? (
+        <button className="governance-summary-toggle" type="button" onClick={onToggleCollapsed} aria-expanded={!collapsed}>
+          <span>治理概览</span>
+          <i>{collapsed ? "展开" : "收起"}</i>
+        </button>
+      ) : null}
+      {!collapsed ? (
+        <div className="governance-summary-grid">
       <div><b>样例数</b><span>{summary?.sampleCount ?? 0}</span></div>
       <div><b>槽位家族</b><span>{governanceCounts.slotFamily}</span></div>
       <div><b>槽位原型</b><span>{governanceCounts.slotArchetype}</span></div>
@@ -364,6 +553,8 @@ function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }
       <div><b>未归类绑定</b><span>{summary?.unmappedBindingCount ?? 0}</span></div>
       <div><b>未归类规则</b><span>{summary?.unmappedRuleCount ?? 0}</span></div>
       <div><b>未治理样例</b><span>{(summary?.ungovernedSampleCount ?? 0) > 0 ? "有" : "无"}</span></div>
+        </div>
+      ) : null}
     </section>
   );
 }

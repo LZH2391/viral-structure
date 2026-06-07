@@ -572,7 +572,7 @@ function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryIte
       const text = timelineDetailText(segment.text);
       const labelText = sanitizeText(segment.text, 96);
       const end = rawEnd > start ? rawEnd : start + estimateSubtitleDuration(text);
-      return {
+      const block: AnalysisTimelineBlock = {
         id: String(segment.id ?? `subtitle_${index}`),
         label: labelText || `字幕 ${index + 1}`,
         start,
@@ -587,6 +587,7 @@ function resolveSubtitleTimelineBlocks(subtitles: NonNullable<AnalysisHistoryIte
           fields: [],
         },
       };
+      return block;
     })
     .filter((block) => block.end > block.start)
     .sort((a, b) => a.start - b.start);

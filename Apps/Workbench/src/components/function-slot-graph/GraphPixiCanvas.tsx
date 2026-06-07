@@ -67,6 +67,8 @@ const FIT_TARGET_WIDTH_RATIO = 0.58;
 const FIT_TARGET_HEIGHT_RATIO = 0.56;
 const FIT_WORLD_PADDING = 180;
 const FIT_MAX_INITIAL_ZOOM = 2.8;
+const RESIZE_SYNC_DEBOUNCE_MS = 120;
+const RESIZE_AUTOFIT_SUPPRESS_MS = 700;
 const HOVER_FOCUS_DEPTH = 1;
 const CLICK_FOCUS_DEPTH = 2;
 
@@ -132,6 +134,11 @@ function GraphPixiCanvasInner({
   const zoomStartViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const pendingViewportFitRef = useRef(true);
+  const hasUserAdjustedViewportRef = useRef(false);
+  const pendingDrawAfterResizeRef = useRef(false);
+  const resizeSyncTimerRef = useRef<number | null>(null);
+  const suppressResizeFitUntilRef = useRef(0);
+  const suspendPixiRenderRef = useRef(false);
   const syncGraphObjectsRef = useRef<() => void>(() => undefined);
   const syncGraphLayoutRef = useRef<() => void>(() => undefined);
   const syncGraphLabelsRef = useRef<() => boolean>(() => false);
@@ -161,7 +168,6 @@ function GraphPixiCanvasInner({
     theme: GRAPH_VISUAL_THEME,
   });
   const [viewport, setViewport] = useState(viewportRef.current);
-  const [canvasSize, setCanvasSize] = useState({ width: VIEWBOX.width, height: VIEWBOX.height });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedFocusDepth, setSelectedFocusDepth] = useState(CLICK_FOCUS_DEPTH);
   const [pinnedPreviewNodeId, setPinnedPreviewNodeId] = useState<string | null>(null);
@@ -171,6 +177,7 @@ function GraphPixiCanvasInner({
   const [previewTick, setPreviewTick] = useState(0);
   const [renderFps, setRenderFps] = useState(0);
   const [pixiError, setPixiError] = useState<string | null>(null);
+  const [initRetry, setInitRetry] = useState(0);
   const fixedLayout = layoutMode === "columns";
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusDepth = hoveredNodeId && hoveredNodeId !== selectedNodeId ? HOVER_FOCUS_DEPTH : selectedNodeId ? selectedFocusDepth : HOVER_FOCUS_DEPTH;
@@ -260,9 +267,25 @@ function GraphPixiCanvasInner({
 
   useEffect(() => {
     pendingViewportFitRef.current = true;
+    hasUserAdjustedViewportRef.current = false;
+    pendingDrawAfterResizeRef.current = false;
+    suspendPixiRenderRef.current = false;
     setHoveredNodeId(null);
     setPinnedPreviewNodeId(null);
     dragRef.current = null;
+    stopZoomAnimation();
+    stopPixiFocusTransition();
+    if (drawFrameRef.current) {
+      window.cancelAnimationFrame(drawFrameRef.current);
+      drawFrameRef.current = null;
+    }
+    if (focusTransitionFrameRef.current) {
+      window.cancelAnimationFrame(focusTransitionFrameRef.current);
+      focusTransitionFrameRef.current = null;
+    }
+    destroyPixiGraphObjects(graphObjectsRef.current);
+    graphObjectsRef.current = createPixiGraphObjects();
+    updateCanvasSize();
     if (hoverOutTimerRef.current) {
       window.clearTimeout(hoverOutTimerRef.current);
       hoverOutTimerRef.current = null;
@@ -276,6 +299,16 @@ function GraphPixiCanvasInner({
     let initialized = false;
     const host = hostRef.current;
     if (!host) return undefined;
+    const initialRect = host.getBoundingClientRect();
+    if (initialRect.width <= 0 || initialRect.height <= 0) {
+      const frameId = window.requestAnimationFrame(() => {
+        if (!disposed) setInitRetry((value) => value + 1);
+      });
+      return () => {
+        disposed = true;
+        window.cancelAnimationFrame(frameId);
+      };
+    }
     const app = new Application();
     appRef.current = app;
     const root = new Container();
@@ -299,7 +332,8 @@ function GraphPixiCanvasInner({
       autoDensity: true,
       backgroundAlpha: 0,
       preference: "webgl",
-      resizeTo: host,
+      width: host.offsetWidth || VIEWBOX.width,
+      height: host.offsetHeight || VIEWBOX.height,
       resolution: Math.max(1, Math.min(window.devicePixelRatio || 1, 2)),
     }).then(() => {
       initialized = true;
@@ -317,16 +351,36 @@ function GraphPixiCanvasInner({
       setPixiError(error instanceof Error ? error.message : "Pixi 初始化失败");
     });
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateCanvasSize();
-      drawPixiBackground(background, graphThemeRef.current);
-      scheduleDraw();
-    });
+    const syncResize = () => {
+      resizeSyncTimerRef.current = null;
+      suspendPixiRenderRef.current = false;
+      const sizeChanged = updateCanvasSize();
+      const suppressAutoFit = performance.now() < suppressResizeFitUntilRef.current;
+      if (sizeChanged && !hasUserAdjustedViewportRef.current && !suppressAutoFit) applyFittedViewport();
+      if (sizeChanged) drawPixiBackground(background, graphThemeRef.current);
+      if (sizeChanged || pendingDrawAfterResizeRef.current) {
+        pendingDrawAfterResizeRef.current = false;
+        scheduleDraw();
+      }
+    };
+    const queueResizeSync = () => {
+      if (isWorkspaceLayoutChanging(host)) {
+        suppressResizeFitUntilRef.current = performance.now() + RESIZE_AUTOFIT_SUPPRESS_MS;
+      }
+      suspendPixiRenderRef.current = true;
+      if (resizeSyncTimerRef.current) window.clearTimeout(resizeSyncTimerRef.current);
+      resizeSyncTimerRef.current = window.setTimeout(syncResize, RESIZE_SYNC_DEBOUNCE_MS);
+    };
+    const resizeObserver = new ResizeObserver(queueResizeSync);
     resizeObserver.observe(host);
 
     return () => {
       disposed = true;
       resizeObserver.disconnect();
+      if (resizeSyncTimerRef.current) window.clearTimeout(resizeSyncTimerRef.current);
+      resizeSyncTimerRef.current = null;
+      pendingDrawAfterResizeRef.current = false;
+      suspendPixiRenderRef.current = false;
       simulationRef.current?.stop();
       simulationRef.current = null;
       if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
@@ -341,7 +395,7 @@ function GraphPixiCanvasInner({
       appRef.current = null;
       layersRef.current = null;
     };
-  }, []);
+  }, [initRetry]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -440,18 +494,14 @@ function GraphPixiCanvasInner({
     restartSimulationRef.current(0.55);
   }, [active, fixedLayout, paused]);
 
-  useEffect(() => {
-    if (!active) return;
-    scheduleDraw();
-  }, [active, canvasSize]);
-
   const previewNodeId = pinnedPreviewNodeId ?? hoveredNodeId;
   const previewNode = previewNodeId ? nodesRef.current.find((entry) => entry.id === previewNodeId) ?? null : null;
   const previewSampleId = typeof previewNode?.data.sampleVideoId === "string" ? previewNode.data.sampleVideoId : null;
   const previewSampleArtifact = previewSampleId ? sampleArtifacts[previewSampleId] ?? sampleCacheRef.current.get(previewSampleId) ?? null : null;
   const previewSize = previewPopoverSize(previewSampleArtifact);
+  const previewCanvasSize = canvasSizeRef.current;
   const previewPosition = previewNode && (previewNode.type === "libraryItem" || previewNode.type === "sourceSample")
-    ? clampPreviewPosition(pixiScreenPoint(previewNode, viewport, canvasSize), canvasSize, previewSize)
+    ? clampPreviewPosition(pixiScreenPoint(previewNode, viewport, previewCanvasSize), previewCanvasSize, previewSize)
     : null;
   void previewTick;
 
@@ -473,15 +523,27 @@ function GraphPixiCanvasInner({
   const updateCanvasSize = () => {
     const host = hostRef.current;
     const rect = host?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect) return false;
     hostRectRef.current = rect;
     const nextSize = {
       width: host?.offsetWidth || rect.width || VIEWBOX.width,
       height: host?.offsetHeight || rect.height || VIEWBOX.height,
     };
-    if (canvasSizeRef.current.width === nextSize.width && canvasSizeRef.current.height === nextSize.height) return;
+    if (canvasSizeRef.current.width === nextSize.width && canvasSizeRef.current.height === nextSize.height) return false;
+    appRef.current?.renderer?.resize(nextSize.width, nextSize.height);
     canvasSizeRef.current = nextSize;
-    setCanvasSize(nextSize);
+    return true;
+  };
+
+  const applyFittedViewport = () => {
+    if (!nodesRef.current.length) return;
+    stopZoomAnimation();
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current);
+    viewportRef.current = nextViewport;
+    setViewport(nextViewport);
+    zoomStartViewportRef.current = nextViewport;
+    zoomTargetViewportRef.current = nextViewport;
+    applyViewportTransformRef.current();
   };
 
   const commitViewportState = () => {
@@ -504,6 +566,10 @@ function GraphPixiCanvasInner({
 
   const scheduleDraw = () => {
     if (!active) return;
+    if (suspendPixiRenderRef.current) {
+      pendingDrawAfterResizeRef.current = true;
+      return;
+    }
     if (drawFrameRef.current) return;
     drawFrameRef.current = window.requestAnimationFrame(() => {
       drawFrameRef.current = null;
@@ -512,6 +578,10 @@ function GraphPixiCanvasInner({
   };
 
   const syncGraphObjects = () => {
+    if (suspendPixiRenderRef.current) {
+      pendingDrawAfterResizeRef.current = true;
+      return;
+    }
     const layers = layersRef.current;
     if (!layers) return;
     stopPixiFocusTransition();
@@ -531,7 +601,7 @@ function GraphPixiCanvasInner({
     const themeChanged = graphThemeKeyRef.current !== nextThemeKey;
     graphThemeRef.current = nextTheme;
     stateRef.current = { ...stateRef.current, theme: nextTheme };
-    if (layersRef.current) drawPixiBackground(layersRef.current.background, nextTheme);
+    if (layersRef.current && !suspendPixiRenderRef.current) drawPixiBackground(layersRef.current.background, nextTheme);
     if (themeChanged) {
       stopPixiFocusTransition();
       destroyPixiGraphObjects(graphObjectsRef.current);
@@ -543,6 +613,10 @@ function GraphPixiCanvasInner({
   syncGraphThemeRef.current = syncGraphTheme;
 
   const syncGraphLayout = () => {
+    if (suspendPixiRenderRef.current) {
+      pendingDrawAfterResizeRef.current = true;
+      return;
+    }
     const rendered = syncPixiLayout(graphObjectsRef.current, visibleEdgesRef.current, nodesRef.current, stateRef.current);
     if (!rendered) {
       syncGraphObjectsRef.current();
@@ -553,6 +627,7 @@ function GraphPixiCanvasInner({
   syncGraphLayoutRef.current = syncGraphLayout;
 
   const syncGraphLabels = () => {
+    if (suspendPixiRenderRef.current) return false;
     const layers = layersRef.current;
     if (!layers) return false;
     const rendered = syncPixiLabels(layers.labels, graphObjectsRef.current, nodesRef.current, stateRef.current, viewportRef.current.k);
@@ -817,6 +892,7 @@ function GraphPixiCanvasInner({
       y: drag.startY + ((event.clientY - drag.clientY) * scaleY) / transform.scale,
     };
     dragRef.current = { ...drag, moved };
+    if (moved) hasUserAdjustedViewportRef.current = true;
     viewportRef.current = nextViewport;
     commitViewportState();
     renderViewportRef.current();
@@ -922,6 +998,7 @@ function GraphPixiCanvasInner({
 
   const zoom = useCallback((event: globalThis.WheelEvent) => {
     event.preventDefault();
+    hasUserAdjustedViewportRef.current = true;
     const localPoint = screenToLayoutPoint(event.clientX, event.clientY);
     if (!localPoint) return;
     const transform = stageTransform(localPoint.size);
@@ -945,6 +1022,7 @@ function GraphPixiCanvasInner({
   const resetView = () => {
     stopZoomAnimation();
     pendingViewportFitRef.current = false;
+    hasUserAdjustedViewportRef.current = false;
     const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current);
     setResetToken((value) => value + 1);
     animateViewportTo(nextViewport);
@@ -953,8 +1031,8 @@ function GraphPixiCanvasInner({
   return (
     <div ref={canvasRef} className={`slot-graph-canvas pixi ${mode === "planTrace" ? "plan-trace" : mode}`}>
       <div className="slot-graph-canvas-title">
-        <strong>{mode === "governance" ? "Semantic Governance" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
-        <span>{mode === "governance" ? governanceSummaryText(graph) : mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span>
+        <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
+        {mode !== "governance" ? <span>{mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span> : null}
       </div>
       <div className="slot-graph-controls">
         <span className="slot-graph-fps-chip">FPS {renderFps}</span>
@@ -1042,9 +1120,16 @@ function stageTransform(size: { width: number; height: number }): StageTransform
   };
 }
 
+function isWorkspaceLayoutChanging(host: HTMLElement) {
+  if (document.body.classList.contains("is-resizing-workspace")) return true;
+  return Boolean(host.closest(".new-ui-layout.is-pane-transitioning-layout, .new-ui-layout.is-drag-resizing-layout"));
+}
+
 function fitGraphViewport(nodes: SimNode[], size: { width: number; height: number }): ViewportTransform {
   if (!nodes.length) return { x: 0, y: 0, k: 1 };
   const transform = stageTransform(size);
+  const centerX = (size.width / 2 - transform.offsetX) / transform.scale;
+  const centerY = (size.height / 2 - transform.offsetY) / transform.scale;
   const bounds = graphBounds(nodes);
   const baseWidth = Math.max(1, bounds.width * transform.scale);
   const baseHeight = Math.max(1, bounds.height * transform.scale);
@@ -1052,8 +1137,8 @@ function fitGraphViewport(nodes: SimNode[], size: { width: number; height: numbe
   const targetHeight = Math.max(1, size.height * FIT_TARGET_HEIGHT_RATIO);
   const k = clamp(Math.min(targetWidth / baseWidth, targetHeight / baseHeight), 1, FIT_MAX_INITIAL_ZOOM);
   return {
-    x: VIEWBOX.width / 2 - bounds.centerX * k,
-    y: VIEWBOX.height / 2 - bounds.centerY * k,
+    x: centerX - bounds.centerX * k,
+    y: centerY - bounds.centerY * k,
     k,
   };
 }

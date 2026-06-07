@@ -88,7 +88,7 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
 }
 
 export function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
-  return `${graph.summary.sampleCount ?? 0} samples / ${graph.summary.slotCount} slot variants`;
+  return `${graph.summary.sampleCount ?? 0} 个样例 / ${graph.summary.slotCount} 个槽位变体`;
 }
 
 export function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {

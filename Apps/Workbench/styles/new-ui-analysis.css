@@ -1610,6 +1610,12 @@
   scrollbar-color: color-mix(in srgb, var(--new-ui-text-muted) 44%, transparent) transparent;
 }
 
+.new-ui-library-graph-panel {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+}
+
 .new-ui-analysis-workflow {
   --new-ui-analysis-divider-strong: color-mix(in srgb, var(--new-ui-text-muted) 34%, var(--new-ui-border));
   --new-ui-analysis-divider: color-mix(in srgb, var(--new-ui-text-muted) 26%, var(--new-ui-border));

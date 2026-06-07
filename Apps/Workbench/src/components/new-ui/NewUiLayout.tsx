@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { SplitResizeHandle } from "../SplitResizeHandle";
@@ -36,9 +37,13 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
+const LEFT_SUBNAV_COLLAPSE_DELAY_MS = 240;
 
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+  right?: unknown;
+  rightRatio?: unknown;
 };
 
 type NewUiLayoutProps = {
@@ -51,10 +56,14 @@ type NewUiLayoutProps = {
 export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
   const layoutRef = useRef<HTMLElement>(null);
   const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
+  const paneResizeGuardTimerRef = useRef<number | null>(null);
+  const leftSubnavCollapseTimerRef = useRef<number | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
+  const [leftSidebarExpandedSection, setLeftSidebarExpandedSection] = useState<NewUiSectionId | null>(null);
+  const [leftSidebarCloseRequest, setLeftSidebarCloseRequest] = useState(0);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
@@ -63,6 +72,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     item: null,
   });
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
+  const showLibraryGraphPanel = activeSection === "library";
+  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
@@ -72,14 +83,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
-    defaultRight: showAnalysisWorkflow ? 420 : 320,
+    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : 320,
     minLeft: 0,
     maxLeft: Number.POSITIVE_INFINITY,
     minCenter: 420,
-    minRight: showAnalysisWorkflow ? 420 : 0,
+    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : 0,
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
-    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : { min: 0.1, max: 0.3 },
+    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : { min: 0.1, max: 0.3 },
     persistedSides: { left: true, right: false },
   });
 
@@ -95,14 +106,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
       setAnalysisWorkflowMounted(false);
-      setRightCollapsed(true);
+      if (!showLibraryGraphPanel) setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
     lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
     setAnalysisWorkflowMounted(false);
     setRightCollapsed(false);
-  }, [analysisWorkflowRevealKey]);
+  }, [analysisWorkflowRevealKey, showLibraryGraphPanel]);
 
   useEffect(() => {
     if (!showAnalysisWorkflow) {
@@ -137,13 +148,65 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     });
   }, []);
 
+  const startPaneTransitionGuard = useCallback(() => {
+    const layoutElement = layoutRef.current;
+    layoutElement?.classList.add("is-pane-transitioning-layout");
+    if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
+    paneResizeGuardTimerRef.current = window.setTimeout(() => {
+      paneResizeGuardTimerRef.current = null;
+      layoutElement?.classList.remove("is-pane-transitioning-layout");
+    }, 280);
+  }, []);
+
+  useEffect(() => {
+    if (!showLibraryGraphPanel) return;
+    startPaneTransitionGuard();
+    setRightCollapsed(false);
+  }, [showLibraryGraphPanel, startPaneTransitionGuard]);
+
   const toggleLeftCollapsed = () => {
-    setLeftCollapsed((value) => !value);
+    if (leftSubnavCollapseTimerRef.current) {
+      window.clearTimeout(leftSubnavCollapseTimerRef.current);
+      leftSubnavCollapseTimerRef.current = null;
+    }
+
+    if (leftCollapsed) {
+      startPaneTransitionGuard();
+      setLeftCollapsed(false);
+      return;
+    }
+
+    if (leftSidebarExpandedSection) {
+      setLeftSidebarCloseRequest((value) => value + 1);
+      leftSubnavCollapseTimerRef.current = window.setTimeout(() => {
+        leftSubnavCollapseTimerRef.current = null;
+        startPaneTransitionGuard();
+        setLeftCollapsed(true);
+      }, LEFT_SUBNAV_COLLAPSE_DELAY_MS);
+      return;
+    }
+
+    startPaneTransitionGuard();
+    setLeftCollapsed(true);
   };
 
   const toggleRightCollapsed = () => {
+    startPaneTransitionGuard();
     setRightCollapsed((value) => !value);
   };
+
+  const expandLeftSidebar = useCallback(() => {
+    startPaneTransitionGuard();
+    setLeftCollapsed(false);
+  }, [startPaneTransitionGuard]);
+
+  useEffect(() => {
+    return () => {
+      if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
+      if (leftSubnavCollapseTimerRef.current) window.clearTimeout(leftSubnavCollapseTimerRef.current);
+      layoutRef.current?.classList.remove("is-pane-transitioning-layout");
+    };
+  }, []);
 
   return (
     <section
@@ -158,7 +221,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             activeLibraryChild={activeLibraryChild}
             activeSection={activeSection}
             collapsed={leftCollapsed}
+            closeRequest={leftSidebarCloseRequest}
             onLibraryChildChange={setActiveLibraryChild}
+            onExpandedSectionChange={setLeftSidebarExpandedSection}
+            onRequestExpandSidebar={expandLeftSidebar}
             onSectionChange={setActiveSection}
           />
         </div>
@@ -184,7 +250,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
         </div>
         <div className="new-ui-center-section" hidden={activeSection !== "library"} aria-hidden={activeSection !== "library"}>
-          {activeSection === "library" ? <FunctionSlotGraphWorkspace embedded active={active} fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
+          {activeSection === "library" ? (
+            <FunctionSlotGraphWorkspace
+              embedded
+              active={active}
+              fixedMode={libraryChildToGraphMode(activeLibraryChild)}
+              panelSlot={(panel) => <LibraryGraphPanelPortal>{panel}</LibraryGraphPanelPortal>}
+            />
+          ) : null}
         </div>
       </main>
       {!rightCollapsed ? (
@@ -199,17 +272,29 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
       <aside className="new-ui-pane new-ui-pane-right" aria-label="右侧栏">
         <PaneHeader collapsed={rightCollapsed} onToggle={toggleRightCollapsed} side="right" />
-        <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showAnalysisWorkflow || !analysisWorkflowMounted}>
+        <div className="new-ui-pane-body new-ui-pane-body-analysis-workflow" aria-hidden={rightCollapsed || !showRightPaneContent}>
           {showAnalysisWorkflow && analysisWorkflowMounted ? (
             <AnalysisWorkflowSidebar
               detail={analysisDetail}
               onWorkflowStageSelect={() => setTimelineSelectionClearRequest((value) => value + 1)}
             />
           ) : null}
+          {showLibraryGraphPanel ? <div id="new-ui-library-graph-panel" className="new-ui-library-graph-panel" /> : null}
         </div>
       </aside>
     </section>
   );
+}
+
+function LibraryGraphPanelPortal({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const nextHost = document.getElementById("new-ui-library-graph-panel");
+    setHost(nextHost);
+  }, []);
+
+  return host ? createPortal(children, host) : null;
 }
 
 function sameStringList(a: string[] | null | undefined, b: string[] | null | undefined) {
@@ -245,13 +330,37 @@ function writeStoredLayoutPreference(preference: NewUiThreePanePreference) {
 type SidebarNavProps = {
   activeLibraryChild: NewUiLibraryChildId;
   activeSection: NewUiSectionId;
+  closeRequest: number;
   collapsed: boolean;
+  onExpandedSectionChange: (section: NewUiSectionId | null) => void;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
+  onRequestExpandSidebar: () => void;
   onSectionChange: (section: NewUiSectionId) => void;
 };
 
-function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChildChange, onSectionChange }: SidebarNavProps) {
+function SidebarNav({
+  activeLibraryChild,
+  activeSection,
+  closeRequest,
+  collapsed,
+  onExpandedSectionChange,
+  onLibraryChildChange,
+  onRequestExpandSidebar,
+  onSectionChange,
+}: SidebarNavProps) {
   const [expandedSection, setExpandedSection] = useState<NewUiSectionId | null>(null);
+
+  useEffect(() => {
+    if (collapsed) setExpandedSection(null);
+  }, [collapsed]);
+
+  useEffect(() => {
+    if (closeRequest > 0) setExpandedSection(null);
+  }, [closeRequest]);
+
+  useEffect(() => {
+    onExpandedSectionChange(expandedSection);
+  }, [expandedSection, onExpandedSectionChange]);
 
   return (
     <nav className="new-ui-sidebar-nav" aria-label="新 UI 功能导航">
@@ -270,10 +379,16 @@ function SidebarNav({ activeLibraryChild, activeSection, collapsed, onLibraryChi
             aria-label={collapsed ? section.label : undefined}
             title={collapsed ? section.label : undefined}
             onClick={() => {
-              onSectionChange(section.id);
-              if (hasChildren && !collapsed) {
+              if (hasChildren) {
+                if (collapsed) {
+                  onRequestExpandSidebar();
+                  setExpandedSection(section.id);
+                  return;
+                }
                 setExpandedSection((current) => current === section.id ? null : section.id);
+                return;
               }
+              onSectionChange(section.id);
             }}
           >
             <span className="new-ui-sidebar-nav-icon" aria-hidden="true">

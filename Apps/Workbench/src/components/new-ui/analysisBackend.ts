@@ -136,7 +136,9 @@ async function rerunArtifactBackedAnalysisStage(item: AnalysisHistoryItem, stage
   }
   for (const key of stageKeys) {
     const job = await startLegacyStageRefresh(item, key);
-    await waitForJob(job.processingJobId);
+    if ("processingJobId" in job) {
+      await waitForJob(job.processingJobId);
+    }
   }
   return loadAnalysisDetailItem(item);
 }
