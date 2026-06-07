@@ -1320,7 +1320,7 @@ function supportValue(support: unknown, key: "variantCount" | "sampleCount") {
 }
 
 function shortLabel(node: FunctionSlotGraphNode) {
-  if (node.type === "governanceRoot") return "Governance";
+  if (node.type === "governanceRoot") return "治理库";
   if (node.type === "sourceExample") return String(node.label ?? node.id).slice(0, 18);
   if (node.type === "sourceVariant") return sourceVariantLabel(node);
   if (node.type === "sourceSample") return String(node.label ?? node.data.sampleVideoId ?? "SourceSample").slice(0, 18);

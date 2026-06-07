@@ -149,11 +149,11 @@ export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | n
   );
 }
 
-export function EmptyState({ text }: { text: string }) {
+export function EmptyState({ text, hint = "先导出 FunctionSlotLibrary 后刷新" }: { text: string; hint?: string | null }) {
   return (
     <div className="empty-state">
       <strong>{text}</strong>
-      <span>先导出 FunctionSlotLibrary 后刷新</span>
+      {hint ? <span>{hint}</span> : null}
     </div>
   );
 }

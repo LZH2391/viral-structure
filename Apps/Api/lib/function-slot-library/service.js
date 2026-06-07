@@ -95,12 +95,23 @@ function createFunctionSlotLibraryService({
         for (const entry of entries) {
           if (!entry.isDirectory()) continue;
           const manifest = await readManifest(entry.name).catch(() => null);
-          if (manifest?.schemaVersion === SCHEMA_VERSION && isPublishableLibraryManifest(manifest)) manifests.push(manifest);
+          if (manifest?.schemaVersion === SCHEMA_VERSION && isPublishableLibraryManifest(manifest)) {
+            manifests.push(await enrichManifestForDisplay(manifest));
+          }
         }
         return manifests.sort(compareManifests);
       },
       outputSummary: (items) => ({ itemCount: items.length }),
     });
+  }
+
+  async function enrichManifestForDisplay(manifest) {
+    if (normalizeOptionalText(manifest.sourceVideoName)) return manifest;
+    const sampleVideoId = normalizeOptionalText(manifest.sampleVideoId);
+    if (!sampleVideoId) return manifest;
+    const artifact = await store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json")).catch(() => null);
+    const sourceVideoName = resolveSourceVideoName(artifact);
+    return sourceVideoName ? { ...manifest, sourceVideoName } : manifest;
   }
 
   async function projectLibraryArtifact(artifactId) {
@@ -264,6 +275,7 @@ function buildLibraryPayload({ artifact, analysis, exportedAt }) {
     sampleVideoId: analysis.sampleVideoId ?? artifact?.sampleVideoId ?? null,
     traceId: analysis.traceId ?? artifact?.trace?.traceId ?? null,
     parentArtifactId: analysis.parentArtifactId ?? null,
+    sourceVideoName: resolveSourceVideoName(artifact),
     sourceScriptSegmentArtifactId: analysis.sourceScriptSegmentArtifactId ?? null,
     sourceRhythmStructureArtifactId: analysis.sourceRhythmStructureArtifactId ?? null,
     sourcePackagingStructureArtifactId: analysis.sourcePackagingStructureArtifactId ?? null,
@@ -294,6 +306,15 @@ function buildLibraryPayload({ artifact, analysis, exportedAt }) {
     rules,
     templates,
   };
+}
+
+function resolveSourceVideoName(artifact) {
+  return normalizeOptionalText(
+    artifact?.sampleVideo?.original?.summary
+    ?? artifact?.sampleVideo?.normalized?.summary
+    ?? artifact?.metadata?.filename
+    ?? artifact?.metadata?.fileName
+  );
 }
 
 function enrichRhythmAtomsWithTimingEvidence(rhythmAtoms, artifact) {
@@ -369,6 +390,11 @@ function normalizeTimingNumber(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
   return roundTiming(number);
+}
+
+function normalizeOptionalText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 function roundTiming(value) {

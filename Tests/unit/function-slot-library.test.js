@@ -27,6 +27,7 @@ test("function slot library exports fixed json files with manifest counts and ha
   assert.deepEqual(files.sort(), Object.values(FILES).sort());
   assert.equal(manifest.schemaVersion, SCHEMA_VERSION);
   assert.equal(manifest.sampleVideoId, "sample_library");
+  assert.equal(manifest.sourceVideoName, "source-library.mp4");
   assert.equal(manifest.traceId, "trace_library");
   assert.equal(manifest.counts.slotCount, 2);
   assert.equal(manifest.counts.atomCount, 6);
@@ -69,6 +70,7 @@ test("function slot library lists manifests in stable order", async () => {
 
   const items = await service.listLibraryItems();
   assert.deepEqual(items.map((item) => item.artifactId), ["artifact_new", "artifact_old"]);
+  assert.equal(items[0].sourceVideoName, "source-library.mp4");
 });
 
 test("function slot library rejects failed or empty atomization exports", async () => {
@@ -142,7 +144,7 @@ test("function slot library API exposes export, list, project and delete routes"
         calls.push({ method: "exportSampleArtifact", sampleVideoId, options });
         return { exported: true, manifest: { artifactId: "artifact_function_slot", sampleVideoId, traceId: "trace_library", counts: { slotCount: 2 }, contentHash: "hash" } };
       },
-      listLibraryItems: async () => [{ artifactId: "artifact_function_slot", sampleVideoId: "sample_library", traceId: "trace_library" }],
+      listLibraryItems: async () => [{ artifactId: "artifact_function_slot", sampleVideoId: "sample_library", sourceVideoName: "source-library.mp4", traceId: "trace_library" }],
       projectLibraryArtifact: async (artifactId) => {
         calls.push({ method: "projectLibraryArtifact", artifactId });
         return { projected: true, artifactId, sampleVideoId: "sample_library", slotCount: 2 };
@@ -175,6 +177,7 @@ test("function slot library API exposes export, list, project and delete routes"
     assert.equal(exported.statusCode, 200);
     assert.equal(listed.statusCode, 200);
     assert.equal(listed.body.items[0].traceId, "trace_library");
+    assert.equal(listed.body.items[0].sourceVideoName, "source-library.mp4");
     assert.equal(graph.statusCode, 200);
     assert.equal(graph.body.schemaVersion, "function_slot_library_graph.v1");
     assert.equal(graph.body.summary.slotCount, 2);
@@ -679,6 +682,11 @@ function buildArtifact({ artifactId = "artifact_function_slot", traceId = "trace
   return {
     sampleVideoId: "sample_library",
     trace: { traceId: "trace_sample" },
+    sampleVideo: {
+      original: {
+        summary: "source-library.mp4",
+      },
+    },
       functionSlotAtomizationAnalysis: {
       artifactId,
       parentArtifactId: "artifact_packaging",

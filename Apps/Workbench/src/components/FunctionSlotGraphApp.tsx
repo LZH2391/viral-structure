@@ -10,6 +10,7 @@ import type { GovernanceFilterPresetMode, GovernanceLayoutMode, GraphFiltersStat
 type LibraryGraphSummary = {
   artifactId: string;
   sampleVideoId?: string | null;
+  sourceVideoName?: string | null;
   traceId?: string | null;
   counts?: Record<string, number>;
 };
@@ -79,6 +80,7 @@ type FunctionSlotGraphWorkspaceProps = {
     title: string;
     onBack: () => void;
   } | null;
+  onClearSourceReturn?: () => void;
   panelSlot?: (panel: ReactNode) => ReactNode;
 };
 
@@ -98,7 +100,7 @@ export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
 
-export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, requestedArtifactId = null, sourceReturn = null, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
+export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, requestedArtifactId = null, sourceReturn = null, onClearSourceReturn, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
   const initialGraphConfig = useMemo(() => readFunctionSlotGraphConfig(), []);
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
@@ -190,8 +192,9 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
 
   const mode = fixedMode ?? uncontrolledMode;
   const setMode = useCallback((nextMode: GraphMode) => {
+    if (nextMode !== "structure") onClearSourceReturn?.();
     if (!fixedMode) setUncontrolledMode(nextMode);
-  }, [fixedMode]);
+  }, [fixedMode, onClearSourceReturn]);
   const setModeGraph = useCallback((targetMode: GraphMode, nextGraph: FunctionSlotLibraryGraph | null) => {
     setGraphsByMode((current) => ({ ...current, [targetMode]: nextGraph }));
   }, []);
@@ -343,6 +346,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const setActiveLayoutMode = useCallback((nextLayoutMode: GovernanceLayoutMode) => {
     setLayoutModesByMode((current) => ({ ...current, [mode]: nextLayoutMode }));
   }, [mode]);
+  const handleSelectArtifact = useCallback((artifactId: string) => {
+    if (sourceReturn) onClearSourceReturn?.();
+    setSelectedArtifactId(artifactId);
+  }, [onClearSourceReturn, sourceReturn]);
   const rawGraph = graphsByMode[mode];
   const graph = mode === "structure" && rawGraph?.artifactId !== selectedArtifactId ? null : rawGraph;
   const waitingForSelectedStructureGraph = mode === "structure" && Boolean(selectedArtifactId) && rawGraph?.artifactId !== selectedArtifactId;
@@ -391,7 +398,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         items={items}
         selectedArtifactId={selectedArtifactId}
         selectedPlanIds={selectedPlanIds}
-        onSelectArtifact={setSelectedArtifactId}
+        onSelectArtifact={handleSelectArtifact}
         onSelectedPlanIdsChange={setSelectedPlanIds}
       />
       <NodeInspector node={selectedNode} graph={activeGraph} />
@@ -450,7 +457,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
               />
               {mode === "governance" ? <GovernanceSummary graph={graph} variant="overlay" collapsed={governanceSummaryCollapsed} onToggleCollapsed={() => setGovernanceSummaryCollapsed((value) => !value)} /> : null}
             </>
-          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择右侧素材查看图谱"} />}
+          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择右侧素材查看图谱"} hint={null} />}
         </section>
         {panelSlot ? panelSlot(graphPanel) : graphPanel}
       </main>
@@ -559,13 +566,18 @@ function GraphSourcePanel({
         <PlanTracePanel graph={graph} selectedPlanIds={selectedPlanIds} onChange={onSelectedPlanIdsChange} />
       ) : (
         <div className="compact-list">
-          {items.length ? items.map((item) => (
-            <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} onClick={() => onSelectArtifact(item.artifactId)}>
-              <strong>样例 {shortId(item.sampleVideoId ?? item.artifactId)}</strong>
-              <span>artifact {shortId(item.artifactId)}</span>
-              <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
-            </button>
-          )) : <EmptyState text="暂无 FunctionSlotLibrary" />}
+          {items.length ? items.map((item) => {
+            const sampleShortId = shortId(item.sampleVideoId ?? item.artifactId);
+            const sourceVideoName = item.sourceVideoName?.trim() || `样例 ${sampleShortId}`;
+            return (
+              <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} title={sourceVideoName} onClick={() => onSelectArtifact(item.artifactId)}>
+                <strong className="slot-graph-source-title">{sourceVideoName}</strong>
+                <span>样例 {sampleShortId}</span>
+                <span>artifact {shortId(item.artifactId)}</span>
+                <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
+              </button>
+            );
+          }) : <EmptyState text="暂无 FunctionSlotLibrary" />}
         </div>
       )}
     </section>

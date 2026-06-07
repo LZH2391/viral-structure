@@ -883,8 +883,8 @@ export async function getLibraryItems() {
 }
 
 export async function getFunctionSlotLibraryItems() {
-  return readJsonResponse<{ items: Array<{ artifactId: string; sampleVideoId?: string | null; traceId?: string | null; counts?: Record<string, number> }> }>(
-    await fetch(`${API_BASE_URL}/api/function-slot-library`),
+  return readJsonResponse<{ items: Array<{ artifactId: string; sampleVideoId?: string | null; sourceVideoName?: string | null; traceId?: string | null; counts?: Record<string, number> }> }>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library`, { cache: "no-store" }),
   );
 }
 

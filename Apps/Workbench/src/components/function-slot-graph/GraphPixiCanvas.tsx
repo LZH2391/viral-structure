@@ -63,10 +63,12 @@ const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
 const MIN_ZOOM = 0.8;
 const MAX_ZOOM = 5;
-const FIT_TARGET_WIDTH_RATIO = 0.58;
-const FIT_TARGET_HEIGHT_RATIO = 0.56;
 const FIT_WORLD_PADDING = 180;
-const FIT_MAX_INITIAL_ZOOM = 2.8;
+const INITIAL_ZOOM_BY_MODE: Record<GraphMode, number> = {
+  structure: 3,
+  governance: 1,
+  planTrace: 1.5,
+};
 const HOVER_FOCUS_DEPTH = 1;
 const CLICK_FOCUS_DEPTH = 2;
 const POINTER_DRAG_THRESHOLD_PX = 3;
@@ -433,7 +435,7 @@ function GraphPixiCanvasInner({
     nodesRef.current = nextNodes;
     if (pendingViewportFitRef.current) {
       pendingViewportFitRef.current = false;
-      const nextViewport = fitGraphViewport(nextNodes, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
+      const nextViewport = fitGraphViewport(nextNodes, canvasSizeRef.current, mode, visibleCanvasGeometry()?.bounds);
       viewportRef.current = nextViewport;
       setViewport(nextViewport);
       zoomStartViewportRef.current = nextViewport;
@@ -538,7 +540,7 @@ function GraphPixiCanvasInner({
   const applyFittedViewport = () => {
     if (!nodesRef.current.length) return;
     stopZoomAnimation();
-    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, mode, visibleCanvasGeometry()?.bounds);
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
     zoomStartViewportRef.current = nextViewport;
@@ -1038,7 +1040,7 @@ function GraphPixiCanvasInner({
     stopZoomAnimation();
     pendingViewportFitRef.current = false;
     hasUserAdjustedViewportRef.current = false;
-    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, mode, visibleCanvasGeometry()?.bounds);
     setResetToken((value) => value + 1);
     animateViewportTo(nextViewport);
   };
@@ -1047,7 +1049,6 @@ function GraphPixiCanvasInner({
     <div ref={canvasRef} className={`slot-graph-canvas pixi ${mode === "planTrace" ? "plan-trace" : mode}`}>
       <div className="slot-graph-canvas-title">
         <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
-        {mode !== "governance" ? <span>{mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span> : null}
       </div>
       <div className="slot-graph-controls">
         <span className="slot-graph-fps-chip">FPS {renderFps}</span>
@@ -1178,6 +1179,7 @@ function stageTransform(size: { width: number; height: number }): StageTransform
 function fitGraphViewport(
   nodes: SimNode[],
   size: { width: number; height: number },
+  mode: GraphMode,
   visibleBounds?: { left: number; top: number; right: number; bottom: number },
 ): ViewportTransform {
   if (!nodes.length) return { x: 0, y: 0, k: 1 };
@@ -1188,11 +1190,7 @@ function fitGraphViewport(
   const centerX = (fitBounds.left + fitWidth / 2 - transform.offsetX) / transform.scale;
   const centerY = (fitBounds.top + fitHeight / 2 - transform.offsetY) / transform.scale;
   const bounds = graphBounds(nodes);
-  const baseWidth = Math.max(1, bounds.width * transform.scale);
-  const baseHeight = Math.max(1, bounds.height * transform.scale);
-  const targetWidth = Math.max(1, fitWidth * FIT_TARGET_WIDTH_RATIO);
-  const targetHeight = Math.max(1, fitHeight * FIT_TARGET_HEIGHT_RATIO);
-  const k = clamp(Math.min(targetWidth / baseWidth, targetHeight / baseHeight), 1, FIT_MAX_INITIAL_ZOOM);
+  const k = clamp(INITIAL_ZOOM_BY_MODE[mode], MIN_ZOOM, MAX_ZOOM);
   return {
     x: centerX - bounds.centerX * k,
     y: centerY - bounds.centerY * k,

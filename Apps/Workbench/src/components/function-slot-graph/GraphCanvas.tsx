@@ -364,7 +364,6 @@ export function GraphCanvas({
     <div className={`slot-graph-canvas ${mode === "planTrace" ? "plan-trace" : mode}`}>
       <div className="slot-graph-canvas-title">
         <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
-        {mode !== "governance" ? <span>{mode === "planTrace" ? planTraceSummaryText(graph) : `${graph.summary.slotCount} slots / ${graph.summary.atomCount} atoms / ${graph.summary.bindingCount} bindings`}</span> : null}
       </div>
       <div className="slot-graph-controls">
         <button type="button" onClick={resetView}>重置</button>

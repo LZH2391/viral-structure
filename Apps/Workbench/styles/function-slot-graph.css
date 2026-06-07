@@ -196,7 +196,7 @@
   --scrollbar-thumb-hover: color-mix(in srgb, var(--new-ui-text-muted) 58%, transparent);
   min-width: 0;
   min-height: 0;
-  background: var(--new-ui-surface);
+  background: var(--new-ui-bg);
   color: var(--new-ui-text);
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
@@ -239,7 +239,7 @@
   border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
   border-top: 0;
   border-bottom: 0;
-  background: color-mix(in srgb, var(--new-ui-bg) 88%, var(--new-ui-surface));
+  background: var(--new-ui-bg);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-panel,
@@ -323,11 +323,19 @@
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas {
-  background: color-mix(in srgb, var(--new-ui-bg) 88%, var(--new-ui-surface));
+  background: var(--new-ui-bg);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-loading-state {
-  background: color-mix(in srgb, var(--new-ui-bg) 88%, var(--new-ui-surface));
+  background: var(--new-ui-bg);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-stage > .empty-state {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: var(--new-ui-bg);
+  box-shadow: none;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas-title,
@@ -702,6 +710,8 @@
 
 .new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-layout,
 .new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-canvas,
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-loading-state,
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-stage > .empty-state,
 .new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-stage {
   background: var(--new-ui-surface);
 }
@@ -825,6 +835,15 @@
   max-height: min(320px, 34vh);
   overflow: auto;
   padding-right: 2px;
+}
+
+.slot-graph-source-title,
+.slot-graph-source-item span,
+.slot-graph-source-item small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-graph-status-card {

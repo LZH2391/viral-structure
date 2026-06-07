@@ -218,6 +218,16 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setActiveSection("analysis");
   }, [startPaneTransitionGuard]);
 
+  const handleSidebarSectionChange = useCallback((section: NewUiSectionId) => {
+    setStructureGraphReturn(null);
+    setActiveSection(section);
+  }, []);
+
+  const handleSidebarLibraryChildChange = useCallback((child: NewUiLibraryChildId) => {
+    setStructureGraphReturn(null);
+    setActiveLibraryChild(child);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
@@ -240,10 +250,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             activeSection={activeSection}
             collapsed={leftCollapsed}
             closeRequest={leftSidebarCloseRequest}
-            onLibraryChildChange={setActiveLibraryChild}
+            onLibraryChildChange={handleSidebarLibraryChildChange}
             onExpandedSectionChange={setLeftSidebarExpandedSection}
             onRequestExpandSidebar={expandLeftSidebar}
-            onSectionChange={setActiveSection}
+            onSectionChange={handleSidebarSectionChange}
           />
         </div>
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
@@ -278,6 +288,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
                 title: structureGraphReturn.title,
                 onBack: returnToAnalysisFromGraph,
               } : null}
+              onClearSourceReturn={() => setStructureGraphReturn(null)}
               panelSlot={(panel) => <LibraryGraphPanelPortal>{panel}</LibraryGraphPanelPortal>}
             />
           ) : null}
