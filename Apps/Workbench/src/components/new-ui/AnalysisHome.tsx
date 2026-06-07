@@ -10,19 +10,21 @@ import {
   rerunAnalysisWorkflowStage,
   startAnalysisUpload,
 } from "./analysisBackend";
-import { resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
+import { listAnalysisHistorySamples, resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
 type AnalysisHomeProps = {
   onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
+  openRequest?: { requestId: number; sampleVideoId: string; artifactId?: string | null; title?: string | null } | null;
+  onOpenRequestResolved?: (result: { requestId: number; ok: boolean; message?: string | null }) => void;
   timelineSelectionClearRequest?: number;
 };
 
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
 const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
 
-export function AnalysisHome({ onDetailStateChange, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
+export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -111,6 +113,34 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
     setRerunningStageKey(null);
     setView("detail");
   };
+
+  useEffect(() => {
+    if (!openRequest) return undefined;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const items = await listAnalysisHistorySamples();
+        if (cancelled) return;
+        const target = items.find((item) => item.sampleVideoId === openRequest.sampleVideoId) ?? null;
+        if (!target) {
+          onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: false, message: "未找到对应历史分析" });
+          return;
+        }
+        if (!target.hasFunctionSlotAtomization) {
+          onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: false, message: "对应样例还没有结构分析结果" });
+          return;
+        }
+        openHistoryDetail(target);
+        onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: true });
+      } catch {
+        if (!cancelled) onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: false, message: "打开结构分析失败" });
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [openRequest?.requestId]);
 
   const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
     const file = Array.from(files).find((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
@@ -325,7 +355,10 @@ export function AnalysisHome({ onDetailStateChange, timelineSelectionClearReques
             <span className="new-ui-analysis-upload-primary">{isUploading ? "正在启动分析" : "拖拽视频到此处"}</span>
             <span className="new-ui-analysis-upload-secondary">{isUploading ? "正在创建分析任务" : "或点击选择文件"}</span>
           </span>
-          <span className="new-ui-analysis-upload-limit" aria-hidden="true">MP4/MOV 单个视频 最大 2GB</span>
+          <span className="new-ui-analysis-upload-limit-group" aria-hidden="true">
+            <span className="new-ui-analysis-upload-limit">支持并行</span>
+            <span className="new-ui-analysis-upload-limit">单文件最大 2G</span>
+          </span>
         </button>
         <AnalysisHistory refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
       </section>

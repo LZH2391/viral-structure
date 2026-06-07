@@ -14,6 +14,7 @@ import {
   nodeRadius,
   previewPopoverSize,
   reverseTracePath,
+  terminalShortestGraphFocus,
   VIEWBOX,
 } from "./graphUtils";
 import {
@@ -54,11 +55,14 @@ type PixiLayers = {
 };
 
 type ViewportTransform = { x: number; y: number; k: number };
+type ViewportEasing = (progress: number) => number;
+type ViewportAnimationOptions = { durationMs?: number; easing?: ViewportEasing };
 type StageTransform = { scale: number; offsetX: number; offsetY: number };
 type HitGridEntry = { node: SimNode; index: number };
 type HitGridIndex = { cellSize: number; cells: Map<string, HitGridEntry[]> };
 
 const ZOOM_ANIMATION_MS = 220;
+const SEARCH_RESULT_ANIMATION_MS = 800;
 const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
 const MIN_ZOOM = 0.8;
@@ -70,7 +74,8 @@ const INITIAL_ZOOM_BY_MODE: Record<GraphMode, number> = {
   planTrace: 1.5,
 };
 const HOVER_FOCUS_DEPTH = 1;
-const CLICK_FOCUS_DEPTH = 2;
+const CLICK_FOCUS_DEPTH = 1;
+const SEARCH_RESULT_FOCUS_ZOOM = 2.5;
 const POINTER_DRAG_THRESHOLD_PX = 3;
 
 export function GraphPixiCanvas(props: {
@@ -79,6 +84,8 @@ export function GraphPixiCanvas(props: {
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
   layoutMode?: GovernanceLayoutMode;
+  titleLabel?: string | null;
+  sourceTitlesBySampleId?: Record<string, string>;
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
 }) {
@@ -91,6 +98,8 @@ function GraphPixiCanvasInner({
   graph,
   visible,
   layoutMode = "force",
+  titleLabel,
+  sourceTitlesBySampleId = {},
   selectedNodeId,
   onSelectNode,
 }: {
@@ -99,6 +108,8 @@ function GraphPixiCanvasInner({
   graph: FunctionSlotLibraryGraph;
   visible: VisibleGraph;
   layoutMode?: GovernanceLayoutMode;
+  titleLabel?: string | null;
+  sourceTitlesBySampleId?: Record<string, string>;
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
 }) {
@@ -132,6 +143,8 @@ function GraphPixiCanvasInner({
   const viewportStateFrameRef = useRef<number | null>(null);
   const zoomAnimationFrameRef = useRef<number | null>(null);
   const zoomAnimationStartedAtRef = useRef(0);
+  const zoomAnimationDurationMsRef = useRef(ZOOM_ANIMATION_MS);
+  const zoomAnimationEasingRef = useRef<ViewportEasing>(easeOutCubic);
   const zoomStartViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const pendingViewportFitRef = useRef(true);
@@ -178,15 +191,37 @@ function GraphPixiCanvasInner({
   const [renderFps, setRenderFps] = useState(0);
   const [pixiError, setPixiError] = useState<string | null>(null);
   const [initRetry, setInitRetry] = useState(0);
+  const [governanceSearchText, setGovernanceSearchText] = useState("");
+  const governanceSearchQuery = governanceSearchText.trim().toLocaleLowerCase();
   const fixedLayout = layoutMode === "columns";
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
   const focusDepth = hoveredNodeId && hoveredNodeId !== selectedNodeId ? HOVER_FOCUS_DEPTH : selectedNodeId ? selectedFocusDepth : HOVER_FOCUS_DEPTH;
+  const selectedPathFocus = Boolean(selectedNodeId && (!hoveredNodeId || hoveredNodeId === selectedNodeId));
+  const terminalPathFocus = selectedPathFocus && selectedFocusDepth === Number.POSITIVE_INFINITY;
   const showFocusArrows = Boolean(selectedNodeId && selectedFocusDepth === Number.POSITIVE_INFINITY && (!hoveredNodeId || hoveredNodeId === selectedNodeId));
+  const governanceSearchResults = useMemo(() => {
+    if (mode !== "governance" || !governanceSearchQuery) return [];
+    return visible.nodes
+      .filter(isSourceSampleNode)
+      .map((node) => {
+        const sampleId = stringField(node.data.sampleVideoId) ?? stringField(node.data.sampleId) ?? node.id;
+        const name = sourceSampleSearchLabel(node, sourceTitlesBySampleId[sampleId]);
+        const haystack = [name, sampleId, stringField(node.data.sourceAlias), stringField(node.data.artifactId)]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase();
+        return { node, name, sampleId, matched: haystack.includes(governanceSearchQuery) };
+      })
+      .filter((item) => item.matched)
+      .slice(0, 8);
+  }, [governanceSearchQuery, mode, sourceTitlesBySampleId, visible.nodes]);
   const focusedPath = useMemo(
     () => mode === "planTrace"
       ? reverseTracePath(focusNodeId, visible.edges)
-      : directedGraphFocus(focusNodeId, visible.edges, focusDepth),
-    [focusDepth, focusNodeId, mode, visible.edges],
+      : terminalPathFocus
+        ? terminalShortestGraphFocus(focusNodeId, visible.nodes, visible.edges)
+        : directedGraphFocus(focusNodeId, visible.edges, focusDepth),
+    [focusDepth, focusNodeId, mode, terminalPathFocus, visible.edges, visible.nodes],
   );
 
   useEffect(() => {
@@ -736,8 +771,8 @@ function GraphPixiCanvasInner({
   };
 
   const stepZoomAnimation = (time: number) => {
-    const progress = clamp((time - zoomAnimationStartedAtRef.current) / ZOOM_ANIMATION_MS, 0, 1);
-    const eased = 1 - ((1 - progress) ** 3);
+    const progress = clamp((time - zoomAnimationStartedAtRef.current) / zoomAnimationDurationMsRef.current, 0, 1);
+    const eased = zoomAnimationEasingRef.current(progress);
     const start = zoomStartViewportRef.current;
     const target = zoomTargetViewportRef.current;
     applyAnimatedViewport({
@@ -753,9 +788,11 @@ function GraphPixiCanvasInner({
     scheduleDraw();
   };
 
-  const animateViewportTo = (targetViewport: ViewportTransform) => {
+  const animateViewportTo = (targetViewport: ViewportTransform, options: ViewportAnimationOptions = {}) => {
     zoomStartViewportRef.current = viewportRef.current;
     zoomTargetViewportRef.current = targetViewport;
+    zoomAnimationDurationMsRef.current = options.durationMs ?? ZOOM_ANIMATION_MS;
+    zoomAnimationEasingRef.current = options.easing ?? easeOutCubic;
     zoomAnimationStartedAtRef.current = performance.now();
     if (!zoomAnimationFrameRef.current) zoomAnimationFrameRef.current = window.requestAnimationFrame(stepZoomAnimation);
   };
@@ -832,9 +869,15 @@ function GraphPixiCanvasInner({
     return hitGridRef.current ? hitTestHitGrid(hitGridRef.current, point, viewportRef.current.k) : null;
   };
 
+  const blurGovernanceSearch = () => {
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (activeElement?.closest(".slot-graph-governance-search")) activeElement.blur();
+  };
+
   const startPointer = (event: globalThis.PointerEvent | MouseEvent) => {
     const shouldForcePan = forcePanRef.current || event.shiftKey || event.button === 1 || event.button === 2;
     if (event.button !== 0 && !shouldForcePan) return;
+    blurGovernanceSearch();
     event.preventDefault();
     stopZoomAnimation();
     const host = hostRef.current;
@@ -854,6 +897,10 @@ function GraphPixiCanvasInner({
       };
       showHover(hitNode.id);
       return;
+    }
+    if (!shouldForcePan) {
+      setSelectedFocusDepth(CLICK_FOCUS_DEPTH);
+      onSelectNode(null);
     }
     closePreview();
     dragRef.current = {
@@ -1045,11 +1092,37 @@ function GraphPixiCanvasInner({
     animateViewportTo(nextViewport);
   };
 
+  const selectGovernanceSearchResult = (nodeId: string) => {
+    const node = nodesRef.current.find((entry) => entry.id === nodeId) ?? visible.nodes.find((entry) => entry.id === nodeId);
+    if (!node) return;
+    stopZoomAnimation();
+    setSelectedFocusDepth(HOVER_FOCUS_DEPTH);
+    setHoveredNodeId(null);
+    setPinnedPreviewNodeId(null);
+    onSelectNode(node.id);
+    const size = canvasSizeRef.current;
+    const transform = stageTransform(size);
+    const bounds = visibleCanvasGeometry()?.bounds ?? { left: 0, top: 0, right: size.width, bottom: size.height };
+    const centerX = ((bounds.left + bounds.right) / 2 - transform.offsetX) / transform.scale;
+    const centerY = ((bounds.top + bounds.bottom) / 2 - transform.offsetY) / transform.scale;
+    const targetK = clamp(SEARCH_RESULT_FOCUS_ZOOM, MIN_ZOOM, MAX_ZOOM);
+    animateViewportTo(
+      {
+        k: targetK,
+        x: centerX - node.x * targetK,
+        y: centerY - node.y * targetK,
+      },
+      { durationMs: SEARCH_RESULT_ANIMATION_MS, easing: easeOutQuad },
+    );
+  };
+
   return (
     <div ref={canvasRef} className={`slot-graph-canvas pixi ${mode === "planTrace" ? "plan-trace" : mode}`}>
-      <div className="slot-graph-canvas-title">
-        <strong>{mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId)}</strong>
-      </div>
+      {titleLabel !== null ? (
+        <div className="slot-graph-canvas-title">
+          <strong>{titleLabel ?? (mode === "governance" ? "语义治理库" : mode === "planTrace" ? "确定方案溯源" : shortId(graph.artifactId))}</strong>
+        </div>
+      ) : null}
       <div className="slot-graph-controls">
         <span className="slot-graph-fps-chip">FPS {renderFps}</span>
         <button type="button" onClick={resetView}>重置</button>
@@ -1058,6 +1131,36 @@ function GraphPixiCanvasInner({
       <GraphLegend mode={mode} />
       <div className="slot-graph-zoom-chip">{Math.round(viewport.k * 100)}%</div>
       {pixiError ? <div className="slot-graph-pixi-error">Pixi 图谱初始化失败：{pixiError}</div> : null}
+      {mode === "governance" ? (
+        <div className="slot-graph-governance-search">
+          {governanceSearchQuery ? (
+            <div className="slot-graph-governance-search-results" role="listbox" aria-label="治理库搜索结果">
+              {governanceSearchResults.length ? governanceSearchResults.map((item) => (
+                <button
+                  key={item.node.id}
+                  type="button"
+                  className={item.node.id === selectedNodeId ? "active" : ""}
+                  title={item.name}
+                  onClick={() => selectGovernanceSearchResult(item.node.id)}
+                  onMouseEnter={() => showHover(item.node.id)}
+                  onMouseLeave={() => hideHoverSoon(item.node.id)}
+                >
+                  <strong>{item.name}</strong>
+                  <span>{item.sampleId}</span>
+                </button>
+              )) : (
+                <div className="slot-graph-governance-search-empty">无匹配样例</div>
+              )}
+            </div>
+          ) : null}
+          <input
+            aria-label="搜索治理库"
+            placeholder="搜索治理库"
+            value={governanceSearchText}
+            onChange={(event) => setGovernanceSearchText(event.target.value)}
+          />
+        </div>
+      ) : null}
       <div
         ref={hostRef}
         className="slot-graph-pixi-stage"
@@ -1068,6 +1171,7 @@ function GraphPixiCanvasInner({
         <LibraryPreviewPopover
           node={previewNode}
           sampleArtifact={previewSampleArtifact}
+          sourceTitle={previewSampleId ? sourceTitlesBySampleId[previewSampleId] ?? null : null}
           position={previewPosition}
           size={previewSize}
           pinned={pinnedPreviewNodeId === previewNode.id}
@@ -1223,6 +1327,31 @@ function graphBounds(nodes: SimNode[]) {
 
 function isSamplePreviewNode(node: SimNode | null) {
   return node?.type === "sourceSample" || node?.type === "libraryItem";
+}
+
+function isSourceSampleNode(node: SimNode | VisibleGraph["nodes"][number]) {
+  return node.type === "sourceSample";
+}
+
+function sourceSampleSearchLabel(node: SimNode | VisibleGraph["nodes"][number], mappedTitle?: string | null) {
+  return stringField(node.data.sourceVideoName)
+    ?? stringField(node.data.sourceAlias)
+    ?? stringField(mappedTitle)
+    ?? stringField(node.label)
+    ?? stringField(node.data.sampleVideoId)
+    ?? node.id;
+}
+
+function stringField(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function easeOutCubic(progress: number) {
+  return 1 - ((1 - progress) ** 3);
+}
+
+function easeOutQuad(progress: number) {
+  return 1 - ((1 - progress) ** 2);
 }
 
 function graphVisualThemeKey(theme: GraphVisualTheme) {

@@ -274,6 +274,81 @@ test("confirmed plan trace graph shows plan to subtype to source variant to sour
   assert.ok(path.edges.has("edge:variant"));
 });
 
+test("terminal graph focus uses shortest real paths to governance library nodes and samples", () => {
+  const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const nodes = [
+    { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
+    { id: "family", type: "slotFamily", label: "family", group: "slot", data: {} },
+    { id: "center", type: "slotSubtype", label: "center", group: "slot", data: {} },
+    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
+    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: {} },
+    { id: "sampleChild", type: "sourceVariant", label: "sample child", group: "sourceVariant", data: {} },
+    { id: "longVariant", type: "sourceVariant", label: "long variant", group: "sourceVariant", data: {} },
+    { id: "longSample", type: "sourceSample", label: "long sample", group: "sourceSample", data: {} },
+    { id: "otherFamily", type: "slotFamily", label: "other family", group: "slot", data: {} },
+  ];
+  const edges = [
+    { id: "edge:root:family", source: "root", target: "family", type: "governance_contains_family" },
+    { id: "edge:family:center", source: "family", target: "center", type: "family_to_subtype" },
+    { id: "edge:center:variant", source: "center", target: "variant", type: "pattern_to_source_variant" },
+    { id: "edge:variant:sample", source: "variant", target: "sample", type: "source_variant_to_sample" },
+    { id: "edge:sample:child", source: "sample", target: "sampleChild", type: "sample_child_should_stop" },
+    { id: "edge:center:longVariant", source: "center", target: "longVariant", type: "pattern_to_source_variant" },
+    { id: "edge:longVariant:longSample", source: "longVariant", target: "longSample", type: "source_variant_to_sample" },
+    { id: "edge:root:otherFamily", source: "root", target: "otherFamily", type: "governance_contains_family" },
+  ];
+
+  const path = terminalShortestGraphFocus("center", nodes, edges);
+
+  assert.ok(path.nodes.has("center"));
+  assert.ok(path.nodes.has("variant"));
+  assert.ok(path.nodes.has("sample"));
+  assert.ok(path.nodes.has("longVariant"));
+  assert.ok(path.nodes.has("longSample"));
+  assert.equal(path.nodes.has("family"), false);
+  assert.equal(path.nodes.has("root"), false);
+  assert.equal(path.nodes.has("sampleChild"), false);
+  assert.equal(path.nodes.has("otherFamily"), false);
+  assert.ok(path.edges.has("edge:center:variant"));
+  assert.ok(path.edges.has("edge:variant:sample"));
+  assert.ok(path.edges.has("edge:center:longVariant"));
+  assert.ok(path.edges.has("edge:longVariant:longSample"));
+  assert.equal(path.edges.has("edge:root:family"), false);
+  assert.equal(path.edges.has("edge:family:center"), false);
+  assert.equal(path.edges.has("edge:sample:child"), false);
+  assert.equal(path.edges.has("edge:root:otherFamily"), false);
+});
+
+test("terminal graph focus connects an evidence node to nearest governance and sample terminals", () => {
+  const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const nodes = [
+    { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
+    { id: "pattern", type: "atomPattern", label: "pattern", group: "script", data: {} },
+    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
+    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: {} },
+    { id: "otherPattern", type: "atomPattern", label: "other pattern", group: "script", data: {} },
+  ];
+  const edges = [
+    { id: "edge:root:pattern", source: "root", target: "pattern", type: "governance_contains_pattern" },
+    { id: "edge:pattern:variant", source: "pattern", target: "variant", type: "pattern_to_source_variant" },
+    { id: "edge:variant:sample", source: "variant", target: "sample", type: "source_variant_to_sample" },
+    { id: "edge:root:otherPattern", source: "root", target: "otherPattern", type: "governance_contains_pattern" },
+  ];
+
+  const path = terminalShortestGraphFocus("variant", nodes, edges);
+
+  assert.ok(path.nodes.has("variant"));
+  assert.ok(path.nodes.has("pattern"));
+  assert.ok(path.nodes.has("sample"));
+  assert.equal(path.nodes.has("root"), false);
+  assert.equal(path.nodes.has("otherPattern"), false);
+  assert.ok(path.edges.has("edge:pattern:variant"));
+  assert.ok(path.edges.has("edge:variant:sample"));
+  assert.equal(path.edges.has("edge:root:pattern"), false);
+  assert.equal(path.edges.has("edge:root:otherPattern"), false);
+  assert.ok(path.reversedEdges.has("edge:pattern:variant"));
+});
+
 test("confirmed plan trace positions keep source samples outside source variants", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();

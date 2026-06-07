@@ -248,7 +248,8 @@
   border: 0;
   background: transparent;
   padding: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .governance-summary-overlay {
@@ -720,7 +721,8 @@
 .slot-graph-panel {
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--panel);
   border-right: 1px solid var(--line);
   padding: 0 12px 12px;
@@ -877,6 +879,19 @@
   border-right: 0;
   border-left: 1px solid var(--line);
   padding-top: 12px;
+}
+
+.slot-graph-panel *,
+.slot-graph-inspector * {
+  max-width: 100%;
+}
+
+.slot-graph-inspector .new-ui-analysis-workflow-detail-card p,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-card strong,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-summary strong,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-summary p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .slot-graph-stage {
@@ -1713,8 +1728,9 @@
 .slot-graph-preview-meta span,
 .slot-graph-preview-meta small {
   overflow: hidden;
-  color: var(--muted);
-  font-size: 11px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1802,8 +1818,9 @@
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta span,
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta small {
-  color: var(--new-ui-text-muted);
+  color: var(--new-ui-text);
   font-size: var(--new-ui-font-size-xs);
+  font-weight: 650;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta small {
@@ -1817,6 +1834,180 @@
 
 .new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-preview-popover.pinned {
   background: color-mix(in srgb, var(--new-ui-surface) 92%, var(--new-ui-text) 8%);
+}
+
+.slot-graph-governance-search {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 4;
+  width: min(420px, calc(100% - 220px));
+  min-width: 260px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.slot-graph-governance-search input {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(24, 26, 30, 0.72);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  opacity: 0.62;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  backdrop-filter: blur(10px);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.slot-graph-governance-search input::placeholder {
+  color: var(--muted);
+}
+
+.slot-graph-governance-search input:hover,
+.slot-graph-governance-search input:focus {
+  border-color: rgba(180, 170, 255, 0.42);
+  background: rgba(24, 26, 30, 0.9);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(180, 170, 255, 0.16);
+  opacity: 1;
+}
+
+.slot-graph-governance-search input:focus::placeholder {
+  color: transparent;
+}
+
+.slot-graph-governance-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  max-height: min(320px, calc(100vh - 180px));
+  overflow: auto;
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(24, 26, 30, 0.9);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.26);
+  padding: 5px;
+  backdrop-filter: blur(10px);
+}
+
+.slot-graph-governance-search-results button {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 42px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 9px;
+  text-align: left;
+}
+
+.slot-graph-governance-search-results button:hover,
+.slot-graph-governance-search-results button:focus-visible,
+.slot-graph-governance-search-results button.active {
+  background: rgba(255, 255, 255, 0.08);
+  outline: 0;
+}
+
+.slot-graph-governance-search-results strong,
+.slot-graph-governance-search-results span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-governance-search-results strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.slot-graph-governance-search-results span,
+.slot-graph-governance-search-empty {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.slot-graph-governance-search-empty {
+  padding: 9px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search input {
+  border-color: var(--new-ui-control-border);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 72%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 72%, transparent);
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-sm);
+  backdrop-filter: none;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search input::placeholder {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search input:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search input:focus {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 72%, var(--new-ui-text) 28%);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 90%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--new-ui-control-shadow) 72%, transparent), 0 0 0 1px var(--new-ui-focus-ring);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search input:focus::placeholder {
+  color: transparent;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 90%, transparent);
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--new-ui-control-shadow) 78%, transparent);
+  backdrop-filter: none;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results button {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results button:focus-visible,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results button.active {
+  background: color-mix(in srgb, var(--new-ui-text) 8%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results strong {
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-results span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-governance-search-empty {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-governance-search input {
+  background: color-mix(in srgb, var(--new-ui-surface) 72%, transparent);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-governance-search input:hover,
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-governance-search input:focus {
+  background: color-mix(in srgb, var(--new-ui-surface) 90%, transparent);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-governance-search-results {
+  background: color-mix(in srgb, var(--new-ui-surface) 92%, transparent);
 }
 
 .slot-graph-card {
@@ -1931,13 +2122,19 @@
 }
 
 .slot-graph-filter-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 6px;
 }
 
+.slot-graph-filter-grid.mode-structure {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.slot-graph-filter-grid.mode-planTrace {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .slot-graph-filter-grid.governance {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
@@ -1947,7 +2144,8 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
-  padding: 6px 10px;
+  justify-content: center;
+  padding: 6px 8px;
   cursor: pointer;
 }
 
@@ -1988,6 +2186,10 @@
 
   .slot-graph-filter-grid.governance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .slot-graph-filter-grid.mode-structure {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

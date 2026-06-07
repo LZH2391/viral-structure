@@ -1291,11 +1291,18 @@
   line-height: 1.2;
 }
 
+.new-ui-analysis-upload-limit-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+}
+
 .new-ui-analysis-upload-limit {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  max-width: calc(100% - 32px);
   min-height: 32px;
   padding: 7px 16px;
   border-radius: 999px;
@@ -1612,8 +1619,10 @@
 
 .new-ui-library-graph-panel {
   display: grid;
+  min-width: 0;
   min-height: 0;
   height: 100%;
+  overflow-x: hidden;
 }
 
 .new-ui-analysis-workflow {

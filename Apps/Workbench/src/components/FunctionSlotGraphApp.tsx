@@ -81,6 +81,7 @@ type FunctionSlotGraphWorkspaceProps = {
     onBack: () => void;
   } | null;
   onClearSourceReturn?: () => void;
+  onOpenSourceAnalysis?: (target: { sampleVideoId: string; artifactId: string; title: string }) => Promise<{ ok: boolean; message?: string | null }> | { ok: boolean; message?: string | null };
   panelSlot?: (panel: ReactNode) => ReactNode;
 };
 
@@ -100,7 +101,7 @@ export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
 
-export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, requestedArtifactId = null, sourceReturn = null, onClearSourceReturn, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
+export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, requestedArtifactId = null, sourceReturn = null, onClearSourceReturn, onOpenSourceAnalysis, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
   const initialGraphConfig = useMemo(() => readFunctionSlotGraphConfig(), []);
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
@@ -352,6 +353,43 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   }, [onClearSourceReturn, sourceReturn]);
   const rawGraph = graphsByMode[mode];
   const graph = mode === "structure" && rawGraph?.artifactId !== selectedArtifactId ? null : rawGraph;
+  const selectedSourceItem = mode === "structure" ? items.find((item) => item.artifactId === selectedArtifactId) ?? null : null;
+  const selectedSourceTitle = selectedSourceItem ? stripMediaExtension(selectedSourceItem.sourceVideoName) || `样例 ${shortId(selectedSourceItem.sampleVideoId ?? selectedSourceItem.artifactId)}` : null;
+  const openSelectedSourceAnalysis = useCallback(async () => {
+    if (sourceReturn) {
+      sourceReturn.onBack();
+      return;
+    }
+    if (!selectedSourceItem?.sampleVideoId || !selectedSourceTitle || !onOpenSourceAnalysis) {
+      setStatus("未找到对应结构分析入口");
+      return;
+    }
+    setStatus("正在打开结构分析");
+    try {
+      const result = await onOpenSourceAnalysis({
+        sampleVideoId: selectedSourceItem.sampleVideoId,
+        artifactId: selectedSourceItem.artifactId,
+        title: selectedSourceTitle,
+      });
+      setStatus(result.ok ? "已打开结构分析" : result.message ?? "未找到对应结构分析");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "打开结构分析失败");
+    }
+  }, [onOpenSourceAnalysis, selectedSourceItem, selectedSourceTitle, sourceReturn]);
+  const sourceNavigation = sourceReturn
+    ? { title: sourceReturn.title, onBack: sourceReturn.onBack }
+    : selectedSourceTitle && selectedSourceItem?.sampleVideoId && onOpenSourceAnalysis
+      ? { title: selectedSourceTitle, onBack: openSelectedSourceAnalysis }
+      : null;
+  const sourceTitlesBySampleId = useMemo(() => {
+    const titles: Record<string, string> = {};
+    for (const item of items) {
+      if (!item.sampleVideoId) continue;
+      const title = stripMediaExtension(item.sourceVideoName);
+      if (title) titles[item.sampleVideoId] = title;
+    }
+    return titles;
+  }, [items]);
   const waitingForSelectedStructureGraph = mode === "structure" && Boolean(selectedArtifactId) && rawGraph?.artifactId !== selectedArtifactId;
   const loadingGraph = loadingByMode[mode] || waitingForSelectedStructureGraph;
   const renderedGraph = graph ?? (loadingGraph ? rawGraph : null);
@@ -443,7 +481,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
       ) : null}
       <main className="slot-graph-layout">
         <section className="slot-graph-stage">
-          {sourceReturn ? <StructureGraphReturnBar title={sourceReturn.title} onBack={sourceReturn.onBack} /> : null}
+          {sourceNavigation ? <StructureGraphReturnBar title={sourceNavigation.title} onBack={sourceNavigation.onBack} /> : null}
           {activeGraph ? (
             <>
               <GraphPixiCanvas
@@ -452,6 +490,8 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
                 graph={activeGraph}
                 visible={visible}
                 layoutMode={governanceLayoutMode}
+                titleLabel={mode === "structure" ? null : undefined}
+                sourceTitlesBySampleId={sourceTitlesBySampleId}
                 selectedNodeId={graph ? selectedNodeId : null}
                 onSelectNode={setSelectedNodeId}
               />
@@ -568,12 +608,10 @@ function GraphSourcePanel({
         <div className="compact-list">
           {items.length ? items.map((item) => {
             const sampleShortId = shortId(item.sampleVideoId ?? item.artifactId);
-            const sourceVideoName = item.sourceVideoName?.trim() || `样例 ${sampleShortId}`;
+            const sourceVideoName = stripMediaExtension(item.sourceVideoName) || `样例 ${sampleShortId}`;
             return (
               <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} title={sourceVideoName} onClick={() => onSelectArtifact(item.artifactId)}>
                 <strong className="slot-graph-source-title">{sourceVideoName}</strong>
-                <span>样例 {sampleShortId}</span>
-                <span>artifact {shortId(item.artifactId)}</span>
                 <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
               </button>
             );
@@ -600,6 +638,12 @@ function sourceHeading(mode: GraphMode) {
   if (mode === "governance") return "治理概览";
   if (mode === "planTrace") return "方案范围";
   return "样例来源";
+}
+
+function stripMediaExtension(value?: string | null) {
+  const text = value?.trim();
+  if (!text) return "";
+  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
 }
 
 function GraphLoadingState() {

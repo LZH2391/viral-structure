@@ -337,6 +337,96 @@ export function directedGraphFocus(nodeId: string | null, edges: FunctionSlotGra
   return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
 }
 
+export function terminalShortestGraphFocus(nodeId: string | null, graphNodes: FunctionSlotGraphNode[], edges: FunctionSlotGraphEdge[]) {
+  const nodes = new Set<string>();
+  const edgeIds = new Set<string>();
+  const reversedEdgeIds = new Set<string>();
+  if (!nodeId) return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
+  nodes.add(nodeId);
+
+  const nodeById = new Map(graphNodes.map((node) => [node.id, node]));
+  addShortestTerminalPaths(nodeId, edges, (targetId) => isGovernanceLibraryTerminal(nodeById.get(targetId) ?? null), nodes, edgeIds, reversedEdgeIds);
+  addShortestTerminalPaths(nodeId, edges, (targetId) => {
+    const type = nodeById.get(targetId)?.type;
+    return type === "sourceSample" || type === "libraryItem";
+  }, nodes, edgeIds, reversedEdgeIds);
+  return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
+}
+
+function isGovernanceLibraryTerminal(node: FunctionSlotGraphNode | null) {
+  return Boolean(node && [
+    "slotFamily",
+    "slotArchetype",
+    "slotSubtype",
+    "atomArchetype",
+    "atomPattern",
+    "bindingPattern",
+    "bindingPrinciple",
+    "rulePattern",
+    "recompositionPolicy",
+    "implementationBundle",
+    "unmappedVariant",
+  ].includes(node.type));
+}
+
+function addShortestTerminalPaths(
+  startId: string,
+  edges: FunctionSlotGraphEdge[],
+  isTerminal: (nodeId: string) => boolean,
+  nodes: Set<string>,
+  edgeIds: Set<string>,
+  reversedEdgeIds: Set<string>,
+) {
+  if (isTerminal(startId)) return;
+  const adjacency = undirectedFocusAdjacency(edges);
+  const visited = new Set<string>([startId]);
+  const paths = new Map<string, Array<{ nodeId: string; edgeId: string; reversed: boolean }>>([[startId, []]]);
+  let frontier = [startId];
+  let foundDepth: number | null = null;
+
+  for (let depth = 0; frontier.length && (foundDepth === null || depth <= foundDepth); depth += 1) {
+    const next: string[] = [];
+    for (const currentId of frontier) {
+      const path = paths.get(currentId) ?? [];
+      if (currentId !== startId && isTerminal(currentId)) {
+        foundDepth = path.length;
+        addFocusPath(path, nodes, edgeIds, reversedEdgeIds);
+        continue;
+      }
+      if (foundDepth !== null && path.length >= foundDepth) continue;
+      for (const step of adjacency.get(currentId) ?? []) {
+        if (visited.has(step.nodeId)) continue;
+        visited.add(step.nodeId);
+        paths.set(step.nodeId, [...path, step]);
+        next.push(step.nodeId);
+      }
+    }
+    frontier = next;
+  }
+}
+
+function undirectedFocusAdjacency(edges: FunctionSlotGraphEdge[]) {
+  const adjacency = new Map<string, Array<{ nodeId: string; edgeId: string; reversed: boolean }>>();
+  for (const edge of edges) {
+    adjacency.set(edge.source, [...(adjacency.get(edge.source) ?? []), { nodeId: edge.target, edgeId: edge.id, reversed: false }]);
+    adjacency.set(edge.target, [...(adjacency.get(edge.target) ?? []), { nodeId: edge.source, edgeId: edge.id, reversed: true }]);
+  }
+  return adjacency;
+}
+
+function addFocusPath(
+  path: Array<{ nodeId: string; edgeId: string; reversed: boolean }>,
+  nodes: Set<string>,
+  edgeIds: Set<string>,
+  reversedEdgeIds: Set<string>,
+) {
+  for (const step of path) {
+    nodes.add(step.nodeId);
+    edgeIds.add(step.edgeId);
+    if (step.reversed) reversedEdgeIds.add(step.edgeId);
+  }
+}
+
 function addDirectedFocusWalk(
   nodeId: string,
   edgesByNode: Map<string, FunctionSlotGraphEdge[]>,
@@ -472,17 +562,22 @@ export function clampPreviewPosition(point: { x: number; y: number }, size: { wi
 
 export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unknown]> {
   const data = node.data ?? {};
-  if (node.type === "unmappedVariant") return [["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]];
-  if (node.type === "sourceExample") return [["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
-  if (node.type === "sourceVariant") return [["variantId", data.variantId], ["label", data.label], ["sampleId", data.sampleId], ["kind", data.kind], ["sourceId", data.sourceId], ["labelMissing", data.labelMissing]];
-  if (node.type === "sourceSample") return [["sampleVideoId", data.sampleVideoId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]];
-  if (isGovernanceNode(node)) return [["id", data.id ?? data.governanceId], ["name", graphNodeDisplayLabel(node)], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]];
-  if (node.type === "confirmedPlan") return [["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]];
-  if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
-  if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)]];
-  if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)]];
-  if (node.type === "binding") return [["bindingId", data.bindingId], ["type", bindingTypeDisplayLabel(node)], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
-  return Object.entries(data).slice(0, 8);
+  if (node.type === "unmappedVariant") return filterDetailRows([["variantId", data.variantId], ["variantKind", data.variantKind], ["reason", data.reason], ["suggestedAction", data.suggestedAction], ["why not pattern", data.reason]]);
+  if (node.type === "sourceExample") return filterDetailRows([["planId", data.planId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]]);
+  if (node.type === "sourceVariant") return filterDetailRows([["variantId", data.variantId], ["label", data.label], ["sampleId", data.sampleId], ["kind", data.kind], ["sourceId", data.sourceId], ["labelMissing", data.labelMissing]]);
+  if (node.type === "sourceSample") return filterDetailRows([["sampleVideoId", data.sampleVideoId], ["sampleId", data.sampleId], ["sourceAlias", data.sourceAlias]]);
+  if (isGovernanceNode(node)) return filterDetailRows([["id", data.id ?? data.governanceId], ["name", graphNodeDisplayLabel(node)], ["variantCount", supportValue(data.support, "variantCount")], ["sampleCount", supportValue(data.support, "sampleCount")], ["sourceVariantIds", data.sourceVariantIds], ["judgementReason", data.judgementReason], ["differenceNotes", data.differenceNotes], ["riskIfMisclassified", data.riskIfMisclassified]]);
+  if (node.type === "confirmedPlan") return filterDetailRows([["planId", data.planId], ["confirmationId", data.confirmationId], ["sourceTurnId", data.sourceTurnId], ["sourceRestructurePath", data.sourceRestructurePath], ["displayJsonPath", data.displayJsonPath], ["evidence", data.evidence]]);
+  if (node.type.startsWith("traced")) return filterDetailRows([["planId", data.planId], ["evidence", data.evidence]]);
+  if (node.type === "slotInstance") return filterDetailRows([["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)]]);
+  if (node.type === "atomInstance") return filterDetailRows([["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)]]);
+  if (node.type === "binding") return filterDetailRows([["bindingId", data.bindingId], ["type", bindingTypeDisplayLabel(node)], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]]);
+  return filterDetailRows(Object.entries(data).slice(0, 8));
+}
+
+function filterDetailRows(rows: Array<[string, unknown]>) {
+  const hiddenLabels = new Set(["artifact", "stableId", "slotType", "shots"]);
+  return rows.filter(([label]) => !hiddenLabels.has(label));
 }
 
 export function formatDetailValue(value: unknown) {
@@ -1323,12 +1418,12 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "governanceRoot") return "治理库";
   if (node.type === "sourceExample") return String(node.label ?? node.id).slice(0, 18);
   if (node.type === "sourceVariant") return sourceVariantLabel(node);
-  if (node.type === "sourceSample") return String(node.label ?? node.data.sampleVideoId ?? "SourceSample").slice(0, 18);
+  if (node.type === "sourceSample") return "样例";
   if (node.type === "unmappedVariant") return `unmapped ${node.data.variantKind ?? ""}`.trim();
   if (node.type === "confirmedPlan") return String(node.label ?? "Plan").slice(0, 18);
   if (node.type.startsWith("traced")) return String(node.label ?? node.id).slice(0, 18);
   if (isGovernanceNode(node)) return graphNodeDisplayLabel(node).slice(0, 20);
-  if (node.type === "libraryItem") return "SourceSample";
+  if (node.type === "libraryItem") return "样例";
   if (node.type === "slotInstance") return String(node.label ?? node.data.slotId ?? "").slice(0, 20);
   if (node.type === "atomInstance") return String(node.label ?? node.data.atomId ?? "").slice(0, 24);
   if (node.type === "binding") return bindingTypeDisplayLabel(node);
@@ -1337,7 +1432,8 @@ function shortLabel(node: FunctionSlotGraphNode) {
 }
 
 export function graphNodeDisplayLabel(node: FunctionSlotGraphNode) {
-  const fallback = node.type === "sourceSample" ? node.data?.sampleVideoId ?? "SourceSample" : node.id;
+  if (node.type === "sourceSample" || node.type === "libraryItem") return "样例";
+  const fallback = node.id;
   if (node.type === "binding") return bindingTypeDisplayLabel(node);
   const label = String(node.label ?? fallback);
   if (!isGovernanceNode(node)) return label;

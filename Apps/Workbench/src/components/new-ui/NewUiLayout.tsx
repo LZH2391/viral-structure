@@ -38,6 +38,8 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 const LEFT_SUBNAV_COLLAPSE_DELAY_MS = 240;
+const PANE_TRANSITION_GUARD_MS = 420;
+const analysisOpenRequestResolvers = new Map<number, (result: { ok: boolean; message?: string | null }) => void>();
 
 type NewUiThreePanePreference = {
   leftCollapsed?: boolean;
@@ -49,6 +51,13 @@ type NewUiThreePanePreference = {
 type StructureGraphReturnState = {
   artifactId: string;
   title: string;
+} | null;
+
+type AnalysisOpenRequest = {
+  requestId: number;
+  sampleVideoId: string;
+  artifactId?: string | null;
+  title?: string | null;
 } | null;
 
 type NewUiLayoutProps = {
@@ -70,7 +79,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [leftSidebarExpandedSection, setLeftSidebarExpandedSection] = useState<NewUiSectionId | null>(null);
   const [leftSidebarCloseRequest, setLeftSidebarCloseRequest] = useState(0);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
+  const [analysisOpenRequest, setAnalysisOpenRequest] = useState<AnalysisOpenRequest>(null);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
+  const [paneTransitioning, setPaneTransitioning] = useState(false);
   const [structureGraphReturn, setStructureGraphReturn] = useState<StructureGraphReturnState>(null);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
@@ -155,13 +166,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, []);
 
   const startPaneTransitionGuard = useCallback(() => {
-    const layoutElement = layoutRef.current;
-    layoutElement?.classList.add("is-pane-transitioning-layout");
+    setPaneTransitioning(true);
     if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
     paneResizeGuardTimerRef.current = window.setTimeout(() => {
       paneResizeGuardTimerRef.current = null;
-      layoutElement?.classList.remove("is-pane-transitioning-layout");
-    }, 280);
+      setPaneTransitioning(false);
+    }, PANE_TRANSITION_GUARD_MS);
   }, []);
 
   useEffect(() => {
@@ -218,6 +228,28 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setActiveSection("analysis");
   }, [startPaneTransitionGuard]);
 
+  const openSourceAnalysisFromGraph = useCallback((target: { sampleVideoId: string; artifactId: string; title: string }) => {
+    startPaneTransitionGuard();
+    return new Promise<{ ok: boolean; message?: string | null }>((resolve) => {
+      const requestId = Date.now();
+      analysisOpenRequestResolvers.set(requestId, resolve);
+      setAnalysisOpenRequest({ requestId, ...target });
+      window.setTimeout(() => {
+        if (!analysisOpenRequestResolvers.has(requestId)) return;
+        analysisOpenRequestResolvers.delete(requestId);
+        resolve({ ok: false, message: "打开结构分析超时" });
+      }, 6000);
+    });
+  }, [startPaneTransitionGuard]);
+
+  const handleAnalysisOpenRequestResolved = useCallback((result: { requestId: number; ok: boolean; message?: string | null }) => {
+    const resolve = analysisOpenRequestResolvers.get(result.requestId);
+    analysisOpenRequestResolvers.delete(result.requestId);
+    if (result.ok) setActiveSection("analysis");
+    resolve?.({ ok: result.ok, message: result.message });
+    setAnalysisOpenRequest((current) => current?.requestId === result.requestId ? null : current);
+  }, []);
+
   const handleSidebarSectionChange = useCallback((section: NewUiSectionId) => {
     setStructureGraphReturn(null);
     setActiveSection(section);
@@ -232,14 +264,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     return () => {
       if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
       if (leftSubnavCollapseTimerRef.current) window.clearTimeout(leftSubnavCollapseTimerRef.current);
-      layoutRef.current?.classList.remove("is-pane-transitioning-layout");
     };
   }, []);
 
   return (
     <section
       ref={layoutRef}
-      className={`new-ui-layout ${leftCollapsed ? "is-left-collapsed" : ""} ${rightCollapsed ? "is-right-collapsed" : ""}`.trim()}
+      className={`new-ui-layout ${leftCollapsed ? "is-left-collapsed" : ""} ${rightCollapsed ? "is-right-collapsed" : ""} ${paneTransitioning ? "is-pane-transitioning-layout" : ""}`.trim()}
       aria-label="新 UI 三栏工作区"
     >
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
@@ -275,7 +306,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         data-active-section={activeSection}
       >
         <div className="new-ui-center-section" hidden={activeSection !== "analysis"} aria-hidden={activeSection !== "analysis"}>
-          <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
+          <AnalysisHome
+            onDetailStateChange={handleAnalysisDetailStateChange}
+            openRequest={analysisOpenRequest}
+            onOpenRequestResolved={handleAnalysisOpenRequestResolved}
+            timelineSelectionClearRequest={timelineSelectionClearRequest}
+          />
         </div>
         <div className="new-ui-center-section" hidden={activeSection !== "library"} aria-hidden={activeSection !== "library"}>
           {activeSection === "library" ? (
@@ -289,6 +325,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
                 onBack: returnToAnalysisFromGraph,
               } : null}
               onClearSourceReturn={() => setStructureGraphReturn(null)}
+              onOpenSourceAnalysis={openSourceAnalysisFromGraph}
               panelSlot={(panel) => <LibraryGraphPanelPortal>{panel}</LibraryGraphPanelPortal>}
             />
           ) : null}

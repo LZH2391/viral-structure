@@ -513,7 +513,12 @@ export function LibraryPreviewPopover({
 }) {
   const sampleVideoId = typeof node.data.sampleVideoId === "string" ? node.data.sampleVideoId : null;
   const videoUrl = runtimeUrl(sampleArtifact?.sampleVideo.normalized.uri ?? sampleArtifact?.sampleVideo.original.uri ?? null);
-  const fileName = sampleArtifact?.sampleVideoId ?? sampleVideoId ?? "源视频";
+  const fileName = stripMediaExtension(
+    sampleArtifact?.sampleVideo.original.summary
+      ?? sampleArtifact?.sampleVideo.normalized.summary
+      ?? sampleVideoId
+      ?? "源视频",
+  );
   return (
     <div
       className={`slot-graph-preview-popover ${pinned ? "pinned" : ""}`}
@@ -522,7 +527,7 @@ export function LibraryPreviewPopover({
       onMouseLeave={onMouseLeave}
     >
       <div className="slot-graph-preview-head">
-        <strong>{shortId(sampleVideoId ?? "")}</strong>
+        <strong title={fileName}>{fileName}</strong>
         <span>{pinned ? "已固定" : "源视频"}</span>
         {pinned ? <button type="button" aria-label="关闭预览" onClick={onClose}>x</button> : null}
       </div>
@@ -533,10 +538,13 @@ export function LibraryPreviewPopover({
       )}
       <div className="slot-graph-preview-meta">
         <span title={fileName}>{fileName}</span>
-        <small>artifact {shortId(String(node.data.artifactId ?? ""))}</small>
       </div>
     </div>
   );
+}
+
+function stripMediaExtension(value: string) {
+  return value.trim().replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
 }
 
 export function GraphLegend({ mode }: { mode: "structure" | "governance" | "planTrace" }) {
@@ -559,13 +567,13 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
         <span><i className="legend-plan" />Confirmed plan</span>
         <span><i className="legend-subtype" />Subtype</span>
         <span><i className="legend-source-variant" />SourceVariantAtom</span>
-        <span><i className="legend-source-sample" />SourceSample</span>
+        <span><i className="legend-source-sample" />样例</span>
       </div>
     );
   }
   return (
       <div className="slot-graph-legend">
-      <span><i className="legend-library" />SourceSample</span>
+      <span><i className="legend-library" />样例</span>
       <span><i className="legend-slot" />Slot</span>
       <span><i className="legend-script" />Script</span>
       <span><i className="legend-rhythm" />Rhythm</span>

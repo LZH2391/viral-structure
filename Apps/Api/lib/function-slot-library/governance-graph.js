@@ -6,6 +6,7 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   const governanceId = governance.governanceId;
   const rootId = graphId("governance", governanceId);
   const sampleGovernanceSummary = buildSampleGovernanceSummary(governance, libraryItems);
+  const sampleMetadataById = buildSampleMetadataIndex(libraryItems, governance.sourceSnapshot ?? []);
   const atomPatternArchetypeIds = buildAtomPatternArchetypeIndex(governance.atomArchetypes ?? [], governance.atomPatterns ?? []);
   const atomVariantArchetypeIds = buildAtomVariantArchetypeIndex(governance.atomPatterns ?? [], atomPatternArchetypeIds);
   const slotAtomVariantIds = buildSlotAtomVariantIndex(libraryItems);
@@ -88,9 +89,9 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
     }
   }
 
-  pushSourceSamplesFromSnapshot(nodes, edges, rootId, governance.sourceSnapshot ?? []);
+  pushSourceSamplesFromSnapshot(nodes, edges, rootId, governance.sourceSnapshot ?? [], sampleMetadataById);
   pushSourceSampleSlotSubtypeEdges(edges, governance.slotSubtypes ?? [], governance.sourceVariants ?? []);
-  pushSourceVariantEdges(nodes, edges, governance.sourceVariants ?? []);
+  pushSourceVariantEdges(nodes, edges, governance.sourceVariants ?? [], sampleMetadataById);
 
   pushUnmapped(nodes, edges, rootId, governance.unmappedAtomVariants ?? [], "atom");
   pushUnmapped(nodes, edges, rootId, governance.unmappedBindingVariants ?? [], "binding");
@@ -165,6 +166,32 @@ function normalizeSampleIdentity(value) {
     traceId: normalizeGraphText(value?.traceId),
     contentHash: normalizeGraphText(value?.contentHash),
   };
+}
+
+function buildSampleMetadataIndex(libraryItems, sourceSnapshot) {
+  const index = new Map();
+  for (const item of Array.isArray(sourceSnapshot) ? sourceSnapshot : []) {
+    upsertSampleMetadata(index, normalizeSampleIdentity(item), item);
+  }
+  for (const item of Array.isArray(libraryItems) ? libraryItems : []) {
+    upsertSampleMetadata(index, normalizeSampleIdentity(item), item);
+  }
+  return index;
+}
+
+function upsertSampleMetadata(index, identity, value) {
+  const sampleVideoId = identity.sampleVideoId;
+  if (!sampleVideoId) return;
+  const existing = index.get(sampleVideoId) ?? {};
+  const sourceVideoName = stripMediaExtension(normalizeGraphText(value?.sourceVideoName ?? value?.sourceAlias ?? value?.filename));
+  index.set(sampleVideoId, {
+    ...existing,
+    artifactId: existing.artifactId ?? identity.artifactId ?? null,
+    traceId: existing.traceId ?? identity.traceId ?? null,
+    contentHash: existing.contentHash ?? identity.contentHash ?? null,
+    sourceVideoName: sourceVideoName ?? existing.sourceVideoName ?? null,
+    sourceAlias: sourceVideoName ?? existing.sourceAlias ?? null,
+  });
 }
 
 function buildAtomPatternArchetypeIndex(atomArchetypes, atomPatterns) {
@@ -312,23 +339,26 @@ function pushGovernanceNode(nodes, type, group, item) {
   });
 }
 
-function pushSourceSamplesFromSnapshot(nodes, edges, rootId, sourceSnapshot) {
+function pushSourceSamplesFromSnapshot(nodes, edges, rootId, sourceSnapshot, sampleMetadataById = new Map()) {
   if (!Array.isArray(sourceSnapshot)) return;
   for (const sample of sourceSnapshot) {
     const sampleId = normalizeGraphText(sample?.sampleVideoId ?? sample?.sampleId);
     if (!sampleId) continue;
+    const metadata = sampleMetadataById.get(sampleId) ?? {};
     const sampleNodeId = graphId("sourceSample", sampleId);
     pushNode(nodes, {
       id: sampleNodeId,
       type: "sourceSample",
-      label: sampleId,
+      label: metadata.sourceVideoName ?? sampleId,
       group: "sourceSample",
       data: {
         sampleVideoId: sampleId,
         sampleId,
-        artifactId: normalizeGraphText(sample?.artifactId),
-        traceId: normalizeGraphText(sample?.traceId),
-        contentHash: normalizeGraphText(sample?.contentHash),
+        sourceVideoName: metadata.sourceVideoName ?? null,
+        sourceAlias: metadata.sourceAlias ?? null,
+        artifactId: normalizeGraphText(sample?.artifactId) ?? metadata.artifactId ?? null,
+        traceId: normalizeGraphText(sample?.traceId) ?? metadata.traceId ?? null,
+        contentHash: normalizeGraphText(sample?.contentHash) ?? metadata.contentHash ?? null,
         counts: sample?.counts && typeof sample.counts === "object" ? sample.counts : null,
       },
     });
@@ -336,7 +366,7 @@ function pushSourceSamplesFromSnapshot(nodes, edges, rootId, sourceSnapshot) {
   }
 }
 
-function pushSourceVariantEdges(nodes, edges, sourceVariants) {
+function pushSourceVariantEdges(nodes, edges, sourceVariants, sampleMetadataById = new Map()) {
   const variantLabels = buildSourceVariantLabelMap(sourceVariants);
   const sourceVariantOwners = nodes.filter((node) => node.type === "atomPattern" && Array.isArray(node.data?.sourceVariantIds));
   for (const owner of sourceVariantOwners) {
@@ -362,15 +392,21 @@ function pushSourceVariantEdges(nodes, edges, sourceVariants) {
       pushEdge(edges, owner.id, id, "pattern_to_source_variant", "evidence");
       if (sourceVariant?.sampleId) {
         const sampleId = sourceVariant.sampleId;
+        const metadata = sampleMetadataById.get(sampleId) ?? {};
         const sampleNodeId = graphId("sourceSample", sampleId);
         pushNode(nodes, {
           id: sampleNodeId,
           type: "sourceSample",
-          label: sampleId,
+          label: metadata.sourceVideoName ?? sampleId,
           group: "sourceSample",
           data: {
             sampleVideoId: sampleId,
             sampleId,
+            sourceVideoName: metadata.sourceVideoName ?? null,
+            sourceAlias: metadata.sourceAlias ?? null,
+            artifactId: metadata.artifactId ?? null,
+            traceId: metadata.traceId ?? null,
+            contentHash: metadata.contentHash ?? null,
           },
         });
         pushEdge(edges, id, sampleNodeId, "source_variant_to_sample", "sample");
@@ -451,6 +487,10 @@ function normalizeGraphText(value) {
   if (value && typeof value === "object" && !Array.isArray(value) && "value" in value) return normalizeGraphText(value.value);
   const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
   return text || null;
+}
+
+function stripMediaExtension(value) {
+  return normalizeGraphText(value)?.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "") ?? null;
 }
 
 function normalizeTextArray(value) {

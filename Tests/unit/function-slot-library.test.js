@@ -27,7 +27,7 @@ test("function slot library exports fixed json files with manifest counts and ha
   assert.deepEqual(files.sort(), Object.values(FILES).sort());
   assert.equal(manifest.schemaVersion, SCHEMA_VERSION);
   assert.equal(manifest.sampleVideoId, "sample_library");
-  assert.equal(manifest.sourceVideoName, "source-library.mp4");
+  assert.equal(manifest.sourceVideoName, "source-library");
   assert.equal(manifest.traceId, "trace_library");
   assert.equal(manifest.counts.slotCount, 2);
   assert.equal(manifest.counts.atomCount, 6);
@@ -70,7 +70,7 @@ test("function slot library lists manifests in stable order", async () => {
 
   const items = await service.listLibraryItems();
   assert.deepEqual(items.map((item) => item.artifactId), ["artifact_new", "artifact_old"]);
-  assert.equal(items[0].sourceVideoName, "source-library.mp4");
+  assert.equal(items[0].sourceVideoName, "source-library");
 });
 
 test("function slot library rejects failed or empty atomization exports", async () => {
@@ -321,7 +321,7 @@ test("function slot library API exposes semantic governance graph route", async 
         sourceSnapshot: [{ artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a" }],
       }),
       listLibraryItems: async () => [
-        { artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a", counts: { slotCount: 1, atomCount: 3 } },
+        { artifactId: "artifact_a", sampleVideoId: "sample_a", sourceVideoName: "search-source-a.mp4", traceId: "trace_a", contentHash: "hash_a", counts: { slotCount: 1, atomCount: 3 } },
         { artifactId: "artifact_missing", sampleVideoId: "sample_missing", traceId: "trace_missing", contentHash: "hash_missing", counts: { slotCount: 1, atomCount: 3 } },
       ],
     },
@@ -345,6 +345,7 @@ test("function slot library API exposes semantic governance graph route", async 
     assert.equal(graph.body.summary.ungovernedSampleCount, 1);
     assert.equal(graph.body.summary.ungovernedSamples[0].reason, "missing_from_source_snapshot");
     assert.ok(graph.body.nodes.some((node) => node.type === "slotFamily"));
+    assert.equal(graph.body.nodes.find((node) => node.id === "sourceSample:sample_a")?.data.sourceVideoName, "search-source-a");
     assert.equal(graph.body.nodes.some((node) => hasGovernanceStatusFields(node.data)), false);
     assert.ok(graph.body.nodes.some((node) => node.type === "unmappedVariant" && node.data.reason === "single_sample"));
     assert.ok(graph.body.edges.some((edge) => edge.type === "archetype_to_subtype"));
@@ -395,6 +396,20 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.equal(Object.prototype.hasOwnProperty.call(graph.summary, "needReviewCount"), false);
   assert.ok(graph.edges.some((edge) => edge.type === "bundle_to_atom_pattern"));
   assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
+});
+
+test("function slot governance graph builder enriches source samples with source video names", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    sourceSnapshot: [{ artifactId: "artifact_a", sampleVideoId: "sample_a", traceId: "trace_a", contentHash: "hash_a" }],
+  }, {
+    libraryItems: [{ artifactId: "artifact_a", sampleVideoId: "sample_a", sourceVideoName: "demo-source-video.mp4", traceId: "trace_a", contentHash: "hash_a" }],
+  });
+  const sampleNode = graph.nodes.find((node) => node.id === "sourceSample:sample_a");
+
+  assert.equal(sampleNode?.label, "demo-source-video");
+  assert.equal(sampleNode?.data.sourceVideoName, "demo-source-video");
+  assert.equal(sampleNode?.data.sourceAlias, "demo-source-video");
 });
 
 test("function slot governance graph builder derives subtype to atom archetype links through patterns", () => {

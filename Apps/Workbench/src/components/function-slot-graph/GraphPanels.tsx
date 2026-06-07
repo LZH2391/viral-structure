@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
-import { shortId } from "../../utils/format";
 import { formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
 import type { GovernanceFilterPresetMode, GraphFiltersState } from "./types";
 
@@ -34,7 +33,7 @@ export function GraphFilters({
           <GovernancePresetSelect value={governancePresetMode} onChange={onGovernancePresetModeChange} />
         ) : null}
       </div>
-      <div className={`slot-graph-filter-grid ${mode === "governance" ? "governance" : ""}`.trim()}>
+      <div className={`slot-graph-filter-grid mode-${mode} ${mode === "governance" ? "governance" : ""}`.trim()}>
         {options.map((option) => (
           <label key={option.key} className={filters[option.key] ? "active" : ""}>
             <input type="checkbox" checked={filters[option.key]} onChange={() => update(option.key)} />
@@ -129,7 +128,6 @@ export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | n
         <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${graphNodeDisplayLabel(node)}基础字段`}>
           <DetailMetric label="节点类型" value={node.type} />
           <DetailMetric label="所属分组" value={node.group} />
-          {graph ? <DetailMetric label="artifact" value={shortId(graph.artifactId)} /> : null}
         </div>
         {primaryRows.length ? (
           <div className="new-ui-analysis-workflow-detail-list" aria-label="关键字段">

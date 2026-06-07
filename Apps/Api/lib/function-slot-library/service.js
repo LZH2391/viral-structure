@@ -106,7 +106,8 @@ function createFunctionSlotLibraryService({
   }
 
   async function enrichManifestForDisplay(manifest) {
-    if (normalizeOptionalText(manifest.sourceVideoName)) return manifest;
+    const manifestSourceVideoName = stripMediaExtension(manifest.sourceVideoName);
+    if (manifestSourceVideoName) return { ...manifest, sourceVideoName: manifestSourceVideoName };
     const sampleVideoId = normalizeOptionalText(manifest.sampleVideoId);
     if (!sampleVideoId) return manifest;
     const artifact = await store.readJson(path.join(store.sampleDir(sampleVideoId), "artifact.json")).catch(() => null);
@@ -309,7 +310,7 @@ function buildLibraryPayload({ artifact, analysis, exportedAt }) {
 }
 
 function resolveSourceVideoName(artifact) {
-  return normalizeOptionalText(
+  return stripMediaExtension(
     artifact?.sampleVideo?.original?.summary
     ?? artifact?.sampleVideo?.normalized?.summary
     ?? artifact?.metadata?.filename
@@ -395,6 +396,12 @@ function normalizeTimingNumber(value) {
 function normalizeOptionalText(value) {
   const text = String(value ?? "").trim();
   return text || null;
+}
+
+function stripMediaExtension(value) {
+  const text = normalizeOptionalText(value);
+  if (!text) return null;
+  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
 }
 
 function roundTiming(value) {
