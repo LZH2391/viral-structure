@@ -9,6 +9,7 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   const atomPatternArchetypeIds = buildAtomPatternArchetypeIndex(governance.atomArchetypes ?? [], governance.atomPatterns ?? []);
   const atomVariantArchetypeIds = buildAtomVariantArchetypeIndex(governance.atomPatterns ?? [], atomPatternArchetypeIds);
   const slotAtomVariantIds = buildSlotAtomVariantIndex(libraryItems);
+  const slotSubtypeAtomVariantIds = buildSlotSubtypeAtomVariantIndex(governance.slotSubtypes ?? [], slotAtomVariantIds);
 
   pushNode(nodes, {
     id: rootId,
@@ -35,7 +36,9 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
     if (archetype.familyId) pushEdge(edges, nodeId("slotFamily", archetype.familyId), nodeId("slotArchetype", archetype.id), "family_to_archetype", "archetype");
   }
   for (const subtype of governance.slotSubtypes ?? []) {
-    pushGovernanceNode(nodes, "slotSubtype", "slot", subtype);
+    const subtypeId = normalizeGraphText(subtype.id);
+    const sourceAtomVariantIds = slotSubtypeAtomVariantIds.get(subtypeId) ?? [];
+    pushGovernanceNode(nodes, "slotSubtype", "slot", sourceAtomVariantIds.length ? { ...subtype, sourceAtomVariantIds } : subtype);
     if (subtype.archetypeId) pushEdge(edges, nodeId("slotArchetype", subtype.archetypeId), nodeId("slotSubtype", subtype.id), "archetype_to_subtype", "subtype");
   }
 
@@ -202,6 +205,20 @@ function buildSlotAtomVariantIndex(libraryItems) {
       if (!slotId) continue;
       const slotVariantId = sourceVariantId(sampleId, slotId);
       for (const atomVariantId of atomVariantIdsForSlot(sampleId, slot)) addMapSetValue(index, slotVariantId, atomVariantId);
+    }
+  }
+  return index;
+}
+
+function buildSlotSubtypeAtomVariantIndex(slotSubtypes, slotAtomVariantIds) {
+  const index = new Map();
+  for (const subtype of slotSubtypes) {
+    const subtypeId = normalizeGraphText(subtype?.id);
+    if (!subtypeId) continue;
+    for (const slotVariantId of normalizeTextArray(subtype?.sourceVariantIds)) {
+      for (const atomVariantId of slotAtomVariantIds.get(slotVariantId) ?? []) {
+        addMapSetValue(index, subtypeId, atomVariantId);
+      }
     }
   }
   return index;

@@ -8,9 +8,9 @@ import { shortId } from "../../utils/format";
 import {
   clamp,
   clampPreviewPosition,
-  connectedNodeIds,
   constrainNodeToLayoutSector,
   createGraphSimulation,
+  directedGraphFocus,
   nodeRadius,
   previewPopoverSize,
   reverseTracePath,
@@ -67,6 +67,8 @@ const FIT_TARGET_WIDTH_RATIO = 0.58;
 const FIT_TARGET_HEIGHT_RATIO = 0.56;
 const FIT_WORLD_PADDING = 180;
 const FIT_MAX_INITIAL_ZOOM = 2.8;
+const HOVER_FOCUS_DEPTH = 1;
+const CLICK_FOCUS_DEPTH = 2;
 
 export function GraphPixiCanvas(props: {
   active?: boolean;
@@ -152,13 +154,16 @@ function GraphPixiCanvasInner({
     pinnedPreviewNodeId: null as string | null,
     focusedIds: new Set<string>(),
     focusedEdgeIds: new Set<string>(),
+    focusReverseEdgeIds: new Set<string>(),
     hasFocusNode: false,
+    showFocusArrows: false,
     fixedLayout: layoutMode === "columns",
     theme: GRAPH_VISUAL_THEME,
   });
   const [viewport, setViewport] = useState(viewportRef.current);
   const [canvasSize, setCanvasSize] = useState({ width: VIEWBOX.width, height: VIEWBOX.height });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [selectedFocusDepth, setSelectedFocusDepth] = useState(CLICK_FOCUS_DEPTH);
   const [pinnedPreviewNodeId, setPinnedPreviewNodeId] = useState<string | null>(null);
   const [sampleArtifacts, setSampleArtifacts] = useState<Record<string, SampleArtifact | null>>({});
   const [paused, setPaused] = useState(false);
@@ -168,11 +173,13 @@ function GraphPixiCanvasInner({
   const [pixiError, setPixiError] = useState<string | null>(null);
   const fixedLayout = layoutMode === "columns";
   const focusNodeId = hoveredNodeId ?? selectedNodeId;
+  const focusDepth = hoveredNodeId && hoveredNodeId !== selectedNodeId ? HOVER_FOCUS_DEPTH : selectedNodeId ? selectedFocusDepth : HOVER_FOCUS_DEPTH;
+  const showFocusArrows = Boolean(selectedNodeId && selectedFocusDepth === Number.POSITIVE_INFINITY && (!hoveredNodeId || hoveredNodeId === selectedNodeId));
   const focusedPath = useMemo(
     () => mode === "planTrace"
       ? reverseTracePath(focusNodeId, visible.edges)
-      : { nodes: connectedNodeIds(focusNodeId, visible.edges), edges: new Set<string>() },
-    [focusNodeId, mode, visible.edges],
+      : directedGraphFocus(focusNodeId, visible.edges, focusDepth),
+    [focusDepth, focusNodeId, mode, visible.edges],
   );
 
   useEffect(() => {
@@ -240,14 +247,16 @@ function GraphPixiCanvasInner({
       pinnedPreviewNodeId,
       focusedIds: focusedPath.nodes,
       focusedEdgeIds: focusedPath.edges,
+      focusReverseEdgeIds: focusedPath.reversedEdges,
       hasFocusNode: Boolean(focusNodeId),
+      showFocusArrows,
       fixedLayout,
       theme: graphThemeRef.current,
     };
     stateRef.current = nextState;
     if (!edgesChanged && previousState.fixedLayout === nextState.fixedLayout && syncGraphFocusRef.current(previousState, nextState)) return;
     scheduleDraw();
-  }, [active, fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, visible.edges]);
+  }, [active, fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, focusedPath.reversedEdges, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, showFocusArrows, visible.edges]);
 
   useEffect(() => {
     pendingViewportFitRef.current = true;
@@ -753,6 +762,7 @@ function GraphPixiCanvasInner({
     if ("pointerId" in event) host?.setPointerCapture(event.pointerId);
     if (hitNode && !shouldForcePan) {
       dragRef.current = { kind: "node", nodeId: hitNode.id, dx: hitNode.x - point.x, dy: hitNode.y - point.y, moved: false };
+      setSelectedFocusDepth(event.ctrlKey ? Number.POSITIVE_INFINITY : CLICK_FOCUS_DEPTH);
       onSelectNode(hitNode.id);
       showHover(hitNode.id);
       return;
@@ -838,7 +848,10 @@ function GraphPixiCanvasInner({
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (clickedNode?.type === "libraryItem" || clickedNode?.type === "sourceSample") setPinnedPreviewNodeId(clickedNode.id);
     }
-    if (drag?.kind === "pan" && !drag.moved) onSelectNode(null);
+    if (drag?.kind === "pan" && !drag.moved) {
+      setSelectedFocusDepth(CLICK_FOCUS_DEPTH);
+      onSelectNode(null);
+    }
     dragRef.current = null;
   };
 

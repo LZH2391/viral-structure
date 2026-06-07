@@ -447,6 +447,8 @@ test("function slot governance graph builder derives subtype to atom archetype l
 
   assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ATOM_ARCH_script" && edge.type === "subtype_to_atom_archetype"));
   assert.equal(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomArchetype:ATOM_ARCH_script"), false);
+  assert.deepEqual(graph.nodes.find((node) => node.id === "slotSubtype:SUB_a")?.data.sourceAtomVariantIds, ["sample_a::script::S001"]);
+  assert.deepEqual(graph.nodes.find((node) => node.id === "slotSubtype:SUB_b")?.data.sourceAtomVariantIds, ["sample_a::script::S002"]);
   assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "atom_archetype_to_pattern"));
 });
 

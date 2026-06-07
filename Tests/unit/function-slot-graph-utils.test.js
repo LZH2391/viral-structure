@@ -41,7 +41,7 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("governance graph projects subtype-pattern links only when atom archetype is hidden", () => {
+test("governance graph connects subtype-pattern links by atom variant evidence only when atom archetype is hidden", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = { ...allFilters(), sourceVariant: false };
   const graph = {
@@ -49,14 +49,17 @@ test("governance graph projects subtype-pattern links only when atom archetype i
     artifactId: "governance_test",
     nodes: [
       { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
-      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a" } },
-      { id: "slotSubtype:SUB_b", type: "slotSubtype", label: "Subtype B", group: "slot", data: { id: "SUB_b" } },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a", sourceAtomVariantIds: ["sample_a::script::S001"] } },
+      { id: "slotSubtype:SUB_b", type: "slotSubtype", label: "Subtype B", group: "slot", data: { id: "SUB_b", sourceAtomVariantIds: ["sample_a::script::S002"] } },
       { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
-      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { forSlotSubtypeIds: ["SUB_a"] } },
+      { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern A", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
+      { id: "atomPattern:PAT_b", type: "atomPattern", label: "Pattern B", group: "script", data: { sourceVariantIds: ["sample_a::script::S999"] } },
     ],
     edges: [
       { id: "edge:sub:arch", source: "slotSubtype:SUB_a", target: "atomArchetype:ARCH_script", type: "subtype_to_atom_archetype" },
       { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
+      { id: "edge:arch:pattern_b", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_b", type: "atom_archetype_to_pattern" },
+      { id: "edge:stale:sub:pattern", source: "slotSubtype:SUB_b", target: "atomPattern:PAT_a", type: "subtype_to_atom_pattern" },
     ],
     summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
   };
@@ -67,7 +70,8 @@ test("governance graph projects subtype-pattern links only when atom archetype i
   assert.ok(visibleWithArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ARCH_script" && edge.type === "subtype_to_atom_archetype"));
   assert.ok(visibleWithArchetype.edges.some((edge) => edge.source === "atomArchetype:ARCH_script" && edge.target === "atomPattern:PAT_a" && edge.type === "atom_archetype_to_pattern"));
   assert.equal(visibleWithArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
-  assert.ok(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "projected_hierarchy"));
+  assert.ok(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "subtype_to_atom_pattern"));
+  assert.equal(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_b"), false);
   assert.equal(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:PAT_a"), false);
 });
 
@@ -338,9 +342,9 @@ test("governance radial layout compresses hidden layer rings and keeps source sa
       { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
       { id: "family:f1", type: "slotFamily", label: "family", group: "slot", data: {} },
       { id: "archetype:a1", type: "slotArchetype", label: "arch", group: "slot", data: {} },
-      { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: { id: "s1" } },
+      { id: "subtype:s1", type: "slotSubtype", label: "subtype", group: "slot", data: { id: "s1", sourceAtomVariantIds: ["sample_a::script::S001"] } },
       { id: "atomArchetype:aa1", type: "atomArchetype", label: "atom arch", group: "script", data: {} },
-      { id: "atomPattern:p1", type: "atomPattern", label: "pattern", group: "script", data: { forSlotSubtypeIds: ["s1"] } },
+      { id: "atomPattern:p1", type: "atomPattern", label: "pattern", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
       { id: "sourceVariant:v1", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
       { id: "sourceSample:sample_a", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
     ],
@@ -348,7 +352,6 @@ test("governance radial layout compresses hidden layer rings and keeps source sa
       { id: "e1", source: "governance:root", target: "family:f1", type: "governance_contains_family" },
       { id: "e2", source: "family:f1", target: "archetype:a1", type: "family_to_archetype" },
       { id: "e3", source: "archetype:a1", target: "subtype:s1", type: "archetype_to_subtype" },
-      { id: "e4", source: "subtype:s1", target: "atomPattern:p1", type: "subtype_to_atom_pattern" },
       { id: "e6", source: "atomArchetype:aa1", target: "atomPattern:p1", type: "atom_archetype_to_pattern" },
       { id: "e7", source: "atomPattern:p1", target: "sourceVariant:v1", type: "pattern_to_source_variant" },
       { id: "e8", source: "sourceVariant:v1", target: "sourceSample:sample_a", type: "source_variant_to_sample" },
@@ -460,12 +463,12 @@ test("governance force layout bundles atoms and samples near visible parents", (
     artifactId: "governance-test",
     nodes: [
       { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
-      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a" } },
-      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b" } },
+      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a", sourceAtomVariantIds: ["sample_a::script::S001"] } },
+      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b", sourceAtomVariantIds: ["sample_b::script::S002"] } },
       { id: "arch:a", type: "atomArchetype", label: "arch A", group: "script", data: {} },
       { id: "arch:b", type: "atomArchetype", label: "arch B", group: "script", data: {} },
-      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { forSlotSubtypeIds: ["a"] } },
-      { id: "pattern:b", type: "atomPattern", label: "pattern B", group: "script", data: { forSlotSubtypeIds: ["b"] } },
+      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
+      { id: "pattern:b", type: "atomPattern", label: "pattern B", group: "script", data: { sourceVariantIds: ["sample_b::script::S002"] } },
       { id: "variant:a", type: "sourceVariant", label: "variant A", group: "sourceVariant", data: {} },
       { id: "variant:b", type: "sourceVariant", label: "variant B", group: "sourceVariant", data: {} },
       { id: "sample:a", type: "sourceSample", label: "sample A", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
@@ -474,8 +477,6 @@ test("governance force layout bundles atoms and samples near visible parents", (
     edges: [
       { id: "e-root-a", source: "governance:root", target: "subtype:a", type: "governance_contains_subtype" },
       { id: "e-root-b", source: "governance:root", target: "subtype:b", type: "governance_contains_subtype" },
-      { id: "e-a-subtype-pattern", source: "subtype:a", target: "pattern:a", type: "subtype_to_atom_pattern" },
-      { id: "e-b-subtype-pattern", source: "subtype:b", target: "pattern:b", type: "subtype_to_atom_pattern" },
       { id: "e-a-pattern", source: "arch:a", target: "pattern:a", type: "atom_archetype_to_pattern" },
       { id: "e-b-pattern", source: "arch:b", target: "pattern:b", type: "atom_archetype_to_pattern" },
       { id: "e-a-variant", source: "pattern:a", target: "variant:a", type: "pattern_to_source_variant" },
@@ -499,7 +500,7 @@ test("governance force layout bundles atoms and samples near visible parents", (
   assert.ok(angularDistance(angle("sample:b"), angle("variant:b")) < angularDistance(angle("sample:b"), angle("variant:a")));
 });
 
-test("governance layout ignores hidden atom hierarchy when anchoring projected pattern links", () => {
+test("governance layout anchors hidden-archetype pattern links by atom variant evidence", () => {
   const { buildVisibleGraph, CENTER } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = { ...allFilters(), atomArchetype: false, sourceVariant: false };
   const graph = {
@@ -507,15 +508,14 @@ test("governance layout ignores hidden atom hierarchy when anchoring projected p
     artifactId: "governance-test",
     nodes: [
       { id: "governance:root", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
-      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a" } },
-      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b" } },
+      { id: "subtype:a", type: "slotSubtype", label: "A", group: "slot", data: { id: "a", sourceAtomVariantIds: ["sample_a::script::S001"] } },
+      { id: "subtype:b", type: "slotSubtype", label: "B", group: "slot", data: { id: "b", sourceAtomVariantIds: ["sample_b::script::S002"] } },
       { id: "arch:shared", type: "atomArchetype", label: "shared arch", group: "script", data: {} },
-      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { forSlotSubtypeIds: ["a"] } },
+      { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
     ],
     edges: [
       { id: "e-root-a", source: "governance:root", target: "subtype:a", type: "governance_contains_subtype" },
       { id: "e-root-b", source: "governance:root", target: "subtype:b", type: "governance_contains_subtype" },
-      { id: "e-subtype-pattern", source: "subtype:a", target: "pattern:a", type: "subtype_to_atom_pattern" },
       { id: "e-pattern", source: "arch:shared", target: "pattern:a", type: "atom_archetype_to_pattern" },
     ],
     summary: { slotCount: 2, atomCount: 1, bindingCount: 0, conceptCount: 7 },

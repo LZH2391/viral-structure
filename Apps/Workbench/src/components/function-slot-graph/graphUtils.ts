@@ -19,13 +19,15 @@ type LayoutPosition = {
 
 type ProjectedEdgesCacheEntry = {
   edgeSignature: string;
+  evidenceSignature: string;
+  atomArchetypeHidden: boolean;
   visibleSignature: string;
   edges: FunctionSlotGraphEdge[];
 };
 
 type FocusIndex = {
-  connected: Map<string, Set<string>>;
   incoming: Map<string, FunctionSlotGraphEdge[]>;
+  outgoing: Map<string, FunctionSlotGraphEdge[]>;
 };
 
 type ParentAnchor = {
@@ -125,9 +127,19 @@ function sanitizeGraphId(value: unknown) {
 
 function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string>) {
   const edgeSignature = graph.edges.map((edge) => `${edge.id}:${edge.source}>${edge.target}:${edge.type}`).join("|");
+  const evidenceSignature = graph.nodes
+    .filter((node) => node.type === "slotSubtype" || node.type === "atomPattern")
+    .map((node) => `${node.id}:${nodeDataTextArray(node, "sourceAtomVariantIds").join(",")}:${nodeDataTextArray(node, "sourceVariantIds").join(",")}`)
+    .join("|");
+  const atomArchetypeHidden = graph.nodes.some((node) => node.type === "atomArchetype") && !graph.nodes.some((node) => node.type === "atomArchetype" && visibleNodeIds.has(node.id));
   const visibleSignature = [...visibleNodeIds].sort().join("|");
   const cached = projectedEdgesCache.get(graph);
-  if (cached?.edgeSignature === edgeSignature && cached.visibleSignature === visibleSignature) return cached.edges;
+  if (
+    cached?.edgeSignature === edgeSignature
+    && cached.evidenceSignature === evidenceSignature
+    && cached.atomArchetypeHidden === atomArchetypeHidden
+    && cached.visibleSignature === visibleSignature
+  ) return cached.edges;
 
   const incoming = new Map<string, FunctionSlotGraphEdge[]>();
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
@@ -149,13 +161,17 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
       });
     }
   }
+  if (atomArchetypeHidden) {
+    edges.push(...buildSubtypeAtomPatternEvidenceEdges(graph, visibleNodeIds));
+  }
   for (const edge of graph.edges) {
     if (edge.type === "governance_contains_source_sample") continue;
     if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) continue;
+    if (isSubtypeAtomPatternEdge(edge, nodeById)) continue;
     edges.push(edge);
   }
   const result = dedupeEdges(edges);
-  projectedEdgesCache.set(graph, { edgeSignature, visibleSignature, edges: result });
+  projectedEdgesCache.set(graph, { edgeSignature, evidenceSignature, atomArchetypeHidden, visibleSignature, edges: result });
   return result;
 }
 
@@ -164,11 +180,40 @@ function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>
   const target = nodeById.get(targetId);
   const sourceType = source?.type;
   const targetType = target?.type;
-  if (sourceType === "slotSubtype" && targetType === "atomPattern") return hiddenTypes.has("atomArchetype") && !hiddenTypes.has("atomLayer");
   if (targetType === "atomPattern") return false;
   if (targetType === "sourceVariant") return sourceType === "atomPattern";
   if (targetType === "sourceSample") return sourceType === "sourceVariant" || sourceType === "atomPattern";
   return sourceType === "governanceRoot" || sourceType === "slotFamily" || sourceType === "slotArchetype";
+}
+
+function buildSubtypeAtomPatternEvidenceEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string>) {
+  const subtypes = graph.nodes.filter((node) => node.type === "slotSubtype" && visibleNodeIds.has(node.id));
+  const patterns = graph.nodes.filter((node) => node.type === "atomPattern" && visibleNodeIds.has(node.id));
+  const edges: FunctionSlotGraphEdge[] = [];
+  for (const subtype of subtypes) {
+    const subtypeAtomVariantIds = new Set(nodeDataTextArray(subtype, "sourceAtomVariantIds"));
+    if (!subtypeAtomVariantIds.size) continue;
+    for (const pattern of patterns) {
+      if (!nodeDataTextArray(pattern, "sourceVariantIds").some((variantId) => subtypeAtomVariantIds.has(variantId))) continue;
+      edges.push({
+        id: graphId("edge", "subtype_atom_pattern_evidence", subtype.id, pattern.id),
+        source: subtype.id,
+        target: pattern.id,
+        type: "subtype_to_atom_pattern",
+        label: "variant evidence",
+      });
+    }
+  }
+  return edges;
+}
+
+function isSubtypeAtomPatternEdge(edge: FunctionSlotGraphEdge, nodeById: Map<string, FunctionSlotGraphNode>) {
+  return nodeById.get(edge.source)?.type === "slotSubtype" && nodeById.get(edge.target)?.type === "atomPattern";
+}
+
+function nodeDataTextArray(node: FunctionSlotGraphNode, key: string) {
+  const value = node.data?.[key];
+  return Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
 }
 
 function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>, nodeById: Map<string, FunctionSlotGraphNode>) {
@@ -274,14 +319,57 @@ export function connectedNodeIds(nodeId: string | null, edges: FunctionSlotGraph
   const ids = new Set<string>();
   if (!nodeId) return ids;
   ids.add(nodeId);
-  for (const connectedId of focusIndex(edges).connected.get(nodeId) ?? []) ids.add(connectedId);
+  const index = focusIndex(edges);
+  for (const edge of index.incoming.get(nodeId) ?? []) ids.add(edge.source);
+  for (const edge of index.outgoing.get(nodeId) ?? []) ids.add(edge.target);
   return ids;
+}
+
+export function directedGraphFocus(nodeId: string | null, edges: FunctionSlotGraphEdge[], maxDepth: number) {
+  const nodes = new Set<string>();
+  const edgeIds = new Set<string>();
+  const reversedEdgeIds = new Set<string>();
+  if (!nodeId) return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
+  nodes.add(nodeId);
+  const index = focusIndex(edges);
+  addDirectedFocusWalk(nodeId, index.incoming, "source", maxDepth, nodes, edgeIds, reversedEdgeIds);
+  addDirectedFocusWalk(nodeId, index.outgoing, "target", maxDepth, nodes, edgeIds);
+  return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
+}
+
+function addDirectedFocusWalk(
+  nodeId: string,
+  edgesByNode: Map<string, FunctionSlotGraphEdge[]>,
+  nextKey: "source" | "target",
+  maxDepth: number,
+  nodes: Set<string>,
+  edgeIds: Set<string>,
+  reversedEdgeIds?: Set<string>,
+) {
+  let frontier = new Set<string>([nodeId]);
+  const visited = new Set<string>([nodeId]);
+  for (let depth = 0; frontier.size && depth < maxDepth; depth += 1) {
+    const next = new Set<string>();
+    for (const currentId of frontier) {
+      for (const edge of edgesByNode.get(currentId) ?? []) {
+        edgeIds.add(edge.id);
+        reversedEdgeIds?.add(edge.id);
+        const connectedId = edge[nextKey];
+        nodes.add(connectedId);
+        if (visited.has(connectedId)) continue;
+        visited.add(connectedId);
+        next.add(connectedId);
+      }
+    }
+    frontier = next;
+  }
 }
 
 export function reverseTracePath(nodeId: string | null, edges: FunctionSlotGraphEdge[]) {
   const nodes = new Set<string>();
   const edgeIds = new Set<string>();
-  if (!nodeId) return { nodes, edges: edgeIds };
+  const reversedEdgeIds = new Set<string>();
+  if (!nodeId) return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
   nodes.add(nodeId);
   let frontier = new Set<string>([nodeId]);
   const incoming = focusIndex(edges).incoming;
@@ -298,22 +386,19 @@ export function reverseTracePath(nodeId: string | null, edges: FunctionSlotGraph
     }
     frontier = next;
   }
-  return { nodes, edges: edgeIds };
+  return { nodes, edges: edgeIds, reversedEdges: reversedEdgeIds };
 }
 
 function focusIndex(edges: FunctionSlotGraphEdge[]) {
   const cached = focusIndexCache.get(edges);
   if (cached) return cached;
-  const connected = new Map<string, Set<string>>();
   const incoming = new Map<string, FunctionSlotGraphEdge[]>();
+  const outgoing = new Map<string, FunctionSlotGraphEdge[]>();
   for (const edge of edges) {
-    if (!connected.has(edge.source)) connected.set(edge.source, new Set());
-    if (!connected.has(edge.target)) connected.set(edge.target, new Set());
-    connected.get(edge.source)?.add(edge.target);
-    connected.get(edge.target)?.add(edge.source);
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge]);
   }
-  const index = { connected, incoming };
+  const index = { incoming, outgoing };
   focusIndexCache.set(edges, index);
   return index;
 }
@@ -1137,7 +1222,7 @@ function isAtomLayoutLevel(types: string[]) {
 }
 
 function shouldParentBundleGovernanceLevel(types: string[]) {
-  return types.length > 0 && types.every((type) => type === "atomPattern");
+  return false;
 }
 
 function distributedAngle(index: number, count: number) {

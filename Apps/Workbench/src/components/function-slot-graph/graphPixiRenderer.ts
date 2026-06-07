@@ -23,7 +23,9 @@ export type PixiGraphRenderState = {
   pinnedPreviewNodeId: string | null;
   focusedIds: Set<string>;
   focusedEdgeIds: Set<string>;
+  focusReverseEdgeIds: Set<string>;
   hasFocusNode: boolean;
+  showFocusArrows: boolean;
   fixedLayout: boolean;
   theme: GraphVisualTheme;
 };
@@ -45,6 +47,8 @@ type PixiEdgeView = {
   arrow: Graphics;
   style: GraphStrokeStyle | null;
   showArrow: boolean;
+  arrowInset: number;
+  arrowReverse: boolean;
   glowKey: string | null;
   lineKey: string | null;
   arrowKey: string | null;
@@ -146,14 +150,12 @@ export function syncPixiEdges(edgeLayer: Container, objects: PixiGraphObjects, e
     const target = positions.get(edge.target);
     if (!source || !target) continue;
     const view = getEdgeView(edgeLayer, objects, edge.id);
-    const activeId = state.hoveredNodeId ?? state.selectedNodeId;
-    const focused = state.hasFocusNode
-      ? (state.mode === "planTrace" ? state.focusedEdgeIds.has(edge.id) : edge.source === activeId || edge.target === activeId)
-      : false;
+    const focused = state.hasFocusNode && state.focusedEdgeIds.has(edge.id);
     const muted = state.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
     const style = resolveGraphEdgeStyle(edge, source, target, state.mode, focused, muted, state.theme);
-    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
+    const arrow = edgeArrowState(edge, source, target, focused, state);
+    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, arrow.show, arrow.inset, arrow.reverse);
   }
 }
 
@@ -181,9 +183,9 @@ export function syncPixiNodes(nodeOcclusionLayer: Container, nodeLayer: Containe
     view.container.position.set(node.x, node.y);
     view.container.alpha = style.groupAlpha;
 
-    syncNodeRing(view, node, radius, state.theme);
+    syncNodeRing(view, node, radius, state);
     syncNodeGlow(view, radius, style);
-    syncNodeOcclusion(view, radius, state.theme);
+    syncNodeOcclusion(view, radius, state.theme, focusMuted ? 0 : 1);
     syncNodeBody(view, radius, style);
 
     syncSlotBadge(view, node, radius, state.theme);
@@ -272,7 +274,7 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const style = resolveGraphNodeStyle(node, next.mode, focused, selected, pinned, hovered, focusMuted, next.theme);
     view.container.alpha = style.groupAlpha;
     syncNodeGlow(view, radius, style);
-    syncNodeOcclusion(view, radius, next.theme);
+    syncNodeOcclusion(view, radius, next.theme, focusMuted ? 0 : 1);
     syncNodeBody(view, radius, style);
     if (view.label) {
       view.label.alpha = nodeLabelOpacity(next.mode, node, zoom) * style.groupAlpha;
@@ -294,7 +296,8 @@ export function syncPixiFocus(objects: PixiGraphObjects, edges: FunctionSlotGrap
     const muted = next.hasFocusNode && !focused;
     const line = edgeLinePoints(edge.type, source, target);
     const style = resolveGraphEdgeStyle(edge, source, target, next.mode, focused, muted, next.theme);
-    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, isSlotSequenceEdge(edge.type, source, target));
+    const arrow = edgeArrowState(edge, source, target, focused, next);
+    syncEdgeView(view, line.x1, line.y1, line.x2, line.y2, style, arrow.show, arrow.inset, arrow.reverse);
   }
   return true;
 }
@@ -311,7 +314,7 @@ function getEdgeView(edgeLayer: Container, objects: PixiGraphObjects, edgeId: st
   container.addChild(glow);
   container.addChild(line);
   container.addChild(arrow);
-  const view = { container, glow, line, arrow, style: null, showArrow: false, glowKey: null, lineKey: null, arrowKey: null };
+  const view = { container, glow, line, arrow, style: null, showArrow: false, arrowInset: 0, arrowReverse: false, glowKey: null, lineKey: null, arrowKey: null };
   objects.edges.set(edgeId, view);
   edgeLayer.addChild(container);
   return view;
@@ -364,9 +367,11 @@ function getNodeView(nodeOcclusionLayer: Container, nodeLayer: Container, object
   return view;
 }
 
-function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number, style: GraphStrokeStyle, showArrow: boolean) {
+function syncEdgeView(view: PixiEdgeView, x1: number, y1: number, x2: number, y2: number, style: GraphStrokeStyle, showArrow: boolean, arrowInset = 0, arrowReverse = false) {
   view.style = style;
   view.showArrow = showArrow;
+  view.arrowInset = arrowInset;
+  view.arrowReverse = arrowReverse;
   syncEdgeGeometry(view, x1, y1, x2, y2);
 }
 
@@ -401,7 +406,11 @@ function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number
 
   view.arrow.visible = view.showArrow;
   if (!view.showArrow) return true;
-  view.arrow.position.set(length, 0);
+  const arrowX = view.arrowReverse
+    ? Math.min(length, view.arrowInset)
+    : view.arrowInset > 0 ? Math.max(0, length - view.arrowInset) : length;
+  view.arrow.position.set(arrowX, 0);
+  view.arrow.rotation = view.arrowReverse ? Math.PI : 0;
   view.arrow.alpha = style.arrowAlpha;
   const arrowKey = `${style.arrowColor}:11:${style.width}`;
   if (view.arrowKey === arrowKey) return true;
@@ -411,8 +420,12 @@ function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number
   return true;
 }
 
-function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number, theme: GraphVisualTheme) {
-  const highlighted = node.type === "confirmedPlan" || node.type === "governanceRoot" || node.type === "sourceSample";
+function syncNodeRing(view: PixiNodeView, node: SimNode, radius: number, state: PixiGraphRenderState) {
+  const theme = state.theme;
+  const highlighted = node.type === "confirmedPlan"
+    || node.type === "governanceRoot"
+    || (state.mode !== "structure" && node.type === "sourceSample")
+    || (state.mode === "structure" && node.type === "libraryItem");
   const key = highlighted ? `ring:${radius}:${theme.node.landmarkGlow}` : "none";
   if (view.ringKey === key) return;
   view.ring.clear();
@@ -428,13 +441,13 @@ function syncNodeGlow(view: PixiNodeView, radius: number, style: GraphNodeDrawSt
   view.glowKey = "none";
 }
 
-function syncNodeOcclusion(view: PixiNodeView, radius: number, theme: GraphVisualTheme) {
-  const key = `${radius}:${theme.canvas.nodeOcclusionFill}`;
+function syncNodeOcclusion(view: PixiNodeView, radius: number, theme: GraphVisualTheme, alpha = 1) {
+  const key = `${radius}:${theme.canvas.nodeOcclusionFill}:${alpha}`;
   if (view.occlusionKey === key) return;
   view.occlusion
     .clear()
     .circle(0, 0, radius + 1.5)
-    .fill({ color: theme.canvas.nodeOcclusionFill, alpha: 1 });
+    .fill({ color: theme.canvas.nodeOcclusionFill, alpha });
   view.occlusionKey = key;
 }
 
@@ -610,22 +623,21 @@ function affectedFocusEdgeIds(edges: FunctionSlotGraphEdge[], previous: PixiGrap
 
 function addStateEdgeIds(ids: Set<string>, edges: FunctionSlotGraphEdge[], state: PixiGraphRenderState) {
   if (!state.hasFocusNode) return;
-  if (state.mode === "planTrace") {
-    for (const edgeId of state.focusedEdgeIds) ids.add(edgeId);
-    return;
-  }
-  const activeId = state.hoveredNodeId ?? state.selectedNodeId;
-  if (!activeId) return;
-  for (const edge of edges) {
-    if (edge.source === activeId || edge.target === activeId) ids.add(edge.id);
-  }
+  void edges;
+  for (const edgeId of state.focusedEdgeIds) ids.add(edgeId);
 }
 
 function isEdgeFocused(edge: FunctionSlotGraphEdge, state: PixiGraphRenderState) {
   if (!state.hasFocusNode) return false;
-  if (state.mode === "planTrace") return state.focusedEdgeIds.has(edge.id);
-  const activeId = state.hoveredNodeId ?? state.selectedNodeId;
-  return edge.source === activeId || edge.target === activeId;
+  return state.focusedEdgeIds.has(edge.id);
+}
+
+function edgeArrowState(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, focused: boolean, state: PixiGraphRenderState) {
+  if (isSlotSequenceEdge(edge.type, source, target)) return { show: true, inset: 0, reverse: false };
+  if (!state.showFocusArrows || !focused) return { show: false, inset: 0, reverse: false };
+  return state.focusReverseEdgeIds.has(edge.id)
+    ? { show: true, inset: nodeRadius(source) + 2, reverse: true }
+    : { show: true, inset: nodeRadius(target) + 2, reverse: false };
 }
 
 function drawLocalLine(graphics: Graphics, length: number, style: GraphStrokeStyle) {

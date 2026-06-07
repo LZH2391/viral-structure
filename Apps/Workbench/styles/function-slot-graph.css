@@ -738,6 +738,7 @@
   opacity: var(--slot-graph-edge-muted-opacity);
 }
 
+.slot-graph-edge.edge-library_contains_slot,
 .slot-graph-edge.edge-slot_next,
 .slot-graph-edge.edge-slot_instance_of_concept {
   stroke: rgba(96, 214, 164, 0.58);
@@ -1090,9 +1091,12 @@
   filter: drop-shadow(0 0 8px rgba(242, 139, 130, 0.56));
 }
 
-.slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
+.slot-graph-node.node-sourceVariant:not(.node-layer-script):not(.node-layer-rhythm):not(.node-layer-packaging) > circle:not(.slot-graph-plan-ring) {
   fill: var(--slot-graph-node-source-variant);
   stroke: var(--slot-graph-edge-source-trace);
+}
+
+.slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
   stroke-dasharray: 5 4;
   stroke-width: 1.8;
   opacity: 0.9;
@@ -1104,11 +1108,8 @@
 }
 
 .slot-graph-canvas.plan-trace .slot-graph-node.node-sourceVariant > circle:not(.slot-graph-plan-ring) {
-  fill: var(--slot-graph-node-source-variant-trace);
-  stroke: var(--slot-graph-edge-hierarchy);
   stroke-dasharray: none;
   stroke-width: 2.2;
-  filter: drop-shadow(0 0 9px rgba(127, 183, 255, 0.3));
   opacity: 1;
 }
 

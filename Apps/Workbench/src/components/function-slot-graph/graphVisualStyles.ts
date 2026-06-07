@@ -376,7 +376,6 @@ export function isSlotSequenceNode(node: SimNode) {
 }
 
 export function nodeLayerClass(node: SimNode) {
-  if (node.type === "sourceVariant") return "";
   const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
   if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
   return "";
@@ -399,7 +398,7 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   let distanceFade: GraphStrokeStyle["distanceFade"] | undefined;
   let glow: GraphStrokeStyle["glow"] | undefined;
 
-  if (classes.has("edge-slot_next") || classes.has("edge-slot_instance_of_concept")) {
+  if (classes.has("edge-library_contains_slot") || classes.has("edge-slot_next") || classes.has("edge-slot_instance_of_concept")) {
     stroke = rgba(theme.edge.slot, 0.58);
     width = 1.8;
   }
@@ -526,9 +525,16 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
   if (classes.has("focus-muted")) groupAlpha = theme.state.nodeFocusMutedAlpha;
   else if (classes.has("muted")) groupAlpha = theme.state.nodeMutedAlpha;
   if (classes.has("node-library")) {
-    fill = theme.node.library;
     circleOpacity = 1;
-    glow = { color: theme.node.library, alpha: 0.12, radiusPad: 10 };
+    if (mode === "structure" && node.type === "libraryItem") {
+      fill = theme.node.governance;
+      stroke = rgba(theme.node.governanceStroke, 0.96);
+      strokeWidth = 3;
+      glow = { color: theme.node.landmarkGlow, alpha: 0.1, radiusPad: 18 };
+    } else {
+      fill = theme.node.library;
+      glow = { color: theme.node.library, alpha: 0.12, radiusPad: 10 };
+    }
   }
   if (classes.has("node-slot")) {
     fill = theme.node.slot;
@@ -627,28 +633,28 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     glow = { color: theme.node.review, alpha: 0.11, radiusPad: 8 };
   }
   if (classes.has("node-sourceVariant")) {
-    fill = theme.node.sourceVariant;
-    stroke = rgba(theme.edge.sourceTrace, 0.82);
+    const layeredSourceVariant = classes.has("node-layer-script") || classes.has("node-layer-rhythm") || classes.has("node-layer-packaging");
+    if (!layeredSourceVariant) {
+      fill = theme.node.sourceVariant;
+      stroke = rgba(theme.edge.sourceTrace, 0.82);
+    }
     dash = [5, 4];
-    strokeWidth = 1.8;
+    strokeWidth = Math.max(strokeWidth, 1.8);
     circleOpacity = 1;
     labelFontSize = 12;
   }
   if (mode === "planTrace" && classes.has("node-sourceVariant")) {
-    fill = theme.node.sourceVariantTrace;
-    stroke = rgba(theme.edge.hierarchy, 0.95);
     dash = undefined;
-    strokeWidth = 2.2;
-    glow = { color: theme.edge.hierarchy, alpha: 0.08, radiusPad: 9 };
+    strokeWidth = Math.max(strokeWidth, 2.2);
     circleOpacity = 1;
     labelFontSize = 11;
   }
   if (classes.has("node-sourceSample")) {
-    fill = theme.node.governance;
-    stroke = rgba(theme.node.governanceStroke, 0.96);
+    fill = mode === "structure" ? theme.node.sourceVariant : theme.node.governance;
+    stroke = mode === "structure" ? rgba(theme.edge.sourceTrace, 0.72) : rgba(theme.node.governanceStroke, 0.96);
     dash = undefined;
-    strokeWidth = 3;
-    glow = { color: theme.node.landmarkGlow, alpha: 0.1, radiusPad: 18 };
+    strokeWidth = mode === "structure" ? 1.4 : 3;
+    glow = mode === "structure" ? undefined : { color: theme.node.landmarkGlow, alpha: 0.1, radiusPad: 18 };
     circleOpacity = 1;
     labelFontSize = 12;
   }
