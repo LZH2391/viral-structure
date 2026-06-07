@@ -69,6 +69,7 @@ const FIT_WORLD_PADDING = 180;
 const FIT_MAX_INITIAL_ZOOM = 2.8;
 const HOVER_FOCUS_DEPTH = 1;
 const CLICK_FOCUS_DEPTH = 2;
+const POINTER_DRAG_THRESHOLD_PX = 3;
 
 export function GraphPixiCanvas(props: {
   active?: boolean;
@@ -839,9 +840,16 @@ function GraphPixiCanvasInner({
     const hitNode = hitTestNode(point);
     if ("pointerId" in event) host?.setPointerCapture(event.pointerId);
     if (hitNode && !shouldForcePan) {
-      dragRef.current = { kind: "node", nodeId: hitNode.id, dx: hitNode.x - point.x, dy: hitNode.y - point.y, moved: false };
-      setSelectedFocusDepth(event.ctrlKey ? Number.POSITIVE_INFINITY : CLICK_FOCUS_DEPTH);
-      onSelectNode(hitNode.id);
+      dragRef.current = {
+        kind: "node",
+        nodeId: hitNode.id,
+        dx: hitNode.x - point.x,
+        dy: hitNode.y - point.y,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        selectFocusDepth: event.ctrlKey ? Number.POSITIVE_INFINITY : CLICK_FOCUS_DEPTH,
+        moved: false,
+      };
       showHover(hitNode.id);
       return;
     }
@@ -865,6 +873,8 @@ function GraphPixiCanvasInner({
       return;
     }
     if (drag.kind === "node") {
+      const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > POINTER_DRAG_THRESHOLD_PX;
+      if (!moved) return;
       const point = graphPoint(event.clientX, event.clientY);
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (draggedNode) {
@@ -876,7 +886,7 @@ function GraphPixiCanvasInner({
         draggedNode.vy = 0;
         markHitGridDirty();
       }
-      dragRef.current = { ...drag, moved: true };
+      dragRef.current = { ...drag, moved };
       if (active && !fixedLayout) restartSimulationRef.current(0.75);
       syncGraphLayoutRef.current();
       schedulePreviewTick();
@@ -925,6 +935,8 @@ function GraphPixiCanvasInner({
     }
     if (drag?.kind === "node" && !drag.moved) {
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
+      setSelectedFocusDepth(drag.selectFocusDepth);
+      onSelectNode(drag.nodeId);
       if (clickedNode?.type === "libraryItem" || clickedNode?.type === "sourceSample") setPinnedPreviewNodeId(clickedNode.id);
     }
     if (drag?.kind === "pan" && !drag.moved) {

@@ -5,7 +5,7 @@ import { shortId } from "../utils/format";
 import { GraphPixiCanvas } from "./function-slot-graph/GraphPixiCanvas";
 import { EmptyState, GraphFilters, NodeInspector } from "./function-slot-graph/GraphPanels";
 import { buildVisibleGraph } from "./function-slot-graph/graphUtils";
-import type { GovernanceLayoutMode, GraphFiltersState, VisibleGraph } from "./function-slot-graph/types";
+import type { GovernanceFilterPresetMode, GovernanceLayoutMode, GraphFiltersState, VisibleGraph } from "./function-slot-graph/types";
 
 type LibraryGraphSummary = {
   artifactId: string;
@@ -31,13 +31,44 @@ const STRUCTURE_FILTERS: GraphFiltersState = {
   sourceVariant: true,
 };
 
+const GOVERNANCE_LIGHT_FILTERS: GraphFiltersState = {
+  ...STRUCTURE_FILTERS,
+  slotArchetype: false,
+  atomArchetype: false,
+  sourceVariant: false,
+  binding: false,
+  rule: false,
+  bundle: false,
+  unmapped: false,
+};
+
 const GOVERNANCE_FILTERS: GraphFiltersState = {
   ...STRUCTURE_FILTERS,
+  binding: false,
+  rule: false,
+  bundle: false,
+  unmapped: false,
+};
+
+const GOVERNANCE_FULL_FILTERS: GraphFiltersState = {
+  ...STRUCTURE_FILTERS,
+  binding: true,
+  rule: true,
+  bundle: true,
+  unmapped: true,
 };
 
 const PLAN_TRACE_FILTERS: GraphFiltersState = {
   ...STRUCTURE_FILTERS,
 };
+
+const GOVERNANCE_FILTER_PRESET_CONFIGS: Record<Exclude<GovernanceFilterPresetMode, "custom">, GraphFiltersState> = {
+  light: GOVERNANCE_LIGHT_FILTERS,
+  default: GOVERNANCE_FILTERS,
+  full: GOVERNANCE_FULL_FILTERS,
+};
+
+const FUNCTION_SLOT_GRAPH_CONFIG_STORAGE_KEY = "function-slot-graph:config";
 
 type FunctionSlotGraphWorkspaceProps = {
   embedded?: boolean;
@@ -63,6 +94,7 @@ export function FunctionSlotGraphApp() {
 }
 
 export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
+  const initialGraphConfig = useMemo(() => readFunctionSlotGraphConfig(), []);
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [graphsByMode, setGraphsByMode] = useState<GraphsByMode>({ structure: null, governance: null, planTrace: null });
@@ -73,9 +105,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const [status, setStatus] = useState("");
   const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
     structure: STRUCTURE_FILTERS,
-    governance: GOVERNANCE_FILTERS,
+    governance: initialGraphConfig?.governanceFilters ?? GOVERNANCE_FILTERS,
     planTrace: PLAN_TRACE_FILTERS,
   });
+  const [governanceFilterPresetMode, setGovernanceFilterPresetMode] = useState<GovernanceFilterPresetMode>(initialGraphConfig?.governancePresetMode ?? "default");
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [layoutModesByMode, setLayoutModesByMode] = useState<Record<GraphMode, GovernanceLayoutMode>>({
     structure: "force",
@@ -86,6 +119,13 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const governancePrefetchGenerationRef = useRef(0);
   const governancePrefetchPromiseRef = useRef<Promise<GovernancePrefetchResult> | null>(null);
   const governancePrefetchVisibleRef = useRef<VisibleGraph | null>(null);
+
+  useEffect(() => {
+    writeFunctionSlotGraphConfig({
+      governancePresetMode: governanceFilterPresetMode,
+      governanceFilters: filtersByMode.governance,
+    });
+  }, [filtersByMode.governance, governanceFilterPresetMode]);
 
   const clearGovernanceGraphCache = useCallback(() => {
     governancePrefetchGenerationRef.current += 1;
@@ -280,7 +320,13 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const governanceLayoutMode = layoutModesByMode[mode];
   const setActiveFilters = useCallback((nextFilters: GraphFiltersState) => {
     setFiltersByMode((current) => ({ ...current, [mode]: nextFilters }));
+    if (mode === "governance") setGovernanceFilterPresetMode(resolveGovernancePresetMode(nextFilters));
   }, [mode]);
+  const setGovernanceFilterPreset = useCallback((nextPresetMode: GovernanceFilterPresetMode) => {
+    setGovernanceFilterPresetMode(nextPresetMode);
+    if (nextPresetMode === "custom") return;
+    setFiltersByMode((current) => ({ ...current, governance: GOVERNANCE_FILTER_PRESET_CONFIGS[nextPresetMode] }));
+  }, []);
   const setActiveLayoutMode = useCallback((nextLayoutMode: GovernanceLayoutMode) => {
     setLayoutModesByMode((current) => ({ ...current, [mode]: nextLayoutMode }));
   }, [mode]);
@@ -295,7 +341,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
       mode === "governance"
       && activeGraph
       && activeGraph === graphsByMode.governance
-      && filters === GOVERNANCE_FILTERS
+      && graphFiltersEqual(filters, GOVERNANCE_FILTERS)
       && governanceLayoutMode === "force"
       && governancePrefetchVisibleRef.current
     ) {
@@ -319,6 +365,13 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         onLayoutModeChange={setActiveLayoutMode}
         onRefresh={refresh}
       />
+      <GraphFilters
+        mode={mode}
+        filters={filters}
+        governancePresetMode={mode === "governance" ? governanceFilterPresetMode : undefined}
+        onGovernancePresetModeChange={mode === "governance" ? setGovernanceFilterPreset : undefined}
+        onChange={setActiveFilters}
+      />
       <GraphSourcePanel
         mode={mode}
         graph={graph}
@@ -328,8 +381,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         onSelectArtifact={setSelectedArtifactId}
         onSelectedPlanIdsChange={setSelectedPlanIds}
       />
-      <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />
-      {selectedNode ? <NodeInspector node={selectedNode} graph={activeGraph} /> : null}
+      <NodeInspector node={selectedNode} graph={activeGraph} />
     </aside>
   );
   return (
@@ -412,9 +464,9 @@ function GraphViewPanel({
   onRefresh: () => Promise<void>;
 }) {
   return (
-    <section className="slot-graph-library-brief" aria-label={embedded ? "当前库视图" : "图谱视图设置"}>
+    <section className="slot-graph-library-brief" aria-label={embedded ? "库视图设置" : "图谱视图设置"}>
       <div>
-        <span>{embedded || fixedMode ? "当前库视图" : "图谱模式"}</span>
+        {!embedded && !fixedMode ? <span>图谱模式</span> : null}
         <strong>{graphModeLabel(mode)}</strong>
         <small>{graphModeDescription(mode)}</small>
       </div>
@@ -423,7 +475,7 @@ function GraphViewPanel({
           刷新
         </button>
       ) : null}
-      {status ? <p>{status}</p> : null}
+      {!embedded && status ? <p>{status}</p> : null}
       {!fixedMode ? (
         <label className="slot-graph-setting-field">
           <span>图谱模式</span>
@@ -435,7 +487,6 @@ function GraphViewPanel({
         </label>
       ) : null}
       <div className="slot-graph-setting-field">
-        <span>视图布局</span>
         {embedded ? (
           <div className="slot-graph-layout-options" role="group" aria-label="切换图谱布局">
             <button className={governanceLayoutMode === "force" ? "active" : ""} type="button" onClick={() => onLayoutModeChange("force")}>
@@ -616,4 +667,53 @@ function getTracePlans(graph: FunctionSlotLibraryGraph | null) {
       color: typeof node.data.color === "string" ? node.data.color : "#6ea8fe",
       displayJsonPath: typeof node.data.displayJsonPath === "string" ? node.data.displayJsonPath : null,
     }));
+}
+
+type FunctionSlotGraphConfig = {
+  governancePresetMode: GovernanceFilterPresetMode;
+  governanceFilters: GraphFiltersState;
+};
+
+function readFunctionSlotGraphConfig(): FunctionSlotGraphConfig | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(FUNCTION_SLOT_GRAPH_CONFIG_STORAGE_KEY) ?? "null");
+    if (!parsed || typeof parsed !== "object") return null;
+    const governanceFilters = normalizeGraphFilters((parsed as Partial<FunctionSlotGraphConfig>).governanceFilters, GOVERNANCE_FILTERS);
+    const storedMode = (parsed as Partial<FunctionSlotGraphConfig>).governancePresetMode;
+    const governancePresetMode = isGovernancePresetMode(storedMode) ? storedMode : resolveGovernancePresetMode(governanceFilters);
+    return { governancePresetMode, governanceFilters };
+  } catch {
+    return null;
+  }
+}
+
+function writeFunctionSlotGraphConfig(config: FunctionSlotGraphConfig) {
+  try {
+    window.localStorage.setItem(FUNCTION_SLOT_GRAPH_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // Ignore storage failures; the graph controls still work for the current session.
+  }
+}
+
+function normalizeGraphFilters(value: unknown, fallback: GraphFiltersState): GraphFiltersState {
+  const source = value && typeof value === "object" ? value as Partial<Record<keyof GraphFiltersState, unknown>> : {};
+  return (Object.keys(fallback) as Array<keyof GraphFiltersState>).reduce((next, key) => {
+    next[key] = typeof source[key] === "boolean" ? source[key] : fallback[key];
+    return next;
+  }, {} as GraphFiltersState);
+}
+
+function resolveGovernancePresetMode(filters: GraphFiltersState): GovernanceFilterPresetMode {
+  for (const [mode, presetFilters] of Object.entries(GOVERNANCE_FILTER_PRESET_CONFIGS) as Array<[Exclude<GovernanceFilterPresetMode, "custom">, GraphFiltersState]>) {
+    if (graphFiltersEqual(filters, presetFilters)) return mode;
+  }
+  return "custom";
+}
+
+function graphFiltersEqual(left: GraphFiltersState, right: GraphFiltersState) {
+  return (Object.keys(right) as Array<keyof GraphFiltersState>).every((key) => left[key] === right[key]);
+}
+
+function isGovernancePresetMode(value: unknown): value is GovernanceFilterPresetMode {
+  return value === "light" || value === "default" || value === "full" || value === "custom";
 }

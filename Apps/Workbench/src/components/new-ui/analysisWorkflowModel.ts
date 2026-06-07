@@ -522,6 +522,8 @@ function workflowStageStatus(status: string | null | undefined): WorkflowStageSt
 }
 
 function isMaterialRecognitionItem(item: AnalysisHistoryItem | null) {
+  if (item?.artifact?.functionSlotAtomizationAnalysis || item?.hasFunctionSlotAtomization) return false;
   if (item?.workflowRun?.workflowKey === "material-recognition") return true;
+  if (item?.workflowKey === "material-recognition") return true;
   return Boolean(item?.hasUserMaterialPack && !item.hasFunctionSlotAtomization);
 }

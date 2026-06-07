@@ -16,6 +16,8 @@ export type GraphFiltersState = {
   sourceVariant: boolean;
 };
 
+export type GovernanceFilterPresetMode = "light" | "default" | "full" | "custom";
+
 export type GovernanceLayoutMode = "columns" | "force";
 
 export type PositionedNode = FunctionSlotGraphNode & {
@@ -48,7 +50,7 @@ export type D3Link = Omit<FunctionSlotGraphEdge, "source" | "target"> &
   };
 
 export type DragState =
-  | { kind: "node"; nodeId: string; dx: number; dy: number; moved: boolean }
+  | { kind: "node"; nodeId: string; dx: number; dy: number; clientX: number; clientY: number; selectFocusDepth: number; moved: boolean }
   | { kind: "pan"; clientX: number; clientY: number; startX: number; startY: number; moved: boolean };
 
 export type VisibleGraph = {

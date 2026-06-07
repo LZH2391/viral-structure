@@ -180,6 +180,7 @@
 }
 
 .new-ui-shell #new-ui-library-graph-panel {
+  --new-ui-analysis-divider-strong: color-mix(in srgb, var(--new-ui-text-muted) 34%, var(--new-ui-border));
   --accent: var(--new-ui-text);
   --accent-hover: var(--new-ui-text);
   --accent-soft: color-mix(in srgb, var(--new-ui-text) 8%, transparent);
@@ -318,6 +319,7 @@
 .new-ui-shell .slot-graph-shell.embedded .governance-summary-grid {
   display: grid;
   gap: 4px;
+  padding: 0 5px;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-canvas {
@@ -417,6 +419,8 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--new-ui-control-bg) 78%, transparent);
   color: var(--new-ui-text);
+  padding: 0 34px 0 14px;
+  line-height: 32px;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-mode-select:focus,
@@ -431,6 +435,13 @@
   color: var(--new-ui-text-muted);
   font-size: var(--new-ui-font-size-xs);
   letter-spacing: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-head .section-heading,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-filter-head .section-heading {
+  color: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-md);
+  font-weight: 740;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card,
@@ -489,33 +500,23 @@
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card strong,
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > strong,
 .new-ui-shell .slot-graph-shell.embedded .governance-summary span,
 .new-ui-shell #new-ui-library-graph-panel .slot-graph-status-card strong,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector > strong,
 .new-ui-shell #new-ui-library-graph-panel .governance-summary span {
   color: var(--new-ui-text);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-status-card span,
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > span,
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector > small,
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-detail-rows span,
 .new-ui-shell .slot-graph-shell.embedded .governance-summary div,
 .new-ui-shell .slot-graph-shell.embedded .detail-hint,
 .new-ui-shell #new-ui-library-graph-panel .slot-graph-status-card span,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector > span,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector > small,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-detail-rows span,
 .new-ui-shell #new-ui-library-graph-panel .governance-summary div,
 .new-ui-shell #new-ui-library-graph-panel .detail-hint {
   color: var(--new-ui-text-muted);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-card label,
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-detail-rows b,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-card label,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-detail-rows b {
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-card label {
   color: color-mix(in srgb, var(--new-ui-text) 80%, var(--new-ui-text-muted));
 }
 
@@ -1703,10 +1704,42 @@
   font-size: 13px;
 }
 
+.slot-graph-filter-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.slot-graph-filter-head .section-heading {
+  min-width: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 34px;
+}
+
+.slot-graph-filter-preset {
+  min-width: 0;
+}
+
+.slot-graph-filter-preset .slot-graph-mode-select {
+  width: 100%;
+  line-height: 1.2;
+}
+
 .slot-graph-filter-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.slot-graph-filter-grid.governance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .slot-graph-filter-grid label {
@@ -1714,8 +1747,21 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
-  padding: 5px 9px;
+  padding: 6px 10px;
   cursor: pointer;
+}
+
+.slot-graph-filter-grid.governance label {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 34px;
+}
+
+.slot-graph-filter-grid label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slot-graph-filter-grid label.active {
@@ -1724,9 +1770,25 @@
 }
 
 .slot-graph-filter-grid input {
+  flex: 0 0 auto;
   width: 13px;
   height: 13px;
   margin: 0;
+}
+
+@media (max-width: 1180px) {
+  .slot-graph-filter-head {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .slot-graph-filter-preset {
+    width: 100%;
+  }
+
+  .slot-graph-filter-grid.governance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .plan-overlay-option i {
@@ -1766,75 +1828,6 @@
   color: var(--text);
 }
 
-.slot-graph-inspector > strong {
-  color: var(--text);
-}
-
-.slot-graph-inspector > span,
-.slot-graph-inspector > small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.slot-graph-inspector-head {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.slot-graph-inspector-head > span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.slot-graph-inspector-head strong {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.slot-graph-inspector-head div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.slot-graph-inspector-head small {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-soft);
-  font-size: 11px;
-  padding: 3px 7px;
-}
-
-.slot-graph-inspector-summary,
-.slot-graph-inspector-section {
-  display: grid;
-  gap: 8px;
-}
-
-.slot-graph-inspector-summary > div {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr);
-  gap: 8px;
-}
-
-.slot-graph-inspector-summary b {
-  color: var(--text-soft);
-  font-size: 12px;
-}
-
-.slot-graph-inspector-summary span {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  text-overflow: ellipsis;
-}
-
 .slot-graph-inspector-more {
   display: grid;
   gap: 8px;
@@ -1844,30 +1837,6 @@
   color: var(--text-soft);
   cursor: pointer;
   font-size: 12px;
-}
-
-.slot-graph-detail-rows {
-  display: grid;
-  gap: 8px;
-}
-
-.slot-graph-detail-rows div {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr);
-  gap: 8px;
-}
-
-.slot-graph-detail-rows b {
-  color: var(--text-soft);
-  font-size: 12px;
-}
-
-.slot-graph-detail-rows span {
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-  text-overflow: ellipsis;
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label {
@@ -1883,24 +1852,22 @@
   color: var(--new-ui-text);
 }
 
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head > span,
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more summary {
   color: var(--new-ui-text-muted);
 }
 
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head strong {
-  color: var(--new-ui-text);
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector {
+  min-height: 260px;
 }
 
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-head small {
-  border-color: color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
-  color: var(--new-ui-text-muted);
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector-more {
+  display: grid;
+  gap: 8px;
 }
 
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-summary b {
-  color: color-mix(in srgb, var(--new-ui-text) 80%, var(--new-ui-text-muted));
-}
-
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-summary span {
-  color: var(--new-ui-text-muted);
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more .new-ui-analysis-workflow-detail-list,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector-more .new-ui-analysis-workflow-detail-list {
+  margin-top: 8px;
 }

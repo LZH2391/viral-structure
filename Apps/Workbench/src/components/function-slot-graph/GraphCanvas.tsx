@@ -32,6 +32,7 @@ import {
 type ViewportTransform = { x: number; y: number; k: number };
 
 const ZOOM_ANIMATION_MS = 140;
+const POINTER_DRAG_THRESHOLD_PX = 3;
 
 export function GraphCanvas({
   active = true,
@@ -242,9 +243,17 @@ export function GraphCanvas({
   const startNodeDrag = (event: PointerEvent<SVGGElement>, node: SimNode) => {
     event.stopPropagation();
     const point = graphPoint(event.clientX, event.clientY);
-    dragRef.current = { kind: "node", nodeId: node.id, dx: node.x - point.x, dy: node.y - point.y, moved: false };
+    dragRef.current = {
+      kind: "node",
+      nodeId: node.id,
+      dx: node.x - point.x,
+      dy: node.y - point.y,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      selectFocusDepth: 0,
+      moved: false,
+    };
     svgRef.current?.setPointerCapture(event.pointerId);
-    onSelectNode(node.id);
   };
 
   const startPan = (event: PointerEvent<SVGSVGElement>) => {
@@ -265,6 +274,8 @@ export function GraphCanvas({
     const drag = dragRef.current;
     if (!drag) return;
     if (drag.kind === "node") {
+      const moved = drag.moved || Math.hypot(event.clientX - drag.clientX, event.clientY - drag.clientY) > POINTER_DRAG_THRESHOLD_PX;
+      if (!moved) return;
       const point = graphPoint(event.clientX, event.clientY);
       const draggedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
       if (draggedNode) {
@@ -275,7 +286,7 @@ export function GraphCanvas({
         draggedNode.vx = 0;
         draggedNode.vy = 0;
       }
-      dragRef.current = { ...drag, moved: true };
+      dragRef.current = { ...drag, moved };
       if (active && !fixedLayout) simulationRef.current?.alphaTarget(0.18).restart();
       setNodes(nodesRef.current.map((node) => ({ ...node })));
       return;
@@ -316,6 +327,7 @@ export function GraphCanvas({
     }
     if (drag?.kind === "node" && !drag.moved) {
       const clickedNode = nodesRef.current.find((node) => node.id === drag.nodeId);
+      onSelectNode(drag.nodeId);
       if (clickedNode?.type === "libraryItem" || clickedNode?.type === "sourceSample") setPinnedPreviewNodeId(clickedNode.id);
     }
     if (drag?.kind === "pan" && !drag.moved) onSelectNode(null);

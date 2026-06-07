@@ -1,15 +1,39 @@
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
 import { shortId } from "../../utils/format";
 import { formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
-import type { GraphFiltersState } from "./types";
+import type { GovernanceFilterPresetMode, GraphFiltersState } from "./types";
 
-export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | "governance" | "planTrace"; filters: GraphFiltersState; onChange: (filters: GraphFiltersState) => void }) {
+export function GraphFilters({
+  mode,
+  filters,
+  governancePresetMode,
+  onGovernancePresetModeChange,
+  onChange,
+}: {
+  mode: "structure" | "governance" | "planTrace";
+  filters: GraphFiltersState;
+  governancePresetMode?: GovernanceFilterPresetMode;
+  onGovernancePresetModeChange?: (mode: GovernanceFilterPresetMode) => void;
+  onChange: (filters: GraphFiltersState) => void;
+}) {
   const update = (key: keyof GraphFiltersState) => onChange({ ...filters, [key]: !filters[key] });
   const options = filterOptions(mode);
   return (
     <section className="slot-graph-card">
-      <div className="section-heading">{mode === "governance" ? "治理层显示" : mode === "planTrace" ? "溯源层显示" : "结构层显示"}</div>
-      <div className="slot-graph-filter-grid">
+      <div className="slot-graph-filter-head">
+        <div className="section-heading">{mode === "governance" ? "治理层显示" : mode === "planTrace" ? "溯源层显示" : "结构层显示"}</div>
+        {mode === "governance" && governancePresetMode && onGovernancePresetModeChange ? (
+          <div className="slot-graph-filter-preset">
+            <select className="slot-graph-mode-select" aria-label="治理层显示模式" value={governancePresetMode} onChange={(event) => onGovernancePresetModeChange(event.target.value as GovernanceFilterPresetMode)}>
+              <option value="light">轻量模式</option>
+              <option value="default">默认模式</option>
+              <option value="full">全量模式</option>
+              <option value="custom">自定义模式</option>
+            </select>
+          </div>
+        ) : null}
+      </div>
+      <div className={`slot-graph-filter-grid ${mode === "governance" ? "governance" : ""}`.trim()}>
         {options.map((option) => (
           <label key={option.key} className={filters[option.key] ? "active" : ""}>
             <input type="checkbox" checked={filters[option.key]} onChange={() => update(option.key)} />
@@ -22,41 +46,52 @@ export function GraphFilters({ mode, filters, onChange }: { mode: "structure" | 
 }
 
 export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | null; graph: FunctionSlotLibraryGraph | null }) {
-  if (!node) return <section className="slot-graph-card"><EmptyState text="选择节点查看详情" /></section>;
+  if (!node) {
+    return (
+      <section className="new-ui-analysis-workflow-detail slot-graph-inspector" aria-label="图谱节点详情区域" data-node-type="empty">
+        <div className="new-ui-analysis-workflow-detail-header">
+          <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
+          <span className="new-ui-analysis-workflow-detail-status">待选择</span>
+        </div>
+        <div className="new-ui-analysis-workflow-detail-content">
+          <div className="new-ui-analysis-workflow-detail-empty">选择节点查看关键字段。</div>
+        </div>
+      </section>
+    );
+  }
   const rows = nodeDetailRows(node);
   const primaryRows = rows.slice(0, 6);
   const secondaryRows = rows.slice(6);
   return (
-    <section className="slot-graph-card slot-graph-inspector">
-      <div className="slot-graph-inspector-head">
-        <span>当前节点</span>
-        <strong title={graphNodeDisplayLabel(node)}>{graphNodeDisplayLabel(node)}</strong>
-        <div>
-          <small>{nodeTypeLabel(node.type)}</small>
-          <small>{node.group}</small>
-        </div>
+    <section className="new-ui-analysis-workflow-detail slot-graph-inspector" aria-label={`${graphNodeDisplayLabel(node)}详情区域`} data-node-type={node.type}>
+      <div className="new-ui-analysis-workflow-detail-header">
+        <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
+        <span className="new-ui-analysis-workflow-detail-status">{nodeTypeLabel(node.type)}</span>
       </div>
-      <div className="slot-graph-inspector-summary">
-        <DetailRow label="节点类型" value={node.type} />
-        <DetailRow label="所属分组" value={node.group} />
-        {graph ? <DetailRow label="artifact" value={shortId(graph.artifactId)} /> : null}
-      </div>
-      {primaryRows.length ? (
-        <div className="slot-graph-inspector-section">
-          <div className="section-heading">关键字段</div>
-          <div className="slot-graph-detail-rows">
-            {primaryRows.map(([label, value]) => <DetailRow key={label} label={label} value={value} />)}
-          </div>
+      <div className="new-ui-analysis-workflow-detail-content">
+        <div className="new-ui-analysis-workflow-detail-summary">
+          <strong title={graphNodeDisplayLabel(node)}>{graphNodeDisplayLabel(node)}</strong>
+          <p>{nodeSummary(node)}</p>
         </div>
-      ) : null}
-      {secondaryRows.length ? (
-        <details className="slot-graph-inspector-more">
-          <summary>更多字段</summary>
-          <div className="slot-graph-detail-rows">
-            {secondaryRows.map(([label, value]) => <DetailRow key={label} label={label} value={value} />)}
+        <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${graphNodeDisplayLabel(node)}基础字段`}>
+          <DetailMetric label="节点类型" value={node.type} />
+          <DetailMetric label="所属分组" value={node.group} />
+          {graph ? <DetailMetric label="artifact" value={shortId(graph.artifactId)} /> : null}
+        </div>
+        {primaryRows.length ? (
+          <div className="new-ui-analysis-workflow-detail-list" aria-label="关键字段">
+            {primaryRows.map(([label, value]) => <DetailCard key={label} label={label} value={value} />)}
           </div>
-        </details>
-      ) : null}
+        ) : null}
+        {secondaryRows.length ? (
+          <details className="slot-graph-inspector-more">
+            <summary>更多字段</summary>
+            <div className="new-ui-analysis-workflow-detail-list">
+              {secondaryRows.map(([label, value]) => <DetailCard key={label} label={label} value={value} />)}
+            </div>
+          </details>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -70,13 +105,32 @@ export function EmptyState({ text }: { text: string }) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: unknown }) {
+function DetailMetric({ label, value }: { label: string; value: unknown }) {
   return (
-    <div>
-      <b>{label}</b>
-      <span>{formatDetailValue(value)}</span>
+    <div className="new-ui-analysis-workflow-detail-metric">
+      <span>{label}</span>
+      <strong>{formatDetailValue(value)}</strong>
     </div>
   );
+}
+
+function DetailCard({ label, value }: { label: string; value: unknown }) {
+  return (
+    <article className="new-ui-analysis-workflow-detail-card">
+      <strong>{label}</strong>
+      <p>{formatDetailValue(value)}</p>
+    </article>
+  );
+}
+
+function nodeSummary(node: FunctionSlotGraphNode) {
+  if (node.type === "libraryItem" || node.type === "sourceSample") return "样例来源节点，承载当前图谱的上游样例与追踪信息。";
+  if (node.type === "slotInstance") return "槽位实例，描述该样例中的功能任务、前后状态与来源镜头。";
+  if (node.type === "atomInstance") return "原子实例，描述槽位下可复用的脚本、节奏或包装结构。";
+  if (node.type === "binding") return "绑定关系，说明槽位和原子之间的组合约束与断裂风险。";
+  if (node.type === "confirmedPlan") return "确定方案节点，用于回溯方案产物与库结构证据链。";
+  if (node.type.startsWith("traced")) return "溯源证据节点，用于标记方案片段对应的库内证据。";
+  return "图谱节点，展示当前选中结构单元的关键字段和来源信息。";
 }
 
 function filterOptions(mode: "structure" | "governance" | "planTrace"): Array<{ key: keyof GraphFiltersState; label: string }> {

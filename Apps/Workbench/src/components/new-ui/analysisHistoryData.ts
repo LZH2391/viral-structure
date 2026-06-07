@@ -51,6 +51,7 @@ export function withLoadedAnalysisHistoryArtifact(item: AnalysisHistoryItem, art
     traceId: analysisTraceField(latestAnalysis, "traceId") ?? artifact.trace?.traceId ?? item.traceId,
     runId: analysisTraceField(latestAnalysis, "runId") ?? artifact.trace?.runId ?? item.runId,
     stageId: analysisTraceField(latestAnalysis, "stageId") ?? artifact.trace?.stageId ?? item.stageId,
+    workflowKey: resolveLoadedWorkflowKey(item, artifact),
     durationSeconds: positiveNumber(artifact.metadata.durationSeconds) ?? item.durationSeconds,
     width: positiveNumber(artifact.metadata.width) ?? item.width,
     height: positiveNumber(artifact.metadata.height) ?? item.height,
@@ -128,6 +129,12 @@ function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "结�
   if (isHistoryItemRunning(item)) return "分析中";
   if (item.isIncomplete) return "未完成";
   return "未完成";
+}
+
+function resolveLoadedWorkflowKey(item: AnalysisHistoryItem, artifact: SampleArtifact) {
+  if (artifact.functionSlotAtomizationAnalysis) return "full-analysis";
+  if (artifact.userMaterialPack && !artifact.functionSlotAtomizationAnalysis) return "material-recognition";
+  return item.workflowKey ?? null;
 }
 
 function isIncompleteAnalysisArtifact(artifact: SampleArtifact) {
