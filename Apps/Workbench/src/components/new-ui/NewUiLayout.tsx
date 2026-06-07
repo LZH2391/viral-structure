@@ -37,7 +37,6 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
-const LEFT_SUBNAV_COLLAPSE_DELAY_MS = 240;
 const PANE_TRANSITION_GUARD_MS = 420;
 const analysisOpenRequestResolvers = new Map<number, (result: { ok: boolean; message?: string | null }) => void>();
 
@@ -71,13 +70,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const layoutRef = useRef<HTMLElement>(null);
   const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
   const paneResizeGuardTimerRef = useRef<number | null>(null);
-  const leftSubnavCollapseTimerRef = useRef<number | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
-  const [leftSidebarExpandedSection, setLeftSidebarExpandedSection] = useState<NewUiSectionId | null>(null);
-  const [leftSidebarCloseRequest, setLeftSidebarCloseRequest] = useState(0);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [analysisOpenRequest, setAnalysisOpenRequest] = useState<AnalysisOpenRequest>(null);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
@@ -181,29 +177,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, [showLibraryGraphPanel, startPaneTransitionGuard]);
 
   const toggleLeftCollapsed = () => {
-    if (leftSubnavCollapseTimerRef.current) {
-      window.clearTimeout(leftSubnavCollapseTimerRef.current);
-      leftSubnavCollapseTimerRef.current = null;
-    }
-
-    if (leftCollapsed) {
-      startPaneTransitionGuard();
-      setLeftCollapsed(false);
-      return;
-    }
-
-    if (leftSidebarExpandedSection) {
-      setLeftSidebarCloseRequest((value) => value + 1);
-      leftSubnavCollapseTimerRef.current = window.setTimeout(() => {
-        leftSubnavCollapseTimerRef.current = null;
-        startPaneTransitionGuard();
-        setLeftCollapsed(true);
-      }, LEFT_SUBNAV_COLLAPSE_DELAY_MS);
-      return;
-    }
-
-    startPaneTransitionGuard();
-    setLeftCollapsed(true);
+    setLeftCollapsed((value) => !value);
   };
 
   const toggleRightCollapsed = () => {
@@ -212,9 +186,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   };
 
   const expandLeftSidebar = useCallback(() => {
-    startPaneTransitionGuard();
     setLeftCollapsed(false);
-  }, [startPaneTransitionGuard]);
+  }, []);
 
   const openStructureGraphFromAnalysis = useCallback((target: { artifactId: string; title: string }) => {
     startPaneTransitionGuard();
@@ -263,7 +236,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   useEffect(() => {
     return () => {
       if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
-      if (leftSubnavCollapseTimerRef.current) window.clearTimeout(leftSubnavCollapseTimerRef.current);
     };
   }, []);
 
@@ -280,25 +252,22 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             activeLibraryChild={activeLibraryChild}
             activeSection={activeSection}
             collapsed={leftCollapsed}
-            closeRequest={leftSidebarCloseRequest}
             onLibraryChildChange={handleSidebarLibraryChildChange}
-            onExpandedSectionChange={setLeftSidebarExpandedSection}
             onRequestExpandSidebar={expandLeftSidebar}
             onSectionChange={handleSidebarSectionChange}
           />
         </div>
         <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
       </aside>
-      {!leftCollapsed ? (
-        <SplitResizeHandle
-          className="new-ui-resize-handle new-ui-resize-handle-left"
-          label="调整左栏宽度"
-          orientation="vertical"
-          onResizeStart={(event) => layout.startResize("left", event)}
-          onReset={() => layout.resetSize("left")}
-          onNudge={(direction) => layout.nudgeSize("left", direction)}
-        />
-      ) : <div className="new-ui-resize-spacer" aria-hidden="true" />}
+      <SplitResizeHandle
+        className={`new-ui-resize-handle new-ui-resize-handle-left ${leftCollapsed ? "is-collapsed" : ""}`.trim()}
+        disabled={leftCollapsed}
+        label="调整左栏宽度"
+        orientation="vertical"
+        onResizeStart={(event) => layout.startResize("left", event)}
+        onReset={() => layout.resetSize("left")}
+        onNudge={(direction) => layout.nudgeSize("left", direction)}
+      />
       <main
         className="new-ui-center"
         aria-label={`${resolveSectionLabel(activeSection, activeLibraryChild)}工作区`}
@@ -402,9 +371,7 @@ function writeStoredLayoutPreference(preference: NewUiThreePanePreference) {
 type SidebarNavProps = {
   activeLibraryChild: NewUiLibraryChildId;
   activeSection: NewUiSectionId;
-  closeRequest: number;
   collapsed: boolean;
-  onExpandedSectionChange: (section: NewUiSectionId | null) => void;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
   onRequestExpandSidebar: () => void;
   onSectionChange: (section: NewUiSectionId) => void;
@@ -413,9 +380,7 @@ type SidebarNavProps = {
 function SidebarNav({
   activeLibraryChild,
   activeSection,
-  closeRequest,
   collapsed,
-  onExpandedSectionChange,
   onLibraryChildChange,
   onRequestExpandSidebar,
   onSectionChange,
@@ -425,14 +390,6 @@ function SidebarNav({
   useEffect(() => {
     if (collapsed) setExpandedSection(null);
   }, [collapsed]);
-
-  useEffect(() => {
-    if (closeRequest > 0) setExpandedSection(null);
-  }, [closeRequest]);
-
-  useEffect(() => {
-    onExpandedSectionChange(expandedSection);
-  }, [expandedSection, onExpandedSectionChange]);
 
   return (
     <nav className="new-ui-sidebar-nav" aria-label="新 UI 功能导航">
@@ -547,12 +504,12 @@ function SectionIcon({ section }: SectionIconProps) {
   if (section === "library") {
     return (
       <svg viewBox="0 0 24 24" focusable="false">
-        <path className="new-ui-section-icon-main" d="M6.2 6.4h11.6a1.6 1.6 0 0 1 1.6 1.6v8a1.6 1.6 0 0 1-1.6 1.6H6.2A1.6 1.6 0 0 1 4.6 16V8a1.6 1.6 0 0 1 1.6-1.6Z" />
-        <path className="new-ui-section-icon-detail new-ui-section-icon-library-top" d="M7.2 4.2h9.6" />
-        <path className="new-ui-section-icon-detail new-ui-section-icon-library-bottom" d="M7.2 19.8h9.6" />
-        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 10h7.8" />
-        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8.1 13.8h5.1" />
-        <path className="new-ui-section-icon-alt new-ui-section-icon-library-handle" d="M9.2 10.1h5.6" />
+        <path className="new-ui-section-icon-main" d="M6.1 6.2h11.8a1.7 1.7 0 0 1 1.7 1.7v8.2a1.7 1.7 0 0 1-1.7 1.7H6.1a1.7 1.7 0 0 1-1.7-1.7V7.9a1.7 1.7 0 0 1 1.7-1.7Z" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-top" d="M7.1 4.6h9.8" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-bottom" d="M7.1 19.4h9.8" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8 10.1h8" />
+        <path className="new-ui-section-icon-detail new-ui-section-icon-library-row" d="M8 13.9h5.4" />
+        <path className="new-ui-section-icon-alt new-ui-section-icon-library-handle" d="M9 10.1h6" />
         <path className="new-ui-section-icon-alt new-ui-section-icon-library-drawer" d="M7.4 13.9h9.2" />
       </svg>
     );

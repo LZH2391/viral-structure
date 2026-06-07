@@ -370,6 +370,106 @@ test("terminal graph focus can traverse governance nodes to the governance root"
   assert.ok(path.reversedEdges.has("edge:pattern:variant"));
 });
 
+test("terminal graph focus aggregates atom archetype pattern evidence without crossing unrelated branches", () => {
+  const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const nodes = [
+    { id: "arch", type: "atomArchetype", label: "arch", group: "script", data: {} },
+    { id: "pattern:a", type: "atomPattern", label: "pattern A", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
+    { id: "pattern:b", type: "atomPattern", label: "pattern B", group: "script", data: { sourceVariantIds: ["sample_a::script::S001", "sample_c::script::S004"] } },
+    { id: "variant:a", type: "sourceVariant", label: "variant A", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+    { id: "sample:a", type: "sourceSample", label: "sample A", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    { id: "variant:c", type: "sourceVariant", label: "variant C", group: "sourceVariant", data: { variantId: "sample_c::script::S004" } },
+    { id: "sample:c", type: "sourceSample", label: "sample C", group: "sourceSample", data: { sampleVideoId: "sample_c" } },
+    { id: "otherArch", type: "atomArchetype", label: "other arch", group: "script", data: {} },
+    { id: "otherPattern", type: "atomPattern", label: "other pattern", group: "script", data: { sourceVariantIds: ["sample_b::script::S002"] } },
+    { id: "variant:b", type: "sourceVariant", label: "variant B", group: "sourceVariant", data: { variantId: "sample_b::script::S002" } },
+    { id: "sample:b", type: "sourceSample", label: "sample B", group: "sourceSample", data: { sampleVideoId: "sample_b" } },
+  ];
+  const edges = [
+    { id: "edge:arch:patternA", source: "arch", target: "pattern:a", type: "atom_archetype_to_pattern" },
+    { id: "edge:arch:patternB", source: "arch", target: "pattern:b", type: "atom_archetype_to_pattern" },
+    { id: "edge:patternA:variantA", source: "pattern:a", target: "variant:a", type: "pattern_to_source_variant" },
+    { id: "edge:patternB:variantA", source: "pattern:b", target: "variant:a", type: "pattern_to_source_variant" },
+    { id: "edge:variantA:sampleA", source: "variant:a", target: "sample:a", type: "source_variant_to_sample" },
+    { id: "edge:patternB:variantC", source: "pattern:b", target: "variant:c", type: "pattern_to_source_variant" },
+    { id: "edge:variantC:sampleC", source: "variant:c", target: "sample:c", type: "source_variant_to_sample" },
+    { id: "edge:otherArch:otherPattern", source: "otherArch", target: "otherPattern", type: "atom_archetype_to_pattern" },
+    { id: "edge:otherPattern:variantB", source: "otherPattern", target: "variant:b", type: "pattern_to_source_variant" },
+    { id: "edge:variantB:sampleB", source: "variant:b", target: "sample:b", type: "source_variant_to_sample" },
+  ];
+
+  const path = terminalShortestGraphFocus("arch", nodes, edges);
+
+  assert.ok(path.nodes.has("arch"));
+  assert.ok(path.nodes.has("pattern:a"));
+  assert.ok(path.nodes.has("pattern:b"));
+  assert.ok(path.nodes.has("variant:a"));
+  assert.ok(path.nodes.has("sample:a"));
+  assert.ok(path.nodes.has("variant:c"));
+  assert.ok(path.nodes.has("sample:c"));
+  assert.equal(path.nodes.has("otherArch"), false);
+  assert.equal(path.nodes.has("otherPattern"), false);
+  assert.equal(path.nodes.has("variant:b"), false);
+  assert.equal(path.nodes.has("sample:b"), false);
+  assert.ok(path.edges.has("edge:arch:patternA"));
+  assert.ok(path.edges.has("edge:arch:patternB"));
+  assert.ok(path.edges.has("edge:patternA:variantA"));
+  assert.ok(path.edges.has("edge:patternB:variantA"));
+  assert.ok(path.edges.has("edge:variantA:sampleA"));
+  assert.ok(path.edges.has("edge:patternB:variantC"));
+  assert.ok(path.edges.has("edge:variantC:sampleC"));
+  assert.equal(path.edges.has("edge:otherArch:otherPattern"), false);
+  assert.equal(path.edges.has("edge:otherPattern:variantB"), false);
+  assert.equal(path.edges.has("edge:variantB:sampleB"), false);
+});
+
+test("terminal graph focus limits atom pattern slot paths to matching variant evidence", () => {
+  const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const nodes = [
+    { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
+    { id: "family:related", type: "slotFamily", label: "related family", group: "slot", data: {} },
+    { id: "family:unrelated", type: "slotFamily", label: "unrelated family", group: "slot", data: {} },
+    { id: "subtype:related", type: "slotSubtype", label: "related subtype", group: "slot", data: { sourceAtomVariantIds: ["sample_a::script::S001"] } },
+    { id: "subtype:unrelated", type: "slotSubtype", label: "unrelated subtype", group: "slot", data: { sourceAtomVariantIds: ["sample_b::script::S002"] } },
+    { id: "arch", type: "atomArchetype", label: "arch", group: "script", data: {} },
+    { id: "pattern", type: "atomPattern", label: "pattern", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
+    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+  ];
+  const edges = [
+    { id: "edge:root:relatedFamily", source: "root", target: "family:related", type: "governance_contains_family" },
+    { id: "edge:root:unrelatedFamily", source: "root", target: "family:unrelated", type: "governance_contains_family" },
+    { id: "edge:relatedFamily:subtype", source: "family:related", target: "subtype:related", type: "family_to_subtype" },
+    { id: "edge:unrelatedFamily:subtype", source: "family:unrelated", target: "subtype:unrelated", type: "family_to_subtype" },
+    { id: "edge:relatedSubtype:arch", source: "subtype:related", target: "arch", type: "subtype_to_atom_archetype" },
+    { id: "edge:unrelatedSubtype:arch", source: "subtype:unrelated", target: "arch", type: "subtype_to_atom_archetype" },
+    { id: "edge:arch:pattern", source: "arch", target: "pattern", type: "atom_archetype_to_pattern" },
+    { id: "edge:pattern:variant", source: "pattern", target: "variant", type: "pattern_to_source_variant" },
+    { id: "edge:variant:sample", source: "variant", target: "sample", type: "source_variant_to_sample" },
+  ];
+
+  const path = terminalShortestGraphFocus("pattern", nodes, edges);
+
+  assert.ok(path.nodes.has("pattern"));
+  assert.ok(path.nodes.has("variant"));
+  assert.ok(path.nodes.has("sample"));
+  assert.ok(path.nodes.has("arch"));
+  assert.ok(path.nodes.has("subtype:related"));
+  assert.ok(path.nodes.has("family:related"));
+  assert.ok(path.nodes.has("root"));
+  assert.equal(path.nodes.has("subtype:unrelated"), false);
+  assert.equal(path.nodes.has("family:unrelated"), false);
+  assert.ok(path.edges.has("edge:arch:pattern"));
+  assert.ok(path.edges.has("edge:relatedSubtype:arch"));
+  assert.ok(path.edges.has("edge:relatedFamily:subtype"));
+  assert.ok(path.edges.has("edge:root:relatedFamily"));
+  assert.ok(path.edges.has("edge:pattern:variant"));
+  assert.ok(path.edges.has("edge:variant:sample"));
+  assert.equal(path.edges.has("edge:unrelatedSubtype:arch"), false);
+  assert.equal(path.edges.has("edge:unrelatedFamily:subtype"), false);
+  assert.equal(path.edges.has("edge:root:unrelatedFamily"), false);
+});
+
 test("confirmed plan trace positions keep source samples outside source variants", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const filters = allFilters();

@@ -2,6 +2,7 @@ import type { KeyboardEvent, PointerEvent } from "react";
 
 type SplitResizeHandleProps = {
   className: string;
+  disabled?: boolean;
   label: string;
   orientation: "horizontal" | "vertical";
   onResizeStart: (event: PointerEvent<HTMLElement>) => void;
@@ -9,8 +10,9 @@ type SplitResizeHandleProps = {
   onNudge: (direction: number) => void;
 };
 
-export function SplitResizeHandle({ className, label, orientation, onResizeStart, onReset, onNudge }: SplitResizeHandleProps) {
+export function SplitResizeHandle({ className, disabled = false, label, orientation, onResizeStart, onReset, onNudge }: SplitResizeHandleProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (disabled) return;
     const direction = nudgeDirection(orientation, event.key);
     if (!direction) return;
     event.preventDefault();
@@ -21,12 +23,13 @@ export function SplitResizeHandle({ className, label, orientation, onResizeStart
     <div
       className={className}
       role="separator"
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
       aria-label={label}
+      aria-disabled={disabled}
       aria-orientation={orientation}
       title={`${label}，双击重置`}
-      onPointerDown={onResizeStart}
-      onDoubleClick={onReset}
+      onPointerDown={disabled ? undefined : onResizeStart}
+      onDoubleClick={disabled ? undefined : onReset}
       onKeyDown={handleKeyDown}
     />
   );
