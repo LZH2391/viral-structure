@@ -881,9 +881,15 @@
   padding-top: 12px;
 }
 
-.slot-graph-panel *,
-.slot-graph-inspector * {
-  max-width: 100%;
+.slot-graph-panel,
+.slot-graph-panel > *,
+.slot-graph-inspector,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-content,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-summary,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-list,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-card,
+.slot-graph-inspector .new-ui-analysis-workflow-detail-metric {
+  min-width: 0;
 }
 
 .slot-graph-inspector .new-ui-analysis-workflow-detail-card p,
@@ -892,6 +898,10 @@
 .slot-graph-inspector .new-ui-analysis-workflow-detail-summary p {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.slot-graph-inspector .new-ui-analysis-workflow-detail-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .slot-graph-stage {
@@ -2230,17 +2240,6 @@
   color: var(--text);
 }
 
-.slot-graph-inspector-more {
-  display: grid;
-  gap: 8px;
-}
-
-.slot-graph-inspector-more summary {
-  color: var(--text-soft);
-  cursor: pointer;
-  font-size: 12px;
-}
-
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-filter-grid label {
   border-color: color-mix(in srgb, var(--new-ui-control-border) 56%, transparent);
   color: var(--new-ui-text-muted);
@@ -2254,22 +2253,7 @@
   color: var(--new-ui-text);
 }
 
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more summary {
-  color: var(--new-ui-text-muted);
-}
-
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector,
 .new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector {
   min-height: 260px;
-}
-
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector-more {
-  display: grid;
-  gap: 8px;
-}
-
-.new-ui-shell .slot-graph-shell.embedded .slot-graph-inspector-more .new-ui-analysis-workflow-detail-list,
-.new-ui-shell #new-ui-library-graph-panel .slot-graph-inspector-more .new-ui-analysis-workflow-detail-list {
-  margin-top: 8px;
 }

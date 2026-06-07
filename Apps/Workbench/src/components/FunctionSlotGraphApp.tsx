@@ -612,7 +612,7 @@ function GraphSourcePanel({
             return (
               <button key={item.artifactId} type="button" className={`library-item slot-graph-source-item ${selectedArtifactId === item.artifactId ? "active" : ""}`} title={sourceVideoName} onClick={() => onSelectArtifact(item.artifactId)}>
                 <strong className="slot-graph-source-title">{sourceVideoName}</strong>
-                <small>{item.counts?.slotCount ?? 0} slots / {item.counts?.atomCount ?? 0} atoms / trace {shortId(item.traceId ?? "")}</small>
+                <small>{item.counts?.slotCount ?? 0} 槽位 / {item.counts?.atomCount ?? 0} 原子变体 / trace {shortId(item.traceId ?? "")}</small>
               </button>
             );
           }) : <EmptyState text="暂无 FunctionSlotLibrary" />}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
-import { formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
+import { detailFieldDisplayLabel, formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
 import type { GovernanceFilterPresetMode, GraphFiltersState } from "./types";
 
 const GOVERNANCE_PRESET_OPTIONS: Array<{ value: GovernanceFilterPresetMode; label: string }> = [
@@ -111,9 +111,7 @@ export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | n
       </section>
     );
   }
-  const rows = nodeDetailRows(node);
-  const primaryRows = rows.slice(0, 6);
-  const secondaryRows = rows.slice(6);
+  const rows = nodeDetailRows(node, graph);
   return (
     <section className="new-ui-analysis-workflow-detail slot-graph-inspector" aria-label={`${graphNodeDisplayLabel(node)}详情区域`} data-node-type={node.type}>
       <div className="new-ui-analysis-workflow-detail-header">
@@ -126,21 +124,13 @@ export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | n
           <p>{nodeSummary(node)}</p>
         </div>
         <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${graphNodeDisplayLabel(node)}基础字段`}>
-          <DetailMetric label="节点类型" value={node.type} />
-          <DetailMetric label="所属分组" value={node.group} />
+          <DetailMetric label="节点类型" value={nodeTypeDisplayValue(node.type)} />
+          <DetailMetric label="所属分组" value={nodeGroupDisplayValue(node.group)} />
         </div>
-        {primaryRows.length ? (
+        {rows.length ? (
           <div className="new-ui-analysis-workflow-detail-list" aria-label="关键字段">
-            {primaryRows.map(([label, value]) => <DetailCard key={label} label={label} value={value} />)}
+            {rows.map(([label, value]) => <DetailCard key={label} label={label} value={value} />)}
           </div>
-        ) : null}
-        {secondaryRows.length ? (
-          <details className="slot-graph-inspector-more">
-            <summary>更多字段</summary>
-            <div className="new-ui-analysis-workflow-detail-list">
-              {secondaryRows.map(([label, value]) => <DetailCard key={label} label={label} value={value} />)}
-            </div>
-          </details>
         ) : null}
       </div>
     </section>
@@ -168,7 +158,7 @@ function DetailMetric({ label, value }: { label: string; value: unknown }) {
 function DetailCard({ label, value }: { label: string; value: unknown }) {
   return (
     <article className="new-ui-analysis-workflow-detail-card">
-      <strong>{label}</strong>
+      <strong>{detailFieldDisplayLabel(label)}</strong>
       <p>{formatDetailValue(value)}</p>
     </article>
   );
@@ -177,7 +167,7 @@ function DetailCard({ label, value }: { label: string; value: unknown }) {
 function nodeSummary(node: FunctionSlotGraphNode) {
   if (node.type === "libraryItem" || node.type === "sourceSample") return "样例来源节点，承载当前图谱的上游样例与追踪信息。";
   if (node.type === "slotInstance") return "槽位实例，描述该样例中的功能任务、前后状态与来源镜头。";
-  if (node.type === "atomInstance") return "原子实例，描述槽位下可复用的脚本、节奏或包装结构。";
+  if (node.type === "atomInstance") return "原子变体，描述槽位下可复用的脚本、节奏或包装结构。";
   if (node.type === "binding") return "绑定关系，说明槽位和原子之间的组合约束与断裂风险。";
   if (node.type === "confirmedPlan") return "确定方案节点，用于回溯方案产物与库结构证据链。";
   if (node.type.startsWith("traced")) return "溯源证据节点，用于标记方案片段对应的库内证据。";
@@ -188,7 +178,7 @@ function filterOptions(mode: "structure" | "governance" | "planTrace"): Array<{ 
   if (mode === "planTrace") {
     return [
       { key: "slotSubtype", label: "槽位子型" },
-      { key: "sourceVariant", label: "来源原子" },
+      { key: "sourceVariant", label: "原子变体" },
     ];
   }
   if (mode === "governance") {
@@ -198,7 +188,7 @@ function filterOptions(mode: "structure" | "governance" | "planTrace"): Array<{ 
       { key: "slotSubtype", label: "槽位子型" },
       { key: "atomArchetype", label: "原子原型" },
       { key: "atomPattern", label: "原子模式" },
-      { key: "sourceVariant", label: "来源变体" },
+      { key: "sourceVariant", label: "原子变体" },
       { key: "binding", label: "绑定治理" },
       { key: "rule", label: "规则策略" },
       { key: "bundle", label: "组合包" },
@@ -207,7 +197,7 @@ function filterOptions(mode: "structure" | "governance" | "planTrace"): Array<{ 
   }
   return [
     { key: "slot", label: "槽位实例" },
-    { key: "atom", label: "原子实例" },
+    { key: "atom", label: "原子变体" },
     { key: "binding", label: "绑定关系" },
   ];
 }
@@ -221,4 +211,53 @@ function nodeTypeLabel(type: string) {
   if (normalized.includes("rule") || normalized.includes("policy")) return "规则";
   if (normalized.includes("plan")) return "方案";
   return "节点";
+}
+
+function nodeTypeDisplayValue(type: string) {
+  const labels: Record<string, string> = {
+    libraryItem: "样例",
+    sourceSample: "样例",
+    sourceVariant: "原子变体",
+    slotInstance: "槽位实例",
+    atomInstance: "原子变体",
+    binding: "绑定关系",
+    slotConcept: "槽位概念",
+    governanceRoot: "治理库",
+    slotFamily: "槽位家族",
+    slotArchetype: "槽位原型",
+    slotSubtype: "槽位子型",
+    atomArchetype: "原子原型",
+    atomPattern: "原子模式",
+    bindingPattern: "绑定模式",
+    bindingPrinciple: "绑定原则",
+    rulePattern: "规则模式",
+    recompositionPolicy: "重组策略",
+    implementationBundle: "实现组合",
+    unmappedVariant: "待治理项",
+    confirmedPlan: "确定方案",
+    tracedSlot: "溯源槽位",
+    tracedAtom: "溯源原子",
+  };
+  return labels[type] ?? type;
+}
+
+function nodeGroupDisplayValue(group: string) {
+  const labels: Record<string, string> = {
+    library: "样例库",
+    sourceSample: "样例",
+    sourceVariant: "原子变体",
+    slot: "槽位",
+    atom: "原子变体",
+    script: "脚本",
+    rhythm: "节奏",
+    packaging: "包装",
+    binding: "绑定",
+    rule: "规则",
+    policy: "策略",
+    governance: "治理",
+    bundle: "组合",
+    unmapped: "待治理",
+    plan: "方案",
+  };
+  return labels[group] ?? group;
 }

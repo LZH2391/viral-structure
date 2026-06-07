@@ -274,7 +274,7 @@ test("confirmed plan trace graph shows plan to subtype to source variant to sour
   assert.ok(path.edges.has("edge:variant"));
 });
 
-test("terminal graph focus uses shortest real paths to governance library nodes and samples", () => {
+test("terminal graph focus reaches governance root and nearest samples", () => {
   const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const nodes = [
     { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
@@ -284,6 +284,7 @@ test("terminal graph focus uses shortest real paths to governance library nodes 
     { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: {} },
     { id: "sampleChild", type: "sourceVariant", label: "sample child", group: "sourceVariant", data: {} },
     { id: "longVariant", type: "sourceVariant", label: "long variant", group: "sourceVariant", data: {} },
+    { id: "longMid", type: "sourceVariant", label: "long mid", group: "sourceVariant", data: {} },
     { id: "longSample", type: "sourceSample", label: "long sample", group: "sourceSample", data: {} },
     { id: "otherFamily", type: "slotFamily", label: "other family", group: "slot", data: {} },
   ];
@@ -292,34 +293,41 @@ test("terminal graph focus uses shortest real paths to governance library nodes 
     { id: "edge:family:center", source: "family", target: "center", type: "family_to_subtype" },
     { id: "edge:center:variant", source: "center", target: "variant", type: "pattern_to_source_variant" },
     { id: "edge:variant:sample", source: "variant", target: "sample", type: "source_variant_to_sample" },
+    { id: "edge:sample:center", source: "sample", target: "center", type: "source_sample_slot_variant_to_subtype" },
     { id: "edge:sample:child", source: "sample", target: "sampleChild", type: "sample_child_should_stop" },
     { id: "edge:center:longVariant", source: "center", target: "longVariant", type: "pattern_to_source_variant" },
-    { id: "edge:longVariant:longSample", source: "longVariant", target: "longSample", type: "source_variant_to_sample" },
+    { id: "edge:longVariant:longMid", source: "longVariant", target: "longMid", type: "pattern_to_source_variant" },
+    { id: "edge:longMid:longSample", source: "longMid", target: "longSample", type: "source_variant_to_sample" },
     { id: "edge:root:otherFamily", source: "root", target: "otherFamily", type: "governance_contains_family" },
   ];
 
   const path = terminalShortestGraphFocus("center", nodes, edges);
 
   assert.ok(path.nodes.has("center"));
-  assert.ok(path.nodes.has("variant"));
+  assert.ok(path.nodes.has("family"));
+  assert.ok(path.nodes.has("root"));
   assert.ok(path.nodes.has("sample"));
-  assert.ok(path.nodes.has("longVariant"));
-  assert.ok(path.nodes.has("longSample"));
-  assert.equal(path.nodes.has("family"), false);
-  assert.equal(path.nodes.has("root"), false);
+  assert.ok(path.nodes.has("variant"));
+  assert.equal(path.nodes.has("longVariant"), false);
+  assert.equal(path.nodes.has("longMid"), false);
+  assert.equal(path.nodes.has("longSample"), false);
   assert.equal(path.nodes.has("sampleChild"), false);
   assert.equal(path.nodes.has("otherFamily"), false);
+  assert.ok(path.edges.has("edge:root:family"));
+  assert.ok(path.edges.has("edge:family:center"));
   assert.ok(path.edges.has("edge:center:variant"));
   assert.ok(path.edges.has("edge:variant:sample"));
-  assert.ok(path.edges.has("edge:center:longVariant"));
-  assert.ok(path.edges.has("edge:longVariant:longSample"));
-  assert.equal(path.edges.has("edge:root:family"), false);
-  assert.equal(path.edges.has("edge:family:center"), false);
+  assert.equal(path.edges.has("edge:sample:center"), false);
+  assert.equal(path.edges.has("edge:center:longVariant"), false);
+  assert.equal(path.edges.has("edge:longVariant:longMid"), false);
+  assert.equal(path.edges.has("edge:longMid:longSample"), false);
   assert.equal(path.edges.has("edge:sample:child"), false);
   assert.equal(path.edges.has("edge:root:otherFamily"), false);
+  assert.ok(path.reversedEdges.has("edge:root:family"));
+  assert.ok(path.reversedEdges.has("edge:family:center"));
 });
 
-test("terminal graph focus connects an evidence node to nearest governance and sample terminals", () => {
+test("terminal graph focus can traverse governance nodes to the governance root", () => {
   const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const nodes = [
     { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
@@ -340,12 +348,13 @@ test("terminal graph focus connects an evidence node to nearest governance and s
   assert.ok(path.nodes.has("variant"));
   assert.ok(path.nodes.has("pattern"));
   assert.ok(path.nodes.has("sample"));
-  assert.equal(path.nodes.has("root"), false);
+  assert.ok(path.nodes.has("root"));
   assert.equal(path.nodes.has("otherPattern"), false);
   assert.ok(path.edges.has("edge:pattern:variant"));
   assert.ok(path.edges.has("edge:variant:sample"));
-  assert.equal(path.edges.has("edge:root:pattern"), false);
+  assert.ok(path.edges.has("edge:root:pattern"));
   assert.equal(path.edges.has("edge:root:otherPattern"), false);
+  assert.ok(path.reversedEdges.has("edge:root:pattern"));
   assert.ok(path.reversedEdges.has("edge:pattern:variant"));
 });
 

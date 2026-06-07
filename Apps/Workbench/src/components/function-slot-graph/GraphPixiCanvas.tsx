@@ -898,10 +898,6 @@ function GraphPixiCanvasInner({
       showHover(hitNode.id);
       return;
     }
-    if (!shouldForcePan) {
-      setSelectedFocusDepth(CLICK_FOCUS_DEPTH);
-      onSelectNode(null);
-    }
     closePreview();
     dragRef.current = {
       kind: "pan",

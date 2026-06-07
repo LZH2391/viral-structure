@@ -67,22 +67,22 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
   if (mode === "governance") {
     return (
       <div className="slot-graph-legend">
-        <span><i className="legend-slot" />Slot governance</span>
-        <span><i className="legend-script" />Script atom</span>
-        <span><i className="legend-rhythm" />Rhythm atom</span>
-        <span><i className="legend-packaging" />Packaging atom</span>
-        <span><i className="legend-binding" />Binding</span>
-        <span><i className="legend-rule" />Rule / Policy</span>
-        <span><i className="legend-unmapped" />Unmapped evidence</span>
+        <span><i className="legend-slot" />槽位治理</span>
+        <span><i className="legend-script" />脚本原子</span>
+        <span><i className="legend-rhythm" />节奏原子</span>
+        <span><i className="legend-packaging" />包装原子</span>
+        <span><i className="legend-binding" />绑定关系</span>
+        <span><i className="legend-rule" />规则策略</span>
+        <span><i className="legend-unmapped" />待治理证据</span>
       </div>
     );
   }
   if (mode === "planTrace") {
     return (
       <div className="slot-graph-legend">
-        <span><i className="legend-plan" />Confirmed plan</span>
-        <span><i className="legend-subtype" />Subtype</span>
-        <span><i className="legend-source-variant" />SourceVariantAtom</span>
+        <span><i className="legend-plan" />确定方案</span>
+        <span><i className="legend-subtype" />槽位子型</span>
+        <span><i className="legend-source-variant" />原子变体</span>
         <span><i className="legend-source-sample" />样例</span>
       </div>
     );
@@ -90,10 +90,10 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
   return (
     <div className="slot-graph-legend">
       <span><i className="legend-library" />样例</span>
-      <span><i className="legend-slot" />Slot</span>
-      <span><i className="legend-script" />Script</span>
-      <span><i className="legend-rhythm" />Rhythm</span>
-      <span><i className="legend-packaging" />Packaging</span>
+      <span><i className="legend-slot" />槽位</span>
+      <span><i className="legend-script" />脚本原子</span>
+      <span><i className="legend-rhythm" />节奏原子</span>
+      <span><i className="legend-packaging" />包装原子</span>
     </div>
   );
 }
@@ -103,5 +103,5 @@ export function governanceSummaryText(graph: FunctionSlotLibraryGraph) {
 }
 
 export function planTraceSummaryText(graph: FunctionSlotLibraryGraph) {
-  return `${graph.summary.planCount ?? 0} plans / ${graph.summary.slotCount ?? 0} slots / ${graph.summary.atomCount ?? 0} atoms`;
+  return `${graph.summary.planCount ?? 0} 个方案 / ${graph.summary.slotCount ?? 0} 个槽位 / ${graph.summary.atomCount ?? 0} 个原子变体`;
 }
