@@ -394,7 +394,7 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
 });
 
-test("function slot governance graph builder uses one node per atom layer", () => {
+test("function slot governance graph builder connects slot subtypes directly to atom patterns", () => {
   const graph = buildFunctionSlotGovernanceGraph({
     ...buildGovernance(),
     slotSubtypes: [
@@ -408,14 +408,12 @@ test("function slot governance graph builder uses one node per atom layer", () =
     ],
   });
 
-  const layerNodes = graph.nodes.filter((node) => node.type === "atomLayer" && node.group === "script");
-  const layerEdges = graph.edges.filter((edge) => edge.type === "atom_layer_to_archetype");
-
-  assert.deepEqual(layerNodes.map((node) => node.id), ["atomLayer:script"]);
-  assert.equal(layerNodes[0].data.subtypeId, undefined);
-  assert.equal(layerEdges.length, 1);
-  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomLayer:script"));
-  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomLayer:script"));
+  assert.equal(graph.nodes.some((node) => node.type === "atomLayer"), false);
+  assert.equal(graph.edges.some((edge) => edge.type.includes("atom_layer")), false);
+  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "subtype_to_atom_pattern"));
+  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:SCRIPT_pattern_b" && edge.type === "subtype_to_atom_pattern"));
+  assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "atom_archetype_to_pattern"));
+  assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_b" && edge.type === "atom_archetype_to_pattern"));
 });
 
 test("function slot governance graph builder shows source snapshot samples without requiring atom patterns", () => {

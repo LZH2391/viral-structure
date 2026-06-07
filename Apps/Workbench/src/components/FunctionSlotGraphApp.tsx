@@ -46,6 +46,9 @@ type FunctionSlotGraphWorkspaceProps = {
   fixedMode?: GraphMode;
 };
 
+type GraphsByMode = Record<GraphMode, FunctionSlotLibraryGraph | null>;
+type LoadingByMode = Record<GraphMode, boolean>;
+
 export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
@@ -53,10 +56,11 @@ export function FunctionSlotGraphApp() {
 export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode }: FunctionSlotGraphWorkspaceProps = {}) {
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
-  const [graph, setGraph] = useState<FunctionSlotLibraryGraph | null>(null);
+  const [graphsByMode, setGraphsByMode] = useState<GraphsByMode>({ structure: null, governance: null, planTrace: null });
+  const [loadingByMode, setLoadingByMode] = useState<LoadingByMode>({ structure: false, governance: false, planTrace: false });
   const [uncontrolledMode, setUncontrolledMode] = useState<GraphMode>(fixedMode ?? "structure");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [status, setStatus] = useState("读取结构图谱");
+  const [status, setStatus] = useState("");
   const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
     structure: STRUCTURE_FILTERS,
     governance: GOVERNANCE_FILTERS,
@@ -88,26 +92,38 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const setMode = useCallback((nextMode: GraphMode) => {
     if (!fixedMode) setUncontrolledMode(nextMode);
   }, [fixedMode]);
+  const setModeGraph = useCallback((targetMode: GraphMode, nextGraph: FunctionSlotLibraryGraph | null) => {
+    setGraphsByMode((current) => ({ ...current, [targetMode]: nextGraph }));
+  }, []);
+  const setModeLoading = useCallback((targetMode: GraphMode, loading: boolean) => {
+    setLoadingByMode((current) => current[targetMode] === loading ? current : { ...current, [targetMode]: loading });
+  }, []);
+
+  useEffect(() => {
+    setSelectedNodeId(null);
+  }, [mode]);
 
   useEffect(() => {
     if (!active) return undefined;
     if (mode !== "structure") return;
     if (!selectedArtifactId) {
-      setGraph(null);
+      setModeGraph("structure", null);
       return undefined;
     }
     let cancelled = false;
-    setStatus("读取图谱");
-    setGraph(null);
+    setSelectedNodeId(null);
+    setModeLoading("structure", true);
     getFunctionSlotLibraryGraph(selectedArtifactId)
       .then((nextGraph) => {
         if (cancelled) return;
-        setGraph(nextGraph);
-        setSelectedNodeId(nextGraph.nodes.find((node) => node.type === "libraryItem")?.id ?? nextGraph.nodes[0]?.id ?? null);
+        setModeGraph("structure", nextGraph);
         setStatus("已同步");
       })
       .catch((error) => {
-        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取图谱失败");
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "图谱同步失败");
+      })
+      .finally(() => {
+        if (!cancelled) setModeLoading("structure", false);
       });
     return () => {
       cancelled = true;
@@ -118,17 +134,19 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     if (!active) return undefined;
     if (mode !== "governance") return;
     let cancelled = false;
-    setStatus("读取语义治理图");
-    setGraph(null);
     setSelectedNodeId(null);
+    setModeLoading("governance", true);
     getFunctionSlotGovernanceGraph()
       .then((nextGraph) => {
         if (cancelled) return;
-        setGraph(nextGraph);
+        setModeGraph("governance", nextGraph);
         setStatus("已同步");
       })
       .catch((error) => {
-        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取语义治理图失败");
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "语义治理同步失败");
+      })
+      .finally(() => {
+        if (!cancelled) setModeLoading("governance", false);
       });
     return () => {
       cancelled = true;
@@ -139,18 +157,20 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     if (!active) return undefined;
     if (mode !== "planTrace") return;
     let cancelled = false;
-    setStatus("读取确定方案溯源");
-    setGraph(null);
     setSelectedNodeId(null);
+    setModeLoading("planTrace", true);
     getFunctionSlotConfirmedPlanTraceGraph()
       .then((nextGraph) => {
         if (cancelled) return;
-        setGraph(nextGraph);
+        setModeGraph("planTrace", nextGraph);
         setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
         setStatus("已同步");
       })
       .catch((error) => {
-        if (!cancelled) setStatus(error instanceof Error ? error.message : "读取确定方案溯源失败");
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "确定方案溯源同步失败");
+      })
+      .finally(() => {
+        if (!cancelled) setModeLoading("planTrace", false);
       });
     return () => {
       cancelled = true;
@@ -161,13 +181,15 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     if (!active) return undefined;
     if (mode !== "planTrace") return undefined;
     const refreshTraceGraph = () => {
+      setModeLoading("planTrace", true);
       getFunctionSlotConfirmedPlanTraceGraph()
         .then((nextGraph) => {
-          setGraph(nextGraph);
+          setModeGraph("planTrace", nextGraph);
           setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
           setStatus("确定方案溯源已同步");
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => setModeLoading("planTrace", false));
     };
     window.addEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
     return () => window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
@@ -181,9 +203,17 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const setActiveLayoutMode = useCallback((nextLayoutMode: GovernanceLayoutMode) => {
     setLayoutModesByMode((current) => ({ ...current, [mode]: nextLayoutMode }));
   }, [mode]);
-  const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(graph, selectedPlanIds) : graph, [graph, mode, selectedPlanIds]);
+  const rawGraph = graphsByMode[mode];
+  const graph = mode === "structure" && rawGraph?.artifactId !== selectedArtifactId ? null : rawGraph;
+  const waitingForSelectedStructureGraph = mode === "structure" && Boolean(selectedArtifactId) && rawGraph?.artifactId !== selectedArtifactId;
+  const loadingGraph = loadingByMode[mode] || waitingForSelectedStructureGraph;
+  const renderedGraph = graph ?? (loadingGraph ? rawGraph : null);
+  const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(renderedGraph, selectedPlanIds) : renderedGraph, [renderedGraph, mode, selectedPlanIds]);
   const visible = useMemo(() => buildVisibleGraph(activeGraph, filters, null, governanceLayoutMode), [activeGraph, filters, governanceLayoutMode]);
-  const selectedNode = useMemo(() => visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null, [activeGraph, selectedNodeId, visible.nodes]);
+  const selectedNode = useMemo(() => {
+    if (!graph) return null;
+    return visible.nodes.find((node) => node.id === selectedNodeId) ?? activeGraph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  }, [activeGraph, graph, selectedNodeId, visible.nodes]);
 
   return (
     <div className={`slot-graph-shell ${embedded ? "embedded" : ""}`.trim()}>
@@ -234,7 +264,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
               <button className="primary-button" type="button" onClick={() => refresh().catch(() => undefined)}>
                 刷新
               </button>
-              <p>{status}</p>
+              {status ? <p>{status}</p> : null}
             </section>
           ) : (
             <>
@@ -281,8 +311,10 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         </aside>
         <section className="slot-graph-stage">
           {activeGraph ? (
-            <GraphPixiCanvas key={`pixi-${mode}-${governanceLayoutMode}`} active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={selectedNodeId} onSelectNode={setSelectedNodeId} />
-          ) : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
+            <>
+              <GraphPixiCanvas active={active} mode={mode} graph={activeGraph} visible={visible} layoutMode={governanceLayoutMode} selectedNodeId={graph ? selectedNodeId : null} onSelectNode={setSelectedNodeId} />
+            </>
+          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择左侧素材查看图谱"} />}
         </section>
         <aside className="slot-graph-panel">
           <GraphFilters mode={mode} filters={filters} onChange={setActiveFilters} />
@@ -309,6 +341,10 @@ function sourceHeading(mode: GraphMode) {
   if (mode === "governance") return "治理概览";
   if (mode === "planTrace") return "方案范围";
   return "样例来源";
+}
+
+function GraphLoadingState() {
+  return <div className="slot-graph-loading-state" aria-busy="true" />;
 }
 
 function GovernanceSummary({ graph }: { graph: FunctionSlotLibraryGraph | null }) {

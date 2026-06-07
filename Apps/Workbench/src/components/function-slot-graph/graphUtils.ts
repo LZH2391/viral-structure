@@ -55,10 +55,7 @@ const GOVERNANCE_LAYOUT_LEVELS: Array<{ types: string[]; columnSpacing: number }
 
 export function buildVisibleGraph(graph: FunctionSlotLibraryGraph | null, filters: GraphFiltersState, focusNodeId: string | null = null, governanceLayoutMode: GovernanceLayoutMode = "columns"): VisibleGraph {
   if (!graph) return { nodes: [], edges: [] };
-  const normalizedGraph = graph.schemaVersion === "function_slot_governance_graph.v1" ? withoutAtomLayerNodes(graph) : graph;
-  const projectedGraph = normalizedGraph.schemaVersion === "confirmed_plan_trace_graph.v1" && hasLegacyPlanTraceAtomNodes(normalizedGraph)
-    ? withoutAtomLayerNodes(withAtomLayerProjection(normalizedGraph))
-    : normalizedGraph;
+  const projectedGraph = graph;
   const visibleIds = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" ? visibleGovernanceNodeIds(projectedGraph, filters, focusNodeId) : null;
   const effectiveGovernanceEdges = projectedGraph.schemaVersion === "function_slot_governance_graph.v1" && visibleIds
     ? projectVisibleEdges(projectedGraph, visibleIds)
@@ -126,113 +123,6 @@ function sanitizeGraphId(value: unknown) {
   return String(value ?? "").replace(/[^A-Za-z0-9_.:-]/g, "_");
 }
 
-function withoutAtomLayerNodes(graph: FunctionSlotLibraryGraph): FunctionSlotLibraryGraph {
-  if (!graph.nodes.some((node) => node.type === "atomLayer")) return graph;
-  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
-  const incoming = new Map<string, FunctionSlotGraphEdge[]>();
-  const outgoing = new Map<string, FunctionSlotGraphEdge[]>();
-  for (const edge of graph.edges) {
-    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
-    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge]);
-  }
-  const edges: FunctionSlotGraphEdge[] = [];
-  for (const edge of graph.edges) {
-    const source = nodeById.get(edge.source);
-    const target = nodeById.get(edge.target);
-    if (source?.type === "atomLayer" || target?.type === "atomLayer") continue;
-    edges.push(edge);
-  }
-  for (const layer of graph.nodes.filter((node) => node.type === "atomLayer")) {
-    for (const sourceEdge of incoming.get(layer.id) ?? []) {
-      const source = nodeById.get(sourceEdge.source);
-      if (!source || source.type === "atomLayer") continue;
-      for (const targetEdge of outgoing.get(layer.id) ?? []) {
-        const target = nodeById.get(targetEdge.target);
-        if (!target || target.type === "atomLayer") continue;
-        edges.push({
-          id: graphId("edge", "projected_atom_layer", source.id, target.id),
-          source: source.id,
-          target: target.id,
-          type: projectedAtomLayerEdgeType(source, target),
-          label: targetEdge.label ?? sourceEdge.label,
-        });
-      }
-    }
-  }
-  return {
-    ...graph,
-    nodes: graph.nodes.filter((node) => node.type !== "atomLayer"),
-    edges: dedupeEdges(edges),
-  };
-}
-
-function projectedAtomLayerEdgeType(source: FunctionSlotGraphNode, target: FunctionSlotGraphNode) {
-  if (source.type === "slotSubtype" && target.type === "atomArchetype") return "subtype_to_atom_archetype";
-  if (source.type === "slotSubtype" && target.type === "atomPattern") return "subtype_to_atom_pattern";
-  return "projected_atom_layer";
-}
-
-function layerDisplayName(layer: unknown) {
-  if (layer === "script") return "脚本层";
-  if (layer === "rhythm") return "节奏层";
-  if (layer === "packaging") return "包装层";
-  return "Atom Layer";
-}
-
-function withAtomLayerProjection(graph: FunctionSlotLibraryGraph): FunctionSlotLibraryGraph {
-  if (graph.nodes.some((node) => node.type === "atomLayer")) return graph;
-  const nodes = [...graph.nodes];
-  const edges: FunctionSlotGraphEdge[] = [];
-  const nodeIds = new Set(nodes.map((node) => node.id));
-  const layerIds = new Map<string, string>();
-
-  const ensureLayer = (planId: string | null, layer: string | null) => {
-    const normalizedLayer = layer === "rhythm" || layer === "packaging" ? layer : "script";
-    const key = `${planId ?? "governance"}:${normalizedLayer}`;
-    const existing = layerIds.get(key);
-    if (existing) return existing;
-    const id = graphId("atomLayer", planId ?? graph.artifactId, normalizedLayer);
-    layerIds.set(key, id);
-    if (!nodeIds.has(id)) {
-      nodeIds.add(id);
-      nodes.push({
-        id,
-        type: "atomLayer",
-        label: layerDisplayName(normalizedLayer),
-        group: normalizedLayer,
-        data: {
-          planId,
-          layer: normalizedLayer,
-          virtual: true,
-        },
-      });
-    }
-    return id;
-  };
-
-  const atomParentEdgeTypes = new Set(["subtype_to_atom_archetype", "subtype_to_atom_pattern"]);
-  for (const edge of graph.edges) {
-    const source = graph.nodes.find((node) => node.id === edge.source);
-    const target = graph.nodes.find((node) => node.id === edge.target);
-    if (target?.type === "atomArchetype" || target?.type === "atomPattern") {
-      const planId = typeof target.data?.planId === "string" ? target.data.planId : null;
-      const layer = typeof target.data?.layer === "string" ? target.data.layer : target.group;
-      const layerId = ensureLayer(planId, layer);
-      if (atomParentEdgeTypes.has(edge.type)) {
-        edges.push({ ...edge, target: layerId, id: `${edge.id}:toLayer`, type: "subtype_to_atom_layer", label: layerDisplayName(layer) });
-        edges.push({ ...edge, source: layerId, id: `${edge.id}:fromLayer`, type: target.type === "atomArchetype" ? "atom_layer_to_archetype" : "atom_layer_to_pattern", label: target.type === "atomArchetype" ? "archetype" : "pattern" });
-        continue;
-      }
-      if (source?.type !== "atomLayer" && edge.type !== "atom_layer_to_pattern" && edge.type !== "atom_layer_to_archetype") {
-        edges.push({ ...edge, source: layerId, id: `${edge.id}:layerParent`, type: target.type === "atomArchetype" ? "atom_layer_to_archetype" : "atom_layer_to_pattern", label: edge.label ?? "pattern" });
-      }
-    }
-    edges.push(edge);
-  }
-
-  return { ...graph, nodes, edges: dedupeEdges(edges) };
-}
-
 function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Set<string>) {
   const edgeSignature = graph.edges.map((edge) => `${edge.id}:${edge.source}>${edge.target}:${edge.type}`).join("|");
   const visibleSignature = [...visibleNodeIds].sort().join("|");
@@ -267,10 +157,6 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   const result = dedupeEdges(edges);
   projectedEdgesCache.set(graph, { edgeSignature, visibleSignature, edges: result });
   return result;
-}
-
-function hasLegacyPlanTraceAtomNodes(graph: FunctionSlotLibraryGraph) {
-  return graph.nodes.some((node) => node.type === "atomArchetype" || node.type === "atomPattern");
 }
 
 function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>, sourceId: string, targetId: string) {
@@ -516,7 +402,7 @@ export function nodeDetailRows(node: FunctionSlotGraphNode): Array<[string, unkn
   if (node.type.startsWith("traced")) return [["planId", data.planId], ["evidence", data.evidence]];
   if (node.type === "slotInstance") return [["stableId", data.stableId], ["slotType", data.slotType], ["before", data.viewerStateBefore], ["after", data.viewerStateAfter], ["task", data.persuasionTask], ["shots", sourceShots(data.sourceRefs)]];
   if (node.type === "atomInstance") return [["atomId", data.atomId], ["atomType", data.atomType], ["slotId", data.slotId], ["function", data.function], ["claim/pace/proof", data.claimType ?? data.pace ?? data.proofType], ["shots", sourceShots(data.sourceRefs)]];
-  if (node.type === "binding") return [["bindingId", data.bindingId], ["type", data.bindingType], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
+  if (node.type === "binding") return [["bindingId", data.bindingId], ["type", bindingTypeDisplayLabel(node)], ["rule", data.rule], ["risk", data.riskIfBroken], ["confidence", data.confidence]];
   return Object.entries(data).slice(0, 8);
 }
 
@@ -658,6 +544,7 @@ function connectedGovernanceIds(graph: FunctionSlotLibraryGraph, nodeId: string,
 }
 
 function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
+  if (node.type === "atomLayer") return false;
   if (node.type === "unmappedVariant") return filters.unmapped;
   if (node.type === "sourceVariant") return filters.sourceVariant;
   if (node.type === "sourceSample") return true;
@@ -675,11 +562,12 @@ function governanceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFilter
 
 function planTraceFilterMatch(node: FunctionSlotGraphNode, filters: GraphFiltersState) {
   if (node.type === "confirmedPlan") return true;
+  if (node.type === "atomLayer") return false;
   if (node.type === "tracedSlot") return filters.slot;
   if (node.type === "slotSubtype") return filters.slotSubtype;
   if (node.type === "sourceVariant") return filters.sourceVariant && isSourceVariantAtom(node);
   if (node.type === "sourceSample") return true;
-  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomLayer" || node.type === "atomArchetype" || node.type === "atomPattern") return false;
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "atomArchetype" || node.type === "atomPattern") return false;
   if (node.type === "sourceExample") return false;
   return true;
 }
@@ -1255,7 +1143,7 @@ function isAtomLayoutLevel(types: string[]) {
 }
 
 function shouldParentBundleGovernanceLevel(types: string[]) {
-  return isAtomLayoutLevel(types) || (types.length === 1 && types[0] === "sourceSample");
+  return isAtomLayoutLevel(types);
 }
 
 function distributedAngle(index: number, count: number) {
@@ -1293,7 +1181,6 @@ function placeColumn(positions: Map<string, LayoutPosition>, nodes: FunctionSlot
 function edgeDistance(type: string) {
   if (type.includes("source_variant")) return 270;
   if (type === "plan_uses_slot_family") return 300;
-  if (type === "subtype_to_atom_archetype") return 285;
   if (type.includes("bundle")) return 250;
   if (type.includes("pattern")) return 245;
   if (type.includes("archetype")) return 270;
@@ -1365,17 +1252,33 @@ function shortLabel(node: FunctionSlotGraphNode) {
   if (node.type === "libraryItem") return "SourceSample";
   if (node.type === "slotInstance") return String(node.label ?? node.data.slotId ?? "").slice(0, 20);
   if (node.type === "atomInstance") return String(node.label ?? node.data.atomId ?? "").slice(0, 24);
-  if (node.type === "binding") return String(node.data.bindingId ?? node.label);
+  if (node.type === "binding") return bindingTypeDisplayLabel(node);
   if (node.type === "slotConcept") return "SlotConcept";
   return node.label;
 }
 
 export function graphNodeDisplayLabel(node: FunctionSlotGraphNode) {
   const fallback = node.type === "sourceSample" ? node.data?.sampleVideoId ?? "SourceSample" : node.id;
+  if (node.type === "binding") return bindingTypeDisplayLabel(node);
   const label = String(node.label ?? fallback);
   if (!isGovernanceNode(node)) return label;
   return cleanGovernanceDisplayLabel(label);
 }
+
+function bindingTypeDisplayLabel(node: FunctionSlotGraphNode) {
+  const type = String(node.data.bindingType ?? node.data.type ?? node.label ?? "").trim();
+  const label = BINDING_TYPE_LABELS[type] ?? type;
+  return label || "绑定关系";
+}
+
+const BINDING_TYPE_LABELS: Record<string, string> = {
+  sync: "同步",
+  support: "支撑",
+  require: "依赖",
+  substitute: "替换",
+  conflict: "冲突",
+  carryover: "承接",
+};
 
 function cleanGovernanceDisplayLabel(label: string) {
   const cleaned = label

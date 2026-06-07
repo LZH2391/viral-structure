@@ -318,13 +318,6 @@ function governanceName(sourceIndex, governanceId, fallback) {
   return firstText(sourceIndex.get(`${governanceId}::name`), fallback);
 }
 
-function layerDisplayName(layer) {
-  if (layer === "script") return "脚本层";
-  if (layer === "rhythm") return "节奏层";
-  if (layer === "packaging") return "包装层";
-  return firstText(layer, "Atom Layer");
-}
-
 function extractSourceAliasMap(display) {
   const map = new Map();
   const text = JSON.stringify(display ?? {});

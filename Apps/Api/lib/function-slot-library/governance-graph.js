@@ -41,15 +41,11 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   }
   for (const pattern of governance.atomPatterns ?? []) {
     pushGovernanceNode(nodes, "atomPattern", groupForAtomLayer(pattern.atomLayer), pattern);
+    if (pattern.parentAtomArchetype) {
+      pushEdge(edges, nodeId("atomArchetype", pattern.parentAtomArchetype), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
+    }
     for (const subtypeId of pattern.forSlotSubtypeIds ?? []) {
-      const layerId = pushAtomLayerNode(nodes, pattern.atomLayer);
-      pushEdge(edges, nodeId("slotSubtype", subtypeId), layerId, "subtype_to_atom_layer", groupForAtomLayer(pattern.atomLayer));
-      if (pattern.parentAtomArchetype) {
-        pushEdge(edges, layerId, nodeId("atomArchetype", pattern.parentAtomArchetype), "atom_layer_to_archetype", "archetype");
-        pushEdge(edges, nodeId("atomArchetype", pattern.parentAtomArchetype), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
-      } else {
-        pushEdge(edges, layerId, nodeId("atomPattern", pattern.id), "atom_layer_to_pattern", "pattern");
-      }
+      pushEdge(edges, nodeId("slotSubtype", subtypeId), nodeId("atomPattern", pattern.id), "subtype_to_atom_pattern", "pattern");
     }
   }
 
@@ -178,21 +174,6 @@ function pushGovernanceNode(nodes, type, group, item) {
   });
 }
 
-function pushAtomLayerNode(nodes, layer) {
-  const atomLayer = groupForAtomLayer(layer);
-  const id = nodeId("atomLayer", atomLayer);
-  pushNode(nodes, {
-    id,
-    type: "atomLayer",
-    label: layerDisplayName(atomLayer),
-    group: atomLayer,
-    data: {
-      layer: atomLayer,
-    },
-  });
-  return id;
-}
-
 function pushSourceSamplesFromSnapshot(nodes, edges, rootId, sourceSnapshot) {
   if (!Array.isArray(sourceSnapshot)) return;
   for (const sample of sourceSnapshot) {
@@ -301,13 +282,6 @@ function groupForAtomLayer(layer) {
   if (layer === "rhythm") return "rhythm";
   if (layer === "packaging") return "packaging";
   return "atom";
-}
-
-function layerDisplayName(layer) {
-  if (layer === "script") return "脚本层";
-  if (layer === "rhythm") return "节奏层";
-  if (layer === "packaging") return "包装层";
-  return "Atom Layer";
 }
 
 function pushNode(nodes, node) {

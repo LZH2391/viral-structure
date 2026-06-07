@@ -35,7 +35,6 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 ];
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
-const LIBRARY_GRAPH_MOUNT_DELAY_MS = 320;
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 
 type NewUiThreePanePreference = {
@@ -57,7 +56,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
-  const [libraryGraphMounted, setLibraryGraphMounted] = useState(false);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
@@ -92,21 +90,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   useEffect(() => {
     writeStoredLayoutPreference({ leftCollapsed });
   }, [leftCollapsed]);
-
-  useEffect(() => {
-    if (!active || activeSection !== "library") {
-      setLibraryGraphMounted(false);
-      return undefined;
-    }
-    let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
-      if (!cancelled) setLibraryGraphMounted(true);
-    }, LIBRARY_GRAPH_MOUNT_DELAY_MS);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [active, activeSection, activeLibraryChild]);
 
   useEffect(() => {
     if (!analysisWorkflowRevealKey) {
@@ -201,7 +184,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           <AnalysisHome onDetailStateChange={handleAnalysisDetailStateChange} timelineSelectionClearRequest={timelineSelectionClearRequest} />
         </div>
         <div className="new-ui-center-section" hidden={activeSection !== "library"} aria-hidden={activeSection !== "library"}>
-          {activeSection === "library" && libraryGraphMounted ? <FunctionSlotGraphWorkspace embedded active={active} fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
+          {activeSection === "library" ? <FunctionSlotGraphWorkspace embedded active={active} fixedMode={libraryChildToGraphMode(activeLibraryChild)} /> : null}
         </div>
       </main>
       {!rightCollapsed ? (

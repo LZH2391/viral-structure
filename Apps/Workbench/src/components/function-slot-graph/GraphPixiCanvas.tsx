@@ -63,6 +63,10 @@ const FOCUS_TRANSITION_MS = 160;
 const HIT_GRID_CELL_SIZE = 96;
 const MIN_ZOOM = 0.8;
 const MAX_ZOOM = 5;
+const FIT_TARGET_WIDTH_RATIO = 0.58;
+const FIT_TARGET_HEIGHT_RATIO = 0.56;
+const FIT_WORLD_PADDING = 180;
+const FIT_MAX_INITIAL_ZOOM = 2.8;
 
 export function GraphPixiCanvas(props: {
   active?: boolean;
@@ -99,6 +103,7 @@ function GraphPixiCanvasInner({
   const layersRef = useRef<PixiLayers | null>(null);
   const graphObjectsRef = useRef<PixiGraphObjects>(createPixiGraphObjects());
   const graphThemeRef = useRef<GraphVisualTheme>(GRAPH_VISUAL_THEME);
+  const graphThemeKeyRef = useRef(graphVisualThemeKey(GRAPH_VISUAL_THEME));
   const nodesRef = useRef<SimNode[]>([]);
   const dragRef = useRef<DragState | null>(null);
   const forcePanRef = useRef(false);
@@ -124,6 +129,7 @@ function GraphPixiCanvasInner({
   const zoomAnimationStartedAtRef = useRef(0);
   const zoomStartViewportRef = useRef<ViewportTransform>(viewportRef.current);
   const zoomTargetViewportRef = useRef<ViewportTransform>(viewportRef.current);
+  const pendingViewportFitRef = useRef(true);
   const syncGraphObjectsRef = useRef<() => void>(() => undefined);
   const syncGraphLayoutRef = useRef<() => void>(() => undefined);
   const syncGraphLabelsRef = useRef<() => boolean>(() => false);
@@ -244,6 +250,19 @@ function GraphPixiCanvasInner({
   }, [active, fixedLayout, focusNodeId, focusedPath.edges, focusedPath.nodes, hoveredNodeId, mode, pinnedPreviewNodeId, selectedNodeId, visible.edges]);
 
   useEffect(() => {
+    pendingViewportFitRef.current = true;
+    setHoveredNodeId(null);
+    setPinnedPreviewNodeId(null);
+    dragRef.current = null;
+    if (hoverOutTimerRef.current) {
+      window.clearTimeout(hoverOutTimerRef.current);
+      hoverOutTimerRef.current = null;
+    }
+    setResetToken((value) => value + 1);
+    scheduleDraw();
+  }, [graph.artifactId, layoutMode, mode]);
+
+  useEffect(() => {
     let disposed = false;
     let initialized = false;
     const host = hostRef.current;
@@ -321,9 +340,11 @@ function GraphPixiCanvasInner({
     const host = hostRef.current;
     const shell = host?.closest(".slot-graph-shell");
     const themeRoot = host?.closest(".new-ui-shell");
+    const canvas = canvasRef.current;
     const observer = new MutationObserver(() => syncGraphThemeRef.current());
     if (shell) observer.observe(shell, { attributes: true, attributeFilter: ["class", "style"] });
     if (themeRoot) observer.observe(themeRoot, { attributes: true, attributeFilter: ["data-theme", "class", "style"] });
+    if (canvas) observer.observe(canvas, { attributes: true, attributeFilter: ["class", "style"] });
     return () => observer.disconnect();
   }, [active]);
 
@@ -352,6 +373,14 @@ function GraphPixiCanvasInner({
     });
     const nextLinks: D3Link[] = visible.edges.map((edge) => ({ ...edge, source: edge.source, target: edge.target }));
     nodesRef.current = nextNodes;
+    if (pendingViewportFitRef.current) {
+      pendingViewportFitRef.current = false;
+      const nextViewport = fitGraphViewport(nextNodes, canvasSizeRef.current);
+      viewportRef.current = nextViewport;
+      setViewport(nextViewport);
+      zoomStartViewportRef.current = nextViewport;
+      zoomTargetViewportRef.current = nextViewport;
+    }
     markHitGridDirty();
     simulationRef.current?.stop();
     if (forceFrameRef.current) window.cancelAnimationFrame(forceFrameRef.current);
@@ -489,11 +518,17 @@ function GraphPixiCanvasInner({
     const host = hostRef.current;
     const tokenSource = canvasRef.current ?? host?.closest(".slot-graph-shell") ?? host;
     const nextTheme = readGraphVisualTheme(tokenSource);
+    const nextThemeKey = graphVisualThemeKey(nextTheme);
+    const themeChanged = graphThemeKeyRef.current !== nextThemeKey;
     graphThemeRef.current = nextTheme;
     stateRef.current = { ...stateRef.current, theme: nextTheme };
     if (layersRef.current) drawPixiBackground(layersRef.current.background, nextTheme);
-    destroyPixiGraphObjects(graphObjectsRef.current);
-    graphObjectsRef.current = createPixiGraphObjects();
+    if (themeChanged) {
+      stopPixiFocusTransition();
+      destroyPixiGraphObjects(graphObjectsRef.current);
+      graphObjectsRef.current = createPixiGraphObjects();
+      graphThemeKeyRef.current = nextThemeKey;
+    }
     scheduleDraw();
   };
   syncGraphThemeRef.current = syncGraphTheme;
@@ -598,7 +633,7 @@ function GraphPixiCanvasInner({
   const applyAnimatedViewport = (nextViewport: ViewportTransform) => {
     const previousZoom = viewportRef.current.k;
     viewportRef.current = nextViewport;
-    commitViewportState();
+    setViewport(nextViewport);
     applyViewportTransformRef.current();
     if (previousZoom !== nextViewport.k && syncGraphLabelsRef.current()) {
       schedulePreviewTick();
@@ -896,7 +931,8 @@ function GraphPixiCanvasInner({
 
   const resetView = () => {
     stopZoomAnimation();
-    const nextViewport = { x: 0, y: 0, k: 1 };
+    pendingViewportFitRef.current = false;
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current);
     setResetToken((value) => value + 1);
     animateViewportTo(nextViewport);
   };
@@ -993,6 +1029,49 @@ function stageTransform(size: { width: number; height: number }): StageTransform
   };
 }
 
+function fitGraphViewport(nodes: SimNode[], size: { width: number; height: number }): ViewportTransform {
+  if (!nodes.length) return { x: 0, y: 0, k: 1 };
+  const transform = stageTransform(size);
+  const bounds = graphBounds(nodes);
+  const baseWidth = Math.max(1, bounds.width * transform.scale);
+  const baseHeight = Math.max(1, bounds.height * transform.scale);
+  const targetWidth = Math.max(1, size.width * FIT_TARGET_WIDTH_RATIO);
+  const targetHeight = Math.max(1, size.height * FIT_TARGET_HEIGHT_RATIO);
+  const k = clamp(Math.min(targetWidth / baseWidth, targetHeight / baseHeight), 1, FIT_MAX_INITIAL_ZOOM);
+  return {
+    x: VIEWBOX.width / 2 - bounds.centerX * k,
+    y: VIEWBOX.height / 2 - bounds.centerY * k,
+    k,
+  };
+}
+
+function graphBounds(nodes: SimNode[]) {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const node of nodes) {
+    const radius = nodeRadius(node) + FIT_WORLD_PADDING;
+    minX = Math.min(minX, node.x - radius);
+    minY = Math.min(minY, node.y - radius);
+    maxX = Math.max(maxX, node.x + radius);
+    maxY = Math.max(maxY, node.y + radius);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return { centerX: VIEWBOX.width / 2, centerY: VIEWBOX.height / 2, width: VIEWBOX.width, height: VIEWBOX.height };
+  }
+  return {
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  };
+}
+
 function isSamplePreviewNode(node: SimNode | null) {
   return node?.type === "sourceSample" || node?.type === "libraryItem";
+}
+
+function graphVisualThemeKey(theme: GraphVisualTheme) {
+  return JSON.stringify(theme);
 }

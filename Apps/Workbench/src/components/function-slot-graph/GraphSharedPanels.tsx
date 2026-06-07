@@ -57,7 +57,9 @@ export function GraphLegend({ mode }: { mode: "structure" | "governance" | "plan
     return (
       <div className="slot-graph-legend">
         <span><i className="legend-slot" />Slot governance</span>
-        <span><i className="legend-script" />Atom pattern</span>
+        <span><i className="legend-script" />Script atom</span>
+        <span><i className="legend-rhythm" />Rhythm atom</span>
+        <span><i className="legend-packaging" />Packaging atom</span>
         <span><i className="legend-binding" />Binding</span>
         <span><i className="legend-rule" />Rule / Policy</span>
         <span><i className="legend-unmapped" />Unmapped evidence</span>

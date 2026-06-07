@@ -77,6 +77,9 @@ const SVG_LABEL_BASELINE_GAP = 14;
 const SVG_BASELINE_TO_TEXT_TOP_RATIO = 0.82;
 const SLOT_BADGE_FONT_SIZE = 14;
 const PLAN_BADGE_FONT_SIZE = 7;
+const TRACE_DISTANCE_FADE_MIN_LENGTH = 760;
+const TRACE_DISTANCE_FADE_NEAR_MAX = 200;
+const TRACE_DISTANCE_FADE_FAR_MAX = 760;
 
 export function createPixiGraphObjects(): PixiGraphObjects {
   return { edges: new Map(), nodes: new Map() };
@@ -85,7 +88,9 @@ export function createPixiGraphObjects(): PixiGraphObjects {
 export function destroyPixiGraphObjects(objects: PixiGraphObjects) {
   for (const edge of objects.edges.values()) edge.container.destroy({ children: true });
   for (const view of objects.nodes.values()) {
-    view.label?.destroy();
+    safeDestroyText(view.label);
+    safeDestroyText(view.slotBadgeText);
+    safeDestroyText(view.planBadgeText);
     view.occlusion.destroy();
     view.container.destroy({ children: true });
   }
@@ -156,7 +161,7 @@ export function syncPixiNodes(nodeOcclusionLayer: Container, nodeLayer: Containe
   const nodeIds = new Set(nodes.map((node) => node.id));
   for (const [nodeId, view] of objects.nodes.entries()) {
     if (nodeIds.has(nodeId)) continue;
-    view.label?.destroy();
+    safeDestroyText(view.label);
     view.label = null;
     view.occlusion.destroy();
     view.container.destroy({ children: true });
@@ -378,13 +383,14 @@ function syncEdgeGeometry(view: PixiEdgeView, x1: number, y1: number, x2: number
 
   const dashLength = style.dash ? Math.ceil(length / 12) * 12 : length;
   const dashKey = style.dash ? `${style.dash[0]}:${style.dash[1]}:${dashLength}` : "solid";
-  const lineKey = `${style.color}:${style.width}:${dashKey}`;
+  const distanceFadeKey = style.distanceFade ? `fade:${style.distanceFade.minAlpha}:${Math.round(length)}` : "plain";
+  const lineKey = `${style.color}:${style.width}:${dashKey}:${distanceFadeKey}`;
   if (view.lineKey !== lineKey) {
     view.line.clear();
-    drawLocalLine(view.line, dashLength, style);
+    drawLocalLine(view.line, style.distanceFade ? length : dashLength, style);
     view.lineKey = lineKey;
   }
-  view.line.scale.x = style.dash ? 1 : length;
+  view.line.scale.x = style.dash || style.distanceFade ? 1 : length;
   view.line.alpha = style.alpha;
 
   view.glow.visible = false;
@@ -497,7 +503,7 @@ function syncPlanBadge(view: PixiNodeView, node: SimNode, radius: number, theme:
 function syncNodeLabel(labelLayer: Container, view: PixiNodeView, node: SimNode, radius: number, opacity: number, style: GraphNodeDrawStyle) {
   if (opacity <= 0.01) {
     if (view.label) {
-      view.label.destroy();
+      safeDestroyText(view.label);
       view.label = null;
     }
     return;
@@ -529,6 +535,16 @@ function syncTextStyle(text: Text, style: TextStyleOptions, key: string) {
   if (textStyleKeys.get(text) === key) return;
   text.style = style;
   textStyleKeys.set(text, key);
+}
+
+function safeDestroyText(text: Text | null) {
+  if (!text) return;
+  text.removeFromParent();
+  try {
+    text.destroy();
+  } catch {
+    // Pixi can throw while returning canvas text textures during mode teardown.
+  }
 }
 
 function whiteTextStyle(fontSize: number, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): TextStyleOptions {
@@ -614,6 +630,10 @@ function isEdgeFocused(edge: FunctionSlotGraphEdge, state: PixiGraphRenderState)
 
 function drawLocalLine(graphics: Graphics, length: number, style: GraphStrokeStyle) {
   if (!style.dash) {
+    if (style.distanceFade) {
+      drawFadedLocalLineSegment(graphics, 0, length, length, style);
+      return;
+    }
     graphics.moveTo(0, 0).lineTo(1, 0).stroke({ color: style.color, alpha: 1, width: style.width });
     return;
   }
@@ -621,8 +641,34 @@ function drawLocalLine(graphics: Graphics, length: number, style: GraphStrokeSty
   if (!length) return;
   for (let cursor = 0; cursor < length; cursor += dash + gap) {
     const segmentEnd = Math.min(cursor + dash, length);
-    graphics.moveTo(cursor, 0).lineTo(segmentEnd, 0).stroke({ color: style.color, alpha: 1, width: style.width });
+    if (style.distanceFade) drawFadedLocalLineSegment(graphics, cursor, segmentEnd, length, style);
+    else graphics.moveTo(cursor, 0).lineTo(segmentEnd, 0).stroke({ color: style.color, alpha: 1, width: style.width });
   }
+}
+
+function drawFadedLocalLineSegment(graphics: Graphics, start: number, end: number, totalLength: number, style: GraphStrokeStyle) {
+  if (!style.distanceFade || end <= start) return;
+  const segmentCount = Math.max(1, Math.ceil((end - start) / 18));
+  for (let index = 0; index < segmentCount; index += 1) {
+    const segmentStart = start + ((end - start) * index) / segmentCount;
+    const segmentEnd = start + ((end - start) * (index + 1)) / segmentCount;
+    const midpoint = (segmentStart + segmentEnd) / 2;
+    graphics
+      .moveTo(segmentStart, 0)
+      .lineTo(segmentEnd, 0)
+      .stroke({ color: style.color, alpha: distanceFadeAlpha(midpoint, totalLength, style.distanceFade.minAlpha), width: style.width });
+  }
+}
+
+function distanceFadeAlpha(position: number, totalLength: number, minAlpha: number) {
+  if (totalLength <= TRACE_DISTANCE_FADE_MIN_LENGTH) return 1;
+  const distanceFromNode = Math.min(position, Math.max(0, totalLength - position));
+  const fullAlphaDistance = Math.min(TRACE_DISTANCE_FADE_NEAR_MAX, totalLength * 0.16);
+  const minAlphaDistance = Math.max(fullAlphaDistance + 1, Math.min(TRACE_DISTANCE_FADE_FAR_MAX, totalLength * 0.44));
+  if (distanceFromNode <= fullAlphaDistance) return 1;
+  if (distanceFromNode >= minAlphaDistance) return minAlpha;
+  const progress = (distanceFromNode - fullAlphaDistance) / (minAlphaDistance - fullAlphaDistance);
+  return 1 - progress * (1 - minAlpha);
 }
 
 function drawCircleStroke(graphics: Graphics, radius: number, color: number, alpha: number, width: number, dash?: [number, number]) {

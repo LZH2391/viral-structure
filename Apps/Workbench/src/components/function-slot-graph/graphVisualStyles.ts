@@ -9,6 +9,9 @@ export type GraphStrokeStyle = {
   alpha: number;
   width: number;
   dash?: [number, number];
+  distanceFade?: {
+    minAlpha: number;
+  };
   glow?: {
     color: number;
     alpha: number;
@@ -38,6 +41,11 @@ export type GraphNodeDrawStyle = {
 export type GraphVisualTheme = {
   canvas: {
     nodeOcclusionFill: number;
+  };
+  state: {
+    nodeMutedAlpha: number;
+    nodeFocusMutedAlpha: number;
+    edgeMutedOpacity: number;
   };
   edge: {
     default: number;
@@ -95,6 +103,11 @@ export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
   canvas: {
     nodeOcclusionFill: 0x121318,
   },
+  state: {
+    nodeMutedAlpha: 0.5,
+    nodeFocusMutedAlpha: 0.26,
+    edgeMutedOpacity: 0.14,
+  },
   edge: {
     default: 0x8a8a86,
     slot: 0x8fc89a,
@@ -150,6 +163,11 @@ export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
 const GRAPH_VISUAL_THEME_TOKEN_MAP = {
   canvas: {
     nodeOcclusionFill: "--slot-graph-node-occlusion-fill",
+  },
+  state: {
+    nodeMutedAlpha: "--slot-graph-node-muted-alpha",
+    nodeFocusMutedAlpha: "--slot-graph-node-focus-muted-alpha",
+    edgeMutedOpacity: "--slot-graph-edge-muted-opacity",
   },
   edge: {
     default: "--slot-graph-edge-default",
@@ -208,6 +226,11 @@ export function readGraphVisualTheme(element: Element | null): GraphVisualTheme 
   return {
     canvas: {
       nodeOcclusionFill: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.canvas.nodeOcclusionFill, cssColorToNumber(style.backgroundColor) ?? GRAPH_VISUAL_THEME.canvas.nodeOcclusionFill),
+    },
+    state: {
+      nodeMutedAlpha: readNumberToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.state.nodeMutedAlpha, GRAPH_VISUAL_THEME.state.nodeMutedAlpha),
+      nodeFocusMutedAlpha: readNumberToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.state.nodeFocusMutedAlpha, GRAPH_VISUAL_THEME.state.nodeFocusMutedAlpha),
+      edgeMutedOpacity: readNumberToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.state.edgeMutedOpacity, GRAPH_VISUAL_THEME.state.edgeMutedOpacity),
     },
     edge: {
       default: readColorToken(style, GRAPH_VISUAL_THEME_TOKEN_MAP.edge.default, GRAPH_VISUAL_THEME.edge.default),
@@ -356,6 +379,7 @@ export function isSlotSequenceNode(node: SimNode) {
 }
 
 export function nodeLayerClass(node: SimNode) {
+  if (node.type === "sourceVariant") return "";
   const layer = typeof node.data.layer === "string" ? node.data.layer : node.group;
   if (layer === "script" || layer === "rhythm" || layer === "packaging") return `node-layer-${layer}`;
   return "";
@@ -370,10 +394,12 @@ export function edgeLayerClass(source: SimNode, target: SimNode) {
 
 export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNode, target: SimNode, mode: GraphMode, focused: boolean, muted: boolean, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): GraphStrokeStyle {
   const classes = classSet(edgeClassTokens(edge.type, source, target, focused, muted));
+  const sourceTraceEdge = isSourceTraceEdge(classes);
   let stroke = rgba(theme.edge.default, 0.22);
   let opacity = 0.34;
   let width = 1.1;
   let dash: [number, number] | undefined;
+  let distanceFade: GraphStrokeStyle["distanceFade"] | undefined;
   let glow: GraphStrokeStyle["glow"] | undefined;
 
   if (classes.has("edge-slot_next") || classes.has("edge-slot_instance_of_concept")) {
@@ -394,7 +420,7 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
     stroke = rgba(theme.edge.plan, 0.78);
     width = 2.6;
   }
-  if (classes.has("edge-slot_traced_to_semantic") || classes.has("edge-subtype_to_atom_archetype")) {
+  if (classes.has("edge-slot_traced_to_semantic")) {
     stroke = rgba(theme.edge.semantic, 0.7);
     width = 2.3;
   }
@@ -408,8 +434,6 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   }
   if (
     classes.has("edge-subtype_to_atom_pattern")
-    || classes.has("edge-slot_uses_atom_layer")
-    || classes.has("edge-atom_layer_to_pattern")
     || classes.has("edge-atom_archetype_to_pattern")
   ) {
     width = 1.9;
@@ -418,12 +442,7 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
   if (classes.has("edge-layer-script")) stroke = rgba(theme.edge.script, 0.62);
   if (classes.has("edge-layer-rhythm")) stroke = rgba(theme.edge.rhythm, 0.62);
   if (classes.has("edge-layer-packaging")) stroke = rgba(theme.edge.packaging, 0.62);
-  if (
-    classes.has("edge-pattern_to_source_variant")
-    || classes.has("edge-source_variant_to_sample")
-    || classes.has("edge-traced_to_source_sample")
-    || classes.has("edge-traced_to_source_variant")
-  ) {
+  if (sourceTraceEdge) {
     stroke = rgba(theme.edge.sourceTrace, 0.5);
     width = 1.55;
     dash = [7, 7];
@@ -454,9 +473,10 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
       width = 1.7;
       dash = [5, 6];
     }
-    if (classes.has("muted")) opacity = 0.06;
+    if (classes.has("muted")) opacity = theme.state.edgeMutedOpacity;
   }
-  if (mode !== "planTrace" && classes.has("muted")) opacity = 0.12;
+  if (sourceTraceEdge && !focused) distanceFade = { minAlpha: 0.32 };
+  if (mode !== "planTrace" && classes.has("muted")) opacity = theme.state.edgeMutedOpacity;
   if (classes.has("focused")) {
     stroke = rgba(stroke.color, Math.max(stroke.alpha, 0.94));
     width = Math.max(width, 3);
@@ -471,10 +491,18 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
     alpha,
     width,
     dash,
+    distanceFade,
     glow,
     arrowColor: stroke.color,
     arrowAlpha: alpha,
   };
+}
+
+function isSourceTraceEdge(classes: Set<string>) {
+  return classes.has("edge-pattern_to_source_variant")
+    || classes.has("edge-source_variant_to_sample")
+    || classes.has("edge-traced_to_source_sample")
+    || classes.has("edge-traced_to_source_variant");
 }
 
 export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: boolean, selected: boolean, pinned: boolean, hovered: boolean, focusMuted = false, theme: GraphVisualTheme = GRAPH_VISUAL_THEME): GraphNodeDrawStyle {
@@ -498,15 +526,18 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     circleOpacity = 1;
   }
   if (pinned) glow = { color: theme.node.pinnedGlow, alpha: 0.16, radiusPad: 14 };
-  if (classes.has("focus-muted")) groupAlpha = mode === "governance" ? 0.22 : mode === "planTrace" ? 0.16 : 0.32;
-  else if (classes.has("muted")) groupAlpha = mode === "planTrace" ? 0.26 : 0.52;
+  if (classes.has("focus-muted")) groupAlpha = theme.state.nodeFocusMutedAlpha;
+  else if (classes.has("muted")) groupAlpha = theme.state.nodeMutedAlpha;
   if (classes.has("node-library")) {
     fill = theme.node.library;
+    circleOpacity = 1;
     glow = { color: theme.node.library, alpha: 0.12, radiusPad: 10 };
   }
   if (classes.has("node-slot")) {
     fill = theme.node.slot;
     circleOpacity = 1;
+    stroke = rgba(theme.node.slotFamilyStroke, 1);
+    strokeWidth = Math.max(strokeWidth, 1.8);
     glow = { color: theme.node.slot, alpha: 0.12, radiusPad: 8 };
   }
   if (classes.has("node-type-slotFamily")) {
@@ -542,32 +573,40 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
   }
   if (classes.has("node-slotReview")) {
     fill = theme.node.review;
+    circleOpacity = 1;
     glow = { color: theme.node.review, alpha: 0.12, radiusPad: 8 };
   }
   if (classes.has("node-script") || classes.has("node-layer-script")) {
     fill = theme.node.script;
+    circleOpacity = 1;
     stroke = rgba(theme.node.scriptStroke, 1);
     strokeWidth = 2;
     glow = { color: theme.node.scriptStroke, alpha: 0.1, radiusPad: mode === "planTrace" ? 9 : 8 };
   }
   if (classes.has("node-rhythm") || classes.has("node-layer-rhythm")) {
     fill = theme.node.rhythm;
+    circleOpacity = 1;
     stroke = rgba(theme.node.rhythmStroke, 1);
     strokeWidth = 2;
     glow = { color: theme.node.rhythmStroke, alpha: 0.1, radiusPad: mode === "planTrace" ? 9 : 8 };
   }
   if (classes.has("node-packaging") || classes.has("node-layer-packaging")) {
     fill = theme.node.packaging;
+    circleOpacity = 1;
     stroke = rgba(theme.node.packagingStroke, 1);
     strokeWidth = 2;
     glow = { color: theme.node.packagingStroke, alpha: 0.1, radiusPad: mode === "planTrace" ? 9 : 8 };
   }
   if (classes.has("node-concept")) {
     fill = theme.node.concept;
+    circleOpacity = 1;
     dash = [4, 3];
     glow = { color: theme.node.concept, alpha: 0.11, radiusPad: 8 };
   }
-  if (className.includes("node-binding")) fill = theme.node.binding;
+  if (className.includes("node-binding")) {
+    fill = theme.node.binding;
+    circleOpacity = 1;
+  }
   if (classes.has("node-governance") || classes.has("node-type-governanceRoot")) {
     fill = theme.node.governance;
     stroke = rgba(theme.node.governanceStroke, 0.96);
@@ -576,13 +615,18 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     glow = { color: theme.node.landmarkGlow, alpha: 0.1, radiusPad: 18 };
   }
   if (classes.has("node-type-governanceRoot")) labelFontSize = 12;
-  if (classes.has("node-policy") || classes.has("node-rule")) fill = theme.node.policy;
+  if (classes.has("node-policy") || classes.has("node-rule")) {
+    fill = theme.node.policy;
+    circleOpacity = 1;
+  }
   if (classes.has("node-bundle")) {
     fill = theme.node.bundle;
+    circleOpacity = 1;
     dash = [5, 3];
   }
   if (classes.has("node-unmapped") || classes.has("node-needReview")) {
     fill = theme.node.review;
+    circleOpacity = 1;
     glow = { color: theme.node.review, alpha: 0.11, radiusPad: 8 };
   }
   if (classes.has("node-sourceVariant")) {
@@ -590,7 +634,7 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     stroke = rgba(theme.edge.sourceTrace, 0.82);
     dash = [5, 4];
     strokeWidth = 1.8;
-    circleOpacity = 0.9;
+    circleOpacity = 1;
     labelFontSize = 12;
   }
   if (mode === "planTrace" && classes.has("node-sourceVariant")) {
@@ -601,21 +645,6 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     glow = { color: theme.edge.hierarchy, alpha: 0.08, radiusPad: 9 };
     circleOpacity = 1;
     labelFontSize = 11;
-  }
-  if (mode === "planTrace" && classes.has("node-sourceVariant") && classes.has("node-layer-script")) {
-    fill = theme.node.script;
-    stroke = rgba(theme.node.scriptStroke, 1);
-    glow = { color: theme.node.scriptStroke, alpha: 0.1, radiusPad: 9 };
-  }
-  if (mode === "planTrace" && classes.has("node-sourceVariant") && classes.has("node-layer-rhythm")) {
-    fill = theme.node.rhythm;
-    stroke = rgba(theme.node.rhythmStroke, 1);
-    glow = { color: theme.node.rhythmStroke, alpha: 0.1, radiusPad: 9 };
-  }
-  if (mode === "planTrace" && classes.has("node-sourceVariant") && classes.has("node-layer-packaging")) {
-    fill = theme.node.packaging;
-    stroke = rgba(theme.node.packagingStroke, 1);
-    glow = { color: theme.node.packagingStroke, alpha: 0.1, radiusPad: 9 };
   }
   if (classes.has("node-sourceSample")) {
     fill = theme.node.governance;
