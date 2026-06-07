@@ -345,8 +345,9 @@ export function terminalShortestGraphFocus(nodeId: string | null, graphNodes: Fu
   nodes.add(nodeId);
 
   const nodeById = new Map(graphNodes.map((node) => [node.id, node]));
-  addNearestTerminalPaths(nodeId, edges, (targetId) => nodeById.get(targetId)?.type === "governanceRoot", nodes, edgeIds, reversedEdgeIds);
-  addNearestTerminalPaths(nodeId, edges, (targetId) => {
+  const relatedNodeIds = relatedFocusNodeIds(nodeId, graphNodes, edges);
+  addNearestTerminalPaths(nodeId, edges, relatedNodeIds, (targetId) => nodeById.get(targetId)?.type === "governanceRoot", nodes, edgeIds, reversedEdgeIds);
+  addAllTerminalPaths(nodeId, edges, relatedNodeIds, (targetId) => {
     const type = nodeById.get(targetId)?.type;
     return type === "sourceSample" || type === "libraryItem";
   }, nodes, edgeIds, reversedEdgeIds);
@@ -356,6 +357,7 @@ export function terminalShortestGraphFocus(nodeId: string | null, graphNodes: Fu
 function addNearestTerminalPaths(
   startId: string,
   edges: FunctionSlotGraphEdge[],
+  relatedNodeIds: Set<string>,
   isTerminal: (nodeId: string) => boolean,
   nodes: Set<string>,
   edgeIds: Set<string>,
@@ -380,6 +382,42 @@ function addNearestTerminalPaths(
       if (foundDepth !== null && path.length >= foundDepth) continue;
       for (const step of adjacency.get(currentId) ?? []) {
         if (visited.has(step.nodeId)) continue;
+        if (!relatedNodeIds.has(step.nodeId)) continue;
+        visited.add(step.nodeId);
+        paths.set(step.nodeId, [...path, step]);
+        next.push(step.nodeId);
+      }
+    }
+    frontier = next;
+  }
+}
+
+function addAllTerminalPaths(
+  startId: string,
+  edges: FunctionSlotGraphEdge[],
+  relatedNodeIds: Set<string>,
+  isTerminal: (nodeId: string) => boolean,
+  nodes: Set<string>,
+  edgeIds: Set<string>,
+  reversedEdgeIds: Set<string>,
+) {
+  if (isTerminal(startId)) return;
+  const adjacency = undirectedFocusAdjacency(edges);
+  const visited = new Set<string>([startId]);
+  const paths = new Map<string, Array<{ nodeId: string; edgeId: string; reversed: boolean }>>([[startId, []]]);
+  let frontier = [startId];
+
+  while (frontier.length) {
+    const next: string[] = [];
+    for (const currentId of frontier) {
+      const path = paths.get(currentId) ?? [];
+      if (currentId !== startId && isTerminal(currentId)) {
+        addFocusPath(path, nodes, edgeIds, reversedEdgeIds);
+        continue;
+      }
+      for (const step of adjacency.get(currentId) ?? []) {
+        if (visited.has(step.nodeId)) continue;
+        if (!relatedNodeIds.has(step.nodeId)) continue;
         visited.add(step.nodeId);
         paths.set(step.nodeId, [...path, step]);
         next.push(step.nodeId);
@@ -397,6 +435,109 @@ function undirectedFocusAdjacency(edges: FunctionSlotGraphEdge[]) {
     adjacency.set(edge.target, [...(adjacency.get(edge.target) ?? []), { nodeId: edge.source, edgeId: edge.id, reversed: true }]);
   }
   return adjacency;
+}
+
+function relatedFocusNodeIds(startId: string, graphNodes: FunctionSlotGraphNode[], edges: FunctionSlotGraphEdge[]) {
+  const nodeById = new Map(graphNodes.map((node) => [node.id, node]));
+  const startNode = nodeById.get(startId) ?? null;
+  const ids = new Set<string>([startId]);
+  const evidenceVariantIds = focusEvidenceVariantIds(startNode);
+  const evidenceSampleIds = new Set([...evidenceVariantIds].map(sampleIdFromEvidenceVariantId).filter((sampleId): sampleId is string => Boolean(sampleId)));
+  const explicitPatternIds = new Set(
+    edges
+      .filter((edge) => edge.type === "subtype_to_atom_pattern" && edge.source === startId)
+      .map((edge) => edge.target),
+  );
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of graphNodes) {
+      if (ids.has(node.id)) continue;
+      if (isFocusRelatedNode(node, evidenceVariantIds, evidenceSampleIds, explicitPatternIds, ids)) {
+        ids.add(node.id);
+        changed = true;
+      }
+    }
+    for (const edge of edges) {
+      if (edge.type === "source_sample_slot_variant_to_subtype") continue;
+      if (ids.has(edge.target) && !ids.has(edge.source) && isGovernanceHierarchyEdge(edge, nodeById)) {
+        ids.add(edge.source);
+        changed = true;
+      }
+    }
+  }
+
+  for (const node of graphNodes) {
+    if (node.type === "governanceRoot") ids.add(node.id);
+  }
+  return ids;
+}
+
+function focusEvidenceVariantIds(node: FunctionSlotGraphNode | null) {
+  if (!node) return new Set<string>();
+  return new Set([
+    ...nodeDataTextArray(node, "sourceAtomVariantIds"),
+    ...nodeDataTextArray(node, "sourceVariantIds"),
+    textDataValue(node, "variantId"),
+  ].filter((value): value is string => Boolean(value)));
+}
+
+function isFocusRelatedNode(
+  node: FunctionSlotGraphNode,
+  evidenceVariantIds: Set<string>,
+  evidenceSampleIds: Set<string>,
+  explicitPatternIds: Set<string>,
+  currentIds: Set<string>,
+) {
+  if (node.type === "governanceRoot") return true;
+  if (node.type === "atomPattern") {
+    return explicitPatternIds.has(node.id) || nodeDataTextArray(node, "sourceVariantIds").some((variantId) => evidenceVariantIds.has(variantId));
+  }
+  if (node.type === "sourceVariant") {
+    const variantId = textDataValue(node, "variantId") ?? sourceVariantIdFromNodeId(node.id);
+    return Boolean(variantId && evidenceVariantIds.has(variantId));
+  }
+  if (node.type === "sourceSample" || node.type === "libraryItem") {
+    const sampleId = textDataValue(node, "sampleVideoId") ?? textDataValue(node, "sampleId") ?? sampleIdFromSourceSampleNodeId(node.id);
+    return Boolean(sampleId && evidenceSampleIds.has(sampleId));
+  }
+  if (node.type === "slotFamily" || node.type === "slotArchetype" || node.type === "slotSubtype" || node.type === "atomArchetype") {
+    return currentIds.has(node.id);
+  }
+  return false;
+}
+
+function isGovernanceHierarchyEdge(edge: FunctionSlotGraphEdge, nodeById: Map<string, FunctionSlotGraphNode>) {
+  const sourceType = nodeById.get(edge.source)?.type;
+  const targetType = nodeById.get(edge.target)?.type;
+  return Boolean(sourceType && targetType && (
+    (sourceType === "governanceRoot" && (targetType === "slotFamily" || targetType === "slotSubtype" || targetType === "atomArchetype" || targetType === "atomPattern"))
+    || (sourceType === "slotFamily" && targetType === "slotArchetype")
+    || (sourceType === "slotFamily" && targetType === "slotSubtype")
+    || (sourceType === "slotArchetype" && targetType === "slotSubtype")
+    || (sourceType === "slotSubtype" && targetType === "atomArchetype")
+    || (sourceType === "slotSubtype" && targetType === "atomPattern")
+    || (sourceType === "atomArchetype" && targetType === "atomPattern")
+  ));
+}
+
+function textDataValue(node: FunctionSlotGraphNode, key: string) {
+  const value = node.data?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function sourceVariantIdFromNodeId(nodeId: string) {
+  return nodeId.startsWith("sourceVariant:") ? nodeId.slice("sourceVariant:".length) : null;
+}
+
+function sampleIdFromSourceSampleNodeId(nodeId: string) {
+  return nodeId.startsWith("sourceSample:") ? nodeId.slice("sourceSample:".length) : null;
+}
+
+function sampleIdFromEvidenceVariantId(variantId: string) {
+  const parts = variantId.split("::");
+  return parts.length >= 2 ? parts[0] : null;
 }
 
 function addFocusPath(

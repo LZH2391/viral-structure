@@ -279,23 +279,29 @@ test("terminal graph focus reaches governance root and nearest samples", () => {
   const nodes = [
     { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
     { id: "family", type: "slotFamily", label: "family", group: "slot", data: {} },
-    { id: "center", type: "slotSubtype", label: "center", group: "slot", data: {} },
-    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
-    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: {} },
-    { id: "sampleChild", type: "sourceVariant", label: "sample child", group: "sourceVariant", data: {} },
-    { id: "longVariant", type: "sourceVariant", label: "long variant", group: "sourceVariant", data: {} },
-    { id: "longMid", type: "sourceVariant", label: "long mid", group: "sourceVariant", data: {} },
-    { id: "longSample", type: "sourceSample", label: "long sample", group: "sourceSample", data: {} },
+    { id: "center", type: "slotSubtype", label: "center", group: "slot", data: { sourceAtomVariantIds: ["sample_a::script::S001", "sample_c::script::S004"] } },
+    { id: "pattern", type: "atomPattern", label: "pattern", group: "script", data: { sourceVariantIds: ["sample_a::script::S001", "sample_c::script::S004"] } },
+    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    { id: "relatedVariant", type: "sourceVariant", label: "related variant", group: "sourceVariant", data: { variantId: "sample_c::script::S004" } },
+    { id: "relatedSample", type: "sourceSample", label: "related sample", group: "sourceSample", data: { sampleVideoId: "sample_c" } },
+    { id: "sampleChild", type: "sourceVariant", label: "sample child", group: "sourceVariant", data: { variantId: "sample_child::script::S001" } },
+    { id: "longVariant", type: "sourceVariant", label: "long variant", group: "sourceVariant", data: { variantId: "sample_b::script::S002" } },
+    { id: "longMid", type: "sourceVariant", label: "long mid", group: "sourceVariant", data: { variantId: "sample_b::script::S003" } },
+    { id: "longSample", type: "sourceSample", label: "long sample", group: "sourceSample", data: { sampleVideoId: "sample_b" } },
     { id: "otherFamily", type: "slotFamily", label: "other family", group: "slot", data: {} },
   ];
   const edges = [
     { id: "edge:root:family", source: "root", target: "family", type: "governance_contains_family" },
     { id: "edge:family:center", source: "family", target: "center", type: "family_to_subtype" },
-    { id: "edge:center:variant", source: "center", target: "variant", type: "pattern_to_source_variant" },
+    { id: "edge:center:pattern", source: "center", target: "pattern", type: "subtype_to_atom_pattern" },
+    { id: "edge:pattern:variant", source: "pattern", target: "variant", type: "pattern_to_source_variant" },
     { id: "edge:variant:sample", source: "variant", target: "sample", type: "source_variant_to_sample" },
+    { id: "edge:pattern:relatedVariant", source: "pattern", target: "relatedVariant", type: "pattern_to_source_variant" },
+    { id: "edge:relatedVariant:relatedSample", source: "relatedVariant", target: "relatedSample", type: "source_variant_to_sample" },
     { id: "edge:sample:center", source: "sample", target: "center", type: "source_sample_slot_variant_to_subtype" },
     { id: "edge:sample:child", source: "sample", target: "sampleChild", type: "sample_child_should_stop" },
-    { id: "edge:center:longVariant", source: "center", target: "longVariant", type: "pattern_to_source_variant" },
+    { id: "edge:pattern:longVariant", source: "pattern", target: "longVariant", type: "pattern_to_source_variant" },
     { id: "edge:longVariant:longMid", source: "longVariant", target: "longMid", type: "pattern_to_source_variant" },
     { id: "edge:longMid:longSample", source: "longMid", target: "longSample", type: "source_variant_to_sample" },
     { id: "edge:root:otherFamily", source: "root", target: "otherFamily", type: "governance_contains_family" },
@@ -307,7 +313,10 @@ test("terminal graph focus reaches governance root and nearest samples", () => {
   assert.ok(path.nodes.has("family"));
   assert.ok(path.nodes.has("root"));
   assert.ok(path.nodes.has("sample"));
+  assert.ok(path.nodes.has("pattern"));
   assert.ok(path.nodes.has("variant"));
+  assert.ok(path.nodes.has("relatedVariant"));
+  assert.ok(path.nodes.has("relatedSample"));
   assert.equal(path.nodes.has("longVariant"), false);
   assert.equal(path.nodes.has("longMid"), false);
   assert.equal(path.nodes.has("longSample"), false);
@@ -315,10 +324,13 @@ test("terminal graph focus reaches governance root and nearest samples", () => {
   assert.equal(path.nodes.has("otherFamily"), false);
   assert.ok(path.edges.has("edge:root:family"));
   assert.ok(path.edges.has("edge:family:center"));
-  assert.ok(path.edges.has("edge:center:variant"));
+  assert.ok(path.edges.has("edge:center:pattern"));
+  assert.ok(path.edges.has("edge:pattern:variant"));
   assert.ok(path.edges.has("edge:variant:sample"));
+  assert.ok(path.edges.has("edge:pattern:relatedVariant"));
+  assert.ok(path.edges.has("edge:relatedVariant:relatedSample"));
   assert.equal(path.edges.has("edge:sample:center"), false);
-  assert.equal(path.edges.has("edge:center:longVariant"), false);
+  assert.equal(path.edges.has("edge:pattern:longVariant"), false);
   assert.equal(path.edges.has("edge:longVariant:longMid"), false);
   assert.equal(path.edges.has("edge:longMid:longSample"), false);
   assert.equal(path.edges.has("edge:sample:child"), false);
@@ -331,10 +343,10 @@ test("terminal graph focus can traverse governance nodes to the governance root"
   const { terminalShortestGraphFocus } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
   const nodes = [
     { id: "root", type: "governanceRoot", label: "root", group: "governance", data: {} },
-    { id: "pattern", type: "atomPattern", label: "pattern", group: "script", data: {} },
-    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: {} },
-    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: {} },
-    { id: "otherPattern", type: "atomPattern", label: "other pattern", group: "script", data: {} },
+    { id: "pattern", type: "atomPattern", label: "pattern", group: "script", data: { sourceVariantIds: ["sample_a::script::S001"] } },
+    { id: "variant", type: "sourceVariant", label: "variant", group: "sourceVariant", data: { variantId: "sample_a::script::S001" } },
+    { id: "sample", type: "sourceSample", label: "sample", group: "sourceSample", data: { sampleVideoId: "sample_a" } },
+    { id: "otherPattern", type: "atomPattern", label: "other pattern", group: "script", data: { sourceVariantIds: ["sample_b::script::S002"] } },
   ];
   const edges = [
     { id: "edge:root:pattern", source: "root", target: "pattern", type: "governance_contains_pattern" },

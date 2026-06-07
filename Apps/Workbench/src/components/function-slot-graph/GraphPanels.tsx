@@ -157,7 +157,7 @@ function DetailMetric({ label, value }: { label: string; value: unknown }) {
 
 function DetailCard({ label, value }: { label: string; value: unknown }) {
   return (
-    <article className="new-ui-analysis-workflow-detail-card">
+    <article className="new-ui-analysis-workflow-detail-card" data-field={label}>
       <strong>{detailFieldDisplayLabel(label)}</strong>
       <p>{formatDetailValue(value)}</p>
     </article>

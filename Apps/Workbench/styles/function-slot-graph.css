@@ -900,6 +900,11 @@
   word-break: break-word;
 }
 
+.slot-graph-inspector .new-ui-analysis-workflow-detail-card[data-field="judgementReason"] p {
+  font-weight: 430;
+  line-height: 1.55;
+}
+
 .slot-graph-inspector .new-ui-analysis-workflow-detail-metrics {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
