@@ -41,9 +41,9 @@ test("governance graph no longer merges confirmed plan projection overlays", () 
   assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_mapped"));
 });
 
-test("governance graph keeps subtype-pattern links scoped to matching patterns", () => {
+test("governance graph projects subtype-pattern links only when atom archetype is hidden", () => {
   const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
-  const filters = { ...allFilters(), atomArchetype: false, sourceVariant: false };
+  const filters = { ...allFilters(), sourceVariant: false };
   const graph = {
     schemaVersion: "function_slot_governance_graph.v1",
     artifactId: "governance_test",
@@ -55,19 +55,20 @@ test("governance graph keeps subtype-pattern links scoped to matching patterns",
       { id: "atomPattern:PAT_a", type: "atomPattern", label: "Pattern", group: "script", data: { forSlotSubtypeIds: ["SUB_a"] } },
     ],
     edges: [
+      { id: "edge:sub:arch", source: "slotSubtype:SUB_a", target: "atomArchetype:ARCH_script", type: "subtype_to_atom_archetype" },
       { id: "edge:arch:pattern", source: "atomArchetype:ARCH_script", target: "atomPattern:PAT_a", type: "atom_archetype_to_pattern" },
-      { id: "edge:sub:pattern", source: "slotSubtype:SUB_a", target: "atomPattern:PAT_a", type: "subtype_to_atom_pattern" },
     ],
     summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
   };
 
-  const visible = buildVisibleGraph(graph, filters);
+  const visibleWithArchetype = buildVisibleGraph(graph, filters);
+  const visibleWithoutArchetype = buildVisibleGraph(graph, { ...filters, atomArchetype: false });
 
-  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_a"));
-  assert.ok(visible.nodes.some((node) => node.id === "slotSubtype:SUB_b"));
-  assert.ok(visible.nodes.some((node) => node.id === "atomPattern:PAT_a"));
-  assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "subtype_to_atom_pattern"));
-  assert.equal(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:PAT_a"), false);
+  assert.ok(visibleWithArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ARCH_script" && edge.type === "subtype_to_atom_archetype"));
+  assert.ok(visibleWithArchetype.edges.some((edge) => edge.source === "atomArchetype:ARCH_script" && edge.target === "atomPattern:PAT_a" && edge.type === "atom_archetype_to_pattern"));
+  assert.equal(visibleWithArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a"), false);
+  assert.ok(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:PAT_a" && edge.type === "projected_hierarchy"));
+  assert.equal(visibleWithoutArchetype.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:PAT_a"), false);
 });
 
 test("governance graph hides legacy atom layer nodes from stale payloads", () => {
@@ -94,6 +95,28 @@ test("governance graph hides legacy atom layer nodes from stale payloads", () =>
 
   assert.equal(visible.nodes.some((node) => node.type === "atomLayer"), false);
   assert.equal(visible.nodes.some((node) => ["脚本层", "节奏层", "包装层"].includes(node.label)), false);
+});
+
+test("governance force layout keeps subtype to atom archetype links visible", () => {
+  const { buildVisibleGraph } = loadTsModule("Apps/Workbench/src/components/function-slot-graph/graphUtils.ts");
+  const graph = {
+    schemaVersion: "function_slot_governance_graph.v1",
+    artifactId: "governance_test",
+    nodes: [
+      { id: "governance:test", type: "governanceRoot", label: "Governance", group: "governance", data: {} },
+      { id: "slotSubtype:SUB_a", type: "slotSubtype", label: "Subtype A", group: "slot", data: { id: "SUB_a" } },
+      { id: "atomArchetype:ARCH_script", type: "atomArchetype", label: "Script arch", group: "script", data: {} },
+    ],
+    edges: [
+      { id: "edge:sub:arch", source: "slotSubtype:SUB_a", target: "atomArchetype:ARCH_script", type: "subtype_to_atom_archetype" },
+    ],
+    summary: { slotCount: 1, atomCount: 1, bindingCount: 0, conceptCount: 3 },
+  };
+
+  const visible = buildVisibleGraph(graph, allFilters(), null, "force");
+
+  assert.ok(visible.nodes.some((node) => node.id === "atomArchetype:ARCH_script"));
+  assert.ok(visible.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ARCH_script" && edge.type === "subtype_to_atom_archetype"));
 });
 
 test("governance graph does not project slot archetypes into atom patterns", () => {

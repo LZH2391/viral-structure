@@ -6,6 +6,9 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   const governanceId = governance.governanceId;
   const rootId = graphId("governance", governanceId);
   const sampleGovernanceSummary = buildSampleGovernanceSummary(governance, libraryItems);
+  const atomPatternArchetypeIds = buildAtomPatternArchetypeIndex(governance.atomArchetypes ?? [], governance.atomPatterns ?? []);
+  const atomVariantArchetypeIds = buildAtomVariantArchetypeIndex(governance.atomPatterns ?? [], atomPatternArchetypeIds);
+  const slotAtomVariantIds = buildSlotAtomVariantIndex(libraryItems);
 
   pushNode(nodes, {
     id: rootId,
@@ -41,13 +44,16 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   }
   for (const pattern of governance.atomPatterns ?? []) {
     pushGovernanceNode(nodes, "atomPattern", groupForAtomLayer(pattern.atomLayer), pattern);
-    if (pattern.parentAtomArchetype) {
-      pushEdge(edges, nodeId("atomArchetype", pattern.parentAtomArchetype), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
+    const patternId = normalizeGraphText(pattern.id);
+    const parentArchetypeIds = atomPatternArchetypeIds.get(patternId) ?? [];
+    for (const parentArchetypeId of parentArchetypeIds) {
+      pushEdge(edges, nodeId("atomArchetype", parentArchetypeId), nodeId("atomPattern", pattern.id), "atom_archetype_to_pattern", "pattern");
     }
     for (const subtypeId of pattern.forSlotSubtypeIds ?? []) {
-      pushEdge(edges, nodeId("slotSubtype", subtypeId), nodeId("atomPattern", pattern.id), "subtype_to_atom_pattern", "pattern");
+      for (const parentArchetypeId of parentArchetypeIds) pushEdge(edges, nodeId("slotSubtype", subtypeId), nodeId("atomArchetype", parentArchetypeId), "subtype_to_atom_archetype", "archetype");
     }
   }
+  pushSubtypeAtomArchetypeEdgesFromSlotVariants(edges, governance.slotSubtypes ?? [], slotAtomVariantIds, atomVariantArchetypeIds);
 
   for (const principle of governance.bindingPrinciples ?? []) {
     pushGovernanceNode(nodes, "bindingPrinciple", "binding", principle);
@@ -155,6 +161,90 @@ function normalizeSampleIdentity(value) {
     traceId: normalizeGraphText(value?.traceId),
     contentHash: normalizeGraphText(value?.contentHash),
   };
+}
+
+function buildAtomPatternArchetypeIndex(atomArchetypes, atomPatterns) {
+  const index = new Map();
+  for (const pattern of atomPatterns) {
+    const patternId = normalizeGraphText(pattern?.id);
+    const parentId = normalizeGraphText(pattern?.parentAtomArchetype);
+    if (patternId && parentId) addMapSetValue(index, patternId, parentId);
+  }
+  for (const archetype of atomArchetypes) {
+    const archetypeId = normalizeGraphText(archetype?.id);
+    if (!archetypeId) continue;
+    for (const patternId of normalizeTextArray(archetype?.sourcePatternIds)) addMapSetValue(index, patternId, archetypeId);
+  }
+  return index;
+}
+
+function buildAtomVariantArchetypeIndex(atomPatterns, atomPatternArchetypeIds) {
+  const index = new Map();
+  for (const pattern of atomPatterns) {
+    const patternId = normalizeGraphText(pattern?.id);
+    const parentArchetypeIds = atomPatternArchetypeIds.get(patternId) ?? [];
+    if (!parentArchetypeIds.length) continue;
+    for (const variantId of normalizeTextArray(pattern?.sourceVariantIds)) {
+      for (const archetypeId of parentArchetypeIds) addMapSetValue(index, variantId, archetypeId);
+    }
+  }
+  return index;
+}
+
+function buildSlotAtomVariantIndex(libraryItems) {
+  const index = new Map();
+  for (const item of Array.isArray(libraryItems) ? libraryItems : []) {
+    const analysis = item?.functionSlotAtomizationAnalysis ?? item;
+    const sampleId = normalizeGraphText(analysis?.sampleVideoId ?? item?.sampleVideoId ?? item?.sampleId);
+    if (!sampleId) continue;
+    for (const slot of Array.isArray(analysis?.slotMap?.slots) ? analysis.slotMap.slots : []) {
+      const slotId = normalizeGraphText(slot?.slotId ?? slot?.id);
+      if (!slotId) continue;
+      const slotVariantId = sourceVariantId(sampleId, slotId);
+      for (const atomVariantId of atomVariantIdsForSlot(sampleId, slot)) addMapSetValue(index, slotVariantId, atomVariantId);
+    }
+  }
+  return index;
+}
+
+function atomVariantIdsForSlot(sampleId, slot) {
+  const variants = [];
+  for (const atomId of normalizeTextArray(slot?.scriptAtomIds)) variants.push(atomVariantId(sampleId, "script", atomId));
+  for (const atomId of normalizeTextArray(slot?.rhythmAtomIds)) variants.push(atomVariantId(sampleId, "rhythm", atomId));
+  for (const atomId of normalizeTextArray(slot?.packagingAtomIds)) variants.push(atomVariantId(sampleId, "packaging", atomId));
+  return variants.filter(Boolean);
+}
+
+function atomVariantId(sampleId, layer, atomId) {
+  if (!atomId) return null;
+  if (String(atomId).includes("::")) return normalizeGraphText(atomId);
+  return sourceVariantId(sampleId, layer, atomId);
+}
+
+function sourceVariantId(...parts) {
+  const normalizedParts = parts.map((part) => normalizeGraphText(part)).filter(Boolean);
+  return normalizedParts.length === parts.length ? normalizedParts.join("::") : null;
+}
+
+function pushSubtypeAtomArchetypeEdgesFromSlotVariants(edges, slotSubtypes, slotAtomVariantIds, atomVariantArchetypeIds) {
+  for (const subtype of slotSubtypes) {
+    const subtypeId = normalizeGraphText(subtype?.id);
+    if (!subtypeId) continue;
+    for (const slotVariantId of normalizeTextArray(subtype?.sourceVariantIds)) {
+      for (const atomVariantId of slotAtomVariantIds.get(slotVariantId) ?? []) {
+        for (const archetypeId of atomVariantArchetypeIds.get(atomVariantId) ?? []) {
+          pushEdge(edges, nodeId("slotSubtype", subtypeId), nodeId("atomArchetype", archetypeId), "subtype_to_atom_archetype", "archetype");
+        }
+      }
+    }
+  }
+}
+
+function addMapSetValue(map, key, value) {
+  if (!key || !value) return;
+  const current = map.get(key) ?? [];
+  if (current.includes(value)) return;
+  map.set(key, [...current, value]);
 }
 
 function pushGovernanceNode(nodes, type, group, item) {

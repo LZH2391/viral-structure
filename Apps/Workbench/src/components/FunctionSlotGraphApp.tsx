@@ -33,7 +33,6 @@ const STRUCTURE_FILTERS: GraphFiltersState = {
 
 const GOVERNANCE_FILTERS: GraphFiltersState = {
   ...STRUCTURE_FILTERS,
-  atomArchetype: false,
 };
 
 const PLAN_TRACE_FILTERS: GraphFiltersState = {

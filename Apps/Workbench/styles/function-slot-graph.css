@@ -13,8 +13,8 @@
   --slot-graph-edge-packaging: #9b8ad8;
   --slot-graph-edge-focus-glow-alpha: 0.28;
   --slot-graph-edge-muted-opacity: 0.14;
-  --slot-graph-node-muted-alpha: 0.5;
-  --slot-graph-node-focus-muted-alpha: 0.26;
+  --slot-graph-node-muted-alpha: 0.7;
+  --slot-graph-node-focus-muted-alpha: 0.1;
   --slot-graph-node-neutral: #20201f;
   --slot-graph-node-neutral-stroke: #8a8a86;
   --slot-graph-node-selected-stroke: #f4f3ef;
@@ -87,8 +87,8 @@
   --slot-graph-edge-packaging: #8b8990;
   --slot-graph-edge-focus-glow-alpha: 0.2;
   --slot-graph-edge-muted-opacity: 0.14;
-  --slot-graph-node-muted-alpha: 0.5;
-  --slot-graph-node-focus-muted-alpha: 0.26;
+  --slot-graph-node-muted-alpha: 0.7;
+  --slot-graph-node-focus-muted-alpha: 0.1;
   --slot-graph-node-neutral: var(--new-ui-gray-900);
   --slot-graph-node-neutral-stroke: var(--new-ui-gray-300);
   --slot-graph-node-selected-stroke: var(--new-ui-gray-050);
@@ -1273,6 +1273,102 @@
 
 .slot-graph-preview-meta small {
   color: rgba(255, 255, 255, 0.42);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-popover {
+  z-index: 12;
+  gap: 6px;
+  border: 1px solid var(--new-ui-control-border);
+  border-radius: 8px;
+  background: var(--new-ui-control-bg);
+  box-shadow: 0 10px 24px var(--new-ui-control-shadow);
+  color: var(--new-ui-text);
+  padding: 10px;
+  backdrop-filter: none;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-popover.pinned {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 72%, var(--new-ui-text) 28%);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 92%, var(--new-ui-text) 8%);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head {
+  gap: 8px;
+  padding: 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head strong {
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 500;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border: 1px solid var(--new-ui-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text) 6%, transparent);
+  padding: 0 7px;
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xxs);
+  line-height: 1;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--new-ui-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-head button:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-text) 8%, transparent);
+  border-color: var(--new-ui-control-border);
+  color: var(--new-ui-text);
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-popover video,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-empty {
+  border: 1px solid var(--new-ui-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--new-ui-bg) 86%, var(--new-ui-control-bg));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-empty {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta {
+  gap: 2px;
+  border-top: 1px solid var(--new-ui-border);
+  padding: 7px 0 0;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta span,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta small {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preview-meta small {
+  color: color-mix(in srgb, var(--new-ui-text-muted) 76%, transparent);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-preview-popover {
+  background: var(--new-ui-surface);
+  box-shadow: 0 10px 24px var(--new-ui-control-shadow);
+}
+
+.new-ui-shell[data-theme="light"] .slot-graph-shell.embedded .slot-graph-preview-popover.pinned {
+  background: color-mix(in srgb, var(--new-ui-surface) 92%, var(--new-ui-text) 8%);
 }
 
 .slot-graph-card {

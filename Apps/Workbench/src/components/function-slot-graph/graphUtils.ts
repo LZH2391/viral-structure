@@ -136,13 +136,13 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   }
   const edges: FunctionSlotGraphEdge[] = [];
   for (const targetId of visibleNodeIds) {
-    const ancestors = nearestVisibleAncestors(targetId, incoming, visibleNodeIds);
-    for (const ancestorId of ancestors) {
-      if (ancestorId === targetId) continue;
-      if (!shouldProjectHierarchyEdge(nodeById, ancestorId, targetId)) continue;
+    const ancestors = nearestVisibleAncestors(targetId, incoming, visibleNodeIds, nodeById);
+    for (const ancestor of ancestors) {
+      if (ancestor.id === targetId) continue;
+      if (!shouldProjectHierarchyEdge(nodeById, ancestor.id, targetId, ancestor.hiddenTypes)) continue;
       edges.push({
-        id: graphId("edge", "projected", ancestorId, targetId),
-        source: ancestorId,
+        id: graphId("edge", "projected", ancestor.id, targetId),
+        source: ancestor.id,
         target: targetId,
         type: "projected_hierarchy",
         label: "projected",
@@ -159,47 +159,41 @@ function projectVisibleEdges(graph: FunctionSlotLibraryGraph, visibleNodeIds: Se
   return result;
 }
 
-function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>, sourceId: string, targetId: string) {
+function shouldProjectHierarchyEdge(nodeById: Map<string, FunctionSlotGraphNode>, sourceId: string, targetId: string, hiddenTypes: Set<string>) {
   const source = nodeById.get(sourceId);
   const target = nodeById.get(targetId);
   const sourceType = source?.type;
   const targetType = target?.type;
-  if (sourceType === "slotSubtype" && targetType === "atomPattern") return atomPatternTargetsSubtype(target, source);
+  if (sourceType === "slotSubtype" && targetType === "atomPattern") return hiddenTypes.has("atomArchetype") && !hiddenTypes.has("atomLayer");
   if (targetType === "atomPattern") return false;
   if (targetType === "sourceVariant") return sourceType === "atomPattern";
   if (targetType === "sourceSample") return sourceType === "sourceVariant" || sourceType === "atomPattern";
   return sourceType === "governanceRoot" || sourceType === "slotFamily" || sourceType === "slotArchetype";
 }
 
-function atomPatternTargetsSubtype(pattern: FunctionSlotGraphNode | undefined, subtype: FunctionSlotGraphNode | undefined) {
-  const subtypeId = typeof subtype?.data?.id === "string" ? subtype.data.id : null;
-  if (!subtypeId) return false;
-  const targetSubtypeIds = Array.isArray(pattern?.data?.forSlotSubtypeIds)
-    ? pattern.data.forSlotSubtypeIds.map((value) => String(value)).filter(Boolean)
-    : [];
-  return targetSubtypeIds.includes(subtypeId);
-}
-
-function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>) {
-  const ancestors = new Set<string>();
+function nearestVisibleAncestors(targetId: string, incoming: Map<string, FunctionSlotGraphEdge[]>, visibleNodeIds: Set<string>, nodeById: Map<string, FunctionSlotGraphNode>) {
+  const ancestors = new Map<string, Set<string>>();
   const visitedHidden = new Set<string>([targetId]);
-  let frontier = [{ nodeId: targetId, crossedHidden: false }];
+  let frontier = [{ nodeId: targetId, hiddenTypes: new Set<string>() }];
   while (frontier.length) {
-    const next: Array<{ nodeId: string; crossedHidden: boolean }> = [];
-    for (const { nodeId, crossedHidden } of frontier) {
+    const next: Array<{ nodeId: string; hiddenTypes: Set<string> }> = [];
+    for (const { nodeId, hiddenTypes } of frontier) {
       for (const edge of incoming.get(nodeId) ?? []) {
         if (visibleNodeIds.has(edge.source)) {
-          if (crossedHidden) ancestors.add(edge.source);
+          if (hiddenTypes.size) ancestors.set(edge.source, hiddenTypes);
           continue;
         }
         if (visitedHidden.has(edge.source)) continue;
         visitedHidden.add(edge.source);
-        next.push({ nodeId: edge.source, crossedHidden: true });
+        const nextHiddenTypes = new Set(hiddenTypes);
+        const sourceType = nodeById.get(edge.source)?.type;
+        if (sourceType) nextHiddenTypes.add(sourceType);
+        next.push({ nodeId: edge.source, hiddenTypes: nextHiddenTypes });
       }
     }
     frontier = next;
   }
-  return ancestors;
+  return [...ancestors.entries()].map(([id, hiddenTypes]) => ({ id, hiddenTypes }));
 }
 
 function dedupeEdges(edges: FunctionSlotGraphEdge[]) {
@@ -1143,7 +1137,7 @@ function isAtomLayoutLevel(types: string[]) {
 }
 
 function shouldParentBundleGovernanceLevel(types: string[]) {
-  return isAtomLayoutLevel(types);
+  return types.length > 0 && types.every((type) => type === "atomPattern");
 }
 
 function distributedAngle(index: number, count: number) {

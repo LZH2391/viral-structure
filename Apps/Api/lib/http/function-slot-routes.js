@@ -400,7 +400,11 @@ async function handleFunctionSlotGovernanceGraph(res, handlers = {}) {
     typeof service.listLibraryItems === "function" ? service.listLibraryItems() : [],
   ]);
   if (!governance) return notFound(res);
-  return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance, { libraryItems }));
+  const libraryArtifacts = typeof service.readLibraryArtifact === "function"
+    ? await Promise.all(libraryItems.map((item) => service.readLibraryArtifact(item.artifactId).catch(() => null)))
+    : [];
+  const graphLibraryItems = libraryItems.map((item, index) => ({ ...item, ...(libraryArtifacts[index] ?? {}) }));
+  return sendJson(res, 200, buildFunctionSlotGovernanceGraph(governance, { libraryItems: graphLibraryItems }));
 }
 
 async function handleConfirmedPlanTraceGraph(res, handlers = {}) {

@@ -394,7 +394,7 @@ test("function slot governance graph builder maps relationships and evidence gap
   assert.deepEqual([...new Set(graph.edges.filter((edge) => edge.source === graph.nodes.find((node) => node.type === "governanceRoot")?.id).map((edge) => edge.type))], ["governance_contains_family"]);
 });
 
-test("function slot governance graph builder connects slot subtypes directly to atom patterns", () => {
+test("function slot governance graph builder derives subtype to atom archetype links through patterns", () => {
   const graph = buildFunctionSlotGovernanceGraph({
     ...buildGovernance(),
     slotSubtypes: [
@@ -404,16 +404,50 @@ test("function slot governance graph builder connects slot subtypes directly to 
     atomArchetypes: [{ id: "ATOM_ARCH_script", name: "script", atomLayer: "script" }],
     atomPatterns: [
       { id: "SCRIPT_pattern_a", name: "script A", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_a"], sourceVariantIds: [] },
+      { id: "SCRIPT_pattern_a_alt", name: "script A alt", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_a"], sourceVariantIds: [] },
       { id: "SCRIPT_pattern_b", name: "script B", atomLayer: "script", parentAtomArchetype: "ATOM_ARCH_script", forSlotSubtypeIds: ["SUB_b"], sourceVariantIds: [] },
     ],
   });
+  const subtypeToArchetypeEdges = graph.edges.filter((edge) => edge.type === "subtype_to_atom_archetype");
 
   assert.equal(graph.nodes.some((node) => node.type === "atomLayer"), false);
   assert.equal(graph.edges.some((edge) => edge.type.includes("atom_layer")), false);
-  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "subtype_to_atom_pattern"));
-  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomPattern:SCRIPT_pattern_b" && edge.type === "subtype_to_atom_pattern"));
+  assert.equal(subtypeToArchetypeEdges.filter((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ATOM_ARCH_script").length, 1);
+  assert.equal(subtypeToArchetypeEdges.filter((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomArchetype:ATOM_ARCH_script").length, 1);
+  assert.equal(graph.edges.some((edge) => edge.source.startsWith("slotSubtype:") && edge.target.startsWith("atomPattern:")), false);
   assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "atom_archetype_to_pattern"));
   assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_b" && edge.type === "atom_archetype_to_pattern"));
+});
+
+test("function slot governance graph builder derives subtype to atom archetype links from slot atom variants", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    slotSubtypes: [
+      { id: "SUB_a", archetypeId: "ARCH_hook", name: "A", sourceVariantIds: ["sample_a::F001"] },
+      { id: "SUB_b", archetypeId: "ARCH_hook", name: "B", sourceVariantIds: ["sample_a::F002"] },
+    ],
+    atomArchetypes: [{ id: "ATOM_ARCH_script", name: "script", atomLayer: "script", sourcePatternIds: ["SCRIPT_pattern_a"] }],
+    atomPatterns: [
+      { id: "SCRIPT_pattern_a", name: "script A", atomLayer: "script", forSlotSubtypeIds: [], sourceVariantIds: ["sample_a::script::S001"] },
+    ],
+  }, {
+    libraryItems: [{
+      sampleVideoId: "sample_a",
+      functionSlotAtomizationAnalysis: {
+        sampleVideoId: "sample_a",
+        slotMap: {
+          slots: [
+            { slotId: "F001", scriptAtomIds: ["S001"], rhythmAtomIds: [], packagingAtomIds: [] },
+            { slotId: "F002", scriptAtomIds: ["S002"], rhythmAtomIds: [], packagingAtomIds: [] },
+          ],
+        },
+      },
+    }],
+  });
+
+  assert.ok(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_a" && edge.target === "atomArchetype:ATOM_ARCH_script" && edge.type === "subtype_to_atom_archetype"));
+  assert.equal(graph.edges.some((edge) => edge.source === "slotSubtype:SUB_b" && edge.target === "atomArchetype:ATOM_ARCH_script"), false);
+  assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "atom_archetype_to_pattern"));
 });
 
 test("function slot governance graph builder shows source snapshot samples without requiring atom patterns", () => {

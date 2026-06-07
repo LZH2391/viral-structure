@@ -104,8 +104,8 @@ export const GRAPH_VISUAL_THEME: GraphVisualTheme = {
     nodeOcclusionFill: 0x121318,
   },
   state: {
-    nodeMutedAlpha: 0.5,
-    nodeFocusMutedAlpha: 0.26,
+    nodeMutedAlpha: 0.7,
+    nodeFocusMutedAlpha: 0.1,
     edgeMutedOpacity: 0.14,
   },
   edge: {
@@ -304,15 +304,12 @@ export function shouldShowNodeLabel(mode: GraphMode, node: SimNode, zoom: number
 }
 
 export function nodeLabelOpacity(mode: GraphMode, node: SimNode, zoom: number) {
-  if (mode !== "governance") return zoomFade(zoom, 0.45, 1, 0.58, 1);
-  const spec = governanceLabelSpec(node);
-  return zoomFade(zoom, spec.start, spec.end, spec.min, 1);
+  const spec = graphLabelSpec(mode, node);
+  return stagedZoomReveal(zoom, spec.start, spec.end);
 }
 
 export function nodeLabelFontSize(mode: GraphMode, node: SimNode) {
-  if (mode === "governance") return governanceLabelSpec(node).fontSize;
-  if (mode === "structure" && (node.group === "script" || node.group === "rhythm" || node.group === "packaging")) return 11;
-  return mode === "structure" ? 12 : 11;
+  return graphLabelSpec(mode, node).fontSize;
 }
 
 export function nodeClassName(node: SimNode, focused: boolean, selected: boolean, pinnedPreview: boolean, focusMuted = false) {
@@ -668,7 +665,7 @@ export function resolveGraphNodeStyle(node: SimNode, mode: GraphMode, focused: b
     stroke = rgba(theme.node.neutralStroke, 0.72);
   }
 
-  if (mode === "governance") labelFontSize = nodeLabelFontSize(mode, node);
+  labelFontSize = nodeLabelFontSize(mode, node);
 
   return {
     fill,
@@ -690,19 +687,47 @@ function isSlotSequenceEdge(type: string, source: SimNode, target: SimNode) {
     && isSlotSequenceNode(target);
 }
 
-function zoomFade(zoom: number, start: number, end: number, min: number, max: number) {
-  if (zoom <= start) return min;
-  if (zoom >= end) return max;
-  return min + ((zoom - start) / (end - start)) * (max - min);
+function stagedZoomReveal(zoom: number, start: number, end: number) {
+  if (zoom < start) return 0;
+  if (zoom >= end) return 1;
+  const progress = (zoom - start) / (end - start);
+  if (progress < 1 / 3) return lerp(0, 0.1, progress * 3);
+  if (progress < 2 / 3) return lerp(0.1, 0.6, (progress - 1 / 3) * 3);
+  return lerp(0.6, 1, (progress - 2 / 3) * 3);
+}
+
+function lerp(start: number, end: number, progress: number) {
+  return start + (end - start) * progress;
 }
 
 export function governanceLabelSpec(node: Pick<SimNode, "type" | "layoutLevel">): GovernanceLabelSpec {
   const level = governanceLabelLevel(node);
-  const start = level === 0 ? 0.36 : 0.52 + (level * 0.24);
-  const end = start + 0.42;
-  const min = level === 0 ? 0.9 : level === 1 ? 0.5 : level === 2 ? 0.16 : 0;
-  const fontSize = Math.max(8, 13 - level);
+  const start = level === 0 ? 0.72 : 0.88 + (level * 0.28);
+  const end = start + 0.6;
+  const min = 0;
+  const fontSize = Math.max(10, 15 - level);
   return { start, end, min, fontSize };
+}
+
+function graphLabelSpec(mode: GraphMode, node: Pick<SimNode, "type" | "layoutLevel">): GovernanceLabelSpec {
+  if (mode === "governance") return governanceLabelSpec(node);
+  return governanceLabelSpec({ type: node.type, layoutLevel: graphLabelLevel(mode, node) });
+}
+
+function graphLabelLevel(mode: Exclude<GraphMode, "governance">, node: Pick<SimNode, "type" | "layoutLevel">) {
+  const level = Number(node.layoutLevel);
+  if (Number.isFinite(level) && level >= 0) return Math.floor(level);
+  if (mode === "planTrace") {
+    if (node.type === "confirmedPlan") return 0;
+    if (node.type === "slotSubtype") return 1;
+    if (node.type === "sourceVariant") return 2;
+    if (node.type === "sourceSample") return 3;
+    return 2;
+  }
+  if (node.type === "libraryItem") return 0;
+  if (node.type === "slotInstance" || node.type === "slotConcept") return 1;
+  if (node.type === "atomInstance" || node.type === "binding") return 2;
+  return 2;
 }
 
 function governanceLabelLevel(node: Pick<SimNode, "type" | "layoutLevel">) {
