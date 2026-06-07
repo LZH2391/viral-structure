@@ -27,10 +27,11 @@ export type AnalysisDetailSidebarState = {
 
 type AnalysisWorkflowSidebarProps = {
   detail: AnalysisDetailSidebarState;
+  onOpenStructureGraph?: (target: { artifactId: string; title: string }) => void;
   onWorkflowStageSelect?: () => void;
 };
 
-export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: AnalysisWorkflowSidebarProps) {
+export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkflowStageSelect }: AnalysisWorkflowSidebarProps) {
   const stages = resolveWorkflowStages(detail.item);
   const materialWorkflow = stages.some((stage) => stage.key === "userMaterialTagger");
   const upload = stageByKey(stages, "upload");
@@ -54,6 +55,8 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
   const rerunningStageKey = detail.rerunningStageKey ?? null;
   const rerunDisabled = Boolean(rerunningStageKey || detail.item?.isRunning);
   const structureStageKeys = ["scriptSegment", "rhythmStructure", "packagingStructure"];
+  const structureGraphArtifactId = detail.item?.artifact?.functionSlotAtomizationAnalysis?.artifactId ?? null;
+  const canOpenStructureGraph = Boolean(structureGraphArtifactId && onOpenStructureGraph);
   const canRerunStage = (stage: WorkflowStage) => Boolean(detail.onWorkflowStageRerun && rerunnableStageKeys.includes(stage.key));
   const canRerunStructure = Boolean(detail.onWorkflowStageRerun && structureStageKeys.every((stageKey) => rerunnableStageKeys.includes(stageKey)));
   const requestRerun = (stage: WorkflowStage, target: RerunTarget = stage.key) => {
@@ -69,6 +72,10 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
     setSelectedStageKey(stageKey);
     onWorkflowStageSelect?.();
   };
+  const openStructureGraph = () => {
+    if (!structureGraphArtifactId) return;
+    onOpenStructureGraph?.({ artifactId: structureGraphArtifactId, title: detail.title });
+  };
 
   return (
     <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "完整分析总览"}>
@@ -80,7 +87,14 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
               <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} canRerun={canRerunStage(userMaterialTagger)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === userMaterialTagger.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep
+                stage={aggregate}
+                isLast
+                selected={selectedWorkflowStageKey === aggregate.key}
+                graphAvailable={canOpenStructureGraph}
+                onOpenGraph={openStructureGraph}
+                onSelect={selectWorkflowStage}
+              />
             </>
           ) : (
             <>
@@ -110,7 +124,14 @@ export function AnalysisWorkflowSidebar({ detail, onWorkflowStageSelect }: Analy
                 </div>
               </WorkflowStep>
               <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} canRerun={canRerunStage(atomization)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === atomization.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={aggregate} isLast selected={selectedWorkflowStageKey === aggregate.key} onSelect={selectWorkflowStage} />
+              <WorkflowStep
+                stage={aggregate}
+                isLast
+                selected={selectedWorkflowStageKey === aggregate.key}
+                graphAvailable={canOpenStructureGraph}
+                onOpenGraph={openStructureGraph}
+                onSelect={selectWorkflowStage}
+              />
             </>
           )}
         </ol>
@@ -144,7 +165,9 @@ function WorkflowStep({
   rerunDisabled = false,
   rerunning = false,
   rerunStageKey,
+  graphAvailable = false,
   onRerun,
+  onOpenGraph,
   onSelect,
   children,
 }: {
@@ -156,10 +179,13 @@ function WorkflowStep({
   rerunDisabled?: boolean;
   rerunning?: boolean;
   rerunStageKey?: RerunTarget;
+  graphAvailable?: boolean;
   onRerun?: (stage: WorkflowStage, stageKey?: RerunTarget) => void;
+  onOpenGraph?: () => void;
   onSelect: (stageKey: WorkflowStageKey) => void;
   children?: ReactNode;
 }) {
+  const showGraphAction = stage.key === "aggregate" && onOpenGraph;
   return (
     <li className={`new-ui-analysis-workflow-step is-${stage.status} ${selected ? "is-selected" : ""}`.trim()} data-stage={stage.key}>
       <div className="new-ui-analysis-workflow-connector" aria-hidden="true">
@@ -190,6 +216,18 @@ function WorkflowStep({
               onClick={() => onRerun?.(stage, rerunStageKey ?? stage.key)}
             >
               <RerunIcon />
+            </button>
+          ) : null}
+          {showGraphAction ? (
+            <button
+              className="new-ui-analysis-workflow-rerun-button new-ui-analysis-workflow-graph-button"
+              type="button"
+              disabled={!graphAvailable}
+              aria-label={graphAvailable ? "查看样例结构图" : "完成原子化后可查看样例结构图"}
+              title={graphAvailable ? "查看样例结构图" : "完成原子化后可查看样例结构图"}
+              onClick={onOpenGraph}
+            >
+              <StructureGraphIcon />
             </button>
           ) : null}
         </div>
@@ -251,6 +289,19 @@ function RerunIcon() {
     <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
       <path d="M18.3 8.2A7 7 0 1 0 19 13" />
       <path d="M18.6 4.8v3.8h-3.8" />
+    </svg>
+  );
+}
+
+function StructureGraphIcon() {
+  return (
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <circle cx="6.5" cy="7" r="2.3" />
+      <circle cx="17.5" cy="7" r="2.3" />
+      <circle cx="12" cy="17" r="2.3" />
+      <path d="M8.6 8.3 10.2 14.7" />
+      <path d="M15.4 8.3 13.8 14.7" />
+      <path d="M8.8 7h6.4" />
     </svg>
   );
 }

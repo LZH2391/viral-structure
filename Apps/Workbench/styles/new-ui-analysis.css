@@ -1872,6 +1872,19 @@
   animation: new-ui-workflow-spin 0.7s linear infinite;
 }
 
+.new-ui-analysis-workflow-graph-button {
+  color: color-mix(in srgb, var(--new-ui-text-muted) 82%, transparent);
+}
+
+.new-ui-analysis-workflow-graph-button:hover,
+.new-ui-analysis-workflow-graph-button:focus-visible {
+  color: inherit;
+}
+
+.new-ui-analysis-workflow-graph-button svg circle {
+  fill: none;
+}
+
 .new-ui-analysis-workflow-step.is-selected .new-ui-analysis-workflow-step-button {
   background: var(--new-ui-analysis-workflow-active-bg);
   border-color: var(--new-ui-analysis-workflow-active-border);

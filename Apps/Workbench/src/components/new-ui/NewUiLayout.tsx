@@ -46,6 +46,11 @@ type NewUiThreePanePreference = {
   rightRatio?: unknown;
 };
 
+type StructureGraphReturnState = {
+  artifactId: string;
+  title: string;
+} | null;
+
 type NewUiLayoutProps = {
   active?: boolean;
   theme: NewUiTheme;
@@ -66,6 +71,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [leftSidebarCloseRequest, setLeftSidebarCloseRequest] = useState(0);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
+  const [structureGraphReturn, setStructureGraphReturn] = useState<StructureGraphReturnState>(null);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
     title: "新建分析",
@@ -200,6 +206,18 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setLeftCollapsed(false);
   }, [startPaneTransitionGuard]);
 
+  const openStructureGraphFromAnalysis = useCallback((target: { artifactId: string; title: string }) => {
+    startPaneTransitionGuard();
+    setStructureGraphReturn(target);
+    setActiveSection("library");
+    setActiveLibraryChild("sampleStructure");
+  }, [startPaneTransitionGuard]);
+
+  const returnToAnalysisFromGraph = useCallback(() => {
+    startPaneTransitionGuard();
+    setActiveSection("analysis");
+  }, [startPaneTransitionGuard]);
+
   useEffect(() => {
     return () => {
       if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
@@ -255,6 +273,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               embedded
               active={active}
               fixedMode={libraryChildToGraphMode(activeLibraryChild)}
+              requestedArtifactId={activeLibraryChild === "sampleStructure" ? structureGraphReturn?.artifactId ?? null : null}
+              sourceReturn={activeLibraryChild === "sampleStructure" && structureGraphReturn ? {
+                title: structureGraphReturn.title,
+                onBack: returnToAnalysisFromGraph,
+              } : null}
               panelSlot={(panel) => <LibraryGraphPanelPortal>{panel}</LibraryGraphPanelPortal>}
             />
           ) : null}
@@ -276,6 +299,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           {showAnalysisWorkflow && analysisWorkflowMounted ? (
             <AnalysisWorkflowSidebar
               detail={analysisDetail}
+              onOpenStructureGraph={openStructureGraphFromAnalysis}
               onWorkflowStageSelect={() => setTimelineSelectionClearRequest((value) => value + 1)}
             />
           ) : null}

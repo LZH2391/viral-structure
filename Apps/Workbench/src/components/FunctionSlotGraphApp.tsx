@@ -74,6 +74,11 @@ type FunctionSlotGraphWorkspaceProps = {
   embedded?: boolean;
   active?: boolean;
   fixedMode?: GraphMode;
+  requestedArtifactId?: string | null;
+  sourceReturn?: {
+    title: string;
+    onBack: () => void;
+  } | null;
   panelSlot?: (panel: ReactNode) => ReactNode;
 };
 
@@ -93,7 +98,7 @@ export function FunctionSlotGraphApp() {
   return <FunctionSlotGraphWorkspace />;
 }
 
-export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
+export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fixedMode, requestedArtifactId = null, sourceReturn = null, panelSlot }: FunctionSlotGraphWorkspaceProps = {}) {
   const initialGraphConfig = useMemo(() => readFunctionSlotGraphConfig(), []);
   const [items, setItems] = useState<LibraryGraphSummary[]>([]);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
@@ -166,14 +171,22 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     const data = await getFunctionSlotLibraryItems();
     const nextItems = data.items ?? [];
     setItems(nextItems);
-    setSelectedArtifactId((current) => (current && nextItems.some((item) => item.artifactId === current) ? current : nextItems[0]?.artifactId ?? null));
+    setSelectedArtifactId((current) => {
+      if (requestedArtifactId) return requestedArtifactId;
+      return current && nextItems.some((item) => item.artifactId === current) ? current : nextItems[0]?.artifactId ?? null;
+    });
     setStatus("已同步");
-  }, [active, clearGovernanceGraphCache]);
+  }, [active, clearGovernanceGraphCache, requestedArtifactId]);
 
   useEffect(() => {
     if (!active) return;
     refresh().catch((error) => setStatus(error instanceof Error ? error.message : "读取失败"));
   }, [active, refresh]);
+
+  useEffect(() => {
+    if (!requestedArtifactId) return;
+    setSelectedArtifactId(requestedArtifactId);
+  }, [requestedArtifactId]);
 
   const mode = fixedMode ?? uncontrolledMode;
   const setMode = useCallback((nextMode: GraphMode) => {
@@ -423,6 +436,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
       ) : null}
       <main className="slot-graph-layout">
         <section className="slot-graph-stage">
+          {sourceReturn ? <StructureGraphReturnBar title={sourceReturn.title} onBack={sourceReturn.onBack} /> : null}
           {activeGraph ? (
             <>
               <GraphPixiCanvas
@@ -441,6 +455,19 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         {panelSlot ? panelSlot(graphPanel) : graphPanel}
       </main>
     </div>
+  );
+}
+
+function StructureGraphReturnBar({ title, onBack }: { title: string; onBack: () => void }) {
+  return (
+    <button className="slot-graph-return-bar" type="button" aria-label={`回到分析：${title}`} title={title} onClick={onBack}>
+      <span className="slot-graph-return-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+          <path d="M15 6 9 12l6 6" />
+        </svg>
+      </span>
+      <span title={title}>{title}</span>
+    </button>
   );
 }
 

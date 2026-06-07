@@ -1,7 +1,15 @@
+import { useEffect, useRef, useState } from "react";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../../types/library";
 import { shortId } from "../../utils/format";
 import { formatDetailValue, graphNodeDisplayLabel, nodeDetailRows } from "./graphUtils";
 import type { GovernanceFilterPresetMode, GraphFiltersState } from "./types";
+
+const GOVERNANCE_PRESET_OPTIONS: Array<{ value: GovernanceFilterPresetMode; label: string }> = [
+  { value: "light", label: "轻量模式" },
+  { value: "default", label: "默认模式" },
+  { value: "full", label: "全量模式" },
+  { value: "custom", label: "自定义模式" },
+];
 
 export function GraphFilters({
   mode,
@@ -23,14 +31,7 @@ export function GraphFilters({
       <div className="slot-graph-filter-head">
         <div className="section-heading">{mode === "governance" ? "治理层显示" : mode === "planTrace" ? "溯源层显示" : "结构层显示"}</div>
         {mode === "governance" && governancePresetMode && onGovernancePresetModeChange ? (
-          <div className="slot-graph-filter-preset">
-            <select className="slot-graph-mode-select" aria-label="治理层显示模式" value={governancePresetMode} onChange={(event) => onGovernancePresetModeChange(event.target.value as GovernanceFilterPresetMode)}>
-              <option value="light">轻量模式</option>
-              <option value="default">默认模式</option>
-              <option value="full">全量模式</option>
-              <option value="custom">自定义模式</option>
-            </select>
-          </div>
+          <GovernancePresetSelect value={governancePresetMode} onChange={onGovernancePresetModeChange} />
         ) : null}
       </div>
       <div className={`slot-graph-filter-grid ${mode === "governance" ? "governance" : ""}`.trim()}>
@@ -43,6 +44,58 @@ export function GraphFilters({
       </div>
     </section>
   );
+}
+
+function GovernancePresetSelect({ value, onChange }: { value: GovernanceFilterPresetMode; onChange: (mode: GovernanceFilterPresetMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="slot-graph-filter-preset" ref={rootRef}>
+      <button className="slot-graph-preset-trigger" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        <span>{governancePresetLabel(value)}</span>
+        <i aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="slot-graph-preset-menu" role="listbox" aria-label="治理层显示模式">
+          {GOVERNANCE_PRESET_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              className={option.value === value ? "active" : ""}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function governancePresetLabel(value: GovernanceFilterPresetMode) {
+  return GOVERNANCE_PRESET_OPTIONS.find((option) => option.value === value)?.label ?? "默认模式";
 }
 
 export function NodeInspector({ node, graph }: { node: FunctionSlotGraphNode | null; graph: FunctionSlotLibraryGraph | null }) {

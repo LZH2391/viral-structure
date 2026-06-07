@@ -520,6 +520,46 @@
   color: color-mix(in srgb, var(--new-ui-text) 80%, var(--new-ui-text-muted));
 }
 
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-trigger,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-trigger {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 68%, transparent);
+  background: color-mix(in srgb, var(--new-ui-control-bg) 78%, transparent);
+  color: var(--new-ui-text);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-trigger:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-trigger:focus-visible,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-trigger:hover,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-trigger:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 92%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 7%, var(--new-ui-control-bg));
+  outline: 2px solid var(--new-ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-menu,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-menu {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 82%, transparent);
+  background: color-mix(in srgb, var(--new-ui-surface) 96%, var(--new-ui-bg));
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--new-ui-control-shadow) 64%, transparent);
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-menu button,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-menu button {
+  color: color-mix(in srgb, var(--new-ui-text) 78%, var(--new-ui-text-muted));
+}
+
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-menu button:hover,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-menu button:focus-visible,
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-preset-menu button.active,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-menu button:hover,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-menu button:focus-visible,
+.new-ui-shell #new-ui-library-graph-panel .slot-graph-preset-menu button.active {
+  background: color-mix(in srgb, var(--new-ui-text) 10%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+  outline: 0;
+}
+
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-refresh-button,
 .new-ui-shell #new-ui-library-graph-panel .slot-graph-refresh-button {
   min-height: 32px;
@@ -828,6 +868,75 @@
   background: #121318;
 }
 
+.slot-graph-return-bar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 28px minmax(0, auto);
+  align-items: center;
+  max-width: min(820px, calc(100% - 168px));
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.slot-graph-return-bar span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-return-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: inherit;
+  flex: 0 0 auto;
+}
+
+.slot-graph-return-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.slot-graph-return-bar:hover,
+.slot-graph-return-bar:focus-visible {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--text);
+  outline: 0;
+}
+
+.slot-graph-return-bar:focus-visible {
+  box-shadow: 0 0 0 2px var(--new-ui-focus-ring, rgba(143, 200, 154, 0.42));
+}
+
+.slot-graph-return-bar:active {
+  transform: scale(0.96);
+}
+
 .slot-graph-canvas {
   position: relative;
   height: 100%;
@@ -959,6 +1068,10 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+.slot-graph-stage:has(.slot-graph-return-bar) .slot-graph-canvas-title {
+  display: none;
 }
 
 .slot-graph-legend .legend-source-variant {
@@ -1706,9 +1819,9 @@
 
 .slot-graph-filter-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: minmax(max-content, 1fr) 132px;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
   padding: 0 2px;
 }
@@ -1718,16 +1831,84 @@
   color: var(--text);
   font-size: 14px;
   font-weight: 720;
-  line-height: 34px;
+  line-height: 32px;
+  transform: translateY(-3px);
+  white-space: nowrap;
 }
 
 .slot-graph-filter-preset {
+  position: relative;
   min-width: 0;
 }
 
-.slot-graph-filter-preset .slot-graph-mode-select {
+.slot-graph-preset-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
   line-height: 1.2;
+  padding: 0 10px 0 12px;
+}
+
+.slot-graph-preset-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-graph-preset-trigger i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.slot-graph-preset-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: 156px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+.slot-graph-preset-menu button {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  padding: 0 12px;
+}
+
+.slot-graph-preset-menu button:hover,
+.slot-graph-preset-menu button:focus-visible,
+.slot-graph-preset-menu button.active {
+  background: var(--panel-2);
+  color: var(--text);
+  outline: 0;
 }
 
 .slot-graph-filter-grid {
@@ -1779,7 +1960,7 @@
 @media (max-width: 1180px) {
   .slot-graph-filter-head {
     align-items: stretch;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(max-content, 1fr) 132px;
   }
 
   .slot-graph-filter-preset {
