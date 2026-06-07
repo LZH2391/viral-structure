@@ -428,6 +428,12 @@ export function resolveGraphEdgeStyle(edge: FunctionSlotGraphEdge, source: SimNo
     stroke = rgba(theme.edge.semantic, 0.78);
     width = 2.3;
   }
+  if (classes.has("edge-source_sample_slot_variant_to_subtype")) {
+    dash = [7, 7];
+    stroke = rgba(theme.edge.semantic, 0.48);
+    width = 1.6;
+    opacity = Math.max(opacity, 0.4);
+  }
   if (
     classes.has("edge-subtype_to_atom_pattern")
     || classes.has("edge-atom_archetype_to_pattern")

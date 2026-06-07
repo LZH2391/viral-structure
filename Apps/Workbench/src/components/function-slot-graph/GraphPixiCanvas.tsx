@@ -67,8 +67,6 @@ const FIT_TARGET_WIDTH_RATIO = 0.58;
 const FIT_TARGET_HEIGHT_RATIO = 0.56;
 const FIT_WORLD_PADDING = 180;
 const FIT_MAX_INITIAL_ZOOM = 2.8;
-const RESIZE_SYNC_DEBOUNCE_MS = 120;
-const RESIZE_AUTOFIT_SUPPRESS_MS = 700;
 const HOVER_FOCUS_DEPTH = 1;
 const CLICK_FOCUS_DEPTH = 2;
 
@@ -136,8 +134,7 @@ function GraphPixiCanvasInner({
   const pendingViewportFitRef = useRef(true);
   const hasUserAdjustedViewportRef = useRef(false);
   const pendingDrawAfterResizeRef = useRef(false);
-  const resizeSyncTimerRef = useRef<number | null>(null);
-  const suppressResizeFitUntilRef = useRef(0);
+  const resizeSyncFrameRef = useRef<number | null>(null);
   const suspendPixiRenderRef = useRef(false);
   const syncGraphObjectsRef = useRef<() => void>(() => undefined);
   const syncGraphLayoutRef = useRef<() => void>(() => undefined);
@@ -352,11 +349,8 @@ function GraphPixiCanvasInner({
     });
 
     const syncResize = () => {
-      resizeSyncTimerRef.current = null;
       suspendPixiRenderRef.current = false;
       const sizeChanged = updateCanvasSize();
-      const suppressAutoFit = performance.now() < suppressResizeFitUntilRef.current;
-      if (sizeChanged && !hasUserAdjustedViewportRef.current && !suppressAutoFit) applyFittedViewport();
       if (sizeChanged) drawPixiBackground(background, graphThemeRef.current);
       if (sizeChanged || pendingDrawAfterResizeRef.current) {
         pendingDrawAfterResizeRef.current = false;
@@ -364,12 +358,12 @@ function GraphPixiCanvasInner({
       }
     };
     const queueResizeSync = () => {
-      if (isWorkspaceLayoutChanging(host)) {
-        suppressResizeFitUntilRef.current = performance.now() + RESIZE_AUTOFIT_SUPPRESS_MS;
-      }
       suspendPixiRenderRef.current = true;
-      if (resizeSyncTimerRef.current) window.clearTimeout(resizeSyncTimerRef.current);
-      resizeSyncTimerRef.current = window.setTimeout(syncResize, RESIZE_SYNC_DEBOUNCE_MS);
+      if (resizeSyncFrameRef.current) return;
+      resizeSyncFrameRef.current = window.requestAnimationFrame(() => {
+        resizeSyncFrameRef.current = null;
+        syncResize();
+      });
     };
     const resizeObserver = new ResizeObserver(queueResizeSync);
     resizeObserver.observe(host);
@@ -377,8 +371,8 @@ function GraphPixiCanvasInner({
     return () => {
       disposed = true;
       resizeObserver.disconnect();
-      if (resizeSyncTimerRef.current) window.clearTimeout(resizeSyncTimerRef.current);
-      resizeSyncTimerRef.current = null;
+      if (resizeSyncFrameRef.current) window.cancelAnimationFrame(resizeSyncFrameRef.current);
+      resizeSyncFrameRef.current = null;
       pendingDrawAfterResizeRef.current = false;
       suspendPixiRenderRef.current = false;
       simulationRef.current?.stop();
@@ -438,7 +432,7 @@ function GraphPixiCanvasInner({
     nodesRef.current = nextNodes;
     if (pendingViewportFitRef.current) {
       pendingViewportFitRef.current = false;
-      const nextViewport = fitGraphViewport(nextNodes, canvasSizeRef.current);
+      const nextViewport = fitGraphViewport(nextNodes, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
       viewportRef.current = nextViewport;
       setViewport(nextViewport);
       zoomStartViewportRef.current = nextViewport;
@@ -499,9 +493,14 @@ function GraphPixiCanvasInner({
   const previewSampleId = typeof previewNode?.data.sampleVideoId === "string" ? previewNode.data.sampleVideoId : null;
   const previewSampleArtifact = previewSampleId ? sampleArtifacts[previewSampleId] ?? sampleCacheRef.current.get(previewSampleId) ?? null : null;
   const previewSize = previewPopoverSize(previewSampleArtifact);
-  const previewCanvasSize = canvasSizeRef.current;
+  const previewVisibleGeometry = visibleCanvasGeometry();
+  const previewCanvasSize = previewVisibleGeometry?.size ?? canvasSizeRef.current;
   const previewPosition = previewNode && (previewNode.type === "libraryItem" || previewNode.type === "sourceSample")
-    ? clampPreviewPosition(pixiScreenPoint(previewNode, viewport, previewCanvasSize), previewCanvasSize, previewSize)
+    ? clampPreviewPosition(
+      pixiVisiblePoint(previewNode, viewport, currentHostGeometry(hostRef.current, canvasSizeRef.current), previewVisibleGeometry),
+      previewCanvasSize,
+      previewSize,
+    )
     : null;
   void previewTick;
 
@@ -538,7 +537,7 @@ function GraphPixiCanvasInner({
   const applyFittedViewport = () => {
     if (!nodesRef.current.length) return;
     stopZoomAnimation();
-    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current);
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
     viewportRef.current = nextViewport;
     setViewport(nextViewport);
     zoomStartViewportRef.current = nextViewport;
@@ -792,6 +791,10 @@ function GraphPixiCanvasInner({
     return geometry;
   };
 
+  function visibleCanvasGeometry() {
+    return visibleCanvasGeometryFor(hostRef.current, canvasRef.current, canvasSizeRef.current);
+  }
+
   const screenToLayoutPoint = (clientX: number, clientY: number) => {
     const geometry = currentGeometry();
     if (!geometry) return null;
@@ -1023,7 +1026,7 @@ function GraphPixiCanvasInner({
     stopZoomAnimation();
     pendingViewportFitRef.current = false;
     hasUserAdjustedViewportRef.current = false;
-    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current);
+    const nextViewport = fitGraphViewport(nodesRef.current, canvasSizeRef.current, visibleCanvasGeometry()?.bounds);
     setResetToken((value) => value + 1);
     animateViewportTo(nextViewport);
   };
@@ -1111,6 +1114,46 @@ function currentHostGeometry(host: HTMLDivElement | null, fallbackSize: { width:
   };
 }
 
+function visibleCanvasGeometryFor(
+  host: HTMLDivElement | null,
+  canvas: HTMLDivElement | null,
+  fallbackSize: { width: number; height: number },
+) {
+  const hostGeometry = currentHostGeometry(host, fallbackSize);
+  const canvasRect = canvas?.getBoundingClientRect() ?? null;
+  if (!hostGeometry || !canvasRect) return null;
+  const scaleX = hostGeometry.rect.width ? hostGeometry.size.width / hostGeometry.rect.width : 1;
+  const scaleY = hostGeometry.rect.height ? hostGeometry.size.height / hostGeometry.rect.height : 1;
+  const left = (canvasRect.left - hostGeometry.rect.left) * scaleX;
+  const top = (canvasRect.top - hostGeometry.rect.top) * scaleY;
+  const width = canvasRect.width * scaleX;
+  const height = canvasRect.height * scaleY;
+  return {
+    bounds: {
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
+    },
+    size: { width, height },
+  };
+}
+
+function pixiVisiblePoint(
+  node: SimNode,
+  viewport: { x: number; y: number; k: number },
+  hostGeometry: ReturnType<typeof currentHostGeometry>,
+  visibleGeometry: ReturnType<typeof visibleCanvasGeometryFor>,
+) {
+  const size = hostGeometry?.size ?? visibleGeometry?.size ?? { width: VIEWBOX.width, height: VIEWBOX.height };
+  const bounds = visibleGeometry?.bounds ?? { left: 0, top: 0 };
+  const point = pixiScreenPoint(node, viewport, size);
+  return {
+    x: point.x - bounds.left,
+    y: point.y - bounds.top,
+  };
+}
+
 function stageTransform(size: { width: number; height: number }): StageTransform {
   const scale = Math.min(size.width / VIEWBOX.width, size.height / VIEWBOX.height) || 1;
   return {
@@ -1120,21 +1163,23 @@ function stageTransform(size: { width: number; height: number }): StageTransform
   };
 }
 
-function isWorkspaceLayoutChanging(host: HTMLElement) {
-  if (document.body.classList.contains("is-resizing-workspace")) return true;
-  return Boolean(host.closest(".new-ui-layout.is-pane-transitioning-layout, .new-ui-layout.is-drag-resizing-layout"));
-}
-
-function fitGraphViewport(nodes: SimNode[], size: { width: number; height: number }): ViewportTransform {
+function fitGraphViewport(
+  nodes: SimNode[],
+  size: { width: number; height: number },
+  visibleBounds?: { left: number; top: number; right: number; bottom: number },
+): ViewportTransform {
   if (!nodes.length) return { x: 0, y: 0, k: 1 };
   const transform = stageTransform(size);
-  const centerX = (size.width / 2 - transform.offsetX) / transform.scale;
-  const centerY = (size.height / 2 - transform.offsetY) / transform.scale;
+  const fitBounds = visibleBounds ?? { left: 0, top: 0, right: size.width, bottom: size.height };
+  const fitWidth = Math.max(1, fitBounds.right - fitBounds.left);
+  const fitHeight = Math.max(1, fitBounds.bottom - fitBounds.top);
+  const centerX = (fitBounds.left + fitWidth / 2 - transform.offsetX) / transform.scale;
+  const centerY = (fitBounds.top + fitHeight / 2 - transform.offsetY) / transform.scale;
   const bounds = graphBounds(nodes);
   const baseWidth = Math.max(1, bounds.width * transform.scale);
   const baseHeight = Math.max(1, bounds.height * transform.scale);
-  const targetWidth = Math.max(1, size.width * FIT_TARGET_WIDTH_RATIO);
-  const targetHeight = Math.max(1, size.height * FIT_TARGET_HEIGHT_RATIO);
+  const targetWidth = Math.max(1, fitWidth * FIT_TARGET_WIDTH_RATIO);
+  const targetHeight = Math.max(1, fitHeight * FIT_TARGET_HEIGHT_RATIO);
   const k = clamp(Math.min(targetWidth / baseWidth, targetHeight / baseHeight), 1, FIT_MAX_INITIAL_ZOOM);
   return {
     x: centerX - bounds.centerX * k,

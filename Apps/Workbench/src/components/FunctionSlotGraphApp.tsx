@@ -332,7 +332,6 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
       {selectedNode ? <NodeInspector node={selectedNode} graph={activeGraph} /> : null}
     </aside>
   );
-
   return (
     <div className={`slot-graph-shell ${embedded ? "embedded" : ""}`.trim()}>
       {!embedded ? (

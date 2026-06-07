@@ -40,6 +40,8 @@
 }
 
 .new-ui-pane {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr);
   background: var(--new-ui-surface);
@@ -668,7 +670,7 @@
 
 .new-ui-resize-handle {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   min-width: 10px;
   cursor: col-resize;
   background: transparent;
@@ -699,6 +701,7 @@
 }
 
 .new-ui-center {
+  position: relative;
   background: var(--new-ui-bg);
   min-width: 0;
   overflow: auto;

@@ -67,6 +67,8 @@ export function useResizableThreePaneLayout({
 }: UseResizableThreePaneLayoutOptions) {
   const layoutRef = useRef<ThreePaneLayout>({ left: defaultLeft, right: defaultRight });
   const dragRef = useRef<DragState | null>(null);
+  const pendingDragLayoutRef = useRef<ThreePaneLayout | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
   const persistLeft = persistedSides?.left !== false;
   const persistRight = persistedSides?.right !== false;
 
@@ -150,6 +152,27 @@ export function useResizableThreePaneLayout({
     saveLayout(applyLayout(next));
   }, [applyLayout, saveLayout]);
 
+  const flushPendingDragLayout = useCallback(() => {
+    if (dragFrameRef.current) {
+      window.cancelAnimationFrame(dragFrameRef.current);
+      dragFrameRef.current = null;
+    }
+    const pending = pendingDragLayoutRef.current;
+    pendingDragLayoutRef.current = null;
+    if (pending) applyLayout(pending);
+  }, [applyLayout]);
+
+  const scheduleDragLayout = useCallback((next: ThreePaneLayout) => {
+    pendingDragLayoutRef.current = next;
+    if (dragFrameRef.current) return;
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      const pending = pendingDragLayoutRef.current;
+      pendingDragLayoutRef.current = null;
+      if (pending) applyLayout(pending);
+    });
+  }, [applyLayout]);
+
   const startResize = useCallback((kind: ResizeKind, event: ReactPointerEvent<HTMLElement>) => {
     if (window.matchMedia(SMALL_SCREEN_QUERY).matches) return;
     const container = containerRef.current;
@@ -183,13 +206,14 @@ export function useResizableThreePaneLayout({
       const drag = dragRef.current;
       if (!drag) return;
       const delta = event.clientX - drag.startX;
-      applyLayout({
+      scheduleDragLayout({
         left: drag.kind === "left" ? drag.startLayout.left + delta : drag.startLayout.left,
         right: drag.kind === "right" ? drag.startLayout.right - delta : drag.startLayout.right,
       });
     };
     const onPointerUp = () => {
       if (!dragRef.current) return;
+      flushPendingDragLayout();
       dragRef.current = null;
       containerRef.current?.classList.remove("is-drag-resizing-layout");
       document.body.classList.remove("is-resizing-workspace", "is-resizing-workspace-col", "is-resizing-workspace-row");
@@ -202,10 +226,11 @@ export function useResizableThreePaneLayout({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      flushPendingDragLayout();
       containerRef.current?.classList.remove("is-drag-resizing-layout");
       document.body.classList.remove("is-resizing-workspace", "is-resizing-workspace-col", "is-resizing-workspace-row");
     };
-  }, [applyLayout, containerRef, saveLayout]);
+  }, [containerRef, flushPendingDragLayout, saveLayout, scheduleDragLayout]);
 
   useEffect(() => {
     const container = containerRef.current;

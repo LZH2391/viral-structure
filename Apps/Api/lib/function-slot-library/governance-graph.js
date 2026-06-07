@@ -89,6 +89,7 @@ function buildFunctionSlotGovernanceGraph(governance, { libraryItems = [] } = {}
   }
 
   pushSourceSamplesFromSnapshot(nodes, edges, rootId, governance.sourceSnapshot ?? []);
+  pushSourceSampleSlotSubtypeEdges(edges, governance.slotSubtypes ?? [], governance.sourceVariants ?? []);
   pushSourceVariantEdges(nodes, edges, governance.sourceVariants ?? []);
 
   pushUnmapped(nodes, edges, rootId, governance.unmappedAtomVariants ?? [], "atom");
@@ -255,6 +256,36 @@ function pushSubtypeAtomArchetypeEdgesFromSlotVariants(edges, slotSubtypes, slot
       }
     }
   }
+}
+
+function pushSourceSampleSlotSubtypeEdges(edges, slotSubtypes, sourceVariants) {
+  const slotVariantSamples = buildSlotVariantSampleIndex(sourceVariants);
+  for (const subtype of slotSubtypes) {
+    const subtypeId = normalizeGraphText(subtype?.id);
+    if (!subtypeId) continue;
+    for (const slotVariantId of normalizeTextArray(subtype?.sourceVariantIds)) {
+      const sampleId = slotVariantSamples.get(slotVariantId) ?? sampleIdFromSlotVariantId(slotVariantId);
+      if (!sampleId) continue;
+      pushEdge(edges, graphId("sourceSample", sampleId), nodeId("slotSubtype", subtypeId), "source_sample_slot_variant_to_subtype", "slot variant evidence");
+    }
+  }
+}
+
+function buildSlotVariantSampleIndex(sourceVariants) {
+  const index = new Map();
+  if (!Array.isArray(sourceVariants)) return index;
+  for (const variant of sourceVariants) {
+    const variantId = normalizeGraphText(variant?.variantId);
+    const kind = normalizeGraphText(variant?.kind);
+    const sampleId = normalizeGraphText(variant?.sampleId);
+    if (variantId && kind === "slot" && sampleId) index.set(variantId, sampleId);
+  }
+  return index;
+}
+
+function sampleIdFromSlotVariantId(slotVariantId) {
+  const parts = normalizeGraphText(slotVariantId)?.split("::") ?? [];
+  return parts.length === 2 ? normalizeGraphText(parts[0]) : null;
 }
 
 function addMapSetValue(map, key, value) {

@@ -383,8 +383,13 @@
 }
 
 .new-ui-shell .slot-graph-shell.embedded .legend-source-variant {
-  background: var(--slot-graph-node-source-variant);
-  border-color: var(--slot-graph-edge-source-trace);
+  background: linear-gradient(
+    90deg,
+    var(--slot-graph-node-script) 0 33.33%,
+    var(--slot-graph-node-rhythm) 33.33% 66.66%,
+    var(--slot-graph-node-packaging) 66.66% 100%
+  );
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 78%, transparent);
 }
 
 .new-ui-shell .slot-graph-shell.embedded .slot-graph-zoom-chip,
@@ -853,6 +858,12 @@
   overflow: hidden;
 }
 
+.new-ui-shell .slot-graph-shell.embedded .slot-graph-pixi-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
 .slot-graph-pixi-stage canvas {
   display: block;
   width: 100%;
@@ -949,6 +960,11 @@
   border-radius: 50%;
 }
 
+.slot-graph-legend .legend-source-variant {
+  width: 18px;
+  border-radius: 999px;
+}
+
 .legend-library {
   background: var(--slot-graph-node-library);
 }
@@ -1002,7 +1018,12 @@
 }
 
 .legend-source-variant {
-  background: var(--slot-graph-node-source-variant);
+  background: linear-gradient(
+    90deg,
+    var(--slot-graph-node-script) 0 33.33%,
+    var(--slot-graph-node-rhythm) 33.33% 66.66%,
+    var(--slot-graph-node-packaging) 66.66% 100%
+  );
   border: 1px solid var(--slot-graph-edge-source-trace);
 }
 

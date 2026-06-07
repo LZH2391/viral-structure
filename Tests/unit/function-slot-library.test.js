@@ -452,6 +452,31 @@ test("function slot governance graph builder derives subtype to atom archetype l
   assert.ok(graph.edges.some((edge) => edge.source === "atomArchetype:ATOM_ARCH_script" && edge.target === "atomPattern:SCRIPT_pattern_a" && edge.type === "atom_archetype_to_pattern"));
 });
 
+test("function slot governance graph builder links source samples to slot subtypes through slot variants only", () => {
+  const graph = buildFunctionSlotGovernanceGraph({
+    ...buildGovernance(),
+    slotSubtypes: [
+      { id: "SUB_a", archetypeId: "ARCH_hook", name: "A", sourceVariantIds: ["sample_a::F001"] },
+      { id: "SUB_b", archetypeId: "ARCH_hook", name: "B", sourceVariantIds: ["sample_b::F002"] },
+      { id: "SUB_atom_only", archetypeId: "ARCH_hook", name: "Atom only", sourceVariantIds: ["sample_a::script::S001"] },
+    ],
+    sourceVariants: [
+      { variantId: "sample_a::F001", sampleId: "sample_a", kind: "slot", sourceId: "F001", label: "slot A" },
+      { variantId: "sample_b::F002", sampleId: "sample_b", kind: "slot", sourceId: "F002", label: "slot B" },
+      { variantId: "sample_a::script::S001", sampleId: "sample_a", kind: "script", sourceId: "S001", label: "script atom" },
+    ],
+    sourceSnapshot: [
+      { sampleVideoId: "sample_a" },
+      { sampleVideoId: "sample_b" },
+    ],
+  });
+  const evidenceEdges = graph.edges.filter((edge) => edge.type === "source_sample_slot_variant_to_subtype");
+
+  assert.ok(evidenceEdges.some((edge) => edge.source === "sourceSample:sample_a" && edge.target === "slotSubtype:SUB_a"));
+  assert.ok(evidenceEdges.some((edge) => edge.source === "sourceSample:sample_b" && edge.target === "slotSubtype:SUB_b"));
+  assert.equal(evidenceEdges.some((edge) => edge.target === "slotSubtype:SUB_atom_only"), false);
+});
+
 test("function slot governance graph builder shows source snapshot samples without requiring atom patterns", () => {
   const governance = {
     ...buildGovernance(),
