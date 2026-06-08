@@ -218,6 +218,7 @@
 }
 
 .new-ui-restructure-chat {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
@@ -230,7 +231,7 @@
   grid-template-columns: minmax(0, var(--new-ui-restructure-content-width));
   align-content: start;
   justify-content: center;
-  gap: 26px;
+  gap: 8px;
   overflow: auto;
   padding: 26px var(--new-ui-restructure-inline-padding) 28px;
 }
@@ -244,6 +245,57 @@
 .new-ui-restructure-message.is-user {
   justify-self: end;
   width: min(820px, 94%);
+}
+
+.new-ui-restructure-activity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(960px, 100%);
+  max-width: 100%;
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-restructure-activity-icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: currentColor;
+}
+
+.new-ui-restructure-activity-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-restructure-activity p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: currentColor;
+  font-size: 16px;
+  font-weight: 525;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.new-ui-restructure-activity p.is-thinking-text {
+  display: inline-flex;
+}
+
+.new-ui-restructure-activity strong {
+  color: inherit;
+  font: inherit;
 }
 
 .new-ui-restructure-message-body {
@@ -280,24 +332,25 @@
   color: var(--new-ui-text-muted);
 }
 
-.new-ui-restructure-message-body p.is-thinking-text {
+.new-ui-restructure-message-body p.is-thinking-text,
+.new-ui-restructure-activity p.is-thinking-text {
   display: inline-block;
   width: auto;
   color: transparent;
   background:
     linear-gradient(
       100deg,
-      var(--new-ui-text-muted) 0%,
-      var(--new-ui-text-muted) 36%,
-      color-mix(in srgb, var(--new-ui-text) 92%, white) 48%,
-      var(--new-ui-text-muted) 60%,
-      var(--new-ui-text-muted) 100%
+      color-mix(in srgb, var(--new-ui-text-muted) 72%, transparent) 0%,
+      color-mix(in srgb, var(--new-ui-text-muted) 72%, transparent) 28%,
+      color-mix(in srgb, var(--new-ui-text) 100%, white) 50%,
+      color-mix(in srgb, var(--new-ui-text-muted) 72%, transparent) 72%,
+      color-mix(in srgb, var(--new-ui-text-muted) 72%, transparent) 100%
     );
-  background-size: 240% 100%;
+  background-size: 280% 100%;
   background-position: 120% 0;
   -webkit-background-clip: text;
   background-clip: text;
-  animation: new-ui-restructure-thinking-shimmer 1.45s ease-in-out infinite;
+  animation: new-ui-restructure-thinking-shimmer 3s ease-in-out infinite;
 }
 
 @keyframes new-ui-restructure-thinking-shimmer {
@@ -307,8 +360,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .new-ui-restructure-message-body p.is-thinking-text {
-    color: var(--new-ui-text-muted);
+  .new-ui-restructure-message-body p.is-thinking-text,
+  .new-ui-restructure-activity p.is-thinking-text {
+    color: color-mix(in srgb, var(--new-ui-text-muted) 72%, transparent);
     background: none;
     animation: none;
   }
@@ -494,6 +548,7 @@
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  padding-right: 168px;
 }
 
 .new-ui-restructure-tool-button {
@@ -538,6 +593,58 @@
   cursor: pointer;
 }
 
+.new-ui-restructure-context-usage {
+  --context-progress: 0%;
+  --context-ring: color-mix(in srgb, var(--new-ui-text-muted) 62%, transparent);
+  --context-track: color-mix(in srgb, var(--new-ui-text-muted) 22%, transparent);
+  position: absolute;
+  right: 64px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 108px;
+  height: 30px;
+  padding: 4px 6px 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-bg) 38%, transparent);
+  color: var(--new-ui-text-muted);
+  pointer-events: auto;
+}
+
+.new-ui-restructure-context-usage b {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.new-ui-restructure-context-usage i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--new-ui-restructure-highlight-bg) 52%, transparent 54%),
+    conic-gradient(var(--context-ring) var(--context-progress), var(--context-track) 0);
+}
+
+.new-ui-restructure-context-usage.warning {
+  --context-ring: color-mix(in srgb, var(--warning) 78%, var(--new-ui-text));
+  color: color-mix(in srgb, var(--new-ui-text) 82%, var(--warning));
+}
+
+.new-ui-restructure-context-usage.danger {
+  --context-ring: color-mix(in srgb, var(--danger) 82%, var(--new-ui-text));
+  color: color-mix(in srgb, var(--new-ui-text) 88%, var(--danger));
+}
+
+.new-ui-restructure-context-usage.unknown {
+  --context-ring: color-mix(in srgb, var(--new-ui-text-muted) 38%, transparent);
+  color: var(--new-ui-text-muted);
+}
+
 .new-ui-restructure-send-button:disabled {
   cursor: default;
   opacity: 0.72;
@@ -557,6 +664,90 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.new-ui-restructure-send-error-alert {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  left: 50%;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: min(calc(100% - (var(--new-ui-restructure-inline-padding) * 2)), var(--new-ui-restructure-content-width));
+  max-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 9%, var(--new-ui-bg));
+  color: color-mix(in srgb, var(--danger) 70%, var(--new-ui-text));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--new-ui-bg) 42%, transparent);
+  overflow: hidden;
+  transform: translate(-50%, -8px);
+  animation: new-ui-restructure-error-enter 180ms ease-out forwards;
+}
+
+.new-ui-restructure-draft .new-ui-restructure-send-error-alert {
+  position: static;
+  transform: translateY(-8px);
+  width: min(100%, var(--new-ui-restructure-content-width));
+  margin-bottom: -18px;
+  animation: new-ui-restructure-draft-error-enter 180ms ease-out forwards;
+}
+
+.new-ui-restructure-send-error-alert svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-restructure-send-error-alert p {
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 525;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+@keyframes new-ui-restructure-error-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes new-ui-restructure-draft-error-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-ui-restructure-send-error-alert {
+    animation: none;
+    transform: translate(-50%, 0);
+  }
+
+  .new-ui-restructure-draft .new-ui-restructure-send-error-alert {
+    transform: none;
+  }
 }
 
 @media (max-width: 1160px) {

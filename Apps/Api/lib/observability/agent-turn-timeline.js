@@ -134,6 +134,7 @@ function summarizeTurnItem(item, index) {
       kind: "reasoning",
       title: chars ? `Reasoning ${chars} chars` : "Reasoning",
       status: normalizeItemStatus(item),
+      text,
       textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: chars ? { byteLength: chars } : {},
@@ -163,6 +164,7 @@ function summarizeTurnItem(item, index) {
       kind: "context_compacted",
       title: "Context compacted",
       status: normalizeItemStatus(item),
+      text: extractText(item) ?? "Context compacted",
       textPreview: safePreview(extractText(item) ?? "Context compacted", TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: {},
@@ -176,6 +178,7 @@ function summarizeTurnItem(item, index) {
       kind: "command_execution",
       title: item.command ? `Command: ${safePreview(item.command, 80)}` : "Command execution",
       status: normalizeItemStatus(item),
+      text,
       textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: {
@@ -196,6 +199,7 @@ function summarizeTurnItem(item, index) {
       kind: "mcp_tool_call",
       title: toolName ? `MCP tool: ${toolName}` : "MCP tool call",
       status: normalizeItemStatus(item),
+      text,
       textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: {
@@ -214,6 +218,7 @@ function summarizeTurnItem(item, index) {
       kind: "dynamic_tool_call",
       title: toolName ? `Dynamic tool: ${toolName}` : "Dynamic tool call",
       status: normalizeItemStatus(item),
+      text,
       textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: {
@@ -250,13 +255,15 @@ function summarizeTurnItem(item, index) {
   }
   if (["toolcall", "functioncall", "customtoolcall", "localtoolcall", "localshellcall", "shellcall", "commandcall"].includes(compactType)) {
     const toolName = resolveToolName(item);
+    const text = resolveToolPreview(item);
     return {
       id: item.id ?? `item_${index}`,
       index,
       kind: "tool_call",
       title: toolName ? `Tool call: ${toolName}` : "Tool call",
       status: normalizeItemStatus(item),
-      textPreview: safePreview(resolveToolPreview(item), TEXT_PREVIEW_LIMIT),
+      text,
+      textPreview: safePreview(text, TEXT_PREVIEW_LIMIT),
       createdAt,
       metadata: {
         toolName,
@@ -288,13 +295,15 @@ function summarizeTurnItem(item, index) {
 }
 
 function buildItem({ item, index, kind, title, createdAt, previewLimit }) {
+  const text = extractText(item);
   return {
     id: item.id ?? `item_${index}`,
     index,
     kind,
     title,
     status: normalizeItemStatus(item),
-    textPreview: safePreview(extractText(item), previewLimit),
+    text,
+    textPreview: safePreview(text, previewLimit),
     createdAt,
     metadata: {},
   };

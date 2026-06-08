@@ -130,6 +130,7 @@ export type AgentTimelineItem = {
     | "unknown";
   title: string;
   status?: "running" | "completed" | "failed" | "unknown";
+  text?: string | null;
   textPreview?: string | null;
   createdAt?: string | null;
   metadata?: {

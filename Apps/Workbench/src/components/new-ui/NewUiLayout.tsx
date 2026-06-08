@@ -25,6 +25,7 @@ type NewUiNavChild = {
   id: string;
   label: string;
   updatedAgoLabel?: string | null;
+  errorMessage?: string | null;
 };
 
 const NEW_UI_SECTIONS: NewUiSection[] = [
@@ -42,6 +43,8 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 ];
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
+const RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY = "new-ui:restructure-conversation-errors";
+const RESTRUCTURE_SEND_RETRY_HINT = "请开启新对话";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 const PANE_TRANSITION_GUARD_MS = 420;
 const LEFT_PANE_ANIMATION_MS = 280;
@@ -127,6 +130,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
   const [optimisticRestructureGeneration, setOptimisticRestructureGeneration] = useState<OptimisticRestructureGeneration | null>(null);
+  const [restructureConversationErrors, setRestructureConversationErrors] = useState<Record<string, string>>(() => readStoredRestructureConversationErrors());
   const [runningRestructureConversationIds, setRunningRestructureConversationIds] = useState<Record<string, boolean>>({});
   const [runningRestructureTurns, setRunningRestructureTurns] = useState<Record<string, RunningRestructureTurn>>({});
   const [archiveConfirmConversationId, setArchiveConfirmConversationId] = useState<string | null>(null);
@@ -151,14 +155,16 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             id: conversation.conversationId,
             label: resolveConversationTitle(conversation, index),
             updatedAgoLabel: formatConversationUpdatedAgo(conversation.updatedAt, relativeTimeNowMs),
+            errorMessage: restructureConversationErrors[conversation.conversationId] ?? null,
           })),
       }
       : section
-  )), [relativeTimeNowMs, restructureConversations]);
+  )), [relativeTimeNowMs, restructureConversationErrors, restructureConversations]);
   const selectedRestructureConversation = useMemo(() => (
     restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
   ), [activeRestructureConversationId, restructureConversations]);
   const selectedRunningRestructureTurn = activeRestructureConversationId ? runningRestructureTurns[activeRestructureConversationId] ?? null : null;
+  const selectedRestructureConversationError = activeRestructureConversationId ? restructureConversationErrors[activeRestructureConversationId] ?? null : null;
   const selectedOptimisticRestructureGeneration = useMemo(() => {
     if (!optimisticRestructureGeneration) return null;
     if (activeSection !== "restructure") return null;
@@ -215,6 +221,29 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     draftingRestructureConversationRef.current = false;
     setActiveRestructureConversationId(conversationId);
     setDraftingRestructureConversation(false);
+  }, []);
+
+  const clearRestructureConversationError = useCallback((conversationId: string | null | undefined) => {
+    if (!conversationId) return;
+    setRestructureConversationErrors((current) => {
+      if (!current[conversationId]) return current;
+      const next = { ...current };
+      delete next[conversationId];
+      writeStoredRestructureConversationErrors(next);
+      return next;
+    });
+  }, []);
+
+  const markRestructureConversationError = useCallback((conversationId: string | null | undefined, error: unknown) => {
+    if (!conversationId) return;
+    setRestructureConversationErrors((current) => {
+      const next = {
+        ...current,
+        [conversationId]: formatRestructureConversationError(error),
+      };
+      writeStoredRestructureConversationErrors(next);
+      return next;
+    });
   }, []);
 
   const beginRestructureDraft = useCallback(() => {
@@ -615,6 +644,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setArchivingConversationId(conversationId);
     try {
       await archiveAgentChatConversation(conversationId);
+      clearRestructureConversationError(conversationId);
       setArchiveConfirmConversationId(null);
       await refreshRestructureConversations(activeRestructureConversationId === conversationId ? null : activeRestructureConversationId);
     } catch {
@@ -622,7 +652,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setArchivingConversationId(null);
     }
-  }, [activeRestructureConversationId, archiveConfirmConversationId, archivingConversationId, refreshRestructureConversations]);
+  }, [activeRestructureConversationId, archiveConfirmConversationId, archivingConversationId, clearRestructureConversationError, refreshRestructureConversations]);
 
   const handleArchiveConfirmLeave = useCallback((conversationId: string) => {
     if (archivingConversationId === conversationId) return;
@@ -808,16 +838,18 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         turnId: submitted.turnId,
         workspaceRoot: submitted.workspaceRoot ?? conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
       });
+      clearRestructureConversationError(nextConversationId);
       await refreshRestructureConversations(nextConversationId).catch(() => undefined);
     } catch (error) {
       if (sendAccepted) return;
+      markRestructureConversationError(conversation?.conversationId ?? startedSession?.conversationId ?? null, error);
       setOptimisticRestructureGeneration((current) => (current?.id === pendingId ? null : current));
       throw error;
     } finally {
       setCreatingRestructureConversation(false);
       setSendingRestructureMessage(false);
     }
-  }, [draftingRestructureConversation, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -944,8 +976,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               loadingConversations={loadingRestructureConversations}
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
+              activeTurnTarget={selectedRestructureTurnTarget}
               pendingAssistantMessage={selectedOptimisticRestructureGeneration?.message ?? null}
               pendingUserMessage={selectedOptimisticRestructureGeneration?.userMessage ?? null}
+              sendErrorMessage={selectedRestructureConversationError}
               sendingMessage={sendingRestructureMessage}
             />
           ) : null}
@@ -1266,10 +1300,11 @@ function SidebarNav({
                   const confirmingArchive = archiveConfirmConversationId === child.id;
                   const archiving = archivingConversationId === child.id;
                   const runningTurn = Boolean(runningRestructureConversationIds[child.id]);
+                  const hasError = Boolean(child.errorMessage);
                   return (
                     <div
                       key={child.id}
-                      className={`new-ui-sidebar-subnav-item has-meta has-archive ${isChildActive ? "is-active" : ""} ${confirmingArchive ? "is-confirming-archive" : ""} ${runningTurn ? "is-running-turn" : ""}`.trim()}
+                      className={`new-ui-sidebar-subnav-item has-meta has-archive ${isChildActive ? "is-active" : ""} ${confirmingArchive ? "is-confirming-archive" : ""} ${runningTurn ? "is-running-turn" : ""} ${hasError ? "has-error" : ""}`.trim()}
                       onMouseLeave={confirmingArchive ? () => onArchiveConfirmLeave(child.id) : undefined}
                     >
                       <button
@@ -1296,6 +1331,7 @@ function SidebarNav({
                           {child.updatedAgoLabel}
                         </span>
                         {runningTurn ? <SidebarTurnSpinnerIcon /> : null}
+                        {hasError ? <SidebarErrorIcon title={child.errorMessage ?? "发送失败"} /> : null}
                         {confirmingArchive ? <ArchiveConfirmIcon /> : <ArchiveTrashIcon />}
                       </button>
                     </div>
@@ -1527,6 +1563,45 @@ function isTerminalAgentTurnStatus(status: string | null | undefined) {
   return ["completed", "complete", "failed", "error", "errored", "cancelled", "canceled"].includes(normalized);
 }
 
+function readStoredRestructureConversationErrors() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY) ?? "null");
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([key, value]) => key.trim() && typeof value === "string" && value.trim())
+        .map(([key, value]) => [key, appendRestructureSendRetryHint(String(value))]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredRestructureConversationErrors(errors: Record<string, string>) {
+  try {
+    const entries = Object.entries(errors)
+      .filter(([key, value]) => key.trim() && value.trim())
+      .map(([key, value]) => [key, appendRestructureSendRetryHint(value)]);
+    if (!entries.length) {
+      window.localStorage.removeItem(RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // Persistent error badges are non-critical UI state.
+  }
+}
+
+function formatRestructureConversationError(error: unknown) {
+  if (error instanceof Error && error.message.trim()) return appendRestructureSendRetryHint(error.message.trim());
+  return appendRestructureSendRetryHint("发送失败，请稍后重试");
+}
+
+function appendRestructureSendRetryHint(message: string) {
+  const trimmed = message.trim() || "发送失败，请稍后重试";
+  return trimmed.includes(RESTRUCTURE_SEND_RETRY_HINT) ? trimmed : `${trimmed}。${RESTRUCTURE_SEND_RETRY_HINT}`;
+}
+
 function NewConversationIcon() {
   return (
     <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
@@ -1540,6 +1615,16 @@ function SidebarTurnSpinnerIcon() {
     <svg className="new-ui-sidebar-subnav-spinner" viewBox="0 0 20 20" focusable="false" aria-hidden="true">
       <circle className="new-ui-sidebar-subnav-spinner-track" cx="10" cy="10" r="6.4" />
       <path className="new-ui-sidebar-subnav-spinner-arc" d="M10 3.6a6.4 6.4 0 0 1 6.2 4.8" />
+    </svg>
+  );
+}
+
+function SidebarErrorIcon({ title }: { title: string }) {
+  return (
+    <svg className="new-ui-sidebar-subnav-error-icon" viewBox="0 0 18 18" focusable="false" role="img" aria-label={title}>
+      <path d="M9 3.2 15.3 14H2.7L9 3.2Z" />
+      <path d="M9 7.1v3.7" />
+      <path d="M9 12.9h.01" />
     </svg>
   );
 }

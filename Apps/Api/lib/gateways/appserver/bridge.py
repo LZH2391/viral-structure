@@ -83,18 +83,29 @@ def load_stdin_json():
 
 
 def start_turn_with_inputs(client, payload) -> int:
-    turn_id = client.start_turn_with_inputs(
-        str(payload["threadId"]),
-        list(payload.get("inputs") or []),
-        skill_path=payload.get("skillPath") or None,
-        cwd=payload["workspaceRoot"],
-    )
+    recovered = False
+    try:
+        turn_id = client.start_turn_with_inputs(
+            str(payload["threadId"]),
+            list(payload.get("inputs") or []),
+            skill_path=payload.get("skillPath") or None,
+            cwd=payload["workspaceRoot"],
+        )
+    except Exception as exc:
+        recovered = resume_missing_thread_once(client, payload, exc)
+        turn_id = client.start_turn_with_inputs(
+            str(payload["threadId"]),
+            list(payload.get("inputs") or []),
+            skill_path=payload.get("skillPath") or None,
+            cwd=payload["workspaceRoot"],
+        )
     write_json(
         {
             "ok": True,
             "threadId": str(payload["threadId"]),
             "turnId": turn_id,
             "status": "submitted",
+            "recoveredThread": recovered,
         }
     )
     return 0
@@ -155,12 +166,22 @@ def collect_turn_result(client, payload) -> int:
 
 
 def run_turn_with_inputs(client, payload) -> int:
-    turn_id = client.start_turn_with_inputs(
-        str(payload["threadId"]),
-        list(payload.get("inputs") or []),
-        skill_path=payload.get("skillPath") or None,
-        cwd=payload["workspaceRoot"],
-    )
+    recovered = False
+    try:
+        turn_id = client.start_turn_with_inputs(
+            str(payload["threadId"]),
+            list(payload.get("inputs") or []),
+            skill_path=payload.get("skillPath") or None,
+            cwd=payload["workspaceRoot"],
+        )
+    except Exception as exc:
+        recovered = resume_missing_thread_once(client, payload, exc)
+        turn_id = client.start_turn_with_inputs(
+            str(payload["threadId"]),
+            list(payload.get("inputs") or []),
+            skill_path=payload.get("skillPath") or None,
+            cwd=payload["workspaceRoot"],
+        )
     status = client.wait_turn_completed(
         str(payload["threadId"]),
         turn_id,
@@ -179,17 +200,24 @@ def run_turn_with_inputs(client, payload) -> int:
             "status": result.status,
             "finalMessage": result.final_message,
             "activeThreadMessage": result.active_thread_message,
+            "recoveredThread": recovered,
         }
     )
     return 0
 
 
 def read_thread(client, payload) -> int:
-    thread = client.read_thread(str(payload["threadId"]), include_turns=True)
+    recovered = False
+    try:
+        thread = client.read_thread(str(payload["threadId"]), include_turns=True)
+    except Exception as exc:
+        recovered = resume_missing_thread_once(client, payload, exc)
+        thread = client.read_thread(str(payload["threadId"]), include_turns=True)
     write_json(
         {
             "ok": True,
             "thread": thread,
+            "recoveredThread": recovered,
         }
     )
     return 0
@@ -282,6 +310,20 @@ def compact_thread(client, payload) -> int:
 
 def result_status_is_completed(result) -> bool:
     return result.status == "completed"
+
+
+def resume_missing_thread_once(client, payload, exc: Exception) -> bool:
+    if not is_thread_not_found_error(exc):
+        raise exc
+    thread_id = str(payload.get("threadId") or "").strip()
+    if not thread_id:
+        raise exc
+    client.resume_thread(thread_id)
+    return True
+
+
+def is_thread_not_found_error(exc: Exception) -> bool:
+    return "thread not found" in str(exc).strip().lower()
 
 
 def structured_error(code: str, exc: Exception, payload) -> dict:
