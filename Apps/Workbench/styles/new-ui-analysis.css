@@ -75,9 +75,9 @@
 
 .new-ui-analysis-detail-header {
   position: absolute;
-  left: 10px;
-  right: 24px;
-  top: 18px;
+  left: 18px;
+  right: 18px;
+  top: 10px;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -88,14 +88,15 @@
   display: inline-grid;
   grid-template-columns: 28px minmax(0, auto);
   align-items: center;
-  max-width: min(760px, 100%);
+  max-width: min(769px, calc(100% + 9px));
   min-width: 0;
   min-height: 34px;
+  margin-left: -9px;
   padding: 0 8px 0 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--new-ui-text-muted);
+  color: var(--new-ui-text);
   cursor: pointer;
   transition:
     background-color 180ms ease,
@@ -134,9 +135,9 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  color: color-mix(in srgb, var(--new-ui-text-muted) 78%, var(--new-ui-text));
-  font-size: var(--new-ui-font-size-md);
-  font-weight: 480;
+  color: var(--new-ui-text);
+  font-size: inherit;
+  font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2476,7 +2477,7 @@
   .new-ui-analysis-detail-header {
     left: 8px;
     right: 18px;
-    top: 14px;
+    top: 8px;
   }
 
   .new-ui-analysis-detail-body {

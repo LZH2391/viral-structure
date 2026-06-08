@@ -497,7 +497,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
               />
               {mode === "governance" ? <GovernanceSummary graph={graph} variant="overlay" collapsed={governanceSummaryCollapsed} onToggleCollapsed={() => setGovernanceSummaryCollapsed((value) => !value)} /> : null}
             </>
-          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text={mode === "governance" ? "暂无语义治理图" : mode === "planTrace" ? "暂无确定方案溯源" : "选择右侧素材查看图谱"} hint={null} />}
+          ) : loadingGraph ? <GraphLoadingState /> : <EmptyState text="" hint={null} />}
         </section>
         {panelSlot ? panelSlot(graphPanel) : graphPanel}
       </main>
@@ -506,6 +506,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
 }
 
 function StructureGraphReturnBar({ title, onBack }: { title: string; onBack: () => void }) {
+  const displayTitle = truncateTitle(title, 10);
   return (
     <button className="slot-graph-return-bar" type="button" aria-label={`回到分析：${title}`} title={title} onClick={onBack}>
       <span className="slot-graph-return-icon" aria-hidden="true">
@@ -513,9 +514,14 @@ function StructureGraphReturnBar({ title, onBack }: { title: string; onBack: () 
           <path d="M15 6 9 12l6 6" />
         </svg>
       </span>
-      <span title={title}>{title}</span>
+      <span title={title}>{displayTitle}</span>
     </button>
   );
+}
+
+function truncateTitle(title: string, maxChars: number) {
+  const chars = Array.from(title.trim());
+  return chars.length > maxChars ? `${chars.slice(0, maxChars).join("")}...` : title;
 }
 
 function GraphViewPanel({

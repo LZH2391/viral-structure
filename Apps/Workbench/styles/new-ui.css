@@ -27,6 +27,7 @@
   color: var(--page-curl-target-text);
   cursor: pointer;
   outline-offset: -10px;
+  pointer-events: none;
 }
 
 .page-curl-view-toggle:disabled,
@@ -46,6 +47,22 @@
   z-index: 2;
   width: 104px;
   height: 82px;
+  pointer-events: none;
+}
+
+.page-curl-view-toggle__hitarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 52px;
+  height: 41px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.page-curl-view-toggle:disabled .page-curl-view-toggle__hitarea,
+.page-curl-view-toggle[aria-disabled="true"] .page-curl-view-toggle__hitarea {
   pointer-events: none;
 }
 

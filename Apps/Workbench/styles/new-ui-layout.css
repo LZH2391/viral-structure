@@ -265,11 +265,27 @@
   padding: 0;
 }
 
+.new-ui-layout.is-left-pane-transitioning-layout .new-ui-pane-left .new-ui-pane-header {
+  justify-content: flex-end;
+  padding: 0 5px;
+}
+
+.new-ui-layout.is-right-pane-transitioning-layout .new-ui-pane-right .new-ui-pane-header {
+  justify-content: flex-start;
+  padding: 0 5px;
+}
+
 .new-ui-layout.is-right-collapsed .new-ui-pane-right .new-ui-pane-body {
   padding-inline: 0;
   opacity: 0;
   transform: translateX(10px);
   pointer-events: none;
+}
+
+.new-ui-layout.is-right-pane-transitioning-layout .new-ui-pane-right .new-ui-pane-body {
+  width: var(--new-ui-right-content-width);
+  min-width: var(--new-ui-right-content-width);
+  max-width: none;
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-pane-left .new-ui-pane-body {
@@ -596,16 +612,17 @@
   max-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding-left: 40px;
+  padding-left: 28px;
   opacity: 0;
   transition:
-    max-height 180ms cubic-bezier(0.28, 0.84, 0.42, 1),
-    padding-top 180ms cubic-bezier(0.28, 0.84, 0.42, 1),
-    opacity 120ms ease;
+    max-height var(--new-ui-pane-transition-duration) cubic-bezier(0.25, 0.1, 0.25, 1),
+    padding-top var(--new-ui-pane-transition-duration) cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 220ms ease;
 }
 
 .new-ui-sidebar-nav-group.is-expanded .new-ui-sidebar-subnav {
-  max-height: 124px;
+  max-height: var(--new-ui-sidebar-subnav-expanded-height, 124px);
+  overflow: hidden;
   padding-top: 4px;
   opacity: 1;
 }
@@ -615,7 +632,7 @@
   min-width: 0;
   width: 100%;
   min-height: 30px;
-  padding: 6px 9px 6px 0;
+  padding: 7px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
@@ -627,8 +644,9 @@
   letter-spacing: 0;
   line-height: 1.25;
   text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -795,6 +813,27 @@
   overflow: auto;
   scrollbar-color: color-mix(in srgb, var(--new-ui-text-muted) 44%, transparent) transparent;
   transition: background-color 360ms ease;
+}
+
+.new-ui-center-page-header {
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  z-index: 2;
+  max-width: min(760px, calc(100% - 36px));
+  pointer-events: none;
+}
+
+.new-ui-center-page-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--new-ui-text);
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .new-ui-center-section {

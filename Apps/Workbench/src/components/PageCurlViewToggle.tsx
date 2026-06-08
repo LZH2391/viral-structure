@@ -27,6 +27,7 @@ const ANIMATION_MS = 260;
 
 export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled = false, redrawKey = "", onClick }: PageCurlViewToggleProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hitAreaRef = useRef<HTMLSpanElement | null>(null);
   const progressRef = useRef(0);
   const targetRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -88,7 +89,7 @@ export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled 
 
     draw(progressRef.current);
 
-    const canvasElement = canvas;
+    const hitAreaElement = hitAreaRef.current;
     const enter = () => {
       animateTo(1);
     };
@@ -96,12 +97,12 @@ export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled 
       animateTo(0);
     };
 
-    canvasElement.parentElement?.addEventListener("mouseenter", enter);
-    canvasElement.parentElement?.addEventListener("mouseleave", leave);
+    hitAreaElement?.addEventListener("mouseenter", enter);
+    hitAreaElement?.addEventListener("mouseleave", leave);
 
     return () => {
-      canvasElement.parentElement?.removeEventListener("mouseenter", enter);
-      canvasElement.parentElement?.removeEventListener("mouseleave", leave);
+      hitAreaElement?.removeEventListener("mouseenter", enter);
+      hitAreaElement?.removeEventListener("mouseleave", leave);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, [redrawKey]);
@@ -109,6 +110,15 @@ export function PageCurlViewToggle({ label, ariaLabel, className = "", disabled 
   return (
     <button className={`page-curl-view-toggle ${className}`.trim()} type="button" aria-label={ariaLabel} disabled={disabled} aria-disabled={disabled} onClick={onClick}>
       <canvas ref={canvasRef} className="page-curl-view-toggle__canvas" aria-hidden="true" />
+      <span
+        ref={hitAreaRef}
+        className="page-curl-view-toggle__hitarea"
+        aria-hidden="true"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!disabled) onClick();
+        }}
+      />
       <span className="page-curl-view-toggle__label">{label}</span>
     </button>
   );
