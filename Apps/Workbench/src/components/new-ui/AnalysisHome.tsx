@@ -455,7 +455,7 @@ function AnalysisDetailPage({
   return (
     <section className={`new-ui-analysis-detail ${hidden ? "is-hidden" : ""}`.trim()} aria-hidden={hidden} aria-label="分析详情">
       <header className="new-ui-analysis-detail-header">
-        <button className="new-ui-analysis-title-button" type="button" aria-label={`返回分析首页：${title}`} title={title} onClick={onBack}>
+        <button className="new-ui-analysis-title-button" type="button" aria-label={`返回分析首页：${title}`} data-tooltip={title} onClick={onBack}>
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
             <path d="M15 6 9 12l6 6" />
           </svg>
@@ -560,7 +560,7 @@ function PlayerQueueRail({
       tabIndex={0}
       aria-expanded={expanded}
       aria-label={queueLabel}
-      title={queueLabel}
+      data-tooltip={queueLabel}
       onClick={onToggle}
       onKeyDown={handleQueueKeyDown}
     >

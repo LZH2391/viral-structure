@@ -269,7 +269,7 @@ export function AnalysisTimelineTracks({
                         className={`new-ui-analysis-timeline-block ${selectedSegmentId === block.detail?.id ? "is-selected" : ""}`.trim()}
                         type="button"
                         style={timelineBlockStyle(block, duration)}
-                        title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+                        data-tooltip={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
                         onPointerDown={stopTimelineBlockPointerDown}
                         onClick={() => {
                           if (block.detail) onSelectSegment?.(block.detail);
@@ -291,7 +291,7 @@ export function AnalysisTimelineTracks({
               className={`new-ui-analysis-timeline-playhead ${draggingPlayhead ? "is-dragging" : ""}`.trim()}
               type="button"
               aria-label="当前播放位置"
-              title="拖动调整播放位置"
+              data-tooltip="拖动调整播放位置"
               onPointerDown={startPlayheadDrag}
               onPointerMove={movePlayheadDrag}
               onPointerUp={finishPlayheadDrag}
@@ -348,7 +348,7 @@ function StructureTimelineBlock({
       className={`new-ui-analysis-timeline-block new-ui-analysis-structure-block ${selected ? "is-selected" : ""}`.trim()}
       type="button"
       style={timelineBlockStyle(block, duration)}
-      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}${block.shotRangeLabel ? ` · ${block.shotRangeLabel}` : ""}`}
+      data-tooltip={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}${block.shotRangeLabel ? ` · ${block.shotRangeLabel}` : ""}`}
       onPointerDown={stopTimelineBlockPointerDown}
       onClick={() => {
         if (block.detail) onSelect?.(block.detail);
@@ -384,7 +384,7 @@ function ShotTimelineBlock({
       className={`new-ui-analysis-timeline-block new-ui-analysis-shot-block ${frameUrls.length ? "has-frames" : ""} ${selected ? "is-selected" : ""}`.trim()}
       type="button"
       style={timelineBlockStyle(block, duration)}
-      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+      data-tooltip={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
       onPointerDown={stopTimelineBlockPointerDown}
       onClick={() => {
         onSeek(block.start);
@@ -421,7 +421,7 @@ function SubtitleTimelineBlock({
       className={`new-ui-analysis-timeline-block new-ui-analysis-subtitle-block ${selected ? "is-selected" : ""}`.trim()}
       type="button"
       style={timelineBlockStyle(block, duration)}
-      title={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
+      data-tooltip={`${block.label} ${formatTimelineTime(block.start)}-${formatTimelineTime(block.end)}`}
       onPointerDown={stopTimelineBlockPointerDown}
       onClick={() => {
         onSeek(block.start);

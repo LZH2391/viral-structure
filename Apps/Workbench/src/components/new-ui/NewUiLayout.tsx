@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { listAgentChatConversations } from "../../api/client";
+import { archiveAgentChatConversation, listAgentChatConversations, startAgentChatThread } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { AgentChatConversation } from "../../types";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
@@ -9,6 +9,7 @@ import { SplitResizeHandle } from "../SplitResizeHandle";
 import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
+import { NewUiRestructureWorkspace } from "./NewUiRestructureWorkspace";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -22,6 +23,7 @@ type NewUiSection = {
 type NewUiNavChild = {
   id: string;
   label: string;
+  updatedAgoLabel?: string | null;
 };
 
 const NEW_UI_SECTIONS: NewUiSection[] = [
@@ -83,6 +85,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [activeRestructureConversationId, setActiveRestructureConversationId] = useState<string | null>(null);
   const [restructureConversations, setRestructureConversations] = useState<AgentChatConversation[]>([]);
+  const [relativeTimeNowMs, setRelativeTimeNowMs] = useState(() => Date.now());
+  const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
+  const [archiveConfirmConversationId, setArchiveConfirmConversationId] = useState<string | null>(null);
+  const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
   const [analysisOpenRequest, setAnalysisOpenRequest] = useState<AnalysisOpenRequest>(null);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
@@ -105,14 +111,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           children: restructureConversations.map((conversation, index) => ({
             id: conversation.conversationId,
             label: resolveConversationTitle(conversation, index),
+            updatedAgoLabel: formatConversationUpdatedAgo(conversation.updatedAt, relativeTimeNowMs),
           })),
       }
       : section
-  )), [restructureConversations]);
-  const selectedRestructureConversationTitle = useMemo(() => {
-    const index = restructureConversations.findIndex((conversation) => conversation.conversationId === activeRestructureConversationId);
-    return index >= 0 ? resolveConversationTitle(restructureConversations[index], index) : null;
-  }, [activeRestructureConversationId, restructureConversations]);
+  )), [relativeTimeNowMs, restructureConversations]);
+  const selectedRestructureConversation = useMemo(() => (
+    restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
+  ), [activeRestructureConversationId, restructureConversations]);
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
@@ -140,6 +146,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   useEffect(() => {
     writeStoredLayoutPreference({ leftCollapsed });
   }, [leftCollapsed]);
+
+  useEffect(() => {
+    if (!active) return undefined;
+    const timerId = window.setInterval(() => setRelativeTimeNowMs(Date.now()), 60000);
+    return () => window.clearInterval(timerId);
+  }, [active]);
 
   useEffect(() => {
     if (!analysisWorkflowRevealKey) {
@@ -437,8 +449,67 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
+    setArchiveConfirmConversationId(null);
     setActiveRestructureConversationId(conversationId);
   }, []);
+
+  const refreshRestructureConversations = useCallback(async (preferredConversationId?: string | null) => {
+    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
+    const conversations = payload.conversations ?? [];
+    setRestructureConversations(conversations);
+    setActiveRestructureConversationId((current) => {
+      const target = preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId)
+        ? preferredConversationId
+        : current;
+      return target && conversations.some((conversation) => conversation.conversationId === target)
+        ? target
+        : conversations[0]?.conversationId ?? null;
+    });
+    return conversations;
+  }, []);
+
+  const handleArchiveRestructureConversation = useCallback(async (conversationId: string) => {
+    if (archivingConversationId) return;
+    if (archiveConfirmConversationId !== conversationId) {
+      setArchiveConfirmConversationId(conversationId);
+      return;
+    }
+    setArchivingConversationId(conversationId);
+    try {
+      await archiveAgentChatConversation(conversationId);
+      setArchiveConfirmConversationId(null);
+      await refreshRestructureConversations(activeRestructureConversationId === conversationId ? null : activeRestructureConversationId);
+    } catch {
+      setArchiveConfirmConversationId(null);
+    } finally {
+      setArchivingConversationId(null);
+    }
+  }, [activeRestructureConversationId, archiveConfirmConversationId, archivingConversationId, refreshRestructureConversations]);
+
+  const handleNewRestructureConversation = useCallback(async () => {
+    if (creatingRestructureConversation) return;
+    setCreatingRestructureConversation(true);
+    try {
+      const session = await startAgentChatThread({
+        source: "threadpool-role",
+        role: "function-slot-restructure",
+      });
+      const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
+      const conversations = payload.conversations ?? [];
+      const nextConversationId = session.conversationId && conversations.some((conversation) => conversation.conversationId === session.conversationId)
+        ? session.conversationId
+        : conversations[0]?.conversationId ?? null;
+      setStructureGraphReturn(null);
+      setActiveSection("restructure");
+      setRestructureConversations(conversations);
+      setActiveRestructureConversationId(nextConversationId);
+      setArchiveConfirmConversationId(null);
+    } catch {
+      // Keep the sidebar stable if the Agent chat service is temporarily unavailable.
+    } finally {
+      setCreatingRestructureConversation(false);
+    }
+  }, [creatingRestructureConversation]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -487,7 +558,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             activeSection={activeSection}
             collapsed={leftCollapsed}
             sections={navSections}
+            archiveConfirmConversationId={archiveConfirmConversationId}
+            archivingConversationId={archivingConversationId}
+            creatingRestructureConversation={creatingRestructureConversation}
+            onArchiveRestructureConversation={(conversationId) => void handleArchiveRestructureConversation(conversationId)}
             onLibraryChildChange={handleSidebarLibraryChildChange}
+            onNewRestructureConversation={() => void handleNewRestructureConversation()}
             onRequestExpandSidebar={expandLeftSidebar}
             onRestructureConversationChange={handleSidebarRestructureConversationChange}
             onSectionChange={handleSidebarSectionChange}
@@ -510,13 +586,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
         data-active-section={activeSection}
       >
-        {activeSection === "restructure" && selectedRestructureConversationTitle ? (
-          <header className="new-ui-center-page-header">
-            <h1 className="new-ui-center-page-title" title={selectedRestructureConversationTitle}>
-              {selectedRestructureConversationTitle}
-            </h1>
-          </header>
-        ) : null}
         <div className="new-ui-center-section" hidden={activeSection !== "analysis"} aria-hidden={activeSection !== "analysis"}>
           <AnalysisHome
             onDetailStateChange={handleAnalysisDetailStateChange}
@@ -544,6 +613,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             </AppErrorBoundary>
           ) : null}
         </div>
+        <div className="new-ui-center-section" hidden={activeSection !== "restructure"} aria-hidden={activeSection !== "restructure"}>
+          {activeSection === "restructure" ? (
+            <NewUiRestructureWorkspace
+              conversation={selectedRestructureConversation}
+              creatingConversation={creatingRestructureConversation}
+              onNewConversation={() => void handleNewRestructureConversation()}
+            />
+          ) : null}
+        </div>
       </main>
       {!rightCollapsed ? (
         <SplitResizeHandle
@@ -568,8 +646,101 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           {showLibraryGraphPanel ? <div id="new-ui-library-graph-panel" className="new-ui-library-graph-panel" /> : null}
         </div>
       </aside>
+      <ThemedTooltipLayer rootRef={layoutRef} />
     </section>
   );
+}
+
+function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | null } }) {
+  const [tooltip, setTooltip] = useState<{ text: string; left: number; top: number; placement: "top" | "bottom"; variables: CSSProperties } | null>(null);
+  const showTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+
+    const clearShowTimer = () => {
+      if (showTimerRef.current === null) return;
+      window.clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    };
+
+    const showTooltip = (target: Element | null) => {
+      const anchor = target instanceof HTMLElement ? target.closest<HTMLElement>("[data-tooltip]") : null;
+      const text = anchor?.dataset.tooltip?.trim();
+      if (!anchor || !text) {
+        setTooltip(null);
+        return;
+      }
+      const rect = anchor.getBoundingClientRect();
+      const placement = rect.top < 44 ? "bottom" : "top";
+      const left = Math.min(Math.max(rect.left + rect.width / 2, 16), window.innerWidth - 16);
+      const top = placement === "top" ? rect.top - 10 : rect.bottom + 10;
+      setTooltip({ text, left, top, placement, variables: readTooltipVariables(root) });
+    };
+
+    const scheduleTooltip = (target: Element | null, delayMs: number) => {
+      clearShowTimer();
+      showTimerRef.current = window.setTimeout(() => {
+        showTimerRef.current = null;
+        showTooltip(target);
+      }, delayMs);
+    };
+
+    const hideTooltip = () => {
+      clearShowTimer();
+      setTooltip(null);
+    };
+    const handlePointerOver = (event: PointerEvent) => scheduleTooltip(event.target as Element | null, 420);
+    const handlePointerOut = (event: PointerEvent) => {
+      const fromAnchor = event.target instanceof HTMLElement ? event.target.closest("[data-tooltip]") : null;
+      const toAnchor = event.relatedTarget instanceof HTMLElement ? event.relatedTarget.closest("[data-tooltip]") : null;
+      if (fromAnchor && fromAnchor === toAnchor) return;
+      hideTooltip();
+    };
+    const handleFocusIn = (event: FocusEvent) => scheduleTooltip(event.target as Element | null, 120);
+
+    root.addEventListener("pointerover", handlePointerOver);
+    root.addEventListener("focusin", handleFocusIn);
+    root.addEventListener("pointerout", handlePointerOut);
+    root.addEventListener("focusout", hideTooltip);
+    root.addEventListener("pointerdown", hideTooltip);
+    window.addEventListener("scroll", hideTooltip, true);
+    window.addEventListener("resize", hideTooltip);
+    return () => {
+      root.removeEventListener("pointerover", handlePointerOver);
+      root.removeEventListener("focusin", handleFocusIn);
+      root.removeEventListener("pointerout", handlePointerOut);
+      root.removeEventListener("focusout", hideTooltip);
+      root.removeEventListener("pointerdown", hideTooltip);
+      window.removeEventListener("scroll", hideTooltip, true);
+      window.removeEventListener("resize", hideTooltip);
+      clearShowTimer();
+    };
+  }, [rootRef]);
+
+  return tooltip ? createPortal(
+    <div
+      className="new-ui-tooltip-layer"
+      data-placement={tooltip.placement}
+      style={{ ...tooltip.variables, left: tooltip.left, top: tooltip.top }}
+      role="tooltip"
+    >
+      {tooltip.text}
+    </div>,
+    document.body,
+  ) : null;
+}
+
+function readTooltipVariables(source: HTMLElement): CSSProperties {
+  const computed = getComputedStyle(source);
+  return {
+    "--new-ui-control-border": computed.getPropertyValue("--new-ui-control-border"),
+    "--new-ui-control-shadow": computed.getPropertyValue("--new-ui-control-shadow"),
+    "--new-ui-control-text": computed.getPropertyValue("--new-ui-control-text"),
+    "--new-ui-surface": computed.getPropertyValue("--new-ui-surface"),
+    "--new-ui-text": computed.getPropertyValue("--new-ui-text"),
+  } as CSSProperties;
 }
 
 function LibraryGraphPanelPortal({ children }: { children: ReactNode }) {
@@ -617,9 +788,14 @@ type SidebarNavProps = {
   activeLibraryChild: NewUiLibraryChildId;
   activeRestructureConversationId: string | null;
   activeSection: NewUiSectionId;
+  archiveConfirmConversationId: string | null;
+  archivingConversationId: string | null;
   collapsed: boolean;
+  creatingRestructureConversation: boolean;
   sections: NewUiSection[];
+  onArchiveRestructureConversation: (conversationId: string) => void;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
+  onNewRestructureConversation: () => void;
   onRequestExpandSidebar: () => void;
   onRestructureConversationChange: (conversationId: string) => void;
   onSectionChange: (section: NewUiSectionId) => void;
@@ -631,9 +807,14 @@ function SidebarNav({
   activeLibraryChild,
   activeRestructureConversationId,
   activeSection,
+  archiveConfirmConversationId,
+  archivingConversationId,
   collapsed,
+  creatingRestructureConversation,
   sections,
+  onArchiveRestructureConversation,
   onLibraryChildChange,
+  onNewRestructureConversation,
   onRequestExpandSidebar,
   onRestructureConversationChange,
   onSectionChange,
@@ -671,7 +852,7 @@ function SidebarNav({
             aria-current={isActive ? "page" : undefined}
             aria-expanded={hasChildren ? isExpanded : undefined}
             aria-label={collapsed ? section.label : undefined}
-            title={collapsed ? section.label : undefined}
+            data-tooltip={collapsed ? section.label : undefined}
             onClick={() => {
               if (hasChildren) {
                 if (section.id === "restructure") onSectionChange(section.id);
@@ -691,8 +872,10 @@ function SidebarNav({
             <span className="new-ui-sidebar-nav-icon" aria-hidden="true">
               <SectionIcon section={section.id} />
             </span>
-            <span className="new-ui-sidebar-nav-label">{section.label}</span>
-            {hasChildren ? <ExpandIndicator expanded={isExpanded} /> : null}
+            <span className="new-ui-sidebar-nav-label">
+              <span className="new-ui-sidebar-nav-label-text">{section.label}</span>
+              {hasChildren ? <ExpandIndicator expanded={isExpanded} /> : null}
+            </span>
           </button>
         );
 
@@ -706,7 +889,24 @@ function SidebarNav({
             className={`new-ui-sidebar-nav-group ${isExpanded ? "is-expanded" : ""}`.trim()}
             data-section={section.id}
           >
-            {navButton}
+            <div className="new-ui-sidebar-nav-row">
+              {navButton}
+              {section.id === "restructure" ? (
+                <button
+                  className="new-ui-sidebar-nav-action"
+                  type="button"
+                  aria-label="新建重组会话"
+                  data-tooltip="新会话"
+                  disabled={creatingRestructureConversation}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNewRestructureConversation();
+                  }}
+                >
+                  <NewConversationIcon />
+                </button>
+              ) : null}
+            </div>
             <div className="new-ui-sidebar-subnav" style={subnavStyle} aria-label={`${section.label}子类`}>
               {section.children?.map((child) => {
                 const isChildActive = isActive && (
@@ -714,19 +914,55 @@ function SidebarNav({
                     ? activeLibraryChild === child.id
                     : activeRestructureConversationId === child.id
                 );
+                if (section.id === "restructure") {
+                  const confirmingArchive = archiveConfirmConversationId === child.id;
+                  const archiving = archivingConversationId === child.id;
+                  return (
+                    <div
+                      key={child.id}
+                      className={`new-ui-sidebar-subnav-item has-meta has-archive ${isChildActive ? "is-active" : ""} ${confirmingArchive ? "is-confirming-archive" : ""}`.trim()}
+                    >
+                      <button
+                        className="new-ui-sidebar-subnav-select"
+                        type="button"
+                        aria-current={isChildActive ? "page" : undefined}
+                        data-tooltip={child.updatedAgoLabel ? `${child.label}，最新更新 ${child.updatedAgoLabel}前` : child.label}
+                        onClick={() => {
+                          onSectionChange(section.id);
+                          onRestructureConversationChange(child.id);
+                        }}
+                      >
+                        <span className="new-ui-sidebar-subnav-label">{child.label}</span>
+                      </button>
+                      <button
+                        className="new-ui-sidebar-subnav-archive"
+                        type="button"
+                        aria-label={confirmingArchive ? `确认归档${child.label}` : `归档${child.label}`}
+                        data-tooltip={confirmingArchive ? "确认归档" : "归档会话"}
+                        disabled={Boolean(archivingConversationId)}
+                        onClick={() => onArchiveRestructureConversation(child.id)}
+                      >
+                        <span className="new-ui-sidebar-subnav-time" aria-hidden={confirmingArchive || archiving ? "true" : undefined}>
+                          {child.updatedAgoLabel}
+                        </span>
+                        {confirmingArchive ? <ArchiveConfirmIcon /> : <ArchiveTrashIcon />}
+                      </button>
+                    </div>
+                  );
+                }
                 return (
                   <button
                     key={child.id}
                     className={`new-ui-sidebar-subnav-item ${isChildActive ? "is-active" : ""}`.trim()}
                     type="button"
                     aria-current={isChildActive ? "page" : undefined}
+                    data-tooltip={child.label}
                     onClick={() => {
                       onSectionChange(section.id);
                       if (section.id === "library") onLibraryChildChange(child.id as NewUiLibraryChildId);
-                      if (section.id === "restructure") onRestructureConversationChange(child.id);
                     }}
                   >
-                    {child.label}
+                    <span className="new-ui-sidebar-subnav-label">{child.label}</span>
                   </button>
                 );
               })}
@@ -806,6 +1042,18 @@ function resolveConversationTitle(conversation: AgentChatConversation, index: nu
   return conversation.title?.trim() || `会话 ${index + 1}`;
 }
 
+function formatConversationUpdatedAgo(value: string | null | undefined, nowMs: number) {
+  const timestamp = Date.parse(value ?? "");
+  if (!Number.isFinite(timestamp)) return null;
+  const elapsedMs = Math.max(0, nowMs - timestamp);
+  const minuteMs = 60000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  if (elapsedMs < hourMs) return `${Math.max(1, Math.floor(elapsedMs / minuteMs))}分`;
+  if (elapsedMs < dayMs) return `${Math.max(1, Math.floor(elapsedMs / hourMs))}小时`;
+  return `${Math.max(1, Math.floor(elapsedMs / dayMs))}天`;
+}
+
 function ExpandIndicator({ expanded }: { expanded: boolean }) {
   return (
     <span className="new-ui-sidebar-expand-indicator" aria-hidden="true">
@@ -813,6 +1061,34 @@ function ExpandIndicator({ expanded }: { expanded: boolean }) {
         {expanded ? <path d="M4.4 6.3 8 9.9l3.6-3.6" /> : <path d="M6.1 4.4 9.7 8l-3.6 3.6" />}
       </svg>
     </span>
+  );
+}
+
+function NewConversationIcon() {
+  return (
+    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+      <path className="new-ui-new-conversation-bubble" d="M4.4 3.8h6.9a2.3 2.3 0 0 1 2.3 2.3v2.6a2.3 2.3 0 0 1-2.3 2.3H8.2l-3.1 2.6v-2.6h-.7a2.3 2.3 0 0 1-2.3-2.3V6.1a2.3 2.3 0 0 1 2.3-2.3Z" />
+      <path className="new-ui-new-conversation-plus" d="M8 6.3v3.2M6.4 7.9h3.2" />
+    </svg>
+  );
+}
+
+function ArchiveTrashIcon() {
+  return (
+    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+      <path d="M5.2 6.8h7.6" />
+      <path d="M7.4 6.8V5.5a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.3" />
+      <path d="M6.1 6.8 6.6 13a1.3 1.3 0 0 0 1.3 1.2h2.2a1.3 1.3 0 0 0 1.3-1.2l0.5-6.2" />
+      <path d="M8.1 8.7v3.1M9.9 8.7v3.1" />
+    </svg>
+  );
+}
+
+function ArchiveConfirmIcon() {
+  return (
+    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+      <path d="M4.6 9.3 7.5 12.1 13.5 5.9" />
+    </svg>
   );
 }
 

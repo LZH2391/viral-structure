@@ -198,7 +198,7 @@ function WorkflowStep({
             className="new-ui-analysis-workflow-step-select"
             type="button"
             aria-pressed={selected}
-            title={`查看或调整${stage.label}详情`}
+            data-tooltip={`查看或调整${stage.label}详情`}
             onClick={() => onSelect(stage.key)}
           >
             <span className="new-ui-analysis-workflow-step-copy">
@@ -212,7 +212,7 @@ function WorkflowStep({
               type="button"
               disabled={rerunDisabled || stage.status === "running"}
               aria-label={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
-              title={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+              data-tooltip={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
               onClick={() => onRerun?.(stage, rerunStageKey ?? stage.key)}
             >
               <RerunIcon />
@@ -224,7 +224,7 @@ function WorkflowStep({
               type="button"
               disabled={!graphAvailable}
               aria-label={graphAvailable ? "查看样例结构图" : "完成原子化后可查看样例结构图"}
-              title={graphAvailable ? "查看样例结构图" : "完成原子化后可查看样例结构图"}
+              data-tooltip={graphAvailable ? "查看样例结构图" : "完成原子化后可查看样例结构图"}
               onClick={onOpenGraph}
             >
               <StructureGraphIcon />
@@ -260,7 +260,7 @@ function ParallelStage({
         className="new-ui-analysis-workflow-parallel-button"
         type="button"
         aria-pressed={selected}
-        title={`查看或调整${stage.label}详情`}
+        data-tooltip={`查看或调整${stage.label}详情`}
         onClick={() => onSelect(stage.key)}
       >
         <span className="new-ui-analysis-workflow-parallel-label">
@@ -274,7 +274,7 @@ function ParallelStage({
           type="button"
           disabled={rerunDisabled || stage.status === "running"}
           aria-label={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
-          title={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
+          data-tooltip={rerunning ? `正在重跑${stage.label}` : `重跑${stage.label}`}
           onClick={() => onRerun?.(stage, stage.key)}
         >
           <RerunIcon />
