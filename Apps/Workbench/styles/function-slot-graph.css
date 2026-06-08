@@ -923,8 +923,8 @@
 
 .slot-graph-return-bar {
   position: absolute;
-  top: 16px;
-  left: 18px;
+  top: 10px;
+  left: 10px;
   z-index: 4;
   display: grid;
   grid-template-columns: 28px minmax(0, auto);
