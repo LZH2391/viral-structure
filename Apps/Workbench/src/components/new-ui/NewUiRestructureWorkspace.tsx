@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
 import { getAgentChatTurnTimeline } from "../../api/client";
-import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline } from "../../types";
+import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 import type { NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
@@ -42,9 +42,10 @@ export function NewUiRestructureWorkspace({
   const timeline = useRestructureTurnTimeline(activeTurnTarget);
   const contextUsageFallbackTarget = resolveContextUsageFallbackTarget(conversation, activeTurnTarget);
   const contextUsageFallbackTimeline = useRestructureTurnTimeline(contextUsageFallbackTarget);
-  const rawContextUsage = timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null;
+  const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
+  const timelineTurnId = resolveVisibleTimelineTurnId(activeTurnTarget, timeline);
   const visiblePendingUserMessage = pendingUserMessage && !messages.some((message) => message.role === "user" && message.text === pendingUserMessage.text)
     ? pendingUserMessage
     : null;
@@ -155,6 +156,7 @@ export function NewUiRestructureWorkspace({
             <div className="new-ui-restructure-message-list">
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
               {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
+              <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} />
             </div>
             {composer}
           </main>
@@ -210,11 +212,17 @@ export function NewUiRestructureWorkspace({
           {errorAlert}
           {messages.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
             <div className="new-ui-restructure-message-list">
-              {messages.map((message) => (
-                <RestructureMessage key={message.id} message={message} displayText={getDisplayText(message)} pseudoStreaming={isPseudoStreaming(message)} />
+              {messages.map((message, index) => (
+                <Fragment key={message.id}>
+                  <RestructureMessage message={message} displayText={getDisplayText(message)} pseudoStreaming={isPseudoStreaming(message)} />
+                  {shouldRenderTimelineAfterMessage(message, messages, index, timelineTurnId) ? (
+                    <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} />
+                  ) : null}
+                </Fragment>
               ))}
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
               {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
+              {!hasTimelineAnchorMessage(messages, timelineTurnId) ? <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} /> : null}
             </div>
           ) : (
             <div className="new-ui-restructure-thread-empty">
@@ -325,13 +333,14 @@ function formatContextUsageTitle(usage: AgentTurnTimeline["activity"]["tokenUsag
 }
 
 function RestructureMessage({ message, displayText, pseudoStreaming = false }: { message: AgentChatMessageSnapshot; displayText?: string; pseudoStreaming?: boolean }) {
-  const isThinking = message.role === "assistant" && message.status === "running";
+  const renderedText = displayText ?? message.text;
+  const isThinking = message.role === "assistant" && message.status === "running" && !hasRenderableAssistantText(renderedText);
   const showDetails = !isThinking && !pseudoStreaming;
 
   return (
     <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={isThinking || pseudoStreaming || undefined}>
       <div className="new-ui-restructure-message-body">
-        <p className={isThinking ? "is-thinking-text" : undefined}>{isThinking ? "正在思考" : displayText ?? message.text}</p>
+        <p className={isThinking ? "is-thinking-text" : undefined}>{isThinking ? "正在思考" : renderedText}</p>
         {showDetails && message.slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
             <span>槽位 {message.slotAtomDisplay.slotCount ?? 0}</span>
@@ -351,6 +360,12 @@ function RestructureMessage({ message, displayText, pseudoStreaming = false }: {
   );
 }
 
+function hasRenderableAssistantText(text: string | null | undefined) {
+  const normalized = String(text ?? "").trim();
+  if (!normalized) return false;
+  return !["正在思考", "正在评估替换", "生成中"].includes(normalized);
+}
+
 function countSlotAtomDisplayAtoms(display: AgentChatSlotAtomDisplay) {
   const atoms = display.atoms ?? [];
   const count = atoms.reduce((total, atom) => (
@@ -360,6 +375,110 @@ function countSlotAtomDisplayAtoms(display: AgentChatSlotAtomDisplay) {
     + (atom.packagingAtom ? 1 : 0)
   ), 0);
   return count || display.atomBindingCount || 0;
+}
+
+function RestructureTurnTimelineActivity({ timeline, target }: { timeline: AgentTurnTimeline | null; target: NewUiTurnTimelineTarget | null }) {
+  if (!target && !timeline) return null;
+  const items = timeline?.items ?? [];
+  const pendingText = target?.pending ? "等待后端返回真实 turn。" : target ? "正在读取运行追踪。" : "";
+  return (
+    <section className="new-ui-restructure-turn-timeline" aria-label="turn timeline 活动项">
+      {timeline?.activity.latestMessagePreview ? (
+        <div className="new-ui-restructure-turn-timeline-latest" aria-live="polite">
+          <span>最新活动</span>
+          <strong>{timeline.activity.latestMessagePreview}</strong>
+        </div>
+      ) : null}
+      {items.length ? (
+        <div className="new-ui-analysis-workflow-trace-list">
+          {items.map((item) => <RestructureTimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+        </div>
+      ) : (
+        <div className="new-ui-restructure-activity">
+          <span className="new-ui-restructure-activity-icon" aria-hidden="true">
+            <ActivityGlyph />
+          </span>
+          <p className={target?.running || target?.pending ? "is-thinking-text" : undefined}>{pendingText || "暂无运行追踪。"}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RestructureTimelineRow({ item }: { item: AgentTimelineItem }) {
+  return (
+    <div className={`new-ui-analysis-workflow-trace-row is-${item.kind}`}>
+      <span className="new-ui-analysis-workflow-trace-dot" />
+      <div className="new-ui-analysis-workflow-trace-event">
+        <div className="new-ui-analysis-workflow-trace-meta">
+          <span>{formatTimelineItemTime(item.createdAt)}</span>
+          <span>{renderTimelineItemKind(item.kind)}</span>
+          {item.metadata?.toolName ? <span>{item.metadata.toolName}</span> : null}
+          {item.metadata?.exitCode != null ? <span>exit {item.metadata.exitCode}</span> : null}
+          {item.metadata?.durationMs != null ? <span>{formatTimelineItemDuration(item.metadata.durationMs)}</span> : null}
+        </div>
+        <strong>{item.title}</strong>
+        {item.textPreview ? <p>{item.textPreview}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function resolveVisibleTimelineTurnId(target: NewUiTurnTimelineTarget | null, timeline: AgentTurnTimeline | null) {
+  return normalizeTurnId(target?.turnId) ?? normalizeTurnId(timeline?.turnId);
+}
+
+function shouldRenderTimelineAfterMessage(message: AgentChatMessageSnapshot, messages: AgentChatMessageSnapshot[], index: number, timelineTurnId: string | null) {
+  const messageTurnId = normalizeTurnId(message.turnId);
+  if (!timelineTurnId || messageTurnId !== timelineTurnId) return false;
+  if (message.role === "assistant") return true;
+  const hasAssistantAnchor = messages.some((item) => item.role === "assistant" && normalizeTurnId(item.turnId) === timelineTurnId);
+  if (hasAssistantAnchor) return false;
+  return !messages.slice(index + 1).some((item) => normalizeTurnId(item.turnId) === timelineTurnId);
+}
+
+function hasTimelineAnchorMessage(messages: AgentChatMessageSnapshot[], timelineTurnId: string | null) {
+  if (!timelineTurnId) return false;
+  return messages.some((message) => normalizeTurnId(message.turnId) === timelineTurnId);
+}
+
+function normalizeTurnId(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed || null;
+}
+
+function renderTimelineItemKind(kind: AgentTimelineItem["kind"]) {
+  const labels: Record<AgentTimelineItem["kind"], string> = {
+    user_input: "user_input",
+    agent_message: "agent_message",
+    plan: "plan",
+    reasoning: "reasoning",
+    command_execution: "command",
+    mcp_tool_call: "mcp_tool",
+    dynamic_tool_call: "dynamic_tool",
+    file_change: "file_change",
+    web_search: "web_search",
+    tool_call: "tool_call",
+    tool_result: "tool_result",
+    token_usage: "token_usage",
+    context_compacted: "compact",
+    turn_status: "turn_status",
+    unknown: "unknown",
+  };
+  return labels[kind] ?? kind;
+}
+
+function formatTimelineItemTime(value?: string | null) {
+  if (!value) return "--:--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--:--";
+  return date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+function formatTimelineItemDuration(value: number) {
+  if (!Number.isFinite(value)) return "";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+  return `${Math.round(value)}ms`;
 }
 
 function useRestructureTurnTimeline(target: NewUiTurnTimelineTarget | null) {
@@ -557,6 +676,14 @@ function SendGlyph() {
   return (
     <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
       <path d="M4 10.2 16 4.5l-3.6 11-2.2-4.1L6 9.2l10-4.7" />
+    </svg>
+  );
+}
+
+function ActivityGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <path d="M4 10h3l2-4 3 8 2-4h2" />
     </svg>
   );
 }

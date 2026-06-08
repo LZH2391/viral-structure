@@ -170,6 +170,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const selectedOptimisticRestructureGeneration = useMemo(() => {
     if (!optimisticRestructureGeneration) return null;
     if (activeSection !== "restructure") return null;
+    if (optimisticGenerationHasRealAssistant(optimisticRestructureGeneration, selectedRestructureConversation)) return null;
     const optimisticConversationId = optimisticRestructureGeneration.conversationId;
     const optimisticDraftId = optimisticRestructureGeneration.draftId;
     if (!optimisticConversationId) {
@@ -183,7 +184,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         : null;
     }
     return optimisticConversationId === activeRestructureConversationId ? optimisticRestructureGeneration : null;
-  }, [activeRestructureConversationId, activeSection, draftRestructureConversationId, draftingRestructureConversation, optimisticRestructureGeneration]);
+  }, [activeRestructureConversationId, activeSection, draftRestructureConversationId, draftingRestructureConversation, optimisticRestructureGeneration, selectedRestructureConversation]);
   const selectedRestructureTurnTarget = useMemo(
     () => {
       if (selectedOptimisticRestructureGeneration?.target.running || selectedOptimisticRestructureGeneration?.target.pending) {
@@ -1534,6 +1535,19 @@ function resolveRestructureTurnTarget(
     workspaceRoot: conversation?.workspaceRoot ?? null,
     running: runningMessage?.turnId === turnId,
   };
+}
+
+function optimisticGenerationHasRealAssistant(generation: OptimisticRestructureGeneration, conversation: AgentChatConversation | null) {
+  const messages = conversation?.messages ?? [];
+  if (!messages.length) return false;
+  const generationTurnId = generation.turnId ?? generation.message.turnId ?? null;
+  return messages.some((message) => (
+    message.role === "assistant"
+    && (
+      (generationTurnId && message.turnId === generationTurnId)
+      || message.id === generation.message.id
+    )
+  ));
 }
 
 function resolveActiveSlotAtomDisplay(conversation: AgentChatConversation | null, currentTurnId: string | null): AgentChatSlotAtomDisplay | null {
