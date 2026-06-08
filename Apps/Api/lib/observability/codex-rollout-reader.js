@@ -15,7 +15,7 @@ function createCodexRolloutReader({ codexHome = process.env.CODEX_HOME || path.j
     for (const filePath of files) {
       const parsed = await parseCodexRolloutFile(filePath).catch(() => null);
       if (!parsed?.thread?.id) continue;
-      if (!isIdMatch(parsed.thread.id, targetThreadId)) continue;
+      if (!isThreadIdMatch(parsed, targetThreadId)) continue;
       if (turnId && !findTurn(parsed.thread, turnId)) continue;
       return parsed;
     }
@@ -63,7 +63,9 @@ async function parseCodexRolloutFile(filePath) {
 
 function parseCodexRolloutText(text, { filePath = null } = {}) {
   const turns = new Map();
-  let threadId = extractThreadIdFromRolloutPath(filePath);
+  const pathThreadId = extractThreadIdFromRolloutPath(filePath);
+  const threadAliases = new Set([pathThreadId].filter(Boolean));
+  let threadId = pathThreadId;
   let currentTurnId = null;
   const lines = String(text ?? "").split(/\r?\n/);
   for (const line of lines) {
@@ -72,7 +74,11 @@ function parseCodexRolloutText(text, { filePath = null } = {}) {
     if (!event || typeof event !== "object") continue;
     const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
     if (event.type === "session_meta") {
-      threadId = normalizeText(payload.id) || threadId;
+      const metaThreadId = normalizeText(payload.id);
+      if (metaThreadId) {
+        threadAliases.add(metaThreadId);
+        threadId = metaThreadId;
+      }
       continue;
     }
     if (event.type === "event_msg") {
@@ -116,6 +122,7 @@ function parseCodexRolloutText(text, { filePath = null } = {}) {
   }
   const thread = {
     id: threadId || "",
+    aliases: Array.from(threadAliases),
     turns: Array.from(turns.values()),
   };
   return {
@@ -238,10 +245,16 @@ function findTurn(thread, turnId) {
   return turns.find((turn) => normalizeText(turn?.id ?? turn?.turnId) === resolvedTurnId) ?? null;
 }
 
-function isIdMatch(value, target) {
-  const full = normalizeText(value);
+function isThreadIdMatch(parsed, target) {
   const requested = normalizeText(target);
-  return Boolean(resolveId([full], requested));
+  const thread = parsed?.thread;
+  const aliases = [
+    parsed?.threadId,
+    thread?.id,
+    thread?.threadId,
+    ...(Array.isArray(thread?.aliases) ? thread.aliases : []),
+  ];
+  return Boolean(resolveId(aliases, requested));
 }
 
 function resolveId(values, target) {

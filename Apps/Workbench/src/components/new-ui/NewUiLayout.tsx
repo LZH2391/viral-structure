@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, collectAgentChatTurn, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread } from "../../api/client";
+import { archiveAgentChatConversation, collectAgentChatTurn, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { AgentChatConversation, AgentChatMessageSnapshot } from "../../types";
+import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, ReplacementDraft } from "../../types";
+import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
 import { SplitResizeHandle } from "../SplitResizeHandle";
 import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
+import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
 import { NewUiRestructureWorkspace } from "./NewUiRestructureWorkspace";
-import { NewUiTurnTimelinePanel, type NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
+import type { NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -191,10 +193,18 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     },
     [selectedOptimisticRestructureGeneration, selectedRestructureConversation, selectedRunningRestructureTurn],
   );
+  const selectedSlotAtomDisplay = useMemo(
+    () => resolveActiveSlotAtomDisplay(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
+    [selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
+  );
+  const selectedRestructureFinalPath = useMemo(
+    () => resolveCurrentRestructureFinalPath(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
+    [selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
+  );
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
   const showLibraryGraphPanel = activeSection === "library";
-  const showRestructureTracePanel = activeSection === "restructure" && Boolean(selectedRestructureConversation || selectedRunningRestructureTurn || selectedOptimisticRestructureGeneration);
-  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel || showRestructureTracePanel;
+  const showRestructureSlotAtomPanel = activeSection === "restructure";
+  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel || showRestructureSlotAtomPanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
@@ -204,14 +214,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
-    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : showRestructureTracePanel ? 380 : 320,
+    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : showRestructureSlotAtomPanel ? 380 : 320,
     minLeft: 0,
     maxLeft: Number.POSITIVE_INFINITY,
     minCenter: 420,
-    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : showRestructureTracePanel ? 340 : 0,
+    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : showRestructureSlotAtomPanel ? 340 : 0,
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
-    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureTracePanel ? { min: 0.16, max: 0.32 } : { min: 0.1, max: 0.3 },
+    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureSlotAtomPanel ? { min: 0.16, max: 0.34 } : { min: 0.1, max: 0.3 },
     persistedSides: { left: true, right: false },
   });
 
@@ -291,14 +301,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
       setAnalysisWorkflowMounted(false);
-      if (!showLibraryGraphPanel && !showRestructureTracePanel) setRightCollapsed(true);
+      if (!showLibraryGraphPanel && !showRestructureSlotAtomPanel) setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
     lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
     setAnalysisWorkflowMounted(false);
     setRightCollapsed(false);
-  }, [analysisWorkflowRevealKey, showLibraryGraphPanel, showRestructureTracePanel]);
+  }, [analysisWorkflowRevealKey, showLibraryGraphPanel, showRestructureSlotAtomPanel]);
 
   useEffect(() => {
     if (!showAnalysisWorkflow) {
@@ -526,11 +536,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, [showLibraryGraphPanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
-    if (!showRestructureTracePanel) return;
+    if (!showRestructureSlotAtomPanel) return;
     startPaneTransitionGuard();
     startRightPaneContentFreeze(false);
     setRightCollapsed(false);
-  }, [showRestructureTracePanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [showRestructureSlotAtomPanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   const toggleLeftCollapsed = () => {
     animateLeftCollapsed(!leftCollapsed);
@@ -851,6 +861,103 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
+  const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
+    const conversation = selectedRestructureConversation;
+    if (!conversation?.threadId || sendingRestructureMessage) return;
+    if (!replacementDraft.sourceRestructureFinalPath || !replacementDraft.sourceDisplayJsonPath || !replacementDraft.replacements.length) {
+      throw new Error("替换请求缺少源文件或替换项");
+    }
+    const pendingId = `pending-replacement-assistant-${Date.now()}`;
+    const pendingUserId = `pending-replacement-user-${Date.now()}`;
+    const now = new Date().toISOString();
+    const userText = summary || buildReplacementDraftSummary(replacementDraft.replacements);
+    setOptimisticRestructureGeneration({
+      id: pendingId,
+      conversationId: conversation.conversationId,
+      userMessage: {
+        id: pendingUserId,
+        role: "user",
+        text: userText,
+        status: "completed",
+        createdAt: now,
+        updatedAt: now,
+      },
+      message: {
+        id: pendingId,
+        role: "assistant",
+        text: "正在评估替换",
+        status: "running",
+        createdAt: now,
+        updatedAt: now,
+      },
+      target: {
+        pending: true,
+        running: true,
+      },
+      turnId: null,
+    });
+    startPaneTransitionGuard();
+    startRightPaneContentFreeze(false);
+    setRightCollapsed(false);
+    setSendingRestructureMessage(true);
+    let sendAccepted = false;
+    try {
+      const submitted = await submitAgentChatManualReplacement(conversation.threadId, {
+        source: conversation.source === "direct" ? "direct" : "threadpool-role",
+        conversationId: conversation.conversationId,
+        expectedRevision: conversation.revision ?? null,
+        workspaceRoot: conversation.workspaceRoot ?? null,
+        skillPath: conversation.skillPath ?? null,
+        sourceRestructureFinalPath: replacementDraft.sourceRestructureFinalPath,
+        sourceDisplayJsonPath: replacementDraft.sourceDisplayJsonPath,
+        displayFingerprint: replacementDraft.displayFingerprint,
+        replacements: replacementDraft.replacements,
+      });
+      sendAccepted = true;
+      const nextConversationId = submitted.conversationId ?? conversation.conversationId;
+      setOptimisticRestructureGeneration((current) => (
+        current?.id === pendingId
+          ? {
+              ...current,
+              conversationId: nextConversationId,
+              userMessage: {
+                ...current.userMessage,
+                text: submitted.userTurnText ?? current.userMessage.text,
+              },
+              message: {
+                ...current.message,
+                turnId: submitted.turnId,
+                updatedAt: new Date().toISOString(),
+              },
+              target: {
+                threadId: submitted.threadId ?? conversation.threadId,
+                turnId: submitted.turnId,
+                workspaceRoot: submitted.workspaceRoot ?? conversation.workspaceRoot ?? null,
+                running: true,
+              },
+              turnId: submitted.turnId,
+            }
+          : current
+      ));
+      scheduleRestructureTurnPoll({
+        conversationId: nextConversationId,
+        role: submitted.role ?? conversation.role ?? "function-slot-restructure",
+        threadId: submitted.threadId ?? conversation.threadId,
+        turnId: submitted.turnId,
+        workspaceRoot: submitted.workspaceRoot ?? conversation.workspaceRoot ?? null,
+      });
+      clearRestructureConversationError(nextConversationId);
+      await refreshRestructureConversations(nextConversationId).catch(() => undefined);
+    } catch (error) {
+      if (sendAccepted) return;
+      markRestructureConversationError(conversation.conversationId, error);
+      setOptimisticRestructureGeneration((current) => (current?.id === pendingId ? null : current));
+      throw error;
+    } finally {
+      setSendingRestructureMessage(false);
+    }
+  }, [clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
+
   useEffect(() => {
     if (!active) return undefined;
     let cancelled = false;
@@ -898,6 +1005,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     <section
       ref={layoutRef}
       className={`new-ui-layout ${leftCollapsed ? "is-left-collapsed" : ""} ${rightCollapsed ? "is-right-collapsed" : ""} ${paneTransitioning ? "is-pane-transitioning-layout" : ""} ${leftPaneTransitioning ? "is-left-pane-transitioning-layout" : ""} ${rightPaneTransitioning ? "is-right-pane-transitioning-layout" : ""}`.trim()}
+      data-active-section={activeSection}
       aria-label="新 UI 三栏工作区"
     >
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
@@ -1006,14 +1114,17 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             />
           ) : null}
           {showLibraryGraphPanel ? <div id="new-ui-library-graph-panel" className="new-ui-library-graph-panel" /> : null}
-          {showRestructureTracePanel ? (
-            <section className="new-ui-analysis-workflow-detail new-ui-restructure-trace-panel" aria-label="当前重组 turn 运行追踪">
-              <div className="new-ui-analysis-workflow-detail-header">
-                <h2 className="new-ui-analysis-workflow-detail-title is-processing">
-                  处理中<span className="new-ui-processing-dots" aria-hidden="true" />
-                </h2>
+          {showRestructureSlotAtomPanel ? (
+            <section className="new-ui-restructure-slot-atom-panel" aria-label="槽位/原子人工调整">
+              <div className="new-ui-restructure-slot-atom-header">
+                <h2>槽位/原子人工调整</h2>
               </div>
-              <NewUiTurnTimelinePanel target={selectedRestructureTurnTarget} />
+              <SlotAtomView
+                display={selectedSlotAtomDisplay}
+                busy={sendingRestructureMessage}
+                sourceRestructureFinalPath={selectedRestructureFinalPath}
+                onSubmitReplacement={handleManualReplacementSubmit}
+              />
             </section>
           ) : null}
         </div>
@@ -1423,6 +1534,34 @@ function resolveRestructureTurnTarget(
     workspaceRoot: conversation?.workspaceRoot ?? null,
     running: runningMessage?.turnId === turnId,
   };
+}
+
+function resolveActiveSlotAtomDisplay(conversation: AgentChatConversation | null, currentTurnId: string | null): AgentChatSlotAtomDisplay | null {
+  const messages = conversation?.messages ?? [];
+  const current = currentTurnId
+    ? messages.find((message) => message.role === "assistant" && message.turnId === currentTurnId && message.slotAtomDisplay)?.slotAtomDisplay ?? null
+    : null;
+  if (current) return current;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const display = messages[index].slotAtomDisplay;
+    if (display) return display;
+  }
+  return null;
+}
+
+function resolveCurrentRestructureFinalPath(conversation: AgentChatConversation | null, currentTurnId: string | null) {
+  const messages = conversation?.messages ?? [];
+  const reversed = [...messages].reverse();
+  const currentAssistantPath = normalizeRestructureFinalPath(extractRestructureFinalPath(
+    reversed.find((message) => message.role === "assistant" && message.turnId === currentTurnId)?.text,
+  ));
+  if (currentAssistantPath) return currentAssistantPath;
+  for (const message of reversed) {
+    if (message.role !== "assistant") continue;
+    const path = normalizeRestructureFinalPath(extractRestructureFinalPath(message.text));
+    if (path) return path;
+  }
+  return normalizeRestructureFinalPath(conversation?.confirmedPlan?.sourceRestructurePath);
 }
 
 function conversationHasTerminalAssistantTurn(conversation: AgentChatConversation | null | undefined, turnId: string | null | undefined) {

@@ -1,7 +1,10 @@
 const assert = require("assert/strict");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const test = require("node:test");
 
-const { mergeThreadWithRollout, parseCodexRolloutText, resolveTurnId } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
+const { createCodexRolloutReader, mergeThreadWithRollout, parseCodexRolloutText, resolveTurnId } = require("../../Apps/Api/lib/observability/codex-rollout-reader");
 const { summarizeAgentTurnTimeline } = require("../../Apps/Api/lib/observability/agent-turn-timeline");
 
 test("codex rollout parser reconstructs turn activity, token usage, and compact events", () => {
@@ -48,6 +51,44 @@ test("rollout merge fills missing turn data without replacing appserver items", 
   assert.equal(merged.turns[0].items[0].text, "from appserver");
   assert.equal(merged.turns[0].items[1].type, "contextCompacted");
   assert.equal(merged.turns[0].last_token_usage.input_tokens, 9);
+});
+
+test("rollout reader matches file-name thread alias when session meta id differs", async () => {
+  const requestedThreadId = "019ea694-19cd-7b91-b24a-ca260da45c63";
+  const sessionMetaThreadId = "019ea08a-9d4b-7563-a373-e11a361342c6";
+  const turnId = "019ea730-a84d-7321-b77f-e0da8771b58f";
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "codex-rollout-reader-"));
+  const sessionsDir = path.join(codexHome, "sessions", "2026", "06", "08");
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, `rollout-2026-06-08T17-33-04-${requestedThreadId}.jsonl`),
+    [
+      event("2026-06-08T09:33:04.000Z", "session_meta", { id: sessionMetaThreadId }),
+      event("2026-06-08T12:23:04.000Z", "event_msg", { type: "task_started", turn_id: turnId, model_context_window: 258400 }),
+      event("2026-06-08T12:24:04.000Z", "event_msg", {
+        type: "token_count",
+        info: {
+          last_token_usage: { input_tokens: 38671, output_tokens: 143, reasoning_output_tokens: 81, total_tokens: 38814 },
+          model_context_window: 258400,
+        },
+      }),
+      event("2026-06-08T12:24:12.000Z", "event_msg", { type: "task_complete", turn_id: turnId }),
+    ].join("\n"),
+    "utf8",
+  );
+
+  try {
+    const reader = createCodexRolloutReader({ codexHome });
+    const parsed = await reader.readThread({ threadId: requestedThreadId, turnId });
+    assert.ok(parsed);
+    assert.equal(parsed.thread.id, sessionMetaThreadId);
+    assert.deepEqual(parsed.thread.aliases, [requestedThreadId, sessionMetaThreadId]);
+    const timeline = summarizeAgentTurnTimeline(parsed.thread, turnId);
+    assert.equal(timeline.activity.tokenUsage.inputTokens, 38671);
+    assert.equal(timeline.activity.tokenUsage.contextUsageState, "normal");
+  } finally {
+    fs.rmSync(codexHome, { recursive: true, force: true });
+  }
 });
 
 test("rollout merge accepts short turn ids from UI cards", () => {

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFunctionSlotReplacementCandidates } from "../../api/client";
 import type { AgentChatAtomSummary, AgentChatSlotAtomDisplay, AgentChatSlotSummary, AtomReplacement, ReplacementCandidate, ReplacementDraft, SlotReplacement } from "../../types";
 
 type AtomKind = "script" | "rhythm" | "packaging";
 type DrawerState = { kind: "slot"; atomKind?: null } | { kind: "atom"; atomKind: AtomKind };
+const REPLACEMENT_DRAWER_ANIMATION_MS = 340;
 
 export function SlotAtomView({
   display,
@@ -18,10 +19,12 @@ export function SlotAtomView({
 }) {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
+  const [drawerClosing, setDrawerClosing] = useState(false);
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<ReplacementCandidate[]>([]);
   const [candidateStatus, setCandidateStatus] = useState("等待选择");
   const [draft, setDraft] = useState<Array<SlotReplacement | AtomReplacement>>([]);
+  const drawerCloseTimerRef = useRef<number | null>(null);
   const slots = display?.slots ?? [];
   const atoms = display?.atoms ?? [];
   const selectedSlot = useMemo(() => {
@@ -42,7 +45,12 @@ export function SlotAtomView({
     setSelectedSlotId(display?.selectedSlotSubtypeId ?? display?.slots?.[0]?.slotSubtypeId ?? null);
     setDraft([]);
     setDrawer(null);
+    setDrawerClosing(false);
   }, [display]);
+
+  useEffect(() => () => {
+    if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!drawer) return;
@@ -70,19 +78,37 @@ export function SlotAtomView({
   }, [drawer, query, selectedSlot?.slotSubtypeId]);
 
   const openSlotDrawer = useCallback((slot?: AgentChatSlotSummary | null) => {
+    if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
+    drawerCloseTimerRef.current = null;
     setSelectedSlotId(slot?.slotSubtypeId ?? null);
     setQuery("");
     setCandidates([]);
-    setCandidateStatus("等待读取 Slot 库");
+    setCandidateStatus("等待读取槽位库");
+    setDrawerClosing(false);
     setDrawer({ kind: "slot" });
   }, []);
 
   const openAtomDrawer = useCallback((atomKind: AtomKind) => {
+    if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
+    drawerCloseTimerRef.current = null;
     setQuery("");
     setCandidates([]);
-    setCandidateStatus(`等待读取 ${atomKind} Atom 库`);
+    setCandidateStatus(`等待读取${atomKindLabel(atomKind)}原子库`);
+    setDrawerClosing(false);
     setDrawer({ kind: "atom", atomKind });
   }, []);
+
+  const closeDrawer = useCallback(() => {
+    if (!drawer) return;
+    if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
+    setDrawerClosing(true);
+    const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    drawerCloseTimerRef.current = window.setTimeout(() => {
+      drawerCloseTimerRef.current = null;
+      setDrawer(null);
+      setDrawerClosing(false);
+    }, prefersReducedMotion ? 0 : REPLACEMENT_DRAWER_ANIMATION_MS);
+  }, [drawer]);
 
   const stageSlotReplacement = useCallback((candidate: ReplacementCandidate) => {
     if (!selectedSlot?.slotSubtypeId) return;
@@ -134,27 +160,31 @@ export function SlotAtomView({
   }, [display, draft, onSubmitReplacement, sourceRestructureFinalPath]);
 
   if (!display || display.status === "empty" || (!slots.length && !atoms.length)) {
-    return <div className="empty-state"><strong>无</strong><span>当前 turn 还没有可展示的 Slot/Atom 转换结果</span></div>;
+    return (
+      <div className="agent-chat-slot-atom-empty">
+        <SlotAtomEmptyIcon />
+        <strong>暂无槽位结果</strong>
+        <span>发送消息后，Agent 生成的结构方案会在这里显示，你可以对槽位和原子进行调整。</span>
+      </div>
+    );
   }
 
   return (
     <div className="agent-chat-slot-atom-panel">
       <div className="agent-chat-slot-atom-summary">
-        <b>{display.slotCount ?? slots.length} slots</b>
-        <span>{display.atomBindingCount ?? atoms.length} atom bindings</span>
+        <b>{display.slotCount ?? slots.length} 槽位</b>
       </div>
-      {display.displayJsonPath ? <div className="agent-chat-slot-atom-path" title={display.displayJsonPath}>{display.displayJsonPath}</div> : null}
-      <div className="agent-chat-slot-list" aria-label="Slot 链">
+      <div className="agent-chat-slot-list" aria-label="槽位链">
         {slots.map((slot, index) => (
           <button
             key={`${slot.slotSubtypeId ?? "slot"}-${index}`}
             className={slot.slotSubtypeId === selectedSlot?.slotSubtypeId ? "active" : ""}
             type="button"
+            title={slot.slotSubtypeId ?? slot.slotSubtype ?? undefined}
             onClick={() => setSelectedSlotId(slot.slotSubtypeId ?? null)}
           >
             <small>{String(slot.index ?? index + 1).padStart(2, "0")}</small>
-            <b>{stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名 slot"}</b>
-            {slot.functionText ? <span>{slot.functionText}</span> : null}
+            <b>{slot.functionText || stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名槽位"}</b>
             <i
               role="button"
               tabIndex={0}
@@ -169,64 +199,76 @@ export function SlotAtomView({
                 openSlotDrawer(slot);
               }}
             >
-              替换
+              换槽位
             </i>
           </button>
         ))}
       </div>
       <div className="agent-chat-slot-detail">
         <div className="agent-chat-slot-detail-head">
-          <b>{stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || "Slot"}</b>
-          {selectedSlot?.archetypeId ? <span>{selectedSlot.archetypeId}</span> : null}
+          <b>{selectedSlot?.functionText || stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || "槽位"}</b>
         </div>
-        {slotInvalidated ? <div className="agent-chat-replacement-warning">Slot 已预选替换，原绑定 Atom 将交给 Agent 重新评估。</div> : null}
-        <AtomCard label="Script" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => openAtomDrawer("script")} />
-        <AtomCard label="Rhythm" value={selectedAtoms?.rhythmAtom} tone="rhythm" onReplace={() => openAtomDrawer("rhythm")} />
-        <AtomCard label="Packaging" value={selectedAtoms?.packagingAtom} tone="packaging" onReplace={() => openAtomDrawer("packaging")} />
+        {slotInvalidated ? <div className="agent-chat-replacement-warning">槽位已预选替换，原绑定原子将交给 Agent 重新评估。</div> : null}
+        <AtomCard label="脚本" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => openAtomDrawer("script")} />
+        <AtomCard label="节奏" value={selectedAtoms?.rhythmAtom} tone="rhythm" onReplace={() => openAtomDrawer("rhythm")} />
+        <AtomCard label="包装" value={selectedAtoms?.packagingAtom} tone="packaging" onReplace={() => openAtomDrawer("packaging")} />
         {selectedAtoms?.handling ? <div className="agent-chat-atom-handling">{selectedAtoms.handling}</div> : null}
       </div>
       {drawer ? (
-        <section className="agent-chat-replacement-drawer" aria-label="FunctionSlotLibrary 替换候选">
-          <div className="agent-chat-replacement-drawer-head">
-            <b>{replacementDrawerTitle(drawer)}</b>
-            <button type="button" onClick={() => setDrawer(null)}>关闭</button>
-          </div>
-          <div className="agent-chat-replacement-mode">
-            <span>{drawer.kind === "slot" ? "当前仅展示 Slot 候选" : `当前仅展示 ${drawer.atomKind} Atom 候选`}</span>
-            <small>绑定证据随候选展示</small>
-          </div>
-          <div className="agent-chat-replacement-current">
-            <span>当前替换对象</span>
-            <b>{currentReplacementLabel(drawer, selectedSlot, selectedAtoms)}</b>
-          </div>
-          <input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="搜索 slot / atom / 样例来源" />
-          <small>{candidateStatusText(candidateStatus, candidates.length, visibleCandidates.length)}</small>
-          <div className="agent-chat-replacement-candidates">
-            {visibleCandidates.map((candidate) => (
-              <article key={candidate.candidateId} className={candidate.needReview ? "needs-review" : ""}>
-                <div>
-                  <b>{candidate.label ?? candidate.candidateId}</b>
-                  <span>{candidate.slotSubtypeId ?? candidate.atomId ?? candidate.candidateId}</span>
-                </div>
-                {candidate.functionText ? <p>{candidate.functionText}</p> : null}
-                <small>{candidate.sourceSampleId ?? "source sample unknown"} · {candidate.sourceArtifactId ?? "artifact unknown"}</small>
-                {candidate.evidenceTags?.length ? <em>{candidate.evidenceTags.join(" / ")}</em> : null}
-                <CandidateEvidence candidate={candidate} />
-                <button type="button" onClick={() => drawer.kind === "slot" ? stageSlotReplacement(candidate) : stageAtomReplacement(candidate, drawer.atomKind)}>预选</button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {draft.length ? (
-        <div className="agent-chat-replacement-draft">
-          <b>待提交替换 {draft.length} 项</b>
-          <span>{buildReplacementDraftSummary(draft).replace(/\n/g, " / ")}</span>
-          <button type="button" disabled={busy || !sourceRestructureFinalPath} onClick={() => void submitDraft()}>交给 Agent 评估并重组</button>
-          <button type="button" disabled={busy} onClick={() => setDraft([])}>清空</button>
+        <div className={`agent-chat-replacement-stack ${drawerClosing ? "is-closing" : ""}`.trim()}>
+          <section className="agent-chat-replacement-drawer" aria-label="槽位/原子替换候选">
+            <div className="agent-chat-replacement-drawer-head">
+              <b>{replacementDrawerTitle(drawer)}</b>
+              <button type="button" onClick={closeDrawer}>关闭</button>
+            </div>
+            <div className="agent-chat-replacement-mode">
+              <span>{drawer.kind === "slot" ? "当前仅展示槽位候选" : `当前仅展示${atomKindLabel(drawer.atomKind)}原子候选`}</span>
+              <small>绑定证据随候选展示</small>
+            </div>
+            <div className="agent-chat-replacement-current">
+              <span>当前替换对象</span>
+              <b>{currentReplacementLabel(drawer, selectedSlot, selectedAtoms)}</b>
+            </div>
+            <input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="搜索槽位 / 原子 / 样例来源" />
+            <small>{candidateStatusText(candidateStatus, candidates.length, visibleCandidates.length)}</small>
+            <div className="agent-chat-replacement-candidates">
+              {visibleCandidates.map((candidate) => (
+                <article key={candidate.candidateId} className={candidate.needReview ? "needs-review" : ""}>
+                  <div>
+                    <b>{candidate.label ?? candidate.candidateId}</b>
+                    <span>{candidate.slotSubtypeId ?? candidate.atomId ?? candidate.candidateId}</span>
+                  </div>
+                  {candidate.functionText ? <p>{candidate.functionText}</p> : null}
+                  <small>{candidate.sourceSampleId ?? "source sample unknown"} · {candidate.sourceArtifactId ?? "artifact unknown"}</small>
+                  {candidate.evidenceTags?.length ? <em>{candidate.evidenceTags.join(" / ")}</em> : null}
+                  <CandidateEvidence candidate={candidate} />
+                  <button type="button" onClick={() => drawer.kind === "slot" ? stageSlotReplacement(candidate) : stageAtomReplacement(candidate, drawer.atomKind)}>预选</button>
+                </article>
+              ))}
+            </div>
+          </section>
+          {draft.length ? (
+            <div className="agent-chat-replacement-draft">
+              <b>待提交替换 {draft.length} 项</b>
+              <span>{buildReplacementDraftSummary(draft).replace(/\n/g, " / ")}</span>
+              <button type="button" disabled={busy || !sourceRestructureFinalPath} onClick={() => void submitDraft()}>交给 Agent 评估并重组</button>
+              <button type="button" disabled={busy} onClick={() => setDraft([])}>清空</button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SlotAtomEmptyIcon() {
+  return (
+    <svg className="agent-chat-slot-atom-empty-icon" viewBox="0 0 28 28" focusable="false" aria-hidden="true">
+      <rect x="5" y="5" width="7" height="7" rx="1.6" />
+      <rect x="16" y="5" width="7" height="7" rx="1.6" />
+      <rect x="5" y="16" width="7" height="7" rx="1.6" />
+      <path d="M16 18.5h7" />
+    </svg>
   );
 }
 
@@ -235,8 +277,8 @@ function AtomCard({ label, value, tone, onReplace }: { label: string; value?: st
   return (
     <article className={`agent-chat-atom-card ${tone}`}>
       <span>{label}</span>
-      <b>{value}</b>
-      <button type="button" onClick={onReplace}>换Atom</button>
+      <b>{stripBacktickLabel(value) || value}</b>
+      <button type="button" onClick={onReplace}>换原子</button>
     </article>
   );
 }
@@ -257,21 +299,25 @@ function CandidateEvidence({ candidate }: { candidate: ReplacementCandidate }) {
 }
 
 function replacementDrawerTitle(drawer: DrawerState) {
-  if (drawer.kind === "slot") return "Slot 库";
-  if (drawer.atomKind === "script") return "Script Atom 库";
-  if (drawer.atomKind === "rhythm") return "Rhythm Atom 库";
-  return "Packaging Atom 库";
+  if (drawer.kind === "slot") return "槽位库";
+  return `${atomKindLabel(drawer.atomKind)}原子库`;
 }
 
 function currentReplacementLabel(drawer: DrawerState, slot: AgentChatSlotSummary | null, atoms: AgentChatAtomSummary | null) {
-  if (drawer.kind === "slot") return stripBacktickLabel(slot?.slotSubtype) || slot?.slotSubtypeId || "未知 Slot";
-  return atomValueFor(atoms, drawer.atomKind) || `未知 ${drawer.atomKind} Atom`;
+  if (drawer.kind === "slot") return slot?.functionText || stripBacktickLabel(slot?.slotSubtype) || slot?.slotSubtypeId || "未知槽位";
+  return stripBacktickLabel(atomValueFor(atoms, drawer.atomKind)) || atomValueFor(atoms, drawer.atomKind) || `未知${atomKindLabel(drawer.atomKind)}原子`;
 }
 
 function candidateStatusText(status: string, totalCount: number, visibleCount: number) {
   if (!status.includes("候选") && !status.includes("candidate")) return status;
   const hiddenCount = Math.max(0, totalCount - visibleCount);
-  return hiddenCount ? `${visibleCount} candidates，可见候选已排除当前对象 ${hiddenCount} 项` : `${visibleCount} candidates`;
+  return hiddenCount ? `${visibleCount} 个候选，可见候选已排除当前对象 ${hiddenCount} 项` : `${visibleCount} 个候选`;
+}
+
+function atomKindLabel(kind: AtomKind) {
+  if (kind === "script") return "脚本";
+  if (kind === "rhythm") return "节奏";
+  return "包装";
 }
 
 function isCurrentReplacementCandidate(
@@ -333,7 +379,7 @@ function atomValueFor(atom: AgentChatAtomSummary | null, kind: AtomKind) {
 }
 
 function stripBacktickLabel(value?: string | null) {
-  return String(value ?? "").replace(/`[^`]+`\s*/g, "").trim();
+  return String(value ?? "").replace(/`[^`]+`\s*[：:]?\s*/g, "").trim();
 }
 
 function extractBacktickId(value?: string | null) {

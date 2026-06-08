@@ -715,6 +715,219 @@
   overflow-wrap: anywhere;
 }
 
+.new-ui-restructure-slot-atom-panel {
+  --text: var(--new-ui-text);
+  --text-soft: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+  --muted: var(--new-ui-text-muted);
+  --accent: color-mix(in srgb, var(--new-ui-text) 72%, var(--new-ui-surface));
+  --line: color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  --line-strong: color-mix(in srgb, var(--new-ui-control-border) 82%, transparent);
+  --panel: color-mix(in srgb, var(--new-ui-surface) 92%, var(--new-ui-bg));
+  --panel-2: color-mix(in srgb, var(--new-ui-text) 5%, var(--new-ui-surface));
+  --field-bg: color-mix(in srgb, var(--new-ui-bg) 36%, var(--new-ui-surface));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 6px 12px 14px;
+  color: var(--new-ui-text);
+  overflow: visible;
+}
+
+.new-ui-layout[data-active-section="restructure"] .new-ui-pane-right,
+.new-ui-layout[data-active-section="restructure"] .new-ui-pane-right .new-ui-pane-body {
+  overflow: visible;
+}
+
+.new-ui-restructure-slot-atom-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 2px 0 4px;
+}
+
+.new-ui-restructure-slot-atom-header h2 {
+  margin: 0;
+  color: color-mix(in srgb, var(--new-ui-text) 90%, var(--new-ui-text-muted));
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.new-ui-restructure-slot-atom-header span {
+  color: var(--new-ui-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-panel {
+  min-height: 0;
+  overflow: visible;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-empty {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+  padding: 28px 18px 52px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--new-ui-text-muted);
+  text-align: center;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-empty strong {
+  color: color-mix(in srgb, var(--new-ui-text) 86%, var(--new-ui-text-muted));
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-empty span {
+  max-width: 280px;
+  color: color-mix(in srgb, var(--new-ui-text-muted) 86%, transparent);
+  font-size: 14px;
+  font-weight: 525;
+  line-height: 1.65;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-empty-icon {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 4px;
+  fill: none;
+  stroke: color-mix(in srgb, var(--new-ui-text-muted) 58%, transparent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list {
+  max-height: clamp(300px, 48vh, 520px);
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list button,
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-card,
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-handling,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-candidates article,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-mode,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-evidence {
+  box-shadow: none;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list button:hover,
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list button.active {
+  border-color: color-mix(in srgb, var(--success) 42%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--success) 10%, var(--new-ui-surface));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list i,
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-card button,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-drawer button,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-draft button {
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 70%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 7%, transparent);
+  color: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-card.script {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--warning) 8%, var(--new-ui-surface));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-card.rhythm {
+  border-color: color-mix(in srgb, var(--info) 40%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--info) 8%, var(--new-ui-surface));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-atom-card.packaging {
+  border-color: color-mix(in srgb, var(--new-ui-text-muted) 40%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--new-ui-text-muted) 8%, var(--new-ui-surface));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-warning,
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-candidates em {
+  color: color-mix(in srgb, var(--warning) 82%, var(--new-ui-text));
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-stack {
+  --agent-chat-replacement-draft-space: 148px;
+  position: absolute;
+  top: 18px;
+  right: calc(100% + 12px);
+  left: auto;
+  z-index: 8;
+  width: min(420px, calc(100vw - var(--new-ui-right-width, 380px) - 72px));
+  height: calc(100% - 32px);
+  min-height: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: visible;
+  transform: translate(18px, 4px);
+  animation: new-ui-slot-atom-drawer-enter 340ms cubic-bezier(0.16, 0.9, 0.24, 1) forwards;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-stack.is-closing {
+  pointer-events: none;
+  animation: new-ui-slot-atom-drawer-exit 340ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-drawer {
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+  height: calc(100% - var(--agent-chat-replacement-draft-space));
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 74%, transparent);
+  background: color-mix(in srgb, var(--new-ui-surface) 96%, var(--new-ui-bg));
+  box-shadow: none;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-candidates {
+  min-height: 0;
+  max-height: none;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-replacement-draft {
+  border-color: color-mix(in srgb, var(--info) 28%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--new-ui-surface) 94%, var(--new-ui-bg));
+}
+
+@keyframes new-ui-slot-atom-drawer-enter {
+  from {
+    transform: translate(18px, 4px);
+  }
+
+  to {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes new-ui-slot-atom-drawer-exit {
+  from {
+    transform: translate(0, 0);
+  }
+
+  to {
+    transform: translate(18px, 4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-ui-restructure-slot-atom-panel .agent-chat-replacement-stack,
+  .new-ui-restructure-slot-atom-panel .agent-chat-replacement-stack.is-closing {
+    transform: none;
+    animation: none;
+  }
+}
+
 @keyframes new-ui-restructure-error-enter {
   from {
     opacity: 0;
