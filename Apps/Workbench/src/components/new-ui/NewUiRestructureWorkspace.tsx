@@ -5,6 +5,7 @@ type NewUiRestructureWorkspaceProps = {
   conversation: AgentChatConversation | null;
   creatingConversation: boolean;
   draftingConversation: boolean;
+  loadingConversations?: boolean;
   onNewConversation: () => void;
   onSendMessage: (message: string) => Promise<void>;
   sendingMessage: boolean;
@@ -14,6 +15,7 @@ export function NewUiRestructureWorkspace({
   conversation,
   creatingConversation,
   draftingConversation,
+  loadingConversations = false,
   onNewConversation,
   onSendMessage,
   sendingMessage,
@@ -62,6 +64,18 @@ export function NewUiRestructureWorkspace({
       </div>
     </form>
   );
+
+  if (loadingConversations && !conversation && !draftingConversation) {
+    return (
+      <section className="new-ui-restructure-workspace is-loading" aria-label="重组工作区加载中">
+        <div className="new-ui-restructure-loading">
+          <span />
+          <span />
+          <span />
+        </div>
+      </section>
+    );
+  }
 
   if (!conversation && draftingConversation) {
     return (

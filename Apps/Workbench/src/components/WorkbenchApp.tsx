@@ -591,7 +591,7 @@ export function WorkbenchApp() {
         handleFunctionSlotManualBoundaryEdit={handleFunctionSlotManualBoundaryEdit}
       />
       {mountedViews["new-ui"] ? (
-        <section className={`view-shell new-ui-view-shell ${activeView === "new-ui" ? "" : "is-hidden-view"} ${newUiLeftCollapsed ? "is-left-pane-collapsed" : ""}`} aria-hidden={activeView !== "new-ui"}>
+        <section className={`view-shell new-ui-view-shell is-theme-${newUiTheme} ${activeView === "new-ui" ? "" : "is-hidden-view"} ${newUiLeftCollapsed ? "is-left-pane-collapsed" : ""}`} aria-hidden={activeView !== "new-ui"}>
           {newUiLeftCollapsed ? null : (
             <PageCurlViewToggle label="旧 UI" ariaLabel="切换回旧 UI" className={`from-new-ui-${newUiTheme}`} redrawKey={newUiTheme} onClick={() => switchWorkbenchView("workspace")} />
           )}

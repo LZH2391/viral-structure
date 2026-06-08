@@ -53,9 +53,34 @@
   background: var(--new-ui-restructure-scrollbar-thumb-hover);
 }
 
-.new-ui-restructure-workspace.is-empty {
+.new-ui-restructure-workspace.is-empty,
+.new-ui-restructure-workspace.is-loading {
   place-items: center;
   padding: 32px;
+}
+
+.new-ui-restructure-loading {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+}
+
+.new-ui-restructure-loading span {
+  height: 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 18%, transparent);
+}
+
+.new-ui-restructure-loading span:nth-child(1) {
+  width: 62%;
+}
+
+.new-ui-restructure-loading span:nth-child(2) {
+  width: 100%;
+}
+
+.new-ui-restructure-loading span:nth-child(3) {
+  width: 78%;
 }
 
 .new-ui-restructure-workspace.is-draft {

@@ -98,6 +98,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [activeRestructureConversationId, setActiveRestructureConversationId] = useState<string | null>(null);
   const [draftingRestructureConversation, setDraftingRestructureConversation] = useState(false);
   const [restructureConversations, setRestructureConversations] = useState<AgentChatConversation[]>([]);
+  const [loadingRestructureConversations, setLoadingRestructureConversations] = useState(true);
   const [relativeTimeNowMs, setRelativeTimeNowMs] = useState(() => Date.now());
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
@@ -630,6 +631,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!active) return undefined;
     let cancelled = false;
     const loadConversations = async () => {
+      setLoadingRestructureConversations(true);
       try {
         const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
         if (cancelled) return;
@@ -642,6 +644,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         ));
       } catch {
         if (!cancelled) setRestructureConversations([]);
+      } finally {
+        if (!cancelled) setLoadingRestructureConversations(false);
       }
     };
     void loadConversations();
@@ -738,6 +742,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               conversation={selectedRestructureConversation}
               creatingConversation={creatingRestructureConversation}
               draftingConversation={draftingRestructureConversation}
+              loadingConversations={loadingRestructureConversations}
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
               sendingMessage={sendingRestructureMessage}

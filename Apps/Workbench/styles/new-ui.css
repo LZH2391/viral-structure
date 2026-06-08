@@ -5,6 +5,18 @@
 .new-ui-view-shell {
   position: relative;
   overflow: hidden;
+  background: var(--new-ui-theme-dark-bg);
+  color: var(--new-ui-theme-dark-text);
+}
+
+.new-ui-view-shell.is-theme-light {
+  background: var(--new-ui-theme-light-bg);
+  color: var(--new-ui-theme-light-text);
+}
+
+.new-ui-view-shell.is-theme-dark {
+  background: var(--new-ui-theme-dark-bg);
+  color: var(--new-ui-theme-dark-text);
 }
 
 .page-curl-view-toggle {
@@ -142,6 +154,42 @@
   transform: scale(0.8);
   transform-origin: top left;
   transition: background-color 360ms ease;
+}
+
+.new-ui-shell,
+.new-ui-shell * {
+  --new-ui-scrollbar-thumb: color-mix(in srgb, var(--new-ui-text-muted) 44%, transparent);
+  --new-ui-scrollbar-thumb-hover: color-mix(in srgb, var(--new-ui-text-muted) 62%, transparent);
+  scrollbar-color: var(--new-ui-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+}
+
+.new-ui-shell *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.new-ui-shell *::-webkit-scrollbar-track {
+  background: transparent;
+  box-shadow: none;
+}
+
+.new-ui-shell *::-webkit-scrollbar-thumb {
+  min-width: 44px;
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--new-ui-scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+.new-ui-shell *::-webkit-scrollbar-thumb:hover {
+  background: var(--new-ui-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+.new-ui-shell *::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .new-ui-shell[data-theme="light"] {
