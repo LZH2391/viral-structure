@@ -10,6 +10,7 @@ import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { NewUiRestructureWorkspace } from "./NewUiRestructureWorkspace";
+import { NewUiTurnTimelinePanel, type NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -101,6 +102,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
   const [runningRestructureConversationIds, setRunningRestructureConversationIds] = useState<Record<string, boolean>>({});
+  const [runningRestructureTurns, setRunningRestructureTurns] = useState<Record<string, RunningRestructureTurn>>({});
   const [archiveConfirmConversationId, setArchiveConfirmConversationId] = useState<string | null>(null);
   const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const [timelineSelectionClearRequest, setTimelineSelectionClearRequest] = useState(0);
@@ -115,9 +117,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     title: "新建分析",
     item: null,
   });
-  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
-  const showLibraryGraphPanel = activeSection === "library";
-  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel;
   const navSections = useMemo(() => NEW_UI_SECTIONS.map((section) => (
     section.id === "restructure"
       ? {
@@ -133,6 +132,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const selectedRestructureConversation = useMemo(() => (
     restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
   ), [activeRestructureConversationId, restructureConversations]);
+  const selectedRunningRestructureTurn = activeRestructureConversationId ? runningRestructureTurns[activeRestructureConversationId] ?? null : null;
+  const selectedRestructureTurnTarget = useMemo(
+    () => resolveRestructureTurnTarget(selectedRestructureConversation, selectedRunningRestructureTurn),
+    [selectedRestructureConversation, selectedRunningRestructureTurn],
+  );
+  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
+  const showLibraryGraphPanel = activeSection === "library";
+  const showRestructureTracePanel = activeSection === "restructure" && Boolean(selectedRestructureConversation);
+  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel || showRestructureTracePanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
@@ -142,14 +150,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
-    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : 320,
+    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : showRestructureTracePanel ? 380 : 320,
     minLeft: 0,
     maxLeft: Number.POSITIVE_INFINITY,
     minCenter: 420,
-    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : 0,
+    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : showRestructureTracePanel ? 340 : 0,
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
-    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : { min: 0.1, max: 0.3 },
+    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureTracePanel ? { min: 0.16, max: 0.32 } : { min: 0.1, max: 0.3 },
     persistedSides: { left: true, right: false },
   });
 
@@ -171,14 +179,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
       setAnalysisWorkflowMounted(false);
-      if (!showLibraryGraphPanel) setRightCollapsed(true);
+      if (!showLibraryGraphPanel && !showRestructureTracePanel) setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
     lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
     setAnalysisWorkflowMounted(false);
     setRightCollapsed(false);
-  }, [analysisWorkflowRevealKey, showLibraryGraphPanel]);
+  }, [analysisWorkflowRevealKey, showLibraryGraphPanel, showRestructureTracePanel]);
 
   useEffect(() => {
     if (!showAnalysisWorkflow) {
@@ -405,6 +413,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setRightCollapsed(false);
   }, [showLibraryGraphPanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
+  useEffect(() => {
+    if (!showRestructureTracePanel) return;
+    startPaneTransitionGuard();
+    startRightPaneContentFreeze(false);
+    setRightCollapsed(false);
+  }, [showRestructureTracePanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
+
   const toggleLeftCollapsed = () => {
     animateLeftCollapsed(!leftCollapsed);
   };
@@ -521,6 +536,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (timer) window.clearTimeout(timer);
     delete restructureTurnPollTimersRef.current[conversationId];
     delete runningRestructureTurnsRef.current[conversationId];
+    setRunningRestructureTurns((current) => {
+      if (!current[conversationId]) return current;
+      const next = { ...current };
+      delete next[conversationId];
+      return next;
+    });
     setRunningRestructureConversationIds((current) => {
       if (!current[conversationId]) return current;
       const next = { ...current };
@@ -534,6 +555,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     const previousTimer = restructureTurnPollTimersRef.current[conversationId];
     if (previousTimer) window.clearTimeout(previousTimer);
     runningRestructureTurnsRef.current[conversationId] = runningTurn;
+    setRunningRestructureTurns((current) => ({ ...current, [conversationId]: runningTurn }));
     setRunningRestructureConversationIds((current) => current[conversationId] ? current : { ...current, [conversationId]: true });
 
     const poll = async () => {
@@ -744,6 +766,17 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             />
           ) : null}
           {showLibraryGraphPanel ? <div id="new-ui-library-graph-panel" className="new-ui-library-graph-panel" /> : null}
+          {showRestructureTracePanel ? (
+            <section className="new-ui-analysis-workflow-detail new-ui-restructure-trace-panel" aria-label="当前重组 turn 运行追踪">
+              <div className="new-ui-analysis-workflow-detail-header">
+                <h2 className="new-ui-analysis-workflow-detail-title">追踪 Timeline</h2>
+                <span className={`new-ui-analysis-workflow-detail-status ${selectedRestructureTurnTarget?.running ? "is-running" : ""}`.trim()}>
+                  {selectedRestructureTurnTarget?.running ? "生成中" : "最近一轮"}
+                </span>
+              </div>
+              <NewUiTurnTimelinePanel title="当前会话 turn" target={selectedRestructureTurnTarget} />
+            </section>
+          ) : null}
         </div>
       </aside>
       <ThemedTooltipLayer rootRef={layoutRef} />
@@ -1092,6 +1125,34 @@ function libraryChildToGraphMode(child: NewUiLibraryChildId): GraphMode {
   if (child === "semanticGovernance") return "governance";
   if (child === "planTrace") return "planTrace";
   return "structure";
+}
+
+function resolveRestructureTurnTarget(
+  conversation: AgentChatConversation | null,
+  runningTurn: RunningRestructureTurn | null,
+): NewUiTurnTimelineTarget | null {
+  if (runningTurn) {
+    return {
+      threadId: runningTurn.threadId,
+      turnId: runningTurn.turnId,
+      workspaceRoot: runningTurn.workspaceRoot,
+      running: true,
+    };
+  }
+  const threadId = conversation?.threadId?.trim();
+  if (!threadId) return null;
+  const messages = conversation?.messages ?? [];
+  const runningMessage = [...messages].reverse().find((message) => message.role === "assistant" && message.status === "running" && message.turnId);
+  const latestAssistant = [...messages].reverse().find((message) => message.role === "assistant" && message.turnId);
+  const latestMessage = [...messages].reverse().find((message) => message.turnId);
+  const turnId = runningMessage?.turnId ?? conversation?.latestTurnId ?? latestAssistant?.turnId ?? latestMessage?.turnId ?? null;
+  if (!turnId) return null;
+  return {
+    threadId,
+    turnId,
+    workspaceRoot: conversation?.workspaceRoot ?? null,
+    running: runningMessage?.turnId === turnId,
+  };
 }
 
 type SectionIconProps = {
