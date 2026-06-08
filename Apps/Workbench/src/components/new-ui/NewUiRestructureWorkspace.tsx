@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type KeyboardEvent, type MutableRefObject, type SetStateAction } from "react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 import type { NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
@@ -21,6 +21,32 @@ type NewUiRestructureWorkspaceProps = {
   sendErrorMessage?: string | null;
   sendingMessage: boolean;
 };
+
+type RestructureTimelineMessageItem = {
+  id: string;
+  sourceKey: string;
+  type: "message";
+  role: "user" | "assistant";
+  text: string;
+  status: AgentTimelineItem["status"];
+};
+
+type RestructureTimelineAssistantMessageItem = RestructureTimelineMessageItem & {
+  role: "assistant";
+};
+
+type RestructureTimelineActivityItem = {
+  id: string;
+  sourceKey: string;
+  type: "activity";
+  kind: "reasoning" | "context_compacted" | "tool_call";
+  label: string;
+  detail: string | null;
+  status: AgentTimelineItem["status"];
+};
+
+type RestructureTimelineDisplayItem = RestructureTimelineMessageItem | RestructureTimelineActivityItem;
+type RestructureTimelineStreamableItem = RestructureTimelineAssistantMessageItem | (RestructureTimelineActivityItem & { detail: string });
 
 export function NewUiRestructureWorkspace({
   conversation,
@@ -45,8 +71,20 @@ export function NewUiRestructureWorkspace({
   const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
-  const timelineTurnId = resolveVisibleTimelineTurnId(activeTurnTarget, timeline);
+  const rawTimelineDisplayItems = buildRestructureTimelineDisplayItems(timeline?.items ?? []);
+  const timelineTurnId = activeTurnTarget?.turnId && rawTimelineDisplayItems.length ? activeTurnTarget.turnId : null;
+  const timelineConversationAssistantMessage = timelineTurnId
+    ? messages.find((message) => message.role === "assistant" && message.turnId === timelineTurnId) ?? null
+    : null;
+  const timelineDisplayItems = timelineConversationAssistantMessage
+    ? rawTimelineDisplayItems.filter((item) => item.type === "activity")
+    : rawTimelineDisplayItems;
+  const timelineInsertMessageId = timelineConversationAssistantMessage?.id ?? null;
+  const timelineItemsAfterMessages = timelineInsertMessageId ? [] : timelineDisplayItems;
+  const timelineHasUserInput = rawTimelineDisplayItems.some((item) => item.type === "message" && item.role === "user");
+  const timelineHasAssistantMessage = rawTimelineDisplayItems.some((item) => item.type === "message" && item.role === "assistant");
   const visiblePendingUserMessage = pendingUserMessage && !messages.some((message) => message.role === "user" && message.text === pendingUserMessage.text)
+    && !(timelineHasUserInput && rawTimelineDisplayItems.some((item) => item.type === "message" && item.role === "user" && item.text === pendingUserMessage.text))
     ? pendingUserMessage
     : null;
   const visiblePendingAssistantMessage = pendingAssistantMessage && !messages.some((message) => (
@@ -56,6 +94,7 @@ export function NewUiRestructureWorkspace({
       || message.id === pendingAssistantMessage.id
     )
   ))
+    && !(timelineHasAssistantMessage && pendingAssistantMessage.turnId === timelineTurnId)
     ? pendingAssistantMessage
     : null;
   const canUseComposer = Boolean(conversation?.threadId || draftingConversation);
@@ -65,6 +104,14 @@ export function NewUiRestructureWorkspace({
     conversation?.conversationId ?? null,
     messages,
     pendingAssistantMessage?.turnId ?? null,
+  );
+  const {
+    isPseudoStreaming: isTimelinePseudoStreaming,
+    getDisplayText: getTimelineDisplayText,
+  } = usePseudoStreamedTimelineAgentMessages(
+    timelineTurnId ? `${timeline?.threadId ?? ""}:${timelineTurnId}` : null,
+    timelineDisplayItems,
+    Boolean(activeTurnTarget?.running),
   );
 
   useEffect(() => {
@@ -156,7 +203,6 @@ export function NewUiRestructureWorkspace({
             <div className="new-ui-restructure-message-list">
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
               {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
-              <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} />
             </div>
             {composer}
           </main>
@@ -210,19 +256,31 @@ export function NewUiRestructureWorkspace({
       <div className="new-ui-restructure-shell">
         <main className="new-ui-restructure-chat" aria-label="重组对话">
           {errorAlert}
-          {messages.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
+          {messages.length || timelineDisplayItems.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
             <div className="new-ui-restructure-message-list">
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <Fragment key={message.id}>
+                  {message.id === timelineInsertMessageId ? timelineDisplayItems.map((item) => (
+                    <RestructureTimelineItem
+                      key={item.id}
+                      item={item}
+                      displayText={getTimelineDisplayText(item)}
+                      pseudoStreaming={isTimelinePseudoStreaming(item)}
+                    />
+                  )) : null}
                   <RestructureMessage message={message} displayText={getDisplayText(message)} pseudoStreaming={isPseudoStreaming(message)} />
-                  {shouldRenderTimelineAfterMessage(message, messages, index, timelineTurnId) ? (
-                    <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} />
-                  ) : null}
                 </Fragment>
+              ))}
+              {timelineItemsAfterMessages.map((item) => (
+                <RestructureTimelineItem
+                  key={item.id}
+                  item={item}
+                  displayText={getTimelineDisplayText(item)}
+                  pseudoStreaming={isTimelinePseudoStreaming(item)}
+                />
               ))}
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
               {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
-              {!hasTimelineAnchorMessage(messages, timelineTurnId) ? <RestructureTurnTimelineActivity timeline={timeline} target={activeTurnTarget} /> : null}
             </div>
           ) : (
             <div className="new-ui-restructure-thread-empty">
@@ -377,108 +435,30 @@ function countSlotAtomDisplayAtoms(display: AgentChatSlotAtomDisplay) {
   return count || display.atomBindingCount || 0;
 }
 
-function RestructureTurnTimelineActivity({ timeline, target }: { timeline: AgentTurnTimeline | null; target: NewUiTurnTimelineTarget | null }) {
-  if (!target && !timeline) return null;
-  const items = timeline?.items ?? [];
-  const pendingText = target?.pending ? "等待后端返回真实 turn。" : target ? "正在读取运行追踪。" : "";
+function RestructureTimelineItem({ item, displayText, pseudoStreaming = false }: { item: RestructureTimelineDisplayItem; displayText?: string; pseudoStreaming?: boolean }) {
+  if (item.type === "message") {
+    return (
+      <article className={`new-ui-restructure-message is-${item.role} ${item.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={pseudoStreaming || undefined}>
+        <div className="new-ui-restructure-message-body">
+          <p>{displayText ?? item.text}</p>
+        </div>
+      </article>
+    );
+  }
+
+  const running = isTimelineItemRunning(item.status);
+  const detailText = displayText ?? item.detail;
   return (
-    <section className="new-ui-restructure-turn-timeline" aria-label="turn timeline 活动项">
-      {timeline?.activity.latestMessagePreview ? (
-        <div className="new-ui-restructure-turn-timeline-latest" aria-live="polite">
-          <span>最新活动</span>
-          <strong>{timeline.activity.latestMessagePreview}</strong>
-        </div>
-      ) : null}
-      {items.length ? (
-        <div className="new-ui-analysis-workflow-trace-list">
-          {items.map((item) => <RestructureTimelineRow key={`${item.id}_${item.index}`} item={item} />)}
-        </div>
-      ) : (
-        <div className="new-ui-restructure-activity">
-          <span className="new-ui-restructure-activity-icon" aria-hidden="true">
-            <ActivityGlyph />
-          </span>
-          <p className={target?.running || target?.pending ? "is-thinking-text" : undefined}>{pendingText || "暂无运行追踪。"}</p>
-        </div>
-      )}
-    </section>
+    <article className={`new-ui-restructure-activity is-${item.kind} ${item.status ?? ""}`.trim()} aria-busy={running || pseudoStreaming || undefined}>
+      <span className="new-ui-restructure-activity-icon" aria-hidden="true">
+        <RestructureTimelineIcon kind={item.kind} />
+      </span>
+      <p className={running || pseudoStreaming ? "is-thinking-text" : undefined}>
+        <span>{item.label}</span>
+        {detailText ? <strong>{detailText}</strong> : null}
+      </p>
+    </article>
   );
-}
-
-function RestructureTimelineRow({ item }: { item: AgentTimelineItem }) {
-  return (
-    <div className={`new-ui-analysis-workflow-trace-row is-${item.kind}`}>
-      <span className="new-ui-analysis-workflow-trace-dot" />
-      <div className="new-ui-analysis-workflow-trace-event">
-        <div className="new-ui-analysis-workflow-trace-meta">
-          <span>{formatTimelineItemTime(item.createdAt)}</span>
-          <span>{renderTimelineItemKind(item.kind)}</span>
-          {item.metadata?.toolName ? <span>{item.metadata.toolName}</span> : null}
-          {item.metadata?.exitCode != null ? <span>exit {item.metadata.exitCode}</span> : null}
-          {item.metadata?.durationMs != null ? <span>{formatTimelineItemDuration(item.metadata.durationMs)}</span> : null}
-        </div>
-        <strong>{item.title}</strong>
-        {item.textPreview ? <p>{item.textPreview}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function resolveVisibleTimelineTurnId(target: NewUiTurnTimelineTarget | null, timeline: AgentTurnTimeline | null) {
-  return normalizeTurnId(target?.turnId) ?? normalizeTurnId(timeline?.turnId);
-}
-
-function shouldRenderTimelineAfterMessage(message: AgentChatMessageSnapshot, messages: AgentChatMessageSnapshot[], index: number, timelineTurnId: string | null) {
-  const messageTurnId = normalizeTurnId(message.turnId);
-  if (!timelineTurnId || messageTurnId !== timelineTurnId) return false;
-  if (message.role === "assistant") return true;
-  const hasAssistantAnchor = messages.some((item) => item.role === "assistant" && normalizeTurnId(item.turnId) === timelineTurnId);
-  if (hasAssistantAnchor) return false;
-  return !messages.slice(index + 1).some((item) => normalizeTurnId(item.turnId) === timelineTurnId);
-}
-
-function hasTimelineAnchorMessage(messages: AgentChatMessageSnapshot[], timelineTurnId: string | null) {
-  if (!timelineTurnId) return false;
-  return messages.some((message) => normalizeTurnId(message.turnId) === timelineTurnId);
-}
-
-function normalizeTurnId(value: string | null | undefined) {
-  const trimmed = value?.trim() ?? "";
-  return trimmed || null;
-}
-
-function renderTimelineItemKind(kind: AgentTimelineItem["kind"]) {
-  const labels: Record<AgentTimelineItem["kind"], string> = {
-    user_input: "user_input",
-    agent_message: "agent_message",
-    plan: "plan",
-    reasoning: "reasoning",
-    command_execution: "command",
-    mcp_tool_call: "mcp_tool",
-    dynamic_tool_call: "dynamic_tool",
-    file_change: "file_change",
-    web_search: "web_search",
-    tool_call: "tool_call",
-    tool_result: "tool_result",
-    token_usage: "token_usage",
-    context_compacted: "compact",
-    turn_status: "turn_status",
-    unknown: "unknown",
-  };
-  return labels[kind] ?? kind;
-}
-
-function formatTimelineItemTime(value?: string | null) {
-  if (!value) return "--:--:--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "--:--:--";
-  return date.toLocaleTimeString("zh-CN", { hour12: false });
-}
-
-function formatTimelineItemDuration(value: number) {
-  if (!Number.isFinite(value)) return "";
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
-  return `${Math.round(value)}ms`;
 }
 
 function useRestructureTurnTimeline(target: NewUiTurnTimelineTarget | null) {
@@ -523,6 +503,200 @@ function useRestructureTurnTimeline(target: NewUiTurnTimelineTarget | null) {
   }, [targetKey, threadId, turnId, workspaceRoot, targetRunning]);
 
   return timeline;
+}
+
+function buildRestructureTimelineDisplayItems(items: AgentTimelineItem[]): RestructureTimelineDisplayItem[] {
+  const result: RestructureTimelineDisplayItem[] = [];
+  items.forEach((item) => {
+    const sourceKey = createTimelineItemSourceKey(item);
+    if (item.kind === "user_input") {
+      const text = resolveTimelineItemText(item);
+      if (text) result.push({ id: sourceKey, sourceKey, type: "message", role: "user", text, status: item.status });
+      return;
+    }
+    if (item.kind === "agent_message") {
+      const text = resolveTimelineItemText(item);
+      if (text) result.push({ id: sourceKey, sourceKey, type: "message", role: "assistant", text, status: item.status });
+      return;
+    }
+    if (item.kind === "reasoning") {
+      result.push({
+        id: sourceKey,
+        sourceKey,
+        type: "activity",
+        kind: "reasoning",
+        label: "reasoning",
+        detail: resolveTimelineItemText(item) || normalizeTimelineTitle(item.title, "Reasoning") || null,
+        status: item.status,
+      });
+      return;
+    }
+    if (item.kind === "context_compacted") {
+      result.push({
+        id: sourceKey,
+        sourceKey,
+        type: "activity",
+        kind: "context_compacted",
+        label: "上下文已压缩",
+        detail: normalizeTimelineDetail(resolveTimelineItemText(item), "Context compacted"),
+        status: item.status,
+      });
+      return;
+    }
+    if (isTimelineToolCallKind(item.kind)) {
+      const toolName = resolveTimelineToolName(item);
+      result.push({
+        id: sourceKey,
+        sourceKey,
+        type: "activity",
+        kind: "tool_call",
+        label: toolName ? `Tool call: ${toolName}` : "Tool call",
+        detail: null,
+        status: item.status,
+      });
+    }
+  });
+  return result;
+}
+
+function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: RestructureTimelineDisplayItem[], targetRunning: boolean) {
+  const [streamingTextByKey, setStreamingTextByKey] = useState<Record<string, string>>({});
+  const seenKeysRef = useRef<Set<string>>(new Set());
+  const queuedKeysRef = useRef<Set<string>>(new Set());
+  const queueRef = useRef<string[]>([]);
+  const activeKeyRef = useRef<string | null>(null);
+  const streamFrameByKeyRef = useRef<Record<string, number>>({});
+  const streamTextByKeyRef = useRef<Record<string, string>>({});
+  const previousScopeKeyRef = useRef<string | null | undefined>(undefined);
+  const baselineInitializedRef = useRef(false);
+  const hasSeenRunningTargetRef = useRef(false);
+  const streamableItems = items.filter(isPseudoStreamableTimelineItem);
+  const latestItem = items[items.length - 1] ?? null;
+  const latestStreamableItem = latestItem && isPseudoStreamableTimelineItem(latestItem) ? latestItem : null;
+  const latestStreamableKey = latestStreamableItem ? createTimelinePseudoStreamKey(latestStreamableItem) : null;
+
+  if (previousScopeKeyRef.current !== scopeKey) {
+    previousScopeKeyRef.current = scopeKey;
+    baselineInitializedRef.current = false;
+    seenKeysRef.current = new Set();
+    queuedKeysRef.current = new Set();
+    queueRef.current = [];
+    activeKeyRef.current = null;
+    streamTextByKeyRef.current = {};
+    hasSeenRunningTargetRef.current = false;
+  }
+
+  if (!baselineInitializedRef.current && scopeKey) {
+    seenKeysRef.current = targetRunning ? new Set() : new Set(streamableItems.map((item) => createTimelinePseudoStreamKey(item)));
+    baselineInitializedRef.current = true;
+  }
+
+  if (targetRunning) hasSeenRunningTargetRef.current = true;
+
+  useEffect(() => {
+    Object.values(streamFrameByKeyRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
+    streamFrameByKeyRef.current = {};
+    queuedKeysRef.current = new Set();
+    queueRef.current = [];
+    activeKeyRef.current = null;
+    streamTextByKeyRef.current = {};
+    setStreamingTextByKey({});
+  }, [scopeKey]);
+
+  useEffect(() => {
+    if (!scopeKey) return;
+    if (!targetRunning && !hasSeenRunningTargetRef.current) {
+      streamableItems.forEach((item) => seenKeysRef.current.add(createTimelinePseudoStreamKey(item)));
+      return;
+    }
+
+    streamableItems.forEach((item) => {
+      const key = createTimelinePseudoStreamKey(item);
+      if (key !== latestStreamableKey) seenKeysRef.current.add(key);
+    });
+
+    if (!latestStreamableItem || !latestStreamableKey) return;
+    if (seenKeysRef.current.has(latestStreamableKey) || queuedKeysRef.current.has(latestStreamableKey) || activeKeyRef.current === latestStreamableKey) return;
+
+    streamTextByKeyRef.current[latestStreamableKey] = getTimelineStreamText(latestStreamableItem);
+    queuedKeysRef.current.add(latestStreamableKey);
+    queueRef.current.push(latestStreamableKey);
+    startNextTimelinePseudoStream({
+      activeKeyRef,
+      queueRef,
+      queuedKeysRef,
+      seenKeysRef,
+      streamFrameByKeyRef,
+      streamTextByKeyRef,
+      setStreamingTextByKey,
+    });
+  }, [latestStreamableItem, latestStreamableKey, scopeKey, streamableItems, targetRunning]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(streamFrameByKeyRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
+      streamFrameByKeyRef.current = {};
+      queuedKeysRef.current = new Set();
+      queueRef.current = [];
+      activeKeyRef.current = null;
+      streamTextByKeyRef.current = {};
+    };
+  }, []);
+
+  return {
+    getDisplayText: (item: RestructureTimelineDisplayItem) => {
+      if (!isPseudoStreamableTimelineItem(item)) return item.type === "message" ? item.text : item.detail ?? "";
+      const key = createTimelinePseudoStreamKey(item);
+      if (key in streamingTextByKey) return streamingTextByKey[key];
+      if (seenKeysRef.current.has(key)) return getTimelineStreamText(item);
+      if ((targetRunning || hasSeenRunningTargetRef.current) && key === latestStreamableKey) return "";
+      return getTimelineStreamText(item);
+    },
+    isPseudoStreaming: (item: RestructureTimelineDisplayItem) => {
+      if (!isPseudoStreamableTimelineItem(item)) return false;
+      const key = createTimelinePseudoStreamKey(item);
+      return activeKeyRef.current === key || queuedKeysRef.current.has(key) || key in streamingTextByKey || ((targetRunning || hasSeenRunningTargetRef.current) && key === latestStreamableKey && !seenKeysRef.current.has(key));
+    },
+  };
+}
+
+function startNextTimelinePseudoStream(controls: {
+  activeKeyRef: MutableRefObject<string | null>;
+  queueRef: MutableRefObject<string[]>;
+  queuedKeysRef: MutableRefObject<Set<string>>;
+  seenKeysRef: MutableRefObject<Set<string>>;
+  streamFrameByKeyRef: MutableRefObject<Record<string, number>>;
+  streamTextByKeyRef: MutableRefObject<Record<string, string>>;
+  setStreamingTextByKey: Dispatch<SetStateAction<Record<string, string>>>;
+}) {
+  if (controls.activeKeyRef.current) return;
+  const nextKey = controls.queueRef.current.shift() ?? null;
+  if (!nextKey) return;
+  controls.queuedKeysRef.current.delete(nextKey);
+  controls.activeKeyRef.current = nextKey;
+  const text = controls.streamTextByKeyRef.current[nextKey] ?? "";
+
+  startPseudoStream(text, nextKey, {
+    onText: (nextText) => {
+      controls.setStreamingTextByKey((current) => current[nextKey] === nextText ? current : { ...current, [nextKey]: nextText });
+    },
+    onDone: () => {
+      controls.seenKeysRef.current.add(nextKey);
+      controls.activeKeyRef.current = null;
+      delete controls.streamFrameByKeyRef.current[nextKey];
+      delete controls.streamTextByKeyRef.current[nextKey];
+      controls.setStreamingTextByKey((current) => {
+        if (!(nextKey in current)) return current;
+        const next = { ...current };
+        delete next[nextKey];
+        return next;
+      });
+      startNextTimelinePseudoStream(controls);
+    },
+    setFrameId: (frameId) => {
+      controls.streamFrameByKeyRef.current[nextKey] = frameId;
+    },
+  });
 }
 
 function usePseudoStreamedAssistantMessages(conversationId: string | null, messages: AgentChatMessageSnapshot[], pendingAssistantTurnId: string | null) {
@@ -654,6 +828,106 @@ function createPseudoStreamMessageKey(message: AgentChatMessageSnapshot) {
   return `${message.id}:${message.turnId ?? ""}:${message.text}`;
 }
 
+function isTimelineItemRunning(status: AgentTimelineItem["status"] | undefined) {
+  return String(status ?? "").toLowerCase() === "running";
+}
+
+function isTimelineToolCallKind(kind: AgentTimelineItem["kind"]) {
+  return kind === "tool_call"
+    || kind === "command_execution"
+    || kind === "mcp_tool_call"
+    || kind === "dynamic_tool_call";
+}
+
+function isPseudoStreamableTimelineAgentItem(item: RestructureTimelineDisplayItem): item is RestructureTimelineAssistantMessageItem {
+  return item.type === "message"
+    && item.role === "assistant"
+    && !isTimelineItemRunning(item.status)
+    && Boolean(item.text);
+}
+
+function isPseudoStreamableTimelineItem(item: RestructureTimelineDisplayItem): item is RestructureTimelineStreamableItem {
+  if (item.type === "message") return isPseudoStreamableTimelineAgentItem(item);
+  return item.kind !== "tool_call"
+    && !isTimelineItemRunning(item.status)
+    && Boolean(item.detail);
+}
+
+function getTimelineStreamText(item: RestructureTimelineStreamableItem) {
+  return item.type === "message" ? item.text : item.detail;
+}
+
+function createTimelinePseudoStreamKey(item: RestructureTimelineStreamableItem) {
+  return `${item.sourceKey}:${getTimelineStreamText(item)}`;
+}
+
+function createTimelineItemSourceKey(item: AgentTimelineItem) {
+  return `timeline-${item.id}-${item.index}-${item.kind}`;
+}
+
+function resolveTimelineItemText(item: AgentTimelineItem) {
+  const fullText = (item as AgentTimelineItem & { text?: string | null }).text;
+  return normalizeTimelineText(fullText) ?? normalizeTimelineText(item.textPreview);
+}
+
+function normalizeTimelineText(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+  return trimmed || null;
+}
+
+function normalizeTimelineTitle(title: string | null | undefined, fallback: string) {
+  const trimmed = normalizeTimelineText(title);
+  if (!trimmed || trimmed.toLowerCase() === fallback.toLowerCase()) return null;
+  return trimmed;
+}
+
+function normalizeTimelineDetail(value: string | null | undefined, fallback: string) {
+  const trimmed = normalizeTimelineText(value);
+  if (!trimmed || trimmed.toLowerCase() === fallback.toLowerCase()) return null;
+  return trimmed;
+}
+
+function resolveTimelineToolName(item: AgentTimelineItem) {
+  return normalizeTimelineText(item.metadata?.toolName) ?? normalizeToolNameFromTitle(item.title);
+}
+
+function normalizeToolNameFromTitle(title: string | null | undefined) {
+  const trimmed = normalizeTimelineText(title);
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(?:Tool call|Command|MCP tool|Dynamic tool):\s*(.+)$/i);
+  return normalizeTimelineText(match?.[1]);
+}
+
+function RestructureTimelineIcon({ kind }: { kind: RestructureTimelineActivityItem["kind"] }) {
+  if (kind === "reasoning") {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path d="M10 3.2a5 5 0 0 0-2.8 9.1v2.2h5.6v-2.2A5 5 0 0 0 10 3.2Z" />
+        <path d="M7.6 17h4.8" />
+        <path d="M8.1 9.3h3.8" />
+      </svg>
+    );
+  }
+  if (kind === "context_compacted") {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path d="M4.2 5.2h11.6" />
+        <path d="M6.2 9.1h7.6" />
+        <path d="M8.1 13h3.8" />
+        <path d="m7 3-2.8 2.2L7 7.4" />
+        <path d="m13 16.9 2.8-2.2-2.8-2.2" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 20 20" focusable="false">
+      <path d="M7.2 6.4 3.8 10l3.4 3.6" />
+      <path d="m12.8 6.4 3.4 3.6-3.4 3.6" />
+      <path d="m11.2 4.8-2.4 10.4" />
+    </svg>
+  );
+}
+
 function NewConversationGlyph() {
   return (
     <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
@@ -676,14 +950,6 @@ function SendGlyph() {
   return (
     <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
       <path d="M4 10.2 16 4.5l-3.6 11-2.2-4.1L6 9.2l10-4.7" />
-    </svg>
-  );
-}
-
-function ActivityGlyph() {
-  return (
-    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
-      <path d="M4 10h3l2-4 3 8 2-4h2" />
     </svg>
   );
 }

@@ -247,51 +247,6 @@
   width: min(820px, 94%);
 }
 
-.new-ui-restructure-turn-timeline {
-  display: grid;
-  gap: 10px;
-  width: min(960px, 100%);
-  max-width: 100%;
-  margin: 2px 0 10px;
-  color: var(--new-ui-text-muted);
-}
-
-.new-ui-restructure-turn-timeline .new-ui-analysis-workflow-trace-list {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-.new-ui-restructure-turn-timeline .new-ui-analysis-workflow-trace-event {
-  background: color-mix(in srgb, var(--new-ui-control-bg) 48%, transparent);
-}
-
-.new-ui-restructure-turn-timeline-latest {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding-left: 20px;
-}
-
-.new-ui-restructure-turn-timeline-latest span,
-.new-ui-restructure-turn-timeline-latest strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.new-ui-restructure-turn-timeline-latest span {
-  color: var(--new-ui-text-muted);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.new-ui-restructure-turn-timeline-latest strong {
-  color: color-mix(in srgb, var(--new-ui-text) 74%, var(--new-ui-text-muted));
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
-}
-
 .new-ui-restructure-activity {
   display: flex;
   align-items: center;
