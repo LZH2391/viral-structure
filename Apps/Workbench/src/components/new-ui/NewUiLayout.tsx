@@ -38,6 +38,7 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 const PANE_TRANSITION_GUARD_MS = 420;
+const LEFT_PANE_ANIMATION_MS = 280;
 const analysisOpenRequestResolvers = new Map<number, (result: { ok: boolean; message?: string | null }) => void>();
 
 type NewUiThreePanePreference = {
@@ -69,6 +70,8 @@ type NewUiLayoutProps = {
 export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollapsedChange }: NewUiLayoutProps) {
   const layoutRef = useRef<HTMLElement>(null);
   const lastAnalysisWorkflowRevealKeyRef = useRef<string | null>(null);
+  const leftPaneAnimationFrameRef = useRef<number | null>(null);
+  const lastExpandedLeftMetricsRef = useRef<{ paneWidth: number; navWidth: number } | null>(null);
   const paneResizeGuardTimerRef = useRef<number | null>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
@@ -78,6 +81,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [analysisOpenRequest, setAnalysisOpenRequest] = useState<AnalysisOpenRequest>(null);
   const [analysisWorkflowMounted, setAnalysisWorkflowMounted] = useState(false);
   const [paneTransitioning, setPaneTransitioning] = useState(false);
+  const [leftPaneTransitioning, setLeftPaneTransitioning] = useState(false);
   const [structureGraphReturn, setStructureGraphReturn] = useState<StructureGraphReturnState>(null);
   const [analysisDetail, setAnalysisDetail] = useState<AnalysisDetailSidebarState>({
     visible: false,
@@ -170,6 +174,121 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }, PANE_TRANSITION_GUARD_MS);
   }, []);
 
+  const animateLeftCollapsed = useCallback((nextCollapsed: boolean) => {
+    const layoutElement = layoutRef.current;
+    const paneElement = layoutElement?.querySelector<HTMLElement>(".new-ui-pane-left");
+    const resizeHandle = layoutElement?.querySelector<HTMLElement>(".new-ui-resize-handle-left");
+    const navGroups = Array.from(layoutElement?.querySelectorAll<HTMLElement>(".new-ui-pane-left .new-ui-sidebar-nav-group") ?? []);
+    const navLabels = Array.from(layoutElement?.querySelectorAll<HTMLElement>(".new-ui-pane-left .new-ui-sidebar-nav-label") ?? []);
+    if (!layoutElement || !paneElement) {
+      setLeftCollapsed(nextCollapsed);
+      return;
+    }
+
+    if (leftPaneAnimationFrameRef.current) {
+      window.cancelAnimationFrame(leftPaneAnimationFrameRef.current);
+      leftPaneAnimationFrameRef.current = null;
+    }
+
+    startPaneTransitionGuard();
+    setLeftPaneTransitioning(true);
+    const paneBasis = Number.parseFloat(getComputedStyle(paneElement).flexBasis) || paneElement.getBoundingClientRect().width;
+    const paneScale = paneBasis > 0 ? paneElement.getBoundingClientRect().width / paneBasis : 1;
+    const navBasis = navGroups[0] ? Number.parseFloat(getComputedStyle(navGroups[0]).width) || navGroups[0].getBoundingClientRect().width : 0;
+    const navScale = navBasis > 0 && navGroups[0] ? navGroups[0].getBoundingClientRect().width / navBasis : paneScale;
+    const toPaneCssPx = (value: number) => value / (paneScale || 1);
+    const toNavCssPx = (value: number) => value / (navScale || 1);
+    const expandedPaneWidth = Number.parseFloat(getComputedStyle(layoutElement).getPropertyValue("--new-ui-left-width")) || 320;
+    const expandedNavWidth = Math.max(44, expandedPaneWidth - 10);
+    const startPaneWidth = toPaneCssPx(paneElement.getBoundingClientRect().width);
+    const startHandleWidth = resizeHandle ? toPaneCssPx(resizeHandle.getBoundingClientRect().width) : (leftCollapsed ? 0 : 10);
+    const startNavWidth = navGroups[0] ? toNavCssPx(navGroups[0].getBoundingClientRect().width) : Math.max(44, startPaneWidth - 10);
+    if (nextCollapsed) lastExpandedLeftMetricsRef.current = { paneWidth: expandedPaneWidth, navWidth: expandedNavWidth };
+
+    const expandedMetrics = lastExpandedLeftMetricsRef.current;
+    const targetPaneWidth = nextCollapsed ? 54 : expandedMetrics?.paneWidth ?? expandedPaneWidth;
+    const targetHandleWidth = nextCollapsed ? 0 : 10;
+    const targetNavWidth = nextCollapsed ? 44 : expandedMetrics?.navWidth ?? expandedNavWidth;
+    const startTime = performance.now();
+    const ease = (value: number) => 1 - Math.pow(1 - value, 3);
+    const lerp = (from: number, to: number, progress: number) => from + (to - from) * progress;
+
+    paneElement.style.transition = "none";
+    paneElement.style.flexBasis = `${startPaneWidth.toFixed(2)}px`;
+    paneElement.style.minWidth = `${startPaneWidth.toFixed(2)}px`;
+    if (resizeHandle) resizeHandle.style.transition = "none";
+    if (resizeHandle) {
+      resizeHandle.style.flexBasis = `${startHandleWidth.toFixed(2)}px`;
+      resizeHandle.style.minWidth = `${startHandleWidth.toFixed(2)}px`;
+    }
+    navGroups.forEach((group) => {
+      group.style.transition = "none";
+      group.style.width = `${startNavWidth.toFixed(2)}px`;
+    });
+    navLabels.forEach((label) => {
+      label.style.transition = "none";
+      label.style.opacity = nextCollapsed ? "1" : "0";
+    });
+
+    if (!nextCollapsed) setLeftCollapsed(false);
+
+    const applyFrame = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / LEFT_PANE_ANIMATION_MS);
+      const eased = ease(progress);
+      const paneWidth = lerp(startPaneWidth, targetPaneWidth, eased).toFixed(2);
+      paneElement.style.flexBasis = `${paneWidth}px`;
+      paneElement.style.minWidth = `${paneWidth}px`;
+      if (resizeHandle) {
+        const handleWidth = lerp(startHandleWidth, targetHandleWidth, eased).toFixed(2);
+        resizeHandle.style.flexBasis = `${handleWidth}px`;
+        resizeHandle.style.minWidth = `${handleWidth}px`;
+      }
+      navGroups.forEach((group) => {
+        group.style.width = `${lerp(startNavWidth, targetNavWidth, eased).toFixed(2)}px`;
+      });
+      navLabels.forEach((label) => {
+        label.style.opacity = `${nextCollapsed ? 1 - eased : eased}`;
+      });
+
+      if (progress < 1) {
+        leftPaneAnimationFrameRef.current = window.requestAnimationFrame(applyFrame);
+        return;
+      }
+
+      leftPaneAnimationFrameRef.current = null;
+      if (nextCollapsed) setLeftCollapsed(true);
+      const clearInlineStyles = () => {
+        paneElement.style.flexBasis = "";
+        paneElement.style.minWidth = "";
+        paneElement.style.transition = "";
+        if (resizeHandle) {
+          resizeHandle.style.flexBasis = "";
+          resizeHandle.style.minWidth = "";
+          resizeHandle.style.transition = "";
+        }
+        navGroups.forEach((group) => {
+          group.style.width = "";
+          group.style.transition = "";
+        });
+        navLabels.forEach((label) => {
+          label.style.opacity = "";
+          label.style.transition = "";
+        });
+      };
+      const waitForCollapsedClass = () => {
+        if (!nextCollapsed || layoutElement.classList.contains("is-left-collapsed")) {
+          clearInlineStyles();
+          setLeftPaneTransitioning(false);
+          return;
+        }
+        window.requestAnimationFrame(waitForCollapsedClass);
+      };
+      window.requestAnimationFrame(waitForCollapsedClass);
+    };
+
+    leftPaneAnimationFrameRef.current = window.requestAnimationFrame(applyFrame);
+  }, [leftCollapsed, startPaneTransitionGuard]);
+
   useEffect(() => {
     if (!showLibraryGraphPanel) return;
     startPaneTransitionGuard();
@@ -177,7 +296,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, [showLibraryGraphPanel, startPaneTransitionGuard]);
 
   const toggleLeftCollapsed = () => {
-    setLeftCollapsed((value) => !value);
+    animateLeftCollapsed(!leftCollapsed);
   };
 
   const toggleRightCollapsed = () => {
@@ -186,8 +305,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   };
 
   const expandLeftSidebar = useCallback(() => {
-    setLeftCollapsed(false);
-  }, []);
+    if (!leftCollapsed) return;
+    animateLeftCollapsed(false);
+  }, [animateLeftCollapsed, leftCollapsed]);
 
   const openStructureGraphFromAnalysis = useCallback((target: { artifactId: string; title: string }) => {
     startPaneTransitionGuard();
@@ -235,6 +355,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   useEffect(() => {
     return () => {
+      if (leftPaneAnimationFrameRef.current) window.cancelAnimationFrame(leftPaneAnimationFrameRef.current);
       if (paneResizeGuardTimerRef.current) window.clearTimeout(paneResizeGuardTimerRef.current);
     };
   }, []);
@@ -242,7 +363,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   return (
     <section
       ref={layoutRef}
-      className={`new-ui-layout ${leftCollapsed ? "is-left-collapsed" : ""} ${rightCollapsed ? "is-right-collapsed" : ""} ${paneTransitioning ? "is-pane-transitioning-layout" : ""}`.trim()}
+      className={`new-ui-layout ${leftCollapsed ? "is-left-collapsed" : ""} ${rightCollapsed ? "is-right-collapsed" : ""} ${paneTransitioning ? "is-pane-transitioning-layout" : ""} ${leftPaneTransitioning ? "is-left-pane-transitioning-layout" : ""}`.trim()}
       aria-label="新 UI 三栏工作区"
     >
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">

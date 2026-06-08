@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
   listAnalysisHistorySamples,
   resolveAnalysisHistoryMedia,
@@ -11,13 +11,13 @@ type AnalysisHistoryProps = {
   onOpenItem: (item: AnalysisHistoryItem) => void;
 };
 
-export function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
+export const AnalysisHistory = memo(function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const resizeCommitTimerRef = useRef<number | null>(null);
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [historyWidth, setHistoryWidth] = useState<number | null>(null);
-  const visibleItems = items.filter(shouldShowAnalysisHistoryItem);
+  const visibleItems = useMemo(() => items.filter(shouldShowAnalysisHistoryItem), [items]);
   const dominoLayout = useMemo(() => buildDominoLayout(visibleItems, historyWidth), [visibleItems, historyWidth]);
 
   useLayoutEffect(() => {
@@ -96,7 +96,7 @@ export function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryP
       ) : null}
     </section>
   );
-}
+});
 
 type DominoPlacement = {
   item: AnalysisHistoryItem;

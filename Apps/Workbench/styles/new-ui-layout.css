@@ -2,13 +2,42 @@
   --new-ui-left-width: 320px;
   --new-ui-right-width: 320px;
   --new-ui-collapsed-pane-width: 54px;
+  --new-ui-pane-transition-duration: 280ms;
+  --new-ui-left-pane-width: var(--new-ui-left-width);
+  --new-ui-left-resize-width: 10px;
+  --new-ui-right-pane-width: var(--new-ui-right-width);
+  --new-ui-right-resize-width: 10px;
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: var(--new-ui-left-width) 10px minmax(0, 1fr) 10px var(--new-ui-right-width);
+  display: flex;
+  grid-template-columns: var(--new-ui-left-pane-width) var(--new-ui-left-resize-width) minmax(0, 1fr) var(--new-ui-right-resize-width) var(--new-ui-right-pane-width);
   min-width: 0;
   min-height: 0;
   transition: none;
+}
+
+@property --new-ui-left-pane-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 320px;
+}
+
+@property --new-ui-left-resize-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 10px;
+}
+
+@property --new-ui-right-pane-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 320px;
+}
+
+@property --new-ui-right-resize-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 10px;
 }
 
 .new-ui-layout.is-restoring-layout,
@@ -18,20 +47,24 @@
 
 .new-ui-layout.is-pane-transitioning-layout {
   pointer-events: none;
-  transition: grid-template-columns 160ms cubic-bezier(0.28, 0.84, 0.42, 1);
-  will-change: grid-template-columns;
+  transition: none;
 }
 
 .new-ui-layout.is-left-collapsed {
-  grid-template-columns: var(--new-ui-collapsed-pane-width) 0 minmax(0, 1fr) 10px var(--new-ui-right-width);
+  --new-ui-left-pane-width: var(--new-ui-collapsed-pane-width);
+  --new-ui-left-resize-width: 0px;
 }
 
 .new-ui-layout.is-right-collapsed {
-  grid-template-columns: var(--new-ui-left-width) 10px minmax(0, 1fr) 0 var(--new-ui-collapsed-pane-width);
+  --new-ui-right-pane-width: var(--new-ui-collapsed-pane-width);
+  --new-ui-right-resize-width: 0px;
 }
 
 .new-ui-layout.is-left-collapsed.is-right-collapsed {
-  grid-template-columns: var(--new-ui-collapsed-pane-width) 0 minmax(0, 1fr) 0 var(--new-ui-collapsed-pane-width);
+  --new-ui-left-pane-width: var(--new-ui-collapsed-pane-width);
+  --new-ui-left-resize-width: 0px;
+  --new-ui-right-pane-width: var(--new-ui-collapsed-pane-width);
+  --new-ui-right-resize-width: 0px;
 }
 
 .new-ui-pane,
@@ -59,7 +92,28 @@
 
 .new-ui-pane-left {
   position: relative;
+  flex: 0 0 var(--new-ui-left-width);
   grid-template-rows: 56px minmax(0, 1fr) 76px;
+  transition:
+    flex-basis var(--new-ui-pane-transition-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 360ms ease,
+    opacity 220ms ease,
+    filter 260ms ease;
+}
+
+.new-ui-pane-right {
+  flex: 0 0 var(--new-ui-right-width);
+  transition:
+    flex-basis var(--new-ui-pane-transition-duration) cubic-bezier(0.25, 0.1, 0.25, 1),
+    background-color 360ms ease,
+    opacity 220ms ease,
+    filter 260ms ease;
+}
+
+.new-ui-layout.is-restoring-layout .new-ui-pane-left,
+.new-ui-layout.is-restoring-layout .new-ui-pane-right,
+.new-ui-layout.is-drag-resizing-layout .new-ui-pane-left,
+.new-ui-layout.is-drag-resizing-layout .new-ui-pane-right {
   transition: none;
 }
 
@@ -72,6 +126,7 @@
   min-width: 0;
   padding: 0 14px;
   pointer-events: none;
+  transition: padding var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
 .new-ui-pane-right .new-ui-pane-header {
@@ -80,11 +135,11 @@
 
 .new-ui-pane-toggle {
   pointer-events: auto;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--new-ui-border);
-  border-radius: 8px;
+  border-radius: 9px;
   background: transparent;
   color: var(--new-ui-text-muted);
   cursor: pointer;
@@ -120,7 +175,15 @@
 .new-ui-pane-toggle-rail {
   position: absolute;
   display: block;
-  transition: none;
+  transition:
+    inset var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    border-width var(--new-ui-pane-transition-duration) ease,
+    opacity var(--new-ui-pane-transition-duration) ease,
+    top var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    bottom var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    left var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    right var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    width var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
 .new-ui-pane-toggle-panel {
@@ -179,13 +242,20 @@
   overflow: hidden;
   opacity: 1;
   transform: translateX(0);
+  transition:
+    padding var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    opacity var(--new-ui-pane-transition-duration) ease,
+    transform var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-pane-left {
+  flex-basis: var(--new-ui-collapsed-pane-width);
+  min-width: var(--new-ui-collapsed-pane-width);
   grid-template-rows: 56px minmax(0, 1fr) 76px;
 }
 
 .new-ui-layout.is-right-collapsed .new-ui-pane-right {
+  flex-basis: var(--new-ui-collapsed-pane-width);
   grid-template-rows: 56px minmax(0, 1fr);
 }
 
@@ -207,6 +277,7 @@
 }
 
 .new-ui-pane-left .new-ui-pane-body {
+  padding: 46px 5px 18px;
   contain: layout paint;
 }
 
@@ -222,6 +293,13 @@
   gap: 0;
   width: 100%;
   min-width: 0;
+  transition:
+    width var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1);
+}
+
+.new-ui-pane-left .new-ui-sidebar-nav-group {
+  width: calc(var(--new-ui-left-width) - 10px);
+  max-width: 100%;
 }
 
 .new-ui-sidebar-nav-item {
@@ -242,17 +320,19 @@
   font-weight: 650;
   letter-spacing: 0;
   text-align: left;
-  transition: color 180ms ease;
+  transition:
+    width var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1),
+    color 180ms ease;
 }
 
 .new-ui-sidebar-nav-item::before {
   content: "";
   position: absolute;
-  left: -8px;
-  top: -1px;
+  left: 0;
+  top: 0;
   z-index: 0;
-  width: calc(100% + 10px);
-  height: calc(100% + 2px);
+  width: 100%;
+  height: 100%;
   border: 1px solid transparent;
   border-radius: 9px;
   box-sizing: border-box;
@@ -262,7 +342,8 @@
     background-color 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease,
-    opacity 180ms ease;
+    opacity 180ms ease,
+    width var(--new-ui-pane-transition-duration) cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
 .new-ui-sidebar-nav-item:hover,
@@ -317,7 +398,8 @@
   width: 24px;
   height: 24px;
   transform: translateY(-50%);
-  transition: color 180ms ease;
+  transition:
+    color 180ms ease;
 }
 
 .new-ui-sidebar-nav-icon svg {
@@ -468,6 +550,7 @@
   white-space: nowrap;
   opacity: 1;
   line-height: 44px;
+  transition: opacity 120ms ease;
 }
 
 .new-ui-sidebar-nav-item.is-active .new-ui-sidebar-nav-label {
@@ -486,6 +569,7 @@
   color: color-mix(in srgb, currentColor 72%, transparent);
   opacity: 0;
   transform: translateY(-50%);
+  transition: opacity 120ms ease;
 }
 
 .new-ui-sidebar-nav-group:hover .new-ui-sidebar-expand-indicator,
@@ -514,6 +598,10 @@
   overflow: hidden;
   padding-left: 40px;
   opacity: 0;
+  transition:
+    max-height 180ms cubic-bezier(0.28, 0.84, 0.42, 1),
+    padding-top 180ms cubic-bezier(0.28, 0.84, 0.42, 1),
+    opacity 120ms ease;
 }
 
 .new-ui-sidebar-nav-group.is-expanded .new-ui-sidebar-subnav {
@@ -522,23 +610,12 @@
   opacity: 1;
 }
 
-.new-ui-sidebar-subnav::before {
-  content: "";
-  position: absolute;
-  top: 6px;
-  bottom: 8px;
-  left: 20px;
-  width: 1px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--new-ui-text-muted) 26%, transparent);
-}
-
 .new-ui-sidebar-subnav-item {
   position: relative;
   min-width: 0;
   width: 100%;
   min-height: 30px;
-  padding: 6px 9px 6px 12px;
+  padding: 6px 9px 6px 0;
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
@@ -546,7 +623,7 @@
   cursor: pointer;
   font: inherit;
   font-size: var(--new-ui-font-size-sm);
-  font-weight: 620;
+  font-weight: 500;
   letter-spacing: 0;
   line-height: 1.25;
   text-align: left;
@@ -577,7 +654,7 @@
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav {
-  justify-items: center;
+  justify-items: start;
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-group {
@@ -585,29 +662,33 @@
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-item {
-  justify-self: center;
-  width: 44px;
+  justify-self: stretch;
+  width: 100%;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 9px;
   text-align: center;
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-item::before {
   left: 0;
   top: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-icon {
-  left: 50%;
-  transform: translate(-50%, -50%);
+  left: 8px;
+  transform: translateY(-50%);
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-label {
   opacity: 0;
   pointer-events: none;
+}
+
+.new-ui-layout.is-left-pane-transitioning-layout .new-ui-pane-left .new-ui-sidebar-nav-label {
+  transition: none;
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-expand-indicator {
@@ -645,10 +726,34 @@
 .new-ui-resize-handle {
   position: relative;
   z-index: 3;
+  flex: 0 0 10px;
   min-width: 10px;
   opacity: 1;
   cursor: col-resize;
   background: transparent;
+}
+
+.new-ui-resize-handle-left {
+  flex-basis: 10px;
+  min-width: 10px;
+  transition:
+    flex-basis var(--new-ui-pane-transition-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
+    min-width var(--new-ui-pane-transition-duration) cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease;
+}
+
+.new-ui-resize-handle-right {
+  flex-basis: 10px;
+  min-width: 10px;
+  transition:
+    flex-basis var(--new-ui-pane-transition-duration) cubic-bezier(0.25, 0.1, 0.25, 1),
+    min-width var(--new-ui-pane-transition-duration) cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 160ms ease;
+}
+
+.new-ui-layout.is-restoring-layout .new-ui-resize-handle,
+.new-ui-layout.is-drag-resizing-layout .new-ui-resize-handle {
+  transition: none;
 }
 
 .new-ui-resize-handle::before {
@@ -671,6 +776,7 @@
 }
 
 .new-ui-resize-handle.is-collapsed {
+  flex-basis: 0;
   min-width: 0;
   opacity: 0;
   pointer-events: none;
@@ -683,6 +789,7 @@
 
 .new-ui-center {
   position: relative;
+  flex: 1 1 auto;
   background: var(--new-ui-bg);
   min-width: 0;
   overflow: auto;
@@ -809,6 +916,7 @@
   .new-ui-pane-theme,
   .new-ui-sidebar-nav-icon,
   .new-ui-sidebar-nav-icon svg,
+  .new-ui-sidebar-nav-label,
   .new-ui-sidebar-nav-group,
   .new-ui-sidebar-nav-item,
   .new-ui-sidebar-expand-indicator,

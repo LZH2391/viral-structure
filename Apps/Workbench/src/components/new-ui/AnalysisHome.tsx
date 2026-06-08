@@ -95,7 +95,7 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
     uploadInputRef.current?.click();
   };
 
-  const openHistoryDetail = (item: AnalysisHistoryItem) => {
+  const openHistoryDetail = useCallback((item: AnalysisHistoryItem) => {
     const token = operationTokenRef.current + 1;
     operationTokenRef.current = token;
     stopPolling();
@@ -112,7 +112,7 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
     setRerunnableStageKeys([]);
     setRerunningStageKey(null);
     setView("detail");
-  };
+  }, [stopPolling]);
 
   useEffect(() => {
     if (!openRequest) return undefined;
