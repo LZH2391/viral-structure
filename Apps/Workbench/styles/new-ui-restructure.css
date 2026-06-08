@@ -280,6 +280,53 @@
   color: var(--new-ui-text-muted);
 }
 
+.new-ui-restructure-message-body p.is-thinking-text {
+  display: inline-block;
+  width: auto;
+  color: transparent;
+  background:
+    linear-gradient(
+      100deg,
+      var(--new-ui-text-muted) 0%,
+      var(--new-ui-text-muted) 36%,
+      color-mix(in srgb, var(--new-ui-text) 92%, white) 48%,
+      var(--new-ui-text-muted) 60%,
+      var(--new-ui-text-muted) 100%
+    );
+  background-size: 240% 100%;
+  background-position: 120% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: new-ui-restructure-thinking-shimmer 1.45s ease-in-out infinite;
+}
+
+@keyframes new-ui-restructure-thinking-shimmer {
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-ui-restructure-message-body p.is-thinking-text {
+    color: var(--new-ui-text-muted);
+    background: none;
+    animation: none;
+  }
+}
+
+.new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after {
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.14em;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+  opacity: 0.72;
+  animation: new-ui-restructure-stream-cursor 0.9s ease-in-out infinite;
+}
+
 .new-ui-restructure-thinking-skeleton {
   display: grid;
   gap: 10px;
@@ -336,7 +383,14 @@
   }
 }
 
+@keyframes new-ui-restructure-stream-cursor {
+  50% {
+    opacity: 0.18;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after,
   .new-ui-restructure-thinking-skeleton span::after {
     animation: none;
   }

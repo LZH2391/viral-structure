@@ -1,5 +1,8 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { AgentChatConversation, AgentChatMessageSnapshot } from "../../types";
+
+const PSEUDO_STREAM_CHAR_INTERVAL_MS = 30;
+const PSEUDO_STREAM_MAX_DURATION_MS = 4000;
 
 type NewUiRestructureWorkspaceProps = {
   conversation: AgentChatConversation | null;
@@ -41,6 +44,11 @@ export function NewUiRestructureWorkspace({
     : null;
   const canUseComposer = Boolean(conversation?.threadId || draftingConversation);
   const canSend = Boolean(canUseComposer && draft.trim() && !sendingMessage && !creatingConversation);
+  const { isPseudoStreaming, getDisplayText } = usePseudoStreamedAssistantMessages(
+    conversation?.conversationId ?? null,
+    messages,
+    pendingAssistantMessage?.turnId ?? null,
+  );
 
   const submitDraft = async () => {
     if (!canSend) return;
@@ -172,7 +180,7 @@ export function NewUiRestructureWorkspace({
           {messages.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
             <div className="new-ui-restructure-message-list">
               {messages.map((message) => (
-                <RestructureMessage key={message.id} message={message} />
+                <RestructureMessage key={message.id} message={message} displayText={getDisplayText(message)} pseudoStreaming={isPseudoStreaming(message)} />
               ))}
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
               {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
@@ -198,22 +206,22 @@ function resolveRestructureTitle(title: string | null | undefined) {
   return trimmed.replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/, "");
 }
 
-function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) {
+function RestructureMessage({ message, displayText, pseudoStreaming = false }: { message: AgentChatMessageSnapshot; displayText?: string; pseudoStreaming?: boolean }) {
   const isThinking = message.role === "assistant" && message.status === "running";
+  const showDetails = !isThinking && !pseudoStreaming;
 
   return (
-    <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""}`.trim()} aria-busy={isThinking || undefined}>
+    <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={isThinking || pseudoStreaming || undefined}>
       <div className="new-ui-restructure-message-body">
-        <p>{isThinking ? "正在思考" : message.text}</p>
-        {isThinking ? <RestructureThinkingSkeleton /> : null}
-        {message.slotAtomDisplay ? (
+        <p className={isThinking ? "is-thinking-text" : undefined}>{isThinking ? "正在思考" : displayText ?? message.text}</p>
+        {showDetails && message.slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
             <span>槽位 {message.slotAtomDisplay.slotCount ?? 0}</span>
             <span>原子 {message.slotAtomDisplay.atomBindingCount ?? 0}</span>
             {message.slotAtomDisplay.status ? <span>{message.slotAtomDisplay.status}</span> : null}
           </div>
         ) : null}
-        {message.dialogueRoboticReview ? (
+        {showDetails && message.dialogueRoboticReview ? (
           <div className="new-ui-restructure-message-note">
             <span>台词审查</span>
             {message.dialogueRoboticReview.decision ? <span>{message.dialogueRoboticReview.decision}</span> : null}
@@ -225,14 +233,136 @@ function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) 
   );
 }
 
-function RestructureThinkingSkeleton() {
-  return (
-    <div className="new-ui-restructure-thinking-skeleton" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </div>
-  );
+function usePseudoStreamedAssistantMessages(conversationId: string | null, messages: AgentChatMessageSnapshot[], pendingAssistantTurnId: string | null) {
+  const [streamingTextByKey, setStreamingTextByKey] = useState<Record<string, string>>({});
+  const seenMessageKeysRef = useRef<Set<string>>(new Set());
+  const activeStreamKeysRef = useRef<Set<string>>(new Set());
+  const streamFrameByKeyRef = useRef<Record<string, number>>({});
+  const previousConversationIdRef = useRef<string | null | undefined>(undefined);
+  const baselineInitializedRef = useRef(false);
+
+  if (previousConversationIdRef.current !== conversationId) {
+    previousConversationIdRef.current = conversationId;
+    baselineInitializedRef.current = false;
+    seenMessageKeysRef.current = new Set();
+    activeStreamKeysRef.current = new Set();
+  }
+
+  if (!baselineInitializedRef.current && conversationId) {
+    seenMessageKeysRef.current = new Set(
+      messages
+        .filter((message) => {
+          if (!isPseudoStreamableAssistantMessage(message)) return false;
+          return !(pendingAssistantTurnId && message.turnId === pendingAssistantTurnId);
+        })
+        .map(createPseudoStreamMessageKey),
+    );
+    baselineInitializedRef.current = true;
+  }
+
+  useEffect(() => {
+    Object.values(streamFrameByKeyRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
+    streamFrameByKeyRef.current = {};
+    activeStreamKeysRef.current = new Set();
+    setStreamingTextByKey({});
+  }, [conversationId]);
+
+  useEffect(() => {
+    const streamableMessages = messages.filter(isPseudoStreamableAssistantMessage);
+    streamableMessages.forEach((message) => {
+      const key = createPseudoStreamMessageKey(message);
+      if (seenMessageKeysRef.current.has(key) || activeStreamKeysRef.current.has(key)) return;
+      activeStreamKeysRef.current.add(key);
+      startPseudoStream(message.text, key, {
+        onText: (text) => {
+          setStreamingTextByKey((current) => current[key] === text ? current : { ...current, [key]: text });
+        },
+        onDone: () => {
+          seenMessageKeysRef.current.add(key);
+          activeStreamKeysRef.current.delete(key);
+          delete streamFrameByKeyRef.current[key];
+          setStreamingTextByKey((current) => {
+            if (!(key in current)) return current;
+            const next = { ...current };
+            delete next[key];
+            return next;
+          });
+        },
+        setFrameId: (frameId) => {
+          streamFrameByKeyRef.current[key] = frameId;
+        },
+      });
+    });
+
+    const liveKeys = new Set(streamableMessages.map(createPseudoStreamMessageKey));
+    Object.keys(streamFrameByKeyRef.current).forEach((key) => {
+      if (liveKeys.has(key)) return;
+      window.cancelAnimationFrame(streamFrameByKeyRef.current[key]);
+      delete streamFrameByKeyRef.current[key];
+      activeStreamKeysRef.current.delete(key);
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(streamFrameByKeyRef.current).forEach((frameId) => window.cancelAnimationFrame(frameId));
+      streamFrameByKeyRef.current = {};
+      activeStreamKeysRef.current = new Set();
+    };
+  }, []);
+
+  return {
+    getDisplayText: (message: AgentChatMessageSnapshot) => {
+      const key = isPseudoStreamableAssistantMessage(message) ? createPseudoStreamMessageKey(message) : null;
+      if (!key) return message.text;
+      if (key in streamingTextByKey) return streamingTextByKey[key];
+      if (!seenMessageKeysRef.current.has(key)) return "";
+      return message.text;
+    },
+    isPseudoStreaming: (message: AgentChatMessageSnapshot) => {
+      const key = isPseudoStreamableAssistantMessage(message) ? createPseudoStreamMessageKey(message) : null;
+      return Boolean(key && (activeStreamKeysRef.current.has(key) || key in streamingTextByKey));
+    },
+  };
+}
+
+function startPseudoStream(text: string, key: string, controls: { onText: (text: string) => void; onDone: () => void; setFrameId: (frameId: number) => void }) {
+  const chars = Array.from(text);
+  if (!chars.length) {
+    controls.onDone();
+    return;
+  }
+  const durationMs = Math.min(PSEUDO_STREAM_MAX_DURATION_MS, chars.length * PSEUDO_STREAM_CHAR_INTERVAL_MS);
+  const startedAt = window.performance.now();
+
+  const tick = () => {
+    const elapsedMs = window.performance.now() - startedAt;
+    const visibleCount = elapsedMs >= durationMs
+      ? chars.length
+      : Math.max(1, Math.floor((elapsedMs / durationMs) * chars.length));
+    controls.onText(chars.slice(0, visibleCount).join(""));
+    if (visibleCount >= chars.length) {
+      controls.onDone();
+      return;
+    }
+    controls.setFrameId(window.requestAnimationFrame(tick));
+  };
+
+  controls.setFrameId(window.requestAnimationFrame(tick));
+}
+
+function isPseudoStreamableAssistantMessage(message: AgentChatMessageSnapshot) {
+  return message.role === "assistant"
+    && !isThinkingStatus(message.status)
+    && Boolean(message.text);
+}
+
+function isThinkingStatus(status: AgentChatMessageSnapshot["status"] | undefined) {
+  return String(status ?? "").toLowerCase() === "running";
+}
+
+function createPseudoStreamMessageKey(message: AgentChatMessageSnapshot) {
+  return `${message.id}:${message.turnId ?? ""}:${message.text}`;
 }
 
 function NewConversationGlyph() {

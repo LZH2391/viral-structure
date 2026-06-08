@@ -746,6 +746,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setRightCollapsed(false);
     setSendingRestructureMessage(true);
     let startedSession: Awaited<ReturnType<typeof startAgentChatThread>> | null = null;
+    let sendAccepted = false;
     try {
       if (!conversation?.threadId) {
         setCreatingRestructureConversation(true);
@@ -768,6 +769,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         workspaceRoot: conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
         skillPath: conversation?.skillPath ?? startedSession?.skillPath ?? null,
       });
+      sendAccepted = true;
       const nextConversationId = submitted.conversationId ?? conversation?.conversationId ?? startedSession?.conversationId ?? null;
       const canAdoptSubmittedConversation = activeSectionRef.current === "restructure"
         && restructureNavigationGenerationRef.current === sendNavigationGeneration
@@ -806,8 +808,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         turnId: submitted.turnId,
         workspaceRoot: submitted.workspaceRoot ?? conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
       });
-      await refreshRestructureConversations(nextConversationId);
+      await refreshRestructureConversations(nextConversationId).catch(() => undefined);
     } catch (error) {
+      if (sendAccepted) return;
       setOptimisticRestructureGeneration((current) => (current?.id === pendingId ? null : current));
       throw error;
     } finally {
