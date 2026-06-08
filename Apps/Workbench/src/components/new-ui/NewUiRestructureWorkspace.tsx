@@ -1,30 +1,84 @@
+import { useState, type FormEvent } from "react";
 import type { AgentChatConversation, AgentChatMessageSnapshot } from "../../types";
-import { shortId } from "../../utils/format";
 
 type NewUiRestructureWorkspaceProps = {
   conversation: AgentChatConversation | null;
   creatingConversation: boolean;
+  draftingConversation: boolean;
   onNewConversation: () => void;
+  onSendMessage: (message: string) => Promise<void>;
+  sendingMessage: boolean;
 };
 
 export function NewUiRestructureWorkspace({
   conversation,
   creatingConversation,
+  draftingConversation,
   onNewConversation,
+  onSendMessage,
+  sendingMessage,
 }: NewUiRestructureWorkspaceProps) {
   const messages = conversation?.messages ?? [];
-  const latestAssistantMessage = findLatestAssistantMessage(messages);
-  const latestUserMessage = findLatestUserMessage(messages);
-  const statusLabel = resolveConversationStatusLabel(conversation);
-  const updatedLabel = formatDateTime(conversation?.updatedAt ?? conversation?.createdAt);
-  const confirmedPlan = conversation?.confirmedPlan ?? null;
+  const displayTitle = resolveRestructureTitle(conversation?.title);
+  const [draft, setDraft] = useState("");
+  const canUseComposer = Boolean(conversation?.threadId || draftingConversation);
+  const canSend = Boolean(canUseComposer && draft.trim() && !sendingMessage && !creatingConversation);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSend) return;
+    const message = draft.trim();
+    setDraft("");
+    try {
+      await onSendMessage(message);
+    } catch {
+      setDraft(message);
+    }
+  };
+
+  const composer = (
+    <form className="new-ui-restructure-composer" aria-label="重组输入区" onSubmit={(event) => void handleSubmit(event)}>
+      <div className="new-ui-restructure-composer-field">
+        <textarea
+          rows={2}
+          placeholder="描述目标品类、素材情况、想迁移的结构或要返工的点"
+          value={draft}
+          disabled={!canUseComposer || sendingMessage || creatingConversation}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <div className="new-ui-restructure-composer-tools" aria-label="重组输入工具">
+          <button className="new-ui-restructure-tool-button" type="button" aria-disabled="true" data-tooltip="暂未接入上传素材">
+            <UploadMaterialGlyph />
+            <span>上传素材</span>
+          </button>
+          <button className="new-ui-restructure-tool-button" type="button" aria-disabled="true" data-tooltip="暂未接入引用结构">
+            <ReferenceStructureGlyph />
+            <span>引用结构</span>
+          </button>
+        </div>
+        <button className="new-ui-restructure-send-button" type="submit" aria-label="发送" data-tooltip="发送" disabled={!canSend}>
+          <SendGlyph />
+        </button>
+      </div>
+    </form>
+  );
+
+  if (!conversation && draftingConversation) {
+    return (
+      <section className="new-ui-restructure-workspace is-draft" aria-label="新建重组对话">
+        <main className="new-ui-restructure-draft">
+          <h1>给一个主题，或者直接告诉我你想做什么。</h1>
+          {composer}
+        </main>
+      </section>
+    );
+  }
 
   if (!conversation) {
     return (
       <section className="new-ui-restructure-workspace is-empty" aria-label="重组工作区">
         <div className="new-ui-restructure-empty">
           <div>
-            <span className="new-ui-restructure-kicker">function-slot-restructure</span>
             <h1>重组会话</h1>
             <p>选择左侧会话，或创建一个新的结构重组对话。</p>
           </div>
@@ -41,14 +95,7 @@ export function NewUiRestructureWorkspace({
     <section className="new-ui-restructure-workspace" aria-label="重组工作区">
       <header className="new-ui-restructure-header">
         <div className="new-ui-restructure-title-block">
-          <span className="new-ui-restructure-kicker">function-slot-restructure</span>
-          <h1 data-tooltip={conversation.title ?? undefined}>{conversation.title || "重组会话"}</h1>
-          <div className="new-ui-restructure-meta">
-            <span>{statusLabel}</span>
-            {updatedLabel ? <span>{updatedLabel}</span> : null}
-            {conversation.revision ? <span>rev {conversation.revision}</span> : null}
-            {conversation.threadId ? <span>thread {shortId(conversation.threadId)}</span> : null}
-          </div>
+          <h1 data-tooltip={displayTitle}>{displayTitle}</h1>
         </div>
         <div className="new-ui-restructure-actions" aria-label="重组会话操作">
           <button type="button" data-tooltip="新会话" disabled={creatingConversation} onClick={onNewConversation}>
@@ -72,75 +119,24 @@ export function NewUiRestructureWorkspace({
             </div>
           )}
 
-          <div className="new-ui-restructure-composer" aria-label="重组输入区">
-            <textarea rows={3} placeholder="描述目标品类、素材情况、想迁移的结构或要返工的点" disabled />
-            <button type="button" disabled>
-              发送
-            </button>
-          </div>
+          {composer}
         </main>
-
-        <aside className="new-ui-restructure-context" aria-label="重组上下文">
-          <section className="new-ui-restructure-panel">
-            <h2>会话状态</h2>
-            <dl className="new-ui-restructure-facts">
-              <div>
-                <dt>状态</dt>
-                <dd>{statusLabel}</dd>
-              </div>
-              <div>
-                <dt>消息</dt>
-                <dd>{messages.length}</dd>
-              </div>
-              <div>
-                <dt>最近更新</dt>
-                <dd>{updatedLabel || "未知"}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="new-ui-restructure-panel">
-            <h2>最新输入</h2>
-            <p className="new-ui-restructure-excerpt">{latestUserMessage?.text || "暂无用户 brief"}</p>
-          </section>
-
-          <section className="new-ui-restructure-panel">
-            <h2>最新输出</h2>
-            <p className="new-ui-restructure-excerpt">{latestAssistantMessage?.text || "暂无 Agent 输出"}</p>
-          </section>
-
-          <section className="new-ui-restructure-panel">
-            <h2>方案产物</h2>
-            {confirmedPlan ? (
-              <div className="new-ui-restructure-artifacts">
-                <ArtifactRow label="确认状态" value={confirmedPlan.status ?? "confirmed"} />
-                <ArtifactRow label="确认时间" value={formatDateTime(confirmedPlan.confirmedAt) || "未知"} />
-                <ArtifactRow label="display" value={confirmedPlan.displayArtifact?.artifactId ? shortId(confirmedPlan.displayArtifact.artifactId) : "未登记"} />
-                <ArtifactRow label="storyboard" value={confirmedPlan.storyboardArtifact?.artifactId ? shortId(confirmedPlan.storyboardArtifact.artifactId) : "未登记"} />
-              </div>
-            ) : (
-              <p className="new-ui-restructure-excerpt">尚未确认方案。</p>
-            )}
-          </section>
-        </aside>
       </div>
     </section>
   );
 }
 
+function resolveRestructureTitle(title: string | null | undefined) {
+  const trimmed = title?.trim() ?? "";
+  if (!trimmed) return "重组";
+  if (/^function-slot-restructure(?:\s+\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}:\d{2})?)?$/i.test(trimmed)) return "重组";
+  return trimmed.replace(/\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/, "");
+}
+
 function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) {
-  const roleLabel = message.role === "assistant" ? "Agent" : message.role === "user" ? "User" : "System";
-  const timeLabel = formatDateTime(message.updatedAt ?? message.createdAt);
   return (
     <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""}`.trim()}>
-      <div className="new-ui-restructure-message-rail">
-        <span>{roleLabel.slice(0, 1)}</span>
-      </div>
       <div className="new-ui-restructure-message-body">
-        <header>
-          <b>{roleLabel}</b>
-          {timeLabel ? <time dateTime={message.updatedAt ?? message.createdAt ?? undefined}>{timeLabel}</time> : null}
-        </header>
         <p>{message.text}</p>
         {message.slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
@@ -161,54 +157,35 @@ function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) 
   );
 }
 
-function ArtifactRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <b>{value}</b>
-    </div>
-  );
-}
-
-function findLatestAssistantMessage(messages: AgentChatMessageSnapshot[]) {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role === "assistant") return messages[index];
-  }
-  return null;
-}
-
-function findLatestUserMessage(messages: AgentChatMessageSnapshot[]) {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role === "user") return messages[index];
-  }
-  return null;
-}
-
-function resolveConversationStatusLabel(conversation: AgentChatConversation | null) {
-  if (!conversation) return "未选择";
-  if (conversation.invalidated) return "thread 失效";
-  if (conversation.threadStopped) return "thread 已停止";
-  if (conversation.confirmedPlan) return "方案已确认";
-  if (conversation.status === "archived") return "已归档";
-  return "进行中";
-}
-
-function formatDateTime(value: string | null | undefined) {
-  const timestamp = Date.parse(value ?? "");
-  if (!Number.isFinite(timestamp)) return "";
-  return new Date(timestamp).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 function NewConversationGlyph() {
   return (
     <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
       <path d="M10 4v12M4 10h12" />
+    </svg>
+  );
+}
+
+function SendGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <path d="M4 10.2 16 4.5l-3.6 11-2.2-4.1L6 9.2l10-4.7" />
+    </svg>
+  );
+}
+
+function UploadMaterialGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <path d="M7.2 10.4 11 6.6a2.9 2.9 0 0 1 4.1 4.1l-5.5 5.5a4.1 4.1 0 0 1-5.8-5.8l5.7-5.7" />
+      <path d="M8.7 12 13 7.7" />
+    </svg>
+  );
+}
+
+function ReferenceStructureGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <path d="M4.5 4.5h4.2v4.2H4.5zM11.3 4.5h4.2v4.2h-4.2zM4.5 11.3h4.2v4.2H4.5zM11.3 11.3h4.2v4.2h-4.2z" />
     </svg>
   );
 }

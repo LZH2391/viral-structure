@@ -1,4 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { getAgentTurnTimeline, getProcessingJob } from "../../api/client";
+import type { AgentActivitySummary, AgentRunJob, AgentTimelineItem, AgentTraceCard, AgentTurnTimeline, WorkflowStageState } from "../../types";
+import { pickDefaultTraceCard, resolveAgentTraceCards } from "../property-panel/agentTraceCards";
+import { shortTurnId } from "../property-panel/formatters";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import {
@@ -14,6 +18,8 @@ import {
 } from "./analysisWorkflowModel";
 
 type RerunTarget = string | string[];
+
+const SETTLED_TIMELINE_POLL_COUNT = 3;
 
 export type AnalysisDetailSidebarState = {
   visible: boolean;
@@ -352,44 +358,310 @@ function WorkflowDetailPanel({
   structureStatus: WorkflowStageStatus;
 }) {
   const detail = resolveWorkflowDetail(selectedStageKey, item, stages, structureStatus);
+  const runningTraceStage = detail.status === "running" ? resolveRunningTraceStage(item, selectedStageKey) : null;
   return (
     <section className="new-ui-analysis-workflow-detail" aria-label={`${stageTitle(selectedStageKey)}详情区域`} data-selected-stage={selectedStageKey}>
       <div className="new-ui-analysis-workflow-detail-header">
         <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
         <span className={`new-ui-analysis-workflow-detail-status is-${detail.status}`}>{statusLabel(detail.status)}</span>
       </div>
-      <div className="new-ui-analysis-workflow-detail-content">
-        <div className="new-ui-analysis-workflow-detail-summary">
-          <strong>{detail.title}</strong>
-          <p>{detail.summary}</p>
+      {runningTraceStage ? (
+        <NewUiWorkflowTraceTimeline stage={runningTraceStage} title={detail.title} />
+      ) : (
+        <div className="new-ui-analysis-workflow-detail-content">
+          <div className="new-ui-analysis-workflow-detail-summary">
+            <strong>{detail.title}</strong>
+            <p>{detail.summary}</p>
+          </div>
+          {detail.metrics.length ? (
+            <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${detail.title}结果数量`}>
+              {detail.metrics.map((metric) => (
+                <div key={metric.label} className="new-ui-analysis-workflow-detail-metric">
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {detail.cards.length ? (
+            <div className="new-ui-analysis-workflow-detail-list">
+              {detail.cards.map((card) => (
+                <article key={`${card.title}_${card.meta}`} className="new-ui-analysis-workflow-detail-card">
+                  <strong>{card.title}</strong>
+                  {card.meta ? <span>{card.meta}</span> : null}
+                  <p>{card.body}</p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="new-ui-analysis-workflow-detail-empty">{detail.emptyText}</div>
+          )}
+          {detail.nextText ? <div className="new-ui-analysis-workflow-detail-next">{detail.nextText}</div> : null}
         </div>
-        {detail.metrics.length ? (
-          <div className="new-ui-analysis-workflow-detail-metrics" aria-label={`${detail.title}结果数量`}>
-            {detail.metrics.map((metric) => (
-              <div key={metric.label} className="new-ui-analysis-workflow-detail-metric">
-                <span>{metric.label}</span>
-                <strong>{metric.value}</strong>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {detail.cards.length ? (
-          <div className="new-ui-analysis-workflow-detail-list">
-            {detail.cards.map((card) => (
-              <article key={`${card.title}_${card.meta}`} className="new-ui-analysis-workflow-detail-card">
-                <strong>{card.title}</strong>
-                {card.meta ? <span>{card.meta}</span> : null}
-                <p>{card.body}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="new-ui-analysis-workflow-detail-empty">{detail.emptyText}</div>
-        )}
-        {detail.nextText ? <div className="new-ui-analysis-workflow-detail-next">{detail.nextText}</div> : null}
-      </div>
+      )}
     </section>
   );
+}
+
+function NewUiWorkflowTraceTimeline({ stage, title }: { stage: WorkflowStageState; title: string }) {
+  const [job, setJob] = useState<AgentRunJob | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [timelineByCard, setTimelineByCard] = useState<Record<string, AgentTurnTimeline | null>>({});
+  const [errorByCard, setErrorByCard] = useState<Record<string, string | null>>({});
+  const stageSignature = `${stage.key}:${stage.childJobId ?? ""}:${stage.childTraceId ?? ""}:${stage.attemptNo ?? ""}`;
+
+  useEffect(() => {
+    setJob(null);
+    setJobError(null);
+    setSelectedCardId(null);
+    setTimelineByCard({});
+    setErrorByCard({});
+  }, [stageSignature]);
+
+  useEffect(() => {
+    if (!stage.childJobId) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const next = await getProcessingJob(stage.childJobId as string);
+        if (cancelled) return;
+        setJob(next);
+        setJobError(null);
+      } catch (error) {
+        if (cancelled) return;
+        setJobError(error instanceof Error ? error.message : "运行任务读取失败");
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => {
+      void load();
+    }, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [stage.childJobId]);
+
+  const cards = useMemo(() => resolveAgentTraceCards(job), [job]);
+  const selectedId = useMemo(() => pickDefaultTraceCard(cards, selectedCardId), [cards, selectedCardId]);
+  const selectedCard = cards.find((card) => card.id === selectedId) ?? null;
+  const selectedCacheKey = selectedCard ? traceCardCacheKey(selectedCard) : null;
+  const selectedTimeline = selectedCacheKey ? timelineByCard[selectedCacheKey] ?? null : null;
+  const selectedError = selectedCacheKey ? errorByCard[selectedCacheKey] ?? null : null;
+  const activeCard = pickActiveCard(cards);
+  const activity = selectedTimeline?.activity ?? selectedCard?.activity ?? activeCard?.activity ?? job?.agentActivity ?? null;
+  const latestText = activeCard?.latestMessagePreview ?? activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
+  const canTrace = Boolean(selectedCard?.threadId && selectedCard?.turnId);
+  const summary = useMemo(() => buildTraceSummary(cards, activity, selectedCard), [cards, activity, selectedCard]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setSelectedCardId(selectedId);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedCard?.threadId || !selectedCard.turnId) return;
+    let cancelled = false;
+    const cardKey = traceCardCacheKey(selectedCard);
+    let settlePollsRemaining = SETTLED_TIMELINE_POLL_COUNT;
+    const load = async () => {
+      try {
+        const next = await getAgentTurnTimeline(selectedCard.threadId as string, selectedCard.turnId as string);
+        if (cancelled) return;
+        setTimelineByCard((current) => ({ ...current, [cardKey]: next }));
+        setErrorByCard((current) => ({ ...current, [cardKey]: null }));
+      } catch (loadError) {
+        if (cancelled) return;
+        setErrorByCard((current) => ({ ...current, [cardKey]: loadError instanceof Error ? loadError.message : "运行追踪读取失败" }));
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => {
+      if (selectedCard.status !== "running") {
+        if (settlePollsRemaining <= 0) {
+          window.clearInterval(timer);
+          return;
+        }
+        settlePollsRemaining -= 1;
+      }
+      void load();
+    }, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [selectedCard?.id, selectedCard?.status, selectedCard?.threadId, selectedCard?.turnId]);
+
+  return (
+    <div className="new-ui-analysis-workflow-trace">
+      <div className="new-ui-analysis-workflow-detail-summary">
+        <strong>{title}</strong>
+        <p>{stage.childJobId ? "正在分析，下面同步展示 Agent turn 运行追踪。" : "正在等待运行追踪接入，子任务创建后会自动展示。"}</p>
+      </div>
+      <div className="new-ui-analysis-workflow-trace-heading">
+        <strong>运行追踪</strong>
+        <span>{summary}</span>
+      </div>
+      {jobError ? <div className="new-ui-analysis-workflow-detail-empty">{jobError}</div> : null}
+      {latestText ? (
+        <div className="new-ui-analysis-workflow-trace-latest" aria-live="polite">
+          <span>最新活动</span>
+          <strong>{latestText}</strong>
+        </div>
+      ) : null}
+      {cards.length ? (
+        <div className="new-ui-analysis-workflow-trace-card-list" aria-label="Agent turn 列表">
+          {cards.map((card) => (
+            <TraceCardButton
+              key={card.id}
+              card={card}
+              active={card.id === selectedCard?.id}
+              onSelect={() => setSelectedCardId(card.id)}
+            />
+          ))}
+        </div>
+      ) : null}
+      {selectedError ? <div className="new-ui-analysis-workflow-detail-empty">{selectedError}</div> : null}
+      {selectedTimeline?.items?.length ? (
+        <div className="new-ui-analysis-workflow-trace-list">
+          {selectedTimeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+        </div>
+      ) : (
+        <div className="new-ui-analysis-workflow-detail-empty">{canTrace ? "正在读取运行追踪。" : "当前步骤还没有可读取的 turn。"}</div>
+      )}
+    </div>
+  );
+}
+
+function TraceCardButton({ card, active, onSelect }: { card: AgentTraceCard; active: boolean; onSelect: () => void }) {
+  return (
+    <button className={`new-ui-analysis-workflow-trace-card ${active ? "is-active" : ""}`.trim()} type="button" aria-pressed={active} onClick={onSelect}>
+      <span className={`new-ui-analysis-workflow-trace-state is-${card.status}`}>{renderTraceStatus(card.status)}</span>
+      <strong>{card.label}</strong>
+      <span>{card.role ?? "role 未知"}</span>
+      <small>{formatTraceIds(card)}</small>
+      <small>{formatActivity(card.activity)}</small>
+      {card.latestMessagePreview ? <em>{card.latestMessagePreview}</em> : null}
+    </button>
+  );
+}
+
+function TimelineRow({ item }: { item: AgentTimelineItem }) {
+  return (
+    <div className={`new-ui-analysis-workflow-trace-row is-${item.kind}`}>
+      <span className="new-ui-analysis-workflow-trace-dot" />
+      <div className="new-ui-analysis-workflow-trace-event">
+        <div className="new-ui-analysis-workflow-trace-meta">
+          <span>{formatTime(item.createdAt)}</span>
+          <span>{renderKind(item.kind)}</span>
+          {item.metadata?.toolName ? <span>{item.metadata.toolName}</span> : null}
+          {item.metadata?.exitCode != null ? <span>exit {item.metadata.exitCode}</span> : null}
+          {item.metadata?.durationMs != null ? <span>{formatDuration(item.metadata.durationMs)}</span> : null}
+        </div>
+        <strong>{item.title}</strong>
+        {item.textPreview ? <p>{item.textPreview}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function resolveRunningTraceStage(item: AnalysisHistoryItem | null, selectedStageKey: WorkflowStageKey): WorkflowStageState | null {
+  const workflowStages = item?.workflowRun?.stages ?? [];
+  const candidates = selectedStageKey === "structureAnalysis"
+    ? workflowStages.filter((stage) => ["scriptSegment", "rhythmStructure", "packagingStructure"].includes(stage.key))
+    : workflowStages.filter((stage) => stage.key === selectedStageKey);
+  return candidates.find((stage) => isWorkflowStageRunning(stage.status) && (stage.childJobId || stage.childTraceId))
+    ?? candidates.find((stage) => isWorkflowStageRunning(stage.status))
+    ?? null;
+}
+
+function pickActiveCard(cards: AgentTraceCard[]) {
+  return cards.find((card) => card.status === "running")
+    ?? cards.slice().sort((left, right) => Date.parse(right.updatedAt ?? "") - Date.parse(left.updatedAt ?? ""))[0]
+    ?? null;
+}
+
+function traceCardCacheKey(card: AgentTraceCard) {
+  return [card.id, card.threadId ?? "", card.turnId ?? ""].join(":");
+}
+
+function buildTraceSummary(cards: AgentTraceCard[], activity: AgentActivitySummary | null, selectedCard?: AgentTraceCard | null) {
+  const selected = selectedCard?.turnId ? `turn ${shortTurnId(selectedCard.turnId)}` : "turn 无";
+  const runningCount = cards.filter((card) => card.status === "running").length;
+  const turns = `${cards.filter((card) => card.turnId).length}/${cards.length || 0} turns`;
+  const items = activity ? `${activity.effectiveItemCount || activity.itemCount} 个活动` : "0 个活动";
+  const tokens = activity?.tokenUsage?.totalTokens != null ? `tokens ${formatNumber(activity.tokenUsage.totalTokens)}` : "tokens 未知";
+  return `${turns} · ${runningCount ? `${runningCount} running · ` : ""}${selected} · ${items} · ${tokens}`;
+}
+
+function renderTraceStatus(status: AgentTraceCard["status"]) {
+  const labels: Record<AgentTraceCard["status"], string> = {
+    pending: "待提交",
+    running: "运行中",
+    completed: "完成",
+    failed: "失败",
+    unknown: "未知",
+  };
+  return labels[status] ?? status;
+}
+
+function renderKind(kind: AgentTimelineItem["kind"]) {
+  const labels: Record<AgentTimelineItem["kind"], string> = {
+    user_input: "user_input",
+    agent_message: "agent_message",
+    plan: "plan",
+    reasoning: "reasoning",
+    command_execution: "command",
+    mcp_tool_call: "mcp_tool",
+    dynamic_tool_call: "dynamic_tool",
+    file_change: "file_change",
+    web_search: "web_search",
+    tool_call: "tool_call",
+    tool_result: "tool_result",
+    token_usage: "token_usage",
+    context_compacted: "compact",
+    turn_status: "turn_status",
+    unknown: "unknown",
+  };
+  return labels[kind] ?? kind;
+}
+
+function formatTraceIds(card: AgentTraceCard) {
+  const thread = card.threadId ? `thread ${shortTurnId(card.threadId)}` : "thread 无";
+  const turn = card.turnId ? `turn ${shortTurnId(card.turnId)}` : "turn 无";
+  return `${thread} / ${turn}`;
+}
+
+function formatActivity(activity: AgentActivitySummary | null) {
+  if (!activity) return "items 0 / tokens 未知";
+  const count = activity.effectiveItemCount || activity.itemCount || 0;
+  const tokens = activity.tokenUsage?.totalTokens != null ? formatNumber(activity.tokenUsage.totalTokens) : "未知";
+  const tool = activity.latestToolName ? ` / ${activity.latestToolName}` : "";
+  return `items ${count} / tokens ${tokens}${tool}`;
+}
+
+function formatTime(value?: string | null) {
+  if (!value) return "--:--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--:--";
+  return date.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+function formatDuration(value: number) {
+  if (!Number.isFinite(value)) return "";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+  return `${Math.round(value)}ms`;
+}
+
+function formatNumber(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return String(value);
+}
+
+function isWorkflowStageRunning(status: string | null | undefined) {
+  return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
 }
 
 function TimelineSegmentDetailPanel({ segment }: { segment: AnalysisTimelineSegmentDetail }) {
