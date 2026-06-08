@@ -375,7 +375,14 @@
   right: -5px;
   height: 1px;
   background: color-mix(in srgb, var(--new-ui-control-border) 92%, var(--new-ui-text) 8%);
+  opacity: var(--new-ui-left-divider-opacity, 1);
   pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.new-ui-layout.is-left-pane-transitioning-layout .new-ui-sidebar-nav > .new-ui-sidebar-nav-item + .new-ui-sidebar-nav-group::before,
+.new-ui-layout.is-left-pane-transitioning-layout .new-ui-sidebar-nav > .new-ui-sidebar-nav-group + .new-ui-sidebar-nav-group::before {
+  transition: none;
 }
 
 .new-ui-pane-left .new-ui-sidebar-nav-group {
@@ -501,16 +508,16 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   transform: translateY(-50%);
   transition:
     color 180ms ease;
 }
 
 .new-ui-sidebar-nav-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -700,8 +707,8 @@
 }
 
 .new-ui-sidebar-nav-action svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -796,7 +803,7 @@
 
 .new-ui-sidebar-subnav-item.has-icon {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 26px minmax(0, 1fr);
   align-items: center;
   column-gap: 14px;
   padding: 7px 22px 7px 40px;
@@ -805,14 +812,14 @@
 .new-ui-sidebar-subnav-icon {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   color: color-mix(in srgb, currentColor 88%, transparent);
 }
 
 .new-ui-sidebar-subnav-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -858,18 +865,25 @@
 
 .new-ui-sidebar-subnav-archive svg {
   grid-area: 1 / 1;
-  width: 18px;
-  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.new-ui-sidebar-subnav-archive-icon {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.9;
   opacity: 0;
   transform: scale(0.82);
   transition:
     opacity 140ms ease,
     transform 140ms ease;
+}
+
+.new-ui-sidebar-subnav-trash-icon {
+  stroke-width: 1.45;
 }
 
 .new-ui-sidebar-subnav-label {
@@ -905,23 +919,39 @@
   transform: scale(0.86);
 }
 
-.new-ui-sidebar-subnav-item.has-archive:hover .new-ui-sidebar-subnav-archive svg,
-.new-ui-sidebar-subnav-item.has-archive.is-confirming-archive .new-ui-sidebar-subnav-archive svg {
+.new-ui-sidebar-subnav-item.has-archive:hover .new-ui-sidebar-subnav-archive-icon,
+.new-ui-sidebar-subnav-item.has-archive.is-confirming-archive .new-ui-sidebar-subnav-archive-icon {
   opacity: 1;
   transform: scale(1);
 }
 
 .new-ui-sidebar-subnav-spinner {
   grid-area: 1 / 1;
-  width: 18px;
-  height: 18px;
+  width: 26.4px;
+  height: 26.4px;
   fill: none;
   stroke: color-mix(in srgb, var(--new-ui-text) 68%, transparent);
-  stroke-width: 2;
+  stroke-width: 2.15;
   stroke-linecap: round;
   opacity: 0;
-  animation: new-ui-sidebar-spin 900ms linear infinite;
+  animation: new-ui-sidebar-spin 820ms linear infinite;
   transform-origin: 50% 50%;
+  transform-box: fill-box;
+}
+
+.new-ui-sidebar-subnav-archive .new-ui-sidebar-subnav-spinner {
+  width: 26.4px;
+  height: 26.4px;
+  stroke: color-mix(in srgb, var(--new-ui-text) 68%, transparent);
+  stroke-width: 2.15;
+}
+
+.new-ui-sidebar-subnav-spinner-track {
+  stroke: color-mix(in srgb, var(--new-ui-text-muted) 22%, transparent);
+}
+
+.new-ui-sidebar-subnav-spinner-arc {
+  stroke: color-mix(in srgb, var(--new-ui-text) 72%, transparent);
 }
 
 .new-ui-sidebar-subnav-item.is-running-turn .new-ui-sidebar-subnav-time {
@@ -985,6 +1015,11 @@
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-group {
   width: 44px;
+}
+
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav > .new-ui-sidebar-nav-item + .new-ui-sidebar-nav-group::before,
+.new-ui-layout.is-left-collapsed .new-ui-sidebar-nav > .new-ui-sidebar-nav-group + .new-ui-sidebar-nav-group::before {
+  opacity: var(--new-ui-left-divider-opacity, 0);
 }
 
 .new-ui-layout.is-left-collapsed .new-ui-sidebar-nav-item {

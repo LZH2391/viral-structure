@@ -23,7 +23,6 @@ type NewUiSection = {
 type NewUiNavChild = {
   id: string;
   label: string;
-  runningTurn?: boolean;
   updatedAgoLabel?: string | null;
 };
 
@@ -126,7 +125,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           children: restructureConversations.map((conversation, index) => ({
             id: conversation.conversationId,
             label: resolveConversationTitle(conversation, index),
-            runningTurn: conversation.messages?.some((message) => message.status === "running"),
             updatedAgoLabel: formatConversationUpdatedAgo(conversation.updatedAt, relativeTimeNowMs),
           })),
       }
@@ -289,6 +287,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       label.style.transition = "none";
       label.style.opacity = nextCollapsed ? "1" : "0";
     });
+    layoutElement.style.setProperty("--new-ui-left-divider-opacity", nextCollapsed ? "1" : "0");
     if (nextCollapsed) {
       subnavs.forEach((subnav) => {
         subnav.style.transition = "none";
@@ -320,6 +319,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       navLabels.forEach((label) => {
         label.style.opacity = `${nextCollapsed ? 1 - eased : eased}`;
       });
+      layoutElement.style.setProperty("--new-ui-left-divider-opacity", `${nextCollapsed ? 1 - eased : eased}`);
       if (nextCollapsed) {
         subnavMetrics.forEach(({ element, startHeight, startPaddingTop }) => {
           element.style.opacity = `${1 - eased}`;
@@ -352,6 +352,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           label.style.opacity = "";
           label.style.transition = "";
         });
+        layoutElement.style.removeProperty("--new-ui-left-divider-opacity");
         subnavs.forEach((subnav) => {
           subnav.style.width = "";
           subnav.style.opacity = "";
@@ -502,6 +503,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, [activeRestructureConversationId, archiveConfirmConversationId, archivingConversationId, refreshRestructureConversations]);
 
+  const handleArchiveConfirmLeave = useCallback((conversationId: string) => {
+    if (archivingConversationId === conversationId) return;
+    setArchiveConfirmConversationId((current) => (current === conversationId ? null : current));
+  }, [archivingConversationId]);
+
   const handleNewRestructureConversation = useCallback(() => {
     setStructureGraphReturn(null);
     setActiveSection("restructure");
@@ -651,6 +657,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             archiveConfirmConversationId={archiveConfirmConversationId}
             archivingConversationId={archivingConversationId}
             creatingRestructureConversation={creatingRestructureConversation}
+            onArchiveConfirmLeave={handleArchiveConfirmLeave}
             onArchiveRestructureConversation={(conversationId) => void handleArchiveRestructureConversation(conversationId)}
             onLibraryChildChange={handleSidebarLibraryChildChange}
             onNewRestructureConversation={() => void handleNewRestructureConversation()}
@@ -886,6 +893,7 @@ type SidebarNavProps = {
   collapsed: boolean;
   creatingRestructureConversation: boolean;
   sections: NewUiSection[];
+  onArchiveConfirmLeave: (conversationId: string) => void;
   onArchiveRestructureConversation: (conversationId: string) => void;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
   onNewRestructureConversation: () => void;
@@ -905,6 +913,7 @@ function SidebarNav({
   collapsed,
   creatingRestructureConversation,
   sections,
+  onArchiveConfirmLeave,
   onArchiveRestructureConversation,
   onLibraryChildChange,
   onNewRestructureConversation,
@@ -1008,11 +1017,12 @@ function SidebarNav({
                 if (section.id === "restructure") {
                   const confirmingArchive = archiveConfirmConversationId === child.id;
                   const archiving = archivingConversationId === child.id;
-                  const runningTurn = Boolean(runningRestructureConversationIds[child.id] || child.runningTurn);
+                  const runningTurn = Boolean(runningRestructureConversationIds[child.id]);
                   return (
                     <div
                       key={child.id}
                       className={`new-ui-sidebar-subnav-item has-meta has-archive ${isChildActive ? "is-active" : ""} ${confirmingArchive ? "is-confirming-archive" : ""} ${runningTurn ? "is-running-turn" : ""}`.trim()}
+                      onMouseLeave={confirmingArchive ? () => onArchiveConfirmLeave(child.id) : undefined}
                     >
                       <button
                         className="new-ui-sidebar-subnav-select"
@@ -1206,15 +1216,16 @@ function NewConversationIcon() {
 
 function SidebarTurnSpinnerIcon() {
   return (
-    <svg className="new-ui-sidebar-subnav-spinner" viewBox="0 0 18 18" focusable="false" aria-hidden="true">
-      <path d="M9 3.2a5.8 5.8 0 1 1-5.1 8.6" />
+    <svg className="new-ui-sidebar-subnav-spinner" viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <circle className="new-ui-sidebar-subnav-spinner-track" cx="10" cy="10" r="6.4" />
+      <path className="new-ui-sidebar-subnav-spinner-arc" d="M10 3.6a6.4 6.4 0 0 1 6.2 4.8" />
     </svg>
   );
 }
 
 function ArchiveTrashIcon() {
   return (
-    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+    <svg className="new-ui-sidebar-subnav-archive-icon new-ui-sidebar-subnav-trash-icon" viewBox="0 0 18 18" focusable="false" aria-hidden="true">
       <path d="M5.2 6.8h7.6" />
       <path d="M7.4 6.8V5.5a1 1 0 0 1 1-1h1.2a1 1 0 0 1 1 1v1.3" />
       <path d="M6.1 6.8 6.6 13a1.3 1.3 0 0 0 1.3 1.2h2.2a1.3 1.3 0 0 0 1.3-1.2l0.5-6.2" />
@@ -1225,7 +1236,7 @@ function ArchiveTrashIcon() {
 
 function ArchiveConfirmIcon() {
   return (
-    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+    <svg className="new-ui-sidebar-subnav-archive-icon" viewBox="0 0 18 18" focusable="false" aria-hidden="true">
       <path d="M4.6 9.3 7.5 12.1 13.5 5.9" />
     </svg>
   );
