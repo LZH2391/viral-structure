@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 import type { AgentChatConversation, AgentChatMessageSnapshot } from "../../types";
 
 type NewUiRestructureWorkspaceProps = {
@@ -8,6 +8,8 @@ type NewUiRestructureWorkspaceProps = {
   loadingConversations?: boolean;
   onNewConversation: () => void;
   onSendMessage: (message: string) => Promise<void>;
+  pendingAssistantMessage?: AgentChatMessageSnapshot | null;
+  pendingUserMessage?: AgentChatMessageSnapshot | null;
   sendingMessage: boolean;
 };
 
@@ -18,16 +20,29 @@ export function NewUiRestructureWorkspace({
   loadingConversations = false,
   onNewConversation,
   onSendMessage,
+  pendingAssistantMessage = null,
+  pendingUserMessage = null,
   sendingMessage,
 }: NewUiRestructureWorkspaceProps) {
   const messages = conversation?.messages ?? [];
   const displayTitle = resolveRestructureTitle(conversation?.title);
   const [draft, setDraft] = useState("");
+  const visiblePendingUserMessage = pendingUserMessage && !messages.some((message) => message.role === "user" && message.text === pendingUserMessage.text)
+    ? pendingUserMessage
+    : null;
+  const visiblePendingAssistantMessage = pendingAssistantMessage && !messages.some((message) => (
+    message.role === "assistant"
+    && (
+      (pendingAssistantMessage.turnId && message.turnId === pendingAssistantMessage.turnId)
+      || message.id === pendingAssistantMessage.id
+    )
+  ))
+    ? pendingAssistantMessage
+    : null;
   const canUseComposer = Boolean(conversation?.threadId || draftingConversation);
   const canSend = Boolean(canUseComposer && draft.trim() && !sendingMessage && !creatingConversation);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitDraft = async () => {
     if (!canSend) return;
     const message = draft.trim();
     setDraft("");
@@ -36,6 +51,17 @@ export function NewUiRestructureWorkspace({
     } catch {
       setDraft(message);
     }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await submitDraft();
+  };
+
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    void submitDraft();
   };
 
   const composer = (
@@ -47,6 +73,7 @@ export function NewUiRestructureWorkspace({
           value={draft}
           disabled={!canUseComposer || sendingMessage || creatingConversation}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={handleComposerKeyDown}
         />
         <div className="new-ui-restructure-composer-tools" aria-label="重组输入工具">
           <button className="new-ui-restructure-tool-button" type="button" aria-disabled="true" data-tooltip="暂未接入上传素材">
@@ -65,7 +92,7 @@ export function NewUiRestructureWorkspace({
     </form>
   );
 
-  if (loadingConversations && !conversation && !draftingConversation) {
+  if (loadingConversations && !conversation && !draftingConversation && !sendingMessage && !creatingConversation) {
     return (
       <section className="new-ui-restructure-workspace is-loading" aria-label="重组工作区加载中">
         <div className="new-ui-restructure-loading">
@@ -77,7 +104,29 @@ export function NewUiRestructureWorkspace({
     );
   }
 
-  if (!conversation && draftingConversation) {
+  if (!conversation && (visiblePendingUserMessage || visiblePendingAssistantMessage)) {
+    return (
+      <section className="new-ui-restructure-workspace" aria-label="重组工作区">
+        <header className="new-ui-restructure-header">
+          <div className="new-ui-restructure-title-block">
+            <h1>重组</h1>
+          </div>
+        </header>
+
+        <div className="new-ui-restructure-shell">
+          <main className="new-ui-restructure-chat" aria-label="重组对话">
+            <div className="new-ui-restructure-message-list">
+              {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
+              {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
+            </div>
+            {composer}
+          </main>
+        </div>
+      </section>
+    );
+  }
+
+  if (!conversation && (draftingConversation || sendingMessage || creatingConversation)) {
     return (
       <section className="new-ui-restructure-workspace is-draft" aria-label="新建重组对话">
         <main className="new-ui-restructure-draft">
@@ -120,11 +169,13 @@ export function NewUiRestructureWorkspace({
 
       <div className="new-ui-restructure-shell">
         <main className="new-ui-restructure-chat" aria-label="重组对话">
-          {messages.length ? (
+          {messages.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
             <div className="new-ui-restructure-message-list">
               {messages.map((message) => (
                 <RestructureMessage key={message.id} message={message} />
               ))}
+              {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
+              {visiblePendingAssistantMessage ? <RestructureMessage message={visiblePendingAssistantMessage} /> : null}
             </div>
           ) : (
             <div className="new-ui-restructure-thread-empty">
@@ -148,10 +199,13 @@ function resolveRestructureTitle(title: string | null | undefined) {
 }
 
 function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) {
+  const isThinking = message.role === "assistant" && message.status === "running";
+
   return (
-    <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""}`.trim()}>
+    <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""}`.trim()} aria-busy={isThinking || undefined}>
       <div className="new-ui-restructure-message-body">
-        <p>{message.text}</p>
+        <p>{isThinking ? "正在思考" : message.text}</p>
+        {isThinking ? <RestructureThinkingSkeleton /> : null}
         {message.slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
             <span>槽位 {message.slotAtomDisplay.slotCount ?? 0}</span>
@@ -168,6 +222,16 @@ function RestructureMessage({ message }: { message: AgentChatMessageSnapshot }) 
         ) : null}
       </div>
     </article>
+  );
+}
+
+function RestructureThinkingSkeleton() {
+  return (
+    <div className="new-ui-restructure-thinking-skeleton" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </div>
   );
 }
 

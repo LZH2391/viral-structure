@@ -14,28 +14,49 @@ const { hydrateConversationSlotAtomDisplays: hydrateSlotAtomDisplays } = require
 const { maybeCollectConversationTitle } = require("../agent-chat/title-service");
 
 async function handleAgentChatConversationList(res, handlers = {}, url = null) {
+  const limit = parsePositiveInteger(url?.searchParams?.get("limit"), null, { max: 100 });
+  const offset = parsePositiveInteger(url?.searchParams?.get("offset"), 0);
   return runAgentChatStage(res, handlers, {
     stageName: "agentChat.conversation.list",
     inputSummary: {
       role: url?.searchParams?.get("role") ?? null,
       status: url?.searchParams?.get("status") ?? "active",
+      limit,
+      offset,
     },
     action: async ({ traceContext }) => {
-      const conversations = await handlers.agentConversationStore.list({
+      const allConversations = await handlers.agentConversationStore.list({
         role: normalizeText(url?.searchParams?.get("role")),
         status: normalizeText(url?.searchParams?.get("status")) || "active",
       });
+      const total = allConversations.length;
+      const conversations = limit == null
+        ? allConversations.slice(offset)
+        : allConversations.slice(offset, offset + limit);
+      const nextOffset = offset + conversations.length;
       return {
         ok: true,
         conversations: await Promise.all(conversations.map((conversation) => hydrateConversationForAgentChat(conversation, { handlers, traceContext }))),
+        total,
+        limit: limit ?? null,
+        offset,
+        hasMore: nextOffset < total,
+        nextOffset: nextOffset < total ? nextOffset : null,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
         stageId: traceContext.stageId,
       };
     },
-    summarizeOutput: (result) => ({ count: result.conversations.length }),
+    summarizeOutput: (result) => ({ count: result.conversations.length, total: result.total, limit: result.limit, offset: result.offset }),
     successStatus: 200,
   });
+}
+
+function parsePositiveInteger(value, fallback, { max = Number.POSITIVE_INFINITY } = {}) {
+  if (value == null || value === "") return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.min(max, Math.floor(number)));
 }
 
 async function handleAgentChatConversationResume(res, conversationId, handlers = {}) {

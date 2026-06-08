@@ -730,9 +730,9 @@ export async function getAgentChatTurnTimeline(threadId: string, turnId: string,
   );
 }
 
-export async function listAgentChatConversations(payload: { role?: string | null; status?: "active" | "archived" | string | null } = {}) {
-  const query = buildQuery({ role: payload.role, status: payload.status ?? "active" });
-  return readJsonResponse<{ ok: boolean; conversations: AgentChatConversation[]; traceId: string; runId: string; stageId: string }>(
+export async function listAgentChatConversations(payload: { role?: string | null; status?: "active" | "archived" | string | null; limit?: number | null; offset?: number | null } = {}) {
+  const query = buildQuery({ role: payload.role, status: payload.status ?? "active", limit: payload.limit, offset: payload.offset });
+  return readJsonResponse<{ ok: boolean; conversations: AgentChatConversation[]; total?: number | null; limit?: number | null; offset?: number | null; hasMore?: boolean; nextOffset?: number | null; traceId: string; runId: string; stageId: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations${query}`, { cache: "no-store" }),
   );
 }

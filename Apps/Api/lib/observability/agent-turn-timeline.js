@@ -115,7 +115,7 @@ function summarizeTurnItem(item, index) {
   const normalizedType = type.toLowerCase();
   const compactType = normalizedType.replace(/[^a-z0-9]/g, "");
   const role = String(item.role ?? item.author ?? "").trim().toLowerCase();
-  const createdAt = item.createdAt ?? item.created_at ?? item.updatedAt ?? item.updated_at ?? null;
+  const createdAt = resolveItemCreatedAt(item);
   if (["usermessage", "userinput", "inputtext", "text"].includes(compactType) || role === "user") {
     return buildItem({ item, index, kind: "user_input", title: "User input", createdAt, previewLimit: TEXT_PREVIEW_LIMIT });
   }
@@ -302,6 +302,14 @@ function buildItem({ item, index, kind, title, createdAt, previewLimit }) {
 
 function collectTurnItems(turn) {
   if (!turn || typeof turn !== "object") return [];
+  const turnCreatedAt = firstValidTimestamp([
+    turn.createdAt,
+    turn.created_at,
+    turn.startedAt,
+    turn.started_at,
+    turn.updatedAt,
+    turn.updated_at,
+  ]);
   const candidates = [
     turn.input,
     turn.inputs,
@@ -316,12 +324,15 @@ function collectTurnItems(turn) {
   const seen = new Set();
   for (const candidate of candidates) {
     for (const item of flattenItemArray(candidate)) {
+      const normalizedItem = item && typeof item === "object" && turnCreatedAt && !resolveItemCreatedAt(item)
+        ? { ...item, createdAt: turnCreatedAt }
+        : item;
       const key = item && typeof item === "object"
         ? `${item.id ?? ""}:${item.type ?? item.kind ?? ""}:${safePreview(extractText(item), 80) ?? ""}`
         : String(item);
       if (seen.has(key)) continue;
       seen.add(key);
-      result.push(item);
+      result.push(normalizedItem);
     }
   }
   return result;
@@ -333,15 +344,61 @@ function flattenItemArray(value) {
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
     if (isWrapperItem(item)) {
-      result.push(...flattenItemArray(item.items));
-      result.push(...flattenItemArray(item.output_items));
-      result.push(...flattenItemArray(item.outputItems));
-      result.push(...flattenItemArray(item.content));
+      const wrapperCreatedAt = resolveItemCreatedAt(item);
+      result.push(...withFallbackCreatedAt(flattenItemArray(item.items), wrapperCreatedAt));
+      result.push(...withFallbackCreatedAt(flattenItemArray(item.output_items), wrapperCreatedAt));
+      result.push(...withFallbackCreatedAt(flattenItemArray(item.outputItems), wrapperCreatedAt));
+      result.push(...withFallbackCreatedAt(flattenItemArray(item.content), wrapperCreatedAt));
       continue;
     }
     result.push(item);
   }
   return result;
+}
+
+function withFallbackCreatedAt(items, fallbackCreatedAt) {
+  if (!fallbackCreatedAt) return items;
+  return items.map((item) => {
+    if (!item || typeof item !== "object" || resolveItemCreatedAt(item)) return item;
+    return { ...item, createdAt: fallbackCreatedAt };
+  });
+}
+
+function resolveItemCreatedAt(item) {
+  if (!item || typeof item !== "object") return null;
+  return firstValidTimestamp([
+    item.createdAt,
+    item.created_at,
+    item.timestamp,
+    item.time,
+    item.ts,
+    item.startedAt,
+    item.started_at,
+    item.updatedAt,
+    item.updated_at,
+    item.completedAt,
+    item.completed_at,
+    item.payload?.createdAt,
+    item.payload?.created_at,
+    item.payload?.timestamp,
+    item.payload?.time,
+    item.event?.createdAt,
+    item.event?.created_at,
+    item.event?.timestamp,
+    item.metadata?.createdAt,
+    item.metadata?.created_at,
+    item.metadata?.timestamp,
+  ]);
+}
+
+function firstValidTimestamp(values) {
+  for (const value of values) {
+    const timestamp = stringOrNull(value);
+    if (!timestamp) continue;
+    if (Number.isNaN(Date.parse(timestamp))) continue;
+    return timestamp;
+  }
+  return null;
 }
 
 function isWrapperItem(item) {

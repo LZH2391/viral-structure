@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getAgentTurnTimeline, getProcessingJob } from "../../api/client";
-import type { AgentActivitySummary, AgentRunJob, AgentTimelineItem, AgentTraceCard, AgentTurnTimeline, WorkflowStageState } from "../../types";
+import type { AgentRunJob, AgentTimelineItem, AgentTraceCard, AgentTurnTimeline, WorkflowStageState } from "../../types";
 import { pickDefaultTraceCard, resolveAgentTraceCards } from "../property-panel/agentTraceCards";
-import { shortTurnId } from "../property-panel/formatters";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import {
@@ -362,11 +361,17 @@ function WorkflowDetailPanel({
   return (
     <section className="new-ui-analysis-workflow-detail" aria-label={`${stageTitle(selectedStageKey)}详情区域`} data-selected-stage={selectedStageKey}>
       <div className="new-ui-analysis-workflow-detail-header">
-        <h2 className="new-ui-analysis-workflow-detail-title">详细信息</h2>
-        <span className={`new-ui-analysis-workflow-detail-status is-${detail.status}`}>{statusLabel(detail.status)}</span>
+        <h2 className={`new-ui-analysis-workflow-detail-title ${runningTraceStage ? "is-processing" : ""}`.trim()}>
+          {runningTraceStage ? (
+            <>
+              处理中<span className="new-ui-processing-dots" aria-hidden="true" />
+            </>
+          ) : "详细信息"}
+        </h2>
+        {runningTraceStage ? null : <span className={`new-ui-analysis-workflow-detail-status is-${detail.status}`}>{statusLabel(detail.status)}</span>}
       </div>
       {runningTraceStage ? (
-        <NewUiWorkflowTraceTimeline stage={runningTraceStage} title={detail.title} />
+        <NewUiWorkflowTraceTimeline stage={runningTraceStage} />
       ) : (
         <div className="new-ui-analysis-workflow-detail-content">
           <div className="new-ui-analysis-workflow-detail-summary">
@@ -403,7 +408,7 @@ function WorkflowDetailPanel({
   );
 }
 
-function NewUiWorkflowTraceTimeline({ stage, title }: { stage: WorkflowStageState; title: string }) {
+function NewUiWorkflowTraceTimeline({ stage }: { stage: WorkflowStageState }) {
   const [job, setJob] = useState<AgentRunJob | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -453,7 +458,6 @@ function NewUiWorkflowTraceTimeline({ stage, title }: { stage: WorkflowStageStat
   const activity = selectedTimeline?.activity ?? selectedCard?.activity ?? activeCard?.activity ?? job?.agentActivity ?? null;
   const latestText = activeCard?.latestMessagePreview ?? activity?.latestMessagePreview ?? job?.activeThreadMessage?.text ?? null;
   const canTrace = Boolean(selectedCard?.threadId && selectedCard?.turnId);
-  const summary = useMemo(() => buildTraceSummary(cards, activity, selectedCard), [cards, activity, selectedCard]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -495,14 +499,6 @@ function NewUiWorkflowTraceTimeline({ stage, title }: { stage: WorkflowStageStat
 
   return (
     <div className="new-ui-analysis-workflow-trace">
-      <div className="new-ui-analysis-workflow-detail-summary">
-        <strong>{title}</strong>
-        <p>{stage.childJobId ? "正在分析，下面同步展示 Agent turn 运行追踪。" : "正在等待运行追踪接入，子任务创建后会自动展示。"}</p>
-      </div>
-      <div className="new-ui-analysis-workflow-trace-heading">
-        <strong>运行追踪</strong>
-        <span>{summary}</span>
-      </div>
       {jobError ? <div className="new-ui-analysis-workflow-detail-empty">{jobError}</div> : null}
       {latestText ? (
         <div className="new-ui-analysis-workflow-trace-latest" aria-live="polite">
@@ -540,8 +536,6 @@ function TraceCardButton({ card, active, onSelect }: { card: AgentTraceCard; act
       <span className={`new-ui-analysis-workflow-trace-state is-${card.status}`}>{renderTraceStatus(card.status)}</span>
       <strong>{card.label}</strong>
       <span>{card.role ?? "role 未知"}</span>
-      <small>{formatTraceIds(card)}</small>
-      <small>{formatActivity(card.activity)}</small>
       {card.latestMessagePreview ? <em>{card.latestMessagePreview}</em> : null}
     </button>
   );
@@ -586,15 +580,6 @@ function traceCardCacheKey(card: AgentTraceCard) {
   return [card.id, card.threadId ?? "", card.turnId ?? ""].join(":");
 }
 
-function buildTraceSummary(cards: AgentTraceCard[], activity: AgentActivitySummary | null, selectedCard?: AgentTraceCard | null) {
-  const selected = selectedCard?.turnId ? `turn ${shortTurnId(selectedCard.turnId)}` : "turn 无";
-  const runningCount = cards.filter((card) => card.status === "running").length;
-  const turns = `${cards.filter((card) => card.turnId).length}/${cards.length || 0} turns`;
-  const items = activity ? `${activity.effectiveItemCount || activity.itemCount} 个活动` : "0 个活动";
-  const tokens = activity?.tokenUsage?.totalTokens != null ? `tokens ${formatNumber(activity.tokenUsage.totalTokens)}` : "tokens 未知";
-  return `${turns} · ${runningCount ? `${runningCount} running · ` : ""}${selected} · ${items} · ${tokens}`;
-}
-
 function renderTraceStatus(status: AgentTraceCard["status"]) {
   const labels: Record<AgentTraceCard["status"], string> = {
     pending: "待提交",
@@ -627,20 +612,6 @@ function renderKind(kind: AgentTimelineItem["kind"]) {
   return labels[kind] ?? kind;
 }
 
-function formatTraceIds(card: AgentTraceCard) {
-  const thread = card.threadId ? `thread ${shortTurnId(card.threadId)}` : "thread 无";
-  const turn = card.turnId ? `turn ${shortTurnId(card.turnId)}` : "turn 无";
-  return `${thread} / ${turn}`;
-}
-
-function formatActivity(activity: AgentActivitySummary | null) {
-  if (!activity) return "items 0 / tokens 未知";
-  const count = activity.effectiveItemCount || activity.itemCount || 0;
-  const tokens = activity.tokenUsage?.totalTokens != null ? formatNumber(activity.tokenUsage.totalTokens) : "未知";
-  const tool = activity.latestToolName ? ` / ${activity.latestToolName}` : "";
-  return `items ${count} / tokens ${tokens}${tool}`;
-}
-
 function formatTime(value?: string | null) {
   if (!value) return "--:--:--";
   const date = new Date(value);
@@ -652,12 +623,6 @@ function formatDuration(value: number) {
   if (!Number.isFinite(value)) return "";
   if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
   return `${Math.round(value)}ms`;
-}
-
-function formatNumber(value: number) {
-  if (!Number.isFinite(value)) return "0";
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return String(value);
 }
 
 function isWorkflowStageRunning(status: string | null | undefined) {

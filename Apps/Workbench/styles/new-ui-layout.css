@@ -342,6 +342,10 @@
 .new-ui-pane-left .new-ui-pane-body {
   padding: 46px 5px 18px;
   contain: layout paint;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .new-ui-sidebar-nav {
@@ -707,11 +711,11 @@
 }
 
 .new-ui-sidebar-nav-action svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke-width 160ms ease;
@@ -720,14 +724,14 @@
 .new-ui-sidebar-nav-action:hover,
 .new-ui-sidebar-nav-action:focus-visible {
   color: var(--new-ui-text);
-  background: color-mix(in srgb, var(--new-ui-text) 7%, transparent);
-  border-color: color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  background: transparent;
+  border-color: transparent;
   opacity: 1;
   outline: 0;
 }
 
 .new-ui-sidebar-nav-action:focus-visible {
-  box-shadow: 0 0 0 2px var(--new-ui-focus-ring);
+  box-shadow: none;
 }
 
 .new-ui-sidebar-nav-action:active {
@@ -741,7 +745,7 @@
 
 .new-ui-sidebar-nav-action:hover svg,
 .new-ui-sidebar-nav-action:focus-visible svg {
-  stroke-width: 2.2;
+  stroke-width: 1.95;
 }
 
 .new-ui-sidebar-subnav {
@@ -805,8 +809,54 @@
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr);
   align-items: center;
-  column-gap: 14px;
-  padding: 7px 22px 7px 40px;
+  column-gap: 6px;
+  padding: 7px 22px 7px 8px;
+}
+
+.new-ui-sidebar-load-more {
+  display: inline-grid;
+  justify-self: start;
+  align-items: center;
+  min-width: 0;
+  min-height: 26px;
+  margin: 4px 0 0 40px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text) 3%, transparent);
+  color: var(--new-ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-align: center;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease;
+}
+
+.new-ui-sidebar-load-more span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-sidebar-load-more:hover,
+.new-ui-sidebar-load-more:focus-visible {
+  color: var(--new-ui-text);
+  background: color-mix(in srgb, var(--new-ui-text) 7%, transparent);
+  border-color: color-mix(in srgb, var(--new-ui-control-border) 56%, transparent);
+  outline: 0;
+}
+
+.new-ui-sidebar-load-more:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .new-ui-sidebar-subnav-icon {
@@ -934,7 +984,7 @@
   stroke-width: 2.15;
   stroke-linecap: round;
   opacity: 0;
-  animation: new-ui-sidebar-spin 820ms linear infinite;
+  animation: new-ui-sidebar-spin 2400ms linear infinite;
   transform-origin: 50% 50%;
   transform-box: fill-box;
 }

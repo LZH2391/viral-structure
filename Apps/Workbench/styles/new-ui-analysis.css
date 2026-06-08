@@ -2395,14 +2395,35 @@
   white-space: nowrap;
 }
 
+.new-ui-analysis-workflow-detail-title.is-processing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.new-ui-processing-dots {
+  display: inline-block;
+  width: 1.2em;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+.new-ui-processing-dots::before {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  content: "...";
+  animation: new-ui-processing-dots 1.2s steps(4, end) infinite;
+}
+
 .new-ui-analysis-workflow-trace-latest {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 34%, var(--new-ui-control-border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 10%, var(--new-ui-control-bg));
+  padding: 8px 2px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .new-ui-analysis-workflow-trace-latest span,
@@ -2412,17 +2433,29 @@
 }
 
 .new-ui-analysis-workflow-trace-latest span {
-  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 72%, var(--new-ui-text-muted));
+  color: color-mix(in srgb, var(--new-ui-text) 70%, var(--new-ui-text-muted));
   font-size: var(--new-ui-font-size-xxs);
-  font-weight: 700;
-  line-height: 1.2;
+  font-weight: 680;
+  line-height: 1.25;
 }
 
 .new-ui-analysis-workflow-trace-latest strong {
-  color: color-mix(in srgb, var(--new-ui-text) 82%, var(--new-ui-text-muted));
-  font-size: var(--new-ui-font-size-xs);
-  font-weight: 640;
-  line-height: 1.4;
+  color: color-mix(in srgb, var(--new-ui-text) 78%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-sm);
+  font-weight: 620;
+  line-height: 1.45;
+}
+
+.new-ui-turn-timeline-real {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  opacity: 0;
+  transition: opacity var(--new-ui-pane-transition-duration) ease;
+}
+
+.new-ui-turn-timeline-real.is-visible {
+  opacity: 1;
 }
 
 .new-ui-analysis-workflow-trace-card-list {
@@ -2539,9 +2572,8 @@
   display: grid;
   gap: 8px;
   min-width: 0;
-  max-height: 360px;
   padding: 2px 0 2px 14px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .new-ui-analysis-workflow-trace-list::before {
@@ -2757,6 +2789,25 @@
 @keyframes new-ui-workflow-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes new-ui-processing-dots {
+  0% {
+    width: 0;
+  }
+
+  25% {
+    width: 0.4em;
+  }
+
+  50% {
+    width: 0.8em;
+  }
+
+  75%,
+  100% {
+    width: 1.2em;
   }
 }
 

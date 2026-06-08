@@ -111,6 +111,12 @@
   padding: 0;
 }
 
+.new-ui-restructure-draft .new-ui-restructure-message-list {
+  width: min(100%, var(--new-ui-restructure-content-width));
+  overflow: visible;
+  padding: 0;
+}
+
 .new-ui-restructure-empty {
   display: flex;
   align-items: flex-end;
@@ -254,6 +260,10 @@
   background: var(--new-ui-restructure-highlight-bg);
 }
 
+.new-ui-restructure-message.running .new-ui-restructure-message-body {
+  width: min(680px, 100%);
+}
+
 .new-ui-restructure-message-body p {
   margin: 0;
   min-width: 0;
@@ -264,6 +274,72 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: normal;
+}
+
+.new-ui-restructure-message.running .new-ui-restructure-message-body p {
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-restructure-thinking-skeleton {
+  display: grid;
+  gap: 10px;
+  width: min(620px, 100%);
+  margin-top: 16px;
+}
+
+.new-ui-restructure-thinking-skeleton span {
+  position: relative;
+  display: block;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 14%, transparent);
+}
+
+.new-ui-restructure-thinking-skeleton span::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--new-ui-text) 18%, transparent),
+    transparent
+  );
+  animation: new-ui-restructure-skeleton-sheen 1.35s ease-in-out infinite;
+}
+
+.new-ui-restructure-thinking-skeleton span:nth-child(1) {
+  width: 76%;
+}
+
+.new-ui-restructure-thinking-skeleton span:nth-child(2) {
+  width: 100%;
+}
+
+.new-ui-restructure-thinking-skeleton span:nth-child(3) {
+  width: 58%;
+}
+
+.new-ui-restructure-thinking-skeleton span:nth-child(2)::after {
+  animation-delay: 0.12s;
+}
+
+.new-ui-restructure-thinking-skeleton span:nth-child(3)::after {
+  animation-delay: 0.24s;
+}
+
+@keyframes new-ui-restructure-skeleton-sheen {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-ui-restructure-thinking-skeleton span::after {
+    animation: none;
+  }
 }
 
 .new-ui-restructure-message-note {

@@ -1,36 +1,37 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentTimelineItem, AgentTurnTimeline } from "../../types";
-import { shortTurnId } from "../property-panel/formatters";
 
 const SETTLED_TIMELINE_POLL_COUNT = 3;
 
 export type NewUiTurnTimelineTarget = {
-  threadId: string;
-  turnId: string;
+  threadId?: string | null;
+  turnId?: string | null;
   workspaceRoot?: string | null;
   running?: boolean;
+  pending?: boolean;
 };
 
 type NewUiTurnTimelinePanelProps = {
-  title: string;
   target: NewUiTurnTimelineTarget | null;
 };
 
-export function NewUiTurnTimelinePanel({ title, target }: NewUiTurnTimelinePanelProps) {
+export function NewUiTurnTimelinePanel({ target }: NewUiTurnTimelinePanelProps) {
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [timelineReveal, setTimelineReveal] = useState<{ key: string; visible: boolean }>({ key: "", visible: false });
   const threadId = target?.threadId ?? null;
   const turnId = target?.turnId ?? null;
   const workspaceRoot = target?.workspaceRoot ?? null;
   const targetRunning = Boolean(target?.running);
+  const targetPending = Boolean(target?.pending);
   const targetKey = threadId && turnId ? `${threadId}:${turnId}:${workspaceRoot ?? ""}` : "";
   const activity = timeline?.activity ?? null;
-  const summary = useMemo(() => buildTimelineSummary(timeline), [timeline]);
 
   useEffect(() => {
     setTimeline(null);
     setError(null);
+    setTimelineReveal({ key: "", visible: false });
   }, [targetKey]);
 
   useEffect(() => {
@@ -43,6 +44,16 @@ export function NewUiTurnTimelinePanel({ title, target }: NewUiTurnTimelinePanel
         if (cancelled) return;
         setTimeline(next);
         setError(null);
+        setTimelineReveal((current) => {
+          if (current.key === targetKey) return current;
+          return { key: targetKey, visible: false };
+        });
+        window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          setTimelineReveal((current) => (
+            current.key === targetKey ? { ...current, visible: true } : current
+          ));
+        });
       } catch (loadError) {
         if (cancelled) return;
         setError(loadError instanceof Error ? loadError.message : "运行追踪读取失败");
@@ -68,27 +79,27 @@ export function NewUiTurnTimelinePanel({ title, target }: NewUiTurnTimelinePanel
 
   return (
     <div className="new-ui-analysis-workflow-trace">
-      <div className="new-ui-analysis-workflow-detail-summary">
-        <strong>{title}</strong>
-        <p>{target ? `thread ${shortTurnId(target.threadId)} / turn ${shortTurnId(target.turnId)}` : "当前会话还没有可读取的 turn。"}</p>
-      </div>
-      <div className="new-ui-analysis-workflow-trace-heading">
-        <strong>运行追踪</strong>
-        <span>{summary}</span>
-      </div>
-      {activity?.latestMessagePreview ? (
-        <div className="new-ui-analysis-workflow-trace-latest" aria-live="polite">
-          <span>最新活动</span>
-          <strong>{activity.latestMessagePreview}</strong>
-        </div>
-      ) : null}
-      {error ? <div className="new-ui-analysis-workflow-detail-empty">{error}</div> : null}
-      {timeline?.items?.length ? (
-        <div className="new-ui-analysis-workflow-trace-list">
-          {timeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+      {timeline ? (
+        <div className={`new-ui-turn-timeline-real ${timelineReveal.visible ? "is-visible" : ""}`.trim()}>
+          {activity?.latestMessagePreview ? (
+            <div className="new-ui-analysis-workflow-trace-latest" aria-live="polite">
+              <span>最新活动</span>
+              <strong>{activity.latestMessagePreview}</strong>
+            </div>
+          ) : null}
+          {error ? <div className="new-ui-analysis-workflow-detail-empty">{error}</div> : null}
+          {timeline.items?.length ? (
+            <div className="new-ui-analysis-workflow-trace-list">
+              {timeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+            </div>
+          ) : (
+            <div className="new-ui-analysis-workflow-detail-empty">正在读取运行追踪。</div>
+          )}
         </div>
       ) : (
-        <div className="new-ui-analysis-workflow-detail-empty">{target ? "正在读取运行追踪。" : "发送消息后会显示模型、工具和消息追踪。"}</div>
+        <div className="new-ui-analysis-workflow-detail-empty">
+          {error ?? (targetPending ? "等待后端返回真实 turn。" : target ? "正在读取运行追踪。" : "发送消息后会显示模型、工具和消息追踪。")}
+        </div>
       )}
     </div>
   );
@@ -111,15 +122,6 @@ function TimelineRow({ item }: { item: AgentTimelineItem }) {
       </div>
     </div>
   );
-}
-
-function buildTimelineSummary(timeline: AgentTurnTimeline | null) {
-  if (!timeline) return "等待 turn timeline";
-  const activity = timeline.activity;
-  const items = `${timeline.items.length} items`;
-  const tokens = activity?.tokenUsage?.totalTokens != null ? `tokens ${formatNumber(activity.tokenUsage.totalTokens)}` : "tokens 未知";
-  const tool = activity?.latestToolName ? ` · ${activity.latestToolName}` : "";
-  return `${timeline.status || "unknown"} · ${items} · ${tokens}${tool}`;
 }
 
 function renderKind(kind: AgentTimelineItem["kind"]) {
@@ -154,10 +156,4 @@ function formatDuration(value: number) {
   if (!Number.isFinite(value)) return "";
   if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
   return `${Math.round(value)}ms`;
-}
-
-function formatNumber(value: number) {
-  if (!Number.isFinite(value)) return "0";
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return String(value);
 }

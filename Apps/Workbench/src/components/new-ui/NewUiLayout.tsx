@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { createPortal } from "react-dom";
 import { archiveAgentChatConversation, collectAgentChatTurn, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { AgentChatConversation } from "../../types";
+import type { AgentChatConversation, AgentChatMessageSnapshot } from "../../types";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
 import { SplitResizeHandle } from "../SplitResizeHandle";
@@ -46,6 +46,7 @@ const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 const PANE_TRANSITION_GUARD_MS = 420;
 const LEFT_PANE_ANIMATION_MS = 280;
 const RESTRUCTURE_TURN_POLL_INTERVAL_MS = 1600;
+const RESTRUCTURE_CONVERSATION_PAGE_SIZE = 15;
 const analysisOpenRequestResolvers = new Map<number, (result: { ok: boolean; message?: string | null }) => void>();
 
 type NewUiThreePanePreference = {
@@ -75,6 +76,21 @@ type RunningRestructureTurn = {
   workspaceRoot?: string | null;
 };
 
+type OptimisticRestructureGeneration = {
+  id: string;
+  conversationId?: string | null;
+  draftId?: string | null;
+  userMessage: AgentChatMessageSnapshot;
+  message: AgentChatMessageSnapshot;
+  target: NewUiTurnTimelineTarget;
+  turnId?: string | null;
+};
+
+type RestructureSendResult = {
+  conversationId?: string | null;
+  turnId?: string | null;
+} | null;
+
 type NewUiLayoutProps = {
   active?: boolean;
   theme: NewUiTheme;
@@ -91,17 +107,26 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const rightPaneTransitionTimerRef = useRef<number | null>(null);
   const runningRestructureTurnsRef = useRef<Record<string, RunningRestructureTurn>>({});
   const restructureTurnPollTimersRef = useRef<Record<string, number>>({});
+  const activeSectionRef = useRef<NewUiSectionId>("analysis");
+  const activeRestructureConversationIdRef = useRef<string | null>(null);
+  const draftingRestructureConversationRef = useRef(false);
+  const draftRestructureConversationIdRef = useRef(createRestructureDraftId());
+  const restructureNavigationGenerationRef = useRef(0);
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [activeRestructureConversationId, setActiveRestructureConversationId] = useState<string | null>(null);
   const [draftingRestructureConversation, setDraftingRestructureConversation] = useState(false);
+  const [draftRestructureConversationId, setDraftRestructureConversationId] = useState(draftRestructureConversationIdRef.current);
   const [restructureConversations, setRestructureConversations] = useState<AgentChatConversation[]>([]);
   const [loadingRestructureConversations, setLoadingRestructureConversations] = useState(true);
+  const [loadingMoreRestructureConversations, setLoadingMoreRestructureConversations] = useState(false);
+  const [restructureConversationsHasMore, setRestructureConversationsHasMore] = useState(false);
   const [relativeTimeNowMs, setRelativeTimeNowMs] = useState(() => Date.now());
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
+  const [optimisticRestructureGeneration, setOptimisticRestructureGeneration] = useState<OptimisticRestructureGeneration | null>(null);
   const [runningRestructureConversationIds, setRunningRestructureConversationIds] = useState<Record<string, boolean>>({});
   const [runningRestructureTurns, setRunningRestructureTurns] = useState<Record<string, RunningRestructureTurn>>({});
   const [archiveConfirmConversationId, setArchiveConfirmConversationId] = useState<string | null>(null);
@@ -134,13 +159,35 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
   ), [activeRestructureConversationId, restructureConversations]);
   const selectedRunningRestructureTurn = activeRestructureConversationId ? runningRestructureTurns[activeRestructureConversationId] ?? null : null;
+  const selectedOptimisticRestructureGeneration = useMemo(() => {
+    if (!optimisticRestructureGeneration) return null;
+    if (activeSection !== "restructure") return null;
+    const optimisticConversationId = optimisticRestructureGeneration.conversationId;
+    const optimisticDraftId = optimisticRestructureGeneration.draftId;
+    if (!optimisticConversationId) {
+      return draftingRestructureConversation && optimisticDraftId === draftRestructureConversationId
+        ? optimisticRestructureGeneration
+        : null;
+    }
+    if (!activeRestructureConversationId) {
+      return draftingRestructureConversation && optimisticDraftId === draftRestructureConversationId
+        ? optimisticRestructureGeneration
+        : null;
+    }
+    return optimisticConversationId === activeRestructureConversationId ? optimisticRestructureGeneration : null;
+  }, [activeRestructureConversationId, activeSection, draftRestructureConversationId, draftingRestructureConversation, optimisticRestructureGeneration]);
   const selectedRestructureTurnTarget = useMemo(
-    () => resolveRestructureTurnTarget(selectedRestructureConversation, selectedRunningRestructureTurn),
-    [selectedRestructureConversation, selectedRunningRestructureTurn],
+    () => {
+      if (selectedOptimisticRestructureGeneration?.target.running || selectedOptimisticRestructureGeneration?.target.pending) {
+        return selectedOptimisticRestructureGeneration.target;
+      }
+      return resolveRestructureTurnTarget(selectedRestructureConversation, selectedRunningRestructureTurn) ?? selectedOptimisticRestructureGeneration?.target ?? null;
+    },
+    [selectedOptimisticRestructureGeneration, selectedRestructureConversation, selectedRunningRestructureTurn],
   );
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
   const showLibraryGraphPanel = activeSection === "library";
-  const showRestructureTracePanel = activeSection === "restructure" && Boolean(selectedRestructureConversation);
+  const showRestructureTracePanel = activeSection === "restructure" && Boolean(selectedRestructureConversation || selectedRunningRestructureTurn || selectedOptimisticRestructureGeneration);
   const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel || showRestructureTracePanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
@@ -161,6 +208,41 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureTracePanel ? { min: 0.16, max: 0.32 } : { min: 0.1, max: 0.3 },
     persistedSides: { left: true, right: false },
   });
+
+  const selectRestructureConversation = useCallback((conversationId: string | null) => {
+    restructureNavigationGenerationRef.current += 1;
+    activeRestructureConversationIdRef.current = conversationId;
+    draftingRestructureConversationRef.current = false;
+    setActiveRestructureConversationId(conversationId);
+    setDraftingRestructureConversation(false);
+  }, []);
+
+  const beginRestructureDraft = useCallback(() => {
+    const nextDraftId = createRestructureDraftId();
+    restructureNavigationGenerationRef.current += 1;
+    activeRestructureConversationIdRef.current = null;
+    draftingRestructureConversationRef.current = true;
+    draftRestructureConversationIdRef.current = nextDraftId;
+    setActiveRestructureConversationId(null);
+    setDraftingRestructureConversation(true);
+    setDraftRestructureConversationId(nextDraftId);
+  }, []);
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection;
+  }, [activeSection]);
+
+  useEffect(() => {
+    activeRestructureConversationIdRef.current = activeRestructureConversationId;
+  }, [activeRestructureConversationId]);
+
+  useEffect(() => {
+    draftingRestructureConversationRef.current = draftingRestructureConversation;
+  }, [draftingRestructureConversation]);
+
+  useEffect(() => {
+    draftRestructureConversationIdRef.current = draftRestructureConversationId;
+  }, [draftRestructureConversationId]);
 
   useEffect(() => {
     onLeftCollapsedChange?.(leftCollapsed);
@@ -468,8 +550,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleSidebarSectionChange = useCallback((section: NewUiSectionId) => {
     setStructureGraphReturn(null);
     setActiveSection(section);
-    if (section === "restructure" && !activeRestructureConversationId) setDraftingRestructureConversation(true);
-  }, [activeRestructureConversationId]);
+    if (section === "restructure" && !activeRestructureConversationIdRef.current && !draftingRestructureConversationRef.current) {
+      beginRestructureDraft();
+    }
+  }, [beginRestructureDraft]);
 
   const handleSidebarLibraryChildChange = useCallback((child: NewUiLibraryChildId) => {
     setStructureGraphReturn(null);
@@ -479,27 +563,48 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
     setArchiveConfirmConversationId(null);
-    setDraftingRestructureConversation(false);
-    setActiveRestructureConversationId(conversationId);
-  }, []);
+    selectRestructureConversation(conversationId);
+  }, [selectRestructureConversation]);
 
   const refreshRestructureConversations = useCallback(async (preferredConversationId?: string | null) => {
-    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
+    const currentLoadedCount = Math.max(restructureConversations.length, RESTRUCTURE_CONVERSATION_PAGE_SIZE);
+    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active", limit: currentLoadedCount, offset: 0 });
     const conversations = payload.conversations ?? [];
     setRestructureConversations(conversations);
-    setActiveRestructureConversationId((current) => {
-      const target = preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId)
-        ? preferredConversationId
-        : current;
-      return target && conversations.some((conversation) => conversation.conversationId === target)
-        ? target
-        : conversations[0]?.conversationId ?? null;
-    });
-    if (preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId)) {
-      setDraftingRestructureConversation(false);
+    setRestructureConversationsHasMore(Boolean(payload.hasMore));
+    const preferredExists = Boolean(preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId));
+    const currentActiveId = activeRestructureConversationIdRef.current;
+    const currentExists = Boolean(currentActiveId && conversations.some((conversation) => conversation.conversationId === currentActiveId));
+    if (currentExists) return conversations;
+    if (preferredConversationId && currentActiveId === preferredConversationId) return conversations;
+    if (draftingRestructureConversationRef.current) {
+      activeRestructureConversationIdRef.current = null;
+      setActiveRestructureConversationId(null);
+      return conversations;
     }
+    const nextActiveId = preferredExists ? preferredConversationId ?? null : conversations[0]?.conversationId ?? null;
+    activeRestructureConversationIdRef.current = nextActiveId;
+    setActiveRestructureConversationId(nextActiveId);
     return conversations;
-  }, []);
+  }, [restructureConversations.length]);
+
+  const handleLoadMoreRestructureConversations = useCallback(async () => {
+    if (loadingRestructureConversations || loadingMoreRestructureConversations || !restructureConversationsHasMore) return;
+    setLoadingMoreRestructureConversations(true);
+    try {
+      const payload = await listAgentChatConversations({
+        role: "function-slot-restructure",
+        status: "active",
+        limit: RESTRUCTURE_CONVERSATION_PAGE_SIZE,
+        offset: restructureConversations.length,
+      });
+      const nextConversations = payload.conversations ?? [];
+      setRestructureConversations((current) => mergeConversationPages(current, nextConversations));
+      setRestructureConversationsHasMore(Boolean(payload.hasMore));
+    } finally {
+      setLoadingMoreRestructureConversations(false);
+    }
+  }, [loadingMoreRestructureConversations, loadingRestructureConversations, restructureConversations.length, restructureConversationsHasMore]);
 
   const handleArchiveRestructureConversation = useCallback(async (conversationId: string) => {
     if (archivingConversationId) return;
@@ -527,10 +632,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleNewRestructureConversation = useCallback(() => {
     setStructureGraphReturn(null);
     setActiveSection("restructure");
-    setActiveRestructureConversationId(null);
     setArchiveConfirmConversationId(null);
-    setDraftingRestructureConversation(true);
-  }, []);
+    beginRestructureDraft();
+  }, [beginRestructureDraft]);
 
   const clearRunningRestructureTurn = useCallback((conversationId: string) => {
     const timer = restructureTurnPollTimersRef.current[conversationId];
@@ -550,6 +654,24 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    Object.entries(runningRestructureTurnsRef.current).forEach(([conversationId, runningTurn]) => {
+      const conversation = restructureConversations.find((item) => item.conversationId === conversationId);
+      if (conversationHasTerminalAssistantTurn(conversation, runningTurn.turnId)) {
+        clearRunningRestructureTurn(conversationId);
+      }
+    });
+  }, [clearRunningRestructureTurn, restructureConversations]);
+
+  useEffect(() => {
+    if (!optimisticRestructureGeneration?.turnId) return;
+    const conversation = restructureConversations.find((item) => item.conversationId === optimisticRestructureGeneration.conversationId);
+    const hasRealAssistantMessage = (conversation?.messages ?? []).some((message) => (
+      message.role === "assistant" && message.turnId === optimisticRestructureGeneration.turnId
+    ));
+    if (hasRealAssistantMessage) setOptimisticRestructureGeneration(null);
+  }, [optimisticRestructureGeneration, restructureConversations]);
 
   const scheduleRestructureTurnPoll = useCallback((runningTurn: RunningRestructureTurn) => {
     const { conversationId } = runningTurn;
@@ -587,6 +709,41 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleSendRestructureMessage = useCallback(async (message: string) => {
     const conversation = selectedRestructureConversation;
     if ((!conversation?.threadId && !draftingRestructureConversation) || sendingRestructureMessage) return;
+    const sendNavigationGeneration = restructureNavigationGenerationRef.current;
+    const sendConversationId = conversation?.conversationId ?? null;
+    const draftId = draftingRestructureConversation ? draftRestructureConversationIdRef.current : null;
+    const pendingId = `pending-assistant-${Date.now()}`;
+    const pendingUserId = `pending-user-${Date.now()}`;
+    const now = new Date().toISOString();
+    setOptimisticRestructureGeneration({
+      id: pendingId,
+      conversationId: conversation?.conversationId ?? null,
+      draftId,
+      userMessage: {
+        id: pendingUserId,
+        role: "user",
+        text: message,
+        status: "completed",
+        createdAt: now,
+        updatedAt: now,
+      },
+      message: {
+        id: pendingId,
+        role: "assistant",
+        text: "正在思考",
+        status: "running",
+        createdAt: now,
+        updatedAt: now,
+      },
+      target: {
+        pending: true,
+        running: true,
+      },
+      turnId: null,
+    });
+    startPaneTransitionGuard();
+    startRightPaneContentFreeze(false);
+    setRightCollapsed(false);
     setSendingRestructureMessage(true);
     let startedSession: Awaited<ReturnType<typeof startAgentChatThread>> | null = null;
     try {
@@ -612,6 +769,36 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         skillPath: conversation?.skillPath ?? startedSession?.skillPath ?? null,
       });
       const nextConversationId = submitted.conversationId ?? conversation?.conversationId ?? startedSession?.conversationId ?? null;
+      const canAdoptSubmittedConversation = activeSectionRef.current === "restructure"
+        && restructureNavigationGenerationRef.current === sendNavigationGeneration
+        && activeRestructureConversationIdRef.current === sendConversationId
+        && (
+          sendConversationId !== null
+          || (draftingRestructureConversationRef.current && draftRestructureConversationIdRef.current === draftId)
+        );
+      if (nextConversationId && canAdoptSubmittedConversation) {
+        selectRestructureConversation(nextConversationId);
+      }
+      setOptimisticRestructureGeneration((current) => (
+        current?.id === pendingId
+          ? {
+              ...current,
+              conversationId: nextConversationId,
+              message: {
+                ...current.message,
+                turnId: submitted.turnId,
+                updatedAt: new Date().toISOString(),
+              },
+              target: {
+                threadId: submitted.threadId ?? threadId,
+                turnId: submitted.turnId,
+                workspaceRoot: submitted.workspaceRoot ?? conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
+                running: true,
+              },
+              turnId: submitted.turnId,
+            }
+          : current
+      ));
       if (nextConversationId) scheduleRestructureTurnPoll({
         conversationId: nextConversationId,
         role: submitted.role ?? conversation?.role ?? startedSession?.role ?? "function-slot-restructure",
@@ -619,13 +806,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         turnId: submitted.turnId,
         workspaceRoot: submitted.workspaceRoot ?? conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
       });
-      setDraftingRestructureConversation(false);
       await refreshRestructureConversations(nextConversationId);
+    } catch (error) {
+      setOptimisticRestructureGeneration((current) => (current?.id === pendingId ? null : current));
+      throw error;
     } finally {
       setCreatingRestructureConversation(false);
       setSendingRestructureMessage(false);
     }
-  }, [draftingRestructureConversation, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, sendingRestructureMessage]);
+  }, [draftingRestructureConversation, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -633,17 +822,22 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     const loadConversations = async () => {
       setLoadingRestructureConversations(true);
       try {
-        const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active" });
+        const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active", limit: RESTRUCTURE_CONVERSATION_PAGE_SIZE, offset: 0 });
         if (cancelled) return;
         const conversations = payload.conversations ?? [];
         setRestructureConversations(conversations);
-        setActiveRestructureConversationId((current) => (
-          current && conversations.some((conversation) => conversation.conversationId === current)
-            ? current
-            : conversations[0]?.conversationId ?? null
-        ));
+        setRestructureConversationsHasMore(Boolean(payload.hasMore));
+        const currentActiveId = activeRestructureConversationIdRef.current;
+        if (currentActiveId && conversations.some((conversation) => conversation.conversationId === currentActiveId)) return;
+        if (draftingRestructureConversationRef.current) return;
+        const nextActiveId = conversations[0]?.conversationId ?? null;
+        activeRestructureConversationIdRef.current = nextActiveId;
+        setActiveRestructureConversationId(nextActiveId);
       } catch {
-        if (!cancelled) setRestructureConversations([]);
+        if (!cancelled) {
+          setRestructureConversations([]);
+          setRestructureConversationsHasMore(false);
+        }
       } finally {
         if (!cancelled) setLoadingRestructureConversations(false);
       }
@@ -674,21 +868,23 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
         <PaneHeader collapsed={leftCollapsed} onToggle={toggleLeftCollapsed} side="left" />
         <div className="new-ui-pane-body">
-          <SidebarNav
-            activeLibraryChild={activeLibraryChild}
-            activeRestructureConversationId={activeRestructureConversationId}
-            activeSection={activeSection}
-            collapsed={leftCollapsed}
-            sections={navSections}
-            archiveConfirmConversationId={archiveConfirmConversationId}
-            archivingConversationId={archivingConversationId}
-            creatingRestructureConversation={creatingRestructureConversation}
-            onArchiveConfirmLeave={handleArchiveConfirmLeave}
-            onArchiveRestructureConversation={(conversationId) => void handleArchiveRestructureConversation(conversationId)}
+            <SidebarNav
+              activeLibraryChild={activeLibraryChild}
+              activeRestructureConversationId={activeRestructureConversationId}
+              activeSection={activeSection}
+              collapsed={leftCollapsed}
+              sections={navSections}
+              archiveConfirmConversationId={archiveConfirmConversationId}
+              archivingConversationId={archivingConversationId}
+              onArchiveConfirmLeave={handleArchiveConfirmLeave}
+              onArchiveRestructureConversation={(conversationId) => void handleArchiveRestructureConversation(conversationId)}
+            loadingMoreRestructureConversations={loadingMoreRestructureConversations}
             onLibraryChildChange={handleSidebarLibraryChildChange}
+            onLoadMoreRestructureConversations={() => void handleLoadMoreRestructureConversations()}
             onNewRestructureConversation={() => void handleNewRestructureConversation()}
             onRestructureConversationChange={handleSidebarRestructureConversationChange}
             onSectionChange={handleSidebarSectionChange}
+            restructureConversationsHasMore={restructureConversationsHasMore}
             runningRestructureConversationIds={runningRestructureConversationIds}
           />
         </div>
@@ -745,6 +941,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               loadingConversations={loadingRestructureConversations}
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
+              pendingAssistantMessage={selectedOptimisticRestructureGeneration?.message ?? null}
+              pendingUserMessage={selectedOptimisticRestructureGeneration?.userMessage ?? null}
               sendingMessage={sendingRestructureMessage}
             />
           ) : null}
@@ -774,12 +972,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           {showRestructureTracePanel ? (
             <section className="new-ui-analysis-workflow-detail new-ui-restructure-trace-panel" aria-label="当前重组 turn 运行追踪">
               <div className="new-ui-analysis-workflow-detail-header">
-                <h2 className="new-ui-analysis-workflow-detail-title">追踪 Timeline</h2>
-                <span className={`new-ui-analysis-workflow-detail-status ${selectedRestructureTurnTarget?.running ? "is-running" : ""}`.trim()}>
-                  {selectedRestructureTurnTarget?.running ? "生成中" : "最近一轮"}
-                </span>
+                <h2 className="new-ui-analysis-workflow-detail-title is-processing">
+                  处理中<span className="new-ui-processing-dots" aria-hidden="true" />
+                </h2>
               </div>
-              <NewUiTurnTimelinePanel title="当前会话 turn" target={selectedRestructureTurnTarget} />
+              <NewUiTurnTimelinePanel target={selectedRestructureTurnTarget} />
             </section>
           ) : null}
         </div>
@@ -803,8 +1000,12 @@ function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | nul
       showTimerRef.current = null;
     };
 
+    const findTooltipAnchor = (target: EventTarget | null) => (
+      target instanceof Element ? target.closest<HTMLElement>("[data-tooltip]") : null
+    );
+
     const showTooltip = (target: Element | null) => {
-      const anchor = target instanceof HTMLElement ? target.closest<HTMLElement>("[data-tooltip]") : null;
+      const anchor = findTooltipAnchor(target);
       const text = anchor?.dataset.tooltip?.trim();
       if (!anchor || !text) {
         setTooltip(null);
@@ -831,8 +1032,8 @@ function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | nul
     };
     const handlePointerOver = (event: PointerEvent) => scheduleTooltip(event.target as Element | null, 420);
     const handlePointerOut = (event: PointerEvent) => {
-      const fromAnchor = event.target instanceof HTMLElement ? event.target.closest("[data-tooltip]") : null;
-      const toAnchor = event.relatedTarget instanceof HTMLElement ? event.relatedTarget.closest("[data-tooltip]") : null;
+      const fromAnchor = findTooltipAnchor(event.target);
+      const toAnchor = findTooltipAnchor(event.relatedTarget);
       if (fromAnchor && fromAnchor === toAnchor) return;
       hideTooltip();
     };
@@ -929,14 +1130,16 @@ type SidebarNavProps = {
   archiveConfirmConversationId: string | null;
   archivingConversationId: string | null;
   collapsed: boolean;
-  creatingRestructureConversation: boolean;
   sections: NewUiSection[];
   onArchiveConfirmLeave: (conversationId: string) => void;
   onArchiveRestructureConversation: (conversationId: string) => void;
+  loadingMoreRestructureConversations: boolean;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
+  onLoadMoreRestructureConversations: () => void;
   onNewRestructureConversation: () => void;
   onRestructureConversationChange: (conversationId: string) => void;
   onSectionChange: (section: NewUiSectionId) => void;
+  restructureConversationsHasMore: boolean;
   runningRestructureConversationIds: Record<string, boolean>;
 };
 
@@ -949,14 +1152,16 @@ function SidebarNav({
   archiveConfirmConversationId,
   archivingConversationId,
   collapsed,
-  creatingRestructureConversation,
   sections,
   onArchiveConfirmLeave,
   onArchiveRestructureConversation,
+  loadingMoreRestructureConversations,
   onLibraryChildChange,
+  onLoadMoreRestructureConversations,
   onNewRestructureConversation,
   onRestructureConversationChange,
   onSectionChange,
+  restructureConversationsHasMore,
   runningRestructureConversationIds,
 }: SidebarNavProps) {
   const [expandedSections, setExpandedSections] = useState<NewUiSectionId[]>(DEFAULT_EXPANDED_SIDEBAR_SECTIONS);
@@ -978,9 +1183,12 @@ function SidebarNav({
         const isActive = section.id === activeSection;
         const hasChildren = Boolean(section.children?.length);
         const isExpanded = hasChildren && !collapsed && expandedSections.includes(section.id);
+        const childCount = section.children?.length ?? 0;
+        const hasLoadMore = section.id === "restructure" && restructureConversationsHasMore;
+        const subnavItemCount = childCount + (hasLoadMore ? 1 : 0);
         const subnavStyle = hasChildren
           ? {
-              "--new-ui-sidebar-subnav-expanded-height": `${((section.children?.length ?? 0) * 40) + 4}px`,
+              "--new-ui-sidebar-subnav-expanded-height": `${(subnavItemCount * 40) + 4}px`,
             } as CSSProperties
           : undefined;
         const navItemClassName = `new-ui-sidebar-nav-item ${isActive ? "is-active" : ""} ${hasChildren ? "has-children is-static" : ""}`.trim();
@@ -1035,7 +1243,6 @@ function SidebarNav({
                   type="button"
                   aria-label="新建重组会话"
                   data-tooltip="新会话"
-                  disabled={creatingRestructureConversation}
                   onClick={(event) => {
                     event.stopPropagation();
                     onNewRestructureConversation();
@@ -1110,6 +1317,17 @@ function SidebarNav({
                   </button>
                 );
               })}
+              {section.id === "restructure" && restructureConversationsHasMore ? (
+                <button
+                  className="new-ui-sidebar-load-more"
+                  type="button"
+                  disabled={loadingMoreRestructureConversations}
+                  data-tooltip="继续加载重组会话"
+                  onClick={onLoadMoreRestructureConversations}
+                >
+                  <span>{loadingMoreRestructureConversations ? "加载中" : "加载更多"}</span>
+                </button>
+              ) : null}
             </div>
           </div>
         );
@@ -1137,6 +1355,14 @@ function resolveRestructureTurnTarget(
   runningTurn: RunningRestructureTurn | null,
 ): NewUiTurnTimelineTarget | null {
   if (runningTurn) {
+    if (conversationHasTerminalAssistantTurn(conversation, runningTurn.turnId)) {
+      return {
+        threadId: runningTurn.threadId,
+        turnId: runningTurn.turnId,
+        workspaceRoot: runningTurn.workspaceRoot,
+        running: false,
+      };
+    }
     return {
       threadId: runningTurn.threadId,
       turnId: runningTurn.turnId,
@@ -1158,6 +1384,15 @@ function resolveRestructureTurnTarget(
     workspaceRoot: conversation?.workspaceRoot ?? null,
     running: runningMessage?.turnId === turnId,
   };
+}
+
+function conversationHasTerminalAssistantTurn(conversation: AgentChatConversation | null | undefined, turnId: string | null | undefined) {
+  if (!conversation || !turnId) return false;
+  return (conversation.messages ?? []).some((message) => (
+    message.role === "assistant"
+    && message.turnId === turnId
+    && isTerminalAgentTurnStatus(message.status)
+  ));
 }
 
 type SectionIconProps = {
@@ -1254,6 +1489,23 @@ function resolveConversationTitle(conversation: AgentChatConversation, index: nu
   return conversation.title?.trim() || `会话 ${index + 1}`;
 }
 
+function createRestructureDraftId() {
+  return `draft-restructure-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeConversationPages(current: AgentChatConversation[], nextPage: AgentChatConversation[]) {
+  if (!nextPage.length) return current;
+  const nextById = new Map(nextPage.map((conversation) => [conversation.conversationId, conversation]));
+  const merged = current.map((conversation) => nextById.get(conversation.conversationId) ?? conversation);
+  const seen = new Set(merged.map((conversation) => conversation.conversationId));
+  nextPage.forEach((conversation) => {
+    if (seen.has(conversation.conversationId)) return;
+    seen.add(conversation.conversationId);
+    merged.push(conversation);
+  });
+  return merged;
+}
+
 function formatConversationUpdatedAgo(value: string | null | undefined, nowMs: number) {
   const timestamp = Date.parse(value ?? "");
   if (!Number.isFinite(timestamp)) return null;
@@ -1269,7 +1521,7 @@ function formatConversationUpdatedAgo(value: string | null | undefined, nowMs: n
 function isTerminalAgentTurnStatus(status: string | null | undefined) {
   const normalized = String(status ?? "").toLowerCase();
   if (!normalized) return false;
-  return !["placeholder", "pending", "queued", "submitted", "running", "processing"].includes(normalized);
+  return ["completed", "complete", "failed", "error", "errored", "cancelled", "canceled"].includes(normalized);
 }
 
 function NewConversationIcon() {
