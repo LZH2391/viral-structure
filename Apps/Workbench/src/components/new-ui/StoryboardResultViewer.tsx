@@ -146,7 +146,7 @@ function StoryboardShotCard({ shot }: { shot: AgentChatStoryboardShot }) {
         <strong>
           {shot.title}
           {shot.duration ? (
-            <span data-tooltip={shot.durationTooltip ?? "预计时间轴，非精确剪辑点"} title={shot.durationTooltip ?? "预计时间轴，非精确剪辑点"}>
+            <span data-tooltip={shot.durationTooltip ?? "预计时间轴，非精确剪辑点"}>
               {shot.duration}
             </span>
           ) : null}

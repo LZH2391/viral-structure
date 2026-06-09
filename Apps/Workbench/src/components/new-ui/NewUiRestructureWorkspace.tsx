@@ -66,7 +66,7 @@ type RestructureMessageRenderItem =
   | { kind: "message"; message: AgentChatMessageSnapshot }
   | { kind: "process_group"; id: string; messages: AgentChatMessageSnapshot[] };
 type RestructureNotePillTone = "neutral" | "success" | "warning" | "danger";
-type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue" | "trace" | "confirm";
+type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue" | "trace" | "confirm" | "rerun";
 type ConfirmedPlanStatusDisplay = { label: string; status: AgentTimelineItem["status"] };
 
 export function NewUiRestructureWorkspace({
@@ -477,6 +477,7 @@ export function NewUiRestructureWorkspace({
                       actionsDisabled={sendingMessage}
                       openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
                       confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
+                      planAlreadyConfirmed={isMessageTurnConfirmed(renderItem.message, conversation)}
                     />
                   ) : null}
                 </Fragment>
@@ -610,6 +611,12 @@ function resolveConfirmedPlanStatusDisplay(status: string | null | undefined): C
   return null;
 }
 
+function isMessageTurnConfirmed(message: AgentChatMessageSnapshot, conversation: AgentChatConversation | null) {
+  const messageTurnId = message.turnId?.trim();
+  const confirmedTurnId = conversation?.confirmedPlan?.turnId?.trim();
+  return Boolean(messageTurnId && confirmedTurnId && messageTurnId === confirmedTurnId);
+}
+
 function useLastKnownContextUsage(usage: AgentTurnTimeline["activity"]["tokenUsage"] | null, scopeKey: string | null) {
   const lastRef = useRef<{ scopeKey: string | null; usage: AgentTurnTimeline["activity"]["tokenUsage"] | null }>({ scopeKey: null, usage: null });
   if (lastRef.current.scopeKey !== scopeKey) {
@@ -665,6 +672,7 @@ function RestructureMessage({
   actionsDisabled = false,
   openingPlanTrace = false,
   confirmingPlan = false,
+  planAlreadyConfirmed = false,
 }: {
   message: AgentChatMessageSnapshot;
   displayText?: string;
@@ -674,6 +682,7 @@ function RestructureMessage({
   actionsDisabled?: boolean;
   openingPlanTrace?: boolean;
   confirmingPlan?: boolean;
+  planAlreadyConfirmed?: boolean;
 }) {
   const renderedText = displayText ?? message.text;
   const isThinking = message.role === "assistant" && message.status === "running" && !hasRenderableAssistantText(renderedText);
@@ -681,6 +690,9 @@ function RestructureMessage({
   const userInputOrigin = resolveUserInputOriginDisplay(message);
   const planTraceDisabled = actionsDisabled || openingPlanTrace || !message.slotAtomDisplay?.displayJsonPath;
   const confirmPlanDisabled = actionsDisabled || confirmingPlan || !isDialogueReviewPassed(message);
+  const confirmPlanActionLabel = planAlreadyConfirmed ? "重跑方案" : "确认方案";
+  const confirmingPlanActionLabel = planAlreadyConfirmed ? "重跑中" : "确认中";
+  const confirmPlanActionTooltip = planAlreadyConfirmed ? "重新触发故事板准备流水线" : "确认当前方案并触发故事板准备流水线";
 
   return (
     <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={isThinking || pseudoStreaming || undefined}>
@@ -725,13 +737,13 @@ function RestructureMessage({
             <RestructureNotePill icon="issue">{message.dialogueRoboticReview.issueCount ?? 0} 项问题</RestructureNotePill>
             {onConfirmPlan && isDialogueReviewPassed(message) ? (
               <RestructureNotePill
-                icon="confirm"
+                icon={planAlreadyConfirmed ? "rerun" : "confirm"}
                 tone="success"
                 onClick={() => void onConfirmPlan(message)}
                 disabled={confirmPlanDisabled}
-                tooltip="确认当前方案并触发故事板准备流水线"
+                tooltip={confirmPlanActionTooltip}
               >
-                {confirmingPlan ? "确认中" : "确认方案"}
+                {confirmingPlan ? confirmingPlanActionLabel : confirmPlanActionLabel}
               </RestructureNotePill>
             ) : null}
           </div>
@@ -841,6 +853,14 @@ function RestructureNotePillIcon({ icon }: { icon: RestructureNotePillIcon }) {
   }
   if (icon === "confirm") {
     return <IconArrowRight aria-hidden="true" focusable="false" />;
+  }
+  if (icon === "rerun") {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+        <path d="M18.3 8.2A7 7 0 1 0 19 13" />
+        <path d="M18.6 4.8v3.8h-3.8" />
+      </svg>
+    );
   }
   if (icon === "check") {
     return (

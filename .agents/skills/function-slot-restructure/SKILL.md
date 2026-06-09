@@ -70,6 +70,7 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 - 品类、产品、受众、痛点、转化目标、平台、语气、证明资产、生产约束
 - 指定槽位链或指定 `slotType`
 - 指定 `slotSubtypeId / slotArchetypeId / implementationBundleId`
+- 多版本生成要求，例如高点击版、高转化版、高节奏版、高质感版，或用户自定义版本目标
 - 前端 Slot/Atom 面板提交的手动替换请求
 - 待校验的脚本、分镜或镜头计划，用于校验和修复
 
@@ -98,22 +99,25 @@ Artifacts/FunctionSlotLibrary/_governance/semantic-governance.v1.json
 2. **读取 FunctionSlotLibrary / 结构库侧**  
    将 `semantic-governance.v1.json` 入口 materialize 成完整治理对象，再把其中的 `slotSubtypes / slotArchetypes / atomPatterns / bindingPatterns / recompositionPolicies / implementationBundles` 映射回 `slot_index.json` 的真实 variants。治理层是选择依据，证据层是来源事实。
 
-3. **规划槽位链**  
+3. **识别多版本生成要求**  
+   仅当 brief 明确要求多版本、多方案或指定高点击版/高转化版/高节奏版/高质感版等版本目标时启用多版本模式，并先读取 `references/multi-version-generation.md` 按专用流程执行。默认单版本不自动扩展。
+
+4. **规划槽位链**  
    根据观众状态路径和当前语料库证据决定需要哪些 `slotType` / `slotSubtype`。不要默认套用某条样例的完整 template，也不要把固定五槽链当默认链路。
 
-4. **定位 source variants**  
+5. **定位 source variants**  
    优先按需求节点匹配 `slotSubtype / slotArchetype`，再落到 `slotType / variant`。可用 evidence 不足时，标记为库覆盖不足，不要伪装成已有支持。
 
-5. **选择实现组合**  
+6. **选择实现组合**  
    为每个槽位选择 script / rhythm / packaging pattern 和具体 atoms。可以混合来源，但必须说明为什么兼容，并说明保留了哪些 proof obligation / chain dependency。
 
-6. **检查 bindings 和 rules**  
+7. **检查 bindings 和 rules**  
    优先检查治理层 `bindingPatterns / bindingPrinciples / rulePatterns / recompositionPolicies`，再回看证据层 bindings/rules。检查同步、依赖、承接、替换、冲突和证明要求。
 
-7. **判断 adapter 风险**  
+8. **判断 adapter 风险**  
    跨样例组合时检查对象、主张、证明、节奏、包装是否断裂。adapter 是本次重组的桥接建议，不写回 FunctionSlotLibrary。
 
-8. **输出方案**  
+9. **输出方案**  
    输出结构方案、脚本段落方案、节奏曲线、包装证明方案、风险和必要替代实现，并保存为 markdown 文件。具体 Shot 设计后置到 `function-slot-shot-design`，在用户认可结构方案后另存独立文件。
 
 ## 手动 Slot/Atom 替换返工
@@ -200,6 +204,8 @@ adapter 只在重组时出现，用来提出桥接要求。
 9. 剩余风险与修复
 10. 必要替代实现
 
+启用多版本模式时，按 `references/multi-version-generation.md` 输出第 `1.1 多版本生成策略` 和逐版本第 2-10 节；不要把多版本当成第 10 节“必要替代实现”。
+
 必须按以上顺序输出。第 5、6、7 节是并行落地视图，不表示先写脚本再派生节奏和包装。Evidence 检索过程不单独成节；第 2 节写链路选择理由，第 3 节只写 atoms 落地；第 4 节只写实际采用的 adapter；第 5 节不要使用“脚本节拍”作为结构单位，也不要写逐字台词；第 6 节必须写结构级 timingBudget，但不展开逐 shot 时间轴；第 7 节必须写清包装证明和字幕层规格。第 8 节进行 binding / rule policy 校验，但不做 shot 级同步校验。brief 不接收预计时长目标。最终方案必须落盘到 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`。Shot 设计不写入该文件，后续由 `function-slot-shot-design` 读取本文件并另存到同一目录 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md`。
 
 ## 方案完成后的聊天回复
@@ -243,6 +249,7 @@ adapter 只在重组时出现，用来提出桥接要求。
 按需读取：
 
 - `references/material-aware-restructure.md`：有 `user-material-pack.stable` 时的专用流程。素材包参与重组时优先读取此文档，不要把素材流程混入普通库侧重组流程。
+- `references/multi-version-generation.md`：brief 明确要求多版本、多方案，或点名高点击版/高转化版/高节奏版/高质感版等版本目标时的专用流程。
 - `references/shot-design-return-to-restructure.md`：ShotDesign 判断当前结构无法落地并声明 `return_to_restructure_required` 时的回重组能力接口。
 - `references/recomposition-workflow.md`：重组工作流。
 - `references/retrieval-and-selection.md`：evidence 检索和适配检查。

@@ -144,6 +144,8 @@ choice claim       -> concrete product/service/action memory point
 
 通过对需求图应用操作符生成多个链路假设。这一步才是重组发生的地方。
 
+如果 brief 明确要求多版本，先读取 `multi-version-generation.md`，再按其中的 `versionProfiles` 和逐版本链路假设规则执行。
+
 不要问：“我该选择哪个策略？”
 
 要问：
@@ -153,6 +155,7 @@ choice claim       -> concrete product/service/action memory point
 3. 哪些节点可以合并而不丢失证明功能？
 4. 哪些节点可以被切片并作为 hook 或 close 复用？
 5. 哪些节点移离源上下文后需要 adapter？
+6. 如果启用多版本，每个版本为了自己的优化目标必须改变哪一层结构，而哪些事实和证明义务必须保持不变？
 
 ### 链路生成操作符
 
@@ -351,7 +354,7 @@ choice close -> concrete memory point
 - 所需证明材料
 - binding checks
 - governance checks：principle / policy
-- 替代版本
+- 多版本策略与逐版本差异，或必要替代实现
 
 ## 步骤 13：标记未满足项
 
