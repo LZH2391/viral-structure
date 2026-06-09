@@ -476,7 +476,8 @@
   }
 }
 
-.new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after {
+.new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after,
+.new-ui-restructure-activity.pseudo-streaming strong::after {
   display: inline-block;
   width: 6px;
   height: 1em;
@@ -553,6 +554,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after,
+  .new-ui-restructure-activity.pseudo-streaming strong::after,
   .new-ui-restructure-thinking-skeleton span::after {
     animation: none;
   }
