@@ -344,6 +344,15 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
     });
     return result;
   } catch (error) {
+    await createFailedStoryboardResultMessage({
+      handlers,
+      conversationId,
+      turnId: payload.turnId,
+      confirmationId,
+      sourceRestructurePath,
+      sourceShotDesignPath,
+      traceContext: stageTraceContext,
+    });
     const safeError = {
       code: error?.code ?? "agent_chat_auto_advance_confirm_failed",
       message: safePreview(error instanceof Error ? error.message : "自动确认方案失败", 240),
@@ -447,6 +456,31 @@ function normalizeNullableNumber(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+async function createFailedStoryboardResultMessage({ handlers, conversationId, turnId, confirmationId, sourceRestructurePath, sourceShotDesignPath, traceContext }) {
+  if (!handlers.agentConversationStore?.createStoryboardResultMessage || !conversationId || !confirmationId) return;
+  await handlers.agentConversationStore.createStoryboardResultMessage({
+    conversationId,
+    turnId,
+    confirmationId,
+    planRevisionKey: buildPlanRevisionKey({
+      conversationId,
+      turnId,
+      sourceRestructurePath,
+      sourceShotDesignPath,
+    }),
+    sourceRestructurePath,
+    sourceShotDesignPath,
+    storyboardArtifact: {
+      artifactId: `storyboard_failed_${confirmationId}`,
+      status: "failed",
+    },
+    status: "storyboard_failed",
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+  }).catch(() => null);
 }
 
 function buildPlanRevisionKey({ conversationId, turnId, sourceRestructurePath, sourceShotDesignPath }) {

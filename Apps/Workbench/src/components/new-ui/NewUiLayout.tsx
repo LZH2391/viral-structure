@@ -908,23 +908,24 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
     setConfirmingPlanMessageId(message.id);
     const confirmationId = buildConfirmationId(currentTurnId);
+    const confirmWithRevision = async (
+      payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
+      expectedRevision: number | null,
+    ) => {
+      try {
+        return await confirmAgentChatConversation(conversation.conversationId, { ...payload, expectedRevision });
+      } catch (error) {
+        if (!isConversationConflictError(error)) throw error;
+        const conversations = await refreshRestructureConversations(conversation.conversationId);
+        const synced = conversations.find((item) => item.conversationId === conversation.conversationId);
+        return await confirmAgentChatConversation(conversation.conversationId, {
+          ...payload,
+          expectedRevision: normalizeConversationRevision(synced?.revision),
+        });
+      }
+    };
+    let gateRevision: number | null = normalizeConversationRevision(conversation.revision);
     try {
-      const confirmWithRevision = async (
-        payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
-        expectedRevision: number | null,
-      ) => {
-        try {
-          return await confirmAgentChatConversation(conversation.conversationId, { ...payload, expectedRevision });
-        } catch (error) {
-          if (!isConversationConflictError(error)) throw error;
-          const conversations = await refreshRestructureConversations(conversation.conversationId);
-          const synced = conversations.find((item) => item.conversationId === conversation.conversationId);
-          return await confirmAgentChatConversation(conversation.conversationId, {
-            ...payload,
-            expectedRevision: normalizeConversationRevision(synced?.revision),
-          });
-        }
-      };
       const gate = await confirmWithRevision(
         {
           turnId: currentTurnId,
@@ -935,6 +936,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         },
         normalizeConversationRevision(conversation.revision),
       );
+      gateRevision = normalizeConversationRevision(gate?.conversation.revision);
       const storyboardResult = await autoRunShotStoryboardPrep({
         sampleVideoId: "function-slot-workflow",
         restructureFinalPath: sourceRestructurePath,
@@ -965,11 +967,19 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           storyboardArtifact,
           status: storyboardStatus,
         },
-        normalizeConversationRevision(gate?.conversation.revision),
+        gateRevision,
       );
       clearRestructureConversationError(conversation.conversationId);
       await refreshRestructureConversations(conversation.conversationId);
     } catch (error) {
+      await recordFailedStoryboardResultMessage({
+        confirmWithRevision,
+        turnId: currentTurnId,
+        confirmationId,
+        sourceRestructurePath,
+        sourceShotDesignPath,
+        expectedRevision: gateRevision,
+      });
       markRestructureConversationError(conversation.conversationId, error);
     } finally {
       setConfirmingPlanMessageId(null);
@@ -1966,6 +1976,41 @@ function resolveCurrentShotDesignFinalPath(
     if (path) return path;
   }
   return normalizeShotDesignFinalPath(conversation?.confirmedPlan?.sourceShotDesignPath);
+}
+
+async function recordFailedStoryboardResultMessage({
+  confirmWithRevision,
+  turnId,
+  confirmationId,
+  sourceRestructurePath,
+  sourceShotDesignPath,
+  expectedRevision,
+}: {
+  confirmWithRevision: (
+    payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
+    expectedRevision: number | null,
+  ) => Promise<Awaited<ReturnType<typeof confirmAgentChatConversation>>>;
+  turnId: string | null;
+  confirmationId: string;
+  sourceRestructurePath: string;
+  sourceShotDesignPath: string | null;
+  expectedRevision: number | null;
+}) {
+  await confirmWithRevision(
+    {
+      turnId,
+      confirmationId,
+      sourceRestructurePath,
+      sourceShotDesignPath,
+      note: "故事板准备失败。",
+      storyboardArtifact: {
+        artifactId: `storyboard_failed_${confirmationId}`,
+        status: "failed",
+      },
+      status: "storyboard_failed",
+    },
+    expectedRevision,
+  ).catch(() => null);
 }
 
 function buildAutoAdvanceSubmissionKey(conversation: AgentChatConversation, display: AgentChatSlotAtomDisplay) {

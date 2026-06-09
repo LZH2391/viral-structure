@@ -660,6 +660,19 @@ function createShotStoryboardAutoPipelineService({
     });
   }
 
+  async function updateStoryboardResultMessage({ conversationId, confirmationId, storyboardArtifact, status, traceContext }) {
+    if (!agentConversationStore?.updateStoryboardResultMessage) return;
+    await agentConversationStore.updateStoryboardResultMessage({
+      conversationId,
+      confirmationId,
+      storyboardArtifact,
+      status,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }).catch(() => null);
+  }
+
   return { enqueue };
 }
 
@@ -692,19 +705,6 @@ function isCurrentStoryboardConfirmation(conversation, { confirmationId, turnId 
     && normalizeText(confirmed.confirmationId) === expectedConfirmationId
     && normalizeText(confirmed.turnId) === expectedTurnId
   );
-}
-
-async function updateStoryboardResultMessage({ conversationId, confirmationId, storyboardArtifact, status, traceContext }) {
-  if (!agentConversationStore?.updateStoryboardResultMessage) return;
-  await agentConversationStore.updateStoryboardResultMessage({
-    conversationId,
-    confirmationId,
-    storyboardArtifact,
-    status,
-    traceId: traceContext.traceId,
-    runId: traceContext.runId,
-    stageId: traceContext.stageId,
-  }).catch(() => null);
 }
 
 module.exports = {
