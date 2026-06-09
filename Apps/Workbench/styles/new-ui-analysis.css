@@ -2567,6 +2567,100 @@
   color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-failed) 84%, var(--new-ui-text));
 }
 
+.new-ui-turn-scope {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-ui-turn-scope-toggle {
+  display: grid;
+  grid-template-columns: 18px auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 72%, var(--new-ui-surface));
+  color: var(--new-ui-text-muted);
+  text-align: left;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--new-ui-text) 5%, transparent);
+  cursor: pointer;
+}
+
+.new-ui-turn-scope-toggle:hover,
+.new-ui-turn-scope-toggle:focus-visible,
+.new-ui-turn-scope.is-expanded .new-ui-turn-scope-toggle {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 42%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 8%, var(--new-ui-control-bg));
+}
+
+.new-ui-turn-scope-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 50%, transparent);
+  outline-offset: 2px;
+}
+
+.new-ui-turn-scope-chevron {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: color-mix(in srgb, var(--new-ui-text) 62%, var(--new-ui-text-muted));
+  transition: transform var(--new-ui-pane-transition-duration) ease;
+}
+
+.new-ui-turn-scope.is-expanded .new-ui-turn-scope-chevron {
+  transform: rotate(90deg);
+}
+
+.new-ui-turn-scope-chevron svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.new-ui-turn-scope-chevron path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-turn-scope-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.new-ui-turn-scope-main strong,
+.new-ui-turn-scope-main span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-turn-scope-main strong {
+  color: color-mix(in srgb, var(--new-ui-text) 84%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.new-ui-turn-scope-main span {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xxs);
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.new-ui-turn-scope-body {
+  min-width: 0;
+}
+
 .new-ui-analysis-workflow-trace-list {
   position: relative;
   display: grid;

@@ -20,6 +20,7 @@ export function NewUiTurnTimelinePanel({ target }: NewUiTurnTimelinePanelProps) 
   const [timeline, setTimeline] = useState<AgentTurnTimeline | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timelineReveal, setTimelineReveal] = useState<{ key: string; visible: boolean }>({ key: "", visible: false });
+  const [expandedByScope, setExpandedByScope] = useState<Record<string, boolean>>({});
   const threadId = target?.threadId ?? null;
   const turnId = target?.turnId ?? null;
   const workspaceRoot = target?.workspaceRoot ?? null;
@@ -27,6 +28,7 @@ export function NewUiTurnTimelinePanel({ target }: NewUiTurnTimelinePanelProps) 
   const targetPending = Boolean(target?.pending);
   const targetKey = threadId && turnId ? `${threadId}:${turnId}:${workspaceRoot ?? ""}` : "";
   const activity = timeline?.activity ?? null;
+  const timelineExpanded = targetKey ? expandedByScope[targetKey] ?? targetRunning : false;
 
   useEffect(() => {
     setTimeline(null);
@@ -89,9 +91,15 @@ export function NewUiTurnTimelinePanel({ target }: NewUiTurnTimelinePanelProps) 
           ) : null}
           {error ? <div className="new-ui-analysis-workflow-detail-empty">{error}</div> : null}
           {timeline.items?.length ? (
-            <div className="new-ui-analysis-workflow-trace-list">
-              {timeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
-            </div>
+            <TimelineTurnScope
+              expanded={timelineExpanded}
+              timeline={timeline}
+              running={targetRunning}
+              onToggle={() => {
+                if (!targetKey) return;
+                setExpandedByScope((current) => ({ ...current, [targetKey]: !(current[targetKey] ?? targetRunning) }));
+              }}
+            />
           ) : (
             <div className="new-ui-analysis-workflow-detail-empty">正在读取运行追踪。</div>
           )}
@@ -102,6 +110,51 @@ export function NewUiTurnTimelinePanel({ target }: NewUiTurnTimelinePanelProps) 
         </div>
       )}
     </div>
+  );
+}
+
+function TimelineTurnScope({
+  expanded,
+  timeline,
+  running,
+  onToggle,
+}: {
+  expanded: boolean;
+  timeline: AgentTurnTimeline;
+  running: boolean;
+  onToggle: () => void;
+}) {
+  const panelId = `new-ui-turn-timeline-${sanitizeDomId(timeline.threadId)}-${sanitizeDomId(timeline.turnId)}`;
+  const summary = buildTurnScopeSummary(timeline);
+
+  return (
+    <section className={`new-ui-turn-scope ${expanded ? "is-expanded" : ""} ${running ? "is-running" : ""}`.trim()} aria-label="Turn 运行追踪">
+      <button
+        className="new-ui-turn-scope-toggle"
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={onToggle}
+      >
+        <span className="new-ui-turn-scope-chevron" aria-hidden="true">
+          <ChevronGlyph />
+        </span>
+        <span className={`new-ui-analysis-workflow-trace-state is-${normalizeTurnStatus(timeline.status, running)}`}>
+          {renderTurnStatus(timeline.status, running)}
+        </span>
+        <span className="new-ui-turn-scope-main">
+          <strong>{formatTurnScopeTitle(timeline.turnId)}</strong>
+          <span>{summary}</span>
+        </span>
+      </button>
+      {expanded ? (
+        <div id={panelId} className="new-ui-turn-scope-body">
+          <div className="new-ui-analysis-workflow-trace-list">
+            {timeline.items.map((item) => <TimelineRow key={`${item.id}_${item.index}`} item={item} />)}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -145,6 +198,55 @@ function renderKind(kind: AgentTimelineItem["kind"]) {
   return labels[kind] ?? kind;
 }
 
+function buildTurnScopeSummary(timeline: AgentTurnTimeline) {
+  const count = timeline.items.length;
+  const latest = timeline.activity?.latestToolName ? ` / ${timeline.activity.latestToolName}` : "";
+  const tokens = timeline.activity?.tokenUsage?.totalTokens != null ? ` / tokens ${formatNumber(timeline.activity.tokenUsage.totalTokens)}` : "";
+  return `${count} items${latest}${tokens}`;
+}
+
+function formatTurnScopeTitle(turnId: string) {
+  return `turn ${shortId(turnId)}`;
+}
+
+function shortId(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "无";
+  return trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed;
+}
+
+function normalizeTurnStatus(status: string | null | undefined, running: boolean) {
+  if (running) return "running";
+  const normalized = String(status ?? "").toLowerCase();
+  if (["completed", "complete", "processed", "done", "success", "succeeded"].includes(normalized)) return "completed";
+  if (["failed", "error", "cancelled", "canceled"].includes(normalized)) return "failed";
+  if (["running", "pending", "processing", "queued", "waiting"].includes(normalized)) return "running";
+  return "unknown";
+}
+
+function renderTurnStatus(status: string | null | undefined, running: boolean) {
+  const normalized = normalizeTurnStatus(status, running);
+  const labels: Record<string, string> = {
+    running: "运行中",
+    completed: "完成",
+    failed: "失败",
+    unknown: "未知",
+  };
+  return labels[normalized] ?? normalized;
+}
+
+function sanitizeDomId(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "-") || "unknown";
+}
+
+function ChevronGlyph() {
+  return (
+    <svg viewBox="0 0 18 18" focusable="false" aria-hidden="true">
+      <path d="m6.2 3.8 5 5.2-5 5.2" />
+    </svg>
+  );
+}
+
 function formatTime(value?: string | null) {
   if (!value) return "--:--:--";
   const date = new Date(value);
@@ -156,4 +258,10 @@ function formatDuration(value: number) {
   if (!Number.isFinite(value)) return "";
   if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
   return `${Math.round(value)}ms`;
+}
+
+function formatNumber(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return String(value);
 }

@@ -46,7 +46,6 @@ const NEW_UI_SECTIONS: NewUiSection[] = [
 
 const NEW_UI_THREE_PANE_STORAGE_KEY = "new-ui:three-pane-layout";
 const RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY = "new-ui:restructure-conversation-errors";
-const RESTRUCTURE_SEND_RETRY_HINT = "请开启新对话";
 const ANALYSIS_WORKFLOW_MOUNT_DELAY_MS = 280;
 const PANE_TRANSITION_GUARD_MS = 420;
 const LEFT_PANE_ANIMATION_MS = 280;
@@ -252,6 +251,23 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         ...current,
         [conversationId]: formatRestructureConversationError(error),
       };
+      writeStoredRestructureConversationErrors(next);
+      return next;
+    });
+  }, []);
+
+  const clearLoadedRestructureConversationErrors = useCallback((conversations: AgentChatConversation[]) => {
+    const loadedIds = new Set(conversations.map((conversation) => conversation.conversationId).filter(Boolean));
+    if (!loadedIds.size) return;
+    setRestructureConversationErrors((current) => {
+      let changed = false;
+      const next = { ...current };
+      loadedIds.forEach((conversationId) => {
+        if (!next[conversationId]) return;
+        delete next[conversationId];
+        changed = true;
+      });
+      if (!changed) return current;
       writeStoredRestructureConversationErrors(next);
       return next;
     });
@@ -611,6 +627,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active", limit: currentLoadedCount, offset: 0 });
     const conversations = payload.conversations ?? [];
     setRestructureConversations(conversations);
+    clearLoadedRestructureConversationErrors(conversations);
     setRestructureConversationsHasMore(Boolean(payload.hasMore));
     const preferredExists = Boolean(preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId));
     const currentActiveId = activeRestructureConversationIdRef.current;
@@ -626,7 +643,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     activeRestructureConversationIdRef.current = nextActiveId;
     setActiveRestructureConversationId(nextActiveId);
     return conversations;
-  }, [restructureConversations.length]);
+  }, [clearLoadedRestructureConversationErrors, restructureConversations.length]);
 
   const handleLoadMoreRestructureConversations = useCallback(async () => {
     if (loadingRestructureConversations || loadingMoreRestructureConversations || !restructureConversationsHasMore) return;
@@ -827,6 +844,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           ? {
               ...current,
               conversationId: nextConversationId,
+              userMessage: {
+                ...current.userMessage,
+                turnId: submitted.turnId,
+                updatedAt: new Date().toISOString(),
+              },
               message: {
                 ...current.message,
                 turnId: submitted.turnId,
@@ -923,7 +945,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               conversationId: nextConversationId,
               userMessage: {
                 ...current.userMessage,
+                turnId: submitted.turnId,
                 text: submitted.userTurnText ?? current.userMessage.text,
+                updatedAt: new Date().toISOString(),
               },
               message: {
                 ...current.message,
@@ -969,6 +993,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         if (cancelled) return;
         const conversations = payload.conversations ?? [];
         setRestructureConversations(conversations);
+        clearLoadedRestructureConversationErrors(conversations);
         setRestructureConversationsHasMore(Boolean(payload.hasMore));
         const currentActiveId = activeRestructureConversationIdRef.current;
         if (currentActiveId && conversations.some((conversation) => conversation.conversationId === currentActiveId)) return;
@@ -989,7 +1014,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, clearLoadedRestructureConversationErrors]);
 
   useEffect(() => {
     return () => {
@@ -1723,7 +1748,7 @@ function readStoredRestructureConversationErrors() {
     return Object.fromEntries(
       Object.entries(parsed)
         .filter(([key, value]) => key.trim() && typeof value === "string" && value.trim())
-        .map(([key, value]) => [key, appendRestructureSendRetryHint(String(value))]),
+        .map(([key, value]) => [key, normalizeRestructureSendError(String(value))]),
     );
   } catch {
     return {};
@@ -1734,7 +1759,7 @@ function writeStoredRestructureConversationErrors(errors: Record<string, string>
   try {
     const entries = Object.entries(errors)
       .filter(([key, value]) => key.trim() && value.trim())
-      .map(([key, value]) => [key, appendRestructureSendRetryHint(value)]);
+      .map(([key, value]) => [key, normalizeRestructureSendError(value)]);
     if (!entries.length) {
       window.localStorage.removeItem(RESTRUCTURE_CONVERSATION_ERROR_STORAGE_KEY);
       return;
@@ -1746,13 +1771,13 @@ function writeStoredRestructureConversationErrors(errors: Record<string, string>
 }
 
 function formatRestructureConversationError(error: unknown) {
-  if (error instanceof Error && error.message.trim()) return appendRestructureSendRetryHint(error.message.trim());
-  return appendRestructureSendRetryHint("发送失败，请稍后重试");
+  if (error instanceof Error && error.message.trim()) return normalizeRestructureSendError(error.message.trim());
+  return "发送失败，请稍后重试";
 }
 
-function appendRestructureSendRetryHint(message: string) {
+function normalizeRestructureSendError(message: string) {
   const trimmed = message.trim() || "发送失败，请稍后重试";
-  return trimmed.includes(RESTRUCTURE_SEND_RETRY_HINT) ? trimmed : `${trimmed}。${RESTRUCTURE_SEND_RETRY_HINT}`;
+  return trimmed.replace(/[。.\s]*请开启新对话\s*$/, "") || "发送失败，请稍后重试";
 }
 
 function NewConversationIcon() {
