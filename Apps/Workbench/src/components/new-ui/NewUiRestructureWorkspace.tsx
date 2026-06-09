@@ -138,6 +138,8 @@ export function NewUiRestructureWorkspace({
 
   useEffect(() => {
     setSendError(null);
+    setTimelineActivityExpandedByScope({});
+    setProcessMessageExpandedByScope({});
     shouldStickToBottomRef.current = true;
   }, [conversation?.conversationId, draftingConversation]);
 
@@ -715,7 +717,7 @@ function hasTerminalAssistantMessageForProcessGroup(
   messages: AgentChatMessageSnapshot[],
 ) {
   const turnIds = new Set(renderItem.messages.map((message) => message.turnId).filter(Boolean));
-  if (!turnIds.size) return false;
+  if (!turnIds.size) return true;
   return messages.some((message) => (
     message.role === "assistant"
     && Boolean(message.turnId && turnIds.has(message.turnId))
@@ -886,6 +888,7 @@ function RestructureTimelineItemGroup({
                 item={item}
                 displayText={getDisplayText(item)}
                 pseudoStreaming={isPseudoStreaming(item)}
+                highlight={running && item.kind !== "agent_message" && item.id === latestActivity?.id}
               />
             ))}
           </div>
@@ -895,7 +898,7 @@ function RestructureTimelineItemGroup({
   );
 }
 
-function RestructureTimelineItem({ item, displayText, pseudoStreaming = false }: { item: RestructureTimelineDisplayItem; displayText?: string; pseudoStreaming?: boolean }) {
+function RestructureTimelineItem({ item, displayText, pseudoStreaming = false, highlight = false }: { item: RestructureTimelineDisplayItem; displayText?: string; pseudoStreaming?: boolean; highlight?: boolean }) {
   if (item.kind === "agent_message") {
     const text = displayText ?? item.text;
     const running = isTimelineItemRunning(item.status);
@@ -912,12 +915,13 @@ function RestructureTimelineItem({ item, displayText, pseudoStreaming = false }:
 
   const running = isTimelineItemRunning(item.status);
   const detailText = displayText ?? item.detail;
+  const thinking = running || pseudoStreaming || highlight;
   return (
-    <article className={`new-ui-restructure-activity is-${item.kind} ${item.status ?? ""}`.trim()} aria-busy={running || pseudoStreaming || undefined}>
+    <article className={`new-ui-restructure-activity is-${item.kind} ${item.status ?? ""}`.trim()} aria-busy={thinking || undefined}>
       <span className="new-ui-restructure-activity-icon" aria-hidden="true">
         <RestructureTimelineIcon kind={item.kind} />
       </span>
-      <p className={running || pseudoStreaming ? "is-thinking-text" : undefined}>
+      <p className={thinking ? "is-thinking-text" : undefined}>
         <span>{item.label}</span>
         {detailText ? <strong>{detailText}</strong> : null}
       </p>
