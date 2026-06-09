@@ -61,7 +61,23 @@ function shouldHydrateSlotAtomDisplay(display) {
   if (!display || typeof display !== "object") return false;
   if (!display.displayJsonPath) return false;
   const slots = Array.isArray(display.slots) ? display.slots : [];
-  return slots.length === 0 || Number(display.slotCount ?? 0) === 0;
+  return slots.length === 0 || Number(display.slotCount ?? 0) === 0 || hasBareAtomReferences(display);
+}
+
+function hasBareAtomReferences(display) {
+  const atoms = Array.isArray(display.atoms) ? display.atoms : [];
+  return atoms.some((atom) => (
+    isBareAtomReference(atom?.scriptAtom, "script")
+    || isBareAtomReference(atom?.rhythmAtom, "rhythm")
+    || isBareAtomReference(atom?.packagingAtom, "packaging")
+  ));
+}
+
+function isBareAtomReference(value, atomKind) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  const escapedKind = atomKind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("^`?[^`]+::" + escapedKind + "::[^`]+`?$", "i").test(text);
 }
 
 function resolveWorkspacePath(rootDir, relativePath) {
@@ -162,9 +178,9 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
       slotSubtype,
       slotSubtypeId: extractBacktickId(slotSubtype),
       source: rowValue(row, ["来源"]),
-      scriptAtom: rowValueContains(row, "script atom"),
-      rhythmAtom: rowValueContains(row, "rhythm atom"),
-      packagingAtom: rowValueContains(row, "packaging atom"),
+      scriptAtom: rowAtomLandingValue(row, "script"),
+      rhythmAtom: rowAtomLandingValue(row, "rhythm"),
+      packagingAtom: rowAtomLandingValue(row, "packaging"),
       handling: rowValue(row, ["atom 处理", "处理"]),
     };
   });
@@ -218,6 +234,29 @@ function rowValueContains(row, needle) {
   const normalizedNeedle = normalizeKey(needle);
   const found = Object.entries(row ?? {}).find(([key]) => normalizeKey(key).includes(normalizedNeedle));
   return found ? String(found[1]) : "";
+}
+
+function rowAtomLandingValue(row, atomKind) {
+  const entries = Object.entries(row ?? {});
+  const kindNeedles = atomKindNeedles(atomKind).map(normalizeKey);
+  const landingNeedles = ["本方案落地", "本方案节奏落地", "本方案证明包装落地", "落地为", "落地"].map(normalizeKey);
+  const preferred = entries.find(([key]) => {
+    const normalizedKey = normalizeKey(key);
+    return kindNeedles.some((needle) => normalizedKey.includes(needle))
+      && landingNeedles.some((needle) => normalizedKey.includes(needle));
+  });
+  if (preferred) return String(preferred[1]);
+  const fallback = entries.find(([key]) => {
+    const normalizedKey = normalizeKey(key);
+    return kindNeedles.some((needle) => normalizedKey.includes(needle));
+  });
+  return fallback ? String(fallback[1]) : "";
+}
+
+function atomKindNeedles(atomKind) {
+  if (atomKind === "script") return ["script atom", "scriptAtom", "脚本原子", "脚本"];
+  if (atomKind === "rhythm") return ["rhythm atom", "rhythmAtom", "节奏原子", "节奏"];
+  return ["packaging atom", "packagingAtom", "包装原子", "包装"];
 }
 
 function normalizeKey(value) {

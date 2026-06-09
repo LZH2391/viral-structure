@@ -5,6 +5,7 @@
     "test": "node Tests/run-tests.js"
   },
   "dependencies": {
+    "@tabler/icons-react": "^3.44.0",
     "@types/d3-force": "^3.0.10",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

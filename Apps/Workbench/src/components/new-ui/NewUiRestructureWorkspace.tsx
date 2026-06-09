@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type KeyboardEvent, type MutableRefObject, type ReactNode, type SetStateAction } from "react";
+import { IconAtom } from "@tabler/icons-react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 
@@ -612,14 +613,7 @@ function RestructureNotePillIcon({ icon }: { icon: RestructureNotePillIcon }) {
     );
   }
   if (icon === "atom") {
-    return (
-      <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
-        <path d="M6 6.2 14 13.8M14 6.2 6 13.8" />
-        <circle cx="6" cy="6" r="2.1" />
-        <circle cx="14" cy="6" r="2.1" />
-        <circle cx="10" cy="14" r="2.1" />
-      </svg>
-    );
+    return <IconAtom aria-hidden="true" focusable="false" />;
   }
   if (icon === "check") {
     return (
