@@ -1,11 +1,18 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type KeyboardEvent, type MutableRefObject, type ReactNode, type SetStateAction } from "react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
-import type { NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
 const PSEUDO_STREAM_MAX_DURATION_MS = 4000;
 const RESTRUCTURE_TIMELINE_SETTLED_POLL_COUNT = 3;
+
+export type NewUiTurnTimelineTarget = {
+  threadId?: string | null;
+  turnId?: string | null;
+  workspaceRoot?: string | null;
+  running?: boolean;
+  pending?: boolean;
+};
 
 type NewUiRestructureWorkspaceProps = {
   conversation: AgentChatConversation | null;
@@ -42,6 +49,9 @@ type RestructureTimelineDisplayItem = RestructureTimelineActivityItem | Restruct
 type RestructureTimelineStreamableItem =
   | (RestructureTimelineActivityItem & { detail: string })
   | RestructureTimelineAgentMessageItem;
+type RestructureMessageRenderItem =
+  | { kind: "message"; message: AgentChatMessageSnapshot }
+  | { kind: "process_group"; id: string; messages: AgentChatMessageSnapshot[] };
 type RestructureNotePillTone = "neutral" | "success" | "warning" | "danger";
 type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue";
 
@@ -63,6 +73,7 @@ export function NewUiRestructureWorkspace({
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [timelineActivityExpandedByScope, setTimelineActivityExpandedByScope] = useState<Record<string, boolean>>({});
+  const [processMessageExpandedByScope, setProcessMessageExpandedByScope] = useState<Record<string, boolean>>({});
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const timeline = useRestructureTurnTimeline(activeTurnTarget);
@@ -76,19 +87,26 @@ export function NewUiRestructureWorkspace({
   const timelineConversationAssistantMessage = timelineTurnId
     ? messages.find((message) => message.role === "assistant" && message.turnId === timelineTurnId) ?? null
     : null;
-  const terminalAssistantText = timelineConversationAssistantMessage && !isThinkingStatus(timelineConversationAssistantMessage.status)
+  const timelineFinalMessageText = timelineConversationAssistantMessage && !isThinkingStatus(timelineConversationAssistantMessage.status)
     ? normalizeTimelineText(timelineConversationAssistantMessage.text)
     : null;
-  const timelineDisplayItems = rawTimelineDisplayItems.filter((item) => (
-    item.kind !== "agent_message"
-    || !terminalAssistantText
-    || normalizeTimelineText(item.text) !== terminalAssistantText
-  ));
+  const timelineDisplayItems = timelineFinalMessageText
+    ? rawTimelineDisplayItems.filter((item) => (
+        item.kind !== "agent_message"
+        || normalizeTimelineText(item.text) !== timelineFinalMessageText
+      ))
+    : rawTimelineDisplayItems;
   const timelineInsertMessageId = timelineConversationAssistantMessage?.id ?? null;
   const timelineItemsAfterMessages = timelineInsertMessageId ? [] : timelineDisplayItems;
-  const timelineHasAgentMessages = timelineDisplayItems.some((item) => item.kind === "agent_message");
+  const timelineHasAgentMessages = rawTimelineDisplayItems.some((item) => item.kind === "agent_message");
   const timelineScopeKey = timelineTurnId ? `${timeline?.threadId ?? activeTurnTarget?.threadId ?? ""}:${timelineTurnId}` : null;
-  const timelineActivityExpanded = timelineScopeKey ? timelineActivityExpandedByScope[timelineScopeKey] ?? false : false;
+  const timelineTurnHasFinalMessage = Boolean(timelineConversationAssistantMessage && !isThinkingStatus(timelineConversationAssistantMessage.status));
+  const timelineActivityDefaultExpanded = Boolean(timelineTurnId && !timelineTurnHasFinalMessage);
+  const timelineActivityExpanded = timelineScopeKey ? timelineActivityExpandedByScope[timelineScopeKey] ?? timelineActivityDefaultExpanded : false;
+  const messageRenderItems = buildRestructureMessageRenderItems(
+    messages,
+    timelineTurnId && timelineDisplayItems.length ? timelineTurnId : null,
+  );
   const visiblePendingUserMessage = pendingUserMessage && !hasRealUserMessageForPending(pendingUserMessage, messages)
     ? pendingUserMessage
     : null;
@@ -298,9 +316,9 @@ export function NewUiRestructureWorkspace({
                 shouldStickToBottomRef.current = isNearScrollBottom(event.currentTarget);
               }}
             >
-              {messages.map((message) => (
-                <Fragment key={message.id}>
-                  {message.id === timelineInsertMessageId ? (
+              {messageRenderItems.map((renderItem) => (
+                <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
+                  {shouldInsertTimelineBeforeRenderItem(renderItem, timelineInsertMessageId) ? (
                     <RestructureTimelineItemGroup
                       items={timelineDisplayItems}
                       scopeKey={timelineScopeKey}
@@ -310,15 +328,24 @@ export function NewUiRestructureWorkspace({
                       isPseudoStreaming={isTimelinePseudoStreaming}
                       onToggle={() => {
                         if (!timelineScopeKey) return;
-                        setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? false) }));
+                        setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
                       }}
                     />
                   ) : null}
-                  {shouldRenderConversationMessage(message, { timelineTurnId, timelineHasAgentMessages }) ? (
+                  {renderItem.kind === "process_group" ? (
+                    <RestructureProcessMessageGroup
+                      group={renderItem}
+                      expanded={processMessageExpandedByScope[renderItem.id] ?? !hasTerminalAssistantMessageForProcessGroup(renderItem, messages)}
+                      onToggle={() => {
+                        const defaultExpanded = !hasTerminalAssistantMessageForProcessGroup(renderItem, messages);
+                        setProcessMessageExpandedByScope((current) => ({ ...current, [renderItem.id]: !(current[renderItem.id] ?? defaultExpanded) }));
+                      }}
+                    />
+                  ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
                     <RestructureMessage
-                      message={message}
-                      displayText={getDisplayText(message)}
-                      pseudoStreaming={isPseudoStreaming(message)}
+                      message={renderItem.message}
+                      displayText={getDisplayText(renderItem.message)}
+                      pseudoStreaming={isPseudoStreaming(renderItem.message)}
                     />
                   ) : null}
                 </Fragment>
@@ -332,7 +359,7 @@ export function NewUiRestructureWorkspace({
                 isPseudoStreaming={isTimelinePseudoStreaming}
                 onToggle={() => {
                   if (!timelineScopeKey) return;
-                  setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? false) }));
+                  setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
                 }}
               />
               {visiblePendingUserMessage ? <RestructureMessage message={visiblePendingUserMessage} /> : null}
@@ -464,11 +491,19 @@ function RestructureMessage({ message, displayText, pseudoStreaming = false }: {
   const renderedText = displayText ?? message.text;
   const isThinking = message.role === "assistant" && message.status === "running" && !hasRenderableAssistantText(renderedText);
   const showDetails = !isThinking && !pseudoStreaming;
+  const userInputOrigin = resolveUserInputOriginDisplay(message);
 
   return (
     <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={isThinking || pseudoStreaming || undefined}>
       <div className="new-ui-restructure-message-body">
         <p className={isThinking ? "is-thinking-text" : undefined}>{isThinking ? "正在思考" : renderedText}</p>
+        {showDetails && userInputOrigin ? (
+          <div className="new-ui-restructure-message-note">
+            <RestructureNotePill icon={userInputOrigin.icon} tone={userInputOrigin.tone} tooltip={userInputOrigin.tooltip}>
+              {userInputOrigin.label}
+            </RestructureNotePill>
+          </div>
+        ) : null}
         {showDetails && message.slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
             <RestructureNotePill icon="slot">槽位 {message.slotAtomDisplay.slotCount ?? 0}</RestructureNotePill>
@@ -496,17 +531,70 @@ function RestructureMessage({ message, displayText, pseudoStreaming = false }: {
   );
 }
 
+function RestructureProcessMessageGroup({
+  group,
+  expanded,
+  onToggle,
+}: {
+  group: Extract<RestructureMessageRenderItem, { kind: "process_group" }>;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const panelId = `new-ui-restructure-process-${sanitizeDomId(group.id)}`;
+  return (
+    <section className={`new-ui-restructure-activity-group ${expanded ? "is-expanded" : ""}`.trim()} aria-label="过程">
+      <button
+        className="new-ui-restructure-activity-toggle"
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={onToggle}
+      >
+        <span className="new-ui-restructure-activity-chevron" aria-hidden="true">
+          <ChevronGlyph />
+        </span>
+        <span className="new-ui-restructure-activity-summary">
+          <span>{expanded ? "收起过程" : "显示过程"}</span>
+        </span>
+      </button>
+      <div id={panelId} className="new-ui-restructure-activity-group-body" aria-hidden={!expanded}>
+        {group.messages.map((message) => (
+          <article key={message.id} className="new-ui-restructure-activity is-process-message">
+            <span className="new-ui-restructure-activity-icon" aria-hidden="true">
+              <ProcessMessageIcon message={message} />
+            </span>
+            <p>
+              <span>{formatProcessMessageLabel(message)}</span>
+              <strong>{formatProcessMessageDetail(message)}</strong>
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProcessMessageIcon({ message }: { message: AgentChatMessageSnapshot }) {
+  const kind = resolveProcessMessageKind(message);
+  if (kind === "tool_call") {
+    return <RestructureTimelineIcon kind="tool_call" />;
+  }
+  return <RestructureTimelineIcon kind="reasoning" />;
+}
+
 function RestructureNotePill({
   children,
   icon,
   tone = "neutral",
+  tooltip,
 }: {
   children: ReactNode;
   icon: RestructureNotePillIcon;
   tone?: RestructureNotePillTone;
+  tooltip?: string | null;
 }) {
   return (
-    <span className={`new-ui-restructure-note-pill is-${tone}`}>
+    <span className={`new-ui-restructure-note-pill is-${tone}`} data-tooltip={tooltip || undefined} tabIndex={tooltip ? 0 : undefined}>
       <RestructureNotePillIcon icon={icon} />
       <span>{children}</span>
     </span>
@@ -569,6 +657,125 @@ function hasRenderableAssistantText(text: string | null | undefined) {
   return !["正在思考", "正在评估替换", "生成中"].includes(normalized);
 }
 
+function resolveUserInputOriginDisplay(message: AgentChatMessageSnapshot) {
+  if (message.role !== "user") return null;
+  const origin = String(message.userInputOrigin ?? "").trim();
+  if (origin === "manual_replacement") {
+    return {
+      label: "替换评估",
+      tooltip: "这条输入来自右侧 Slot/Atom 替换面板，已提交给 Agent 做替换影响评估和重组。",
+      icon: "rework" as const,
+      tone: "warning" as const,
+    };
+  }
+  if (origin === "auto_dialogue_rework") {
+    return {
+      label: "台词返工",
+      tooltip: "这条输入由台词审查结果自动触发，用于让 Agent 按审查问题继续返工台词。",
+      icon: "review" as const,
+      tone: "warning" as const,
+    };
+  }
+  return null;
+}
+
+function buildRestructureMessageRenderItems(messages: AgentChatMessageSnapshot[], timelineTurnId: string | null): RestructureMessageRenderItem[] {
+  const result: RestructureMessageRenderItem[] = [];
+  let pendingProcessMessages: AgentChatMessageSnapshot[] = [];
+  const flushProcessMessages = () => {
+    if (!pendingProcessMessages.length) return;
+    result.push({
+      kind: "process_group",
+      id: createProcessMessageGroupId(pendingProcessMessages),
+      messages: dedupeProcessMessages(pendingProcessMessages),
+    });
+    pendingProcessMessages = [];
+  };
+
+  messages.forEach((message) => {
+    if (isProcessOnlyAssistantMessage(message, timelineTurnId)) {
+      pendingProcessMessages.push(message);
+      return;
+    }
+    flushProcessMessages();
+    result.push({ kind: "message", message });
+  });
+  flushProcessMessages();
+  return result;
+}
+
+function shouldInsertTimelineBeforeRenderItem(renderItem: RestructureMessageRenderItem, timelineInsertMessageId: string | null) {
+  if (!timelineInsertMessageId) return false;
+  if (renderItem.kind === "message") return renderItem.message.id === timelineInsertMessageId;
+  return renderItem.messages.some((message) => message.id === timelineInsertMessageId);
+}
+
+function hasTerminalAssistantMessageForProcessGroup(
+  renderItem: Extract<RestructureMessageRenderItem, { kind: "process_group" }>,
+  messages: AgentChatMessageSnapshot[],
+) {
+  const turnIds = new Set(renderItem.messages.map((message) => message.turnId).filter(Boolean));
+  if (!turnIds.size) return false;
+  return messages.some((message) => (
+    message.role === "assistant"
+    && Boolean(message.turnId && turnIds.has(message.turnId))
+    && !isThinkingStatus(message.status)
+    && resolveProcessMessageKind(message) === null
+  ));
+}
+
+function isProcessOnlyAssistantMessage(message: AgentChatMessageSnapshot, timelineTurnId: string | null) {
+  if (message.role !== "assistant") return false;
+  if (message.slotAtomDisplay || message.dialogueRoboticReview) return false;
+  if (timelineTurnId && message.turnId === timelineTurnId && isThinkingStatus(message.status)) return false;
+  return resolveProcessMessageKind(message) !== null;
+}
+
+function resolveProcessMessageKind(message: AgentChatMessageSnapshot) {
+  const text = String(message.text ?? "").trim();
+  if (/^reasoning\b/i.test(text)) return "reasoning";
+  if (/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]/i.test(text)) return "tool_call";
+  if (/^上下文已压缩\b/.test(text) || /^context compacted\b/i.test(text)) return "context_compacted";
+  return null;
+}
+
+function createProcessMessageGroupId(messages: AgentChatMessageSnapshot[]) {
+  const first = messages[0];
+  const last = messages[messages.length - 1];
+  return `process-${first?.turnId ?? first?.id ?? "unknown"}-${last?.id ?? "last"}`;
+}
+
+function dedupeProcessMessages(messages: AgentChatMessageSnapshot[]) {
+  const seen = new Set<string>();
+  const result: AgentChatMessageSnapshot[] = [];
+  messages.forEach((message) => {
+    const key = `${resolveProcessMessageKind(message) ?? "unknown"}:${normalizeTimelineText(message.text) ?? ""}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(message);
+  });
+  return result;
+}
+
+function formatProcessMessageLabel(message: AgentChatMessageSnapshot) {
+  const kind = resolveProcessMessageKind(message);
+  if (kind === "tool_call") {
+    const text = String(message.text ?? "").trim();
+    const match = text.match(/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]\s*(.+)$/i);
+    return match?.[1]?.trim() ? `Tool call: ${match[1].trim()}` : "Tool call";
+  }
+  if (kind === "context_compacted") return "上下文已压缩";
+  return "reasoning";
+}
+
+function formatProcessMessageDetail(message: AgentChatMessageSnapshot) {
+  const text = String(message.text ?? "").trim();
+  if (resolveProcessMessageKind(message) === "reasoning") {
+    return text.replace(/^reasoning\s*/i, "").trim() || "Reasoning";
+  }
+  return text.replace(/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]\s*/i, "").trim() || text;
+}
+
 function shouldRenderConversationMessage(
   message: AgentChatMessageSnapshot,
   options: { timelineTurnId: string | null; timelineHasAgentMessages: boolean },
@@ -579,6 +786,8 @@ function shouldRenderConversationMessage(
     && message.turnId
     && message.turnId === options.timelineTurnId
     && options.timelineHasAgentMessages
+    && !message.slotAtomDisplay
+    && !message.dialogueRoboticReview
   ) {
     return false;
   }
@@ -649,14 +858,13 @@ function RestructureTimelineItemGroup({
 }) {
   if (!items.length) return null;
   const activityItems = items.filter((item): item is RestructureTimelineActivityItem => item.kind !== "agent_message");
-  const agentMessageItems = items.filter((item): item is RestructureTimelineAgentMessageItem => item.kind === "agent_message");
   const latestActivity = activityItems[activityItems.length - 1] ?? null;
   const panelId = scopeKey ? `new-ui-restructure-activity-${sanitizeDomId(scopeKey)}` : undefined;
 
   return (
-    <>
+    <div className="new-ui-restructure-activity-group-stack">
       {activityItems.length ? (
-        <section className={`new-ui-restructure-activity-group ${expanded ? "is-expanded" : ""} ${running ? "is-running" : ""}`.trim()} aria-label="运行追踪">
+        <section className={`new-ui-restructure-activity-group ${expanded ? "is-expanded" : ""} ${running ? "is-running" : ""}`.trim()} aria-label="过程">
           <button
             className="new-ui-restructure-activity-toggle"
             type="button"
@@ -668,33 +876,22 @@ function RestructureTimelineItemGroup({
               <ChevronGlyph />
             </span>
             <span className="new-ui-restructure-activity-summary">
-              <strong>{running ? "运行追踪中" : "运行追踪"}</strong>
-              <span>{formatTimelineActivitySummary(activityItems, latestActivity)}</span>
+              <span>{expanded ? "收起过程" : "显示过程"}</span>
             </span>
           </button>
-          {expanded ? (
-            <div id={panelId} className="new-ui-restructure-activity-group-body">
-              {activityItems.map((item) => (
-                <RestructureTimelineItem
-                  key={item.id}
-                  item={item}
-                  displayText={getDisplayText(item)}
-                  pseudoStreaming={isPseudoStreaming(item)}
-                />
-              ))}
-            </div>
-          ) : null}
+          <div id={panelId} className="new-ui-restructure-activity-group-body" aria-hidden={!expanded}>
+            {items.map((item) => (
+              <RestructureTimelineItem
+                key={item.id}
+                item={item}
+                displayText={getDisplayText(item)}
+                pseudoStreaming={isPseudoStreaming(item)}
+              />
+            ))}
+          </div>
         </section>
       ) : null}
-      {agentMessageItems.map((item) => (
-        <RestructureTimelineItem
-          key={item.id}
-          item={item}
-          displayText={getDisplayText(item)}
-          pseudoStreaming={isPseudoStreaming(item)}
-        />
-      ))}
-    </>
+    </div>
   );
 }
 
@@ -835,18 +1032,16 @@ function appendTimelineActivity(result: RestructureTimelineDisplayItem[], next: 
     };
     return;
   }
-  if (next.kind !== "agent_message") {
-    const duplicateIndex = result.findIndex((item) => item.kind !== "agent_message" && isSameTimelineActivity(item, next));
-    if (duplicateIndex >= 0) {
-      const duplicate = result[duplicateIndex];
-      result[duplicateIndex] = {
-        ...duplicate,
-        id: next.id,
-        sourceKey: next.sourceKey,
-        status: preferTimelineActivityStatus(duplicate.status, next.status),
-      };
-      return;
-    }
+  const duplicateIndex = result.findIndex((item) => isSameTimelineActivity(item, next));
+  if (duplicateIndex >= 0) {
+    const duplicate = result[duplicateIndex];
+    result[duplicateIndex] = {
+      ...duplicate,
+      id: next.kind === "agent_message" ? duplicate.id : next.id,
+      sourceKey: next.kind === "agent_message" ? duplicate.sourceKey : next.sourceKey,
+      status: preferTimelineActivityStatus(duplicate.status, next.status),
+    };
+    return;
   }
   result.push(next);
 }
@@ -1164,7 +1359,8 @@ function getTimelineStreamText(item: RestructureTimelineStreamableItem) {
 }
 
 function createTimelinePseudoStreamKey(item: RestructureTimelineStreamableItem) {
-  return `${item.sourceKey}:${getTimelineStreamText(item)}`;
+  const text = getTimelineStreamText(item);
+  return item.kind === "agent_message" ? `agent_message:${normalizeTimelineText(text) ?? ""}` : `${item.sourceKey}:${text}`;
 }
 
 function createTimelineItemSourceKey(item: AgentTimelineItem) {
@@ -1179,19 +1375,6 @@ function resolveTimelineItemText(item: AgentTimelineItem) {
 function normalizeTimelineText(value: string | null | undefined) {
   const trimmed = String(value ?? "").trim();
   return trimmed || null;
-}
-
-function formatTimelineActivitySummary(items: RestructureTimelineActivityItem[], latest: RestructureTimelineActivityItem | null) {
-  const reasoningCount = items.filter((item) => item.kind === "reasoning").length;
-  const toolCount = items.filter((item) => item.kind === "tool_call").length;
-  const compactCount = items.filter((item) => item.kind === "context_compacted").length;
-  const counts = [
-    reasoningCount ? `${reasoningCount} reasoning` : null,
-    toolCount ? `${toolCount} tools` : null,
-    compactCount ? `${compactCount} compact` : null,
-  ].filter(Boolean).join(" / ");
-  const latestText = latest ? `latest: ${latest.label}` : "暂无活动";
-  return counts ? `${counts} · ${latestText}` : latestText;
 }
 
 function sanitizeDomId(value: string) {

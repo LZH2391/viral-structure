@@ -11,8 +11,7 @@ import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
-import { NewUiRestructureWorkspace } from "./NewUiRestructureWorkspace";
-import type { NewUiTurnTimelineTarget } from "./NewUiTurnTimelinePanel";
+import { NewUiRestructureWorkspace, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
@@ -111,6 +110,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const rightPaneTransitionTimerRef = useRef<number | null>(null);
   const runningRestructureTurnsRef = useRef<Record<string, RunningRestructureTurn>>({});
   const restructureTurnPollTimersRef = useRef<Record<string, number>>({});
+  const restructureSubmissionBusyRef = useRef(false);
   const activeSectionRef = useRef<NewUiSectionId>("analysis");
   const activeRestructureConversationIdRef = useRef<string | null>(null);
   const draftingRestructureConversationRef = useRef(false);
@@ -192,6 +192,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       return resolveRestructureTurnTarget(selectedRestructureConversation, selectedRunningRestructureTurn) ?? selectedOptimisticRestructureGeneration?.target ?? null;
     },
     [selectedOptimisticRestructureGeneration, selectedRestructureConversation, selectedRunningRestructureTurn],
+  );
+  const selectedRestructureActionLocked = Boolean(
+    sendingRestructureMessage
+    || selectedRunningRestructureTurn
+    || selectedOptimisticRestructureGeneration?.target.running
+    || selectedOptimisticRestructureGeneration?.target.pending
+    || selectedRestructureTurnTarget?.running
   );
   const selectedSlotAtomDisplay = useMemo(
     () => resolveActiveSlotAtomDisplay(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
@@ -751,6 +758,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           { role: current.role ?? "function-slot-restructure" },
         );
         await refreshRestructureConversations(current.conversationId);
+        const autoDialogueReworkTurn = resolveAutoDialogueReworkRunningTurn(current, turn);
+        if (autoDialogueReworkTurn) {
+          scheduleRestructureTurnPoll(autoDialogueReworkTurn);
+          return;
+        }
         if (isTerminalAgentTurnStatus(turn.status)) {
           clearRunningRestructureTurn(current.conversationId);
           return;
@@ -766,7 +778,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   const handleSendRestructureMessage = useCallback(async (message: string) => {
     const conversation = selectedRestructureConversation;
-    if ((!conversation?.threadId && !draftingRestructureConversation) || sendingRestructureMessage) return;
+    if ((!conversation?.threadId && !draftingRestructureConversation) || selectedRestructureActionLocked || restructureSubmissionBusyRef.current) return;
+    restructureSubmissionBusyRef.current = true;
     const sendNavigationGeneration = restructureNavigationGenerationRef.current;
     const sendConversationId = conversation?.conversationId ?? null;
     const draftId = draftingRestructureConversation ? draftRestructureConversationIdRef.current : null;
@@ -799,9 +812,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       },
       turnId: null,
     });
-    startPaneTransitionGuard();
-    startRightPaneContentFreeze(false);
-    setRightCollapsed(false);
     setSendingRestructureMessage(true);
     let startedSession: Awaited<ReturnType<typeof startAgentChatThread>> | null = null;
     let sendAccepted = false;
@@ -881,15 +891,20 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setCreatingRestructureConversation(false);
       setSendingRestructureMessage(false);
+      restructureSubmissionBusyRef.current = false;
     }
-  }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
     const conversation = selectedRestructureConversation;
-    if (!conversation?.threadId || sendingRestructureMessage) return;
+    if (!conversation?.threadId) return;
+    if (selectedRestructureActionLocked || restructureSubmissionBusyRef.current) {
+      throw new Error("当前重组会话正在生成，请等待当前 turn 结束后再提交替换");
+    }
     if (!replacementDraft.sourceRestructureFinalPath || !replacementDraft.sourceDisplayJsonPath || !replacementDraft.replacements.length) {
       throw new Error("替换请求缺少源文件或替换项");
     }
+    restructureSubmissionBusyRef.current = true;
     const pendingId = `pending-replacement-assistant-${Date.now()}`;
     const pendingUserId = `pending-replacement-user-${Date.now()}`;
     const now = new Date().toISOString();
@@ -902,6 +917,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         role: "user",
         text: userText,
         status: "completed",
+        userInputOrigin: "manual_replacement",
         createdAt: now,
         updatedAt: now,
       },
@@ -980,8 +996,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       throw error;
     } finally {
       setSendingRestructureMessage(false);
+      restructureSubmissionBusyRef.current = false;
     }
-  }, [clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, sendingRestructureMessage, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -1024,6 +1041,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       Object.values(restructureTurnPollTimersRef.current).forEach((timer) => window.clearTimeout(timer));
       restructureTurnPollTimersRef.current = {};
       runningRestructureTurnsRef.current = {};
+      restructureSubmissionBusyRef.current = false;
     };
   }, []);
 
@@ -1114,7 +1132,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               pendingAssistantMessage={selectedOptimisticRestructureGeneration?.message ?? null}
               pendingUserMessage={selectedOptimisticRestructureGeneration?.userMessage ?? null}
               sendErrorMessage={selectedRestructureConversationError}
-              sendingMessage={sendingRestructureMessage}
+              sendingMessage={selectedRestructureActionLocked}
             />
           ) : null}
         </div>
@@ -1147,7 +1165,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               </div>
               <SlotAtomView
                 display={selectedSlotAtomDisplay}
-                busy={sendingRestructureMessage}
+                busy={selectedRestructureActionLocked}
                 sourceRestructureFinalPath={selectedRestructureFinalPath}
                 onSubmitReplacement={handleManualReplacementSubmit}
               />
@@ -1610,6 +1628,21 @@ function conversationHasTerminalAssistantTurn(conversation: AgentChatConversatio
     && message.turnId === turnId
     && isTerminalAgentTurnStatus(message.status)
   ));
+}
+
+function resolveAutoDialogueReworkRunningTurn(
+  current: RunningRestructureTurn,
+  turn: Awaited<ReturnType<typeof collectAgentChatTurn>>,
+): RunningRestructureTurn | null {
+  const rework = turn.autoDialogueRework;
+  if (!rework?.ok || !rework.turnId || rework.turnId === current.turnId) return null;
+  return {
+    conversationId: rework.conversationId ?? current.conversationId,
+    role: rework.role ?? current.role ?? "function-slot-restructure",
+    threadId: rework.threadId ?? current.threadId,
+    turnId: rework.turnId,
+    workspaceRoot: rework.workspaceRoot ?? current.workspaceRoot ?? null,
+  };
 }
 
 type SectionIconProps = {

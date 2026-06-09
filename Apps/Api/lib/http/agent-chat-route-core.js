@@ -122,6 +122,45 @@ function notFoundError(code, message) {
   return error;
 }
 
+function conflictError(code, message, debugPayload = null) {
+  const error = new Error(message);
+  error.statusCode = 409;
+  error.code = code;
+  error.retryable = false;
+  if (debugPayload) error.debugPayload = debugPayload;
+  return error;
+}
+
+function assertConversationReadyForNewTurn(conversation) {
+  const runningTurn = findRunningConversationTurn(conversation);
+  if (!runningTurn) return;
+  throw conflictError(
+    "agent_chat_conversation_turn_running",
+    "当前会话已有运行中的 turn，请等待结束后再提交",
+    {
+      conversationId: conversation?.conversationId ?? null,
+      turnId: runningTurn.turnId ?? null,
+      latestTurnId: conversation?.latestTurnId ?? null,
+      status: runningTurn.status ?? null,
+    },
+  );
+}
+
+function findRunningConversationTurn(conversation) {
+  const latestTurnId = normalizeText(conversation?.latestTurnId);
+  if (!latestTurnId) return null;
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const assistant = [...messages].reverse().find((message) => (
+    message?.role === "assistant" && normalizeText(message.turnId) === latestTurnId
+  ));
+  if (!assistant) return null;
+  return isTerminalMessageStatus(assistant.status) ? null : assistant;
+}
+
+function isTerminalMessageStatus(status) {
+  return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").trim().toLowerCase());
+}
+
 function safePreview(value, limit = 240) {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (!text) return null;
@@ -159,7 +198,9 @@ function summarizeDebugPayload(value) {
 }
 
 module.exports = {
+  assertConversationReadyForNewTurn,
   badRequestError,
+  conflictError,
   normalizeArtifactRef,
   normalizeMessage,
   normalizeRevision,

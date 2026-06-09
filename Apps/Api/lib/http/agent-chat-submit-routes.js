@@ -6,6 +6,7 @@ const { maybeStartConversationTitleGeneration } = require("../agent-chat/title-s
 const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const { normalizeTurnStatus } = require("../active-turns/status");
 const {
+  assertConversationReadyForNewTurn,
   badRequestError,
   normalizeMessage,
   normalizeRevision,
@@ -61,6 +62,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
             throw error;
           }
           assertConversationThreadMatches(conversation, threadId);
+          assertConversationReadyForNewTurn(conversation);
         }
         const result = await handlers.appServer.startTurnWithInputs({
           workspaceRoot,
@@ -178,6 +180,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
         }
         if (conversation.role !== "function-slot-restructure") throw badRequestError("agent_chat_manual_replacement_role_invalid", "manual replacement 只能提交给 function-slot-restructure 会话");
         if (conversation.threadId && conversation.threadId !== threadId) throw badRequestError("agent_chat_manual_replacement_thread_mismatch", "manual replacement threadId 与会话不一致");
+        assertConversationReadyForNewTurn(conversation);
         const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
         const roleProfile = await loadRoleProfileByRole("function-slot-restructure");
         const replacementSummary = buildManualReplacementSummary(replacements);
@@ -206,6 +209,7 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
           traceId: traceContext.traceId,
           runId: traceContext.runId,
           stageId: traceContext.stageId,
+          userInputOrigin: "manual_replacement",
         }) ?? conversation;
         await registerAgentChatActiveTurn(handlers, {
           payload: {

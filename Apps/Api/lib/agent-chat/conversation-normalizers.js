@@ -162,11 +162,19 @@ function normalizeMessage(value) {
     role: ["user", "assistant", "system"].includes(value.role) ? value.role : "system",
     text: limitText(value.text),
     status: normalizeMessageStatus(value.status),
+    userInputOrigin: normalizeUserInputOrigin(value.userInputOrigin),
     slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
     dialogueRoboticReview: normalizeDialogueRoboticReview(value.dialogueRoboticReview),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
   };
+}
+
+function normalizeUserInputOrigin(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return normalized.slice(0, 80);
 }
 
 function normalizeDialogueRoboticReview(value) {

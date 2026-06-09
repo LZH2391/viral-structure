@@ -132,7 +132,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null }) {
+  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null, userInputOrigin = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -146,6 +146,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         role: "user",
         text: limitText(text),
         status: "completed",
+        userInputOrigin,
         createdAt: now,
         updatedAt: now,
       });

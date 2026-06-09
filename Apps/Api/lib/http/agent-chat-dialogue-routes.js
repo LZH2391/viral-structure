@@ -4,6 +4,7 @@ const { maybeAutoReviewShotDialogue, reviewShotDialogueForConversation } = requi
 const { normalizeTurnStatus } = require("../active-turns/status");
 const { buildDialogueReworkMessage, findLatestDialogueReviewValue, readDialogueReviewDetails } = require("./agent-chat-dialogue-helpers");
 const {
+  assertConversationReadyForNewTurn,
   badRequestError,
   normalizeRevision,
   normalizeText,
@@ -11,6 +12,7 @@ const {
   nullableNumber,
   runAgentChatStage,
   safePreview,
+  withConversationLock,
 } = require("./agent-chat-route-core");
 const {
   DEFAULT_TURN_TIMEOUT_SECONDS,
@@ -161,10 +163,38 @@ async function submitDialogueReworkTurn({
   sourceTurnId = null,
   skipExpectedRevision = false,
 }) {
+  return withConversationLock(conversationId, async () => {
+    const lockedConversation = await handlers.agentConversationStore?.assertActive?.(conversationId, {
+      expectedRevision: skipExpectedRevision ? null : normalizeRevision(body.expectedRevision),
+    }) ?? conversation;
+    return submitDialogueReworkTurnLocked({
+      handlers,
+      conversationId,
+      conversation: lockedConversation,
+      body,
+      traceContext,
+      stageName,
+      sourceTurnId,
+      skipExpectedRevision,
+    });
+  });
+}
+
+async function submitDialogueReworkTurnLocked({
+  handlers,
+  conversationId,
+  conversation,
+  body = {},
+  traceContext,
+  stageName,
+  sourceTurnId = null,
+  skipExpectedRevision = false,
+}) {
   if (!conversation) throw notFoundError("agent_chat_conversation_not_found", "未找到 Agent 会话");
   if (conversation.role !== "function-slot-restructure" && conversation.role !== "function-slot-shot-design") {
     throw badRequestError("agent_chat_dialogue_rework_role_invalid", "台词返工只能提交给 function-slot-restructure 或 function-slot-shot-design 会话");
   }
+  assertConversationReadyForNewTurn(conversation);
   const threadId = normalizeText(body.threadId) ?? conversation.threadId;
   if (!threadId) throw badRequestError("agent_chat_dialogue_rework_thread_missing", "当前会话缺少可返工的 thread");
   if (conversation.threadId && conversation.threadId !== threadId) {
@@ -206,6 +236,7 @@ async function submitDialogueReworkTurn({
     runId: traceContext.runId,
     stageId: traceContext.stageId,
     expectedRevision: skipExpectedRevision ? null : normalizeRevision(body.expectedRevision),
+    userInputOrigin: stageName === "agentChat.dialogueReview.autoRework" ? "auto_dialogue_rework" : null,
   }) ?? conversation;
   await registerAgentChatActiveTurn(handlers, {
     payload: {
