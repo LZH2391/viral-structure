@@ -245,12 +245,33 @@ function rowAtomLandingValue(row, atomKind) {
     return kindNeedles.some((needle) => normalizedKey.includes(needle))
       && landingNeedles.some((needle) => normalizedKey.includes(needle));
   });
-  if (preferred) return String(preferred[1]);
+  if (preferred) return withRawAtomIdPrefix(row, atomKind, String(preferred[1]));
   const fallback = entries.find(([key]) => {
     const normalizedKey = normalizeKey(key);
     return kindNeedles.some((needle) => normalizedKey.includes(needle));
   });
   return fallback ? String(fallback[1]) : "";
+}
+
+function withRawAtomIdPrefix(row, atomKind, landingValue) {
+  const landingText = String(landingValue ?? "").trim();
+  if (!landingText) return "";
+  if (extractBacktickId(landingText)) return landingText;
+  const rawAtom = rawAtomReferenceValue(row, atomKind);
+  const rawId = extractBacktickId(rawAtom);
+  if (!rawId) return landingText;
+  return `\`${rawId}\` ${landingText}`;
+}
+
+function rawAtomReferenceValue(row, atomKind) {
+  const kindNeedles = atomKindNeedles(atomKind).map(normalizeKey);
+  const landingNeedles = ["本方案落地", "本方案节奏落地", "本方案证明包装落地", "落地为", "落地"].map(normalizeKey);
+  const found = Object.entries(row ?? {}).find(([key]) => {
+    const normalizedKey = normalizeKey(key);
+    return kindNeedles.some((needle) => normalizedKey.includes(needle))
+      && !landingNeedles.some((needle) => normalizedKey.includes(needle));
+  });
+  return found ? String(found[1]) : "";
 }
 
 function atomKindNeedles(atomKind) {

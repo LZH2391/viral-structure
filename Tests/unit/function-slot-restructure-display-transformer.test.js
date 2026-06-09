@@ -98,6 +98,60 @@ test("restructure display transformer preserves in-section markdown headings", (
   assert.equal(result.sections.finalSlotChain.items[1].type, "table");
 });
 
+test("restructure display transformer disambiguates repeated atom landing columns", () => {
+  const result = transformRestructureFinalMarkdown([
+    "## 1. 重组目标与假设",
+    "",
+    "- 目标",
+    "",
+    "## 2. 最终功能槽位链",
+    "",
+    "| 顺序 | slotSubtype |",
+    "|---:|---|",
+    "| 1 | `SUB_demo` |",
+    "",
+    "## 3. Atoms 落地表",
+    "",
+    "| 槽位 | script atom | 原标签 -> 本方案落地 | rhythm atom | 原标签 -> 本方案落地 | packaging atom | 原标签 -> 本方案落地 |",
+    "|---|---|---|---|---|---|---|",
+    "| `SUB_demo` | `A::script::S001` | 脚本原标签 -> 脚本落地 | `A::rhythm::R001` | 节奏原标签 -> 节奏落地 | `A::packaging::P001` | 包装原标签 -> 包装落地 |",
+    "",
+    "## 5. 脚本段落方案",
+    "",
+    "| 段落 | 任务 |",
+    "|---|---|",
+    "| 1 | hook |",
+    "",
+    "## 6. 节奏曲线",
+    "",
+    "| 阶段 | 策略 |",
+    "|---|---|",
+    "| 1 | 定睛 |",
+    "",
+    "## 7. 包装与证明方案",
+    "",
+    "| 包装块 | 证明功能 |",
+    "|---|---|",
+    "| 1 | 识别 |",
+  ].join("\n"), {
+    convertedAt: () => "2026-06-01T00:00:00.000Z",
+  });
+
+  const atomTable = result.sections.atomLandingTable.items.find((item) => item.type === "table");
+  assert.deepEqual(atomTable.columns, [
+    "槽位",
+    "script atom",
+    "script atom 原标签 -> 本方案落地",
+    "rhythm atom",
+    "rhythm atom 原标签 -> 本方案落地",
+    "packaging atom",
+    "packaging atom 原标签 -> 本方案落地",
+  ]);
+  assert.equal(atomTable.rows[0]["script atom 原标签 -> 本方案落地"], "脚本原标签 -> 脚本落地");
+  assert.equal(atomTable.rows[0]["rhythm atom 原标签 -> 本方案落地"], "节奏原标签 -> 节奏落地");
+  assert.equal(atomTable.rows[0]["packaging atom 原标签 -> 本方案落地"], "包装原标签 -> 包装落地");
+});
+
 test("restructure display transformer fails when no target section is recognizable", () => {
   assert.throws(
     () => transformRestructureFinalMarkdown("# 完全不是重组格式\n\n没有目标章节"),

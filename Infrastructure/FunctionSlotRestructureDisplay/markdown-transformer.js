@@ -269,7 +269,8 @@ function parseTable(lines, startIndex, context) {
     index += 1;
   }
   try {
-    const columns = splitTableRow(tableLines[0]).map(cleanCell);
+    const rawColumns = splitTableRow(tableLines[0]).map(cleanCell);
+    const columns = normalizeTableColumns(rawColumns, context);
     const separator = splitTableRow(tableLines[1]);
     if (!columns.length || separator.length !== columns.length || !separator.every(isSeparatorCell)) {
       throw new Error("invalid markdown table separator");
@@ -380,6 +381,39 @@ function isSeparatorCell(value) {
 
 function cleanCell(value) {
   return String(value ?? "").replace(/\\\|/g, "|").trim();
+}
+
+function normalizeTableColumns(columns, context) {
+  if (context.sectionKey !== "atomLandingTable") return columns;
+  let lastAtomKind = null;
+  return columns.map((column) => {
+    const atomKind = atomKindFromColumn(column);
+    if (atomKind) {
+      lastAtomKind = atomKind;
+      return column;
+    }
+    if (!lastAtomKind || !isGenericAtomLandingColumn(column)) return column;
+    return `${lastAtomKind} atom ${column}`;
+  });
+}
+
+function atomKindFromColumn(column) {
+  const normalized = normalizeColumnKey(column);
+  if (normalized.includes("scriptatom") || normalized.includes("script原子") || normalized.includes("脚本原子")) return "script";
+  if (normalized.includes("rhythmatom") || normalized.includes("rhythm原子") || normalized.includes("节奏原子")) return "rhythm";
+  if (normalized.includes("packagingatom") || normalized.includes("packaging原子") || normalized.includes("包装原子")) return "packaging";
+  return null;
+}
+
+function isGenericAtomLandingColumn(column) {
+  const normalized = normalizeColumnKey(column);
+  return !atomKindFromColumn(column)
+    && normalized.includes("原标签")
+    && (normalized.includes("本方案落地") || normalized.includes("落地"));
+}
+
+function normalizeColumnKey(value) {
+  return String(value ?? "").toLowerCase().replace(/[()\[\]（）【】\s_：:·\-→>]/g, "");
 }
 
 function validateItem(item, itemPath, errors) {

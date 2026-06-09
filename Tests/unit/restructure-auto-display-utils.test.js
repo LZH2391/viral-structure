@@ -107,6 +107,54 @@ test("slot atom display summary prefers atom landing text over raw atom id colum
   assert.equal(summary.atoms[0].packagingAtom, "`A::packaging::P001` 首屏使用状态加品类入口 -> 本方案落地为豆浆品类和观看动机同屏提示");
 });
 
+test("slot atom display summary prefixes raw atom id when landing column omits it", () => {
+  const summary = buildSlotAtomDisplaySummary({
+    schemaVersion: "function_slot_restructure_display.v1",
+    sections: {
+      finalSlotChain: {
+        title: "2. 最终功能槽位链",
+        items: [
+          { type: "paragraph", text: "## 槽位链" },
+          {
+            type: "table",
+            rows: [{ "顺序": "1", slotSubtype: "`SUB_demo` 熟悉经验钩子槽" }],
+          },
+        ],
+      },
+      atomLandingTable: {
+        title: "3. Atoms 落地表",
+        items: [
+          {
+            type: "table",
+            columns: [
+              "槽位",
+              "script atom",
+              "script atom 原标签 -> 本方案落地",
+              "rhythm atom",
+              "rhythm atom 原标签 -> 本方案落地",
+              "packaging atom",
+              "packaging atom 原标签 -> 本方案落地",
+            ],
+            rows: [{
+              "槽位": "`SUB_demo`",
+              "script atom": "`A::script::S001`",
+              "script atom 原标签 -> 本方案落地": "熟悉经验转新组合入口 -> 早餐店豆浆熟悉经验转家用豆浆粉入口",
+              "rhythm atom": "`A::rhythm::R001`",
+              "rhythm atom 原标签 -> 本方案落地": "高密度快速入场 -> 以早餐需求和商品对象快速入场",
+              "packaging atom": "`A::packaging::P001`",
+              "packaging atom 原标签 -> 本方案落地": "首屏使用状态加品类入口 -> 成品豆浆/商品身份作为首屏品类锚点",
+            }],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(summary.atoms[0].scriptAtom, "`A::script::S001` 熟悉经验转新组合入口 -> 早餐店豆浆熟悉经验转家用豆浆粉入口");
+  assert.equal(summary.atoms[0].rhythmAtom, "`A::rhythm::R001` 高密度快速入场 -> 以早餐需求和商品对象快速入场");
+  assert.equal(summary.atoms[0].packagingAtom, "`A::packaging::P001` 首屏使用状态加品类入口 -> 成品豆浆/商品身份作为首屏品类锚点");
+});
+
 test("slot atom display hydration rebuilds stale zero-slot summary from display json", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "bd-slot-display-"));
   try {
