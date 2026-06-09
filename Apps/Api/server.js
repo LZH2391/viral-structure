@@ -91,6 +91,18 @@ const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
 const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
 const materialRecognitionWorkflowService = createMaterialRecognitionWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
 const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: fullAnalysisWorkflowService, runtimeRoot: store.runtimeRoot, logger });
+const materialRecognitionBatchQueue = createFullAnalysisBatchQueue({
+  workflowService: materialRecognitionWorkflowService,
+  runtimeRoot: store.runtimeRoot,
+  filePath: path.join(store.runtimeRoot, "WorkflowRuns", "material-recognition-queue.json"),
+  uploadRoot: path.join(store.runtimeRoot, "WorkflowRuns", "material-recognition-batch-uploads"),
+  workflowKey: "material-recognition",
+  workflowLabel: "素材识别",
+  errorCode: "material_recognition_batch_item_failed",
+  stageName: "workflow.material_recognition.batch.dispatch",
+  buildOptions: () => ({}),
+  logger,
+});
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
 
 function createServer(deps = {}) {
@@ -224,6 +236,18 @@ function createServer(deps = {}) {
     runtimeRoot: activeStore.runtimeRoot,
     logger: activeLogger,
   });
+  const activeMaterialRecognitionBatchQueue = deps.materialRecognitionBatchQueue ?? createFullAnalysisBatchQueue({
+    workflowService: activeMaterialRecognitionWorkflowService,
+    runtimeRoot: activeStore.runtimeRoot,
+    filePath: path.join(activeStore.runtimeRoot, "WorkflowRuns", "material-recognition-queue.json"),
+    uploadRoot: path.join(activeStore.runtimeRoot, "WorkflowRuns", "material-recognition-batch-uploads"),
+    workflowKey: "material-recognition",
+    workflowLabel: "素材识别",
+    errorCode: "material_recognition_batch_item_failed",
+    stageName: "workflow.material_recognition.batch.dispatch",
+    buildOptions: () => ({}),
+    logger: activeLogger,
+  });
   const activePlatformHandlers = createPlatformHandlers({
     deps,
     store: activeStore,
@@ -266,6 +290,7 @@ function createServer(deps = {}) {
     fullAnalysisWorkflowService: activeFullAnalysisWorkflowService,
     materialRecognitionWorkflowService: activeMaterialRecognitionWorkflowService,
     fullAnalysisBatchQueue: activeFullAnalysisBatchQueue,
+    materialRecognitionBatchQueue: activeMaterialRecognitionBatchQueue,
     staticWorkbench: deps.staticWorkbench ?? staticWorkbench,
     rootDir: activeRootDir ?? rootDir,
     sendRuntimeFileImpl: deps.sendRuntimeFile ?? sendRuntimeFile,

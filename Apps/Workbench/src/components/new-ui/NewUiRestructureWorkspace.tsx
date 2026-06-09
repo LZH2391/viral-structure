@@ -61,6 +61,8 @@ export type NewUiMaterialPackOption = AgentChatMaterialPackRef & {
   coverUrl?: string | null;
   durationSeconds?: number | null;
   updatedAt?: string | null;
+  pending?: boolean;
+  cancelled?: boolean;
 };
 
 export type NewUiStructureOption = AgentChatStructureRef & {
@@ -248,7 +250,7 @@ export function NewUiRestructureWorkspace({
   useEffect(() => {
     setSendError(null);
     setActiveAttachmentPanel(null);
-    setSelectedMaterialPack(null);
+    setSelectedMaterialPack(selectedMaterialPack?.pending ? selectedMaterialPack : null);
     setSelectedStructure(null);
     setTimelineActivityExpandedByScope({});
     setProcessMessageExpandedByScope({});
@@ -288,7 +290,7 @@ export function NewUiRestructureWorkspace({
     setSendError(null);
     setDraft("");
     setActiveAttachmentPanel(null);
-    setSelectedMaterialPack(null);
+    setSelectedMaterialPack(selectedMaterialPack?.pending ? selectedMaterialPack : null);
     setSelectedStructure(null);
     shouldStickToBottomRef.current = true;
     try {
@@ -358,7 +360,7 @@ export function NewUiRestructureWorkspace({
         {selectedMaterialPack || selectedStructure ? (
           <div className="new-ui-restructure-composer-attachments" aria-label="已选择的重组上下文">
             {selectedMaterialPack ? (
-              <AttachmentChip label="素材包" title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId} onRemove={() => setSelectedMaterialPack(null)} />
+              <AttachmentChip label={selectedMaterialPack.pending ? "识别中" : "素材包"} title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId} onRemove={() => setSelectedMaterialPack(null)} />
             ) : null}
             {selectedStructure ? (
               <AttachmentChip label="结构" title={selectedStructure.title || selectedStructure.artifactId} onRemove={() => setSelectedStructure(null)} />
@@ -687,15 +689,15 @@ function MaterialPackPickerPanel({
         <span className="new-ui-restructure-picker-card-icon" aria-hidden="true">
           <UploadMaterialGlyph />
         </span>
-        <strong>{uploading ? "正在上传素材" : "上传新素材"}</strong>
-        <small>{uploading ? "素材识别启动后会自动附加" : "选择视频并启动素材识别"}</small>
+        <strong>{uploading ? "正在启动识别" : "上传新素材"}</strong>
+        <small>{uploading ? "完成后会自动附带" : "选择视频并启动素材识别"}</small>
       </button>
       {loading ? <PickerStateCard text="正在读取素材包" /> : null}
       {!loading && !options.length ? <PickerStateCard text="暂无可用素材识别结果" /> : null}
       {!loading ? options.map((option) => (
         <button
           key={`${option.sampleVideoId}:${option.artifactId ?? ""}`}
-          className={`new-ui-restructure-picker-card ${isSameMaterialPackOption(option, selected) ? "is-selected" : ""}`.trim()}
+          className={`new-ui-restructure-picker-card ${isSameMaterialPackOption(option, selected) ? "is-selected" : ""} ${option.pending ? "is-pending" : ""}`.trim()}
           type="button"
           onClick={() => onSelect(option)}
         >
@@ -752,15 +754,16 @@ function PickerStateCard({ text }: { text: string }) {
 }
 
 function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | null, structure: NewUiStructureOption | null): NewUiRestructureSendContext {
+  const readyMaterialPack = materialPack && !materialPack.pending ? materialPack : null;
   return {
-    materialPackRef: materialPack ? {
-      sampleVideoId: materialPack.sampleVideoId,
-      artifactId: materialPack.artifactId ?? null,
-      title: materialPack.title ?? null,
-      traceId: materialPack.traceId ?? null,
-      shotCardCount: materialPack.shotCardCount ?? null,
-      materialGroupCount: materialPack.materialGroupCount ?? null,
-      proofCoverageCount: materialPack.proofCoverageCount ?? null,
+    materialPackRef: readyMaterialPack ? {
+      sampleVideoId: readyMaterialPack.sampleVideoId,
+      artifactId: readyMaterialPack.artifactId ?? null,
+      title: readyMaterialPack.title ?? null,
+      traceId: readyMaterialPack.traceId ?? null,
+      shotCardCount: readyMaterialPack.shotCardCount ?? null,
+      materialGroupCount: readyMaterialPack.materialGroupCount ?? null,
+      proofCoverageCount: readyMaterialPack.proofCoverageCount ?? null,
     } : null,
     structureRef: structure ? {
       artifactId: structure.artifactId,
@@ -774,7 +777,9 @@ function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | nul
 }
 
 function isSameMaterialPackOption(left: NewUiMaterialPackOption | null, right: NewUiMaterialPackOption | null) {
-  return Boolean(left && right && left.sampleVideoId === right.sampleVideoId && (left.artifactId ?? null) === (right.artifactId ?? null));
+  return Boolean(left && right && left.sampleVideoId === right.sampleVideoId && (
+    left.pending || right.pending || (left.artifactId ?? null) === (right.artifactId ?? null)
+  ));
 }
 
 function isSameStructureOption(left: NewUiStructureOption | null, right: NewUiStructureOption | null) {
@@ -782,6 +787,7 @@ function isSameStructureOption(left: NewUiStructureOption | null, right: NewUiSt
 }
 
 function formatMaterialPackOptionMeta(option: NewUiMaterialPackOption) {
+  if (option.pending) return "素材识别中，完成后自动附带";
   const counts = [
     option.shotCardCount != null ? `${option.shotCardCount} 镜头卡` : null,
     option.materialGroupCount != null ? `${option.materialGroupCount} 组` : null,

@@ -422,8 +422,29 @@ export async function startFullAnalysisBatchRun(files: File[], options: { frameS
   return readJsonResponse<FullAnalysisBatchRun>(response);
 }
 
+export async function startMaterialRecognitionBatchRun(files: File[], options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; maxConcurrentRuns?: number } = {}) {
+  const formData = new FormData();
+  for (const file of files) formData.append("files", file);
+  formData.append("workspaceId", WORKSPACE_ID);
+  formData.append("frameSampleRateFps", String(options.frameSampleRateFps ?? 10));
+  formData.append("enableAudioSeparation", String(options.enableAudioSeparation ?? true));
+  formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
+  formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
+  formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  formData.append("maxConcurrentRuns", String(options.maxConcurrentRuns ?? 2));
+  const response = await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs`, {
+    method: "POST",
+    body: formData,
+  });
+  return readJsonResponse<FullAnalysisBatchRun>(response);
+}
+
 export async function getFullAnalysisBatchRun(batchRunId: string) {
   return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}`, { cache: "no-store" }));
+}
+
+export async function getMaterialRecognitionBatchRun(batchRunId: string) {
+  return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs/${encodeURIComponent(batchRunId)}`, { cache: "no-store" }));
 }
 
 export async function getLatestFullAnalysisBatchRun(options: { active?: boolean } = {}) {
@@ -431,9 +452,22 @@ export async function getLatestFullAnalysisBatchRun(options: { active?: boolean 
   return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/latest${query}`, { cache: "no-store" }));
 }
 
+export async function getLatestMaterialRecognitionBatchRun(options: { active?: boolean } = {}) {
+  const query = options.active ? "?active=true" : "";
+  return readJsonResponse<FullAnalysisBatchRun>(await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs/latest${query}`, { cache: "no-store" }));
+}
+
 export async function retryFullAnalysisBatchItem(batchRunId: string, queueItemId: string) {
   return readJsonResponse<FullAnalysisBatchRun>(
     await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/retry`, {
+      method: "POST",
+    }),
+  );
+}
+
+export async function retryMaterialRecognitionBatchItem(batchRunId: string, queueItemId: string) {
+  return readJsonResponse<FullAnalysisBatchRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/retry`, {
       method: "POST",
     }),
   );

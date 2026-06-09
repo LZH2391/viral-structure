@@ -214,3 +214,41 @@ test("full analysis batch queue fails item when workflow start returns no run id
   assert.equal(current.items[0].retryable, true);
   assert.equal(current.items[1].status, "failed");
 });
+
+test("workflow batch queue can dispatch material recognition batches", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "material-recognition-batch-"));
+  const started = [];
+  const workflowService = {
+    start: async ({ file, fields }) => {
+      started.push({ filename: file.filename, enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization ?? null });
+      return { workflowRunId: `workflow_${started.length}`, status: "running", currentStageKeys: ["upload"], stages: [{ key: "upload", label: "上传" }] };
+    },
+    get: () => null,
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    filePath: path.join(root, "WorkflowRuns", "material-recognition-queue.json"),
+    uploadRoot: path.join(root, "WorkflowRuns", "material-recognition-batch-uploads"),
+    workflowKey: "material-recognition",
+    workflowLabel: "素材识别",
+    errorCode: "material_recognition_batch_item_failed",
+    stageName: "workflow.material_recognition.batch.dispatch",
+    buildOptions: () => ({}),
+  });
+
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("a.mp4"), createFile("b.mp4")],
+    fields: {},
+  });
+  await queue.advance(batch.batchRunId);
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(current.workflowKey, "material-recognition");
+  assert.deepEqual(started, [
+    { filename: "a.mp4", enableFunctionSlotAtomization: null },
+    { filename: "b.mp4", enableFunctionSlotAtomization: null },
+  ]);
+});

@@ -12,6 +12,10 @@ async function handleWorkflowRoute(req, res, url, handlers = {}) {
   if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") { await handleLatestFullAnalysisRun(res, handlers); return true; }
   if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) { await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/runs") { await handleMaterialRecognitionRun(req, res, handlers); return true; }
+  if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/batch-runs") { await handleMaterialRecognitionBatchRun(req, res, handlers); return true; }
+  if (req.method === "GET" && url.pathname === "/api/workflows/material-recognition/batch-runs/latest") { await handleMaterialRecognitionBatchLatest(res, handlers, url); return true; }
+  if (req.method === "GET" && /^\/api\/workflows\/material-recognition\/batch-runs\/[^/]+$/.test(url.pathname)) { await handleMaterialRecognitionBatchRead(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers); return true; }
+  if (req.method === "POST" && /^\/api\/workflows\/material-recognition\/batch-runs\/[^/]+\/items\/[^/]+\/retry$/.test(url.pathname)) { await handleMaterialRecognitionBatchItemRetry(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/cache-check") { await handleFullAnalysisCacheCheck(req, res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/workflows/material-recognition/latest") { await handleLatestMaterialRecognitionRun(res, handlers); return true; }
   if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/material-recognition\/latest$/.test(url.pathname)) { await handleLatestMaterialRecognitionRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers); return true; }
@@ -42,7 +46,7 @@ async function handleMaterialRecognitionRun(req, res, handlers = {}) {
 
 async function handleFullAnalysisBatchRun(req, res, handlers = {}) {
   const { files, fields } = await parseMultipartUploads(req, req.headers["content-type"]);
-  const queue = handlers.fullAnalysisBatchQueue;
+  const queue = resolveBatchQueue("full-analysis", handlers);
   const result = queue.createBatch({
     workspaceId: fields.workspaceId || "default-workspace",
     files,
@@ -52,7 +56,7 @@ async function handleFullAnalysisBatchRun(req, res, handlers = {}) {
 }
 
 async function handleFullAnalysisBatchRead(res, batchRunId, handlers = {}) {
-  const queue = handlers.fullAnalysisBatchQueue;
+  const queue = resolveBatchQueue("full-analysis", handlers);
   await queue.advance?.(batchRunId).catch(() => undefined);
   const batch = queue.getBatch(batchRunId);
   if (!batch) return notFound(res);
@@ -60,7 +64,7 @@ async function handleFullAnalysisBatchRead(res, batchRunId, handlers = {}) {
 }
 
 async function handleFullAnalysisBatchLatest(res, handlers = {}, url = null) {
-  const queue = handlers.fullAnalysisBatchQueue;
+  const queue = resolveBatchQueue("full-analysis", handlers);
   const activeOnly = url?.searchParams?.get("active") === "true";
   const batch = activeOnly ? queue.getLatestActiveBatch?.() : queue.getLatestBatch?.();
   if (!batch) return notFound(res);
@@ -70,7 +74,43 @@ async function handleFullAnalysisBatchLatest(res, handlers = {}, url = null) {
 }
 
 async function handleFullAnalysisBatchItemRetry(res, batchRunId, queueItemId, handlers = {}) {
-  const queue = handlers.fullAnalysisBatchQueue;
+  const queue = resolveBatchQueue("full-analysis", handlers);
+  const batch = queue.retryItem?.(batchRunId, queueItemId);
+  if (!batch) return notFound(res);
+  return sendJson(res, 202, batch);
+}
+
+async function handleMaterialRecognitionBatchRun(req, res, handlers = {}) {
+  const { files, fields } = await parseMultipartUploads(req, req.headers["content-type"]);
+  const queue = resolveBatchQueue("material-recognition", handlers);
+  const result = queue.createBatch({
+    workspaceId: fields.workspaceId || "default-workspace",
+    files,
+    fields,
+  });
+  return sendJson(res, 202, result);
+}
+
+async function handleMaterialRecognitionBatchRead(res, batchRunId, handlers = {}) {
+  const queue = resolveBatchQueue("material-recognition", handlers);
+  await queue.advance?.(batchRunId).catch(() => undefined);
+  const batch = queue.getBatch(batchRunId);
+  if (!batch) return notFound(res);
+  return sendJson(res, 200, batch);
+}
+
+async function handleMaterialRecognitionBatchLatest(res, handlers = {}, url = null) {
+  const queue = resolveBatchQueue("material-recognition", handlers);
+  const activeOnly = url?.searchParams?.get("active") === "true";
+  const batch = activeOnly ? queue.getLatestActiveBatch?.() : queue.getLatestBatch?.();
+  if (!batch) return notFound(res);
+  await queue.advance?.(batch.batchRunId).catch(() => undefined);
+  const updated = queue.getBatch?.(batch.batchRunId) ?? batch;
+  return sendJson(res, 200, updated);
+}
+
+async function handleMaterialRecognitionBatchItemRetry(res, batchRunId, queueItemId, handlers = {}) {
+  const queue = resolveBatchQueue("material-recognition", handlers);
   const batch = queue.retryItem?.(batchRunId, queueItemId);
   if (!batch) return notFound(res);
   return sendJson(res, 202, batch);
@@ -149,6 +189,12 @@ function resolveWorkflowService(workflowRunId, handlers = {}) {
     return handlers.materialRecognitionWorkflowService;
   }
   return handlers.fullAnalysisWorkflowService;
+}
+
+function resolveBatchQueue(workflowKey, handlers = {}) {
+  return workflowKey === "material-recognition"
+    ? handlers.materialRecognitionBatchQueue
+    : handlers.fullAnalysisBatchQueue;
 }
 
 

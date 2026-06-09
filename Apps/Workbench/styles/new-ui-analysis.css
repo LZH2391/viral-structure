@@ -13,6 +13,14 @@
   padding: clamp(46px, 7vh, 72px) clamp(18px, 4vw, 40px) 48px;
 }
 
+.new-ui-analysis-home-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: start;
+  gap: 20px;
+  width: min(1280px, 100%);
+}
+
 .new-ui-analysis-home.is-hidden,
 .new-ui-analysis-detail.is-hidden {
   display: none;
@@ -362,6 +370,149 @@
 
 .new-ui-analysis-player-queue-thumb.is-waiting {
   color: color-mix(in srgb, var(--new-ui-text-muted) 78%, var(--new-ui-border));
+}
+
+.new-ui-analysis-home-queue {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  max-height: min(620px, calc(100vh - 120px));
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 62%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-surface) 76%, var(--new-ui-bg));
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--new-ui-control-shadow) 28%, transparent);
+}
+
+.new-ui-analysis-home-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 12px 0;
+}
+
+.new-ui-analysis-home-queue-header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-sm);
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-home-queue-header span {
+  flex: none;
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 680;
+}
+
+.new-ui-analysis-home-queue-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 0;
+  padding: 0 8px 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.new-ui-analysis-home-queue-item {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--new-ui-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.new-ui-analysis-home-queue-item:not(:disabled):hover,
+.new-ui-analysis-home-queue-item:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--new-ui-text) 9%, transparent);
+  outline: 0;
+}
+
+.new-ui-analysis-home-queue-item:disabled {
+  cursor: default;
+}
+
+.new-ui-analysis-home-queue-thumb {
+  position: relative;
+  display: block;
+  width: 74px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--new-ui-border) 62%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 14%, transparent);
+}
+
+.new-ui-analysis-home-queue-thumb.is-wide {
+  aspect-ratio: 16 / 9;
+}
+
+.new-ui-analysis-home-queue-thumb.is-cinema {
+  aspect-ratio: 9 / 16;
+  width: 42px;
+  justify-self: center;
+}
+
+.new-ui-analysis-home-queue-thumb img,
+.new-ui-analysis-home-queue-thumb > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.new-ui-analysis-home-queue-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.new-ui-analysis-home-queue-copy strong,
+.new-ui-analysis-home-queue-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-home-queue-copy strong {
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-sm);
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.new-ui-analysis-home-queue-copy small {
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 650;
+}
+
+.new-ui-analysis-home-queue-empty {
+  display: grid;
+  place-items: center;
+  min-height: 90px;
+  color: var(--new-ui-text-muted);
+  font-size: var(--new-ui-font-size-sm);
+  font-weight: 650;
 }
 
 .new-ui-analysis-player-queue-toggle {
@@ -2807,6 +2958,16 @@
 @media (max-width: 980px) {
   .new-ui-analysis-home {
     padding: 42px 16px 36px;
+  }
+
+  .new-ui-analysis-home-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .new-ui-analysis-home-queue {
+    position: static;
+    width: 100%;
+    max-height: none;
   }
 
   .new-ui-analysis-detail {

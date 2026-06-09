@@ -1229,6 +1229,27 @@ button.new-ui-restructure-note-pill:disabled {
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--new-ui-text) 42%, transparent);
 }
 
+.new-ui-restructure-picker-card.is-pending {
+  cursor: default;
+}
+
+.new-ui-restructure-picker-card.is-pending .new-ui-restructure-picker-thumb,
+.new-ui-restructure-picker-card.is-pending .new-ui-restructure-picker-card-icon {
+  position: relative;
+}
+
+.new-ui-restructure-picker-card.is-pending .new-ui-restructure-picker-thumb::after,
+.new-ui-restructure-picker-card.is-pending .new-ui-restructure-picker-card-icon::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--new-ui-text-muted) 28%, transparent);
+  border-top-color: var(--new-ui-text);
+  border-radius: 50%;
+  animation: new-ui-restructure-picker-spin 0.9s linear infinite;
+}
+
 .new-ui-restructure-picker-card strong,
 .new-ui-restructure-picker-card small {
   min-width: 0;
@@ -1291,6 +1312,12 @@ button.new-ui-restructure-note-pill:disabled {
   grid-template-columns: minmax(0, 1fr);
   place-items: center;
   cursor: default;
+}
+
+@keyframes new-ui-restructure-picker-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .new-ui-restructure-send-button {

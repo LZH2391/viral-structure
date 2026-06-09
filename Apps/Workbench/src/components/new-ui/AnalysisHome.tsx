@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { getLatestFullAnalysisBatchRun, getSampleArtifact, runtimeUrl } from "../../api/client";
+import { getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun } from "../../api/client";
 import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact } from "../../types";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
@@ -43,6 +43,8 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
   const [rerunningStageKey, setRerunningStageKey] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [homeQueueItems, setHomeQueueItems] = useState<PlayerQueueItem[]>([]);
+  const [homeQueueLoading, setHomeQueueLoading] = useState(false);
   const [detailHeavyReady, setDetailHeavyReady] = useState(false);
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
   const isMaterialMode = mode === "materialRecognition";
@@ -148,8 +150,92 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     };
   }, [openRequest?.requestId]);
 
+  const refreshHomeQueue = useCallback(async () => {
+    setHomeQueueLoading(true);
+    try {
+      setHomeQueueItems(await loadLatestVideoProcessingQueue(mode));
+    } catch {
+      setHomeQueueItems([]);
+    } finally {
+      setHomeQueueLoading(false);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (view !== "home") return undefined;
+    let mounted = true;
+    const refresh = () => {
+      setHomeQueueLoading(true);
+      loadLatestVideoProcessingQueue(mode)
+        .then((items) => {
+          if (mounted) setHomeQueueItems(items);
+        })
+        .catch(() => {
+          if (mounted) setHomeQueueItems([]);
+        })
+        .finally(() => {
+          if (mounted) setHomeQueueLoading(false);
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, ANALYSIS_PLAYER_QUEUE_REFRESH_MS);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [mode, view]);
+
+  const startAnalysisBatch = useCallback(async (files: File[]) => {
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    setIsUploading(true);
+    try {
+      const batch = isMaterialMode
+        ? await startMaterialRecognitionBatchRun(files, {
+          frameSampleRateFps: 10,
+          enableAudioSeparation: true,
+          enableSubtitleRecognition: true,
+          enableAudioFeatureAnalysis: true,
+          cacheDecision: "ask",
+          maxConcurrentRuns: 2,
+        })
+        : await startFullAnalysisBatchRun(files, {
+          frameSampleRateFps: 10,
+          enableAudioSeparation: true,
+          enableSubtitleRecognition: true,
+          enableAudioFeatureAnalysis: true,
+          enableFunctionSlotAtomization: true,
+          cacheDecision: "ask",
+          maxConcurrentRuns: 2,
+        });
+      if (token !== operationTokenRef.current) return;
+      setHistoryRefreshKey((value) => value + 1);
+      const firstItem = batch.items.find((item) => item.sampleVideoId) ?? null;
+      if (firstItem?.sampleVideoId) {
+        const historyItem = resolveBatchQueueHistoryItem(firstItem, batch, null, normalizePlayerQueueStatus(firstItem.status));
+        if (historyItem) {
+          openHistoryDetail(historyItem);
+        } else {
+          setView("home");
+        }
+      } else {
+        setView("home");
+      }
+      await refreshHomeQueue().catch(() => undefined);
+    } finally {
+      if (token === operationTokenRef.current) setIsUploading(false);
+    }
+  }, [isMaterialMode, openHistoryDetail, refreshHomeQueue, stopPolling]);
+
   const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
-    const file = Array.from(files).find((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
+    const videoFiles = Array.from(files).filter((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
+    if (!videoFiles.length) return;
+    if (videoFiles.length > 1) {
+      await startAnalysisBatch(videoFiles);
+      return;
+    }
+    const file = videoFiles[0];
     if (!file) return;
     const token = operationTokenRef.current + 1;
     operationTokenRef.current = token;
@@ -179,7 +265,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     } finally {
       if (token === operationTokenRef.current) setIsUploading(false);
     }
-  }, [mode, stopPolling]);
+  }, [mode, startAnalysisBatch, stopPolling]);
 
   const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -331,6 +417,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
         ref={uploadInputRef}
         type="file"
         accept="video/*"
+        multiple
         hidden
         onChange={(event) => {
           const files = event.currentTarget.files;
@@ -366,10 +453,20 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
             <span className="new-ui-analysis-upload-limit">单文件最大 2G</span>
           </span>
         </button>
-        <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
+        <div className="new-ui-analysis-home-content">
+          <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
+          {homeQueueItems.length || homeQueueLoading ? (
+            <HomeQueuePanel
+              items={homeQueueItems}
+              loading={homeQueueLoading}
+              onOpenItem={openHistoryDetail}
+            />
+          ) : null}
+        </div>
       </section>
       <AnalysisDetailPage
         hidden={view !== "detail"}
+        mode={mode}
         title={detailTitle}
         media={detailMedia}
         item={detailItem}
@@ -392,6 +489,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
 
 function AnalysisDetailPage({
   hidden,
+  mode,
   title,
   media,
   item,
@@ -403,6 +501,7 @@ function AnalysisDetailPage({
   onBack,
 }: {
   hidden: boolean;
+  mode: AnalysisWorkflowMode;
   title: string;
   media: AnalysisHistoryMedia | null;
   item: AnalysisHistoryItem | null;
@@ -433,7 +532,7 @@ function AnalysisDetailPage({
     }
     let mounted = true;
     const refreshQueue = () => {
-      loadLatestVideoProcessingQueue()
+      loadLatestVideoProcessingQueue(mode)
         .then((items) => {
           if (mounted) setBatchQueueItems(items);
         })
@@ -447,7 +546,7 @@ function AnalysisDetailPage({
       mounted = false;
       window.clearInterval(refreshTimer);
     };
-  }, [queueExpanded]);
+  }, [mode, queueExpanded]);
 
   const seekTimeline = (time: number) => {
     const nextTime = Math.max(0, time);
@@ -525,10 +624,52 @@ type PlayerQueueItem = {
   status: "done" | "running" | "waiting" | "failed";
   thumbnailUrl: string | null;
   ratio: "wide" | "cinema";
-  badgeLabel: "分析中" | "识别中" | "排队中" | "已完成";
+  badgeLabel: "分析中" | "识别中" | "排队中" | "已完成" | "失败";
   title: string;
   historyItem: AnalysisHistoryItem | null;
 };
+
+function HomeQueuePanel({
+  items,
+  loading,
+  onOpenItem,
+}: {
+  items: PlayerQueueItem[];
+  loading: boolean;
+  onOpenItem: (item: AnalysisHistoryItem) => void;
+}) {
+  return (
+    <aside className="new-ui-analysis-home-queue" aria-label="视频处理队列">
+      <header className="new-ui-analysis-home-queue-header">
+        <h2>视频处理队列</h2>
+        <span>{loading ? "更新中" : `${items.length} 项`}</span>
+      </header>
+      <div className="new-ui-analysis-home-queue-list">
+        {items.length ? items.map((item) => (
+          <button
+            key={item.key}
+            className={`new-ui-analysis-home-queue-item is-${item.status}`.trim()}
+            type="button"
+            disabled={!item.historyItem}
+            onClick={() => {
+              if (item.historyItem) onOpenItem(item.historyItem);
+            }}
+          >
+            <span className={`new-ui-analysis-home-queue-thumb is-${item.ratio}`} aria-hidden="true">
+              {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span />}
+            </span>
+            <span className="new-ui-analysis-home-queue-copy">
+              <strong>{item.title}</strong>
+              <small>{item.badgeLabel}</small>
+            </span>
+          </button>
+        )) : (
+          <div className="new-ui-analysis-home-queue-empty">{loading ? "正在读取队列" : "暂无排队任务"}</div>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 function PlayerQueueRail({
   currentSampleVideoId,
@@ -636,13 +777,15 @@ function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): PlayerQ
 
 function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, status: PlayerQueueItem["status"]): PlayerQueueItem["badgeLabel"] {
   if (status === "done") return "已完成";
+  if (status === "failed") return "失败";
   if (status === "waiting") return "排队中";
   if (media?.analysisKind === "material" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
   return "分析中";
 }
 
-async function loadLatestVideoProcessingQueue(): Promise<PlayerQueueItem[]> {
-  const batch = await getLatestFullAnalysisBatchRun({ active: true }).catch(() => null);
+async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "structureAnalysis"): Promise<PlayerQueueItem[]> {
+  const loadBatch = mode === "materialRecognition" ? getLatestMaterialRecognitionBatchRun : getLatestFullAnalysisBatchRun;
+  const batch = await loadBatch({ active: true }).catch(() => null);
   if (!batch?.items?.length) return [];
   const artifactEntries = await Promise.all(
     batch.items.map(async (queueItem) => {
@@ -725,6 +868,7 @@ function resolveBatchQueueThumbnailRatio(artifact: SampleArtifact | null): Playe
 
 function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, status: PlayerQueueItem["status"]): PlayerQueueItem["badgeLabel"] {
   if (status === "done") return "已完成";
+  if (status === "failed") return "失败";
   if (status === "waiting" || queueItem.status === "queued" || queueItem.position > batch.maxConcurrentRuns) return "排队中";
   if (batch.workflowKey === "material-recognition" || queueItem.currentStageLabel?.includes("素材")) return "识别中";
   return "分析中";

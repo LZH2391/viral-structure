@@ -12,6 +12,13 @@ function createFullAnalysisBatchQueue({
   filePath = path.join(runtimeRoot, "WorkflowRuns", "full-analysis-queue.json"),
   uploadRoot = path.join(runtimeRoot, "WorkflowRuns", "full-analysis-batch-uploads"),
   defaultMaxConcurrentRuns = DEFAULT_MAX_CONCURRENT_RUNS,
+  workflowKey = "full-analysis",
+  workflowLabel = "完整分析",
+  errorCode = "full_analysis_batch_item_failed",
+  stageName = "workflow.full_analysis.batch.dispatch",
+  buildOptions = (fields) => ({
+    enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
+  }),
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
@@ -52,14 +59,12 @@ function createFullAnalysisBatchQueue({
     });
     const batch = {
       batchRunId,
-      workflowKey: "full-analysis",
+      workflowKey,
       status: "queued",
       workspaceId,
       maxConcurrentRuns,
       fields: sanitizeWorkflowFields(fields),
-      options: {
-        enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
-      },
+      options: buildOptions(fields),
       createdAt: now,
       updatedAt: now,
       completedAt: null,
@@ -207,10 +212,10 @@ function createFullAnalysisBatchQueue({
       item.status = "failed";
       item.completedAt = new Date().toISOString();
       item.updatedAt = item.completedAt;
-      item.errorSummary = normalizeQueueError(error);
+      item.errorSummary = normalizeQueueError(error, { errorCode, stageName, workflowLabel });
       await logger?.writeDebugSnapshot?.({
         traceContext: { runId: `batch_${batch.batchRunId}`, traceId: batch.batchRunId, stageId: item.queueItemId },
-        stageName: "workflow.full_analysis.batch.dispatch",
+        stageName,
         reason: item.errorSummary.code,
         inputSummary: { batchRunId: batch.batchRunId, queueItemId: item.queueItemId, filename: item.filename },
         debugPayload: { message: item.errorSummary.message },
@@ -221,22 +226,25 @@ function createFullAnalysisBatchQueue({
 
   function assertWorkflowStarted(result) {
     if (result?.workflowRunId) return;
-    const error = new Error(result?.message ?? "完整分析 workflow 启动未返回 workflowRunId");
-    error.code = result?.error ?? result?.code ?? "full_analysis_batch_workflow_start_invalid";
+    const error = new Error(result?.message ?? `${workflowLabel} workflow 启动未返回 workflowRunId`);
+    error.code = result?.error ?? result?.code ?? `${workflowKey.replace(/-/g, "_")}_batch_workflow_start_invalid`;
     error.retryable = true;
     throw error;
   }
 
   function batchFieldsForWorkflow(batch) {
-    return {
+    const fields = {
       workspaceId: batch.workspaceId,
       frameSampleRateFps: batch.fields?.frameSampleRateFps ?? batch.frameSampleRateFps ?? undefined,
       enableAudioSeparation: batch.fields?.enableAudioSeparation ?? "true",
       enableSubtitleRecognition: batch.fields?.enableSubtitleRecognition ?? "true",
       enableAudioFeatureAnalysis: batch.fields?.enableAudioFeatureAnalysis ?? "true",
-      enableFunctionSlotAtomization: batch.options?.enableFunctionSlotAtomization === false ? "false" : "true",
       cacheDecision: batch.fields?.cacheDecision ?? "ask",
     };
+    if (batch.workflowKey === "full-analysis") {
+      fields.enableFunctionSlotAtomization = batch.options?.enableFunctionSlotAtomization === false ? "false" : "true";
+    }
+    return fields;
   }
 
   function scheduleAdvance(batchRunId, delayMs = 1000) {
@@ -416,11 +424,11 @@ function isRetryableItem(item) {
   return ["failed", "partial_failed"].includes(String(item?.status ?? "")) && Boolean(item?.filePath && fs.existsSync(item.filePath));
 }
 
-function normalizeQueueError(error) {
-  return {
-    code: error?.code ?? "full_analysis_batch_item_failed",
-    message: error instanceof Error ? error.message.slice(0, 240) : "批量完整分析任务启动失败",
-    stageName: "workflow.full_analysis.batch.dispatch",
+function normalizeQueueError(error, { errorCode = "full_analysis_batch_item_failed", stageName = "workflow.full_analysis.batch.dispatch", workflowLabel = "完整分析" } = {}) {
+    return {
+      code: error?.code ?? errorCode,
+      message: error instanceof Error ? error.message.slice(0, 240) : `批量${workflowLabel}任务启动失败`,
+      stageName,
     retryable: true,
     debugSnapshotUri: error?.debugSnapshotUri ?? null,
   };

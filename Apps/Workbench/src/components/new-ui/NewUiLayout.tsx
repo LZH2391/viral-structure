@@ -12,8 +12,8 @@ import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./Anal
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
 import { NewUiRestructureWorkspace, type NewUiMaterialPackOption, type NewUiRestructureSendContext, type NewUiStructureOption, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
-import { startAnalysisUpload } from "./analysisBackend";
-import { listAnalysisHistorySamples } from "./analysisHistoryData";
+import { refreshAnalysisDetailItem, startAnalysisUpload } from "./analysisBackend";
+import { listAnalysisHistorySamples, type AnalysisHistoryItem } from "./analysisHistoryData";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiAnalysisChildId = "structureAnalysis" | "materialRecognition";
@@ -129,6 +129,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const draftingRestructureConversationRef = useRef(false);
   const draftRestructureConversationIdRef = useRef(createRestructureDraftId());
   const restructureNavigationGenerationRef = useRef(0);
+  const restructureMaterialPollTimersRef = useRef<Record<string, number>>({});
+  const cancelledRestructureMaterialSamplesRef = useRef(new Set<string>());
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
@@ -681,7 +683,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           durationSeconds: item.durationSeconds ?? null,
           updatedAt: item.updatedAt ?? item.createdAt ?? null,
         }));
-      setRestructureMaterialPackOptions(materialItems);
+      setRestructureMaterialPackOptions((current) => {
+        const pendingItems = current.filter((item) => item.pending);
+        return mergeMaterialPackOptions(pendingItems, materialItems);
+      });
     } finally {
       setLoadingRestructureMaterialPacks(false);
     }
@@ -705,9 +710,60 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, []);
 
+  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null) => {
+    const sampleVideoId = initialItem.sampleVideoId;
+    if (!sampleVideoId) return;
+    const existingTimer = restructureMaterialPollTimersRef.current[sampleVideoId];
+    if (existingTimer) window.clearTimeout(existingTimer);
+    let attempt = 0;
+    const poll = async (item: AnalysisHistoryItem) => {
+      attempt += 1;
+      try {
+        const { item: refreshedItem } = await refreshAnalysisDetailItem(item);
+        if (materialPackReady(refreshedItem)) {
+          delete restructureMaterialPollTimersRef.current[sampleVideoId];
+          const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+          setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
+          if (!cancelledRestructureMaterialSamplesRef.current.has(sampleVideoId)) {
+            setSelectedRestructureMaterialPack(option);
+          }
+          await refreshRestructureMaterialPackOptions().catch(() => undefined);
+          return;
+        }
+        const nextOption = materialPackPendingOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+        setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, nextOption));
+        if (attempt < 60) {
+          restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(refreshedItem), 2000);
+        } else {
+          delete restructureMaterialPollTimersRef.current[sampleVideoId];
+        }
+      } catch {
+        if (attempt < 60) {
+          restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(item), 3000);
+        } else {
+          delete restructureMaterialPollTimersRef.current[sampleVideoId];
+        }
+      }
+    };
+    restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(initialItem), 1200);
+  }, [refreshRestructureMaterialPackOptions]);
+
   const openMaterialRecognitionUploadFromRestructure = useCallback(() => {
     restructureMaterialUploadInputRef.current?.click();
   }, []);
+
+  const handleSelectedRestructureMaterialPackChange = useCallback((option: NewUiMaterialPackOption | null) => {
+    if (
+      selectedRestructureMaterialPack?.pending
+      && (!option || option.sampleVideoId !== selectedRestructureMaterialPack.sampleVideoId)
+    ) {
+      cancelledRestructureMaterialSamplesRef.current.add(selectedRestructureMaterialPack.sampleVideoId);
+    }
+    if (option?.sampleVideoId) {
+      cancelledRestructureMaterialSamplesRef.current.delete(option.sampleVideoId);
+    }
+    setSelectedRestructureMaterialPack(option);
+  }, [selectedRestructureMaterialPack]);
 
   const handleRestructureMaterialUploadChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.currentTarget.files;
@@ -718,17 +774,24 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setLoadingRestructureMaterialPacks(true);
     try {
       const { item } = await startAnalysisUpload(file, "materialRecognition");
-      const option = materialPackOptionFromAnalysisItem(item, file.name);
-      setSelectedRestructureMaterialPack(option);
-      setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
-      await refreshRestructureMaterialPackOptions().catch(() => undefined);
+      cancelledRestructureMaterialSamplesRef.current.delete(item.sampleVideoId);
+      const readyOption = materialPackReady(item)
+        ? materialPackOptionFromAnalysisItem(item, file.name)
+        : materialPackPendingOptionFromAnalysisItem(item, file.name);
+      setSelectedRestructureMaterialPack(readyOption);
+      setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, readyOption));
+      if (!readyOption.pending) {
+        await refreshRestructureMaterialPackOptions().catch(() => undefined);
+      } else {
+        pollRestructureMaterialPackUntilReady(item, file.name);
+      }
     } catch (error) {
       markRestructureConversationError(selectedRestructureConversation?.conversationId ?? null, error);
     } finally {
       setUploadingRestructureMaterial(false);
       setLoadingRestructureMaterialPacks(false);
     }
-  }, [markRestructureConversationError, refreshRestructureMaterialPackOptions, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
+  }, [markRestructureConversationError, pollRestructureMaterialPackUntilReady, refreshRestructureMaterialPackOptions, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
 
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
@@ -1408,6 +1471,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       if (rightPaneTransitionTimerRef.current) window.clearTimeout(rightPaneTransitionTimerRef.current);
       Object.values(restructureTurnPollTimersRef.current).forEach((timer) => window.clearTimeout(timer));
       restructureTurnPollTimersRef.current = {};
+      Object.values(restructureMaterialPollTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+      restructureMaterialPollTimersRef.current = {};
       runningRestructureTurnsRef.current = {};
       restructureSubmissionBusyRef.current = false;
     };
@@ -1512,7 +1577,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               materialPackOptions={restructureMaterialPackOptions}
               structureOptions={restructureStructureOptions}
               selectedMaterialPack={selectedRestructureMaterialPack}
-              onSelectedMaterialPackChange={setSelectedRestructureMaterialPack}
+              onSelectedMaterialPackChange={handleSelectedRestructureMaterialPackChange}
               loadingMaterialPackOptions={loadingRestructureMaterialPacks}
               uploadingMaterial={uploadingRestructureMaterial}
               loadingStructureOptions={loadingRestructureStructures}
@@ -1969,7 +2034,32 @@ function runtimeUrlSafe(uri?: string | null) {
   return runtimeUrl(uri) ?? null;
 }
 
-function materialPackOptionFromAnalysisItem(item: { sampleVideoId: string; artifactId?: string | null; title?: string | null; traceId?: string | null; coverUri?: string | null; durationSeconds?: number | null; artifact?: { userMaterialPack?: { artifactId?: string | null; shotCards?: unknown[]; materialGroups?: unknown[]; proofCoverage?: unknown[] } | null } | null }, fallbackTitle?: string | null): NewUiMaterialPackOption {
+type RestructureMaterialAnalysisItem = {
+  sampleVideoId: string;
+  artifactId?: string | null;
+  title?: string | null;
+  traceId?: string | null;
+  coverUri?: string | null;
+  durationSeconds?: number | null;
+  artifact?: {
+    userMaterialPack?: {
+      type?: string | null;
+      schemaVersion?: string | null;
+      artifactId?: string | null;
+      shotCards?: unknown[];
+      materialGroups?: unknown[];
+      proofCoverage?: unknown[];
+    } | null;
+    userMaterialPackRef?: { uri?: string | null } | null;
+  } | null;
+};
+
+function materialPackReady(item: RestructureMaterialAnalysisItem) {
+  const pack = item.artifact?.userMaterialPack ?? null;
+  return Boolean(pack?.type === "user-material-pack" && pack.schemaVersion === "user-material-pack.stable" && item.artifact?.userMaterialPackRef?.uri);
+}
+
+function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null): NewUiMaterialPackOption {
   const pack = item.artifact?.userMaterialPack ?? null;
   return {
     sampleVideoId: item.sampleVideoId,
@@ -1984,9 +2074,23 @@ function materialPackOptionFromAnalysisItem(item: { sampleVideoId: string; artif
   };
 }
 
+function materialPackPendingOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null): NewUiMaterialPackOption {
+  return {
+    ...materialPackOptionFromAnalysisItem(item, fallbackTitle),
+    artifactId: item.artifactId ?? null,
+    pending: true,
+  };
+}
+
 function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
-  const same = (item: NewUiMaterialPackOption) => item.sampleVideoId === next.sampleVideoId && (item.artifactId ?? null) === (next.artifactId ?? null);
+  const same = (item: NewUiMaterialPackOption) => item.sampleVideoId === next.sampleVideoId && (
+    item.pending || next.pending || (item.artifactId ?? null) === (next.artifactId ?? null)
+  );
   return [next, ...options.filter((item) => !same(item))];
+}
+
+function mergeMaterialPackOptions(primary: NewUiMaterialPackOption[], secondary: NewUiMaterialPackOption[]) {
+  return [...secondary, ...primary].reduce<NewUiMaterialPackOption[]>((items, item) => upsertMaterialPackOption(items, item), []);
 }
 
 function stripMediaExtension(value?: string | null) {

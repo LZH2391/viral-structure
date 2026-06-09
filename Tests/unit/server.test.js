@@ -5929,6 +5929,82 @@ test("full analysis batch routes create and read batch queue", async () => {
   }
 });
 
+test("material recognition batch routes create and read material queue", async () => {
+  const calls = [];
+  const fakeBatch = {
+    batchRunId: "batch_material_1",
+    workflowKey: "material-recognition",
+    status: "queued",
+    workspaceId: "default-workspace",
+    maxConcurrentRuns: 2,
+    createdAt: "2026-05-30T00:00:00.000Z",
+    updatedAt: "2026-05-30T00:00:00.000Z",
+    completedAt: null,
+    items: [],
+  };
+  let storedBatch = { ...fakeBatch };
+  const server = createServer({
+    materialRecognitionBatchQueue: {
+      createBatch: ({ files, fields }) => {
+        calls.push({ type: "create", fileNames: files.map((file) => file.filename), maxConcurrentRuns: fields.maxConcurrentRuns });
+        storedBatch = { ...fakeBatch };
+        return storedBatch;
+      },
+      advance: async (batchRunId) => calls.push({ type: "advance", batchRunId }),
+      getBatch: (batchRunId) => batchRunId === "batch_material_1" ? storedBatch : null,
+      getLatestBatch: () => {
+        storedBatch = { ...storedBatch, restored: true };
+        return storedBatch;
+      },
+      getLatestActiveBatch: () => {
+        storedBatch = { ...storedBatch, status: "running", restored: true };
+        return storedBatch;
+      },
+      retryItem: (batchRunId, queueItemId) => {
+        calls.push({ type: "retry", batchRunId, queueItemId });
+        storedBatch = { ...storedBatch, status: "running" };
+        return storedBatch;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const created = await makeMultipartFilesRequest(server, {
+      path: "/api/workflows/material-recognition/batch-runs",
+      fields: { workspaceId: "default-workspace", maxConcurrentRuns: "2" },
+      files: [
+        { name: "a.mp4", type: "video/mp4", content: "a" },
+        { name: "b.mp4", type: "video/mp4", content: "b" },
+      ],
+    });
+    assert.equal(created.statusCode, 202);
+    assert.equal(created.body.batchRunId, "batch_material_1");
+    assert.equal(created.body.workflowKey, "material-recognition");
+
+    const read = await makeRequest(server, "GET", "/api/workflows/material-recognition/batch-runs/batch_material_1");
+    assert.equal(read.statusCode, 200);
+    assert.equal(read.body.batchRunId, "batch_material_1");
+
+    const latestActive = await makeRequest(server, "GET", "/api/workflows/material-recognition/batch-runs/latest?active=true");
+    assert.equal(latestActive.statusCode, 200);
+    assert.equal(latestActive.body.status, "running");
+
+    const retry = await makeRequest(server, "POST", "/api/workflows/material-recognition/batch-runs/batch_material_1/items/item_1/retry");
+    assert.equal(retry.statusCode, 202);
+    assert.deepEqual(calls, [
+      { type: "create", fileNames: ["a.mp4", "b.mp4"], maxConcurrentRuns: "2" },
+      { type: "advance", batchRunId: "batch_material_1" },
+      { type: "advance", batchRunId: "batch_material_1" },
+      { type: "retry", batchRunId: "batch_material_1", queueItemId: "item_1" },
+    ]);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("packaging structure route enqueues service with shot dependency", async () => {
   const calls = [];
   const server = createServer({
