@@ -270,6 +270,7 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
       confirmationId,
       conversationId,
       runImageGeneration: true,
+      runPdfAgent: false,
     });
     if (!storyboardResult) {
       const error = new Error("Shot Storyboard Prep pipeline 服务不可用");

@@ -32,6 +32,7 @@ const { handleFunctionSlotRoute } = require("./lib/http/function-slot-routes");
 const { handleWorkflowRoute } = require("./lib/http/workflow-routes");
 const { handleForceUpdateSeeds, handleOwnerLeaseRelease, handleThreadConversation, handleThreadDiscard, handleThreadPoolRead, handleThreadTurnTimeline } = require("./lib/http/threadpool-routes");
 const { handleAgentChatConversationArchive, handleAgentChatConversationAutoAdvance, handleAgentChatConversationConfirm, handleAgentChatConversationDialogueReview, handleAgentChatConversationDialogueRework, handleAgentChatConversationList, handleAgentChatConversationResume, handleAgentChatConversationSystemMessage, handleAgentChatLeaseRelease, handleAgentChatManualReplacementSubmit, handleAgentChatThreadCompact, handleAgentChatThreadStart, handleAgentChatThreadStop, handleAgentChatTurnCollect, handleAgentChatTurnRetry, handleAgentChatTurnSubmit, handleAgentChatTurnStop, handleAgentChatTurnTimeline } = require("./lib/http/agent-chat-routes");
+const { handleAgentChatStoryboardImage, handleAgentChatStoryboardResult } = require("./lib/http/agent-chat-storyboard-result-routes");
 const { createAgentConversationStore } = require("./lib/agent-chat/conversation-store");
 const { createSubtitleRevisionService } = require("./lib/sample-processing/subtitle-revision-service");
 const { createAnalysisRoleRegistry } = require("./lib/compatibility/analysis-role-registry");
@@ -294,6 +295,8 @@ function createServer(deps = {}) {
       if (await handleWorkflowRoute(req, res, url, handlers)) return undefined;
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threads") return await handleAgentChatThreadStart(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/agent-chat/conversations") return await handleAgentChatConversationList(res, handlers, url);
+      if (req.method === "GET" && /^\/api\/agent-chat\/conversations\/[^/]+\/storyboard-result$/.test(url.pathname)) return await handleAgentChatStoryboardResult(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "GET" && /^\/api\/agent-chat\/conversations\/[^/]+\/storyboard-result\/images\/[^/]+$/.test(url.pathname)) return await handleAgentChatStoryboardImage(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/resume$/.test(url.pathname)) return await handleAgentChatConversationResume(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/archive$/.test(url.pathname)) return await handleAgentChatConversationArchive(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/confirm$/.test(url.pathname)) return await handleAgentChatConversationConfirm(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);

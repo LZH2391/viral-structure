@@ -944,6 +944,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         confirmationId,
         conversationId: conversation.conversationId,
         runImageGeneration: true,
+        runPdfAgent: false,
       });
       await confirmWithRevision(
         {

@@ -1068,6 +1068,7 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
         confirmationId,
         conversationId: session.conversationId,
         runImageGeneration: true,
+        runPdfAgent: false,
       };
       const storyboardResult = await autoRunShotStoryboardPrep(payload);
       const storyboardJobLabel = storyboardResult.processingJobId ? `job ${shortId(storyboardResult.processingJobId)}` : `artifact ${shortId(storyboardResult.artifactId)}`;

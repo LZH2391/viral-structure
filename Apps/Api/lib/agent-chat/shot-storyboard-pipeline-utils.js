@@ -145,6 +145,7 @@ function buildInputSummary(options) {
     userMaterialPackPath: normalizeText(options.userMaterialPackPath),
     confirmationId: normalizeText(options.confirmationId),
     runImageGeneration: options.runImageGeneration !== false,
+    runPdfAgent: options.runPdfAgent !== false,
   };
 }
 

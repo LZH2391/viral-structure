@@ -137,6 +137,37 @@ function makeRequest(server, method, requestPath, body) {
   });
 }
 
+function makeRawRequest(server, method, requestPath, body) {
+  return new Promise((resolve, reject) => {
+    const address = server.address();
+    const request = require("node:http").request({
+      agent: false,
+      method,
+      host: "127.0.0.1",
+      port: address.port,
+      path: requestPath,
+      headers: {
+        connection: "close",
+        ...(body ? { "content-type": "application/json" } : {}),
+      },
+    }, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        response.destroy();
+        resolve({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          body: Buffer.concat(chunks),
+        });
+      });
+    });
+    request.on("error", reject);
+    if (body) request.write(JSON.stringify(body));
+    request.end();
+  });
+}
+
 async function writeRollout(codexHome, threadId, lines) {
   const dir = path.join(codexHome, "sessions", "2026", "06", "03");
   await fsPromises.mkdir(dir, { recursive: true });
@@ -853,6 +884,99 @@ test("agent chat persists restructure conversations and archives them manually",
     assert.deepEqual(discardedThreads, [{ threadId: "thread_restructure", reason: "agent-chat-conversation-archived" }]);
   } finally {
     await closeServer(server);
+  }
+});
+
+test("agent chat storyboard result projects generated images and upstream aspect", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-chat-storyboard-result-"));
+  try {
+    const artifactDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "demo-video");
+    const framesDir = path.join(artifactDir, "shot-storyboard-frames");
+    await fsPromises.mkdir(framesDir, { recursive: true });
+    const shotDesignPath = path.join(artifactDir, "shot-design.final.md");
+    await fsPromises.writeFile(shotDesignPath, "# shot design\n", "utf8");
+    await fsPromises.writeFile(path.join(artifactDir, "shot-storyboard-manifest.json"), JSON.stringify({
+      aspect: { ratio: "16:9", orientation: "横屏" },
+      shots: [
+        {
+          shotId: "new_shot_01",
+          slotKey: "SUB_hook",
+          shouldGenerate: false,
+          dialogue: "后期字幕/旁白：“素材镜头。”",
+          duration: "0.8-1.0s",
+        },
+        {
+          shotId: "new_shot_02",
+          slotKey: "SUB_hook -> SUB_claim",
+          shouldGenerate: true,
+          dialogue: "旁白/主字幕：“生成镜头。”",
+          duration: "1.0-1.2s",
+        },
+      ],
+    }), "utf8");
+    await fsPromises.writeFile(path.join(framesDir, "new_shot_02.png"), Buffer.from("png"));
+    await fsPromises.writeFile(path.join(framesDir, "shot-storyboard-crops.json"), JSON.stringify({
+      source: {
+        artifactId: "artifact_image",
+        traceId: "trace_image",
+        parentArtifactId: "artifact_parent",
+      },
+      crops: [
+        {
+          shotId: "new_shot_02",
+          cropBox: [0, 0, 1600, 900],
+          path: path.join(framesDir, "new_shot_02.png"),
+        },
+      ],
+    }), "utf8");
+
+    const conversation = {
+      conversationId: "conversation_storyboard",
+      title: "故事板会话",
+      status: "active",
+      revision: 1,
+      threadId: "thread_storyboard",
+      confirmedPlan: {
+        status: "completed",
+        sourceShotDesignPath: path.relative(rootDir, shotDesignPath).replaceAll(path.sep, "/"),
+        storyboardArtifact: { artifactId: "artifact_old", status: "processing" },
+      },
+      messages: [],
+    };
+    const server = createServer({
+      rootDir,
+      agentConversationStore: {
+        get: async (conversationId) => conversationId === conversation.conversationId ? conversation : null,
+        list: async () => [conversation],
+      },
+      staticWorkbench: { handle: () => false },
+    });
+
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    server.unref();
+    try {
+      const response = await makeRequest(server, "GET", "/api/agent-chat/conversations/conversation_storyboard/storyboard-result");
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body.status, "available");
+      assert.equal(response.body.aspect.ratio, "16:9");
+      assert.equal(response.body.groups.length, 1);
+      assert.equal(response.body.groups[0].title, "hook");
+      assert.equal(response.body.groups[0].shotCount, 2);
+      assert.equal(response.body.groups[0].shots[0].imageUrl, null);
+      assert.equal(response.body.groups[0].shots[1].aspect.ratio, "16:9");
+      assert.match(response.body.groups[0].shots[1].imageUrl, /^\/api\/agent-chat\/conversations\/conversation_storyboard\/storyboard-result\/images\/new_shot_02$/);
+      assert.equal(JSON.stringify(response.body).includes(rootDir), false);
+
+      const image = await makeRawRequest(server, "GET", response.body.groups[0].shots[1].imageUrl);
+      assert.equal(image.statusCode, 200);
+      assert.equal(image.headers["content-type"], "image/png");
+      assert.equal(image.body.toString("utf8"), "png");
+    } finally {
+      await closeServer(server);
+    }
+  } finally {
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
   }
 });
 
@@ -2571,6 +2695,7 @@ test("agent chat auto advance confirms and starts storyboard prep after dialogue
     assert.equal(storyboardRuns[0].restructureFinalPath, "Artifacts/FunctionSlotRestructure/auto-confirm/restructure.final.md");
     assert.equal(storyboardRuns[0].shotDesignFinalPath, "Artifacts/FunctionSlotRestructure/auto-confirm/shot-design.final.md");
     assert.equal(storyboardRuns[0].parentArtifactId, "turn_auto_shot");
+    assert.equal(storyboardRuns[0].runPdfAgent, false);
   } finally {
     await closeServer(server);
     await fsPromises.rm(rootDir, { recursive: true, force: true });

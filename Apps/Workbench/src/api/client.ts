@@ -170,6 +170,54 @@ export type AgentChatActionProjection = {
   availableActions: Array<"stop_turn" | "stop_thread" | "retry_same_thread" | "retry_new_thread" | string>;
 };
 
+export type AgentChatStoryboardResult = {
+  ok: boolean;
+  status: "available" | "missing" | string;
+  reason?: string | null;
+  conversationId?: string | null;
+  title?: string | null;
+  aspect?: {
+    ratio?: "9:16" | "16:9" | string;
+    orientation?: "portrait" | "landscape" | string;
+    css?: string | null;
+  } | null;
+  source?: {
+    manifestPath?: string | null;
+    cropsPath?: string | null;
+    traceId?: string | null;
+    artifactId?: string | null;
+    parentArtifactId?: string | null;
+  } | null;
+  groups: AgentChatStoryboardGroup[];
+};
+
+export type AgentChatStoryboardGroup = {
+  id: string;
+  label: string;
+  key: string;
+  title: string;
+  shotCount: number;
+  shots: AgentChatStoryboardShot[];
+};
+
+export type AgentChatStoryboardShot = {
+  id: string;
+  index: number;
+  title: string;
+  duration?: string | null;
+  dialogue?: string | null;
+  strategy?: string | null;
+  sourceRefs?: string[];
+  kind: "material" | "generated" | string;
+  kindLabel: string;
+  imageUrl?: string | null;
+  aspect?: {
+    ratio?: "9:16" | "16:9" | string;
+    orientation?: "portrait" | "landscape" | string;
+    css?: string | null;
+  } | null;
+};
+
 export type AgentChatStopResponse = {
   ok: boolean;
   action: "stop_turn" | "stop_thread";
@@ -752,6 +800,12 @@ export async function listAgentChatConversations(payload: { role?: string | null
   );
 }
 
+export async function getAgentChatStoryboardResult(conversationId: string) {
+  return readJsonResponse<AgentChatStoryboardResult>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/storyboard-result`, { cache: "no-store" }),
+  );
+}
+
 export async function startAgentChatAutoAdvance(
   conversationId: string,
   payload: {
@@ -972,7 +1026,7 @@ export async function startFunctionSlotGovernanceRun(payload: { refreshEvidence?
   );
 }
 
-export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; shotDesignFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; conversationId?: string | null; runImageGeneration?: boolean } = {}) {
+export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; shotDesignFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; conversationId?: string | null; runImageGeneration?: boolean; runPdfAgent?: boolean } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
       method: "POST",

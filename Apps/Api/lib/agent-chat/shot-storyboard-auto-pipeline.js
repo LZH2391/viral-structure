@@ -165,6 +165,55 @@ function createShotStoryboardAutoPipelineService({
 
     const image = await runImageGenerationStage({ options, prepare, traceContext, artifactId, parentArtifactId, job });
     const crop = await runCropStage({ prepare, image, resolved, traceContext, artifactId, parentArtifactId, job });
+    if (options.runPdfAgent === false) {
+      return await finishProcessed({
+        job,
+        traceContext,
+        artifactId,
+        parentArtifactId,
+        outputSummary: {
+          status: "frames_ready",
+          restructureFinalPath: safeRelative(resolved.restructureFinalPath),
+          shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+          promptPath: safeRelative(prepare.promptPath),
+          manifestPath: safeRelative(prepare.manifestPath),
+          imageGenerationArtifactId: image.artifact?.artifactId ?? null,
+          cropsManifestPath: safeRelative(crop.cropsManifestPath),
+          repairAttemptCount,
+        },
+        stageStartedAt,
+        pipelineArtifact: {
+          artifactId,
+          parentArtifactId,
+          artifactType: "shot-storyboard-prep",
+          type: "shot-storyboard-prep",
+          stageName: AUTO_STAGE_NAME,
+          sampleVideoId: options.sampleVideoId,
+          runId: traceContext.runId,
+          traceId: traceContext.traceId,
+          stageId: traceContext.stageId,
+          status: "processed",
+          createdAt: now(),
+          files: {
+            restructureFinalPath: safeRelative(resolved.restructureFinalPath),
+            shotDesignFinalPath: safeRelative(resolved.shotDesignFinalPath),
+            promptPath: safeRelative(prepare.promptPath),
+            manifestPath: safeRelative(prepare.manifestPath),
+            cropsManifestPath: safeRelative(crop.cropsManifestPath),
+          },
+          imageGenerationArtifact: image.artifact ? {
+            artifactId: image.artifact.artifactId,
+            uri: image.artifact.uri,
+            groupCount: image.artifact.storyboardGroups?.length ?? null,
+          } : null,
+          validation: {
+            repairAttemptCount,
+            warnings: crop.parsed?.warnings ?? [],
+          },
+          pdfTurn: null,
+        },
+      });
+    }
     const pdf = await runPdfAgentStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job });
     return await finishProcessed({
       job,

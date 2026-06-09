@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { IconArrowRight, IconAtom } from "@tabler/icons-react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
+import { StoryboardResultViewer } from "./StoryboardResultViewer";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
 const PSEUDO_STREAM_MAX_DURATION_MS = 4000;
@@ -438,6 +439,9 @@ export function NewUiRestructureWorkspace({
             >
               {confirmedPlanStatusDisplay ? (
                 <ConfirmedPlanStatusActivity display={confirmedPlanStatusDisplay} />
+              ) : null}
+              {conversation.confirmedPlan?.status === "completed" ? (
+                <StoryboardResultViewer conversationId={conversation.conversationId} />
               ) : null}
               {messageRenderItems.map((renderItem) => (
                 <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
