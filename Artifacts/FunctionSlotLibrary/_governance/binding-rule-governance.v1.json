@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.bindingRules",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-09T23:37:28.591Z",
   "bindingPatterns": [
     {
       "id": "BIND_pattern_attention_sync",
@@ -12,12 +13,14 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002"
       ],
       "support": {
-        "variantCount": 3,
-        "sampleCount": 3,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -25,7 +28,8 @@
       },
       "judgementReason": "这些 binding 的共同关系是同步同一证明时刻，而不是相同文案。",
       "differenceNotes": [
-        "同步对象可以是开场入口、感官细节或问题对象动作。"
+        "同步对象可以是开场入口、感官细节或问题对象动作。",
+        "???????????????????????????????????"
       ],
       "riskIfMisclassified": "会把同步约束误作普通顺序约束。"
     },
@@ -40,12 +44,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B002",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 5,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -54,7 +60,8 @@
       },
       "judgementReason": "四个样例都出现了同一关切必须闭合的关系约束，是跨样例强 pattern。",
       "differenceNotes": [
-        "承接对象可能是前置结果、购买对象、场景痛点或问题对象。"
+        "承接对象可能是前置结果、购买对象、场景痛点或问题对象。",
+        "?????????????????????????/???????"
       ],
       "riskIfMisclassified": "重组会保留槽位形状但丢失说服闭环。"
     },
@@ -91,30 +98,35 @@
       "id": "BIND_pattern_function_preserving_substitution",
       "name": "保功能替换",
       "bindingType": "substitute",
-      "condition": "跨品类或跨素材重组需要替换包装、场景、解决物或说明载体",
-      "requirement": "允许替换表面形式，但必须保留槽位任务、证明匹配和前后承接",
-      "riskIfBroken": "重组结果像原片但不再能说服",
+      "condition": "???????????????????????????????????",
+      "requirement": "???????????????????????????????????",
+      "riskIfBroken": "????????????????????????????????????????????????",
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B008",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B008"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 6,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "四个样例都明确了可替换的是载体，不可替换的是证明功能。",
+      "judgementReason": "?? substitute binding ???????????????????????????????????????????? B005 ???????????????????????????????????????????????",
       "differenceNotes": [
-        "品质证明、机制证明和问题定位的可替换形式不同。"
+        "?????????????????????????????????????????????????",
+        "B005 ??????????????????????????? pattern ? packaging substitute ???????",
+        "?????? substitute ?????????????????????"
       ],
-      "riskIfMisclassified": "会把视觉风格迁移误作功能结构迁移。"
+      "riskIfMisclassified": "????????????????????????????????????"
     },
     {
       "id": "BIND_pattern_complex_claim_pace_conflict",
@@ -155,12 +167,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007"
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 3,
+        "variantCount": 5,
+        "sampleCount": 4,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -169,7 +183,8 @@
       "judgementReason": "slot_index 中存在 support 型 binding，它们不同于 require 型必需证明，但仍需要和当前 claim 对齐。",
       "differenceNotes": [
         "support 只增强当前主张的可信度，不等同于 require 的必需证明关系。",
-        "辅助证据必须对齐当前 slot 的 proof obligation，不能跨槽替代机制、品质或结果闭合。"
+        "辅助证据必须对齐当前 slot 的 proof obligation，不能跨槽替代机制、品质或结果闭合。",
+        "????????????????????????? support ?????? require?"
       ],
       "riskIfMisclassified": "如果把 support 当 require，会过度约束重组；如果当可丢弃信息，会削弱当前主张可信度。",
       "name": "Supporting evidence alignment"
@@ -190,15 +205,17 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B005"
       ],
       "support": {
-        "variantCount": 8,
-        "sampleCount": 4,
+        "variantCount": 9,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -225,6 +242,7 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
@@ -232,12 +250,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007"
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001"
       ],
       "support": {
-        "variantCount": 12,
-        "sampleCount": 4,
+        "variantCount": 14,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -246,7 +266,8 @@
       },
       "differenceNotes": [
         "该原则覆盖替换、证明要求和辅助证据对齐三类关系约束。",
-        "它按证明功能治理，不按字幕、贴纸、箭头等表面包装样式治理。"
+        "它按证明功能治理，不按字幕、贴纸、箭头等表面包装样式治理。",
+        "???? attribute_sensing/usage_demonstration ? support?substitute ?????????????????????????"
       ]
     },
     {
@@ -262,15 +283,17 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B008",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B009",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B007"
       ],
       "support": {
-        "variantCount": 7,
-        "sampleCount": 4,
+        "variantCount": 8,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -322,12 +345,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 5,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -336,7 +361,8 @@
       },
       "judgementReason": "跨四个样例均成立，但不同 claim 的证据类型不同。",
       "differenceNotes": [
-        "长期信任不能用一次性结果替代；品质不能用数量替代；机制不能用纯字幕替代。"
+        "长期信任不能用一次性结果替代；品质不能用数量替代；机制不能用纯字幕替代。",
+        "???????????????????????????"
       ],
       "riskIfMisclassified": "会过度泛化为任意证据可替代任意主张。"
     },
@@ -352,12 +378,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 5,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -366,7 +394,8 @@
       },
       "judgementReason": "该规则从 conflict binding 中抽象出来，核心是信息负载与节奏匹配。",
       "differenceNotes": [
-        "不同样例的 fix 可是减速、缓冲、图文锚点或拆分。"
+        "不同样例的 fix 可是减速、缓冲、图文锚点或拆分。",
+        "???????????????????????????/??????????"
       ],
       "riskIfMisclassified": "会把任何慢节奏误作机制可信，忽略可见证据要求。"
     },
@@ -437,12 +466,14 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002"
       ],
       "support": {
-        "variantCount": 3,
-        "sampleCount": 3,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -450,9 +481,35 @@
       },
       "judgementReason": "该规则跨样例强调包装功能优先，不按具体包装样式归并。",
       "differenceNotes": [
-        "不同链路中需保留的问题定位、机制证明、步骤提示、结果确认和长期物证不同。"
+        "不同链路中需保留的问题定位、机制证明、步骤提示、结果确认和长期物证不同。",
+        "??????????????????????????????????????"
       ],
       "riskIfMisclassified": "会把包装皮肤迁移当作结构迁移。"
+    },
+    {
+      "id": "RULE_candidate_continuous_usage_demonstration_chain_integrity",
+      "name": "?????????? candidate pattern",
+      "ruleType": "sequence_integrity_policy",
+      "condition": "???????????????????????",
+      "requirement": "?????????????????????????????????????????",
+      "violation": "????????????????????/???????",
+      "fix": "?????????????????????????????????",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "??? rule ??? attribute_sensing > usage_demonstration ????????????????????????????????????????????????????? sequence integrity ???",
+      "differenceNotes": [
+        "??? candidate rule pattern????????????????????????????????????????????????????????"
+      ],
+      "riskIfMisclassified": "????????????????????????????????????????????????????????"
     }
   ],
   "recompositionPolicies": [
@@ -506,13 +563,15 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE002"
       ],
       "support": {
-        "variantCount": 6,
-        "sampleCount": 4,
+        "variantCount": 7,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -539,12 +598,14 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 5,
+        "sampleCount": 5,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -570,12 +631,14 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002"
       ],
       "support": {
-        "variantCount": 3,
-        "sampleCount": 3,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -587,6 +650,32 @@
         "可替换的是载体形式，不能替换掉定位对象、解释机制、验证结果或建立信任等证明功能。"
       ],
       "riskIfMisclassified": "如果误分，会只迁移视觉风格而丢失证明功能，使重组结果像样例但不再完成原说服任务。"
+    },
+    {
+      "id": "POLICY_continuous_usage_demo_chain_integrity",
+      "name": "??????????",
+      "policyScope": "composition_safety",
+      "sourceRulePatternIds": [
+        "RULE_candidate_continuous_usage_demonstration_chain_integrity"
+      ],
+      "policy": "????????????????????????????????????????????????????????????",
+      "riskIfBroken": "??????????????????????????????????????",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "??????????????? candidate rule ????????????????????",
+      "differenceNotes": [
+        "????????????????/????????????????????????????????"
+      ],
+      "riskIfMisclassified": "??????????????????????????????????"
     }
   ]
 }

@@ -1,0 +1,10 @@
+[
+  {
+    "templateId": "T001",
+    "templateName": "形态先证到用法兑现演示",
+    "sequence": [
+      "material_form_proof",
+      "usage_method_proof"
+    ]
+  }
+]

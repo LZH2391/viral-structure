@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.source",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-09T23:37:28.587Z",
   "sourceVariants": [
     {
       "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F001",
@@ -330,6 +331,139 @@
       "kind": "template",
       "sourceId": "T002",
       "label": "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "形态可信槽"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::F002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "用法兑现槽"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B005",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "低干扰实拍质感证明"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "低干扰实拍用法证明"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "短促细节压缩"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "动作推进轻抬升"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "形态可信槽处于极短细节展示中，不适合加入复杂机制解释或多层卖点堆叠"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "用法兑现槽依赖动作路径清晰，过强促销包装或多重贴纸会抢走动作理解"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "该结构的可信度来自同一对象从可见状态进入使用场景的连续性"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "极短节奏下观众无法同时处理多主张和复杂包装"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "当前节奏适合简单动作兑现，不适合复杂教学"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "物理质感先证"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "使用动作兑现"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::template::T001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "material_form_proof > usage_method_proof"
     },
     {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
@@ -1771,35 +1905,42 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F001",
-      "label": "即时解决预览槽"
+      "label": "低门槛入口槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F002",
-      "label": "旧痛点回补槽"
+      "label": "压力验证槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F003",
-      "label": "覆盖可信桥接槽"
+      "label": "痛点回补槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F004",
-      "label": "机制便利可信槽"
+      "label": "覆盖安心槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "slot",
       "sourceId": "F005",
-      "label": "生活利益收束槽"
+      "label": "机制可信槽"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "slot",
+      "sourceId": "F006",
+      "label": "生活结果收束槽"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
@@ -1813,7 +1954,7 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B002",
-      "label": "carryover"
+      "label": "require"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
@@ -1855,21 +1996,21 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B008",
-      "label": "substitute"
+      "label": "carryover"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "binding",
       "sourceId": "B009",
-      "label": "conflict"
+      "label": "substitute"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P001",
-      "label": "实物入口加即时使用包装"
+      "label": "实物识别加即时使用包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
@@ -1883,62 +2024,69 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P003",
-      "label": "旧状态生活成本包装"
+      "label": "旧状态成本包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P004",
-      "label": "覆盖感和使用关系包装"
+      "label": "覆盖感堆叠包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P005",
-      "label": "结构开合证据包装"
+      "label": "结构细节可信包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "packaging",
       "sourceId": "P006",
-      "label": "多场景结果收束包装"
+      "label": "最终状态生活化包装"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R001",
-      "label": "快入加动作爆点"
+      "label": "快速清楚起手"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R002",
-      "label": "多场景问题堆叠"
+      "label": "动作验证加速"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R003",
-      "label": "长镜头信息峰值"
+      "label": "多场景问题堆叠"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R004",
-      "label": "操作细节减速"
+      "label": "信息峰值转场"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rhythm",
       "sourceId": "R005",
+      "label": "操作细节减速"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "rhythm",
+      "sourceId": "R006",
       "label": "轻动作回落收束"
     },
     {
@@ -1946,70 +2094,70 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C001",
-      "label": "机制便利可信槽承载结构和持续使用理由，不适合直接配快入动作爆点节奏"
+      "label": "机制可信槽不适合直接套用高强度动作验证节奏"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C002",
-      "label": "结果先行结构必须在后续补回同一核心关切，否则开头结果缺少问题动机"
+      "label": "结果验证、痛点回补和最终收束如果不围绕同一观众关切，会造成前后承接断裂"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C003",
-      "label": "结果收束槽不适合新增复杂机制、价格福利或新承诺，否则会打断生活利益回落"
+      "label": "覆盖安心槽不能只堆叠数量或画面元素而不呈现应用关系"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "C004",
-      "label": "高信息密度桥接槽如果没有清晰的机制落点，容易变成单纯堆料"
+      "label": "低门槛入口如果过度包装，可能遮挡实物识别和操作动作；压力验证如果包装过轻，可能无法撑起结果主张"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE001",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE001",
-      "label": "结果先行开头可以成立，但后续必须补回同一核心痛点或同一观众关切，形成结果到需求的反向解释"
+      "label": "该样例不是先讲痛点再讲解决，而是先给使用后状态，再解释为什么这个结果有价值"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE002",
-      "label": "动态压力证明可以替换为其他强动作或强对比证明，但必须让压力动作、结果状态和字幕结论同步出现"
+      "label": "开场承担理解门槛控制，而不是单纯露出产品"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE003",
-      "label": "痛点回补槽可使用多场景堆叠，也可使用单个强对比场景；不可只描述痛点而缺少可见旧状态或成本证据"
+      "label": "先验结果结构依赖快速看到有效，移动后会变成常规痛点到证明结构"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE004",
-      "label": "覆盖桥接槽允许节奏跨越脚本边界，用高信息密度承接痛点并转入机制，但必须在下一槽位降低节奏并解释结构"
+      "label": "信息峰值适合制造方案感，不适合完整承载结构机制"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE005",
-      "label": "结构、低门槛和可持续使用类主张必须配近距离结构证据、操作完成点或重复使用证据，不能只靠结果画面替代"
+      "label": "结果场景能证明有效，但不能解释为什么方便可靠"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "rule",
       "sourceId": "RULE006",
-      "label": "包装风格可以低图形化，但每个槽位都要保留对应证明功能；字幕只能辅助解释，不能替代关键视觉证据"
+      "label": "该槽位承担记忆点收束，不承担新机制或新卖点解释"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
@@ -2023,34 +2171,41 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S001",
-      "label": "即用结果预览"
+      "label": "低门槛使用入口"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S002",
-      "label": "旧状态痛点回补"
+      "label": "即时结果压力验证"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S003",
-      "label": "适用范围桥接"
+      "label": "旧状态痛点回补"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S004",
-      "label": "结构便利可信"
+      "label": "多点覆盖安心"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "script",
       "sourceId": "S005",
+      "label": "结构可信解释"
+    },
+    {
+      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006",
+      "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
+      "kind": "script",
+      "sourceId": "S006",
       "label": "生活状态利益收束"
     },
     {
@@ -2058,14 +2213,14 @@
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "template",
       "sourceId": "T001",
-      "label": "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close"
+      "label": "low_barrier_entry > stress_result_validation > pain_backfill > scope_assurance > mechanism_trust > lifestyle_result_close"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::template::T002",
       "sampleId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
       "kind": "template",
       "sourceId": "T002",
-      "label": "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close"
+      "label": "pain_backfill > low_barrier_entry > stress_result_validation > scope_assurance > mechanism_trust > lifestyle_result_close"
     }
   ]
 }

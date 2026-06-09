@@ -35,6 +35,7 @@ const {
   mergeMaterialPackOptions,
   replacePendingMaterialPackSelection,
   resolveConversationDefaultMaterialPackSelection,
+  setRestructureMaterialPackSelectionForScope,
   upsertMaterialPackOption,
 } = loadNewUiLayoutHelpers();
 
@@ -94,6 +95,37 @@ test("conversation default material pack replaces pending upload selection", () 
   assert.equal(selected.shotCardCount, 4);
 });
 
+test("draft material selection updates stay isolated from conversation selection", () => {
+  let conversationSelection = {
+    sampleVideoId: "sample_existing",
+    artifactId: "artifact_existing",
+    title: "已有会话素材",
+    resultUri: "/runtime/existing.json",
+  };
+  let draftSelection = null;
+  const draftReady = {
+    sampleVideoId: "sample_draft",
+    artifactId: "artifact_draft",
+    title: "草稿素材",
+    resultUri: "/runtime/draft.json",
+  };
+
+  setRestructureMaterialPackSelectionForScope(
+    "draft",
+    draftReady,
+    (value) => {
+      conversationSelection = typeof value === "function" ? value(conversationSelection) : value;
+    },
+    (value) => {
+      draftSelection = typeof value === "function" ? value(draftSelection) : value;
+    },
+  );
+
+  assert.equal(conversationSelection.sampleVideoId, "sample_existing");
+  assert.equal(draftSelection.sampleVideoId, "sample_draft");
+  assert.equal(draftSelection.resultUri, "/runtime/draft.json");
+});
+
 test("draft material upload does not create or select a conversation", () => {
   const source = readNewUiLayoutSource();
   const match = source.match(/const handleRestructureMaterialUploadChange = useCallback[\s\S]+?\n  \}, \[[^\n]+\]\);/);
@@ -103,6 +135,8 @@ test("draft material upload does not create or select a conversation", () => {
   assert.equal(handlerSource.includes("startAgentChatThread"), false);
   assert.equal(handlerSource.includes("selectRestructureConversation"), false);
   assert.equal(handlerSource.includes("upsertConversation"), false);
+  assert.match(handlerSource, /uploadStartedInDraft \? null : selectedRestructureConversation\?\.conversationId \?\? null/);
+  assert.match(handlerSource, /selectionScope: RestructureMaterialSelectionScope = uploadStartedInDraft \? "draft" : "conversation"/);
   assert.match(handlerSource, /\btargetConversationId,\s*\n/);
   assert.match(handlerSource, /bindMaterialToConversation:\s*Boolean\(targetConversationId\)/);
 });

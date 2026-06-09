@@ -1,0 +1,64 @@
+[
+  {
+    "id": "S001",
+    "slot": "attribute_sensing",
+    "label": "状态卖点感知原子",
+    "function": "先让观众感知商品自身状态，把抽象卖点转成可被直接观察的使用前证据",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "粉质卖点与冲调方式展示"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "claimType": "attribute_visualization",
+    "proofNeed": "需要可见的商品状态、承载对象和低干扰说明共同证明卖点不是纯口播",
+    "mustKeep": [
+      "先展示可观察状态",
+      "卖点说明必须由真实画面支撑",
+      "状态证据要能承接后续使用动作"
+    ],
+    "replaceableVariables": [
+      "可观察状态",
+      "承载对象",
+      "说明表达",
+      "展示角度"
+    ]
+  },
+  {
+    "id": "S002",
+    "slot": "usage_demonstration",
+    "label": "即时使用演示原子",
+    "function": "把前面的状态感知推进为可执行使用方式，让观众理解商品如何被直接使用",
+    "sourceRefs": {
+      "scriptSegmentLabels": [
+        "粉质卖点与冲调方式展示"
+      ],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "claimType": "usage_action_proof",
+    "proofNeed": "需要连续、明确、可见的使用动作证明操作门槛低，并与前面的状态卖点保持同一使用链路",
+    "mustKeep": [
+      "使用动作必须清楚",
+      "动作要承接前一个状态证据",
+      "便捷性主张必须有动作证明"
+    ],
+    "replaceableVariables": [
+      "使用动作",
+      "使用容器",
+      "动作执行者",
+      "说明表达"
+    ]
+  }
+]

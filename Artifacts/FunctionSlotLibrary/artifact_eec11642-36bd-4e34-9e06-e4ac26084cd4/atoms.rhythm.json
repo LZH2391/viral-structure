@@ -1,0 +1,424 @@
+[
+  {
+    "id": "R001",
+    "slot": "low_barrier_entry",
+    "label": "快速清楚起手",
+    "function": "用短镜头和明确操作快速建立理解，不让开场停留在解释铺垫",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "快速上手式开场"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1",
+        "shot_2"
+      ]
+    },
+    "confidence": 0.86,
+    "needReview": false,
+    "pace": "quick_clear",
+    "densityType": "action_step_density",
+    "beatShape": "短步进式起手",
+    "avoidFor": [
+      "complex_mechanism",
+      "long_background",
+      "multi_claim_explanation"
+    ],
+    "syncPoints": [
+      "解决载体出现",
+      "进入使用位置",
+      "第一步操作完成"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_1",
+        "shot_2"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 2.267,
+      "minShotDurationSec": 1.133,
+      "maxShotDurationSec": 1.134,
+      "avgShotDurationSec": 1.134,
+      "medianShotDurationSec": 1.134,
+      "subtitleCharCount": 34,
+      "dialogueCharsPerSec": 14.998,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_1",
+          "start": 0,
+          "end": 1.133,
+          "durationSec": 1.133,
+          "subtitleText": "只要把这小玩意往床垫上一扣，",
+          "subtitleCharCount": 13
+        },
+        {
+          "shotRef": "shot_2",
+          "start": 1.133,
+          "end": 2.267,
+          "durationSec": 1.134,
+          "subtitleText": "只要把这小玩意往床垫上一扣， 不管怎么拉扯翻滚，",
+          "subtitleCharCount": 21
+        }
+      ]
+    }
+  },
+  {
+    "id": "R002",
+    "slot": "stress_result_validation",
+    "label": "动作验证加速",
+    "function": "把刚建立的使用理解快速推到动态验证峰值，让观众在高动势里看到结果是否站得住",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "动作验证加速"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false,
+    "pace": "fast_action_peak",
+    "densityType": "motion_density",
+    "beatShape": "操作后接连续压力爆点",
+    "avoidFor": [
+      "fine_step_instruction",
+      "abstract_claim",
+      "long_mechanism"
+    ],
+    "syncPoints": [
+      "压力动作开始",
+      "动作幅度放大",
+      "结果状态被看见"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_3",
+        "shot_4",
+        "shot_5"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 2.1,
+      "minShotDurationSec": 0.667,
+      "maxShotDurationSec": 0.766,
+      "avgShotDurationSec": 0.7,
+      "medianShotDurationSec": 0.667,
+      "subtitleCharCount": 34,
+      "dialogueCharsPerSec": 16.19,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_3",
+          "start": 2.267,
+          "end": 3.033,
+          "durationSec": 0.766,
+          "subtitleText": "不管怎么拉扯翻滚，",
+          "subtitleCharCount": 8
+        },
+        {
+          "shotRef": "shot_4",
+          "start": 3.033,
+          "end": 3.7,
+          "durationSec": 0.667,
+          "subtitleText": "不管怎么拉扯翻滚， 床单都不会乱了。",
+          "subtitleCharCount": 15
+        },
+        {
+          "shotRef": "shot_5",
+          "start": 3.7,
+          "end": 4.367,
+          "durationSec": 0.667,
+          "subtitleText": "床单都不会乱了。 以前睡觉，",
+          "subtitleCharCount": 11
+        }
+      ]
+    }
+  },
+  {
+    "id": "R003",
+    "slot": "pain_backfill",
+    "label": "多场景问题堆叠",
+    "function": "用连续换场把旧问题压缩成高频日常困扰，维持紧凑感但从动作峰值转为问题累积",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "多场景问题堆叠"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "pace": "compact_montage",
+    "densityType": "scene_update_density",
+    "beatShape": "连续场景换样累积",
+    "avoidFor": [
+      "mechanism_detail",
+      "precise_instruction",
+      "single_step_confirmation"
+    ],
+    "syncPoints": [
+      "旧状态出现",
+      "困扰重复",
+      "额外成本动作"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_6",
+        "shot_7",
+        "shot_8"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 2.633,
+      "minShotDurationSec": 0.834,
+      "maxShotDurationSec": 0.933,
+      "avgShotDurationSec": 0.878,
+      "medianShotDurationSec": 0.866,
+      "subtitleCharCount": 40,
+      "dialogueCharsPerSec": 15.192,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_6",
+          "start": 4.367,
+          "end": 5.233,
+          "durationSec": 0.866,
+          "subtitleText": "以前睡觉， 床单总是卷成一团，",
+          "subtitleCharCount": 12
+        },
+        {
+          "shotRef": "shot_7",
+          "start": 5.233,
+          "end": 6.067,
+          "durationSec": 0.834,
+          "subtitleText": "床单总是卷成一团， 早上醒来还要费力整理。",
+          "subtitleCharCount": 18
+        },
+        {
+          "shotRef": "shot_8",
+          "start": 6.067,
+          "end": 7,
+          "durationSec": 0.933,
+          "subtitleText": "早上醒来还要费力整理。",
+          "subtitleCharCount": 10
+        }
+      ]
+    }
+  },
+  {
+    "id": "R004",
+    "slot": "scope_assurance",
+    "label": "信息峰值转场",
+    "function": "在单次结果与机制说明之间制造信息峰值，把观众注意力从痛点回补转向解决方案的覆盖能力",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "夹扣散落的信息峰值"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_9"
+      ]
+    },
+    "confidence": 0.88,
+    "needReview": false,
+    "pace": "long_dense_peak",
+    "densityType": "intra_shot_information_density",
+    "beatShape": "长停留内持续堆叠",
+    "avoidFor": [
+      "quiet_emotional_close",
+      "single_claim_purity",
+      "step_by_step_teaching"
+    ],
+    "syncPoints": [
+      "覆盖感出现",
+      "操作关系重新出现",
+      "机制说明起点"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_9"
+      ],
+      "shotCount": 1,
+      "totalDurationSec": 2.567,
+      "minShotDurationSec": 2.567,
+      "maxShotDurationSec": 2.567,
+      "avgShotDurationSec": 2.567,
+      "medianShotDurationSec": 2.567,
+      "subtitleCharCount": 34,
+      "dialogueCharsPerSec": 13.245,
+      "derivedPace": "slow",
+      "shotTimings": [
+        {
+          "shotRef": "shot_9",
+          "start": 7,
+          "end": 9.567,
+          "durationSec": 2.567,
+          "subtitleText": "早上醒来还要费力整理。 有了它， 再也不用担心床单跑位了。 它的卡扣设计不需要针，",
+          "subtitleCharCount": 34
+        }
+      ]
+    }
+  },
+  {
+    "id": "R005",
+    "slot": "mechanism_trust",
+    "label": "操作细节减速",
+    "function": "降低切换频率并放大局部操作，让观众有时间理解结构逻辑和便利性依据",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "操作细节减速"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ]
+    },
+    "confidence": 0.87,
+    "needReview": false,
+    "pace": "slow_explanatory",
+    "densityType": "operation_detail_density",
+    "beatShape": "慢速分解加重复确认",
+    "avoidFor": [
+      "opening_hook",
+      "urgent_problem_stack",
+      "pure_action_peak"
+    ],
+    "syncPoints": [
+      "结构打开",
+      "固定关系成立",
+      "重复使用依据出现"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_10",
+        "shot_11",
+        "shot_12"
+      ],
+      "shotCount": 3,
+      "totalDurationSec": 5.066,
+      "minShotDurationSec": 1.3,
+      "maxShotDurationSec": 2.033,
+      "avgShotDurationSec": 1.689,
+      "medianShotDurationSec": 1.733,
+      "subtitleCharCount": 63,
+      "dialogueCharsPerSec": 12.436,
+      "derivedPace": "medium",
+      "shotTimings": [
+        {
+          "shotRef": "shot_10",
+          "start": 9.567,
+          "end": 11.3,
+          "durationSec": 1.733,
+          "subtitleText": "它的卡扣设计不需要针， 换洗床单时只要轻松打开卡扣，",
+          "subtitleCharCount": 23
+        },
+        {
+          "shotRef": "shot_11",
+          "start": 11.3,
+          "end": 13.333,
+          "durationSec": 2.033,
+          "subtitleText": "换洗床单时只要轻松打开卡扣， 还能重复使用。",
+          "subtitleCharCount": 19
+        },
+        {
+          "shotRef": "shot_12",
+          "start": 13.333,
+          "end": 14.633,
+          "durationSec": 1.3,
+          "subtitleText": "还能重复使用。 现在终于不用为乱糟糟的床单发愁，",
+          "subtitleCharCount": 21
+        }
+      ]
+    }
+  },
+  {
+    "id": "R006",
+    "slot": "lifestyle_result_close",
+    "label": "轻动作回落收束",
+    "function": "用低强度动作延续前文验证主题，同时把紧张测试感降为舒缓的使用后状态",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [
+        "轻动作收束"
+      ],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_13",
+        "shot_14"
+      ]
+    },
+    "confidence": 0.85,
+    "needReview": false,
+    "pace": "relaxed_light_motion",
+    "densityType": "low_motion_result_density",
+    "beatShape": "轻回升后松弛落点",
+    "avoidFor": [
+      "new_mechanism",
+      "complex_offer",
+      "dense_instruction"
+    ],
+    "syncPoints": [
+      "回到使用场景",
+      "结果状态保持",
+      "情绪利益落点"
+    ],
+    "timingEvidence": {
+      "schemaVersion": "rhythm_timing_evidence.v1",
+      "source": "runtime_artifact_shot_boundary_subtitles",
+      "sourceShotRefs": [
+        "shot_13",
+        "shot_14"
+      ],
+      "shotCount": 2,
+      "totalDurationSec": 1.9,
+      "minShotDurationSec": 0.934,
+      "maxShotDurationSec": 0.966,
+      "avgShotDurationSec": 0.95,
+      "medianShotDurationSec": 0.95,
+      "subtitleCharCount": 27,
+      "dialogueCharsPerSec": 14.211,
+      "derivedPace": "fast",
+      "shotTimings": [
+        {
+          "shotRef": "shot_13",
+          "start": 14.633,
+          "end": 15.567,
+          "durationSec": 0.934,
+          "subtitleText": "现在终于不用为乱糟糟的床单发愁， 睡个安稳觉吧。",
+          "subtitleCharCount": 21
+        },
+        {
+          "shotRef": "shot_14",
+          "start": 15.567,
+          "end": 16.533,
+          "durationSec": 0.966,
+          "subtitleText": "睡个安稳觉吧。",
+          "subtitleCharCount": 6
+        }
+      ]
+    }
+  }
+]

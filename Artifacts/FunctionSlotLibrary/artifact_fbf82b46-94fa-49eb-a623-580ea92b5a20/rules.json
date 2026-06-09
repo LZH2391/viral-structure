@@ -1,0 +1,104 @@
+{
+  "conflictChecks": [
+    {
+      "id": "C001",
+      "slotIds": [
+        "F001"
+      ],
+      "atomIds": [
+        "S001",
+        "R001",
+        "P001"
+      ],
+      "reason": "形态可信槽处于极短细节展示中，不适合加入复杂机制解释或多层卖点堆叠",
+      "fix": "复杂机制应后移到独立解释槽，并使用更稳定的节奏和图形锚点",
+      "appliesTo": [
+        "material_form_proof",
+        "complex_mechanism"
+      ],
+      "sourceBindingIds": []
+    },
+    {
+      "id": "C002",
+      "slotIds": [
+        "F002"
+      ],
+      "atomIds": [
+        "S002",
+        "R002",
+        "P002"
+      ],
+      "reason": "用法兑现槽依赖动作路径清晰，过强促销包装或多重贴纸会抢走动作理解",
+      "fix": "转化信息应放到动作完成后的独立收束槽，或仅以低优先级辅助形式出现",
+      "appliesTo": [
+        "usage_method_proof",
+        "conversion_wrap"
+      ],
+      "sourceBindingIds": []
+    }
+  ],
+  "recombinationRules": [
+    {
+      "id": "RULE001",
+      "slotIds": [
+        "F001",
+        "F002"
+      ],
+      "atomIds": [
+        "S001",
+        "S002",
+        "P001",
+        "P002"
+      ],
+      "reason": "该结构的可信度来自同一对象从可见状态进入使用场景的连续性",
+      "fix": "保留持续识别线索，或在动作开始前补一个低干扰对象确认点",
+      "appliesTo": [
+        "material_form_proof",
+        "usage_method_proof"
+      ],
+      "sourceBindingIds": [
+        "B003"
+      ]
+    },
+    {
+      "id": "RULE002",
+      "slotIds": [
+        "F001"
+      ],
+      "atomIds": [
+        "S001",
+        "R001",
+        "P001"
+      ],
+      "reason": "极短节奏下观众无法同时处理多主张和复杂包装",
+      "fix": "将多余卖点拆到后续槽位，当前槽位只保留一个可见证明任务",
+      "appliesTo": [
+        "material_form_proof"
+      ],
+      "sourceBindingIds": [
+        "B001",
+        "B002"
+      ]
+    },
+    {
+      "id": "RULE003",
+      "slotIds": [
+        "F002"
+      ],
+      "atomIds": [
+        "S002",
+        "R002",
+        "P002"
+      ],
+      "reason": "当前节奏适合简单动作兑现，不适合复杂教学",
+      "fix": "多步骤使用说明应增加低速步骤槽，并配动作提示包装",
+      "appliesTo": [
+        "usage_method_proof",
+        "operation_loop"
+      ],
+      "sourceBindingIds": [
+        "B004"
+      ]
+    }
+  ]
+}

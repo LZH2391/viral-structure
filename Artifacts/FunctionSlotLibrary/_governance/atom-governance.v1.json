@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.atoms",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-09T23:37:28.589Z",
   "atomArchetypes": [
     {
       "id": "ATOM_ARCH_script_demand_establishment",
@@ -70,7 +71,9 @@
         "SCRIPT_candidate_combination_claim_peak_combination_sensory_promise",
         "SCRIPT_candidate_sensory_evidence_deepening_sensory_claim_to_visible_evidence",
         "SCRIPT_candidate_trust_assurance_shift_sensory_to_trust_assurance",
-        "SCRIPT_candidate_low_barrier_operation_operation_simplification"
+        "SCRIPT_candidate_low_barrier_operation_operation_simplification",
+        "SCRIPT_candidate_visible_attribute_state_evidence",
+        "SCRIPT_candidate_immediate_usage_action_proof"
       ],
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
@@ -88,13 +91,16 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002"
       ],
       "support": {
-        "variantCount": 16,
-        "sampleCount": 7,
+        "variantCount": 18,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -127,6 +133,7 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
@@ -134,7 +141,7 @@
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005"
       ],
       "support": {
-        "variantCount": 9,
+        "variantCount": 10,
         "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
@@ -160,7 +167,8 @@
         "RHYTHM_pattern_fast_activation_or_peak",
         "RHYTHM_candidate_scene_problem_activation_fast_to_slow_setup",
         "RHYTHM_candidate_value_anchor_slow_hold",
-        "RHYTHM_candidate_pain_backfill_compact_montage"
+        "RHYTHM_candidate_pain_backfill_compact_montage",
+        "RHYTHM_candidate_state_focus_entry"
       ],
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
@@ -171,13 +179,15 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002"
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001"
       ],
       "support": {
-        "variantCount": 9,
-        "sampleCount": 7,
+        "variantCount": 10,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -200,7 +210,8 @@
       "sourcePatternIds": [
         "RHYTHM_pattern_slow_explanation_or_observation",
         "RHYTHM_candidate_value_positioning_brief_pause_then_explain",
-        "RHYTHM_candidate_coverage_bridge_held_dense_peak"
+        "RHYTHM_candidate_coverage_bridge_held_dense_peak",
+        "RHYTHM_candidate_continuous_usage_action_bridge"
       ],
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
@@ -214,13 +225,15 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003"
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002"
       ],
       "support": {
-        "variantCount": 12,
-        "sampleCount": 7,
+        "variantCount": 13,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -318,11 +331,12 @@
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006"
       ],
       "support": {
-        "variantCount": 10,
+        "variantCount": 11,
         "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
@@ -437,7 +451,8 @@
         "PACK_candidate_combination_claim_peak_product_identity_and_combination_proof",
         "PACK_candidate_sensory_evidence_deepening_sensory_texture_experience_proof",
         "PACK_candidate_quality_trust_build_texture_objection_proof",
-        "PACK_candidate_sensory_proof_peak_sensory_detail_proof"
+        "PACK_candidate_sensory_proof_peak_sensory_detail_proof",
+        "PACK_candidate_observable_state_proof"
       ],
       "sourceVariantIds": [
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
@@ -446,13 +461,15 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004"
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001"
       ],
       "support": {
-        "variantCount": 7,
-        "sampleCount": 5,
+        "variantCount": 8,
+        "sampleCount": 6,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -482,13 +499,15 @@
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 4,
+        "variantCount": 6,
+        "sampleCount": 5,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
@@ -699,10 +718,11 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006"
       ],
       "support": {
-        "variantCount": 4,
+        "variantCount": 5,
         "sampleCount": 4,
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
@@ -713,14 +733,16 @@
       },
       "judgementReason": "四者共同要求结果不能脱离上游关切，是当前证据中最稳定的脚本治理模式。",
       "differenceNotes": [
-        "购买对象绑定、生活利益和操作结果的证明对象不同。"
+        "购买对象绑定、生活利益和操作结果的证明对象不同。",
+        "lifestyle_result_close ????????????????????????????????????????????"
       ],
       "riskIfMisclassified": "收尾会变成泛泛好处。",
       "forSlotSubtypeIds": [
         "SUB_life_benefit_close",
         "SUB_usage_scene_conversion_close",
         "SUB_usage_result_confirmation",
-        "SUB_operation_result_confirmation"
+        "SUB_operation_result_confirmation",
+        "SUB_lifestyle_result_state_close"
       ]
     },
     {
@@ -925,10 +947,11 @@
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
-        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005"
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006"
       ],
       "support": {
-        "variantCount": 8,
+        "variantCount": 9,
         "sampleCount": 6,
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
@@ -942,7 +965,8 @@
       "judgementReason": "这些 rhythm atom 都承担证明后的兑现、记忆或冷却功能，差异是结果状态、推荐结论、商品终屏或低信息停留的具体落点不同。",
       "differenceNotes": [
         "即时结果确认、推荐记忆、静止冷却和购买对象锚定都可以复用该收束功能。",
-        "不合并紧迫身份转化或对话二次加压；它们在末段仍制造压力峰值，不是纯回落收束。"
+        "不合并紧迫身份转化或对话二次加压；它们在末段仍制造压力峰值，不是纯回落收束。",
+        "lifestyle_result_close ???????????????????????? relaxed_light_motion/low_motion_result_density?"
       ],
       "riskIfMisclassified": "若误用于仍需释放证据或制造压力的段落，会提前降速；若误用于新机制解释，会让证明链断在结尾包装上。",
       "forSlotSubtypeIds": [
@@ -953,7 +977,8 @@
         "SUB_usage_result_confirmation",
         "SUB_recommendation_memory_close",
         "SUB_scenario_value_memory_close",
-        "SUB_conversion_reason_close"
+        "SUB_conversion_reason_close",
+        "SUB_lifestyle_result_state_close"
       ],
       "avoidFor": [
         "new_mechanism_stack",
@@ -2773,19 +2798,22 @@
     },
     {
       "id": "PACK_candidate_low_barrier_operation_pattern",
-      "name": "时间提示加完成动作演示 candidate pattern",
+      "name": "???????????? candidate pattern",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_value_context_operation_proof",
       "forSlotSubtypeIds": [
-        "SUB_operation_barrier_reduction"
+        "SUB_operation_barrier_reduction",
+        "SUB_immediate_usage_demonstration"
       ],
       "sourceVariantIds": [
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002"
       ],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
+        "variantCount": 2,
+        "sampleCount": 2,
         "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
@@ -2793,12 +2821,17 @@
       "differenceNotes": [
         "Source atom: packaging/low_barrier_operation: 时间提示加完成动作演示",
         "Source slotType: low_barrier_operation",
-        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。"
+        "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。",
+        "P002 ?????????????? P003 ???????????????????/???????????????????????????????"
       ],
       "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
-      "proofType": "把等待和完成动作包装成容易记住、容易接受的低门槛步骤",
-      "visualHierarchyClass": "等待阶段由时间提示和步骤提示主导，完成阶段由场景切换和动作兑现主导，字幕辅助",
-      "replaceableFormClasses": [],
+      "proofType": "low_barrier_operation_or_usage_action_visual_proof",
+      "visualHierarchyClass": "??????????????????????????????????",
+      "replaceableFormClasses": [
+        "??????",
+        "????",
+        "???????????"
+      ],
       "riskClass": "只说步骤不展示动作会增加执行顾虑；只展示完成动作不提示等待或生效时间会丢失操作闭环"
     },
     {
@@ -3389,6 +3422,167 @@
         "承接话术",
         "场景载体"
       ]
+    },
+    {
+      "id": "SCRIPT_candidate_visible_attribute_state_evidence",
+      "name": "????????? candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_attribute_state_sensing"
+      ],
+      "claimPattern": "attribute_claim_to_observable_state",
+      "proofNeedClass": "visible_attribute_state_with_low_interference_explanation",
+      "mustKeepClasses": [
+        "???????",
+        "??????????",
+        "?????",
+        "???????"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "????? problem/value/mechanism/quality/result pattern?? atom ????????????????????????????????????????????????????????????????????? claim-proof ??????????",
+      "differenceNotes": [
+        "??? candidate??????????????????????????????? pattern ????????????? attribute_sensing slotType ???????? pattern?"
+      ],
+      "riskIfMisclassified": "???????????????????/?????????????????????????"
+    },
+    {
+      "id": "SCRIPT_candidate_immediate_usage_action_proof",
+      "name": "?????????? candidate pattern",
+      "atomLayer": "script",
+      "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
+      "forSlotSubtypeIds": [
+        "SUB_immediate_usage_demonstration"
+      ],
+      "claimPattern": "visible_usage_action_to_low_barrier_proof",
+      "proofNeedClass": "continuous_action_and_object_carryover",
+      "mustKeepClasses": [
+        "??????",
+        "????",
+        "??????",
+        "????????"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "??? existing low_barrier_operation script pattern?????????????? pattern ???/?????? atom ????????????????????????????????????????",
+      "differenceNotes": [
+        "??? candidate?????????????/?????????????? proofNeed?????????????? pattern????? subtype ???"
+      ],
+      "riskIfMisclassified": "???????????????????????????????????????"
+    },
+    {
+      "id": "RHYTHM_candidate_state_focus_entry",
+      "name": "???????? candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_entry_attention_capture",
+      "forSlotSubtypeIds": [
+        "SUB_attribute_state_sensing"
+      ],
+      "rhythmFunction": "??????????????????????????????????????",
+      "paceClass": "compact_steady",
+      "densityClass": "single_action_visual_density",
+      "syncPointClasses": [
+        "??????",
+        "??????",
+        "?????"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "????????????????????? atom ????/????????????????????????????????????????????????????????",
+      "differenceNotes": [
+        "??? candidate?????????????????????????????????????? hold pattern?"
+      ],
+      "riskIfMisclassified": "?????????????????????????????"
+    },
+    {
+      "id": "RHYTHM_candidate_continuous_usage_action_bridge",
+      "name": "?????????? candidate pattern",
+      "atomLayer": "rhythm",
+      "parentAtomArchetype": "ATOM_ARCH_rhythm_explanation_and_observation_hold",
+      "forSlotSubtypeIds": [
+        "SUB_immediate_usage_demonstration"
+      ],
+      "rhythmFunction": "??????????????????????????????????????",
+      "paceClass": "compact_steady",
+      "densityClass": "action_continuity_density",
+      "syncPointClasses": [
+        "????",
+        "??????",
+        "??????"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "??????????????????????? atom ???????????????????????????????????????????????????????",
+      "differenceNotes": [
+        "??? candidate????????????????????????????????????????? pattern?"
+      ],
+      "riskIfMisclassified": "?????????????????????????????????"
+    },
+    {
+      "id": "PACK_candidate_observable_state_proof",
+      "name": "????????? candidate pattern",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_experience_sensory_quality_proof",
+      "forSlotSubtypeIds": [
+        "SUB_attribute_state_sensing"
+      ],
+      "proofType": "observable_attribute_state_visual_proof",
+      "visualHierarchyClass": "?????????????????????????????",
+      "replaceableFormClasses": [
+        "????",
+        "???????",
+        "??????",
+        "????????"
+      ],
+      "riskClass": "???????????????????????????",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "?????????????????????????? atom ????????????????????????????????????????????????????????????????????????",
+      "differenceNotes": [
+        "??? candidate????????????????????????????? pattern??????????????"
+      ],
+      "riskIfMisclassified": "?????????????????????????????????????????"
     }
   ]
 }

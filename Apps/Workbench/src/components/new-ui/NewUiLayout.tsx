@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, getSampleArtifact, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { AgentChatConversation, AgentChatMaterialPackRef, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
@@ -18,6 +18,7 @@ import { listAnalysisHistorySamples, type AnalysisHistoryItem } from "./analysis
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiAnalysisChildId = "structureAnalysis" | "materialRecognition";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
+type RestructureMaterialSelectionScope = "conversation" | "draft";
 
 type NewUiSection = {
   id: NewUiSectionId;
@@ -153,6 +154,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [loadingRestructureMaterialPacks, setLoadingRestructureMaterialPacks] = useState(false);
   const [loadingRestructureStructures, setLoadingRestructureStructures] = useState(false);
   const [selectedRestructureMaterialPack, setSelectedRestructureMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
+  const [draftRestructureMaterialPack, setDraftRestructureMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
   const [uploadingRestructureMaterial, setUploadingRestructureMaterial] = useState(false);
   const [compactingRestructureContext, setCompactingRestructureContext] = useState(false);
   const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
@@ -198,6 +200,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
   ), [activeRestructureConversationId, restructureConversations]);
   const selectedDefaultMaterialPack = selectedRestructureConversation?.defaultMaterialPackRef ?? null;
+  const visibleRestructureMaterialPack = draftingRestructureConversation ? draftRestructureMaterialPack : selectedRestructureMaterialPack;
   const selectedRunningRestructureTurn = activeRestructureConversationId ? runningRestructureTurns[activeRestructureConversationId] ?? null : null;
   const selectedRestructureConversationError = activeRestructureConversationId ? restructureConversationErrors[activeRestructureConversationId] ?? null : null;
   const selectedOptimisticRestructureGeneration = useMemo(() => {
@@ -368,9 +371,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   useEffect(() => {
     setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, getReadyMaterialPackOptions(restructureMaterialPackOptions)));
+    setDraftRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, getReadyMaterialPackOptions(restructureMaterialPackOptions)));
   }, [restructureMaterialPackOptions]);
 
     useEffect(() => {
+      if (draftingRestructureConversationRef.current) return;
       const option = materialPackOptionFromConversationDefault(selectedDefaultMaterialPack);
       if (!option) {
         setSelectedRestructureMaterialPack((current) => current?.pending ? current : null);
@@ -383,6 +388,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       selectedDefaultMaterialPack?.sampleVideoId,
       selectedDefaultMaterialPack?.artifactId,
       selectedDefaultMaterialPack?.resultUri,
+      draftingRestructureConversation,
   ]);
 
   useEffect(() => {
@@ -782,7 +788,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, []);
 
   useEffect(() => {
-    if (!selectedRestructureMaterialPack?.pending) return undefined;
+    if (!visibleRestructureMaterialPack?.pending) return undefined;
     let cancelled = false;
     const refresh = () => {
       void refreshRestructureMaterialPackOptions().catch(() => undefined);
@@ -796,7 +802,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refreshRestructureConversations, refreshRestructureMaterialPackOptions, selectedRestructureMaterialPack?.pending, selectedRestructureMaterialPack?.sampleVideoId, selectedRestructureMaterialPack?.title]);
+  }, [refreshRestructureConversations, refreshRestructureMaterialPackOptions, visibleRestructureMaterialPack?.pending, visibleRestructureMaterialPack?.sampleVideoId, visibleRestructureMaterialPack?.title]);
 
   const refreshRestructureStructureOptions = useCallback(async () => {
     setLoadingRestructureStructures(true);
@@ -816,7 +822,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, []);
 
-  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null, uploadKey?: string | null, targetConversationId?: string | null) => {
+  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null, uploadKey?: string | null, targetConversationId?: string | null, selectionScope: RestructureMaterialSelectionScope = "conversation") => {
     const sampleVideoId = initialItem.sampleVideoId;
     if (!sampleVideoId) return;
     const existingTimer = restructureMaterialPollTimersRef.current[sampleVideoId];
@@ -825,22 +831,25 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     const poll = async (item: AnalysisHistoryItem) => {
       attempt += 1;
       try {
-        const { item: refreshedItem } = await refreshAnalysisDetailItem(item);
-        if (materialPackReady(refreshedItem)) {
+        const fallbackItem = materialAnalysisItemFromHistoryItem(item);
+        const directArtifactItem = await loadMaterialPackItemFromSampleArtifact(sampleVideoId, fallbackItem);
+        const refreshedHistoryItem = directArtifactItem ? null : await refreshAnalysisDetailItem(item).then((result) => result.item);
+        const analysisItem = directArtifactItem ?? (refreshedHistoryItem ? materialAnalysisItemFromHistoryItem(refreshedHistoryItem) : fallbackItem);
+        if (materialPackReady(analysisItem)) {
           delete restructureMaterialPollTimersRef.current[sampleVideoId];
-          const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
+          const option = materialPackOptionFromAnalysisItem(analysisItem, fallbackTitle, uploadKey);
           setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
           if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
-            setSelectedRestructureMaterialPack(option);
+            setRestructureMaterialPackSelectionForScope(selectionScope, option, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
           }
           await refreshRestructureMaterialPackOptions().catch(() => undefined);
           await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => undefined);
           return;
         }
-        const nextOption = materialPackPendingOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
+        const nextOption = materialPackPendingOptionFromAnalysisItem(analysisItem, fallbackTitle, uploadKey);
         setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, nextOption));
         if (attempt < 60) {
-          restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(refreshedItem), 2000);
+          restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(refreshedHistoryItem ?? item), 2000);
         } else {
           delete restructureMaterialPollTimersRef.current[sampleVideoId];
         }
@@ -855,7 +864,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(initialItem), 1200);
   }, [refreshRestructureConversations, refreshRestructureMaterialPackOptions]);
 
-  const pollRestructureMaterialBatchItemUntilReady = useCallback((batchRunId: string, queueItemId: string, fallbackTitle?: string | null, targetConversationId?: string | null) => {
+  const pollRestructureMaterialBatchItemUntilReady = useCallback((batchRunId: string, queueItemId: string, fallbackTitle?: string | null, targetConversationId?: string | null, selectionScope: RestructureMaterialSelectionScope = "conversation") => {
     const timerKey = `${batchRunId}:${queueItemId}`;
     const uploadKey = materialUploadKey(batchRunId, queueItemId);
     const existingTimer = restructureMaterialPollTimersRef.current[timerKey];
@@ -874,7 +883,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           restructureMaterialUploadSampleKeysRef.current[queueItem.sampleVideoId] = uploadKey;
           const item = materialAnalysisItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
           const historyItem = materialHistoryItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
-          const refreshedItem = await refreshAnalysisDetailItem(historyItem).then((result) => result.item).catch(() => null);
+          const directArtifactItem = await loadMaterialPackItemFromSampleArtifact(queueItem.sampleVideoId, item);
+          const refreshedItem = directArtifactItem ?? await refreshAnalysisDetailItem(historyItem).then((result) => result.item).catch(() => null);
           if (refreshedItem && materialPackReady(refreshedItem)) {
             delete restructureMaterialPollTimersRef.current[timerKey];
             const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
@@ -883,7 +893,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               option,
             ));
             if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
-              setSelectedRestructureMaterialPack(option);
+              setRestructureMaterialPackSelectionForScope(selectionScope, option, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
             }
             await refreshRestructureMaterialPackOptions().catch(() => undefined);
             await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => undefined);
@@ -903,21 +913,26 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             pendingOption,
           ));
           if (!isRestructureMaterialSelectionCancelled(pendingOption, cancelledRestructureMaterialSamplesRef.current)) {
-            setSelectedRestructureMaterialPack((current) => {
+            setRestructureMaterialPackSelectionForScope(selectionScope, (current) => {
               if (!current) return pendingOption;
               if (!current.pending) return current;
               return isSameMaterialPackOptionIdentity(current, pendingOption)
                 ? pendingOption
                 : current;
-            });
+            }, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
           }
           delete restructureMaterialPollTimersRef.current[timerKey];
-          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle, uploadKey, targetConversationId);
+          pollRestructureMaterialPackUntilReady(historyItem, fallbackTitle, uploadKey, targetConversationId, selectionScope);
           return;
         }
         const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
         setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, pendingOption));
-        setSelectedRestructureMaterialPack((current) => current?.pending ? pendingOption : current ?? pendingOption);
+        setRestructureMaterialPackSelectionForScope(
+          selectionScope,
+          (current) => current?.pending ? pendingOption : current ?? pendingOption,
+          setSelectedRestructureMaterialPack,
+          setDraftRestructureMaterialPack,
+        );
         if (attempt < 60) {
           restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 2000);
         } else {
@@ -934,18 +949,32 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 800);
   }, [applyRestructureConversationDefaultMaterialPack, pollRestructureMaterialPackUntilReady, refreshRestructureConversations, refreshRestructureMaterialPackOptions]);
 
+  useEffect(() => {
+    if (!visibleRestructureMaterialPack?.pending) return;
+    const pendingUpload = parseMaterialUploadKey(visibleRestructureMaterialPack.uploadKey);
+    if (!pendingUpload) return;
+    pollRestructureMaterialBatchItemUntilReady(
+      pendingUpload.batchRunId,
+      pendingUpload.queueItemId,
+      visibleRestructureMaterialPack.title,
+      activeRestructureConversationIdRef.current,
+      draftingRestructureConversationRef.current ? "draft" : "conversation",
+    );
+  }, [pollRestructureMaterialBatchItemUntilReady, visibleRestructureMaterialPack?.pending, visibleRestructureMaterialPack?.title, visibleRestructureMaterialPack?.uploadKey]);
+
   const openMaterialRecognitionUploadFromRestructure = useCallback(() => {
     restructureMaterialUploadInputRef.current?.click();
   }, []);
 
   const handleSelectedRestructureMaterialPackChange = useCallback((option: NewUiMaterialPackOption | null) => {
+    const currentSelection = visibleRestructureMaterialPack;
     if (
-      selectedRestructureMaterialPack?.pending
-      && (!option || !isSameMaterialPackOptionIdentity(option, selectedRestructureMaterialPack))
+      currentSelection?.pending
+      && (!option || !isSameMaterialPackOptionIdentity(option, currentSelection))
     ) {
-      const sampleVideoId = selectedRestructureMaterialPack.sampleVideoId;
+      const sampleVideoId = currentSelection.sampleVideoId;
       if (sampleVideoId) cancelledRestructureMaterialSamplesRef.current.add(sampleVideoId);
-      const uploadKey = normalizeMaterialUploadKey(selectedRestructureMaterialPack.uploadKey);
+      const uploadKey = normalizeMaterialUploadKey(currentSelection.uploadKey);
       if (uploadKey) cancelledRestructureMaterialSamplesRef.current.add(uploadKey);
     }
     if (option?.sampleVideoId) {
@@ -953,8 +982,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
     const uploadKey = normalizeMaterialUploadKey(option?.uploadKey);
     if (uploadKey) cancelledRestructureMaterialSamplesRef.current.delete(uploadKey);
-    setSelectedRestructureMaterialPack(option);
-  }, [selectedRestructureMaterialPack]);
+    if (draftingRestructureConversationRef.current) {
+      setDraftRestructureMaterialPack(option);
+    } else {
+      setSelectedRestructureMaterialPack(option);
+    }
+  }, [visibleRestructureMaterialPack]);
 
   const handleRestructureMaterialUploadChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
@@ -964,7 +997,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setUploadingRestructureMaterial(true);
     setLoadingRestructureMaterialPacks(true);
     try {
-      const targetConversationId = selectedRestructureConversation?.conversationId ?? null;
+      const uploadStartedInDraft = draftingRestructureConversationRef.current;
+      const selectionScope: RestructureMaterialSelectionScope = uploadStartedInDraft ? "draft" : "conversation";
+      const targetConversationId = uploadStartedInDraft ? null : selectedRestructureConversation?.conversationId ?? null;
       const batch = await startMaterialRecognitionBatchRun(videoFiles, {
         frameSampleRateFps: 10,
         enableAudioSeparation: true,
@@ -978,7 +1013,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       const pendingOptions = batch.items.map((item, index) => materialPackPendingOptionFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename));
       setRestructureMaterialPackOptions((current) => pendingOptions.reduce((items, item) => upsertMaterialPackOption(items, item), current));
       const firstOption = pendingOptions[0] ?? null;
-      if (firstOption) setSelectedRestructureMaterialPack(firstOption);
+      if (firstOption) {
+        setRestructureMaterialPackSelectionForScope(selectionScope, firstOption, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
+      }
       batch.items.forEach((item, index) => {
         if (item.sampleVideoId) {
           const initialItem = materialHistoryItemFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename);
@@ -996,22 +1033,22 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
                   option,
                 ));
                 if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
-                  setSelectedRestructureMaterialPack(option);
+                  setRestructureMaterialPackSelectionForScope(selectionScope, option, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
                 }
                 return Promise.all([
                   refreshRestructureMaterialPackOptions(),
                   refreshRestructureConversations(targetConversationId),
                 ]);
               }
-              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle, uploadKey, targetConversationId);
+              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle, uploadKey, targetConversationId, selectionScope);
               return undefined;
             })
             .catch(() => {
-              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle, uploadKey, targetConversationId);
+              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle, uploadKey, targetConversationId, selectionScope);
             });
           return;
         }
-        pollRestructureMaterialBatchItemUntilReady(batch.batchRunId, item.queueItemId, videoFiles[index]?.name ?? item.filename, targetConversationId);
+        pollRestructureMaterialBatchItemUntilReady(batch.batchRunId, item.queueItemId, videoFiles[index]?.name ?? item.filename, targetConversationId, selectionScope);
       });
       if (!batch.items.length) {
         await refreshRestructureMaterialPackOptions().catch(() => undefined);
@@ -1793,7 +1830,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onSendMessage={handleSendRestructureMessage}
               materialPackOptions={restructureMaterialPackOptions}
               structureOptions={restructureStructureOptions}
-              selectedMaterialPack={selectedRestructureMaterialPack}
+              selectedMaterialPack={visibleRestructureMaterialPack}
               onSelectedMaterialPackChange={handleSelectedRestructureMaterialPackChange}
               loadingMaterialPackOptions={loadingRestructureMaterialPacks}
               uploadingMaterial={uploadingRestructureMaterial}
@@ -2414,6 +2451,18 @@ function materialAnalysisItemFromBatchQueueItem(queueItem: FullAnalysisBatchItem
   };
 }
 
+function materialAnalysisItemFromHistoryItem(item: AnalysisHistoryItem): RestructureMaterialAnalysisItem {
+  return {
+    sampleVideoId: item.sampleVideoId,
+    artifactId: item.artifactId ?? null,
+    title: item.title ?? item.sampleVideoId,
+    traceId: item.traceId ?? null,
+    coverUri: item.coverUri ?? null,
+    durationSeconds: item.durationSeconds ?? null,
+    artifact: item.artifact ?? null,
+  };
+}
+
 function materialHistoryItemFromBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, fallbackTitle?: string | null): AnalysisHistoryItem {
   return {
     sampleVideoId: queueItem.sampleVideoId ?? "",
@@ -2439,6 +2488,21 @@ function materialHistoryItemFromBatchQueueItem(queueItem: FullAnalysisBatchItem,
     artifact: null,
     workflowRun: null,
     runtimeState: null,
+  };
+}
+
+async function loadMaterialPackItemFromSampleArtifact(sampleVideoId: string, fallback: RestructureMaterialAnalysisItem) {
+  const artifact = await getSampleArtifact(sampleVideoId).catch(() => null);
+  if (!artifact?.userMaterialPack) return null;
+  return {
+    ...fallback,
+    sampleVideoId,
+    artifactId: artifact.userMaterialPack.artifactId ?? fallback.artifactId ?? null,
+    title: artifact.sampleVideo?.original?.summary ?? fallback.title,
+    traceId: artifact.userMaterialPack.traceId ?? artifact.trace?.traceId ?? fallback.traceId ?? null,
+    coverUri: artifact.cover?.uri ?? artifact.frames?.[0]?.imageUri ?? fallback.coverUri ?? null,
+    durationSeconds: artifact.metadata?.durationSeconds ?? fallback.durationSeconds ?? null,
+    artifact,
   };
 }
 
@@ -2527,6 +2591,15 @@ function materialUploadKey(batchRunId: string, queueItemId: string) {
   return `upload:${batchRunId}:${queueItemId}`;
 }
 
+function parseMaterialUploadKey(value?: string | null) {
+  const text = normalizeMaterialUploadKey(value);
+  if (!text) return null;
+  const match = /^upload:([^:]+):(.+)$/.exec(text);
+  const batchRunId = match?.[1] ?? null;
+  const queueItemId = match?.[2] ?? null;
+  return batchRunId && queueItemId ? { batchRunId, queueItemId } : null;
+}
+
 export function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
   const same = (item: NewUiMaterialPackOption) => isSameMaterialPackOptionIdentity(item, next);
   const existing = options.find(same) ?? null;
@@ -2546,6 +2619,19 @@ export function replacePendingMaterialPackSelection(selected: NewUiMaterialPackO
     && !item.pending
     && (!selectedUploadKey || Boolean(item.resultUri))
   )) ?? selected;
+}
+
+export function setRestructureMaterialPackSelectionForScope(
+  scope: RestructureMaterialSelectionScope,
+  value: SetStateAction<NewUiMaterialPackOption | null>,
+  setConversationSelection: Dispatch<SetStateAction<NewUiMaterialPackOption | null>>,
+  setDraftSelection: Dispatch<SetStateAction<NewUiMaterialPackOption | null>>,
+) {
+  if (scope === "draft") {
+    setDraftSelection(value);
+    return;
+  }
+  setConversationSelection(value);
 }
 
 function getReadyMaterialPackOptions(options: NewUiMaterialPackOption[]) {

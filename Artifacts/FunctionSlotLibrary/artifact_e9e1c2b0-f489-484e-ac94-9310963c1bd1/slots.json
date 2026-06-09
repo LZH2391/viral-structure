@@ -1,0 +1,76 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "卖点感知槽",
+    "slotType": "attribute_sensing",
+    "viewerStateBefore": "观众尚未获得商品状态证据",
+    "viewerStateAfter": "观众已看到可观察状态，并准备理解后续使用方式",
+    "persuasionTask": "把抽象卖点转成直接可见的状态证据，为使用演示建立可信起点",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "状态证据出现",
+      "说明字幕落点",
+      "动作链起点"
+    ],
+    "substitutionRules": [
+      "保持状态证据先行时，具体展示对象、展示角度和字幕表达可以替换",
+      "包装应服务状态可见性，不能用高强度装饰遮挡核心证据"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "使用演示槽",
+    "slotType": "usage_demonstration",
+    "viewerStateBefore": "观众已看到商品状态，但尚未确认使用门槛",
+    "viewerStateAfter": "观众理解商品可以通过简单动作进入使用场景",
+    "persuasionTask": "用连续动作把卖点感知推进为低门槛使用证明",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "动作切换",
+      "字幕语义推进",
+      "承接对象出现"
+    ],
+    "substitutionRules": [
+      "保持动作证明任务不变时，具体动作、承接对象和演示角度可以替换",
+      "便捷性主张必须由可见动作承接，不能只保留字幕说明"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2"
+      ]
+    },
+    "confidence": 0.82,
+    "needReview": false
+  }
+]

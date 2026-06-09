@@ -1,0 +1,72 @@
+[
+  {
+    "id": "P001",
+    "slot": "attribute_sensing",
+    "label": "实拍状态证明原子",
+    "function": "用克制包装把可观察状态放在第一感知层，并用低密度说明补足卖点理解",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "实拍操作加底部解释字幕"
+      ],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用克制包装把可观察状态放在第一感知层，并用低密度说明补足卖点理解",
+    "proofType": "direct_visual_attribute_proof",
+    "visualProofType": "real_scene_state_close_view",
+    "visualHierarchy": "可观察状态第一，使用承载对象第二，说明字幕辅助解释",
+    "visualElements": [
+      "近景实拍",
+      "前景状态展示",
+      "背景识别信息",
+      "底部单行说明字幕"
+    ],
+    "replaceableForms": [
+      "近景展示",
+      "局部展示",
+      "手部操作展示",
+      "简短字幕说明"
+    ],
+    "risk": "如果说明字幕或识别信息过强，会削弱观众对可观察状态本身的判断"
+  },
+  {
+    "id": "P002",
+    "slot": "usage_demonstration",
+    "label": "低门槛动作证明原子",
+    "function": "用真实动作和简短说明降低使用方式理解成本，证明操作可直接完成",
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [
+        "实拍操作加底部解释字幕"
+      ],
+      "shotRefs": [
+        "shot_2"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false,
+    "packagingFunction": "用真实动作和简短说明降低使用方式理解成本，证明操作可直接完成",
+    "proofType": "direct_usage_action_proof",
+    "visualProofType": "real_scene_operation_demo",
+    "visualHierarchy": "执行动作第一，承接对象第二，识别信息和字幕补充理解",
+    "visualElements": [
+      "手部执行动作",
+      "承接对象",
+      "背景识别信息",
+      "底部单行说明字幕"
+    ],
+    "replaceableForms": [
+      "连续动作演示",
+      "手部操作演示",
+      "容器承接演示",
+      "简短字幕同步"
+    ],
+    "risk": "如果动作不完整或字幕不同步，便捷使用主张会变成口头说明而非可见证明"
+  }
+]

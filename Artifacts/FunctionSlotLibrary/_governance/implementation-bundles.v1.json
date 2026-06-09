@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.bundles",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-09T23:37:28.591Z",
   "implementationBundles": [
     {
       "id": "BUNDLE_result_first_reverse_need",
@@ -615,6 +616,34 @@
       "differenceNotes": [
         "Sequence: familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close",
         "Order evidence only; not a required recomposition template."
+      ]
+    },
+    {
+      "id": "OBS_CHAIN_attribute_to_usage_demo",
+      "name": "???????????????",
+      "chainKey": "attribute_sensing > usage_demonstration",
+      "sequence": [
+        "SUB_attribute_state_sensing",
+        "SUB_immediate_usage_demonstration"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+      ],
+      "support": {
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "useAs": "observed_order_and_carryover_evidence",
+      "notUseAs": "archetype_merge_basis_or_fixed_template",
+      "judgementReason": "????????????????????????????????? carryover ? sequence integrity ?????????????",
+      "riskIfMisclassified": "???????????????????????????????????????????????",
+      "differenceNotes": [
+        "??????? sample_1ca ? attribute_sensing > usage_demonstration ???",
+        "????????????????????? slot archetype ??????????????"
       ]
     }
   ]
