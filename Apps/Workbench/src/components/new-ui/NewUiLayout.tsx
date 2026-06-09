@@ -370,16 +370,19 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, getReadyMaterialPackOptions(restructureMaterialPackOptions)));
   }, [restructureMaterialPackOptions]);
 
-  useEffect(() => {
-    if (!selectedDefaultMaterialPack) return;
-    const option = materialPackOptionFromConversationDefault(selectedDefaultMaterialPack);
-    if (!option) return;
-    setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
-    setSelectedRestructureMaterialPack(option);
-  }, [
-    selectedDefaultMaterialPack?.sampleVideoId,
-    selectedDefaultMaterialPack?.artifactId,
-    selectedDefaultMaterialPack?.resultUri,
+    useEffect(() => {
+      const option = materialPackOptionFromConversationDefault(selectedDefaultMaterialPack);
+      if (!option) {
+        setSelectedRestructureMaterialPack((current) => current?.pending ? current : null);
+        return;
+      }
+      setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
+      setSelectedRestructureMaterialPack(option);
+    }, [
+      selectedRestructureConversation?.conversationId,
+      selectedDefaultMaterialPack?.sampleVideoId,
+      selectedDefaultMaterialPack?.artifactId,
+      selectedDefaultMaterialPack?.resultUri,
   ]);
 
   useEffect(() => {
@@ -961,21 +964,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setUploadingRestructureMaterial(true);
     setLoadingRestructureMaterialPacks(true);
     try {
-      let targetConversationId = selectedRestructureConversation?.conversationId ?? null;
-      if (!targetConversationId && draftingRestructureConversation) {
-        setCreatingRestructureConversation(true);
-        const startedSession = await startAgentChatThread({
-          source: "threadpool-role",
-          role: "function-slot-restructure",
-        });
-        targetConversationId = startedSession.conversationId ?? null;
-        if (targetConversationId) {
-          draftingRestructureConversationRef.current = false;
-          setDraftingRestructureConversation(false);
-          selectRestructureConversation(targetConversationId);
-          await refreshRestructureConversations(targetConversationId).catch(() => undefined);
-        }
-      }
+      const targetConversationId = selectedRestructureConversation?.conversationId ?? null;
       const batch = await startMaterialRecognitionBatchRun(videoFiles, {
         frameSampleRateFps: 10,
         enableAudioSeparation: true,
@@ -1034,7 +1023,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       setCreatingRestructureConversation(false);
       setLoadingRestructureMaterialPacks(false);
     }
-  }, [draftingRestructureConversation, markRestructureConversationError, pollRestructureMaterialBatchItemUntilReady, pollRestructureMaterialPackUntilReady, refreshRestructureConversations, refreshRestructureMaterialPackOptions, selectRestructureConversation, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
+  }, [markRestructureConversationError, pollRestructureMaterialBatchItemUntilReady, pollRestructureMaterialPackUntilReady, refreshRestructureConversations, refreshRestructureMaterialPackOptions, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
 
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);

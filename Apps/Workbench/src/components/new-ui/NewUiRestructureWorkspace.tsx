@@ -154,6 +154,7 @@ export function NewUiRestructureWorkspace({
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
   const canStopTurn = Boolean(activeTurnTarget?.running && activeTurnTarget.threadId && activeTurnTarget.turnId && !stoppingTurn);
+  const materialPackSelectionControlled = controlledSelectedMaterialPack !== undefined;
   const selectedMaterialPack = controlledSelectedMaterialPack !== undefined ? controlledSelectedMaterialPack : uncontrolledSelectedMaterialPack;
   const setSelectedMaterialPack = onSelectedMaterialPackChange ?? setUncontrolledSelectedMaterialPack;
   const rawTimelineDisplayItems = buildRestructureTimelineDisplayItems(timeline?.items ?? []);
@@ -261,12 +262,14 @@ export function NewUiRestructureWorkspace({
   useEffect(() => {
     setSendError(null);
     setActiveAttachmentPanel(null);
-    setSelectedMaterialPack(selectedMaterialPack?.pending ? selectedMaterialPack : null);
+    if (!materialPackSelectionControlled) {
+      setUncontrolledSelectedMaterialPack((current) => current?.pending ? current : null);
+    }
     setSelectedStructure(null);
     setTimelineActivityExpandedByScope({});
     setProcessMessageExpandedByScope({});
     shouldStickToBottomRef.current = true;
-  }, [conversation?.conversationId, draftingConversation]);
+  }, [conversation?.conversationId, draftingConversation, materialPackSelectionControlled]);
 
   useEffect(() => {
     onContextUsageChange?.(contextUsage);
@@ -557,102 +560,104 @@ export function NewUiRestructureWorkspace({
         <main className="new-ui-restructure-chat" aria-label="重组对话">
           {errorAlert}
           {messages.length || timelineDisplayItems.length || visiblePendingUserMessage || visiblePendingAssistantMessage ? (
-            <div
-              ref={messageListRef}
-              className="new-ui-restructure-message-list"
-              onScroll={(event) => {
-                shouldStickToBottomRef.current = isNearScrollBottom(event.currentTarget);
-              }}
-            >
-              {confirmedPlanStatusDisplay ? (
-                <ConfirmedPlanStatusActivity display={confirmedPlanStatusDisplay} />
-              ) : null}
-              {messageRenderItems.map((renderItem) => (
-                <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
-                  {shouldInsertTimelineBeforeRenderItem(renderItem, timelineInsertMessageId) ? (
-                    <RestructureTimelineItemGroup
-                      items={timelineDisplayItems}
-                      scopeKey={timelineScopeKey}
-                      expanded={timelineActivityExpanded}
-                      running={Boolean(activeTurnTarget?.running)}
-                      getDisplayText={getTimelineDisplayText}
-                      isPseudoStreaming={isTimelinePseudoStreaming}
-                      onToggle={() => {
-                        if (!timelineScopeKey) return;
-                        setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
-                      }}
-                    />
-                  ) : null}
-                  {renderItem.kind === "process_group" ? (
-                    <RestructureProcessMessageGroup
-                      group={renderItem}
-                      expanded={processMessageExpandedByScope[renderItem.id] ?? !hasTerminalAssistantMessageForProcessGroup(renderItem, messages)}
-                      getDisplayText={getProcessDisplayText}
-                      isPseudoStreaming={isProcessPseudoStreaming}
-                      onToggle={() => {
-                        const defaultExpanded = !hasTerminalAssistantMessageForProcessGroup(renderItem, messages);
-                        setProcessMessageExpandedByScope((current) => ({ ...current, [renderItem.id]: !(current[renderItem.id] ?? defaultExpanded) }));
-                      }}
-                    />
-                  ) : renderItem.message.materialGapMatrix ? (
-                    <MaterialGapMatrixViewer matrix={renderItem.message.materialGapMatrix} />
-                  ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
-                    <StoryboardResultViewer
-                      conversationId={conversation.conversationId}
-                      resultId={renderItem.message.id}
-                      statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
-                    />
-                  ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
-                    <RestructureMessage
-                      message={renderItem.message}
-                      displayText={getDisplayText(renderItem.message)}
-                      pseudoStreaming={isPseudoStreaming(renderItem.message)}
-                      onOpenPlanTrace={onOpenPlanTrace}
-                      onConfirmPlan={onConfirmPlan}
-                      actionsDisabled={sendingMessage}
-                      openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
-                      confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
-                      planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
-                    />
-                  ) : null}
-                </Fragment>
-              ))}
-              <RestructureTimelineItemGroup
-                items={timelineItemsAfterMessages}
-                scopeKey={timelineScopeKey}
-                expanded={timelineActivityExpanded}
-                running={Boolean(activeTurnTarget?.running)}
-                getDisplayText={getTimelineDisplayText}
-                isPseudoStreaming={isTimelinePseudoStreaming}
-                onToggle={() => {
-                  if (!timelineScopeKey) return;
-                  setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
+            <>
+              <div
+                ref={messageListRef}
+                className="new-ui-restructure-message-list"
+                onScroll={(event) => {
+                  shouldStickToBottomRef.current = isNearScrollBottom(event.currentTarget);
                 }}
-              />
-              {visiblePendingUserMessage ? (
-                <RestructureMessage
-                  message={visiblePendingUserMessage}
-                  displayText={getDisplayText(visiblePendingUserMessage)}
-                  pseudoStreaming={isPseudoStreaming(visiblePendingUserMessage)}
+              >
+                {confirmedPlanStatusDisplay ? (
+                  <ConfirmedPlanStatusActivity display={confirmedPlanStatusDisplay} />
+                ) : null}
+                {messageRenderItems.map((renderItem) => (
+                  <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
+                    {shouldInsertTimelineBeforeRenderItem(renderItem, timelineInsertMessageId) ? (
+                      <RestructureTimelineItemGroup
+                        items={timelineDisplayItems}
+                        scopeKey={timelineScopeKey}
+                        expanded={timelineActivityExpanded}
+                        running={Boolean(activeTurnTarget?.running)}
+                        getDisplayText={getTimelineDisplayText}
+                        isPseudoStreaming={isTimelinePseudoStreaming}
+                        onToggle={() => {
+                          if (!timelineScopeKey) return;
+                          setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
+                        }}
+                      />
+                    ) : null}
+                    {renderItem.kind === "process_group" ? (
+                      <RestructureProcessMessageGroup
+                        group={renderItem}
+                        expanded={processMessageExpandedByScope[renderItem.id] ?? !hasTerminalAssistantMessageForProcessGroup(renderItem, messages)}
+                        getDisplayText={getProcessDisplayText}
+                        isPseudoStreaming={isProcessPseudoStreaming}
+                        onToggle={() => {
+                          const defaultExpanded = !hasTerminalAssistantMessageForProcessGroup(renderItem, messages);
+                          setProcessMessageExpandedByScope((current) => ({ ...current, [renderItem.id]: !(current[renderItem.id] ?? defaultExpanded) }));
+                        }}
+                      />
+                    ) : renderItem.message.materialGapMatrix ? (
+                      <MaterialGapMatrixViewer matrix={renderItem.message.materialGapMatrix} />
+                    ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
+                      <StoryboardResultViewer
+                        conversationId={conversation.conversationId}
+                        resultId={renderItem.message.id}
+                        statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
+                      />
+                    ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
+                      <RestructureMessage
+                        message={renderItem.message}
+                        displayText={getDisplayText(renderItem.message)}
+                        pseudoStreaming={isPseudoStreaming(renderItem.message)}
+                        onOpenPlanTrace={onOpenPlanTrace}
+                        onConfirmPlan={onConfirmPlan}
+                        actionsDisabled={sendingMessage}
+                        openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
+                        confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
+                        planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
+                      />
+                    ) : null}
+                  </Fragment>
+                ))}
+                <RestructureTimelineItemGroup
+                  items={timelineItemsAfterMessages}
+                  scopeKey={timelineScopeKey}
+                  expanded={timelineActivityExpanded}
+                  running={Boolean(activeTurnTarget?.running)}
+                  getDisplayText={getTimelineDisplayText}
+                  isPseudoStreaming={isTimelinePseudoStreaming}
+                  onToggle={() => {
+                    if (!timelineScopeKey) return;
+                    setTimelineActivityExpandedByScope((current) => ({ ...current, [timelineScopeKey]: !(current[timelineScopeKey] ?? timelineActivityDefaultExpanded) }));
+                  }}
                 />
-              ) : null}
-              {visiblePendingAssistantMessage ? (
-                <RestructureMessage
-                  message={visiblePendingAssistantMessage}
-                  displayText={getDisplayText(visiblePendingAssistantMessage)}
-                  pseudoStreaming={isPseudoStreaming(visiblePendingAssistantMessage)}
-                />
-              ) : null}
-            </div>
+                {visiblePendingUserMessage ? (
+                  <RestructureMessage
+                    message={visiblePendingUserMessage}
+                    displayText={getDisplayText(visiblePendingUserMessage)}
+                    pseudoStreaming={isPseudoStreaming(visiblePendingUserMessage)}
+                  />
+                ) : null}
+                {visiblePendingAssistantMessage ? (
+                  <RestructureMessage
+                    message={visiblePendingAssistantMessage}
+                    displayText={getDisplayText(visiblePendingAssistantMessage)}
+                    pseudoStreaming={isPseudoStreaming(visiblePendingAssistantMessage)}
+                  />
+                ) : null}
+              </div>
+              {composer}
+            </>
           ) : (
-            <div className="new-ui-restructure-message-list is-empty-thread">
+            <div className="new-ui-restructure-empty-chat-stack">
               <div className="new-ui-restructure-thread-empty">
                 <h2>给一个主题，或者直接告诉我你想做什么。</h2>
               </div>
+              {composer}
             </div>
           )}
-
-          {composer}
         </main>
       </div>
     </section>

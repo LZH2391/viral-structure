@@ -26,6 +26,11 @@ function loadNewUiLayoutHelpers() {
   return module.exports;
 }
 
+function readNewUiLayoutSource() {
+  const root = path.resolve(__dirname, "../..");
+  return fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx"), "utf8");
+}
+
 const {
   mergeMaterialPackOptions,
   replacePendingMaterialPackSelection,
@@ -87,4 +92,17 @@ test("conversation default material pack replaces pending upload selection", () 
   assert.equal(selected.artifactId, "artifact_f396");
   assert.equal(selected.resultUri, "/runtime/Artifacts/sample_e3f7/analysis-results/user_material_pack/artifact_f396.json");
   assert.equal(selected.shotCardCount, 4);
+});
+
+test("draft material upload does not create or select a conversation", () => {
+  const source = readNewUiLayoutSource();
+  const match = source.match(/const handleRestructureMaterialUploadChange = useCallback[\s\S]+?\n  \}, \[[^\n]+\]\);/);
+  assert.ok(match, "expected to find restructure material upload handler");
+  const handlerSource = match[0];
+
+  assert.equal(handlerSource.includes("startAgentChatThread"), false);
+  assert.equal(handlerSource.includes("selectRestructureConversation"), false);
+  assert.equal(handlerSource.includes("upsertConversation"), false);
+  assert.match(handlerSource, /\btargetConversationId,\s*\n/);
+  assert.match(handlerSource, /bindMaterialToConversation:\s*Boolean\(targetConversationId\)/);
 });

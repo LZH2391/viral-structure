@@ -465,3 +465,70 @@ test("workflow batch queue can dispatch material recognition batches", async () 
     { filename: "b.mp4", enableFunctionSlotAtomization: null },
   ]);
 });
+
+test("workflow batch queue only marks material completion notified after hook succeeds", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "material-recognition-batch-"));
+  const artifact = {
+    sampleVideoId: "sample_ready",
+    sampleVideo: { original: { summary: "ready.mp4" } },
+    userMaterialPackRef: { uri: "/runtime/Artifacts/sample_ready/analysis-results/user_material_pack/artifact_ready.json" },
+    userMaterialPack: {
+      type: "user-material-pack",
+      schemaVersion: "user-material-pack.stable",
+      artifactId: "artifact_ready",
+      traceId: "trace_ready",
+      shotCards: [{ id: "shot_1" }],
+      materialGroups: [{ id: "group_1" }],
+      proofCoverage: [{ id: "proof_1" }],
+    },
+  };
+  const run = {
+    workflowRunId: "workflow_ready",
+    status: "processed",
+    sampleVideoId: "sample_ready",
+    currentStageKeys: [],
+    stages: [],
+  };
+  let completionAttempts = 0;
+  const workflowService = {
+    start: async () => run,
+    get: () => run,
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    filePath: path.join(root, "WorkflowRuns", "material-recognition-queue.json"),
+    uploadRoot: path.join(root, "WorkflowRuns", "material-recognition-batch-uploads"),
+    workflowKey: "material-recognition",
+    workflowLabel: "素材识别",
+    errorCode: "material_recognition_batch_item_failed",
+    stageName: "workflow.material_recognition.batch.dispatch",
+    buildOptions: () => ({}),
+    loadSampleArtifact: async () => artifact,
+    onItemCompleted: async () => {
+      completionAttempts += 1;
+      if (completionAttempts === 1) throw new Error("temporary bind failure");
+    },
+  });
+
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("ready.mp4")],
+    fields: { targetConversationId: "conversation_ready", bindMaterialToConversation: "true" },
+  });
+
+  await queue.advance(batch.batchRunId);
+  const afterFailedHook = queue.getBatch(batch.batchRunId);
+
+  assert.equal(afterFailedHook.items[0].status, "processed");
+  assert.equal(afterFailedHook.items[0].completionNotifiedAt, null);
+  assert.equal(completionAttempts, 1);
+
+  await queue.advance(batch.batchRunId);
+  const afterRetry = queue.getBatch(batch.batchRunId);
+
+  assert.equal(afterRetry.items[0].status, "processed");
+  assert.match(afterRetry.items[0].completionNotifiedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(completionAttempts, 2);
+});

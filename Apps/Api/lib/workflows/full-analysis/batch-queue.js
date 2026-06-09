@@ -305,7 +305,6 @@ function createFullAnalysisBatchQueue({
       artifact = await loadSampleArtifact({ sampleVideoId: item.sampleVideoId }).catch(() => null);
     }
     if (!hasWorkflowCompletionArtifact(batch.workflowKey, artifact)) return;
-    item.completionNotifiedAt = new Date().toISOString();
     try {
       await onItemCompleted(publicBatch(batch), publicBatchItem(item), {
         artifact,
@@ -313,6 +312,7 @@ function createFullAnalysisBatchQueue({
         fields: batch.fields ?? {},
         workflowKey: batch.workflowKey,
       });
+      item.completionNotifiedAt = new Date().toISOString();
     } catch {
       // Queue completion must remain independent from optional post-processing hooks.
     }
