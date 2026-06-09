@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, releaseAgentChatLease, resumeAgentChatConversation, reviewAgentChatDialogue, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatDialogueRework, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse, type AgentChatTurnResponse } from "../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getAgentChatTurnTimeline, getThreadPoolRoles, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, releaseAgentChatLease, resumeAgentChatConversation, reviewAgentChatDialogue, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatDialogueRework, submitAgentChatManualReplacement, type AgentChatActionProjection, type AgentChatSessionResponse, type AgentChatTurnResponse } from "../api/client";
 import type { AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft, ThreadConversation, ThreadPoolRoleSummary } from "../types";
 import { useResizableThreePaneLayout } from "../hooks/useResizableThreePaneLayout";
 import { shortId } from "../utils/format";
@@ -1117,21 +1117,21 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
     if (!canRegisterPlanTrace || !currentRestructureFinalPath || !activeSlotAtomDisplay?.displayJsonPath) return;
     setRegisteringTrace(true);
     setErrorText(null);
-    setStatusText("登记当前方案到溯源图");
+    setStatusText("预览当前方案溯源图");
     try {
-      const result = await registerFunctionSlotConfirmedPlanTrace({
+      const result = await previewFunctionSlotPlanTraceGraph({
         restructureFinalPath: currentRestructureFinalPath,
         displayJsonPath: activeSlotAtomDisplay.displayJsonPath,
         sourceTurnId: currentTurnId,
         parentArtifactId: currentTurnId,
         confirmationId: activeConversationConfirmedPlan?.confirmationId ?? undefined,
       });
-      if (!result.ok) throw new Error(result.message ?? "登记溯源图失败");
-      setStatusText(`已进入溯源图：${result.planId ?? "当前方案"}`);
-      window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
+      if (!result.ok) throw new Error(result.message ?? "预览溯源图失败");
+      setStatusText(`已进入溯源图：${result.record?.title ?? "当前方案"}`);
+      window.dispatchEvent(new CustomEvent("function-slot-plan-trace-preview", { detail: { graph: result.graph, record: result.record } }));
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : "登记溯源图失败");
-      setStatusText("登记溯源图失败");
+      setErrorText(error instanceof Error ? error.message : "预览溯源图失败");
+      setStatusText("预览溯源图失败");
     } finally {
       setRegisteringTrace(false);
     }
@@ -1205,8 +1205,8 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
               ) : null}
               {session?.role === "function-slot-restructure" ? (
                 <>
-                  <button className="ghost-button agent-chat-action" type="button" disabled={!canRegisterPlanTrace} onClick={() => void handleRegisterPlanTrace()} title={canRegisterPlanTrace ? "登记当前方案到确定方案溯源图" : "需要当前方案已自动生成 restructure.display.json"}>
-                    {registeringTrace ? "登记中" : "进入溯源图"}
+                  <button className="ghost-button agent-chat-action" type="button" disabled={!canRegisterPlanTrace} onClick={() => void handleRegisterPlanTrace()} title={canRegisterPlanTrace ? "预览当前方案溯源图" : "需要当前方案已自动生成 restructure.display.json"}>
+                    {registeringTrace ? "预览中" : "进入溯源图"}
                   </button>
                   <button className="primary-button agent-chat-action" type="button" disabled={!canConfirmRestructure} onClick={() => void handleConfirmRestructure()}>
                     {confirming ? "确认中" : activeConversationConfirmedPlan?.turnId === currentTurnId ? "重新确认" : "确认此方案"}

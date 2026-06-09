@@ -5,23 +5,36 @@ const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v14";
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
 
 async function buildAndWriteTraceGraph({ rootDir, index, now, readJsonIfExists, writeJson, traceGraphRelativePath, governanceRelativePath }) {
+  const graph = await buildTraceGraphFromPlans({
+    rootDir,
+    plans: Array.isArray(index.plans) ? index.plans : [],
+    now,
+    readJsonIfExists,
+    governanceRelativePath,
+  });
+  await writeJson(path.join(rootDir, traceGraphRelativePath), graph);
+  return graph;
+}
+
+async function buildTraceGraphFromPlans({ rootDir, plans, now, readJsonIfExists, governanceRelativePath, readDisplayForPlan = null, artifactId = "confirmed-plan-trace" }) {
   const nodes = [];
   const edges = [];
-  const plans = Array.isArray(index.plans) ? index.plans : [];
   const governance = await readGovernanceFileIfExists(path.join(rootDir, governanceRelativePath));
   const sourceIndex = buildGovernanceSourceIndex(governance);
   for (let indexPosition = 0; indexPosition < plans.length; indexPosition += 1) {
     const plan = plans[indexPosition];
-    const fullDisplayPath = path.resolve(rootDir, plan.displayJsonPath);
-    const stored = await readJsonIfExists(fullDisplayPath);
-    if (!stored?.display) continue;
+    const stored = readDisplayForPlan
+      ? await readDisplayForPlan(plan)
+      : await readJsonIfExists(path.resolve(rootDir, plan.displayJsonPath));
+    const display = stored?.display ?? stored;
+    if (!display) continue;
     const color = PLAN_COLORS[indexPosition % PLAN_COLORS.length];
-    projectDisplayToTraceGraph({ nodes, edges, plan, display: stored.display, color, sourceIndex });
+    projectDisplayToTraceGraph({ nodes, edges, plan, display, color, sourceIndex });
   }
   const graph = {
     schemaVersion: "confirmed_plan_trace_graph.v1",
     projectionVersion: TRACE_GRAPH_PROJECTION_VERSION,
-    artifactId: "confirmed-plan-trace",
+    artifactId,
     governanceId: null,
     sampleVideoId: null,
     traceId: null,
@@ -40,7 +53,6 @@ async function buildAndWriteTraceGraph({ rootDir, index, now, readJsonIfExists, 
       packagingBlockCount: 0,
     },
   };
-  await writeJson(path.join(rootDir, traceGraphRelativePath), graph);
   return graph;
 }
 
@@ -51,10 +63,15 @@ function projectDisplayToTraceGraph({ nodes, edges, plan, display, color, source
   pushGraphNode(nodes, {
     id: planRootId,
     type: "confirmedPlan",
-    label: plan.planId,
+    label: plan.versionName ?? plan.label ?? plan.planId,
     group: "plan",
     data: {
       planId: plan.planId,
+      planSetId: plan.planSetId ?? null,
+      recordId: plan.recordId ?? null,
+      versionId: plan.versionId ?? null,
+      versionName: plan.versionName ?? null,
+      mode: plan.mode ?? null,
       color,
       confirmationId: plan.confirmationId ?? null,
       sourceTurnId: plan.sourceTurnId ?? null,
@@ -422,5 +439,6 @@ function stripReviewFields(value) {
 module.exports = {
   TRACE_GRAPH_PROJECTION_VERSION,
   buildAndWriteTraceGraph,
+  buildTraceGraphFromPlans,
   emptyTraceGraph,
 };

@@ -1,4 +1,4 @@
-import type { AgentChatArtifactRef, AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, AtomReplacement, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, ReplacementCandidate, SampleArtifact, SlotReplacement, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
+import type { AgentChatArtifactRef, AgentChatConversation, AgentChatDialogueRoboticReview, AgentChatMaterialGapMatrix, AgentChatSlotAtomDisplay, AgentTurnTimeline, AnalysisRoleSummary, AtomReplacement, BackendCapabilities, DebugTraceDetail, DebugTraceSummary, FullAnalysisBatchRun, FunctionSlotLibraryGraph, LibraryItemDetail, LibraryItemSummary, ModuleSummary, ProcessingJob, ReplacementCandidate, SampleArtifact, SlotReplacement, ThreadConversation, ThreadPoolHealth, ThreadPoolRoleDetail, ThreadPoolRoleSummary, UiDebugEventRequest, WorkflowRun } from "../types";
 
 const WORKSPACE_ID = "default-workspace";
 
@@ -115,6 +115,7 @@ export type AgentChatTurnResponse = {
     slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   } | null;
   autoDialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
+  autoMaterialGapMatrix?: AgentChatMaterialGapMatrix | null;
   autoDialogueRework?: {
     ok: boolean;
     source?: "direct" | "threadpool-role";
@@ -354,6 +355,20 @@ export type FunctionSlotGovernanceRunResponse = {
   parentArtifactId: string | null;
   status: "submitted" | string;
   message: string;
+};
+
+export type FunctionSlotGovernanceSchedulerState = {
+  schemaVersion: "function_slot_governance_scheduler.v1" | string;
+  status: "idle" | "scheduled" | "running" | "dirty" | "skipped" | "failed" | string;
+  quietWindowMs: number;
+  scheduledAt?: string | null;
+  processingJobId?: string | null;
+  traceId?: string | null;
+  lastEvidenceHash?: string | null;
+  lastGovernedEvidenceHash?: string | null;
+  dirtySince?: string | null;
+  lastRunCompletedAt?: string | null;
+  message?: string | null;
 };
 
 export async function uploadSampleVideo(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "refresh" } = {}) {
@@ -921,6 +936,7 @@ export type AgentChatMaterialPackRef = {
   artifactId?: string | null;
   title?: string | null;
   traceId?: string | null;
+  resultUri?: string | null;
   shotCardCount?: number | null;
   materialGroupCount?: number | null;
   proofCoverageCount?: number | null;
@@ -1166,6 +1182,12 @@ export async function startFunctionSlotGovernanceRun(payload: { refreshEvidence?
   );
 }
 
+export async function getFunctionSlotGovernanceSchedulerState() {
+  return readJsonResponse<FunctionSlotGovernanceSchedulerState>(
+    await fetch(`${API_BASE_URL}/api/function-slot-library/governance/scheduler-state`, { cache: "no-store" }),
+  );
+}
+
 export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: string | null; restructureFinalPath?: string | null; shotDesignFinalPath?: string | null; restructureArtifactId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null; conversationId?: string | null; runImageGeneration?: boolean; runPdfAgent?: boolean } = {}) {
   return readJsonResponse<FunctionSlotWorkflowPlaceholderResponse>(
     await fetch(`${API_BASE_URL}/api/function-slot-workflow/storyboard-prep/auto-run`, {
@@ -1179,6 +1201,64 @@ export async function autoRunShotStoryboardPrep(payload: { sampleVideoId?: strin
 export async function getFunctionSlotConfirmedPlanTraceGraph() {
   return readJsonResponse<FunctionSlotLibraryGraph>(
     await fetch(`${API_BASE_URL}/api/function-slot-restructure/confirmed-plan-trace/graph`, { cache: "no-store" }),
+  );
+}
+
+export type FunctionSlotPlanTraceBucket = "recent" | "history";
+
+export type FunctionSlotPlanTraceVariant = {
+  versionId: string | null;
+  versionName: string | null;
+  sourceRestructurePath: string;
+  displayJsonPath: string | null;
+  artifactId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+};
+
+export type FunctionSlotPlanTraceRecord = {
+  schemaVersion: string;
+  recordId: string;
+  planSetId: string;
+  title: string;
+  mode: "single" | "multiVersion" | string;
+  status: "draft" | "confirmed" | "archived" | string;
+  sourceTurnId?: string | null;
+  parentArtifactId?: string | null;
+  confirmationId?: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  variants: FunctionSlotPlanTraceVariant[];
+};
+
+export type FunctionSlotPlanTraceRecordsResponse = {
+  schemaVersion: string;
+  bucket: FunctionSlotPlanTraceBucket;
+  generatedAt: string | null;
+  recentWindowHours: number;
+  records: FunctionSlotPlanTraceRecord[];
+};
+
+export async function listFunctionSlotPlanTraceRecords(bucket: FunctionSlotPlanTraceBucket = "recent") {
+  return readJsonResponse<FunctionSlotPlanTraceRecordsResponse>(
+    await fetch(`${API_BASE_URL}/api/function-slot-restructure/plan-trace/records?bucket=${encodeURIComponent(bucket)}`, { cache: "no-store" }),
+  );
+}
+
+export async function getFunctionSlotPlanTraceRecordGraph(recordId: string) {
+  return readJsonResponse<FunctionSlotLibraryGraph>(
+    await fetch(`${API_BASE_URL}/api/function-slot-restructure/plan-trace/records/${encodeURIComponent(recordId)}/graph`, { cache: "no-store" }),
+  );
+}
+
+export async function previewFunctionSlotPlanTraceGraph(payload: { restructureFinalPath?: string | null; displayJsonPath?: string | null; sourceTurnId?: string | null; parentArtifactId?: string | null; confirmationId?: string | null }) {
+  return readJsonResponse<{ schemaVersion: string; ok: boolean; record: FunctionSlotPlanTraceRecord | null; graph: FunctionSlotLibraryGraph; message?: string | null }>(
+    await fetch(`${API_BASE_URL}/api/function-slot-restructure/plan-trace/preview`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
   );
 }
 

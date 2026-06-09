@@ -105,6 +105,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           runId: payload.runId,
           stageId: payload.stageId,
           userInputOrigin: context.userInputOrigin,
+          materialPackRef: context.materialPackRef,
         });
         if (conversation?.revision) payload.conversationRevision = conversation.revision;
         await registerAgentChatActiveTurn(handlers, {
@@ -179,11 +180,12 @@ async function buildRestructureContext({ body, handlers, role, workspaceRoot }) 
     ? await buildStructureContext(structureRef, handlers)
     : null;
   const sections = [
-    materialPackContext,
+    materialPackContext?.agentMessage,
     structureContext,
   ].filter(Boolean);
   return {
     agentMessage: sections.join("\n"),
+    materialPackRef: materialPackContext?.ref ?? null,
     userInputOrigin: materialPackRef && structureRef
       ? "material_and_structure_context"
       : materialPackRef
@@ -204,7 +206,18 @@ async function buildMaterialPackContext(ref, handlers) {
       "素材包引用必须解析到已完成的 user-material-pack.stable 结果文件",
     );
   }
-  return `使用此素材包：${resultUri}`;
+  return {
+    agentMessage: `使用此素材包：${resultUri}`,
+    ref: {
+      ...ref,
+      artifactId: normalizeText(pack.artifactId ?? ref.artifactId),
+      traceId: normalizeText(pack.traceId ?? ref.traceId),
+      resultUri,
+      shotCardCount: nullableNumber(pack.shotCards?.length ?? ref.shotCardCount),
+      materialGroupCount: nullableNumber(pack.materialGroups?.length ?? ref.materialGroupCount),
+      proofCoverageCount: nullableNumber(pack.proofCoverage?.length ?? ref.proofCoverageCount),
+    },
+  };
 }
 
 async function buildStructureContext(ref, handlers) {
@@ -227,6 +240,7 @@ function normalizeMaterialPackRef(value) {
     artifactId: normalizeText(value.artifactId),
     title: normalizeText(value.title),
     traceId: normalizeText(value.traceId),
+    resultUri: normalizeText(value.resultUri ?? value.uri),
     shotCardCount: nullableNumber(value.shotCardCount),
     materialGroupCount: nullableNumber(value.materialGroupCount),
     proofCoverageCount: nullableNumber(value.proofCoverageCount),

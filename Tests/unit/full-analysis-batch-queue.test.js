@@ -186,6 +186,60 @@ test("full analysis batch queue treats cache waiting as active for dispatch limi
   assert.equal(current.items[2].status, "queued");
 });
 
+test("full analysis batch queue notifies queue changes for terminal and retry transitions", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-callback-"));
+  const notifications = [];
+  const runs = new Map();
+  const workflowService = {
+    start: async () => {
+      const workflowRunId = `workflow_${runs.size + 1}`;
+      runs.set(workflowRunId, { workflowRunId, status: "running", currentStageKeys: ["upload"], stages: [{ key: "upload", label: "上传" }] });
+      return runs.get(workflowRunId);
+    },
+    get: (workflowRunId) => runs.get(workflowRunId) ?? null,
+    cancelRun: async ({ workflowRunId }) => {
+      const run = { ...runs.get(workflowRunId), status: "canceled", currentStageKeys: [] };
+      runs.set(workflowRunId, run);
+      return run;
+    },
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    onQueueChanged: (batch, context) => notifications.push({ reason: context.reason, status: batch.status, hasActiveBatches: context.hasActiveBatches }),
+  });
+  const batch = queue.createBatch({ workspaceId: "default-workspace", files: [createFile("a.mp4")], fields: {} });
+  await queue.advance(batch.batchRunId);
+  const canceled = await queue.cancelItem(batch.batchRunId, batch.items[0].queueItemId);
+  const retried = queue.retryItem(batch.batchRunId, batch.items[0].queueItemId);
+
+  assert.equal(canceled.status, "canceled");
+  assert.equal(retried.status, "queued");
+  assert.ok(notifications.some((entry) => entry.reason === "item_canceled" && entry.hasActiveBatches === false));
+  assert.ok(notifications.some((entry) => entry.reason === "item_retried" && entry.hasActiveBatches === true));
+});
+
+test("full analysis batch queue reports cache waiting as active in queue callback", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-cache-callback-"));
+  const notifications = [];
+  const workflowService = {
+    start: async () => ({ workflowRunId: "workflow_cache_wait", status: "cache_waiting", currentStageKeys: ["shotBoundary"], stages: [{ key: "shotBoundary", label: "切镜" }] }),
+    get: () => ({ workflowRunId: "workflow_cache_wait", status: "cache_waiting", currentStageKeys: ["shotBoundary"], stages: [{ key: "shotBoundary", label: "切镜" }] }),
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    onQueueChanged: (batch, context) => notifications.push({ reason: context.reason, status: batch.status, hasActiveBatches: context.hasActiveBatches }),
+  });
+  const batch = queue.createBatch({ workspaceId: "default-workspace", files: [createFile("a.mp4")], fields: {} });
+
+  await queue.advance(batch.batchRunId);
+
+  assert.ok(notifications.some((entry) => entry.status === "cache_waiting" && entry.hasActiveBatches === true));
+});
+
 test("material recognition batch queue closes stale cache waiting item when material pack exists", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "material-recognition-batch-"));
   const runs = new Map();

@@ -370,8 +370,8 @@
 }
 
 .new-ui-analysis-queue-sidebar {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   min-width: 0;
   min-height: 100%;
@@ -407,9 +407,52 @@
   font-weight: 680;
 }
 
+.new-ui-analysis-queue-governance {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-control-border) 54%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-control-bg) 44%, transparent);
+}
+
+.new-ui-analysis-queue-governance strong,
+.new-ui-analysis-queue-governance span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.new-ui-analysis-queue-governance strong {
+  color: color-mix(in srgb, var(--new-ui-text) 88%, var(--new-ui-text-muted));
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 760;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.new-ui-analysis-queue-governance span {
+  color: color-mix(in srgb, var(--new-ui-text-muted) 88%, transparent);
+  font-size: var(--new-ui-font-size-xs);
+  font-weight: 560;
+  line-height: 1.45;
+}
+
+.new-ui-analysis-queue-governance.is-running,
+.new-ui-analysis-queue-governance.is-scheduled,
+.new-ui-analysis-queue-governance.is-dirty {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-status-running) 38%, var(--new-ui-control-border));
+}
+
+.new-ui-analysis-queue-governance.is-failed {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-status-failed) 42%, var(--new-ui-control-border));
+}
+
 .new-ui-analysis-queue-sidebar-list {
   display: grid;
   align-content: start;
+  flex: 1 1 auto;
   gap: 8px;
   min-height: 0;
   padding: 4px 0 2px;
@@ -568,6 +611,7 @@
 
 .new-ui-analysis-queue-sidebar-empty {
   display: grid;
+  flex: 1 1 auto;
   align-content: center;
   justify-items: center;
   gap: 12px;

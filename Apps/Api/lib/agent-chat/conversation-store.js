@@ -15,6 +15,8 @@ const {
   normalizeConversation,
   normalizeDialogueRoboticReview,
   normalizeIdText,
+  normalizeMaterialGapMatrix,
+  normalizeMaterialPackRef,
   normalizeMessage,
   normalizeMessageStatus,
   normalizePathText,
@@ -135,7 +137,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null, userInputOrigin = null, autoAdvanceKey = null, sourceRestructurePath = null, sourceRestructureFingerprint = null, sourceDisplayFingerprint = null }) {
+  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null, userInputOrigin = null, autoAdvanceKey = null, sourceRestructurePath = null, sourceRestructureFingerprint = null, sourceDisplayFingerprint = null, materialPackRef = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -154,6 +156,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         sourceRestructurePath: normalizePathText(sourceRestructurePath),
         sourceRestructureFingerprint,
         sourceDisplayFingerprint,
+        materialPackRef: normalizeMaterialPackRef(materialPackRef),
         createdAt: now,
         updatedAt: now,
       });
@@ -423,6 +426,30 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
+  async function createMaterialGapMatrixMessage({ conversationId, turnId = null, materialGapMatrix = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !materialGapMatrix) return null;
+    const normalized = normalizeMaterialGapMatrix(materialGapMatrix);
+    if (!normalized) return null;
+    const now = new Date().toISOString();
+    const messageId = `material-gap-matrix-${normalizeIdText(turnId) ?? "turn"}-${normalizeIdText(normalized.artifactId) ?? now}-${randomUUID()}`;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.traceId = traceId ?? normalized.traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? normalized.runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? normalized.stageId ?? conversation.stageId ?? null;
+      upsertMessage(conversation, {
+        id: messageId,
+        turnId: turnId ?? conversation.latestTurnId ?? null,
+        role: "system",
+        text: formatMaterialGapMatrixText(normalized),
+        status: "completed",
+        materialGapMatrix: normalized,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+  }
+
   async function updateStoryboardResultMessage({ conversationId, confirmationId = null, storyboardArtifact = null, versions = null, status = null, traceId = null, runId = null, stageId = null }) {
     if (!conversationId || !confirmationId) return null;
     const now = new Date().toISOString();
@@ -509,6 +536,13 @@ function createAgentConversationStore({ store, filePath } = {}) {
     if (normalized === "storyboard_failed") return "故事板准备失败";
     if (normalized === "confirmed") return "方案已确认";
     return "故事板准备中";
+  }
+
+  function formatMaterialGapMatrixText(matrix) {
+    if (matrix?.status && matrix.status !== "processed") return "素材缺口矩阵生成失败";
+    const summary = matrix?.summary ?? {};
+    const issueCount = Number(summary.missingCount ?? 0) + Number(summary.partialCount ?? 0) + Number(summary.unsafeCount ?? 0);
+    return issueCount > 0 ? `素材缺口矩阵：${issueCount} 个槽位需关注` : "素材缺口矩阵：当前槽位素材直接满足度较好";
   }
 
   async function readAllConversations() {
@@ -609,6 +643,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordSystemMessage,
     invalidate,
     confirmPlan,
+    createMaterialGapMatrixMessage,
     createStoryboardResultMessage,
     updateStoryboardResultMessage,
     archive,

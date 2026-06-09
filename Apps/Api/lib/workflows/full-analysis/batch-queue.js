@@ -26,6 +26,7 @@ function createFullAnalysisBatchQueue({
   terminalRetentionMs = DEFAULT_TERMINAL_RETENTION_MS,
   terminalRetentionLimit = DEFAULT_TERMINAL_RETENTION_LIMIT,
   loadSampleArtifact = null,
+  onQueueChanged = null,
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
@@ -83,6 +84,7 @@ function createFullAnalysisBatchQueue({
     };
     state.batches.push(batch);
     saveQueueState();
+    notifyQueueChanged(batch, "batch_created");
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -128,6 +130,7 @@ function createFullAnalysisBatchQueue({
     batch.completedAt = null;
     batch.updatedAt = now;
     saveQueueState();
+    notifyQueueChanged(batch, "item_retried");
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -154,6 +157,7 @@ function createFullAnalysisBatchQueue({
     item.updatedAt = now;
     updateBatchStatus(batch);
     saveQueueState();
+    notifyQueueChanged(batch, "item_canceled");
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -176,6 +180,7 @@ function createFullAnalysisBatchQueue({
           await syncBatchItems(batch);
           await dispatchQueuedItems(batch);
           updateBatchStatus(batch);
+          notifyQueueChanged(batch, "batch_advanced");
           if (!isBatchTerminal(batch)) scheduleAdvance(batch.batchRunId, 2000);
         }
         saveQueueState();
@@ -308,6 +313,25 @@ function createFullAnalysisBatchQueue({
       advance(batchRunId).catch(() => undefined);
     }, delayMs);
     timer.unref?.();
+  }
+
+  function notifyQueueChanged(batch, reason) {
+    if (typeof onQueueChanged !== "function") return;
+    const publicBatches = state.batches.map(publicBatch).filter(Boolean);
+    const context = {
+      reason,
+      workflowKey,
+      batchRunId: batch?.batchRunId ?? null,
+      activeBatchCount: state.batches.filter((entry) => !isBatchTerminal(entry)).length,
+      hasActiveBatches: state.batches.some((entry) => !isBatchTerminal(entry)),
+      batches: publicBatches,
+    };
+    try {
+      const result = onQueueChanged(publicBatch(batch), context);
+      if (result && typeof result.catch === "function") result.catch(() => undefined);
+    } catch {
+      // Queue progress must not depend on post-processing notifications.
+    }
   }
 
   function waitForAdvanceDrain(batchRunId) {

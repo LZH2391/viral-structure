@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
@@ -1130,24 +1130,26 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     const displayJsonPath = message.slotAtomDisplay?.displayJsonPath ?? selectedSlotAtomDisplay?.displayJsonPath ?? null;
     const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
     if (!displayJsonPath || !sourceRestructurePath) {
-      markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可登记的溯源图输入"));
+      markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可预览的溯源图输入"));
       return;
     }
     setOpeningPlanTraceMessageId(message.id);
     try {
-      const result = await registerFunctionSlotConfirmedPlanTrace({
+      const result = await previewFunctionSlotPlanTraceGraph({
         restructureFinalPath: sourceRestructurePath,
         displayJsonPath,
         sourceTurnId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         parentArtifactId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null,
         confirmationId: conversation.confirmedPlan?.confirmationId ?? undefined,
       });
-      if (!result.ok) throw new Error(result.message ?? "登记溯源图失败");
+      if (!result.ok) throw new Error(result.message ?? "预览溯源图失败");
       clearRestructureConversationError(conversation.conversationId);
-      window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
       setStructureGraphReturn(null);
       setActiveSection("library");
       setActiveLibraryChild("planTrace");
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("function-slot-plan-trace-preview", { detail: { graph: result.graph, record: result.record } }));
+      }, 0);
     } catch (error) {
       markRestructureConversationError(conversation.conversationId, error);
     } finally {
@@ -1751,6 +1753,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             <AnalysisQueueSidebar
               items={analysisQueueState?.items ?? []}
               loading={analysisQueueState?.loading ?? false}
+              governanceSchedulerState={activeAnalysisChild === "structureAnalysis" ? analysisQueueState?.governanceSchedulerState ?? null : null}
               onOpenItem={analysisQueueState?.onOpenItem}
               onCancelItem={analysisQueueState?.onCancelItem}
               onRetryItem={analysisQueueState?.onRetryItem}
@@ -1867,6 +1870,7 @@ function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | nul
 function AnalysisQueueSidebar({
   items,
   loading,
+  governanceSchedulerState,
   onOpenItem,
   onCancelItem,
   onRetryItem,
@@ -1874,6 +1878,7 @@ function AnalysisQueueSidebar({
 }: {
   items: AnalysisHomeQueueItem[];
   loading: boolean;
+  governanceSchedulerState?: AnalysisHomeQueueState["governanceSchedulerState"];
   onOpenItem?: (item: AnalysisHistoryItem) => void;
   onCancelItem?: (item: AnalysisHomeQueueItem) => void;
   onRetryItem?: (item: AnalysisHomeQueueItem) => void;
@@ -1885,6 +1890,12 @@ function AnalysisQueueSidebar({
         <h2>视频处理队列</h2>
         <span>{items.length} 项</span>
       </header>
+      {governanceSchedulerState ? (
+        <div className={`new-ui-analysis-queue-governance is-${governanceSchedulerState.status}`.trim()}>
+          <strong>{governanceSchedulerLabel(governanceSchedulerState.status)}</strong>
+          <span>{governanceSchedulerState.message ?? "等待结构分析队列完成后自动语义治理。"}</span>
+        </div>
+      ) : null}
       {items.length ? (
         <div className="new-ui-analysis-queue-sidebar-list">
           {items.map((item) => {
@@ -1941,6 +1952,15 @@ function AnalysisQueueSidebar({
       )}
     </section>
   );
+}
+
+function governanceSchedulerLabel(status: string) {
+  if (status === "scheduled") return "等待语义治理";
+  if (status === "running") return "语义治理运行中";
+  if (status === "dirty") return "有新样例待纳入";
+  if (status === "skipped") return "语义治理已跳过";
+  if (status === "failed") return "语义治理失败";
+  return "自动语义治理";
 }
 
 function AnalysisQueueEmptyIcon() {
@@ -2332,6 +2352,7 @@ function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisIte
     artifactId: pack?.artifactId ?? item.artifactId ?? null,
     title: stripMediaExtension(item.title ?? fallbackTitle ?? item.sampleVideoId),
     traceId: item.traceId ?? null,
+    resultUri: item.artifact?.userMaterialPackRef?.uri ?? null,
     coverUrl: runtimeUrlSafe(item.coverUri),
     durationSeconds: item.durationSeconds ?? null,
     shotCardCount: Array.isArray(pack?.shotCards) ? pack.shotCards.length : null,

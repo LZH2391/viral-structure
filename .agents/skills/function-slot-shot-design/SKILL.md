@@ -15,6 +15,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 - 当上游素材供给类型为 `material_sufficient_specific_path` 或 `material_oversupply_selectable`，且已经给出推荐素材路径时，直接按推荐路径落 Shot 表，只补封面；不重新选主路径，不默认新增自设计镜头。
 - 写具体分镜画面、动作与运镜、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
 - 在 Shot 表完成后，基于已确认方案和最终 Shot 设计写一份封面生图提示词；封面不占视频时长，不改变槽位链，也不回写上游结构方案。
+- 若用户明确要求视频生产模型提示词，读取 `references/video-production-prompts.md`，在最终聊天回复中直接给出，不写入 `shot-design.final.md`。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
 - 若输入是多版本重组 manifest，默认遍历其中列出的所有版本文件，为每个版本分别输出独立 `versions/<versionId>/shot-design.final.md`；版本数量以 manifest 实际列出的 `versionProfiles` 为准，不固定为 4 个。
 
@@ -85,9 +86,12 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 9. **追加封面生图提示词**
    在 Shot 表后追加封面生图提示词区块。封面画幅必须跟随视频画幅：竖屏视频写竖版封面，横屏视频写横版封面；视频画幅未明确时写“未明确，需确认”，不要猜。封面应归纳本方案最重要的卖点、产品/人物一致性、情绪峰值和第 7 节包装风格，但不得新增上游没有的核心主张或证据。封面可以和其他自设计镜头进入同一故事板链路，但在 PDF 中必须作为第一页，不计入普通 shot 时长或 slot 分页。
 
-10. **落独立文件并检查**
+10. **按需准备视频生产模型提示词**
+   只有用户明确要求视频生产模型提示词时，读取 `references/video-production-prompts.md`，基于已完成的 Shot 表准备最终聊天回复内容；不要把提示词写入 `shot-design.final.md`。
+
+11. **落独立文件并检查**
    在同一个重组目录下写入 `shot-design.final.md`，然后按 `references/output-contract.md` 的质量检查逐项自查。最终聊天回复也遵守该 reference。
    多版本 manifest 路径下，不能把所有版本写进同一个 Shot 文件；每个版本必须写入自己的 `versions/<versionId>/shot-design.final.md`。某个版本无法落地时，只阻塞该版本，不影响其他版本继续产出。
 
-11. **台词状态声明**
+12. **台词状态声明**
    如果本轮写入了任何非原素材逐字来源的台词、后期字幕、屏幕文字、封面标题字或旁白，只在最终回复中声明“本轮包含新增台词/字幕，等待平台侧外部质检”。不要在 ShotDesign 内调用其他审查 role，不要在 `shot-design.final.md` 中写质检过程、质检结论或整版风险表。

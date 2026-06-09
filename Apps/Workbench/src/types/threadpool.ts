@@ -109,11 +109,72 @@ export type AgentChatMessageSnapshot = {
   text: string;
   status?: "running" | "completed" | "failed" | "canceled";
   userInputOrigin?: "manual_replacement" | "auto_dialogue_rework" | "auto_advance" | string | null;
+  materialPackRef?: AgentChatMaterialPackRef | null;
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   dialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
   storyboardResult?: AgentChatStoryboardResultMessage | null;
+  materialGapMatrix?: AgentChatMaterialGapMatrix | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+};
+
+export type AgentChatMaterialPackRef = {
+  sampleVideoId?: string | null;
+  artifactId?: string | null;
+  title?: string | null;
+  traceId?: string | null;
+  resultUri?: string | null;
+  shotCardCount?: number | null;
+  materialGroupCount?: number | null;
+  proofCoverageCount?: number | null;
+};
+
+export type AgentChatMaterialGapMatrix = {
+  schemaVersion?: string;
+  status?: "processed" | "failed" | string;
+  artifactId?: string | null;
+  parentArtifactId?: string | null;
+  matrixJsonPath?: string | null;
+  sourceRestructurePath?: string | null;
+  sourceMaterialPackArtifactId?: string | null;
+  sourceMaterialPackPath?: string | null;
+  slotChainFingerprint?: Record<string, string> | null;
+  summary?: {
+    slotCount?: number | null;
+    satisfiedCount?: number | null;
+    partialCount?: number | null;
+    missingCount?: number | null;
+    unsafeCount?: number | null;
+    notRequiredCount?: number | null;
+    topMissingMaterialTypes?: string[];
+    overallImpact?: string | null;
+  } | null;
+  rows?: AgentChatMaterialGapRow[];
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  stageName?: string | null;
+  role?: string | null;
+  turnId?: string | null;
+  promptTemplateVersion?: string | null;
+  error?: string | null;
+  message?: string | null;
+  debugSnapshotUri?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type AgentChatMaterialGapRow = {
+  slotId?: string | null;
+  slotSubtype?: string | null;
+  slotFunction?: string | null;
+  requiredMaterialTypes?: string[];
+  directSatisfaction?: "satisfied" | "partial" | "missing" | "unsafe" | "not_required" | string;
+  missingMaterialTypes?: string[];
+  impact?: string | null;
+  availableEvidenceRefs?: string[];
+  suggestedCompensationTypes?: string[];
+  handoffToShotDesign?: string | null;
 };
 
 export type AgentChatConversation = {

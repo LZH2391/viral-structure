@@ -3,6 +3,7 @@ import { IconArrowRight, IconAtom } from "@tabler/icons-react";
 import { getAgentChatTurnTimeline, type AgentChatMaterialPackRef, type AgentChatStructureRef } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 import { formatSecondsCompact, shortId } from "../../utils/format";
+import { MaterialGapMatrixViewer } from "./MaterialGapMatrixViewer";
 import { StoryboardResultViewer } from "./StoryboardResultViewer";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
@@ -583,6 +584,8 @@ export function NewUiRestructureWorkspace({
                         setProcessMessageExpandedByScope((current) => ({ ...current, [renderItem.id]: !(current[renderItem.id] ?? defaultExpanded) }));
                       }}
                     />
+                  ) : renderItem.message.materialGapMatrix ? (
+                    <MaterialGapMatrixViewer matrix={renderItem.message.materialGapMatrix} />
                   ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
                     <StoryboardResultViewer
                       conversationId={conversation.conversationId}
@@ -782,6 +785,7 @@ function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | nul
       artifactId: readyMaterialPack.artifactId ?? null,
       title: readyMaterialPack.title ?? null,
       traceId: readyMaterialPack.traceId ?? null,
+      resultUri: readyMaterialPack.resultUri ?? null,
       shotCardCount: readyMaterialPack.shotCardCount ?? null,
       materialGroupCount: readyMaterialPack.materialGroupCount ?? null,
       proofCoverageCount: readyMaterialPack.proofCoverageCount ?? null,
@@ -1038,9 +1042,9 @@ function RestructureMessage({
                 icon="trace"
                 onClick={() => void onOpenPlanTrace(message)}
                 disabled={planTraceDisabled}
-                tooltip={message.slotAtomDisplay.displayJsonPath ? "登记当前方案并打开方案溯源图" : "需要当前方案已生成 restructure.display.json"}
+                tooltip={message.slotAtomDisplay.displayJsonPath ? "预览当前方案溯源图" : "需要当前方案已生成 restructure.display.json"}
               >
-                {openingPlanTrace ? "登记中" : "查看溯源图"}
+                {openingPlanTrace ? "预览中" : "查看溯源图"}
               </RestructureNotePill>
             ) : null}
           </div>

@@ -295,6 +295,78 @@ test("display overlay traces confirmed plan slots to source samples and variants
   assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
 });
 
+test("plan trace records expose multi-version graph without indexing the root plan", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "plan-trace-multi-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "multi-demo");
+  await fs.mkdir(planDir, { recursive: true });
+  await fs.writeFile(path.join(planDir, "restructure.final.md"), [
+    "# 多版本索引",
+    "",
+    "| versionId | versionName | path |",
+    "| --- | --- | --- |",
+    "| `V1_click` | 高点击版 | [restructure.final.md](versions/V1_click/restructure.final.md) |",
+    "| `V2_conversion` | 高转化版 | [restructure.final.md](versions/V2_conversion/restructure.final.md) |",
+    "",
+  ].join("\n"), "utf8");
+  await writeRestructureMarkdown(path.join(planDir, "versions", "V1_click", "restructure.final.md"), "V1_click", "SUB_click_hook");
+  await writeRestructureMarkdown(path.join(planDir, "versions", "V2_conversion", "restructure.final.md"), "V2_conversion", "SUB_conversion_close");
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: { writeStageLog: async () => undefined, writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }) },
+  });
+
+  const records = await service.listPlanTraceRecords({ bucket: "recent" });
+  const record = records.records.find((item) => item.recordId === "multi-demo");
+  assert.equal(record?.mode, "multiVersion");
+  assert.deepEqual(record.variants.map((item) => item.versionId), ["V1_click", "V2_conversion"]);
+
+  const graph = await service.readPlanTraceRecordGraph("multi-demo");
+  assert.equal(graph.summary.planCount, 2);
+  assert.deepEqual(graph.nodes.filter((node) => node.type === "confirmedPlan").map((node) => node.data.versionId), ["V1_click", "V2_conversion"]);
+  assert.equal(graph.nodes.some((node) => node.type === "slotSubtype" && node.label === "素材供给判断"), false);
+  assert.ok(graph.nodes.some((node) => node.type === "slotSubtype" && node.data.governanceNodeId === "slotSubtype:SUB_click_hook"));
+  assert.ok(graph.nodes.some((node) => node.type === "slotSubtype" && node.data.governanceNodeId === "slotSubtype:SUB_conversion_close"));
+});
+
+test("plan trace records split recent and history by rolling 24 hours", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "plan-trace-buckets-"));
+  const recentPath = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "recent-plan", "restructure.final.md");
+  const historyPath = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "history-plan", "restructure.final.md");
+  await writeRestructureMarkdown(recentPath, "recent", "SUB_recent");
+  await writeRestructureMarkdown(historyPath, "history", "SUB_history");
+  const old = new Date(Date.now() - (48 * 60 * 60 * 1000));
+  await fs.utimes(historyPath, old, old);
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: { writeStageLog: async () => undefined, writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }) },
+  });
+
+  const recent = await service.listPlanTraceRecords({ bucket: "recent" });
+  const history = await service.listPlanTraceRecords({ bucket: "history" });
+
+  assert.ok(recent.records.some((record) => record.recordId === "recent-plan"));
+  assert.equal(recent.records.some((record) => record.recordId === "history-plan"), false);
+  assert.ok(history.records.some((record) => record.recordId === "history-plan"));
+});
+
+test("plan trace preview builds graph without writing confirmed index", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "plan-trace-preview-"));
+  const finalPath = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "preview-plan", "restructure.final.md");
+  await writeRestructureMarkdown(finalPath, "preview", "SUB_preview");
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: { writeStageLog: async () => undefined, writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }) },
+  });
+
+  const result = await service.previewPlanTraceGraph({
+    restructureFinalPath: "Artifacts/FunctionSlotRestructure/preview-plan/restructure.final.md",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.graph.summary.planCount, 1);
+  assert.equal(await exists(path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "_index", "confirmed-plan-displays.json")), false);
+});
+
 function validDisplayJson(slotSubtype = "SUB_solution_object_entry") {
   return {
     targetAssumption: { title: "test" },
@@ -349,4 +421,40 @@ async function exists(filePath) {
   } catch {
     return false;
   }
+}
+
+async function writeRestructureMarkdown(filePath, title = "demo", slotSubtype = "SUB_demo_slot") {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, [
+    `# ${title}`,
+    "",
+    "## 1. 重组目标与假设",
+    "",
+    "品类：测试。",
+    "",
+    "## 2. 最终功能槽位链",
+    "",
+    "| 顺序 | 需求 | slotSubtype | parent archetype |",
+    "| --- | --- | --- | --- |",
+    `| 1 | 测试需求 | \`${slotSubtype}\` | \`ARCH_test\` |`,
+    "",
+    "## 3. Atoms 落地表",
+    "",
+    "| slotSubtype | atom |",
+    "| --- | --- |",
+    `| \`${slotSubtype}\` | \`ATOM_test\` |`,
+    "",
+    "## 5. 脚本段落方案",
+    "",
+    "脚本段落。",
+    "",
+    "## 6. 节奏曲线",
+    "",
+    "节奏。",
+    "",
+    "## 7. 包装与证明方案",
+    "",
+    "包装。",
+    "",
+  ].join("\n"), "utf8");
 }

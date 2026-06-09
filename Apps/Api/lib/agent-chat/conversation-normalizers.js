@@ -6,6 +6,13 @@ const MATERIAL_GAP_TEXT_LIMIT = 360;
 const MATERIAL_GAP_ROWS_LIMIT = 40;
 const MATERIAL_GAP_ARRAY_LIMIT = 12;
 const MATERIAL_GAP_DIRECT_SATISFACTIONS = new Set(["satisfied", "partial", "missing", "unsafe", "not_required"]);
+const MATERIAL_GAP_MATERIAL_TYPES = new Set([
+  "opening_hook_shot",
+  "product_closeup_shot",
+  "usage_process_shot",
+  "comparison_shot",
+  "ending_cta_shot",
+]);
 const MATERIAL_GAP_COMPENSATION_TYPES = new Set([
   "structure_reorder",
   "copy_or_caption_fill",
@@ -332,7 +339,7 @@ function normalizeMaterialGapSummary(value, rows) {
     notRequiredCount: 0,
     missingTypeCounts: new Map(),
   });
-  const topMissingMaterialTypes = normalizeStringArray(value?.topMissingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT);
+  const topMissingMaterialTypes = normalizeStringArray(value?.topMissingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_MATERIAL_TYPES.has(item));
   return {
     slotCount: normalizeCount(value?.slotCount) ?? rows.length,
     satisfiedCount: normalizeCount(value?.satisfiedCount) ?? computed.satisfiedCount,
@@ -352,9 +359,9 @@ function normalizeMaterialGapRow(value) {
     slotId: limitTextTo(value.slotId, 80),
     slotSubtype: limitTextTo(value.slotSubtype, 160),
     slotFunction: limitTextTo(value.slotFunction, MATERIAL_GAP_TEXT_LIMIT),
-    requiredMaterialTypes: normalizeStringArray(value.requiredMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT),
+    requiredMaterialTypes: normalizeStringArray(value.requiredMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_MATERIAL_TYPES.has(item)),
     directSatisfaction,
-    missingMaterialTypes: normalizeStringArray(value.missingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT),
+    missingMaterialTypes: normalizeStringArray(value.missingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_MATERIAL_TYPES.has(item)),
     impact: limitTextTo(value.impact, MATERIAL_GAP_TEXT_LIMIT),
     availableEvidenceRefs: normalizeStringArray(value.availableEvidenceRefs, MATERIAL_GAP_ARRAY_LIMIT),
     suggestedCompensationTypes: normalizeStringArray(value.suggestedCompensationTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_COMPENSATION_TYPES.has(item)),
@@ -485,6 +492,24 @@ function limitText(value) {
   return text.length > TEXT_LIMIT ? `${text.slice(0, TEXT_LIMIT)}...` : text;
 }
 
+function limitTextTo(value, limit) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function normalizeStringArray(value, limit = 12) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => limitTextTo(item, 120)).filter(Boolean).slice(0, limit);
+}
+
+function normalizePlainObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return Object.fromEntries(Object.entries(value)
+    .slice(0, 24)
+    .map(([key, item]) => [limitTextTo(key, 80), limitTextTo(typeof item === "object" ? JSON.stringify(item) : item, 240)])
+    .filter(([key]) => key));
+}
+
 function isTerminalStatus(status) {
   return ["completed", "complete", "failed", "cancelled", "canceled"].includes(String(status ?? "").toLowerCase());
 }
@@ -513,6 +538,8 @@ module.exports = {
   normalizeDialogueRoboticReview,
   normalizeFileFingerprint,
   normalizeIdText,
+  normalizeMaterialGapMatrix,
+  normalizeMaterialPackRef,
   normalizeMessage,
   normalizeMessageStatus,
   normalizePathText,

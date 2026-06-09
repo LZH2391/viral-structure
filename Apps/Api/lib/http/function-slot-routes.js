@@ -13,7 +13,11 @@ async function handleFunctionSlotRoute(req, res, url, handlers = {}) {
   if (req.method === "GET" && url.pathname === "/api/function-slot-library") { await handleFunctionSlotLibraryList(res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/function-slot-library/replacement-candidates") { await handleFunctionSlotReplacementCandidates(res, url, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/graph") { await handleFunctionSlotGovernanceGraph(res, handlers); return true; }
+  if (req.method === "GET" && url.pathname === "/api/function-slot-library/governance/scheduler-state") { await handleFunctionSlotGovernanceSchedulerState(res, handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/function-slot-library/governance/run") { await handleFunctionSlotGovernanceRun(req, res, handlers); return true; }
+  if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/plan-trace/records") { await handlePlanTraceRecords(res, url, handlers); return true; }
+  if (req.method === "GET" && /^\/api\/function-slot-restructure\/plan-trace\/records\/[^/]+\/graph$/.test(url.pathname)) { await handlePlanTraceRecordGraph(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
+  if (req.method === "POST" && url.pathname === "/api/function-slot-restructure/plan-trace/preview") { await handlePlanTracePreview(req, res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/graph") { await handleConfirmedPlanTraceGraph(res, handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/function-slot-restructure/confirmed-plan-trace/register") { await handleConfirmedPlanTraceRegister(req, res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/function-slot-governance/plan-overlays") { await handleFunctionSlotGovernancePlanOverlays(res); return true; }
@@ -138,6 +142,18 @@ async function handleFunctionSlotGovernanceRun(req, res, handlers = {}) {
     refreshEvidence: body.refreshEvidence !== false,
   });
   return sendJson(res, 202, result);
+}
+
+async function handleFunctionSlotGovernanceSchedulerState(res, handlers = {}) {
+  const scheduler = handlers.semanticGovernanceScheduler;
+  if (!scheduler?.getState) {
+    return sendJson(res, 503, {
+      error: "function_slot_governance_scheduler_unavailable",
+      code: "function_slot_governance_scheduler_unavailable",
+      message: "FunctionSlotLibrary 自动语义治理调度服务不可用",
+    });
+  }
+  return sendJson(res, 200, scheduler.getState());
 }
 
 async function startFunctionSlotAutoRunTurn({ handlers, role, stageName, sampleVideoId, parentArtifactId, body }) {
@@ -417,6 +433,52 @@ async function handleConfirmedPlanTraceGraph(res, handlers = {}) {
     });
   }
   return sendJson(res, 200, await traceService.readConfirmedPlanTraceGraph());
+}
+
+async function handlePlanTraceRecords(res, url, handlers = {}) {
+  const traceService = handlers.restructureDisplayOverlayService;
+  if (!traceService?.listPlanTraceRecords) {
+    return sendJson(res, 503, {
+      error: "plan_trace_records_unavailable",
+      code: "plan_trace_records_unavailable",
+      message: "方案溯源记录服务不可用",
+    });
+  }
+  return sendJson(res, 200, await traceService.listPlanTraceRecords({ bucket: url.searchParams.get("bucket") }));
+}
+
+async function handlePlanTraceRecordGraph(res, recordId, handlers = {}) {
+  const traceService = handlers.restructureDisplayOverlayService;
+  if (!traceService?.readPlanTraceRecordGraph) {
+    return sendJson(res, 503, {
+      error: "plan_trace_record_graph_unavailable",
+      code: "plan_trace_record_graph_unavailable",
+      message: "方案溯源图服务不可用",
+    });
+  }
+  const graph = await traceService.readPlanTraceRecordGraph(recordId);
+  if (!graph) return notFound(res);
+  return sendJson(res, 200, graph);
+}
+
+async function handlePlanTracePreview(req, res, handlers = {}) {
+  const body = await (handlers.readJsonBodyImpl ?? readJsonBody)(req).catch(() => ({}));
+  const traceService = handlers.restructureDisplayOverlayService;
+  if (!traceService?.previewPlanTraceGraph) {
+    return sendJson(res, 503, {
+      error: "plan_trace_preview_unavailable",
+      code: "plan_trace_preview_unavailable",
+      message: "方案溯源预览服务不可用",
+    });
+  }
+  const result = await traceService.previewPlanTraceGraph({
+    restructureFinalPath: body.restructureFinalPath,
+    displayJsonPath: body.displayJsonPath,
+    sourceTurnId: body.sourceTurnId,
+    parentArtifactId: body.parentArtifactId,
+    confirmationId: body.confirmationId,
+  });
+  return sendJson(res, result.ok ? 200 : 422, result);
 }
 
 async function handleConfirmedPlanTraceRegister(req, res, handlers = {}) {

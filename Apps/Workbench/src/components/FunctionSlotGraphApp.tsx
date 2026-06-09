@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { getFunctionSlotConfirmedPlanTraceGraph, getFunctionSlotGovernanceGraph, getFunctionSlotLibraryGraph, getFunctionSlotLibraryItems } from "../api/client";
+import {
+  getFunctionSlotGovernanceGraph,
+  getFunctionSlotLibraryGraph,
+  getFunctionSlotLibraryItems,
+  getFunctionSlotPlanTraceRecordGraph,
+  listFunctionSlotPlanTraceRecords,
+  type FunctionSlotPlanTraceBucket,
+  type FunctionSlotPlanTraceRecord,
+} from "../api/client";
 import type { FunctionSlotGraphNode, FunctionSlotLibraryGraph } from "../types/library";
 import { shortId } from "../utils/format";
 import { GraphPixiCanvas } from "./function-slot-graph/GraphPixiCanvas";
@@ -111,6 +119,11 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [governanceSummaryCollapsed, setGovernanceSummaryCollapsed] = useState(false);
   const [status, setStatus] = useState("");
+  const [planTraceBucket, setPlanTraceBucket] = useState<FunctionSlotPlanTraceBucket>("recent");
+  const [planTraceRecords, setPlanTraceRecords] = useState<FunctionSlotPlanTraceRecord[]>([]);
+  const [selectedPlanTraceRecordId, setSelectedPlanTraceRecordId] = useState<string | null>(null);
+  const [planTracePreviewActive, setPlanTracePreviewActive] = useState(false);
+  const [planTraceReloadKey, setPlanTraceReloadKey] = useState(0);
   const [filtersByMode, setFiltersByMode] = useState<Record<GraphMode, GraphFiltersState>>({
     structure: STRUCTURE_FILTERS,
     governance: initialGraphConfig?.governanceFilters ?? GOVERNANCE_FILTERS,
@@ -294,15 +307,21 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   useEffect(() => {
     if (!active) return undefined;
     if (mode !== "planTrace") return;
+    if (planTracePreviewActive) return undefined;
     let cancelled = false;
     setSelectedNodeId(null);
     setModeLoading("planTrace", true);
-    getFunctionSlotConfirmedPlanTraceGraph()
-      .then((nextGraph) => {
+    listFunctionSlotPlanTraceRecords(planTraceBucket)
+      .then((response) => {
         if (cancelled) return;
-        setModeGraph("planTrace", nextGraph);
-        setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
-        setStatus("已同步");
+        const records = response.records ?? [];
+        setPlanTraceRecords(records);
+        setSelectedPlanTraceRecordId((current) => current && records.some((record) => record.recordId === current) ? current : records[0]?.recordId ?? null);
+        if (!records.length) {
+          setModeGraph("planTrace", null);
+          setSelectedPlanIds([]);
+          setStatus(planTraceBucket === "recent" ? "最近暂无方案溯源记录" : "暂无历史方案溯源记录");
+        }
       })
       .catch((error) => {
         if (!cancelled) setStatus(error instanceof Error ? error.message : "确定方案溯源同步失败");
@@ -313,25 +332,58 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
     return () => {
       cancelled = true;
     };
-  }, [active, mode]);
+  }, [active, mode, planTraceBucket, planTracePreviewActive, planTraceReloadKey]);
 
   useEffect(() => {
     if (!active) return undefined;
-    if (mode !== "planTrace") return undefined;
+    if (mode !== "planTrace") return;
+    if (planTracePreviewActive) return undefined;
+    if (!selectedPlanTraceRecordId) return undefined;
+    let cancelled = false;
+    setModeLoading("planTrace", true);
+    getFunctionSlotPlanTraceRecordGraph(selectedPlanTraceRecordId)
+      .then((nextGraph) => {
+        if (cancelled) return;
+        setModeGraph("planTrace", nextGraph);
+        setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
+        setStatus("方案溯源已同步");
+      })
+      .catch((error) => {
+        if (!cancelled) setStatus(error instanceof Error ? error.message : "方案溯源图同步失败");
+      })
+      .finally(() => {
+        if (!cancelled) setModeLoading("planTrace", false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, mode, planTracePreviewActive, selectedPlanTraceRecordId]);
+
+  useEffect(() => {
     const refreshTraceGraph = () => {
-      setModeLoading("planTrace", true);
-      getFunctionSlotConfirmedPlanTraceGraph()
-        .then((nextGraph) => {
-          setModeGraph("planTrace", nextGraph);
-          setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
-          setStatus("确定方案溯源已同步");
-        })
-        .catch(() => undefined)
-        .finally(() => setModeLoading("planTrace", false));
+      setPlanTracePreviewActive(false);
+      setPlanTraceReloadKey((value) => value + 1);
+    };
+    const previewTraceGraph = (event: Event) => {
+      const detail = (event as CustomEvent<{ graph?: FunctionSlotLibraryGraph; record?: FunctionSlotPlanTraceRecord | null }>).detail;
+      const nextGraph = detail?.graph;
+      if (!nextGraph) return;
+      if (detail.record) {
+        setPlanTraceRecords([detail.record]);
+        setSelectedPlanTraceRecordId(detail.record.recordId);
+      }
+      setPlanTracePreviewActive(true);
+      setModeGraph("planTrace", nextGraph);
+      setSelectedPlanIds((current) => reconcileSelectedPlans(current, nextGraph));
+      setStatus("当前方案溯源预览");
     };
     window.addEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
-    return () => window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
-  }, [active, mode]);
+    window.addEventListener("function-slot-plan-trace-preview", previewTraceGraph);
+    return () => {
+      window.removeEventListener("function-slot-plan-trace-updated", refreshTraceGraph);
+      window.removeEventListener("function-slot-plan-trace-preview", previewTraceGraph);
+    };
+  }, [setModeGraph]);
 
   const filters = filtersByMode[mode];
   const governanceLayoutMode = layoutModesByMode[mode];
@@ -435,8 +487,19 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         graph={graph}
         items={items}
         selectedArtifactId={selectedArtifactId}
+        planTraceBucket={planTraceBucket}
+        planTraceRecords={planTraceRecords}
+        selectedPlanTraceRecordId={selectedPlanTraceRecordId}
         selectedPlanIds={selectedPlanIds}
         onSelectArtifact={handleSelectArtifact}
+        onPlanTraceBucketChange={(bucket) => {
+          setPlanTracePreviewActive(false);
+          setPlanTraceBucket(bucket);
+        }}
+        onSelectPlanTraceRecord={(recordId) => {
+          setPlanTracePreviewActive(false);
+          setSelectedPlanTraceRecordId(recordId);
+        }}
         onSelectedPlanIdsChange={setSelectedPlanIds}
       />
       <NodeInspector node={selectedNode} graph={activeGraph} />
@@ -592,16 +655,26 @@ function GraphSourcePanel({
   graph,
   items,
   selectedArtifactId,
+  planTraceBucket,
+  planTraceRecords,
+  selectedPlanTraceRecordId,
   selectedPlanIds,
   onSelectArtifact,
+  onPlanTraceBucketChange,
+  onSelectPlanTraceRecord,
   onSelectedPlanIdsChange,
 }: {
   mode: GraphMode;
   graph: FunctionSlotLibraryGraph | null;
   items: LibraryGraphSummary[];
   selectedArtifactId: string | null;
+  planTraceBucket: FunctionSlotPlanTraceBucket;
+  planTraceRecords: FunctionSlotPlanTraceRecord[];
+  selectedPlanTraceRecordId: string | null;
   selectedPlanIds: string[];
   onSelectArtifact: (artifactId: string) => void;
+  onPlanTraceBucketChange: (bucket: FunctionSlotPlanTraceBucket) => void;
+  onSelectPlanTraceRecord: (recordId: string) => void;
   onSelectedPlanIdsChange: (ids: string[]) => void;
 }) {
   if (mode === "governance") return null;
@@ -609,7 +682,16 @@ function GraphSourcePanel({
     <section className="slot-graph-source-panel">
       <div className="section-heading">{sourceHeading(mode)}</div>
       {mode === "planTrace" ? (
-        <PlanTracePanel graph={graph} selectedPlanIds={selectedPlanIds} onChange={onSelectedPlanIdsChange} />
+        <PlanTracePanel
+          graph={graph}
+          bucket={planTraceBucket}
+          records={planTraceRecords}
+          selectedRecordId={selectedPlanTraceRecordId}
+          selectedPlanIds={selectedPlanIds}
+          onBucketChange={onPlanTraceBucketChange}
+          onSelectRecord={onSelectPlanTraceRecord}
+          onChange={onSelectedPlanIdsChange}
+        />
       ) : (
         <div className="compact-list">
           {items.length ? items.map((item) => {
@@ -714,13 +796,47 @@ function countGovernanceNodes(graph: FunctionSlotLibraryGraph | null) {
   return counts;
 }
 
-function PlanTracePanel({ graph, selectedPlanIds, onChange }: { graph: FunctionSlotLibraryGraph | null; selectedPlanIds: string[]; onChange: (ids: string[]) => void }) {
+function PlanTracePanel({
+  graph,
+  bucket,
+  records,
+  selectedRecordId,
+  selectedPlanIds,
+  onBucketChange,
+  onSelectRecord,
+  onChange,
+}: {
+  graph: FunctionSlotLibraryGraph | null;
+  bucket: FunctionSlotPlanTraceBucket;
+  records: FunctionSlotPlanTraceRecord[];
+  selectedRecordId: string | null;
+  selectedPlanIds: string[];
+  onBucketChange: (bucket: FunctionSlotPlanTraceBucket) => void;
+  onSelectRecord: (recordId: string) => void;
+  onChange: (ids: string[]) => void;
+}) {
   const plans = getTracePlans(graph);
   const toggle = (planId: string) => {
     onChange(selectedPlanIds.includes(planId) ? selectedPlanIds.filter((id) => id !== planId) : [...selectedPlanIds, planId]);
   };
   return (
     <section className="slot-graph-card slot-graph-plan-scope">
+      <div className="slot-graph-layout-options" role="group" aria-label="切换方案溯源记录分组">
+        <button className={bucket === "recent" ? "active" : ""} type="button" onClick={() => onBucketChange("recent")}>
+          最近
+        </button>
+        <button className={bucket === "history" ? "active" : ""} type="button" onClick={() => onBucketChange("history")}>
+          历史
+        </button>
+      </div>
+      <div className="compact-list">
+        {records.length ? records.map((record) => (
+          <button key={record.recordId} type="button" className={`library-item slot-graph-source-item ${selectedRecordId === record.recordId ? "active" : ""}`} title={record.title} onClick={() => onSelectRecord(record.recordId)}>
+            <strong className="slot-graph-source-title">{record.title}</strong>
+            <small>{record.mode === "multiVersion" ? `${record.variants.length} 个版本` : "单版本"} / {formatRecordTime(record.updatedAt)}</small>
+          </button>
+        )) : <EmptyState text={bucket === "recent" ? "最近暂无方案" : "暂无历史方案"} />}
+      </div>
       <div className="detail-hint">已选 {selectedPlanIds.length} / {graph?.summary.planCount ?? 0} 个方案，{graph?.nodes.length ?? 0} 个节点</div>
       {plans.length ? plans.map((plan) => (
         <label key={plan.planId} className="plan-overlay-option">
@@ -731,6 +847,13 @@ function PlanTracePanel({ graph, selectedPlanIds, onChange }: { graph: FunctionS
       )) : <EmptyState text="暂无确认方案溯源" />}
     </section>
   );
+}
+
+function formatRecordTime(value: string | null | undefined) {
+  if (!value) return "未记录时间";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function reconcileSelectedPlans(current: string[], graph: FunctionSlotLibraryGraph | null) {

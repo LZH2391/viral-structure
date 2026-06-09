@@ -46,6 +46,7 @@ const { createFunctionSlotProjectionService } = require("./lib/function-slot-pro
 const { createFunctionSlotLibraryService } = require("./lib/function-slot-library/service");
 const { createFunctionSlotLibraryBuilderService } = require("./lib/function-slot-library/builder-service");
 const { createFunctionSlotGovernanceService } = require("./lib/function-slot-library/governance-service");
+const { createSemanticGovernanceScheduler } = require("./lib/function-slot-library/governance-scheduler");
 const { createFunctionSlotReplacementCandidateService } = require("./lib/function-slot-library/replacement-candidates");
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 const { createRestructureDisplayOverlayService } = require("./lib/function-slot-workflow/display-overlay-service");
@@ -155,6 +156,14 @@ function createServer(deps = {}) {
     codexRolloutReader: deps.codexRolloutReader ?? codexRolloutReader,
     activeTurnRuntime: activeActiveTurnRuntime,
   });
+  const activeSemanticGovernanceScheduler = deps.semanticGovernanceScheduler ?? createSemanticGovernanceScheduler({
+    rootDir: activeRootDir ?? rootDir,
+    runtimeRoot: activeStore.runtimeRoot,
+    governanceService: activeFunctionSlotGovernanceService,
+    builderService: activeFunctionSlotLibraryBuilderService,
+    jobStore: activeJobStore,
+    loadSampleArtifact: ({ sampleVideoId }) => (deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact)({ sampleVideoId, store: activeStore, artifactIndex: activeArtifactIndex }),
+  });
   const activeFunctionSlotReplacementCandidateService = deps.functionSlotReplacementCandidateService ?? createFunctionSlotReplacementCandidateService({
     rootDir: activeRootDir ?? rootDir,
   });
@@ -245,6 +254,7 @@ function createServer(deps = {}) {
     workflowService: activeFullAnalysisWorkflowService,
     runtimeRoot: activeStore.runtimeRoot,
     loadSampleArtifact: ({ sampleVideoId }) => (deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact)({ sampleVideoId, store: activeStore, artifactIndex: activeArtifactIndex }),
+    onQueueChanged: activeSemanticGovernanceScheduler.handleQueueChanged,
     logger: activeLogger,
   });
   const activeMaterialRecognitionBatchQueue = deps.materialRecognitionBatchQueue ?? createFullAnalysisBatchQueue({
@@ -296,6 +306,7 @@ function createServer(deps = {}) {
     functionSlotLibraryService: activeFunctionSlotLibraryService,
     functionSlotLibraryBuilderService: activeFunctionSlotLibraryBuilderService,
     functionSlotGovernanceService: activeFunctionSlotGovernanceService,
+    semanticGovernanceScheduler: activeSemanticGovernanceScheduler,
     functionSlotReplacementCandidateService: activeFunctionSlotReplacementCandidateService,
     functionSlotAtomizationManualEditService: activeFunctionSlotAtomizationManualEditService,
     restructureDisplayOverlayService: activeRestructureDisplayOverlayService,

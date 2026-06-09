@@ -4132,6 +4132,45 @@ test("function slot governance route enqueues semantic governance job", async ()
   }
 });
 
+test("function slot governance scheduler state route returns safe status summary", async () => {
+  const server = createServer({
+    functionSlotGovernanceService: {
+      enqueue: async () => ({ processingJobId: "job_unused", status: "submitted" }),
+    },
+    semanticGovernanceScheduler: {
+      getState: () => ({
+        schemaVersion: "function_slot_governance_scheduler.v1",
+        status: "scheduled",
+        quietWindowMs: 10000,
+        scheduledAt: "2026-06-10T00:00:00.000Z",
+        processingJobId: null,
+        traceId: null,
+        lastEvidenceHash: "hash_a",
+        lastGovernedEvidenceHash: "hash_prev",
+        dirtySince: null,
+        lastRunCompletedAt: null,
+        message: "结构分析队列已完成，等待自动语义治理。",
+      }),
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "GET", "/api/function-slot-library/governance/scheduler-state");
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.schemaVersion, "function_slot_governance_scheduler.v1");
+    assert.equal(response.body.status, "scheduled");
+    assert.equal(response.body.message, "结构分析队列已完成，等待自动语义治理。");
+    assert.equal(Object.hasOwn(response.body, "rootDir"), false);
+    assert.equal(Object.hasOwn(response.body, "stack"), false);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("full analysis workflow routes create, read, and rerun runs", async () => {
   const calls = [];
   const fakeRun = { workflowRunId: "workflow_1", workflowKey: "full-analysis", workflowVersion: "full-analysis.v1", status: "running", traceId: "trace_workflow", runId: "run_workflow", sampleVideoId: "sample_1", currentStageKeys: ["upload"], stages: [] };

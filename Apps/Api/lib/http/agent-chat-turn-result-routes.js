@@ -1,6 +1,7 @@
 const { buildAgentActivityFromTurnResult, summarizeAgentTurnTimeline, summarizeAgentTurnTimelineFromItems } = require("../observability/agent-turn-timeline");
 const { findTurn: findRolloutTurn, mergeThreadWithRollout, mergeTurnItems, resolveTurnId } = require("../observability/codex-rollout-reader");
 const { buildAgentChatActionProjection } = require("../agent-chat/actions");
+const { maybeAutoAuditMaterialGaps } = require("../agent-chat/material-gap-auto-audit");
 const { maybeAutoTransformRestructureResult } = require("../agent-chat/restructure-auto-display");
 const { maybeAutoReviewShotDialogue } = require("../agent-chat/shot-dialogue-auto-review");
 const { maybeCollectConversationTitle } = require("../agent-chat/title-service");
@@ -99,6 +100,17 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
             : null,
         });
       }
+      const autoMaterialGapMatrix = await maybeAutoAuditMaterialGaps({
+        payload,
+        handlers,
+        traceContext,
+        conversationId,
+        autoDisplayTransform: payload.autoDisplayTransform,
+      });
+      if (autoMaterialGapMatrix) {
+        payload.autoMaterialGapMatrix = autoMaterialGapMatrix.materialGapMatrix ?? null;
+        if (autoMaterialGapMatrix.conversation?.revision) recorded = autoMaterialGapMatrix.conversation;
+      }
       const titleConversation = conversationId
         ? await maybeCollectConversationTitle({
           handlers,
@@ -167,6 +179,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       finalMessageChars: result.finalMessage ? String(result.finalMessage).length : 0,
       activityStatus: result.activity?.status ?? null,
       autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
+      autoMaterialGapStatus: result.autoMaterialGapMatrix?.status ?? null,
       autoDialogueReviewStatus: result.autoDialogueRoboticReview?.status ?? null,
       autoDialogueReworkStatus: result.autoDialogueRework?.status ?? null,
       autoAdvanceConfirmationStatus: result.autoAdvanceConfirmation?.status ?? null,

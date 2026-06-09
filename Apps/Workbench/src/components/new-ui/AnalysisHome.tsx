@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun } from "../../api/client";
+import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getFunctionSlotGovernanceSchedulerState, getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
 import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact } from "../../types";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
@@ -49,6 +49,7 @@ export type AnalysisHomeQueueItem = {
 export type AnalysisHomeQueueState = {
   items: AnalysisHomeQueueItem[];
   loading: boolean;
+  governanceSchedulerState?: FunctionSlotGovernanceSchedulerState | null;
   onOpenItem: (item: AnalysisHistoryItem) => void;
   onCancelItem?: (item: AnalysisHomeQueueItem) => void;
   onRetryItem?: (item: AnalysisHomeQueueItem) => void;
@@ -81,6 +82,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [isUploading, setIsUploading] = useState(false);
   const [homeQueueItems, setHomeQueueItems] = useState<AnalysisHomeQueueItem[]>([]);
   const [homeQueueLoading, setHomeQueueLoading] = useState(false);
+  const [governanceSchedulerState, setGovernanceSchedulerState] = useState<FunctionSlotGovernanceSchedulerState | null>(null);
   const [detailHeavyReady, setDetailHeavyReady] = useState(false);
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
   const [detailSeekRequest, setDetailSeekRequest] = useState<TimelineSeekRequest | null>(null);
@@ -195,8 +197,14 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     setHomeQueueLoading(true);
     try {
       setHomeQueueItems(await loadLatestVideoProcessingQueue(mode));
+      if (mode === "structureAnalysis") {
+        setGovernanceSchedulerState(await getFunctionSlotGovernanceSchedulerState().catch(() => null));
+      } else {
+        setGovernanceSchedulerState(null);
+      }
     } catch {
       setHomeQueueItems([]);
+      setGovernanceSchedulerState(null);
     } finally {
       setHomeQueueLoading(false);
     }
@@ -207,12 +215,17 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     let mounted = true;
     const refresh = () => {
       setHomeQueueLoading(true);
-      loadLatestVideoProcessingQueue(mode)
-        .then((items) => {
+      Promise.all([
+        loadLatestVideoProcessingQueue(mode),
+        mode === "structureAnalysis" ? getFunctionSlotGovernanceSchedulerState().catch(() => null) : Promise.resolve(null),
+      ])
+        .then(([items, schedulerState]) => {
           if (mounted) setHomeQueueItems(items);
+          if (mounted) setGovernanceSchedulerState(schedulerState);
         })
         .catch(() => {
           if (mounted) setHomeQueueItems([]);
+          if (mounted) setGovernanceSchedulerState(null);
         })
         .finally(() => {
           if (mounted) setHomeQueueLoading(false);
@@ -459,17 +472,19 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     onQueueStateChange?.({
       items: homeQueueItems,
       loading: homeQueueLoading,
+      governanceSchedulerState,
       onOpenItem: openHistoryDetail,
       onCancelItem: handleQueueItemCancel,
       onRetryItem: handleQueueItemRetry,
       actionBusyKey: queueActionBusyKey,
     });
-  }, [handleQueueItemCancel, handleQueueItemRetry, homeQueueItems, homeQueueLoading, onQueueStateChange, openHistoryDetail, queueActionBusyKey]);
+  }, [governanceSchedulerState, handleQueueItemCancel, handleQueueItemRetry, homeQueueItems, homeQueueLoading, onQueueStateChange, openHistoryDetail, queueActionBusyKey]);
 
   useEffect(() => () => {
     onQueueStateChange?.({
       items: [],
       loading: false,
+      governanceSchedulerState: null,
       onOpenItem: openHistoryDetail,
       actionBusyKey: null,
     });

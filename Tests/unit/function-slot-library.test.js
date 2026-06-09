@@ -386,6 +386,54 @@ test("function slot API exposes confirmed plan trace graph route", async () => {
   }
 });
 
+test("function slot API exposes plan trace records, graph, and preview routes", async () => {
+  const previewGraph = {
+    schemaVersion: "confirmed_plan_trace_graph.v1",
+    artifactId: "plan-trace-preview:plan-a",
+    nodes: [{ id: "plan-a:plan", type: "confirmedPlan", label: "plan-a", group: "plan", data: { planId: "plan-a" } }],
+    edges: [],
+    summary: { planCount: 1, slotCount: 0, atomCount: 0, bindingCount: 0, conceptCount: 0 },
+  };
+  const server = createServer({
+    restructureDisplayOverlayService: {
+      listPlanTraceRecords: async ({ bucket }) => ({
+        schemaVersion: "plan_trace_records.v1",
+        bucket,
+        generatedAt: "2026-06-10T00:00:00.000Z",
+        recentWindowHours: 24,
+        records: [{ schemaVersion: "plan_trace_record.v1", recordId: "plan-a", planSetId: "plan-a", title: "plan-a", mode: "single", status: "draft", createdAt: "2026-06-10T00:00:00.000Z", updatedAt: "2026-06-10T00:00:00.000Z", variants: [] }],
+      }),
+      readPlanTraceRecordGraph: async (recordId) => recordId === "plan-a" ? previewGraph : null,
+      previewPlanTraceGraph: async () => ({ schemaVersion: "plan_trace_preview.v1", ok: true, record: null, graph: previewGraph }),
+    },
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/snapshot.json" }),
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const records = await makeRequest(server, "GET", "/api/function-slot-restructure/plan-trace/records?bucket=recent");
+    const graph = await makeRequest(server, "GET", "/api/function-slot-restructure/plan-trace/records/plan-a/graph");
+    const preview = await makeJsonRequest(server, "POST", "/api/function-slot-restructure/plan-trace/preview", {
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/plan-a/restructure.final.md",
+    });
+
+    assert.equal(records.statusCode, 200);
+    assert.equal(records.body.records[0].recordId, "plan-a");
+    assert.equal(graph.statusCode, 200);
+    assert.equal(graph.body.summary.planCount, 1);
+    assert.equal(preview.statusCode, 200);
+    assert.equal(preview.body.ok, true);
+    assert.equal(preview.body.graph.summary.planCount, 1);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("function slot governance graph builder maps relationships and evidence gaps", () => {
   const graph = buildFunctionSlotGovernanceGraph(buildGovernance());
 
