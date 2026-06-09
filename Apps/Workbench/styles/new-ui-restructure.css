@@ -1015,6 +1015,9 @@ button.new-ui-restructure-note-pill:disabled {
 }
 
 .new-ui-restructure-composer {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
   padding: 16px var(--new-ui-restructure-inline-padding) 58px;
   border-top: 0;
 }
@@ -1113,18 +1116,19 @@ button.new-ui-restructure-note-pill:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  width: min(100%, var(--new-ui-restructure-content-width));
   min-width: 0;
-  padding-right: 380px;
+  padding: 0 64px 0 16px;
 }
 
 .new-ui-restructure-attachment-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 2px;
   min-width: 0;
   max-width: min(420px, 100%);
   height: 30px;
-  padding: 0 6px 0 10px;
+  padding: 0 5px 0 4px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--new-ui-text) 12%, transparent);
   color: var(--new-ui-text);
@@ -1132,21 +1136,46 @@ button.new-ui-restructure-note-pill:disabled {
   font-weight: 650;
 }
 
-.new-ui-restructure-attachment-chip b {
+.new-ui-restructure-attachment-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+  font: inherit;
+}
+
+button.new-ui-restructure-attachment-chip-main {
+  cursor: pointer;
+}
+
+button.new-ui-restructure-attachment-chip-main:hover,
+button.new-ui-restructure-attachment-chip-main:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-text) 10%, transparent);
+  outline: 0;
+}
+
+.new-ui-restructure-attachment-chip-main b {
   color: var(--new-ui-text-muted);
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.new-ui-restructure-attachment-chip span {
+.new-ui-restructure-attachment-chip-main span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.new-ui-restructure-attachment-chip button {
+.new-ui-restructure-attachment-chip-remove {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
@@ -1159,14 +1188,14 @@ button.new-ui-restructure-note-pill:disabled {
   cursor: pointer;
 }
 
-.new-ui-restructure-attachment-chip button:hover,
-.new-ui-restructure-attachment-chip button:focus-visible {
+.new-ui-restructure-attachment-chip-remove:hover,
+.new-ui-restructure-attachment-chip-remove:focus-visible {
   background: color-mix(in srgb, var(--new-ui-text) 10%, transparent);
   color: var(--new-ui-text);
   outline: 0;
 }
 
-.new-ui-restructure-attachment-chip svg {
+.new-ui-restructure-attachment-chip-remove svg {
   width: 14px;
   height: 14px;
   fill: none;

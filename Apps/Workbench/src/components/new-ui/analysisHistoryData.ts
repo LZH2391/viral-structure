@@ -19,7 +19,7 @@ export type AnalysisHistoryMedia = {
   ratioLabel: "16:9" | "9:16";
   durationLabel: string;
   relativeDateLabel: string;
-  badgeLabel: "已完成" | "分析中" | "未完成";
+  badgeLabel: "已完成" | "分析中" | "识别中" | "未完成";
   analysisKind: "material" | "structure" | null;
 };
 
@@ -126,9 +126,9 @@ export function normalizeMediaTitle(value: string) {
     .trim();
 }
 
-function resolveHistoryBadge(item: AnalysisHistoryItem): "已完成" | "分析中" | "未完成" {
+function resolveHistoryBadge(item: AnalysisHistoryItem): "已完成" | "分析中" | "识别中" | "未完成" {
+  if (isHistoryItemRunning(item)) return resolveAnalysisKind(item) === "material" ? "识别中" : "分析中";
   if (item.hasFunctionSlotAtomization || item.hasUserMaterialPack) return "已完成";
-  if (isHistoryItemRunning(item)) return "分析中";
   if (item.isIncomplete) return "未完成";
   return "未完成";
 }

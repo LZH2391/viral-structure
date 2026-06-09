@@ -396,7 +396,7 @@ function dominoCellKey(x: number, y: number) {
   return `${x}:${y}`;
 }
 
-function badgeClass(label: "已完成" | "分析中" | "未完成") {
+function badgeClass(label: "已完成" | "分析中" | "识别中" | "未完成") {
   if (label === "已完成") return "complete";
   if (label === "未完成") return "incomplete";
   return "pending";

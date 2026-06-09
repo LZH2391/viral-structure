@@ -37,6 +37,7 @@ type NewUiRestructureWorkspaceProps = {
   onRefreshMaterialPackOptions?: () => Promise<void> | void;
   onRefreshStructureOptions?: () => Promise<void> | void;
   onOpenMaterialUpload?: () => void;
+  onOpenMaterialPackDetail?: (option: NewUiMaterialPackOption) => void;
   onStopTurn?: () => Promise<void> | void;
   onOpenPlanTrace?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
   onConfirmPlan?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
@@ -117,6 +118,7 @@ export function NewUiRestructureWorkspace({
   onRefreshMaterialPackOptions,
   onRefreshStructureOptions,
   onOpenMaterialUpload,
+  onOpenMaterialPackDetail,
   onStopTurn,
   onOpenPlanTrace,
   onConfirmPlan,
@@ -314,8 +316,25 @@ export function NewUiRestructureWorkspace({
     void submitDraft();
   };
 
+  const attachmentChips = selectedMaterialPack || selectedStructure ? (
+    <div className="new-ui-restructure-composer-attachments" aria-label="已选择的重组上下文">
+      {selectedMaterialPack ? (
+        <AttachmentChip
+          label={selectedMaterialPack.pending ? "识别中" : "素材包"}
+          title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId}
+          onOpen={onOpenMaterialPackDetail ? () => onOpenMaterialPackDetail(selectedMaterialPack) : undefined}
+          onRemove={() => setSelectedMaterialPack(null)}
+        />
+      ) : null}
+      {selectedStructure ? (
+        <AttachmentChip label="结构" title={selectedStructure.title || selectedStructure.artifactId} onRemove={() => setSelectedStructure(null)} />
+      ) : null}
+    </div>
+  ) : null;
+
   const composer = (
     <form className="new-ui-restructure-composer" aria-label="重组输入区" onSubmit={(event) => void handleSubmit(event)}>
+      {attachmentChips}
       <div className="new-ui-restructure-composer-field">
         <textarea
           rows={2}
@@ -357,16 +376,6 @@ export function NewUiRestructureWorkspace({
             <span>引用结构</span>
           </button>
         </div>
-        {selectedMaterialPack || selectedStructure ? (
-          <div className="new-ui-restructure-composer-attachments" aria-label="已选择的重组上下文">
-            {selectedMaterialPack ? (
-              <AttachmentChip label={selectedMaterialPack.pending ? "识别中" : "素材包"} title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId} onRemove={() => setSelectedMaterialPack(null)} />
-            ) : null}
-            {selectedStructure ? (
-              <AttachmentChip label="结构" title={selectedStructure.title || selectedStructure.artifactId} onRemove={() => setSelectedStructure(null)} />
-            ) : null}
-          </div>
-        ) : null}
         {activeAttachmentPanel === "material" ? (
           <MaterialPackPickerPanel
             options={materialPackOptions}
@@ -377,7 +386,10 @@ export function NewUiRestructureWorkspace({
               setSelectedMaterialPack(option);
               setActiveAttachmentPanel(null);
             }}
-            onUpload={onOpenMaterialUpload}
+            onUpload={onOpenMaterialUpload ? () => {
+              setActiveAttachmentPanel(null);
+              onOpenMaterialUpload();
+            } : undefined}
           />
         ) : null}
         {activeAttachmentPanel === "structure" ? (
@@ -656,12 +668,21 @@ function RestructureSendErrorAlert({ message }: { message: string }) {
   );
 }
 
-function AttachmentChip({ label, title, onRemove }: { label: string; title: string; onRemove: () => void }) {
+function AttachmentChip({ label, title, onOpen, onRemove }: { label: string; title: string; onOpen?: () => void; onRemove: () => void }) {
   return (
     <span className="new-ui-restructure-attachment-chip">
-      <b>{label}</b>
-      <span>{title}</span>
-      <button type="button" aria-label={`移除${label}`} onClick={onRemove}>
+      {onOpen ? (
+        <button className="new-ui-restructure-attachment-chip-main" type="button" aria-label={`打开${label} ${title}`} onClick={onOpen}>
+          <b>{label}</b>
+          <span>{title}</span>
+        </button>
+      ) : (
+        <span className="new-ui-restructure-attachment-chip-main">
+          <b>{label}</b>
+          <span>{title}</span>
+        </span>
+      )}
+      <button className="new-ui-restructure-attachment-chip-remove" type="button" aria-label={`移除${label}`} onClick={onRemove}>
         <CloseGlyph />
       </button>
     </span>

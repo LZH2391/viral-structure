@@ -20,7 +20,7 @@ type AnalysisHomeProps = {
   mode?: AnalysisWorkflowMode;
   onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
   onQueueStateChange?: (state: AnalysisHomeQueueState) => void;
-  openRequest?: { requestId: number; sampleVideoId: string; artifactId?: string | null; title?: string | null } | null;
+  openRequest?: { requestId: number; mode?: AnalysisWorkflowMode; sampleVideoId: string; artifactId?: string | null; title?: string | null } | null;
   onOpenRequestResolved?: (result: { requestId: number; ok: boolean; message?: string | null }) => void;
   timelineSelectionClearRequest?: number;
 };
@@ -43,6 +43,7 @@ export type AnalysisHomeQueueItem = {
   workflowRunId?: string | null;
   workflowKey?: string | null;
   retryable?: boolean;
+  completedAt?: string | null;
 };
 
 export type AnalysisHomeQueueState = {
@@ -56,6 +57,7 @@ export type AnalysisHomeQueueState = {
 
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
 const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
+const ANALYSIS_QUEUE_DONE_VISIBLE_MS = 3000;
 
 export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, onQueueStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
@@ -169,7 +171,11 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
           onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: false, message: "未找到对应历史分析" });
           return;
         }
-        if (!target.hasFunctionSlotAtomization) {
+        const requestMode = openRequest.mode ?? mode;
+        const canOpenTarget = requestMode === "materialRecognition"
+          ? Boolean(target.hasUserMaterialPack || target.isRunning || target.workflowKey === "material-recognition")
+          : Boolean(target.hasFunctionSlotAtomization);
+        if (!canOpenTarget) {
           onOpenRequestResolved?.({ requestId: openRequest.requestId, ok: false, message: "对应样例还没有结构分析结果" });
           return;
         }
@@ -826,8 +832,9 @@ function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, medi
 }
 
 function resolveCurrentQueueStatus(item: AnalysisHistoryItem | null): AnalysisHomeQueueItem["status"] {
-  const status = normalizePlayerQueueStatus(item?.artifact?.status ?? item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status);
+  const status = normalizePlayerQueueStatus(item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status ?? item?.artifact?.status);
   if (status === "done") return status;
+  if (status === "running" || status === "waiting") return status;
   if ((item?.hasFunctionSlotAtomization || item?.hasUserMaterialPack || item?.artifact?.functionSlotAtomizationAnalysis || item?.artifact?.userMaterialPack) && status !== "failed" && status !== "canceled") return "done";
   return status;
 }
@@ -857,7 +864,9 @@ async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "stru
     }),
   );
   const artifactByQueueItemId = new Map<string, SampleArtifact | null>(artifactEntries);
-  return batch.items.map((queueItem) => resolveBatchQueueItem(queueItem, batch, artifactByQueueItemId.get(queueItem.queueItemId) ?? null));
+  return batch.items
+    .map((queueItem) => resolveBatchQueueItem(queueItem, batch, artifactByQueueItemId.get(queueItem.queueItemId) ?? null))
+    .filter((item) => shouldShowQueueItem(item));
 }
 
 function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem {
@@ -875,13 +884,16 @@ function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnal
     workflowRunId: queueItem.workflowRunId ?? null,
     workflowKey: batch.workflowKey,
     retryable: Boolean(queueItem.retryable),
+    completedAt: queueItem.completedAt ?? null,
   };
 }
 
 function resolveBatchQueueStatus(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem["status"] {
+  const status = normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
+  if (status === "running" || status === "waiting" || status === "failed" || status === "canceled") return status;
   if (batch.workflowKey === "material-recognition" && artifact?.userMaterialPack) return "done";
   if (batch.workflowKey !== "material-recognition" && artifact?.functionSlotAtomizationAnalysis) return "done";
-  return normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
+  return status;
 }
 
 function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: SampleArtifact | null) {
@@ -954,6 +966,12 @@ function normalizePlayerQueueStatus(status: string | null | undefined): Analysis
   if (text === "failed" || text === "partial_failed") return "failed";
   if (text === "canceled") return "canceled";
   return "waiting";
+}
+
+function shouldShowQueueItem(item: AnalysisHomeQueueItem) {
+  if (item.status !== "done") return true;
+  const completedAt = item.completedAt ? Date.parse(item.completedAt) : NaN;
+  return Number.isFinite(completedAt) && Date.now() - completedAt <= ANALYSIS_QUEUE_DONE_VISIBLE_MS;
 }
 
 function analysisDetailPollingKey(item: AnalysisHistoryItem) {

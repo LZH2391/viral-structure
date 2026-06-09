@@ -2041,6 +2041,16 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 16%, transparent);
 }
 
+.new-ui-analysis-workflow-step.is-running .new-ui-analysis-workflow-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 58%, transparent);
+  opacity: 0.34;
+  animation: new-ui-analysis-workflow-running-dot-breathe 1.8s ease-in-out infinite;
+}
+
 .new-ui-analysis-workflow-step.is-failed .new-ui-analysis-workflow-status-dot {
   border-color: var(--new-ui-analysis-workflow-status-failed);
   background: var(--new-ui-analysis-workflow-status-failed);
@@ -3156,6 +3166,19 @@
   }
 }
 
+@keyframes new-ui-analysis-workflow-running-dot-breathe {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.52;
+    transform: scale(1.08);
+  }
+}
+
 @media (max-width: 980px) {
   .new-ui-analysis-home {
     padding: 42px 16px 36px;
@@ -3231,6 +3254,7 @@
   .new-ui-analysis-player-shell,
   .new-ui-analysis-player-queue-toggle,
   .new-ui-analysis-player-queue-toggle svg,
+  .new-ui-analysis-workflow-step.is-running .new-ui-analysis-workflow-status-dot::after,
   .new-ui-analysis-workflow-spinner {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;

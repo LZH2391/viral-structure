@@ -76,6 +76,7 @@ type StructureGraphReturnState = {
 
 type AnalysisOpenRequest = {
   requestId: number;
+  mode?: NewUiAnalysisChildId;
   sampleVideoId: string;
   artifactId?: string | null;
   title?: string | null;
@@ -632,31 +633,44 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setActiveSection("analysis");
   }, [startPaneTransitionGuard]);
 
-  const openSourceAnalysisFromGraph = useCallback((target: { sampleVideoId: string; artifactId: string; title: string }) => {
+  const openAnalysisDetail = useCallback((mode: NewUiAnalysisChildId, target: { sampleVideoId: string; artifactId?: string | null; title?: string | null }) => {
     startPaneTransitionGuard();
-    setActiveAnalysisChild("structureAnalysis");
+    setActiveAnalysisChild(mode);
     return new Promise<{ ok: boolean; message?: string | null }>((resolve) => {
       const requestId = Date.now();
       analysisOpenRequestResolvers.set(requestId, resolve);
-      setAnalysisOpenRequest({ requestId, ...target });
+      setAnalysisOpenRequest({ requestId, mode, ...target });
       window.setTimeout(() => {
         if (!analysisOpenRequestResolvers.has(requestId)) return;
         analysisOpenRequestResolvers.delete(requestId);
-        resolve({ ok: false, message: "打开结构分析超时" });
+        resolve({ ok: false, message: mode === "materialRecognition" ? "打开素材识别超时" : "打开结构分析超时" });
       }, 6000);
     });
   }, [startPaneTransitionGuard]);
+
+  const openSourceAnalysisFromGraph = useCallback((target: { sampleVideoId: string; artifactId: string; title: string }) => {
+    return openAnalysisDetail("structureAnalysis", target);
+  }, [openAnalysisDetail]);
+
+  const openMaterialRecognitionFromRestructure = useCallback((option: NewUiMaterialPackOption) => {
+    if (!option.sampleVideoId || option.sampleVideoId.startsWith("pending:")) return;
+    void openAnalysisDetail("materialRecognition", {
+      sampleVideoId: option.sampleVideoId,
+      artifactId: option.artifactId ?? null,
+      title: option.title ?? null,
+    });
+  }, [openAnalysisDetail]);
 
   const handleAnalysisOpenRequestResolved = useCallback((result: { requestId: number; ok: boolean; message?: string | null }) => {
     const resolve = analysisOpenRequestResolvers.get(result.requestId);
     analysisOpenRequestResolvers.delete(result.requestId);
     if (result.ok) {
-      setActiveAnalysisChild("structureAnalysis");
+      setActiveAnalysisChild(analysisOpenRequest?.mode ?? "structureAnalysis");
       setActiveSection("analysis");
     }
     resolve?.({ ok: result.ok, message: result.message });
     setAnalysisOpenRequest((current) => current?.requestId === result.requestId ? null : current);
-  }, []);
+  }, [analysisOpenRequest?.mode]);
 
   const handleSidebarSectionChange = useCallback((section: NewUiSectionId) => {
     setStructureGraphReturn(null);
@@ -843,9 +857,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, [selectedRestructureMaterialPack]);
 
   const handleRestructureMaterialUploadChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.currentTarget.files;
+    const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
     event.currentTarget.value = "";
-    const videoFiles = files ? Array.from(files).filter((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name)) : [];
+    const videoFiles = files.filter((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
     if (!videoFiles.length || uploadingRestructureMaterial) return;
     setUploadingRestructureMaterial(true);
     setLoadingRestructureMaterialPacks(true);
@@ -855,7 +869,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         enableAudioSeparation: true,
         enableSubtitleRecognition: true,
         enableAudioFeatureAnalysis: true,
-        cacheDecision: "ask",
+        cacheDecision: "refresh",
         maxConcurrentRuns: 2,
       });
       const pendingOptions = batch.items.map((item, index) => materialPackPendingOptionFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename));
@@ -1694,6 +1708,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onRefreshMaterialPackOptions={refreshRestructureMaterialPackOptions}
               onRefreshStructureOptions={refreshRestructureStructureOptions}
               onOpenMaterialUpload={openMaterialRecognitionUploadFromRestructure}
+              onOpenMaterialPackDetail={openMaterialRecognitionFromRestructure}
               onStopTurn={handleStopRestructureTurn}
               onOpenPlanTrace={handleOpenPlanTraceFromRestructureMessage}
               onConfirmPlan={handleConfirmPlanFromRestructureMessage}
@@ -1868,7 +1883,7 @@ function AnalysisQueueSidebar({
     <section className="new-ui-analysis-queue-sidebar" aria-label="视频处理队列">
       <header className="new-ui-analysis-queue-sidebar-header">
         <h2>视频处理队列</h2>
-        <span>{loading ? "更新中" : `${items.length} 项`}</span>
+        <span>{items.length} 项</span>
       </header>
       {items.length ? (
         <div className="new-ui-analysis-queue-sidebar-list">
