@@ -127,8 +127,8 @@ export function normalizeMediaTitle(value: string) {
 }
 
 function resolveHistoryBadge(item: AnalysisHistoryItem): "已完成" | "分析中" | "识别中" | "未完成" {
-  if (isHistoryItemRunning(item)) return resolveAnalysisKind(item) === "material" ? "识别中" : "分析中";
   if (item.hasFunctionSlotAtomization || item.hasUserMaterialPack) return "已完成";
+  if (isHistoryItemRunning(item)) return resolveAnalysisKind(item) === "material" ? "识别中" : "分析中";
   if (item.isIncomplete) return "未完成";
   return "未完成";
 }

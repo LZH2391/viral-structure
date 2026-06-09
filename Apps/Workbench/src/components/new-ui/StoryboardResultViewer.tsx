@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { IconChevronDown, IconPhoto, IconVideo } from "@tabler/icons-react";
+import { IconChevronDown, IconClock, IconListDetails, IconPhoto, IconVideo, IconX } from "@tabler/icons-react";
 import { API_BASE_URL, getAgentChatStoryboardResult, type AgentChatStoryboardCover, type AgentChatStoryboardGroup, type AgentChatStoryboardResult, type AgentChatStoryboardShot, type AgentChatStoryboardVersion } from "../../api/client";
 
 type StoryboardResultViewerProps = {
@@ -8,17 +8,26 @@ type StoryboardResultViewerProps = {
   statusLabel?: string | null;
 };
 
+type SelectableStoryboardShot = {
+  key: string;
+  groupLabel: string;
+  groupTitle: string;
+  shot: AgentChatStoryboardShot;
+};
+
 export function StoryboardResultViewer({ conversationId, resultId = null, statusLabel = null }: StoryboardResultViewerProps) {
   const [result, setResult] = useState<AgentChatStoryboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedByGroupId, setExpandedByGroupId] = useState<Record<string, boolean>>({});
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [selectedShotKey, setSelectedShotKey] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
     setResult(null);
     setError(null);
     setExpandedByGroupId({});
+    setSelectedShotKey(null);
     void getAgentChatStoryboardResult(conversationId, resultId, selectedVersionId)
       .then((payload) => {
         if (canceled) return;
@@ -38,6 +47,11 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
 
   const groups = result?.status === "available" ? result.groups : [];
   const totalShotCount = useMemo(() => groups.reduce((sum, group) => sum + group.shotCount, 0), [groups]);
+  const selectableShots = useMemo(() => buildSelectableShots(result), [result]);
+  const selectedShot = useMemo(
+    () => selectableShots.find((item) => item.key === selectedShotKey) ?? null,
+    [selectableShots, selectedShotKey],
+  );
   if (error) return <StoryboardResultShell state="error" message={error} />;
   if (!result) return <StoryboardResultShell state="loading" message="故事板结果读取中" />;
   if (!groups.length && !result.cover) return null;
@@ -58,12 +72,20 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
           onSelect={setSelectedVersionId}
         />
       ) : null}
+      {selectedShot ? (
+        <StoryboardShotDetail
+          item={selectedShot}
+          onClose={() => setSelectedShotKey(null)}
+        />
+      ) : null}
       <div className="new-ui-storyboard-segments">
         {result.cover ? (
           <StoryboardCoverSegment
             cover={result.cover}
             expanded={expandedByGroupId.cover ?? false}
             onToggle={() => setExpandedByGroupId((current) => ({ ...current, cover: !(current.cover ?? false) }))}
+            selectedShotKey={selectedShotKey}
+            onSelectShot={setSelectedShotKey}
           />
         ) : null}
         {groups.map((group) => {
@@ -81,7 +103,13 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
                 <small>{group.shotCount} 镜头</small>
                 <IconChevronDown aria-hidden="true" />
               </button>
-              {expanded ? <StoryboardShotGrid group={group} /> : null}
+              {expanded ? (
+                <StoryboardShotGrid
+                  group={group}
+                  selectedShotKey={selectedShotKey}
+                  onSelectShot={setSelectedShotKey}
+                />
+              ) : null}
             </article>
           );
         })}
@@ -114,7 +142,9 @@ function StoryboardVersionSelector({ versions, selectedVersionId, onSelect }: { 
   );
 }
 
-function StoryboardCoverSegment({ cover, expanded, onToggle }: { cover: AgentChatStoryboardCover; expanded: boolean; onToggle: () => void }) {
+function StoryboardCoverSegment({ cover, expanded, onToggle, selectedShotKey, onSelectShot }: { cover: AgentChatStoryboardCover; expanded: boolean; onToggle: () => void; selectedShotKey: string | null; onSelectShot: (shotKey: string) => void }) {
+  const shot = createCoverShot(cover);
+  const shotKey = createStoryboardShotKey("cover", shot);
   return (
     <article className={`new-ui-storyboard-segment is-cover ${expanded ? "is-expanded" : ""}`.trim()}>
       <button
@@ -130,43 +160,44 @@ function StoryboardCoverSegment({ cover, expanded, onToggle }: { cover: AgentCha
       </button>
       {expanded ? <div className="new-ui-storyboard-shot-grid">
         <StoryboardShotCard
-          shot={{
-            id: cover.id,
-            index: 0,
-            title: cover.title,
-            duration: null,
-            durationRaw: null,
-            durationTooltip: null,
-            dialogue: cover.dialogue ?? null,
-            strategy: null,
-            sourceRefs: [],
-            kind: cover.kind,
-            kindLabel: cover.kindLabel,
-            imageUrl: cover.imageUrl ?? null,
-            aspect: cover.aspect ?? null,
-          }}
+          shot={shot}
+          selected={selectedShotKey === shotKey}
+          onSelect={() => onSelectShot(shotKey)}
         />
       </div> : null}
     </article>
   );
 }
 
-function StoryboardShotGrid({ group }: { group: AgentChatStoryboardGroup }) {
+function StoryboardShotGrid({ group, selectedShotKey, onSelectShot }: { group: AgentChatStoryboardGroup; selectedShotKey: string | null; onSelectShot: (shotKey: string) => void }) {
   return (
     <div className="new-ui-storyboard-shot-grid">
-      {group.shots.map((shot) => (
-        <StoryboardShotCard key={shot.id} shot={shot} />
-      ))}
+      {group.shots.map((shot) => {
+        const shotKey = createStoryboardShotKey(group.id, shot);
+        return (
+          <StoryboardShotCard
+            key={shotKey}
+            shot={shot}
+            selected={selectedShotKey === shotKey}
+            onSelect={() => onSelectShot(shotKey)}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function StoryboardShotCard({ shot }: { shot: AgentChatStoryboardShot }) {
+function StoryboardShotCard({ shot, selected, onSelect }: { shot: AgentChatStoryboardShot; selected: boolean; onSelect: () => void }) {
   const mediaStyle = {
     "--new-ui-storyboard-card-aspect": normalizeAspectCss(shot.aspect?.css),
   } as CSSProperties;
   return (
-    <article className={`new-ui-storyboard-shot-card is-${shot.kind === "material" ? "material" : "generated"}`.trim()}>
+    <button
+      className={`new-ui-storyboard-shot-card is-${shot.kind === "material" ? "material" : "generated"} ${selected ? "is-selected" : ""}`.trim()}
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
       <div className="new-ui-storyboard-shot-media" style={mediaStyle}>
         <span className="new-ui-storyboard-shot-kind">{shot.kindLabel}</span>
         {shot.imageUrl ? (
@@ -188,7 +219,69 @@ function StoryboardShotCard({ shot }: { shot: AgentChatStoryboardShot }) {
         </strong>
         {shot.dialogue ? <p>{shot.dialogue}</p> : null}
       </div>
-    </article>
+    </button>
+  );
+}
+
+function StoryboardShotDetail({ item, onClose }: { item: SelectableStoryboardShot; onClose: () => void }) {
+  const { shot } = item;
+  const sourceRefs = Array.isArray(shot.sourceRefs) ? shot.sourceRefs.filter(Boolean) : [];
+  const detailRows = [
+    ["段落", `${item.groupLabel} ${item.groupTitle}`.trim()],
+    ["类型", shot.kindLabel || shot.kind],
+    ["时长", shot.duration || shot.durationRaw || null],
+    ["画幅", shot.aspect?.ratio || shot.aspect?.orientation || null],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+
+  return (
+    <aside className="new-ui-storyboard-shot-detail" aria-label="镜头详情">
+      <header className="new-ui-storyboard-shot-detail-head">
+        <span className="new-ui-storyboard-shot-detail-icon" aria-hidden="true">
+          <IconListDetails />
+        </span>
+        <div>
+          <span>镜头详情</span>
+          <strong>{shot.title}</strong>
+        </div>
+        <button type="button" aria-label="关闭镜头详情" onClick={onClose}>
+          <IconX aria-hidden="true" />
+        </button>
+      </header>
+      <div className="new-ui-storyboard-shot-detail-meta">
+        {detailRows.map(([label, value]) => (
+          <span key={label}>
+            <small>{label}</small>
+            <strong>{value}</strong>
+          </span>
+        ))}
+      </div>
+      {sourceRefs.length ? (
+        <div className="new-ui-storyboard-shot-detail-section">
+          <span>素材来源</span>
+          <div className="new-ui-storyboard-shot-detail-chips">
+            {sourceRefs.map((sourceRef) => <code key={sourceRef}>{sourceRef}</code>)}
+          </div>
+        </div>
+      ) : null}
+      {shot.strategy ? (
+        <div className="new-ui-storyboard-shot-detail-section">
+          <span>执行策略</span>
+          <p>{shot.strategy}</p>
+        </div>
+      ) : null}
+      {shot.dialogue ? (
+        <div className="new-ui-storyboard-shot-detail-section">
+          <span>口播/字幕</span>
+          <p>{shot.dialogue}</p>
+        </div>
+      ) : null}
+      {shot.durationTooltip ? (
+        <div className="new-ui-storyboard-shot-detail-note">
+          <IconClock aria-hidden="true" />
+          <span>{shot.durationTooltip}</span>
+        </div>
+      ) : null}
+    </aside>
   );
 }
 
@@ -198,6 +291,45 @@ function StoryboardResultShell({ state, message }: { state: "loading" | "error";
       <p>{message}</p>
     </section>
   );
+}
+
+function buildSelectableShots(result: AgentChatStoryboardResult | null): SelectableStoryboardShot[] {
+  if (!result || result.status !== "available") return [];
+  const cover = result.cover ? [{
+    key: createStoryboardShotKey("cover", createCoverShot(result.cover)),
+    groupLabel: "封面",
+    groupTitle: result.cover.title,
+    shot: createCoverShot(result.cover),
+  }] : [];
+  const shots = result.groups.flatMap((group) => group.shots.map((shot) => ({
+    key: createStoryboardShotKey(group.id, shot),
+    groupLabel: group.label,
+    groupTitle: group.title,
+    shot,
+  })));
+  return [...cover, ...shots];
+}
+
+function createCoverShot(cover: AgentChatStoryboardCover): AgentChatStoryboardShot {
+  return {
+    id: cover.id,
+    index: 0,
+    title: cover.title,
+    duration: null,
+    durationRaw: null,
+    durationTooltip: null,
+    dialogue: cover.dialogue ?? null,
+    strategy: null,
+    sourceRefs: [],
+    kind: cover.kind,
+    kindLabel: cover.kindLabel,
+    imageUrl: cover.imageUrl ?? null,
+    aspect: cover.aspect ?? null,
+  };
+}
+
+function createStoryboardShotKey(groupId: string, shot: AgentChatStoryboardShot) {
+  return `${groupId}:${shot.id || shot.index}`;
 }
 
 function normalizeAspectCss(value: string | null | undefined) {

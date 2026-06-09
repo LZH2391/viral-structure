@@ -2,6 +2,19 @@ const { randomUUID } = require("crypto");
 
 const SCHEMA_VERSION = "agent_chat_conversations.v1";
 const TEXT_LIMIT = 12000;
+const MATERIAL_GAP_TEXT_LIMIT = 360;
+const MATERIAL_GAP_ROWS_LIMIT = 40;
+const MATERIAL_GAP_ARRAY_LIMIT = 12;
+const MATERIAL_GAP_DIRECT_SATISFACTIONS = new Set(["satisfied", "partial", "missing", "unsafe", "not_required"]);
+const MATERIAL_GAP_COMPENSATION_TYPES = new Set([
+  "structure_reorder",
+  "copy_or_caption_fill",
+  "packaging_overlay_fill",
+  "aigc_generate_fill",
+  "reuse_transform_fill",
+  "real_proof_reshoot_or_self_design",
+  "return_to_restructure_required",
+]);
 
 function normalizeState(value) {
   const conversations = Array.isArray(value?.conversations) ? value.conversations : [];
@@ -191,9 +204,11 @@ function normalizeMessage(value) {
     sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
     sourceRestructureFingerprint: normalizeFileFingerprint(value.sourceRestructureFingerprint),
     sourceDisplayFingerprint: normalizeFileFingerprint(value.sourceDisplayFingerprint),
+    materialPackRef: normalizeMaterialPackRef(value.materialPackRef),
     slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
     dialogueRoboticReview: normalizeDialogueRoboticReview(value.dialogueRoboticReview),
     storyboardResult: normalizeStoryboardResult(value.storyboardResult),
+    materialGapMatrix: normalizeMaterialGapMatrix(value.materialGapMatrix),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
   };
@@ -250,6 +265,100 @@ function normalizeStoryboardResult(value) {
     stageId: value.stageId ? String(value.stageId) : artifact?.stageId ?? null,
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
+  };
+}
+
+function normalizeMaterialPackRef(value) {
+  if (!value || typeof value !== "object") return null;
+  const sampleVideoId = normalizeIdText(value.sampleVideoId);
+  const resultUri = normalizePathText(value.resultUri ?? value.uri);
+  if (!sampleVideoId && !resultUri) return null;
+  return {
+    sampleVideoId,
+    artifactId: value.artifactId ? String(value.artifactId) : null,
+    title: limitText(value.title),
+    traceId: normalizeIdText(value.traceId),
+    resultUri,
+    shotCardCount: normalizeCount(value.shotCardCount),
+    materialGroupCount: normalizeCount(value.materialGroupCount),
+    proofCoverageCount: normalizeCount(value.proofCoverageCount),
+  };
+}
+
+function normalizeMaterialGapMatrix(value) {
+  if (!value || typeof value !== "object") return null;
+  const rows = Array.isArray(value.rows) ? value.rows.map(normalizeMaterialGapRow).filter(Boolean).slice(0, MATERIAL_GAP_ROWS_LIMIT) : [];
+  return {
+    schemaVersion: String(value.schemaVersion ?? "material_gap_matrix.v1"),
+    status: String(value.status ?? (rows.length ? "processed" : "failed")),
+    artifactId: value.artifactId ? String(value.artifactId) : null,
+    parentArtifactId: value.parentArtifactId ? String(value.parentArtifactId) : null,
+    matrixJsonPath: normalizePathText(value.matrixJsonPath ?? value.outputJsonPath),
+    sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
+    sourceMaterialPackArtifactId: value.sourceMaterialPackArtifactId ? String(value.sourceMaterialPackArtifactId) : null,
+    sourceMaterialPackPath: normalizePathText(value.sourceMaterialPackPath),
+    slotChainFingerprint: normalizePlainObject(value.slotChainFingerprint),
+    summary: normalizeMaterialGapSummary(value.summary, rows),
+    rows,
+    traceId: normalizeIdText(value.traceId),
+    runId: normalizeIdText(value.runId),
+    stageId: normalizeIdText(value.stageId),
+    stageName: value.stageName ? String(value.stageName) : null,
+    role: value.role ? String(value.role) : null,
+    turnId: value.turnId ? String(value.turnId) : null,
+    promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
+    error: value.error ? String(value.error) : null,
+    message: limitText(value.message),
+    debugSnapshotUri: normalizePathText(value.debugSnapshotUri),
+    createdAt: value.createdAt ?? null,
+    updatedAt: value.updatedAt ?? null,
+  };
+}
+
+function normalizeMaterialGapSummary(value, rows) {
+  const computed = rows.reduce((acc, row) => {
+    if (row.directSatisfaction === "satisfied") acc.satisfiedCount += 1;
+    if (row.directSatisfaction === "partial") acc.partialCount += 1;
+    if (row.directSatisfaction === "missing") acc.missingCount += 1;
+    if (row.directSatisfaction === "unsafe") acc.unsafeCount += 1;
+    if (row.directSatisfaction === "not_required") acc.notRequiredCount += 1;
+    row.missingMaterialTypes.forEach((item) => acc.missingTypeCounts.set(item, (acc.missingTypeCounts.get(item) ?? 0) + 1));
+    return acc;
+  }, {
+    satisfiedCount: 0,
+    partialCount: 0,
+    missingCount: 0,
+    unsafeCount: 0,
+    notRequiredCount: 0,
+    missingTypeCounts: new Map(),
+  });
+  const topMissingMaterialTypes = normalizeStringArray(value?.topMissingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT);
+  return {
+    slotCount: normalizeCount(value?.slotCount) ?? rows.length,
+    satisfiedCount: normalizeCount(value?.satisfiedCount) ?? computed.satisfiedCount,
+    partialCount: normalizeCount(value?.partialCount) ?? computed.partialCount,
+    missingCount: normalizeCount(value?.missingCount) ?? computed.missingCount,
+    unsafeCount: normalizeCount(value?.unsafeCount) ?? computed.unsafeCount,
+    notRequiredCount: normalizeCount(value?.notRequiredCount ?? value?.not_requiredCount) ?? computed.notRequiredCount,
+    topMissingMaterialTypes: topMissingMaterialTypes.length ? topMissingMaterialTypes : Array.from(computed.missingTypeCounts.entries()).sort((a, b) => b[1] - a[1]).map(([key]) => key).slice(0, 5),
+    overallImpact: limitTextTo(value?.overallImpact, MATERIAL_GAP_TEXT_LIMIT),
+  };
+}
+
+function normalizeMaterialGapRow(value) {
+  if (!value || typeof value !== "object") return null;
+  const directSatisfaction = MATERIAL_GAP_DIRECT_SATISFACTIONS.has(String(value.directSatisfaction ?? "")) ? String(value.directSatisfaction) : "missing";
+  return {
+    slotId: limitTextTo(value.slotId, 80),
+    slotSubtype: limitTextTo(value.slotSubtype, 160),
+    slotFunction: limitTextTo(value.slotFunction, MATERIAL_GAP_TEXT_LIMIT),
+    requiredMaterialTypes: normalizeStringArray(value.requiredMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT),
+    directSatisfaction,
+    missingMaterialTypes: normalizeStringArray(value.missingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT),
+    impact: limitTextTo(value.impact, MATERIAL_GAP_TEXT_LIMIT),
+    availableEvidenceRefs: normalizeStringArray(value.availableEvidenceRefs, MATERIAL_GAP_ARRAY_LIMIT),
+    suggestedCompensationTypes: normalizeStringArray(value.suggestedCompensationTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_COMPENSATION_TYPES.has(item)),
+    handoffToShotDesign: limitTextTo(value.handoffToShotDesign, MATERIAL_GAP_TEXT_LIMIT),
   };
 }
 

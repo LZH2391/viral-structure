@@ -1,0 +1,15 @@
+{
+  "role": "material-gap-auditor",
+  "profileVersion": "2026-06-10.material-gap.1",
+  "skillPath": "C:/ByteDanceFullStack/.agents/skills/material-gap-auditor/SKILL.md",
+  "init": {
+    "template": "init.md",
+    "readyText": "已就绪"
+  },
+  "turnTemplates": {
+    "audit": {
+      "template": "prompts/audit.v1.md",
+      "version": "audit.v1"
+    }
+  }
+}

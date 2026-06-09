@@ -72,6 +72,7 @@ export function resolveWorkflowDetail(stageKey: WorkflowStageKey, item: Analysis
   if (stageKey === "packagingStructure") return resolvePackagingStructureDetail(base, artifact);
   if (stageKey === "userMaterialTagger") return resolveUserMaterialTaggerDetail(base, artifact);
   if (stageKey === "functionSlotAtomization") return resolveFunctionSlotAtomizationDetail(base, artifact);
+  if (isMaterialWorkflow(stages, item)) return resolveMaterialAggregateDetail(base, artifact);
   return resolveAggregateDetail(base, artifact);
 }
 
@@ -275,6 +276,35 @@ function resolveAggregateDetail(base: Pick<WorkflowDetail, "title" | "status">, 
     ]),
     emptyText: "完成分析后会展示结果总览。",
     nextText: "建议先检查功能槽位链是否符合预期，再进入后续创作流程。",
+  };
+}
+
+function isMaterialWorkflow(stages: WorkflowStages, item: AnalysisHistoryItem | null) {
+  return stages.some((stage) => stage.key === "userMaterialTagger") || isMaterialRecognitionItem(item);
+}
+
+function resolveMaterialAggregateDetail(base: Pick<WorkflowDetail, "title" | "status">, artifact: SampleArtifact): WorkflowDetail {
+  const shots = artifact.shotBoundaryAnalysis?.shots ?? [];
+  const materialPack = artifact.userMaterialPack;
+  const shotCards = materialPack?.shotCards ?? [];
+  const materialGroups = materialPack?.materialGroups ?? [];
+  const proofCoverage = materialPack?.proofCoverage ?? [];
+  const coveredProofCount = proofCoverage.filter((proof) => proof.candidateShots.length || proof.candidateGroups.length).length;
+  return {
+    ...base,
+    summary: shotCards.length ? "素材识别结果已经准备好，可以作为重组和分镜设计的素材供给输入。" : "素材识别完成后会汇总素材镜头、分组和证明覆盖。",
+    metrics: compactMetrics([
+      metric("切分镜头", `${formatCount(shots.length)} 个`),
+      metric("素材卡", `${formatCount(shotCards.length)} 张`),
+      metric("素材组", `${formatCount(materialGroups.length)} 组`),
+    ]),
+    cards: compactCards([
+      card("素材能力", "镜头分类 / 功能标签", shotCards.length ? "已生成每个镜头的素材类别、表达功能和使用限制。" : "等待素材识别生成镜头能力卡。"),
+      card("证明覆盖", `${formatCount(coveredProofCount)} 类`, coveredProofCount ? "已标出可承担信任、效果或机制证明的候选镜头/素材组。" : "暂未识别到明确证明覆盖。"),
+      card("可继续", "重组 / 分镜", shotCards.length ? "后续可以在重组输入中附带该素材包，判断新方案的素材供给。" : "素材包生成后可进入重组输入。"),
+    ]),
+    emptyText: "完成素材识别后会展示素材能力包总览。",
+    nextText: "建议检查素材卡和证明覆盖是否符合目标品类，再进入重组或 Shot 设计。",
   };
 }
 

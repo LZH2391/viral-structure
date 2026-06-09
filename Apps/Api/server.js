@@ -90,7 +90,12 @@ const moduleRegistry = createModuleRegistry({
 const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
 const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex, threadPool, activeTurnRuntime });
 const materialRecognitionWorkflowService = createMaterialRecognitionWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex, threadPool, activeTurnRuntime });
-const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: fullAnalysisWorkflowService, runtimeRoot: store.runtimeRoot, logger });
+const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({
+  workflowService: fullAnalysisWorkflowService,
+  runtimeRoot: store.runtimeRoot,
+  loadSampleArtifact: ({ sampleVideoId }) => loadCurrentSampleArtifact({ sampleVideoId, store, artifactIndex }),
+  logger,
+});
 const materialRecognitionBatchQueue = createFullAnalysisBatchQueue({
   workflowService: materialRecognitionWorkflowService,
   runtimeRoot: store.runtimeRoot,
@@ -101,6 +106,7 @@ const materialRecognitionBatchQueue = createFullAnalysisBatchQueue({
   errorCode: "material_recognition_batch_item_failed",
   stageName: "workflow.material_recognition.batch.dispatch",
   buildOptions: () => ({}),
+  loadSampleArtifact: ({ sampleVideoId }) => loadCurrentSampleArtifact({ sampleVideoId, store, artifactIndex }),
   logger,
 });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
@@ -238,6 +244,7 @@ function createServer(deps = {}) {
   const activeFullAnalysisBatchQueue = deps.fullAnalysisBatchQueue ?? createFullAnalysisBatchQueue({
     workflowService: activeFullAnalysisWorkflowService,
     runtimeRoot: activeStore.runtimeRoot,
+    loadSampleArtifact: ({ sampleVideoId }) => (deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact)({ sampleVideoId, store: activeStore, artifactIndex: activeArtifactIndex }),
     logger: activeLogger,
   });
   const activeMaterialRecognitionBatchQueue = deps.materialRecognitionBatchQueue ?? createFullAnalysisBatchQueue({
@@ -250,6 +257,7 @@ function createServer(deps = {}) {
     errorCode: "material_recognition_batch_item_failed",
     stageName: "workflow.material_recognition.batch.dispatch",
     buildOptions: () => ({}),
+    loadSampleArtifact: ({ sampleVideoId }) => (deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact)({ sampleVideoId, store: activeStore, artifactIndex: activeArtifactIndex }),
     logger: activeLogger,
   });
   const activePlatformHandlers = createPlatformHandlers({

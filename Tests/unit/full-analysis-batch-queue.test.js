@@ -186,6 +186,46 @@ test("full analysis batch queue treats cache waiting as active for dispatch limi
   assert.equal(current.items[2].status, "queued");
 });
 
+test("material recognition batch queue closes stale cache waiting item when material pack exists", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "material-recognition-batch-"));
+  const runs = new Map();
+  const workflowService = {
+    start: async () => {
+      const run = {
+        workflowRunId: "workflow_stale",
+        status: "cache_waiting",
+        sampleVideoId: "sample_done",
+        currentStageKeys: ["shotBoundary"],
+        stages: [{ key: "shotBoundary", label: "切镜", status: "cache_waiting" }],
+      };
+      runs.set(run.workflowRunId, run);
+      return run;
+    },
+    get: (workflowRunId) => runs.get(workflowRunId) ?? null,
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    workflowKey: "material-recognition",
+    terminalActiveGraceMs: 0,
+    loadSampleArtifact: async ({ sampleVideoId }) => sampleVideoId === "sample_done" ? { userMaterialPack: { artifactId: "artifact_material" } } : null,
+  });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("done.mp4")],
+    fields: {},
+  });
+
+  await queue.advance(batch.batchRunId);
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(current.items[0].status, "processed");
+  assert.equal(current.items[0].currentStageLabel, null);
+  assert.equal(current.status, "processed");
+  assert.equal(queue.getLatestActiveBatch(), null);
+});
+
 test("full analysis batch queue replays advance requested while dispatch is running", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
   const runs = new Map();

@@ -816,27 +816,7 @@ function QueueIcon({ expanded }: { expanded: boolean }) {
 
 function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, batchItems: AnalysisHomeQueueItem[] | null): AnalysisHomeQueueItem[] {
   if (batchItems?.length) return batchItems;
-  if (!item && !media) return [];
-  const currentStatus = resolveCurrentQueueStatus(item);
-  return [
-    {
-      key: "video-slot-1",
-      status: currentStatus,
-      thumbnailUrl: media?.coverUrl ?? null,
-      ratio: resolveQueueThumbnailRatio(media),
-      badgeLabel: resolveQueueBadgeLabel(item, media, currentStatus),
-      title: media?.title ?? item?.title ?? "当前视频",
-      historyItem: item,
-    },
-  ];
-}
-
-function resolveCurrentQueueStatus(item: AnalysisHistoryItem | null): AnalysisHomeQueueItem["status"] {
-  const status = normalizePlayerQueueStatus(item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status ?? item?.artifact?.status);
-  if (status === "done") return status;
-  if (status === "running" || status === "waiting") return status;
-  if ((item?.hasFunctionSlotAtomization || item?.hasUserMaterialPack || item?.artifact?.functionSlotAtomizationAnalysis || item?.artifact?.userMaterialPack) && status !== "failed" && status !== "canceled") return "done";
-  return status;
+  return [];
 }
 
 function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): AnalysisHomeQueueItem["ratio"] {

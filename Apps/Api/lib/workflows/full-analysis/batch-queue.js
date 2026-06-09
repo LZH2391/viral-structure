@@ -25,6 +25,7 @@ function createFullAnalysisBatchQueue({
   terminalActiveGraceMs = DEFAULT_TERMINAL_ACTIVE_GRACE_MS,
   terminalRetentionMs = DEFAULT_TERMINAL_RETENTION_MS,
   terminalRetentionLimit = DEFAULT_TERMINAL_RETENTION_LIMIT,
+  loadSampleArtifact = null,
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
@@ -194,6 +195,7 @@ function createFullAnalysisBatchQueue({
       const run = workflowService.get?.(item.workflowRunId);
       if (!run) continue;
       syncItemFromRun(item, run);
+      await syncItemFromCompletedArtifact(batch, item);
     }
     assignQueuedPositions(batch);
   }
@@ -231,6 +233,7 @@ function createFullAnalysisBatchQueue({
       await workflowService.advance?.(result.workflowRunId).catch(() => undefined);
       const latestRun = workflowService.get?.(result.workflowRunId) ?? result;
       syncItemFromRun(item, latestRun);
+      await syncItemFromCompletedArtifact(batch, item);
       return isActiveItem(item);
     } catch (error) {
       item.status = "failed";
@@ -268,6 +271,21 @@ function createFullAnalysisBatchQueue({
       item.completedAt = item.updatedAt;
       if (item.status === "processed") cleanupQueuedFile(item);
     }
+  }
+
+  async function syncItemFromCompletedArtifact(batch, item) {
+    if (!loadSampleArtifact || !isActiveItem(item) || !item.sampleVideoId) return;
+    const artifact = await loadSampleArtifact({ sampleVideoId: item.sampleVideoId }).catch(() => null);
+    if (!artifact || !hasWorkflowCompletionArtifact(batch.workflowKey, artifact)) return;
+    const now = new Date().toISOString();
+    item.status = "processed";
+    item.position = 0;
+    item.currentStageKeys = [];
+    item.currentStageLabel = null;
+    item.errorSummary = null;
+    item.completedAt = item.completedAt ?? now;
+    item.updatedAt = now;
+    cleanupQueuedFile(item);
   }
 
   function batchFieldsForWorkflow(batch) {
@@ -439,6 +457,12 @@ function isItemTerminal(item) {
 
 function isActiveItem(item) {
   return item?.status === "running" || item?.status === CACHE_WAITING_STATUS;
+}
+
+function hasWorkflowCompletionArtifact(workflowKey, artifact) {
+  if (!artifact || typeof artifact !== "object") return false;
+  if (workflowKey === "material-recognition") return Boolean(artifact.userMaterialPack);
+  return Boolean(artifact.functionSlotAtomizationAnalysis);
 }
 
 function isBatchTerminal(batch) {
