@@ -4148,6 +4148,14 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
         calls.push({ type: "rerun", ...payload });
         return { ...fakeRun, currentStageKeys: [payload.stageKey] };
       },
+      cancelRun: async (payload) => {
+        calls.push({ type: "cancel", ...payload });
+        return { ...fakeRun, status: "canceled", currentStageKeys: [] };
+      },
+      resumeRun: async (payload) => {
+        calls.push({ type: "resume", ...payload });
+        return { ...fakeRun, status: "running", currentStageKeys: ["scriptSegment"] };
+      },
     },
     staticWorkbench: { handle: () => false },
   });
@@ -4203,9 +4211,17 @@ test("full analysis workflow routes create, read, and rerun runs", async () => {
 
     const rerun = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/stages/scriptSegment/rerun");
     assert.equal(rerun.statusCode, 202);
+    const canceled = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/cancel", { reason: "user_requested" });
+    assert.equal(canceled.statusCode, 202);
+    assert.equal(canceled.body.status, "canceled");
+    const resumed = await makeRequest(server, "POST", "/api/workflows/runs/workflow_1/resume");
+    assert.equal(resumed.statusCode, 202);
+    assert.equal(resumed.body.currentStageKeys[0], "scriptSegment");
     assert.deepEqual(calls, [
       { type: "start", workspaceId: "default-workspace", fileName: "sample.mp4" },
       { type: "rerun", workflowRunId: "workflow_1", stageKey: "scriptSegment" },
+      { type: "cancel", workflowRunId: "workflow_1", reason: "user_requested" },
+      { type: "resume", workflowRunId: "workflow_1" },
     ]);
   } finally {
     await closeServer(server);
@@ -5881,6 +5897,11 @@ test("full analysis batch routes create and read batch queue", async () => {
         storedBatch = { ...storedBatch, status: "running" };
         return storedBatch;
       },
+      cancelItem: (batchRunId, queueItemId, reason) => {
+        calls.push({ type: "cancel", batchRunId, queueItemId, reason });
+        storedBatch = { ...storedBatch, status: "canceled" };
+        return storedBatch;
+      },
     },
     staticWorkbench: { handle: () => false },
   });
@@ -5917,12 +5938,16 @@ test("full analysis batch routes create and read batch queue", async () => {
     const retry = await makeRequest(server, "POST", "/api/workflows/full-analysis/batch-runs/batch_1/items/item_1/retry");
     assert.equal(retry.statusCode, 202);
     assert.equal(retry.body.batchRunId, "batch_1");
+    const cancel = await makeRequest(server, "POST", "/api/workflows/full-analysis/batch-runs/batch_1/items/item_1/cancel", { reason: "user_requested" });
+    assert.equal(cancel.statusCode, 202);
+    assert.equal(cancel.body.status, "canceled");
     assert.deepEqual(calls, [
       { type: "create", fileNames: ["a.mp4", "b.mp4"], maxConcurrentRuns: "2" },
       { type: "advance", batchRunId: "batch_1" },
       { type: "advance", batchRunId: "batch_1" },
       { type: "advance", batchRunId: "batch_1" },
       { type: "retry", batchRunId: "batch_1", queueItemId: "item_1" },
+      { type: "cancel", batchRunId: "batch_1", queueItemId: "item_1", reason: "user_requested" },
     ]);
   } finally {
     await closeServer(server);
@@ -5965,6 +5990,11 @@ test("material recognition batch routes create and read material queue", async (
         storedBatch = { ...storedBatch, status: "running" };
         return storedBatch;
       },
+      cancelItem: (batchRunId, queueItemId, reason) => {
+        calls.push({ type: "cancel", batchRunId, queueItemId, reason });
+        storedBatch = { ...storedBatch, status: "canceled" };
+        return storedBatch;
+      },
     },
     staticWorkbench: { handle: () => false },
   });
@@ -5994,11 +6024,15 @@ test("material recognition batch routes create and read material queue", async (
 
     const retry = await makeRequest(server, "POST", "/api/workflows/material-recognition/batch-runs/batch_material_1/items/item_1/retry");
     assert.equal(retry.statusCode, 202);
+    const cancel = await makeRequest(server, "POST", "/api/workflows/material-recognition/batch-runs/batch_material_1/items/item_1/cancel", { reason: "user_requested" });
+    assert.equal(cancel.statusCode, 202);
+    assert.equal(cancel.body.status, "canceled");
     assert.deepEqual(calls, [
       { type: "create", fileNames: ["a.mp4", "b.mp4"], maxConcurrentRuns: "2" },
       { type: "advance", batchRunId: "batch_material_1" },
       { type: "advance", batchRunId: "batch_material_1" },
       { type: "retry", batchRunId: "batch_material_1", queueItemId: "item_1" },
+      { type: "cancel", batchRunId: "batch_material_1", queueItemId: "item_1", reason: "user_requested" },
     ]);
   } finally {
     await closeServer(server);

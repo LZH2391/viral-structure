@@ -186,6 +186,43 @@ test("full analysis batch queue restores failed items and retries from persisted
   assert.equal(current.items[0].workflowRunId, "workflow_retry");
 });
 
+test("full analysis batch queue cancels active item and allows retry from persisted upload", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  const canceled = [];
+  const runs = new Map();
+  const workflowService = {
+    start: async ({ file }) => {
+      const workflowRunId = `workflow_${runs.size + 1}`;
+      runs.set(workflowRunId, { workflowRunId, status: "running", currentStageKeys: ["shotBoundary"], stages: [{ key: "shotBoundary", label: "切镜" }] });
+      return runs.get(workflowRunId);
+    },
+    get: (workflowRunId) => runs.get(workflowRunId) ?? null,
+    cancelRun: async ({ workflowRunId, reason }) => {
+      canceled.push({ workflowRunId, reason });
+      const run = { ...runs.get(workflowRunId), status: "canceled", currentStageKeys: [], errorSummary: { code: "workflow_canceled" } };
+      runs.set(workflowRunId, run);
+      return run;
+    },
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({ workflowService, runtimeRoot: root });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("a.mp4")],
+    fields: {},
+  });
+  await queue.advance(batch.batchRunId);
+
+  const canceledBatch = await queue.cancelItem(batch.batchRunId, batch.items[0].queueItemId, "user_requested");
+  assert.deepEqual(canceled, [{ workflowRunId: "workflow_1", reason: "user_requested" }]);
+  assert.equal(canceledBatch.items[0].status, "canceled");
+  assert.equal(canceledBatch.items[0].retryable, true);
+
+  const retried = queue.retryItem(batch.batchRunId, batch.items[0].queueItemId);
+  assert.equal(retried.items[0].status, "queued");
+  assert.equal(retried.items[0].workflowRunId, null);
+});
+
 test("full analysis batch queue fails item when workflow start returns no run id", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
   const started = [];

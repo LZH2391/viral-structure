@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun } from "../../api/client";
+import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun } from "../../api/client";
 import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact } from "../../types";
 import { AnalysisHistory } from "./AnalysisHistory";
 import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
 import { loadAnalysisDetailItem, refreshAnalysisDetailItem } from "./analysisDetailData";
 import {
+  cancelAnalysisWorkflow,
   isAnalysisItemRunning,
   loadRerunnableWorkflowStageKeys,
   rerunAnalysisWorkflowStage,
+  resumeAnalysisWorkflow,
 } from "./analysisBackend";
 import type { AnalysisWorkflowMode } from "./analysisBackend";
 import { listAnalysisHistorySamples, resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
@@ -17,15 +19,40 @@ import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 type AnalysisHomeProps = {
   mode?: AnalysisWorkflowMode;
   onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
+  onQueueStateChange?: (state: AnalysisHomeQueueState) => void;
   openRequest?: { requestId: number; sampleVideoId: string; artifactId?: string | null; title?: string | null } | null;
   onOpenRequestResolved?: (result: { requestId: number; ok: boolean; message?: string | null }) => void;
   timelineSelectionClearRequest?: number;
 };
 
+export type AnalysisHomeQueueItem = {
+  key: string;
+  status: "done" | "running" | "waiting" | "failed" | "canceled";
+  thumbnailUrl: string | null;
+  ratio: "wide" | "cinema";
+  badgeLabel: "分析中" | "识别中" | "排队中" | "已完成" | "失败" | "已停止";
+  title: string;
+  historyItem: AnalysisHistoryItem | null;
+  batchRunId?: string | null;
+  queueItemId?: string | null;
+  workflowRunId?: string | null;
+  workflowKey?: string | null;
+  retryable?: boolean;
+};
+
+export type AnalysisHomeQueueState = {
+  items: AnalysisHomeQueueItem[];
+  loading: boolean;
+  onOpenItem: (item: AnalysisHistoryItem) => void;
+  onCancelItem?: (item: AnalysisHomeQueueItem) => void;
+  onRetryItem?: (item: AnalysisHomeQueueItem) => void;
+  actionBusyKey?: string | null;
+};
+
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
 const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
 
-export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
+export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, onQueueStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -41,8 +68,10 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [selectedTimelineSegment, setSelectedTimelineSegment] = useState<AnalysisTimelineSegmentDetail | null>(null);
   const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
   const [rerunningStageKey, setRerunningStageKey] = useState<string | null>(null);
+  const [workflowActionBusy, setWorkflowActionBusy] = useState<"cancel" | "resume" | null>(null);
+  const [queueActionBusyKey, setQueueActionBusyKey] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [homeQueueItems, setHomeQueueItems] = useState<PlayerQueueItem[]>([]);
+  const [homeQueueItems, setHomeQueueItems] = useState<AnalysisHomeQueueItem[]>([]);
   const [homeQueueLoading, setHomeQueueLoading] = useState(false);
   const [detailHeavyReady, setDetailHeavyReady] = useState(false);
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
@@ -264,6 +293,83 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     }
   }, [detailItem, rerunningStageKey, startDetailPolling, stopPolling]);
 
+  const handleWorkflowCancel = useCallback(async () => {
+    if (!detailItem || workflowActionBusy) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    detailPollingKeyRef.current = null;
+    setWorkflowActionBusy("cancel");
+    setSelectedTimelineSegment(null);
+    try {
+      const { item: nextItem, media: nextMedia } = await cancelAnalysisWorkflow(detailItem);
+      if (token !== operationTokenRef.current) return;
+      setDetailItem(nextItem);
+      setDetailMedia(nextMedia);
+      setDetailTitle(nextMedia.title);
+      setHistoryRefreshKey((value) => value + 1);
+      await refreshHomeQueue().catch(() => undefined);
+    } finally {
+      if (token === operationTokenRef.current) setWorkflowActionBusy(null);
+    }
+  }, [detailItem, refreshHomeQueue, stopPolling, workflowActionBusy]);
+
+  const handleWorkflowResume = useCallback(async () => {
+    if (!detailItem || workflowActionBusy) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    detailPollingKeyRef.current = null;
+    setWorkflowActionBusy("resume");
+    setSelectedTimelineSegment(null);
+    try {
+      const { item: nextItem, media: nextMedia } = await resumeAnalysisWorkflow(detailItem);
+      if (token !== operationTokenRef.current) return;
+      setDetailItem(nextItem);
+      setDetailMedia(nextMedia);
+      setDetailTitle(nextMedia.title);
+      setHistoryRefreshKey((value) => value + 1);
+      startDetailPolling(nextItem, token);
+      await refreshHomeQueue().catch(() => undefined);
+    } finally {
+      if (token === operationTokenRef.current) setWorkflowActionBusy(null);
+    }
+  }, [detailItem, refreshHomeQueue, startDetailPolling, stopPolling, workflowActionBusy]);
+
+  const handleQueueItemCancel = useCallback(async (item: AnalysisHomeQueueItem) => {
+    if (!item.batchRunId || !item.queueItemId || queueActionBusyKey) return;
+    const busyKey = `cancel:${item.key}`;
+    setQueueActionBusyKey(busyKey);
+    try {
+      if (item.workflowKey === "material-recognition") {
+        await cancelMaterialRecognitionBatchItem(item.batchRunId, item.queueItemId);
+      } else {
+        await cancelFullAnalysisBatchItem(item.batchRunId, item.queueItemId);
+      }
+      await refreshHomeQueue();
+      setHistoryRefreshKey((value) => value + 1);
+    } finally {
+      setQueueActionBusyKey(null);
+    }
+  }, [queueActionBusyKey, refreshHomeQueue]);
+
+  const handleQueueItemRetry = useCallback(async (item: AnalysisHomeQueueItem) => {
+    if (!item.batchRunId || !item.queueItemId || queueActionBusyKey) return;
+    const busyKey = `retry:${item.key}`;
+    setQueueActionBusyKey(busyKey);
+    try {
+      if (item.workflowKey === "material-recognition") {
+        await retryMaterialRecognitionBatchItem(item.batchRunId, item.queueItemId);
+      } else {
+        await retryFullAnalysisBatchItem(item.batchRunId, item.queueItemId);
+      }
+      await refreshHomeQueue();
+      setHistoryRefreshKey((value) => value + 1);
+    } finally {
+      setQueueActionBusyKey(null);
+    }
+  }, [queueActionBusyKey, refreshHomeQueue]);
+
   useEffect(() => {
     if (view !== "detail") {
       setDetailHeavyReady(false);
@@ -337,6 +443,26 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   }, [detailHeavyReady, detailItem, view]);
 
   useEffect(() => {
+    onQueueStateChange?.({
+      items: homeQueueItems,
+      loading: homeQueueLoading,
+      onOpenItem: openHistoryDetail,
+      onCancelItem: handleQueueItemCancel,
+      onRetryItem: handleQueueItemRetry,
+      actionBusyKey: queueActionBusyKey,
+    });
+  }, [handleQueueItemCancel, handleQueueItemRetry, homeQueueItems, homeQueueLoading, onQueueStateChange, openHistoryDetail, queueActionBusyKey]);
+
+  useEffect(() => () => {
+    onQueueStateChange?.({
+      items: [],
+      loading: false,
+      onOpenItem: openHistoryDetail,
+      actionBusyKey: null,
+    });
+  }, [onQueueStateChange, openHistoryDetail]);
+
+  useEffect(() => {
     const sidebarItem = detailTimelineReady ? detailItem : null;
     onDetailStateChange?.({
       visible: view === "detail",
@@ -346,8 +472,11 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       rerunnableStageKeys: detailTimelineReady ? rerunnableStageKeys : [],
       rerunningStageKey: detailTimelineReady ? rerunningStageKey : null,
       onWorkflowStageRerun: handleWorkflowStageRerun,
+      workflowActionBusy,
+      onWorkflowCancel: handleWorkflowCancel,
+      onWorkflowResume: handleWorkflowResume,
     });
-  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
+  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view, workflowActionBusy]);
 
   useEffect(() => () => {
     stopPolling();
@@ -370,8 +499,11 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       rerunnableStageKeys,
       rerunningStageKey,
       onWorkflowStageRerun: handleWorkflowStageRerun,
+      workflowActionBusy,
+      onWorkflowCancel: handleWorkflowCancel,
+      onWorkflowResume: handleWorkflowResume,
     });
-  }, [detailHeavyReady, detailItem, detailTitle, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view]);
+  }, [detailHeavyReady, detailItem, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view, workflowActionBusy]);
 
   const handleTimelineReady = useCallback(() => {
     setDetailTimelineReady(true);
@@ -419,16 +551,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
             <span className="new-ui-analysis-upload-limit">单文件最大 2G</span>
           </span>
         </button>
-        <div className="new-ui-analysis-home-content">
-          <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
-          {homeQueueItems.length || homeQueueLoading ? (
-            <HomeQueuePanel
-              items={homeQueueItems}
-              loading={homeQueueLoading}
-              onOpenItem={openHistoryDetail}
-            />
-          ) : null}
-        </div>
+        <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
       </section>
       <AnalysisDetailPage
         hidden={view !== "detail"}
@@ -481,7 +604,7 @@ function AnalysisDetailPage({
   const videoRef = useRef<HTMLVideoElement>(null);
   const orientation = media?.orientation ?? "landscape";
   const [queueExpanded, setQueueExpanded] = useState(false);
-  const [batchQueueItems, setBatchQueueItems] = useState<PlayerQueueItem[] | null>(null);
+  const [batchQueueItems, setBatchQueueItems] = useState<AnalysisHomeQueueItem[] | null>(null);
   const queueItems = resolveVideoProcessingQueueItems(item, media, batchQueueItems);
 
   useEffect(() => {
@@ -585,58 +708,6 @@ function resolveTimelineModeHint(media: AnalysisHistoryMedia | null): "material"
   return media?.analysisKind ?? null;
 }
 
-type PlayerQueueItem = {
-  key: string;
-  status: "done" | "running" | "waiting" | "failed";
-  thumbnailUrl: string | null;
-  ratio: "wide" | "cinema";
-  badgeLabel: "分析中" | "识别中" | "排队中" | "已完成" | "失败";
-  title: string;
-  historyItem: AnalysisHistoryItem | null;
-};
-
-function HomeQueuePanel({
-  items,
-  loading,
-  onOpenItem,
-}: {
-  items: PlayerQueueItem[];
-  loading: boolean;
-  onOpenItem: (item: AnalysisHistoryItem) => void;
-}) {
-  return (
-    <aside className="new-ui-analysis-home-queue" aria-label="视频处理队列">
-      <header className="new-ui-analysis-home-queue-header">
-        <h2>视频处理队列</h2>
-        <span>{loading ? "更新中" : `${items.length} 项`}</span>
-      </header>
-      <div className="new-ui-analysis-home-queue-list">
-        {items.length ? items.map((item) => (
-          <button
-            key={item.key}
-            className={`new-ui-analysis-home-queue-item is-${item.status}`.trim()}
-            type="button"
-            disabled={!item.historyItem}
-            onClick={() => {
-              if (item.historyItem) onOpenItem(item.historyItem);
-            }}
-          >
-            <span className={`new-ui-analysis-home-queue-thumb is-${item.ratio}`} aria-hidden="true">
-              {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span />}
-            </span>
-            <span className="new-ui-analysis-home-queue-copy">
-              <strong>{item.title}</strong>
-              <small>{item.badgeLabel}</small>
-            </span>
-          </button>
-        )) : (
-          <div className="new-ui-analysis-home-queue-empty">{loading ? "正在读取队列" : "暂无排队任务"}</div>
-        )}
-      </div>
-    </aside>
-  );
-}
-
 function PlayerQueueRail({
   currentSampleVideoId,
   expanded,
@@ -646,7 +717,7 @@ function PlayerQueueRail({
 }: {
   currentSampleVideoId: string | null;
   expanded: boolean;
-  items: PlayerQueueItem[];
+  items: AnalysisHomeQueueItem[];
   onOpenItem: (item: AnalysisHistoryItem) => void;
   onToggle: () => void;
 }) {
@@ -657,7 +728,7 @@ function PlayerQueueRail({
     event.preventDefault();
     onToggle();
   };
-  const openQueueItem = (event: MouseEvent<HTMLButtonElement>, queueItem: PlayerQueueItem) => {
+  const openQueueItem = (event: MouseEvent<HTMLButtonElement>, queueItem: AnalysisHomeQueueItem) => {
     event.stopPropagation();
     if (!queueItem.historyItem) return;
     if (queueItem.historyItem.sampleVideoId === currentSampleVideoId) return;
@@ -713,7 +784,7 @@ function QueueIcon({ expanded }: { expanded: boolean }) {
   );
 }
 
-function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, batchItems: PlayerQueueItem[] | null): PlayerQueueItem[] {
+function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, batchItems: AnalysisHomeQueueItem[] | null): AnalysisHomeQueueItem[] {
   if (batchItems?.length) return batchItems;
   if (!item && !media) return [];
   const currentStatus = resolveCurrentQueueStatus(item);
@@ -730,26 +801,27 @@ function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, medi
   ];
 }
 
-function resolveCurrentQueueStatus(item: AnalysisHistoryItem | null): PlayerQueueItem["status"] {
+function resolveCurrentQueueStatus(item: AnalysisHistoryItem | null): AnalysisHomeQueueItem["status"] {
   const status = normalizePlayerQueueStatus(item?.artifact?.status ?? item?.workflowRun?.status ?? item?.runtimeState?.status ?? item?.status);
   if (status === "done") return status;
-  if ((item?.hasFunctionSlotAtomization || item?.hasUserMaterialPack || item?.artifact?.functionSlotAtomizationAnalysis || item?.artifact?.userMaterialPack) && status !== "failed") return "done";
+  if ((item?.hasFunctionSlotAtomization || item?.hasUserMaterialPack || item?.artifact?.functionSlotAtomizationAnalysis || item?.artifact?.userMaterialPack) && status !== "failed" && status !== "canceled") return "done";
   return status;
 }
 
-function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): PlayerQueueItem["ratio"] {
+function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): AnalysisHomeQueueItem["ratio"] {
   return media?.ratioLabel === "16:9" ? "wide" : "cinema";
 }
 
-function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, status: PlayerQueueItem["status"]): PlayerQueueItem["badgeLabel"] {
+function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, status: AnalysisHomeQueueItem["status"]): AnalysisHomeQueueItem["badgeLabel"] {
   if (status === "done") return "已完成";
   if (status === "failed") return "失败";
+  if (status === "canceled") return "已停止";
   if (status === "waiting") return "排队中";
   if (media?.analysisKind === "material" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
   return "分析中";
 }
 
-async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "structureAnalysis"): Promise<PlayerQueueItem[]> {
+async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "structureAnalysis"): Promise<AnalysisHomeQueueItem[]> {
   const loadBatch = mode === "materialRecognition" ? getLatestMaterialRecognitionBatchRun : getLatestFullAnalysisBatchRun;
   const batch = await loadBatch({ active: true }).catch(() => null);
   if (!batch?.items?.length) return [];
@@ -764,8 +836,8 @@ async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "stru
   return batch.items.map((queueItem) => resolveBatchQueueItem(queueItem, batch, artifactByQueueItemId.get(queueItem.queueItemId) ?? null));
 }
 
-function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): PlayerQueueItem {
-  const status = normalizePlayerQueueStatus(artifact?.status ?? queueItem.status);
+function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem {
+  const status = normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
   return {
     key: queueItem.queueItemId,
     status,
@@ -774,6 +846,11 @@ function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnal
     badgeLabel: resolveBatchQueueBadgeLabel(queueItem, batch, status),
     title: resolveBatchQueueTitle(queueItem, artifact),
     historyItem: resolveBatchQueueHistoryItem(queueItem, batch, artifact, status),
+    batchRunId: batch.batchRunId,
+    queueItemId: queueItem.queueItemId,
+    workflowRunId: queueItem.workflowRunId ?? null,
+    workflowKey: batch.workflowKey,
+    retryable: Boolean(queueItem.retryable),
   };
 }
 
@@ -781,7 +858,7 @@ function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: Samp
   return artifact?.sampleVideo.original.summary ?? queueItem.filename ?? queueItem.sampleVideoId ?? "队列视频";
 }
 
-function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: PlayerQueueItem["status"]): AnalysisHistoryItem | null {
+function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: AnalysisHomeQueueItem["status"]): AnalysisHistoryItem | null {
   if (!queueItem.sampleVideoId) return null;
   return {
     sampleVideoId: queueItem.sampleVideoId,
@@ -824,25 +901,28 @@ function resolveArtifactThumbnailUrl(artifact: SampleArtifact | null) {
   return runtimeUrl(artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null);
 }
 
-function resolveBatchQueueThumbnailRatio(artifact: SampleArtifact | null): PlayerQueueItem["ratio"] {
+function resolveBatchQueueThumbnailRatio(artifact: SampleArtifact | null): AnalysisHomeQueueItem["ratio"] {
   const width = Number(artifact?.metadata?.width);
   const height = Number(artifact?.metadata?.height);
   if (Number.isFinite(width) && Number.isFinite(height) && height > width) return "cinema";
   return "wide";
 }
 
-function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, status: PlayerQueueItem["status"]): PlayerQueueItem["badgeLabel"] {
+function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, status: AnalysisHomeQueueItem["status"]): AnalysisHomeQueueItem["badgeLabel"] {
   if (status === "done") return "已完成";
   if (status === "failed") return "失败";
+  if (status === "canceled") return "已停止";
   if (status === "waiting" || queueItem.status === "queued" || queueItem.position > batch.maxConcurrentRuns) return "排队中";
   if (batch.workflowKey === "material-recognition" || queueItem.currentStageLabel?.includes("素材")) return "识别中";
   return "分析中";
 }
 
-function normalizePlayerQueueStatus(status: string | null | undefined): PlayerQueueItem["status"] {
-  if (["processed", "done", "completed", "complete", "success", "succeeded"].includes(String(status ?? "").toLowerCase())) return "done";
-  if (status === "running" || status === "processing" || status === "cache_waiting") return "running";
-  if (status === "failed" || status === "partial_failed") return "failed";
+function normalizePlayerQueueStatus(status: string | null | undefined): AnalysisHomeQueueItem["status"] {
+  const text = String(status ?? "").toLowerCase();
+  if (["processed", "done", "completed", "complete", "success", "succeeded"].includes(text)) return "done";
+  if (text === "running" || text === "processing" || text === "cache_waiting") return "running";
+  if (text === "failed" || text === "partial_failed") return "failed";
+  if (text === "canceled") return "canceled";
   return "waiting";
 }
 

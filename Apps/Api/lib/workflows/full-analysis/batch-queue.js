@@ -3,7 +3,7 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 
 const DEFAULT_MAX_CONCURRENT_RUNS = 2;
-const TERMINAL_WORKFLOW_STATUSES = new Set(["processed", "partial_failed", "failed"]);
+const TERMINAL_WORKFLOW_STATUSES = new Set(["processed", "partial_failed", "failed", "canceled"]);
 const CACHE_WAITING_STATUS = "cache_waiting";
 
 function createFullAnalysisBatchQueue({
@@ -116,6 +116,32 @@ function createFullAnalysisBatchQueue({
     batch.status = "queued";
     batch.completedAt = null;
     batch.updatedAt = now;
+    persistQueueState(filePath, state);
+    scheduleAdvance(batchRunId, 0);
+    return publicBatch(batch);
+  }
+
+  async function cancelItem(batchRunId, queueItemId, reason = "user_requested") {
+    const batch = findBatch(batchRunId);
+    if (!batch) return null;
+    const item = batch.items.find((entry) => entry.queueItemId === queueItemId);
+    if (!item) return publicBatch(batch);
+    if (isItemTerminal(item)) return publicBatch(batch);
+    const now = new Date().toISOString();
+    if (item.workflowRunId && typeof workflowService.cancelRun === "function") {
+      const run = await workflowService.cancelRun({ workflowRunId: item.workflowRunId, reason });
+      item.sampleVideoId = run?.sampleVideoId ?? item.sampleVideoId ?? null;
+      item.currentStageKeys = run?.currentStageKeys ?? [];
+      item.currentStageLabel = currentStageLabel(run);
+      item.errorSummary = run?.errorSummary ?? cancelItemError(reason);
+    } else {
+      item.errorSummary = cancelItemError(reason);
+    }
+    item.status = "canceled";
+    item.position = 0;
+    item.completedAt = now;
+    item.updatedAt = now;
+    updateBatchStatus(batch);
     persistQueueState(filePath, state);
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
@@ -277,6 +303,7 @@ function createFullAnalysisBatchQueue({
     getLatestBatch,
     getLatestActiveBatch,
     retryItem,
+    cancelItem,
     advance,
   };
 }
@@ -389,6 +416,7 @@ function updateBatchStatus(batch) {
   else if (batch.items.some((item) => item.status === CACHE_WAITING_STATUS)) batch.status = CACHE_WAITING_STATUS;
   else if (batch.items.some((item) => item.status === "queued")) batch.status = "queued";
   else if (batch.items.some((item) => item.status === "failed" || item.status === "partial_failed")) batch.status = "partial_failed";
+  else if (batch.items.some((item) => item.status === "canceled")) batch.status = "canceled";
   else batch.status = "processed";
   batch.updatedAt = now;
   batch.completedAt = isBatchTerminal(batch) ? batch.completedAt ?? now : null;
@@ -421,7 +449,17 @@ function batchTime(batch) {
 }
 
 function isRetryableItem(item) {
-  return ["failed", "partial_failed"].includes(String(item?.status ?? "")) && Boolean(item?.filePath && fs.existsSync(item.filePath));
+  return ["failed", "partial_failed", "canceled"].includes(String(item?.status ?? "")) && Boolean(item?.filePath && fs.existsSync(item.filePath));
+}
+
+function cancelItemError(reason) {
+  return {
+    code: "workflow_batch_item_canceled",
+    message: "队列任务已手动停止",
+    stageName: "workflow.batch.cancel",
+    retryable: true,
+    reason,
+  };
 }
 
 function normalizeQueueError(error, { errorCode = "full_analysis_batch_item_failed", stageName = "workflow.full_analysis.batch.dispatch", workflowLabel = "完整分析" } = {}) {

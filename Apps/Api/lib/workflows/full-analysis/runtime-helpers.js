@@ -34,6 +34,14 @@ function resetStageForRun(stage) {
   };
 }
 
+function resetCanceledOrFailedStageForResume(stage) {
+  if (stage.status === "processed") return stage;
+  return {
+    ...resetStageForRun(stage),
+    attemptNo: Number(stage.attemptNo ?? 1) + 1,
+  };
+}
+
 function findStage(run, stageKey) {
   return run?.stages?.find((stage) => stage.key === stageKey) ?? createStageState({ key: stageKey, stageName: stageKey, label: stageKey, artifactKey: null });
 }
@@ -117,7 +125,7 @@ function hasRunningChildren(run, cacheWaitingStatus) {
 }
 
 function hasTerminalRunWithRunningChildren(run, jobStore, cacheWaitingStatus) {
-  if (!["processed", "failed"].includes(run?.status)) return false;
+  if (!["processed", "failed", "canceled"].includes(run?.status)) return false;
   return Boolean(run?.stages?.some((stage) => {
     if (!stage.childJobId || !["pending", "running", cacheWaitingStatus].includes(stage.status)) return false;
     const job = jobStore.getJob(stage.childJobId);
@@ -155,6 +163,10 @@ function publicRun(run) {
     completedAt: run.completedAt ?? null,
     errorSummary: run.errorSummary ?? null,
   };
+}
+
+function isWorkflowTerminalStatus(status) {
+  return ["processed", "partial_failed", "failed", "canceled"].includes(String(status ?? ""));
 }
 
 function resolveWorkflowStages(workflowDescriptor, moduleRegistry) {
@@ -230,8 +242,10 @@ module.exports = {
   latestWorkflowRun,
   normalizeError,
   publicRun,
+  resetCanceledOrFailedStageForResume,
   resetStageForRun,
   resolveWorkflowStages,
+  isWorkflowTerminalStatus,
   summarizeStageInput,
   unique,
   updateStage,

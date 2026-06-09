@@ -8,6 +8,7 @@ async function handleWorkflowRoute(req, res, url, handlers = {}) {
   if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/batch-runs/latest") { await handleFullAnalysisBatchLatest(res, handlers, url); return true; }
   if (req.method === "GET" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+$/.test(url.pathname)) { await handleFullAnalysisBatchRead(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers); return true; }
   if (req.method === "POST" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+\/items\/[^/]+\/retry$/.test(url.pathname)) { await handleFullAnalysisBatchItemRetry(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
+  if (req.method === "POST" && /^\/api\/workflows\/full-analysis\/batch-runs\/[^/]+\/items\/[^/]+\/cancel$/.test(url.pathname)) { await handleFullAnalysisBatchItemCancel(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/workflows/full-analysis/cache-check") { await handleFullAnalysisCacheCheck(req, res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/workflows/full-analysis/latest") { await handleLatestFullAnalysisRun(res, handlers); return true; }
   if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/full-analysis\/latest$/.test(url.pathname)) { await handleLatestFullAnalysisRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers); return true; }
@@ -16,10 +17,13 @@ async function handleWorkflowRoute(req, res, url, handlers = {}) {
   if (req.method === "GET" && url.pathname === "/api/workflows/material-recognition/batch-runs/latest") { await handleMaterialRecognitionBatchLatest(res, handlers, url); return true; }
   if (req.method === "GET" && /^\/api\/workflows\/material-recognition\/batch-runs\/[^/]+$/.test(url.pathname)) { await handleMaterialRecognitionBatchRead(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers); return true; }
   if (req.method === "POST" && /^\/api\/workflows\/material-recognition\/batch-runs\/[^/]+\/items\/[^/]+\/retry$/.test(url.pathname)) { await handleMaterialRecognitionBatchItemRetry(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
+  if (req.method === "POST" && /^\/api\/workflows\/material-recognition\/batch-runs\/[^/]+\/items\/[^/]+\/cancel$/.test(url.pathname)) { await handleMaterialRecognitionBatchItemCancel(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
   if (req.method === "POST" && url.pathname === "/api/workflows/material-recognition/cache-check") { await handleFullAnalysisCacheCheck(req, res, handlers); return true; }
   if (req.method === "GET" && url.pathname === "/api/workflows/material-recognition/latest") { await handleLatestMaterialRecognitionRun(res, handlers); return true; }
   if (req.method === "GET" && /^\/api\/sample-videos\/[^/]+\/workflows\/material-recognition\/latest$/.test(url.pathname)) { await handleLatestMaterialRecognitionRunForSample(res, decodeURIComponent(url.pathname.split("/").at(-4)), handlers); return true; }
   if (req.method === "GET" && /^\/api\/workflows\/runs\/[^/]+$/.test(url.pathname)) { await handleWorkflowRun(res, decodeURIComponent(url.pathname.split("/").at(-1)), handlers); return true; }
+  if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/cancel$/.test(url.pathname)) { await handleWorkflowRunCancel(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
+  if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/resume$/.test(url.pathname)) { await handleWorkflowRunResume(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
   if (req.method === "POST" && /^\/api\/workflows\/runs\/[^/]+\/stages\/[^/]+\/rerun$/.test(url.pathname)) { await handleWorkflowStageRerun(res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-2)), handlers); return true; }
   return false;
 }
@@ -80,6 +84,14 @@ async function handleFullAnalysisBatchItemRetry(res, batchRunId, queueItemId, ha
   return sendJson(res, 202, batch);
 }
 
+async function handleFullAnalysisBatchItemCancel(req, res, batchRunId, queueItemId, handlers = {}) {
+  const body = await readJsonBody(req).catch(() => ({}));
+  const queue = resolveBatchQueue("full-analysis", handlers);
+  const batch = await queue.cancelItem?.(batchRunId, queueItemId, body.reason ?? "user_requested");
+  if (!batch) return notFound(res);
+  return sendJson(res, 202, batch);
+}
+
 async function handleMaterialRecognitionBatchRun(req, res, handlers = {}) {
   const { files, fields } = await parseMultipartUploads(req, req.headers["content-type"]);
   const queue = resolveBatchQueue("material-recognition", handlers);
@@ -112,6 +124,14 @@ async function handleMaterialRecognitionBatchLatest(res, handlers = {}, url = nu
 async function handleMaterialRecognitionBatchItemRetry(res, batchRunId, queueItemId, handlers = {}) {
   const queue = resolveBatchQueue("material-recognition", handlers);
   const batch = queue.retryItem?.(batchRunId, queueItemId);
+  if (!batch) return notFound(res);
+  return sendJson(res, 202, batch);
+}
+
+async function handleMaterialRecognitionBatchItemCancel(req, res, batchRunId, queueItemId, handlers = {}) {
+  const body = await readJsonBody(req).catch(() => ({}));
+  const queue = resolveBatchQueue("material-recognition", handlers);
+  const batch = await queue.cancelItem?.(batchRunId, queueItemId, body.reason ?? "user_requested");
   if (!batch) return notFound(res);
   return sendJson(res, 202, batch);
 }
@@ -191,10 +211,31 @@ function resolveWorkflowService(workflowRunId, handlers = {}) {
   return handlers.fullAnalysisWorkflowService;
 }
 
+async function handleWorkflowRunCancel(req, res, workflowRunId, handlers = {}) {
+  const body = await readJsonBody(req).catch(() => ({}));
+  const run = await resolveWorkflowService(workflowRunId, handlers).cancelRun?.({ workflowRunId, reason: body.reason ?? "user_requested" });
+  if (!run) return notFound(res);
+  return sendJson(res, 202, run);
+}
+
+async function handleWorkflowRunResume(res, workflowRunId, handlers = {}) {
+  const run = await resolveWorkflowService(workflowRunId, handlers).resumeRun?.({ workflowRunId });
+  if (!run) return notFound(res);
+  return sendJson(res, 202, run);
+}
+
 function resolveBatchQueue(workflowKey, handlers = {}) {
   return workflowKey === "material-recognition"
     ? handlers.materialRecognitionBatchQueue
     : handlers.fullAnalysisBatchQueue;
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  if (!text) return {};
+  return JSON.parse(text);
 }
 
 

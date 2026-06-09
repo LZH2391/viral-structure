@@ -2,7 +2,7 @@ import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
 
-export type WorkflowStageStatus = "done" | "running" | "waiting" | "failed";
+export type WorkflowStageStatus = "done" | "running" | "waiting" | "failed" | "canceled";
 export type WorkflowStageKey =
   | "upload"
   | "shotBoundary"
@@ -485,6 +485,7 @@ function statusFor({ done, dependenciesDone, running }: { done: boolean; depende
 export function resolveGroupStatus(stages: WorkflowStage[]): WorkflowStageStatus {
   if (stages.every((stage) => stage.status === "done")) return "done";
   if (stages.some((stage) => stage.status === "failed")) return "failed";
+  if (stages.some((stage) => stage.status === "canceled")) return "canceled";
   if (stages.some((stage) => stage.status === "running")) return "running";
   return "waiting";
 }
@@ -493,6 +494,7 @@ export function statusLabel(status: WorkflowStageStatus) {
   if (status === "done") return "已完成";
   if (status === "running") return "处理中";
   if (status === "failed") return "失败";
+  if (status === "canceled") return "已停止";
   return "等待中";
 }
 
@@ -516,7 +518,8 @@ function workflowStageStatus(status: string | null | undefined): WorkflowStageSt
   const text = String(status ?? "").toLowerCase();
   if (!text || text === "pending") return null;
   if (text === "processed") return "done";
-  if (text === "failed" || text === "partial_failed" || text === "canceled") return "failed";
+  if (text === "failed" || text === "partial_failed") return "failed";
+  if (text === "canceled") return "canceled";
   if (["running", "processing", "waiting", "blocked", "cache_waiting"].includes(text)) return "running";
   return null;
 }

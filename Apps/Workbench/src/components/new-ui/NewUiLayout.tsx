@@ -7,7 +7,7 @@ import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../.
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
 import { SplitResizeHandle } from "../SplitResizeHandle";
-import { AnalysisHome } from "./AnalysisHome";
+import { AnalysisHome, type AnalysisHomeQueueItem, type AnalysisHomeQueueState } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
@@ -177,6 +177,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     title: "新建分析",
     item: null,
   });
+  const [analysisQueueState, setAnalysisQueueState] = useState<AnalysisHomeQueueState | null>(null);
   const navSections = useMemo(() => NEW_UI_SECTIONS.map((section) => (
     section.id === "restructure"
       ? {
@@ -243,9 +244,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     [selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
   );
   const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
+  const showAnalysisQueuePanel = activeSection === "analysis" && !analysisDetail.visible;
   const showLibraryGraphPanel = activeSection === "library";
   const showRestructureSlotAtomPanel = activeSection === "restructure";
-  const showRightPaneContent = showAnalysisWorkflow || showLibraryGraphPanel || showRestructureSlotAtomPanel;
+  const showRightPaneContent = showAnalysisWorkflow || showAnalysisQueuePanel || showLibraryGraphPanel || showRestructureSlotAtomPanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
     ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
     : null;
@@ -255,14 +257,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     leftCssVar: "--new-ui-left-width",
     rightCssVar: "--new-ui-right-width",
     defaultLeft: 320,
-    defaultRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 360 : showRestructureSlotAtomPanel ? 380 : 320,
+    defaultRight: showAnalysisWorkflow ? 420 : showAnalysisQueuePanel ? 320 : showLibraryGraphPanel ? 360 : showRestructureSlotAtomPanel ? 380 : 320,
     minLeft: 0,
     maxLeft: Number.POSITIVE_INFINITY,
     minCenter: 420,
-    minRight: showAnalysisWorkflow ? 420 : showLibraryGraphPanel ? 320 : showRestructureSlotAtomPanel ? 340 : 0,
+    minRight: showAnalysisWorkflow ? 420 : showAnalysisQueuePanel ? 300 : showLibraryGraphPanel ? 320 : showRestructureSlotAtomPanel ? 340 : 0,
     maxRight: Number.POSITIVE_INFINITY,
     leftRatio: { min: 0.1, max: 0.3 },
-    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureSlotAtomPanel ? { min: 0.16, max: 0.34 } : { min: 0.1, max: 0.3 },
+    rightRatio: showAnalysisWorkflow ? { min: 0.18, max: 0.34 } : showAnalysisQueuePanel ? { min: 0.14, max: 0.28 } : showLibraryGraphPanel ? { min: 0.16, max: 0.32 } : showRestructureSlotAtomPanel ? { min: 0.16, max: 0.34 } : { min: 0.1, max: 0.3 },
     persistedSides: { left: true, right: false },
   });
 
@@ -359,14 +361,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
       setAnalysisWorkflowMounted(false);
-      if (!showLibraryGraphPanel && !showRestructureSlotAtomPanel) setRightCollapsed(true);
+      if (!showAnalysisQueuePanel && !showLibraryGraphPanel && !showRestructureSlotAtomPanel) setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
     lastAnalysisWorkflowRevealKeyRef.current = analysisWorkflowRevealKey;
     setAnalysisWorkflowMounted(false);
     setRightCollapsed(false);
-  }, [analysisWorkflowRevealKey, showLibraryGraphPanel, showRestructureSlotAtomPanel]);
+  }, [analysisWorkflowRevealKey, showAnalysisQueuePanel, showLibraryGraphPanel, showRestructureSlotAtomPanel]);
 
   useEffect(() => {
     if (!showAnalysisWorkflow) {
@@ -585,6 +587,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       layoutElement.style.removeProperty("--new-ui-right-content-width");
     }, PANE_TRANSITION_GUARD_MS);
   }, []);
+
+  useEffect(() => {
+    if (!showAnalysisQueuePanel) return;
+    startPaneTransitionGuard();
+    startRightPaneContentFreeze(false);
+    setRightCollapsed(false);
+  }, [showAnalysisQueuePanel, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
     if (!showLibraryGraphPanel) return;
@@ -1606,6 +1615,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             key={activeAnalysisChild}
             mode={activeAnalysisChild}
             onDetailStateChange={handleAnalysisDetailStateChange}
+            onQueueStateChange={setAnalysisQueueState}
             openRequest={analysisOpenRequest}
             onOpenRequestResolved={handleAnalysisOpenRequestResolved}
             timelineSelectionClearRequest={timelineSelectionClearRequest}
@@ -1687,6 +1697,16 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               detail={analysisDetail}
               onOpenStructureGraph={openStructureGraphFromAnalysis}
               onWorkflowStageSelect={() => setTimelineSelectionClearRequest((value) => value + 1)}
+            />
+          ) : null}
+          {showAnalysisQueuePanel ? (
+            <AnalysisQueueSidebar
+              items={analysisQueueState?.items ?? []}
+              loading={analysisQueueState?.loading ?? false}
+              onOpenItem={analysisQueueState?.onOpenItem}
+              onCancelItem={analysisQueueState?.onCancelItem}
+              onRetryItem={analysisQueueState?.onRetryItem}
+              actionBusyKey={analysisQueueState?.actionBusyKey ?? null}
             />
           ) : null}
           {showLibraryGraphPanel ? <div id="new-ui-library-graph-panel" className="new-ui-library-graph-panel" /> : null}
@@ -1794,6 +1814,98 @@ function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | nul
     </div>,
     document.body,
   ) : null;
+}
+
+function AnalysisQueueSidebar({
+  items,
+  loading,
+  onOpenItem,
+  onCancelItem,
+  onRetryItem,
+  actionBusyKey,
+}: {
+  items: AnalysisHomeQueueItem[];
+  loading: boolean;
+  onOpenItem?: (item: AnalysisHistoryItem) => void;
+  onCancelItem?: (item: AnalysisHomeQueueItem) => void;
+  onRetryItem?: (item: AnalysisHomeQueueItem) => void;
+  actionBusyKey?: string | null;
+}) {
+  return (
+    <section className="new-ui-analysis-queue-sidebar" aria-label="视频处理队列">
+      <header className="new-ui-analysis-queue-sidebar-header">
+        <h2>视频处理队列</h2>
+        <span>{loading ? "更新中" : `${items.length} 项`}</span>
+      </header>
+      {items.length ? (
+        <div className="new-ui-analysis-queue-sidebar-list">
+          {items.map((item) => {
+            const canCancel = (item.status === "running" || item.status === "waiting") && Boolean(onCancelItem && item.batchRunId && item.queueItemId);
+            const canRetry = (item.status === "canceled" || item.status === "failed") && Boolean(onRetryItem && item.batchRunId && item.queueItemId && item.retryable);
+            const cancelBusy = actionBusyKey === `cancel:${item.key}`;
+            const retryBusy = actionBusyKey === `retry:${item.key}`;
+            const actionDisabled = Boolean(actionBusyKey && !cancelBusy && !retryBusy);
+            return (
+              <div key={item.key} className={`new-ui-analysis-queue-sidebar-row is-${item.status}`.trim()}>
+                <button
+                  className="new-ui-analysis-queue-sidebar-item"
+                  type="button"
+                  disabled={!item.historyItem || !onOpenItem}
+                  onClick={() => {
+                    if (item.historyItem) onOpenItem?.(item.historyItem);
+                  }}
+                >
+                  <span className={`new-ui-analysis-queue-sidebar-thumb is-${item.ratio}`} aria-hidden="true">
+                    {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span />}
+                  </span>
+                  <span className="new-ui-analysis-queue-sidebar-copy">
+                    <strong>{item.title}</strong>
+                    <small>{item.badgeLabel}</small>
+                  </span>
+                </button>
+                {canCancel || canRetry ? (
+                  <button
+                    className={`new-ui-analysis-queue-sidebar-action ${canRetry ? "is-retry" : "is-cancel"}`.trim()}
+                    type="button"
+                    disabled={actionDisabled || cancelBusy || retryBusy}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (canRetry) {
+                        onRetryItem?.(item);
+                        return;
+                      }
+                      onCancelItem?.(item);
+                    }}
+                  >
+                    {cancelBusy ? "停止中" : retryBusy ? "继续中" : canRetry ? "继续" : "停止"}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="new-ui-analysis-queue-sidebar-empty">
+          <AnalysisQueueEmptyIcon />
+          <strong>暂无排队任务</strong>
+          <span>{loading ? "正在读取视频处理队列，新的分析任务会显示在这里。" : "上传样例或素材后，等待处理的视频会在这里显示。"}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AnalysisQueueEmptyIcon() {
+  return (
+    <svg className="new-ui-analysis-queue-sidebar-empty-icon" viewBox="0 0 32 32" focusable="false" aria-hidden="true">
+      <rect x="5" y="7" width="12" height="8" rx="2.2" />
+      <path d="m10.5 9.4 3.4 1.6-3.4 1.6Z" />
+      <path d="M19.5 11h4.8c1.8 0 3.2 1.4 3.2 3.2v0c0 1.8-1.4 3.2-3.2 3.2H8.7c-1.8 0-3.2 1.4-3.2 3.2v0c0 1.8 1.4 3.2 3.2 3.2h4.8" />
+      <circle cx="18.5" cy="23.8" r="2.2" />
+      <circle cx="25.5" cy="23.8" r="2.2" />
+      <path d="M20.7 23.8h2.6" />
+    </svg>
+  );
 }
 
 function readTooltipVariables(source: HTMLElement): CSSProperties {

@@ -18,6 +18,7 @@ const {
   hasTerminalRunWithRunningChildren, hasRunningChildren, latestWorkflowRun,
   normalizeError,
   publicRun,
+  resetCanceledOrFailedStageForResume,
   resetStageForRun,
   resolveWorkflowStages,
   summarizeStageInput,
@@ -37,6 +38,8 @@ function createWorkflowService({
   logger,
   store,
   artifactIndex,
+  threadPool = null,
+  activeTurnRuntime = null,
   loadSampleArtifact = loadCurrentSampleArtifact,
   pollIntervalMs = 2000,
   workflowDescriptor = FULL_ANALYSIS_WORKFLOW_DESCRIPTOR,
@@ -116,6 +119,107 @@ function createWorkflowService({
     return runWithWorkflowLock(workflowRunId, () => rerunStageUnlocked({ workflowRunId, stageKey }));
   }
 
+  async function cancelRun({ workflowRunId, reason = "user_requested" } = {}) {
+    return runWithWorkflowLock(workflowRunId, () => cancelRunUnlocked({ workflowRunId, reason }));
+  }
+
+  async function cancelRunUnlocked({ workflowRunId, reason = "user_requested" } = {}) {
+    const run = workflowRunStore.getRun(workflowRunId);
+    if (!run) return null;
+    if (["processed", "failed", "canceled"].includes(run.status)) return publicRun(run);
+    const now = new Date().toISOString();
+    const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
+    const errorSummary = {
+      code: "workflow_canceled",
+      message: "分析已手动停止",
+      stageName: "workflow.run",
+      retryable: true,
+    };
+    await cancelActiveStages(run, traceContext, reason);
+    const snapshot = await logger.writeDebugSnapshot({
+      traceContext,
+      stageName: "workflow.cancel",
+      artifactId: null,
+      parentArtifactId: null,
+      reason: errorSummary.code,
+      inputSummary: { workflowRunId, workflowKey, reason },
+      outputSummary: {
+        canceledStageKeys: run.stages.filter((stage) => ["pending", "running", CACHE_WAITING_STATUS].includes(stage.status)).map((stage) => stage.key),
+      },
+      debugPayload: {
+        currentStageKeys: run.currentStageKeys ?? [],
+      },
+    });
+    const canceledSummary = { ...errorSummary, debugSnapshotUri: snapshot.uri };
+    const updated = workflowRunStore.updateRun(workflowRunId, (current) => ({
+      status: "canceled",
+      currentStageKeys: [],
+      completedAt: now,
+      canceledAt: now,
+      cancelReason: reason,
+      errorSummary: canceledSummary,
+      stages: current.stages.map((stage) => {
+        if (!["pending", "running", CACHE_WAITING_STATUS].includes(stage.status)) return stage;
+        return {
+          ...stage,
+          status: "canceled",
+          completedAt: now,
+          errorSummary: {
+            code: "workflow_stage_canceled",
+            message: "步骤已随整条分析停止",
+            stageName: stage.key,
+            retryable: true,
+            debugSnapshotUri: snapshot.uri,
+          },
+        };
+      }),
+    }));
+    await workflowLogger.logWorkflowEvent(traceContext, "stage.fail", "workflow.cancel", null, null, { workflowRunId, workflowKey, reason }, { status: "canceled" }, null, canceledSummary);
+    await workflowLogger.logWorkflowRunClosed(updated, "stage.fail");
+    return publicRun(updated);
+  }
+
+  async function resumeRun({ workflowRunId } = {}) {
+    return runWithWorkflowLock(workflowRunId, () => resumeRunUnlocked({ workflowRunId }));
+  }
+
+  async function resumeRunUnlocked({ workflowRunId } = {}) {
+    const run = workflowRunStore.getRun(workflowRunId);
+    if (!run) return null;
+    if (!["canceled", "failed", "partial_failed"].includes(run.status)) return publicRun(run);
+    const firstStageKey = firstResumeStageKey(run);
+    if (!firstStageKey) return publicRun(run);
+    if (firstStageKey === "upload") {
+      if (!run.sampleVideoId) {
+        const error = new Error("上传尚未完成，请从队列继续该任务");
+        error.statusCode = 400;
+        error.code = "workflow_resume_upload_unavailable";
+        error.retryable = true;
+        throw error;
+      }
+      return rerunStageUnlocked({ workflowRunId, stageKey: "upload" });
+    }
+    const now = new Date().toISOString();
+    workflowRunStore.updateRun(workflowRunId, (current) => ({
+      status: "running",
+      currentStageKeys: [],
+      completedAt: null,
+      resumedAt: now,
+      errorSummary: null,
+      stages: current.stages.map(resetCanceledOrFailedStageForResume),
+    }));
+    await workflowLogger.logWorkflowEvent(
+      { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` },
+      "stage.start",
+      "workflow.resume",
+      null,
+      null,
+      { workflowRunId, workflowKey, fromStatus: run.status, firstStageKey },
+    );
+    await advanceUnlocked(workflowRunId);
+    return publicRun(workflowRunStore.getRun(workflowRunId));
+  }
+
   async function rerunStageUnlocked({ workflowRunId, stageKey }) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
@@ -154,6 +258,49 @@ function createWorkflowService({
     await startStage(workflowRunId, stageKey, uploadRerunInput ?? { cacheDecision: "refresh" }, traceContext);
     scheduleAdvance(workflowRunId);
     return publicRun(workflowRunStore.getRun(workflowRunId));
+  }
+
+  async function cancelActiveStages(run, traceContext, reason) {
+    const activeStages = run.stages.filter((stage) => stage.childJobId && ["running", "pending", CACHE_WAITING_STATUS].includes(stage.status));
+    for (const stage of activeStages) {
+      const job = jobStore.getJob(stage.childJobId);
+      if (!job) continue;
+      await cancelProcessingJobForWorkflow(job, stage, traceContext, reason);
+    }
+  }
+
+  async function cancelProcessingJobForWorkflow(job, stage, traceContext, reason) {
+    const errorSummary = {
+      code: "workflow_stage_canceled",
+      message: "步骤已手动停止",
+      stageName: stage.key,
+      retryable: true,
+    };
+    const agentRun = job.agentRun ?? null;
+    if (agentRun?.threadId && agentRun?.turnId && typeof activeTurnRuntime?.cancel === "function") {
+      await activeTurnRuntime.cancel({
+        workspaceRoot: agentRun.workspaceRoot ?? null,
+        threadId: agentRun.threadId,
+        turnId: agentRun.turnId,
+        traceContext,
+      }).catch(() => undefined);
+    }
+    if (agentRun?.leaseId && agentRun?.traceId && typeof threadPool?.releaseLease === "function") {
+      await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId }).catch(() => undefined);
+    } else if (agentRun?.traceId && typeof threadPool?.releaseOwnerLeases === "function") {
+      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
+    }
+    jobStore.updateJob(job.jobId, {
+      status: "failed",
+      errorSummary,
+      agentRun: agentRun ? { ...agentRun, status: "canceled", updatedAt: new Date().toISOString() } : agentRun,
+      cancelReason: reason,
+    });
+  }
+
+  function firstResumeStageKey(run) {
+    const first = run.stages.find((stage) => stage.status !== "processed");
+    return first?.key ?? null;
   }
 
   async function buildUploadRerunInputForSample(sampleVideoId) {
@@ -583,7 +730,7 @@ function createWorkflowService({
     return loadSampleArtifact({ sampleVideoId, store, artifactIndex });
   }
 
-  return { start, startFromSample, get, getLatest, getLatestBySampleVideoId, rerunStage, advance };
+  return { start, startFromSample, get, getLatest, getLatestBySampleVideoId, rerunStage, cancelRun, resumeRun, advance };
 }
 
 module.exports = {

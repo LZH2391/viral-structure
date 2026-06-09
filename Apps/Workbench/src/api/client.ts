@@ -465,10 +465,30 @@ export async function retryFullAnalysisBatchItem(batchRunId: string, queueItemId
   );
 }
 
+export async function cancelFullAnalysisBatchItem(batchRunId: string, queueItemId: string, reason = "user_requested") {
+  return readJsonResponse<FullAnalysisBatchRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/full-analysis/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/cancel`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason }),
+    }),
+  );
+}
+
 export async function retryMaterialRecognitionBatchItem(batchRunId: string, queueItemId: string) {
   return readJsonResponse<FullAnalysisBatchRun>(
     await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/retry`, {
       method: "POST",
+    }),
+  );
+}
+
+export async function cancelMaterialRecognitionBatchItem(batchRunId: string, queueItemId: string, reason = "user_requested") {
+  return readJsonResponse<FullAnalysisBatchRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs/${encodeURIComponent(batchRunId)}/items/${encodeURIComponent(queueItemId)}/cancel`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason }),
     }),
   );
 }
@@ -501,6 +521,24 @@ export async function checkMaterialRecognitionUploadCache(file: File, options: {
 
 export async function getWorkflowRun(workflowRunId: string) {
   return readJsonResponse<WorkflowRun>(await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}`, { cache: "no-store" }));
+}
+
+export async function cancelWorkflowRun(workflowRunId: string, reason = "user_requested") {
+  return readJsonResponse<WorkflowRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}/cancel`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason }),
+    }),
+  );
+}
+
+export async function resumeWorkflowRun(workflowRunId: string) {
+  return readJsonResponse<WorkflowRun>(
+    await fetch(`${API_BASE_URL}/api/workflows/runs/${encodeURIComponent(workflowRunId)}/resume`, {
+      method: "POST",
+    }),
+  );
 }
 
 export async function getLatestFullAnalysisRun() {

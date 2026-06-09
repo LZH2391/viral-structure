@@ -28,6 +28,9 @@ export type AnalysisDetailSidebarState = {
   rerunnableStageKeys?: string[];
   rerunningStageKey?: string | null;
   onWorkflowStageRerun?: (stageKey: RerunTarget) => void;
+  workflowActionBusy?: "cancel" | "resume" | null;
+  onWorkflowCancel?: () => void;
+  onWorkflowResume?: () => void;
 };
 
 type AnalysisWorkflowSidebarProps = {
@@ -64,6 +67,11 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
   const canOpenStructureGraph = Boolean(structureGraphArtifactId && onOpenStructureGraph);
   const canRerunStage = (stage: WorkflowStage) => Boolean(detail.onWorkflowStageRerun && rerunnableStageKeys.includes(stage.key));
   const canRerunStructure = Boolean(detail.onWorkflowStageRerun && structureStageKeys.every((stageKey) => rerunnableStageKeys.includes(stageKey)));
+  const workflowStatus = String(detail.item?.workflowRun?.status ?? detail.item?.status ?? "").toLowerCase();
+  const workflowRunning = Boolean(detail.item?.isRunning || ["running", "queued", "pending", "processing", "cache_waiting"].includes(workflowStatus));
+  const workflowCanceled = workflowStatus === "canceled";
+  const canCancelWorkflow = Boolean(detail.onWorkflowCancel && detail.item?.workflowRunId && workflowRunning && !detail.workflowActionBusy);
+  const canResumeWorkflow = Boolean(detail.onWorkflowResume && detail.item?.workflowRunId && workflowCanceled && !detail.workflowActionBusy);
   const requestRerun = (stage: WorkflowStage, target: RerunTarget = stage.key) => {
     setPendingRerun({ label: stage.label, target, grouped: Array.isArray(target) });
   };
@@ -85,7 +93,29 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
   return (
     <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "结构分析总览"}>
       <div className="new-ui-analysis-workflow-flow">
-        <h2 className="new-ui-analysis-workflow-title">{materialWorkflow ? "素材识别流程" : "结构分析流程"}</h2>
+        <div className="new-ui-analysis-workflow-heading">
+          <h2 className="new-ui-analysis-workflow-title">{materialWorkflow ? "素材识别流程" : "结构分析流程"}</h2>
+          {workflowRunning || workflowCanceled || detail.workflowActionBusy ? (
+            <button
+              className={`new-ui-analysis-workflow-run-action ${workflowCanceled ? "is-resume" : "is-cancel"}`.trim()}
+              type="button"
+              disabled={workflowCanceled ? !canResumeWorkflow : !canCancelWorkflow}
+              data-tooltip={workflowCanceled ? "从已完成步骤继续，未完成步骤会重新执行" : "停止整条分析任务"}
+              onClick={() => {
+                if (workflowCanceled) detail.onWorkflowResume?.();
+                else detail.onWorkflowCancel?.();
+              }}
+            >
+              {detail.workflowActionBusy === "cancel"
+                ? "停止中"
+                : detail.workflowActionBusy === "resume"
+                ? "继续中"
+                : workflowCanceled
+                ? (materialWorkflow ? "继续识别" : "继续分析")
+                : "停止"}
+            </button>
+          ) : null}
+        </div>
         <ol className="new-ui-analysis-workflow-list">
           {materialWorkflow ? (
             <>

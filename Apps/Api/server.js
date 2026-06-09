@@ -88,8 +88,8 @@ const moduleRegistry = createModuleRegistry({
   },
 });
 const analysisRegistry = createAnalysisRoleRegistry({ moduleRegistry });
-const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
-const materialRecognitionWorkflowService = createMaterialRecognitionWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex });
+const fullAnalysisWorkflowService = createFullAnalysisWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex, threadPool, activeTurnRuntime });
+const materialRecognitionWorkflowService = createMaterialRecognitionWorkflowService({ workflowRunStore, service, shotBoundaryService, moduleRegistry, jobStore, logger, store, artifactIndex, threadPool, activeTurnRuntime });
 const fullAnalysisBatchQueue = createFullAnalysisBatchQueue({ workflowService: fullAnalysisWorkflowService, runtimeRoot: store.runtimeRoot, logger });
 const materialRecognitionBatchQueue = createFullAnalysisBatchQueue({
   workflowService: materialRecognitionWorkflowService,
@@ -218,6 +218,8 @@ function createServer(deps = {}) {
     logger: activeLogger,
     store: activeStore,
     artifactIndex: activeArtifactIndex,
+    threadPool: deps.threadPool ?? threadPool,
+    activeTurnRuntime: activeActiveTurnRuntime,
     loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
   });
   const activeMaterialRecognitionWorkflowService = deps.materialRecognitionWorkflowService ?? createMaterialRecognitionWorkflowService({
@@ -229,6 +231,8 @@ function createServer(deps = {}) {
     logger: activeLogger,
     store: activeStore,
     artifactIndex: activeArtifactIndex,
+    threadPool: deps.threadPool ?? threadPool,
+    activeTurnRuntime: activeActiveTurnRuntime,
     loadSampleArtifact: deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact,
   });
   const activeFullAnalysisBatchQueue = deps.fullAnalysisBatchQueue ?? createFullAnalysisBatchQueue({

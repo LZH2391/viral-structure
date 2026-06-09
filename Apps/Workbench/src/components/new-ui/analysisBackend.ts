@@ -1,11 +1,13 @@
 import {
   checkFullAnalysisUploadCache,
   checkMaterialRecognitionUploadCache,
+  cancelWorkflowRun,
   getLatestFullAnalysisRunForSample,
   getLatestMaterialRecognitionRunForSample,
   getProcessingJob,
   getSampleArtifact,
   getWorkflowRun,
+  resumeWorkflowRun,
   startAnalysisRole,
   startFullAnalysisRun,
   startMaterialRecognitionRun,
@@ -124,6 +126,20 @@ export async function rerunAnalysisWorkflowStage(item: AnalysisHistoryItem, stag
     });
   }
   const workflowRun = await getWorkflowRun(workflowRunId);
+  return loadAnalysisDetailItem({ ...item, workflowRunId, workflowRun }, { workflowRun });
+}
+
+export async function cancelAnalysisWorkflow(item: AnalysisHistoryItem): Promise<AnalysisBackendLoadResult> {
+  const workflowRunId = item.workflowRun?.workflowRunId ?? item.workflowRunId ?? null;
+  if (!workflowRunId) throw new Error("缺少 workflowRunId，无法停止分析");
+  const workflowRun = await cancelWorkflowRun(workflowRunId);
+  return loadAnalysisDetailItem({ ...item, workflowRunId, workflowRun }, { workflowRun });
+}
+
+export async function resumeAnalysisWorkflow(item: AnalysisHistoryItem): Promise<AnalysisBackendLoadResult> {
+  const workflowRunId = item.workflowRun?.workflowRunId ?? item.workflowRunId ?? null;
+  if (!workflowRunId) throw new Error("缺少 workflowRunId，无法继续分析");
+  const workflowRun = await resumeWorkflowRun(workflowRunId);
   return loadAnalysisDetailItem({ ...item, workflowRunId, workflowRun }, { workflowRun });
 }
 
