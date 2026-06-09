@@ -1007,6 +1007,28 @@ test("agent chat storyboard result projects generated images and upstream aspect
         },
       ],
     }), "utf8");
+    const multiDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "demo-video-multi");
+    for (const [versionId, shotId, bytes] of [["V1_click", "shot_v1", "v1"], ["V2_conversion", "shot_v2", "v2"]]) {
+      const versionDir = path.join(multiDir, "versions", versionId);
+      const versionFramesDir = path.join(versionDir, "shot-storyboard-frames");
+      await fsPromises.mkdir(versionFramesDir, { recursive: true });
+      await fsPromises.writeFile(path.join(versionDir, "shot-design.final.md"), "# shot design\n", "utf8");
+      await fsPromises.writeFile(path.join(versionDir, "shot-storyboard-manifest.json"), JSON.stringify({
+        aspect: { ratio: "9:16", orientation: "竖屏" },
+        shots: [{
+          shotId,
+          slotKey: `SUB_${versionId}`,
+          shouldGenerate: true,
+          dialogue: `旁白：“${versionId}。”`,
+          duration: "1.0s",
+        }],
+      }), "utf8");
+      await fsPromises.writeFile(path.join(versionFramesDir, `${shotId}.png`), Buffer.from(bytes));
+      await fsPromises.writeFile(path.join(versionFramesDir, "shot-storyboard-crops.json"), JSON.stringify({
+        source: { artifactId: `artifact_${versionId}`, traceId: `trace_${versionId}` },
+        crops: [{ shotId, cropBox: [0, 0, 900, 1600], path: path.join(versionFramesDir, `${shotId}.png`) }],
+      }), "utf8");
+    }
 
     const conversation = {
       conversationId: "conversation_storyboard",
@@ -1031,6 +1053,35 @@ test("agent chat storyboard result projects generated images and upstream aspect
             confirmationId: "confirm_second",
             sourceShotDesignPath: path.relative(rootDir, shotDesignPathSecond).replaceAll(path.sep, "/"),
             storyboardArtifact: { artifactId: "artifact_second", status: "processed" },
+          },
+        },
+        {
+          id: "storyboard-result-multi",
+          role: "system",
+          text: "多版本方案完成",
+          status: "completed",
+          storyboardResult: {
+            mode: "multi_version",
+            status: "storyboard_processing",
+            turnId: "turn_multi",
+            confirmationId: "confirm_multi",
+            defaultVersionId: "V2_conversion",
+            versions: [
+              {
+                versionId: "V1_click",
+                versionName: "高点击版",
+                status: "storyboard_processing",
+                sourceShotDesignPath: path.relative(rootDir, path.join(multiDir, "versions", "V1_click", "shot-design.final.md")).replaceAll(path.sep, "/"),
+                storyboardArtifact: { artifactId: "artifact_v1", status: "processing" },
+              },
+              {
+                versionId: "V2_conversion",
+                versionName: "高转化版",
+                status: "storyboard_processing",
+                sourceShotDesignPath: path.relative(rootDir, path.join(multiDir, "versions", "V2_conversion", "shot-design.final.md")).replaceAll(path.sep, "/"),
+                storyboardArtifact: { artifactId: "artifact_v2", status: "processing" },
+              },
+            ],
           },
         },
       ],
@@ -1092,6 +1143,23 @@ test("agent chat storyboard result projects generated images and upstream aspect
       assert.equal(secondImage.statusCode, 200);
       assert.equal(secondImage.headers["content-type"], "image/png");
       assert.equal(secondImage.body.toString("utf8"), "second");
+
+      const multiDefault = await makeRequest(server, "GET", "/api/agent-chat/conversations/conversation_storyboard/storyboard-result?resultId=storyboard-result-multi");
+      assert.equal(multiDefault.statusCode, 200);
+      assert.equal(multiDefault.body.mode, "multi_version");
+      assert.equal(multiDefault.body.defaultVersionId, "V2_conversion");
+      assert.equal(multiDefault.body.selectedVersionId, "V2_conversion");
+      assert.equal(multiDefault.body.versions.length, 2);
+      assert.equal(multiDefault.body.groups[0].shots[0].id, "shot_v2");
+      assert.match(multiDefault.body.groups[0].shots[0].imageUrl, /versionId=V2_conversion/);
+
+      const multiV1 = await makeRequest(server, "GET", "/api/agent-chat/conversations/conversation_storyboard/storyboard-result?resultId=storyboard-result-multi&versionId=V1_click");
+      assert.equal(multiV1.statusCode, 200);
+      assert.equal(multiV1.body.selectedVersionId, "V1_click");
+      assert.equal(multiV1.body.groups[0].shots[0].id, "shot_v1");
+      const multiImage = await makeRawRequest(server, "GET", multiV1.body.groups[0].shots[0].imageUrl);
+      assert.equal(multiImage.statusCode, 200);
+      assert.equal(multiImage.body.toString("utf8"), "v1");
     } finally {
       await closeServer(server);
     }
@@ -5653,6 +5721,127 @@ test("function slot auto-run rejects artifact-only source before pipeline enqueu
     assert.deepEqual(calls, []);
   } finally {
     await closeServer(server);
+  }
+});
+
+test("function slot auto-run rejects multi-version plan before enqueue when a shot design is missing", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-multi-missing-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "multi-demo");
+  await fsPromises.mkdir(path.join(planDir, "versions", "V1_click"), { recursive: true });
+  await fsPromises.mkdir(path.join(planDir, "versions", "V2_conversion"), { recursive: true });
+  await fsPromises.writeFile(path.join(planDir, "restructure.final.md"), [
+    "| versionId | versionName | 文件 |",
+    "|---|---|---|",
+    "| `V1_click` | 高点击版 | [restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/multi-demo/versions/V1_click/restructure.final.md) |",
+    "| `V2_conversion` | 高转化版 | [restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/multi-demo/versions/V2_conversion/restructure.final.md) |",
+  ].join("\n"), "utf8");
+  await fsPromises.writeFile(path.join(planDir, "versions", "V1_click", "restructure.final.md"), "# V1\n", "utf8");
+  await fsPromises.writeFile(path.join(planDir, "versions", "V1_click", "shot-design.final.md"), sampleShotDesignFinalMarkdown(), "utf8");
+  await fsPromises.writeFile(path.join(planDir, "versions", "V2_conversion", "restructure.final.md"), "# V2\n", "utf8");
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/auto-run-multi-missing.json" }),
+    },
+    shotStoryboardAutoPipelineService: {
+      enqueue: async (payload) => {
+        calls.push(payload);
+        return { ok: true };
+      },
+      enqueueVersionBatch: async (payload) => {
+        calls.push(payload);
+        return { ok: true };
+      },
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
+      sampleVideoId: "sample_auto",
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/multi-demo/restructure.final.md",
+      parentArtifactId: "artifact_parent",
+      confirmationId: "confirm_1",
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, "storyboard_prep_version_inputs_missing");
+    assert.equal(response.body.missing.some((item) => item.versionId === "V2_conversion" && item.kind === "shotDesignFinalPath"), true);
+    assert.deepEqual(calls, []);
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("function slot auto-run enqueues multi-version batch when every shot design exists", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-run-multi-ready-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "multi-demo");
+  for (const versionId of ["V1_click", "V2_conversion"]) {
+    await fsPromises.mkdir(path.join(planDir, "versions", versionId), { recursive: true });
+    await fsPromises.writeFile(path.join(planDir, "versions", versionId, "restructure.final.md"), `# ${versionId}\n`, "utf8");
+    await fsPromises.writeFile(path.join(planDir, "versions", versionId, "shot-design.final.md"), sampleShotDesignFinalMarkdown(), "utf8");
+  }
+  await fsPromises.writeFile(path.join(planDir, "restructure.final.md"), [
+    "| versionId | versionName | 文件 |",
+    "|---|---|---|",
+    "| `V1_click` | 高点击版 | [restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/multi-demo/versions/V1_click/restructure.final.md) |",
+    "| `V2_conversion` | 高转化版 | [restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/multi-demo/versions/V2_conversion/restructure.final.md) |",
+  ].join("\n"), "utf8");
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    staticWorkbench: { handle: () => false },
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/auto-run-multi-ready.json" }),
+    },
+    shotStoryboardAutoPipelineService: {
+      enqueue: async () => {
+        throw new Error("single enqueue should not run");
+      },
+      enqueueVersionBatch: async (payload) => {
+        calls.push(payload);
+        return {
+          ok: true,
+          mode: "multi_version",
+          processingJobId: "job_batch",
+          sampleVideoId: payload.sampleVideoId,
+          traceId: "trace_batch",
+          runId: "run_batch",
+          stageId: "stage_batch",
+          artifactId: "artifact_batch",
+          parentArtifactId: payload.parentArtifactId,
+          status: "processing",
+          defaultVersionId: payload.defaultVersionId,
+          versions: payload.versions.map((version) => ({ ...version, status: "queued" })),
+        };
+      },
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/function-slot-workflow/storyboard-prep/auto-run", {
+      sampleVideoId: "sample_auto",
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/multi-demo/restructure.final.md",
+      parentArtifactId: "artifact_parent",
+      confirmationId: "confirm_1",
+    });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.mode, "multi_version");
+    assert.equal(response.body.defaultVersionId, "V2_conversion");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].versionConcurrency, 2);
+    assert.deepEqual(calls[0].versions.map((item) => item.versionId), ["V1_click", "V2_conversion"]);
+    assert.equal(calls[0].versions[0].shotDesignFinalPath, "Artifacts/FunctionSlotRestructure/multi-demo/versions/V1_click/shot-design.final.md");
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
   }
 });
 

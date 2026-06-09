@@ -21,6 +21,7 @@ const {
   normalizeRevision,
   normalizeSlotAtomDisplay,
   normalizeStoryboardResult,
+  normalizeStoryboardVersions,
   normalizeState,
   normalizeTitleState,
   safeConversationFileName,
@@ -351,7 +352,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, sourceShotDesignPath = null, displayArtifact = null, storyboardArtifact = null, status = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, sourceShotDesignPath = null, displayArtifact = null, storyboardArtifact = null, storyboardMode = null, defaultVersionId = null, storyboardVersions = null, status = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -362,8 +363,11 @@ function createAgentConversationStore({ store, filePath } = {}) {
       const previous = normalizeConfirmedPlan(conversation.confirmedPlan);
       const nextDisplayArtifact = normalizeArtifactRef(displayArtifact) ?? previous?.displayArtifact ?? null;
       const nextStoryboardArtifact = normalizeArtifactRef(storyboardArtifact) ?? previous?.storyboardArtifact ?? null;
+      const nextStoryboardVersions = normalizeStoryboardVersions(storyboardVersions) ?? previous?.storyboardVersions ?? [];
       conversation.confirmedPlan = {
         status: normalizeConfirmedPlanStatus(status, nextStoryboardArtifact, nextDisplayArtifact),
+        mode: storyboardMode ?? previous?.mode ?? (nextStoryboardVersions.length > 1 ? "multi_version" : "single"),
+        defaultVersionId: normalizeIdText(defaultVersionId) ?? previous?.defaultVersionId ?? nextStoryboardVersions[0]?.versionId ?? null,
         turnId: turnId ?? conversation.latestTurnId ?? null,
         confirmationId: normalizeIdText(confirmationId),
         confirmedAt: conversation.confirmedPlan?.confirmedAt ?? now,
@@ -373,6 +377,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
         sourceShotDesignPath: normalizePathText(sourceShotDesignPath) ?? previous?.sourceShotDesignPath ?? null,
         displayArtifact: nextDisplayArtifact,
         storyboardArtifact: nextStoryboardArtifact,
+        storyboardVersions: nextStoryboardVersions,
         traceId: traceId ?? null,
         runId: runId ?? null,
         stageId: stageId ?? null,
@@ -380,7 +385,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function createStoryboardResultMessage({ conversationId, turnId = null, confirmationId = null, planRevisionKey = null, sourceRestructurePath = null, sourceShotDesignPath = null, storyboardArtifact = null, status = "storyboard_processing", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function createStoryboardResultMessage({ conversationId, turnId = null, confirmationId = null, planRevisionKey = null, sourceRestructurePath = null, sourceShotDesignPath = null, storyboardArtifact = null, mode = null, defaultVersionId = null, versions = null, status = "storyboard_processing", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId || !confirmationId) return null;
     const now = new Date().toISOString();
     const messageId = `storyboard-result-${normalizeIdText(confirmationId)}-${now}-${randomUUID()}`;
@@ -400,9 +405,12 @@ function createAgentConversationStore({ store, filePath } = {}) {
           turnId: turnId ?? conversation.latestTurnId ?? null,
           confirmationId,
           status,
+          mode,
+          defaultVersionId,
           sourceRestructurePath,
           sourceShotDesignPath,
           storyboardArtifact,
+          versions,
           traceId,
           runId,
           stageId,
@@ -415,7 +423,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function updateStoryboardResultMessage({ conversationId, confirmationId = null, storyboardArtifact = null, status = null, traceId = null, runId = null, stageId = null }) {
+  async function updateStoryboardResultMessage({ conversationId, confirmationId = null, storyboardArtifact = null, versions = null, status = null, traceId = null, runId = null, stageId = null }) {
     if (!conversationId || !confirmationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -434,6 +442,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
           ...currentResult,
           status: nextStatus,
           storyboardArtifact: nextArtifact,
+          versions: versions ?? currentResult?.versions ?? [],
           artifactId: nextArtifact?.artifactId ?? currentResult?.artifactId ?? null,
           processingJobId: nextArtifact?.processingJobId ?? currentResult?.processingJobId ?? null,
           traceId: traceId ?? nextArtifact?.traceId ?? currentResult?.traceId ?? null,

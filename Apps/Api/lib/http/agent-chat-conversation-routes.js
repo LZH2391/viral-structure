@@ -171,6 +171,9 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
       const normalizedShotDesignPath = normalizeText(body.sourceShotDesignPath);
       const normalizedStoryboardArtifact = normalizeArtifactRef(body.storyboardArtifact);
       const normalizedStatus = normalizeText(body.status);
+      const normalizedVersions = Array.isArray(body.versions) ? body.versions : Array.isArray(body.storyboardVersions) ? body.storyboardVersions : [];
+      const normalizedMode = normalizeText(body.mode ?? body.storyboardMode);
+      const normalizedDefaultVersionId = normalizeText(body.defaultVersionId);
       const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.confirmPlan({
           conversationId,
           turnId: normalizedTurnId,
@@ -180,6 +183,9 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
           sourceShotDesignPath: normalizedShotDesignPath,
           displayArtifact: normalizeArtifactRef(body.displayArtifact),
           storyboardArtifact: normalizedStoryboardArtifact,
+          storyboardMode: normalizedMode,
+          defaultVersionId: normalizedDefaultVersionId,
+          storyboardVersions: normalizedVersions,
           status: normalizedStatus,
           traceId: traceContext.traceId,
           runId: traceContext.runId,
@@ -193,7 +199,7 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
         error.code = "agent_chat_conversation_not_found";
         throw error;
       }
-      if (normalizedStoryboardArtifact && normalizedConfirmationId && handlers.agentConversationStore?.createStoryboardResultMessage) {
+      if ((normalizedStoryboardArtifact || normalizedVersions.length) && normalizedConfirmationId && handlers.agentConversationStore?.createStoryboardResultMessage) {
         await handlers.agentConversationStore.createStoryboardResultMessage({
           conversationId,
           turnId: normalizedTurnId ?? conversation.confirmedPlan?.turnId ?? null,
@@ -207,6 +213,9 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
           sourceRestructurePath: normalizedRestructurePath ?? conversation.confirmedPlan?.sourceRestructurePath ?? null,
           sourceShotDesignPath: normalizedShotDesignPath ?? conversation.confirmedPlan?.sourceShotDesignPath ?? null,
           storyboardArtifact: normalizedStoryboardArtifact,
+          mode: normalizedMode,
+          defaultVersionId: normalizedDefaultVersionId,
+          versions: normalizedVersions,
           status: normalizedStatus ?? conversation.confirmedPlan?.status ?? "storyboard_processing",
           traceId: traceContext.traceId,
           runId: traceContext.runId,

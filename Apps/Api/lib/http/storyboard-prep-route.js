@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { sendJson } = require("./utils");
 const { readJsonBody } = require("../observability/ui-debug-events");
+const { resolveStoryboardPlanVersions, validateStoryboardPlanVersions } = require("../agent-chat/storyboard-version-resolver");
 
 const DEFAULT_ROOT_DIR = path.resolve(__dirname, "../../../..");
 
@@ -25,12 +26,44 @@ async function handleStoryboardPrepAutoRun(req, res, handlers = {}) {
       message: "Shot Storyboard Prep pipeline 服务不可用",
     });
   }
-  const result = await handlers.shotStoryboardAutoPipelineService.enqueue({
+  const plan = await resolveStoryboardPlanVersions({
+    rootDir: handlers.rootDir ?? DEFAULT_ROOT_DIR,
+    restructureFinalPath: resolvedInputs.restructureFinalPath,
+    shotDesignFinalPath: resolvedInputs.shotDesignFinalPath,
+  });
+  if (plan.mode === "multi_version") {
+    const validation = await validateStoryboardPlanVersions({ rootDir: handlers.rootDir ?? DEFAULT_ROOT_DIR, plan });
+    if (!validation.ok) {
+      return sendJson(res, 400, {
+        error: "storyboard_prep_version_inputs_missing",
+        code: "storyboard_prep_version_inputs_missing",
+        message: "多版本故事板准备需要每个版本都已有 restructure.final.md 和 shot-design.final.md",
+        missing: validation.missing,
+      });
+    }
+  }
+  const enqueuePayload = {
     ...body,
     ...resolvedInputs,
     sampleVideoId,
     parentArtifactId,
-  });
+  };
+  if (plan.mode === "multi_version" && !handlers.shotStoryboardAutoPipelineService.enqueueVersionBatch) {
+    return sendJson(res, 503, {
+      error: "storyboard_prep_multi_version_pipeline_unavailable",
+      code: "storyboard_prep_multi_version_pipeline_unavailable",
+      message: "多版本 Shot Storyboard Prep pipeline 服务不可用",
+    });
+  }
+  const result = plan.mode === "multi_version"
+    ? await handlers.shotStoryboardAutoPipelineService.enqueueVersionBatch({
+      ...enqueuePayload,
+      mode: "multi_version",
+      defaultVersionId: plan.defaultVersionId,
+      versions: plan.versions,
+      versionConcurrency: 2,
+    })
+    : await handlers.shotStoryboardAutoPipelineService.enqueue(enqueuePayload);
   return sendJson(res, 202, result);
 }
 

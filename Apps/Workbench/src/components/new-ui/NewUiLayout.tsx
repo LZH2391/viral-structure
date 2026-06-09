@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
@@ -11,7 +11,8 @@ import { AnalysisHome } from "./AnalysisHome";
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
-import { NewUiRestructureWorkspace, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
+import { NewUiRestructureWorkspace, type NewUiMaterialPackOption, type NewUiRestructureSendContext, type NewUiStructureOption, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
+import { listAnalysisHistorySamples } from "./analysisHistoryData";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
 type NewUiAnalysisChildId = "structureAnalysis" | "materialRecognition";
@@ -141,6 +142,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [relativeTimeNowMs, setRelativeTimeNowMs] = useState(() => Date.now());
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
+  const [restructureMaterialPackOptions, setRestructureMaterialPackOptions] = useState<NewUiMaterialPackOption[]>([]);
+  const [restructureStructureOptions, setRestructureStructureOptions] = useState<NewUiStructureOption[]>([]);
+  const [loadingRestructureMaterialPacks, setLoadingRestructureMaterialPacks] = useState(false);
+  const [loadingRestructureStructures, setLoadingRestructureStructures] = useState(false);
   const [compactingRestructureContext, setCompactingRestructureContext] = useState(false);
   const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
@@ -656,6 +661,52 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setActiveLibraryChild(child);
   }, []);
 
+  const refreshRestructureMaterialPackOptions = useCallback(async () => {
+    setLoadingRestructureMaterialPacks(true);
+    try {
+      const items = await listAnalysisHistorySamples();
+      const materialItems = items
+        .filter((item) => item.hasUserMaterialPack && !item.isRunning)
+        .slice(0, 12)
+        .map((item): NewUiMaterialPackOption => ({
+          sampleVideoId: item.sampleVideoId,
+          artifactId: item.artifactId ?? null,
+          title: stripMediaExtension(item.title ?? item.sampleVideoId),
+          traceId: item.traceId ?? null,
+          coverUrl: runtimeUrlSafe(item.coverUri),
+          durationSeconds: item.durationSeconds ?? null,
+          updatedAt: item.updatedAt ?? item.createdAt ?? null,
+        }));
+      setRestructureMaterialPackOptions(materialItems);
+    } finally {
+      setLoadingRestructureMaterialPacks(false);
+    }
+  }, []);
+
+  const refreshRestructureStructureOptions = useCallback(async () => {
+    setLoadingRestructureStructures(true);
+    try {
+      const payload = await getFunctionSlotLibraryItems();
+      const structureItems = (payload.items ?? []).slice(0, 16).map((item): NewUiStructureOption => ({
+        artifactId: item.artifactId,
+        sampleVideoId: item.sampleVideoId ?? null,
+        title: stripMediaExtension(item.sourceVideoName ?? item.sampleVideoId ?? item.artifactId),
+        traceId: item.traceId ?? null,
+        slotCount: numberFromRecord(item.counts, "slotCount"),
+        atomCount: numberFromRecord(item.counts, "atomCount"),
+      }));
+      setRestructureStructureOptions(structureItems);
+    } finally {
+      setLoadingRestructureStructures(false);
+    }
+  }, []);
+
+  const openMaterialRecognitionUploadFromRestructure = useCallback(() => {
+    setStructureGraphReturn(null);
+    setActiveAnalysisChild("materialRecognition");
+    setActiveSection("analysis");
+  }, []);
+
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
     setArchiveConfirmConversationId(null);
@@ -965,6 +1016,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           sourceShotDesignPath,
           note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
           storyboardArtifact,
+          mode: storyboardResult.mode ?? "single",
+          defaultVersionId: storyboardResult.defaultVersionId ?? null,
+          versions: storyboardResult.versions ?? null,
           status: storyboardStatus,
         },
         gateRevision,
@@ -1048,7 +1102,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     });
   }, [restructureConversations, scheduleRestructureTurnPoll]);
 
-  const handleSendRestructureMessage = useCallback(async (message: string) => {
+  const handleSendRestructureMessage = useCallback(async (message: string, context: NewUiRestructureSendContext = {}) => {
     const conversation = selectedRestructureConversation;
     if ((!conversation?.threadId && !draftingRestructureConversation) || selectedRestructureActionLocked || restructureSubmissionBusyRef.current) return;
     restructureSubmissionBusyRef.current = true;
@@ -1067,6 +1121,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         role: "user",
         text: message,
         status: "completed",
+        userInputOrigin: resolveRestructureUserInputOrigin(context),
         createdAt: now,
         updatedAt: now,
       },
@@ -1117,6 +1172,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         expectedRevision: compactRevision ?? conversation?.revision ?? startedSession?.conversationRevision ?? null,
         workspaceRoot: conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
         skillPath: conversation?.skillPath ?? startedSession?.skillPath ?? null,
+        materialPackRef: context.materialPackRef ?? null,
+        structureRef: context.structureRef ?? null,
       });
       sendAccepted = true;
       const nextConversationId = submitted.conversationId ?? conversation?.conversationId ?? startedSession?.conversationId ?? null;
@@ -1422,6 +1479,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onContextUsageChange={setSelectedRestructureContextUsage}
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
+              materialPackOptions={restructureMaterialPackOptions}
+              structureOptions={restructureStructureOptions}
+              loadingMaterialPackOptions={loadingRestructureMaterialPacks}
+              loadingStructureOptions={loadingRestructureStructures}
+              onRefreshMaterialPackOptions={refreshRestructureMaterialPackOptions}
+              onRefreshStructureOptions={refreshRestructureStructureOptions}
+              onOpenMaterialUpload={openMaterialRecognitionUploadFromRestructure}
               onStopTurn={handleStopRestructureTurn}
               onOpenPlanTrace={handleOpenPlanTraceFromRestructureMessage}
               onConfirmPlan={handleConfirmPlanFromRestructureMessage}
@@ -1859,6 +1923,28 @@ function libraryChildToGraphMode(child: NewUiLibraryChildId): GraphMode {
   if (child === "semanticGovernance") return "governance";
   if (child === "planTrace") return "planTrace";
   return "structure";
+}
+
+function resolveRestructureUserInputOrigin(context: NewUiRestructureSendContext) {
+  if (context.materialPackRef && context.structureRef) return "material_and_structure_context";
+  if (context.materialPackRef) return "material_context";
+  if (context.structureRef) return "structure_context";
+  return null;
+}
+
+function runtimeUrlSafe(uri?: string | null) {
+  return runtimeUrl(uri) ?? null;
+}
+
+function stripMediaExtension(value?: string | null) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
+}
+
+function numberFromRecord(record: Record<string, number> | undefined, key: string) {
+  const value = record?.[key];
+  return Number.isFinite(value) ? Number(value) : null;
 }
 
 function resolveRestructureTurnTarget(

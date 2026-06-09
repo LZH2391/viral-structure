@@ -47,6 +47,8 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
       expectedRevision: normalizeRevision(body.expectedRevision),
       messageChars: message.length,
       messagePreview: safePreview(message, 80),
+      materialPackRef: summarizeContextRef(body.materialPackRef, ["sampleVideoId", "artifactId", "traceId"]),
+      structureRef: summarizeContextRef(body.structureRef, ["sampleVideoId", "artifactId", "traceId"]),
     },
     action: async ({ traceContext }) => {
       const conversationId = normalizeText(body.conversationId);
@@ -64,10 +66,17 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           assertConversationThreadMatches(conversation, threadId);
           assertConversationReadyForNewTurn(conversation);
         }
+        const context = await buildRestructureContext({
+          body,
+          handlers,
+          role: body.role,
+          workspaceRoot,
+        });
+        const agentMessage = context.agentMessage ? `${message}\n\n${context.agentMessage}` : message;
         const result = await handlers.appServer.startTurnWithInputs({
           workspaceRoot,
           threadId,
-          inputs: buildTextInputs(message),
+          inputs: buildTextInputs(agentMessage),
           skillPath: normalizeText(body.skillPath),
           timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
         });
@@ -95,6 +104,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           traceId: payload.traceId,
           runId: payload.runId,
           stageId: payload.stageId,
+          userInputOrigin: context.userInputOrigin,
         });
         if (conversation?.revision) payload.conversationRevision = conversation.revision;
         await registerAgentChatActiveTurn(handlers, {
@@ -151,6 +161,106 @@ function summarizeTitleGeneration(value) {
     titleTurnId: value.titleState?.titleTurnId ?? null,
     error: value.errorSummary?.code ?? value.error ?? null,
   };
+}
+
+async function buildRestructureContext({ body, handlers, role, workspaceRoot }) {
+  if (normalizeText(role) !== "function-slot-restructure") {
+    return { agentMessage: null, userInputOrigin: null };
+  }
+  const materialPackRef = normalizeMaterialPackRef(body.materialPackRef);
+  const structureRef = normalizeStructureRef(body.structureRef);
+  if (!materialPackRef && !structureRef) {
+    return { agentMessage: null, userInputOrigin: null };
+  }
+  const materialPackContext = materialPackRef
+    ? await buildMaterialPackContext(materialPackRef, handlers)
+    : null;
+  const structureContext = structureRef
+    ? buildStructureContext(structureRef)
+    : null;
+  const sections = [
+    "【重组附加上下文】",
+    materialPackContext,
+    structureContext,
+    materialPackContext ? "- 使用要求：如果素材能力不足，先明确缺口；如果素材足够，把该素材包作为 user-material-pack.stable 的来源参与素材供给判断和后续 shot design。" : null,
+    structureContext ? "- 使用要求：用户已固定引用该样例结构。不要再重新挑选样例结构；需要结合 brief 做目标适配、素材可用性判断和必要的 adapter 风险说明。" : null,
+  ].filter(Boolean);
+  return {
+    agentMessage: sections.join("\n"),
+    userInputOrigin: materialPackRef && structureRef
+      ? "material_and_structure_context"
+      : materialPackRef
+        ? "material_context"
+        : "structure_context",
+  };
+}
+
+async function buildMaterialPackContext(ref, handlers) {
+  const detail = ref.sampleVideoId && typeof handlers.artifactIndex?.getItem === "function"
+    ? await handlers.artifactIndex.getItem(ref.sampleVideoId).catch(() => null)
+    : null;
+  const pack = detail?.artifact?.userMaterialPack ?? null;
+  const sampleTitle = normalizeText(ref.title ?? detail?.filename ?? detail?.artifact?.sampleVideo?.original?.summary) ?? ref.sampleVideoId;
+  const artifactId = normalizeText(ref.artifactId ?? pack?.artifactId);
+  const resultUri = normalizeText(detail?.artifact?.userMaterialPackRef?.uri ?? pack?.resultUri);
+  const shotCards = Array.isArray(pack?.shotCards) ? pack.shotCards.length : nullableNumber(ref.shotCardCount);
+  const materialGroups = Array.isArray(pack?.materialGroups) ? pack.materialGroups.length : nullableNumber(ref.materialGroupCount);
+  const proofCoverage = Array.isArray(pack?.proofCoverage) ? pack.proofCoverage.length : nullableNumber(ref.proofCoverageCount);
+  return [
+    "- 素材包：",
+    `  sampleVideoId: ${ref.sampleVideoId}`,
+    artifactId ? `  artifactId: ${artifactId}` : null,
+    resultUri ? `  userMaterialPackPath: ${resultUri}` : null,
+    `  title: ${safePreview(sampleTitle, 120)}`,
+    `  counts: ${shotCards ?? 0} shotCards / ${materialGroups ?? 0} materialGroups / ${proofCoverage ?? 0} proofCoverage`,
+    ref.traceId ? `  traceId: ${ref.traceId}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+function buildStructureContext(ref) {
+  return [
+    "- 引用结构：",
+    `  artifactId: ${ref.artifactId}`,
+    ref.sampleVideoId ? `  sampleVideoId: ${ref.sampleVideoId}` : null,
+    ref.title ? `  title: ${safePreview(ref.title, 120)}` : null,
+    `  counts: ${ref.slotCount ?? 0} slots / ${ref.atomCount ?? 0} atoms`,
+    ref.traceId ? `  traceId: ${ref.traceId}` : null,
+    "  source: FunctionSlotLibrary 样例结构图",
+  ].filter(Boolean).join("\n");
+}
+
+function normalizeMaterialPackRef(value) {
+  if (!value || typeof value !== "object") return null;
+  const sampleVideoId = normalizeText(value.sampleVideoId);
+  if (!sampleVideoId) throw badRequestError("agent_chat_material_pack_sample_required", "素材包引用缺少 sampleVideoId");
+  return {
+    sampleVideoId,
+    artifactId: normalizeText(value.artifactId),
+    title: normalizeText(value.title),
+    traceId: normalizeText(value.traceId),
+    shotCardCount: nullableNumber(value.shotCardCount),
+    materialGroupCount: nullableNumber(value.materialGroupCount),
+    proofCoverageCount: nullableNumber(value.proofCoverageCount),
+  };
+}
+
+function normalizeStructureRef(value) {
+  if (!value || typeof value !== "object") return null;
+  const artifactId = normalizeText(value.artifactId);
+  if (!artifactId) throw badRequestError("agent_chat_structure_artifact_required", "引用结构缺少 artifactId");
+  return {
+    artifactId,
+    sampleVideoId: normalizeText(value.sampleVideoId),
+    title: normalizeText(value.title),
+    traceId: normalizeText(value.traceId),
+    slotCount: nullableNumber(value.slotCount),
+    atomCount: nullableNumber(value.atomCount),
+  };
+}
+
+function summarizeContextRef(value, keys) {
+  if (!value || typeof value !== "object") return null;
+  return Object.fromEntries(keys.map((key) => [key, normalizeText(value[key])]));
 }
 
 async function handleAgentChatManualReplacementSubmit(req, res, threadId, handlers = {}) {

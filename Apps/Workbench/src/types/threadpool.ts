@@ -164,6 +164,8 @@ export type AgentChatConversation = {
   } | null;
   confirmedPlan?: {
     status?: "confirmed" | "storyboard_processing" | "storyboard_failed" | "completed" | string;
+    mode?: "single" | "multi_version" | string;
+    defaultVersionId?: string | null;
     turnId?: string | null;
     confirmationId?: string | null;
     confirmedAt?: string | null;
@@ -173,6 +175,7 @@ export type AgentChatConversation = {
     sourceShotDesignPath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
+    storyboardVersions?: AgentChatStoryboardVersionSummary[];
     traceId?: string | null;
     runId?: string | null;
     stageId?: string | null;
@@ -191,10 +194,29 @@ export type AgentChatArtifactRef = {
 
 export type AgentChatStoryboardResultMessage = {
   schemaVersion?: string;
+  mode?: "single" | "multi_version" | string;
+  defaultVersionId?: string | null;
   planRevisionKey?: string | null;
   turnId?: string | null;
   confirmationId?: string | null;
   status?: "confirmed" | "storyboard_processing" | "storyboard_failed" | "completed" | string;
+  sourceRestructurePath?: string | null;
+  sourceShotDesignPath?: string | null;
+  storyboardArtifact?: AgentChatArtifactRef | null;
+  versions?: AgentChatStoryboardVersionSummary[];
+  artifactId?: string | null;
+  processingJobId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type AgentChatStoryboardVersionSummary = {
+  versionId?: string | null;
+  versionName?: string | null;
+  status?: string | null;
   sourceRestructurePath?: string | null;
   sourceShotDesignPath?: string | null;
   storyboardArtifact?: AgentChatArtifactRef | null;
@@ -203,8 +225,8 @@ export type AgentChatStoryboardResultMessage = {
   traceId?: string | null;
   runId?: string | null;
   stageId?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  error?: string | null;
+  message?: string | null;
 };
 
 export type AgentChatDialogueRoboticReview = {

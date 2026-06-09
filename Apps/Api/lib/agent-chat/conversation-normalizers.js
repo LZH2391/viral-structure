@@ -71,8 +71,12 @@ function normalizeTitleState(value) {
 function normalizeConfirmedPlan(value) {
   if (!value || typeof value !== "object") return null;
   const status = normalizeConfirmedPlanStatus(value.status, value.storyboardArtifact, value.displayArtifact);
+  const versions = normalizeStoryboardVersions(value.storyboardVersions ?? value.versions);
+  const defaultVersionId = normalizeIdText(value.defaultVersionId) ?? versions[0]?.versionId ?? null;
   return {
     status,
+    mode: normalizeStoryboardMode(value.storyboardMode ?? value.mode, versions),
+    defaultVersionId,
     turnId: value.turnId ? String(value.turnId) : null,
     confirmationId: normalizeIdText(value.confirmationId),
     confirmedAt: value.confirmedAt ?? null,
@@ -82,6 +86,7 @@ function normalizeConfirmedPlan(value) {
     sourceShotDesignPath: normalizePathText(value.sourceShotDesignPath),
     displayArtifact: normalizeArtifactRef(value.displayArtifact),
     storyboardArtifact: normalizeArtifactRef(value.storyboardArtifact),
+    storyboardVersions: versions,
     traceId: value.traceId ? String(value.traceId) : null,
     runId: value.runId ? String(value.runId) : null,
     stageId: value.stageId ? String(value.stageId) : null,
@@ -98,6 +103,12 @@ function normalizeArtifactRef(value) {
     stageId: value.stageId ? String(value.stageId) : null,
     status: value.status ? String(value.status) : null,
   };
+}
+
+function normalizeStoryboardMode(value, versions = []) {
+  const text = String(value ?? "").trim();
+  if (text === "multi_version") return "multi_version";
+  return versions.length > 1 ? "multi_version" : "single";
 }
 
 function normalizeConfirmedPlanStatus(status, storyboardArtifact = null, displayArtifact = null) {
@@ -218,8 +229,12 @@ function normalizeDialogueRoboticReview(value) {
 function normalizeStoryboardResult(value) {
   if (!value || typeof value !== "object") return null;
   const artifact = normalizeArtifactRef(value.storyboardArtifact);
+  const versions = normalizeStoryboardVersions(value.versions ?? value.storyboardVersions);
+  const defaultVersionId = normalizeIdText(value.defaultVersionId) ?? versions[0]?.versionId ?? null;
   return {
     schemaVersion: String(value.schemaVersion ?? "agent_chat_storyboard_result_message.v1"),
+    mode: normalizeStoryboardMode(value.mode ?? value.storyboardMode, versions),
+    defaultVersionId,
     planRevisionKey: normalizeIdText(value.planRevisionKey),
     turnId: value.turnId ? String(value.turnId) : null,
     confirmationId: normalizeIdText(value.confirmationId),
@@ -227,6 +242,7 @@ function normalizeStoryboardResult(value) {
     sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
     sourceShotDesignPath: normalizePathText(value.sourceShotDesignPath),
     storyboardArtifact: artifact,
+    versions,
     artifactId: value.artifactId ? String(value.artifactId) : artifact?.artifactId ?? null,
     processingJobId: value.processingJobId ? String(value.processingJobId) : artifact?.processingJobId ?? null,
     traceId: value.traceId ? String(value.traceId) : artifact?.traceId ?? null,
@@ -234,6 +250,33 @@ function normalizeStoryboardResult(value) {
     stageId: value.stageId ? String(value.stageId) : artifact?.stageId ?? null,
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
+  };
+}
+
+function normalizeStoryboardVersions(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeStoryboardVersion).filter(Boolean);
+}
+
+function normalizeStoryboardVersion(value) {
+  if (!value || typeof value !== "object") return null;
+  const versionId = normalizeIdText(value.versionId);
+  const artifact = normalizeArtifactRef(value.storyboardArtifact);
+  if (!versionId && !artifact && !value.sourceRestructurePath && !value.sourceShotDesignPath) return null;
+  return {
+    versionId,
+    versionName: limitText(value.versionName || value.name || versionId || "默认方案"),
+    status: normalizeConfirmedPlanStatus(value.status, artifact, null),
+    sourceRestructurePath: normalizePathText(value.sourceRestructurePath ?? value.restructureFinalPath),
+    sourceShotDesignPath: normalizePathText(value.sourceShotDesignPath ?? value.shotDesignFinalPath),
+    storyboardArtifact: artifact,
+    artifactId: value.artifactId ? String(value.artifactId) : artifact?.artifactId ?? null,
+    processingJobId: value.processingJobId ? String(value.processingJobId) : artifact?.processingJobId ?? null,
+    traceId: value.traceId ? String(value.traceId) : artifact?.traceId ?? null,
+    runId: value.runId ? String(value.runId) : artifact?.runId ?? null,
+    stageId: value.stageId ? String(value.stageId) : artifact?.stageId ?? null,
+    error: value.error ? String(value.error) : null,
+    message: limitText(value.message),
   };
 }
 
@@ -368,6 +411,7 @@ module.exports = {
   normalizeSlotAtomDisplay,
   normalizeSlotSummary,
   normalizeStoryboardResult,
+  normalizeStoryboardVersions,
   normalizeState,
   normalizeTitleState,
   safeConversationFileName,

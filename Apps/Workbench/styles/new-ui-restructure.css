@@ -524,6 +524,49 @@
   line-height: 1.3;
 }
 
+.new-ui-storyboard-version-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.new-ui-storyboard-version-bar span {
+  flex: 0 0 auto;
+  color: var(--new-ui-text-muted);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.new-ui-storyboard-version-bar button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  max-width: 180px;
+  padding: 0 13px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-text-muted) 28%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--new-ui-text) 78%, var(--new-ui-text-muted));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.new-ui-storyboard-version-bar button:hover,
+.new-ui-storyboard-version-bar button:focus-visible,
+.new-ui-storyboard-version-bar button.is-active {
+  border-color: color-mix(in srgb, var(--new-ui-text) 46%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 10%, var(--new-ui-surface));
+  color: var(--new-ui-text);
+}
+
 .new-ui-storyboard-segments {
   display: grid;
   gap: 10px;
@@ -979,10 +1022,9 @@ button.new-ui-restructure-note-pill:disabled {
 .new-ui-restructure-composer-field {
   position: relative;
   display: grid;
-  grid-template-rows: 24px 34px;
+  grid-template-rows: 24px auto;
   gap: 10px;
   width: min(100%, var(--new-ui-restructure-content-width));
-  height: 96px;
   min-height: 96px;
   min-width: 0;
   margin: 0 auto;
@@ -1044,10 +1086,17 @@ button.new-ui-restructure-note-pill:disabled {
   border-radius: 12px;
   background: color-mix(in srgb, var(--new-ui-text) 8%, transparent);
   color: var(--new-ui-text);
-  cursor: default;
+  cursor: pointer;
   font: inherit;
   font-size: 15px;
   font-weight: 525;
+}
+
+.new-ui-restructure-tool-button:hover,
+.new-ui-restructure-tool-button:focus-visible,
+.new-ui-restructure-tool-button.is-active {
+  background: color-mix(in srgb, var(--new-ui-text) 16%, transparent);
+  outline: 0;
 }
 
 .new-ui-restructure-tool-button svg {
@@ -1058,6 +1107,179 @@ button.new-ui-restructure-note-pill:disabled {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.new-ui-restructure-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 380px;
+}
+
+.new-ui-restructure-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: min(420px, 100%);
+  height: 30px;
+  padding: 0 6px 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text) 12%, transparent);
+  color: var(--new-ui-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.new-ui-restructure-attachment-chip b {
+  color: var(--new-ui-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.new-ui-restructure-attachment-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-restructure-attachment-chip button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--new-ui-text-muted);
+  cursor: pointer;
+}
+
+.new-ui-restructure-attachment-chip button:hover,
+.new-ui-restructure-attachment-chip button:focus-visible {
+  background: color-mix(in srgb, var(--new-ui-text) 10%, transparent);
+  color: var(--new-ui-text);
+  outline: 0;
+}
+
+.new-ui-restructure-attachment-chip svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.new-ui-restructure-picker-panel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 230px);
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 4px 380px 2px 0;
+}
+
+.new-ui-restructure-picker-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 3px;
+  min-width: 0;
+  height: 74px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-text-muted) 18%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--new-ui-bg) 70%, transparent);
+  color: var(--new-ui-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.new-ui-restructure-picker-card:hover,
+.new-ui-restructure-picker-card:focus-visible,
+.new-ui-restructure-picker-card.is-selected {
+  border-color: color-mix(in srgb, var(--new-ui-text) 36%, transparent);
+  background: color-mix(in srgb, var(--new-ui-text) 10%, var(--new-ui-bg));
+  outline: 0;
+}
+
+.new-ui-restructure-picker-card.is-selected {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--new-ui-text) 32%, transparent);
+}
+
+.new-ui-restructure-picker-card strong,
+.new-ui-restructure-picker-card small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.new-ui-restructure-picker-card strong {
+  align-self: end;
+  color: var(--new-ui-text);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.new-ui-restructure-picker-card small {
+  align-self: start;
+  color: var(--new-ui-text-muted);
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.new-ui-restructure-picker-thumb,
+.new-ui-restructure-picker-card-icon {
+  grid-row: 1 / span 2;
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--new-ui-text) 10%, transparent);
+  color: var(--new-ui-text-muted);
+}
+
+.new-ui-restructure-picker-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.new-ui-restructure-picker-thumb svg,
+.new-ui-restructure-picker-card-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.new-ui-restructure-picker-card.is-upload-card {
+  border-style: dashed;
+}
+
+.new-ui-restructure-picker-card.is-state-card {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  cursor: default;
 }
 
 .new-ui-restructure-send-button {
@@ -1538,5 +1760,16 @@ button.new-ui-restructure-note-pill:disabled {
 @media (max-width: 1160px) {
   .new-ui-restructure-header {
     padding: 18px 20px 0;
+  }
+
+  .new-ui-restructure-composer-tools,
+  .new-ui-restructure-composer-attachments,
+  .new-ui-restructure-picker-panel {
+    padding-right: 72px;
+  }
+
+  .new-ui-restructure-auto-advance-toggle,
+  .new-ui-restructure-context-usage {
+    display: none;
   }
 }

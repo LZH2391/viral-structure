@@ -1,11 +1,13 @@
 const fs = require("fs/promises");
 const path = require("path");
 
-async function buildStoryboardResultProjection({ rootDir, conversation, imageBasePath, imageQuery = null, storyboardResult = null }) {
-  const confirmedPlan = storyboardResult ?? conversation?.confirmedPlan ?? null;
+async function buildStoryboardResultProjection({ rootDir, conversation, imageBasePath, imageQuery = null, storyboardResult = null, versionId = null }) {
+  const originalPlan = storyboardResult ?? conversation?.confirmedPlan ?? null;
+  const versionSelection = selectStoryboardVersion(originalPlan, versionId);
+  const confirmedPlan = versionSelection.plan;
   const baseDir = resolveStoryboardBaseDir(rootDir, confirmedPlan);
   if (!conversation || !baseDir) {
-    return buildMissingProjection(conversation, "storyboard_source_missing");
+    return { ...buildMissingProjection(conversation, "storyboard_source_missing"), versions: versionSelection.versions, defaultVersionId: versionSelection.defaultVersionId, selectedVersionId: versionSelection.selectedVersionId };
   }
 
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
@@ -16,7 +18,7 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
   const pdfInput = await readJsonIfExists(pdfInputPath);
   const shots = Array.isArray(manifest?.shots) ? manifest.shots : [];
   if (!manifest || !shots.length) {
-    return buildMissingProjection(conversation, "storyboard_manifest_missing");
+    return { ...buildMissingProjection(conversation, "storyboard_manifest_missing"), versions: versionSelection.versions, defaultVersionId: versionSelection.defaultVersionId, selectedVersionId: versionSelection.selectedVersionId };
   }
 
   const cropByShotId = new Map();
@@ -38,12 +40,13 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
   const slotLabelIndex = await buildSlotLabelIndex({ baseDir });
 
   const aspect = resolveAspect(manifest?.aspect, null);
+  const selectedImageQuery = ensureVersionInImageQuery(imageQuery, versionSelection.selectedVersionId);
   const cover = buildCover({
     coverManifest: manifest.cover,
     coverCrop,
     pdfCover: pdfMedia.cover,
     imageBasePath,
-    imageQuery,
+    imageQuery: selectedImageQuery,
   });
   const groups = buildGroups({
     shots,
@@ -53,7 +56,7 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
     slotLabelIndex,
     manifestAspect: aspect,
     imageBasePath,
-    imageQuery,
+    imageQuery: selectedImageQuery,
   });
 
   return {
@@ -71,15 +74,29 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
       artifactId: cropsManifest?.source?.artifactId ?? confirmedPlan?.storyboardArtifact?.artifactId ?? null,
       parentArtifactId: cropsManifest?.source?.parentArtifactId ?? null,
     },
+    mode: versionSelection.versions.length > 1 ? "multi_version" : "single",
+    defaultVersionId: versionSelection.defaultVersionId,
+    selectedVersionId: versionSelection.selectedVersionId,
+    versions: versionSelection.versions,
     cover,
     groups,
   };
 }
 
-async function resolveStoryboardImagePath({ rootDir, conversation, shotId, storyboardResult = null }) {
+function ensureVersionInImageQuery(imageQuery, versionId) {
+  const selected = normalizeText(versionId);
+  if (!selected) return imageQuery;
+  const params = new URLSearchParams(normalizeText(imageQuery));
+  if (!params.get("versionId")) params.set("versionId", selected);
+  const text = params.toString();
+  return text || null;
+}
+
+async function resolveStoryboardImagePath({ rootDir, conversation, shotId, storyboardResult = null, versionId = null }) {
   const safeShotId = normalizeShotId(shotId);
   if (!safeShotId) return null;
-  const baseDir = resolveStoryboardBaseDir(rootDir, storyboardResult ?? conversation?.confirmedPlan ?? null);
+  const versionSelection = selectStoryboardVersion(storyboardResult ?? conversation?.confirmedPlan ?? null, versionId);
+  const baseDir = resolveStoryboardBaseDir(rootDir, versionSelection.plan);
   if (!baseDir) return null;
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
   const cropsPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
@@ -104,6 +121,45 @@ async function resolveStoryboardImagePath({ rootDir, conversation, shotId, story
   const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest });
   const shot = manifest.shots.find((item) => String(item?.shotId ?? "") === safeShotId);
   return firstResolvedMaterialFrame(shot, materialFrameIndex);
+}
+
+function selectStoryboardVersion(plan, requestedVersionId = null) {
+  const rawVersions = Array.isArray(plan?.versions) ? plan.versions : Array.isArray(plan?.storyboardVersions) ? plan.storyboardVersions : [];
+  const versions = rawVersions.map((version) => ({
+    versionId: normalizeText(version?.versionId) || null,
+    versionName: normalizeText(version?.versionName) || normalizeText(version?.name) || normalizeText(version?.versionId) || "默认方案",
+    status: normalizeText(version?.status) || null,
+    sourceRestructurePath: normalizeText(version?.sourceRestructurePath || version?.restructureFinalPath) || null,
+    sourceShotDesignPath: normalizeText(version?.sourceShotDesignPath || version?.shotDesignFinalPath) || null,
+    storyboardArtifact: version?.storyboardArtifact ?? null,
+    artifactId: normalizeText(version?.artifactId || version?.storyboardArtifact?.artifactId) || null,
+    processingJobId: normalizeText(version?.processingJobId || version?.storyboardArtifact?.processingJobId) || null,
+    traceId: normalizeText(version?.traceId || version?.storyboardArtifact?.traceId) || null,
+    runId: normalizeText(version?.runId || version?.storyboardArtifact?.runId) || null,
+    stageId: normalizeText(version?.stageId || version?.storyboardArtifact?.stageId) || null,
+  })).filter((version) => version.sourceRestructurePath || version.sourceShotDesignPath || version.versionId);
+  const defaultVersionId = normalizeText(plan?.defaultVersionId) || versions[0]?.versionId || null;
+  const selectedVersion = versions.find((version) => version.versionId && version.versionId === requestedVersionId)
+    ?? versions.find((version) => version.versionId && version.versionId === defaultVersionId)
+    ?? versions[0]
+    ?? null;
+  if (!selectedVersion) {
+    return { plan, versions, defaultVersionId, selectedVersionId: null };
+  }
+  return {
+    plan: {
+      ...plan,
+      sourceRestructurePath: selectedVersion.sourceRestructurePath ?? plan?.sourceRestructurePath ?? null,
+      sourceShotDesignPath: selectedVersion.sourceShotDesignPath ?? plan?.sourceShotDesignPath ?? null,
+      storyboardArtifact: selectedVersion.storyboardArtifact ?? plan?.storyboardArtifact ?? null,
+      traceId: selectedVersion.traceId ?? plan?.traceId ?? null,
+      runId: selectedVersion.runId ?? plan?.runId ?? null,
+      stageId: selectedVersion.stageId ?? plan?.stageId ?? null,
+    },
+    versions,
+    defaultVersionId,
+    selectedVersionId: selectedVersion.versionId ?? null,
+  };
 }
 
 function buildCover({ coverManifest, coverCrop, pdfCover, imageBasePath, imageQuery = null }) {
@@ -617,6 +673,10 @@ function buildMissingProjection(conversation, reason) {
     title: conversation?.title ?? null,
     aspect: null,
     source: null,
+    mode: "single",
+    defaultVersionId: null,
+    selectedVersionId: null,
+    versions: [],
     cover: null,
     groups: [],
   };

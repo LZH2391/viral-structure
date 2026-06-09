@@ -22,6 +22,10 @@ export type PackagingStructureStartResponse = AnalysisStartResponse;
 export type FunctionSlotAtomizationStartResponse = AnalysisStartResponse;
 
 export type FunctionSlotWorkflowPlaceholderResponse = {
+  ok?: boolean;
+  mode?: "single" | "multi_version" | string;
+  defaultVersionId?: string | null;
+  versions?: AgentChatStoryboardVersion[];
   processingJobId?: string;
   sampleVideoId: string;
   traceId: string;
@@ -173,6 +177,10 @@ export type AgentChatActionProjection = {
 export type AgentChatStoryboardResult = {
   ok: boolean;
   status: "available" | "missing" | string;
+  mode?: "single" | "multi_version" | string;
+  defaultVersionId?: string | null;
+  selectedVersionId?: string | null;
+  versions?: AgentChatStoryboardVersion[];
   reason?: string | null;
   conversationId?: string | null;
   title?: string | null;
@@ -191,6 +199,22 @@ export type AgentChatStoryboardResult = {
   } | null;
   cover?: AgentChatStoryboardCover | null;
   groups: AgentChatStoryboardGroup[];
+};
+
+export type AgentChatStoryboardVersion = {
+  versionId?: string | null;
+  versionName?: string | null;
+  status?: string | null;
+  sourceRestructurePath?: string | null;
+  sourceShotDesignPath?: string | null;
+  storyboardArtifact?: AgentChatArtifactRef | null;
+  artifactId?: string | null;
+  processingJobId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  error?: string | null;
+  message?: string | null;
 };
 
 export type AgentChatStoryboardCover = {
@@ -661,6 +685,8 @@ export async function sendAgentChatMessage(
     expectedRevision?: number | null;
     workspaceRoot?: string | null;
     skillPath?: string | null;
+    materialPackRef?: AgentChatMaterialPackRef | null;
+    structureRef?: AgentChatStructureRef | null;
   },
 ) {
   return readJsonResponse<AgentChatTurnResponse>(
@@ -818,8 +844,27 @@ export async function listAgentChatConversations(payload: { role?: string | null
   );
 }
 
-export async function getAgentChatStoryboardResult(conversationId: string, resultId?: string | null) {
-  const query = resultId ? `?resultId=${encodeURIComponent(resultId)}` : "";
+export type AgentChatMaterialPackRef = {
+  sampleVideoId: string;
+  artifactId?: string | null;
+  title?: string | null;
+  traceId?: string | null;
+  shotCardCount?: number | null;
+  materialGroupCount?: number | null;
+  proofCoverageCount?: number | null;
+};
+
+export type AgentChatStructureRef = {
+  artifactId: string;
+  sampleVideoId?: string | null;
+  title?: string | null;
+  traceId?: string | null;
+  slotCount?: number | null;
+  atomCount?: number | null;
+};
+
+export async function getAgentChatStoryboardResult(conversationId: string, resultId?: string | null, versionId?: string | null) {
+  const query = buildQuery({ resultId, versionId });
   return readJsonResponse<AgentChatStoryboardResult>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/storyboard-result${query}`, { cache: "no-store" }),
   );
@@ -939,6 +984,10 @@ export async function confirmAgentChatConversation(
     sourceShotDesignPath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
+    mode?: "single" | "multi_version" | string | null;
+    defaultVersionId?: string | null;
+    versions?: AgentChatStoryboardVersion[] | null;
+    storyboardVersions?: AgentChatStoryboardVersion[] | null;
     status?: string | null;
     expectedRevision?: number | null;
   } = {},

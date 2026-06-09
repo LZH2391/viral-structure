@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { IconChevronDown, IconPhoto, IconVideo } from "@tabler/icons-react";
-import { API_BASE_URL, getAgentChatStoryboardResult, type AgentChatStoryboardCover, type AgentChatStoryboardGroup, type AgentChatStoryboardResult, type AgentChatStoryboardShot } from "../../api/client";
+import { API_BASE_URL, getAgentChatStoryboardResult, type AgentChatStoryboardCover, type AgentChatStoryboardGroup, type AgentChatStoryboardResult, type AgentChatStoryboardShot, type AgentChatStoryboardVersion } from "../../api/client";
 
 type StoryboardResultViewerProps = {
   conversationId: string;
@@ -12,16 +12,18 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
   const [result, setResult] = useState<AgentChatStoryboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedByGroupId, setExpandedByGroupId] = useState<Record<string, boolean>>({});
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
     setResult(null);
     setError(null);
     setExpandedByGroupId({});
-    void getAgentChatStoryboardResult(conversationId, resultId)
+    void getAgentChatStoryboardResult(conversationId, resultId, selectedVersionId)
       .then((payload) => {
         if (canceled) return;
         setResult(payload);
+        if (!selectedVersionId && payload.selectedVersionId) setSelectedVersionId(payload.selectedVersionId);
         const firstGroup = payload.groups[0]?.id ?? null;
         setExpandedByGroupId(firstGroup ? { [firstGroup]: true } : {});
       })
@@ -32,7 +34,7 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
     return () => {
       canceled = true;
     };
-  }, [conversationId, resultId]);
+  }, [conversationId, resultId, selectedVersionId]);
 
   const groups = result?.status === "available" ? result.groups : [];
   const totalShotCount = useMemo(() => groups.reduce((sum, group) => sum + group.shotCount, 0), [groups]);
@@ -49,6 +51,13 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
         </div>
         <small>{statusLabel || result.aspect?.ratio || "9:16"}</small>
       </header>
+      {Array.isArray(result.versions) && result.versions.length > 1 ? (
+        <StoryboardVersionSelector
+          versions={result.versions}
+          selectedVersionId={result.selectedVersionId ?? selectedVersionId}
+          onSelect={setSelectedVersionId}
+        />
+      ) : null}
       <div className="new-ui-storyboard-segments">
         {result.cover ? (
           <StoryboardCoverSegment
@@ -78,6 +87,30 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
         })}
       </div>
     </section>
+  );
+}
+
+function StoryboardVersionSelector({ versions, selectedVersionId, onSelect }: { versions: AgentChatStoryboardVersion[]; selectedVersionId?: string | null; onSelect: (versionId: string) => void }) {
+  return (
+    <div className="new-ui-storyboard-version-bar" aria-label="故事板方案版本">
+      <span>方案</span>
+      {versions.map((version) => {
+        const versionId = String(version.versionId ?? "");
+        if (!versionId) return null;
+        const active = versionId === selectedVersionId;
+        return (
+          <button
+            key={versionId}
+            className={active ? "is-active" : undefined}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onSelect(versionId)}
+          >
+            {version.versionName || versionId}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

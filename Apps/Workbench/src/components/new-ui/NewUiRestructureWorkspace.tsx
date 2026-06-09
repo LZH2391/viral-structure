@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type KeyboardEvent, type MutableRefObject, type ReactNode, type SetStateAction } from "react";
 import { IconArrowRight, IconAtom } from "@tabler/icons-react";
-import { getAgentChatTurnTimeline } from "../../api/client";
+import { getAgentChatTurnTimeline, type AgentChatMaterialPackRef, type AgentChatStructureRef } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
+import { formatSecondsCompact, shortId } from "../../utils/format";
 import { StoryboardResultViewer } from "./StoryboardResultViewer";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
@@ -25,7 +26,14 @@ type NewUiRestructureWorkspaceProps = {
   stoppingTurn?: boolean;
   onNewConversation: () => void;
   onContextUsageChange?: (usage: AgentTurnTimeline["activity"]["tokenUsage"] | null) => void;
-  onSendMessage: (message: string) => Promise<void>;
+  onSendMessage: (message: string, context?: NewUiRestructureSendContext) => Promise<void>;
+  materialPackOptions?: NewUiMaterialPackOption[];
+  structureOptions?: NewUiStructureOption[];
+  loadingMaterialPackOptions?: boolean;
+  loadingStructureOptions?: boolean;
+  onRefreshMaterialPackOptions?: () => Promise<void> | void;
+  onRefreshStructureOptions?: () => Promise<void> | void;
+  onOpenMaterialUpload?: () => void;
   onStopTurn?: () => Promise<void> | void;
   onOpenPlanTrace?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
   onConfirmPlan?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
@@ -39,6 +47,21 @@ type NewUiRestructureWorkspaceProps = {
   autoAdvanceBusy?: boolean;
   openingPlanTraceMessageId?: string | null;
   confirmingPlanMessageId?: string | null;
+};
+
+export type NewUiRestructureSendContext = {
+  materialPackRef?: AgentChatMaterialPackRef | null;
+  structureRef?: AgentChatStructureRef | null;
+};
+
+export type NewUiMaterialPackOption = AgentChatMaterialPackRef & {
+  coverUrl?: string | null;
+  durationSeconds?: number | null;
+  updatedAt?: string | null;
+};
+
+export type NewUiStructureOption = AgentChatStructureRef & {
+  updatedAt?: string | null;
 };
 
 type RestructureTimelineActivityItem = {
@@ -79,6 +102,13 @@ export function NewUiRestructureWorkspace({
   onNewConversation,
   onContextUsageChange,
   onSendMessage,
+  materialPackOptions = [],
+  structureOptions = [],
+  loadingMaterialPackOptions = false,
+  loadingStructureOptions = false,
+  onRefreshMaterialPackOptions,
+  onRefreshStructureOptions,
+  onOpenMaterialUpload,
   onStopTurn,
   onOpenPlanTrace,
   onConfirmPlan,
@@ -97,6 +127,9 @@ export function NewUiRestructureWorkspace({
   const displayTitle = resolveRestructureTitle(conversation?.title);
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [activeAttachmentPanel, setActiveAttachmentPanel] = useState<"material" | "structure" | null>(null);
+  const [selectedMaterialPack, setSelectedMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
+  const [selectedStructure, setSelectedStructure] = useState<NewUiStructureOption | null>(null);
   const [timelineActivityExpandedByScope, setTimelineActivityExpandedByScope] = useState<Record<string, boolean>>({});
   const [processMessageExpandedByScope, setProcessMessageExpandedByScope] = useState<Record<string, boolean>>({});
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -206,6 +239,9 @@ export function NewUiRestructureWorkspace({
 
   useEffect(() => {
     setSendError(null);
+    setActiveAttachmentPanel(null);
+    setSelectedMaterialPack(null);
+    setSelectedStructure(null);
     setTimelineActivityExpandedByScope({});
     setProcessMessageExpandedByScope({});
     shouldStickToBottomRef.current = true;
@@ -240,13 +276,19 @@ export function NewUiRestructureWorkspace({
   const submitDraft = async () => {
     if (!canSend) return;
     const message = draft.trim();
+    const sendContext = buildRestructureSendContext(selectedMaterialPack, selectedStructure);
     setSendError(null);
     setDraft("");
+    setActiveAttachmentPanel(null);
+    setSelectedMaterialPack(null);
+    setSelectedStructure(null);
     shouldStickToBottomRef.current = true;
     try {
-      await onSendMessage(message);
+      await onSendMessage(message, sendContext);
     } catch (error) {
       setDraft(message);
+      setSelectedMaterialPack(selectedMaterialPack);
+      setSelectedStructure(selectedStructure);
       setSendError(resolveSendErrorMessage(error));
     }
   };
@@ -278,15 +320,66 @@ export function NewUiRestructureWorkspace({
           onKeyDown={handleComposerKeyDown}
         />
         <div className="new-ui-restructure-composer-tools" aria-label="重组输入工具">
-          <button className="new-ui-restructure-tool-button" type="button" aria-disabled="true" data-tooltip="暂未接入上传素材">
+          <button
+            className={`new-ui-restructure-tool-button ${activeAttachmentPanel === "material" ? "is-active" : ""}`.trim()}
+            type="button"
+            aria-expanded={activeAttachmentPanel === "material"}
+            data-tooltip="选择素材识别包"
+            onClick={() => {
+              setActiveAttachmentPanel((current) => current === "material" ? null : "material");
+              void onRefreshMaterialPackOptions?.();
+            }}
+          >
             <UploadMaterialGlyph />
             <span>上传素材</span>
           </button>
-          <button className="new-ui-restructure-tool-button" type="button" aria-disabled="true" data-tooltip="暂未接入引用结构">
+          <button
+            className={`new-ui-restructure-tool-button ${activeAttachmentPanel === "structure" ? "is-active" : ""}`.trim()}
+            type="button"
+            aria-expanded={activeAttachmentPanel === "structure"}
+            data-tooltip="固定一个样例结构"
+            onClick={() => {
+              setActiveAttachmentPanel((current) => current === "structure" ? null : "structure");
+              void onRefreshStructureOptions?.();
+            }}
+          >
             <ReferenceStructureGlyph />
             <span>引用结构</span>
           </button>
         </div>
+        {selectedMaterialPack || selectedStructure ? (
+          <div className="new-ui-restructure-composer-attachments" aria-label="已选择的重组上下文">
+            {selectedMaterialPack ? (
+              <AttachmentChip label="素材包" title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId} onRemove={() => setSelectedMaterialPack(null)} />
+            ) : null}
+            {selectedStructure ? (
+              <AttachmentChip label="结构" title={selectedStructure.title || selectedStructure.artifactId} onRemove={() => setSelectedStructure(null)} />
+            ) : null}
+          </div>
+        ) : null}
+        {activeAttachmentPanel === "material" ? (
+          <MaterialPackPickerPanel
+            options={materialPackOptions}
+            selected={selectedMaterialPack}
+            loading={loadingMaterialPackOptions}
+            onSelect={(option) => {
+              setSelectedMaterialPack(option);
+              setActiveAttachmentPanel(null);
+            }}
+            onUpload={onOpenMaterialUpload}
+          />
+        ) : null}
+        {activeAttachmentPanel === "structure" ? (
+          <StructurePickerPanel
+            options={structureOptions}
+            selected={selectedStructure}
+            loading={loadingStructureOptions}
+            onSelect={(option) => {
+              setSelectedStructure(option);
+              setActiveAttachmentPanel(null);
+            }}
+          />
+        ) : null}
         {onAutoAdvanceToggle ? (
           <button
             className={`new-ui-restructure-auto-advance-toggle ${autoAdvanceEnabled ? "is-on" : ""}`.trim()}
@@ -550,6 +643,151 @@ function RestructureSendErrorAlert({ message }: { message: string }) {
       <p>{message}</p>
     </div>
   );
+}
+
+function AttachmentChip({ label, title, onRemove }: { label: string; title: string; onRemove: () => void }) {
+  return (
+    <span className="new-ui-restructure-attachment-chip">
+      <b>{label}</b>
+      <span>{title}</span>
+      <button type="button" aria-label={`移除${label}`} onClick={onRemove}>
+        <CloseGlyph />
+      </button>
+    </span>
+  );
+}
+
+function MaterialPackPickerPanel({
+  options,
+  selected,
+  loading,
+  onSelect,
+  onUpload,
+}: {
+  options: NewUiMaterialPackOption[];
+  selected: NewUiMaterialPackOption | null;
+  loading: boolean;
+  onSelect: (option: NewUiMaterialPackOption) => void;
+  onUpload?: () => void;
+}) {
+  return (
+    <section className="new-ui-restructure-picker-panel is-material" aria-label="选择素材识别包">
+      <button className="new-ui-restructure-picker-card is-upload-card" type="button" disabled={!onUpload} onClick={onUpload}>
+        <span className="new-ui-restructure-picker-card-icon" aria-hidden="true">
+          <UploadMaterialGlyph />
+        </span>
+        <strong>上传新素材</strong>
+        <small>进入素材识别，生成新的素材能力包</small>
+      </button>
+      {loading ? <PickerStateCard text="正在读取素材包" /> : null}
+      {!loading && !options.length ? <PickerStateCard text="暂无可用素材识别结果" /> : null}
+      {!loading ? options.map((option) => (
+        <button
+          key={`${option.sampleVideoId}:${option.artifactId ?? ""}`}
+          className={`new-ui-restructure-picker-card ${isSameMaterialPackOption(option, selected) ? "is-selected" : ""}`.trim()}
+          type="button"
+          onClick={() => onSelect(option)}
+        >
+          <span className="new-ui-restructure-picker-thumb" aria-hidden="true">
+            {option.coverUrl ? <img src={option.coverUrl} alt="" loading="lazy" decoding="async" /> : <UploadMaterialGlyph />}
+          </span>
+          <strong>{option.title || `素材 ${shortId(option.sampleVideoId)}`}</strong>
+          <small>{formatMaterialPackOptionMeta(option)}</small>
+        </button>
+      )) : null}
+    </section>
+  );
+}
+
+function StructurePickerPanel({
+  options,
+  selected,
+  loading,
+  onSelect,
+}: {
+  options: NewUiStructureOption[];
+  selected: NewUiStructureOption | null;
+  loading: boolean;
+  onSelect: (option: NewUiStructureOption) => void;
+}) {
+  return (
+    <section className="new-ui-restructure-picker-panel is-structure" aria-label="选择样例结构">
+      {loading ? <PickerStateCard text="正在读取样例结构" /> : null}
+      {!loading && !options.length ? <PickerStateCard text="暂无 FunctionSlotLibrary 样例" /> : null}
+      {!loading ? options.map((option) => (
+        <button
+          key={option.artifactId}
+          className={`new-ui-restructure-picker-card ${isSameStructureOption(option, selected) ? "is-selected" : ""}`.trim()}
+          type="button"
+          onClick={() => onSelect(option)}
+        >
+          <span className="new-ui-restructure-picker-card-icon" aria-hidden="true">
+            <ReferenceStructureGlyph />
+          </span>
+          <strong>{option.title || `样例 ${shortId(option.sampleVideoId ?? option.artifactId)}`}</strong>
+          <small>{formatStructureOptionMeta(option)}</small>
+        </button>
+      )) : null}
+    </section>
+  );
+}
+
+function PickerStateCard({ text }: { text: string }) {
+  return (
+    <div className="new-ui-restructure-picker-card is-state-card">
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
+function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | null, structure: NewUiStructureOption | null): NewUiRestructureSendContext {
+  return {
+    materialPackRef: materialPack ? {
+      sampleVideoId: materialPack.sampleVideoId,
+      artifactId: materialPack.artifactId ?? null,
+      title: materialPack.title ?? null,
+      traceId: materialPack.traceId ?? null,
+      shotCardCount: materialPack.shotCardCount ?? null,
+      materialGroupCount: materialPack.materialGroupCount ?? null,
+      proofCoverageCount: materialPack.proofCoverageCount ?? null,
+    } : null,
+    structureRef: structure ? {
+      artifactId: structure.artifactId,
+      sampleVideoId: structure.sampleVideoId ?? null,
+      title: structure.title ?? null,
+      traceId: structure.traceId ?? null,
+      slotCount: structure.slotCount ?? null,
+      atomCount: structure.atomCount ?? null,
+    } : null,
+  };
+}
+
+function isSameMaterialPackOption(left: NewUiMaterialPackOption | null, right: NewUiMaterialPackOption | null) {
+  return Boolean(left && right && left.sampleVideoId === right.sampleVideoId && (left.artifactId ?? null) === (right.artifactId ?? null));
+}
+
+function isSameStructureOption(left: NewUiStructureOption | null, right: NewUiStructureOption | null) {
+  return Boolean(left && right && left.artifactId === right.artifactId);
+}
+
+function formatMaterialPackOptionMeta(option: NewUiMaterialPackOption) {
+  const counts = [
+    option.shotCardCount != null ? `${option.shotCardCount} 镜头卡` : null,
+    option.materialGroupCount != null ? `${option.materialGroupCount} 组` : null,
+    option.proofCoverageCount != null ? `${option.proofCoverageCount} 证明项` : null,
+  ].filter(Boolean);
+  const duration = option.durationSeconds != null ? formatSecondsCompact(option.durationSeconds) : null;
+  const trace = option.traceId ? `trace ${shortId(option.traceId)}` : null;
+  return [...counts, duration, trace].filter(Boolean).join(" / ") || `sample ${shortId(option.sampleVideoId)}`;
+}
+
+function formatStructureOptionMeta(option: NewUiStructureOption) {
+  const counts = [
+    option.slotCount != null ? `${option.slotCount} 槽位` : null,
+    option.atomCount != null ? `${option.atomCount} 原子` : null,
+  ].filter(Boolean);
+  const trace = option.traceId ? `trace ${shortId(option.traceId)}` : null;
+  return [...counts, trace].filter(Boolean).join(" / ") || `artifact ${shortId(option.artifactId)}`;
 }
 
 function resolveRestructureTitle(title: string | null | undefined) {
@@ -979,6 +1217,30 @@ function resolveUserInputOriginDisplay(message: AgentChatMessageSnapshot) {
     return {
       label: "自动推进",
       tooltip: "这条输入由自动推进触发，用于从已完成的槽位方案继续完善具体 Shot 设计。",
+      icon: "confirm" as const,
+      tone: "success" as const,
+    };
+  }
+  if (origin === "material_context") {
+    return {
+      label: "附素材包",
+      tooltip: "这条输入发送时附带了素材识别产出的 user-material-pack。",
+      icon: "slot" as const,
+      tone: "success" as const,
+    };
+  }
+  if (origin === "structure_context") {
+    return {
+      label: "引用结构",
+      tooltip: "这条输入发送时固定引用了一个样例结构，重组会基于 brief 做迁移处理。",
+      icon: "trace" as const,
+      tone: "warning" as const,
+    };
+  }
+  if (origin === "material_and_structure_context") {
+    return {
+      label: "素材+结构",
+      tooltip: "这条输入同时附带素材识别包，并固定引用了一个样例结构。",
       icon: "confirm" as const,
       tone: "success" as const,
     };
@@ -1978,6 +2240,14 @@ function ErrorAlertGlyph() {
       <path d="M10 3.5 17 15.5H3L10 3.5Z" />
       <path d="M10 7.5v4" />
       <path d="M10 14.1h.01" />
+    </svg>
+  );
+}
+
+function CloseGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <path d="m6 6 8 8M14 6l-8 8" />
     </svg>
   );
 }

@@ -65,19 +65,24 @@ function createShotStoryboardAutoPipelineService({
 
   async function enqueue(options = {}) {
     await store.ensureRuntimeDirs?.();
+    const run = startPipelineJob(options);
+    return run.startResult;
+  }
+
+  function startPipelineJob(options = {}) {
     const sampleVideoId = normalizeText(options.sampleVideoId) || "function-slot-workflow";
     const traceContext = nextStage(createTraceIds());
     const artifactId = options.artifactId || `artifact_${randomUUID()}`;
     const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     job.options = { ...options, sampleVideoId, parentArtifactId };
-    runPipelineWithRepair({
+    const completion = runPipelineWithRepair({
       options: job.options,
       job,
       traceContext,
       artifactId,
       parentArtifactId,
-    }).catch(async (error) => {
+    }).then((artifact) => ({ ok: true, artifact })).catch(async (error) => {
       await markFailed({
         job,
         traceContext,
@@ -87,8 +92,15 @@ function createShotStoryboardAutoPipelineService({
         inputSummary: buildInputSummary(options),
       });
       await markConversationStoryboardFailed({ options: job.options, job, traceContext, artifactId, error });
+      return { ok: false, error };
     });
     return {
+      completion,
+      job,
+      traceContext,
+      artifactId,
+      parentArtifactId,
+      startResult: {
       ok: true,
       processingJobId: job.jobId,
       sampleVideoId,
@@ -101,6 +113,7 @@ function createShotStoryboardAutoPipelineService({
       status: "processing",
       role: REPAIR_ROLE,
       message: "Shot Storyboard Prep pipeline 已启动。",
+      },
     };
   }
 
@@ -541,6 +554,80 @@ function createShotStoryboardAutoPipelineService({
     return artifactWithUri;
   }
 
+  async function enqueueVersionBatch(options = {}) {
+    await store.ensureRuntimeDirs?.();
+    const sampleVideoId = normalizeText(options.sampleVideoId) || "function-slot-workflow";
+    const traceContext = nextStage(createTraceIds());
+    const artifactId = options.artifactId || `artifact_${randomUUID()}`;
+    const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
+    const versions = Array.isArray(options.versions) ? options.versions.filter((item) => normalizeText(item?.versionId)) : [];
+    const defaultVersionId = normalizeText(options.defaultVersionId) || versions[0]?.versionId || null;
+    const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
+    job.options = { ...options, sampleVideoId, parentArtifactId, artifactId, defaultVersionId, versions };
+    jobStore.updateJob(job.jobId, {
+      stage: `${AUTO_STAGE_NAME}.multi_version`,
+      status: SAMPLE_STATUS.processing,
+      progress: 5,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId,
+      parentArtifactId,
+      moduleId: "shot-storyboard-prep",
+      outputSummary: {
+        mode: "multi_version",
+        versionCount: versions.length,
+        defaultVersionId,
+      },
+    });
+    await logger.writeStageLog({
+      traceContext,
+      stageName: `${AUTO_STAGE_NAME}.multi_version`,
+      event: "stage.start",
+      artifactId,
+      parentArtifactId,
+      inputSummary: {
+        mode: "multi_version",
+        versionCount: versions.length,
+        defaultVersionId,
+      },
+    });
+    runVersionBatch({ options: job.options, job, traceContext, artifactId, parentArtifactId }).catch(async (error) => {
+      await markFailed({
+        job,
+        traceContext,
+        artifactId,
+        parentArtifactId,
+        error,
+        inputSummary: { mode: "multi_version", versionCount: versions.length, defaultVersionId },
+      });
+    });
+    const versionResults = versions.map((version) => ({
+      versionId: version.versionId,
+      versionName: version.versionName || version.versionId,
+      sourceRestructurePath: version.restructureFinalPath,
+      sourceShotDesignPath: version.shotDesignFinalPath,
+      status: "queued",
+      storyboardArtifact: null,
+    }));
+    return {
+      ok: true,
+      mode: "multi_version",
+      processingJobId: job.jobId,
+      sampleVideoId,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      artifactId,
+      parentArtifactId,
+      confirmationId: normalizeText(options.confirmationId),
+      status: "processing",
+      role: REPAIR_ROLE,
+      message: "多版本 Shot Storyboard Prep pipeline 已启动。",
+      defaultVersionId,
+      versions: versionResults,
+    };
+  }
+
   async function markConversationStoryboardProcessed({ options, job, traceContext, artifactId }) {
     const conversationId = normalizeText(options.conversationId);
     if (!conversationId || !agentConversationStore?.confirmPlan) return;
@@ -673,7 +760,161 @@ function createShotStoryboardAutoPipelineService({
     }).catch(() => null);
   }
 
-  return { enqueue };
+  async function runVersionBatch({ options, job, traceContext, artifactId, parentArtifactId }) {
+    const startedAt = Date.now();
+    const versions = Array.isArray(options.versions) ? options.versions : [];
+    const concurrency = Math.max(1, Math.min(2, Number(options.versionConcurrency) || 2));
+    const results = [];
+    let cursor = 0;
+    async function worker() {
+      while (cursor < versions.length) {
+        const index = cursor;
+        cursor += 1;
+        const version = versions[index];
+        const childRun = startPipelineJob({
+          ...options,
+          mode: "single",
+          versionId: version.versionId,
+          versionName: version.versionName,
+          restructureFinalPath: version.restructureFinalPath,
+          shotDesignFinalPath: version.shotDesignFinalPath,
+          parentArtifactId: artifactId,
+          restructureArtifactId: artifactId,
+          confirmationId: `${normalizeText(options.confirmationId) || "confirm"}:${version.versionId}`,
+        });
+        const child = childRun.startResult;
+        results[index] = {
+          versionId: version.versionId,
+          versionName: version.versionName || version.versionId,
+          sourceRestructurePath: version.restructureFinalPath,
+          sourceShotDesignPath: version.shotDesignFinalPath,
+          status: child.status ?? (child.ok === false ? "failed" : "processing"),
+          storyboardArtifact: child.ok === false ? null : {
+            artifactId: child.artifactId ?? null,
+            processingJobId: child.processingJobId ?? null,
+            traceId: child.traceId ?? null,
+            runId: child.runId ?? null,
+            stageId: child.stageId ?? null,
+            status: child.status ?? null,
+          },
+          error: child.ok === false ? child.error ?? null : null,
+          message: child.ok === false ? child.message ?? null : null,
+        };
+        updateVersionBatchJob({ job, versions, results, artifactId, parentArtifactId });
+        const completed = await childRun.completion;
+        if (!completed.ok) {
+          results[index] = {
+            ...results[index],
+            status: "failed",
+            storyboardArtifact: {
+              ...results[index].storyboardArtifact,
+              status: "failed",
+            },
+            error: completed.error?.code ?? "storyboard_prep_version_failed",
+            message: safePreview(completed.error?.message ?? "版本故事板任务失败", 200),
+          };
+        } else {
+          results[index] = {
+            ...results[index],
+            status: "completed",
+            storyboardArtifact: {
+              ...results[index].storyboardArtifact,
+              status: "processed",
+            },
+          };
+        }
+        updateVersionBatchJob({ job, versions, results, artifactId, parentArtifactId });
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, versions.length) }, () => worker()));
+    const failedCount = results.filter((item) => item?.status === "failed").length;
+    const status = failedCount === versions.length ? SAMPLE_STATUS.failed : SAMPLE_STATUS.processed;
+    const outputSummary = {
+      mode: "multi_version",
+      status: failedCount ? "partial_failed" : "processing",
+      versionCount: versions.length,
+      failedCount,
+      defaultVersionId: options.defaultVersionId ?? versions[0]?.versionId ?? null,
+      versions: results,
+    };
+    await logger.writeStageLog({
+      traceContext,
+      stageName: `${AUTO_STAGE_NAME}.multi_version`,
+      event: failedCount === versions.length ? "stage.fail" : "stage.end",
+      artifactId,
+      parentArtifactId,
+      outputSummary,
+      durationMs: Date.now() - startedAt,
+    });
+    jobStore.updateJob(job.jobId, {
+      stage: `${AUTO_STAGE_NAME}.multi_version`,
+      status,
+      progress: 100,
+      artifactId,
+      parentArtifactId,
+      outputSummary,
+    });
+    await markConversationStoryboardBatchStarted({ options, job, traceContext, artifactId, versionResults: results });
+  }
+
+  function updateVersionBatchJob({ job, versions, results, artifactId, parentArtifactId }) {
+    const completed = results.filter(Boolean).length;
+    jobStore.updateJob(job.jobId, {
+      stage: `${AUTO_STAGE_NAME}.multi_version`,
+      status: SAMPLE_STATUS.processing,
+      progress: Math.max(5, Math.min(95, Math.round((completed / Math.max(versions.length, 1)) * 90))),
+      artifactId,
+      parentArtifactId,
+      outputSummary: {
+        mode: "multi_version",
+        versionCount: versions.length,
+        completedEnqueueCount: completed,
+        versions: results.filter(Boolean),
+      },
+    });
+  }
+
+  async function markConversationStoryboardBatchStarted({ options, job, traceContext, artifactId, versionResults }) {
+    const conversationId = normalizeText(options.conversationId);
+    if (!conversationId || !agentConversationStore?.confirmPlan) return;
+    const defaultVersion = versionResults.find((item) => item.versionId === options.defaultVersionId) ?? versionResults[0] ?? null;
+    const storyboardArtifact = {
+      artifactId,
+      processingJobId: job.jobId,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      status: "processing",
+    };
+    await agentConversationStore.confirmPlan({
+      conversationId,
+      turnId: normalizeText(options.restructureArtifactId) ?? null,
+      confirmationId: normalizeText(options.confirmationId),
+      sourceRestructurePath: defaultVersion?.sourceRestructurePath ?? normalizeText(options.restructureFinalPath) ?? null,
+      sourceShotDesignPath: defaultVersion?.sourceShotDesignPath ?? normalizeText(options.shotDesignFinalPath) ?? null,
+      note: "多版本 Shot Storyboard Prep 流水线已启动。",
+      storyboardArtifact,
+      storyboardMode: "multi_version",
+      defaultVersionId: options.defaultVersionId ?? defaultVersion?.versionId ?? null,
+      storyboardVersions: versionResults,
+      status: "storyboard_processing",
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }).catch(() => null);
+    await agentConversationStore.updateStoryboardResultMessage?.({
+      conversationId,
+      confirmationId: normalizeText(options.confirmationId),
+      storyboardArtifact,
+      versions: versionResults,
+      status: versionResults.some((item) => item.status === "failed") ? "storyboard_failed" : "completed",
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }).catch(() => null);
+  }
+
+  return { enqueue, enqueueVersionBatch };
 }
 
 function collectMaterialFrameMaps(options, baseDir) {
