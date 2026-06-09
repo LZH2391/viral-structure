@@ -70,8 +70,9 @@ function normalizeTitleState(value) {
 
 function normalizeConfirmedPlan(value) {
   if (!value || typeof value !== "object") return null;
+  const status = normalizeConfirmedPlanStatus(value.status, value.storyboardArtifact, value.displayArtifact);
   return {
-    status: ["confirmed", "completed"].includes(value.status) ? value.status : "confirmed",
+    status,
     turnId: value.turnId ? String(value.turnId) : null,
     confirmationId: normalizeIdText(value.confirmationId),
     confirmedAt: value.confirmedAt ?? null,
@@ -91,11 +92,23 @@ function normalizeArtifactRef(value) {
   if (!value || typeof value !== "object") return null;
   return {
     artifactId: value.artifactId ? String(value.artifactId) : null,
+    processingJobId: value.processingJobId ? String(value.processingJobId) : null,
     traceId: value.traceId ? String(value.traceId) : null,
     runId: value.runId ? String(value.runId) : null,
     stageId: value.stageId ? String(value.stageId) : null,
     status: value.status ? String(value.status) : null,
   };
+}
+
+function normalizeConfirmedPlanStatus(status, storyboardArtifact = null, displayArtifact = null) {
+  const value = String(status ?? "").trim();
+  if (["confirmed", "storyboard_processing", "storyboard_failed", "completed"].includes(value)) return value;
+  if (value === "storyboard_processed") return "completed";
+  const storyboardStatus = String(storyboardArtifact?.status ?? "").trim();
+  if (["processing", "submitted", "running"].includes(storyboardStatus)) return "storyboard_processing";
+  if (storyboardStatus === "failed") return "storyboard_failed";
+  if (storyboardStatus === "processed" || storyboardStatus === "completed" || displayArtifact) return "completed";
+  return "confirmed";
 }
 
 function normalizePathText(value) {
@@ -163,6 +176,10 @@ function normalizeMessage(value) {
     text: limitText(value.text),
     status: normalizeMessageStatus(value.status),
     userInputOrigin: normalizeUserInputOrigin(value.userInputOrigin),
+    autoAdvanceKey: normalizeIdText(value.autoAdvanceKey),
+    sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
+    sourceRestructureFingerprint: normalizeFileFingerprint(value.sourceRestructureFingerprint),
+    sourceDisplayFingerprint: normalizeFileFingerprint(value.sourceDisplayFingerprint),
     slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
     dialogueRoboticReview: normalizeDialogueRoboticReview(value.dialogueRoboticReview),
     createdAt: value.createdAt ?? null,
@@ -201,7 +218,7 @@ function normalizeSlotAtomDisplay(value) {
   if (!value || typeof value !== "object") return null;
   return {
     schemaVersion: String(value.schemaVersion ?? "function_slot_restructure_slot_atom_display.v1"),
-    status: value.status === "available" ? "available" : value.status === "empty" ? "empty" : "available",
+    status: value.status === "available" ? "available" : "empty",
     displayJsonPath: normalizePathText(value.displayJsonPath),
     slotCount: normalizeCount(value.slotCount),
     atomBindingCount: normalizeCount(value.atomBindingCount),
@@ -314,6 +331,7 @@ module.exports = {
   normalizeArtifactRef,
   normalizeAtomSummary,
   normalizeConfirmedPlan,
+  normalizeConfirmedPlanStatus,
   normalizeConversation,
   normalizeCount,
   normalizeDialogueFingerprint,

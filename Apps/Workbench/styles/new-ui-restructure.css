@@ -846,8 +846,16 @@ button.new-ui-restructure-note-pill:disabled {
 }
 
 .new-ui-restructure-auto-advance-toggle.is-on {
-  border-color: color-mix(in srgb, var(--new-ui-green-400) 42%, var(--new-ui-border));
-  color: color-mix(in srgb, var(--new-ui-green-400) 64%, var(--new-ui-text));
+  border-color: color-mix(in srgb, var(--new-ui-green-400) 68%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-green-400) 14%, var(--new-ui-bg));
+  color: color-mix(in srgb, var(--new-ui-green-400) 86%, var(--new-ui-text));
+}
+
+.new-ui-restructure-auto-advance-toggle.is-on:hover,
+.new-ui-restructure-auto-advance-toggle.is-on:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-green-400) 78%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-green-400) 20%, var(--new-ui-bg));
+  color: color-mix(in srgb, var(--new-ui-green-400) 92%, var(--new-ui-text));
 }
 
 .new-ui-restructure-auto-advance-switch {
@@ -872,7 +880,7 @@ button.new-ui-restructure-note-pill:disabled {
 }
 
 .new-ui-restructure-auto-advance-toggle.is-on .new-ui-restructure-auto-advance-switch {
-  background: color-mix(in srgb, var(--new-ui-green-400) 70%, var(--new-ui-text));
+  background: color-mix(in srgb, var(--new-ui-green-400) 92%, var(--new-ui-text));
 }
 
 .new-ui-restructure-auto-advance-toggle.is-on .new-ui-restructure-auto-advance-switch i {

@@ -954,11 +954,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
           storyboardArtifact: {
             artifactId: storyboardResult.artifactId,
+            processingJobId: storyboardResult.processingJobId,
             traceId: storyboardResult.traceId,
             runId: storyboardResult.runId,
             stageId: storyboardResult.stageId,
             status: storyboardResult.status,
           },
+          status: storyboardResult.status === "processed" ? "completed" : storyboardResult.status === "failed" ? "storyboard_failed" : "storyboard_processing",
         },
         normalizeConversationRevision(gate?.conversation.revision),
       );
@@ -985,6 +987,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         threadId: conversation.threadId,
         sourceTurnId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         restructureFinalPath: sourceRestructurePath,
+        restructureFingerprint: selectedSlotAtomDisplay?.fileFingerprint ?? null,
+        displayFingerprint: selectedSlotAtomDisplay?.fileFingerprint ?? null,
         parentArtifactId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         expectedRevision: normalizeConversationRevision(conversation.revision),
         workspaceRoot: conversation.workspaceRoot ?? null,

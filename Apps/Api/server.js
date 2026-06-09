@@ -190,6 +190,7 @@ function createServer(deps = {}) {
     logger: activeLogger,
     jobStore: activeJobStore,
     moduleRegistry: activeModuleRegistry,
+    agentConversationStore: activeAgentConversationStore,
     threadPool: deps.threadPool ?? threadPool,
     appServer: deps.appServer ?? appServer,
     activeTurnRuntime: activeActiveTurnRuntime,

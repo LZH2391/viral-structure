@@ -162,7 +162,7 @@ export type AgentChatConversation = {
     message?: string | null;
   } | null;
   confirmedPlan?: {
-    status?: "confirmed" | "completed" | string;
+    status?: "confirmed" | "storyboard_processing" | "storyboard_failed" | "completed" | string;
     turnId?: string | null;
     confirmationId?: string | null;
     confirmedAt?: string | null;
@@ -181,6 +181,7 @@ export type AgentChatConversation = {
 
 export type AgentChatArtifactRef = {
   artifactId?: string | null;
+  processingJobId?: string | null;
   traceId?: string | null;
   runId?: string | null;
   stageId?: string | null;

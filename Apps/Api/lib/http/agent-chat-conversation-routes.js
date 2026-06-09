@@ -174,6 +174,7 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
           sourceShotDesignPath: normalizeText(body.sourceShotDesignPath),
           displayArtifact: normalizeArtifactRef(body.displayArtifact),
           storyboardArtifact: normalizeArtifactRef(body.storyboardArtifact),
+          status: normalizeText(body.status),
           traceId: traceContext.traceId,
           runId: traceContext.runId,
           stageId: traceContext.stageId,

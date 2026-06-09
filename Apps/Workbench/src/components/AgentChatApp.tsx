@@ -1087,11 +1087,13 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
             note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
             storyboardArtifact: {
               artifactId: storyboardResult.artifactId,
+              processingJobId: storyboardResult.processingJobId,
               traceId: storyboardResult.traceId,
               runId: storyboardResult.runId,
               stageId: storyboardResult.stageId,
               status: storyboardResult.status,
             },
+            status: storyboardResult.status === "processed" ? "completed" : storyboardResult.status === "failed" ? "storyboard_failed" : "storyboard_processing",
           },
           confirmationRevision,
         );

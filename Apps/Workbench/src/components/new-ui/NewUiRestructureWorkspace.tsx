@@ -66,6 +66,7 @@ type RestructureMessageRenderItem =
   | { kind: "process_group"; id: string; messages: AgentChatMessageSnapshot[] };
 type RestructureNotePillTone = "neutral" | "success" | "warning" | "danger";
 type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue" | "trace" | "confirm";
+type ConfirmedPlanStatusDisplay = { label: string; status: AgentTimelineItem["status"] };
 
 export function NewUiRestructureWorkspace({
   conversation,
@@ -103,6 +104,7 @@ export function NewUiRestructureWorkspace({
   const contextUsageFallbackTarget = resolveContextUsageFallbackTarget(conversation, activeTurnTarget);
   const contextUsageFallbackTimeline = useRestructureTurnTimeline(contextUsageFallbackTarget);
   const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
+  const confirmedPlanStatusDisplay = resolveConfirmedPlanStatusDisplay(conversation?.confirmedPlan?.status);
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
   const canStopTurn = Boolean(activeTurnTarget?.running && activeTurnTarget.threadId && activeTurnTarget.turnId && !stoppingTurn);
@@ -434,6 +436,9 @@ export function NewUiRestructureWorkspace({
                 shouldStickToBottomRef.current = isNearScrollBottom(event.currentTarget);
               }}
             >
+              {confirmedPlanStatusDisplay ? (
+                <ConfirmedPlanStatusActivity display={confirmedPlanStatusDisplay} />
+              ) : null}
               {messageRenderItems.map((renderItem) => (
                 <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
                   {shouldInsertTimelineBeforeRenderItem(renderItem, timelineInsertMessageId) ? (
@@ -516,6 +521,20 @@ export function NewUiRestructureWorkspace({
   );
 }
 
+function ConfirmedPlanStatusActivity({ display }: { display: ConfirmedPlanStatusDisplay }) {
+  return (
+    <article className="new-ui-restructure-activity is-process-message">
+      <span className="new-ui-restructure-activity-icon" aria-hidden="true">
+        <RestructureTimelineIcon kind={display.status === "failed" ? "dialogue_review" : "reasoning"} />
+      </span>
+      <p>
+        <span>方案状态</span>
+        <strong>{display.label}</strong>
+      </p>
+    </article>
+  );
+}
+
 function RestructureSendErrorAlert({ message }: { message: string }) {
   return (
     <div id="new-ui-restructure-send-error" className="new-ui-restructure-send-error-alert" role="alert">
@@ -576,6 +595,15 @@ function resolveConversationLatestTurnId(conversation: AgentChatConversation | n
   if (explicit) return explicit;
   const latestMessage = [...(conversation?.messages ?? [])].reverse().find((message) => message.turnId?.trim());
   return latestMessage?.turnId?.trim() || null;
+}
+
+function resolveConfirmedPlanStatusDisplay(status: string | null | undefined): ConfirmedPlanStatusDisplay | null {
+  const value = String(status ?? "").trim();
+  if (value === "confirmed") return { label: "方案已确认", status: "completed" };
+  if (value === "storyboard_processing") return { label: "故事板准备中", status: "running" };
+  if (value === "storyboard_failed") return { label: "故事板准备失败", status: "failed" };
+  if (value === "completed") return { label: "方案完成", status: "completed" };
+  return null;
 }
 
 function useLastKnownContextUsage(usage: AgentTurnTimeline["activity"]["tokenUsage"] | null, scopeKey: string | null) {

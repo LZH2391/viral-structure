@@ -10,6 +10,7 @@ const {
   isTerminalStatus,
   limitText,
   normalizeArtifactRef,
+  normalizeConfirmedPlanStatus,
   normalizeConfirmedPlan,
   normalizeConversation,
   normalizeDialogueRoboticReview,
@@ -132,7 +133,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null, userInputOrigin = null }) {
+  async function recordUserTurn({ conversationId, turnId, text, traceId = null, runId = null, stageId = null, userInputOrigin = null, autoAdvanceKey = null, sourceRestructurePath = null, sourceRestructureFingerprint = null, sourceDisplayFingerprint = null }) {
     if (!conversationId || !turnId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -147,6 +148,10 @@ function createAgentConversationStore({ store, filePath } = {}) {
         text: limitText(text),
         status: "completed",
         userInputOrigin,
+        autoAdvanceKey: normalizeIdText(autoAdvanceKey),
+        sourceRestructurePath: normalizePathText(sourceRestructurePath),
+        sourceRestructureFingerprint,
+        sourceDisplayFingerprint,
         createdAt: now,
         updatedAt: now,
       });
@@ -345,7 +350,7 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
-  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, sourceShotDesignPath = null, displayArtifact = null, storyboardArtifact = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+  async function confirmPlan({ conversationId, turnId = null, confirmationId = null, note = null, sourceRestructurePath = null, sourceShotDesignPath = null, displayArtifact = null, storyboardArtifact = null, status = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId) return null;
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -353,17 +358,20 @@ function createAgentConversationStore({ store, filePath } = {}) {
       conversation.traceId = traceId ?? conversation.traceId ?? null;
       conversation.runId = runId ?? conversation.runId ?? null;
       conversation.stageId = stageId ?? conversation.stageId ?? null;
+      const previous = normalizeConfirmedPlan(conversation.confirmedPlan);
+      const nextDisplayArtifact = normalizeArtifactRef(displayArtifact) ?? previous?.displayArtifact ?? null;
+      const nextStoryboardArtifact = normalizeArtifactRef(storyboardArtifact) ?? previous?.storyboardArtifact ?? null;
       conversation.confirmedPlan = {
-        status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
+        status: normalizeConfirmedPlanStatus(status, nextStoryboardArtifact, nextDisplayArtifact),
         turnId: turnId ?? conversation.latestTurnId ?? null,
         confirmationId: normalizeIdText(confirmationId),
         confirmedAt: conversation.confirmedPlan?.confirmedAt ?? now,
         updatedAt: now,
         note: limitText(note),
-        sourceRestructurePath: normalizePathText(sourceRestructurePath),
-        sourceShotDesignPath: normalizePathText(sourceShotDesignPath),
-        displayArtifact: normalizeArtifactRef(displayArtifact),
-        storyboardArtifact: normalizeArtifactRef(storyboardArtifact),
+        sourceRestructurePath: normalizePathText(sourceRestructurePath) ?? previous?.sourceRestructurePath ?? null,
+        sourceShotDesignPath: normalizePathText(sourceShotDesignPath) ?? previous?.sourceShotDesignPath ?? null,
+        displayArtifact: nextDisplayArtifact,
+        storyboardArtifact: nextStoryboardArtifact,
         traceId: traceId ?? null,
         runId: runId ?? null,
         stageId: stageId ?? null,

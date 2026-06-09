@@ -1,4 +1,4 @@
-const { randomUUID } = require("crypto");
+const { createHash, randomUUID } = require("crypto");
 const { readJsonBody } = require("../observability/ui-debug-events");
 const { buildAgentChatActionProjection } = require("../agent-chat/actions");
 const { findLatestRestructureFinalPath } = require("../agent-chat/restructure-auto-display-utils");
@@ -29,6 +29,7 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
       conversationId,
       sourceTurnId: normalizeText(body.sourceTurnId),
       sourceRestructureFinalPath: normalizeText(body.restructureFinalPath),
+      autoAdvanceKey: normalizeText(body.autoAdvanceKey),
       expectedRevision: normalizeRevision(body.expectedRevision),
     },
     action: async ({ traceContext }) => withConversationLock(conversationId, async () => {
@@ -39,7 +40,6 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
       if (conversation.role !== "function-slot-restructure") {
         throw badRequestError("agent_chat_auto_advance_role_invalid", "自动推进只能提交给 function-slot-restructure 会话");
       }
-      assertConversationReadyForNewTurn(conversation);
       const threadId = normalizeText(body.threadId) ?? conversation.threadId;
       if (!threadId) throw badRequestError("agent_chat_auto_advance_thread_missing", "当前会话缺少可推进的 thread");
       if (conversation.threadId && conversation.threadId !== threadId) {
@@ -49,6 +49,56 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
       if (!restructureFinalPath) {
         throw badRequestError("agent_chat_auto_advance_restructure_missing", "未找到可推进的 restructure.final.md");
       }
+      const sourceRestructureFingerprint = normalizeFingerprint(body.restructureFingerprint);
+      const sourceDisplayFingerprint = normalizeFingerprint(body.displayFingerprint);
+      const autoAdvanceKey = buildAutoAdvanceKey({
+        conversationId,
+        restructureFinalPath,
+        sourceTurnId: normalizeText(body.sourceTurnId) ?? conversation.latestTurnId ?? null,
+        sourceRestructureFingerprint,
+        sourceDisplayFingerprint,
+      });
+      const duplicate = findDuplicateAutoAdvance(conversation, {
+        autoAdvanceKey,
+        restructureFinalPath,
+        sourceRestructureFingerprint,
+        sourceDisplayFingerprint,
+      });
+      if (duplicate) {
+        return {
+          ok: true,
+          source: conversation.source ?? body.source ?? "threadpool-role",
+          role: conversation.role,
+          conversationId,
+          conversationRevision: conversation.revision ?? null,
+          workspaceRoot: normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir,
+          threadId,
+          turnId: duplicate.turnId ?? conversation.latestTurnId ?? null,
+          status: "skipped_duplicate",
+          userTurnText: duplicate.text ?? buildAutoAdvanceShotDesignSummary(),
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          latestTurnId: conversation.latestTurnId ?? duplicate.turnId ?? null,
+          threadStopped: Boolean(conversation.threadStopped),
+          retryable: false,
+          activeTurnStatus: normalizeTurnStatus("completed"),
+          autoAdvanceState: {
+            nextAction: "wait",
+            reason: "duplicate_auto_advance",
+            dedupeKey: autoAdvanceKey,
+            status: "skipped_duplicate",
+          },
+          actionProjection: buildAgentChatActionProjection({
+            conversation,
+            threadId,
+            turnId: duplicate.turnId ?? conversation.latestTurnId ?? null,
+            status: "completed",
+            retryable: false,
+          }),
+        };
+      }
+      assertConversationReadyForNewTurn(conversation);
       const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
       const roleProfile = await loadRoleProfileByRole("function-slot-restructure");
       const prompt = renderTurnTemplate(roleProfile, "autoShotDesign", {
@@ -56,6 +106,7 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
         sourceTurnId: normalizeText(body.sourceTurnId) ?? conversation.latestTurnId ?? "",
         userInstruction: normalizeText(body.userInstruction) ?? "无",
       });
+      const promptText = prompt.text.trim();
       const message = buildAutoAdvanceShotDesignSummary({
         restructureFinalPath,
         sourceTurnId: normalizeText(body.sourceTurnId) ?? conversation.latestTurnId ?? null,
@@ -63,7 +114,7 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
       const result = await handlers.appServer.startTurnWithInputs({
         workspaceRoot,
         threadId,
-        inputs: buildTextInputs(prompt.text),
+        inputs: buildTextInputs(promptText),
         skillPath: conversation.skillPath || roleProfile.skillPath || normalizeText(body.skillPath),
         timeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       });
@@ -76,9 +127,13 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
         text: message,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
-        stageId: traceContext.stageId,
-        userInputOrigin: "auto_advance",
-      }) ?? conversation;
+          stageId: traceContext.stageId,
+          userInputOrigin: "auto_advance",
+          autoAdvanceKey,
+          sourceRestructurePath: restructureFinalPath,
+          sourceRestructureFingerprint,
+          sourceDisplayFingerprint,
+        }) ?? conversation;
       await registerAgentChatActiveTurn(handlers, {
         payload: {
           conversationId,
@@ -119,6 +174,12 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
         threadStopped: Boolean(recorded?.threadStopped),
         retryable: true,
         activeTurnStatus: normalizeTurnStatus(result.status ?? "submitted"),
+        autoAdvanceState: {
+          nextAction: "submitShotDesign",
+          reason: "slot_atom_display_available",
+          dedupeKey: autoAdvanceKey,
+          status: "submitted",
+        },
         promptTemplateId: prompt.promptTemplateId,
         promptTemplateVersion: prompt.promptTemplateVersion,
         promptTemplateHash: prompt.promptTemplateHash,
@@ -137,6 +198,7 @@ async function handleAgentChatConversationAutoAdvance(req, res, conversationId, 
       turnId: result.turnId,
       status: result.status,
       conversationRevision: result.conversationRevision ?? null,
+      autoAdvanceState: result.autoAdvanceState?.status ?? null,
       promptTemplateVersion: result.promptTemplateVersion ?? null,
     }),
     successStatus: 202,
@@ -149,7 +211,19 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
   if (payload.autoDialogueRoboticReview.decision !== "pass") return null;
   const conversation = await handlers.agentConversationStore?.get?.(conversationId).catch(() => null);
   if (!conversation || !isAutoAdvanceTurn(conversation, payload.turnId)) return null;
-  if (conversation.confirmedPlan?.storyboardArtifact) return null;
+  if (conversation.confirmedPlan?.storyboardArtifact) {
+    return {
+      ok: true,
+      status: conversation.confirmedPlan.status ?? "storyboard_processing",
+      confirmationId: conversation.confirmedPlan.confirmationId ?? null,
+      conversationRevision: conversation.revision ?? null,
+      storyboardArtifact: conversation.confirmedPlan.storyboardArtifact,
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+      skipped: true,
+    };
+  }
   const sourceRestructurePath = findLatestRestructureFinalPath(conversation);
   const sourceShotDesignPath = normalizeText(payload.autoDialogueRoboticReview.shotDesignFinalPath);
   if (!sourceRestructurePath || !sourceShotDesignPath) return null;
@@ -182,6 +256,7 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
       sourceRestructurePath,
       sourceShotDesignPath,
       note: "自动推进：Shot 设计台词审查通过，准备触发 Shot Storyboard Prep 流水线。",
+      status: "confirmed",
       traceId: stageTraceContext.traceId,
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
@@ -211,18 +286,20 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
       note: "自动推进：已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
       storyboardArtifact: {
         artifactId: storyboardResult.artifactId,
+        processingJobId: storyboardResult.processingJobId,
         traceId: storyboardResult.traceId,
         runId: storyboardResult.runId,
         stageId: storyboardResult.stageId,
         status: storyboardResult.status,
       },
+      status: resolveConfirmedPlanStatusFromStoryboard(storyboardResult),
       traceId: stageTraceContext.traceId,
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
     });
     const result = {
       ok: true,
-      status: "completed",
+      status: resolveConfirmedPlanStatusFromStoryboard(storyboardResult),
       confirmationId,
       conversationRevision: confirmed?.revision ?? gate?.revision ?? null,
       storyboardArtifact: confirmed?.confirmedPlan?.storyboardArtifact ?? null,
@@ -240,6 +317,7 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
         status: result.status,
         confirmationId,
         storyboardArtifactId: result.storyboardArtifact?.artifactId ?? null,
+        storyboardJobId: result.storyboardArtifact?.processingJobId ?? storyboardResult.processingJobId ?? null,
       },
       durationMs: Date.now() - startedAt,
     });
@@ -280,12 +358,81 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
   }
 }
 
-function buildAutoAdvanceShotDesignSummary({ restructureFinalPath, sourceTurnId = null }) {
-  return [
-    "自动推进：基于已完成的槽位方案完善具体 Shot 设计。",
-    `sourceRestructureFinalPath: ${restructureFinalPath}`,
-    sourceTurnId ? `sourceTurnId: ${sourceTurnId}` : null,
-  ].filter(Boolean).join("\n");
+function buildAutoAdvanceShotDesignSummary() {
+  return "继续完善 Shot 设计";
+}
+
+function buildAutoAdvanceKey({ conversationId, restructureFinalPath, sourceTurnId = null, sourceRestructureFingerprint = null, sourceDisplayFingerprint = null }) {
+  const payload = {
+    conversationId: normalizeText(conversationId),
+    restructureFinalPath: normalizeText(restructureFinalPath),
+    sourceTurnId: normalizeText(sourceTurnId),
+    restructureFingerprint: stableFingerprint(sourceRestructureFingerprint),
+    displayFingerprint: stableFingerprint(sourceDisplayFingerprint),
+  };
+  return `auto_advance_${createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 24)}`;
+}
+
+function findDuplicateAutoAdvance(conversation, { autoAdvanceKey, restructureFinalPath, sourceRestructureFingerprint, sourceDisplayFingerprint }) {
+  const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
+  const restructurePath = normalizePath(restructureFinalPath);
+  for (const message of messages) {
+    if (message?.role !== "user" || normalizeText(message.userInputOrigin) !== "auto_advance") continue;
+    if (normalizeText(message.autoAdvanceKey) === autoAdvanceKey) return message;
+    if (restructurePath && normalizePath(message.sourceRestructurePath) === restructurePath) {
+      const sameRestructure = fingerprintsMatch(message.sourceRestructureFingerprint, sourceRestructureFingerprint);
+      const sameDisplay = fingerprintsMatch(message.sourceDisplayFingerprint, sourceDisplayFingerprint);
+      if (sameRestructure || sameDisplay) return message;
+    }
+  }
+  return null;
+}
+
+function normalizeFingerprint(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    path: normalizePath(value.path),
+    size: normalizeNullableNumber(value.size),
+    mtimeMs: normalizeNullableNumber(value.mtimeMs),
+    sha256: normalizeText(value.sha256),
+  };
+}
+
+function fingerprintsMatch(left, right) {
+  const a = normalizeFingerprint(left);
+  const b = normalizeFingerprint(right);
+  if (!a || !b) return false;
+  if (a.sha256 && b.sha256 && a.sha256 === b.sha256) return true;
+  if (a.path && b.path && a.path === b.path && a.size === b.size && a.mtimeMs === b.mtimeMs) return true;
+  return false;
+}
+
+function stableFingerprint(value) {
+  const fingerprint = normalizeFingerprint(value);
+  if (!fingerprint) return null;
+  return {
+    path: fingerprint.path,
+    size: fingerprint.size,
+    mtimeMs: fingerprint.mtimeMs,
+    sha256: fingerprint.sha256,
+  };
+}
+
+function normalizePath(value) {
+  return normalizeText(value)?.replaceAll("\\", "/") ?? null;
+}
+
+function normalizeNullableNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function resolveConfirmedPlanStatusFromStoryboard(storyboardResult) {
+  const status = String(storyboardResult?.status ?? "").trim();
+  if (status === "processed" || status === "completed") return "completed";
+  if (status === "failed") return "storyboard_failed";
+  return "storyboard_processing";
 }
 
 function isAutoAdvanceTurn(conversation, turnId) {
@@ -306,4 +453,5 @@ function buildConfirmationId(turnId) {
 module.exports = {
   handleAgentChatConversationAutoAdvance,
   maybeCompleteAutomaticAdvance,
+  buildAutoAdvanceKey,
 };

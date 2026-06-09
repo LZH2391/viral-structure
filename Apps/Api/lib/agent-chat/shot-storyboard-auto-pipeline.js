@@ -11,6 +11,7 @@ const {
   parseJsonStdout,
   pipelineError,
   readJson,
+  safePreview,
   validateCropResult,
   validateImageArtifact,
   validatePrepareResult,
@@ -39,6 +40,7 @@ function createShotStoryboardAutoPipelineService({
   threadPool = null,
   appServer = null,
   activeTurnRuntime = null,
+  agentConversationStore = null,
   now = () => new Date().toISOString(),
 } = {}) {
   if (!rootDir) throw new Error("rootDir is required for shot storyboard pipeline");
@@ -68,20 +70,24 @@ function createShotStoryboardAutoPipelineService({
     const artifactId = options.artifactId || `artifact_${randomUUID()}`;
     const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
+    job.options = { ...options, sampleVideoId, parentArtifactId };
     runPipelineWithRepair({
-      options: { ...options, sampleVideoId, parentArtifactId },
+      options: job.options,
       job,
       traceContext,
       artifactId,
       parentArtifactId,
-    }).catch((error) => markFailed({
-      job,
-      traceContext,
-      artifactId,
-      parentArtifactId,
-      error,
-      inputSummary: buildInputSummary(options),
-    }));
+    }).catch(async (error) => {
+      await markFailed({
+        job,
+        traceContext,
+        artifactId,
+        parentArtifactId,
+        error,
+        inputSummary: buildInputSummary(options),
+      });
+      await markConversationStoryboardFailed({ options: job.options, job, traceContext, artifactId, error });
+    });
     return {
       ok: true,
       processingJobId: job.jobId,
@@ -482,7 +488,61 @@ function createShotStoryboardAutoPipelineService({
       storyboardPrepArtifact: artifactWithUri,
       outputSummary,
     });
+    await markConversationStoryboardProcessed({ options: job.options ?? {}, job, traceContext, artifactId });
     return artifactWithUri;
+  }
+
+  async function markConversationStoryboardProcessed({ options, job, traceContext, artifactId }) {
+    const conversationId = normalizeText(options.conversationId);
+    if (!conversationId || !agentConversationStore?.confirmPlan) return;
+    const current = await agentConversationStore.get?.(conversationId).catch(() => null);
+    await agentConversationStore.confirmPlan({
+      conversationId,
+      turnId: current?.confirmedPlan?.turnId ?? normalizeText(options.restructureArtifactId),
+      confirmationId: normalizeText(options.confirmationId) ?? current?.confirmedPlan?.confirmationId ?? null,
+      sourceRestructurePath: normalizeText(options.restructureFinalPath) ?? current?.confirmedPlan?.sourceRestructurePath ?? null,
+      sourceShotDesignPath: normalizeText(options.shotDesignFinalPath) ?? current?.confirmedPlan?.sourceShotDesignPath ?? null,
+      note: "Shot Storyboard Prep 流水线已完成。",
+      storyboardArtifact: {
+        artifactId,
+        processingJobId: job.jobId,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+        status: "processed",
+      },
+      status: "completed",
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }).catch(() => null);
+  }
+
+  async function markConversationStoryboardFailed({ options, job, traceContext, artifactId, error }) {
+    const conversationId = normalizeText(options.conversationId);
+    if (!conversationId || !agentConversationStore?.confirmPlan) return;
+    const current = await agentConversationStore.get?.(conversationId).catch(() => null);
+    if (!current?.confirmedPlan) return;
+    await agentConversationStore.confirmPlan({
+      conversationId,
+      turnId: current.confirmedPlan.turnId ?? normalizeText(options.restructureArtifactId),
+      confirmationId: normalizeText(options.confirmationId) ?? current.confirmedPlan.confirmationId ?? null,
+      sourceRestructurePath: normalizeText(options.restructureFinalPath) ?? current.confirmedPlan.sourceRestructurePath ?? null,
+      sourceShotDesignPath: normalizeText(options.shotDesignFinalPath) ?? current.confirmedPlan.sourceShotDesignPath ?? null,
+      note: `Shot Storyboard Prep 流水线失败：${safePreview(error?.message ?? "未知错误", 160)}`,
+      storyboardArtifact: {
+        artifactId,
+        processingJobId: job?.jobId ?? null,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+        status: "failed",
+      },
+      status: "storyboard_failed",
+      traceId: traceContext.traceId,
+      runId: traceContext.runId,
+      stageId: traceContext.stageId,
+    }).catch(() => null);
   }
 
   return { enqueue };

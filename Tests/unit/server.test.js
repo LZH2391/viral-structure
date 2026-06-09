@@ -740,7 +740,7 @@ test("agent chat persists restructure conversations and archives them manually",
       conversation.messages.push({ id: "system_1", role: "system", text, status: "completed" });
       return conversation;
     },
-    confirmPlan: async ({ conversationId, turnId, confirmationId, sourceRestructurePath, sourceShotDesignPath, displayArtifact, storyboardArtifact, expectedRevision }) => {
+    confirmPlan: async ({ conversationId, turnId, confirmationId, sourceRestructurePath, sourceShotDesignPath, displayArtifact, storyboardArtifact, status, expectedRevision }) => {
       const conversation = conversations.get(conversationId);
       if (!conversation) return null;
       if (expectedRevision != null && expectedRevision !== conversation.revision) {
@@ -751,7 +751,7 @@ test("agent chat persists restructure conversations and archives them manually",
       }
       conversation.revision += 1;
       conversation.confirmedPlan = {
-        status: displayArtifact || storyboardArtifact ? "completed" : "confirmed",
+        status: status ?? (displayArtifact || storyboardArtifact ? "completed" : "confirmed"),
         turnId,
         confirmationId,
         sourceRestructurePath,
@@ -2102,6 +2102,10 @@ test("agent chat auto advance submits a shot design turn with source capsule met
           text: payload.text,
           status: "completed",
           userInputOrigin: payload.userInputOrigin,
+          autoAdvanceKey: payload.autoAdvanceKey,
+          sourceRestructurePath: payload.sourceRestructurePath,
+          sourceRestructureFingerprint: payload.sourceRestructureFingerprint,
+          sourceDisplayFingerprint: payload.sourceDisplayFingerprint,
         });
         return conversation;
       },
@@ -2117,6 +2121,8 @@ test("agent chat auto advance submits a shot design turn with source capsule met
       threadId: "thread_restructure",
       sourceTurnId: "turn_slot",
       restructureFinalPath: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md",
+      restructureFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md", size: 123, mtimeMs: 456 },
+      displayFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/display.json", size: 78, mtimeMs: 90 },
       parentArtifactId: "turn_slot",
       expectedRevision: 7,
       workspaceRoot: rootDir,
@@ -2124,12 +2130,91 @@ test("agent chat auto advance submits a shot design turn with source capsule met
 
     assert.equal(response.statusCode, 202);
     assert.equal(response.body.turnId, "turn_auto_shot");
-    assert.equal(response.body.userTurnText.includes("自动推进"), true);
-    assert.match(calls.find((call) => call.type === "startTurn").payload.inputs[0].text, /自动推进任务/);
-    assert.match(calls.find((call) => call.type === "startTurn").payload.inputs[0].text, /shot-design\.final\.md/);
+    assert.equal(response.body.userTurnText, "继续完善 Shot 设计");
+    assert.equal(calls.find((call) => call.type === "startTurn").payload.inputs[0].text, "继续完善 Shot 设计");
     assert.equal(calls.find((call) => call.type === "recordUser").payload.userInputOrigin, "auto_advance");
+    assert.equal(Boolean(calls.find((call) => call.type === "recordUser").payload.autoAdvanceKey), true);
+    assert.equal(calls.find((call) => call.type === "recordUser").payload.sourceDisplayFingerprint.path, "Artifacts/FunctionSlotRestructure/auto-demo/display.json");
     assert.equal(conversation.messages.at(-1).userInputOrigin, "auto_advance");
     assert.equal(calls.find((call) => call.type === "activeTurn").payload.parentArtifactId, "turn_slot");
+  } finally {
+    await closeServer(server);
+    await fsPromises.rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("agent chat auto advance skips duplicate restructure fingerprint", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-auto-advance-dedupe-"));
+  const conversation = {
+    conversationId: "conversation_restructure",
+    revision: 8,
+    role: "function-slot-restructure",
+    source: "threadpool-role",
+    status: "active",
+    threadId: "thread_restructure",
+    workspaceRoot: rootDir,
+    skillPath: "function-slot-restructure/SKILL.md",
+    latestTurnId: "turn_auto_shot",
+    messages: [
+      {
+        id: "user-turn_auto_shot",
+        turnId: "turn_auto_shot",
+        role: "user",
+        text: "继续完善 Shot 设计",
+        status: "completed",
+        userInputOrigin: "auto_advance",
+        sourceRestructurePath: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md",
+        sourceRestructureFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md", size: 123, mtimeMs: 456 },
+        sourceDisplayFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/display.json", size: 78, mtimeMs: 90 },
+      },
+      {
+        id: "assistant-turn_auto_shot",
+        turnId: "turn_auto_shot",
+        role: "assistant",
+        text: "生成中",
+        status: "running",
+      },
+    ],
+  };
+  const calls = [];
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      startTurnWithInputs: async (payload) => {
+        calls.push({ type: "startTurn", payload });
+        return { threadId: "thread_restructure", turnId: "turn_should_not_start", status: "submitted" };
+      },
+    },
+    agentConversationStore: {
+      assertActive: async () => conversation,
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const response = await makeRequest(server, "POST", "/api/agent-chat/conversations/conversation_restructure/auto-advance", {
+      threadId: "thread_restructure",
+      sourceTurnId: "turn_slot",
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md",
+      restructureFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/restructure.final.md", size: 123, mtimeMs: 456 },
+      displayFingerprint: { path: "Artifacts/FunctionSlotRestructure/auto-demo/display.json", size: 78, mtimeMs: 90 },
+      parentArtifactId: "turn_slot",
+      expectedRevision: 8,
+      workspaceRoot: rootDir,
+    });
+
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body.status, "skipped_duplicate");
+    assert.equal(response.body.turnId, "turn_auto_shot");
+    assert.equal(response.body.autoAdvanceState.status, "skipped_duplicate");
+    assert.equal(calls.length, 0);
   } finally {
     await closeServer(server);
     await fsPromises.rm(rootDir, { recursive: true, force: true });
@@ -2455,7 +2540,7 @@ test("agent chat auto advance confirms and starts storyboard prep after dialogue
         const conversation = conversations.get(payload.conversationId);
         conversation.revision += 1;
         conversation.confirmedPlan = {
-          status: payload.storyboardArtifact ? "completed" : "confirmed",
+          status: payload.status ?? (payload.storyboardArtifact ? "completed" : "confirmed"),
           turnId: payload.turnId,
           confirmationId: payload.confirmationId,
           sourceRestructurePath: payload.sourceRestructurePath,
@@ -2478,7 +2563,7 @@ test("agent chat auto advance confirms and starts storyboard prep after dialogue
     assert.equal(collected.body.autoDialogueRoboticReview.status, "processed");
     assert.equal(collected.body.autoDialogueRoboticReview.decision, "pass");
     assert.equal(collected.body.autoAdvanceConfirmation.ok, true);
-    assert.equal(collected.body.autoAdvanceConfirmation.status, "completed");
+    assert.equal(collected.body.autoAdvanceConfirmation.status, "storyboard_processing");
     assert.equal(confirmations.length, 2);
     assert.equal(confirmations[0].note.includes("自动推进"), true);
     assert.equal(confirmations[1].storyboardArtifact.artifactId, "artifact_storyboard_auto");

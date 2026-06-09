@@ -131,10 +131,7 @@ test("function slot placeholder role profiles load init and task prompts", async
         sourceTurnId: "turn_slot",
         userInstruction: "无",
       });
-      assert.match(autoShotDesignTurn.text, /自动推进任务/);
-      assert.match(autoShotDesignTurn.text, /function-slot-shot-design/);
-      assert.match(autoShotDesignTurn.text, /shot-design\.final\.md/);
-      assert.match(autoShotDesignTurn.text, /不要改写 `restructure\.final\.md`/);
+      assert.equal(autoShotDesignTurn.text.trim(), "继续完善 Shot 设计");
       assert.equal(autoShotDesignTurn.promptTemplateVersion, "auto-shot-design.v1");
     } else if (item.role === "function-slot-library-builder") {
       assert.match(rendered.text, /FunctionSlotLibrary 语义治理 Agent/);

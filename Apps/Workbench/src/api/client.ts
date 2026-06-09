@@ -136,6 +136,7 @@ export type AgentChatTurnResponse = {
     confirmationId?: string | null;
     conversationRevision?: number | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
+    skipped?: boolean | null;
     traceId?: string | null;
     runId?: string | null;
     stageId?: string | null;
@@ -757,6 +758,8 @@ export async function startAgentChatAutoAdvance(
     threadId?: string | null;
     sourceTurnId?: string | null;
     restructureFinalPath?: string | null;
+    restructureFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"] | null;
+    displayFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"] | null;
     parentArtifactId?: string | null;
     expectedRevision?: number | null;
     workspaceRoot?: string | null;
@@ -863,6 +866,7 @@ export async function confirmAgentChatConversation(
     sourceShotDesignPath?: string | null;
     displayArtifact?: AgentChatArtifactRef | null;
     storyboardArtifact?: AgentChatArtifactRef | null;
+    status?: string | null;
     expectedRevision?: number | null;
   } = {},
 ) {
