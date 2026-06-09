@@ -1,8 +1,8 @@
 const fs = require("fs/promises");
 const path = require("path");
 
-async function buildStoryboardResultProjection({ rootDir, conversation, imageBasePath }) {
-  const confirmedPlan = conversation?.confirmedPlan ?? null;
+async function buildStoryboardResultProjection({ rootDir, conversation, imageBasePath, imageQuery = null, storyboardResult = null }) {
+  const confirmedPlan = storyboardResult ?? conversation?.confirmedPlan ?? null;
   const baseDir = resolveStoryboardBaseDir(rootDir, confirmedPlan);
   if (!conversation || !baseDir) {
     return buildMissingProjection(conversation, "storyboard_source_missing");
@@ -43,6 +43,7 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
     coverCrop,
     pdfCover: pdfMedia.cover,
     imageBasePath,
+    imageQuery,
   });
   const groups = buildGroups({
     shots,
@@ -52,6 +53,7 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
     slotLabelIndex,
     manifestAspect: aspect,
     imageBasePath,
+    imageQuery,
   });
 
   return {
@@ -74,10 +76,10 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
   };
 }
 
-async function resolveStoryboardImagePath({ rootDir, conversation, shotId }) {
+async function resolveStoryboardImagePath({ rootDir, conversation, shotId, storyboardResult = null }) {
   const safeShotId = normalizeShotId(shotId);
   if (!safeShotId) return null;
-  const baseDir = resolveStoryboardBaseDir(rootDir, conversation?.confirmedPlan ?? null);
+  const baseDir = resolveStoryboardBaseDir(rootDir, storyboardResult ?? conversation?.confirmedPlan ?? null);
   if (!baseDir) return null;
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
   const cropsPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
@@ -104,7 +106,7 @@ async function resolveStoryboardImagePath({ rootDir, conversation, shotId }) {
   return firstResolvedMaterialFrame(shot, materialFrameIndex);
 }
 
-function buildCover({ coverManifest, coverCrop, pdfCover, imageBasePath }) {
+function buildCover({ coverManifest, coverCrop, pdfCover, imageBasePath, imageQuery = null }) {
   if (!coverManifest && !coverCrop && !pdfCover) return null;
   const coverId = normalizeText(coverManifest?.coverId) || normalizeText(coverCrop?.shotId) || "cover_image";
   const aspect = resolveAspect(coverManifest?.aspect, coverCrop?.cropBox);
@@ -113,13 +115,13 @@ function buildCover({ coverManifest, coverCrop, pdfCover, imageBasePath }) {
     title: coverId,
     kind: "cover",
     kindLabel: "封面",
-    imageUrl: coverCrop?.imagePath || pdfCover?.imagePath ? `${imageBasePath}/images/${encodeURIComponent(coverId)}` : null,
+    imageUrl: coverCrop?.imagePath || pdfCover?.imagePath ? buildImageUrl(imageBasePath, coverId, imageQuery) : null,
     aspect,
     dialogue: normalizeText(coverManifest?.overlayPackaging),
   };
 }
 
-function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex, slotLabelIndex, manifestAspect, imageBasePath }) {
+function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex, slotLabelIndex, manifestAspect, imageBasePath, imageQuery = null }) {
   const groups = [];
   const groupByKey = new Map();
   let timelineCursorSeconds = 0;
@@ -165,12 +167,17 @@ function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex
       sourceRefs: Array.isArray(shot.sourceRefs) ? shot.sourceRefs.map((item) => String(item)).filter(Boolean) : [],
       kind: shouldGenerate ? "generated" : "material",
       kindLabel: shouldGenerate ? "自设计" : "素材",
-      imageUrl: imagePath ? `${imageBasePath}/images/${encodeURIComponent(shotId)}` : null,
+      imageUrl: imagePath ? buildImageUrl(imageBasePath, shotId, imageQuery) : null,
       aspect: shotAspect,
     });
     group.shotCount = group.shots.length;
   });
   return groups;
+}
+
+function buildImageUrl(imageBasePath, shotId, imageQuery) {
+  const query = normalizeText(imageQuery);
+  return `${imageBasePath}/images/${encodeURIComponent(shotId)}${query ? `?${query}` : ""}`;
 }
 
 function parseDurationMidpointSeconds(value) {

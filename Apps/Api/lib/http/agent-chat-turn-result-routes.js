@@ -94,7 +94,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
           runId: payload.runId,
           stageId: payload.stageId,
           slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
-          dialogueRoboticReview: payload.autoDialogueRoboticReview?.status === "processed"
+          dialogueRoboticReview: hasReusableDialogueReview(payload.autoDialogueRoboticReview)
             ? payload.autoDialogueRoboticReview
             : null,
         });
@@ -284,6 +284,11 @@ async function hydrateResultActivityFromRollout(result, { handlers, threadId, tu
     latestMessagePreview: result.turnActivity?.latestMessagePreview ?? timelineActivity?.latestMessagePreview ?? activity.latestMessagePreview ?? null,
     latestToolName: result.turnActivity?.latestToolName ?? timelineActivity?.latestToolName ?? activity.latestToolName ?? null,
   };
+}
+
+function hasReusableDialogueReview(review) {
+  if (!review?.decision) return false;
+  return review.status === "processed" || review.status === "skipped_unchanged";
 }
 
 module.exports = {

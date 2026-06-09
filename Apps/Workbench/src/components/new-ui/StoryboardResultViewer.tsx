@@ -4,9 +4,11 @@ import { API_BASE_URL, getAgentChatStoryboardResult, type AgentChatStoryboardCov
 
 type StoryboardResultViewerProps = {
   conversationId: string;
+  resultId?: string | null;
+  statusLabel?: string | null;
 };
 
-export function StoryboardResultViewer({ conversationId }: StoryboardResultViewerProps) {
+export function StoryboardResultViewer({ conversationId, resultId = null, statusLabel = null }: StoryboardResultViewerProps) {
   const [result, setResult] = useState<AgentChatStoryboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedByGroupId, setExpandedByGroupId] = useState<Record<string, boolean>>({});
@@ -16,7 +18,7 @@ export function StoryboardResultViewer({ conversationId }: StoryboardResultViewe
     setResult(null);
     setError(null);
     setExpandedByGroupId({});
-    void getAgentChatStoryboardResult(conversationId)
+    void getAgentChatStoryboardResult(conversationId, resultId)
       .then((payload) => {
         if (canceled) return;
         setResult(payload);
@@ -30,7 +32,7 @@ export function StoryboardResultViewer({ conversationId }: StoryboardResultViewe
     return () => {
       canceled = true;
     };
-  }, [conversationId]);
+  }, [conversationId, resultId]);
 
   const groups = result?.status === "available" ? result.groups : [];
   const totalShotCount = useMemo(() => groups.reduce((sum, group) => sum + group.shotCount, 0), [groups]);
@@ -45,7 +47,7 @@ export function StoryboardResultViewer({ conversationId }: StoryboardResultViewe
           <span>故事板结果</span>
           <strong>{totalShotCount} 镜头</strong>
         </div>
-        <small>{result.aspect?.ratio ?? "9:16"}</small>
+        <small>{statusLabel || result.aspect?.ratio || "9:16"}</small>
       </header>
       <div className="new-ui-storyboard-segments">
         {result.cover ? (

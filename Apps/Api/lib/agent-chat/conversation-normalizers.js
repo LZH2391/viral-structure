@@ -182,6 +182,7 @@ function normalizeMessage(value) {
     sourceDisplayFingerprint: normalizeFileFingerprint(value.sourceDisplayFingerprint),
     slotAtomDisplay: normalizeSlotAtomDisplay(value.slotAtomDisplay),
     dialogueRoboticReview: normalizeDialogueRoboticReview(value.dialogueRoboticReview),
+    storyboardResult: normalizeStoryboardResult(value.storyboardResult),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
   };
@@ -211,6 +212,28 @@ function normalizeDialogueRoboticReview(value) {
     promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
     fileFingerprint: normalizeFileFingerprint(value.fileFingerprint),
     dialogueFingerprint: normalizeDialogueFingerprint(value.dialogueFingerprint),
+  };
+}
+
+function normalizeStoryboardResult(value) {
+  if (!value || typeof value !== "object") return null;
+  const artifact = normalizeArtifactRef(value.storyboardArtifact);
+  return {
+    schemaVersion: String(value.schemaVersion ?? "agent_chat_storyboard_result_message.v1"),
+    planRevisionKey: normalizeIdText(value.planRevisionKey),
+    turnId: value.turnId ? String(value.turnId) : null,
+    confirmationId: normalizeIdText(value.confirmationId),
+    status: normalizeConfirmedPlanStatus(value.status, value.storyboardArtifact, null),
+    sourceRestructurePath: normalizePathText(value.sourceRestructurePath),
+    sourceShotDesignPath: normalizePathText(value.sourceShotDesignPath),
+    storyboardArtifact: artifact,
+    artifactId: value.artifactId ? String(value.artifactId) : artifact?.artifactId ?? null,
+    processingJobId: value.processingJobId ? String(value.processingJobId) : artifact?.processingJobId ?? null,
+    traceId: value.traceId ? String(value.traceId) : artifact?.traceId ?? null,
+    runId: value.runId ? String(value.runId) : artifact?.runId ?? null,
+    stageId: value.stageId ? String(value.stageId) : artifact?.stageId ?? null,
+    createdAt: value.createdAt ?? null,
+    updatedAt: value.updatedAt ?? null,
   };
 }
 
@@ -344,6 +367,7 @@ module.exports = {
   normalizeRevision,
   normalizeSlotAtomDisplay,
   normalizeSlotSummary,
+  normalizeStoryboardResult,
   normalizeState,
   normalizeTitleState,
   safeConversationFileName,

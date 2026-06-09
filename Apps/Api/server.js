@@ -295,7 +295,7 @@ function createServer(deps = {}) {
       if (await handleWorkflowRoute(req, res, url, handlers)) return undefined;
       if (req.method === "POST" && url.pathname === "/api/agent-chat/threads") return await handleAgentChatThreadStart(req, res, handlers);
       if (req.method === "GET" && url.pathname === "/api/agent-chat/conversations") return await handleAgentChatConversationList(res, handlers, url);
-      if (req.method === "GET" && /^\/api\/agent-chat\/conversations\/[^/]+\/storyboard-result$/.test(url.pathname)) return await handleAgentChatStoryboardResult(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
+      if (req.method === "GET" && /^\/api\/agent-chat\/conversations\/[^/]+\/storyboard-result$/.test(url.pathname)) return await handleAgentChatStoryboardResult(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "GET" && /^\/api\/agent-chat\/conversations\/[^/]+\/storyboard-result\/images\/[^/]+$/.test(url.pathname)) return await handleAgentChatStoryboardImage(req, res, decodeURIComponent(url.pathname.split("/").at(-4)), decodeURIComponent(url.pathname.split("/").at(-1)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/resume$/.test(url.pathname)) return await handleAgentChatConversationResume(res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);
       if (req.method === "POST" && /^\/api\/agent-chat\/conversations\/[^/]+\/archive$/.test(url.pathname)) return await handleAgentChatConversationArchive(req, res, decodeURIComponent(url.pathname.split("/").at(-2)), handlers);

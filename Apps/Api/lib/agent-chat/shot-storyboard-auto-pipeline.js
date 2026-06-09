@@ -545,10 +545,29 @@ function createShotStoryboardAutoPipelineService({
     const conversationId = normalizeText(options.conversationId);
     if (!conversationId || !agentConversationStore?.confirmPlan) return;
     const current = await agentConversationStore.get?.(conversationId).catch(() => null);
+    const optionConfirmationId = normalizeText(options.confirmationId);
+    const optionTurnId = normalizeText(options.restructureArtifactId);
+    if (!isCurrentStoryboardConfirmation(current, { confirmationId: optionConfirmationId, turnId: optionTurnId })) {
+      await updateStoryboardResultMessage({
+        conversationId,
+        confirmationId: optionConfirmationId,
+        storyboardArtifact: {
+          artifactId,
+          processingJobId: job.jobId,
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          status: "processed",
+        },
+        status: "completed",
+        traceContext,
+      });
+      return;
+    }
     await agentConversationStore.confirmPlan({
       conversationId,
       turnId: current?.confirmedPlan?.turnId ?? normalizeText(options.restructureArtifactId),
-      confirmationId: normalizeText(options.confirmationId) ?? current?.confirmedPlan?.confirmationId ?? null,
+      confirmationId: optionConfirmationId ?? current?.confirmedPlan?.confirmationId ?? null,
       sourceRestructurePath: normalizeText(options.restructureFinalPath) ?? current?.confirmedPlan?.sourceRestructurePath ?? null,
       sourceShotDesignPath: normalizeText(options.shotDesignFinalPath) ?? current?.confirmedPlan?.sourceShotDesignPath ?? null,
       note: "Shot Storyboard Prep 流水线已完成。",
@@ -565,6 +584,20 @@ function createShotStoryboardAutoPipelineService({
       runId: traceContext.runId,
       stageId: traceContext.stageId,
     }).catch(() => null);
+    await updateStoryboardResultMessage({
+      conversationId,
+      confirmationId: optionConfirmationId,
+      storyboardArtifact: {
+        artifactId,
+        processingJobId: job.jobId,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+        status: "processed",
+      },
+      status: "completed",
+      traceContext,
+    });
   }
 
   async function markConversationStoryboardFailed({ options, job, traceContext, artifactId, error }) {
@@ -572,10 +605,29 @@ function createShotStoryboardAutoPipelineService({
     if (!conversationId || !agentConversationStore?.confirmPlan) return;
     const current = await agentConversationStore.get?.(conversationId).catch(() => null);
     if (!current?.confirmedPlan) return;
+    const optionConfirmationId = normalizeText(options.confirmationId);
+    const optionTurnId = normalizeText(options.restructureArtifactId);
+    if (!isCurrentStoryboardConfirmation(current, { confirmationId: optionConfirmationId, turnId: optionTurnId })) {
+      await updateStoryboardResultMessage({
+        conversationId,
+        confirmationId: optionConfirmationId,
+        storyboardArtifact: {
+          artifactId,
+          processingJobId: job?.jobId ?? null,
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+          status: "failed",
+        },
+        status: "storyboard_failed",
+        traceContext,
+      });
+      return;
+    }
     await agentConversationStore.confirmPlan({
       conversationId,
       turnId: current.confirmedPlan.turnId ?? normalizeText(options.restructureArtifactId),
-      confirmationId: normalizeText(options.confirmationId) ?? current.confirmedPlan.confirmationId ?? null,
+      confirmationId: optionConfirmationId ?? current.confirmedPlan.confirmationId ?? null,
       sourceRestructurePath: normalizeText(options.restructureFinalPath) ?? current.confirmedPlan.sourceRestructurePath ?? null,
       sourceShotDesignPath: normalizeText(options.shotDesignFinalPath) ?? current.confirmedPlan.sourceShotDesignPath ?? null,
       note: `Shot Storyboard Prep 流水线失败：${safePreview(error?.message ?? "未知错误", 160)}`,
@@ -592,6 +644,20 @@ function createShotStoryboardAutoPipelineService({
       runId: traceContext.runId,
       stageId: traceContext.stageId,
     }).catch(() => null);
+    await updateStoryboardResultMessage({
+      conversationId,
+      confirmationId: optionConfirmationId,
+      storyboardArtifact: {
+        artifactId,
+        processingJobId: job?.jobId ?? null,
+        traceId: traceContext.traceId,
+        runId: traceContext.runId,
+        stageId: traceContext.stageId,
+        status: "failed",
+      },
+      status: "storyboard_failed",
+      traceContext,
+    });
   }
 
   return { enqueue };
@@ -613,6 +679,32 @@ function collectMaterialFrameMaps(options, baseDir) {
     path.join(baseDir, "user-material-pack.stable"),
   ].map((path) => ({ path, required: false }));
   return [...requiredCandidates, ...optionalCandidates];
+}
+
+function isCurrentStoryboardConfirmation(conversation, { confirmationId, turnId }) {
+  const confirmed = conversation?.confirmedPlan;
+  if (!confirmed) return false;
+  const expectedConfirmationId = normalizeText(confirmationId);
+  const expectedTurnId = normalizeText(turnId);
+  return Boolean(
+    expectedConfirmationId
+    && expectedTurnId
+    && normalizeText(confirmed.confirmationId) === expectedConfirmationId
+    && normalizeText(confirmed.turnId) === expectedTurnId
+  );
+}
+
+async function updateStoryboardResultMessage({ conversationId, confirmationId, storyboardArtifact, status, traceContext }) {
+  if (!agentConversationStore?.updateStoryboardResultMessage) return;
+  await agentConversationStore.updateStoryboardResultMessage({
+    conversationId,
+    confirmationId,
+    storyboardArtifact,
+    status,
+    traceId: traceContext.traceId,
+    runId: traceContext.runId,
+    stageId: traceContext.stageId,
+  }).catch(() => null);
 }
 
 module.exports = {

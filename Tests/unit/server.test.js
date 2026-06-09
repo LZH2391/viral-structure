@@ -976,6 +976,37 @@ test("agent chat storyboard result projects generated images and upstream aspect
         },
       ],
     }), "utf8");
+    const artifactDirSecond = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "demo-video-second");
+    const framesDirSecond = path.join(artifactDirSecond, "shot-storyboard-frames");
+    await fsPromises.mkdir(framesDirSecond, { recursive: true });
+    const shotDesignPathSecond = path.join(artifactDirSecond, "shot-design.final.md");
+    await fsPromises.writeFile(shotDesignPathSecond, "# shot design second\n", "utf8");
+    await fsPromises.writeFile(path.join(artifactDirSecond, "shot-storyboard-manifest.json"), JSON.stringify({
+      aspect: { ratio: "9:16", orientation: "竖屏" },
+      shots: [
+        {
+          shotId: "new_shot_second",
+          slotKey: "SUB_second",
+          shouldGenerate: true,
+          dialogue: "旁白：“第二版。”",
+          duration: "2.0s",
+        },
+      ],
+    }), "utf8");
+    await fsPromises.writeFile(path.join(framesDirSecond, "new_shot_second.png"), Buffer.from("second"));
+    await fsPromises.writeFile(path.join(framesDirSecond, "shot-storyboard-crops.json"), JSON.stringify({
+      source: {
+        artifactId: "artifact_second_image",
+        traceId: "trace_second_image",
+      },
+      crops: [
+        {
+          shotId: "new_shot_second",
+          cropBox: [0, 0, 900, 1600],
+          path: path.join(framesDirSecond, "new_shot_second.png"),
+        },
+      ],
+    }), "utf8");
 
     const conversation = {
       conversationId: "conversation_storyboard",
@@ -988,7 +1019,21 @@ test("agent chat storyboard result projects generated images and upstream aspect
         sourceShotDesignPath: path.relative(rootDir, shotDesignPath).replaceAll(path.sep, "/"),
         storyboardArtifact: { artifactId: "artifact_old", status: "processing" },
       },
-      messages: [],
+      messages: [
+        {
+          id: "storyboard-result-second",
+          role: "system",
+          text: "方案完成",
+          status: "completed",
+          storyboardResult: {
+            status: "completed",
+            turnId: "turn_second",
+            confirmationId: "confirm_second",
+            sourceShotDesignPath: path.relative(rootDir, shotDesignPathSecond).replaceAll(path.sep, "/"),
+            storyboardArtifact: { artifactId: "artifact_second", status: "processed" },
+          },
+        },
+      ],
     };
     const server = createServer({
       rootDir,
@@ -1037,11 +1082,78 @@ test("agent chat storyboard result projects generated images and upstream aspect
       assert.equal(coverImage.statusCode, 200);
       assert.equal(coverImage.headers["content-type"], "image/png");
       assert.equal(coverImage.body.toString("utf8"), "cover");
+
+      const second = await makeRequest(server, "GET", "/api/agent-chat/conversations/conversation_storyboard/storyboard-result?resultId=storyboard-result-second");
+      assert.equal(second.statusCode, 200);
+      assert.equal(second.body.aspect.ratio, "9:16");
+      assert.equal(second.body.groups[0].shots[0].id, "new_shot_second");
+      assert.match(second.body.groups[0].shots[0].imageUrl, /resultId=storyboard-result-second$/);
+      const secondImage = await makeRawRequest(server, "GET", second.body.groups[0].shots[0].imageUrl);
+      assert.equal(secondImage.statusCode, 200);
+      assert.equal(secondImage.headers["content-type"], "image/png");
+      assert.equal(secondImage.body.toString("utf8"), "second");
     } finally {
       await closeServer(server);
     }
   } finally {
     await fsPromises.rm(rootDir, { recursive: true, force: true });
+  }
+});
+
+test("agent conversation store keeps storyboard result history and updates latest matching confirmation", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "agent-conversation-store-storyboard-history-"));
+  try {
+    const store = createAgentConversationStore({ filePath: tempRoot });
+    const conversation = await store.createOrUpdateFromSession({
+      source: "threadpool-role",
+      role: "function-slot-restructure",
+      threadId: "thread_storyboard_history",
+    });
+    await store.confirmPlan({
+      conversationId: conversation.conversationId,
+      turnId: "turn_1",
+      confirmationId: "confirm_turn_1",
+      sourceRestructurePath: "Artifacts/one/restructure.final.md",
+      sourceShotDesignPath: "Artifacts/one/shot-design.final.md",
+      storyboardArtifact: { artifactId: "artifact_first", processingJobId: "job_first", status: "processing" },
+      status: "storyboard_processing",
+    });
+    await store.createStoryboardResultMessage({
+      conversationId: conversation.conversationId,
+      turnId: "turn_1",
+      confirmationId: "confirm_turn_1",
+      planRevisionKey: "plan:one",
+      sourceRestructurePath: "Artifacts/one/restructure.final.md",
+      sourceShotDesignPath: "Artifacts/one/shot-design.final.md",
+      storyboardArtifact: { artifactId: "artifact_first", processingJobId: "job_first", status: "processing" },
+      status: "storyboard_processing",
+    });
+    await store.createStoryboardResultMessage({
+      conversationId: conversation.conversationId,
+      turnId: "turn_1",
+      confirmationId: "confirm_turn_1",
+      planRevisionKey: "plan:one",
+      sourceRestructurePath: "Artifacts/one/restructure.final.md",
+      sourceShotDesignPath: "Artifacts/one/shot-design.final.md",
+      storyboardArtifact: { artifactId: "artifact_second", processingJobId: "job_second", status: "processing" },
+      status: "storyboard_processing",
+    });
+    await store.updateStoryboardResultMessage({
+      conversationId: conversation.conversationId,
+      confirmationId: "confirm_turn_1",
+      storyboardArtifact: { artifactId: "artifact_second_done", processingJobId: "job_second", status: "processed" },
+      status: "completed",
+    });
+
+    const updated = await store.get(conversation.conversationId);
+    const resultMessages = updated.messages.filter((message) => message.storyboardResult);
+    assert.equal(resultMessages.length, 2);
+    assert.equal(resultMessages[0].storyboardResult.artifactId, "artifact_first");
+    assert.equal(resultMessages[0].storyboardResult.status, "storyboard_processing");
+    assert.equal(resultMessages[1].storyboardResult.artifactId, "artifact_second_done");
+    assert.equal(resultMessages[1].storyboardResult.status, "completed");
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
@@ -3011,7 +3123,7 @@ test("agent chat collect auto reviews remembered shot design when dialogue chang
   }
 });
 
-test("agent chat collect ignores remembered shot design when only non-dialogue fields change", async () => {
+test("agent chat collect reuses remembered review when only non-dialogue fields change", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-packaging-changed-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
   await fsPromises.mkdir(planDir, { recursive: true });
@@ -3092,8 +3204,11 @@ test("agent chat collect ignores remembered shot design when only non-dialogue f
     const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_shot_design/turns/turn_packaging_changed?conversationId=conversation_shot_design");
 
     assert.equal(collected.statusCode, 200);
-    assert.equal(collected.body.autoDialogueRoboticReview, undefined);
+    assert.equal(collected.body.autoDialogueRoboticReview.status, "skipped_unchanged");
+    assert.equal(collected.body.autoDialogueRoboticReview.trigger, "dialogue_unchanged");
+    assert.equal(collected.body.autoDialogueRoboticReview.decision, "pass");
     assert.equal(reviewTurns.length, 0);
+    assert.equal(conversations.get("conversation_shot_design").messages.at(-1).dialogueRoboticReview.decision, "pass");
   } finally {
     await closeServer(server);
   }

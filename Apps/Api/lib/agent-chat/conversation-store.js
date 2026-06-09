@@ -20,6 +20,7 @@ const {
   normalizePathText,
   normalizeRevision,
   normalizeSlotAtomDisplay,
+  normalizeStoryboardResult,
   normalizeState,
   normalizeTitleState,
   safeConversationFileName,
@@ -379,6 +380,76 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
+  async function createStoryboardResultMessage({ conversationId, turnId = null, confirmationId = null, planRevisionKey = null, sourceRestructurePath = null, sourceShotDesignPath = null, storyboardArtifact = null, status = "storyboard_processing", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !confirmationId) return null;
+    const now = new Date().toISOString();
+    const messageId = `storyboard-result-${normalizeIdText(confirmationId)}-${now}-${randomUUID()}`;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+      upsertMessage(conversation, {
+        id: messageId,
+        turnId: turnId ?? conversation.latestTurnId ?? null,
+        role: "system",
+        text: formatStoryboardResultText(status),
+        status: "completed",
+        storyboardResult: normalizeStoryboardResult({
+          planRevisionKey,
+          turnId: turnId ?? conversation.latestTurnId ?? null,
+          confirmationId,
+          status,
+          sourceRestructurePath,
+          sourceShotDesignPath,
+          storyboardArtifact,
+          traceId,
+          runId,
+          stageId,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+  }
+
+  async function updateStoryboardResultMessage({ conversationId, confirmationId = null, storyboardArtifact = null, status = null, traceId = null, runId = null, stageId = null }) {
+    if (!conversationId || !confirmationId) return null;
+    const now = new Date().toISOString();
+    return mutateConversation(conversationId, (conversation) => {
+      const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+      const index = findStoryboardResultMessageIndex(messages, confirmationId);
+      if (index < 0) return { changed: false };
+      const current = messages[index];
+      const currentResult = normalizeStoryboardResult(current.storyboardResult);
+      const nextArtifact = normalizeArtifactRef(storyboardArtifact) ?? currentResult?.storyboardArtifact ?? null;
+      const nextStatus = status ?? currentResult?.status ?? "storyboard_processing";
+      messages[index] = {
+        ...current,
+        text: formatStoryboardResultText(nextStatus),
+        status: "completed",
+        storyboardResult: normalizeStoryboardResult({
+          ...currentResult,
+          status: nextStatus,
+          storyboardArtifact: nextArtifact,
+          artifactId: nextArtifact?.artifactId ?? currentResult?.artifactId ?? null,
+          processingJobId: nextArtifact?.processingJobId ?? currentResult?.processingJobId ?? null,
+          traceId: traceId ?? nextArtifact?.traceId ?? currentResult?.traceId ?? null,
+          runId: runId ?? nextArtifact?.runId ?? currentResult?.runId ?? null,
+          stageId: stageId ?? nextArtifact?.stageId ?? currentResult?.stageId ?? null,
+          updatedAt: now,
+        }),
+        updatedAt: now,
+      };
+      conversation.messages = messages;
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    });
+  }
+
   async function archive(conversationId, { expectedRevision = null } = {}) {
     const now = new Date().toISOString();
     return mutateConversation(conversationId, (conversation) => {
@@ -412,6 +483,23 @@ function createAgentConversationStore({ store, filePath } = {}) {
     }
     await writeConversation(conversation);
     return conversation;
+  }
+
+  function findStoryboardResultMessageIndex(messages, confirmationId) {
+    const expected = normalizeIdText(confirmationId);
+    if (!expected) return -1;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (normalizeIdText(messages[index]?.storyboardResult?.confirmationId) === expected) return index;
+    }
+    return -1;
+  }
+
+  function formatStoryboardResultText(status) {
+    const normalized = normalizeConfirmedPlanStatus(status, null, null);
+    if (normalized === "completed") return "方案完成";
+    if (normalized === "storyboard_failed") return "故事板准备失败";
+    if (normalized === "confirmed") return "方案已确认";
+    return "故事板准备中";
   }
 
   async function readAllConversations() {
@@ -512,6 +600,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
     recordSystemMessage,
     invalidate,
     confirmPlan,
+    createStoryboardResultMessage,
+    updateStoryboardResultMessage,
     archive,
     remove,
     assertActive,

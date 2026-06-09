@@ -818,9 +818,10 @@ export async function listAgentChatConversations(payload: { role?: string | null
   );
 }
 
-export async function getAgentChatStoryboardResult(conversationId: string) {
+export async function getAgentChatStoryboardResult(conversationId: string, resultId?: string | null) {
+  const query = resultId ? `?resultId=${encodeURIComponent(resultId)}` : "";
   return readJsonResponse<AgentChatStoryboardResult>(
-    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/storyboard-result`, { cache: "no-store" }),
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/storyboard-result${query}`, { cache: "no-store" }),
   );
 }
 

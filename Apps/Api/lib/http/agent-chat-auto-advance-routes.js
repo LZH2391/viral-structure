@@ -298,6 +298,26 @@ async function maybeCompleteAutomaticAdvance({ handlers, conversationId, payload
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
     });
+    if (handlers.agentConversationStore?.createStoryboardResultMessage && confirmed?.confirmedPlan?.storyboardArtifact) {
+      await handlers.agentConversationStore.createStoryboardResultMessage({
+        conversationId,
+        turnId: payload.turnId,
+        confirmationId,
+        planRevisionKey: buildPlanRevisionKey({
+          conversationId,
+          turnId: payload.turnId,
+          sourceRestructurePath,
+          sourceShotDesignPath,
+        }),
+        sourceRestructurePath,
+        sourceShotDesignPath,
+        storyboardArtifact: confirmed.confirmedPlan.storyboardArtifact,
+        status: resolveConfirmedPlanStatusFromStoryboard(storyboardResult),
+        traceId: stageTraceContext.traceId,
+        runId: stageTraceContext.runId,
+        stageId: stageTraceContext.stageId,
+      });
+    }
     const result = {
       ok: true,
       status: resolveConfirmedPlanStatusFromStoryboard(storyboardResult),
@@ -427,6 +447,15 @@ function normalizeNullableNumber(value) {
   if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function buildPlanRevisionKey({ conversationId, turnId, sourceRestructurePath, sourceShotDesignPath }) {
+  return [
+    normalizeText(conversationId) ?? "conversation",
+    normalizeText(turnId) ?? "turn",
+    normalizeText(sourceRestructurePath) ?? "restructure",
+    normalizeText(sourceShotDesignPath) ?? "shot-design",
+  ].join(":");
 }
 
 function resolveConfirmedPlanStatusFromStoryboard(storyboardResult) {

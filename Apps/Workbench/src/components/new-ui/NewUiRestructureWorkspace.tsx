@@ -467,6 +467,12 @@ export function NewUiRestructureWorkspace({
                         setProcessMessageExpandedByScope((current) => ({ ...current, [renderItem.id]: !(current[renderItem.id] ?? defaultExpanded) }));
                       }}
                     />
+                  ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
+                    <StoryboardResultViewer
+                      conversationId={conversation.conversationId}
+                      resultId={renderItem.message.id}
+                      statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
+                    />
                   ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
                     <RestructureMessage
                       message={renderItem.message}
@@ -477,7 +483,7 @@ export function NewUiRestructureWorkspace({
                       actionsDisabled={sendingMessage}
                       openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
                       confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
-                      planAlreadyConfirmed={isMessageTurnConfirmed(renderItem.message, conversation)}
+                      planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
                     />
                   ) : null}
                 </Fragment>
@@ -507,9 +513,6 @@ export function NewUiRestructureWorkspace({
                   displayText={getDisplayText(visiblePendingAssistantMessage)}
                   pseudoStreaming={isPseudoStreaming(visiblePendingAssistantMessage)}
                 />
-              ) : null}
-              {conversation.confirmedPlan?.status === "completed" ? (
-                <StoryboardResultViewer conversationId={conversation.conversationId} />
               ) : null}
             </div>
           ) : (
@@ -611,10 +614,52 @@ function resolveConfirmedPlanStatusDisplay(status: string | null | undefined): C
   return null;
 }
 
-function isMessageTurnConfirmed(message: AgentChatMessageSnapshot, conversation: AgentChatConversation | null) {
+function resolveStoryboardResultStatusLabel(status: string | null | undefined) {
+  const value = String(status ?? "").trim();
+  if (value === "confirmed") return "方案已确认";
+  if (value === "storyboard_processing") return "故事板准备中";
+  if (value === "storyboard_failed") return "故事板准备失败";
+  if (value === "completed") return "方案完成";
+  return null;
+}
+
+function isMessagePlanConfirmed(message: AgentChatMessageSnapshot, conversation: AgentChatConversation | null) {
+  const confirmed = conversation?.confirmedPlan;
+  if (!confirmed?.status) return false;
   const messageTurnId = message.turnId?.trim();
-  const confirmedTurnId = conversation?.confirmedPlan?.turnId?.trim();
-  return Boolean(messageTurnId && confirmedTurnId && messageTurnId === confirmedTurnId);
+  const confirmedTurnId = confirmed.turnId?.trim();
+  if (!messageTurnId || !confirmedTurnId || messageTurnId !== confirmedTurnId) return false;
+  const sourceRestructurePath = normalizeComparablePath(extractRestructureFinalPath(message.text)) || normalizeComparablePath(confirmed.sourceRestructurePath);
+  const sourceShotDesignPath = normalizeComparablePath(message.dialogueRoboticReview?.shotDesignFinalPath) || normalizeComparablePath(extractShotDesignFinalPath(message.text)) || normalizeComparablePath(confirmed.sourceShotDesignPath);
+  const confirmedRestructurePath = normalizeComparablePath(confirmed.sourceRestructurePath);
+  const confirmedShotDesignPath = normalizeComparablePath(confirmed.sourceShotDesignPath);
+  if (confirmedRestructurePath && sourceRestructurePath && confirmedRestructurePath !== sourceRestructurePath) return false;
+  if (confirmedShotDesignPath && sourceShotDesignPath && confirmedShotDesignPath !== sourceShotDesignPath) return false;
+  return true;
+}
+
+function normalizeComparablePath(pathText?: string | null) {
+  return String(pathText ?? "").trim().replace(/\\/g, "/").toLowerCase() || null;
+}
+
+function extractRestructureFinalPath(text?: string | null) {
+  const value = String(text ?? "");
+  const saved = value.match(/保存路径[：:]\s*`([^`]+restructure\.final\.md)`/i);
+  if (saved?.[1]) return saved[1];
+  const artifactPath = value.match(/(Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?restructure\.final\.md)/i);
+  if (artifactPath?.[1]) return artifactPath[1];
+  const absolutePath = value.match(/([A-Za-z]:[\\/][^\n`)]*?restructure\.final\.md)/i);
+  return absolutePath?.[1] ?? null;
+}
+
+function extractShotDesignFinalPath(text?: string | null) {
+  const value = String(text ?? "");
+  const saved = value.match(/保存路径[：:]\s*`([^`]+shot-design\.final\.md)`/i);
+  if (saved?.[1]) return saved[1];
+  const artifactPath = value.match(/(Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?shot-design\.final\.md)/i);
+  if (artifactPath?.[1]) return artifactPath[1];
+  const absolutePath = value.match(/([A-Za-z]:[\\/][^\n`)]*?shot-design\.final\.md)/i);
+  return absolutePath?.[1] ?? null;
 }
 
 function useLastKnownContextUsage(usage: AgentTurnTimeline["activity"]["tokenUsage"] | null, scopeKey: string | null) {

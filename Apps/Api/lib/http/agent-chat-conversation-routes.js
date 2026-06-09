@@ -165,16 +165,22 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
       storyboardArtifactId: normalizeText(body.storyboardArtifact?.artifactId),
     },
     action: async ({ traceContext }) => {
+      const normalizedTurnId = normalizeText(body.turnId);
+      const normalizedConfirmationId = normalizeText(body.confirmationId);
+      const normalizedRestructurePath = normalizeText(body.sourceRestructurePath);
+      const normalizedShotDesignPath = normalizeText(body.sourceShotDesignPath);
+      const normalizedStoryboardArtifact = normalizeArtifactRef(body.storyboardArtifact);
+      const normalizedStatus = normalizeText(body.status);
       const conversation = await withConversationLock(conversationId, () => handlers.agentConversationStore.confirmPlan({
           conversationId,
-          turnId: normalizeText(body.turnId),
-          confirmationId: normalizeText(body.confirmationId),
+          turnId: normalizedTurnId,
+          confirmationId: normalizedConfirmationId,
           note: normalizeText(body.note),
-          sourceRestructurePath: normalizeText(body.sourceRestructurePath),
-          sourceShotDesignPath: normalizeText(body.sourceShotDesignPath),
+          sourceRestructurePath: normalizedRestructurePath,
+          sourceShotDesignPath: normalizedShotDesignPath,
           displayArtifact: normalizeArtifactRef(body.displayArtifact),
-          storyboardArtifact: normalizeArtifactRef(body.storyboardArtifact),
-          status: normalizeText(body.status),
+          storyboardArtifact: normalizedStoryboardArtifact,
+          status: normalizedStatus,
           traceId: traceContext.traceId,
           runId: traceContext.runId,
           stageId: traceContext.stageId,
@@ -187,9 +193,30 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
         error.code = "agent_chat_conversation_not_found";
         throw error;
       }
+      if (normalizedStoryboardArtifact && normalizedConfirmationId && handlers.agentConversationStore?.createStoryboardResultMessage) {
+        await handlers.agentConversationStore.createStoryboardResultMessage({
+          conversationId,
+          turnId: normalizedTurnId ?? conversation.confirmedPlan?.turnId ?? null,
+          confirmationId: normalizedConfirmationId,
+          planRevisionKey: buildPlanRevisionKey({
+            conversationId,
+            turnId: normalizedTurnId ?? conversation.confirmedPlan?.turnId ?? null,
+            sourceRestructurePath: normalizedRestructurePath ?? conversation.confirmedPlan?.sourceRestructurePath ?? null,
+            sourceShotDesignPath: normalizedShotDesignPath ?? conversation.confirmedPlan?.sourceShotDesignPath ?? null,
+          }),
+          sourceRestructurePath: normalizedRestructurePath ?? conversation.confirmedPlan?.sourceRestructurePath ?? null,
+          sourceShotDesignPath: normalizedShotDesignPath ?? conversation.confirmedPlan?.sourceShotDesignPath ?? null,
+          storyboardArtifact: normalizedStoryboardArtifact,
+          status: normalizedStatus ?? conversation.confirmedPlan?.status ?? "storyboard_processing",
+          traceId: traceContext.traceId,
+          runId: traceContext.runId,
+          stageId: traceContext.stageId,
+        });
+      }
+      const updatedConversation = await handlers.agentConversationStore.get?.(conversationId) ?? conversation;
       return {
         ok: true,
-        conversation,
+        conversation: updatedConversation,
         traceId: traceContext.traceId,
         runId: traceContext.runId,
         stageId: traceContext.stageId,
@@ -202,6 +229,15 @@ async function handleAgentChatConversationConfirm(req, res, conversationId, hand
     }),
     successStatus: 200,
   });
+}
+
+function buildPlanRevisionKey({ conversationId, turnId, sourceRestructurePath, sourceShotDesignPath }) {
+  return [
+    normalizeText(conversationId) ?? "conversation",
+    normalizeText(turnId) ?? "turn",
+    normalizeText(sourceRestructurePath) ?? "restructure",
+    normalizeText(sourceShotDesignPath) ?? "shot-design",
+  ].join(":");
 }
 
 async function handleAgentChatConversationArchive(req, res, conversationId, handlers = {}) {

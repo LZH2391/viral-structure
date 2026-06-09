@@ -111,6 +111,7 @@ export type AgentChatMessageSnapshot = {
   userInputOrigin?: "manual_replacement" | "auto_dialogue_rework" | "auto_advance" | string | null;
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   dialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
+  storyboardResult?: AgentChatStoryboardResultMessage | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -186,6 +187,24 @@ export type AgentChatArtifactRef = {
   runId?: string | null;
   stageId?: string | null;
   status?: string | null;
+};
+
+export type AgentChatStoryboardResultMessage = {
+  schemaVersion?: string;
+  planRevisionKey?: string | null;
+  turnId?: string | null;
+  confirmationId?: string | null;
+  status?: "confirmed" | "storyboard_processing" | "storyboard_failed" | "completed" | string;
+  sourceRestructurePath?: string | null;
+  sourceShotDesignPath?: string | null;
+  storyboardArtifact?: AgentChatArtifactRef | null;
+  artifactId?: string | null;
+  processingJobId?: string | null;
+  traceId?: string | null;
+  runId?: string | null;
+  stageId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type AgentChatDialogueRoboticReview = {

@@ -67,7 +67,56 @@ async function maybeAutoReviewShotDialogue({
   const previousDialogueFingerprint = previousReview?.dialogueFingerprint ?? null;
   const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
   if (!currentOutputPath && !previousDialogueFingerprint) return null;
-  if (fingerprintsEqual(dialogueFingerprint, previousDialogueFingerprint)) return null;
+  if (fingerprintsEqual(dialogueFingerprint, previousDialogueFingerprint)) {
+    const reused = buildReusedDialogueReviewResult({
+      previousReview,
+      payload,
+      stageTraceContext,
+      shotDesignFinalPath: relativeShotDesignFinalPath,
+      reviewOutputPath: safeRelative(rootDir, reviewOutputPath),
+      dialogueFingerprint,
+      sourceMode,
+      artifactId,
+    });
+    if (reused) {
+      await logger.writeStageLog({
+        traceContext: stageTraceContext,
+        stageName: AUTO_STAGE_NAME,
+        event: "stage.start",
+        artifactId,
+        parentArtifactId,
+        inputSummary: {
+          conversationId,
+          turnId: payload.turnId ?? null,
+          shotDesignFinalPath: relativeShotDesignFinalPath,
+          sourceMode,
+          previousDialogueFingerprint,
+          dialogueFingerprint,
+          trigger: "dialogue_unchanged",
+          role: REVIEW_ROLE,
+        },
+      });
+      await logger.writeStageLog({
+        traceContext: stageTraceContext,
+        stageName: AUTO_STAGE_NAME,
+        event: "stage.end",
+        artifactId,
+        parentArtifactId,
+        outputSummary: {
+          artifactId,
+          status: reused.status,
+          decision: reused.decision,
+          issueCount: reused.issueCount,
+          shotDesignFinalPath: relativeShotDesignFinalPath,
+          sourceMode,
+          trigger: reused.trigger,
+          dialogueFingerprint,
+        },
+        durationMs: 0,
+      });
+    }
+    return reused;
+  }
   const reviewKey = buildDialogueReviewKey({
     conversationId,
     shotDesignFinalPath: relativeShotDesignFinalPath,
@@ -149,6 +198,11 @@ async function maybeAutoReviewShotDialogue({
         sourceMode,
         trigger: "file_unchanged",
         fileFingerprint,
+        dialogueFingerprint,
+        decision: previousReview?.decision ?? null,
+        issueCount: previousReview?.issueCount ?? 0,
+        role: previousReview?.role ?? REVIEW_ROLE,
+        promptTemplateVersion: previousReview?.promptTemplateVersion ?? null,
       };
     }
 
@@ -256,6 +310,30 @@ async function maybeAutoReviewShotDialogue({
   } finally {
     inFlightDialogueReviewKeys.delete(reviewKey);
   }
+}
+
+function buildReusedDialogueReviewResult({ previousReview, payload, stageTraceContext, shotDesignFinalPath, reviewOutputPath, dialogueFingerprint, sourceMode, artifactId }) {
+  if (!previousReview?.decision) return null;
+  return {
+    ok: true,
+    status: "skipped_unchanged",
+    artifactId,
+    traceId: stageTraceContext.traceId,
+    runId: stageTraceContext.runId,
+    stageId: stageTraceContext.stageId,
+    stageName: AUTO_STAGE_NAME,
+    shotDesignFinalPath,
+    reviewOutputPath,
+    sourceMode,
+    trigger: "dialogue_unchanged",
+    fileFingerprint: previousReview.fileFingerprint ?? null,
+    dialogueFingerprint,
+    decision: previousReview.decision,
+    issueCount: previousReview.issueCount ?? 0,
+    turnId: payload?.turnId ?? null,
+    role: previousReview.role ?? REVIEW_ROLE,
+    promptTemplateVersion: previousReview.promptTemplateVersion ?? null,
+  };
 }
 
 async function reviewShotDialogueForConversation({

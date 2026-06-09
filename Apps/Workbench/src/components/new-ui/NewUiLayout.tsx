@@ -899,9 +899,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleConfirmPlanFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
     if (!conversation?.conversationId || confirmingPlanMessageId) return;
-    const currentTurnId = message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null;
-    const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, currentTurnId);
-    const sourceShotDesignPath = resolveCurrentShotDesignFinalPath(conversation, currentTurnId, message);
+      const currentTurnId = message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null;
+      const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, currentTurnId);
+      const sourceShotDesignPath = resolveCurrentShotDesignFinalPath(conversation, currentTurnId, message);
     if (!sourceRestructurePath) {
       markRestructureConversationError(conversation.conversationId, new Error("未找到当前方案的 restructure.final.md 路径"));
       return;
@@ -946,6 +946,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         runImageGeneration: true,
         runPdfAgent: false,
       });
+      const storyboardStatus = storyboardResult.status === "processed" ? "completed" : storyboardResult.status === "failed" ? "storyboard_failed" : "storyboard_processing";
+      const storyboardArtifact = {
+        artifactId: storyboardResult.artifactId,
+        processingJobId: storyboardResult.processingJobId,
+        traceId: storyboardResult.traceId,
+        runId: storyboardResult.runId,
+        stageId: storyboardResult.stageId,
+        status: storyboardResult.status,
+      };
       await confirmWithRevision(
         {
           turnId: currentTurnId,
@@ -953,15 +962,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           sourceRestructurePath,
           sourceShotDesignPath,
           note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
-          storyboardArtifact: {
-            artifactId: storyboardResult.artifactId,
-            processingJobId: storyboardResult.processingJobId,
-            traceId: storyboardResult.traceId,
-            runId: storyboardResult.runId,
-            stageId: storyboardResult.stageId,
-            status: storyboardResult.status,
-          },
-          status: storyboardResult.status === "processed" ? "completed" : storyboardResult.status === "failed" ? "storyboard_failed" : "storyboard_processing",
+          storyboardArtifact,
+          status: storyboardStatus,
         },
         normalizeConversationRevision(gate?.conversation.revision),
       );
