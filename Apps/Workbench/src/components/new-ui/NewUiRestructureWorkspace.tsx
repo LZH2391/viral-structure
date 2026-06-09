@@ -440,9 +440,6 @@ export function NewUiRestructureWorkspace({
               {confirmedPlanStatusDisplay ? (
                 <ConfirmedPlanStatusActivity display={confirmedPlanStatusDisplay} />
               ) : null}
-              {conversation.confirmedPlan?.status === "completed" ? (
-                <StoryboardResultViewer conversationId={conversation.conversationId} />
-              ) : null}
               {messageRenderItems.map((renderItem) => (
                 <Fragment key={renderItem.kind === "message" ? renderItem.message.id : renderItem.id}>
                   {shouldInsertTimelineBeforeRenderItem(renderItem, timelineInsertMessageId) ? (
@@ -509,6 +506,9 @@ export function NewUiRestructureWorkspace({
                   displayText={getDisplayText(visiblePendingAssistantMessage)}
                   pseudoStreaming={isPseudoStreaming(visiblePendingAssistantMessage)}
                 />
+              ) : null}
+              {conversation.confirmedPlan?.status === "completed" ? (
+                <StoryboardResultViewer conversationId={conversation.conversationId} />
               ) : null}
             </div>
           ) : (

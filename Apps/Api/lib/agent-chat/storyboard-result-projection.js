@@ -10,27 +10,46 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
 
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
   const cropsPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
+  const pdfInputPath = path.join(baseDir, "shot-storyboard-pdf-input.json");
   const manifest = await readJsonIfExists(manifestPath);
   const cropsManifest = await readJsonIfExists(cropsPath);
+  const pdfInput = await readJsonIfExists(pdfInputPath);
   const shots = Array.isArray(manifest?.shots) ? manifest.shots : [];
   if (!manifest || !shots.length) {
     return buildMissingProjection(conversation, "storyboard_manifest_missing");
   }
 
   const cropByShotId = new Map();
+  let coverCrop = null;
   for (const crop of Array.isArray(cropsManifest?.crops) ? cropsManifest.crops : []) {
-    if (!crop?.shotId || crop.isCover) continue;
+    if (!crop?.shotId) continue;
     const imagePath = resolveCropPath(rootDir, baseDir, crop.path, crop.shotId);
+    if (crop.isCover || String(crop.shotId) === normalizeText(manifest?.cover?.coverId || "cover_image")) {
+      coverCrop = { ...crop, imagePath };
+      continue;
+    }
     cropByShotId.set(String(crop.shotId), {
       ...crop,
       imagePath,
     });
   }
+  const pdfMedia = buildPdfInputMediaIndex({ rootDir, pdfInput });
+  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest });
+  const slotLabelIndex = await buildSlotLabelIndex({ baseDir });
 
   const aspect = resolveAspect(manifest?.aspect, null);
+  const cover = buildCover({
+    coverManifest: manifest.cover,
+    coverCrop,
+    pdfCover: pdfMedia.cover,
+    imageBasePath,
+  });
   const groups = buildGroups({
     shots,
     cropByShotId,
+    pdfShotMediaById: pdfMedia.shots,
+    materialFrameIndex,
+    slotLabelIndex,
     manifestAspect: aspect,
     imageBasePath,
   });
@@ -45,10 +64,12 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
     source: {
       manifestPath: safeRelative(rootDir, manifestPath),
       cropsPath: cropsManifest ? safeRelative(rootDir, cropsPath) : null,
+      pdfInputPath: pdfInput ? safeRelative(rootDir, pdfInputPath) : null,
       traceId: cropsManifest?.source?.traceId ?? confirmedPlan?.traceId ?? conversation.traceId ?? null,
       artifactId: cropsManifest?.source?.artifactId ?? confirmedPlan?.storyboardArtifact?.artifactId ?? null,
       parentArtifactId: cropsManifest?.source?.parentArtifactId ?? null,
     },
+    cover,
     groups,
   };
 }
@@ -60,29 +81,60 @@ async function resolveStoryboardImagePath({ rootDir, conversation, shotId }) {
   if (!baseDir) return null;
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
   const cropsPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
+  const pdfInputPath = path.join(baseDir, "shot-storyboard-pdf-input.json");
   const manifest = await readJsonIfExists(manifestPath);
   const cropsManifest = await readJsonIfExists(cropsPath);
+  const pdfInput = await readJsonIfExists(pdfInputPath);
+  const coverId = normalizeText(manifest?.cover?.coverId) || "cover_image";
+  if (safeShotId === coverId) {
+    const coverCrop = (Array.isArray(cropsManifest?.crops) ? cropsManifest.crops : []).find((item) => item?.isCover || String(item?.shotId ?? "") === coverId);
+    const cropPath = coverCrop ? resolveCropPath(rootDir, baseDir, coverCrop.path, coverCrop.shotId) : null;
+    const pdfCoverPath = resolveMediaPath(rootDir, pdfInput?.cover?.imagePath);
+    return cropPath ?? pdfCoverPath;
+  }
   const knownShot = Array.isArray(manifest?.shots) && manifest.shots.some((shot) => String(shot?.shotId ?? "") === safeShotId);
   if (!knownShot) return null;
   const crop = (Array.isArray(cropsManifest?.crops) ? cropsManifest.crops : []).find((item) => String(item?.shotId ?? "") === safeShotId);
-  if (!crop) return null;
-  return resolveCropPath(rootDir, baseDir, crop.path, crop.shotId);
+  const cropPath = crop ? resolveCropPath(rootDir, baseDir, crop.path, crop.shotId) : null;
+  const pdfMedia = buildPdfInputMediaIndex({ rootDir, pdfInput });
+  const pdfPath = pdfMedia.shots.get(safeShotId)?.imagePath ?? null;
+  if (cropPath || pdfPath) return cropPath ?? pdfPath;
+  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest });
+  const shot = manifest.shots.find((item) => String(item?.shotId ?? "") === safeShotId);
+  return firstResolvedMaterialFrame(shot, materialFrameIndex);
 }
 
-function buildGroups({ shots, cropByShotId, manifestAspect, imageBasePath }) {
+function buildCover({ coverManifest, coverCrop, pdfCover, imageBasePath }) {
+  if (!coverManifest && !coverCrop && !pdfCover) return null;
+  const coverId = normalizeText(coverManifest?.coverId) || normalizeText(coverCrop?.shotId) || "cover_image";
+  const aspect = resolveAspect(coverManifest?.aspect, coverCrop?.cropBox);
+  return {
+    id: coverId,
+    title: coverId,
+    kind: "cover",
+    kindLabel: "封面",
+    imageUrl: coverCrop?.imagePath || pdfCover?.imagePath ? `${imageBasePath}/images/${encodeURIComponent(coverId)}` : null,
+    aspect,
+    dialogue: normalizeText(coverManifest?.overlayPackaging),
+  };
+}
+
+function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex, slotLabelIndex, manifestAspect, imageBasePath }) {
   const groups = [];
   const groupByKey = new Map();
+  let timelineCursorSeconds = 0;
   shots.forEach((shot, shotIndex) => {
     const shotId = String(shot?.shotId ?? "").trim();
     if (!shotId) return;
     const groupKey = resolveGroupKey(shot?.slotKey, shot?.slotSubtype, shotIndex);
     let group = groupByKey.get(groupKey);
     if (!group) {
+      const slotDisplay = resolveSlotDisplay(groupKey, groups.length, slotLabelIndex);
       group = {
-        id: `sub_${groups.length + 1}_${groupKey}`,
-        label: `SUB ${groups.length + 1}`,
+        id: `slot_${slotDisplay.order}_${groupKey}`,
+        label: slotDisplay.label,
         key: groupKey,
-        title: formatGroupTitle(groupKey),
+        title: slotDisplay.title,
         shotCount: 0,
         shots: [],
       };
@@ -90,20 +142,30 @@ function buildGroups({ shots, cropByShotId, manifestAspect, imageBasePath }) {
       groups.push(group);
     }
     const crop = cropByShotId.get(shotId) ?? null;
-    const shotAspect = resolveAspect(null, crop?.cropBox) ?? manifestAspect;
+    const pdfMedia = pdfShotMediaById.get(shotId) ?? null;
+    const materialFrame = !shot.shouldGenerate ? firstResolvedMaterialFrame(shot, materialFrameIndex) : null;
+    const imagePath = crop?.imagePath ?? pdfMedia?.imagePath ?? materialFrame;
+    const shotAspect = resolveAspectFromSize(pdfMedia?.width, pdfMedia?.height) ?? resolveAspect(null, crop?.cropBox) ?? manifestAspect;
     const strategy = normalizeText(shot.strategyRaw) || normalizeText(shot.strategy);
     const shouldGenerate = Boolean(shot.shouldGenerate);
+    const durationSeconds = parseDurationMidpointSeconds(shot.duration);
+    const timelineRange = durationSeconds == null
+      ? null
+      : `${formatTimelineSeconds(timelineCursorSeconds)}-${formatTimelineSeconds(timelineCursorSeconds + durationSeconds)}s`;
+    if (durationSeconds != null) timelineCursorSeconds += durationSeconds;
     group.shots.push({
       id: shotId,
       index: shotIndex + 1,
       title: shotId,
-      duration: normalizeText(shot.duration),
+      duration: timelineRange,
+      durationRaw: normalizeText(shot.duration),
+      durationTooltip: timelineRange ? "预计时间轴，非精确剪辑点；按预计时长区间中间值累加" : null,
       dialogue: normalizeDialogue(shot.dialogue),
       strategy,
       sourceRefs: Array.isArray(shot.sourceRefs) ? shot.sourceRefs.map((item) => String(item)).filter(Boolean) : [],
       kind: shouldGenerate ? "generated" : "material",
       kindLabel: shouldGenerate ? "自设计" : "素材",
-      imageUrl: crop?.imagePath ? `${imageBasePath}/images/${encodeURIComponent(shotId)}` : null,
+      imageUrl: imagePath ? `${imageBasePath}/images/${encodeURIComponent(shotId)}` : null,
       aspect: shotAspect,
     });
     group.shotCount = group.shots.length;
@@ -111,14 +173,143 @@ function buildGroups({ shots, cropByShotId, manifestAspect, imageBasePath }) {
   return groups;
 }
 
+function parseDurationMidpointSeconds(value) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const numbers = Array.from(text.matchAll(/\d+(?:\.\d+)?/g)).map((match) => Number(match[0])).filter((number) => Number.isFinite(number) && number >= 0);
+  if (!numbers.length) return null;
+  if (numbers.length === 1) return numbers[0];
+  return (numbers[0] + numbers[1]) / 2;
+}
+
+function formatTimelineSeconds(value) {
+  const rounded = Math.round(Number(value) * 10) / 10;
+  if (!Number.isFinite(rounded) || rounded <= 0) return "0";
+  return rounded.toFixed(1);
+}
+
+async function buildSlotLabelIndex({ baseDir }) {
+  const index = new Map();
+  const display = await readJsonIfExists(path.join(baseDir, "restructure.display.json"));
+  addSlotLabelsFromDisplay(display, index);
+  if (!index.size) {
+    const finalText = await readTextIfExists(path.join(baseDir, "restructure.final.md"));
+    addSlotLabelsFromMarkdown(finalText, index);
+  }
+  return index;
+}
+
+function addSlotLabelsFromDisplay(display, index) {
+  const items = display?.sections?.finalSlotChain?.items;
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    if (!Array.isArray(item?.rows)) continue;
+    for (const row of item.rows) {
+      const raw = normalizeText(row?.slotSubtype);
+      const parsed = parseSlotSubtypeLabel(raw);
+      if (!parsed?.id || !parsed.title) continue;
+      index.set(parsed.id, {
+        id: parsed.id,
+        order: normalizePositiveNumber(row?.["顺序"]) ?? index.size + 1,
+        title: parsed.title,
+      });
+    }
+  }
+}
+
+function addSlotLabelsFromMarkdown(text, index) {
+  for (const line of normalizeText(text).split(/\r?\n/)) {
+    const cells = line.split("|").map((cell) => cell.trim()).filter(Boolean);
+    if (cells.length < 2 || !/^\d+$/.test(cells[0])) continue;
+    const parsed = parseSlotSubtypeLabel(cells[1]);
+    if (!parsed?.id || !parsed.title) continue;
+    index.set(parsed.id, {
+      id: parsed.id,
+      order: Number(cells[0]),
+      title: parsed.title,
+    });
+  }
+}
+
+function parseSlotSubtypeLabel(value) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const id = extractSlotId(text);
+  const title = text
+    .replace(/`SUB_[^`]+`/g, "")
+    .replace(/\bSUB_[A-Za-z0-9_.-]+\b/g, "")
+    .trim();
+  return { id, title };
+}
+
+function resolveSlotDisplay(groupKey, fallbackIndex, slotLabelIndex) {
+  const id = `SUB_${groupKey.replace(/^SUB_/, "")}`;
+  const value = slotLabelIndex.get(id) ?? slotLabelIndex.get(groupKey);
+  const order = normalizePositiveNumber(value?.order) ?? fallbackIndex + 1;
+  return {
+    order: String(order).padStart(2, "0"),
+    label: String(order).padStart(2, "0"),
+    title: value?.title || formatGroupTitle(groupKey),
+  };
+}
+
+function buildPdfInputMediaIndex({ rootDir, pdfInput }) {
+  const shots = new Map();
+  const coverImagePath = resolveMediaPath(rootDir, pdfInput?.cover?.imagePath);
+  const cover = coverImagePath ? {
+    imagePath: coverImagePath,
+    width: normalizePositiveNumber(pdfInput?.cover?.width),
+    height: normalizePositiveNumber(pdfInput?.cover?.height),
+  } : null;
+  for (const shot of Array.isArray(pdfInput?.shots) ? pdfInput.shots : []) {
+    const shotId = normalizeText(shot?.shotId);
+    const imagePath = resolveMediaPath(rootDir, shot?.imagePath);
+    if (!shotId || !imagePath) continue;
+    shots.set(shotId, {
+      imagePath,
+      width: normalizePositiveNumber(shot?.width),
+      height: normalizePositiveNumber(shot?.height),
+      mediaKind: normalizeText(shot?.mediaKind),
+    });
+  }
+  return { cover, shots };
+}
+
+async function buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest }) {
+  const index = new Map();
+  const candidates = await collectMaterialFrameMapPaths({ rootDir, baseDir });
+  for (const filePath of candidates) {
+    const value = await readJsonIfExists(filePath);
+    if (!value) continue;
+    await visitMaterialNode(value, rootDir, path.dirname(filePath), index);
+    await addSourceFrameIndex(value, rootDir, path.dirname(filePath), index);
+    addGroupAliases(value, index);
+  }
+  for (const shot of Array.isArray(manifest?.shots) ? manifest.shots : []) {
+    const shotId = normalizeText(shot?.shotId);
+    if (!shotId || shot?.shouldGenerate || index.has(shotId)) continue;
+    const imagePath = firstResolvedMaterialFrame(shot, index);
+    if (imagePath) index.set(shotId, imagePath);
+  }
+  return index;
+}
+
 function resolveGroupKey(slotKey, slotSubtype, index) {
   const source = normalizeText(slotKey) || normalizeText(slotSubtype);
   const first = source.split("->")[0]?.trim() || `segment_${index + 1}`;
+  const slotId = extractSlotId(first);
+  if (slotId) return slotId.replace(/^SUB_/, "");
   return first.replace(/^`|`$/g, "").replace(/^SUB_/, "").replace(/[^A-Za-z0-9_.-]+/g, "_");
 }
 
 function formatGroupTitle(key) {
   return normalizeText(key).replace(/^SUB_/, "") || "segment";
+}
+
+function extractSlotId(value) {
+  const text = normalizeText(value);
+  const match = /`?(SUB_[A-Za-z0-9_.-]+)`?/u.exec(text);
+  return match?.[1] ?? null;
 }
 
 function resolveAspect(aspectValue, cropBox) {
@@ -141,6 +332,171 @@ function resolveAspectFromCropBox(cropBox) {
   return { ratio: "9:16", orientation: "portrait", css: "9 / 16" };
 }
 
+function resolveAspectFromSize(widthValue, heightValue) {
+  const width = normalizePositiveNumber(widthValue);
+  const height = normalizePositiveNumber(heightValue);
+  if (!width || !height) return null;
+  if (width >= height) return { ratio: "16:9", orientation: "landscape", css: "16 / 9" };
+  return { ratio: "9:16", orientation: "portrait", css: "9 / 16" };
+}
+
+async function collectMaterialFrameMapPaths({ rootDir, baseDir }) {
+  const result = [];
+  const candidates = [
+    path.join(baseDir, "material-frame-map.json"),
+    path.join(baseDir, "visual-manifest.json"),
+    path.join(baseDir, "user-material-pack.stable.json"),
+    path.join(baseDir, "user-material-pack.stable"),
+  ];
+  const restructureText = await readTextIfExists(path.join(baseDir, "restructure.final.md"));
+  const matches = restructureText.matchAll(/`([^`]*(?:user-material-pack|material-frame-map|visual-manifest)[^`]*)`/gi);
+  for (const match of matches) {
+    const resolved = resolveMediaPath(rootDir, match[1]);
+    if (resolved) candidates.push(resolved);
+  }
+  for (const candidate of candidates) {
+    const resolved = resolveInsideRoot(rootDir, candidate);
+    if (!resolved || result.includes(resolved)) continue;
+    if (await pathExists(resolved)) result.push(resolved);
+  }
+  return result;
+}
+
+async function visitMaterialNode(value, rootDir, baseDir, index) {
+  if (Array.isArray(value)) {
+    for (const item of value) await visitMaterialNode(item, rootDir, baseDir, index);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const ref = firstText([value.shotRef, value.sourceShotRef, value.shotId, value.id, value.groupId]);
+  const imagePath = resolveMediaPath(rootDir, firstImageValue(value), baseDir);
+  if (ref && imagePath && await pathExists(imagePath)) index.set(ref, imagePath);
+  for (const child of Object.values(value)) {
+    await visitMaterialNode(child, rootDir, baseDir, index);
+  }
+}
+
+async function addSourceFrameIndex(value, rootDir, baseDir, index) {
+  if (!value || typeof value !== "object") return;
+  const sampleArtifact = await loadSampleArtifact(value, rootDir, baseDir);
+  const frames = Array.isArray(sampleArtifact?.frames) ? sampleArtifact.frames : [];
+  const shotCards = Array.isArray(value.shotCards) ? value.shotCards : [];
+  for (const card of shotCards) {
+    if (!card || typeof card !== "object") continue;
+    const ref = normalizeText(card.shotRef || card.shotId);
+    if (!ref || index.has(ref)) continue;
+    const timestamp = representativeTimestampForCard(card);
+    const frame = closestFrame(frames, timestamp);
+    const imagePath = resolveMediaPath(rootDir, firstImageValue(frame), baseDir);
+    if (imagePath && await pathExists(imagePath)) index.set(ref, imagePath);
+  }
+}
+
+function addGroupAliases(value, index) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => addGroupAliases(item, index));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const groupId = normalizeText(value.groupId);
+  const shotRefs = Array.isArray(value.shotRefs) ? value.shotRefs.map((item) => normalizeText(item)).filter(Boolean) : [];
+  if (groupId && !index.has(groupId)) {
+    for (const ref of shotRefs) {
+      if (index.has(ref)) {
+        index.set(groupId, index.get(ref));
+        break;
+      }
+    }
+  }
+  Object.values(value).forEach((child) => addGroupAliases(child, index));
+}
+
+function firstResolvedMaterialFrame(shot, materialFrameIndex) {
+  const refs = collectShotRefs(shot);
+  const resolvedRef = refs.find((ref) => materialFrameIndex.has(ref));
+  return resolvedRef ? materialFrameIndex.get(resolvedRef) : null;
+}
+
+function collectShotRefs(shot) {
+  const refs = new Set();
+  for (const value of [
+    shot?.shotRef,
+    shot?.sourceShotRef,
+    shot?.materialShotRef,
+    shot?.groupId,
+    shot?.sourceGroupId,
+    shot?.shotId,
+  ]) {
+    const text = normalizeText(value);
+    if (text) refs.add(text);
+  }
+  for (const key of ["sourceRefs", "shotRefs", "materialRefs"]) {
+    const values = Array.isArray(shot?.[key]) ? shot[key] : [];
+    values.map((item) => normalizeText(item)).filter(Boolean).forEach((item) => refs.add(item));
+  }
+  return Array.from(refs);
+}
+
+function firstImageValue(value) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return null;
+  for (const key of ["representativeFrame", "representativeFramePath", "representativeFrameLocalPath", "localImagePath", "imagePath", "filePath", "framePath", "path", "uri", "imageUri"]) {
+    const found = firstImageValue(value[key]);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function loadSampleArtifact(value, rootDir, baseDir) {
+  const sourceArtifacts = value?.sourceArtifacts && typeof value.sourceArtifacts === "object" ? value.sourceArtifacts : {};
+  const explicit = normalizeText(
+    value?.sourceSampleArtifactPath
+      || value?.sampleArtifactPath
+      || sourceArtifacts.sampleArtifactPath
+      || sourceArtifacts.sampleVideoArtifactPath,
+  );
+  if (explicit) {
+    const resolved = resolveMediaPath(rootDir, explicit, baseDir);
+    return resolved ? readJsonIfExists(resolved) : null;
+  }
+  const sampleVideoId = normalizeText(value?.sampleVideoId);
+  if (!sampleVideoId) return null;
+  return readJsonIfExists(path.join(rootDir, "Runtime", "Artifacts", sampleVideoId, "artifact.json"));
+}
+
+function representativeTimestampForCard(card) {
+  const visualRef = card?.visualRef && typeof card.visualRef === "object" ? card.visualRef : {};
+  for (const key of ["representativeFrameTimestamp", "middleTimestamp", "timestamp"]) {
+    const value = normalizeNumber(visualRef[key]);
+    if (value != null) return value;
+  }
+  return null;
+}
+
+function closestFrame(frames, timestamp) {
+  if (!Array.isArray(frames) || timestamp == null) return null;
+  let best = null;
+  let bestDistance = null;
+  for (const frame of frames) {
+    const frameTimestamp = normalizeNumber(frame?.timestamp);
+    if (frameTimestamp == null) continue;
+    const distance = Math.abs(frameTimestamp - timestamp);
+    if (best == null || bestDistance == null || distance < bestDistance) {
+      best = frame;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function firstText(values) {
+  for (const value of values) {
+    const text = normalizeText(value);
+    if (text) return text;
+  }
+  return null;
+}
+
 function normalizeDialogue(value) {
   return normalizeText(value)
     .replace(/^(后期字幕\/旁白|旁白\/主字幕|旁白|主字幕|字幕)[:：]\s*/u, "")
@@ -149,6 +505,16 @@ function normalizeDialogue(value) {
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizePositiveNumber(value) {
+  const number = normalizeNumber(value);
+  return number && number > 0 ? number : null;
 }
 
 function normalizeShotId(value) {
@@ -170,6 +536,24 @@ function resolveCropPath(rootDir, baseDir, cropPath, shotId) {
   if (!resolved) return null;
   const framesDir = path.join(baseDir, "shot-storyboard-frames");
   return isInside(resolved, framesDir) ? resolved : null;
+}
+
+function resolveMediaPath(rootDir, value, baseDir = rootDir) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  let resolved;
+  const normalized = text.replaceAll("\\", "/");
+  if (normalized.startsWith("/runtime/")) {
+    resolved = path.join(rootDir, "Runtime", normalized.slice("/runtime/".length));
+  } else if (normalized.startsWith("runtime/")) {
+    resolved = path.join(rootDir, "Runtime", normalized.slice("runtime/".length));
+  } else if (path.isAbsolute(text) || /^[A-Za-z]:[\\/]/.test(text)) {
+    resolved = path.resolve(text);
+  } else {
+    resolved = path.resolve(baseDir, text);
+    if (!isInside(resolved, rootDir)) resolved = path.resolve(rootDir, text);
+  }
+  return isInside(resolved, rootDir) ? resolved : null;
 }
 
 function resolveInsideRoot(rootDir, value) {
@@ -199,6 +583,24 @@ async function readJsonIfExists(filePath) {
   }
 }
 
+async function readTextIfExists(filePath) {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return "";
+    throw error;
+  }
+}
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function buildMissingProjection(conversation, reason) {
   return {
     ok: true,
@@ -208,6 +610,7 @@ function buildMissingProjection(conversation, reason) {
     title: conversation?.title ?? null,
     aspect: null,
     source: null,
+    cover: null,
     groups: [],
   };
 }

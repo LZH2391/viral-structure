@@ -895,8 +895,30 @@ test("agent chat storyboard result projects generated images and upstream aspect
     await fsPromises.mkdir(framesDir, { recursive: true });
     const shotDesignPath = path.join(artifactDir, "shot-design.final.md");
     await fsPromises.writeFile(shotDesignPath, "# shot design\n", "utf8");
+    await fsPromises.writeFile(path.join(artifactDir, "restructure.display.json"), JSON.stringify({
+      sections: {
+        finalSlotChain: {
+          items: [
+            {
+              type: "table",
+              rows: [
+                {
+                  "顺序": "1",
+                  slotSubtype: "`SUB_hook` 熟悉经验钩子槽",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }), "utf8");
     await fsPromises.writeFile(path.join(artifactDir, "shot-storyboard-manifest.json"), JSON.stringify({
       aspect: { ratio: "16:9", orientation: "横屏" },
+      cover: {
+        coverId: "cover_image",
+        aspect: { ratio: "16:9", orientation: "横屏" },
+        overlayPackaging: "封面标题",
+      },
       shots: [
         {
           shotId: "new_shot_01",
@@ -914,7 +936,26 @@ test("agent chat storyboard result projects generated images and upstream aspect
         },
       ],
     }), "utf8");
+    await fsPromises.writeFile(path.join(framesDir, "cover_image.png"), Buffer.from("cover"));
+    await fsPromises.writeFile(path.join(framesDir, "material.jpg"), Buffer.from("material"));
     await fsPromises.writeFile(path.join(framesDir, "new_shot_02.png"), Buffer.from("png"));
+    await fsPromises.writeFile(path.join(artifactDir, "shot-storyboard-pdf-input.json"), JSON.stringify({
+      cover: {
+        coverId: "cover_image",
+        imagePath: "Artifacts/FunctionSlotRestructure/demo-video/shot-storyboard-frames/cover_image.png",
+        width: 1600,
+        height: 900,
+      },
+      shots: [
+        {
+          shotId: "new_shot_01",
+          mediaKind: "material-frame",
+          imagePath: "Artifacts/FunctionSlotRestructure/demo-video/shot-storyboard-frames/material.jpg",
+          width: 1600,
+          height: 900,
+        },
+      ],
+    }), "utf8");
     await fsPromises.writeFile(path.join(framesDir, "shot-storyboard-crops.json"), JSON.stringify({
       source: {
         artifactId: "artifact_image",
@@ -922,6 +963,12 @@ test("agent chat storyboard result projects generated images and upstream aspect
         parentArtifactId: "artifact_parent",
       },
       crops: [
+        {
+          shotId: "cover_image",
+          isCover: true,
+          cropBox: [0, 0, 1600, 900],
+          path: path.join(framesDir, "cover_image.png"),
+        },
         {
           shotId: "new_shot_02",
           cropBox: [0, 0, 1600, 900],
@@ -960,11 +1007,19 @@ test("agent chat storyboard result projects generated images and upstream aspect
       assert.equal(response.statusCode, 200);
       assert.equal(response.body.status, "available");
       assert.equal(response.body.aspect.ratio, "16:9");
+      assert.equal(response.body.cover.imageUrl, "/api/agent-chat/conversations/conversation_storyboard/storyboard-result/images/cover_image");
+      assert.equal(response.body.cover.aspect.ratio, "16:9");
       assert.equal(response.body.groups.length, 1);
-      assert.equal(response.body.groups[0].title, "hook");
+      assert.equal(response.body.groups[0].label, "01");
+      assert.equal(response.body.groups[0].title, "熟悉经验钩子槽");
       assert.equal(response.body.groups[0].shotCount, 2);
-      assert.equal(response.body.groups[0].shots[0].imageUrl, null);
+      assert.equal(response.body.groups[0].shots[0].imageUrl, "/api/agent-chat/conversations/conversation_storyboard/storyboard-result/images/new_shot_01");
+      assert.equal(response.body.groups[0].shots[0].aspect.ratio, "16:9");
+      assert.equal(response.body.groups[0].shots[0].duration, "0-0.9s");
+      assert.equal(response.body.groups[0].shots[0].durationRaw, "0.8-1.0s");
+      assert.match(response.body.groups[0].shots[0].durationTooltip, /预计时间轴/);
       assert.equal(response.body.groups[0].shots[1].aspect.ratio, "16:9");
+      assert.equal(response.body.groups[0].shots[1].duration, "0.9-2.0s");
       assert.match(response.body.groups[0].shots[1].imageUrl, /^\/api\/agent-chat\/conversations\/conversation_storyboard\/storyboard-result\/images\/new_shot_02$/);
       assert.equal(JSON.stringify(response.body).includes(rootDir), false);
 
@@ -972,6 +1027,16 @@ test("agent chat storyboard result projects generated images and upstream aspect
       assert.equal(image.statusCode, 200);
       assert.equal(image.headers["content-type"], "image/png");
       assert.equal(image.body.toString("utf8"), "png");
+
+      const materialImage = await makeRawRequest(server, "GET", response.body.groups[0].shots[0].imageUrl);
+      assert.equal(materialImage.statusCode, 200);
+      assert.equal(materialImage.headers["content-type"], "image/jpeg");
+      assert.equal(materialImage.body.toString("utf8"), "material");
+
+      const coverImage = await makeRawRequest(server, "GET", response.body.cover.imageUrl);
+      assert.equal(coverImage.statusCode, 200);
+      assert.equal(coverImage.headers["content-type"], "image/png");
+      assert.equal(coverImage.body.toString("utf8"), "cover");
     } finally {
       await closeServer(server);
     }

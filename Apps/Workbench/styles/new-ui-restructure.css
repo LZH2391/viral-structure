@@ -647,7 +647,6 @@
   object-fit: cover;
 }
 
-.new-ui-storyboard-shot-index,
 .new-ui-storyboard-shot-kind {
   position: absolute;
   z-index: 1;
@@ -664,10 +663,6 @@
   font-size: 13px;
   font-weight: 760;
   line-height: 1;
-}
-
-.new-ui-storyboard-shot-index {
-  left: 10px;
 }
 
 .new-ui-storyboard-shot-kind {

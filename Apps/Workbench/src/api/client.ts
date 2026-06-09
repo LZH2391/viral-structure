@@ -184,11 +184,27 @@ export type AgentChatStoryboardResult = {
   source?: {
     manifestPath?: string | null;
     cropsPath?: string | null;
+    pdfInputPath?: string | null;
     traceId?: string | null;
     artifactId?: string | null;
     parentArtifactId?: string | null;
   } | null;
+  cover?: AgentChatStoryboardCover | null;
   groups: AgentChatStoryboardGroup[];
+};
+
+export type AgentChatStoryboardCover = {
+  id: string;
+  title: string;
+  kind: "cover" | string;
+  kindLabel: string;
+  imageUrl?: string | null;
+  dialogue?: string | null;
+  aspect?: {
+    ratio?: "9:16" | "16:9" | string;
+    orientation?: "portrait" | "landscape" | string;
+    css?: string | null;
+  } | null;
 };
 
 export type AgentChatStoryboardGroup = {
@@ -205,6 +221,8 @@ export type AgentChatStoryboardShot = {
   index: number;
   title: string;
   duration?: string | null;
+  durationRaw?: string | null;
+  durationTooltip?: string | null;
   dialogue?: string | null;
   strategy?: string | null;
   sourceRefs?: string[];
